@@ -1,0 +1,150 @@
+---
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<section class="story" id="story">
+  <div class="story-circle" id="story-circle"></div>
+
+  <div class="story-content">
+    <h2 class="story-title">{t("story.title")}</h2>
+    <p class="story-text">{t("story.text")}</p>
+    <div class="story-buttons">
+      <a href={getLocalizedUrl("/menu", lang)} class="btn btn-solid">{t("story.menuBtn")}</a>
+      <button type="button" class="btn btn-outline" data-open-booking>{t("story.bookBtn")}</button>
+    </div>
+  </div>
+</section>
+
+<style>
+  .story {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 6rem 1.5rem;
+  }
+
+  .story-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    border: 25px solid #fff;
+    transform: translate(-50%, -50%) scale(0.4);
+    opacity: 0.25;
+    will-change: transform, opacity;
+    pointer-events: none;
+  }
+
+  .story-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    max-width: 620px;
+  }
+  .story-title {
+    font-family: var(--font-title);
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    letter-spacing: 0.03em;
+    margin: 0 0 1.5rem;
+  }
+  .story-text {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--c-text);
+    margin: 0 0 2.5rem;
+  }
+  .story-buttons { display: inline-flex; }
+
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 14px 28px;
+    border-radius: 0;
+    border: 1.5px solid var(--c-text);
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+    transition: color 0.3s ease;
+    cursor: pointer;
+  }
+  .btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .btn:hover::before { transform: scaleX(1); }
+  .btn-solid { background: var(--c-text); color: var(--c-bg); }
+  .btn-solid::before { background: var(--c-bg); }
+  .btn-solid:hover { color: var(--c-text); }
+  .btn-outline { background: transparent; color: var(--c-text); border-left: none; }
+  .btn-outline::before { background: var(--c-text); }
+  .btn-outline:hover { color: var(--c-bg); }
+
+  @media (max-width: 700px) {
+    .story-buttons {
+      flex-direction: column;
+      gap: 0;
+      width: 100%;
+      max-width: 280px;
+    }
+    .btn { width: 100%; }
+    .btn-outline { border-left: 1.5px solid var(--c-text); border-top: none; }
+    .story-circle { border-width: 18px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .story-circle {
+      transform: translate(-50%, -50%) scale(3);
+      opacity: 1;
+    }
+  }
+</style>
+
+<script>
+  const section = document.getElementById("story");
+  const circle = document.getElementById("story-circle");
+
+  if (section && circle) {
+    const isMobile = () => window.matchMedia("(max-width: 700px)").matches;
+
+    const update = () => {
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight;
+      const raw = 1 - (rect.top + rect.height * 0.2) / vh;
+      const p = Math.min(Math.max(raw, 0), 1);
+      const eased = Math.sqrt(p);
+
+      const maxScale = isMobile() ? 7 : 5.5;
+      const scale = 0.4 + eased * (maxScale - 0.4);
+      const opacity = 0.25 + eased * 0.75;
+
+      circle.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      circle.style.opacity = String(opacity);
+    };
+
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update, { passive: true });
+    update();
+  }
+
+  document.querySelectorAll("[data-open-booking]").forEach((el) => {
+    el.addEventListener("click", () => {
+      window.dispatchEvent(new CustomEvent("open-booking"));
+    });
+  });
+</script>

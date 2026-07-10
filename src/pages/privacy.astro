@@ -1,0 +1,186 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getLangFromUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const isEn = lang === "en";
+
+const updated = "04/06/2026";
+---
+
+<Layout title={(isEn ? "Privacy Policy" : "Politique de confidentialité") + " — Pizzeria 77"}>
+  <article class="legal">
+    <p class="legal-claim">THIS IS PIZZERIA 77</p>
+    <h1 class="legal-title">{isEn ? "Privacy Policy" : "Politique de confidentialité"}</h1>
+    <p class="legal-updated">{isEn ? "Last updated:" : "Dernière mise à jour :"} {updated}</p>
+
+    {!isEn && (
+      <div class="legal-body">
+        <h2>1. Responsable du traitement</h2>
+        <p>
+          Le responsable du traitement de vos données personnelles est&nbsp;:<br />
+          <strong>77 – Angedras SRL</strong><br />
+          Chaussée de Bruxelles 77, 1410 Waterloo, Belgique<br />
+          N° d'entreprise&nbsp;: BE 0749.439.915<br />
+          Email&nbsp;: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+        </p>
+
+        <h2>2. Données que nous collectons</h2>
+        <p>Selon votre interaction avec le site, nous pouvons collecter&nbsp;:</p>
+        <ul>
+          <li><strong>Commande à emporter</strong>&nbsp;: nom, adresse email, numéro de téléphone, contenu de la commande et heure de retrait.</li>
+          <li><strong>Réservation de table</strong>&nbsp;: nom, email, téléphone, date, heure, nombre de personnes et éventuelles remarques.</li>
+          <li><strong>Formulaire de contact</strong>&nbsp;: nom, email, téléphone (facultatif) et le message envoyé.</li>
+          <li><strong>Paiement en ligne</strong>&nbsp;: les données de paiement (carte, Bancontact) sont traitées directement par Stripe. Nous ne recevons ni ne stockons vos données de carte.</li>
+        </ul>
+
+        <h2>3. Finalités et base légale</h2>
+        <p>
+          Vos données sont utilisées uniquement pour traiter vos commandes, réservations et demandes
+          (exécution du contrat et mesures précontractuelles), et pour vous envoyer les confirmations
+          correspondantes. Nous n'utilisons pas vos données à des fins publicitaires et ne les vendons à personne.
+        </p>
+
+        <h2>4. Sous-traitants</h2>
+        <p>Pour faire fonctionner le site, nous faisons appel à des prestataires qui traitent certaines données pour notre compte&nbsp;:</p>
+        <ul>
+          <li><strong>Supabase</strong> (hébergement de la base de données, UE)&nbsp;: stockage des commandes et réservations.</li>
+          <li><strong>Stripe</strong>&nbsp;: traitement sécurisé des paiements.</li>
+          <li><strong>Resend</strong>&nbsp;: envoi des emails de confirmation.</li>
+          <li><strong>Google Maps</strong>&nbsp;: affichage de la carte sur la page Contact (uniquement après votre consentement).</li>
+        </ul>
+
+        <h2>5. Durée de conservation</h2>
+        <p>
+          Nous conservons vos données aussi longtemps que nécessaire aux finalités décrites ci-dessus
+          et au respect de nos obligations légales (notamment comptables). Au-delà, elles sont supprimées
+          ou anonymisées.
+        </p>
+
+        <h2>6. Vos droits</h2>
+        <p>
+          Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation
+          et d'opposition concernant vos données, ainsi que d'un droit à la portabilité. Pour exercer ces droits,
+          écrivez-nous à <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>. Vous pouvez également
+          introduire une réclamation auprès de l'Autorité de protection des données (APD), Rue de la Presse 35,
+          1000 Bruxelles.
+        </p>
+
+        <h2>7. Cookies</h2>
+        <p>
+          Pour en savoir plus sur les cookies utilisés, consultez notre
+          <a href="/cookies">politique relative aux cookies</a>.
+        </p>
+      </div>
+    )}
+
+    {isEn && (
+      <div class="legal-body">
+        <h2>1. Data controller</h2>
+        <p>
+          The controller of your personal data is:<br />
+          <strong>77 – Angedras SRL</strong><br />
+          Chaussée de Bruxelles 77, 1410 Waterloo, Belgium<br />
+          Company number: BE 0749.439.915<br />
+          Email: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+        </p>
+
+        <h2>2. Data we collect</h2>
+        <p>Depending on how you use the site, we may collect:</p>
+        <ul>
+          <li><strong>Takeaway order</strong>: name, email address, phone number, order contents and pickup time.</li>
+          <li><strong>Table booking</strong>: name, email, phone, date, time, number of guests and any notes.</li>
+          <li><strong>Contact form</strong>: name, email, phone (optional) and the message you send.</li>
+          <li><strong>Online payment</strong>: payment data (card, Bancontact) is processed directly by Stripe. We never receive or store your card details.</li>
+        </ul>
+
+        <h2>3. Purposes and legal basis</h2>
+        <p>
+          Your data is used solely to process your orders, bookings and requests (performance of a contract
+          and pre-contractual steps) and to send you the corresponding confirmations. We do not use your data
+          for advertising and never sell it to anyone.
+        </p>
+
+        <h2>4. Processors</h2>
+        <p>To operate the site we rely on providers who process certain data on our behalf:</p>
+        <ul>
+          <li><strong>Supabase</strong> (database hosting, EU): storage of orders and bookings.</li>
+          <li><strong>Stripe</strong>: secure payment processing.</li>
+          <li><strong>Resend</strong>: sending confirmation emails.</li>
+          <li><strong>Google Maps</strong>: displaying the map on the Contact page (only after your consent).</li>
+        </ul>
+
+        <h2>5. Retention</h2>
+        <p>
+          We keep your data for as long as necessary for the purposes described above and to comply with our
+          legal obligations (notably accounting). After that, it is deleted or anonymised.
+        </p>
+
+        <h2>6. Your rights</h2>
+        <p>
+          Under the GDPR, you have the right to access, rectify, erase, restrict and object to the processing
+          of your data, as well as the right to data portability. To exercise these rights, write to us at
+          <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>. You may also lodge a complaint with the
+          Belgian Data Protection Authority (APD/GBA), Rue de la Presse 35, 1000 Brussels.
+        </p>
+
+        <h2>7. Cookies</h2>
+        <p>
+          To learn more about the cookies we use, see our
+          <a href="/en/cookies">cookie policy</a>.
+        </p>
+      </div>
+    )}
+  </article>
+</Layout>
+
+<style>
+  .legal {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+  }
+  .legal-claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.8rem;
+    color: var(--c-muted);
+    margin: 0 0 0.8rem;
+  }
+  .legal-title {
+    font-family: var(--font-title);
+    font-size: clamp(2.5rem, 7vw, 4rem);
+    line-height: 1;
+    margin: 0 0 0.6rem;
+    color: var(--c-text);
+  }
+  .legal-updated {
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    margin: 0 0 2.5rem;
+  }
+  .legal-body :global(h2) {
+    font-family: var(--font-title);
+    font-size: 1.5rem;
+    letter-spacing: 0.02em;
+    margin: 2.2rem 0 0.8rem;
+    color: var(--c-text);
+  }
+  .legal-body :global(p),
+  .legal-body :global(li) {
+    color: #d8d8d8;
+    line-height: 1.75;
+    font-size: 1rem;
+  }
+  .legal-body :global(ul) {
+    padding-left: 1.2rem;
+    margin: 0.5rem 0 1rem;
+  }
+  .legal-body :global(li) { margin-bottom: 0.5rem; }
+  .legal-body :global(a) {
+    color: var(--c-text);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .legal-body :global(strong) { color: var(--c-text); }
+</style>

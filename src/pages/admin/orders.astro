@@ -1,0 +1,322 @@
+---
+// Pannello admin — ordini take-away pagati di OGGI.
+// Solo oggi, ordinati per ora di ritiro crescente.
+import AdminNav from "../../components/AdminNav.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Commandes — Admin Pizzeria 77</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #000000;
+        --c-text: #ffffff;
+        --c-muted: #b3b3b3;
+        --c-line: #2a2a2a;
+        --c-card: #0e0e0e;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: var(--c-bg);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        min-height: 100vh;
+      }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--c-line);
+        position: sticky;
+        top: 0;
+        background: var(--c-bg);
+        z-index: 10;
+      }
+      .brand { display: flex; align-items: center; gap: 0.75rem; }
+      .brand img { width: 32px; height: 32px; filter: invert(1); }
+      .brand a {
+        font-family: var(--font-title);
+        font-size: 1.3rem;
+        letter-spacing: 0.04em;
+        color: var(--c-text);
+        text-decoration: none;
+      }
+      .user { display: flex; align-items: center; gap: 1rem; font-size: 0.8rem; color: var(--c-muted); }
+      .logout {
+        background: transparent;
+        border: 1px solid var(--c-line);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        font-size: 0.78rem;
+        padding: 0.4rem 0.8rem;
+        cursor: pointer;
+      }
+      .logout:hover { background: var(--c-text); color: var(--c-bg); }
+      main { flex: 1; padding: 1.5rem 2rem 7rem; width: 100%; }
+      h1 {
+        font-family: var(--font-title);
+        font-size: 2rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        margin-bottom: 0.25rem;
+      }
+      .today-label {
+        font-family: var(--font-title);
+        font-size: 1.4rem;
+        letter-spacing: 0.03em;
+        text-transform: capitalize;
+        color: var(--c-muted);
+        margin-bottom: 0.25rem;
+      }
+      .count { color: var(--c-muted); font-size: 0.85rem; margin-bottom: 2rem; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem;
+        align-items: start;
+      }
+      .card {
+        background: var(--c-card);
+        border: 1px solid var(--c-line);
+        padding: 1.1rem 1.25rem;
+      }
+      .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 0.6rem;
+      }
+      .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; }
+      .total {
+        font-size: 1rem;
+        font-weight: 700;
+        border: 1px solid var(--c-line);
+        padding: 0.2rem 0.6rem;
+        white-space: nowrap;
+      }
+      .name { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+      .row { font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.2rem; }
+      .row a { color: var(--c-text); text-decoration: none; }
+      .row a:hover { text-decoration: underline; }
+      .items {
+        margin-top: 0.7rem;
+        padding-top: 0.7rem;
+        border-top: 1px solid var(--c-line);
+      }
+      .item {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.75rem;
+        font-size: 0.92rem;
+        padding: 0.18rem 0;
+      }
+      .item-qty { color: var(--c-text); font-weight: 700; }
+      .item-name { flex: 1; color: var(--c-text); }
+      .item-sub { color: var(--c-muted); font-size: 0.8rem; }
+      .order-note {
+        margin-top: 0.6rem;
+        padding: 0.5rem 0.7rem;
+        background: #161616;
+        border-left: 2px solid var(--c-text);
+        font-size: 0.88rem;
+        white-space: pre-wrap;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 0.68rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        padding: 0.12rem 0.45rem;
+        border: 1px solid var(--c-line);
+        color: var(--c-muted);
+        margin-left: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="brand">
+          <img src="/logo77.svg" alt="Pizzeria 77" />
+          <a href="/admin">Admin</a>
+        </div>
+        <div class="user">
+          <span id="user-email"></span>
+          <button class="logout" id="logout-btn">Déconnexion</button>
+        </div>
+      </header>
+      <main>
+        <h1>Commandes</h1>
+        <p class="today-label" id="today-label"></p>
+        <p class="count" id="count"></p>
+        <div class="state" id="state">Chargement…</div>
+        <div class="grid" id="grid"></div>
+      </main>
+    </div>
+
+    <AdminNav current="orders" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
+      type Order = {
+        id: string;
+        status: string;
+        pickup_time: string;
+        customer_name: string;
+        customer_email: string;
+        customer_phone: string | null;
+        items: Item[];
+        total_cents: number;
+        lang: string | null;
+        created_at: string;
+      };
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function euro(cents: number): string {
+        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+      }
+      // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso di Bruxelles.
+      function dayKeyBrussels(iso: string): string {
+        return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
+      }
+      // Ora HH:MM di un istante ISO, nel fuso di Bruxelles.
+      function oraBrussels(iso: string): string {
+        return new Date(iso).toLocaleTimeString("fr-BE", {
+          timeZone: "Europe/Brussels",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function cardHTML(o: Order): string {
+        const note = o.items.find((i) => i.id === "note");
+        const piatti = o.items.filter((i) => i.id !== "note");
+
+        const phone = o.customer_phone
+          ? `<p class="row">Tél : <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></p>`
+          : "";
+        const langBadge = o.lang ? `<span class="badge">${esc(o.lang)}</span>` : "";
+
+        const itemsHTML = piatti
+          .map((i) => {
+            const sub = i.notes ? ` <span class="item-sub">(${esc(i.notes)})</span>` : "";
+            return `
+              <div class="item">
+                <span class="item-qty">${i.qty}×</span>
+                <span class="item-name">${esc(i.name)}${sub}</span>
+                <span class="item-sub">${euro(i.price_cents * i.qty)}</span>
+              </div>`;
+          })
+          .join("");
+
+        const noteHTML = note?.notes ? `<div class="order-note">📝 ${esc(note.notes)}</div>` : "";
+
+        return `
+          <div class="card">
+            <div class="card-top">
+              <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
+              <span class="total">${euro(o.total_cents)}</span>
+            </div>
+            <p class="name">${esc(o.customer_name)}${langBadge}</p>
+            <p class="row">Email : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
+            ${phone}
+            <div class="items">${itemsHTML}</div>
+            ${noteHTML}
+          </div>`;
+      }
+
+      function render(
+        gridEl: HTMLElement,
+        stateEl: HTMLElement,
+        countEl: HTMLElement,
+        labelEl: HTMLElement,
+        orders: Order[]
+      ) {
+        const oggi = new Date();
+        const oggiKey = dayKeyBrussels(oggi.toISOString());
+
+        labelEl.textContent =
+          "Aujourd'hui — " +
+          oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
+
+        const ordOggi = orders
+          .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+          .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+
+        if (ordOggi.length === 0) {
+          stateEl.textContent = "Aucune commande payée aujourd'hui.";
+          stateEl.style.display = "block";
+          countEl.textContent = "";
+          gridEl.innerHTML = "";
+          return;
+        }
+        stateEl.style.display = "none";
+        const tot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
+        countEl.textContent =
+          (ordOggi.length === 1 ? "1 commande" : `${ordOggi.length} commandes`) + ` · ${euro(tot)}`;
+        gridEl.innerHTML = ordOggi.map(cardHTML).join("");
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const gridEl = document.getElementById("grid") as HTMLDivElement;
+        const countEl = document.getElementById("count") as HTMLParagraphElement;
+        const labelEl = document.getElementById("today-label") as HTMLParagraphElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token ?? "";
+
+        try {
+          const res = await fetch("/api/admin/orders", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) {
+            stateEl.textContent = "Erreur de chargement.";
+            return;
+          }
+          const json = await res.json();
+          render(gridEl, stateEl, countEl, labelEl, json.orders as Order[]);
+        } catch {
+          stateEl.textContent = "Erreur de connexion.";
+        }
+      })();
+    </script>
+  </body>
+</html>

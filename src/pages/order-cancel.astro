@@ -1,0 +1,84 @@
+---
+// Pagina mostrata quando il cliente annulla il pagamento su Stripe.
+// Nessun ordine da confermare: l'eventuale record pending resta nel DB
+// (non verrà mai confermato dal webhook). Il carrello in sessione resta,
+// così l'utente può riprovare senza ricomporre l'ordine.
+import Layout from "../layouts/Layout.astro";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<Layout title={t("cancel.title") + " — Pizzeria 77"}>
+  <section class="oc">
+    <div class="oc-card">
+      <p class="oc-claim">THIS IS PIZZERIA 77</p>
+      <h1 class="oc-title">{t("cancel.title")}</h1>
+      <p class="oc-sub">{t("cancel.text")}</p>
+
+      <div class="oc-actions">
+        <a href={getLocalizedUrl("/order", lang)} class="oc-btn oc-btn-solid">{t("cancel.retry")}</a>
+        <a href={getLocalizedUrl("/", lang)} class="oc-btn oc-btn-outline">{t("cancel.home")}</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .oc {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 5rem 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+  .oc-card {
+    width: 100%;
+    max-width: 560px;
+    border: 1px solid var(--c-text);
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+  .oc-claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.8rem;
+    color: var(--c-muted);
+    margin: 0 0 1rem;
+  }
+  .oc-title {
+    font-family: var(--font-title);
+    font-size: clamp(2.25rem, 7vw, 3.25rem);
+    line-height: 1;
+    margin: 0 0 1rem;
+    color: var(--c-text);
+  }
+  .oc-sub {
+    color: var(--c-muted);
+    line-height: 1.6;
+    margin: 0 auto 1.5rem;
+    max-width: 420px;
+  }
+  .oc-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+  .oc-btn {
+    display: inline-block;
+    padding: 0.85rem 1.2rem;
+    font-family: var(--font-title);
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    border: 1px solid var(--c-text);
+    border-radius: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .oc-btn-solid { background: var(--c-text); color: var(--c-bg); }
+  .oc-btn-solid:hover { background: transparent; color: var(--c-text); }
+  .oc-btn-outline { background: transparent; color: var(--c-text); }
+  .oc-btn-outline:hover { background: var(--c-text); color: var(--c-bg); }
+</style>

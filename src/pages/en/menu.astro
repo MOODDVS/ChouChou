@@ -1,0 +1,525 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { getMenu } from "../../lib/db";
+import { getLangFromUrl, useTranslations } from "../../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const menu = await getMenu();
+
+const cibo = menu.filter((c) => c.category_order <= 4);
+// Vini: category_order 5-9, raggruppati sotto un unico titolo.
+const vini = menu.filter((c) => c.category_order >= 5 && c.category_order <= 9);
+// Altre bevande: 10+, categorie normali.
+const altreBevande = menu.filter((c) => c.category_order >= 10);
+
+const PIZZE_BIANCHE_ORDER = 3;
+
+const slides = [
+  "/menu-slideshow-01.webp",
+  "/menu-slideshow-02.webp",
+  "/menu-slideshow-03.webp",
+];
+
+const allergeni = [
+  { n: 1, label: "gluten", icon: "/allergens/01.webp" },
+  { n: 2, label: "lait · milk", icon: "/allergens/02.webp" },
+  { n: 3, label: "poisson · fish", icon: "/allergens/03.webp" },
+  { n: 4, label: "noix · nuts", icon: "/allergens/04.webp" },
+  { n: 5, label: "oeufs · eggs", icon: "/allergens/05.webp" },
+  { n: 6, label: "soja", icon: "/allergens/06.webp" },
+  { n: 7, label: "sulfites", icon: "/allergens/07.webp" },
+];
+
+function prezzo(cents: number): string {
+  const euro = cents / 100;
+  return Number.isInteger(euro) ? `${euro}€` : `${euro.toFixed(2)}€`;
+}
+---
+
+<Layout title={t("nav.menu") + " — Pizzeria 77"}>
+  <section class="menu-hero">
+    <div class="menu-hero__bg" aria-hidden="true">
+      {slides.map((src, i) => (
+        <img
+          src={src}
+          alt=""
+          class:list={["menu-hero__slide", { "is-active": i === 0 }]}
+          loading={i === 0 ? "eager" : "lazy"}
+          decoding="async"
+        />
+      ))}
+    </div>
+    <div class="menu-hero__overlay" aria-hidden="true"></div>
+
+    <div class="menu-hero__inner">
+      <p class="menu-hero__claim">THIS IS PIZZERIA 77</p>
+      <h1 class="menu-hero__title">{t("menu.title")}</h1>
+      <p class="menu-hero__sub">{t("menu.sub")}</p>
+    </div>
+  </section>
+
+  <div class="menu-wrap">
+    {cibo.map((cat) => (
+      <section class="menu-cat">
+        <h2 class="menu-cat__title">{cat.category}</h2>
+        <ul class="menu-list">
+          {cat.items.map((item) => (
+            <li class="dish">
+              <p class="dish__head">
+                <span class="dish__name">{item.name}</span>
+                {item.allergens.length > 0 && (
+                  <sup class="dish__allerg">
+                    {item.allergens.map((a) => `(${a})`).join("")}
+                  </sup>
+                )}
+                <span class="dish__price">{prezzo(item.price_cents)}</span>
+              </p>
+              {item.description_fr && (
+                <p class="dish__desc-fr">{item.description_fr}</p>
+              )}
+              {item.description_en && (
+                <p class="dish__desc-en">{item.description_en}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {cat.category_order === PIZZE_BIANCHE_ORDER && (
+          <div class="menu-suppl" aria-label="Suppléments">
+            <span class="menu-suppl__pill">
+              <span class="menu-suppl__fr">Sans gluten · +4€</span>
+              <span class="menu-suppl__en">Gluten free · +4€</span>
+            </span>
+            <span class="menu-suppl__pill">
+              <span class="menu-suppl__fr">Croûte à la ricotta · +3€</span>
+              <span class="menu-suppl__en">Ricotta crust · +3€</span>
+            </span>
+          </div>
+        )}
+      </section>
+    ))}
+
+    <section class="allerg-legend" aria-label="Légende des allergènes">
+      <ul class="allerg-legend__list">
+        {allergeni.map((a) => (
+          <li class="allerg-legend__item">
+            <img src={a.icon} alt="" class="allerg-legend__icon" loading="lazy" decoding="async" />
+            <span class="allerg-legend__label">({a.n}) {a.label}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  </div>
+
+  <section class="drinks-band">
+    <img class="drinks-band__bg" src="/drinks.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" />
+    <div class="drinks-band__overlay" aria-hidden="true"></div>
+    <div class="drinks-band__inner">
+      <h2 class="drinks-band__title">BOISSONS · DRINKS</h2>
+    </div>
+  </section>
+
+  <div class="menu-wrap">
+    {vini.length > 0 && (
+      <section class="menu-group">
+        <h2 class="menu-group__title">VINO – VINS – WINES</h2>
+        {vini.map((cat) => (
+          <div class="menu-sub">
+            <h3 class="menu-sub__title">{cat.category}</h3>
+            <ul class="menu-list">
+              {cat.items.map((item) => (
+                <li class="dish">
+                  <p class="dish__head">
+                    <span class="dish__name">{item.name}</span>
+                    <span class="dish__price">{prezzo(item.price_cents)}</span>
+                  </p>
+                  {item.description_fr && (
+                    <p class="dish__desc-fr">{item.description_fr}</p>
+                  )}
+                  {item.description_en && (
+                    <p class="dish__desc-en">{item.description_en}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </section>
+    )}
+
+    {altreBevande.map((cat) => (
+      <section class="menu-cat">
+        <h2 class="menu-cat__title">{cat.category}</h2>
+        <ul class="menu-list">
+          {cat.items.map((item) => (
+            <li class="dish">
+              <p class="dish__head">
+                <span class="dish__name">{item.name}</span>
+                <span class="dish__price">{prezzo(item.price_cents)}</span>
+              </p>
+              {item.description_fr && (
+                <p class="dish__desc-fr">{item.description_fr}</p>
+              )}
+              {item.description_en && (
+                <p class="dish__desc-en">{item.description_en}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
+</Layout>
+
+<style>
+  /* ---------- HERO ---------- */
+  .menu-hero {
+    position: relative;
+    min-height: 52vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 5rem 1.5rem 3.5rem;
+    border-bottom: 1px solid var(--c-line);
+    overflow: hidden;
+  }
+
+  .menu-hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .menu-hero__slide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+    transition: opacity 1.2s ease;
+  }
+
+  .menu-hero__slide.is-active {
+    opacity: 1;
+  }
+
+  .menu-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .menu-hero__inner {
+    position: relative;
+    z-index: 2;
+    max-width: 720px;
+  }
+
+  .menu-hero__claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.9rem;
+    color: var(--c-muted);
+    margin: 0 0 0.9rem;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+
+  .menu-hero__title {
+    font-family: var(--font-title);
+    font-size: clamp(3.75rem, 11vw, 7rem);
+    line-height: 0.92;
+    letter-spacing: 0.02em;
+    margin: 0;
+    color: var(--c-text);
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease 0.12s, transform 0.7s ease 0.12s;
+  }
+
+  .menu-hero__sub {
+    max-width: 520px;
+    margin: 1.1rem auto 0;
+    color: var(--c-text);
+    font-size: 1rem;
+    line-height: 1.6;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s ease 0.24s, transform 0.7s ease 0.24s;
+  }
+
+  .menu-hero.is-visible .menu-hero__claim,
+  .menu-hero.is-visible .menu-hero__title,
+  .menu-hero.is-visible .menu-hero__sub {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ---------- LISTA MENU ---------- */
+  .menu-wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 4rem 1.5rem 5rem;
+  }
+
+  .menu-cat {
+    margin-bottom: 4rem;
+  }
+
+  .menu-cat__title {
+    font-family: var(--font-title);
+    font-size: clamp(2.25rem, 6vw, 3.5rem);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    margin: 0 0 2rem;
+    color: var(--c-text);
+  }
+
+  /* ---------- GRUPPO (es. Vino) con titolone + sottotitoli ---------- */
+  .menu-group {
+    margin-bottom: 4rem;
+  }
+
+  .menu-group__title {
+    font-family: var(--font-title);
+    font-size: clamp(2.75rem, 7vw, 4.5rem);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    margin: 0 0 2.5rem;
+    color: var(--c-text);
+  }
+
+  .menu-sub {
+    margin-bottom: 3rem;
+  }
+
+  .menu-sub__title {
+    font-family: var(--font-title);
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    line-height: 1;
+    letter-spacing: 0.04em;
+    margin: 0 0 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--c-line);
+    color: var(--c-muted);
+  }
+
+  .menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 2.25rem 3rem;
+  }
+
+  .dish__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0 0 0.5rem;
+  }
+
+  .dish__name {
+    font-family: var(--font-title);
+    font-size: 1.4rem;
+    letter-spacing: 0.02em;
+    color: var(--c-text);
+  }
+
+  .dish__allerg {
+    font-size: 0.7rem;
+    color: var(--c-text);
+    letter-spacing: 0.05em;
+  }
+
+  .dish__price {
+    margin-left: auto;
+    font-family: var(--font-title);
+    font-size: 1.4rem;
+    color: var(--c-text);
+    white-space: nowrap;
+  }
+
+  .dish__desc-fr {
+    margin: 0;
+    color: var(--c-muted);
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  .dish__desc-en {
+    margin: 0.15rem 0 0;
+    color: var(--c-text);
+    font-weight: 700;
+    font-size: 0.95rem;
+    line-height: 1.45;
+  }
+
+  /* ---------- SUPPLEMENTI (pill) ---------- */
+  .menu-suppl {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+  }
+
+  .menu-suppl__pill {
+    display: inline-flex;
+    flex-direction: column;
+    border: 1px solid var(--c-text);
+    padding: 0.7rem 1.4rem;
+    line-height: 1.2;
+  }
+
+  .menu-suppl__fr {
+    font-family: var(--font-title);
+    font-size: 1.4rem;
+    letter-spacing: 0.05em;
+    color: var(--c-text);
+  }
+
+  .menu-suppl__en {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--c-muted);
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- FASCIA BOISSONS ---------- */
+  .drinks-band {
+    position: relative;
+    min-height: 34vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    border-top: 1px solid var(--c-line);
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  .drinks-band__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+
+  .drinks-band__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .drinks-band__inner {
+    position: relative;
+    z-index: 2;
+    padding: 3rem 1.5rem;
+  }
+
+  .drinks-band__title {
+    font-family: var(--font-title);
+    font-size: clamp(2.75rem, 8vw, 5rem);
+    line-height: 1;
+    letter-spacing: 0.03em;
+    margin: 0;
+    color: var(--c-text);
+  }
+
+  /* ---------- LEGENDA ALLERGENI ---------- */
+  .allerg-legend {
+    margin-top: 2rem;
+    padding-top: 3rem;
+    border-top: 1px solid var(--c-line);
+  }
+
+  .allerg-legend__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 2.5rem;
+  }
+
+  .allerg-legend__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+    width: 90px;
+  }
+
+  .allerg-legend__icon {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+  }
+
+  .allerg-legend__label {
+    font-size: 0.85rem;
+    color: var(--c-text);
+    text-align: center;
+  }
+
+  @media (max-width: 600px) {
+    .menu-list {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-hero__claim,
+    .menu-hero__title,
+    .menu-hero__sub {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+    .menu-hero__slide {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const hero = document.querySelector(".menu-hero");
+
+  if (hero) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            io.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    io.observe(hero);
+  }
+
+  const slides = Array.from(document.querySelectorAll(".menu-hero__slide"));
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (slides.length > 1 && !reduceMotion) {
+    let current = 0;
+    setInterval(() => {
+      slides[current].classList.remove("is-active");
+      current = (current + 1) % slides.length;
+      slides[current].classList.add("is-active");
+    }, 5000);
+  }
+</script>

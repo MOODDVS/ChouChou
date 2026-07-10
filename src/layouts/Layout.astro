@@ -1,0 +1,392 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import MobileNav from "../components/MobileNav.astro";
+import BookingModal from "../components/BookingModal";
+import CookieBanner from "../components/CookieBanner.astro";
+import { getLangFromUrl } from "../i18n/ui";
+
+interface Props {
+  title?: string;
+  transparentHeader?: boolean;
+}
+const { title = "Pizzeria77", transparentHeader = false } = Astro.props;
+
+const lang = getLangFromUrl(Astro.url);
+
+// SEO: descrizione unica per tutto il sito (bilingue), immagine di condivisione.
+const description =
+  lang === "en"
+    ? "Pizzeria 77 — authentic Neapolitan pizza in Waterloo. Order online for takeaway or book your table. Chaussée de Bruxelles 77."
+    : "Pizzeria 77 — authentique pizza napolitaine à Waterloo. Commandez en ligne à emporter ou réservez votre table. Chaussée de Bruxelles 77.";
+
+const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://pizzeria77.be").replace(/\/$/, "");
+const ogImage = `${siteUrl}/hero-pizza-desktop.webp`;
+const canonical = new URL(Astro.url.pathname, siteUrl).href;
+const ogLocale = lang === "en" ? "en_US" : "fr_BE";
+---
+
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, iMessage) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Pizzeria 77" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={ogLocale} />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      />
+    </noscript>
+
+    <style is:global>
+      :root {
+        --c-bg: #000000;
+        --c-text: #ffffff;
+        --c-muted: #b3b3b3;
+        --c-line: #2a2a2a;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --maxw: 1440px;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--c-bg);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      h1, h2, h3, h4 {
+        font-family: var(--font-title);
+        font-weight: 400;
+        letter-spacing: 0.02em;
+        line-height: 1.05;
+        margin: 0 0 0.5em;
+      }
+      a { color: inherit; text-decoration: none; }
+      .container {
+        max-width: var(--maxw);
+        margin: 0 auto;
+        padding: 0 2rem;
+      }
+
+      /* Su mobile, spazio extra in fondo per non finire sotto la bottom bar */
+      @media (max-width: 900px) {
+        body { padding-bottom: 88px; }
+      }
+      @media (max-width: 600px) {
+        /* Nome/Cognome/Email/Tel: uno sotto l'altro, 100% */
+        .bk-row--stack { flex-direction: column; gap: 0.8rem; }
+        .bk-row--stack > * { width: 100%; flex: none; }
+      }
+
+      /* ===== Modale prenotazione ===== */
+      .bk-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 5vh 1rem;
+        overflow-y: auto;
+      }
+      .bk-modal {
+        position: relative;
+        width: 100%;
+        max-width: 560px;
+        background: var(--c-bg);
+        border: 1px solid var(--c-text);
+        padding: 2.5rem 2rem;
+      }
+      .bk-close {
+        position: absolute;
+        top: 0.8rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        color: var(--c-muted);
+        font-size: 1.8rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .bk-close:hover { color: var(--c-text); }
+      /* Close circolare in basso a destra: cerchio bianco, X nera */
+      .bk-close-fab {
+        position: absolute;
+        bottom: 1.2rem;
+        right: 1.2rem;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--c-text);
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+      .bk-close-fab:hover { transform: scale(1.08); opacity: 0.9; }
+      .bk-claim {
+        font-family: var(--font-title);
+        letter-spacing: 0.35em;
+        font-size: 0.75rem;
+        color: var(--c-muted);
+        margin: 0 0 0.6rem;
+      }
+      .bk-title {
+        font-family: var(--font-title);
+        font-size: clamp(1.9rem, 6vw, 2.6rem);
+        line-height: 1;
+        margin: 0 0 1.5rem;
+        color: var(--c-text);
+      }
+      .bk-form { display: flex; flex-direction: column; gap: 0.8rem; }
+      .bk-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+      .bk-row > * { flex: 1; min-width: 120px; }
+      /* Date + Personnes: 60 / 40 */
+      .bk-row--datepeople > *:first-child { flex: 1; }
+      .bk-row--datepeople > *:last-child { flex: 1; min-width: 0; }
+      .bk-field { display: flex; flex-direction: column; gap: 0.3rem; }
+      .bk-label {
+        font-size: 0.75rem;
+        color: var(--c-muted);
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+      .bk-input, .bk-textarea {
+        width: 100%;
+        box-sizing: border-box;
+        background: transparent;
+        border: 1px solid var(--c-text);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        font-size: 1rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 0;
+      }
+      .bk-input::placeholder, .bk-textarea::placeholder { color: var(--c-muted); }
+      .bk-input:focus, .bk-textarea:focus { outline: none; box-shadow: 0 0 0 1px var(--c-text); }
+      /* I picker nativi date/time sono chiari su sfondo scuro: li schiarisco */
+      .bk-input[type="date"], .bk-input[type="time"] { color-scheme: dark; }
+      /* Stepper numero persone (no input testuale: niente bug tastiera mobile) */
+      .bk-stepper {
+        display: flex;
+        align-items: stretch;
+        border: 1px solid var(--c-text);
+      }
+      .bk-step {
+        width: 2.6rem;
+        flex-shrink: 0;
+        background: transparent;
+        border: none;
+        color: var(--c-text);
+        font-size: 1.4rem;
+        line-height: 1;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+      .bk-step:first-child { border-right: 1px solid var(--c-text); }
+      .bk-step:last-child { border-left: 1px solid var(--c-text); }
+      .bk-step:hover:not(:disabled) { background: var(--c-text); color: var(--c-bg); }
+      .bk-step:disabled { opacity: 0.3; cursor: not-allowed; }
+      .bk-step-val {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--c-text);
+        font-size: 1.1rem;
+        font-family: var(--font-body);
+        min-width: 0;
+        padding: calc(0.7rem - 1px) 0; /* -1px sopra e sotto compensa i 2px di bordo del contenitore */
+      }
+      .bk-date { cursor: pointer; }
+      .bk-textarea { resize: vertical; }
+      .bk-check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--c-text);
+        font-size: 0.9rem;
+        cursor: pointer;
+        margin: 0.3rem 0;
+      }
+      .bk-check input { accent-color: var(--c-text); width: 16px; height: 16px; }
+      .bk-consent { align-items: flex-start; color: var(--c-muted); line-height: 1.4; }
+      .bk-consent input { margin-top: 0.15rem; flex-shrink: 0; }
+      .bk-consent a { color: var(--c-text); text-decoration: underline; text-underline-offset: 2px; }
+
+      /* Slot prenotazione (tab Midi/Soir + orari) */
+      .bk-slots { display: flex; flex-direction: column; gap: 0.6rem; margin: 0.3rem 0; }
+      .bk-tabs { display: flex; gap: 0.5rem; }
+      .bk-tab {
+        flex: 1;
+        padding: 0.5rem;
+        border: 1px solid var(--c-line);
+        background: transparent;
+        color: var(--c-muted);
+        font-family: var(--font-title);
+        font-size: 1.1rem;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        border-radius: 0;
+        transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      }
+      .bk-tab.is-active { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
+      .bk-tab:disabled { opacity: 0.35; cursor: not-allowed; }
+      .bk-slot-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      .bk-slot {
+        padding: 0.45rem 0.85rem;
+        border: 1px solid var(--c-text);
+        background: transparent;
+        color: var(--c-text);
+        font-size: 0.9rem;
+        cursor: pointer;
+        border-radius: 0;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+      .bk-slot.is-selected { background: var(--c-text); color: var(--c-bg); }
+      .bk-slot-msg { color: var(--c-muted); font-size: 0.9rem; margin: 0; }
+
+      .bk-submit {
+        margin-top: 0.5rem;
+        width: 100%;
+        padding: 0.85rem;
+        background: var(--c-text);
+        color: var(--c-bg);
+        border: 1px solid var(--c-text);
+        font-family: var(--font-title);
+        font-size: 1.2rem;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        border-radius: 0;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+      .bk-submit:hover:not(:disabled) { background: transparent; color: var(--c-text); }
+      .bk-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+      .bk-error { color: #ff6b6b; font-size: 0.85rem; margin: 0; }
+      .bk-note { font-size: 0.78rem; color: var(--c-muted); text-align: center; margin: 0.4rem 0 0; }
+      .bk-done { text-align: center; }
+      .bk-done .bk-sub { color: var(--c-muted); line-height: 1.6; margin: 0 0 1.5rem; }
+
+      /* Calendario custom prenotazione */
+      .bk-datebtn {
+        text-align: left;
+        cursor: pointer;
+        font-family: var(--font-body);
+      }
+      .bk-cal {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 10;
+        width: 280px;
+        max-width: 90vw;
+        background: var(--c-bg);
+        border: 1px solid var(--c-text);
+        padding: 0.8rem;
+      }
+      .bk-cal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.6rem;
+      }
+      .bk-cal-title {
+        font-family: var(--font-title);
+        font-size: 1.2rem;
+        letter-spacing: 0.03em;
+        color: var(--c-text);
+      }
+      .bk-cal-nav {
+        width: 32px;
+        height: 32px;
+        border: 1px solid var(--c-line);
+        background: transparent;
+        color: var(--c-text);
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 0;
+      }
+      .bk-cal-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+      .bk-cal-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 2px;
+      }
+      .bk-cal-dow { margin-bottom: 4px; }
+      .bk-cal-dowcell {
+        text-align: center;
+        font-size: 0.7rem;
+        color: var(--c-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.2rem 0;
+      }
+      .bk-cal-cell {
+        aspect-ratio: 1;
+        border: none;
+        background: transparent;
+        color: var(--c-text);
+        font-family: var(--font-body);
+        font-size: 0.9rem;
+        cursor: pointer;
+        border-radius: 0;
+        transition: background 0.15s ease, color 0.15s ease;
+      }
+      .bk-cal-cell.is-empty { background: none; cursor: default; }
+      .bk-cal-cell:not(.is-disabled):not(.is-empty):hover { background: var(--c-line); }
+      .bk-cal-cell.is-disabled { color: #4a4a4a; cursor: not-allowed; text-decoration: line-through; }
+      .bk-cal-cell.is-selected { background: var(--c-text); color: var(--c-bg); }
+    </style>
+  </head>
+  <body>
+    <Header transparent={transparentHeader} />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+    <MobileNav />
+    <BookingModal client:idle lang={lang} />
+    <CookieBanner />
+  </body>
+</html>

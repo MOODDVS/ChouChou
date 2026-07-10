@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Pagine post-pagamento e API: non indicizzare
+Disallow: /order-confirm
+Disallow: /order-cancel
+Disallow: /en/order-confirm
+Disallow: /en/order-cancel
+Disallow: /api/
+
+Sitemap: https://pizzeria77.be/sitemap-index.xml

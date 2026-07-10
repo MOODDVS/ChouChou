@@ -1,0 +1,133 @@
+---
+import { getLangFromUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const isEn = lang === "en";
+
+const cookiesHref = isEn ? "/en/cookies" : "/cookies";
+
+const T = isEn
+  ? {
+      text: "We use a cookie only to remember your choice, and Google Maps on the contact page (only with your consent).",
+      accept: "Accept",
+      decline: "Decline",
+      more: "Cookie policy",
+    }
+  : {
+      text: "Nous utilisons un cookie uniquement pour mémoriser votre choix, et Google Maps sur la page contact (seulement avec votre consentement).",
+      accept: "Accepter",
+      decline: "Refuser",
+      more: "Politique cookies",
+    };
+---
+
+<div id="cookie-banner" class="ckb" hidden>
+  <p class="ckb__text">
+    {T.text} <a href={cookiesHref} class="ckb__link">{T.more}</a>
+  </p>
+  <div class="ckb__actions">
+    <button type="button" class="ckb__btn ckb__btn--decline" data-cookie-decline>{T.decline}</button>
+    <button type="button" class="ckb__btn ckb__btn--accept" data-cookie-accept>{T.accept}</button>
+  </div>
+</div>
+
+<style>
+  .ckb {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 300;
+    width: 340px;
+    max-width: calc(100vw - 2rem);
+    background: var(--c-bg);
+    border: 1px solid var(--c-text);
+    padding: 1.2rem 1.3rem;
+    box-sizing: border-box;
+  }
+  .ckb__text {
+    margin: 0 0 1rem;
+    color: var(--c-text);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .ckb__link {
+    color: var(--c-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+  }
+  .ckb__actions {
+    display: flex;
+    gap: 0.6rem;
+  }
+  .ckb__btn {
+    flex: 1;
+    font-family: var(--font-title);
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+    padding: 0.55rem 0.5rem;
+    border-radius: 0;
+    cursor: pointer;
+    border: 1px solid var(--c-text);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .ckb__btn--accept {
+    background: var(--c-text);
+    color: var(--c-bg);
+  }
+  .ckb__btn--accept:hover {
+    background: transparent;
+    color: var(--c-text);
+  }
+  .ckb__btn--decline {
+    background: transparent;
+    color: var(--c-text);
+  }
+  .ckb__btn--decline:hover {
+    background: var(--c-text);
+    color: var(--c-bg);
+  }
+
+  /* Su mobile la barra di navigazione in basso occupa spazio: alzo il banner */
+  @media (max-width: 900px) {
+    .ckb {
+      bottom: 100px;
+    }
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    var KEY = "p77-cookie-consent"; // valori: "accepted" | "declined"
+    var banner = document.getElementById("cookie-banner");
+    if (!banner) return;
+
+    var scelta = null;
+    try {
+      scelta = window.localStorage.getItem(KEY);
+    } catch (e) {
+      scelta = null;
+    }
+
+    // Mostra il banner solo se non c'è ancora una scelta
+    if (scelta !== "accepted" && scelta !== "declined") {
+      banner.hidden = false;
+    }
+
+    function salva(valore) {
+      try {
+        window.localStorage.setItem(KEY, valore);
+      } catch (e) {}
+      banner.hidden = true;
+      // Avvisa il resto della pagina (es. la mappa) che la scelta è cambiata
+      window.dispatchEvent(
+        new CustomEvent("cookie-consent-changed", { detail: { consent: valore } })
+      );
+    }
+
+    var btnAccept = banner.querySelector("[data-cookie-accept]");
+    var btnDecline = banner.querySelector("[data-cookie-decline]");
+    if (btnAccept) btnAccept.addEventListener("click", function () { salva("accepted"); });
+    if (btnDecline) btnDecline.addEventListener("click", function () { salva("declined"); });
+  })();
+</script>

@@ -1,0 +1,212 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { supabaseAdmin } from "../../lib/db";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const sessionId = Astro.url.searchParams.get("session_id");
+
+interface Ordine {
+  id: string;
+  status: string;
+  pickup_time: string;
+  customer_name: string;
+  items: { name: string; qty: number; price_cents: number; notes?: string }[];
+  total_cents: number;
+}
+
+let ordine: Ordine | null = null;
+
+if (sessionId) {
+  const { data } = await supabaseAdmin
+    .from("orders")
+    .select("id, status, pickup_time, customer_name, items, total_cents")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+  ordine = data as Ordine | null;
+}
+
+function euro(cents: number): string {
+  return (cents / 100).toFixed(2).replace(".", ",") + " €";
+}
+function oraRitiro(iso: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Brussels",
+  });
+}
+
+const numero = ordine ? ordine.id.slice(0, 8) : null;
+const confermato = ordine?.status === "paid";
+
+const voci = ordine ? ordine.items.filter((i) => i.qty > 0) : [];
+const noteCliente = ordine
+  ? ordine.items.find((i) => i.qty === 0 && i.notes)?.notes ?? null
+  : null;
+
+// Testo "Merci {name}. Votre commande #{num}..." coi segnaposto sostituiti.
+const paidText = ordine
+  ? t("confirm.paidText").replace("{name}", ordine.customer_name).replace("{num}", numero ?? "")
+  : "";
+---
+
+<Layout title={t("confirm.paidTitle") + " — Pizzeria 77"}>
+  <section class="oc">
+    <div class="oc-card">
+      {!ordine && (
+        <>
+          <h1 class="oc-title">{t("confirm.notFoundTitle")}</h1>
+          <p class="oc-sub">{t("confirm.notFoundText")}</p>
+        </>
+      )}
+
+      {ordine && confermato && (
+        <>
+          <p class="oc-claim">THIS IS PIZZERIA 77</p>
+          <h1 class="oc-title">{t("confirm.paidTitle")}</h1>
+          <p class="oc-sub">{paidText}</p>
+
+          <div class="oc-pickup">
+            <span class="oc-pickup-label">{t("confirm.pickup")}</span>
+            <span class="oc-pickup-time">{oraRitiro(ordine.pickup_time)}</span>
+          </div>
+
+          <ul class="oc-lines">
+            {voci.map((i) => (
+              <li class="oc-line">
+                <span>{i.qty}× {i.name}</span>
+                <span>{euro(i.price_cents * i.qty)}</span>
+              </li>
+            ))}
+          </ul>
+
+          {noteCliente && (
+            <p class="oc-note"><strong>{t("confirm.notes")} :</strong> {noteCliente}</p>
+          )}
+
+          <div class="oc-total">
+            <span>{t("confirm.total")}</span>
+            <strong>{euro(ordine.total_cents)}</strong>
+          </div>
+        </>
+      )}
+
+      {ordine && !confermato && (
+        <>
+          <h1 class="oc-title">{t("confirm.pendingTitle")}</h1>
+          <p class="oc-sub">{t("confirm.pendingText")}</p>
+        </>
+      )}
+
+      <a href={getLocalizedUrl("/", lang)} class="oc-home">{t("confirm.home")}</a>
+    </div>
+  </section>
+</Layout>
+
+{confermato && (
+  <script is:inline>
+    // Ordine pagato: svuoto il carrello salvato in sessione.
+    try {
+      window.sessionStorage.removeItem("p77-order-cart");
+    } catch (e) {}
+  </script>
+)}
+
+<style>
+  .oc {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 5rem 1.5rem;
+    display: flex;
+    justify-content: center;
+  }
+  .oc-card {
+    width: 100%;
+    max-width: 560px;
+    border: 1px solid var(--c-text);
+    padding: 2.5rem 2rem;
+    text-align: center;
+  }
+  .oc-claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.8rem;
+    color: var(--c-muted);
+    margin: 0 0 1rem;
+  }
+  .oc-title {
+    font-family: var(--font-title);
+    font-size: clamp(2.25rem, 7vw, 3.25rem);
+    line-height: 1;
+    margin: 0 0 1rem;
+    color: var(--c-text);
+  }
+  .oc-sub {
+    color: var(--c-muted);
+    line-height: 1.6;
+    margin: 0 0 1.5rem;
+  }
+  .oc-pickup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    border: 1px solid var(--c-line);
+    padding: 1rem;
+    margin: 1.5rem 0;
+  }
+  .oc-pickup-label {
+    font-size: 0.85rem;
+    color: var(--c-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .oc-pickup-time {
+    font-family: var(--font-title);
+    font-size: 2rem;
+    color: var(--c-text);
+  }
+  .oc-lines {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0 0;
+    text-align: left;
+    border-top: 1px solid var(--c-line);
+  }
+  .oc-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--c-line);
+    color: var(--c-text);
+  }
+  .oc-note {
+    text-align: left;
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 1rem 0 0;
+  }
+  .oc-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 1rem;
+    font-family: var(--font-title);
+    font-size: 1.4rem;
+    color: var(--c-text);
+  }
+  .oc-total strong { font-size: 1.7rem; }
+  .oc-home {
+    display: inline-block;
+    margin-top: 2rem;
+    color: var(--c-muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--c-line);
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+  .oc-home:hover { color: var(--c-text); border-color: var(--c-text); }
+</style>

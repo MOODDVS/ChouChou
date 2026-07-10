@@ -1,0 +1,119 @@
+---
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<section class="wtl" id="wtl">
+  <picture class="wtl-bg">
+    <source media="(max-width: 900px)" srcset="/waterloo-mobile.webp" />
+    <img src="/waterloo-desktop.webp" alt="La Butte du Lion à Waterloo" />
+  </picture>
+  <div class="wtl-overlay"></div>
+  <div class="wtl-pattern"></div>
+
+  <div class="wtl-content">
+    <div class="wtl-line wtl-l1">{t("waterloo.line1")}</div>
+    <h2 class="wtl-line wtl-l2">{t("waterloo.line2")}</h2>
+    <div class="wtl-line wtl-l3">{t("waterloo.line3")}</div>
+  </div>
+</section>
+
+<style>
+  .wtl {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-align: center;
+  }
+  .wtl-bg, .wtl-bg img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .wtl-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+  .wtl-pattern {
+    position: absolute;
+    inset: 0;
+    background-image: url("/logo77.svg");
+    background-repeat: repeat;
+    background-size: 70px 70px;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .wtl-content {
+    position: relative;
+    z-index: 2;
+    padding: 2rem 1.5rem;
+  }
+  .wtl-line {
+    color: #fff;
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  .wtl-l1 {
+    font-family: var(--font-title);
+    font-size: clamp(1.4rem, 3vw, 2.2rem);
+    letter-spacing: 0.25em;
+    opacity: 0;
+    margin-bottom: 0.5rem;
+  }
+  .wtl-l2 {
+    font-family: var(--font-title);
+    font-size: clamp(3rem, 9vw, 7rem);
+    letter-spacing: 0.02em;
+    line-height: 1;
+    margin: 0 0 0.5rem;
+    text-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+  }
+  .wtl-l3 {
+    font-family: var(--font-title);
+    font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+    letter-spacing: 0.12em;
+    opacity: 0;
+  }
+
+  .wtl.visible .wtl-line {
+    animation: slideup 0.7s ease-out forwards;
+  }
+  .wtl.visible .wtl-l1 { animation-delay: 0.1s; }
+  .wtl.visible .wtl-l2 { animation-delay: 0.35s; }
+  .wtl.visible .wtl-l3 { animation-delay: 0.6s; }
+
+  @keyframes slideup {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wtl-line { opacity: 1 !important; transform: none !important; animation: none !important; }
+  }
+</style>
+
+<script>
+  const section = document.getElementById("wtl");
+  if (section) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            section.classList.add("visible");
+            observer.unobserve(section);
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(section);
+  }
+</script>

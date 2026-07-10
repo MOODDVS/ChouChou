@@ -1,0 +1,294 @@
+---
+// Pannello admin — dashboard. Riepilogo di OGGI: due riquadri cliccabili
+// (Commandes / Réservations) con numeri e prossimo evento in arrivo.
+import AdminNav from "../../components/AdminNav.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — Pizzeria 77</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #000000;
+        --c-text: #ffffff;
+        --c-muted: #b3b3b3;
+        --c-line: #2a2a2a;
+        --c-card: #0e0e0e;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        background: var(--c-bg);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        min-height: 100vh;
+      }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--c-line);
+      }
+      .brand { display: flex; align-items: center; gap: 0.75rem; }
+      .brand img { width: 36px; height: 36px; filter: invert(1); }
+      .brand span {
+        font-family: var(--font-title);
+        font-size: 1.4rem;
+        letter-spacing: 0.04em;
+      }
+      .user { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: var(--c-muted); }
+      .logout {
+        background: transparent;
+        border: 1px solid var(--c-line);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        font-size: 0.8rem;
+        padding: 0.45rem 0.9rem;
+        cursor: pointer;
+      }
+      .logout:hover { background: var(--c-text); color: var(--c-bg); }
+
+      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
+      .today-label {
+        font-family: var(--font-title);
+        font-size: 1.6rem;
+        letter-spacing: 0.03em;
+        text-transform: capitalize;
+        margin-bottom: 1.5rem;
+        color: var(--c-muted);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.25rem;
+        max-width: 900px;
+      }
+      .tile {
+        display: block;
+        background: var(--c-card);
+        border: 1px solid var(--c-line);
+        padding: 1.75rem;
+        text-decoration: none;
+        color: var(--c-text);
+        transition: border-color 0.2s, transform 0.15s;
+      }
+      .tile:hover { border-color: var(--c-text); transform: translateY(-2px); }
+      .tile-title {
+        font-family: var(--font-title);
+        font-size: 1.8rem;
+        letter-spacing: 0.04em;
+        margin-bottom: 1rem;
+      }
+      .tile-big {
+        font-family: var(--font-title);
+        font-size: 3.5rem;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+      }
+      .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
+      .tile-next {
+        border-top: 1px solid var(--c-line);
+        padding-top: 1rem;
+        font-size: 0.95rem;
+      }
+      .tile-next .lab {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--c-muted);
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+      .tile-next .val { font-weight: 700; }
+      .tile-next .none { color: var(--c-muted); font-weight: 400; }
+      .state { color: var(--c-muted); padding: 1rem 0; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header>
+        <div class="brand">
+          <img src="/logo77.svg" alt="Pizzeria 77" />
+          <span>Admin</span>
+        </div>
+        <div class="user">
+          <span id="user-email"></span>
+          <button class="logout" id="logout-btn">Déconnexion</button>
+        </div>
+      </header>
+      <main>
+        <p class="today-label" id="today-label"></p>
+        <div class="state" id="state">Chargement…</div>
+        <div class="cards" id="cards" style="display:none">
+          <a class="tile" href="/admin/orders">
+            <div class="tile-title">Commandes</div>
+            <div class="tile-big" id="ord-count">0</div>
+            <div class="tile-sub" id="ord-sub">aujourd'hui</div>
+            <div class="tile-next">
+              <span class="lab">Prochain retrait</span>
+              <span class="val" id="ord-next">—</span>
+            </div>
+          </a>
+          <a class="tile" href="/admin/bookings">
+            <div class="tile-title">Réservations</div>
+            <div class="tile-big" id="res-count">0</div>
+            <div class="tile-sub" id="res-sub">aujourd'hui</div>
+            <div class="tile-next">
+              <span class="lab">Prochaine table</span>
+              <span class="val" id="res-next">—</span>
+            </div>
+          </a>
+        </div>
+      </main>
+    </div>
+
+    <AdminNav current="home" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
+      type Order = {
+        pickup_time: string;
+        customer_name: string;
+        items: Item[];
+        total_cents: number;
+        status: string;
+      };
+      type Booking = {
+        customer_name: string;
+        booking_date: string;
+        booking_time: string;
+        people: number;
+      };
+
+      function dayKey(d: Date): string {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const g = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${g}`;
+      }
+      function euro(cents: number): string {
+        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+      }
+      function oraDa(iso: string): string {
+        return new Date(iso).toLocaleTimeString("fr-BE", {
+          timeZone: "Europe/Brussels",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+      function dayKeyBrussels(iso: string): string {
+        return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const cardsEl = document.getElementById("cards") as HTMLDivElement;
+        const labelEl = document.getElementById("today-label") as HTMLParagraphElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const oggi = new Date();
+        const oggiKey = dayKey(oggi);
+        labelEl.textContent = oggi.toLocaleDateString("fr-BE", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token ?? "";
+        const headers = { Authorization: `Bearer ${token}` };
+
+        try {
+          const [resOrd, resRes] = await Promise.all([
+            fetch("/api/admin/orders", { headers }),
+            fetch("/api/admin/bookings", { headers }),
+          ]);
+          if (!resOrd.ok || !resRes.ok) {
+            stateEl.textContent = "Erreur de chargement.";
+            return;
+          }
+          const orders = ((await resOrd.json()).orders as Order[]) ?? [];
+          const bookings = ((await resRes.json()).bookings as Booking[]) ?? [];
+
+          // --- Commandes di oggi ---
+          const ordOggi = orders
+            .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+            .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+          const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
+          (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
+          (document.getElementById("ord-sub") as HTMLElement).textContent =
+            ordOggi.length > 0 ? `aujourd'hui · ${euro(ordTot)}` : "aujourd'hui";
+
+          const oraOra = new Date();
+          const prossimoOrd = ordOggi.find((o) => new Date(o.pickup_time) >= oraOra);
+          const ordNextEl = document.getElementById("ord-next") as HTMLElement;
+          if (prossimoOrd) {
+            ordNextEl.textContent = `${oraDa(prossimoOrd.pickup_time)} — ${prossimoOrd.customer_name}`;
+          } else {
+            ordNextEl.textContent = "Aucun à venir";
+            ordNextEl.classList.add("none");
+          }
+
+          // --- Réservations di oggi ---
+          const resOggi = bookings
+            .filter((b) => b.booking_date === oggiKey)
+            .sort((a, b) => (a.booking_time < b.booking_time ? -1 : 1));
+          const coperti = resOggi.reduce((s, b) => s + (b.people ?? 0), 0);
+          (document.getElementById("res-count") as HTMLElement).textContent = String(resOggi.length);
+          (document.getElementById("res-sub") as HTMLElement).textContent =
+            resOggi.length > 0 ? `aujourd'hui · ${coperti} couverts` : "aujourd'hui";
+
+          const oraHHMM = oraOra.toLocaleTimeString("fr-BE", {
+            timeZone: "Europe/Brussels",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          const prossimaRes = resOggi.find((b) => b.booking_time >= oraHHMM);
+          const resNextEl = document.getElementById("res-next") as HTMLElement;
+          if (prossimaRes) {
+            resNextEl.textContent = `${prossimaRes.booking_time} — ${prossimaRes.customer_name} (${prossimaRes.people}p)`;
+          } else {
+            resNextEl.textContent = "Aucune à venir";
+            resNextEl.classList.add("none");
+          }
+
+          stateEl.style.display = "none";
+          cardsEl.style.display = "grid";
+        } catch {
+          stateEl.textContent = "Erreur de connexion.";
+        }
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,85 @@
+import type { APIRoute } from "astro";
+import { stripe } from "../../lib/stripe";
+import { supabaseAdmin } from "../../lib/db";
+import { inviaNotifiche } from "../../lib/notifications";
+
+export const prerender = false;
+
+const WEBHOOK_SECRET = import.meta.env.STRIPE_WEBHOOK_SECRET;
+
+export const POST: APIRoute = async ({ request }) => {
+  if (!WEBHOOK_SECRET) {
+    console.error("STRIPE_WEBHOOK_SECRET mancante");
+    return new Response("Webhook non configurato", { status: 500 });
+  }
+
+  // Il corpo va letto GREZZO (raw) per verificare la firma: niente .json().
+  const payload = await request.text();
+  const signature = request.headers.get("stripe-signature");
+
+  if (!signature) {
+    return new Response("Firma mancante", { status: 400 });
+  }
+
+  // --- 1. Verifica la firma Stripe (passo 10 del brief) ---
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(payload, signature, WEBHOOK_SECRET);
+  } catch (e) {
+    console.error("Firma webhook non valida:", e);
+    return new Response("Firma non valida", { status: 400 });
+  }
+
+  // Ci interessa solo il completamento del checkout.
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const orderId = session.metadata?.order_id;
+
+    if (!orderId) {
+      console.error("Webhook senza order_id nei metadata");
+      return new Response("order_id mancante", { status: 400 });
+    }
+
+    // --- 2. Idempotenza: aggiorna SOLO se ancora 'pending' ---
+    // Se l'evento arriva due volte, la seconda non fa nulla (status già 'paid').
+    const { data: aggiornato, error } = await supabaseAdmin
+      .from("orders")
+      .update({
+        status: "paid",
+        stripe_session_id: session.id, // l'id pulito cs_test_..., non l'URL
+      })
+      .eq("id", orderId)
+      .eq("status", "pending") // <-- chiave dell'idempotenza
+      .select("id, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Errore aggiornamento ordine:", error);
+      return new Response("Errore DB", { status: 500 });
+    }
+
+    if (aggiornato) {
+        console.log(`Ordine ${orderId} confermato: pending -> paid`);
+        // Notifiche: numero ordine breve dai primi 8 caratteri dell'UUID.
+        await inviaNotifiche({
+          numero: orderId.slice(0, 8),
+          customer_name: aggiornato.customer_name,
+          customer_email: aggiornato.customer_email,
+          customer_phone: aggiornato.customer_phone,
+          pickup_time: aggiornato.pickup_time,
+          items: aggiornato.items,
+          total_cents: aggiornato.total_cents,
+          lang: aggiornato.lang === "en" ? "en" : "fr",
+        });
+      } else {
+      // Nessuna riga aggiornata: ordine già processato (evento duplicato) o inesistente.
+      console.log(`Ordine ${orderId} già processato o non trovato (idempotenza)`);
+    }
+  }
+
+  // Rispondi 200 a Stripe per confermare la ricezione.
+  return new Response(JSON.stringify({ received: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+};

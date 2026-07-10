@@ -1,0 +1,198 @@
+---
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+const IG = "https://www.instagram.com/pizzeria77waterloo/";
+const FB = "https://www.facebook.com/profile.php?id=61551793199466";
+---
+
+<footer class="ftr">
+  <!-- Blocco claim + CTA -->
+  <div class="ftr-top">
+    <div class="ftr-logo">
+      <img src="/logo77.svg" alt="Pizzeria77" width="60" height="60" />
+    </div>
+    <h2 class="ftr-claim">{t("common.claim")}</h2>
+    <div class="ftr-buttons">
+      <button type="button" class="btn btn-outline" data-open-booking>{t("nav.book")}</button>
+      <a href={getLocalizedUrl("/order", lang)} class="btn btn-solid">{t("nav.order")}</a>
+    </div>
+  </div>
+
+  <!-- Blocco info -->
+  <div class="ftr-info">
+    <div class="ftr-col">
+      <div class="ftr-label">{t("footer.find")}</div>
+      <div class="ftr-text">Chaussée de Bruxelles 77<br />1410 Waterloo</div>
+    </div>
+    <div class="ftr-col">
+      <div class="ftr-label">{t("footer.hours")}</div>
+      <div class="ftr-text">
+        {t("footer.hoursLine")}<br />
+        <span class="ftr-muted">{t("footer.hoursNote")}</span>
+      </div>
+    </div>
+    <div class="ftr-col">
+      <div class="ftr-label">{t("footer.contact")}</div>
+      <div class="ftr-text">
+        <a href="tel:+3226477777">+32 (0)2 647 77 77</a><br />
+        <a href="tel:+32477555077">+32 (0)477 55 50 77</a><br />
+        <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+      </div>
+    </div>
+    <div class="ftr-col">
+      <div class="ftr-label">{t("footer.follow")}</div>
+      <div class="ftr-social">
+        <a href={IG} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="2" y="2" width="20" height="20" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          </svg>
+        </a>
+        <a href={FB} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 9h3l.4-3H14V4.3c0-.86.24-1.45 1.47-1.45H17.5V.2C17.16.15 16.18.05 15.05.05c-2.37 0-4 1.45-4 4.1V6H8v3h3.05v8h2.95V9z" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Riga legale -->
+  <div class="ftr-legal">
+    <span>© 2026 Pizzeria77 — {t("footer.rights")}</span>
+    <span><a href={getLocalizedUrl("/privacy", lang)}>{t("footer.privacy")}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{t("footer.cookies")}</a></span>
+  </div>
+</footer>
+
+<style>
+  .ftr {
+    width: 100%;
+    border-top: 1px solid var(--c-line);
+    margin-top: 4rem;
+  }
+  .ftr-top {
+    text-align: center;
+    padding: 4rem 1.5rem 3rem;
+    border-bottom: 1px solid var(--c-line);
+    background: radial-gradient(
+      ellipse 70% 90% at center,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.06) 40%,
+      rgba(255, 255, 255, 0) 75%
+    );
+  }
+  .ftr-logo img {
+    display: block;
+    margin: 0 auto 1.5rem;
+    filter: invert(1) drop-shadow(0 0 12px rgba(255, 255, 255, 0.2));
+  }
+  .ftr-claim {
+    font-family: var(--font-title);
+    font-size: clamp(3rem, 9vw, 7rem);
+    line-height: 0.9;
+    letter-spacing: 0.03em;
+    margin: 0 0 1.75rem;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
+  }
+  .ftr-buttons { display: inline-flex; }
+
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 13px 26px;
+    border-radius: 0;
+    border: 1.5px solid var(--c-text);
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+    transition: color 0.3s ease;
+    cursor: pointer;
+  }
+  .btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .btn:hover::before { transform: scaleX(1); }
+  .btn-outline { background: var(--c-bg); color: var(--c-text); }
+  .btn-outline::before { background: var(--c-text); }
+  .btn-outline:hover { color: var(--c-bg); }
+  .btn-solid { background: var(--c-text); color: var(--c-bg); border-left: none; }
+  .btn-solid::before { background: var(--c-bg); }
+  .btn-solid:hover { color: var(--c-text); }
+
+  .ftr-info {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding: 3rem 2rem;
+  }
+  .ftr-col { flex: 1; min-width: 200px; }
+  .ftr-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--c-muted);
+    margin-bottom: 0.75rem;
+  }
+  .ftr-text { font-size: 0.95rem; line-height: 1.7; }
+  .ftr-text a { transition: opacity 0.15s; }
+  .ftr-text a:hover { opacity: 0.7; }
+  .ftr-muted { color: var(--c-muted); }
+  .ftr-social { display: flex; gap: 1rem; }
+  .ftr-social a { color: var(--c-text); transition: opacity 0.15s; }
+  .ftr-social a:hover { opacity: 0.7; }
+
+  .ftr-legal {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-top: 1px solid var(--c-line);
+    padding: 1.25rem 2rem;
+    font-size: 0.75rem;
+    color: var(--c-muted);
+  }
+  .ftr-legal a:hover { color: var(--c-text); }
+
+  @media (max-width: 700px) {
+    .ftr-info {
+      flex-direction: column;
+      gap: 2rem;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+    }
+    .ftr-col { min-width: 0; }
+    .ftr-social { justify-content: center; }
+    .ftr-legal {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.6rem;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-open-booking]").forEach((el) => {
+    el.addEventListener("click", () => {
+      window.dispatchEvent(new CustomEvent("open-booking"));
+    });
+  });
+</script>

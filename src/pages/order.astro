@@ -1,0 +1,462 @@
+---
+import Layout from "../layouts/Layout.astro";
+import OrderApp from "../components/OrderApp";
+import { getMenuOrderable } from "../lib/db";
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const tr = useTranslations(lang);
+
+// Solo piatti ordinabili in take-away (available = true AND orderable = true).
+const menu = await getMenuOrderable();
+
+// Stringhe tradotte passate all'isola React.
+const orderStrings = {
+  cartTitle: tr("order.cartTitle"),
+  cartEmpty: tr("order.cartEmpty"),
+  recap: tr("order.recap"),
+  yourInfo: tr("order.yourInfo"),
+  pickupTime: tr("order.pickupTime"),
+  notes: tr("order.notes"),
+  notesPlaceholder: tr("order.notesPlaceholder"),
+  total: tr("order.total"),
+  items: tr("order.items"),
+  toCheckout: tr("order.toCheckout"),
+  pay: tr("order.pay"),
+  paying: tr("order.paying"),
+  backToMenu: tr("order.backToMenu"),
+  seeCart: tr("order.seeCart"),
+  fillAll: tr("order.fillAll"),
+  errPayment: tr("order.errPayment"),
+  errConnection: tr("order.errConnection"),
+  supplGlutenFree: tr("order.supplGlutenFree"),
+  supplRicotta: tr("order.supplRicotta"),
+  firstName: tr("book.firstName"),
+  lastName: tr("book.lastName"),
+  phone: tr("book.phone"),
+  email: tr("book.email"),
+  ariaIncrease: tr("order.aria.increase"),
+  ariaDecrease: tr("order.aria.decrease"),
+  ariaRemove: tr("order.aria.remove"),
+  ariaAdd: tr("order.aria.add"),
+  tabEntrees: tr("order.tab.entrees"),
+  tabPizzas: tr("order.tab.pizzas"),
+  tabDesserts: tr("order.tab.desserts"),
+  tabBoissons: tr("order.tab.boissons"),
+  consentPre: tr("contact.consentPre"),
+  consentLink: tr("contact.consentLink"),
+  privacyHref: "/privacy",
+};
+---
+
+<Layout title={tr("order.title") + " — Pizzeria 77"}>
+  <section class="order-hero">
+    <img class="order-hero__bg" src="/slideshow/slide-03.webp" alt="" aria-hidden="true" />
+    <div class="order-hero__overlay" aria-hidden="true"></div>
+    <div class="order-hero__inner">
+      <p class="order-hero__claim">THIS IS PIZZERIA 77</p>
+      <h1 class="order-hero__title">{tr("order.title")}</h1>
+      <p class="order-hero__sub">{tr("order.sub")}</p>
+    </div>
+  </section>
+
+  <OrderApp menu={menu} t={orderStrings} lang={lang} client:load />
+</Layout>
+
+<style>
+  .order-hero {
+    position: relative;
+    min-height: 42vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    border-bottom: 1px solid var(--c-line);
+  }
+  .order-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+  .order-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .order-hero__inner {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    padding: 4rem 1.5rem;
+  }
+  .order-hero__claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.9rem;
+    color: var(--c-muted);
+    margin: 0 0 0.9rem;
+  }
+  .order-hero__title {
+    font-family: var(--font-title);
+    font-size: clamp(2.5rem, 8vw, 5.5rem);
+    line-height: 0.95;
+    margin: 0;
+    color: var(--c-text);
+    white-space: nowrap;
+  }
+  .order-hero__sub {
+    max-width: 520px;
+    margin: 1.1rem auto 0;
+    color: var(--c-text);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 600px) {
+    .order-hero__title { white-space: normal; }
+  }
+</style>
+
+<style is:global>
+  /* Altezza header per ancorare gli sticky (88px desktop, 72px mobile). */
+  :root { --hdr-h: 88px; }
+
+  .order-wrap { width: 100%; }
+
+  /* ---- Barra filtri full-width, sticky sotto l'header ---- */
+  .order-filterbar {
+    position: sticky;
+    top: var(--hdr-h);
+    z-index: 40;
+    width: 100%;
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-line);
+  }
+  .order-filterbar-inner {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    display: flex;
+    gap: 0.6rem;
+    padding: 1rem 1.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .order-filterbar-inner::-webkit-scrollbar { display: none; }
+  .order-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.45rem 1.1rem;
+    border: 1px solid var(--c-line);
+    background: transparent;
+    color: var(--c-muted);
+    font-family: var(--font-title);
+    font-size: 1.2rem;
+    letter-spacing: 0.05em;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .order-tab.is-active {
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
+  }
+
+  /* ---- Layout due colonne: menu lungo + carrello ---- */
+  .order-app {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 2.5rem;
+    align-items: start;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem;
+  }
+
+  /* ---- Sezioni del menu ---- */
+  .order-sec {
+    scroll-margin-top: calc(var(--hdr-h) + 70px);
+    margin-bottom: 3.5rem;
+  }
+  .order-sec-title {
+    font-family: var(--font-title);
+    font-size: clamp(2rem, 5vw, 3rem);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    margin: 0 0 1.5rem;
+    color: var(--c-text);
+  }
+
+  .order-items { display: flex; flex-direction: column; }
+  .order-item {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1.3rem 0;
+    border-bottom: 1px solid var(--c-line);
+  }
+  .order-item-info { flex: 1; }
+  .order-item-name {
+    font-family: var(--font-title);
+    font-size: 1.45rem;
+    letter-spacing: 0.02em;
+    margin: 0 0 0.3rem;
+    color: var(--c-text);
+  }
+  .order-item-desc { margin: 0 0 0.4rem; font-size: 0.92rem; color: var(--c-muted); line-height: 1.45; }
+  .order-item-price { margin: 0; font-family: var(--font-title); font-size: 1.3rem; color: var(--c-text); }
+  .order-item-add {
+    flex: 0 0 auto;
+    width: 44px; height: 44px;
+    border: none;
+    background: var(--c-text);
+    color: var(--c-bg);
+    font-family: var(--font-title);
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 0;
+    transition: opacity 0.2s ease;
+  }
+  .order-item-add:hover { opacity: 0.85; }
+
+  /* ---- Carrello laterale ---- */
+  .order-cart {
+    position: sticky;
+    top: calc(var(--hdr-h) + 80px);
+    border: 1px solid var(--c-text);
+    padding: 1.5rem;
+  }
+  .order-cart-title {
+    font-family: var(--font-title);
+    font-size: 1.7rem;
+    letter-spacing: 0.03em;
+    margin: 0 0 1.3rem;
+    color: var(--c-text);
+  }
+  .order-cart-empty { color: var(--c-muted); }
+  .order-cart-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
+  .order-cart-line { border-bottom: 1px solid var(--c-line); padding-bottom: 1rem; }
+  .order-cart-line-top { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 0.5rem; color: var(--c-text); }
+  .order-cart-line-controls { display: flex; align-items: center; gap: 0.5rem; }
+  .order-cart-line-controls button {
+    width: 30px; height: 30px;
+    border: 1px solid var(--c-text);
+    background: transparent;
+    color: var(--c-text);
+    cursor: pointer;
+    font-size: 1.1rem;
+    border-radius: 0;
+  }
+  .order-cart-qty { min-width: 22px; text-align: center; color: var(--c-text); }
+  .order-cart-remove { margin-left: auto; border: none !important; color: var(--c-muted) !important; font-size: 1.2rem; }
+  .order-cart-notes {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.7rem;
+    background: transparent;
+    border: 1px solid var(--c-line);
+    color: var(--c-text);
+    font-size: 0.85rem;
+    border-radius: 0;
+  }
+  .order-cart-notes::placeholder { color: var(--c-muted); }
+  .order-cart-total {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 1.2rem 0;
+    font-family: var(--font-title);
+    font-size: 1.3rem;
+    letter-spacing: 0.03em;
+    color: var(--c-text);
+  }
+  .order-cart-total strong { font-size: 1.6rem; }
+  .order-cart-checkout {
+    width: 100%;
+    padding: 0.85rem;
+    background: var(--c-text);
+    color: var(--c-bg);
+    border: 1px solid var(--c-text);
+    font-family: var(--font-title);
+    font-size: 1.3rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .order-cart-checkout:hover:not(:disabled) { background: transparent; color: var(--c-text); }
+  .order-cart-checkout:disabled { opacity: 0.5; cursor: not-allowed; }
+  .order-cart-note { font-size: 0.78rem; color: var(--c-muted); text-align: center; margin: 0.6rem 0 0; }
+  .order-cart-error { color: #ff6b6b; font-size: 0.85rem; margin: 0.6rem 0 0; }
+
+  /* ---- Supplementi pizza (toggle inline) ---- */
+  .order-suppl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+  }
+  .order-suppl-opt {
+    border: 1px solid var(--c-line);
+    background: transparent;
+    color: var(--c-muted);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .order-suppl-opt:hover { border-color: var(--c-text); color: var(--c-text); }
+  .order-suppl-opt.is-on {
+    background: var(--c-text);
+    color: var(--c-bg);
+    border-color: var(--c-text);
+  }
+
+  /* ---- Nota ordine (checkout) ---- */
+  .order-note { margin-top: 2rem; }
+  .order-note-field {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 1px solid var(--c-text);
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 0.85rem 1rem;
+    border-radius: 0;
+    resize: vertical;
+  }
+  .order-note-field::placeholder { color: var(--c-muted); }
+  .order-note-field:focus { outline: none; box-shadow: 0 0 0 1px var(--c-text); }
+
+  /* ---- Checkout ---- */
+  .order-back {
+    background: none; border: none; color: var(--c-muted);
+    cursor: pointer; font-size: 0.95rem; padding: 0; margin-bottom: 1.2rem;
+  }
+  .order-back:hover { color: var(--c-text); }
+  .order-section-title {
+    font-family: var(--font-title);
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
+    margin: 0 0 1.5rem;
+    color: var(--c-text);
+  }
+  .order-field-label {
+    display: block;
+    font-family: var(--font-title);
+    font-size: 1.1rem;
+    letter-spacing: 0.03em;
+    color: var(--c-text);
+    margin: 0 0 0.6rem;
+  }
+  .order-form { display: flex; flex-direction: column; gap: 0.8rem; margin: 1.3rem 0; }
+  .order-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 1px solid var(--c-text);
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0;
+  }
+  .order-input::placeholder { color: var(--c-muted); }
+  .order-input:focus { outline: none; box-shadow: 0 0 0 1px var(--c-text); }
+  .order-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin: 0 0 1rem;
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    cursor: pointer;
+  }
+  .order-consent input {
+    width: 18px; height: 18px; margin: 0.15rem 0 0;
+    flex-shrink: 0; accent-color: var(--c-text); cursor: pointer;
+  }
+  .order-consent a { color: var(--c-text); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* ---- SlotPicker ---- */
+  .slotpicker { margin-bottom: 0.5rem; }
+  .slotpicker-fascia { margin-bottom: 1.2rem; }
+  .slotpicker-titolo {
+    font-family: var(--font-title);
+    font-size: 1.1rem;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.6rem;
+    color: var(--c-text);
+  }
+  .slotpicker-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .slotpicker-btn {
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--c-text);
+    background: transparent;
+    color: var(--c-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .slotpicker-btn.is-selected { background: var(--c-text); color: var(--c-bg); }
+  .slotpicker-msg { color: var(--c-muted); font-size: 0.9rem; }
+
+  /* ---- Barra carrello flottante mobile (nascosta su desktop) ---- */
+  .order-mobcart { display: none; }
+
+  /* ---- Mobile ---- */
+  @media (max-width: 900px) {
+    :root { --hdr-h: 72px; }
+    .order-app { grid-template-columns: 1fr; }
+
+    /* Su mobile il carrello laterale (vista menu) sparisce: si usa la barra flottante.
+       MA il blocco del checkout (slot + dati) deve restare visibile. */
+    .order-cart { display: none; }
+    .order-cart--checkout { display: block; }
+
+    .order-mobcart {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: fixed;
+      left: 13px;
+      right: 13px;
+      bottom: 74px; /* 14px (bottom bar) + 60px (sua altezza) */
+      z-index: 100;
+      padding: 0.9rem 1.1rem;
+      background: #e11d2a;
+      color: #fff;
+      border: none;
+      border-radius: 0;
+      cursor: pointer;
+      font-family: var(--font-title);
+      letter-spacing: 0.03em;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+    .order-mobcart-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      height: 28px;
+      padding: 0 0.4rem;
+      background: #fff;
+      color: #e11d2a;
+      font-size: 1rem;
+    }
+    .order-mobcart-label { font-size: 1.2rem; }
+    .order-mobcart-total { margin-left: auto; font-size: 1.3rem; }
+    .order-mobcart-arrow { font-size: 1.2rem; }
+  }
+</style>

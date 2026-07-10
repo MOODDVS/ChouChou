@@ -1,0 +1,182 @@
+---
+// Pagina di login dello staff.
+// Standalone: NON usa Layout.astro (niente header/footer/nav del sito pubblico).
+// La logica di autenticazione gira nel browser tramite supabaseBrowser.
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin — Pizzeria 77</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style>
+      :root {
+        --c-bg: #000000;
+        --c-text: #ffffff;
+        --c-muted: #b3b3b3;
+        --c-line: #2a2a2a;
+        --c-error: #ff6b6b;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--c-bg);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .box {
+        width: 100%;
+        max-width: 360px;
+      }
+      .logo {
+        display: block;
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 1.5rem;
+        filter: invert(1);
+      }
+      h1 {
+        font-family: var(--font-title);
+        font-size: 2rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        text-align: center;
+        margin-bottom: 0.25rem;
+      }
+      .subtitle {
+        text-align: center;
+        color: var(--c-muted);
+        font-size: 0.85rem;
+        margin-bottom: 2rem;
+      }
+      label {
+        display: block;
+        font-size: 0.8rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--c-muted);
+        margin-bottom: 0.4rem;
+      }
+      input {
+        width: 100%;
+        background: #111;
+        border: 1px solid var(--c-line);
+        color: var(--c-text);
+        font-family: var(--font-body);
+        font-size: 1rem;
+        padding: 0.75rem 0.9rem;
+        margin-bottom: 1.2rem;
+      }
+      input:focus {
+        outline: none;
+        border-color: var(--c-text);
+      }
+      button {
+        width: 100%;
+        background: var(--c-text);
+        color: var(--c-bg);
+        border: none;
+        font-family: var(--font-title);
+        font-size: 1.2rem;
+        letter-spacing: 0.05em;
+        padding: 0.7rem;
+        cursor: pointer;
+        transition: opacity 0.2s;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .error {
+        color: var(--c-error);
+        font-size: 0.85rem;
+        text-align: center;
+        margin-bottom: 1rem;
+        min-height: 1.2rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <img class="logo" src="/logo77.svg" alt="Pizzeria 77" />
+      <h1>Espace Staff</h1>
+      <p class="subtitle">Pizzeria 77 — Administration</p>
+
+      <div class="error" id="error"></div>
+
+      <form id="login-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="username" required />
+
+        <label for="password">Mot de passe</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          autocomplete="current-password"
+          required
+        />
+
+        <button type="submit" id="submit-btn">Se connecter</button>
+      </form>
+    </div>
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      const form = document.getElementById("login-form") as HTMLFormElement;
+      const errorEl = document.getElementById("error") as HTMLDivElement;
+      const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+
+      // Se l'utente è GIÀ loggato, mandalo direttamente al pannello.
+      supabaseBrowser.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          window.location.href = "/admin";
+        }
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+        btn.disabled = true;
+        btn.textContent = "Connexion...";
+
+        const email = (document.getElementById("email") as HTMLInputElement).value.trim();
+        const password = (document.getElementById("password") as HTMLInputElement).value;
+
+        const { error } = await supabaseBrowser.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          errorEl.textContent = "Email ou mot de passe incorrect.";
+          btn.disabled = false;
+          btn.textContent = "Se connecter";
+          return;
+        }
+
+        // Login riuscito → vai al pannello.
+        window.location.href = "/admin";
+      });
+    </script>
+  </body>
+</html>

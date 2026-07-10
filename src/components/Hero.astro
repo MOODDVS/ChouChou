@@ -1,0 +1,117 @@
+---
+// Hero a tutto schermo: foto + overlay, intro animata (THIS / IS / PIZZERIA -> logo).
+// L'intro completa parte solo alla prima visita della sessione; poi mostra subito il logo.
+---
+
+<section class="hero" id="hero">
+  <picture class="hero-bg">
+    <source media="(max-width: 900px)" srcset="/hero-pizza-tablet-mobile.webp" width="755" height="1189" />
+    <img src="/hero-pizza-desktop.webp" alt="" width="1920" height="1189" fetchpriority="high" loading="eager" decoding="async" />
+  </picture>
+  <div class="hero-overlay"></div>
+
+  <div class="hero-center" id="hero-center">
+    <span class="word w1">THIS</span>
+    <span class="word w2">IS</span>
+    <span class="word w3">PIZZERIA</span>
+    <svg class="logo-svg" viewBox="0 0 158.41 158.41" aria-label="Pizzeria77">
+      <path class="lp" d="M81.08,44.44l-2.57,5.44-33.42,66.9h-3.8l28.58-65.3v-.19h-29.83v-6.85h41.03Z"/>
+      <path class="lp" d="M127.09,44.44l-2.57,5.44-33.42,66.9h-3.8l28.58-65.3v-.19h-29.83v-6.85h41.03Z"/>
+      <path class="lp" d="M79.37,158.41c-4.18,0-8.4-.33-12.61-1-20.9-3.32-39.26-14.58-51.69-31.71C-10.58,90.35-2.69,40.72,32.67,15.07,68.03-10.58,117.67-2.69,143.33,32.66h0c25.66,35.35,17.77,84.98-17.59,110.63-13.68,9.92-29.79,15.12-46.37,15.12ZM79.11,6.65c-14.78,0-29.68,4.49-42.53,13.81-15.69,11.38-26.01,28.19-29.05,47.33-3.04,19.14,1.55,38.32,12.94,54.01,11.39,15.69,28.2,26,47.35,29.04,19.15,3.05,38.33-1.55,54.02-12.93,32.39-23.5,39.62-68.96,16.12-101.34h0c-14.18-19.54-36.36-29.92-58.84-29.92Z"/>
+    </svg>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .hero-bg, .hero-bg img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .hero-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .word {
+    position: absolute;
+    font-family: var(--font-title);
+    font-size: clamp(60px, 12vw, 150px);
+    color: #fff;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    text-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  .logo-svg {
+    /* +25% rispetto a clamp(140px, 18vw, 220px) */
+    width: clamp(175px, 22.5vw, 275px);
+    height: clamp(175px, 22.5vw, 275px);
+    opacity: 0;
+  }
+  .lp { fill: #fff; }
+
+  /* ===== Intro completa (prima visita) ===== */
+  .hero.intro .w1 { animation: flash 0.9s ease-in-out 0.3s; }
+  .hero.intro .w2 { animation: flash 0.9s ease-in-out 1.1s; }
+  .hero.intro .w3 { animation: flash 0.9s ease-in-out 1.9s; }
+  .hero.intro .logo-svg { animation: logoappear 0.3s ease-out 3.0s forwards; }
+  .hero.intro .lp {
+    fill: transparent;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-dasharray: 700;
+    stroke-dashoffset: 700;
+    animation: draw 1.5s ease-out 3.0s forwards, fillin 0.6s ease-out 4.4s forwards;
+  }
+
+  /* ===== Visite successive: logo subito visibile, niente parole ===== */
+  .hero.direct .word { display: none; }
+  .hero.direct .logo-svg { opacity: 1; }
+  .hero.direct .lp { fill: #fff; }
+
+  @keyframes flash {
+    0% { opacity: 0; transform: scale(0.94); }
+    40% { opacity: 1; transform: scale(1); }
+    70% { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.02); }
+  }
+  @keyframes logoappear { to { opacity: 1; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fillin { to { fill: #fff; stroke-width: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .word { display: none; }
+    .logo-svg { opacity: 1; animation: none; }
+    .lp { fill: #fff; stroke-width: 0; }
+  }
+</style>
+
+<script>
+  // Prima visita della sessione -> intro completa. Poi -> logo diretto.
+  const hero = document.getElementById("hero");
+  if (hero) {
+    const visto = sessionStorage.getItem("hero-intro-visto");
+    if (visto) {
+      hero.classList.add("direct");
+    } else {
+      hero.classList.add("intro");
+      sessionStorage.setItem("hero-intro-visto", "1");
+    }
+  }
+</script>

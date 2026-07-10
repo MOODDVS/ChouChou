@@ -1,0 +1,384 @@
+---
+import Layout from "../layouts/Layout.astro";
+import ContactForm from "../components/ContactForm.tsx";
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const tr = useTranslations(lang);
+
+// Oggetto label passato all'isola React (già tradotto lato server).
+const formLabels = {
+  name: tr("contact.name"),
+  email: tr("contact.email"),
+  phone: tr("contact.phone"),
+  subject: tr("contact.subject"),
+  message: tr("contact.message"),
+  send: tr("contact.send"),
+  sending: tr("contact.sending"),
+  successTitle: tr("contact.success"),
+  error: tr("contact.error"),
+  consentPre: tr("contact.consentPre"),
+  consentLink: tr("contact.consentLink"),
+  privacyHref: "/privacy",
+};
+---
+
+<Layout title={tr("nav.contact") + " — Pizzeria 77"}>
+  <section class="ct-head">
+    <div class="ct-head__inner">
+      <p class="ct-head__claim">THIS IS PIZZERIA 77</p>
+      <h1 class="ct-head__title">{tr("contact.heroTitle")}</h1>
+    </div>
+  </section>
+
+  <div class="ct-wrap">
+    <div class="ct-grid">
+      <div class="ct-info">
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.address")}</h2>
+          <p>Chaussée de Bruxelles 77<br />1410 Waterloo, Belgique</p>
+        </div>
+
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.hours")}</h2>
+          <p>{tr("contact.hoursValue")}</p>
+          <p class="ct-muted">{tr("contact.hoursNote")}</p>
+        </div>
+
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.phone2")}</h2>
+          <p><a href="tel:+3226477777">+32 (0)2 647 77 77</a></p>
+          <p><a href="tel:+32477555077">+32 (0)477 55 50 77</a></p>
+        </div>
+
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.emailLabel")}</h2>
+          <p><a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a></p>
+        </div>
+
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.services")}</h2>
+          <p>{tr("contact.servicesValue")}</p>
+        </div>
+
+        <div class="ct-block">
+          <h2 class="ct-block__title">{tr("contact.follow")}</h2>
+          <p class="ct-social">
+            <a href="https://www.instagram.com/pizzeria77waterloo/" target="_blank" rel="noopener">Instagram</a>
+            <a href="https://www.facebook.com/profile.php?id=61551793199466" target="_blank" rel="noopener">Facebook</a>
+          </p>
+        </div>
+      </div>
+
+      <div class="ct-formwrap">
+        <h2 class="ct-block__title">{tr("contact.formTitle")}</h2>
+        <ContactForm t={formLabels} lang={lang} client:load />
+      </div>
+    </div>
+  </div>
+
+  {/* Mappa Google Maps caricata SOLO con consenso cookie (GDPR). */}
+  <section class="ct-map" id="ct-map" data-map-src="https://www.google.com/maps?q=Chauss%C3%A9e+de+Bruxelles+77,+1410+Waterloo&output=embed" data-map-title={tr("contact.mapTitle")}>
+    <div class="ct-map__placeholder" id="ct-map-placeholder">
+      <p class="ct-map__text">Cette carte utilise Google Maps, qui peut déposer des cookies tiers. Chargez-la uniquement si vous acceptez.</p>
+      <button type="button" class="ct-map__btn" id="ct-map-load">Charger la carte</button>
+    </div>
+  </section>
+
+  <script is:inline>
+    (function () {
+      var KEY = "p77-cookie-consent";
+      var sec = document.getElementById("ct-map");
+      var placeholder = document.getElementById("ct-map-placeholder");
+      var btn = document.getElementById("ct-map-load");
+      if (!sec) return;
+
+      function caricaMappa() {
+        if (sec.querySelector("iframe")) return; // già caricata
+        var iframe = document.createElement("iframe");
+        iframe.title = sec.getAttribute("data-map-title") || "Map";
+        iframe.src = sec.getAttribute("data-map-src");
+        iframe.width = "100%";
+        iframe.height = "100%";
+        iframe.style.border = "0";
+        iframe.loading = "lazy";
+        iframe.referrerPolicy = "no-referrer-when-downgrade";
+        if (placeholder) placeholder.remove();
+        sec.appendChild(iframe);
+      }
+
+      function consenso() {
+        try { return window.localStorage.getItem(KEY); } catch (e) { return null; }
+      }
+
+      // Se l'utente ha già accettato in passato, carica subito.
+      if (consenso() === "accepted") {
+        caricaMappa();
+      }
+
+      // Bottone "carica mappa": carica E registra il consenso.
+      if (btn) {
+        btn.addEventListener("click", function () {
+          try { window.localStorage.setItem(KEY, "accepted"); } catch (e) {}
+          caricaMappa();
+          window.dispatchEvent(new CustomEvent("cookie-consent-changed", { detail: { consent: "accepted" } }));
+        });
+      }
+
+      // Se l'utente accetta dal banner globale, carica la mappa.
+      window.addEventListener("cookie-consent-changed", function (e) {
+        if (e.detail && e.detail.consent === "accepted") caricaMappa();
+      });
+    })();
+  </script>
+</Layout>
+
+<style>
+  /* ---------- TESTATA ---------- */
+  .ct-head {
+    text-align: center;
+    padding: 5rem 1.5rem 3rem;
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  .ct-head__claim {
+    font-family: var(--font-title);
+    letter-spacing: 0.35em;
+    font-size: 0.9rem;
+    color: var(--c-muted);
+    margin: 0 0 0.9rem;
+  }
+
+  .ct-head__title {
+    font-family: var(--font-title);
+    font-size: clamp(3.25rem, 10vw, 6rem);
+    line-height: 0.92;
+    margin: 0;
+    color: var(--c-text);
+  }
+
+  /* ---------- CORPO ---------- */
+  .ct-wrap {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 4rem 1.5rem 4rem;
+  }
+
+  .ct-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 4rem;
+  }
+
+  .ct-block {
+    margin-bottom: 2rem;
+  }
+
+  .ct-block__title {
+    font-family: var(--font-title);
+    font-size: 1.6rem;
+    letter-spacing: 0.02em;
+    margin: 0 0 0.6rem;
+    color: var(--c-text);
+  }
+
+  .ct-info p {
+    margin: 0 0 0.25rem;
+    color: var(--c-text);
+    line-height: 1.5;
+  }
+
+  .ct-muted {
+    color: var(--c-muted) !important;
+    font-size: 0.92rem;
+  }
+
+  .ct-info a {
+    color: var(--c-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--c-line);
+    transition: border-color 0.2s ease;
+  }
+
+  .ct-info a:hover {
+    border-color: var(--c-text);
+  }
+
+  .ct-social {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  /* ---------- MAPPA ---------- */
+  .ct-map {
+    width: 100%;
+    height: 420px;
+    border-top: 1px solid var(--c-line);
+  }
+
+  .ct-map iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .ct-map__placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    text-align: center;
+    background: #0d0d0d;
+  }
+  .ct-map__text {
+    margin: 0;
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    max-width: 420px;
+    line-height: 1.5;
+  }
+  .ct-map__btn {
+    font-family: var(--font-title);
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    padding: 0.6rem 1.8rem;
+    background: var(--c-text);
+    color: var(--c-bg);
+    border: 1px solid var(--c-text);
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .ct-map__btn:hover {
+    background: transparent;
+    color: var(--c-text);
+  }
+
+  @media (max-width: 800px) {
+    .ct-grid {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+  }
+</style>
+
+<style is:global>
+  /* ---------- FORM (globale: gli elementi vivono dentro l'isola React) ---------- */
+  .cf {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cf-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .cf-input,
+  .cf-textarea {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--c-text);
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0;
+    box-sizing: border-box;
+  }
+
+  .cf-input:focus,
+  .cf-textarea:focus {
+    outline: none;
+    border-color: var(--c-text);
+    box-shadow: 0 0 0 1px var(--c-text);
+  }
+
+  .cf-input::placeholder,
+  .cf-textarea::placeholder {
+    color: var(--c-muted);
+  }
+
+  .cf-textarea {
+    resize: vertical;
+  }
+
+  .cf-btn {
+    align-self: flex-start;
+    background: var(--c-text);
+    color: var(--c-bg);
+    border: 1px solid var(--c-text);
+    font-family: var(--font-title);
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    padding: 0.7rem 2.2rem;
+    border-radius: 0;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .cf-btn:hover:not(:disabled) {
+    background: transparent;
+    color: var(--c-text);
+  }
+
+  .cf-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .cf-error {
+    color: #ff6b6b;
+    font-size: 0.92rem;
+    margin: 0;
+  }
+
+  .cf-success {
+    border: 1px solid var(--c-text);
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .cf-success p {
+    margin: 0;
+    color: var(--c-text);
+    font-size: 1.1rem;
+  }
+
+  .cf-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    color: var(--c-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    cursor: pointer;
+  }
+
+  .cf-consent__box {
+    width: 18px;
+    height: 18px;
+    margin: 0.15rem 0 0;
+    flex-shrink: 0;
+    accent-color: var(--c-text);
+    cursor: pointer;
+  }
+
+  .cf-consent a {
+    color: var(--c-text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  @media (max-width: 800px) {
+    .cf-row {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

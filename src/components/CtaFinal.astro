@@ -1,0 +1,159 @@
+---
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+---
+
+<section class="cta" id="cta">
+  <a href={getLocalizedUrl("/menu", lang)} class="cta-block">
+    <div class="cta-media">
+      <img src="/cta-menu-photo.webp" alt="" />
+      <div class="cta-media-overlay"></div>
+    </div>
+    <div class="cta-body">
+      <h3 class="cta-title">{t("cta.menuTitle")}</h3>
+      <p class="cta-desc">{t("cta.menuDesc")}</p>
+      <span class="btn btn-solid">{t("cta.menuBtn")}</span>
+    </div>
+  </a>
+
+  <button type="button" class="cta-block cta-book" data-open-booking>
+    <div class="cta-media">
+      <img src="/cta-book-photo.webp" alt="" />
+      <div class="cta-media-overlay"></div>
+    </div>
+    <div class="cta-body">
+      <h3 class="cta-title">{t("cta.bookTitle")}</h3>
+      <p class="cta-desc">{t("cta.bookDesc")}</p>
+      <span class="btn btn-outline">{t("cta.bookBtn")}</span>
+    </div>
+  </button>
+</section>
+
+<style>
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+  .cta-block {
+    flex: 1;
+    min-width: 280px;
+    text-align: center;
+    color: var(--c-text);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  .cta-book {
+    font: inherit;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+  }
+  .cta-media {
+    position: relative;
+    height: 260px;
+    overflow: hidden;
+  }
+  .cta-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s ease;
+  }
+  .cta-media-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    transition: background 0.4s ease;
+  }
+  .cta-block:hover .cta-media img { transform: scale(1.06); }
+  .cta-block:hover .cta-media-overlay { background: rgba(0, 0, 0, 0.2); }
+
+  .cta-body { padding: 1.75rem 1.25rem; }
+  .cta-title {
+    font-family: var(--font-title);
+    font-size: clamp(2.4rem, 4vw, 3rem);
+    letter-spacing: 0.02em;
+    margin: 0 0 0.5rem;
+  }
+  .cta-desc {
+    color: var(--c-muted);
+    font-size: 0.95rem;
+    margin: 0 0 1.5rem;
+  }
+
+  .btn {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 13px 28px;
+    border-radius: 0;
+    border: 1.5px solid var(--c-text);
+    position: relative;
+    overflow: hidden;
+    z-index: 0;
+    display: inline-block;
+    transition: color 0.3s ease;
+  }
+  .btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .cta-block:hover .btn::before { transform: scaleX(1); }
+  .btn-solid { background: var(--c-text); color: var(--c-bg); }
+  .btn-solid::before { background: var(--c-bg); }
+  .cta-block:hover .btn-solid { color: var(--c-text); }
+  .btn-outline { background: transparent; color: var(--c-text); }
+  .btn-outline::before { background: var(--c-text); }
+  .cta-block:hover .btn-outline { color: var(--c-bg); }
+
+  .cta.visible .cta-block { animation: slideup 0.7s ease-out forwards; }
+  .cta.visible .cta-block:nth-child(1) { animation-delay: 0.1s; }
+  .cta.visible .cta-block:nth-child(2) { animation-delay: 0.25s; }
+
+  @keyframes slideup { to { opacity: 1; transform: translateY(0); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cta-block { opacity: 1 !important; transform: none !important; animation: none !important; }
+  }
+</style>
+
+<script>
+  const cta = document.getElementById("cta");
+  if (cta) {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            cta.classList.add("visible");
+            obs.unobserve(cta);
+          }
+        });
+      },
+      { threshold: 0.25 }
+    );
+    obs.observe(cta);
+  }
+
+  document.querySelectorAll("[data-open-booking]").forEach((el) => {
+    el.addEventListener("click", () => {
+      window.dispatchEvent(new CustomEvent("open-booking"));
+    });
+  });
+</script>

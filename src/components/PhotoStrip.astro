@@ -1,0 +1,122 @@
+---
+import { getLangFromUrl, useTranslations } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const t = useTranslations(lang);
+
+// Ogni slide con le sue dimensioni reali (servono a Safari per calcolare
+// la larghezza del nastro PRIMA che le immagini carichino → niente collasso).
+const slides = [
+  { src: "/slideshow/slide-01.webp", w: 954, h: 760 },
+  { src: "/slideshow/slide-02.webp", w: 1191, h: 760 },
+  { src: "/slideshow/slide-03.webp", w: 1120, h: 760 },
+  { src: "/slideshow/slide-04.webp", w: 569, h: 760 },
+  { src: "/slideshow/slide-05.webp", w: 577, h: 760 },
+  { src: "/slideshow/slide-06.webp", w: 1294, h: 1724 },
+  { src: "/slideshow/slide-07.webp", w: 607, h: 760 },
+  { src: "/slideshow/slide-08.webp", w: 1059, h: 760 },
+  { src: "/slideshow/slide-09.webp", w: 986, h: 760 },
+  { src: "/slideshow/slide-10.webp", w: 957, h: 760 },
+]
+
+const loop = [...slides, ...slides];
+---
+
+<section class="strip" aria-label="Galerie Pizzeria 77">
+  <div class="strip-intro">
+    <h2 class="strip-title">{t("strip.title")}</h2>
+    <p class="strip-text">{t("strip.text")}</p>
+  </div>
+
+  <div class="strip-viewport">
+    <div class="strip-track">
+      {loop.map((s) => (
+        <div class="strip-cell" style={`aspect-ratio: ${s.w} / ${s.h};`}>
+          <img src={s.src} alt="" width={s.w} height={s.h} loading="eager" decoding="async" />
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .strip {
+    width: 100%;
+    overflow: hidden;
+    background: var(--c-bg);
+    padding-top: 6rem;
+    padding-bottom: 7rem;
+  }
+
+  .strip-intro {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 2rem 1.5rem 2.5rem;
+    text-align: center;
+  }
+
+  .strip-title {
+    font-family: var(--font-title);
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    line-height: 1;
+    letter-spacing: 0.02em;
+    margin: 0 0 1rem;
+    color: var(--c-text);
+  }
+
+  .strip-text {
+    max-width: 620px;
+    margin: 0 auto;
+    color: var(--c-muted);
+    font-size: 1.05rem;
+    line-height: 1.6;
+  }
+
+  /* viewport: nasconde l'overflow; il track scorre dentro */
+  .strip-viewport {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .strip-track {
+    display: flex;
+    gap: 14px;
+    padding: 0 7px;
+    width: max-content;
+    animation: strip-scroll 60s linear infinite;
+    will-change: transform;
+  }
+
+  .strip-cell {
+    flex: 0 0 auto;
+    height: 360px;
+    /* la larghezza è derivata dall'aspect-ratio inline (proporzioni reali) */
+  }
+
+  .strip-cell img {
+    display: block;
+    height: 360px;
+    width: auto;
+    object-fit: cover;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  @keyframes strip-scroll {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-50%, 0, 0); }
+  }
+
+  @media (max-width: 700px) {
+    .strip-cell, .strip-cell img { height: 240px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .strip-track {
+      animation: none;
+    }
+    .strip-viewport {
+      overflow-x: auto;
+    }
+  }
+</style>
