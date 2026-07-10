@@ -16,7 +16,6 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
     </div>
     <h2 class="ftr-claim">{t("common.claim")}</h2>
     <div class="ftr-buttons">
-      <button type="button" class="btn btn-outline" data-open-booking>{t("nav.book")}</button>
       <a href={getLocalizedUrl("/order", lang)} class="btn btn-solid">{t("nav.order")}</a>
     </div>
   </div>
@@ -189,10 +188,3 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
   }
 </style>
 
-<script>
-  document.querySelectorAll("[data-open-booking]").forEach((el) => {
-    el.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("open-booking"));
-    });
-  });
-</script>

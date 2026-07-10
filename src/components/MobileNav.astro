@@ -57,7 +57,6 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
 <!-- Bottom bar fissa -->
 <div class="mnav-bar">
   <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">{t("nav.order")}</a>
-  <button type="button" class="mnav-act mnav-act-outline" data-open-booking>{t("nav.book")}</button>
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
       <span></span><span></span><span></span>
@@ -243,10 +242,4 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
     });
   }
 
-  document.querySelectorAll("[data-open-booking]").forEach((el) => {
-    el.addEventListener("click", () => {
-      chiudiPannello();
-      window.dispatchEvent(new CustomEvent("open-booking"));
-    });
-  });
 </script>

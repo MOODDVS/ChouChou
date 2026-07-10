@@ -9,15 +9,6 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
   );
 }
 
-// --- DIAGNOSTICA TEMPORANEA (rimuovere dopo aver risolto la connessione) ---
-// Stampa, all'avvio del server, l'URL usato e il PREFISSO della service key
-// (solo i primi 11 caratteri: rivela sb_secret_ vs sb_publishable_, non il segreto).
-console.log("[db] SUPABASE_URL =", JSON.stringify(SUPABASE_URL));
-console.log(
-  "[db] SERVICE_KEY prefix =",
-  String(SUPABASE_SERVICE_KEY).slice(0, 11)
-);
-
 export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: {
     persistSession: false,
@@ -97,8 +88,6 @@ export async function getMenu(): Promise<MenuCategoria[]> {
     .order("sort_order", { ascending: true });
 
   if (error || !data) {
-    // DIAGNOSTICA TEMPORANEA: stampa l'errore Supabase reale.
-    console.error("[getMenu] Supabase error:", JSON.stringify(error));
     throw new Error("Impossibile leggere il menu da Supabase");
   }
   return raggruppa(data);
@@ -118,8 +107,6 @@ export async function getMenuOrderable(): Promise<MenuCategoria[]> {
     .order("sort_order", { ascending: true });
 
   if (error || !data) {
-    // DIAGNOSTICA TEMPORANEA: stampa l'errore Supabase reale.
-    console.error("[getMenuOrderable] Supabase error:", JSON.stringify(error));
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
   return raggruppa(data);

@@ -3,7 +3,7 @@
 // Stile: pillola "liquid glass", ogni voce con icona sopra e label piccola sotto.
 // Visibile su tutti i dispositivi (fissa in basso, centrata).
 interface Props {
-  current?: "home" | "orders" | "bookings";
+  current?: "home" | "orders";
 }
 const { current } = Astro.props;
 ---
@@ -23,14 +23,6 @@ const { current } = Astro.props;
       <path d="M9 10a3 3 0 0 0 6 0" />
     </svg>
     <span>Commandes</span>
-  </a>
-  <a href="/admin/bookings" class={current === "bookings" ? "active" : ""} aria-label="Réservations">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3" y="5" width="18" height="16" rx="1" />
-      <path d="M3 9h18" />
-      <path d="M8 3v4M16 3v4" />
-    </svg>
-    <span>Réservations</span>
   </a>
 </nav>
 

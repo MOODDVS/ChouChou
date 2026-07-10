@@ -42,7 +42,6 @@ function isActive(path: string): boolean {
       </nav>
 
       <div class="hdr-buttons">
-        <button type="button" class="btn btn-outline" data-open-booking>{t("nav.book")}</button>
         <a href={getLocalizedUrl("/order", lang)} class="btn btn-solid">{t("nav.order")}</a>
       </div>
 
@@ -191,9 +190,4 @@ function isActive(path: string): boolean {
     onScroll();
   }
 
-  document.querySelectorAll("[data-open-booking]").forEach((el) => {
-    el.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("open-booking"));
-    });
-  });
 </script>

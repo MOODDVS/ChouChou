@@ -142,15 +142,6 @@ import AdminNav from "../../components/AdminNav.astro";
               <span class="val" id="ord-next">—</span>
             </div>
           </a>
-          <a class="tile" href="/admin/bookings">
-            <div class="tile-title">Réservations</div>
-            <div class="tile-big" id="res-count">0</div>
-            <div class="tile-sub" id="res-sub">aujourd'hui</div>
-            <div class="tile-next">
-              <span class="lab">Prochaine table</span>
-              <span class="val" id="res-next">—</span>
-            </div>
-          </a>
         </div>
       </main>
     </div>
@@ -167,12 +158,6 @@ import AdminNav from "../../components/AdminNav.astro";
         items: Item[];
         total_cents: number;
         status: string;
-      };
-      type Booking = {
-        customer_name: string;
-        booking_date: string;
-        booking_time: string;
-        people: number;
       };
 
       function dayKey(d: Date): string {
@@ -230,16 +215,12 @@ import AdminNav from "../../components/AdminNav.astro";
         const headers = { Authorization: `Bearer ${token}` };
 
         try {
-          const [resOrd, resRes] = await Promise.all([
-            fetch("/api/admin/orders", { headers }),
-            fetch("/api/admin/bookings", { headers }),
-          ]);
-          if (!resOrd.ok || !resRes.ok) {
+          const resOrd = await fetch("/api/admin/orders", { headers });
+          if (!resOrd.ok) {
             stateEl.textContent = "Erreur de chargement.";
             return;
           }
           const orders = ((await resOrd.json()).orders as Order[]) ?? [];
-          const bookings = ((await resRes.json()).bookings as Booking[]) ?? [];
 
           // --- Commandes di oggi ---
           const ordOggi = orders
@@ -258,29 +239,6 @@ import AdminNav from "../../components/AdminNav.astro";
           } else {
             ordNextEl.textContent = "Aucun à venir";
             ordNextEl.classList.add("none");
-          }
-
-          // --- Réservations di oggi ---
-          const resOggi = bookings
-            .filter((b) => b.booking_date === oggiKey)
-            .sort((a, b) => (a.booking_time < b.booking_time ? -1 : 1));
-          const coperti = resOggi.reduce((s, b) => s + (b.people ?? 0), 0);
-          (document.getElementById("res-count") as HTMLElement).textContent = String(resOggi.length);
-          (document.getElementById("res-sub") as HTMLElement).textContent =
-            resOggi.length > 0 ? `aujourd'hui · ${coperti} couverts` : "aujourd'hui";
-
-          const oraHHMM = oraOra.toLocaleTimeString("fr-BE", {
-            timeZone: "Europe/Brussels",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-          const prossimaRes = resOggi.find((b) => b.booking_time >= oraHHMM);
-          const resNextEl = document.getElementById("res-next") as HTMLElement;
-          if (prossimaRes) {
-            resNextEl.textContent = `${prossimaRes.booking_time} — ${prossimaRes.customer_name} (${prossimaRes.people}p)`;
-          } else {
-            resNextEl.textContent = "Aucune à venir";
-            resNextEl.classList.add("none");
           }
 
           stateEl.style.display = "none";

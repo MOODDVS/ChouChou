@@ -18,17 +18,6 @@ const t = useTranslations(lang);
     </div>
   </a>
 
-  <button type="button" class="cta-block cta-book" data-open-booking>
-    <div class="cta-media">
-      <img src="/cta-book-photo.webp" alt="" />
-      <div class="cta-media-overlay"></div>
-    </div>
-    <div class="cta-body">
-      <h3 class="cta-title">{t("cta.bookTitle")}</h3>
-      <p class="cta-desc">{t("cta.bookDesc")}</p>
-      <span class="btn btn-outline">{t("cta.bookBtn")}</span>
-    </div>
-  </button>
 </section>
 
 <style>
@@ -151,9 +140,4 @@ const t = useTranslations(lang);
     obs.observe(cta);
   }
 
-  document.querySelectorAll("[data-open-booking]").forEach((el) => {
-    el.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("open-booking"));
-    });
-  });
 </script>

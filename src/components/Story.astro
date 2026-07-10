@@ -13,7 +13,6 @@ const t = useTranslations(lang);
     <p class="story-text">{t("story.text")}</p>
     <div class="story-buttons">
       <a href={getLocalizedUrl("/menu", lang)} class="btn btn-solid">{t("story.menuBtn")}</a>
-      <button type="button" class="btn btn-outline" data-open-booking>{t("story.bookBtn")}</button>
     </div>
   </div>
 </section>
@@ -142,9 +141,4 @@ const t = useTranslations(lang);
     update();
   }
 
-  document.querySelectorAll("[data-open-booking]").forEach((el) => {
-    el.addEventListener("click", () => {
-      window.dispatchEvent(new CustomEvent("open-booking"));
-    });
-  });
 </script>

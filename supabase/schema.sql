@@ -115,3 +115,16 @@ create index if not exists idx_orders_status_pickup
 
 alter table public.orders enable row level security;
 -- (nessuna policy: solo service key)
+
+-- ------------------------------------------------------------
+-- 4. GRANT dei privilegi ai ruoli API
+--    NECESSARIO perché "Automatically expose new tables" è OFF:
+--    con quell'opzione Supabase NON concede i privilegi in automatico,
+--    quindi vanno dati a mano o ogni query dà "permission denied" (42501).
+-- ------------------------------------------------------------
+grant select, insert, update, delete on public.menu_items to service_role;
+grant select, insert, update, delete on public.settings   to service_role;
+grant select, insert, update, delete on public.orders     to service_role;
+
+grant select on public.menu_items to anon, authenticated;
+grant select on public.settings   to anon, authenticated;
