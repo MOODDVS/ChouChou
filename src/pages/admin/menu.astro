@@ -1,0 +1,947 @@
+---
+// Pannello admin — MENU (§4.3): tab per sezione, gestione sezioni
+// (creare/rinominare/riordinare/eliminare, tipo cibo/bevanda)
+// e CRUD dei piatti.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Menu — Admin La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #2b2626;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
+      .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; }
+      .spacer { flex: 1; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      .actionsbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
+      .actionsbar .search {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 1.2rem;
+        border-radius: 999px; flex: 1; min-width: 220px; margin-left: 3rem;
+      }
+      .search:focus { outline: none; border-color: var(--c-accent); }
+
+      .pill {
+        font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
+      .add-btn:hover { background: transparent; color: var(--c-accent); }
+      .sec-btn { background: transparent; color: var(--c-muted); border: 1px solid var(--c-line); font-size: 1.05rem; padding: 0.55rem 1.4rem; }
+      .sec-btn:hover { color: var(--c-accent); border-color: var(--c-accent); }
+
+      /* Icone cibo/bevanda */
+      .k-ico {
+        width: 16px; height: 16px; fill: none; stroke: currentColor;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+        display: inline-block; vertical-align: -3px;
+      }
+      .k-ico-fill { fill: currentColor; stroke: none; }
+
+      /* --- Tabs sezioni --- */
+      .tabs {
+        display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.2rem 0 0.6rem;
+        margin-bottom: 1.25rem; scrollbar-width: thin;
+      }
+      .tab {
+        flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.1rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
+      .tab .k-ico { width: 13px; height: 13px; margin-right: 0.35rem; vertical-align: -2px; }
+      .k-wrap {
+        position: sticky; left: 0; z-index: 2;
+        display: flex; gap: 0.4rem; flex-shrink: 0;
+        background: var(--c-bg);
+        padding-right: 0.8rem; margin-right: 0.4rem;
+        box-shadow: 8px 0 8px -6px rgba(0, 0, 0, 0.6);
+      }
+      .k-tab { padding: 0.45rem 0.8rem; }
+      .k-tab .k-ico { width: 16px; height: 16px; margin-right: 0; }
+
+      .cat-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1rem 0 0.6rem; }
+      .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
+      .cat-count { color: var(--c-muted); font-size: 0.8rem; }
+
+      .item {
+        display: flex; align-items: center; gap: 0.9rem;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 0.7rem 1rem; margin-bottom: 0.4rem;
+      }
+      .item.is-hidden-item { opacity: 0.55; }
+      .i-main { flex: 1; min-width: 0; }
+      .i-name { font-weight: 700; }
+      .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .i-alg { color: var(--c-muted); font-size: 0.72rem; white-space: nowrap; }
+      .i-price { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; white-space: nowrap; margin-right: 1.25rem; }
+      .i-promo { color: var(--c-accent); }
+      .i-old { color: var(--c-muted); font-size: 0.85rem; margin-right: 0.35rem; }
+      .i-col { display: inline-flex; flex-direction: column; align-items: flex-end; vertical-align: middle; min-width: 5.2rem; }
+      .i-col + .i-col { margin-left: 1.5rem; }
+      .i-full { color: var(--c-text); }
+      .i-strike { text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.55; }
+      .i-table-lab { font-size: 0.55rem; color: var(--c-muted); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; }
+
+      .sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+      .sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .track { position: absolute; inset: 0; cursor: pointer; border-radius: 999px; background: var(--c-line); transition: background 0.2s; }
+      .switch .track::before {
+        content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%;
+        left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s;
+      }
+      .switch input:checked + .track { background: var(--c-accent); }
+      .switch input:checked + .track::before { transform: translateX(17px); background: #231f20; }
+
+      .i-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-text);
+        cursor: pointer; border-radius: 50%; font-size: 0.95rem;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .i-del .k-ico { width: 15px; height: 15px; }
+      .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
+      .k-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .k-btn.is-active:hover { color: #231f20; border-color: var(--c-accent); }
+
+      /* --- Modali --- */
+      .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        align-items: flex-start; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
+      }
+      .overlay.is-open { display: flex; }
+      .modal { width: 100%; max-width: 620px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
+      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-text); }
+
+      .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+      .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
+      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
+      input[type="text"], input[type="number"], select, textarea {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
+        width: 100%; color-scheme: dark;
+      }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--c-accent); }
+      textarea { resize: vertical; min-height: 56px; }
+
+      .alg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.35rem; }
+      .alg-item { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; cursor: pointer; padding: 0.25rem 0.3rem; }
+      .alg-item input { accent-color: var(--c-accent); width: 16px; height: 16px; flex-shrink: 0; }
+      .alg-num { color: var(--c-muted); font-size: 0.72rem; min-width: 1.2rem; }
+
+      .m-toggles { display: flex; gap: 2rem; margin: 0.4rem 0 1.2rem; }
+      .m-toggle { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
+      .m-toggle .switch { width: 44px; height: 24px; }
+      .m-toggle .switch .track::before { width: 18px; height: 18px; }
+      .m-toggle .switch input:checked + .track::before { transform: translateX(20px); }
+
+      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; }
+      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
+      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
+      .m-save {
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
+        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
+      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
+      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+
+      /* --- Modale sezioni --- */
+      .sec-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
+      .sec-row input[type="text"] { flex: 1; }
+      .sec-count { color: var(--c-muted); font-size: 0.75rem; white-space: nowrap; min-width: 4.5rem; text-align: right; }
+      .sec-kind { display: inline-flex; gap: 0.3rem; }
+      .s-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; }
+      .s-drag:active { cursor: grabbing; }
+      .sec-row.dragging { opacity: 0.65; outline: 1px dashed var(--c-accent); background: var(--c-card); }
+      .i-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; flex-shrink: 0; }
+      .i-drag:active { cursor: grabbing; }
+      #list[data-mode="search"] .i-drag { display: none; }
+      .item.dragging { opacity: 0.65; outline: 1px dashed var(--c-accent); }
+      .sec-add { display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--c-line); padding-top: 1rem; align-items: center; }
+      .sec-add input { flex: 1; }
+      .sec-addbtn {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.4rem; cursor: pointer; border-radius: 999px;
+      }
+      .sec-addbtn:hover { background: var(--c-accent); color: #231f20; }
+
+      /* Toast */
+      .toast {
+        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
+        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.err { border-color: #a3320f; color: #ff8a8f; }
+
+      @media (max-width: 640px) {
+        main { padding: 1.5rem 1rem 8rem; }
+        .item { flex-wrap: wrap; gap: 0.6rem; }
+        .i-main { flex-basis: 100%; }
+        .actionsbar .search { flex-basis: 100%; order: 3; margin-left: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <div class="topbar">
+          <h1>Menu</h1>
+        </div>
+        <div class="actionsbar">
+          <button class="pill add-btn" id="sec-btn">Gérer les sections</button>
+          <button class="pill add-btn" id="add-btn">+ Ajouter un plat</button>
+          <input type="text" class="search" id="search" placeholder="Rechercher un plat…" />
+        </div>
+        <div class="tabs" id="tabs"></div>
+        <div class="state" id="state">Chargement…</div>
+        <div id="list"></div>
+      </main>
+    </div>
+
+    <!-- Modale piatto -->
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
+        <h2 id="m-title">Ajouter un plat</h2>
+        <div class="f-row">
+          <div class="f-field" style="flex: 2">
+            <span class="f-label">Nom *</span>
+            <input type="text" id="f-name" maxlength="120" />
+          </div>
+          <div class="f-field">
+            <span class="f-label">Prix (€) *</span>
+            <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field" style="flex: 2">
+            <span class="f-label">Section *</span>
+            <select id="f-cat"></select>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Réduction</span>
+            <select id="f-dtype">
+              <option value="">Aucune</option>
+              <option value="fixed">Prix promo fixe (€)</option>
+              <option value="percent">Pourcentage (%)</option>
+            </select>
+          </div>
+          <div class="f-field">
+            <span class="f-label">Valeur</span>
+            <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
+          </div>
+          <div class="f-field">
+            <span class="f-label">Application</span>
+            <select id="f-dscope" disabled>
+              <option value="all">Partout</option>
+              <option value="online">Commandes en ligne uniquement</option>
+            </select>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Description (FR)</span>
+            <textarea id="f-dfr" maxlength="500"></textarea>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Description (EN)</span>
+            <textarea id="f-den" maxlength="500"></textarea>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Allergènes (UE)</span>
+            <div class="alg-grid" id="f-alg"></div>
+          </div>
+        </div>
+        <div class="m-toggles">
+          <label class="m-toggle">
+            <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
+            Visible sur le site
+          </label>
+          <label class="m-toggle">
+            <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
+            Commandable
+          </label>
+        </div>
+        <div class="m-actions">
+          <span class="m-msg" id="m-msg"></span>
+          <button class="m-cancel" id="m-cancel">Annuler</button>
+          <button class="m-save" id="m-save">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale sezioni -->
+    <div class="overlay" id="sec-overlay">
+      <div class="modal">
+        <button class="m-close" id="sec-close" aria-label="Fermer">×</button>
+        <h2>Gérer les sections</h2>
+        <p class="f-label" style="margin-bottom: 0.8rem">Glisse ⠿ pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide</p>
+        <div id="sec-list"></div>
+        <div class="sec-add">
+          <span class="sec-kind" id="sec-kind"></span>
+          <input type="text" id="sec-new" placeholder="Nouvelle section (ex. Pizzas colorées)" maxlength="60" />
+          <button class="sec-addbtn" id="sec-addbtn">Ajouter</button>
+        </div>
+        <span class="m-msg" id="sec-msg"></span>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <AdminNav current="menu" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Item = {
+        id: string; category: string; category_order: number; sort_order: number;
+        name: string; description_fr: string | null; description_en: string | null;
+        allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
+        discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
+      };
+      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
+
+      const ALLERGENI: [number, string][] = [
+        [1, "Gluten"], [2, "Lait"], [3, "Arachides"], [4, "Œufs"],
+        [5, "Poisson"], [6, "Crustacés"], [7, "Soja"], [8, "Fruits à coque"],
+        [9, "Céleri"], [10, "Moutarde"], [11, "Sulfites"], [12, "Sésame"],
+        [13, "Lupin"], [14, "Mollusques"],
+      ];
+
+      // Icone cibo (forchetta) e bevanda (bicchiere)
+      const ICO_FOOD =
+        '<svg class="k-ico k-ico-fill" viewBox="0 0 489.773 489.773" aria-hidden="true"><path d="M155.183,305.646c-2.081,0.175-4.157,0.265-6.238,0.265c-5.693,0-11.23-0.826-16.652-2.081L6.834,429.293c-6.158,6.149-6.158,16.137,0,22.287l32.47,32.478c6.158,6.15,16.135,6.15,22.276,0l150.785-150.757l-27.944-30.15L155.183,305.646z"/><path d="M485.345,104.649c-5.888-5.885-15.417-5.885-21.304,0l-81.303,81.301c-7.693,7.685-20.154,7.685-27.847,0c-7.659-7.679-7.659-20.13,0-27.807l80.901-80.884c6.112-6.118,6.112-16.036,0-22.168c-6.141-6.11-16.055-6.11-22.167,0l-80.868,80.876c-7.693,7.693-20.14,7.693-27.833,0c-7.677-7.676-7.677-20.136,0-27.806l81.286-81.293c5.904-5.894,5.904-15.441,0-21.343c-5.888-5.895-15.434-5.895-21.338,0l-91.458,91.463c-21.989,22.003-28.935,52.888-21.816,80.991l61.31,61.314c28.101,7.093,59.001,0.144,80.965-21.841l91.471-91.458C491.249,120.1,491.249,110.543,485.345,104.649z"/><path d="M41.093,13.791c-3.134-3.135-7.372-4.854-11.724-4.854c-0.926,0-1.857,0.079-2.766,0.231c-5.295,0.896-9.838,4.295-12.172,9.133c-26.79,55.373-15.594,121.631,27.894,165.121l77.801,77.791c7.676,7.685,18.055,11.939,28.819,11.939c1.151,0,2.305-0.048,3.456-0.143l45.171-3.855l196.971,212.489c3.058,3.303,7.342,5.221,11.855,5.31c0.093,0,0.19,0,0.288,0c4.412,0,8.636-1.743,11.771-4.855l33.734-33.741c3.117-3.11,4.859-7.331,4.859-11.73c0-4.398-1.742-8.622-4.846-11.732L41.093,13.791z"/></svg>';
+      const ICO_DRINK =
+        '<svg class="k-ico k-ico-fill" viewBox="0 0 512 512" aria-hidden="true"><path d="M438.925,169.204c-3.253-48.149-21.943-109.273-49.729-160.47C386.273,3.354,380.642,0,374.523,0H137.371c-6.12,0-11.75,3.354-14.674,8.734C96.79,56.469,78.792,112.855,73.819,159.304C61.745,272.036,142.207,357.641,239.25,366.527v112.081h-66.783c-9.217,0-16.696,7.473-16.696,16.696c0,9.223,7.479,16.696,16.696,16.696h166.956c9.217,0,16.696-7.473,16.696-16.696c0-9.223-7.479-16.696-16.696-16.696H272.53V366.553C367.133,358.044,446.157,276.148,438.925,169.204z M294.903,289.391c-9.22,0-16.696-7.475-16.696-16.696c0-9.22,7.475-16.696,16.696-16.696s16.696,7.475,16.696,16.696C311.599,281.916,304.124,289.391,294.903,289.391z M216.99,256c-9.22,0-16.696-7.475-16.696-16.696c0-9.22,7.475-16.696,16.696-16.696s16.696,7.475,16.696,16.696C233.686,248.525,226.211,256,216.99,256z M269.64,158.759c-20.171-7.144-42.739-7.154-64.184,1.371c-11.132,4.445-31.724,16.625-58.911,3.022c-12.041-6.021-25.183-9.1-38.385-9.454c5.412-37.404,19.692-81.765,39.299-120.307h216.978c20.585,40.464,35.26,87.307,39.991,125.802c-23.48-8.624-49.899-7.326-72.469,3.959C303.217,177.532,280.771,162.66,269.64,158.759z"/></svg>';
+
+      const ICO_TRASH =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
+
+      let items: Item[] = [];
+      let cats: Cat[] = [];
+      let attiva = ""; // nome sezione attiva
+      let kindFiltro: "food" | "drink" = "food"; // filtro tab: cibo o bevande
+      let editId: string | null = null;
+      let nuovaKind: "food" | "drink" = "food";
+      let headers: Record<string, string> = {};
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+      function effettivo(it: Item): number {
+        if (!it.discount_type || !it.discount_value) return it.price_cents;
+        if (it.discount_type === "fixed") return Math.min(it.price_cents, it.discount_value);
+        return Math.max(0, Math.round(it.price_cents * (1 - Math.min(it.discount_value, 100) / 100)));
+      }
+      function euro(cents: number): string {
+        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+      }
+
+      const toastEl = document.getElementById("toast") as HTMLDivElement;
+      let toastTimer: number | undefined;
+      function toast(msg: string, err = false) {
+        toastEl.textContent = msg;
+        toastEl.className = "toast show" + (err ? " err" : "");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 2500);
+      }
+
+      // ---------- Rendering ----------
+      const listEl = document.getElementById("list") as HTMLDivElement;
+      const tabsEl = document.getElementById("tabs") as HTMLDivElement;
+      const stateEl = document.getElementById("state") as HTMLDivElement;
+      const searchEl = document.getElementById("search") as HTMLInputElement;
+
+      function prezzoHTML(it: Item): string {
+        const eff = effettivo(it);
+        if (eff >= it.price_cents) return `<span class="i-price">${euro(it.price_cents)}</span>`;
+        if (it.discount_scope === "online") {
+          return `<span class="i-price i-promo">` +
+            `<span class="i-col"><span class="i-full">${euro(it.price_cents)}</span><span class="i-table-lab">à table</span></span>` +
+            `<span class="i-col"><span>${euro(eff)}</span><span class="i-table-lab">online</span></span>` +
+            `</span>`;
+        }
+        return `<span class="i-price i-promo">` +
+          `<span class="i-col"><span class="i-full i-strike">${euro(it.price_cents)}</span></span>` +
+          `<span class="i-col"><span>${euro(eff)}</span></span>` +
+          `</span>`;
+      }
+      function itemHTML(it: Item): string {
+        const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
+        const alg = it.allergens?.length ? `<span class="i-alg">Alg. ${it.allergens.join(",")}</span>` : "";
+        const dim = !it.available ? " is-hidden-item" : "";
+        return `
+          <div class="item${dim}" data-id="${it.id}">
+            <span class="i-btn i-drag" title="Glisser pour réordonner">⠿</span>
+            <div class="i-main"><span class="i-name">${esc(it.name)}</span>${desc}</div>
+            ${alg}
+            ${prezzoHTML(it)}
+            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Menu</span></span>
+            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Cmd</span></span>
+            <button class="i-btn i-edit" title="Modifier">✎</button>
+            <button class="i-btn i-del" title="Supprimer">${ICO_TRASH}</button>
+          </div>`;
+      }
+
+      function renderTabs() {
+        // Se la sezione attiva è dell'altro tipo, segui il suo tipo
+        const catAttiva = cats.find((c) => c.name === attiva);
+        if (catAttiva && catAttiva.kind !== kindFiltro) kindFiltro = catAttiva.kind;
+
+        const visibili = cats.filter((c) => c.kind === kindFiltro);
+        const selettore =
+          `<span class="k-wrap">` +
+          `<button class="tab k-tab${kindFiltro === "food" ? " is-active" : ""}" data-kind="food" title="Nourriture">${ICO_FOOD}</button>` +
+          `<button class="tab k-tab${kindFiltro === "drink" ? " is-active" : ""}" data-kind="drink" title="Boissons">${ICO_DRINK}</button>` +
+          `</span>`;
+        tabsEl.innerHTML =
+          selettore +
+          visibili
+            .map(
+              (c) =>
+                `<button class="tab${c.name === attiva ? " is-active" : ""}" data-cat="${esc(c.name)}">${esc(c.name)}<span class="n">${c.count}</span></button>`
+            )
+            .join("");
+      }
+
+      function renderList() {
+        const filtro = searchEl.value.trim().toLowerCase();
+        listEl.dataset.mode = filtro ? "search" : "cat";
+        if (filtro) {
+          // Ricerca globale: risultati raggruppati per sezione
+          const gruppi = new Map<string, Item[]>();
+          for (const it of items) {
+            if (!it.name.toLowerCase().includes(filtro)) continue;
+            if (!gruppi.has(it.category)) gruppi.set(it.category, []);
+            gruppi.get(it.category)!.push(it);
+          }
+          if (gruppi.size === 0) {
+            listEl.innerHTML = '<p class="state">Aucun plat trouvé.</p>';
+            return;
+          }
+          const ordinati = [...gruppi.entries()].sort(
+            (a, b) => (cats.find((c) => c.name === a[0])?.sort_order ?? 0) - (cats.find((c) => c.name === b[0])?.sort_order ?? 0)
+          );
+          listEl.innerHTML = ordinati
+            .map(
+              ([nome, arr]) => `
+            <div class="cat-head"><span class="cat-name">${esc(nome)}</span><span class="cat-count">${arr.length}</span></div>
+            ${arr.map(itemHTML).join("")}`
+            )
+            .join("");
+          return;
+        }
+        // Vista normale: solo la sezione attiva
+        const arr = items.filter((i) => i.category === attiva);
+        listEl.innerHTML = arr.length
+          ? arr.map(itemHTML).join("")
+          : '<p class="state">Section vide — ajoute un plat ou supprime la section.</p>';
+      }
+
+      async function caricaTutto() {
+        const [rc, ri] = await Promise.all([
+          fetch("/api/admin/categories", { headers }),
+          fetch("/api/admin/menu", { headers }),
+        ]);
+        if (!rc.ok || !ri.ok) {
+          stateEl.textContent = "Erreur de chargement.";
+          return false;
+        }
+        cats = ((await rc.json()).categories as Cat[]) ?? [];
+        items = ((await ri.json()).items as Item[]) ?? [];
+        if (!attiva || !cats.some((c) => c.name === attiva)) {
+          attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? cats[0]?.name ?? "";
+        }
+        stateEl.style.display = "none";
+        renderTabs();
+        renderList();
+        renderSezioni();
+        return true;
+      }
+
+      // ---------- Modale piatto ----------
+      const overlay = document.getElementById("overlay") as HTMLDivElement;
+      const mTitle = document.getElementById("m-title") as HTMLHeadingElement;
+      const mMsg = document.getElementById("m-msg") as HTMLSpanElement;
+      const fName = document.getElementById("f-name") as HTMLInputElement;
+      const fPrice = document.getElementById("f-price") as HTMLInputElement;
+      const fCat = document.getElementById("f-cat") as HTMLSelectElement;
+      const fDfr = document.getElementById("f-dfr") as HTMLTextAreaElement;
+      const fDen = document.getElementById("f-den") as HTMLTextAreaElement;
+      const fAlg = document.getElementById("f-alg") as HTMLDivElement;
+      const fDtype = document.getElementById("f-dtype") as HTMLSelectElement;
+      const fDval = document.getElementById("f-dval") as HTMLInputElement;
+      const fDscope = document.getElementById("f-dscope") as HTMLSelectElement;
+      const fAv = document.getElementById("f-av") as HTMLInputElement;
+      const fOr = document.getElementById("f-or") as HTMLInputElement;
+      const mSave = document.getElementById("m-save") as HTMLButtonElement;
+
+      fAlg.innerHTML = ALLERGENI.map(
+        ([n, lab]) => `<label class="alg-item"><input type="checkbox" value="${n}" /><span class="alg-num">${n}</span>${lab}</label>`
+      ).join("");
+
+      function maxSort(cat: string): number {
+        return items.filter((i) => i.category === cat).reduce((mx, i) => Math.max(mx, i.sort_order), 0);
+      }
+
+      function apriModale(it: Item | null) {
+        editId = it?.id ?? null;
+        mTitle.textContent = it ? "Modifier le plat" : "Ajouter un plat";
+        mMsg.textContent = "";
+        fCat.innerHTML = cats.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+        fName.value = it?.name ?? "";
+        fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
+        fCat.value = it?.category ?? attiva;
+        fDfr.value = it?.description_fr ?? "";
+        fDen.value = it?.description_en ?? "";
+        fDtype.value = it?.discount_type ?? "";
+        fDscope.value = it?.discount_scope ?? "all";
+        if (it?.discount_type === "fixed") fDval.value = (it.discount_value / 100).toFixed(2);
+        else if (it?.discount_type === "percent") fDval.value = String(it.discount_value);
+        else fDval.value = "";
+        aggiornaCampiSconto();
+        fAv.checked = it?.available ?? true;
+        fOr.checked = it?.orderable ?? true;
+        fAlg.querySelectorAll<HTMLInputElement>("input").forEach((cb) => {
+          cb.checked = !!it?.allergens?.includes(Number(cb.value));
+        });
+        overlay.classList.add("is-open");
+        fName.focus();
+      }
+      function chiudiModale() {
+        overlay.classList.remove("is-open");
+        editId = null;
+      }
+
+      function aggiornaCampiSconto() {
+        const t = fDtype.value;
+        fDval.disabled = !t;
+        fDscope.disabled = !t;
+        if (t === "percent") { fDval.step = "1"; fDval.max = "99"; fDval.placeholder = "10"; }
+        else { fDval.step = "0.01"; fDval.removeAttribute("max"); fDval.placeholder = "12,00"; }
+      }
+      fDtype.addEventListener("change", aggiornaCampiSconto);
+
+      async function salvaModale() {
+        mMsg.textContent = "";
+        if (!fName.value.trim()) { mMsg.textContent = "Nom requis."; return; }
+        if (!fCat.value) { mMsg.textContent = "Section requise."; return; }
+        const prezzo = Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
+        if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = "Prix invalide."; return; }
+
+        const orig = editId ? items.find((x) => x.id === editId) : null;
+        const body: Record<string, unknown> = {
+          name: fName.value.trim(),
+          category: fCat.value,
+          price_cents: prezzo,
+          description_fr: fDfr.value,
+          description_en: fDen.value,
+          allergens: [...fAlg.querySelectorAll<HTMLInputElement>("input:checked")].map((cb) => Number(cb.value)),
+          available: fAv.checked,
+          orderable: fOr.checked,
+          discount_type: fDtype.value || null,
+          discount_value: fDtype.value === "fixed"
+            ? Math.round(parseFloat(fDval.value.replace(",", ".") || "0") * 100)
+            : Math.round(Number(fDval.value || 0)),
+          discount_scope: (fDscope.value as "all" | "online") || "all",
+        };
+        if (fDtype.value && !(Number(body.discount_value) > 0)) {
+          mMsg.textContent = "Valeur de réduction requise.";
+          return;
+        }
+        if (editId) body.id = editId;
+        // Posizione automatica: nuovo piatto (o piatto spostato di sezione) in coda
+        if (!editId || (orig && orig.category !== fCat.value)) {
+          body.sort_order = maxSort(fCat.value) + 1;
+        }
+
+        mSave.disabled = true;
+        try {
+          const res = await fetch("/api/admin/menu", {
+            method: editId ? "PUT" : "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok) {
+            mMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+          } else {
+            attiva = fCat.value;
+            chiudiModale();
+            toast(editId ? "Plat modifié ✓" : "Plat ajouté ✓");
+            await caricaTutto();
+          }
+        } catch {
+          mMsg.textContent = "Erreur de connexion.";
+        } finally {
+          mSave.disabled = false;
+        }
+      }
+
+      // ---------- Modale sezioni ----------
+      const secOverlay = document.getElementById("sec-overlay") as HTMLDivElement;
+      const secList = document.getElementById("sec-list") as HTMLDivElement;
+      const secNew = document.getElementById("sec-new") as HTMLInputElement;
+      const secMsg = document.getElementById("sec-msg") as HTMLSpanElement;
+      const secKind = document.getElementById("sec-kind") as HTMLSpanElement;
+
+      function renderSezioni() {
+        secList.innerHTML = cats
+          .map(
+            (c, i) => `
+          <div class="sec-row" data-id="${c.id}" data-name="${esc(c.name)}">
+            <span class="i-btn s-drag" title="Glisser pour réordonner">⠿</span>
+            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="Nourriture">${ICO_FOOD}</button>
+            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="Boisson">${ICO_DRINK}</button>
+            <input type="text" class="s-name" value="${esc(c.name)}" maxlength="60" />
+            <span class="sec-count">${c.count} plat${c.count > 1 ? "s" : ""}</span>
+            <button class="i-btn i-del s-del" ${c.count > 0 ? "disabled" : ""} title="Supprimer (si vide)">${ICO_TRASH}</button>
+          </div>`
+          )
+          .join("");
+      }
+
+      // Selettore tipo per la NUOVA sezione
+      function renderNuovaKind() {
+        secKind.innerHTML =
+          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="Nourriture">${ICO_FOOD}</button>` +
+          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="Boisson">${ICO_DRINK}</button>`;
+      }
+      secKind.addEventListener("click", (e) => {
+        const t = (e.target as HTMLElement).closest("button");
+        if (!t) return;
+        nuovaKind = t.id === "snk-drink" ? "drink" : "food";
+        renderNuovaKind();
+      });
+
+      async function putCategoria(id: string, campi: Record<string, unknown>): Promise<boolean> {
+        const res = await fetch("/api/admin/categories", {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...campi }),
+        });
+        if (!res.ok) {
+          const j = await res.json();
+          secMsg.textContent = j.error ?? "Erreur.";
+          return false;
+        }
+        return true;
+      }
+
+      secList.addEventListener("click", async (e) => {
+        secMsg.textContent = "";
+        const t = e.target as HTMLElement;
+        const row = t.closest(".sec-row") as HTMLElement | null;
+        if (!row) return;
+        const id = row.dataset.id!;
+        const idx = cats.findIndex((c) => c.id === id);
+
+        if (t.closest(".s-kfood") || t.closest(".s-kdrink")) {
+          const kind = t.closest(".s-kdrink") ? "drink" : "food";
+          if (cats[idx].kind !== kind && (await putCategoria(id, { kind }))) {
+            await caricaTutto();
+          }
+          return;
+        }
+        if (t.closest(".s-del")) {
+          const res = await fetch("/api/admin/categories?id=" + id, { method: "DELETE", headers });
+          if (!res.ok) {
+            const j = await res.json();
+            secMsg.textContent = j.error ?? "Suppression impossible.";
+          } else {
+            toast("Section supprimée");
+            await caricaTutto();
+          }
+        }
+      });
+
+      // Rinomina: Enter o perdita di focus
+      secList.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.target as HTMLElement).classList.contains("s-name")) {
+          (e.target as HTMLInputElement).blur();
+        }
+      });
+      secList.addEventListener("focusout", async (e) => {
+        const t = e.target as HTMLInputElement;
+        if (!t.classList.contains("s-name")) return;
+        const row = t.closest(".sec-row") as HTMLElement;
+        const vecchio = row.dataset.name!;
+        const nuovo = t.value.trim();
+        if (!nuovo || nuovo === vecchio) { t.value = vecchio; return; }
+        secMsg.textContent = "";
+        if (await putCategoria(row.dataset.id!, { name: nuovo })) {
+          if (attiva === vecchio) attiva = nuovo;
+          toast("Section renommée ✓");
+          await caricaTutto();
+        } else {
+          t.value = vecchio;
+        }
+      });
+
+      // Drag & drop per riordinare le sezioni (mouse + dito)
+      let dragRow: HTMLElement | null = null;
+      secList.addEventListener("pointerdown", (e) => {
+        const handle = (e.target as HTMLElement).closest(".s-drag");
+        if (!handle) return;
+        e.preventDefault();
+        dragRow = handle.closest(".sec-row") as HTMLElement;
+        dragRow.classList.add("dragging");
+      });
+      document.addEventListener("pointermove", (e) => {
+        if (!dragRow) return;
+        e.preventDefault();
+        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => r !== dragRow);
+        const dopo = rows.find((r) => {
+          const rect = r.getBoundingClientRect();
+          return e.clientY < rect.top + rect.height / 2;
+        });
+        if (dopo) secList.insertBefore(dragRow!, dopo);
+        else secList.appendChild(dragRow!);
+      });
+      document.addEventListener("pointerup", async () => {
+        if (!dragRow) return;
+        dragRow.classList.remove("dragging");
+        dragRow = null;
+        const ordine = [...secList.querySelectorAll<HTMLElement>(".sec-row")].map((r) => r.dataset.id!);
+        if (JSON.stringify(ordine) === JSON.stringify(cats.map((c) => c.id))) return;
+        const res = await fetch("/api/admin/categories", {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ order: ordine }),
+        });
+        if (!res.ok) {
+          const j = await res.json();
+          secMsg.textContent = j.error ?? "Réordonnancement impossible.";
+          renderSezioni();
+        } else {
+          toast("Ordre enregistré ✓");
+          await caricaTutto();
+        }
+      });
+
+      (document.getElementById("sec-addbtn") as HTMLButtonElement).addEventListener("click", async () => {
+        secMsg.textContent = "";
+        const name = secNew.value.trim();
+        if (!name) { secMsg.textContent = "Nom requis."; return; }
+        const res = await fetch("/api/admin/categories", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ name, kind: nuovaKind }),
+        });
+        const j = await res.json();
+        if (!res.ok) {
+          secMsg.textContent = j.error ?? "Erreur.";
+        } else {
+          secNew.value = "";
+          nuovaKind = "food";
+          renderNuovaKind();
+          toast("Section ajoutée ✓");
+          await caricaTutto();
+        }
+      });
+
+      // ---------- Avvio ----------
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        headers = { Authorization: `Bearer ${sessionData.session?.access_token ?? ""}` };
+
+        renderNuovaKind();
+        await caricaTutto();
+
+        searchEl.addEventListener("input", renderList);
+        tabsEl.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+          if (!t) return;
+          if (t.dataset.kind) {
+            kindFiltro = t.dataset.kind as "food" | "drink";
+            attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+          } else {
+            attiva = t.dataset.cat!;
+          }
+          searchEl.value = "";
+          renderTabs();
+          renderList();
+        });
+
+        (document.getElementById("add-btn") as HTMLButtonElement).addEventListener("click", () => apriModale(null));
+        (document.getElementById("sec-btn") as HTMLButtonElement).addEventListener("click", () => {
+          secMsg.textContent = "";
+          renderSezioni();
+          secOverlay.classList.add("is-open");
+        });
+        (document.getElementById("m-close") as HTMLButtonElement).addEventListener("click", chiudiModale);
+        (document.getElementById("m-cancel") as HTMLButtonElement).addEventListener("click", chiudiModale);
+        (document.getElementById("sec-close") as HTMLButtonElement).addEventListener("click", () => secOverlay.classList.remove("is-open"));
+        mSave.addEventListener("click", salvaModale);
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) chiudiModale(); });
+        secOverlay.addEventListener("click", (e) => { if (e.target === secOverlay) secOverlay.classList.remove("is-open"); });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") { chiudiModale(); secOverlay.classList.remove("is-open"); }
+        });
+
+        // Azioni sui piatti (delega)
+        listEl.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const row = t.closest(".item") as HTMLElement | null;
+          if (!row) return;
+          const id = row.dataset.id!;
+          const it = items.find((x) => x.id === id);
+          if (!it) return;
+
+          if (t.closest(".i-edit")) { apriModale(it); return; }
+          const del = t.closest(".i-del") as HTMLButtonElement | null;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Confirmer ?";
+              setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+              return;
+            }
+            try {
+              const res = await fetch("/api/admin/menu?id=" + id, { method: "DELETE", headers });
+              if (!res.ok) { toast("Suppression impossible", true); return; }
+              toast("Plat supprimé");
+              await caricaTutto();
+            } catch {
+              toast("Erreur de connexion", true);
+            }
+          }
+        });
+
+        // Drag & drop dei piatti nella sezione attiva (mouse + dito)
+        let dragItem: HTMLElement | null = null;
+        listEl.addEventListener("pointerdown", (e) => {
+          if (listEl.dataset.mode === "search") return;
+          const handle = (e.target as HTMLElement).closest(".i-drag");
+          if (!handle) return;
+          e.preventDefault();
+          dragItem = handle.closest(".item") as HTMLElement;
+          dragItem.classList.add("dragging");
+        });
+        document.addEventListener("pointermove", (e) => {
+          if (!dragItem) return;
+          e.preventDefault();
+          const rows = [...listEl.querySelectorAll<HTMLElement>(".item")].filter((r) => r !== dragItem);
+          const dopo = rows.find((r) => {
+            const rect = r.getBoundingClientRect();
+            return e.clientY < rect.top + rect.height / 2;
+          });
+          if (dopo) listEl.insertBefore(dragItem!, dopo);
+          else listEl.appendChild(dragItem!);
+        });
+        document.addEventListener("pointerup", async () => {
+          if (!dragItem) return;
+          dragItem.classList.remove("dragging");
+          dragItem = null;
+          const ordine = [...listEl.querySelectorAll<HTMLElement>(".item")].map((r) => r.dataset.id!);
+          const attuale = items.filter((i) => i.category === attiva).map((i) => i.id);
+          if (JSON.stringify(ordine) === JSON.stringify(attuale)) return;
+          const res = await fetch("/api/admin/menu", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ category: attiva, order: ordine }),
+          });
+          if (!res.ok) {
+            toast("Réordonnancement impossible", true);
+            renderList();
+          } else {
+            toast("Ordre enregistré ✓");
+            await caricaTutto();
+          }
+        });
+
+        listEl.addEventListener("change", async (e) => {
+          const t = e.target as HTMLInputElement;
+          if (!t.classList.contains("t-av") && !t.classList.contains("t-or")) return;
+          const row = t.closest(".item") as HTMLElement;
+          const id = row.dataset.id!;
+          const campo = t.classList.contains("t-av") ? "available" : "orderable";
+          try {
+            const res = await fetch("/api/admin/menu", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, [campo]: t.checked }),
+            });
+            if (!res.ok) throw new Error();
+            const it = items.find((x) => x.id === id);
+            if (it) (it as any)[campo] = t.checked;
+            if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
+          } catch {
+            t.checked = !t.checked;
+            toast("Modification impossible", true);
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

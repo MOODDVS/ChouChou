@@ -1,0 +1,769 @@
+---
+// Pannello admin — Réglages: orari settimanali con giornata continua o
+// servizio spezzato (Midi/Soir), tempo di preparazione, durata slot,
+// email cucina.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Réglages — Admin La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #2b2626;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; max-width: 1200px; margin: 0 auto; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.5rem; }
+      h2 { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--c-muted); margin: 0 0 1rem; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      #content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
+      .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; }
+      .save-bar {
+        position: fixed; z-index: 95;
+        display: flex; align-items: center; gap: 1rem;
+        left: 50%; bottom: 6.5rem;
+        opacity: 0; pointer-events: none;
+        transform: translateX(-50%) translateY(8px);
+        transition: opacity 0.25s, transform 0.25s;
+      }
+      .save-bar.is-visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+      @media (min-width: 900px) {
+        .save-bar { left: auto; right: 1.75rem; bottom: 1.75rem; transform: translateY(8px); }
+        .save-bar.is-visible { transform: translateY(0); }
+      }
+      @media (min-width: 900px) {
+        #content { grid-template-columns: 1.4fr 1fr; }
+      }
+
+      /* --- Riga giorno --- */
+      .day-row { padding: 0.75rem 0; border-bottom: 1px solid var(--c-line); }
+      .day-row:last-child { border-bottom: none; }
+      .day-head { display: flex; align-items: center; gap: 1rem; }
+      .day-name { flex: 1; font-weight: 700; }
+
+      /* Selettore Continu/Coupé */
+      .mode { display: none; }
+      .day-row.is-open .mode { display: inline-flex; }
+      .mode button {
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
+        padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
+      }
+      .mode button + button { border-left: none; }
+      .mode button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+
+      /* Fasce orarie */
+      .bands { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; padding-right: calc(44px + 1rem); }
+      .band { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+      .band-label { min-width: 3rem; color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .day-row:not(.is-open) .bands { display: none; }
+      .day-row[data-mode="continu"] .band-label { visibility: hidden; }
+      .day-row[data-mode="continu"] .band-soir { display: none; }
+
+      /* Switch */
+      .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .track {
+        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
+        background: var(--c-line); transition: background 0.2s;
+      }
+      .switch .track::before {
+        content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+        left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s;
+      }
+      .switch input:checked + .track { background: var(--c-accent); }
+      .switch input:checked + .track::before { transform: translateX(20px); background: #231f20; }
+
+      input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"] {
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; border-radius: 0;
+        color-scheme: dark;
+      }
+      input:focus { outline: none; border-color: var(--c-accent); }
+      input[type="number"] { width: 90px; }
+      input[type="email"] { width: 100%; max-width: 360px; }
+
+      .field { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
+      .field:last-child { margin-bottom: 0; }
+      .field label { min-width: 220px; }
+      .hint { color: var(--c-muted); font-size: 0.8rem; }
+
+      .save {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em;
+        padding: 0.75rem 2.4rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.25s, color 0.25s, border-color 0.25s;
+      }
+      .save:hover:not(:disabled):not(.is-saved) { background: transparent; color: var(--c-accent); }
+      .save:disabled { opacity: 0.5; cursor: not-allowed; }
+      .save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
+      .msg { font-size: 0.9rem; }
+      .msg.ok { color: #4caf7d; }
+      .msg.err { color: #ff6b6b; }
+
+      /* --- Jours spéciaux --- */
+      .sp-type { display: inline-flex; }
+      .sp-type button {
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
+        padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
+      }
+      .sp-type button + button { border-left: none; }
+      .sp-type button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .sp-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
+      .sp-item { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--c-line); padding: 0.5rem 0.7rem; font-size: 0.9rem; }
+      .sp-badge { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.55rem; border-radius: 999px; font-weight: 700; }
+      .sp-b-closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+      .sp-b-open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
+      .sp-txt { flex: 1; }
+      .sp-del { background: none; border: none; color: var(--c-muted); font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0 0.2rem; }
+      .sp-del:hover { color: #ff6b6b; }
+      .sp-add { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+      .sp-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+      .sp-dates { flex-wrap: nowrap; }
+      #sp-hours { flex-direction: column; gap: 0.6rem; }
+      /* Touch (tablet/telefono): campi data/ora più grandi per le dita */
+      @media (pointer: coarse) {
+        input[type="date"], input[type="time"] {
+          padding: 0.8rem 0.9rem;
+          font-size: 1.05rem;
+          min-height: 48px;
+        }
+      }
+      .sp-dates input { flex: 1; min-width: 0; cursor: pointer; }
+
+      /* --- Datepicker custom (brand) --- */
+      .dp-panel {
+        position: fixed; z-index: 220; width: 308px;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
+      }
+      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
+      .dp-nav {
+        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
+        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
+      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
+      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+      .dp-cell {
+        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
+        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
+        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
+        transition: background 0.15s, color 0.15s;
+      }
+      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
+      .dp-vuota { cursor: default; }
+      .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
+      .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
+      @media (pointer: coarse) {
+        .dp-panel { width: 340px; }
+        .dp-cell { min-height: 44px; font-size: 1.05rem; }
+      }
+      #sp-note { flex: 1; min-width: 140px; }
+      .sp-addbtn {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.5rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .sp-addbtn:hover { background: var(--c-accent); color: #231f20; }
+
+      @media (max-width: 560px) {
+        main { padding: 1.5rem 1rem 7rem; }
+        .day-head { flex-wrap: wrap; gap: 0.5rem; }
+        .day-head .day-name { flex: 1; order: 1; }
+        .day-head .switch { order: 2; }
+        .day-head .mode { order: 3; flex-basis: 100%; }
+        .bands { padding-right: 0; }
+        .band { justify-content: flex-start; }
+        .band input[type="time"] { flex: 1; min-width: 0; }
+        .sp-row input[type="time"] { flex: 1; min-width: 0; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>Réglages</h1>
+        <div class="state" id="state">Chargement…</div>
+
+        <div id="content" style="display:none">
+          <div class="section">
+            <h2>Horaires d'ouverture (take-away)</h2>
+            <div id="days"></div>
+          </div>
+
+          <div class="section">
+            <h2>Jours spéciaux</h2>
+            <div class="sp-list" id="sp-list"></div>
+            <div class="sp-add">
+              <div class="sp-row">
+                <span class="sp-type">
+                  <button type="button" id="sp-t-closed" class="is-active">Fermé</button>
+                  <button type="button" id="sp-t-open">Ouvert</button>
+                </span>
+              </div>
+              <div class="sp-row sp-dates">
+                <input type="text" id="sp-from" placeholder="jj/mm/aaaa" readonly />
+                <span class="hint">→</span>
+                <input type="text" id="sp-to" placeholder="jj/mm/aaaa" readonly />
+              </div>
+              <div id="sp-hours" style="display:none">
+                <div class="sp-row">
+                  <span class="sp-type">
+                    <button type="button" id="sp-m-continu" class="is-active">Continu</button>
+                    <button type="button" id="sp-m-coupe">Coupé</button>
+                  </span>
+                </div>
+                <div class="sp-row">
+                  <span class="band-label" id="sp-lab-midi">Midi</span>
+                  <input type="time" id="sp-lo" value="11:00" />
+                  <span class="hint">→</span>
+                  <input type="time" id="sp-lc" value="23:30" />
+                </div>
+                <div class="sp-row" id="sp-soir" style="display:none">
+                  <span class="band-label">Soir</span>
+                  <input type="time" id="sp-do" value="18:00" />
+                  <span class="hint">→</span>
+                  <input type="time" id="sp-dc" value="23:00" />
+                </div>
+              </div>
+              <div class="sp-row">
+                <input type="text" id="sp-note" placeholder="Note (ex. Vacances d'été)" maxlength="200" />
+                <button type="button" class="sp-addbtn" id="sp-add">Ajouter</button>
+              </div>
+              <span class="msg" id="sp-msg"></span>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Cuisine</h2>
+            <div class="field">
+              <label for="prep">Temps de préparation (min)</label>
+              <input type="number" id="prep" min="0" max="240" step="5" />
+            </div>
+            <div class="field">
+              <label for="slot">Durée d'un créneau (min)</label>
+              <input type="number" id="slot" min="5" max="120" step="5" />
+            </div>
+            <div class="field">
+              <label for="kemail">Email cuisine (commandes)</label>
+              <input type="email" id="kemail" placeholder="cuisine@lamolisana.be" />
+            </div>
+            <p class="hint">L'email cuisine reçoit une notification à chaque commande payée.</p>
+          </div>
+
+          <div class="save-bar">
+            <button class="save" id="save-btn">Enregistrer</button>
+            <span class="msg" id="msg"></span>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <AdminNav current="settings" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Giorno = {
+        day_of_week: number;
+        lunch_active: boolean;
+        lunch_open: string | null;
+        lunch_close: string | null;
+        dinner_active: boolean;
+        dinner_open: string | null;
+        dinner_close: string | null;
+      };
+
+      const NOMI = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+      // Ordine di visualizzazione: lunedì -> domenica
+      const ORDINE = [1, 2, 3, 4, 5, 6, 0];
+
+      function hhmm(t: string | null): string {
+        return t ? t.slice(0, 5) : "";
+      }
+
+      // Modalità del giorno derivata dai dati: closed / continu / coupe
+      function modeDi(g: Giorno): string {
+        if (!g.lunch_active && !g.dinner_active) return "closed";
+        return g.dinner_active ? "coupe" : "continu";
+      }
+
+      function rigaGiorno(g: Giorno): string {
+        const mode = modeDi(g);
+        const aperto = mode !== "closed";
+        return `
+          <div class="day-row ${aperto ? "is-open" : ""}" data-day="${g.day_of_week}" data-mode="${mode === "closed" ? "continu" : mode}">
+            <div class="day-head">
+              <span class="day-name">${NOMI[g.day_of_week]}</span>
+              <span class="mode">
+                <button type="button" class="m-continu ${mode !== "coupe" ? "is-active" : ""}">Continu</button>
+                <button type="button" class="m-coupe ${mode === "coupe" ? "is-active" : ""}">Coupé</button>
+              </span>
+              <label class="switch">
+                <input type="checkbox" class="d-active" ${aperto ? "checked" : ""} />
+                <span class="track"></span>
+              </label>
+            </div>
+            <div class="bands">
+              <div class="band band-midi">
+                <span class="band-label">Midi</span>
+                <input type="time" class="t-lunch-open" value="${hhmm(g.lunch_open)}" />
+                <span class="hint">→</span>
+                <input type="time" class="t-lunch-close" value="${hhmm(g.lunch_close)}" />
+              </div>
+              <div class="band band-soir">
+                <span class="band-label">Soir</span>
+                <input type="time" class="t-dinner-open" value="${hhmm(g.dinner_open)}" />
+                <span class="hint">→</span>
+                <input type="time" class="t-dinner-close" value="${hhmm(g.dinner_close)}" />
+              </div>
+            </div>
+          </div>`;
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const contentEl = document.getElementById("content") as HTMLDivElement;
+        const daysEl = document.getElementById("days") as HTMLDivElement;
+        const prepEl = document.getElementById("prep") as HTMLInputElement;
+        const slotEl = document.getElementById("slot") as HTMLInputElement;
+        const kemailEl = document.getElementById("kemail") as HTMLInputElement;
+        const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
+        const msgEl = document.getElementById("msg") as HTMLSpanElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token ?? "";
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // --- Carica i valori attuali ---
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string };
+        try {
+          const res = await fetch("/api/admin/settings", { headers });
+          if (!res.ok) { stateEl.textContent = "Erreur de chargement."; return; }
+          dati = await res.json();
+        } catch {
+          stateEl.textContent = "Erreur de connexion.";
+          return;
+        }
+
+        const mappa = new Map(dati.days.map((g) => [g.day_of_week, g]));
+        daysEl.innerHTML = ORDINE.map((d) => rigaGiorno(mappa.get(d)!)).join("");
+        prepEl.value = String(dati.prep_time_minutes);
+        slotEl.value = String(dati.slot_duration_minutes);
+        kemailEl.value = dati.kitchen_email;
+
+        stateEl.style.display = "none";
+        contentEl.style.display = "grid";
+
+        // Bottone flottante: appare alla prima modifica
+        const saveBar = document.querySelector(".save-bar") as HTMLElement;
+        const dirty = () => saveBar.classList.add("is-visible");
+        daysEl.addEventListener("change", dirty);
+        daysEl.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("m-continu") || t.classList.contains("m-coupe")) dirty();
+        });
+        [prepEl, slotEl, kemailEl].forEach((el) => el.addEventListener("input", dirty));
+
+        // --- Jours spéciaux (salvataggio immediato, indipendente da Enregistrer) ---
+        type SpecialDay = {
+          id: string; type: "closed" | "open";
+          date_from: string; date_to: string;
+          lunch_open: string | null; lunch_close: string | null;
+          dinner_open: string | null; dinner_close: string | null;
+          note: string;
+        };
+        const spList = document.getElementById("sp-list") as HTMLDivElement;
+        const spFrom = document.getElementById("sp-from") as HTMLInputElement;
+        const spTo = document.getElementById("sp-to") as HTMLInputElement;
+        const spNote = document.getElementById("sp-note") as HTMLInputElement;
+        const spHours = document.getElementById("sp-hours") as HTMLElement;
+        const spLo = document.getElementById("sp-lo") as HTMLInputElement;
+        const spLc = document.getElementById("sp-lc") as HTMLInputElement;
+        const spSoir = document.getElementById("sp-soir") as HTMLElement;
+        const spDo = document.getElementById("sp-do") as HTMLInputElement;
+        const spDc = document.getElementById("sp-dc") as HTMLInputElement;
+        const spLabMidi = document.getElementById("sp-lab-midi") as HTMLElement;
+        const spMContinu = document.getElementById("sp-m-continu") as HTMLButtonElement;
+        const spMCoupe = document.getElementById("sp-m-coupe") as HTMLButtonElement;
+        let spMode: "continu" | "coupe" = "continu";
+        const spAddBtn = document.getElementById("sp-add") as HTMLButtonElement;
+        const spMsg = document.getElementById("sp-msg") as HTMLSpanElement;
+        const spTClosed = document.getElementById("sp-t-closed") as HTMLButtonElement;
+        const spTOpen = document.getElementById("sp-t-open") as HTMLButtonElement;
+        let spType: "closed" | "open" = "closed";
+
+        function fmtData(iso: string): string {
+          const [y, m, d] = iso.split("-");
+          return `${d}/${m}/${y}`;
+        }
+        function spItemHTML(s: SpecialDay): string {
+          const dates = s.date_from === s.date_to
+            ? fmtData(s.date_from)
+            : `${fmtData(s.date_from)} → ${fmtData(s.date_to)}`;
+          let ore = "";
+          if (s.type === "open" && s.lunch_open && s.lunch_close) {
+            ore = ` · ${s.lunch_open.slice(0, 5)}–${s.lunch_close.slice(0, 5)}`;
+            if (s.dinner_open && s.dinner_close) {
+              ore += ` / ${s.dinner_open.slice(0, 5)}–${s.dinner_close.slice(0, 5)}`;
+            }
+          }
+          const nota = s.note ? ` · ${s.note}` : "";
+          const badge = s.type === "closed"
+            ? '<span class="sp-badge sp-b-closed">Fermé</span>'
+            : '<span class="sp-badge sp-b-open">Ouvert</span>';
+          return `<div class="sp-item">${badge}<span class="sp-txt">${dates}${ore}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="Supprimer">×</button></div>`;
+        }
+        async function caricaSpecial() {
+          try {
+            const res = await fetch("/api/admin/special-days", { headers });
+            if (!res.ok) return;
+            const j = await res.json();
+            const items = (j.days as SpecialDay[]) ?? [];
+            spList.innerHTML = items.length
+              ? items.map(spItemHTML).join("")
+              : '<p class="hint">Aucun jour spécial programmé.</p>';
+          } catch { /* silenzioso: la lista resta com'era */ }
+        }
+        spTClosed.addEventListener("click", () => {
+          spType = "closed";
+          spTClosed.classList.add("is-active");
+          spTOpen.classList.remove("is-active");
+          spHours.style.display = "none";
+        });
+        spTOpen.addEventListener("click", () => {
+          spType = "open";
+          spTOpen.classList.add("is-active");
+          spTClosed.classList.remove("is-active");
+          spHours.style.display = "flex";
+        });
+        spMContinu.addEventListener("click", () => {
+          spMode = "continu";
+          spMContinu.classList.add("is-active");
+          spMCoupe.classList.remove("is-active");
+          spSoir.style.display = "none";
+          spLabMidi.style.display = "none";
+          if (spLc.value === "14:30") spLc.value = "23:30";
+        });
+        spMCoupe.addEventListener("click", () => {
+          spMode = "coupe";
+          spMCoupe.classList.add("is-active");
+          spMContinu.classList.remove("is-active");
+          spSoir.style.display = "flex";
+          spLabMidi.style.display = "";
+          if (spLc.value === "23:30") spLc.value = "14:30";
+          if (!spDo.value) spDo.value = "18:00";
+          if (!spDc.value) spDc.value = "23:00";
+        });
+        // All'avvio la modalità è Continu: etichetta Midi nascosta
+        spLabMidi.style.display = "none";
+        spAddBtn.addEventListener("click", async () => {
+          spMsg.textContent = "";
+          spMsg.className = "msg";
+          if (!spFrom.dataset.iso) {
+            spMsg.textContent = "Choisis une date.";
+            spMsg.classList.add("err");
+            return;
+          }
+          spAddBtn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/special-days", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: spType,
+                date_from: spFrom.dataset.iso,
+                date_to: spTo.dataset.iso || spFrom.dataset.iso,
+                lunch_open: spType === "open" ? spLo.value : null,
+                lunch_close: spType === "open" ? spLc.value : null,
+                dinner_open: spType === "open" && spMode === "coupe" ? spDo.value : null,
+                dinner_close: spType === "open" && spMode === "coupe" ? spDc.value : null,
+                note: spNote.value.trim(),
+              }),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              spMsg.textContent = j.error ?? "Erreur.";
+              spMsg.classList.add("err");
+            } else {
+              spFrom.value = ""; spTo.value = ""; spNote.value = "";
+              delete spFrom.dataset.iso; delete spTo.dataset.iso;
+              await caricaSpecial();
+            }
+          } catch {
+            spMsg.textContent = "Erreur de connexion.";
+            spMsg.classList.add("err");
+          } finally {
+            spAddBtn.disabled = false;
+          }
+        });
+        spList.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          if (!t.classList.contains("sp-del")) return;
+          try {
+            await fetch("/api/admin/special-days?id=" + t.dataset.id, { method: "DELETE", headers });
+            await caricaSpecial();
+          } catch { /* la lista resta com'era */ }
+        });
+        await caricaSpecial();
+
+        // Campi ORA: un tap apre subito il picker nativo.
+        document.addEventListener("click", (e) => {
+          const t = e.target as HTMLInputElement;
+          if (t instanceof HTMLInputElement && t.type === "time" && !t.disabled) {
+            try {
+              t.showPicker?.();
+            } catch {
+              /* browser senza showPicker: resta il comportamento nativo */
+            }
+          }
+        });
+
+        // --- Datepicker custom (brand) per i campi data ---
+        const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+        const DOW = ["L", "M", "M", "J", "V", "S", "D"];
+        let dpTarget: HTMLInputElement | null = null;
+        let dpAnno = 0;
+        let dpMese = 0; // 0-11
+        const dpPanel = document.createElement("div");
+        dpPanel.className = "dp-panel";
+        dpPanel.style.display = "none";
+        document.body.appendChild(dpPanel);
+
+        function isoOggi(): string {
+          const d = new Date();
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+        function isoDi(y: number, m: number, g: number): string {
+          return `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
+        }
+        function fmtFr(iso: string): string {
+          const [y, m, d] = iso.split("-");
+          return `${d}/${m}/${y}`;
+        }
+        function dpRender() {
+          const oggi = isoOggi();
+          const sel = dpTarget?.dataset.iso ?? "";
+          const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7; // lunedì=0
+          const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
+          const oy = Number(oggi.slice(0, 4));
+          const om = Number(oggi.slice(5, 7)) - 1;
+          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
+          let celle = "";
+          for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
+          for (let g = 1; g <= nGiorni; g++) {
+            const iso = isoDi(dpAnno, dpMese, g);
+            const cls = ["dp-cell"];
+            if (iso < oggi) cls.push("dp-off");
+            if (iso === oggi) cls.push("dp-today");
+            if (iso === sel) cls.push("dp-sel");
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${iso < oggi ? "disabled" : ""}>${g}</button>`;
+          }
+          dpPanel.innerHTML = `
+            <div class="dp-head">
+              <button type="button" class="dp-nav" data-nav="-1" ${prevOff ? "disabled" : ""}>‹</button>
+              <span class="dp-title">${MESI[dpMese]} ${dpAnno}</span>
+              <button type="button" class="dp-nav" data-nav="1">›</button>
+            </div>
+            <div class="dp-dow">${DOW.map((g) => `<span>${g}</span>`).join("")}</div>
+            <div class="dp-grid">${celle}</div>`;
+        }
+        function dpApri(target: HTMLInputElement) {
+          dpTarget = target;
+          const base = target.dataset.iso || isoOggi();
+          dpAnno = Number(base.slice(0, 4));
+          dpMese = Number(base.slice(5, 7)) - 1;
+          dpRender();
+          dpPanel.style.display = "block";
+          const r = target.getBoundingClientRect();
+          const pw = dpPanel.offsetWidth || 308;
+          dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
+          dpPanel.style.top = `${r.bottom + 6}px`;
+        }
+        function dpChiudi() {
+          dpPanel.style.display = "none";
+          dpTarget = null;
+        }
+        dpPanel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("dp-nav")) {
+            dpMese += Number(t.dataset.nav);
+            if (dpMese < 0) { dpMese = 11; dpAnno--; }
+            if (dpMese > 11) { dpMese = 0; dpAnno++; }
+            dpRender();
+            return;
+          }
+          if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
+            const iso = t.dataset.iso;
+            dpTarget.dataset.iso = iso;
+            dpTarget.value = fmtFr(iso);
+            // se la fine manca o è prima dell'inizio, allineala
+            const fromIso = spFrom.dataset.iso ?? "";
+            const toIso = spTo.dataset.iso ?? "";
+            if (dpTarget === spFrom && (!toIso || toIso < fromIso)) {
+              spTo.dataset.iso = iso;
+              spTo.value = fmtFr(iso);
+            }
+            dpChiudi();
+          }
+        });
+        [spFrom, spTo].forEach((el) => {
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            dpApri(el);
+          });
+        });
+        document.addEventListener("click", (e) => {
+          if (dpPanel.style.display !== "none" && !dpPanel.contains(e.target as Node)) dpChiudi();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") dpChiudi();
+        });
+
+        // --- Interazioni ---
+        daysEl.addEventListener("change", (e) => {
+          const t = e.target as HTMLInputElement;
+          if (!t.classList.contains("d-active")) return;
+          const row = t.closest(".day-row") as HTMLElement;
+          row.classList.toggle("is-open", t.checked);
+          if (t.checked) {
+            // Default sensato quando si riapre un giorno
+            const lo = row.querySelector(".t-lunch-open") as HTMLInputElement;
+            const lc = row.querySelector(".t-lunch-close") as HTMLInputElement;
+            if (!lo.value) lo.value = "11:00";
+            if (!lc.value) lc.value = "23:30";
+          }
+        });
+
+        daysEl.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          const row = t.closest(".day-row") as HTMLElement | null;
+          if (!row) return;
+          if (t.classList.contains("m-continu") || t.classList.contains("m-coupe")) {
+            const coupe = t.classList.contains("m-coupe");
+            row.dataset.mode = coupe ? "coupe" : "continu";
+            row.querySelector(".m-continu")!.classList.toggle("is-active", !coupe);
+            row.querySelector(".m-coupe")!.classList.toggle("is-active", coupe);
+            if (coupe) {
+              // Default sensati per il servizio spezzato
+              const lo = row.querySelector(".t-lunch-open") as HTMLInputElement;
+              const lc = row.querySelector(".t-lunch-close") as HTMLInputElement;
+              const so = row.querySelector(".t-dinner-open") as HTMLInputElement;
+              const sc = row.querySelector(".t-dinner-close") as HTMLInputElement;
+              if (!lo.value) lo.value = "12:00";
+              if (lc.value === "23:30" || !lc.value) lc.value = "14:30";
+              if (!so.value) so.value = "18:00";
+              if (!sc.value) sc.value = "23:00";
+            }
+          }
+        });
+
+        // --- Salva ---
+        saveBtn.addEventListener("click", async () => {
+          msgEl.textContent = "";
+          msgEl.className = "msg";
+
+          const days = Array.from(daysEl.querySelectorAll<HTMLElement>(".day-row")).map((row) => {
+            const aperto = (row.querySelector(".d-active") as HTMLInputElement).checked;
+            const coupe = row.dataset.mode === "coupe";
+            const v = (sel: string) => (row.querySelector(sel) as HTMLInputElement).value || null;
+            return {
+              day_of_week: Number(row.dataset.day),
+              lunch_active: aperto,
+              lunch_open: aperto ? v(".t-lunch-open") : null,
+              lunch_close: aperto ? v(".t-lunch-close") : null,
+              dinner_active: aperto && coupe,
+              dinner_open: aperto && coupe ? v(".t-dinner-open") : null,
+              dinner_close: aperto && coupe ? v(".t-dinner-close") : null,
+            };
+          });
+
+          saveBtn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/settings", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                days,
+                prep_time_minutes: Number(prepEl.value),
+                slot_duration_minutes: Number(slotEl.value),
+                kitchen_email: kemailEl.value.trim(),
+              }),
+            });
+            const json = await res.json();
+            if (!res.ok) {
+              msgEl.textContent = json.error ?? "Erreur d'enregistrement.";
+              msgEl.classList.add("err");
+            } else {
+              saveBtn.classList.add("is-saved");
+              saveBtn.textContent = "Sauvegardé ✓";
+              setTimeout(() => {
+                saveBar.classList.remove("is-visible");
+                // reset del bottone dopo la dissolvenza
+                setTimeout(() => {
+                  saveBtn.classList.remove("is-saved");
+                  saveBtn.textContent = "Enregistrer";
+                }, 300);
+              }, 1800);
+            }
+          } catch {
+            msgEl.textContent = "Erreur de connexion.";
+            msgEl.classList.add("err");
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

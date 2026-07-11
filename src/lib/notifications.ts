@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { supabaseAdmin } from "./db";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -12,6 +13,25 @@ const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/logo-white-pizzeria77.png`;
 const TEL = "+3226477777";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+/**
+ * Email cucina: prima da app_config (modificabile dall'admin),
+ * fallback sulla variabile d'ambiente KITCHEN_EMAIL.
+ */
+async function kitchenEmail(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "kitchen_email")
+      .maybeSingle();
+    const v = data?.value?.trim();
+    if (v) return v;
+  } catch {
+    // DB non raggiungibile: si usa il fallback env.
+  }
+  return KITCHEN_EMAIL ?? "";
+}
 
 /** Dati di un ordine confermato, per comporre le notifiche. */
 export interface OrdineNotifica {
@@ -172,8 +192,9 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
 
 /** Email di notifica alla cucina (design chiaro operativo). */
 async function emailCucina(o: OrdineNotifica): Promise<void> {
-  if (!resend || !RESEND_FROM || !KITCHEN_EMAIL) {
-    console.warn("Resend/KITCHEN_EMAIL non configurato: salto email cucina");
+  const dest = await kitchenEmail();
+  if (!resend || !RESEND_FROM || !dest) {
+    console.warn("Resend/email cucina non configurati: salto email cucina");
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
@@ -246,7 +267,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   try {
     await resend.emails.send({
       from: RESEND_FROM,
-      to: KITCHEN_EMAIL,
+      to: dest,
       bcc: BCC,
       subject: `Nouvelle commande #${o.numero} — retrait ${ora}`,
       html,

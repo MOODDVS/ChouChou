@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { prezzoEffettivo } from "./pricing";
 
 const SUPABASE_URL = import.meta.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = import.meta.env.SUPABASE_SERVICE_KEY;
@@ -29,7 +30,8 @@ export interface MenuItem {
   description_fr: string | null;
   description_en: string | null;
   allergens: number[];
-  price_cents: number;
+  price_cents: number; // prezzo EFFETTIVO (già scontato se applicabile)
+  original_price_cents: number | null; // prezzo pieno, solo se scontato
   image_url: string | null;
 }
 
@@ -40,14 +42,22 @@ export interface MenuCategoria {
 }
 
 const MENU_SELECT =
-  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order";
+  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope";
 
-/** Trasforma le righe DB (già ordinate) in categorie raggruppate. */
-function raggruppa(data: any[]): MenuCategoria[] {
+/**
+ * Trasforma le righe DB (già ordinate) in categorie raggruppate.
+ * `online = true` (take-away): applica TUTTI gli sconti.
+ * `online = false` (vetrina): applica solo gli sconti con scope 'all'.
+ */
+function raggruppa(data: any[], online: boolean): MenuCategoria[] {
   const gruppi: MenuCategoria[] = [];
   const indiceCategoria = new Map<string, number>();
 
   for (const riga of data) {
+    const applicabile = online || riga.discount_scope === "all";
+    const effettivo = applicabile
+      ? prezzoEffettivo(riga.price_cents, riga.discount_type, riga.discount_value)
+      : riga.price_cents;
     const item: MenuItem = {
       id: riga.id,
       category: riga.category,
@@ -57,7 +67,8 @@ function raggruppa(data: any[]): MenuCategoria[] {
       description_fr: riga.description_fr,
       description_en: riga.description_en,
       allergens: riga.allergens ?? [],
-      price_cents: riga.price_cents,
+      price_cents: effettivo,
+      original_price_cents: effettivo < riga.price_cents ? riga.price_cents : null,
       image_url: riga.image_url,
     };
 
@@ -90,7 +101,7 @@ export async function getMenu(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
   }
-  return raggruppa(data);
+  return raggruppa(data, false);
 }
 
 /**
@@ -109,5 +120,5 @@ export async function getMenuOrderable(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
-  return raggruppa(data);
+  return raggruppa(data, true);
 }

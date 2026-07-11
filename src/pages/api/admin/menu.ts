@@ -1,0 +1,256 @@
+import type { APIRoute } from "astro";
+import { supabaseAdmin } from "../../../lib/db";
+import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+
+export const prerender = false;
+
+const SELECT =
+  "id, category, category_order, sort_order, name, description_fr, description_en, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope";
+
+/** Ordine della sezione (menu_categories); null se la sezione non esiste. */
+async function ordineCategoria(nome: string): Promise<number | null> {
+  const { data } = await supabaseAdmin
+    .from("menu_categories")
+    .select("sort_order")
+    .eq("name", nome)
+    .maybeSingle();
+  return data ? data.sort_order : null;
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+/**
+ * Valida i campi di un piatto in arrivo dall'admin.
+ * `parziale = true` (PUT): valida solo i campi presenti.
+ * Ritorna { errore } oppure { campi } pronti per il DB.
+ */
+function validaCampi(
+  body: Record<string, unknown>,
+  parziale: boolean
+): { errore?: string; campi?: Record<string, unknown> } {
+  const campi: Record<string, unknown> = {};
+
+  if (!parziale || "name" in body) {
+    const name = String(body.name ?? "").trim();
+    if (!name) return { errore: "Nom requis" };
+    campi.name = name.slice(0, 120);
+  }
+  if (!parziale || "category" in body) {
+    const cat = String(body.category ?? "").trim();
+    if (!cat) return { errore: "Catégorie requise" };
+    campi.category = cat.slice(0, 60);
+  }
+  if (!parziale || "price_cents" in body) {
+    const n = Math.round(Number(body.price_cents));
+    if (!Number.isFinite(n) || n < 0 || n > 100000) return { errore: "Prix invalide" };
+    campi.price_cents = n;
+  }
+  if ("category_order" in body) {
+    const n = Math.floor(Number(body.category_order));
+    if (!Number.isFinite(n) || n < 0 || n > 999) return { errore: "Ordre catégorie invalide" };
+    campi.category_order = n;
+  }
+  if ("sort_order" in body) {
+    const n = Math.floor(Number(body.sort_order));
+    if (!Number.isFinite(n) || n < 0 || n > 9999) return { errore: "Position invalide" };
+    campi.sort_order = n;
+  }
+  if ("description_fr" in body) {
+    const v = String(body.description_fr ?? "").trim();
+    campi.description_fr = v ? v.slice(0, 500) : null;
+  }
+  if ("description_en" in body) {
+    const v = String(body.description_en ?? "").trim();
+    campi.description_en = v ? v.slice(0, 500) : null;
+  }
+  if ("allergens" in body) {
+    const arr = body.allergens;
+    if (!Array.isArray(arr)) return { errore: "Allergènes invalides" };
+    const puliti = [...new Set(arr.map((x) => Math.floor(Number(x))))];
+    if (puliti.some((n) => !Number.isFinite(n) || n < 1 || n > 14)) {
+      return { errore: "Allergènes invalides (1–14)" };
+    }
+    campi.allergens = puliti.sort((a, b) => a - b);
+  }
+  if ("available" in body) campi.available = !!body.available;
+  if ("orderable" in body) campi.orderable = !!body.orderable;
+
+  // --- Sconto ---
+  if ("discount_type" in body) {
+    const t = body.discount_type;
+    if (t !== null && t !== "" && t !== "fixed" && t !== "percent") {
+      return { errore: "Type de réduction invalide" };
+    }
+    campi.discount_type = t === "fixed" || t === "percent" ? t : null;
+  }
+  if ("discount_value" in body) {
+    const v = Math.round(Number(body.discount_value));
+    if (!Number.isFinite(v) || v < 0 || v > 100000) return { errore: "Valeur de réduction invalide" };
+    campi.discount_value = v;
+  }
+  if ("discount_scope" in body) {
+    if (body.discount_scope !== "all" && body.discount_scope !== "online") {
+      return { errore: "Application de la réduction invalide" };
+    }
+    campi.discount_scope = body.discount_scope;
+  }
+  // Coerenza: percentuale sensata; senza tipo, valore a zero
+  if (campi.discount_type === "percent" && Number(campi.discount_value ?? 0) > 99) {
+    return { errore: "Pourcentage invalide (1–99)" };
+  }
+  if ("discount_type" in campi && campi.discount_type === null) {
+    campi.discount_value = 0;
+  }
+
+  return { campi };
+}
+
+// GET /api/admin/menu — TUTTI i piatti (anche nascosti), ordinati
+export const GET: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .select(SELECT)
+    .order("category_order", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+
+  if (error) return json({ error: "Lecture impossible" }, 500);
+  return json({ items: data ?? [] });
+};
+
+// POST /api/admin/menu — crea un piatto
+export const POST: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Requête invalide" }, 400);
+  }
+
+  const { errore, campi } = validaCampi(body, false);
+  if (errore) return json({ error: errore }, 400);
+  if (!campi) return json({ error: "Requête invalide" }, 400);
+
+  // Default sensati se non forniti
+  if (!("available" in campi)) campi.available = true;
+  if (!("orderable" in campi)) campi.orderable = true;
+  if (!("allergens" in campi)) campi.allergens = [];
+  if (!("sort_order" in campi)) campi.sort_order = 0;
+
+  // La sezione deve esistere; l'ordine viene dal registro sezioni
+  const ord = await ordineCategoria(campi.category as string);
+  if (ord === null) return json({ error: "Section inconnue" }, 400);
+  campi.category_order = ord;
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .insert(campi)
+    .select(SELECT)
+    .single();
+
+  if (error || !data) return json({ error: "Création impossible" }, 500);
+  return json({ item: data });
+};
+
+// PUT /api/admin/menu — aggiorna un piatto (campi parziali ammessi)
+export const PUT: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Requête invalide" }, 400);
+  }
+
+  const id = String(body.id ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+
+  const { errore, campi } = validaCampi(body, true);
+  if (errore) return json({ error: errore }, 400);
+  if (!campi || Object.keys(campi).length === 0) {
+    return json({ error: "Rien à modifier" }, 400);
+  }
+
+  if ("category" in campi) {
+    const ord = await ordineCategoria(campi.category as string);
+    if (ord === null) return json({ error: "Section inconnue" }, 400);
+    campi.category_order = ord;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("menu_items")
+    .update(campi)
+    .eq("id", id)
+    .select(SELECT)
+    .single();
+
+  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  return json({ item: data });
+};
+
+// PATCH /api/admin/menu — riordina i piatti di UNA sezione (drag & drop).
+// body: { category: string, order: [id, id, ...] } nell'ordine desiderato.
+export const PATCH: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  let body: { category?: string; order?: string[] };
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Requête invalide" }, 400);
+  }
+  const category = String(body.category ?? "").trim();
+  const order = body.order;
+  if (!category) return json({ error: "Section requise" }, 400);
+  if (!Array.isArray(order) || order.length === 0) return json({ error: "Ordre requis" }, 400);
+  if (order.some((id) => !/^[0-9a-f-]{36}$/i.test(String(id)))) return json({ error: "Id invalide" }, 400);
+  if (new Set(order).size !== order.length) return json({ error: "Doublons dans l'ordre" }, 400);
+
+  // L'ordine deve contenere ESATTAMENTE i piatti della sezione
+  const { data: righe, error: errItems } = await supabaseAdmin
+    .from("menu_items")
+    .select("id")
+    .eq("category", category);
+  if (errItems || !righe) return json({ error: "Lecture impossible" }, 500);
+  const attuali = new Set(righe.map((r) => r.id));
+  if (order.length !== attuali.size || order.some((id) => !attuali.has(id))) {
+    return json({ error: "Liste incomplète" }, 400);
+  }
+
+  for (let i = 0; i < order.length; i++) {
+    const { error } = await supabaseAdmin
+      .from("menu_items")
+      .update({ sort_order: i + 1 })
+      .eq("id", order[i]);
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
+  return json({ ok: true });
+};
+
+// DELETE /api/admin/menu?id=... — elimina un piatto
+export const DELETE: APIRoute = async ({ request, url }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  const id = url.searchParams.get("id") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+
+  const { error } = await supabaseAdmin.from("menu_items").delete().eq("id", id);
+  if (error) return json({ error: "Suppression impossible" }, 500);
+
+  return json({ ok: true });
+};

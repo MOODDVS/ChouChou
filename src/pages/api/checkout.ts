@@ -2,7 +2,9 @@ import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
-import { calcolaSlotGiorno, TIMEZONE, type ConfigGiorno } from "../../lib/slots";
+import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
+import { configGiornoEffettiva } from "../../lib/schedule";
+import { prezzoEffettivo } from "../../lib/pricing";
 
 export const prerender = false;
 
@@ -54,33 +56,13 @@ export const POST: APIRoute = async ({ request }) => {
   const lang: "fr" | "en" = body.lang === "en" ? "en" : "fr";
 
   const ora = DateTime.now().setZone(TIMEZONE);
-  const dayOfWeek = ora.weekday === 7 ? 0 : ora.weekday;
 
-  const { data: settings, error: errSettings } = await supabaseAdmin
-    .from("settings")
-    .select(
-      "lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes, exceptional_closures"
-    )
-    .eq("day_of_week", dayOfWeek)
-    .single();
-
-  if (errSettings || !settings) {
+  // Config effettiva: orari settimanali + giorni speciali (special_days).
+  // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
+  const config = await configGiornoEffettiva(ora);
+  if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }
-
-  const config: ConfigGiorno = {
-    lunch_active: settings.lunch_active,
-    lunch_open: settings.lunch_open,
-    lunch_close: settings.lunch_close,
-    dinner_active: settings.dinner_active,
-    dinner_open: settings.dinner_open,
-    dinner_close: settings.dinner_close,
-    prep_time_minutes: settings.prep_time_minutes,
-    slot_duration_minutes: settings.slot_duration_minutes,
-    exceptional_closures: Array.isArray(settings.exceptional_closures)
-      ? settings.exceptional_closures
-      : [],
-  };
 
   const { lunch, dinner } = calcolaSlotGiorno(ora, config);
   const slotValidi = [...lunch, ...dinner];
@@ -91,7 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ids = body.items.map((i) => i.id);
   const { data: piatti, error: errMenu } = await supabaseAdmin
     .from("menu_items")
-    .select("id, name, price_cents, available, category_order")
+    .select("id, name, price_cents, available, category_order, discount_type, discount_value")
     .in("id", ids);
 
   if (errMenu || !piatti) {
@@ -123,7 +105,9 @@ export const POST: APIRoute = async ({ request }) => {
       supplemento = richiestoSuppl;
     }
     const supplCents = SUPPL[supplemento];
-    const prezzoUnitario = piatto.price_cents + supplCents;
+    // Prezzo base EFFETTIVO: gli sconti (fissi o %) valgono sempre online.
+    const prezzoBase = prezzoEffettivo(piatto.price_cents, piatto.discount_type, piatto.discount_value);
+    const prezzoUnitario = prezzoBase + supplCents;
 
     const nomeRiga =
       supplemento === "none"
