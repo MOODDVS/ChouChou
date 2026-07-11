@@ -1,7 +1,7 @@
 ---
-// Pannello admin — dashboard. Riepilogo di OGGI: due riquadri cliccabili
-// (Commandes / Réservations) con numeri e prossimo evento in arrivo.
-import AdminNav from "../../components/AdminNav.astro";
+// Pannello admin — dashboard. Riepilogo di OGGI.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
 ---
 
 <html lang="fr">
@@ -29,91 +29,18 @@ import AdminNav from "../../components/AdminNav.astro";
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        background: var(--c-bg);
-        color: var(--c-text);
-        font-family: var(--font-body);
-        min-height: 100vh;
-      }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
-      header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1rem 1.5rem;
-        border-bottom: 1px solid var(--c-line);
-      }
-      .brand { display: flex; align-items: center; gap: 0.75rem; }
-      .brand img { height: 22px; width: auto; filter: invert(1); }
-      .brand span {
-        font-family: var(--font-title);
-        font-size: 1.4rem;
-        letter-spacing: 0.04em;
-      }
-      .user { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; color: var(--c-muted); }
-      .logout {
-        background: transparent;
-        border: 1px solid var(--c-line);
-        color: var(--c-text);
-        font-family: var(--font-body);
-        font-size: 0.8rem;
-        padding: 0.45rem 0.9rem;
-        cursor: pointer;
-      }
-      .logout:hover { background: var(--c-text); color: var(--c-bg); }
-
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
-      .today-label {
-        font-family: var(--font-title);
-        font-size: 1.6rem;
-        letter-spacing: 0.03em;
-        text-transform: capitalize;
-        margin-bottom: 1.5rem;
-        color: var(--c-muted);
-      }
-      .cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.25rem;
-        max-width: 900px;
-      }
-      .tile {
-        display: block;
-        background: var(--c-card);
-        border: 1px solid var(--c-line);
-        padding: 1.75rem;
-        text-decoration: none;
-        color: var(--c-text);
-        transition: border-color 0.2s, transform 0.15s;
-      }
+      .today-label { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; text-transform: capitalize; margin-bottom: 1.5rem; color: var(--c-muted); }
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; max-width: 900px; }
+      .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.75rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; }
       .tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-      .tile-title {
-        font-family: var(--font-title);
-        font-size: 1.8rem;
-        letter-spacing: 0.04em;
-        margin-bottom: 1rem;
-      }
-      .tile-big {
-        font-family: var(--font-title);
-        font-size: 3.5rem;
-        line-height: 1;
-        margin-bottom: 0.25rem;
-        color: var(--c-accent);
-      }
+      .tile-title { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.04em; margin-bottom: 1rem; }
+      .tile-big { font-family: var(--font-title); font-size: 3.5rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
       .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
-      .tile-next {
-        border-top: 1px solid var(--c-line);
-        padding-top: 1rem;
-        font-size: 0.95rem;
-      }
-      .tile-next .lab {
-        font-size: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: var(--c-muted);
-        display: block;
-        margin-bottom: 0.3rem;
-      }
+      .tile-next { border-top: 1px solid var(--c-line); padding-top: 1rem; font-size: 0.95rem; }
+      .tile-next .lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
       .tile-next .val { font-weight: 700; }
       .tile-next .none { color: var(--c-muted); font-weight: 400; }
       .state { color: var(--c-muted); padding: 1rem 0; }
@@ -121,16 +48,7 @@ import AdminNav from "../../components/AdminNav.astro";
   </head>
   <body>
     <div id="app">
-      <header>
-        <div class="brand">
-          <img src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
-          <span>Admin</span>
-        </div>
-        <div class="user">
-          <span id="user-email"></span>
-          <button class="logout" id="logout-btn">Déconnexion</button>
-        </div>
-      </header>
+      <AdminHeader />
       <main>
         <p class="today-label" id="today-label"></p>
         <div class="state" id="state">Chargement…</div>
@@ -154,13 +72,7 @@ import AdminNav from "../../components/AdminNav.astro";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
-      type Order = {
-        pickup_time: string;
-        customer_name: string;
-        items: Item[];
-        total_cents: number;
-        status: string;
-      };
+      type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
 
       function dayKey(d: Date): string {
         const y = d.getFullYear();
@@ -172,11 +84,7 @@ import AdminNav from "../../components/AdminNav.astro";
         return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
       }
       function oraDa(iso: string): string {
-        return new Date(iso).toLocaleTimeString("fr-BE", {
-          timeZone: "Europe/Brussels",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        return new Date(iso).toLocaleTimeString("fr-BE", { timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit" });
       }
       function dayKeyBrussels(iso: string): string {
         return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
@@ -205,12 +113,7 @@ import AdminNav from "../../components/AdminNav.astro";
 
         const oggi = new Date();
         const oggiKey = dayKey(oggi);
-        labelEl.textContent = oggi.toLocaleDateString("fr-BE", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
+        labelEl.textContent = oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const token = sessionData.session?.access_token ?? "";
@@ -218,13 +121,9 @@ import AdminNav from "../../components/AdminNav.astro";
 
         try {
           const resOrd = await fetch("/api/admin/orders", { headers });
-          if (!resOrd.ok) {
-            stateEl.textContent = "Erreur de chargement.";
-            return;
-          }
+          if (!resOrd.ok) { stateEl.textContent = "Erreur de chargement."; return; }
           const orders = ((await resOrd.json()).orders as Order[]) ?? [];
 
-          // --- Commandes di oggi ---
           const ordOggi = orders
             .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
             .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
