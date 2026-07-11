@@ -33,6 +33,9 @@ export interface MenuItem {
   price_cents: number; // prezzo EFFETTIVO (già scontato se applicabile)
   original_price_cents: number | null; // prezzo pieno, solo se scontato
   image_url: string | null;
+  is_bestseller: boolean;
+  is_vegan: boolean;
+  is_spicy: boolean;
 }
 
 export interface MenuCategoria {
@@ -42,7 +45,7 @@ export interface MenuCategoria {
 }
 
 const MENU_SELECT =
-  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope";
+  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy";
 
 /**
  * Trasforma le righe DB (già ordinate) in categorie raggruppate.
@@ -70,6 +73,9 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
       price_cents: effettivo,
       original_price_cents: effettivo < riga.price_cents ? riga.price_cents : null,
       image_url: riga.image_url,
+      is_bestseller: !!riga.is_bestseller,
+      is_vegan: !!riga.is_vegan,
+      is_spicy: !!riga.is_spicy,
     };
 
     if (!indiceCategoria.has(riga.category)) {

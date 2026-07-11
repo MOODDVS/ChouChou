@@ -5,7 +5,7 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
 export const prerender = false;
 
 const SELECT =
-  "id, category, category_order, sort_order, name, description_fr, description_en, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope";
+  "id, category, category_order, sort_order, name, description_fr, description_en, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy";
 
 /** Ordine della sezione (menu_categories); null se la sezione non esiste. */
 async function ordineCategoria(nome: string): Promise<number | null> {
@@ -79,6 +79,11 @@ function validaCampi(
   }
   if ("available" in body) campi.available = !!body.available;
   if ("orderable" in body) campi.orderable = !!body.orderable;
+
+  // --- Badge (best-seller / végan / épicé) ---
+  if ("is_bestseller" in body) campi.is_bestseller = !!body.is_bestseller;
+  if ("is_vegan" in body) campi.is_vegan = !!body.is_vegan;
+  if ("is_spicy" in body) campi.is_spicy = !!body.is_spicy;
 
   // --- Sconto ---
   if ("discount_type" in body) {

@@ -1,5 +1,7 @@
 ---
-// Pannello admin — dashboard. Riepilogo di OGGI.
+// Pannello admin — dashboard. Riepilogo di OGGI, 4 tile in linea:
+// Notes (lavagnetta staff, oro), Commandes, Horaires, Menu.
+// Le Notes hanno un'anteprima nel tile + un modale per la board completa.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 ---
@@ -25,6 +27,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         --c-muted: #b3aca6;
         --c-line: #3a3335;
         --c-card: #2b2626;
+        --c-brown: #231f20;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -33,17 +36,94 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       #app { display: none; min-height: 100vh; flex-direction: column; }
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
       .today-label { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; text-transform: capitalize; margin-bottom: 1.5rem; color: var(--c-muted); }
-      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; max-width: 900px; }
-      .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.75rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; }
-      .tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-      .tile-title { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.04em; margin-bottom: 1rem; }
-      .tile-big { font-family: var(--font-title); font-size: 3.5rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
+
+      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; max-width: 1320px; }
+      @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
+
+      .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; }
+      a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
+      .tile-title { font-family: var(--font-title); font-size: 1.7rem; letter-spacing: 0.04em; margin-bottom: 1rem; }
+      .tile-big { font-family: var(--font-title); font-size: 3.2rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
       .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
       .tile-next { border-top: 1px solid var(--c-line); padding-top: 1rem; font-size: 0.95rem; }
       .tile-next .lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
       .tile-next .val { font-weight: 700; }
       .tile-next .none { color: var(--c-muted); font-weight: 400; }
       .state { color: var(--c-muted); padding: 1rem 0; }
+
+      /* --- Tile Horaires --- */
+      .sched-status { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.03em; line-height: 1; margin-bottom: 0.9rem; }
+      .sched-status.open { color: var(--c-accent); }
+      .sched-status.closed { color: var(--c-muted); }
+      .sched-bands { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
+      .sched-band { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; }
+      .sched-band .clock { width: 15px; height: 15px; stroke: var(--c-accent); fill: none; stroke-width: 1.8; flex-shrink: 0; }
+      .sched-two { display: flex; gap: 1.5rem; }
+      .sched-two > div { flex: 1; }
+
+      /* --- Tile Menu --- */
+      .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
+      .mc-num { font-family: var(--font-title); font-size: 2.8rem; line-height: 1; color: var(--c-accent); display: block; }
+      .mc-lab { color: var(--c-muted); font-size: 0.85rem; }
+      .val.warn { color: var(--c-accent); }
+
+      /* --- Tile Notes (colori invertiti: fondo oro, testo marrone) --- */
+      .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); }
+      .tile-notes .tile-title { color: var(--c-brown); }
+      .ntile-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+      .ntile-head .tile-title { margin-bottom: 0; }
+      .ntile-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--c-brown); background: transparent; color: var(--c-brown); padding: 0; transition: background 0.15s, color 0.15s; }
+      .ntile-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .ntile-btn:hover { background: var(--c-brown); color: var(--c-accent); }
+      .ntile-expand { margin-left: auto; }
+      .ntile-add { font-size: 1.5rem; line-height: 1; background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
+      .ntile-add:hover { background: transparent; color: var(--c-brown); }
+      .notes-preview { cursor: pointer; }
+      .np-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-top: 1px solid rgba(35, 31, 32, 0.18); font-size: 0.92rem; }
+      .np-item:first-child { border-top: none; }
+      .np-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-brown); opacity: 0.55; flex-shrink: 0; }
+      .np-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .np-item.done .np-text { text-decoration: line-through; opacity: 0.55; }
+      .np-item.done .np-dot { opacity: 0.3; }
+      .np-more { font-size: 0.8rem; opacity: 0.75; margin-top: 0.45rem; font-weight: 700; }
+      .np-empty { opacity: 0.8; font-size: 0.92rem; }
+
+      /* --- Modale Notes (centrato, fondo oro coerente col tile) --- */
+      .overlay { position: fixed; inset: 0; z-index: 300; display: none; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 5vh 1rem; overflow-y: auto; }
+      .overlay.is-open { display: flex; }
+      .modal { width: 100%; max-width: 620px; margin: auto; background: var(--c-accent); color: var(--c-brown); border: 1px solid var(--c-accent); padding: 1.75rem; position: relative; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
+      .modal h2 { font-family: var(--font-title); font-size: 1.9rem; letter-spacing: 0.04em; margin-bottom: 1.1rem; color: var(--c-brown); }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: rgba(35, 31, 32, 0.55); font-size: 1.7rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-brown); }
+
+      /* Compose */
+      .notes-compose { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
+      .notes-compose textarea { background: #fffaf0; border: 1px solid rgba(35, 31, 32, 0.3); color: var(--c-brown); font-family: var(--font-body); font-size: 0.95rem; padding: 0.7rem 0.8rem; width: 100%; min-height: 74px; resize: vertical; color-scheme: light; }
+      .notes-compose textarea::placeholder { color: rgba(35, 31, 32, 0.5); }
+      .notes-compose textarea:focus { outline: none; border-color: var(--c-brown); }
+      .notes-compose-actions { display: flex; justify-content: flex-end; }
+      .nc-save { background: var(--c-brown); border: 1px solid var(--c-brown); color: var(--c-accent); font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.04em; padding: 0.5rem 1.6rem; cursor: pointer; border-radius: 999px; transition: background 0.15s, color 0.15s; }
+      .nc-save:hover:not(:disabled) { background: transparent; color: var(--c-brown); }
+      .nc-save:disabled { opacity: 0.5; cursor: not-allowed; }
+      .notes-msg { color: #7a1f12; font-size: 0.85rem; font-weight: 700; min-height: 1.1rem; margin-bottom: 0.4rem; }
+
+      /* Lista completa (nel modale, su fondo oro) */
+      .note { display: flex; align-items: flex-start; gap: 0.8rem; padding: 0.85rem 0; border-top: 1px solid rgba(35, 31, 32, 0.2); }
+      .note:first-child { border-top: none; }
+      .note-check { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c-brown); background: transparent; cursor: pointer; margin-top: 0.1rem; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
+      .note-check:hover { background: rgba(35, 31, 32, 0.12); }
+      .note.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
+      .note-check svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+      .note-body { flex: 1; min-width: 0; }
+      .note-text { font-size: 0.98rem; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+      .note.done .note-text { text-decoration: line-through; color: rgba(35, 31, 32, 0.55); }
+      .note-meta { color: rgba(35, 31, 32, 0.6); font-size: 0.72rem; margin-top: 0.3rem; }
+      .note-del { flex-shrink: 0; height: 30px; min-width: 30px; border-radius: 999px; border: 1px solid rgba(35, 31, 32, 0.3); background: transparent; color: rgba(35, 31, 32, 0.7); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+      .note-del:hover { border-color: #9a1b12; color: #9a1b12; background: rgba(154, 27, 18, 0.08); }
+      .note-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .note-del.confirm { padding: 0 0.7rem; font-size: 0.72rem; color: #fff; background: #a3320f; border-color: #a3320f; }
+      .notes-empty { color: rgba(35, 31, 32, 0.65); font-size: 0.9rem; padding: 0.4rem 0; }
     </style>
   </head>
   <body>
@@ -53,6 +133,19 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         <p class="today-label" id="today-label"></p>
         <div class="state" id="state">Chargement…</div>
         <div class="cards" id="cards" style="display:none">
+          <!-- Notes (primo tile, colori invertiti) -->
+          <div class="tile tile-notes" id="notes-tile">
+            <div class="ntile-head">
+              <div class="tile-title">Notes</div>
+              <button class="ntile-btn ntile-expand" id="notes-expand" type="button" title="Agrandir" aria-label="Agrandir">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+              <button class="ntile-btn ntile-add" id="notes-add" type="button" title="Ajouter une note" aria-label="Ajouter une note">+</button>
+            </div>
+            <div class="notes-preview" id="notes-preview"></div>
+          </div>
+
+          <!-- Commandes -->
           <a class="tile" href="/admin/orders">
             <div class="tile-title">Commandes</div>
             <div class="tile-big" id="ord-count">0</div>
@@ -62,8 +155,54 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               <span class="val" id="ord-next">—</span>
             </div>
           </a>
+
+          <!-- Horaires -->
+          <a class="tile" href="/admin/settings">
+            <div class="tile-title">Horaires</div>
+            <div class="sched-status" id="sched-status">—</div>
+            <div id="sched-bands-wrap"></div>
+            <div class="tile-next sched-two">
+              <div>
+                <span class="lab">Préparation</span>
+                <span class="val" id="sched-prep">—</span>
+              </div>
+              <div>
+                <span class="lab">Créneaux</span>
+                <span class="val" id="sched-slot">—</span>
+              </div>
+            </div>
+          </a>
+
+          <!-- Menu -->
+          <a class="tile" href="/admin/menu">
+            <div class="tile-title">Menu</div>
+            <div class="menu-counts">
+              <div><span class="mc-num" id="menu-food">0</span><span class="mc-lab">🍴 plats</span></div>
+              <div><span class="mc-num" id="menu-drink">0</span><span class="mc-lab">🍷 boissons</span></div>
+            </div>
+            <div class="tile-next">
+              <span class="lab">Indisponibles (masqués du site)</span>
+              <span class="val" id="menu-indispo">—</span>
+            </div>
+          </a>
         </div>
       </main>
+    </div>
+
+    <!-- Modale Notes -->
+    <div class="overlay" id="notes-overlay">
+      <div class="modal">
+        <button class="m-close" id="notes-close" type="button" aria-label="Fermer">×</button>
+        <h2>Notes</h2>
+        <div class="notes-compose">
+          <textarea id="notes-input" maxlength="1000" placeholder="Un rappel pour l'équipe… (ex. « livraison farine à 10h », « rappeler le fournisseur »)"></textarea>
+          <div class="notes-compose-actions">
+            <button class="nc-save" id="nc-save" type="button">Ajouter</button>
+          </div>
+        </div>
+        <div class="notes-msg" id="notes-msg"></div>
+        <div id="notes-list"></div>
+      </div>
     </div>
 
     <AdminNav current="home" />
@@ -73,6 +212,21 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
       type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
+      type Config = {
+        lunch_active: boolean; lunch_open: string | null; lunch_close: string | null;
+        dinner_active: boolean; dinner_open: string | null; dinner_close: string | null;
+        prep_time_minutes: number; slot_duration_minutes: number;
+      } | null;
+      type MenuRow = { category: string; available: boolean };
+      type Cat = { name: string; kind: "food" | "drink" };
+      type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string };
+
+      const CLOCK =
+        '<svg class="clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>';
+      const TRASH_ICON =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+      const CHECK_ICON =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 
       function dayKey(d: Date): string {
         const y = d.getFullYear();
@@ -88,6 +242,165 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       }
       function dayKeyBrussels(iso: string): string {
         return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
+      }
+      function escHtml(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function noteDate(iso: string): string {
+        return new Date(iso).toLocaleString("fr-BE", {
+          timeZone: "Europe/Brussels", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+        });
+      }
+      function fasce(cfg: NonNullable<Config>): string[] {
+        const b: string[] = [];
+        if (cfg.lunch_active && cfg.lunch_open && cfg.lunch_close) b.push(`${cfg.lunch_open} – ${cfg.lunch_close}`);
+        if (cfg.dinner_active && cfg.dinner_open && cfg.dinner_close) b.push(`${cfg.dinner_open} – ${cfg.dinner_close}`);
+        return b;
+      }
+
+      // ---------- Notes: anteprima nel tile + board nel modale ----------
+      async function avviaNote(headers: Record<string, string>) {
+        const preview = document.getElementById("notes-preview") as HTMLElement;
+        const expandBtn = document.getElementById("notes-expand") as HTMLButtonElement;
+        const addBtn = document.getElementById("notes-add") as HTMLButtonElement;
+        const overlay = document.getElementById("notes-overlay") as HTMLElement;
+        const closeBtn = document.getElementById("notes-close") as HTMLButtonElement;
+        const input = document.getElementById("notes-input") as HTMLTextAreaElement;
+        const saveBtn = document.getElementById("nc-save") as HTMLButtonElement;
+        const listEl = document.getElementById("notes-list") as HTMLElement;
+        const msgEl = document.getElementById("notes-msg") as HTMLElement;
+        let notes: Note[] = [];
+
+        async function erroreDa(res: Response, fallback: string): Promise<string> {
+          try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return fallback; }
+        }
+
+        function renderPreview() {
+          if (notes.length === 0) {
+            preview.innerHTML = '<p class="np-empty">Aucune note. Appuie sur + pour en ajouter.</p>';
+            return;
+          }
+          const primi = notes.slice(0, 3);
+          const resto = notes.length - primi.length;
+          preview.innerHTML =
+            primi
+              .map(
+                (n) => `
+              <div class="np-item${n.done ? " done" : ""}">
+                <span class="np-dot"></span><span class="np-text">${escHtml(n.content)}</span>
+              </div>`
+              )
+              .join("") +
+            (resto > 0 ? `<div class="np-more">+${resto} autre${resto > 1 ? "s" : ""}…</div>` : "");
+        }
+        function renderList() {
+          if (notes.length === 0) {
+            listEl.innerHTML = '<p class="notes-empty">Aucune note. Ajoute un rappel pour l\'équipe.</p>';
+            return;
+          }
+          listEl.innerHTML = notes
+            .map(
+              (n) => `
+            <div class="note${n.done ? " done" : ""}" data-id="${n.id}">
+              <button class="note-check" type="button" title="${n.done ? "Rouvrir" : "Marquer comme fait"}">${n.done ? CHECK_ICON : ""}</button>
+              <div class="note-body">
+                <div class="note-text">${escHtml(n.content)}</div>
+                <div class="note-meta">${n.author ? escHtml(n.author) + " · " : ""}${noteDate(n.created_at)}</div>
+              </div>
+              <button class="note-del" type="button" title="Supprimer">${TRASH_ICON}</button>
+            </div>`
+            )
+            .join("");
+        }
+        function render() { renderPreview(); renderList(); }
+
+        function openModal(focus: boolean) {
+          msgEl.textContent = "";
+          overlay.classList.add("is-open");
+          if (focus) input.focus();
+        }
+        function closeModal() { overlay.classList.remove("is-open"); }
+
+        expandBtn.addEventListener("click", () => openModal(false));
+        addBtn.addEventListener("click", () => openModal(true));
+        preview.addEventListener("click", () => openModal(false));
+        closeBtn.addEventListener("click", closeModal);
+        overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+        saveBtn.addEventListener("click", async () => {
+          const content = input.value.trim();
+          if (!content) { input.focus(); return; }
+          msgEl.textContent = "";
+          saveBtn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/notes", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ content }),
+            });
+            if (res.ok) {
+              notes.unshift((await res.json()).note as Note);
+              input.value = "";
+              render();
+            } else {
+              msgEl.textContent = await erroreDa(res, "Ajout impossible.");
+            }
+          } catch {
+            msgEl.textContent = "Erreur de connexion.";
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
+
+        listEl.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const row = t.closest(".note") as HTMLElement | null;
+          if (!row) return;
+          const id = row.dataset.id!;
+          const n = notes.find((x) => x.id === id);
+          if (!n) return;
+
+          if (t.closest(".note-check")) {
+            const nuovo = !n.done;
+            msgEl.textContent = "";
+            try {
+              const res = await fetch("/api/admin/notes", {
+                method: "PUT",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ id, done: nuovo }),
+              });
+              if (res.ok) { n.done = nuovo; render(); }
+              else { msgEl.textContent = await erroreDa(res, "Modification impossible."); }
+            } catch { msgEl.textContent = "Erreur de connexion."; }
+            return;
+          }
+
+          const del = t.closest(".note-del") as HTMLButtonElement | null;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Supprimer ?";
+              setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = TRASH_ICON; }, 4000);
+              return;
+            }
+            msgEl.textContent = "";
+            try {
+              const res = await fetch("/api/admin/notes?id=" + id, { method: "DELETE", headers });
+              if (res.ok) { notes = notes.filter((x) => x.id !== id); render(); }
+              else { msgEl.textContent = await erroreDa(res, "Suppression impossible."); }
+            } catch { msgEl.textContent = "Erreur de connexion."; }
+          }
+        });
+
+        try {
+          const res = await fetch("/api/admin/notes", { headers });
+          if (!res.ok) { preview.innerHTML = '<p class="np-empty">Notes indisponibles.</p>'; return; }
+          notes = ((await res.json()).notes as Note[]) ?? [];
+          render();
+        } catch {
+          preview.innerHTML = '<p class="np-empty">Erreur de connexion.</p>';
+        }
       }
 
       (async () => {
@@ -119,33 +432,91 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         const token = sessionData.session?.access_token ?? "";
         const headers = { Authorization: `Bearer ${token}` };
 
+        // Cards visibili subito; Notes e tile si popolano in parallelo.
+        stateEl.style.display = "none";
+        cardsEl.style.display = "grid";
+
+        avviaNote(headers);
+
         try {
-          const resOrd = await fetch("/api/admin/orders", { headers });
-          if (!resOrd.ok) { stateEl.textContent = "Erreur de chargement."; return; }
-          const orders = ((await resOrd.json()).orders as Order[]) ?? [];
+          const [resOrd, resToday, resMenu, resCats] = await Promise.all([
+            fetch("/api/admin/orders", { headers }),
+            fetch("/api/admin/today", { headers }),
+            fetch("/api/admin/menu", { headers }),
+            fetch("/api/admin/categories", { headers }),
+          ]);
 
-          const ordOggi = orders
-            .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
-            .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
-          const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
-          (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
-          (document.getElementById("ord-sub") as HTMLElement).textContent =
-            ordOggi.length > 0 ? `aujourd'hui · ${euro(ordTot)}` : "aujourd'hui";
+          // ---------- Commandes ----------
+          if (resOrd.ok) {
+            const orders = ((await resOrd.json()).orders as Order[]) ?? [];
+            const ordOggi = orders
+              .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+              .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+            const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
+            (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
+            (document.getElementById("ord-sub") as HTMLElement).textContent =
+              ordOggi.length > 0 ? `aujourd'hui · ${euro(ordTot)}` : "aujourd'hui";
 
-          const oraOra = new Date();
-          const prossimoOrd = ordOggi.find((o) => new Date(o.pickup_time) >= oraOra);
-          const ordNextEl = document.getElementById("ord-next") as HTMLElement;
-          if (prossimoOrd) {
-            ordNextEl.textContent = `${oraDa(prossimoOrd.pickup_time)} — ${prossimoOrd.customer_name}`;
-          } else {
-            ordNextEl.textContent = "Aucun à venir";
-            ordNextEl.classList.add("none");
+            const oraOra = new Date();
+            const prossimoOrd = ordOggi.find((o) => new Date(o.pickup_time) >= oraOra);
+            const ordNextEl = document.getElementById("ord-next") as HTMLElement;
+            if (prossimoOrd) {
+              ordNextEl.textContent = `${oraDa(prossimoOrd.pickup_time)} — ${prossimoOrd.customer_name}`;
+            } else {
+              ordNextEl.textContent = "Aucun à venir";
+              ordNextEl.classList.add("none");
+            }
           }
 
-          stateEl.style.display = "none";
-          cardsEl.style.display = "grid";
+          // ---------- Horaires (aujourd'hui) ----------
+          const statusEl = document.getElementById("sched-status") as HTMLElement;
+          const bandsWrap = document.getElementById("sched-bands-wrap") as HTMLElement;
+          const cfg = resToday.ok ? ((await resToday.json()).config as Config) : null;
+          if (!cfg) {
+            statusEl.textContent = "Indisponible";
+            statusEl.classList.add("closed");
+          } else {
+            const b = fasce(cfg);
+            if (b.length === 0) {
+              statusEl.textContent = "Fermé aujourd'hui";
+              statusEl.classList.add("closed");
+              bandsWrap.innerHTML = "";
+            } else {
+              statusEl.textContent = "Ouvert aujourd'hui";
+              statusEl.classList.add("open");
+              bandsWrap.innerHTML =
+                `<div class="sched-bands">` +
+                b.map((f) => `<span class="sched-band">${CLOCK}${f}</span>`).join("") +
+                `</div>`;
+            }
+            (document.getElementById("sched-prep") as HTMLElement).textContent = `${cfg.prep_time_minutes} min`;
+            (document.getElementById("sched-slot") as HTMLElement).textContent = `${cfg.slot_duration_minutes} min`;
+          }
+
+          // ---------- Menu ----------
+          if (resMenu.ok && resCats.ok) {
+            const rows = ((await resMenu.json()).items as MenuRow[]) ?? [];
+            const cats = ((await resCats.json()).categories as Cat[]) ?? [];
+            const kindByCat = new Map(cats.map((c) => [c.name, c.kind]));
+            let food = 0, drink = 0, indispo = 0;
+            for (const r of rows) {
+              if (kindByCat.get(r.category) === "drink") drink++;
+              else food++;
+              if (!r.available) indispo++;
+            }
+            (document.getElementById("menu-food") as HTMLElement).textContent = String(food);
+            (document.getElementById("menu-drink") as HTMLElement).textContent = String(drink);
+            const indispoEl = document.getElementById("menu-indispo") as HTMLElement;
+            if (indispo > 0) {
+              indispoEl.textContent = `${indispo} plat${indispo > 1 ? "s" : ""}`;
+              indispoEl.classList.add("warn");
+            } else {
+              indispoEl.textContent = "Aucun — tout est visible";
+              indispoEl.classList.add("none");
+            }
+          }
         } catch {
-          stateEl.textContent = "Erreur de connexion.";
+          /* i tile degradano in silenzio; la pagina resta usabile */
         }
       })();
     </script>
