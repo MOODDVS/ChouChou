@@ -8,7 +8,7 @@ import AdminNav from "../../components/AdminNav.astro";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin — Pizzeria 77</title>
+    <title>Admin — La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,11 +19,12 @@ import AdminNav from "../../components/AdminNav.astro";
     />
     <style is:global>
       :root {
-        --c-bg: #000000;
+        --c-bg: #231f20;
         --c-text: #ffffff;
-        --c-muted: #b3b3b3;
-        --c-line: #2a2a2a;
-        --c-card: #0e0e0e;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #2b2626;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -43,7 +44,7 @@ import AdminNav from "../../components/AdminNav.astro";
         border-bottom: 1px solid var(--c-line);
       }
       .brand { display: flex; align-items: center; gap: 0.75rem; }
-      .brand img { width: 36px; height: 36px; filter: invert(1); }
+      .brand img { height: 22px; width: auto; filter: invert(1); }
       .brand span {
         font-family: var(--font-title);
         font-size: 1.4rem;
@@ -85,7 +86,7 @@ import AdminNav from "../../components/AdminNav.astro";
         color: var(--c-text);
         transition: border-color 0.2s, transform 0.15s;
       }
-      .tile:hover { border-color: var(--c-text); transform: translateY(-2px); }
+      .tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title {
         font-family: var(--font-title);
         font-size: 1.8rem;
@@ -97,6 +98,7 @@ import AdminNav from "../../components/AdminNav.astro";
         font-size: 3.5rem;
         line-height: 1;
         margin-bottom: 0.25rem;
+        color: var(--c-accent);
       }
       .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
       .tile-next {
@@ -121,7 +123,7 @@ import AdminNav from "../../components/AdminNav.astro";
     <div id="app">
       <header>
         <div class="brand">
-          <img src="/logo77.svg" alt="Pizzeria 77" />
+          <img src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
           <span>Admin</span>
         </div>
         <div class="user">

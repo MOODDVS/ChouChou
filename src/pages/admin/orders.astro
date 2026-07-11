@@ -8,7 +8,7 @@ import AdminNav from "../../components/AdminNav.astro";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Commandes — Admin Pizzeria 77</title>
+    <title>Commandes — Admin La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -19,11 +19,12 @@ import AdminNav from "../../components/AdminNav.astro";
     />
     <style is:global>
       :root {
-        --c-bg: #000000;
+        --c-bg: #231f20;
         --c-text: #ffffff;
-        --c-muted: #b3b3b3;
-        --c-line: #2a2a2a;
-        --c-card: #0e0e0e;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #2b2626;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -47,7 +48,7 @@ import AdminNav from "../../components/AdminNav.astro";
         z-index: 10;
       }
       .brand { display: flex; align-items: center; gap: 0.75rem; }
-      .brand img { width: 32px; height: 32px; filter: invert(1); }
+      .brand img { height: 20px; width: auto; filter: invert(1); }
       .brand a {
         font-family: var(--font-title);
         font-size: 1.3rem;
@@ -103,7 +104,7 @@ import AdminNav from "../../components/AdminNav.astro";
         gap: 1rem;
         margin-bottom: 0.6rem;
       }
-      .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; }
+      .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .total {
         font-size: 1rem;
         font-weight: 700;
@@ -133,7 +134,7 @@ import AdminNav from "../../components/AdminNav.astro";
       .order-note {
         margin-top: 0.6rem;
         padding: 0.5rem 0.7rem;
-        background: #161616;
+        background: #2b2626;
         border-left: 2px solid var(--c-text);
         font-size: 0.88rem;
         white-space: pre-wrap;
@@ -154,7 +155,7 @@ import AdminNav from "../../components/AdminNav.astro";
     <div id="app">
       <header>
         <div class="brand">
-          <img src="/logo77.svg" alt="Pizzeria 77" />
+          <img src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
           <a href="/admin">Admin</a>
         </div>
         <div class="user">
