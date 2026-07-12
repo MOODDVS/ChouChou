@@ -44,6 +44,14 @@
 </style>
 
 <script>
+  // Registra il service worker: richiesto da Chrome (Android) per
+  // installare l'admin come vera app (PWA) e non semplice scorciatoia.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* registrazione fallita: il sito funziona comunque */
+    });
+  }
+
   // Fullscreen del browser (API standard + fallback webkit per iPad).
   // NB: il fullscreen decade cambiando pagina — per il tutto-schermo
   // permanente usare la PWA ("Ajouter à l'écran d'accueil").
