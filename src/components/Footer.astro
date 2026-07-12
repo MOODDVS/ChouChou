@@ -1,190 +1,202 @@
 ---
-import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { supabaseAdmin } from "../lib/db";
 
 const lang = getLangFromUrl(Astro.url);
-const t = useTranslations(lang);
+const en = lang === "en";
 
-const IG = "https://www.instagram.com/pizzeria77waterloo/";
-const FB = "https://www.facebook.com/profile.php?id=61551793199466";
+const FB = "https://www.facebook.com/pizzerialamolisana";
+const IG = "https://www.instagram.com/pizzeria.lamolisana/";
+
+const EMAIL = "pizzeria@lamolisana.be";
+const PHONE_DISPLAY = "+32 455 13 14 65";
+const PHONE_TEL = "+32455131465";
+
+const YEAR = new Date().getFullYear();
+
+// --- Orari settimanali dal DB (settings) — sempre allineati con l'admin ---
+const DAYS = en
+  ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  : ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dim
+const CLOSED = en ? "Closed" : "Fermé";
+
+function hhmm(t: string | null): string {
+  return t ? String(t).slice(0, 5) : "";
+}
+function bande(row: any): string {
+  const b: string[] = [];
+  if (row?.lunch_active && row.lunch_open && row.lunch_close) b.push(`${hhmm(row.lunch_open)} – ${hhmm(row.lunch_close)}`);
+  if (row?.dinner_active && row.dinner_open && row.dinner_close) b.push(`${hhmm(row.dinner_open)} – ${hhmm(row.dinner_close)}`);
+  return b.length ? b.join(" · ") : CLOSED;
+}
+
+let horaires: { days: string; val: string }[] = [];
+try {
+  const { data } = await supabaseAdmin
+    .from("settings")
+    .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
+  if (data && data.length) {
+    const byDay: Record<number, any> = {};
+    for (const r of data) byDay[r.day_of_week] = r;
+    const seq = ORDER.map((d) => ({ label: DAYS[d], val: bande(byDay[d]) }));
+    // Raggruppa giorni CONSECUTIVI con lo stesso orario
+    const groups: { val: string; days: string[] }[] = [];
+    for (const it of seq) {
+      const last = groups[groups.length - 1];
+      if (last && last.val === it.val) last.days.push(it.label);
+      else groups.push({ val: it.val, days: [it.label] });
+    }
+    horaires = groups.map((g) => ({
+      days: g.days.length === 1 ? g.days[0] : `${g.days[0]} – ${g.days[g.days.length - 1]}`,
+      val: g.val,
+    }));
+  }
+} catch {
+  horaires = [];
+}
+// Fallback statico se il DB non risponde
+if (!horaires.length) {
+  horaires = en
+    ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }, { days: "Tuesday", val: "Closed" }]
+    : [{ days: "Lun – Dim", val: "11:00 – 23:30" }, { days: "Mardi", val: "Fermé" }];
+}
+
+const L = {
+  address: en ? "Address" : "Adresse",
+  hours: en ? "Opening hours" : "Horaires",
+  contact: "Contact",
+  follow: en ? "Follow us" : "Nous Suivre",
+  rights: en ? "All rights reserved" : "Tous droits réservés",
+  privacy: en ? "Privacy" : "Confidentialité",
+  cookies: "Cookies",
+};
 ---
 
 <footer class="ftr">
-  <!-- Blocco claim + CTA -->
-  <div class="ftr-top">
-    <div class="ftr-logo">
-      <img src="/logo77.svg" alt="Pizzeria77" width="60" height="60" />
-    </div>
-    <h2 class="ftr-claim">{t("common.claim")}</h2>
-    <div class="ftr-buttons">
-      <a href={getLocalizedUrl("/order", lang)} class="btn btn-solid">{t("nav.order")}</a>
-    </div>
-  </div>
+  <div class="ftr-strip"></div>
 
-  <!-- Blocco info -->
-  <div class="ftr-info">
+  <div class="ftr-cols">
     <div class="ftr-col">
-      <div class="ftr-label">{t("footer.find")}</div>
-      <div class="ftr-text">Chaussée de Bruxelles 77<br />1410 Waterloo</div>
-    </div>
-    <div class="ftr-col">
-      <div class="ftr-label">{t("footer.hours")}</div>
-      <div class="ftr-text">
-        {t("footer.hoursLine")}<br />
-        <span class="ftr-muted">{t("footer.hoursNote")}</span>
+      <h2 class="ftr-title">{L.address}</h2>
+      <div class="ftr-body">
+        Av. Adolphe Demeur 37<br />
+        <span class="ftr-muted">1060 · Saint-Gilles</span>
       </div>
     </div>
+
     <div class="ftr-col">
-      <div class="ftr-label">{t("footer.contact")}</div>
-      <div class="ftr-text">
-        <a href="tel:+3226477777">+32 (0)2 647 77 77</a><br />
-        <a href="tel:+32477555077">+32 (0)477 55 50 77</a><br />
-        <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+      <h2 class="ftr-title">{L.hours}</h2>
+      <div class="ftr-body">
+        {horaires.map((h) => (
+          <p class="ftr-hr">{h.days}<br /><span class="ftr-muted">{h.val}</span></p>
+        ))}
       </div>
     </div>
+
     <div class="ftr-col">
-      <div class="ftr-label">{t("footer.follow")}</div>
+      <h2 class="ftr-title">{L.contact}</h2>
+      <div class="ftr-body">
+        <a href={`tel:${PHONE_TEL}`}>{PHONE_DISPLAY}</a><br />
+        <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+      </div>
+    </div>
+
+    <div class="ftr-col">
+      <h2 class="ftr-title">{L.follow}</h2>
       <div class="ftr-social">
-        <a href={IG} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-            <rect x="2" y="2" width="20" height="20" rx="5" />
-            <circle cx="12" cy="12" r="4" />
-            <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+        <a href={FB} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+          <svg viewBox="0 0 176 176" fill="currentColor" aria-hidden="true">
+            <path d="M171.63,40.85C167.68,25,151,8.31,135.15,4.36A262,262,0,0,0,88,0,262.18,262.18,0,0,0,40.85,4.36C25,8.31,8.32,25,4.37,40.85a256.4,256.4,0,0,0,0,94.3C8.32,151,25,167.7,40.85,171.64A262.18,262.18,0,0,0,88,176q6.72,0,13.4-.35a268.5,268.5,0,0,0,33.75-4c15.89-3.94,32.53-20.6,36.48-36.49A262.39,262.39,0,0,0,176,86.49,262.11,262.11,0,0,0,171.63,40.85ZM115.88,77.59l-1.77,15.32a2.86,2.86,0,0,1-2.82,2.57h-16l-.08,45.45a2.05,2.05,0,0,1-2,2.07H77a2,2,0,0,1-2-2.08L75,95.48H63a2.87,2.87,0,0,1-2.84-2.9L60.1,77.25a2.88,2.88,0,0,1,2.84-2.92H75V59.53C75,42.35,85.2,33,100.16,33h12.26a2.88,2.88,0,0,1,2.85,2.92V48.83a2.88,2.88,0,0,1-2.85,2.92H104.9c-8.13,0-9.71,4-9.71,9.77V74.33h17.87A2.89,2.89,0,0,1,115.88,77.59Z" />
           </svg>
         </a>
-        <a href={FB} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M14 9h3l.4-3H14V4.3c0-.86.24-1.45 1.47-1.45H17.5V.2C17.16.15 16.18.05 15.05.05c-2.37 0-4 1.45-4 4.1V6H8v3h3.05v8h2.95V9z" />
+        <a href={IG} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+            <path d="m301 256c0 24.851562-20.148438 45-45 45s-45-20.148438-45-45 20.148438-45 45-45 45 20.148438 45 45zm0 0" />
+            <path d="m332 120h-152c-33.085938 0-60 26.914062-60 60v152c0 33.085938 26.914062 60 60 60h152c33.085938 0 60-26.914062 60-60v-152c0-33.085938-26.914062-60-60-60zm-76 211c-41.355469 0-75-33.644531-75-75s33.644531-75 75-75 75 33.644531 75 75-33.644531 75-75 75zm86-146c-8.285156 0-15-6.714844-15-15s6.714844-15 15-15 15 6.714844 15 15-6.714844 15-15 15zm0 0" />
+            <path d="m377 0h-242c-74.4375 0-135 60.5625-135 135v242c0 74.4375 60.5625 135 135 135h242c74.4375 0 135-60.5625 135-135v-242c0-74.4375-60.5625-135-135-135zm45 332c0 49.625-40.375 90-90 90h-152c-49.625 0-90-40.375-90-90v-152c0-49.625 40.375-90 90-90h152c49.625 0 90 40.375 90 90zm0 0" />
           </svg>
         </a>
       </div>
     </div>
   </div>
 
-  <!-- Riga legale -->
   <div class="ftr-legal">
-    <span>© 2026 Pizzeria77 — {t("footer.rights")}</span>
-    <span><a href={getLocalizedUrl("/privacy", lang)}>{t("footer.privacy")}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{t("footer.cookies")}</a></span>
+    <p>© {YEAR} {L.rights} • Migraf SRL / La Molisana / BE 0899 648 967 • Powered by MOODD</p>
+    <p class="ftr-links">
+      <a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a>
+    </p>
   </div>
 </footer>
 
 <style>
-  .ftr {
-    width: 100%;
-    border-top: 1px solid var(--c-line);
-    margin-top: 4rem;
+  .ftr { width: 100%; background: var(--c-bg); }
+  .ftr-strip {
+    height: 3px;
+    background: linear-gradient(90deg, transparent 0%, rgba(223, 171, 78, 0.55) 50%, transparent 100%);
   }
-  .ftr-top {
-    text-align: center;
-    padding: 4rem 1.5rem 3rem;
-    border-bottom: 1px solid var(--c-line);
-    background: radial-gradient(
-      ellipse 70% 90% at center,
-      rgba(255, 255, 255, 0.18) 0%,
-      rgba(255, 255, 255, 0.06) 40%,
-      rgba(255, 255, 255, 0) 75%
-    );
-  }
-  .ftr-logo img {
-    display: block;
-    margin: 0 auto 1.5rem;
-    filter: invert(1) drop-shadow(0 0 12px rgba(255, 255, 255, 0.2));
-  }
-  .ftr-claim {
-    font-family: var(--font-title);
-    font-size: clamp(3rem, 9vw, 7rem);
-    line-height: 0.9;
-    letter-spacing: 0.03em;
-    margin: 0 0 1.75rem;
-    text-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
-  }
-  .ftr-buttons { display: inline-flex; }
 
-  .btn {
-    font-family: var(--font-body);
-    font-weight: 700;
-    font-size: 0.85rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 13px 26px;
-    border-radius: 0;
-    border: 1.5px solid var(--c-text);
-    position: relative;
-    overflow: hidden;
-    z-index: 0;
-    transition: color 0.3s ease;
-    cursor: pointer;
-  }
-  .btn::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.3s ease;
-  }
-  .btn:hover::before { transform: scaleX(1); }
-  .btn-outline { background: var(--c-bg); color: var(--c-text); }
-  .btn-outline::before { background: var(--c-text); }
-  .btn-outline:hover { color: var(--c-bg); }
-  .btn-solid { background: var(--c-text); color: var(--c-bg); border-left: none; }
-  .btn-solid::before { background: var(--c-bg); }
-  .btn-solid:hover { color: var(--c-text); }
-
-  .ftr-info {
+  .ftr-cols {
     max-width: var(--maxw);
     margin: 0 auto;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2rem;
-    padding: 3rem 2rem;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    padding: 3.5rem 2rem;
   }
-  .ftr-col { flex: 1; min-width: 200px; }
-  .ftr-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--c-muted);
-    margin-bottom: 0.75rem;
+  .ftr-col { padding: 0 2rem; text-align: center; }
+  .ftr-col + .ftr-col { border-left: 1px solid var(--c-line); }
+
+  .ftr-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 2rem;
+    letter-spacing: 0.02em;
+    margin: 0 0 1.3rem;
   }
-  .ftr-text { font-size: 0.95rem; line-height: 1.7; }
-  .ftr-text a { transition: opacity 0.15s; }
-  .ftr-text a:hover { opacity: 0.7; }
+  .ftr-body {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    line-height: 1.9;
+    color: var(--c-text);
+  }
+  .ftr-body a { color: var(--c-text); text-decoration: none; transition: color 0.15s; }
+  .ftr-body a:hover { color: var(--c-accent); }
   .ftr-muted { color: var(--c-muted); }
-  .ftr-social { display: flex; gap: 1rem; }
-  .ftr-social a { color: var(--c-text); transition: opacity 0.15s; }
-  .ftr-social a:hover { opacity: 0.7; }
+  .ftr-hr { margin: 0 0 0.6rem; }
+  .ftr-hr:last-child { margin-bottom: 0; }
+
+  .ftr-social { display: flex; justify-content: center; gap: 1.3rem; margin-top: 0.4rem; }
+  .ftr-social a { color: var(--c-text); display: inline-flex; transition: color 0.15s; }
+  .ftr-social a:hover { color: var(--c-accent); }
+  .ftr-social svg { width: 22px; height: 22px; display: block; }
 
   .ftr-legal {
-    max-width: var(--maxw);
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
     border-top: 1px solid var(--c-line);
-    padding: 1.25rem 2rem;
-    font-size: 0.75rem;
-    color: var(--c-muted);
+    padding: 1.1rem 2rem 1.3rem;
+    text-align: center;
   }
+  .ftr-legal p {
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-muted);
+    margin: 0;
+  }
+  .ftr-links { margin-top: 0.45rem !important; }
+  .ftr-legal a { color: var(--c-muted); text-decoration: none; }
   .ftr-legal a:hover { color: var(--c-text); }
 
-  @media (max-width: 700px) {
-    .ftr-info {
-      flex-direction: column;
-      gap: 2rem;
-      padding: 2.5rem 1.5rem;
-      text-align: center;
-    }
-    .ftr-col { min-width: 0; }
-    .ftr-social { justify-content: center; }
-    .ftr-legal {
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 0.6rem;
-    }
+  @media (max-width: 860px) {
+    .ftr-cols { grid-template-columns: 1fr 1fr; gap: 2.5rem 0; padding: 2.75rem 1rem; }
+    .ftr-col { padding: 0 1rem; }
+    .ftr-col + .ftr-col { border-left: none; }
+    .ftr-col:nth-child(even) { border-left: 1px solid var(--c-line); }
+    .ftr-title { font-size: 1.7rem; }
+  }
+  @media (max-width: 520px) {
+    .ftr-cols { grid-template-columns: 1fr; gap: 0; }
+    .ftr-col { border-left: none !important; border-top: 1px solid var(--c-line); padding: 1.6rem 1rem; }
+    .ftr-col:first-child { border-top: none; padding-top: 0; }
   }
 </style>
-

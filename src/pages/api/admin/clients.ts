@@ -167,3 +167,17 @@ export const POST: APIRoute = async ({ request }) => {
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true, id: data.id }, 201);
 };
+
+// Cancella un cliente MANUALE (record nella tabella `clients`).
+// I clienti derivati dagli ordini non hanno id qui e non sono cancellabili.
+export const DELETE: APIRoute = async ({ request, url }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  const id = url.searchParams.get("id");
+  if (!id) return json({ error: "id manquant" }, 400);
+
+  const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
+  if (error) return json({ error: "Suppression impossible" }, 500);
+  return json({ ok: true });
+};

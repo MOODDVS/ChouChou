@@ -8,9 +8,11 @@ const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 const current = rawPath.replace(/^\/en/, "") || "/";
 
 const nav = [
-  { label: t("nav.home"), path: "/" },
-  { label: t("nav.menu"), path: "/menu" },
-  { label: t("nav.contact"), path: "/contact" },
+  { label: "Benvenuti", path: "/" },
+  { label: "Notre carte", path: "/menu" },
+  { label: "L'Ambiance", path: "/ambiance" },
+  { label: "Contact", path: "/contact" },
+  { label: "Jobs", path: "/jobs" },
 ];
 
 const IG = "https://www.instagram.com/pizzeria77waterloo/";
@@ -24,11 +26,11 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
   </nav>
 
   <div class="mnav-foot">
-    <a href="tel:+3226477777" class="mnav-phone">
+    <a href="tel:+32455131465" class="mnav-phone">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
         <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
       </svg>
-      <span>{t("nav.call")} · +32 (0)2 647 77 77</span>
+      <span>{t("nav.call")} · +32 455 13 14 65</span>
     </a>
 
     <div class="mnav-lang">
@@ -56,7 +58,7 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
 
 <!-- Bottom bar fissa -->
 <div class="mnav-bar">
-  <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">{t("nav.order")}</a>
+  <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">Commander</a>
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
       <span></span><span></span><span></span>
@@ -87,16 +89,16 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 0.85rem;
-      letter-spacing: 0.06em;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 0.98rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       border: none;
       background: none;
       cursor: pointer;
     }
-    .mnav-act-solid { background: var(--c-text); color: var(--c-bg); font-weight: 900; }
+    .mnav-act-solid { background: var(--c-accent); color: var(--c-bg); font-weight: 400; }
     .mnav-act-outline { color: var(--c-text); border-left: 1px solid rgba(255, 255, 255, 0.15); }
     .mnav-burger {
       width: 60px;
@@ -171,9 +173,9 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       align-items: center;
       gap: 0.5rem;
       color: var(--c-text);
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 0.95rem;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 1.05rem;
     }
     .mnav-panel-book {
       font-family: var(--font-body);
@@ -199,7 +201,7 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       font-size: 0.9rem;
     }
     .mnav-lang-opt { opacity: 0.5; }
-    .mnav-lang-opt.is-active { opacity: 1; text-decoration: underline; }
+    .mnav-lang-opt.is-active { opacity: 1; color: var(--c-accent); }
     .mnav-lang-sep { opacity: 0.4; }
 
     .mnav-social {

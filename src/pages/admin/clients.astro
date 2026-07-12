@@ -63,7 +63,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .thead, .row {
         display: grid;
-        grid-template-columns: 2fr 2.4fr 1.6fr 1fr 1.1fr;
+        grid-template-columns: 2fr 2.4fr 1.6fr 1fr 1.1fr 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
@@ -92,6 +92,18 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .c-num { text-align: right; font-variant-numeric: tabular-nums; }
       .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .c-total { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.03em; color: var(--c-accent); }
+      .c-act { display: flex; justify-content: flex-end; overflow: visible; }
+      .k-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .i-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-text);
+        cursor: pointer; border-radius: 50%; transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del .k-ico { width: 15px; height: 15px; }
+      .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
       .loading { opacity: 0.45; pointer-events: none; }
 
@@ -148,7 +160,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           padding: 1rem 1.1rem;
         }
         .cell { white-space: normal; }
-        .c-name { grid-column: 1 / -1; font-size: 1.05rem; }
+        .c-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
+        .c-act { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
         .cell[data-label]::before {
           content: attr(data-label) " · ";
           color: var(--c-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
@@ -178,6 +191,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
               <button class="th num" data-sort="orders">Commandes <span class="arrow"></span></button>
               <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
+              <span class="th-act" aria-hidden="true"></span>
             </div>
             <div id="rows"></div>
           </div>
@@ -237,6 +251,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       function euro(cents: number): string {
         return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
       }
+      const ICO_TRASH =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -337,6 +353,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
                 <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
                 <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
                 <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
+                <div class="cell c-act">${c.id ? `<button class="i-btn i-del" data-id="${esc(c.id)}" title="Supprimer">${ICO_TRASH}</button>` : ""}</div>
               </div>`;
             })
             .join("");
@@ -368,6 +385,28 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         searchEl.addEventListener("input", () => {
           filtro = searchEl.value;
           render();
+        });
+
+        // Cancella un cliente manuale — conferma a 2 tocchi (come nel menu).
+        rowsEl.addEventListener("click", async (e) => {
+          const del = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null;
+          if (!del) return;
+          const id = del.dataset.id;
+          if (!id) return;
+          if (!del.classList.contains("confirm")) {
+            del.classList.add("confirm");
+            del.textContent = "Confirmer ?";
+            setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/clients?id=" + encodeURIComponent(id), { method: "DELETE", headers });
+            if (!res.ok) { toast("Suppression impossible", true); return; }
+            toast("Client supprimé");
+            await carica();
+          } catch {
+            toast("Erreur de connexion", true);
+          }
         });
 
         async function carica() {
