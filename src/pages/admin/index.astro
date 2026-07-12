@@ -516,7 +516,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           if (resOrd.ok) {
             const orders = ((await resOrd.json()).orders as Order[]) ?? [];
             const ordOggi = orders
-              .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+              .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey && o.status !== "cancelled")
               .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
             const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
             (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
@@ -524,7 +524,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               ordOggi.length > 0 ? `aujourd'hui · ${euro(ordTot)}` : "aujourd'hui";
 
             const oraOra = new Date();
-            const prossimoOrd = ordOggi.find((o) => new Date(o.pickup_time) >= oraOra);
+            const prossimoOrd = ordOggi.find((o) => o.status === "paid" && new Date(o.pickup_time) >= oraOra);
             const ordNextEl = document.getElementById("ord-next") as HTMLElement;
             if (prossimoOrd) {
               ordNextEl.textContent = `${oraDa(prossimoOrd.pickup_time)} — ${prossimoOrd.customer_name}`;

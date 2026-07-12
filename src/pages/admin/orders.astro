@@ -1,6 +1,11 @@
 ---
-// Pannello admin — ordini take-away pagati di OGGI.
-// Solo oggi, ordinati per ora di ritiro crescente.
+// Pannello admin — ordini take-away di OGGI.
+// In alto gli ordini ATTIVI (paid), dal ritiro più vicino al più lontano.
+// Sotto, spenti (opacità ridotta), i terminati (done) e gli annullati
+// (cancelled, con etichetta rossa). Bottoni per carta: "Terminée" e
+// "Annuler" (conferma in 2 tocchi) → PATCH /api/admin/orders.
+// In testata: bottoni rapidi tempo di preparazione
+// (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 ---
@@ -30,6 +35,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         --c-muted: #b3aca6;
         --c-line: #3a3335;
         --c-card: #362c28;
+        --c-red: #ed1c24;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -37,40 +43,157 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; max-width: 1100px; margin: 0 auto; }
+      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
       h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
       .today-label { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; text-transform: capitalize; color: var(--c-muted); margin-bottom: 0.5rem; }
-      .count { color: var(--c-muted); font-size: 0.85rem; margin-bottom: 2rem; }
+      .count { color: var(--c-muted); font-size: 0.85rem; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
+      /* --- Testata: titolo a sinistra, préparation rapide a destra --- */
+      .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 2rem; }
+      .prep { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+      .prep-lab { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .prep-note { text-transform: none; letter-spacing: 0; color: #2e9e6b; font-weight: 700; margin-left: 0.4rem; }
+      .prep-note.err { color: #ff6b6b; }
+      .prep-btns { display: flex; gap: 0.6rem; }
+      .prep-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.45rem 0.75rem;
+        background: var(--c-card);
+        border: 1px solid var(--c-line);
+        color: var(--c-accent);
+        font-family: var(--font-body);
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .prep-btn svg { width: 27px; height: 22px; display: block; }
+      .prep-btn .m { font-size: 0.8rem; color: var(--c-muted); }
+      .prep-btn:hover { border-color: var(--c-accent); }
+      .prep-btn.active { border-color: var(--c-accent); background: rgba(223, 171, 78, 0.14); }
+      .prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
+      .prep-btn:disabled { opacity: 0.5; cursor: wait; }
+
+      /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
       .card { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
-      .card-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 0.75rem; }
+      .card.off { opacity: 0.45; }
+      .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+      .ct-left { display: flex; align-items: center; gap: 0.6rem; }
       .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .total { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
+      .tag { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+      .tag-done { border: 1px solid var(--c-line); color: var(--c-muted); }
+      .tag-cancel { background: rgba(237, 28, 36, 0.25); color: #ff6b6b; }
       .name { font-weight: 700; margin-bottom: 0.4rem; }
       .badge { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.45rem; border: 1px solid var(--c-line); color: var(--c-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .row { font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.2rem; }
       .row a { color: var(--c-text); text-decoration: none; }
 
-      .items { border-top: 1px solid var(--c-line); margin-top: 0.9rem; padding-top: 0.9rem; display: flex; flex-direction: column; gap: 0.45rem; }
-      .item { display: flex; gap: 0.5rem; align-items: baseline; font-size: 0.95rem; }
+      .items { border-top: 1px solid var(--c-line); margin-top: 0.9rem; padding-top: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
+      .item { display: flex; gap: 0.6rem; align-items: baseline; font-size: 1.15rem; }
       .item-qty { color: var(--c-accent); font-weight: 700; }
       .item-name { flex: 1; color: var(--c-text); }
       .item-sub { color: var(--c-muted); font-size: 0.8rem; white-space: nowrap; }
 
       .order-note { margin-top: 0.9rem; padding: 0.7rem 0.9rem; background: #362c28; border-left: 2px solid var(--c-accent); font-size: 0.9rem; }
+
+      /* --- Azioni sulla card attiva --- */
+      .actions { display: flex; gap: 0.6rem; border-top: 1px solid var(--c-line); margin-top: 1rem; padding-top: 1rem; }
+      .actions button {
+        flex: 1;
+        background: transparent;
+        font-family: var(--font-title);
+        font-size: 1.05rem;
+        letter-spacing: 0.05em;
+        padding: 0.5rem 0.6rem;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .actions button:disabled { opacity: 0.5; cursor: wait; }
+      .btn-done { border: 1px solid var(--c-accent); color: var(--c-accent); }
+      .btn-done:hover { background: var(--c-accent); color: var(--c-bg); }
+      .btn-cancel { border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; }
+      .btn-cancel:hover { border-color: var(--c-red); }
+      .btn-cancel.confirm { background: rgba(237, 28, 36, 0.25); border-color: var(--c-red); color: #fff; }
+
+      /* --- Sezione terminati/annullati --- */
+      .done-title {
+        font-family: var(--font-title);
+        font-size: 1.4rem;
+        letter-spacing: 0.04em;
+        color: var(--c-muted);
+        border-top: 1px solid var(--c-line);
+        margin-top: 2.5rem;
+        padding-top: 1.75rem;
+        margin-bottom: 1rem;
+      }
+
+      @media (max-width: 640px) {
+        main { padding: 1.5rem 1rem 7rem; }
+        .head-row { margin-bottom: 1.5rem; }
+      }
     </style>
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1>Commandes</h1>
-        <p class="today-label" id="today-label"></p>
-        <p class="count" id="count"></p>
+        <div class="head-row">
+          <div>
+            <h1>Commandes</h1>
+            <p class="today-label" id="today-label"></p>
+            <p class="count" id="count"></p>
+          </div>
+          <div class="prep">
+            <p class="prep-lab">Préparation<span class="prep-note" id="prep-note"></span></p>
+            <div class="prep-btns" role="group" aria-label="Temps de préparation">
+              <button class="prep-btn" type="button" data-min="15" title="Rapide — 15 minutes">
+                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
+                  <ellipse cx="13.5" cy="15" rx="9" ry="5.5" />
+                  <circle cx="23.5" cy="11" r="4" />
+                  <ellipse cx="18.5" cy="6" rx="5.5" ry="1.7" transform="rotate(32 18.5 6)" />
+                  <ellipse cx="17" cy="8.5" rx="5.3" ry="1.6" transform="rotate(15 17 8.5)" />
+                  <circle cx="4.8" cy="13.5" r="2.2" />
+                  <path d="M8 19 L4.5 22" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                  <path d="M18 19.5 L21.5 22" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                </svg>
+                <span class="m">15 min</span>
+              </button>
+              <button class="prep-btn" type="button" data-min="30" title="Normal — 30 minutes">
+                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
+                  <path d="M6 5 Q4.5 9.5 8 11.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                  <rect x="7.5" y="10.5" width="13.5" height="7.5" rx="3.7" />
+                  <circle cx="22" cy="9.5" r="3.7" />
+                  <rect x="24.5" y="8.8" width="4.6" height="3" rx="1.5" />
+                  <ellipse cx="20.6" cy="6.6" rx="1.7" ry="2.7" transform="rotate(-18 20.6 6.6)" />
+                  <path d="M10 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                  <path d="M13.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                  <path d="M16.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                  <path d="M19.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
+                </svg>
+                <span class="m">30 min</span>
+              </button>
+              <button class="prep-btn" type="button" data-min="45" title="Chargé — 45 minutes">
+                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
+                  <path d="M5.5 16.5 a9.5 8.5 0 0 1 19 0 z" />
+                  <rect x="22.5" y="13.5" width="3.5" height="3" rx="1.5" />
+                  <circle cx="26.6" cy="15" r="2.6" />
+                  <ellipse cx="9.5" cy="18.2" rx="2.1" ry="1.7" />
+                  <ellipse cx="20" cy="18.2" rx="2.1" ry="1.7" />
+                  <path d="M5.8 15.5 L2.8 17.6 L5.6 18.5 Z" />
+                </svg>
+                <span class="m">45 min</span>
+              </button>
+            </div>
+          </div>
+        </div>
         <div class="state" id="state">Chargement…</div>
         <div class="grid" id="grid"></div>
+        <h2 class="done-title" id="done-title" style="display:none">Terminées &amp; annulées</h2>
+        <div class="grid" id="grid-done"></div>
       </main>
     </div>
 
@@ -128,17 +251,33 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               <div class="item">
                 <span class="item-qty">${i.qty}×</span>
                 <span class="item-name">${esc(i.name)}${sub}</span>
-                <span class="item-sub">${euro(i.price_cents * i.qty)}</span>
               </div>`;
           })
           .join("");
 
         const noteHTML = note?.notes ? `<div class="order-note">📝 ${esc(note.notes)}</div>` : "";
 
+        // Etichetta di stato (solo per le card spente)
+        let tag = "";
+        if (o.status === "done") tag = `<span class="tag tag-done">Terminée</span>`;
+        if (o.status === "cancelled") tag = `<span class="tag tag-cancel">Annulée</span>`;
+
+        // Bottoni solo sugli ordini attivi
+        const actions =
+          o.status === "paid"
+            ? `<div class="actions">
+                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ Terminée</button>
+                 <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">Annuler</button>
+               </div>`
+            : "";
+
         return `
-          <div class="card">
+          <div class="card${o.status === "paid" ? "" : " off"}">
             <div class="card-top">
-              <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
+              <div class="ct-left">
+                <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
+                ${tag}
+              </div>
               <span class="total">${euro(o.total_cents)}</span>
             </div>
             <p class="name">${esc(o.customer_name)}${langBadge}</p>
@@ -146,39 +285,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             ${phone}
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
+            ${actions}
           </div>`;
-      }
-
-      function render(
-        gridEl: HTMLElement,
-        stateEl: HTMLElement,
-        countEl: HTMLElement,
-        labelEl: HTMLElement,
-        orders: Order[]
-      ) {
-        const oggi = new Date();
-        const oggiKey = dayKeyBrussels(oggi.toISOString());
-
-        labelEl.textContent =
-          "Aujourd'hui — " +
-          oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
-
-        const ordOggi = orders
-          .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
-          .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
-
-        if (ordOggi.length === 0) {
-          stateEl.textContent = "Aucune commande payée aujourd'hui.";
-          stateEl.style.display = "block";
-          countEl.textContent = "";
-          gridEl.innerHTML = "";
-          return;
-        }
-        stateEl.style.display = "none";
-        const tot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
-        countEl.textContent =
-          (ordOggi.length === 1 ? "1 commande" : `${ordOggi.length} commandes`) + ` · ${euro(tot)}`;
-        gridEl.innerHTML = ordOggi.map(cardHTML).join("");
       }
 
       (async () => {
@@ -187,6 +295,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const gridEl = document.getElementById("grid") as HTMLDivElement;
+        const gridDoneEl = document.getElementById("grid-done") as HTMLDivElement;
+        const doneTitleEl = document.getElementById("done-title") as HTMLHeadingElement;
         const countEl = document.getElementById("count") as HTMLParagraphElement;
         const labelEl = document.getElementById("today-label") as HTMLParagraphElement;
 
@@ -205,17 +315,159 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const token = sessionData.session?.access_token ?? "";
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // --- Bottoni rapidi tempo di preparazione (15/30/45) ---
+        const prepBtns = Array.from(document.querySelectorAll<HTMLButtonElement>(".prep-btn"));
+        const prepNote = document.getElementById("prep-note") as HTMLSpanElement;
+
+        function segnaAttivo(min: number) {
+          prepBtns.forEach((b) => b.classList.toggle("active", Number(b.dataset.min) === min));
+        }
+
+        // Stato attuale (stesso valore dei Réglages)
+        fetch("/api/admin/settings", { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => {
+            if (j && typeof j.prep_time_minutes === "number") segnaAttivo(j.prep_time_minutes);
+          })
+          .catch(() => {});
+
+        prepBtns.forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const min = Number(btn.dataset.min);
+            prepBtns.forEach((b) => (b.disabled = true));
+            prepNote.textContent = "";
+            prepNote.classList.remove("err");
+            try {
+              const r = await fetch("/api/admin/settings", {
+                method: "PATCH",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ prep_time_minutes: min }),
+              });
+              if (!r.ok) throw new Error();
+              segnaAttivo(min);
+              prepNote.textContent = "✓";
+              setTimeout(() => {
+                prepNote.textContent = "";
+              }, 2000);
+            } catch {
+              prepNote.textContent = "Erreur";
+              prepNote.classList.add("err");
+            } finally {
+              prepBtns.forEach((b) => (b.disabled = false));
+              btn.blur();
+            }
+          });
+        });
+
+        // --- Ordini di oggi ---
+        let ordini: Order[] = [];
+        // Conferma "Annuler" in 2 tocchi
+        let confirmId: string | null = null;
+        let confirmTimer: number | undefined;
+
+        function resetConfirm() {
+          confirmId = null;
+          if (confirmTimer) clearTimeout(confirmTimer);
+          document.querySelectorAll<HTMLButtonElement>(".btn-cancel.confirm").forEach((b) => {
+            b.classList.remove("confirm");
+            b.textContent = "Annuler";
+          });
+        }
+
+        function render() {
+          const oggi = new Date();
+          const oggiKey = dayKeyBrussels(oggi.toISOString());
+
+          labelEl.textContent =
+            "Aujourd'hui — " +
+            oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
+
+          // Solo oggi, dal ritiro più vicino al più lontano
+          const ordOggi = ordini
+            .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+            .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+
+          const attivi = ordOggi.filter((o) => o.status === "paid");
+          const spenti = ordOggi.filter((o) => o.status === "done" || o.status === "cancelled");
+
+          // Conteggio e totale: attivi + terminati (gli annullati non contano)
+          const validi = ordOggi.filter((o) => o.status !== "cancelled");
+          const tot = validi.reduce((s, o) => s + o.total_cents, 0);
+          countEl.textContent =
+            validi.length > 0
+              ? (validi.length === 1 ? "1 commande" : `${validi.length} commandes`) + ` · ${euro(tot)}`
+              : "";
+
+          if (ordOggi.length === 0) {
+            stateEl.textContent = "Aucune commande payée aujourd'hui.";
+            stateEl.style.display = "block";
+          } else if (attivi.length === 0) {
+            stateEl.textContent = "Aucune commande en cours.";
+            stateEl.style.display = "block";
+          } else {
+            stateEl.style.display = "none";
+          }
+
+          gridEl.innerHTML = attivi.map(cardHTML).join("");
+          gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
+          doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
+        }
+
+        async function cambiaStato(id: string, status: string, btn: HTMLButtonElement) {
+          const card = btn.closest(".card");
+          card?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          try {
+            const r = await fetch("/api/admin/orders", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, status }),
+            });
+            if (!r.ok) throw new Error();
+            const ord = ordini.find((o) => o.id === id);
+            if (ord) ord.status = status;
+            resetConfirm();
+            render();
+          } catch {
+            btn.textContent = "Erreur";
+            setTimeout(() => {
+              resetConfirm();
+              render();
+            }, 1500);
+          }
+        }
+
+        gridEl.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
+          if (!btn || btn.disabled) return;
+          const id = btn.dataset.id ?? "";
+
+          if (btn.dataset.act === "done") {
+            cambiaStato(id, "done", btn);
+            return;
+          }
+          // Annuler: primo tocco arma la conferma, secondo tocco conferma
+          if (confirmId === id && btn.classList.contains("confirm")) {
+            cambiaStato(id, "cancelled", btn);
+          } else {
+            resetConfirm();
+            confirmId = id;
+            btn.classList.add("confirm");
+            btn.textContent = "Confirmer ?";
+            confirmTimer = window.setTimeout(resetConfirm, 4000);
+          }
+        });
 
         try {
-          const res = await fetch("/api/admin/orders", {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await fetch("/api/admin/orders", { headers });
           if (!res.ok) {
             stateEl.textContent = "Erreur de chargement.";
             return;
           }
           const json = await res.json();
-          render(gridEl, stateEl, countEl, labelEl, json.orders as Order[]);
+          ordini = (json.orders as Order[]) ?? [];
+          render();
         } catch {
           stateEl.textContent = "Erreur de connexion.";
         }

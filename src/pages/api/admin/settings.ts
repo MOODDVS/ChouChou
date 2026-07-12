@@ -60,6 +60,34 @@ export const GET: APIRoute = async ({ request }) => {
   });
 };
 
+// PATCH /api/admin/settings — aggiorna SOLO il tempo di preparazione.
+// Usato dai bottoni rapidi (coniglio/cane/tartaruga) della pagina Commandes:
+// tocca prep_time_minutes su tutti i giorni, senza passare per gli orari.
+export const PATCH: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  let body: { prep_time_minutes?: number };
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Requête invalide" }, 400);
+  }
+
+  const prep = Math.floor(Number(body.prep_time_minutes));
+  if (!Number.isFinite(prep) || prep < 0 || prep > 240) {
+    return json({ error: "Préparation invalide (0–240 min)" }, 400);
+  }
+
+  const { error } = await supabaseAdmin
+    .from("settings")
+    .update({ prep_time_minutes: prep })
+    .gte("day_of_week", 0); // tutti i giorni (PostgREST vuole un filtro)
+
+  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  return json({ ok: true, prep_time_minutes: prep });
+};
+
 // PUT /api/admin/settings — salva orari (2 fasce) + prep/slot + email cucina
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);

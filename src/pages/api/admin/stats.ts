@@ -49,7 +49,7 @@ async function ordiniPagati(daISO: string | null): Promise<RigaOrdine[] | null> 
     let q = supabaseAdmin
       .from("orders")
       .select("pickup_time, total_cents, items")
-      .eq("status", "paid")
+      .in("status", ["paid", "done"])
       .order("pickup_time", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (daISO) q = q.gte("pickup_time", daISO);
