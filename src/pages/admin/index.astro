@@ -39,7 +39,6 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
-      .today-label { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; text-transform: capitalize; margin-bottom: 1.5rem; color: var(--c-muted); }
 
       .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; max-width: 1320px; }
       @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } }
@@ -160,7 +159,6 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
     <div id="app">
       <AdminHeader />
       <main>
-        <p class="today-label" id="today-label"></p>
         <div class="state" id="state">Chargement…</div>
         <div class="cards" id="cards" style="display:none">
           <!-- Notes (primo tile, colori invertiti) -->
@@ -472,7 +470,6 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const cardsEl = document.getElementById("cards") as HTMLDivElement;
-        const labelEl = document.getElementById("today-label") as HTMLParagraphElement;
 
         logoutBtn.addEventListener("click", async () => {
           await supabaseBrowser.auth.signOut();
@@ -489,7 +486,6 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
         const oggi = new Date();
         const oggiKey = dayKey(oggi);
-        labelEl.textContent = oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const token = sessionData.session?.access_token ?? "";

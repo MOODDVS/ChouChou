@@ -3,10 +3,22 @@
 ---
 
 <header class="ah-header">
-  <a href="/admin" class="ah-brand" aria-label="La Molisana — Accueil">
-    <img src="/SVG/favLa-Molisana-.svg" alt="La Molisana" />
-  </a>
+  <div class="ah-left">
+    <a href="/admin" class="ah-brand" aria-label="La Molisana — Accueil">
+      <img src="/SVG/favLa-Molisana-.svg" alt="La Molisana" />
+    </a>
+    <div class="ah-date">
+      <span class="ah-date-txt" id="ah-date-txt"></span>
+    </div>
+  </div>
   <div class="ah-user">
+    <div class="ah-clock" id="ah-clock" aria-label="Heure actuelle">
+      <svg class="ah-clock-ico" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <polyline points="12 7 12 12 15 14" />
+      </svg>
+      <time id="ah-clock-time">--:--:--</time>
+    </div>
     <span id="user-email" class="ah-email"></span>
     <button id="fs-btn" type="button" class="ah-logout" aria-label="Plein écran" title="Plein écran">
       <svg id="fs-ico-in" viewBox="0 0 24 24" aria-hidden="true">
@@ -34,10 +46,23 @@
 
 <style>
   .ah-header { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+  .ah-left { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
   .ah-brand { display: flex; align-items: center; }
   .ah-brand img { width: 48px; height: 48px; display: block; border-radius: 10px; border: 1px solid var(--c-line); }
+  .ah-date { display: flex; align-items: baseline; min-width: 0; }
+  .ah-date-txt { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em; color: var(--c-accent); white-space: nowrap; text-transform: uppercase; }
   .ah-user { display: flex; align-items: center; gap: 1rem; }
+  .ah-clock { display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.05em; color: var(--c-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ah-clock-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ah-email { font-size: 0.85rem; color: var(--c-muted); }
+  /* Mobile (telefoni): niente data né orologio, header essenziale. */
+  @media (max-width: 640px) {
+    .ah-header { padding: 0.7rem 1rem; }
+    .ah-brand img { width: 40px; height: 40px; }
+    .ah-date { display: none; }
+    .ah-clock { display: none; }
+    .ah-email { display: none; }
+  }
   .ah-logout { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: transparent; border: 1px solid var(--c-line); color: var(--c-text); border-radius: 0; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
   .ah-logout:hover { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
   .ah-logout svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -97,4 +122,47 @@
   });
   document.addEventListener("fullscreenchange", aggiornaIcona);
   document.addEventListener("webkitfullscreenchange", aggiornaIcona);
+
+  // ----- Data (accanto al logo) + orologio live (a destra) -----
+  // Fuso Europe/Brussels come nel resto dell'app: l'ora è quella del
+  // ristorante anche se il tablet è impostato su un altro fuso.
+  const TZ = "Europe/Brussels";
+  const dateTxt = document.getElementById("ah-date-txt");
+  const clockEl = document.getElementById("ah-clock-time");
+  let ultimoGiorno = "";
+
+  function aggiornaData(now: Date) {
+    if (!dateTxt) return;
+    // "dimanche - 12 juillet 2026" — il MAIUSCOLO lo applica il CSS (text-transform).
+    const wd = now.toLocaleDateString("fr-BE", { timeZone: TZ, weekday: "long" });
+    const resto = now.toLocaleDateString("fr-BE", {
+      timeZone: TZ,
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    dateTxt.textContent = wd + " - " + resto;
+  }
+
+  function aggiornaOrologio() {
+    const now = new Date();
+    if (clockEl) {
+      clockEl.textContent = now.toLocaleTimeString("fr-BE", {
+        timeZone: TZ,
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23",
+      });
+    }
+    // La data cambia solo a mezzanotte: la aggiorno solo quando serve.
+    const giorno = now.toLocaleDateString("en-CA", { timeZone: TZ });
+    if (giorno !== ultimoGiorno) {
+      ultimoGiorno = giorno;
+      aggiornaData(now);
+    }
+  }
+
+  aggiornaOrologio();
+  setInterval(aggiornaOrologio, 1000);
 </script>
