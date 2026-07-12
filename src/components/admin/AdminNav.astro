@@ -3,7 +3,7 @@
 // Stile: pillola "liquid glass", ogni voce con icona sopra e label piccola sotto.
 // Visibile su tutti i dispositivi (fissa in basso, centrata).
 interface Props {
-  current?: "home" | "orders" | "menu" | "stats" | "settings";
+  current?: "home" | "orders" | "clients" | "menu" | "stats" | "settings";
 }
 const { current } = Astro.props;
 ---
@@ -14,7 +14,7 @@ const { current } = Astro.props;
       <path d="M3 11.5 12 4l9 7.5" />
       <path d="M5 10v9h14v-9" />
     </svg>
-    <span>Accueil</span>
+    <span>Accu.</span>
   </a>
   <a href="/admin/orders" class={current === "orders" ? "active" : ""} aria-label="Commandes">
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -22,7 +22,16 @@ const { current } = Astro.props;
       <path d="M4 6h16" />
       <path d="M9 10a3 3 0 0 0 6 0" />
     </svg>
-    <span>Commandes</span>
+    <span>Comm.</span>
+  </a>
+  <a href="/admin/clients" class={current === "clients" ? "active" : ""} aria-label="Clients">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+    <span>Clie.</span>
   </a>
   <a href="/admin/menu" class={current === "menu" ? "active" : ""} aria-label="Menu">
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -37,7 +46,7 @@ const { current } = Astro.props;
       <line x1="12" y1="20" x2="12" y2="4" />
       <line x1="6" y1="20" x2="6" y2="14" />
     </svg>
-    <span>Stats</span>
+    <span>Stat.</span>
   </a>
   <a href="/admin/settings" class={current === "settings" ? "active" : ""} aria-label="Réglages">
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -51,7 +60,7 @@ const { current } = Astro.props;
       <line x1="9" y1="8" x2="15" y2="8" />
       <line x1="17" y1="16" x2="23" y2="16" />
     </svg>
-    <span>Réglages</span>
+    <span>Régl.</span>
   </a>
 </nav>
 
@@ -63,7 +72,7 @@ const { current } = Astro.props;
     transform: translateX(-50%);
     display: flex;
     gap: 0.25rem;
-    padding: 0.4rem;
+    padding: 0.35rem;
     z-index: 100;
 
     /* Pillola */
@@ -83,20 +92,20 @@ const { current } = Astro.props;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
+    gap: 0.18rem;
     font-family: var(--font-body, system-ui, sans-serif);
-    font-size: 0.62rem;
+    font-size: 0.56rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--c-muted, #b3aca6);
     text-decoration: none;
-    padding: 0.5rem 1rem;
+    padding: 0.42rem 0.85rem;
     border-radius: 999px;
     transition: background 0.2s, color 0.2s;
   }
   .admin-nav a svg {
-    width: 22px;
-    height: 22px;
+    width: 19px;
+    height: 19px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -120,7 +129,7 @@ const { current } = Astro.props;
     }
     .admin-nav a {
       flex: 1;
-      padding: 0.5rem 0.4rem;
+      padding: 0.42rem 0.3rem;
     }
   }
 </style>

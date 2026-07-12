@@ -1,0 +1,457 @@
+---
+// Pannello admin — CLIENTS: tutti i clienti che hanno ordinato (aggregati
+// dagli ordini) UNITI ai clienti aggiunti a mano. Nome, email, téléphone,
+// nombre de commandes, total dépensé. Possibilità di aggiungere un cliente.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clients — Admin La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #362c28;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      /* Barra azioni (pulsante + ricerca), stile pagina Menu */
+      .actionsbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .pill {
+        font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
+      .add-btn:hover { background: transparent; color: var(--c-accent); }
+      .search {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 1.2rem;
+        border-radius: 999px; flex: 1; min-width: 220px; margin-left: 3rem;
+      }
+      .search::placeholder { color: var(--c-muted); }
+      .search:focus { outline: none; border-color: var(--c-accent); }
+      .count { color: var(--c-muted); font-size: 0.9rem; white-space: nowrap; }
+
+      /* Tabella (CSS grid) */
+      .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .thead, .row {
+        display: grid;
+        grid-template-columns: 2fr 2.4fr 1.6fr 1fr 1.1fr;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.85rem 1.2rem;
+      }
+      .thead { border-bottom: 1px solid var(--c-line); background: rgba(0, 0, 0, 0.15); }
+      .th {
+        background: transparent; border: none; color: var(--c-muted); cursor: pointer;
+        font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.06em; text-align: left;
+        display: inline-flex; align-items: center; gap: 0.3rem;
+      }
+      .th:hover { color: var(--c-text); }
+      .th.num { justify-content: flex-end; text-align: right; }
+      .th .arrow { font-size: 0.6rem; opacity: 0; transition: opacity 0.15s; }
+      .th.sorted { color: var(--c-accent); }
+      .th.sorted .arrow { opacity: 1; }
+
+      .row { border-bottom: 1px solid var(--c-line); }
+      .row:last-child { border-bottom: none; }
+      .row:hover { background: rgba(255, 255, 255, 0.03); }
+      .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .c-name { font-weight: 700; }
+      .c-name .tag { font-family: var(--font-body); font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); border: 1px solid var(--c-accent); border-radius: 999px; padding: 0.05rem 0.4rem; margin-left: 0.5rem; vertical-align: middle; }
+      .cell a { color: var(--c-muted); text-decoration: none; }
+      .cell a:hover { color: var(--c-accent); }
+      .c-num { text-align: right; font-variant-numeric: tabular-nums; }
+      .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
+      .c-total { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.03em; color: var(--c-accent); }
+
+      .loading { opacity: 0.45; pointer-events: none; }
+
+      /* Modale ajout client */
+      .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;
+      }
+      .overlay.is-open { display: flex; }
+      .modal { width: 100%; max-width: 480px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
+      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-text); }
+      .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
+      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
+      .modal input {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
+        width: 100%; color-scheme: dark;
+      }
+      .modal input:focus { outline: none; border-color: var(--c-accent); }
+      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
+      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
+      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
+      .m-save {
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
+        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s;
+      }
+      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
+      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* Toast */
+      .toast {
+        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
+        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.err { border-color: #a3320f; color: #ff8a8f; }
+
+      /* Mobile: righe → schede impilate con etichette */
+      @media (max-width: 720px) {
+        main { padding: 1.5rem 1rem 7rem; }
+        .search { margin-left: 0; }
+        .thead { display: none; }
+        .row {
+          grid-template-columns: 1fr auto;
+          gap: 0.35rem 0.75rem;
+          padding: 1rem 1.1rem;
+        }
+        .cell { white-space: normal; }
+        .c-name { grid-column: 1 / -1; font-size: 1.05rem; }
+        .cell[data-label]::before {
+          content: attr(data-label) " · ";
+          color: var(--c-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .c-email, .c-phone { grid-column: 1 / -1; }
+        .c-num { text-align: left; }
+        .c-orders, .c-total { font-size: 1.1rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>Clients</h1>
+        <div class="actionsbar">
+          <button class="pill add-btn" id="add-btn">+ Ajouter un client</button>
+          <input id="search" class="search" type="search" placeholder="Rechercher (nom, email, téléphone)…" />
+          <div class="count" id="count"></div>
+        </div>
+        <div class="state" id="state">Chargement…</div>
+        <div id="content" style="display:none">
+          <div class="table">
+            <div class="thead">
+              <button class="th" data-sort="name">Nom <span class="arrow"></span></button>
+              <button class="th" data-sort="email">Email <span class="arrow"></span></button>
+              <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
+              <button class="th num" data-sort="orders">Commandes <span class="arrow"></span></button>
+              <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
+            </div>
+            <div id="rows"></div>
+          </div>
+          <p class="state" id="empty" style="display:none"></p>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modale ajout client -->
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
+        <h2>Ajouter un client</h2>
+        <div class="f-field">
+          <span class="f-label">Nom et prénom *</span>
+          <input type="text" id="f-name" maxlength="120" autocomplete="off" />
+        </div>
+        <div class="f-field">
+          <span class="f-label">Email</span>
+          <input type="text" id="f-email" maxlength="160" autocomplete="off" inputmode="email" />
+        </div>
+        <div class="f-field">
+          <span class="f-label">Téléphone</span>
+          <input type="text" id="f-phone" maxlength="40" autocomplete="off" inputmode="tel" />
+        </div>
+        <div class="m-actions">
+          <span class="m-msg" id="m-msg"></span>
+          <button class="m-cancel" id="m-cancel">Annuler</button>
+          <button class="m-save" id="m-save">Ajouter</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <AdminNav current="clients" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Client = {
+        id: string | null;
+        name: string;
+        email: string;
+        phone: string;
+        orders: number;
+        total_cents: number;
+        last_order: string | null;
+        manual: boolean;
+      };
+      type Resp = { count: number; clients: Client[] };
+      type SortKey = "name" | "email" | "phone" | "orders" | "total";
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+      function euro(cents: number): string {
+        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const contentEl = document.getElementById("content") as HTMLDivElement;
+        const rowsEl = document.getElementById("rows") as HTMLDivElement;
+        const emptyEl = document.getElementById("empty") as HTMLParagraphElement;
+        const countEl = document.getElementById("count") as HTMLDivElement;
+        const searchEl = document.getElementById("search") as HTMLInputElement;
+        const theadEl = document.querySelector(".thead") as HTMLDivElement;
+        const toastEl = document.getElementById("toast") as HTMLDivElement;
+
+        // Modale
+        const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
+        const overlay = document.getElementById("overlay") as HTMLDivElement;
+        const fName = document.getElementById("f-name") as HTMLInputElement;
+        const fEmail = document.getElementById("f-email") as HTMLInputElement;
+        const fPhone = document.getElementById("f-phone") as HTMLInputElement;
+        const mMsg = document.getElementById("m-msg") as HTMLSpanElement;
+        const mSave = document.getElementById("m-save") as HTMLButtonElement;
+        const mCancel = document.getElementById("m-cancel") as HTMLButtonElement;
+        const mClose = document.getElementById("m-close") as HTMLButtonElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const token = sessionData.session?.access_token ?? "";
+        const headers = { Authorization: `Bearer ${token}` };
+
+        let tutti: Client[] = [];
+        let sortKey: SortKey = "total";
+        let sortAsc = false;
+        let filtro = "";
+        let tCancella = 0;
+
+        function toast(msg: string, err = false) {
+          toastEl.textContent = msg;
+          toastEl.className = "toast show" + (err ? " err" : "");
+          clearTimeout(tCancella);
+          tCancella = window.setTimeout(() => (toastEl.className = "toast"), 2600);
+        }
+
+        function compare(a: Client, b: Client): number {
+          let r: number;
+          if (sortKey === "orders") r = a.orders - b.orders;
+          else if (sortKey === "total") r = a.total_cents - b.total_cents;
+          else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "fr", { sensitivity: "base" });
+          return sortAsc ? r : -r;
+        }
+
+        function render() {
+          const q = filtro.trim().toLowerCase();
+          const lista = tutti
+            .filter((c) =>
+              !q ||
+              c.name.toLowerCase().includes(q) ||
+              c.email.toLowerCase().includes(q) ||
+              c.phone.toLowerCase().includes(q)
+            )
+            .sort(compare);
+
+          countEl.textContent =
+            `${lista.length} client${lista.length > 1 ? "s" : ""}` +
+            (q && lista.length !== tutti.length ? ` / ${tutti.length}` : "");
+
+          if (!lista.length) {
+            rowsEl.innerHTML = "";
+            emptyEl.textContent = tutti.length
+              ? "Aucun client ne correspond."
+              : "Aucun client pour le moment. Ajoutez-en un ou attendez la première commande.";
+            emptyEl.style.display = "block";
+            return;
+          }
+          emptyEl.style.display = "none";
+
+          rowsEl.innerHTML = lista
+            .map((c) => {
+              const email = esc(c.email);
+              const phone = esc(c.phone);
+              const tag = c.manual && c.orders === 0 ? '<span class="tag">Ajouté</span>' : "";
+              return `
+              <div class="row">
+                <div class="cell c-name">${esc(c.name) || "—"}${tag}</div>
+                <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
+                <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
+                <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
+                <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
+              </div>`;
+            })
+            .join("");
+        }
+
+        function updateHeader() {
+          theadEl.querySelectorAll(".th").forEach((el) => {
+            const th = el as HTMLElement;
+            const active = th.dataset.sort === sortKey;
+            th.classList.toggle("sorted", active);
+            const arrow = th.querySelector(".arrow") as HTMLElement;
+            arrow.textContent = active ? (sortAsc ? "▲" : "▼") : "";
+          });
+        }
+
+        theadEl.addEventListener("click", (e) => {
+          const th = (e.target as HTMLElement).closest(".th") as HTMLElement | null;
+          if (!th) return;
+          const k = th.dataset.sort as SortKey;
+          if (k === sortKey) sortAsc = !sortAsc;
+          else {
+            sortKey = k;
+            sortAsc = k === "name" || k === "email" || k === "phone";
+          }
+          updateHeader();
+          render();
+        });
+
+        searchEl.addEventListener("input", () => {
+          filtro = searchEl.value;
+          render();
+        });
+
+        async function carica() {
+          contentEl.classList.add("loading");
+          try {
+            const res = await fetch("/api/admin/clients", { headers });
+            if (!res.ok) {
+              stateEl.textContent = "Erreur de chargement.";
+              stateEl.style.display = "block";
+              return;
+            }
+            const data = (await res.json()) as Resp;
+            tutti = data.clients;
+            stateEl.style.display = "none";
+            contentEl.style.display = "block";
+            updateHeader();
+            render();
+          } catch {
+            stateEl.textContent = "Erreur de connexion.";
+            stateEl.style.display = "block";
+          } finally {
+            contentEl.classList.remove("loading");
+          }
+        }
+
+        // --- Modale aggiungi cliente ---
+        function apriModale() {
+          fName.value = "";
+          fEmail.value = "";
+          fPhone.value = "";
+          mMsg.textContent = "";
+          overlay.classList.add("is-open");
+          fName.focus();
+        }
+        function chiudiModale() {
+          overlay.classList.remove("is-open");
+        }
+
+        addBtn.addEventListener("click", apriModale);
+        mCancel.addEventListener("click", chiudiModale);
+        mClose.addEventListener("click", chiudiModale);
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) chiudiModale();
+        });
+
+        async function salva() {
+          const name = fName.value.trim();
+          const email = fEmail.value.trim();
+          const phone = fPhone.value.trim();
+          if (!name) { mMsg.textContent = "Le nom est obligatoire."; fName.focus(); return; }
+          if (!email && !phone) { mMsg.textContent = "Email ou téléphone requis."; fEmail.focus(); return; }
+
+          mMsg.textContent = "";
+          mSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/clients", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ name, email, phone }),
+            });
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              mMsg.textContent = out.error || "Erreur d'enregistrement.";
+              return;
+            }
+            chiudiModale();
+            toast("Client ajouté ✓");
+            await carica();
+          } catch {
+            mMsg.textContent = "Erreur de connexion.";
+          } finally {
+            mSave.disabled = false;
+          }
+        }
+
+        mSave.addEventListener("click", salva);
+        [fName, fEmail, fPhone].forEach((el) =>
+          el.addEventListener("keydown", (e) => {
+            if ((e as KeyboardEvent).key === "Enter") salva();
+          })
+        );
+
+        await carica();
+      })();
+    </script>
+  </body>
+</html>
