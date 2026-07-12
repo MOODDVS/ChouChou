@@ -52,6 +52,32 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .tile-next .none { color: var(--c-muted); font-weight: 400; }
       .state { color: var(--c-muted); padding: 1rem 0; }
 
+      /* --- Tile Statistiques (2 colonne) --- */
+      .tile-stats { grid-column: span 2; }
+      @media (max-width: 560px) { .tile-stats { grid-column: span 1; } }
+      .st-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+      .st-head .tile-title { margin-bottom: 0; }
+      .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
+      .st-link:hover { color: var(--c-accent); }
+      .st-grid { display: flex; gap: 1.75rem; }
+      .st-left { flex: 1; min-width: 0; }
+      .st-chart { flex: 1.2; min-width: 0; display: flex; flex-direction: column; }
+      @media (max-width: 700px) { .st-grid { flex-direction: column; } }
+      .st-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
+      .st-two { display: flex; gap: 1.5rem; margin-bottom: 1.1rem; }
+      .st-two > div { flex: 1; }
+      .st-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; color: var(--c-accent); }
+      .st-facts { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; gap: 1.5rem; }
+      .st-facts > div { flex: 1; min-width: 0; }
+      .st-facts .val { font-weight: 700; font-size: 0.95rem; }
+      .st-bars { display: flex; align-items: flex-end; gap: 2px; height: 110px; border-bottom: 1px solid var(--c-line); margin-top: 0.4rem; flex: 1; }
+      .st-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+      .st-bar .cval { font-family: var(--font-title); font-size: 0.8rem; color: var(--c-text); text-align: center; margin-bottom: 2px; }
+      .st-bar .fill { background: var(--c-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
+      .st-bar.zero .fill { background: var(--c-line); }
+      .st-labs { display: flex; gap: 2px; margin-top: 0.35rem; }
+      .st-labs span { flex: 1; text-align: center; font-size: 0.62rem; color: var(--c-muted); }
+
       /* --- Tile Horaires --- */
       .sched-status { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.03em; line-height: 1; margin-bottom: 0.9rem; }
       .sched-status.open { color: var(--c-accent); }
@@ -185,6 +211,31 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               <span class="val" id="menu-indispo">—</span>
             </div>
           </a>
+
+          <!-- Statistiques (2 colonne) -->
+          <div class="tile tile-stats">
+            <div class="st-head">
+              <div class="tile-title">Statistiques</div>
+              <a class="st-link" href="/admin/stats">Voir tout →</a>
+            </div>
+            <div class="st-grid">
+              <div class="st-left">
+                <div class="st-two">
+                  <div><span class="st-lab">C.A. ajd.</span><span class="st-big" id="st-ca-day">—</span></div>
+                  <div><span class="st-lab">C.A. mois</span><span class="st-big" id="st-ca-month">—</span></div>
+                </div>
+                <div class="st-facts">
+                  <div><span class="st-lab">Plat le plus commandé (mois)</span><span class="val" id="st-top">—</span></div>
+                  <div><span class="st-lab">Heure de pointe (mois)</span><span class="val" id="st-peak">—</span></div>
+                </div>
+              </div>
+              <div class="st-chart">
+                <span class="st-lab">Commandes cette semaine</span>
+                <div class="st-bars" id="st-bars"></div>
+                <div class="st-labs" id="st-labs"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </main>
     </div>
@@ -220,6 +271,12 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       type MenuRow = { category: string; available: boolean };
       type Cat = { name: string; kind: "food" | "drink" };
       type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string };
+      type StatsResp = {
+        revenue_cents: number;
+        peak_hour: number | null;
+        top: { name: string; qty: number }[];
+        series: { label: string; count: number }[];
+      };
 
       const CLOCK =
         '<svg class="clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>';
@@ -439,11 +496,14 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         avviaNote(headers);
 
         try {
-          const [resOrd, resToday, resMenu, resCats] = await Promise.all([
+          const [resOrd, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
             fetch("/api/admin/orders", { headers }),
             fetch("/api/admin/today", { headers }),
             fetch("/api/admin/menu", { headers }),
             fetch("/api/admin/categories", { headers }),
+            fetch("/api/admin/stats?period=day", { headers }),
+            fetch("/api/admin/stats?period=month", { headers }),
+            fetch("/api/admin/stats?period=week", { headers }),
           ]);
 
           // ---------- Commandes ----------
@@ -514,6 +574,41 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               indispoEl.textContent = "Aucun — tout est visible";
               indispoEl.classList.add("none");
             }
+          }
+
+          // ---------- Statistiques ----------
+          if (resSD.ok) {
+            const sd = (await resSD.json()) as StatsResp;
+            (document.getElementById("st-ca-day") as HTMLElement).textContent = euro(sd.revenue_cents);
+          }
+          if (resSM.ok) {
+            const sm = (await resSM.json()) as StatsResp;
+            (document.getElementById("st-ca-month") as HTMLElement).textContent = euro(sm.revenue_cents);
+            (document.getElementById("st-top") as HTMLElement).textContent =
+              sm.top.length ? `${sm.top[0].name} (${sm.top[0].qty}×)` : "—";
+            const peakEl = document.getElementById("st-peak") as HTMLElement;
+            if (sm.peak_hour === null) {
+              peakEl.textContent = "—";
+            } else {
+              const h = String(sm.peak_hour).padStart(2, "0");
+              const h2 = String((sm.peak_hour + 1) % 24).padStart(2, "0");
+              peakEl.textContent = `${h}:00–${h2}:00`;
+            }
+          }
+          if (resSW.ok) {
+            const sw = (await resSW.json()) as StatsResp;
+            const barsEl = document.getElementById("st-bars") as HTMLElement;
+            const labsEl = document.getElementById("st-labs") as HTMLElement;
+            const max = Math.max(...sw.series.map((b) => b.count), 1);
+            const peakIdx = sw.series.findIndex((b) => b.count === max);
+            barsEl.innerHTML = sw.series
+              .map((b, i) => {
+                const hPct = Math.round((b.count / max) * 100);
+                const val = i === peakIdx && b.count > 0 ? `<span class="cval">${b.count}</span>` : "";
+                return `<div class="st-bar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${b.label} : ${b.count} commandes">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
+              })
+              .join("");
+            labsEl.innerHTML = sw.series.map((b) => `<span>${b.label}</span>`).join("");
           }
         } catch {
           /* i tile degradano in silenzio; la pagina resta usabile */

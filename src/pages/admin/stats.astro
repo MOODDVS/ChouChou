@@ -1,0 +1,331 @@
+---
+// Pannello admin — STATISTIQUES: incasso, ordini, ora di punta e
+// piatti più ordinati, per periodo (giorno/settimana/mese/anno/totale).
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Statistiques — Admin La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #2b2626;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 1320px; margin: 0 auto; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      /* Selettore periodo */
+      .periods { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .period {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.2rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .period:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .period.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+
+      /* Griglia stat */
+      .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; }
+      .stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.7rem; }
+      .stat-big { font-family: var(--font-title); font-size: 3rem; line-height: 1; color: var(--c-accent); }
+      .stat-sub { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.6rem; }
+
+      /* Top piatti */
+      .top { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; }
+      .top-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
+      .top-row { display: flex; align-items: center; gap: 0.9rem; padding: 0.55rem 0; border-bottom: 1px solid var(--c-line); }
+      .top-row:last-child { border-bottom: none; }
+      .top-pos { font-family: var(--font-title); font-size: 1.2rem; color: var(--c-muted); min-width: 1.6rem; }
+      .top-name { flex: 1; font-weight: 700; }
+      .top-qty { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; white-space: nowrap; }
+      .top-cents { color: var(--c-muted); font-size: 0.85rem; white-space: nowrap; min-width: 6rem; text-align: right; }
+      .top-bar { height: 4px; background: var(--c-line); border-radius: 999px; overflow: hidden; flex-basis: 100%; margin-top: 0.35rem; }
+      .top-bar > span { display: block; height: 100%; background: var(--c-accent); border-radius: 999px; }
+      .top-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.9rem; }
+
+      /* Istogramma */
+      .chart { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; margin-bottom: 1.25rem; position: relative; }
+      .chart-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
+      .chart-wrap { overflow-x: auto; padding-bottom: 0.2rem; }
+      .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 200px; border-bottom: 1px solid var(--c-line); }
+      .cbar { flex: 1 0 14px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; height: 100%; }
+      .cbar .cval { font-family: var(--font-title); font-size: 0.85rem; color: var(--c-text); text-align: center; margin-bottom: 3px; }
+      .cbar .fill { background: var(--c-accent); border-radius: 4px 4px 0 0; min-height: 2px; }
+      .cbar.zero .fill { background: var(--c-line); }
+      .cbar:hover .fill { filter: brightness(1.15); }
+      .chart-labs { display: flex; gap: 2px; margin-top: 0.4rem; }
+      .clab { flex: 1 0 14px; text-align: center; font-size: 0.62rem; color: var(--c-muted); white-space: nowrap; }
+      .chart-tip {
+        position: absolute; z-index: 10; pointer-events: none; display: none;
+        background: var(--c-bg); border: 1px solid var(--c-accent); color: var(--c-text);
+        font-size: 0.8rem; padding: 0.35rem 0.7rem; border-radius: 999px; white-space: nowrap;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+      }
+
+      .loading { opacity: 0.45; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>Statistiques</h1>
+        <div class="periods" id="periods">
+          <button class="period is-active" data-p="day">Jour</button>
+          <button class="period" data-p="week">Semaine</button>
+          <button class="period" data-p="month">Mois</button>
+          <button class="period" data-p="ytd">Année</button>
+          <button class="period" data-p="all">Total</button>
+        </div>
+        <div class="state" id="state">Chargement…</div>
+        <div id="content" style="display:none">
+          <div class="grid">
+            <div class="stat">
+              <div class="stat-lab">Chiffre d'affaires</div>
+              <div class="stat-big" id="s-rev">—</div>
+              <div class="stat-sub" id="s-avg"></div>
+            </div>
+            <div class="stat">
+              <div class="stat-lab">Commandes</div>
+              <div class="stat-big" id="s-count">—</div>
+              <div class="stat-sub" id="s-count-sub"></div>
+            </div>
+            <div class="stat">
+              <div class="stat-lab">Heure de pointe</div>
+              <div class="stat-big" id="s-peak">—</div>
+              <div class="stat-sub" id="s-peak-sub"></div>
+            </div>
+          </div>
+          <div class="chart">
+            <div class="chart-title" id="c-title">Commandes par heure</div>
+            <div class="chart-wrap">
+              <div class="chart-bars" id="c-bars"></div>
+              <div class="chart-labs" id="c-labs"></div>
+            </div>
+            <div class="chart-tip" id="c-tip"></div>
+          </div>
+
+          <div class="top">
+            <div class="top-title">Plats les plus commandés</div>
+            <div id="s-top"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <AdminNav current="stats" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Stats = {
+        period: string;
+        orders: number;
+        revenue_cents: number;
+        avg_cents: number;
+        peak_hour: number | null;
+        peak_count: number;
+        series_kind: string;
+        series: { label: string; count: number }[];
+        top: { name: string; qty: number; cents: number }[];
+      };
+
+      const NOMI_PERIODO: Record<string, string> = {
+        day: "aujourd'hui",
+        week: "cette semaine",
+        month: "ce mois-ci",
+        ytd: "cette année",
+        all: "depuis toujours",
+      };
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+      function euro(cents: number): string {
+        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const contentEl = document.getElementById("content") as HTMLDivElement;
+        const periodsEl = document.getElementById("periods") as HTMLDivElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const headers = { Authorization: `Bearer ${sessionData.session?.access_token ?? ""}` };
+
+        let periodo = "day";
+
+        function render(s: Stats) {
+          (document.getElementById("s-rev") as HTMLElement).textContent = euro(s.revenue_cents);
+          (document.getElementById("s-avg") as HTMLElement).textContent =
+            s.orders > 0 ? `Panier moyen : ${euro(s.avg_cents)}` : "";
+          (document.getElementById("s-count") as HTMLElement).textContent = String(s.orders);
+          (document.getElementById("s-count-sub") as HTMLElement).textContent =
+            `commandes payées ${NOMI_PERIODO[s.period] ?? ""}`;
+
+          const peakEl = document.getElementById("s-peak") as HTMLElement;
+          const peakSub = document.getElementById("s-peak-sub") as HTMLElement;
+          if (s.peak_hour === null) {
+            peakEl.textContent = "—";
+            peakSub.textContent = "";
+          } else {
+            const h = String(s.peak_hour).padStart(2, "0");
+            const h2 = String((s.peak_hour + 1) % 24).padStart(2, "0");
+            peakEl.textContent = `${h}:00–${h2}:00`;
+            peakSub.textContent = `${s.peak_count} commande${s.peak_count > 1 ? "s" : ""} dans ce créneau`;
+          }
+
+          renderChart(s);
+
+          const topEl = document.getElementById("s-top") as HTMLElement;
+          if (!s.top.length) {
+            topEl.innerHTML = '<p class="state">Aucune commande sur la période.</p>';
+            return;
+          }
+          const maxQty = s.top[0].qty;
+          topEl.innerHTML = s.top
+            .map(
+              (t, i) => `
+            <div class="top-row">
+              <div class="top-line" style="flex:1">
+                <span class="top-pos">${i + 1}</span>
+                <span class="top-name">${esc(t.name)}</span>
+                <span class="top-qty">${t.qty}×</span>
+                <span class="top-cents">${euro(t.cents)}</span>
+                <span class="top-bar"><span style="width:${Math.round((t.qty / maxQty) * 100)}%"></span></span>
+              </div>
+            </div>`
+            )
+            .join("");
+        }
+
+        const TITOLI: Record<string, string> = {
+          hour: "Commandes par heure",
+          weekday: "Commandes par jour",
+          day: "Commandes par jour du mois",
+          month: "Commandes par mois",
+          quarter: "Commandes par trimestre",
+        };
+
+        function renderChart(s: Stats) {
+          (document.getElementById("c-title") as HTMLElement).textContent =
+            TITOLI[s.series_kind] ?? "Commandes";
+          const barsEl = document.getElementById("c-bars") as HTMLElement;
+          const labsEl = document.getElementById("c-labs") as HTMLElement;
+
+          if (!s.series.length) {
+            barsEl.innerHTML = '<p class="state" style="width:100%">Aucune donnée.</p>';
+            labsEl.innerHTML = "";
+            return;
+          }
+          const max = Math.max(...s.series.map((b) => b.count), 1);
+          // Etichette dirette selettive: solo sul picco (le altre via tooltip)
+          const peakIdx = s.series.findIndex((b) => b.count === max);
+          // Diradamento etichette asse quando i bucket sono tanti
+          const passo = s.series.length > 16 ? 2 : 1;
+
+          barsEl.innerHTML = s.series
+            .map((b, i) => {
+              const hPct = Math.round((b.count / max) * 100);
+              const val = i === peakIdx && b.count > 0 ? `<span class="cval">${b.count}</span>` : "";
+              return `<div class="cbar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${esc(b.label)} : ${b.count} commandes" data-lab="${esc(b.label)}" data-n="${b.count}">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
+            })
+            .join("");
+          labsEl.innerHTML = s.series
+            .map((b, i) => `<span class="clab">${i % passo === 0 ? esc(b.label) : ""}</span>`)
+            .join("");
+        }
+
+        // Tooltip per barra (mouse e tocco)
+        const tipEl = document.getElementById("c-tip") as HTMLElement;
+        const chartEl = document.querySelector(".chart") as HTMLElement;
+        chartEl.addEventListener("pointerover", (e) => {
+          const bar = (e.target as HTMLElement).closest(".cbar") as HTMLElement | null;
+          if (!bar) { tipEl.style.display = "none"; return; }
+          const n = Number(bar.dataset.n);
+          tipEl.textContent = `${bar.dataset.lab} · ${n} commande${n === 1 ? "" : "s"}`;
+          tipEl.style.display = "block";
+          const cr = chartEl.getBoundingClientRect();
+          const br = bar.getBoundingClientRect();
+          const left = br.left - cr.left + br.width / 2 - tipEl.offsetWidth / 2;
+          tipEl.style.left = `${Math.max(4, Math.min(left, cr.width - tipEl.offsetWidth - 4))}px`;
+          tipEl.style.top = `${br.top - cr.top - tipEl.offsetHeight - 8}px`;
+        });
+        chartEl.addEventListener("pointerleave", () => { tipEl.style.display = "none"; });
+
+        async function carica() {
+          contentEl.classList.add("loading");
+          try {
+            const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
+            if (!res.ok) {
+              stateEl.textContent = "Erreur de chargement.";
+              stateEl.style.display = "block";
+              return;
+            }
+            const s = (await res.json()) as Stats;
+            stateEl.style.display = "none";
+            contentEl.style.display = "block";
+            render(s);
+          } catch {
+            stateEl.textContent = "Erreur de connexion.";
+            stateEl.style.display = "block";
+          } finally {
+            contentEl.classList.remove("loading");
+          }
+        }
+
+        periodsEl.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".period") as HTMLElement | null;
+          if (!t || t.dataset.p === periodo) return;
+          periodo = t.dataset.p!;
+          periodsEl.querySelectorAll(".period").forEach((b) => b.classList.toggle("is-active", b === t));
+          carica();
+        });
+
+        await carica();
+      })();
+    </script>
+  </body>
+</html>
