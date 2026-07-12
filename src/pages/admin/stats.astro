@@ -12,6 +12,10 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
     <title>Statistiques — Admin La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -25,7 +29,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         --c-accent: #dfab4e;
         --c-muted: #b3aca6;
         --c-line: #3a3335;
-        --c-card: #2b2626;
+        --c-card: #362c28;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -51,13 +55,13 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       /* Griglia stat */
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-      .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; }
+      .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.7rem; }
       .stat-big { font-family: var(--font-title); font-size: 3rem; line-height: 1; color: var(--c-accent); }
       .stat-sub { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.6rem; }
 
       /* Top piatti */
-      .top { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; }
+      .top { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .top-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
       .top-row { display: flex; align-items: center; gap: 0.9rem; padding: 0.55rem 0; border-bottom: 1px solid var(--c-line); }
       .top-row:last-child { border-bottom: none; }
@@ -70,7 +74,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .top-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.9rem; }
 
       /* Istogramma */
-      .chart { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; margin-bottom: 1.25rem; position: relative; }
+      .chart { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; margin-bottom: 1.25rem; position: relative; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .chart-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
       .chart-wrap { overflow-x: auto; padding-bottom: 0.2rem; }
       .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 200px; border-bottom: 1px solid var(--c-line); }

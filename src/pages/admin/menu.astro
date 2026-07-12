@@ -13,6 +13,10 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
     <title>Menu — Admin La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,7 +30,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         --c-accent: #dfab4e;
         --c-muted: #b3aca6;
         --c-line: #3a3335;
-        --c-card: #2b2626;
+        --c-card: #362c28;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -98,6 +102,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         display: flex; align-items: center; gap: 0.9rem;
         background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.7rem 1rem; margin-bottom: 0.4rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
       }
       .item.is-hidden-item { opacity: 0.55; }
       .i-main { flex: 1; min-width: 0; }

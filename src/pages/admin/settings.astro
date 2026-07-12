@@ -13,6 +13,10 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
     <title>Réglages — Admin La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,7 +30,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         --c-accent: #dfab4e;
         --c-muted: #b3aca6;
         --c-line: #3a3335;
-        --c-card: #2b2626;
+        --c-card: #362c28;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -40,7 +44,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       #content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
-      .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; }
+      .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .save-bar {
         position: fixed; z-index: 95;
         display: flex; align-items: center; gap: 1rem;

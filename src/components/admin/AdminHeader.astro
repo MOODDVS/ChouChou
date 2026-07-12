@@ -8,6 +8,20 @@
   </a>
   <div class="ah-user">
     <span id="user-email" class="ah-email"></span>
+    <button id="fs-btn" type="button" class="ah-logout" aria-label="Plein écran" title="Plein écran">
+      <svg id="fs-ico-in" viewBox="0 0 24 24" aria-hidden="true">
+        <polyline points="15 3 21 3 21 9" />
+        <polyline points="9 21 3 21 3 15" />
+        <line x1="21" y1="3" x2="14" y2="10" />
+        <line x1="3" y1="21" x2="10" y2="14" />
+      </svg>
+      <svg id="fs-ico-out" viewBox="0 0 24 24" aria-hidden="true" style="display:none">
+        <polyline points="4 14 10 14 10 20" />
+        <polyline points="20 10 14 10 14 4" />
+        <line x1="14" y1="10" x2="21" y2="3" />
+        <line x1="3" y1="21" x2="10" y2="14" />
+      </svg>
+    </button>
     <button id="logout-btn" type="button" class="ah-logout" aria-label="Déconnexion" title="Déconnexion">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -28,3 +42,51 @@
   .ah-logout:hover { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
   .ah-logout svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 </style>
+
+<script>
+  // Fullscreen del browser (API standard + fallback webkit per iPad).
+  // NB: il fullscreen decade cambiando pagina — per il tutto-schermo
+  // permanente usare la PWA ("Ajouter à l'écran d'accueil").
+  const fsBtn = document.getElementById("fs-btn");
+  const icoIn = document.getElementById("fs-ico-in");
+  const icoOut = document.getElementById("fs-ico-out");
+  const root = document.documentElement as any;
+  const doc = document as any;
+
+  // In modalità PWA standalone il bottone non serve: nascosto.
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as any).standalone === true;
+  const supporto = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+
+  if (fsBtn && (!supporto || standalone)) {
+    fsBtn.style.display = "none";
+  }
+
+  function fsAttivo(): boolean {
+    return !!(document.fullscreenElement || doc.webkitFullscreenElement);
+  }
+  function aggiornaIcona() {
+    if (!icoIn || !icoOut) return;
+    icoIn.style.display = fsAttivo() ? "none" : "";
+    icoOut.style.display = fsAttivo() ? "" : "none";
+  }
+
+  fsBtn?.addEventListener("click", async () => {
+    try {
+      if (fsAttivo()) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+      } else {
+        if (root.requestFullscreen) await root.requestFullscreen();
+        else if (root.webkitRequestFullscreen) root.webkitRequestFullscreen();
+      }
+    } catch {
+      /* richiesta rifiutata dal browser: nessun crash */
+    }
+    // Togli il focus al bottone: senza, resta "selezionato" dopo il click
+    (fsBtn as HTMLButtonElement).blur();
+  });
+  document.addEventListener("fullscreenchange", aggiornaIcona);
+  document.addEventListener("webkitfullscreenchange", aggiornaIcona);
+</script>
