@@ -147,6 +147,15 @@
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
 
+      // Registra il service worker anche dal login: è la prima pagina
+      // che si visita da un dispositivo nuovo, e senza service worker
+      // attivo Chrome (Android) non propone l'installazione come app.
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {
+          /* registrazione fallita: il sito funziona comunque */
+        });
+      }
+
       const form = document.getElementById("login-form") as HTMLFormElement;
       const errorEl = document.getElementById("error") as HTMLDivElement;
       const btn = document.getElementById("submit-btn") as HTMLButtonElement;
