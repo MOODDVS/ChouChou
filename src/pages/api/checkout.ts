@@ -194,7 +194,10 @@ export const POST: APIRoute = async ({ request }) => {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch {
+  } catch (e) {
+    // Il motivo vero (chiave Stripe, metodo di pagamento non attivo…)
+    // finisce nel log del server: mai nel browser del cliente.
+    console.error("[checkout] Stripe error:", e);
     return err(502, "Errore nella creazione del pagamento");
   }
 };

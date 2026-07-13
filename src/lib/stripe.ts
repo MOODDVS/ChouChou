@@ -40,7 +40,7 @@ export async function creaCheckoutSession({
   const prefix = lang === "en" ? "/en" : "";
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    payment_method_types: ["card", "bancontact"],
+    payment_method_types: ["card"],
     line_items: voci.map((v) => ({
       price_data: {
         currency: "eur",
