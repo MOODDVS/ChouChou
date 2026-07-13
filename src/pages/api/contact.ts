@@ -3,7 +3,7 @@ import { Resend } from "resend";
 
 const resend = new Resend(import.meta.env.RESEND_API_KEY);
 const FROM = "La Molisana <info@lamolisana.be>";
-const TO = "info@lamolisana.be";
+const TO = "pizzeria@lamolisana.be";
 const BCC = "enquiries@moodd.online";
 
 // URL pubblico del sito (per il logo nell'email). In locale: http://localhost:4321
