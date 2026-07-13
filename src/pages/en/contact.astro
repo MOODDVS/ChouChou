@@ -185,7 +185,11 @@ const L = {
     </div>
   </div>
 
-  <section class="ct-map" id="ct-map" data-map-src={MAP_SRC} data-map-title={L.mapTitle}></section>
+  <section class="ct-map" id="ct-map" data-map-src={MAP_SRC} data-map-title={L.mapTitle}>
+    <button class="ct-map__load" id="ct-map-load" type="button">
+      {en ? "Display the map (loads Google Maps)" : "Afficher la carte (charge Google Maps)"}
+    </button>
+  </section>
 </Layout>
 
 <style>
@@ -318,7 +322,21 @@ const L = {
     width: 100%;
     height: clamp(360px, 50vh, 520px);
     background: #2a2627;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
+  .ct-map__load {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--c-text);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    padding: 0.9rem 1.6rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .ct-map__load:hover { border-color: var(--c-accent); }
 
   /* ---------- RESPONSIVE ---------- */
   @media (max-width: 900px) {
@@ -427,30 +445,53 @@ const L = {
 </style>
 
 <script>
-  // Mappa caricata solo quando arriva in vista (risparmia il peso di
-  // Google Maps a chi non scorre fin lì).
+  // Mappa Google: si carica SOLO se i cookie non essenziali sono stati
+  // accettati (banner) — altrimenti resta un bottone "Afficher la carte"
+  // che la carica su click esplicito. Coerente con la politique cookies.
   const sec = document.getElementById("ct-map");
+  const btnCarica = document.getElementById("ct-map-load");
+
+  function caricaMappa() {
+    if (!sec || sec.querySelector("iframe")) return;
+    btnCarica?.remove();
+    const iframe = document.createElement("iframe");
+    iframe.title = sec.getAttribute("data-map-title") || "Map";
+    iframe.src = sec.getAttribute("data-map-src") || "";
+    iframe.loading = "lazy";
+    iframe.referrerPolicy = "no-referrer-when-downgrade";
+    sec.appendChild(iframe);
+  }
+
+  function consensoOk(): boolean {
+    try {
+      return window.localStorage.getItem("lm-cookie-consent") === "accepted";
+    } catch {
+      return false;
+    }
+  }
+
   if (sec) {
-    const carica = () => {
-      if (sec.querySelector("iframe")) return;
-      const iframe = document.createElement("iframe");
-      iframe.title = sec.getAttribute("data-map-title") || "Map";
-      iframe.src = sec.getAttribute("data-map-src") || "";
-      iframe.loading = "lazy";
-      iframe.referrerPolicy = "no-referrer-when-downgrade";
-      sec.appendChild(iframe);
-    };
-    const oss = new IntersectionObserver(
-      (voci) => {
-        for (const v of voci) {
-          if (v.isIntersecting) {
-            carica();
-            oss.disconnect();
+    if (consensoOk()) {
+      // Consenso già dato: carica quando la sezione si avvicina
+      const oss = new IntersectionObserver(
+        (voci) => {
+          for (const v of voci) {
+            if (v.isIntersecting) {
+              caricaMappa();
+              oss.disconnect();
+            }
           }
-        }
-      },
-      { rootMargin: "400px 0px" }
-    );
-    oss.observe(sec);
+        },
+        { rootMargin: "400px 0px" }
+      );
+      oss.observe(sec);
+    }
+    // Click esplicito: vale come consenso puntuale per la mappa
+    btnCarica?.addEventListener("click", caricaMappa);
+    // Se l'utente accetta dal banner mentre è sulla pagina
+    document.addEventListener("cookie-consent-changed", (e) => {
+      const det = (e as CustomEvent).detail;
+      if (det && det.consent === "accepted") caricaMappa();
+    });
   }
 </script>

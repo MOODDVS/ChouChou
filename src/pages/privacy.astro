@@ -1,16 +1,18 @@
 ---
+// Politique de confidentialité — La Molisana (bilingue FR/EN nello stesso
+// template; la versione /en/ è la copia con gli import adattati).
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
 const isEn = lang === "en";
 
-const updated = "04/06/2026";
+const updated = "13/07/2026";
 ---
 
-<Layout title={(isEn ? "Privacy Policy" : "Politique de confidentialité") + " — Pizzeria 77"}>
+<Layout title={(isEn ? "Privacy Policy" : "Politique de confidentialité") + " — La Molisana"}>
   <article class="legal">
-    <p class="legal-claim">THIS IS PIZZERIA 77</p>
+    <p class="legal-claim">La Molisana — Pizza &amp; Pasta</p>
     <h1 class="legal-title">{isEn ? "Privacy Policy" : "Politique de confidentialité"}</h1>
     <p class="legal-updated">{isEn ? "Last updated:" : "Dernière mise à jour :"} {updated}</p>
 
@@ -19,18 +21,18 @@ const updated = "04/06/2026";
         <h2>1. Responsable du traitement</h2>
         <p>
           Le responsable du traitement de vos données personnelles est&nbsp;:<br />
-          <strong>77 – Angedras SRL</strong><br />
-          Chaussée de Bruxelles 77, 1410 Waterloo, Belgique<br />
-          N° d'entreprise&nbsp;: BE 0749.439.915<br />
-          Email&nbsp;: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+          <strong>Migraf SRL — La Molisana</strong><br />
+          Av. Adolphe Demeur 37, 1060 Saint-Gilles (Bruxelles), Belgique<br />
+          N° d'entreprise&nbsp;: BE 0899.648.967<br />
+          Email&nbsp;: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>
         </p>
 
         <h2>2. Données que nous collectons</h2>
         <p>Selon votre interaction avec le site, nous pouvons collecter&nbsp;:</p>
         <ul>
           <li><strong>Commande à emporter</strong>&nbsp;: nom, adresse email, numéro de téléphone, contenu de la commande et heure de retrait.</li>
-          <li><strong>Réservation de table</strong>&nbsp;: nom, email, téléphone, date, heure, nombre de personnes et éventuelles remarques.</li>
           <li><strong>Formulaire de contact</strong>&nbsp;: nom, email, téléphone (facultatif) et le message envoyé.</li>
+          <li><strong>Réservation de table</strong>&nbsp;: les réservations sont gérées par notre prestataire RestoHub (resto-genius.com), qui collecte les données nécessaires (nom, coordonnées, date, heure, nombre de personnes) pour notre compte.</li>
           <li><strong>Paiement en ligne</strong>&nbsp;: les données de paiement (carte, Bancontact) sont traitées directement par Stripe. Nous ne recevons ni ne stockons vos données de carte.</li>
         </ul>
 
@@ -44,10 +46,12 @@ const updated = "04/06/2026";
         <h2>4. Sous-traitants</h2>
         <p>Pour faire fonctionner le site, nous faisons appel à des prestataires qui traitent certaines données pour notre compte&nbsp;:</p>
         <ul>
-          <li><strong>Supabase</strong> (hébergement de la base de données, UE)&nbsp;: stockage des commandes et réservations.</li>
+          <li><strong>Hostinger</strong>&nbsp;: hébergement du site web.</li>
+          <li><strong>Supabase</strong> (hébergement de la base de données, UE)&nbsp;: stockage des commandes.</li>
           <li><strong>Stripe</strong>&nbsp;: traitement sécurisé des paiements.</li>
           <li><strong>Resend</strong>&nbsp;: envoi des emails de confirmation.</li>
-          <li><strong>Google Maps</strong>&nbsp;: affichage de la carte sur la page Contact (uniquement après votre consentement).</li>
+          <li><strong>RestoHub</strong> (resto-genius.com)&nbsp;: gestion des réservations de table.</li>
+          <li><strong>Google Maps</strong>&nbsp;: affichage de la carte sur la page Contact.</li>
         </ul>
 
         <h2>5. Durée de conservation</h2>
@@ -61,7 +65,7 @@ const updated = "04/06/2026";
         <p>
           Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation
           et d'opposition concernant vos données, ainsi que d'un droit à la portabilité. Pour exercer ces droits,
-          écrivez-nous à <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>. Vous pouvez également
+          écrivez-nous à <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>. Vous pouvez également
           introduire une réclamation auprès de l'Autorité de protection des données (APD), Rue de la Presse 35,
           1000 Bruxelles.
         </p>
@@ -79,48 +83,50 @@ const updated = "04/06/2026";
         <h2>1. Data controller</h2>
         <p>
           The controller of your personal data is:<br />
-          <strong>77 – Angedras SRL</strong><br />
-          Chaussée de Bruxelles 77, 1410 Waterloo, Belgium<br />
-          Company number: BE 0749.439.915<br />
-          Email: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>
+          <strong>Migraf SRL — La Molisana</strong><br />
+          Av. Adolphe Demeur 37, 1060 Saint-Gilles (Brussels), Belgium<br />
+          Company number: BE 0899.648.967<br />
+          Email: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>
         </p>
 
         <h2>2. Data we collect</h2>
-        <p>Depending on how you use the site, we may collect:</p>
+        <p>Depending on how you interact with the site, we may collect:</p>
         <ul>
-          <li><strong>Takeaway order</strong>: name, email address, phone number, order contents and pickup time.</li>
-          <li><strong>Table booking</strong>: name, email, phone, date, time, number of guests and any notes.</li>
-          <li><strong>Contact form</strong>: name, email, phone (optional) and the message you send.</li>
+          <li><strong>Takeaway orders</strong>: name, email address, phone number, order contents and pickup time.</li>
+          <li><strong>Contact form</strong>: name, email, phone (optional) and the message sent.</li>
+          <li><strong>Table reservations</strong>: reservations are handled by our provider RestoHub (resto-genius.com), which collects the necessary data (name, contact details, date, time, number of guests) on our behalf.</li>
           <li><strong>Online payment</strong>: payment data (card, Bancontact) is processed directly by Stripe. We never receive or store your card details.</li>
         </ul>
 
         <h2>3. Purposes and legal basis</h2>
         <p>
-          Your data is used solely to process your orders, bookings and requests (performance of a contract
-          and pre-contractual steps) and to send you the corresponding confirmations. We do not use your data
-          for advertising and never sell it to anyone.
+          Your data is used solely to process your orders, reservations and requests (performance of a
+          contract and pre-contractual measures), and to send you the corresponding confirmations.
+          We do not use your data for advertising and never sell it to anyone.
         </p>
 
         <h2>4. Processors</h2>
-        <p>To operate the site we rely on providers who process certain data on our behalf:</p>
+        <p>To run the site, we rely on providers that process certain data on our behalf:</p>
         <ul>
-          <li><strong>Supabase</strong> (database hosting, EU): storage of orders and bookings.</li>
+          <li><strong>Hostinger</strong>: website hosting.</li>
+          <li><strong>Supabase</strong> (database hosting, EU): storage of orders.</li>
           <li><strong>Stripe</strong>: secure payment processing.</li>
           <li><strong>Resend</strong>: sending confirmation emails.</li>
-          <li><strong>Google Maps</strong>: displaying the map on the Contact page (only after your consent).</li>
+          <li><strong>RestoHub</strong> (resto-genius.com): table reservation management.</li>
+          <li><strong>Google Maps</strong>: map display on the Contact page.</li>
         </ul>
 
         <h2>5. Retention</h2>
         <p>
-          We keep your data for as long as necessary for the purposes described above and to comply with our
-          legal obligations (notably accounting). After that, it is deleted or anonymised.
+          We keep your data for as long as necessary for the purposes described above and to comply
+          with our legal obligations (in particular accounting). Beyond that, it is deleted or anonymised.
         </p>
 
         <h2>6. Your rights</h2>
         <p>
           Under the GDPR, you have the right to access, rectify, erase, restrict and object to the processing
           of your data, as well as the right to data portability. To exercise these rights, write to us at
-          <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>. You may also lodge a complaint with the
+          <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>. You may also lodge a complaint with the
           Belgian Data Protection Authority (APD/GBA), Rue de la Presse 35, 1000 Brussels.
         </p>
 
@@ -141,16 +147,18 @@ const updated = "04/06/2026";
     padding: 4rem 1.5rem 5rem;
   }
   .legal-claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.8rem;
-    color: var(--c-muted);
+    font-family: var(--font-display);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    color: var(--c-accent);
     margin: 0 0 0.8rem;
   }
   .legal-title {
-    font-family: var(--font-title);
-    font-size: clamp(2.5rem, 7vw, 4rem);
-    line-height: 1;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5.5vw, 3.2rem);
+    line-height: 1.1;
     margin: 0 0 0.6rem;
     color: var(--c-text);
   }
@@ -160,11 +168,12 @@ const updated = "04/06/2026";
     margin: 0 0 2.5rem;
   }
   .legal-body :global(h2) {
-    font-family: var(--font-title);
-    font-size: 1.5rem;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.35rem;
     letter-spacing: 0.02em;
     margin: 2.2rem 0 0.8rem;
-    color: var(--c-text);
+    color: var(--c-accent);
   }
   .legal-body :global(p),
   .legal-body :global(li) {
@@ -182,5 +191,6 @@ const updated = "04/06/2026";
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+  .legal-body :global(a:hover) { color: var(--c-accent); }
   .legal-body :global(strong) { color: var(--c-text); }
 </style>

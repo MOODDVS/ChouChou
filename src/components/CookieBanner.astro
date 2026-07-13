@@ -37,55 +37,61 @@ const T = isEn
     bottom: 1rem;
     left: 1rem;
     z-index: 300;
-    width: 340px;
+    width: 350px;
     max-width: calc(100vw - 2rem);
     background: var(--c-bg);
-    border: 1px solid var(--c-text);
-    padding: 1.2rem 1.3rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 14px;
+    padding: 1.3rem 1.4rem;
     box-sizing: border-box;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
   }
   .ckb__text {
-    margin: 0 0 1rem;
+    margin: 0 0 1.1rem;
     color: var(--c-text);
-    font-size: 0.85rem;
-    line-height: 1.5;
+    font-family: var(--font-body);
+    font-size: 0.87rem;
+    line-height: 1.55;
   }
   .ckb__link {
-    color: var(--c-text);
+    color: var(--c-accent);
     text-decoration: underline;
     text-underline-offset: 2px;
     white-space: nowrap;
   }
+  .ckb__link:hover { color: var(--c-text); }
   .ckb__actions {
     display: flex;
     gap: 0.6rem;
   }
   .ckb__btn {
     flex: 1;
-    font-family: var(--font-title);
-    font-size: 0.95rem;
-    letter-spacing: 0.05em;
-    padding: 0.55rem 0.5rem;
-    border-radius: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.7rem 0.5rem;
+    border-radius: 10px;
     cursor: pointer;
-    border: 1px solid var(--c-text);
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
   .ckb__btn--accept {
-    background: var(--c-text);
+    background: var(--c-accent);
+    border: 2px solid var(--c-accent);
     color: var(--c-bg);
   }
   .ckb__btn--accept:hover {
-    background: transparent;
-    color: var(--c-text);
+    background: #fff;
+    border-color: #fff;
   }
   .ckb__btn--decline {
     background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.4);
     color: var(--c-text);
   }
   .ckb__btn--decline:hover {
-    background: var(--c-text);
-    color: var(--c-bg);
+    border-color: var(--c-text);
   }
 
   /* Su mobile la barra di navigazione in basso occupa spazio: alzo il banner */
@@ -98,7 +104,7 @@ const T = isEn
 
 <script is:inline>
   (function () {
-    var KEY = "p77-cookie-consent"; // valori: "accepted" | "declined"
+    var KEY = "lm-cookie-consent"; // valori: "accepted" | "declined"
     var banner = document.getElementById("cookie-banner");
     if (!banner) return;
 

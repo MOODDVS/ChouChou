@@ -64,7 +64,7 @@
   .resmod__logo {
     width: 140px;
     height: auto;
-    margin: 1.4rem auto 0.9rem;
+    margin: 1.3rem auto 0.7rem;
     display: block;
     filter: brightness(0) invert(1); /* logo scuro -> bianco sul marrone */
   }
@@ -97,8 +97,10 @@
 
   #resmod-frame {
     flex: 1;
-    width: 100%;
+    width: calc(100% - 32px);
+    margin: 0 auto 16px;
     border: 0;
+    border-radius: 10px;
     background: var(--c-bg);
   }
 

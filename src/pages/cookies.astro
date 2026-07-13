@@ -1,16 +1,18 @@
 ---
+// Politique cookies — La Molisana (bilingue FR/EN nello stesso template;
+// la versione /en/ è la copia con gli import adattati).
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
 const isEn = lang === "en";
 
-const updated = "04/06/2026";
+const updated = "13/07/2026";
 ---
 
-<Layout title={(isEn ? "Cookie Policy" : "Politique relative aux cookies") + " — Pizzeria 77"}>
+<Layout title={(isEn ? "Cookie Policy" : "Politique relative aux cookies") + " — La Molisana"}>
   <article class="legal">
-    <p class="legal-claim">THIS IS PIZZERIA 77</p>
+    <p class="legal-claim">La Molisana — Pizza &amp; Pasta</p>
     <h1 class="legal-title">{isEn ? "Cookie Policy" : "Politique relative aux cookies"}</h1>
     <p class="legal-updated">{isEn ? "Last updated:" : "Dernière mise à jour :"} {updated}</p>
 
@@ -29,22 +31,32 @@ const updated = "04/06/2026";
         </p>
         <ul>
           <li>
+            <strong>Mémorisation de votre choix cookies</strong> (stockage local)&nbsp;: retient si vous avez
+            accepté ou refusé les cookies non essentiels, pour ne pas vous reposer la question à chaque visite.
+          </li>
+          <li>
             <strong>Stockage technique de votre commande</strong> (stockage local de session)&nbsp;: utilisé
             uniquement pour conserver le contenu de votre panier pendant votre visite. Il reste sur votre
             appareil et n'est pas envoyé à des tiers à des fins de suivi.
           </li>
           <li>
             <strong>Google Maps</strong> (page Contact)&nbsp;: la carte est fournie par Google et peut déposer
-            des cookies tiers. Pour cette raison, la carte ne se charge qu'<strong>après votre consentement</strong>.
-            Tant que vous n'avez pas accepté, aucune donnée n'est envoyée à Google.
+            des cookies tiers. Pour cette raison, elle ne se charge qu'<strong>après votre consentement</strong>,
+            ou lorsque vous cliquez explicitement pour l'afficher.
+          </li>
+          <li>
+            <strong>RestoHub</strong> (réservations, resto-genius.com)&nbsp;: le module de réservation ne se
+            charge que lorsque vous ouvrez la fenêtre «&nbsp;Réserver&nbsp;». Il peut utiliser des cookies
+            techniques nécessaires au fonctionnement du service de réservation.
           </li>
         </ul>
 
         <h2>3. Votre consentement</h2>
         <p>
           Lors de votre première visite, une bannière vous permet d'accepter ou de refuser les cookies non
-          essentiels (comme Google Maps). Vous pouvez modifier votre choix à tout moment en revenant sur le site.
-          Le refus n'empêche pas l'utilisation des fonctions essentielles (menu, commande, réservation).
+          essentiels. Vous pouvez modifier votre choix à tout moment en supprimant les données du site dans
+          votre navigateur. Le refus n'empêche pas l'utilisation des fonctions essentielles
+          (menu, commande, réservation).
         </p>
 
         <h2>4. Gérer les cookies</h2>
@@ -55,7 +67,7 @@ const updated = "04/06/2026";
 
         <h2>5. Contact</h2>
         <p>
-          Pour toute question&nbsp;: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>.
+          Pour toute question&nbsp;: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>.
           Voir aussi notre <a href="/privacy">politique de confidentialité</a>.
         </p>
       </div>
@@ -76,20 +88,28 @@ const updated = "04/06/2026";
         </p>
         <ul>
           <li>
+            <strong>Remembering your cookie choice</strong> (local storage): keeps track of whether you accepted
+            or declined non-essential cookies, so we don't ask you again on every visit.
+          </li>
+          <li>
             <strong>Technical storage of your order</strong> (session local storage): used only to keep your
             cart contents during your visit. It stays on your device and is not sent to third parties for tracking.
           </li>
           <li>
             <strong>Google Maps</strong> (Contact page): the map is provided by Google and may set third-party
-            cookies. For this reason, the map only loads <strong>after your consent</strong>. Until you accept,
-            no data is sent to Google.
+            cookies. For this reason, it only loads <strong>after your consent</strong>, or when you explicitly
+            click to display it.
+          </li>
+          <li>
+            <strong>RestoHub</strong> (reservations, resto-genius.com): the booking module only loads when you
+            open the "Book" window. It may use technical cookies necessary for the reservation service to work.
           </li>
         </ul>
 
         <h2>3. Your consent</h2>
         <p>
-          On your first visit, a banner lets you accept or decline non-essential cookies (such as Google Maps).
-          You can change your choice at any time by returning to the site. Declining does not prevent you from
+          On your first visit, a banner lets you accept or decline non-essential cookies. You can change your
+          choice at any time by clearing the site data in your browser. Declining does not prevent you from
           using essential features (menu, ordering, booking).
         </p>
 
@@ -101,7 +121,7 @@ const updated = "04/06/2026";
 
         <h2>5. Contact</h2>
         <p>
-          For any question: <a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a>.
+          Any questions? <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>.
           See also our <a href="/en/privacy">privacy policy</a>.
         </p>
       </div>
@@ -116,16 +136,18 @@ const updated = "04/06/2026";
     padding: 4rem 1.5rem 5rem;
   }
   .legal-claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.8rem;
-    color: var(--c-muted);
+    font-family: var(--font-display);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    color: var(--c-accent);
     margin: 0 0 0.8rem;
   }
   .legal-title {
-    font-family: var(--font-title);
-    font-size: clamp(2.5rem, 7vw, 4rem);
-    line-height: 1;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 5.5vw, 3.2rem);
+    line-height: 1.1;
     margin: 0 0 0.6rem;
     color: var(--c-text);
   }
@@ -135,11 +157,12 @@ const updated = "04/06/2026";
     margin: 0 0 2.5rem;
   }
   .legal-body :global(h2) {
-    font-family: var(--font-title);
-    font-size: 1.5rem;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.35rem;
     letter-spacing: 0.02em;
     margin: 2.2rem 0 0.8rem;
-    color: var(--c-text);
+    color: var(--c-accent);
   }
   .legal-body :global(p),
   .legal-body :global(li) {
@@ -157,5 +180,6 @@ const updated = "04/06/2026";
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+  .legal-body :global(a:hover) { color: var(--c-accent); }
   .legal-body :global(strong) { color: var(--c-text); }
 </style>
