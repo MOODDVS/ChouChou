@@ -13,10 +13,13 @@ const lang = getLangFromUrl(Astro.url);
 const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 const current = rawPath.replace(/^\/en/, "") || "/";
 
+const en = lang === "en";
+
+// Etichette nella lingua della pagina (Benvenuti resta italiano: è brand)
 const nav = [
   { label: "Benvenuti", path: "/" },
-  { label: "Notre carte", path: "/menu" },
-  { label: "L'Ambiance", path: "/ambiance" },
+  { label: en ? "Our Menu" : "Notre carte", path: "/menu" },
+  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
   { label: "Contact", path: "/contact" },
   // { label: "Jobs", path: "/jobs" }, // nascosto per ora — riattivare togliendo il commento
 ];
