@@ -76,6 +76,11 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .prep-btn.active { border-color: var(--c-accent); background: rgba(223, 171, 78, 0.14); }
       .prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
       .prep-btn:disabled { opacity: 0.5; cursor: wait; }
+      /* Bottone "Fermer": chiude/riapre le commandes online */
+      .prep-close .m { color: var(--c-muted); }
+      .prep-close:hover { border-color: #ed1c24; }
+      .prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
+      .prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
 
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
@@ -187,6 +192,13 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
                   <path d="M5.8 15.5 L2.8 17.6 L5.6 18.5 Z" />
                 </svg>
                 <span class="m">45 min</span>
+              </button>
+              <button class="prep-btn prep-close" type="button" id="btn-close-orders" title="Fermer les commandes en ligne">
+                <svg viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                  <circle cx="15" cy="12" r="8.5" />
+                  <path d="M9 6 L21 18" />
+                </svg>
+                <span class="m" id="close-orders-label">Fermer</span>
               </button>
             </div>
           </div>
@@ -331,6 +343,10 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           .then((r) => (r.ok ? r.json() : null))
           .then((j) => {
             if (j && typeof j.prep_time_minutes === "number") segnaAttivo(j.prep_time_minutes);
+            if (j && typeof j.orders_closed === "boolean") {
+              ordiniChiusi = j.orders_closed;
+              segnaChiusura();
+            }
           })
           .catch(() => {});
 
@@ -341,13 +357,17 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             prepNote.textContent = "";
             prepNote.classList.remove("err");
             try {
+              // Scegliere un tempo di preparazione RIAPRE anche il servizio
+              // se era stato chiuso col bottone "Fermer".
               const r = await fetch("/api/admin/settings", {
                 method: "PATCH",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ prep_time_minutes: min }),
+                body: JSON.stringify({ prep_time_minutes: min, orders_closed: false }),
               });
               if (!r.ok) throw new Error();
               segnaAttivo(min);
+              ordiniChiusi = false;
+              segnaChiusura();
               prepNote.textContent = "✓";
               setTimeout(() => {
                 prepNote.textContent = "";
@@ -360,6 +380,45 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               btn.blur();
             }
           });
+        });
+
+        // --- Bottone "Fermer": chiude/riapre le commandes online ---
+        const btnClose = document.getElementById("btn-close-orders") as HTMLButtonElement;
+        const lblClose = document.getElementById("close-orders-label") as HTMLSpanElement;
+        let ordiniChiusi = false;
+
+        function segnaChiusura() {
+          btnClose.classList.toggle("closed", ordiniChiusi);
+          lblClose.textContent = ordiniChiusi ? "Fermé" : "Fermer";
+          btnClose.title = ordiniChiusi
+            ? "Rouvrir les commandes en ligne"
+            : "Fermer les commandes en ligne";
+        }
+
+        btnClose.addEventListener("click", async () => {
+          btnClose.disabled = true;
+          prepNote.textContent = "";
+          prepNote.classList.remove("err");
+          try {
+            const r = await fetch("/api/admin/settings", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ orders_closed: !ordiniChiusi }),
+            });
+            if (!r.ok) throw new Error();
+            ordiniChiusi = !ordiniChiusi;
+            segnaChiusura();
+            prepNote.textContent = "✓";
+            setTimeout(() => {
+              prepNote.textContent = "";
+            }, 2000);
+          } catch {
+            prepNote.textContent = "Erreur";
+            prepNote.classList.add("err");
+          } finally {
+            btnClose.disabled = false;
+            btnClose.blur();
+          }
         });
 
         // --- Ordini di oggi ---

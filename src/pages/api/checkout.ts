@@ -55,6 +55,22 @@ export const POST: APIRoute = async ({ request }) => {
 
   const lang: "fr" | "en" = body.lang === "en" ? "en" : "fr";
 
+  // Servizio chiuso dall'admin (bottone "Fermer" nella pagina Commandes):
+  // blocco anche lato server, per chi avesse la pagina già aperta.
+  const { data: cfgChiusura } = await supabaseAdmin
+    .from("app_config")
+    .select("value")
+    .eq("key", "orders_closed")
+    .maybeSingle();
+  if (cfgChiusura?.value === "1") {
+    return err(
+      503,
+      lang === "en"
+        ? "Online ordering is temporarily closed. Please try again later."
+        : "Les commandes en ligne sont momentanément fermées. Réessayez plus tard."
+    );
+  }
+
   const ora = DateTime.now().setZone(TIMEZONE);
 
   // Config effettiva: orari settimanali + giorni speciali (special_days).

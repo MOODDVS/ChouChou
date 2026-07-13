@@ -52,7 +52,7 @@ export const GET: APIRoute = async ({ request }) => {
   const { data: cfgRows } = await supabaseAdmin
     .from("app_config")
     .select("key, value")
-    .in("key", ["kitchen_email", ...CHIAVI_LINK.map((k) => "link_" + k)]);
+    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k)]);
   const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
   const links: Record<string, string> = {};
   for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
@@ -62,36 +62,55 @@ export const GET: APIRoute = async ({ request }) => {
     prep_time_minutes: days[0]?.prep_time_minutes ?? 30,
     slot_duration_minutes: days[0]?.slot_duration_minutes ?? 15,
     kitchen_email: cfg.get("kitchen_email") ?? "",
+    orders_closed: cfg.get("orders_closed") === "1",
     links,
   });
 };
 
-// PATCH /api/admin/settings — aggiorna SOLO il tempo di preparazione.
-// Usato dai bottoni rapidi (coniglio/cane/tartaruga) della pagina Commandes:
-// tocca prep_time_minutes su tutti i giorni, senza passare per gli orari.
+// PATCH /api/admin/settings — aggiornamenti rapidi dalla pagina Commandes:
+// - { prep_time_minutes } dai bottoni coniglio/cane/tartaruga
+// - { orders_closed } dal bottone "Fermer" (chiude le commandes online)
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { prep_time_minutes?: number };
+  let body: { prep_time_minutes?: number; orders_closed?: boolean };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Requête invalide" }, 400);
   }
 
-  const prep = Math.floor(Number(body.prep_time_minutes));
-  if (!Number.isFinite(prep) || prep < 0 || prep > 240) {
-    return json({ error: "Préparation invalide (0–240 min)" }, 400);
+  const vuoleChiusura = typeof body.orders_closed === "boolean";
+  const vuolePrep = body.prep_time_minutes !== undefined;
+  if (!vuoleChiusura && !vuolePrep) {
+    return json({ error: "Requête invalide" }, 400);
   }
 
-  const { error } = await supabaseAdmin
-    .from("settings")
-    .update({ prep_time_minutes: prep })
-    .gte("day_of_week", 0); // tutti i giorni (PostgREST vuole un filtro)
+  // Toggle chiusura ordini online (app_config.orders_closed = "1"/"0").
+  // Può arrivare assieme a prep_time_minutes: scegliere un tempo riapre.
+  if (vuoleChiusura) {
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "orders_closed", value: body.orders_closed ? "1" : "0" }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
 
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
-  return json({ ok: true, prep_time_minutes: prep });
+  if (vuolePrep) {
+    const prep = Math.floor(Number(body.prep_time_minutes));
+    if (!Number.isFinite(prep) || prep < 0 || prep > 240) {
+      return json({ error: "Préparation invalide (0–240 min)" }, 400);
+    }
+
+    const { error } = await supabaseAdmin
+      .from("settings")
+      .update({ prep_time_minutes: prep })
+      .gte("day_of_week", 0); // tutti i giorni (PostgREST vuole un filtro)
+
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
+
+  return json({ ok: true });
 };
 
 // PUT /api/admin/settings — salva orari (2 fasce) + prep/slot + email cucina
