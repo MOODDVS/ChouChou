@@ -32,6 +32,7 @@ function bande(row: any): string {
 }
 
 let horaires: { days: string; val: string }[] = [];
+let fermetures: string[] = [];
 try {
   const { data } = await supabaseAdmin
     .from("settings")
@@ -40,9 +41,21 @@ try {
     const byDay: Record<number, any> = {};
     for (const r of data) byDay[r.day_of_week] = r;
     const seq = ORDER.map((d) => ({ label: DAYS[d], val: bande(byDay[d]) }));
-    // Raggruppa giorni CONSECUTIVI con lo stesso orario
+
+    // Giorni di chiusura: righe a parte ("Mardi fermé"), consecutivi raggruppati
+    const runs: string[][] = [];
+    for (let i = 0; i < seq.length; i++) {
+      if (seq[i].val !== CLOSED) continue;
+      if (i > 0 && seq[i - 1].val === CLOSED) runs[runs.length - 1].push(seq[i].label);
+      else runs.push([seq[i].label]);
+    }
+    fermetures = runs.map((r) => (r.length === 1 ? r[0] : `${r[0]} – ${r[r.length - 1]}`));
+
+    // Giorni APERTI raggruppati per orario identico: una chiusura in mezzo
+    // non spezza il gruppo (Lun + Mer..Dim stesso orario -> "Lundi – Dimanche")
+    const aperti = seq.filter((x) => x.val !== CLOSED);
     const groups: { val: string; days: string[] }[] = [];
-    for (const it of seq) {
+    for (const it of aperti) {
       const last = groups[groups.length - 1];
       if (last && last.val === it.val) last.days.push(it.label);
       else groups.push({ val: it.val, days: [it.label] });
@@ -57,10 +70,10 @@ try {
 }
 // Fallback statico se il DB non risponde
 if (!horaires.length) {
-  horaires = en
-    ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }, { days: "Tuesday", val: "Closed" }]
-    : [{ days: "Lun – Dim", val: "11:00 – 23:30" }, { days: "Mardi", val: "Fermé" }];
+  horaires = en ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }] : [{ days: "Lun – Dim", val: "11:00 – 23:30" }];
+  fermetures = en ? ["Tuesday"] : ["Mardi"];
 }
+const CLOSED_LINE = en ? "closed" : "fermé";
 
 const L = {
   address: en ? "Address" : "Adresse",
@@ -81,7 +94,7 @@ const L = {
       <h2 class="ftr-title">{L.address}</h2>
       <div class="ftr-body">
         Av. Adolphe Demeur 37<br />
-        <span class="ftr-muted">1060 · Saint-Gilles</span>
+        1060 · Saint-Gilles
       </div>
     </div>
 
@@ -89,7 +102,10 @@ const L = {
       <h2 class="ftr-title">{L.hours}</h2>
       <div class="ftr-body">
         {horaires.map((h) => (
-          <p class="ftr-hr">{h.days}<br /><span class="ftr-muted">{h.val}</span></p>
+          <p class="ftr-hr">{h.days}<br />{h.val}</p>
+        ))}
+        {fermetures.map((f) => (
+          <p class="ftr-hr ftr-closed">{f} {CLOSED_LINE}</p>
         ))}
       </div>
     </div>
@@ -122,9 +138,12 @@ const L = {
   </div>
 
   <div class="ftr-legal">
-    <p>© {YEAR} {L.rights} • Migraf SRL / La Molisana / BE 0899 648 967 • Powered by MOODD</p>
-    <p class="ftr-links">
+    <p>
+      © {YEAR} {L.rights} • Migraf SRL / La Molisana / BE 0899 648 967 -
       <a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a>
+    </p>
+    <p>
+      <a href="https://www.moodd.online" target="_blank" rel="noopener noreferrer">Powered by MOODD</a>
     </p>
   </div>
 </footer>
@@ -154,16 +173,16 @@ const L = {
     margin: 0 0 1.3rem;
   }
   .ftr-body {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-size: 1.05rem;
     line-height: 1.9;
     color: var(--c-text);
   }
   .ftr-body a { color: var(--c-text); text-decoration: none; transition: color 0.15s; }
   .ftr-body a:hover { color: var(--c-accent); }
-  .ftr-muted { color: var(--c-muted); }
   .ftr-hr { margin: 0 0 0.6rem; }
   .ftr-hr:last-child { margin-bottom: 0; }
+  .ftr-closed { opacity: 0.55; }
 
   .ftr-social { display: flex; justify-content: center; gap: 1.3rem; margin-top: 0.4rem; }
   .ftr-social a { color: var(--c-text); display: inline-flex; transition: color 0.15s; }
@@ -173,7 +192,11 @@ const L = {
   .ftr-legal {
     border-top: 1px solid var(--c-line);
     padding: 1.1rem 2rem 1.3rem;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1.5rem;
+    flex-wrap: wrap;
   }
   .ftr-legal p {
     font-family: var(--font-body);
@@ -183,7 +206,6 @@ const L = {
     color: var(--c-muted);
     margin: 0;
   }
-  .ftr-links { margin-top: 0.45rem !important; }
   .ftr-legal a { color: var(--c-muted); text-decoration: none; }
   .ftr-legal a:hover { color: var(--c-text); }
 

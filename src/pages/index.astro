@@ -2,15 +2,45 @@
 import Layout from "../layouts/Layout.astro";
 import Hero from "../components/Hero.astro";
 import Story from "../components/Story.astro";
-import Waterloo from "../components/Waterloo.astro";
+import Features from "../components/Features.astro";
+import Molise from "../components/Molise.astro";
 import PhotoStrip from "../components/PhotoStrip.astro";
 import CtaFinal from "../components/CtaFinal.astro";
 ---
 
-<Layout transparentHeader={true}>
+<Layout transparentHeader={true} title="La Molisana — Pizzeria & Restaurant Italien à Saint-Gilles, Bruxelles">
+  <script type="application/ld+json" is:inline set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    "name": "La Molisana",
+    "servesCuisine": ["Cuisine italienne", "Pizza", "Pâtes"],
+    "priceRange": "€€",
+    "telephone": "+32455131465",
+    "email": "info@lamolisana.be",
+    "url": "https://lamolisana.be",
+    "image": "https://lamolisana.be/slideshow/slide-01.webp",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Avenue Adolphe Demeur 37",
+      "postalCode": "1060",
+      "addressLocality": "Saint-Gilles (Bruxelles)",
+      "addressCountry": "BE"
+    },
+    "openingHoursSpecification": [{
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Monday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      "opens": "11:00",
+      "closes": "23:30"
+    }],
+    "sameAs": [
+      "https://www.facebook.com/pizzerialamolisana",
+      "https://www.instagram.com/pizzeria.lamolisana/"
+    ]
+  })} />
   <Hero />
   <Story />
-  <Waterloo />
+  <Features />
+  <Molise />
   <PhotoStrip />
   <CtaFinal />
 </Layout>

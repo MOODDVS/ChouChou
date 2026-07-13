@@ -1,8 +1,13 @@
 ---
-import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+// Navigazione mobile del sito pubblico (≤900px):
+// - barra fissa in basso: Commander / Réserver / burger (pillole arrotondate)
+// - pannello "carta" ORO che slitta dal BASSO verso l'alto (e riscende
+//   alla chiusura): logo, link (pagina attiva in bianco), Réserver,
+//   telefono, FR/EN, Fermer ⬇.
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
-const t = useTranslations(lang);
+const en = lang === "en";
 
 const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 const current = rawPath.replace(/^\/en/, "") || "/";
@@ -15,50 +20,60 @@ const nav = [
   { label: "Jobs", path: "/jobs" },
 ];
 
-const IG = "https://www.instagram.com/pizzeria77waterloo/";
-const FB = "https://www.facebook.com/profile.php?id=61551793199466";
+function isActive(path: string): boolean {
+  const clean = path.replace(/\/$/, "") || "/";
+  return clean === current;
+}
+
+const PHONE_DISPLAY = "+32 455 13 14 65";
+const PHONE_TEL = "+32455131465";
+const BOOK = en ? "Book" : "Réserver";
+const CLOSE = en ? "Close" : "Fermer";
 ---
 
-<!-- Pannello a tutto schermo (slide dall'alto) -->
+<!-- Pannello oro: slitta dal basso all'apertura, riscende alla chiusura -->
 <div class="mnav-panel" id="mnav-panel">
+  <img class="mnav-logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana — Pizza & Pasta" />
+  <hr class="mnav-sep" />
+
   <nav class="mnav-links">
-    {nav.map((item) => <a href={getLocalizedUrl(item.path, lang)} class="mnav-link">{item.label}</a>)}
+    {nav.map((item) => (
+      <a
+        href={getLocalizedUrl(item.path, lang)}
+        class={"mnav-link" + (isActive(item.path) ? " is-active" : "")}
+      >
+        {item.label}
+      </a>
+    ))}
   </nav>
 
-  <div class="mnav-foot">
-    <a href="tel:+32455131465" class="mnav-phone">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-      </svg>
-      <span>{t("nav.call")} · +32 455 13 14 65</span>
-    </a>
-
-    <div class="mnav-lang">
-      <a href={getLocalizedUrl(current, "fr")} class={"mnav-lang-opt" + (lang === "fr" ? " is-active" : "")}>FR</a>
-      <span class="mnav-lang-sep">/</span>
-      <a href={getLocalizedUrl(current, "en")} class={"mnav-lang-opt" + (lang === "en" ? " is-active" : "")}>EN</a>
-    </div>
-
-    <div class="mnav-social">
-      <a href={IG} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-          <rect x="2" y="2" width="20" height="20" rx="5" />
-          <circle cx="12" cy="12" r="4" />
-          <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-        </svg>
-      </a>
-      <a href={FB} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M14 9h3l.4-3H14V4.3c0-.86.24-1.45 1.47-1.45H17.5V.2C17.16.15 16.18.05 15.05.05c-2.37 0-4 1.45-4 4.1V6H8v3h3.05v8h2.95V9z" />
-        </svg>
-      </a>
-    </div>
+  <div class="mnav-cta">
+    <button class="mnav-book" id="mnav-reserver-panel" type="button">{BOOK}</button>
+    <a href={getLocalizedUrl("/order", lang)} class="mnav-book">Commander</a>
   </div>
+
+  <a href={`tel:${PHONE_TEL}`} class="mnav-phone">{PHONE_DISPLAY}</a>
+
+  <div class="mnav-lang">
+    <a href={getLocalizedUrl(current, "fr")} class={"mnav-lang-opt" + (lang === "fr" ? " is-active" : "")}>FR</a>
+    <span class="mnav-lang-sep">/</span>
+    <a href={getLocalizedUrl(current, "en")} class={"mnav-lang-opt" + (lang === "en" ? " is-active" : "")}>EN</a>
+  </div>
+
+  <button class="mnav-close" id="mnav-close" type="button">
+    {CLOSE}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 7.5v9" />
+      <path d="m8.5 13 3.5 3.5L15.5 13" />
+    </svg>
+  </button>
 </div>
 
 <!-- Bottom bar fissa -->
-<div class="mnav-bar">
+<div class="mnav-bar" id="mnav-bar">
   <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">Commander</a>
+  <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button">{BOOK}</button>
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
       <span></span><span></span><span></span>
@@ -70,19 +85,30 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
   .mnav-bar, .mnav-panel { display: none; }
 
   @media (max-width: 900px) {
+    /* --- Barra fissa in basso --- */
     .mnav-bar {
       display: flex;
       position: fixed;
       left: 12px;
       right: 12px;
       bottom: 14px;
-      height: 60px;
+      height: 64px;
+      padding: 8px;
+      gap: 8px;
       background: rgba(0, 0, 0, 0.6);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
       z-index: 100;
       align-items: stretch;
+      transition: transform 0.35s ease, opacity 0.35s ease;
+    }
+    /* Con il pannello aperto la barra scende fuori schermo */
+    .mnav-bar.is-hidden {
+      transform: translateY(140%);
+      opacity: 0;
+      pointer-events: none;
     }
     .mnav-act {
       flex: 1;
@@ -91,21 +117,22 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       justify-content: center;
       font-family: var(--font-display);
       font-weight: 400;
-      font-size: 0.98rem;
-      letter-spacing: 0.1em;
+      font-size: 0.95rem;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       border: none;
+      border-radius: 10px;
       background: none;
       cursor: pointer;
     }
     .mnav-act-solid { background: var(--c-accent); color: var(--c-bg); font-weight: 400; }
-    .mnav-act-outline { color: var(--c-text); border-left: 1px solid rgba(255, 255, 255, 0.15); }
     .mnav-burger {
-      width: 60px;
-      background: none;
+      width: 54px;
+      flex-shrink: 0;
+      background: var(--c-accent);
       border: none;
-      border-left: 1px solid rgba(255, 255, 255, 0.15);
-      color: var(--c-text);
+      border-radius: 10px;
+      color: var(--c-bg);
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -122,7 +149,7 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       left: 0;
       width: 100%;
       height: 2px;
-      background: #fff;
+      background: var(--c-bg);
       transition: transform 0.3s ease, opacity 0.2s ease;
     }
     .mnav-burger-icon span:nth-child(1) { top: 0; }
@@ -132,66 +159,84 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
     .mnav-burger.is-open .mnav-burger-icon span:nth-child(2) { opacity: 0; }
     .mnav-burger.is-open .mnav-burger-icon span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
+    /* --- Pannello "carta" oro dal basso --- */
     .mnav-panel {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      gap: 2rem;
+      gap: 1.35rem;
       position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.97);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      z-index: 99;
-      transform: translateY(-100%);
-      transition: transform 0.4s cubic-bezier(0.6, 0, 0.2, 1);
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      max-height: calc(100dvh - 24px);
+      overflow-y: auto;
+      background: var(--c-accent);
+      color: var(--c-bg);
+      border-radius: 20px;
+      padding: 2.2rem 1.5rem 1rem;
+      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
+      z-index: 110;
+      transform: translateY(calc(100% + 40px));
+      transition: transform 0.45s cubic-bezier(0.6, 0, 0.2, 1);
     }
     .mnav-panel.is-open { transform: translateY(0); }
+
+    .mnav-logo { width: 190px; height: auto; display: block; }
+    .mnav-sep {
+      width: 100%;
+      border: none;
+      border-top: 1px solid rgba(35, 31, 32, 0.25);
+      margin: 0;
+    }
 
     .mnav-links {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1.5rem;
+      gap: 1.15rem;
     }
     .mnav-link {
-      font-family: var(--font-title);
-      font-size: 2.6rem;
-      letter-spacing: 0.04em;
-      color: var(--c-text);
+      font-family: var(--font-display);
+      font-size: 1.55rem;
+      letter-spacing: 0.02em;
+      color: var(--c-bg);
+      text-decoration: none;
     }
-    .mnav-foot {
+    .mnav-link.is-active { color: #fff; }
+
+    .mnav-cta {
+      width: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 1.25rem;
-      margin-top: 1rem;
+      gap: 0.65rem;
     }
-    .mnav-phone {
-      display: inline-flex;
+    .mnav-book {
+      display: flex;
       align-items: center;
-      gap: 0.5rem;
-      color: var(--c-text);
+      justify-content: center;
+      width: 100%;
+      background: var(--c-bg);
+      color: #fff;
       font-family: var(--font-display);
       font-weight: 400;
-      font-size: 1.05rem;
-    }
-    .mnav-panel-book {
-      font-family: var(--font-body);
-      font-weight: 700;
-      font-size: 0.95rem;
-      letter-spacing: 0.08em;
+      font-size: 1rem;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--c-text);
-      background: transparent;
-      border: 1.5px solid var(--c-text);
-      border-radius: 0;
-      padding: 0.7rem 1.6rem;
+      border: none;
+      border-radius: 10px;
+      padding: 0.95rem;
       cursor: pointer;
-      transition: background 0.2s ease, color 0.2s ease;
+      text-decoration: none;
     }
-    .mnav-panel-book:hover { background: var(--c-text); color: var(--c-bg); }
+
+    .mnav-phone {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      color: var(--c-bg);
+      text-decoration: none;
+    }
+
     .mnav-lang {
       display: flex;
       align-items: center;
@@ -200,48 +245,63 @@ const FB = "https://www.facebook.com/profile.php?id=61551793199466";
       font-weight: 700;
       font-size: 0.9rem;
     }
-    .mnav-lang-opt { opacity: 0.5; }
-    .mnav-lang-opt.is-active { opacity: 1; color: var(--c-accent); }
+    .mnav-lang-opt { color: var(--c-bg); opacity: 0.5; text-decoration: none; }
+    .mnav-lang-opt.is-active { opacity: 1; }
     .mnav-lang-sep { opacity: 0.4; }
 
-    .mnav-social {
-      display: flex;
-      gap: 1.5rem;
-      margin-top: 0.5rem;
+    .mnav-close {
+      align-self: flex-end;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: none;
+      border: none;
+      color: var(--c-bg);
+      font-family: var(--font-body);
+      font-weight: 800;
+      font-size: 0.85rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 0.25rem;
+      margin-top: -0.5rem;
     }
-    .mnav-social a {
-      color: var(--c-text);
-      opacity: 0.85;
-      transition: opacity 0.15s;
-    }
-    .mnav-social a:hover { opacity: 1; }
+    .mnav-close svg { width: 20px; height: 20px; display: block; }
+  }
+  @media (max-width: 390px) {
+    .mnav-act { font-size: 0.82rem; letter-spacing: 0.05em; }
   }
 </style>
 
 <script>
   const burger = document.getElementById("mnav-burger");
   const panel = document.getElementById("mnav-panel");
+  const bar = document.getElementById("mnav-bar");
+  const closeBtn = document.getElementById("mnav-close");
 
-  function chiudiPannello() {
-    if (panel) panel.classList.remove("is-open");
+  function setOpen(open: boolean) {
+    panel?.classList.toggle("is-open", open);
+    bar?.classList.toggle("is-hidden", open);
     if (burger) {
-      burger.classList.remove("is-open");
-      burger.setAttribute("aria-expanded", "false");
-    }
-    document.body.style.overflow = "";
-  }
-
-  if (burger && panel) {
-    burger.addEventListener("click", () => {
-      const open = panel.classList.toggle("is-open");
       burger.classList.toggle("is-open", open);
       burger.setAttribute("aria-expanded", open ? "true" : "false");
-      document.body.style.overflow = open ? "hidden" : "";
-    });
-
-    panel.querySelectorAll("a").forEach((a) => {
-      a.addEventListener("click", chiudiPannello);
-    });
+    }
+    document.body.style.overflow = open ? "hidden" : "";
   }
 
+  burger?.addEventListener("click", () => {
+    setOpen(!panel?.classList.contains("is-open"));
+  });
+  closeBtn?.addEventListener("click", () => setOpen(false));
+  panel?.querySelectorAll("a").forEach((a) => {
+    a.addEventListener("click", () => setOpen(false));
+  });
+
+  // Réserver (barra + pannello): per ora segnaposto —
+  // qui si aprirà il modale con il form RestoHub.
+  ["mnav-reserver", "mnav-reserver-panel"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("click", () => {
+      // TODO RestoHub: aprire il modale di prenotazione
+    });
+  });
 </script>

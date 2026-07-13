@@ -1,0 +1,156 @@
+---
+// Sezione "Il Molise" della homepage:
+// - desktop: mappa dell'Italia (Molise evidenziato) a sinistra, testo a destra
+//   (titolo Marcellus + 3 paragrafi + bottone L'Ambiance)
+// - mobile: titolo, testo, bottone, poi la mappa sotto.
+// La mappa si cambia QUI: costante MAPPA (file in public/).
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const MAPPA = "/la-molisana-regione.webp";
+
+const L = {
+  title: en ? "Il Molise. A discreet and uncommon region" : "Il Molise. Une région discrète et pas commune",
+  p1: en
+    ? "Discover Italy's hidden gem, Molise, an often overlooked region. Located in the south, it is nestled just above famous Campania — home of Naples — and stunning Puglia."
+    : "Découvrez le joyau caché de l'Italie, le Molise, une région souvent méconnue. Située dans le sud, elle est nichée au-dessus de la célèbre Campanie, avec Naples et les étonnantes Pouilles.",
+  p2: en
+    ? "Despite its modesty, Molise is home to a multitude of natural wonders and culinary delights that will not fail to impress."
+    : "Malgré sa modestie, le Molise abrite une multitude de merveilles naturelles et de délices culinaires qui ne manqueront pas d'impressionner.",
+  p3: en
+    ? "Taste the authentic flavours of our region at La Molisana and discover the essence of Molise."
+    : "Goûtez aux saveurs authentiques de notre région à La Molisana et découvrez l'essence du Molise.",
+  ambiance: en ? "The ambiance" : "L'Ambiance",
+  alt: en ? "Map of Italy with the Molise region highlighted" : "Carte de l'Italie avec la région Molise mise en évidence",
+};
+---
+
+<section class="molise">
+  <div class="molise-media">
+    <img src={MAPPA} alt={L.alt} loading="lazy" decoding="async" />
+  </div>
+
+  <div class="molise-text">
+    <h2 class="molise-title">{L.title}</h2>
+    <p>{L.p1}</p>
+    <p>{L.p2}</p>
+    <p>{L.p3}</p>
+    <div class="molise-cta">
+      <a href={getLocalizedUrl("/ambiance", lang)} class="molise-btn">{L.ambiance}</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .molise {
+    display: grid;
+    grid-template-columns: 1fr 45%;
+    gap: 5rem;
+    align-items: center;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    background: var(--c-bg);
+    padding: 5rem 2rem 6rem;
+  }
+
+  /* --- Mappa --- */
+  .molise-media img {
+    display: block;
+    width: 100%;
+    max-width: 720px;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  /* --- Testo --- */
+  .molise-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.9rem, 3.2vw, 2.9rem);
+    line-height: 1.15;
+    margin: 0 0 1.8rem;
+  }
+  .molise-text p {
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    line-height: 1.75;
+    margin: 0 0 1.25rem;
+  }
+  .molise-cta { margin-top: 2.2rem; }
+  .molise-btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 13px 38px;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .molise-btn:hover {
+    background: #fff;
+    color: var(--c-bg);
+    transform: scale(0.96);
+  }
+
+  /* --- Animazione d'ingresso --- */
+  .molise-media,
+  .molise-text > * {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .molise-media { transition-delay: 0.15s; }
+  .molise-text > :nth-child(1) { transition-delay: 0.1s; }
+  .molise-text > :nth-child(2) { transition-delay: 0.25s; }
+  .molise-text > :nth-child(3) { transition-delay: 0.4s; }
+  .molise-text > :nth-child(4) { transition-delay: 0.55s; }
+  .molise-text > :nth-child(5) { transition-delay: 0.7s; }
+  .molise.in-view .molise-media,
+  .molise.in-view .molise-text > * {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .molise-media, .molise-text > * { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* --- Mobile: testo prima, mappa sotto --- */
+  @media (max-width: 900px) {
+    .molise {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+      padding: 3rem 1.5rem 3.5rem;
+    }
+    .molise-media { order: 2; }
+    .molise-text { order: 1; }
+    .molise-cta { margin-top: 1.5rem; }
+    .molise-btn { display: block; }
+  }
+</style>
+
+<script>
+  // Entrata del contenuto quando la sezione arriva in vista (una volta sola).
+  const sezione = document.querySelector(".molise");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.18 }
+    );
+    oss.observe(sezione);
+  }
+</script>

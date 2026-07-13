@@ -1,143 +1,166 @@
 ---
-import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+// Ultima sezione della homepage: 3 schede — Menu / Ambiance / Contact.
+// Ogni scheda: foto, titolo Marcellus, riga di testo, bottone outline.
+// Le foto si cambiano QUI: costanti nelle CARDS (file in public/).
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
-const t = useTranslations(lang);
+const en = lang === "en";
+
+const CARDS = [
+  {
+    img: "/la-molisana-cta-menu.webp",
+    href: getLocalizedUrl("/menu", lang),
+    title: en ? "The menu" : "Le menu",
+    text: en
+      ? "Our pizzas, homemade pasta, antipasti and desserts — dine in or take away."
+      : "Nos pizzas, pâtes maison, antipasti et desserts — sur place ou à emporter.",
+    btn: en ? "The menu" : "Le menu",
+  },
+  {
+    img: "/la-molisana-cta-ambiance.webp",
+    href: getLocalizedUrl("/ambiance", lang),
+    title: en ? "The ambiance" : "L'Ambiance",
+    text: en
+      ? "Discover our dining room, our terrace and the spirit of the house."
+      : "Découvrez notre salle, notre terrasse et l'esprit de la maison.",
+    btn: en ? "The ambiance" : "L'Ambiance",
+  },
+  {
+    img: "/la-molisana-cta-contact.webp",
+    href: getLocalizedUrl("/contact", lang),
+    title: "Contact",
+    text: en
+      ? "Opening hours, address and reservations — find us in Saint-Gilles."
+      : "Horaires, adresse et réservations — retrouvez-nous à Saint-Gilles.",
+    btn: "Contact",
+  },
+];
 ---
 
-<section class="cta" id="cta">
-  <a href={getLocalizedUrl("/menu", lang)} class="cta-block">
-    <div class="cta-media">
-      <img src="/cta-menu-photo.webp" alt="" />
-      <div class="cta-media-overlay"></div>
-    </div>
-    <div class="cta-body">
-      <h3 class="cta-title">{t("cta.menuTitle")}</h3>
-      <p class="cta-desc">{t("cta.menuDesc")}</p>
-      <span class="btn btn-solid">{t("cta.menuBtn")}</span>
-    </div>
-  </a>
-
+<section class="cta3">
+  {CARDS.map((c) => (
+    <a href={c.href} class="cta3-card">
+      <div class="cta3-media">
+        <img src={c.img} alt="" loading="lazy" decoding="async" />
+      </div>
+      <h2 class="cta3-title">{c.title}</h2>
+      <p class="cta3-text">{c.text}</p>
+      <span class="cta3-btn">{c.btn}</span>
+    </a>
+  ))}
 </section>
 
 <style>
-  .cta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
+  .cta3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2.5rem;
     max-width: var(--maxw);
     margin: 0 auto;
-    padding: 5rem 2rem;
+    background: var(--c-bg);
+    padding: 5rem 2rem 7rem;
   }
-  .cta-block {
-    flex: 1;
-    min-width: 280px;
+
+  .cta3-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
+    text-decoration: none;
     color: var(--c-text);
-    opacity: 0;
-    transform: translateY(40px);
   }
-  .cta-book {
-    font: inherit;
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    display: block;
+
+  .cta3-media {
     width: 100%;
-  }
-  .cta-media {
-    position: relative;
-    height: 260px;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
+    border-radius: 8px;
+    margin-bottom: 1.6rem;
   }
-  .cta-media img {
+  .cta3-media img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform 0.5s ease;
+    transition: transform 0.45s ease;
   }
-  .cta-media-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    transition: background 0.4s ease;
-  }
-  .cta-block:hover .cta-media img { transform: scale(1.06); }
-  .cta-block:hover .cta-media-overlay { background: rgba(0, 0, 0, 0.2); }
+  .cta3-card:hover .cta3-media img { transform: scale(1.05); }
 
-  .cta-body { padding: 1.75rem 1.25rem; }
-  .cta-title {
-    font-family: var(--font-title);
-    font-size: clamp(2.4rem, 4vw, 3rem);
-    letter-spacing: 0.02em;
-    margin: 0 0 0.5rem;
+  .cta3-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.9rem;
+    margin: 0 0 0.6rem;
   }
-  .cta-desc {
-    color: var(--c-muted);
-    font-size: 0.95rem;
-    margin: 0 0 1.5rem;
-  }
-
-  .btn {
+  .cta3-text {
     font-family: var(--font-body);
-    font-weight: 700;
-    font-size: 0.85rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 13px 28px;
-    border-radius: 0;
-    border: 1.5px solid var(--c-text);
-    position: relative;
-    overflow: hidden;
-    z-index: 0;
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--c-muted);
+    margin: 0 0 1.6rem;
+    max-width: 340px;
+  }
+
+  .cta3-btn {
     display: inline-block;
-    transition: color 0.3s ease;
+    margin-top: auto;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 13px 38px;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
   }
-  .btn::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.3s ease;
+  .cta3-card:hover .cta3-btn {
+    background: #fff;
+    color: var(--c-bg);
+    transform: scale(0.96);
   }
-  .cta-block:hover .btn::before { transform: scaleX(1); }
-  .btn-solid { background: var(--c-text); color: var(--c-bg); }
-  .btn-solid::before { background: var(--c-bg); }
-  .cta-block:hover .btn-solid { color: var(--c-text); }
-  .btn-outline { background: transparent; color: var(--c-text); }
-  .btn-outline::before { background: var(--c-text); }
-  .cta-block:hover .btn-outline { color: var(--c-bg); }
 
-  .cta.visible .cta-block { animation: slideup 0.7s ease-out forwards; }
-  .cta.visible .cta-block:nth-child(1) { animation-delay: 0.1s; }
-  .cta.visible .cta-block:nth-child(2) { animation-delay: 0.25s; }
-
-  @keyframes slideup { to { opacity: 1; transform: translateY(0); } }
-
+  /* --- Animazione d'ingresso --- */
+  .cta3-card {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .cta3-card:nth-child(1) { transition-delay: 0.1s; }
+  .cta3-card:nth-child(2) { transition-delay: 0.25s; }
+  .cta3-card:nth-child(3) { transition-delay: 0.4s; }
+  .cta3.in-view .cta3-card { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) {
-    .cta-block { opacity: 1 !important; transform: none !important; animation: none !important; }
+    .cta3-card { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 900px) {
+    .cta3 {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+      padding: 3rem 1.5rem 4rem;
+    }
   }
 </style>
 
 <script>
-  const cta = document.getElementById("cta");
-  if (cta) {
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            cta.classList.add("visible");
-            obs.unobserve(cta);
+  // Entrata delle schede quando la sezione arriva in vista (una volta sola).
+  const sezione = document.querySelector(".cta3");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
           }
-        });
+        }
       },
-      { threshold: 0.25 }
+      { threshold: 0.18 }
     );
-    obs.observe(cta);
+    oss.observe(sezione);
   }
-
 </script>

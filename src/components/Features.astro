@@ -1,0 +1,171 @@
+---
+// Sezione punti di forza della homepage:
+// - 3 colonne (riga oro + titolo oro + testo) — Experience / Qualité / Familiale
+// - sotto, fila di 4 foto (angoli arrotondati)
+// - stessa animazione d'ingresso delle altre sezioni.
+// Le foto: public/la-molisana-thumb-01.webp … 04.
+import { getLangFromUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const THUMBS = [
+  "/la-molisana-thumb-01.webp",
+  "/la-molisana-thumb-02.webp",
+  "/la-molisana-thumb-03.webp",
+  "/la-molisana-thumb-04.webp",
+];
+
+const COLS = en
+  ? [
+      {
+        title: "Experience",
+        text: "We are a family business with over 30 years of experience in Italian dining.",
+      },
+      {
+        title: "Quality",
+        text: "All our products arrive fresh from Italy every week. Quality is our first concern.",
+      },
+      {
+        title: "Family",
+        text: "In our restaurant in Saint-Gilles you feel right at home, where Italian culinary tradition and friendship meet.",
+      },
+    ]
+  : [
+      {
+        title: "Experience",
+        text: "Nous sommes une entreprise familiale avec plus de 30 ans d'expérience dans la restauration italienne.",
+      },
+      {
+        title: "Qualité",
+        text: "Tous nos produits arrivent fraîchement de l'Italie toutes les semaines. La qualité est notre premier souci.",
+      },
+      {
+        title: "Familiale",
+        text: "Dans notre restaurant à Saint-Gilles, vous vous sentez comme à la maison, où tradition culinaire italienne et amitié se rencontrent.",
+      },
+    ];
+---
+
+<section class="feat">
+  <div class="feat-cols">
+    {COLS.map((c) => (
+      <div class="feat-col">
+        <span class="feat-line" aria-hidden="true"></span>
+        <h3 class="feat-title">{c.title}</h3>
+        <p class="feat-text">{c.text}</p>
+      </div>
+    ))}
+  </div>
+
+  <div class="feat-thumbs">
+    {THUMBS.map((src, i) => (
+      <img
+        src={src}
+        alt={(en ? "La Molisana, Italian restaurant in Saint-Gilles — photo " : "La Molisana, restaurant italien à Saint-Gilles — photo ") + (i + 1)}
+        loading="lazy"
+        decoding="async"
+      />
+    ))}
+  </div>
+</section>
+
+<style>
+  .feat {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    background: var(--c-bg);
+    padding: 2rem 2rem 6rem;
+  }
+
+  /* --- 3 colonne --- */
+  .feat-cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4rem;
+  }
+  .feat-line {
+    display: block;
+    width: 150px;
+    height: 2px;
+    background: var(--c-accent);
+    margin-bottom: 1.4rem;
+  }
+  .feat-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.9rem;
+    color: var(--c-accent);
+    margin: 0 0 1.1rem;
+  }
+  .feat-text {
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    line-height: 1.75;
+    margin: 0;
+  }
+
+  /* --- Fila di 4 foto --- */
+  .feat-thumbs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-top: 4.5rem;
+  }
+  .feat-thumbs img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  /* --- Animazione d'ingresso --- */
+  .feat-col,
+  .feat-thumbs img {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .feat-col:nth-child(1) { transition-delay: 0.1s; }
+  .feat-col:nth-child(2) { transition-delay: 0.25s; }
+  .feat-col:nth-child(3) { transition-delay: 0.4s; }
+  .feat-thumbs img:nth-child(1) { transition-delay: 0.3s; }
+  .feat-thumbs img:nth-child(2) { transition-delay: 0.42s; }
+  .feat-thumbs img:nth-child(3) { transition-delay: 0.54s; }
+  .feat-thumbs img:nth-child(4) { transition-delay: 0.66s; }
+  .feat.in-view .feat-col,
+  .feat.in-view .feat-thumbs img {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feat-col, .feat-thumbs img { opacity: 1; transform: none; transition: none; }
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 900px) {
+    .feat { padding: 1rem 1.5rem 3.5rem; }
+    .feat-cols { grid-template-columns: 1fr; gap: 2.5rem; }
+    .feat-thumbs { grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 3rem; }
+  }
+</style>
+
+<script>
+  // Entrata del contenuto quando la sezione arriva in vista (una volta sola).
+  const sezione = document.querySelector(".feat");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.18 }
+    );
+    oss.observe(sezione);
+  }
+</script>
