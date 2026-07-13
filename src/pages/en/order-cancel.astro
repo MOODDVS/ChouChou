@@ -10,10 +10,10 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 ---
 
-<Layout title={t("cancel.title") + " — Pizzeria 77"}>
+<Layout title={t("cancel.title") + " — La Molisana"}>
   <section class="oc">
     <div class="oc-card">
-      <p class="oc-claim">THIS IS PIZZERIA 77</p>
+      <p class="oc-claim">La Molisana — Pizza &amp; Pasta</p>
       <h1 class="oc-title">{t("cancel.title")}</h1>
       <p class="oc-sub">{t("cancel.text")}</p>
 
@@ -36,25 +36,30 @@ const t = useTranslations(lang);
   .oc-card {
     width: 100%;
     max-width: 560px;
-    border: 1px solid var(--c-text);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--c-line);
+    border-radius: 14px;
     padding: 2.5rem 2rem;
     text-align: center;
   }
   .oc-claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.8rem;
-    color: var(--c-muted);
+    font-family: var(--font-display);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: var(--c-accent);
     margin: 0 0 1rem;
   }
   .oc-title {
-    font-family: var(--font-title);
-    font-size: clamp(2.25rem, 7vw, 3.25rem);
-    line-height: 1;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.9rem, 5.5vw, 2.6rem);
+    line-height: 1.15;
     margin: 0 0 1rem;
     color: var(--c-text);
   }
   .oc-sub {
+    font-family: var(--font-body);
     color: var(--c-muted);
     line-height: 1.6;
     margin: 0 auto 1.5rem;
@@ -68,17 +73,27 @@ const t = useTranslations(lang);
   }
   .oc-btn {
     display: inline-block;
-    padding: 0.85rem 1.2rem;
-    font-family: var(--font-title);
-    font-size: 1.2rem;
-    letter-spacing: 0.05em;
+    padding: 0.9rem 1.2rem;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     text-decoration: none;
-    border: 1px solid var(--c-text);
-    border-radius: 0;
-    transition: background 0.2s ease, color 0.2s ease;
+    border-radius: 10px;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
   }
-  .oc-btn-solid { background: var(--c-text); color: var(--c-bg); }
-  .oc-btn-solid:hover { background: transparent; color: var(--c-text); }
-  .oc-btn-outline { background: transparent; color: var(--c-text); }
-  .oc-btn-outline:hover { background: var(--c-text); color: var(--c-bg); }
+  .oc-btn:hover { transform: scale(0.97); }
+  .oc-btn-solid {
+    background: var(--c-accent);
+    color: var(--c-bg);
+    border: 1px solid var(--c-accent);
+  }
+  .oc-btn-solid:hover { background: #fff; border-color: #fff; color: var(--c-bg); }
+  .oc-btn-outline {
+    background: transparent;
+    color: var(--c-text);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .oc-btn-outline:hover { background: #fff; border-color: #fff; color: var(--c-bg); }
 </style>

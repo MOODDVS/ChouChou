@@ -1,4 +1,7 @@
 ---
+// Pagina di conferma ordine (ritorno da Stripe dopo il pagamento).
+// Card in stile La Molisana: claim, titolo Marcellus, ora di ritiro
+// in evidenza oro, righe dell'ordine e totale.
 import Layout from "../../layouts/Layout.astro";
 import { supabaseAdmin } from "../../lib/db";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n/ui";
@@ -53,7 +56,7 @@ const paidText = ordine
   : "";
 ---
 
-<Layout title={t("confirm.paidTitle") + " — Pizzeria 77"}>
+<Layout title={t("confirm.paidTitle") + " — La Molisana"}>
   <section class="oc">
     <div class="oc-card">
       {!ordine && (
@@ -65,7 +68,7 @@ const paidText = ordine
 
       {ordine && confermato && (
         <>
-          <p class="oc-claim">THIS IS PIZZERIA 77</p>
+          <p class="oc-claim">La Molisana — Pizza &amp; Pasta</p>
           <h1 class="oc-title">{t("confirm.paidTitle")}</h1>
           <p class="oc-sub">{paidText}</p>
 
@@ -110,7 +113,7 @@ const paidText = ordine
   <script is:inline>
     // Ordine pagato: svuoto il carrello salvato in sessione.
     try {
-      window.sessionStorage.removeItem("p77-order-cart");
+      window.sessionStorage.removeItem("lm-order-cart");
     } catch (e) {}
   </script>
 )}
@@ -126,25 +129,30 @@ const paidText = ordine
   .oc-card {
     width: 100%;
     max-width: 560px;
-    border: 1px solid var(--c-text);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--c-line);
+    border-radius: 14px;
     padding: 2.5rem 2rem;
     text-align: center;
   }
   .oc-claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.8rem;
-    color: var(--c-muted);
+    font-family: var(--font-display);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: var(--c-accent);
     margin: 0 0 1rem;
   }
   .oc-title {
-    font-family: var(--font-title);
-    font-size: clamp(2.25rem, 7vw, 3.25rem);
-    line-height: 1;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.9rem, 5.5vw, 2.6rem);
+    line-height: 1.15;
     margin: 0 0 1rem;
     color: var(--c-text);
   }
   .oc-sub {
+    font-family: var(--font-body);
     color: var(--c-muted);
     line-height: 1.6;
     margin: 0 0 1.5rem;
@@ -154,19 +162,20 @@ const paidText = ordine
     flex-direction: column;
     gap: 0.2rem;
     border: 1px solid var(--c-line);
+    border-radius: 10px;
     padding: 1rem;
     margin: 1.5rem 0;
   }
   .oc-pickup-label {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--c-muted);
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
   .oc-pickup-time {
-    font-family: var(--font-title);
+    font-family: var(--font-display);
     font-size: 2rem;
-    color: var(--c-text);
+    color: var(--c-accent);
   }
   .oc-lines {
     list-style: none;
@@ -182,6 +191,7 @@ const paidText = ordine
     padding: 0.7rem 0;
     border-bottom: 1px solid var(--c-line);
     color: var(--c-text);
+    font-family: var(--font-body);
   }
   .oc-note {
     text-align: left;
@@ -195,11 +205,16 @@ const paidText = ordine
     justify-content: space-between;
     align-items: baseline;
     margin-top: 1rem;
-    font-family: var(--font-title);
-    font-size: 1.4rem;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    letter-spacing: 0.03em;
     color: var(--c-text);
   }
-  .oc-total strong { font-size: 1.7rem; }
+  .oc-total strong {
+    font-size: 1.6rem;
+    font-weight: 400;
+    color: var(--c-accent);
+  }
   .oc-home {
     display: inline-block;
     margin-top: 2rem;
@@ -208,5 +223,5 @@ const paidText = ordine
     border-bottom: 1px solid var(--c-line);
     transition: color 0.2s ease, border-color 0.2s ease;
   }
-  .oc-home:hover { color: var(--c-text); border-color: var(--c-text); }
+  .oc-home:hover { color: var(--c-accent); border-color: var(--c-accent); }
 </style>
