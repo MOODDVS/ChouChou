@@ -12,10 +12,11 @@ const en = lang === "en";
 const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
 const current = rawPath.replace(/^\/en/, "") || "/";
 
+// Etichette nella lingua della pagina (Benvenuti resta italiano: è brand)
 const nav = [
   { label: "Benvenuti", path: "/" },
-  { label: "Notre carte", path: "/menu" },
-  { label: "L'Ambiance", path: "/ambiance" },
+  { label: en ? "Our Menu" : "Notre carte", path: "/menu" },
+  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
   { label: "Contact", path: "/contact" },
   // { label: "Jobs", path: "/jobs" }, // nascosto per ora — riattivare togliendo il commento
 ];
@@ -24,6 +25,10 @@ function isActive(path: string): boolean {
   const clean = path.replace(/\/$/, "") || "/";
   return clean === current;
 }
+
+// Sulla pagina Commander la barra mostra solo il burger: lo spazio dei
+// bottoni Commander/Réserver è occupato dall'isola carrello di OrderApp.
+const isOrder = current === "/order";
 
 const PHONE_DISPLAY = "+32 455 13 14 65";
 const PHONE_TEL = "+32455131465";
@@ -49,7 +54,7 @@ const CLOSE = en ? "Close" : "Fermer";
 
   <div class="mnav-cta">
     <button class="mnav-book" id="mnav-reserver-panel" type="button" data-reserver>{BOOK}</button>
-    <a href={getLocalizedUrl("/order", lang)} class="mnav-book">Commander</a>
+    <a href={getLocalizedUrl("/order", lang)} class="mnav-book">{en ? "Order" : "Commander"}</a>
   </div>
 
   <a href={`tel:${PHONE_TEL}`} class="mnav-phone">{PHONE_DISPLAY}</a>
@@ -74,9 +79,13 @@ const CLOSE = en ? "Close" : "Fermer";
 <div class="mnav-scrim" aria-hidden="true"></div>
 
 <!-- Bottom bar fissa -->
-<div class="mnav-bar" id="mnav-bar">
-  <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">Commander</a>
-  <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button" data-reserver>{BOOK}</button>
+<div class={"mnav-bar" + (isOrder ? " mnav-bar--order" : "")} id="mnav-bar">
+  {!isOrder && (
+    <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">{en ? "Order" : "Commander"}</a>
+  )}
+  {!isOrder && (
+    <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button" data-reserver>{BOOK}</button>
+  )}
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
       <span></span><span></span><span></span>
@@ -121,6 +130,9 @@ const CLOSE = en ? "Close" : "Fermer";
       align-items: stretch;
       transition: transform 0.35s ease, opacity 0.35s ease;
     }
+    /* Pagina Commander: resta solo il burger, la barra si stringe a destra */
+    .mnav-bar--order { left: auto; }
+
     /* Con il pannello aperto la barra scende fuori schermo */
     .mnav-bar.is-hidden {
       transform: translateY(140%);

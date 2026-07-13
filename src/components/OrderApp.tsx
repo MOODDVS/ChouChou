@@ -9,8 +9,13 @@ interface MenuItem {
   description: string | null;
   description_fr: string | null;
   description_en: string | null;
-  price_cents: number;
+  price_cents: number; // prezzo EFFETTIVO (sconti già applicati)
+  original_price_cents: number | null; // pieno, solo se scontato
   image_url: string | null;
+  is_bestseller: boolean;
+  is_vegan: boolean;
+  is_spicy: boolean;
+  is_suggestion: boolean;
 }
 interface MenuCategoria {
   category: string;
@@ -18,15 +23,11 @@ interface MenuCategoria {
   items: MenuItem[];
 }
 
-type Supplemento = "none" | "gluten-free" | "ricotta";
-
 interface CartLine {
   id: string;
   name: string;
   price_cents: number;
   qty: number;
-  category_order: number;
-  supplement: Supplemento;
 }
 
 // Stringhe tradotte passate dal lato Astro.
@@ -48,8 +49,6 @@ interface OrderStrings {
   fillAll: string;
   errPayment: string;
   errConnection: string;
-  supplGlutenFree: string;
-  supplRicotta: string;
   firstName: string;
   lastName: string;
   phone: string;
@@ -58,9 +57,6 @@ interface OrderStrings {
   ariaDecrease: string;
   ariaRemove: string;
   ariaAdd: string;
-  tabEntrees: string;
-  tabPizzas: string;
-  tabDesserts: string;
   tabBoissons: string;
   consentPre: string;
   consentLink: string;
@@ -75,13 +71,7 @@ interface OrderAppProps {
 
 type Vista = "menu" | "checkout";
 
-const SUPPL: Record<Supplemento, number> = {
-  none: 0,
-  "gluten-free": 400,
-  ricotta: 300,
-};
-
-const STORAGE_KEY = "p77-order-cart";
+const STORAGE_KEY = "lm-order-cart";
 
 interface StatoSalvato {
   linee: CartLine[];
@@ -103,29 +93,36 @@ function leggiStatoSalvato(): Partial<StatoSalvato> {
   }
 }
 
-function isPizza(categoryOrder: number): boolean {
-  return categoryOrder === 2 || categoryOrder === 3;
-}
-
 function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
 export default function OrderApp({ menu, t, lang }: OrderAppProps) {
-  // Gruppi con label presa dai dizionari (slug = chiave interna stabile).
-  const GRUPPI: { label: string; slug: string; orders: number[] }[] = [
-    { label: t.tabEntrees, slug: "entrees", orders: [1] },
-    { label: t.tabPizzas, slug: "pizzas", orders: [2, 3] },
-    { label: t.tabDesserts, slug: "desserts", orders: [4] },
-    { label: t.tabBoissons, slug: "boissons", orders: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14] },
-  ];
-
-  const gruppiVisibili = GRUPPI.map((g) => {
-    const items = menu
-      .filter((c) => g.orders.includes(c.category_order))
-      .flatMap((c) => c.items);
-    return { label: g.label, slug: g.slug, items };
-  }).filter((g) => g.items.length > 0);
+  // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
+  // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
+  // Boissons = tutte le bevande (category_order >= 9)
+  // Il resto (Antipasti, Pasta, Menu enfants, Desserts) = sezione propria.
+  interface Gruppo {
+    slug: string;
+    label: string;
+    subcats: MenuCategoria[];
+  }
+  const gruppiVisibili: Gruppo[] = [];
+  for (const cat of menu) {
+    if (cat.items.length === 0) continue;
+    let slug = "cat-" + cat.category_order;
+    let label = cat.category;
+    if (cat.category_order >= 4 && cat.category_order <= 7) {
+      slug = "pizza";
+      label = "Pizza";
+    } else if (cat.category_order >= 9) {
+      slug = "boissons";
+      label = t.tabBoissons;
+    }
+    const last = gruppiVisibili[gruppiVisibili.length - 1];
+    if (last && last.slug === slug) last.subcats.push(cat);
+    else gruppiVisibili.push({ slug, label, subcats: [cat] });
+  }
 
   const salvato = leggiStatoSalvato();
 
@@ -162,6 +159,19 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
   }, [vista]);
 
   const cliccoInCorso = useRef(false);
+  const filterbarRef = useRef<HTMLDivElement | null>(null);
+
+  // Tiene il tab attivo visibile nella barra filtri: su mobile la barra
+  // scorre in orizzontale, quindi quando lo scrollspy cambia sezione
+  // la pillola attiva viene riportata al centro della barra.
+  useEffect(() => {
+    const bar = filterbarRef.current;
+    if (!bar) return;
+    const btn = bar.querySelector<HTMLButtonElement>(".order-tab.is-active");
+    if (!btn) return;
+    const target = btn.offsetLeft - (bar.clientWidth - btn.offsetWidth) / 2;
+    bar.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [attivo]);
 
   useEffect(() => {
     if (vista !== "menu") return;
@@ -206,14 +216,7 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
       }
       return [
         ...prev,
-        {
-          id: item.id,
-          name: item.name,
-          price_cents: item.price_cents,
-          qty: 1,
-          category_order: item.category_order,
-          supplement: "none",
-        },
+        { id: item.id, name: item.name, price_cents: item.price_cents, qty: 1 },
       ];
     });
   }
@@ -225,12 +228,25 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
   function rimuovi(id: string) {
     setLinee((prev) => prev.filter((l) => l.id !== id));
   }
-  function cambiaSupplemento(id: string, supplement: Supplemento) {
-    setLinee((prev) => prev.map((l) => (l.id === id ? { ...l, supplement } : l)));
+
+  // Rimozione con conferma in 2 tap (come nell'admin): il primo tap
+  // trasforma il cestino in "Confirmer ?" per 3 secondi, il secondo elimina.
+  const [daConfermare, setDaConfermare] = useState<string | null>(null);
+  const timerConferma = useRef<number | null>(null);
+
+  function clickRimuovi(id: string) {
+    if (timerConferma.current) window.clearTimeout(timerConferma.current);
+    if (daConfermare === id) {
+      setDaConfermare(null);
+      rimuovi(id);
+      return;
+    }
+    setDaConfermare(id);
+    timerConferma.current = window.setTimeout(() => setDaConfermare(null), 3000);
   }
 
   function prezzoRiga(l: CartLine): number {
-    return (l.price_cents + SUPPL[l.supplement]) * l.qty;
+    return l.price_cents * l.qty;
   }
 
   const totale = linee.reduce((s, l) => s + prezzoRiga(l), 0);
@@ -255,7 +271,7 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: linee.map((l) => ({ id: l.id, qty: l.qty, supplement: l.supplement })),
+          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
           slot,
           note: noteOrdine,
           customer: { name: nome, surname: cognome, phone: telefono, email },
@@ -275,33 +291,25 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
     }
   }
 
-  function Supplementi({ l }: { l: CartLine }) {
-    if (!isPizza(l.category_order)) return null;
-    const opzioni: { val: Supplemento; label: string }[] = [
-      { val: "gluten-free", label: t.supplGlutenFree },
-      { val: "ricotta", label: t.supplRicotta },
-    ];
-    function toggle(val: Supplemento) {
-      cambiaSupplemento(l.id, l.supplement === val ? "none" : val);
-    }
+  // Badge accanto al nome (come sulla pagina Notre Carte)
+  function Badges({ item }: { item: MenuItem }) {
     return (
-      <div className="order-suppl">
-        {opzioni.map((o) => (
-          <button
-            key={o.val}
-            type="button"
-            className={"order-suppl-opt" + (l.supplement === o.val ? " is-on" : "")}
-            aria-pressed={l.supplement === o.val}
-            onClick={() => toggle(o.val)}
-          >
-            {o.label}
-          </button>
-        ))}
-      </div>
+      <>
+        {item.is_bestseller && (
+          <span className="order-b order-b-star" title="Best-seller">★</span>
+        )}
+        {item.is_vegan && (
+          <span className="order-b" title={lang === "en" ? "Vegan" : "Végan"}>🌱</span>
+        )}
+        {item.is_spicy && (
+          <span className="order-b" title={lang === "en" ? "Spicy" : "Épicé"}>🌶️</span>
+        )}
+        {item.is_suggestion && <span className="order-sugg">Suggestion</span>}
+      </>
     );
   }
 
-  function RigheCarrello({ editabile }: { editabile: boolean }) {
+  function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
         {linee.map((l) => (
@@ -314,9 +322,25 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
               <button type="button" onClick={() => cambiaQty(l.id, -1)} aria-label={t.ariaDecrease}>−</button>
               <span className="order-cart-qty">{l.qty}</span>
               <button type="button" onClick={() => cambiaQty(l.id, 1)} aria-label={t.ariaIncrease}>+</button>
-              <button type="button" className="order-cart-remove" onClick={() => rimuovi(l.id)} aria-label={t.ariaRemove}>×</button>
+              <button
+                type="button"
+                className={"order-cart-remove" + (daConfermare === l.id ? " confirm" : "")}
+                onClick={() => clickRimuovi(l.id)}
+                aria-label={t.ariaRemove}
+              >
+                {daConfermare === l.id ? (
+                  lang === "en" ? "Confirm?" : "Confirmer ?"
+                ) : (
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                )}
+              </button>
             </div>
-            {editabile && <Supplementi l={l} />}
           </li>
         ))}
       </ul>
@@ -329,17 +353,22 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
   if (vista === "checkout") {
     return (
       <div className="order-wrap">
-        <div className="order-app">
-          <div className="order-menu">
-            <button type="button" className="order-back" onClick={() => setVista("menu")}>
+        {/* Stessa barra sticky dei filtri, con il "Retour au menu" a pillola */}
+        <div className="order-filterbar">
+          <div className="order-filterbar-inner">
+            <button type="button" className="order-tab" onClick={() => setVista("menu")}>
               {t.backToMenu}
             </button>
+          </div>
+        </div>
+        <div className="order-app">
+          <div className="order-menu">
             <h2 className="order-section-title">{t.recap}</h2>
             {linee.length === 0 ? (
               <p className="order-cart-empty">{t.cartEmpty}</p>
             ) : (
               <>
-                <RigheCarrello editabile={true} />
+                <RigheCarrello />
                 <div className="order-note">
                   <label className="order-field-label" htmlFor="order-note-field">{t.notes}</label>
                   <textarea
@@ -395,7 +424,7 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
   return (
     <div className="order-wrap">
       <div className="order-filterbar">
-        <div className="order-filterbar-inner">
+        <div className="order-filterbar-inner" ref={filterbarRef}>
           {gruppiVisibili.map((g) => (
             <button
               key={g.slug}
@@ -414,23 +443,38 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
           {gruppiVisibili.map((g) => (
             <section key={g.slug} id={`sec-${g.slug}`} className="order-sec">
               <h2 className="order-sec-title">{g.label}</h2>
-              <div className="order-items">
-                {g.items.map((item) => {
-                  const desc = lang === "en"
-                    ? (item.description_en ?? item.description_fr)
-                    : item.description_fr;
-                  return (
-                    <div key={item.id} className="order-item">
-                      <div className="order-item-info">
-                        <h3 className="order-item-name">{item.name}</h3>
-                        {desc && <p className="order-item-desc">{desc}</p>}
-                        <p className="order-item-price">{euro(item.price_cents)}</p>
-                      </div>
-                      <button type="button" className="order-item-add" aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
-                    </div>
-                  );
-                })}
-              </div>
+              {g.subcats.map((sub) => (
+                <div key={sub.category} className="order-subcat">
+                  {g.subcats.length > 1 && (
+                    <h3 className="order-subcat-title">{sub.category}</h3>
+                  )}
+                  <div className="order-items">
+                    {sub.items.map((item) => {
+                      const desc = lang === "en"
+                        ? (item.description_en ?? item.description_fr)
+                        : item.description_fr;
+                      return (
+                        <div key={item.id} className="order-item">
+                          <div className="order-item-info">
+                            <h3 className="order-item-name">
+                              {item.name}
+                              <Badges item={item} />
+                            </h3>
+                            {desc && <p className="order-item-desc">{desc}</p>}
+                            <p className="order-item-price">
+                              {item.original_price_cents && (
+                                <s className="order-item-old">{euro(item.original_price_cents)}</s>
+                              )}
+                              {euro(item.price_cents)}
+                            </p>
+                          </div>
+                          <button type="button" className="order-item-add" aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </section>
           ))}
         </div>
@@ -441,7 +485,7 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
             <p className="order-cart-empty">{t.cartEmpty}</p>
           ) : (
             <>
-              <RigheCarrello editabile={true} />
+              <RigheCarrello />
               <div className="order-cart-total">
                 <span>{t.total} ({numArticoli} {t.items})</span>
                 <strong>{euro(totale)}</strong>
@@ -459,7 +503,12 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
           <span className="order-mobcart-count">{numArticoli}</span>
           <span className="order-mobcart-label">{t.seeCart}</span>
           <span className="order-mobcart-total">{euro(totale)}</span>
-          <span className="order-mobcart-arrow">→</span>
+          <span className="order-mobcart-arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M5 12h14" />
+              <path d="m13 6 6 6-6 6" />
+            </svg>
+          </span>
         </button>
       )}
     </div>

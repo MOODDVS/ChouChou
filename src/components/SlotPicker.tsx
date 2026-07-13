@@ -63,11 +63,15 @@ export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
     return <p className="slotpicker-msg">{t("slot.closed")}</p>;
   }
 
+  // I label "Midi"/"Soir" servono solo con orario spezzato: se il servizio
+  // è continuato (una sola fascia con slot) si mostrano solo gli orari.
+  const spezzato = lunch.length > 0 && dinner.length > 0;
+
   return (
     <div className="slotpicker">
       {lunch.length > 0 && (
         <div className="slotpicker-fascia">
-          <h4 className="slotpicker-titolo">{t("slot.lunch")}</h4>
+          {spezzato && <h4 className="slotpicker-titolo">{t("slot.lunch")}</h4>}
           <div className="slotpicker-grid">
             {lunch.map((slot) => (
               <SlotBtn key={slot} slot={slot} attivo={slot === selezionato} onClick={() => scegli(slot)} />
@@ -78,7 +82,7 @@ export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
 
       {dinner.length > 0 && (
         <div className="slotpicker-fascia">
-          <h4 className="slotpicker-titolo">{t("slot.dinner")}</h4>
+          {spezzato && <h4 className="slotpicker-titolo">{t("slot.dinner")}</h4>}
           <div className="slotpicker-grid">
             {dinner.map((slot) => (
               <SlotBtn key={slot} slot={slot} attivo={slot === selezionato} onClick={() => scegli(slot)} />
