@@ -1,175 +1,217 @@
 ---
+// Pagina "Notre Carte" (vetrina, non ordinabile).
+// Hero: banner con foto + overlay, titolo Marcellus, riga SEO, bottone
+// Commander e tricolore. Corpo: una sezione per OGNI categoria del DB
+// (ordine dell'admin) — titolo oro a sinistra, piatti su 2 colonne a
+// destra con puntini fino al prezzo e descrizione sotto.
+// Prezzi scontati (scope "partout"): pieno barrato + prezzo promo.
+// Badge piatto: ★ best-seller (oro) · 🌱 végan · 🌶️ épicé.
+// Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
 import { getMenu } from "../lib/db";
-import { getLangFromUrl, useTranslations } from "../i18n/ui";
+import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+const en = lang === "en";
 
 const menu = await getMenu();
 
-const cibo = menu.filter((c) => c.category_order <= 4);
-// Vini: category_order 5-9, raggruppati sotto un unico titolo.
-const vini = menu.filter((c) => c.category_order >= 5 && c.category_order <= 9);
-// Altre bevande: 10+, categorie normali.
-const altreBevande = menu.filter((c) => c.category_order >= 10);
+const HERO_FOTO = "/la-molisana-home-foto-01.webp";
 
-const PIZZE_BIANCHE_ORDER = 3;
-
-const slides = [
-  "/menu-slideshow-01.webp",
-  "/menu-slideshow-02.webp",
-  "/menu-slideshow-03.webp",
-];
-
-const allergeni = [
-  { n: 1, label: "gluten", icon: "/allergens/01.webp" },
-  { n: 2, label: "lait · milk", icon: "/allergens/02.webp" },
-  { n: 3, label: "poisson · fish", icon: "/allergens/03.webp" },
-  { n: 4, label: "noix · nuts", icon: "/allergens/04.webp" },
-  { n: 5, label: "oeufs · eggs", icon: "/allergens/05.webp" },
-  { n: 6, label: "soja", icon: "/allergens/06.webp" },
-  { n: 7, label: "sulfites", icon: "/allergens/07.webp" },
-];
+// I 14 allergeni UE — stessi numeri usati dall'admin.
+const ALLERGENI: [number, string][] = en
+  ? [
+      [1, "Gluten"], [2, "Milk"], [3, "Peanuts"], [4, "Eggs"],
+      [5, "Fish"], [6, "Crustaceans"], [7, "Soy"], [8, "Tree nuts"],
+      [9, "Celery"], [10, "Mustard"], [11, "Sulphites"], [12, "Sesame"],
+      [13, "Lupin"], [14, "Molluscs"],
+    ]
+  : [
+      [1, "Gluten"], [2, "Lait"], [3, "Arachides"], [4, "Œufs"],
+      [5, "Poisson"], [6, "Crustacés"], [7, "Soja"], [8, "Fruits à coque"],
+      [9, "Céleri"], [10, "Moutarde"], [11, "Sulfites"], [12, "Sésame"],
+      [13, "Lupin"], [14, "Mollusques"],
+    ];
 
 function prezzo(cents: number): string {
   const euro = cents / 100;
-  return Number.isInteger(euro) ? `${euro}€` : `${euro.toFixed(2)}€`;
+  return Number.isInteger(euro) ? `${euro} €` : `${euro.toFixed(2).replace(".", ",")} €`;
 }
+
+function descDi(item: { description_fr: string | null; description_en: string | null }): string | null {
+  return en ? (item.description_en || item.description_fr) : item.description_fr;
+}
+
+// --- Raggruppamenti: più categorie consecutive sotto un unico titolo
+// grande, ciascuna col suo titoletto (per range di category_order):
+// Pizza = rouges/blanches/calzone/suppléments (4..7)
+// Bières = pression/bouteilles (14..15)
+// Vins = du patron/rouges/blancs/rosé (16..19)
+// Le altre categorie restano sezioni singole.
+const RAGGRUPPAMENTI = [
+  { title: "Pizza", min: 4, max: 7 },
+  { title: en ? "Beers" : "Bières", min: 14, max: 15 },
+  { title: en ? "Wines" : "Vins", min: 16, max: 19 },
+];
+const gruppi: { title: string; subcats: typeof menu }[] = [];
+for (const cat of menu) {
+  const r = RAGGRUPPAMENTI.find((x) => cat.category_order >= x.min && cat.category_order <= x.max);
+  const last = gruppi[gruppi.length - 1];
+  if (r && last && last.title === r.title) {
+    last.subcats.push(cat);
+  } else {
+    gruppi.push({ title: r ? r.title : cat.category, subcats: [cat] });
+  }
+}
+
+// --- Ordine di visualizzazione della carta (richiesta Enzo):
+// cibo e desserts nell'ordine dell'admin, poi Apéritifs, Softs,
+// Bières, Vins, il resto (Long drinks, Alcools) e Boissons chaudes
+// in fondo. Basato sul category_order della prima sottocategoria.
+function rango(g: { subcats: typeof menu }): number {
+  const o = g.subcats[0].category_order;
+  if (o <= 8) return o; // Antipasti..Desserts
+  if (o === 11) return 9; // Apéritifs
+  if (o === 10) return 10; // Softs
+  if (o >= 14 && o <= 15) return 11; // Bières
+  if (o >= 16) return 12; // Vins
+  if (o === 12) return 13; // Long drinks
+  if (o === 13) return 14; // Alcools
+  if (o === 9) return 15; // Boissons chaudes
+  return 99;
+}
+gruppi.sort((a, b) => rango(a) - rango(b));
+
+// --- Icone della barra sezioni. Quelle "piene" (fornite da Enzo) hanno
+// class="ico-fill"; le altre sono a linea (stroke). Scelta per parola
+// chiave nel titolo del gruppo; "fork" è il ripiego generico.
+const ICONE: Record<string, string> = {
+  antipasti:
+    '<svg class="ico-fill" viewBox="0 0 512 512" aria-hidden="true"><path d="m214.063 278.941c-39.97-39.97-105.021-39.952-145.01.039l-49.13 49.129c-12.841 12.843-19.917 29.915-19.923 48.071-.006 18.161 7.062 35.233 19.9 48.071 11.22 11.221 26.104 18.189 41.91 19.622l41.679 3.78c14.837 1.346 29.865 2.02 44.925 2.02 9.489 0 18.991-.268 28.465-.803h.001c2.561-.145 5.043-.945 7.207-2.322 6.455-4.109 12.749-8.444 18.707-12.886 23.909-17.822 38.858-45.099 41.015-74.835 2.153-29.71-8.688-58.828-29.746-79.886z"/><path d="m465.166 109.084c-62.367-62.369-163.878-62.339-226.282.064l-19.811 19.811c10.57-1.99 21.399-3.021 32.387-3.024 46.354 0 89.876 18.025 122.606 50.756 34.434 34.434 52.862 82.075 50.561 130.71-1.188 25.096-7.836 49.392-19.119 71.296 14.421-8.639 28.463-18.036 42.065-28.176 37.31-27.813 60.638-70.378 64.004-116.781 3.365-46.362-13.552-91.798-46.411-124.656z"/><path d="m352.854 197.904c-27.066-27.066-63.05-41.969-101.337-41.969-.014 0-.032 0-.046 0-38.299.012-74.309 14.938-101.398 42.026l-21.654 21.654c4.35-.425 8.746-.64 13.175-.64 35.422 0 68.693 13.763 93.683 38.753 27.223 27.222 41.238 64.862 38.453 103.27-2.195 30.252-14.638 58.528-34.903 80.43 34.286-6.281 67.93-16.116 100.203-29.403 1.391-.572 2.688-1.351 3.847-2.31 31.004-25.632 49.879-63.44 51.786-103.732 1.902-40.214-13.336-79.606-41.809-108.079z"/></svg>',
+  pasta:
+    '<svg class="ico-fill" viewBox="0 0 32 32" aria-hidden="true"><path d="M6,13v.02A51.679,51.679,0,0,0,16,14a51.679,51.679,0,0,0,10-.98V13c2.206,0,4-2.243,4-5s-1.794-5-4-5a7.872,7.872,0,0,0-.921.147,49.741,49.741,0,0,1-18.157,0A7.916,7.916,0,0,0,6,3C3.794,3,2,5.243,2,8S3.794,13,6,13Zm2.865-1.523a5.365,5.365,0,0,0,.9-1.864A51.874,51.874,0,0,0,16,10a50.383,50.383,0,0,0,6.231-.393,5.384,5.384,0,0,0,.9,1.869A49.839,49.839,0,0,1,8.865,11.477ZM26,5c1.084,0,2,1.374,2,3s-.916,3-2,3-2-1.374-2-3S24.916,5,26,5ZM16,6a51.788,51.788,0,0,0,6.522-.421,5.961,5.961,0,0,0-.5,2.039,49.3,49.3,0,0,1-12.042.006,5.949,5.949,0,0,0-.5-2.045A51.788,51.788,0,0,0,16,6ZM6,5C7.084,5,8,6.374,8,8s-.916,3-2,3S4,9.626,4,8,4.916,5,6,5Z"/><path d="M26,18a7.872,7.872,0,0,0-.921.147,49.741,49.741,0,0,1-18.157,0A7.916,7.916,0,0,0,6,18c-2.206,0-4,2.243-4,5s1.794,5,4,5v.02A51.679,51.679,0,0,0,16,29a51.679,51.679,0,0,0,10-.98V28c2.206,0,4-2.243,4-5S28.206,18,26,18ZM16,21a51.788,51.788,0,0,0,6.522-.421,5.961,5.961,0,0,0-.5,2.039,49.3,49.3,0,0,1-12.042.006,5.949,5.949,0,0,0-.5-2.045A51.788,51.788,0,0,0,16,21ZM6,26c-1.084,0-2-1.374-2-3s.916-3,2-3,2,1.374,2,3S7.084,26,6,26Zm2.865.477a5.365,5.365,0,0,0,.9-1.864A51.874,51.874,0,0,0,16,25a50.383,50.383,0,0,0,6.231-.393,5.384,5.384,0,0,0,.9,1.869A49.839,49.839,0,0,1,8.865,26.477ZM26,26c-1.084,0-2-1.374-2-3s.916-3,2-3,2,1.374,2,3S27.084,26,26,26Z"/></svg>',
+  enfants:
+    '<svg class="ico-fill" viewBox="0 0 511.998 511.998" aria-hidden="true"><path d="m255.987 447.313c-25.275-.01-49.809-4.976-72.92-14.759-7.191-3.044-14.142-6.517-20.841-10.393-24.312 22.268-39.561 54.27-39.561 89.837h266.667c0-35.567-15.248-67.57-39.561-89.837-6.699 3.876-13.649 7.349-20.841 10.393-23.11 9.783-47.644 14.749-72.943 14.759z"/><path d="m68.682 259.926c.001-6.334.452-12.667 1.336-18.928h-28.042c-8.892 9.95-14.31 23.065-14.31 37.428 0 31.009 25.525 56.237 56.534 56.237-9.774-23.116-15.518-49.454-15.518-74.737z"/><path d="m474.375 246.528h-31.716c.435 4.426.656 8.898.657 13.404 0 25.277-5.743 51.615-15.518 74.731 31.009 0 56.534-25.228 56.534-56.237 0-11.838-3.685-22.827-9.957-31.898z"/><path d="m100.468 66.642c-19.222 11.16-34.645 26.373-45.534 45.148-16.072 27.713-21.971 62.042-17.443 99.208h47.849c19.468-8.209 44.116-21.51 63.573-47.817-25.408-26.975-41.77-59.504-48.445-96.539z"/><path d="m255.999 417.313c86.89-.035 157.317-70.483 157.317-157.381-.001-4.542-.292-9.015-.854-13.404 0 0-49.302-.177-56.796-.586v31.039h-30v-33.777c-47.535-6.101-92.159-20.328-127.573-41.198-9.662-5.694-18.654-11.859-26.978-18.463-23.495 30.697-48.447 44.276-69.868 53.308-1.674 7.427-2.563 15.15-2.565 23.083 0 86.896 70.427 157.344 157.317 157.379zm-99.667-140.333v-30h30v30zm99.667 27.666c9.848 0 19.035-5.305 23.975-13.844l25.968 15.022c-10.284 17.778-29.421 28.822-49.942 28.822-20.522 0-39.659-11.044-49.943-28.823l25.969-15.021c4.939 8.54 14.125 13.844 23.973 13.844z"/><path d="m445.766 106.422c-17.671-32.987-44.769-59.635-80.54-79.202-42.339-23.162-90.411-31.963-135.355-24.781-30.425 4.861-57.034 16.579-76.487 33.24-6.93-12.94-19.667-26.919-43.094-34.883l-9.655 28.404c5.407 1.838 9.864 4.141 13.551 6.688 7.841 5.418 12.395 12.506 14.775 18.097 7.131 52.126 35.346 93.286 84.364 122.173 45.084 26.569 107.188 41.279 170.409 40.371l.216-.002h85.339c1.347-41.422-6.543-78.408-23.523-110.105z"/></svg>',
+  pizza:
+    '<svg class="ico-fill" viewBox="0 0 512 512" aria-hidden="true"><path d="m288.898 368.191c0 18.414 9.623 35.047 24.828 44.327l52.208-89.805c-7.622-4.211-16.236-6.459-25.099-6.459-28.638 0-51.937 23.299-51.937 51.937z"/><ellipse cx="155.948" cy="280.826" rx="51.937" ry="51.937" transform="matrix(.987 -.16 .16 .987 -42.97 28.606)"/><path d="m502.632 91.843c-2.048-11.902-9.131-22.294-19.434-28.512-68.645-41.432-147.208-63.331-227.198-63.331s-158.553 21.899-227.198 63.331c-10.303 6.218-17.386 16.611-19.434 28.512-2.063 11.989 1.177 24.256 8.887 33.656 13.257 16.161 36.072 19.956 54.251 9.021 55.452-33.352 118.903-50.981 183.494-50.981s128.042 17.629 183.494 50.981c18.179 10.932 40.995 7.14 54.251-9.021 7.711-9.4 10.95-21.667 8.887-33.656z"/><path d="m415.011 154.884c-3.955 41.463-38.969 74.004-81.451 74.004-45.123 0-81.833-36.71-81.833-81.833 0-11.776 2.493-23.166 7.191-33.594-.973-.009-1.945-.025-2.919-.025-59.163 0-117.285 16.15-168.085 46.704-9.452 5.685-19.996 9.099-30.792 10.104l34.268 60.381c14.987-19.23 38.344-31.633 64.557-31.633 45.123 0 81.833 36.71 81.833 81.833 0 41.326-30.799 75.574-70.645 81.049l88.756 150.126 42.808-73.635c-24.29-14.552-39.698-40.936-39.698-70.174 0-45.123 36.711-81.833 81.834-81.833 14.189 0 27.967 3.669 40.121 10.514l73.628-126.649c-10.694-1.039-21.132-4.448-30.5-10.082-2.998-1.805-6.024-3.554-9.073-5.257z"/><path d="m385.498 147.055c0-2.338-.171-4.665-.479-6.967-29.518-12.725-60.756-21.016-92.69-24.605-6.936 9.021-10.706 20.007-10.706 31.572 0 28.638 23.299 51.937 51.937 51.937 28.639 0 51.938-23.299 51.938-51.937z"/></svg>',
+  desserts:
+    '<svg class="ico-fill" viewBox="0 0 512 512" aria-hidden="true"><path d="m256 168.725c25.276-23.594 59.178-38.058 96.4-38.058 4.838 0 9.62.245 14.335.722-6.071-55.734-53.413-99.255-110.735-99.255-57.323 0-104.665 43.521-110.736 99.256 4.715-.477 9.497-.722 14.335-.722 37.223-.001 71.125 14.463 96.401 38.057z"/><path d="m426.791 151.866 71.404-71.405c18.407-18.407 18.407-48.25 0-66.656-18.406-18.407-48.249-18.406-66.656 0l-55.346 55.346c12.51 20.146 20.109 43.646 21.088 68.82 10.429 3.5 20.319 8.186 29.51 13.895z"/><path d="m241.749 259.2h221.305c-6.4-55.387-53.58-98.533-110.653-98.533-57.074 0-104.253 43.146-110.652 98.533z"/><path d="m497 289.2h-482c-4.821 0-9.35 2.318-12.169 6.229s-3.586 8.94-2.062 13.514l20.387 61.162 41.729 41.729 53.975-53.974c2.813-2.813 6.628-4.394 10.606-4.394 3.979 0 7.794 1.581 10.606 4.394l53.66 53.66 53.66-53.66c2.813-2.813 6.628-4.394 10.606-4.394 3.979 0 7.794 1.581 10.606 4.394l53.66 53.66 53.66-53.66c2.813-2.813 6.628-4.394 10.606-4.394s7.794 1.581 10.606 4.394l53.975 53.974 41.729-41.729 20.387-61.162c1.524-4.574.758-9.602-2.062-13.514s-7.343-6.229-12.165-6.229z"/><path d="m449.114 448.048c-3.979 0-7.794-1.581-10.606-4.394l-53.975-53.974-53.66 53.66c-2.813 2.813-6.628 4.394-10.606 4.394s-7.794-1.581-10.606-4.394l-53.661-53.66-53.66 53.66c-2.813 2.813-6.628 4.394-10.606 4.394s-7.794-1.581-10.606-4.394l-53.66-53.66-53.975 53.974c-2.813 2.813-6.628 4.394-10.606 4.394s-7.794-1.581-10.606-4.394l-9.909-9.91 22.666 67.999c2.04 6.126 7.773 10.257 14.229 10.257h353.467c6.456 0 12.188-4.131 14.23-10.256l22.666-67.999-9.909 9.91c-2.813 2.812-6.628 4.393-10.607 4.393z"/><path d="m236.343 191.391c-19.994-19.029-47.029-30.724-76.743-30.724-57.074 0-104.252 43.146-110.652 98.533h162.657c2.273-25.045 11.086-48.228 24.738-67.809z"/></svg>',
+  boissons:
+    '<svg class="ico-fill" viewBox="0 0 512 512" aria-hidden="true"><path d="m476 0h-121c-7.225 0-13.423 5.15-14.746 12.253l-11.129 59.747h30.516l7.824-42h108.535c8.284 0 15-6.716 15-15s-6.716-15-15-15z"/><path d="m241.826 72c-17.548-41.111-58.376-70-105.826-70-63.411 0-115 51.589-115 115 0 50.647 32.911 93.748 78.469 109.05l-8.33-105.508c-.986-12.471 3.319-24.896 11.814-34.086 8.489-9.185 20.535-14.456 33.047-14.456z"/><path d="m416 102h-280c-4.184 0-8.177 1.747-11.016 4.819-2.84 3.072-4.268 7.19-3.938 11.361l5.031 63.729 16.377.148c67.781.61 103.299 10.731 137.646 20.52 33.383 9.514 64.915 18.5 126.636 19.339l16.009.218 8.207-103.953c.33-4.171-1.098-8.289-3.938-11.361-2.837-3.073-6.83-4.82-11.014-4.82z"/><path d="m271.879 231.429c-33.924-9.667-65.966-18.799-129.693-19.373l-13.737-.123 19.689 249.397c2.243 28.412 26.327 50.67 54.829 50.67h146.066c28.502 0 52.586-22.258 54.829-50.671l16.518-209.225-14.051-.19c-65.704-.893-100.652-10.853-134.45-20.485z"/></svg>',
+  fork: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v18"/><path d="M6 3v5a2 2 0 0 0 4 0V3"/><path d="M16 3c-1.5 2-2 4.5-2 7 0 2 .8 3 2 3v8"/></svg>',
+};
+
+function iconaDi(titolo: string): string {
+  const s = titolo.toLowerCase();
+  let k = "fork";
+  if (s.includes("antipast")) k = "antipasti";
+  else if (s.includes("past")) k = "pasta";
+  else if (s.includes("enfant") || s.includes("kid")) k = "enfants";
+  else if (s.includes("pizza")) k = "pizza";
+  else if (s.includes("dessert")) k = "desserts";
+  return ICONE[k];
+}
+
+// --- Voci della barra sezioni: un bottone per ogni gruppo CIBO, e un
+// UNICO bottone "Boissons" per tutte le bevande (porta alla prima —
+// Apéritifs — e resta attivo su qualsiasi sezione bevande).
+const vociNav: { href: string; title: string; icona: string; secs: string[] }[] = [];
+gruppi.forEach((g, i) => {
+  const bevanda = g.subcats[0].category_order >= 9;
+  if (!bevanda) {
+    vociNav.push({ href: "#sec-" + i, title: g.title, icona: iconaDi(g.title), secs: ["sec-" + i] });
+  } else {
+    const esistente = vociNav.find((v) => v.icona === ICONE.boissons);
+    if (esistente) {
+      esistente.secs.push("sec-" + i);
+    } else {
+      vociNav.push({
+        href: "#sec-" + i,
+        title: en ? "Drinks" : "Boissons",
+        icona: ICONE.boissons,
+        secs: ["sec-" + i],
+      });
+    }
+  }
+});
 ---
 
-<Layout title={t("nav.menu") + " — Pizzeria 77"}>
+<Layout title={lang === "en" ? "Our Menu — La Molisana, Italian Restaurant in Saint-Gilles, Brussels" : "Notre Carte — La Molisana, Restaurant Italien à Saint-Gilles, Bruxelles"}>
   <section class="menu-hero">
-    <div class="menu-hero__bg" aria-hidden="true">
-      {slides.map((src, i) => (
-        <img
-          src={src}
-          alt=""
-          class:list={["menu-hero__slide", { "is-active": i === 0 }]}
-          loading={i === 0 ? "eager" : "lazy"}
-          decoding="async"
-        />
-      ))}
-    </div>
+    <img class="menu-hero__bg-img" src={HERO_FOTO} alt="" loading="eager" decoding="async" />
     <div class="menu-hero__overlay" aria-hidden="true"></div>
 
     <div class="menu-hero__inner">
-      <p class="menu-hero__claim">THIS IS PIZZERIA 77</p>
       <h1 class="menu-hero__title">{t("menu.title")}</h1>
-      <p class="menu-hero__sub">{t("menu.sub")}</p>
+      <p class="menu-hero__sub">
+        {lang === "en"
+          ? "Pizzas, homemade pasta, antipasti and Italian desserts — dine in or take away in Saint-Gilles, Brussels."
+          : "Pizzas, pâtes maison, antipasti et desserts italiens — sur place ou à emporter à Saint-Gilles, Bruxelles."}
+      </p>
+      <a href={getLocalizedUrl("/order", lang)} class="menu-hero__btn">{lang === "en" ? "Order" : "Commander"}</a>
     </div>
+
+    <div class="menu-hero__flag" aria-hidden="true"></div>
   </section>
 
-  <div class="menu-wrap">
-    {cibo.map((cat) => (
-      <section class="menu-cat">
-        <h2 class="menu-cat__title">{cat.category}</h2>
-        <ul class="menu-list">
-          {cat.items.map((item) => (
-            <li class="dish">
-              <p class="dish__head">
-                <span class="dish__name">{item.name}</span>
-                {item.allergens.length > 0 && (
-                  <sup class="dish__allerg">
-                    {item.allergens.map((a) => `(${a})`).join("")}
-                  </sup>
-                )}
-                <span class="dish__price">{prezzo(item.price_cents)}</span>
-              </p>
-              {item.description_fr && (
-                <p class="dish__desc-fr">{item.description_fr}</p>
-              )}
-              {item.description_en && (
-                <p class="dish__desc-en">{item.description_en}</p>
-              )}
-            </li>
-          ))}
-        </ul>
+  <nav class="secnav" id="secnav" aria-label={en ? "Menu sections" : "Sections du menu"}>
+    {vociNav.map((v) => (
+      <a href={v.href} class="secnav__item" data-secs={v.secs.join(",")}>
+        <span class="secnav__label">{v.title}</span>
+        <span class="secnav__box" set:html={v.icona} />
+      </a>
+    ))}
+  </nav>
 
-        {cat.category_order === PIZZE_BIANCHE_ORDER && (
-          <div class="menu-suppl" aria-label="Suppléments">
-            <span class="menu-suppl__pill">
-              <span class="menu-suppl__fr">Sans gluten · +4€</span>
-              <span class="menu-suppl__en">Gluten free · +4€</span>
-            </span>
-            <span class="menu-suppl__pill">
-              <span class="menu-suppl__fr">Croûte à la ricotta · +3€</span>
-              <span class="menu-suppl__en">Ricotta crust · +3€</span>
-            </span>
-          </div>
-        )}
+  <div class="carte">
+    {gruppi.map((g, i) => (
+      <section class="cat" id={"sec-" + i}>
+        <h2 class="cat__title">{g.title}</h2>
+        <div class="cat__body">
+          {g.subcats.map((sub) => (
+            <div class="subcat">
+              {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
+              <ul class="cat__items">
+                {sub.items.map((item) => (
+                  <li class="dish">
+                    <p class="dish__head">
+                      <span class="dish__name">
+                        {item.name}
+                        {item.is_bestseller && <span class="b b-star" title="Best-seller">★</span>}
+                        {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
+                        {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
+                        {item.allergens.length > 0 && (
+                          <sup class="dish__alg">{item.allergens.join("·")}</sup>
+                        )}
+                      </span>
+                      <span class="dish__dots" aria-hidden="true"></span>
+                      <span class="dish__price">
+                        {item.original_price_cents && (
+                          <s class="dish__old">{prezzo(item.original_price_cents)}</s>
+                        )}
+                        {prezzo(item.price_cents)}
+                      </span>
+                    </p>
+                    {descDi(item) && <p class="dish__desc">{descDi(item)}</p>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </section>
     ))}
 
-    <section class="allerg-legend" aria-label="Légende des allergènes">
-      <ul class="allerg-legend__list">
-        {allergeni.map((a) => (
-          <li class="allerg-legend__item">
-            <img src={a.icon} alt="" class="allerg-legend__icon" loading="lazy" decoding="async" />
-            <span class="allerg-legend__label">({a.n}) {a.label}</span>
-          </li>
-        ))}
-      </ul>
+    <section class="alg-legend">
+      <h2 class="alg-legend__title">{en ? "Allergens" : "Allergènes"}</h2>
+      <p class="alg-legend__list">
+        {ALLERGENI.map(([n, label]) => `${n}. ${label}`).join(" · ")}
+      </p>
+      <p class="alg-legend__badges">
+        <span class="b-star">★</span> Best-seller · 🌱 {en ? "Vegan" : "Végan"} · 🌶️ {en ? "Spicy" : "Épicé"}
+      </p>
     </section>
-  </div>
-
-  <section class="drinks-band">
-    <img class="drinks-band__bg" src="/drinks.webp" alt="" aria-hidden="true" loading="lazy" decoding="async" />
-    <div class="drinks-band__overlay" aria-hidden="true"></div>
-    <div class="drinks-band__inner">
-      <h2 class="drinks-band__title">BOISSONS · DRINKS</h2>
-    </div>
-  </section>
-
-  <div class="menu-wrap">
-    {vini.length > 0 && (
-      <section class="menu-group">
-        <h2 class="menu-group__title">VINO – VINS – WINES</h2>
-        {vini.map((cat) => (
-          <div class="menu-sub">
-            <h3 class="menu-sub__title">{cat.category}</h3>
-            <ul class="menu-list">
-              {cat.items.map((item) => (
-                <li class="dish">
-                  <p class="dish__head">
-                    <span class="dish__name">{item.name}</span>
-                    <span class="dish__price">{prezzo(item.price_cents)}</span>
-                  </p>
-                  {item.description_fr && (
-                    <p class="dish__desc-fr">{item.description_fr}</p>
-                  )}
-                  {item.description_en && (
-                    <p class="dish__desc-en">{item.description_en}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </section>
-    )}
-
-    {altreBevande.map((cat) => (
-      <section class="menu-cat">
-        <h2 class="menu-cat__title">{cat.category}</h2>
-        <ul class="menu-list">
-          {cat.items.map((item) => (
-            <li class="dish">
-              <p class="dish__head">
-                <span class="dish__name">{item.name}</span>
-                <span class="dish__price">{prezzo(item.price_cents)}</span>
-              </p>
-              {item.description_fr && (
-                <p class="dish__desc-fr">{item.description_fr}</p>
-              )}
-              {item.description_en && (
-                <p class="dish__desc-en">{item.description_en}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-    ))}
   </div>
 </Layout>
 
@@ -177,34 +219,22 @@ function prezzo(cents: number): string {
   /* ---------- HERO ---------- */
   .menu-hero {
     position: relative;
-    min-height: 52vh;
+    min-height: clamp(280px, 36vh, 420px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 5rem 1.5rem 3.5rem;
-    border-bottom: 1px solid var(--c-line);
+    padding: 3.5rem 1.5rem 4rem;
     overflow: hidden;
   }
 
-  .menu-hero__bg {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-  }
-
-  .menu-hero__slide {
+  .menu-hero__bg-img {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0;
-    transition: opacity 1.2s ease;
-  }
-
-  .menu-hero__slide.is-active {
-    opacity: 1;
+    z-index: 0;
   }
 
   .menu-hero__overlay {
@@ -217,309 +247,365 @@ function prezzo(cents: number): string {
   .menu-hero__inner {
     position: relative;
     z-index: 2;
-    max-width: 720px;
-  }
-
-  .menu-hero__claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.9rem;
-    color: var(--c-muted);
-    margin: 0 0 0.9rem;
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease, transform 0.7s ease;
   }
 
   .menu-hero__title {
-    font-family: var(--font-title);
-    font-size: clamp(3.75rem, 11vw, 7rem);
-    line-height: 0.92;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
     letter-spacing: 0.02em;
-    margin: 0;
+    line-height: 1.1;
+    margin: 0 0 0.9rem;
     color: var(--c-text);
     opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease 0.12s, transform 0.7s ease 0.12s;
+    transform: translateY(18px);
+    animation: carte-in 0.8s ease-out 0.15s forwards;
   }
 
   .menu-hero__sub {
-    max-width: 520px;
-    margin: 1.1rem auto 0;
-    color: var(--c-text);
-    font-size: 1rem;
+    max-width: 560px;
+    margin: 0 auto 1.7rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
     line-height: 1.6;
+    color: rgba(255, 255, 255, 0.85);
     opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease 0.24s, transform 0.7s ease 0.24s;
+    transform: translateY(18px);
+    animation: carte-in 0.8s ease-out 0.3s forwards;
   }
 
-  .menu-hero.is-visible .menu-hero__claim,
-  .menu-hero.is-visible .menu-hero__title,
-  .menu-hero.is-visible .menu-hero__sub {
+  .menu-hero__btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 12px 34px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: carte-in 0.8s ease-out 0.45s forwards;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .menu-hero__btn:hover {
+    background: #fff;
+    color: var(--c-bg);
+  }
+
+  .menu-hero__flag {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    z-index: 2;
+    background: linear-gradient(
+      90deg,
+      #007153 0%, #007153 33.333%,
+      #ffffff 33.333%, #ffffff 66.666%,
+      #ed1c24 66.666%, #ed1c24 100%
+    );
+  }
+
+  @keyframes carte-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- BARRA SEZIONI ---------- */
+  :global(html) { scroll-behavior: smooth; }
+
+  .secnav {
+    position: fixed;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    scrollbar-width: none;
+    z-index: 60;
+  }
+  .secnav::-webkit-scrollbar { display: none; }
+
+  .secnav__item {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .secnav__label {
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--c-text);
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  }
+  .secnav__item:hover .secnav__label { opacity: 0.85; transform: none; }
+  .secnav__item.active .secnav__label {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
+    color: var(--c-accent);
+    font-weight: 700;
+  }
+  .secnav__box {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--c-line);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: var(--c-text);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .secnav__box :global(svg) {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+  }
+  /* Icone "piene" (fornite): riempimento invece del tratto */
+  .secnav__box :global(svg.ico-fill) {
+    fill: currentColor;
+    stroke: none;
+    width: 20px;
+    height: 20px;
+  }
+  .secnav__item.active .secnav__box {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--c-bg);
   }
 
-  /* ---------- LISTA MENU ---------- */
-  .menu-wrap {
+  /* ---------- CARTE ---------- */
+  .carte {
     max-width: var(--maxw);
     margin: 0 auto;
-    padding: 4rem 1.5rem 5rem;
+    padding: 2rem 2rem 5rem;
   }
 
-  .menu-cat {
-    margin-bottom: 4rem;
+  .cat {
+    scroll-margin-top: 95px;
   }
 
-  .menu-cat__title {
-    font-family: var(--font-title);
-    font-size: clamp(2.25rem, 6vw, 3.5rem);
-    line-height: 1;
-    letter-spacing: 0.01em;
-    margin: 0 0 2rem;
-    color: var(--c-text);
+  .cat {
+    display: grid;
+    grid-template-columns: minmax(180px, 24%) 1fr;
+    gap: 2rem 3.5rem;
+    align-items: start;
+    padding: 3.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.55);
   }
 
-  /* ---------- GRUPPO (es. Vino) con titolone + sottotitoli ---------- */
-  .menu-group {
-    margin-bottom: 4rem;
+  .cat__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.1rem, 3.4vw, 2.9rem);
+    line-height: 1.1;
+    color: var(--c-accent);
+    margin: 0;
+    position: sticky;
+    top: 96px;
   }
 
-  .menu-group__title {
-    font-family: var(--font-title);
-    font-size: clamp(2.75rem, 7vw, 4.5rem);
-    line-height: 1;
-    letter-spacing: 0.01em;
-    margin: 0 0 2.5rem;
-    color: var(--c-text);
+  .cat__body {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
   }
 
-  .menu-sub {
-    margin-bottom: 3rem;
+  .cat__subtitle {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 0.95rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+    margin: 0 0 1.6rem;
   }
 
-  .menu-sub__title {
-    font-family: var(--font-title);
-    font-size: clamp(1.4rem, 3vw, 1.9rem);
-    line-height: 1;
-    letter-spacing: 0.04em;
-    margin: 0 0 1.5rem;
-    padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--c-line);
-    color: var(--c-muted);
-  }
-
-  .menu-list {
+  .cat__items {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 2.25rem 3rem;
+    columns: 2;
+    column-gap: 3.5rem;
+  }
+
+  .dish {
+    break-inside: avoid;
+    margin-bottom: 1.9rem;
   }
 
   .dish__head {
     display: flex;
     align-items: baseline;
-    gap: 0.4rem;
-    margin: 0 0 0.5rem;
+    gap: 0.5rem;
+    margin: 0;
   }
-
   .dish__name {
-    font-family: var(--font-title);
-    font-size: 1.4rem;
-    letter-spacing: 0.02em;
+    font-family: var(--font-body);
+    font-size: 1.12rem;
     color: var(--c-text);
   }
-
-  .dish__allerg {
-    font-size: 0.7rem;
-    color: var(--c-text);
+  .b { font-size: 0.85rem; margin-left: 0.3rem; }
+  .b-star { color: var(--c-accent); }
+  .dish__alg {
+    font-size: 0.62rem;
+    color: var(--c-muted);
+    margin-left: 0.3rem;
     letter-spacing: 0.05em;
   }
-
+  .dish__dots {
+    flex: 1;
+    min-width: 24px;
+    border-bottom: 1px dotted rgba(255, 255, 255, 0.45);
+    transform: translateY(-4px);
+  }
   .dish__price {
-    margin-left: auto;
-    font-family: var(--font-title);
-    font-size: 1.4rem;
+    font-family: var(--font-body);
+    font-size: 1.05rem;
     color: var(--c-text);
     white-space: nowrap;
   }
-
-  .dish__desc-fr {
-    margin: 0;
-    color: var(--c-muted);
+  .dish__old {
+    color: rgba(255, 255, 255, 0.55);
+    margin-right: 0.45rem;
     font-size: 0.95rem;
-    line-height: 1.45;
   }
 
-  .dish__desc-en {
-    margin: 0.15rem 0 0;
-    color: var(--c-text);
-    font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1.45;
-  }
-
-  /* ---------- SUPPLEMENTI (pill) ---------- */
-  .menu-suppl {
-    margin-top: 2.5rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.85rem;
-  }
-
-  .menu-suppl__pill {
-    display: inline-flex;
-    flex-direction: column;
-    border: 1px solid var(--c-text);
-    padding: 0.7rem 1.4rem;
-    line-height: 1.2;
-  }
-
-  .menu-suppl__fr {
-    font-family: var(--font-title);
-    font-size: 1.4rem;
-    letter-spacing: 0.05em;
-    color: var(--c-text);
-  }
-
-  .menu-suppl__en {
-    font-size: 0.8rem;
-    font-weight: 700;
+  .dish__desc {
+    margin: 0.35rem 0 0;
+    padding-right: 2rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
     color: var(--c-muted);
-    letter-spacing: 0.02em;
   }
 
-  /* ---------- FASCIA BOISSONS ---------- */
-  .drinks-band {
-    position: relative;
-    min-height: 34vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  /* ---------- LEGENDA ---------- */
+  .alg-legend {
+    padding: 3rem 0 0;
     text-align: center;
-    overflow: hidden;
-    border-top: 1px solid var(--c-line);
-    border-bottom: 1px solid var(--c-line);
   }
-
-  .drinks-band__bg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 0;
-  }
-
-  .drinks-band__overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: rgba(0, 0, 0, 0.55);
-  }
-
-  .drinks-band__inner {
-    position: relative;
-    z-index: 2;
-    padding: 3rem 1.5rem;
-  }
-
-  .drinks-band__title {
-    font-family: var(--font-title);
-    font-size: clamp(2.75rem, 8vw, 5rem);
-    line-height: 1;
-    letter-spacing: 0.03em;
-    margin: 0;
+  .alg-legend__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.5rem;
     color: var(--c-text);
+    margin: 0 0 0.9rem;
   }
-
-  /* ---------- LEGENDA ALLERGENI ---------- */
-  .allerg-legend {
-    margin-top: 2rem;
-    padding-top: 3rem;
-    border-top: 1px solid var(--c-line);
-  }
-
-  .allerg-legend__list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 2.5rem;
-  }
-
-  .allerg-legend__item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.6rem;
-    width: 90px;
-  }
-
-  .allerg-legend__icon {
-    width: 56px;
-    height: 56px;
-    object-fit: contain;
-  }
-
-  .allerg-legend__label {
+  .alg-legend__list {
+    max-width: 860px;
+    margin: 0 auto 0.9rem;
     font-size: 0.85rem;
-    color: var(--c-text);
-    text-align: center;
+    line-height: 1.8;
+    color: var(--c-muted);
+  }
+  .alg-legend__badges {
+    font-size: 0.85rem;
+    color: var(--c-muted);
+    margin: 0;
   }
 
-  @media (max-width: 600px) {
-    .menu-list {
-      grid-template-columns: 1fr;
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 1100px) {
+    .cat__items { column-gap: 2.5rem; }
+  }
+  @media (max-width: 900px) {
+    /* Barra sezioni: striscia orizzontale sopra i bottoni Commander/Réserver */
+    .secnav {
+      top: auto;
+      bottom: 88px;
+      left: 12px;
+      right: 12px;
+      transform: none;
+      flex-direction: row;
+      max-height: none;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 4px 2px;
     }
+    .secnav__label { display: none; }
+    /* Centrati quando ci stanno, scrollabili quando sono troppi
+       (i margin auto sul primo/ultimo centrano senza rompere lo scroll) */
+    .secnav__item:first-child { margin-left: auto; }
+    .secnav__item:last-child { margin-right: auto; }
+    .cat { scroll-margin-top: 84px; }
+
+    .carte { padding: 1rem 1.5rem 8rem; }
+    .cat {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      padding: 2.5rem 0;
+    }
+    .cat__title { position: static; }
+    .cat__items { columns: 1; }
+    .dish { margin-bottom: 1.5rem; }
+    .dish__desc { padding-right: 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .menu-hero__claim,
     .menu-hero__title,
-    .menu-hero__sub {
+    .menu-hero__sub,
+    .menu-hero__btn {
       opacity: 1;
       transform: none;
-      transition: none;
-    }
-    .menu-hero__slide {
-      transition: none;
+      animation: none;
     }
   }
 </style>
 
 <script>
-  const hero = document.querySelector(".menu-hero");
+  // Barra sezioni: evidenzia la sezione visibile (scrollspy) e, quando la
+  // barra è orizzontale (mobile), la fa scorrere per tenere visibile
+  // il bottone attivo.
+  const nav = document.getElementById("secnav");
+  const voci = Array.from(nav?.querySelectorAll<HTMLAnchorElement>(".secnav__item") ?? []);
+  const sezioni = Array.from(document.querySelectorAll(".cat[id^='sec-']"));
 
-  if (hero) {
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            io.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.3 }
-    );
-    io.observe(hero);
+  function attiva(id: string) {
+    let attivo: HTMLAnchorElement | null = null;
+    for (const a of voci) {
+      // data-secs: elenco delle sezioni coperte (Boissons ne copre molte)
+      const on = (a.dataset.secs ?? "").split(",").includes(id);
+      a.classList.toggle("active", on);
+      if (on) attivo = a;
+    }
+    // Barra orizzontale (mobile): centra il bottone attivo
+    if (attivo && nav && nav.scrollWidth > nav.clientWidth + 4) {
+      nav.scrollTo({
+        left: attivo.offsetLeft - nav.clientWidth / 2 + attivo.clientWidth / 2,
+        behavior: "smooth",
+      });
+    }
   }
 
-  const slides = Array.from(document.querySelectorAll(".menu-hero__slide"));
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  if (slides.length > 1 && !reduceMotion) {
-    let current = 0;
-    setInterval(() => {
-      slides[current].classList.remove("is-active");
-      current = (current + 1) % slides.length;
-      slides[current].classList.add("is-active");
-    }, 5000);
-  }
+  const oss = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) attiva(e.target.id);
+      }
+    },
+    { rootMargin: "-30% 0px -60% 0px" }
+  );
+  sezioni.forEach((s) => oss.observe(s));
 </script>

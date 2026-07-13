@@ -138,9 +138,12 @@ const L = {
   </div>
 
   <div class="ftr-legal">
-    <p>
-      © {YEAR} {L.rights} • Migraf SRL / La Molisana / BE 0899 648 967 -
-      <a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a>
+    <p class="lg">
+      <span>© {YEAR}</span><span class="lg-sep">&nbsp;</span>
+      <span>{L.rights}</span><span class="lg-sep">&nbsp;•&nbsp;</span>
+      <span>Migraf SRL / La Molisana</span><span class="lg-sep">&nbsp;/&nbsp;</span>
+      <span>BE 0899 648 967</span><span class="lg-sep">&nbsp;-&nbsp;</span>
+      <span><a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a></span>
     </p>
     <p>
       <a href="https://www.moodd.online" target="_blank" rel="noopener noreferrer">Powered by MOODD</a>
@@ -216,6 +219,18 @@ const L = {
     .ftr-col:nth-child(even) { border-left: 1px solid var(--c-line); }
     .ftr-title { font-size: 1.7rem; }
   }
+  @media (max-width: 640px) {
+    .ftr-legal {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      padding: 1.4rem 1.5rem 1.6rem;
+    }
+    .lg span { display: block; line-height: 1.9; }
+    .lg .lg-sep { display: none; }
+  }
+
   @media (max-width: 520px) {
     .ftr-cols { grid-template-columns: 1fr; gap: 0; }
     .ftr-col { border-left: none !important; border-top: 1px solid var(--c-line); padding: 1.6rem 1rem; }

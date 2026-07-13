@@ -70,6 +70,9 @@ const CLOSE = en ? "Close" : "Fermer";
   </button>
 </div>
 
+<!-- Velo sfumato dietro i controlli in basso: meno confusione col contenuto -->
+<div class="mnav-scrim" aria-hidden="true"></div>
+
 <!-- Bottom bar fissa -->
 <div class="mnav-bar" id="mnav-bar">
   <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">Commander</a>
@@ -82,9 +85,23 @@ const CLOSE = en ? "Close" : "Fermer";
 </div>
 
 <style>
-  .mnav-bar, .mnav-panel { display: none; }
+  .mnav-bar, .mnav-panel, .mnav-scrim { display: none; }
 
   @media (max-width: 900px) {
+    /* --- Velo sfumato: marrone 75% in basso -> trasparente in alto --- */
+    .mnav-scrim {
+      display: block;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 180px;
+      background: linear-gradient(to top, rgba(35, 31, 32, 0.75), rgba(35, 31, 32, 0));
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      z-index: 50;
+    }
+
     /* --- Barra fissa in basso --- */
     .mnav-bar {
       display: flex;
