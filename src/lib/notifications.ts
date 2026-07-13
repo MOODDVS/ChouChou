@@ -9,8 +9,8 @@ const BCC = "enquiries@moodd.online";
 
 // URL pubblico del sito (per il logo nell'email cliente).
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
-const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/logo-white-pizzeria77.png`;
-const TEL = "+3226477777";
+const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
+const TEL = "+32455131465";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -121,57 +121,62 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #2a2a2a;color:#ffffff;font-size:16px;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #2a2a2a;color:#ffffff;font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
 
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #2a2a2a;color:#b3b3b3;font-size:13px;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1a1a1a; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#000000;border:1px solid #2a2a2a;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
-        <td style="padding:40px 40px 24px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Pizzeria 77" width="64" height="64" style="display:inline-block;border:0;" />
-          <p style="margin:18px 0 0;color:#b3b3b3;font-size:11px;letter-spacing:4px;">THIS IS PIZZERIA 77</p>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">LA MOLISANA — PIZZA &amp; PASTA</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:32px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
-          <p style="margin:18px 0 0;color:#cccccc;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:30px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#b3b3b3;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#ffffff;font-size:40px;font-weight:bold;line-height:1;">${ora}</p>
+        <td style="padding:28px 40px 8px;text-align:center;">
+          <p style="margin:0;color:#b3aca6;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:#dfab4e;font-size:42px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ffffff;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:18px;font-weight:bold;">${t.total}</td>
-              <td style="padding:16px 24px;color:#ffffff;font-size:18px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Georgia,'Times New Roman',serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:#dfab4e;font-size:19px;text-align:right;font-family:Georgia,'Times New Roman',serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px 40px;text-align:center;">
-          <a href="tel:${TEL}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;padding:14px 34px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.callBtn}</a>
+        <td style="padding:0 40px 4px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #2a2a2a;text-align:center;">
-          <p style="margin:0;color:#777777;font-size:12px;line-height:1.8;">Chaussée de Bruxelles 77, 1410 Waterloo<br>+32 (0)2 647 77 77 · info@pizzeria77.be</p>
+        <td style="padding:0 40px 36px;text-align:center;">
+          <a href="tel:${TEL}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · pizzeria@lamolisana.be</p>
         </td>
       </tr>
     </table>
@@ -226,15 +231,15 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
       <tr>
-        <td style="padding:24px 32px;background:#000000;">
+        <td style="padding:24px 32px;background:#231f20;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:#ffffff;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Nouvelle commande</td>
+            <td style="color:#dfab4e;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
             <td style="color:#ffffff;font-size:13px;text-align:right;">#${esc(o.numero)}</td>
           </tr></table>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #000000;">
+        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #231f20;">
           <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Retrait à</p>
           <p style="margin:6px 0 0;color:#000;font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
           <p style="margin:18px 0 4px;color:#000;font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
