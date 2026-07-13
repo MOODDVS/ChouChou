@@ -40,7 +40,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       #app { display: none; min-height: 100vh; flex-direction: column; }
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
 
-      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; max-width: 1320px; }
+      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
       @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } }
       @media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
 
@@ -56,8 +56,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .state { color: var(--c-muted); padding: 1rem 0; }
 
       /* --- Tile Statistiques (2 colonne) --- */
-      .tile-stats { grid-column: span 2; }
-      @media (max-width: 560px) { .tile-stats { grid-column: span 1; } }
+      .tile-stats { grid-column: 1 / -1; }
+      @media (max-width: 560px) { .tile-stats { grid-column: 1 / -1; } }
       .st-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
       .st-head .tile-title { margin-bottom: 0; }
       .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }

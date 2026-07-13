@@ -181,6 +181,7 @@ gruppi.forEach((g, i) => {
                         {item.is_bestseller && <span class="b b-star" title="Best-seller">★</span>}
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
+                        {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
                         {item.allergens.length > 0 && (
                           <sup class="dish__alg">{item.allergens.join("·")}</sup>
                         )}
@@ -209,7 +210,7 @@ gruppi.forEach((g, i) => {
         {ALLERGENI.map(([n, label]) => `${n}. ${label}`).join(" · ")}
       </p>
       <p class="alg-legend__badges">
-        <span class="b-star">★</span> Best-seller · 🌱 {en ? "Vegan" : "Végan"} · 🌶️ {en ? "Spicy" : "Épicé"}
+        <span class="b-star">★</span> Best-seller · 🌱 {en ? "Vegan" : "Végan"} · 🌶️ {en ? "Spicy" : "Épicé"} · <span class="b-sugg">Suggestion</span>
       </p>
     </section>
   </div>
@@ -469,6 +470,21 @@ gruppi.forEach((g, i) => {
   }
   .b { font-size: 0.85rem; margin-left: 0.3rem; }
   .b-star { color: var(--c-accent); }
+  .b-sugg {
+    display: inline-block;
+    background: var(--c-accent);
+    color: var(--c-bg);
+    font-family: var(--font-body);
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    margin-left: 0.45rem;
+    vertical-align: 2px;
+    white-space: nowrap;
+  }
   .dish__alg {
     font-size: 0.62rem;
     color: var(--c-muted);

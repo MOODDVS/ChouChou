@@ -4,6 +4,16 @@
 // email cucina.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
+
+// Tab "Liens": social + recensioni Google (icone piatte, currentColor)
+const LNK = [
+  { k: "facebook", label: "Facebook", ph: "https://www.facebook.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07z"/></svg>' },
+  { k: "instagram", label: "Instagram", ph: "https://www.instagram.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.9 5.9 0 0 0-2.13 1.39A5.9 5.9 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.39 2.13a5.9 5.9 0 0 0 2.13 1.39c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.39 5.9 5.9 0 0 0 1.39-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.39-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zM12 16a4 4 0 1 1 4-4 4 4 0 0 1-4 4zM19.85 5.59a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>' },
+  { k: "tiktok", label: "TikTok", ph: "https://www.tiktok.com/@...", icon: '<svg viewBox="0 0 24 24"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>' },
+  { k: "linkedin", label: "LinkedIn", ph: "https://www.linkedin.com/company/...", icon: '<svg viewBox="0 0 24 24"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.55C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.72C24 .77 23.2 0 22.22 0z"/></svg>' },
+  { k: "x", label: "X (Twitter)", ph: "https://x.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.46l8.6-9.83L0 1.15h7.59l5.24 6.93zM17.6 20.64h2.04L6.49 3.24H4.3z"/></svg>' },
+  { k: "google_review", label: "Google — avis", ph: "https://g.page/r/.../review", icon: '<svg viewBox="0 0 24 24"><path d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.44a5.5 5.5 0 0 1-2.39 3.61v3h3.87c2.26-2.09 3.58-5.16 3.58-8.8z"/><path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24z"/><path d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.63H1.29a12 12 0 0 0 0 10.74z"/><path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.98 11.98 0 0 0 12 0 12 12 0 0 0 1.29 6.63l3.98 3.09C6.22 6.87 8.87 4.75 12 4.75z"/></svg>' },
+];
 ---
 
 <html lang="fr">
@@ -44,7 +54,62 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       #content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
+      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 1.5rem; }
+      .tabs button {
+        font-family: var(--font-title);
+        font-size: 1.05rem;
+        letter-spacing: 0.05em;
+        padding: 0.5rem 1.2rem;
+        background: var(--c-card);
+        border: 1px solid var(--c-line);
+        color: var(--c-muted);
+        border-radius: 999px;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      /* Fuori dal tab Horaire il contenuto sta su una colonna contenuta */
+      #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
+      #content[data-tab="liens"] { max-width: none; }
+      .lnk-field { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; }
+      .lnk-field:last-of-type { margin-bottom: 0.9rem; }
+      .lnk-lab { display: flex; align-items: center; gap: 0.8rem; min-width: 200px; }
+      .lnk-ico { display: inline-flex; color: var(--c-accent); }
+      .lnk-ico svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+      .lnk-field input[type="url"] { flex: 1; width: auto; max-width: none; }
+      @media (max-width: 640px) {
+        .lnk-field { flex-wrap: wrap; gap: 0.6rem; }
+        .lnk-field input[type="url"] { flex-basis: 100%; }
+      }
+
+      .kemails { display: flex; flex-direction: column; gap: 0.6rem; }
+      .kemail-row { display: flex; gap: 0.5rem; align-items: center; }
+      .kemail-row input { flex: 1; }
+      .kemail-del {
+        width: 36px; height: 36px; flex-shrink: 0;
+        background: rgba(237, 28, 36, 0.25);
+        border: none; border-radius: 8px;
+        color: #ff6b6b; font-size: 1.1rem; line-height: 1;
+        cursor: pointer;
+      }
+      .kemail-del:hover { background: rgba(237, 28, 36, 0.4); }
+      .kemail-add {
+        margin-top: 0.7rem;
+        background: transparent;
+        border: 1px solid var(--c-accent);
+        color: var(--c-accent);
+        font-family: var(--font-body);
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 0.5rem 0.9rem;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .kemail-add:hover { background: var(--c-accent); color: #231f20; }
+
       .save-bar {
         position: fixed; z-index: 95;
         display: flex; align-items: center; gap: 1rem;
@@ -101,7 +166,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .switch input:checked + .track { background: var(--c-accent); }
       .switch input:checked + .track::before { transform: translateX(20px); background: #231f20; }
 
-      input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"] {
+      input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; border-radius: 0;
         color-scheme: dark;
@@ -220,15 +285,23 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       <AdminHeader />
       <main>
         <h1>Réglages</h1>
+
+        <div class="tabs" id="tabs" role="tablist">
+          <button type="button" data-t="horaire" class="is-active">Horaire</button>
+          <button type="button" data-t="cuisine">Cuisine</button>
+          <button type="button" data-t="liens">Liens</button>
+          <button type="button" data-t="team">Team</button>
+        </div>
+
         <div class="state" id="state">Chargement…</div>
 
-        <div id="content" style="display:none">
-          <div class="section">
+        <div id="content" style="display:none" data-tab="horaire">
+          <div class="section" data-tab="horaire">
             <h2>Horaires d'ouverture (take-away)</h2>
             <div id="days"></div>
           </div>
 
-          <div class="section">
+          <div class="section" data-tab="horaire">
             <h2>Jours spéciaux</h2>
             <div class="sp-list" id="sp-list"></div>
             <div class="sp-add">
@@ -271,7 +344,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             </div>
           </div>
 
-          <div class="section">
+          <div class="section" data-tab="cuisine">
             <h2>Cuisine</h2>
             <div class="field">
               <label for="prep">Temps de préparation (min)</label>
@@ -281,11 +354,31 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
               <label for="slot">Durée d'un créneau (min)</label>
               <input type="number" id="slot" min="5" max="120" step="5" />
             </div>
-            <div class="field">
-              <label for="kemail">Email cuisine (commandes)</label>
-              <input type="email" id="kemail" placeholder="cuisine@lamolisana.be" />
+            <div class="field field-emails">
+              <label>Emails cuisine (commandes)</label>
+              <div class="kemails" id="kemails"></div>
             </div>
-            <p class="hint">L'email cuisine reçoit une notification à chaque commande payée.</p>
+            <button type="button" class="kemail-add" id="kemail-add">+ Ajouter un email</button>
+            <p class="hint">Chaque adresse reçoit une notification à chaque commande payée.</p>
+          </div>
+
+          <div class="section" data-tab="liens" style="display:none">
+            <h2>Liens</h2>
+            {LNK.map((l) => (
+              <div class="lnk-field">
+                <label class="lnk-lab" for={"lnk-" + l.k}>
+                  <span class="lnk-ico" set:html={l.icon} />
+                  {l.label}
+                </label>
+                <input type="url" id={"lnk-" + l.k} placeholder={l.ph} />
+              </div>
+            ))}
+            <p class="hint">Le lien Google est le lien « Laisser un avis » de la fiche Google Business du restaurant.</p>
+          </div>
+
+          <div class="section" data-tab="team" style="display:none">
+            <h2>Team</h2>
+            <p class="hint">Section en préparation — la gestion de l'équipe arrivera ici.</p>
           </div>
 
           <div class="save-bar">
@@ -367,7 +460,44 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         const daysEl = document.getElementById("days") as HTMLDivElement;
         const prepEl = document.getElementById("prep") as HTMLInputElement;
         const slotEl = document.getElementById("slot") as HTMLInputElement;
-        const kemailEl = document.getElementById("kemail") as HTMLInputElement;
+        const kemailsBox = document.getElementById("kemails") as HTMLDivElement;
+        const kemailAdd = document.getElementById("kemail-add") as HTMLButtonElement;
+
+        function aggiungiRigaEmail(valore = "") {
+          const riga = document.createElement("div");
+          riga.className = "kemail-row";
+          riga.innerHTML =
+            '<input type="email" placeholder="cuisine@lamolisana.be" />' +
+            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+          const inp = riga.querySelector("input") as HTMLInputElement;
+          inp.value = valore;
+          inp.addEventListener("input", dirty);
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            if (!kemailsBox.querySelector(".kemail-row")) aggiungiRigaEmail();
+            dirty();
+          });
+          kemailsBox.appendChild(riga);
+        }
+
+        function emailsCucina(): string {
+          return Array.from(kemailsBox.querySelectorAll<HTMLInputElement>("input"))
+            .map((i) => i.value.trim())
+            .filter(Boolean)
+            .join(", ");
+        }
+
+        kemailAdd.addEventListener("click", () => {
+          aggiungiRigaEmail();
+          dirty();
+        });
+
+        // --- Link social / recensioni (tab Liens) ---
+        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+        const lnkEls = new Map(
+          CHIAVI_LINK.map((k) => [k, document.getElementById("lnk-" + k) as HTMLInputElement])
+        );
+        lnkEls.forEach((el) => el.addEventListener("input", dirty));
         const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
         const msgEl = document.getElementById("msg") as HTMLSpanElement;
 
@@ -389,7 +519,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         const headers = { Authorization: `Bearer ${token}` };
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string> };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = "Erreur de chargement."; return; }
@@ -403,20 +533,31 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         daysEl.innerHTML = ORDINE.map((d) => rigaGiorno(mappa.get(d)!)).join("");
         prepEl.value = String(dati.prep_time_minutes);
         slotEl.value = String(dati.slot_duration_minutes);
-        kemailEl.value = dati.kitchen_email;
+        kemailsBox.innerHTML = "";
+        const listaEmail = String(dati.kitchen_email ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
+        if (listaEmail.length === 0) aggiungiRigaEmail();
+        else listaEmail.forEach((e: string) => aggiungiRigaEmail(e));
+        for (const k of CHIAVI_LINK) {
+          const el = lnkEls.get(k);
+          if (el) el.value = dati.links?.[k] ?? "";
+        }
 
         stateEl.style.display = "none";
         contentEl.style.display = "grid";
 
         // Bottone flottante: appare alla prima modifica
         const saveBar = document.querySelector(".save-bar") as HTMLElement;
-        const dirty = () => saveBar.classList.add("is-visible");
+        // function declaration: è "hoisted", quindi utilizzabile anche
+        // dal codice della lista email che gira prima di questa riga.
+        function dirty() {
+          saveBar.classList.add("is-visible");
+        }
         daysEl.addEventListener("change", dirty);
         daysEl.addEventListener("click", (e) => {
           const t = e.target as HTMLElement;
           if (t.classList.contains("m-continu") || t.classList.contains("m-coupe")) dirty();
         });
-        [prepEl, slotEl, kemailEl].forEach((el) => el.addEventListener("input", dirty));
+        [prepEl, slotEl].forEach((el) => el.addEventListener("input", dirty));
 
         // --- Jours spéciaux (salvataggio immediato, indipendente da Enregistrer) ---
         type SpecialDay = {
@@ -741,7 +882,10 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
                 days,
                 prep_time_minutes: Number(prepEl.value),
                 slot_duration_minutes: Number(slotEl.value),
-                kitchen_email: kemailEl.value.trim(),
+                kitchen_email: emailsCucina(),
+                links: Object.fromEntries(
+                  CHIAVI_LINK.map((k) => [k, (lnkEls.get(k)?.value ?? "").trim()])
+                ),
               }),
             });
             const json = await res.json();
@@ -768,6 +912,36 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           }
         });
       })();
-    </script>
+    
+  // ----- Tab della pagina (Horaire / Cuisine / Liens / Team) -----
+  const tabBtns = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button"));
+  const TAB_KEY = "lm-adm-settings-tab";
+
+  function mostraTab(t: string) {
+    tabBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.t === t));
+    document.querySelectorAll<HTMLElement>("#content .section[data-tab]").forEach((sec) => {
+      sec.style.display = sec.dataset.tab === t ? "" : "none";
+    });
+    const contenuto = document.getElementById("content");
+    if (contenuto) contenuto.dataset.tab = t;
+    // Enregistrer serve solo dove ci sono campi da salvare
+    const bar = document.querySelector<HTMLElement>(".save-bar");
+    if (bar) bar.style.display = t === "horaire" || t === "cuisine" || t === "liens" ? "" : "none";
+    try {
+      sessionStorage.setItem(TAB_KEY, t);
+    } catch {
+      /* storage non disponibile: pazienza */
+    }
+  }
+
+  tabBtns.forEach((b) => b.addEventListener("click", () => mostraTab(b.dataset.t ?? "horaire")));
+
+  try {
+    const salvato = sessionStorage.getItem(TAB_KEY);
+    if (salvato && tabBtns.some((b) => b.dataset.t === salvato)) mostraTab(salvato);
+  } catch {
+    /* niente ripristino */
+  }
+</script>
   </body>
 </html>

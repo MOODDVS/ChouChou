@@ -267,7 +267,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   try {
     await resend.emails.send({
       from: RESEND_FROM,
-      to: dest,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
       subject: `Nouvelle commande #${o.numero} — retrait ${ora}`,
       html,

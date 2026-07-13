@@ -6,6 +6,8 @@ import Features from "../../components/Features.astro";
 import Molise from "../../components/Molise.astro";
 import PhotoStrip from "../../components/PhotoStrip.astro";
 import CtaFinal from "../../components/CtaFinal.astro";
+import { linksSocial } from "../../lib/links";
+const social = await linksSocial();
 ---
 
 <Layout transparentHeader={true} title="La Molisana — Pizzeria & Italian Restaurant in Saint-Gilles, Brussels">
@@ -32,10 +34,7 @@ import CtaFinal from "../../components/CtaFinal.astro";
       "opens": "11:00",
       "closes": "23:30"
     }],
-    "sameAs": [
-      "https://www.facebook.com/pizzerialamolisana",
-      "https://www.instagram.com/pizzeria.lamolisana/"
-    ]
+    "sameAs": social.map((s) => s.url)
   })} />
   <Hero />
   <Story />

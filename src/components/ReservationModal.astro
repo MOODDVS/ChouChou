@@ -50,7 +50,7 @@
     display: flex;
     flex-direction: column;
     width: min(560px, 100%);
-    height: min(760px, 100%);
+    max-height: 100%;
     background: var(--c-bg);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 16px;
@@ -96,8 +96,8 @@
   }
 
   #resmod-frame {
-    flex: 1;
     width: calc(100% - 32px);
+    height: 480px; /* provvisoria: lo script la adatta al contenuto */
     margin: 0 auto 16px;
     border: 0;
     border-radius: 10px;
@@ -106,7 +106,6 @@
 
   @media (max-width: 640px) {
     .resmod { padding: 10px; }
-    .resmod__box { height: 100%; }
   }
 </style>
 
@@ -123,6 +122,34 @@
     mod?.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
   }
+
+  // Il widget è su una pagina NOSTRA (/reservation, stessa origine):
+  // possiamo leggere l'altezza reale del contenuto e adattare l'iframe,
+  // così sotto il widget non resta mai spazio vuoto.
+  function ridimensiona() {
+    try {
+      const doc = frame?.contentDocument;
+      if (!doc || !doc.body) return;
+      const contenuto = doc.body.scrollHeight;
+      const massimo = Math.round(window.innerHeight * 0.92) - 130; // logo + margini
+      const h = Math.max(240, Math.min(contenuto, massimo));
+      frame!.style.height = h + "px";
+    } catch {
+      /* in caso di sorprese l'altezza resta quella di base */
+    }
+  }
+  frame?.addEventListener("load", () => {
+    ridimensiona();
+    try {
+      const doc = frame.contentDocument;
+      if (doc?.body && "ResizeObserver" in window) {
+        new ResizeObserver(ridimensiona).observe(doc.body);
+      }
+    } catch {
+      /* niente observer: va bene comunque */
+    }
+  });
+  window.addEventListener("resize", ridimensiona);
 
   function chiudi() {
     mod?.classList.remove("open");

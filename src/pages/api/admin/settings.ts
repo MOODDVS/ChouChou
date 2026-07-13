@@ -19,6 +19,9 @@ interface GiornoInput {
 
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+// Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
+const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -46,17 +49,20 @@ export const GET: APIRoute = async ({ request }) => {
     return json({ error: "Lecture impossible" }, 500);
   }
 
-  const { data: cfg } = await supabaseAdmin
+  const { data: cfgRows } = await supabaseAdmin
     .from("app_config")
-    .select("value")
-    .eq("key", "kitchen_email")
-    .maybeSingle();
+    .select("key, value")
+    .in("key", ["kitchen_email", ...CHIAVI_LINK.map((k) => "link_" + k)]);
+  const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
+  const links: Record<string, string> = {};
+  for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
 
   return json({
     days,
     prep_time_minutes: days[0]?.prep_time_minutes ?? 30,
     slot_duration_minutes: days[0]?.slot_duration_minutes ?? 15,
-    kitchen_email: cfg?.value ?? "",
+    kitchen_email: cfg.get("kitchen_email") ?? "",
+    links,
   });
 };
 
@@ -98,6 +104,7 @@ export const PUT: APIRoute = async ({ request }) => {
     prep_time_minutes?: number;
     slot_duration_minutes?: number;
     kitchen_email?: string;
+    links?: Record<string, string>;
   };
   try {
     body = await request.json();
@@ -117,9 +124,28 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!Number.isFinite(slot) || slot < 5 || slot > 120) {
     return json({ error: "Durée créneau invalide (5–120 min)" }, 400);
   }
-  const email = String(body.kitchen_email ?? "").trim();
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: "Email cuisine invalide" }, 400);
+  // Più indirizzi separati da virgola: valido ciascuno, salvo normalizzato.
+  const listaEmail = String(body.kitchen_email ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  for (const e of listaEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      return json({ error: `Email cuisine invalide : ${e}` }, 400);
+    }
+  }
+  const email = listaEmail.join(", ");
+
+  // Link (tab Liens): vuoto ok, altrimenti deve essere un URL http(s)
+  const linkPuliti: [string, string][] = [];
+  if (body.links && typeof body.links === "object") {
+    for (const k of CHIAVI_LINK) {
+      const v = String((body.links as Record<string, unknown>)[k] ?? "").trim();
+      if (v && !/^https?:\/\/.+/i.test(v)) {
+        return json({ error: `Lien invalide (${k}) : il doit commencer par https://` }, 400);
+      }
+      linkPuliti.push(["link_" + k, v]);
+    }
   }
 
   const NOMI = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
@@ -173,6 +199,13 @@ export const PUT: APIRoute = async ({ request }) => {
       .upsert({ key: "kitchen_email", value: email });
     if (error) {
       return json({ error: "Email cuisine non enregistrée" }, 500);
+    }
+  }
+
+  for (const [key, value] of linkPuliti) {
+    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
+    if (error) {
+      return json({ error: "Liens non enregistrés" }, 500);
     }
   }
 
