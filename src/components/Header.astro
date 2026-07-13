@@ -17,7 +17,7 @@ const nav = [
   { label: "Notre carte", path: "/menu", caret: true },
   { label: "L'Ambiance", path: "/ambiance" },
   { label: "Contact", path: "/contact" },
-  { label: "Jobs", path: "/jobs" },
+  // { label: "Jobs", path: "/jobs" }, // nascosto per ora — riattivare togliendo il commento
 ];
 
 function isActive(path: string): boolean {
@@ -50,7 +50,20 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
     </a>
 
     <div class="hdr-right">
-      <a href={`tel:${PHONE_TEL}`} class="hdr-phone">{PHONE_DISPLAY}</a>
+      <div class="hdr-lang">
+        <button class="hdr-lang__btn" id="hdr-lang-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Langue">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M3.5 12h17" />
+            <path d="M12 3.5c2.6 2.3 3.9 5.1 3.9 8.5s-1.3 6.2-3.9 8.5c-2.6-2.3-3.9-5.1-3.9-8.5s1.3-6.2 3.9-8.5z" />
+          </svg>
+          <span>{lang.toUpperCase()}</span>
+        </button>
+        <div class="hdr-lang__menu" id="hdr-lang-menu">
+          <a href={getLocalizedUrl(current, "fr")} class={lang === "fr" ? "is-active" : ""}>FR</a>
+          <a href={getLocalizedUrl(current, "en")} class={lang === "en" ? "is-active" : ""}>EN</a>
+        </div>
+      </div>
 
       <div class="hdr-social">
         <a href={FB} class="soc" aria-label="Facebook" target="_blank" rel="noopener noreferrer">
@@ -67,7 +80,8 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
         </a>
       </div>
 
-      <a href={getLocalizedUrl("/order", lang)} class="btn">Commander</a>
+      <a href={getLocalizedUrl("/order", lang)} class="btn">{lang === "en" ? "Order" : "Commander"}</a>
+      <button type="button" class="btn" data-reserver>{lang === "en" ? "Book" : "Réserver"}</button>
     </div>
   </div>
 </header>
@@ -143,16 +157,60 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
 
   /* Destra: telefono + social + bottone */
   .hdr-right { display: flex; align-items: center; gap: 1.5rem; }
-  .hdr-phone {
-    font-family: var(--font-display);
-    font-size: 1.1rem;
-    letter-spacing: 0.02em;
+  .hdr-lang { position: relative; }
+  .hdr-lang__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: transparent;
+    border: none;
     color: var(--c-text);
-    text-decoration: none;
-    white-space: nowrap;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    padding: 0.3rem 0.2rem;
     transition: color 0.15s;
   }
-  .hdr-phone:hover { color: var(--c-accent); }
+  .hdr-lang__btn:hover { color: var(--c-accent); }
+  .hdr-lang__btn svg {
+    width: 19px;
+    height: 19px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+  .hdr-lang__menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 72px;
+    background: var(--c-bg);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    padding: 0.3rem;
+    display: none;
+    z-index: 60;
+  }
+  .hdr-lang.open .hdr-lang__menu { display: block; }
+  .hdr-lang__menu a {
+    display: block;
+    padding: 0.45rem 0.8rem;
+    text-align: center;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--c-text);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .hdr-lang__menu a:hover { background: rgba(255, 255, 255, 0.08); }
+  .hdr-lang__menu a.is-active { color: var(--c-accent); }
 
   .hdr-social { display: flex; align-items: center; gap: 0.9rem; }
   .soc {
@@ -181,6 +239,8 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
     transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     cursor: pointer;
   }
+  /* I due bottoni (Commander + Réserver) stanno vicini tra loro */
+  .btn + .btn { margin-left: -0.75rem; }
   .btn:hover {
     background: #ffffff;
     color: var(--c-bg);
@@ -191,8 +251,8 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
   @media (max-width: 1150px) {
     .hdr-nav { gap: 1.15rem; }
     .hdr-link { font-size: 0.9rem; }
-    .hdr-right { gap: 1rem; }
-    .hdr-phone { font-size: 0.9rem; }
+    .hdr-right { gap: 0.8rem; }
+    .btn { padding: 11px 18px; font-size: 0.85rem; }
   }
   /* 901–1320px: logo in alto, link centrati sotto; telefono/social/bottone nascosti */
   @media (max-width: 1320px) and (min-width: 901px) {
@@ -219,6 +279,19 @@ const IG = "https://www.instagram.com/pizzeria.lamolisana/";
 </style>
 
 <script>
+  // Dropdown lingua (icona mondo): toggle al click, chiusura al click fuori
+  const langBox = document.querySelector(".hdr-lang");
+  const langBtn = document.getElementById("hdr-lang-btn");
+  langBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const aperto = langBox?.classList.toggle("open");
+    langBtn.setAttribute("aria-expanded", aperto ? "true" : "false");
+  });
+  document.addEventListener("click", () => {
+    langBox?.classList.remove("open");
+    langBtn?.setAttribute("aria-expanded", "false");
+  });
+
   const header = document.querySelector(".hdr-transparent");
   if (header) {
     const onScroll = () => {

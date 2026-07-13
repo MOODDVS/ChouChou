@@ -17,7 +17,7 @@ const nav = [
   { label: "Notre carte", path: "/menu" },
   { label: "L'Ambiance", path: "/ambiance" },
   { label: "Contact", path: "/contact" },
-  { label: "Jobs", path: "/jobs" },
+  // { label: "Jobs", path: "/jobs" }, // nascosto per ora — riattivare togliendo il commento
 ];
 
 function isActive(path: string): boolean {
@@ -48,7 +48,7 @@ const CLOSE = en ? "Close" : "Fermer";
   </nav>
 
   <div class="mnav-cta">
-    <button class="mnav-book" id="mnav-reserver-panel" type="button">{BOOK}</button>
+    <button class="mnav-book" id="mnav-reserver-panel" type="button" data-reserver>{BOOK}</button>
     <a href={getLocalizedUrl("/order", lang)} class="mnav-book">Commander</a>
   </div>
 
@@ -76,7 +76,7 @@ const CLOSE = en ? "Close" : "Fermer";
 <!-- Bottom bar fissa -->
 <div class="mnav-bar" id="mnav-bar">
   <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">Commander</a>
-  <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button">{BOOK}</button>
+  <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button" data-reserver>{BOOK}</button>
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
       <span></span><span></span><span></span>
@@ -314,11 +314,7 @@ const CLOSE = en ? "Close" : "Fermer";
     a.addEventListener("click", () => setOpen(false));
   });
 
-  // Réserver (barra + pannello): per ora segnaposto —
-  // qui si aprirà il modale con il form RestoHub.
-  ["mnav-reserver", "mnav-reserver-panel"].forEach((id) => {
-    document.getElementById(id)?.addEventListener("click", () => {
-      // TODO RestoHub: aprire il modale di prenotazione
-    });
-  });
+  // Réserver: il modale si apre via [data-reserver] (ReservationModal);
+  // dal pannello chiudiamo anche il menu.
+  document.getElementById("mnav-reserver-panel")?.addEventListener("click", () => setOpen(false));
 </script>

@@ -1,0 +1,146 @@
+---
+// Modale prenotazioni (RestoHub), disponibile su TUTTO il sito.
+// Si apre cliccando qualsiasi elemento con l'attributo data-reserver.
+// Contenuto: fondo marrone brand, logo La Molisana in piccolo e il
+// widget caricato via iframe dalla pagina isolata /reservation
+// (solo alla prima apertura: zero peso finché non serve).
+---
+
+<div class="resmod" id="resmod" aria-hidden="true">
+  <div class="resmod__overlay" data-resmod-close></div>
+  <div class="resmod__box" role="dialog" aria-modal="true" aria-label="Réservation">
+    <button class="resmod__close" type="button" data-resmod-close aria-label="Fermer">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 6l12 12M18 6 6 18" />
+      </svg>
+    </button>
+    <img class="resmod__logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
+    <iframe id="resmod-frame" title="Réservation — La Molisana" data-src="/reservation"></iframe>
+  </div>
+</div>
+
+<style>
+  .resmod {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  .resmod.open {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .resmod__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .resmod__box {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(560px, 100%);
+    height: min(760px, 100%);
+    background: var(--c-bg);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+    transform: translateY(16px);
+    transition: transform 0.3s ease;
+  }
+  .resmod.open .resmod__box { transform: none; }
+
+  .resmod__logo {
+    width: 140px;
+    height: auto;
+    margin: 1.4rem auto 0.9rem;
+    display: block;
+    filter: brightness(0) invert(1); /* logo scuro -> bianco sul marrone */
+  }
+
+  .resmod__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: var(--c-text);
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .resmod__close:hover { background: rgba(255, 255, 255, 0.1); }
+  .resmod__close svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+  }
+
+  #resmod-frame {
+    flex: 1;
+    width: 100%;
+    border: 0;
+    background: var(--c-bg);
+  }
+
+  @media (max-width: 640px) {
+    .resmod { padding: 10px; }
+    .resmod__box { height: 100%; }
+  }
+</style>
+
+<script>
+  const mod = document.getElementById("resmod");
+  const frame = document.getElementById("resmod-frame") as HTMLIFrameElement | null;
+
+  function apri() {
+    // Il widget si carica solo alla prima apertura
+    if (frame && !frame.getAttribute("src")) {
+      frame.setAttribute("src", frame.dataset.src ?? "/reservation");
+    }
+    mod?.classList.add("open");
+    mod?.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+  }
+
+  function chiudi() {
+    mod?.classList.remove("open");
+    mod?.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+  }
+
+  // Qualsiasi elemento con data-reserver apre il modale, ovunque nel sito.
+  document.addEventListener("click", (e) => {
+    const el = e.target as HTMLElement;
+    const trigger = el.closest("[data-reserver]");
+    if (trigger) {
+      e.preventDefault();
+      apri();
+      return;
+    }
+    if (el.closest("[data-resmod-close]")) chiudi();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") chiudi();
+  });
+</script>

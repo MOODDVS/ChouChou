@@ -2,21 +2,21 @@ import type { APIRoute } from "astro";
 import { Resend } from "resend";
 
 const resend = new Resend(import.meta.env.RESEND_API_KEY);
-const FROM = "Pizzeria 77 <info@pizzeria77.be>";
-const TO = "manager@pizzeria77.be";
+const FROM = "La Molisana <info@lamolisana.be>";
+const TO = "info@lamolisana.be";
 const BCC = "enquiries@moodd.online";
 
 // URL pubblico del sito (per il logo nell'email). In locale: http://localhost:4321
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
-const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/logo-white-pizzeria77.png`;
-const TEL = "+3226477777";
+const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
+const TEL = "+32455131465";
 
 type Lang = "fr" | "en";
 
 // Testi dell'email al cliente, nelle due lingue.
 const T = {
   fr: {
-    subject: "Merci pour votre message — Pizzeria 77",
+    subject: "Merci pour votre message — La Molisana",
     title: "Merci !",
     intro: (p: string) =>
       `Bonjour ${p},<br>nous avons bien reçu votre message et nous vous répondrons dans les plus brefs délais.`,
@@ -25,7 +25,7 @@ const T = {
     callBtn: "Nous appeler",
   },
   en: {
-    subject: "Thank you for your message — Pizzeria 77",
+    subject: "Thank you for your message — La Molisana",
     title: "Thank you!",
     intro: (p: string) =>
       `Hello ${p},<br>we have received your message and will get back to you as soon as possible.`,
@@ -68,9 +68,9 @@ export const POST: APIRoute = async ({ request }) => {
   // Prénom per il saluto (prima parola del nome).
   const prenom = nome.split(/\s+/)[0] || nome;
 
-  // --- Email alla pizzeria (interna, sempre in francese) ---
-  const htmlPizzeria = `
-    <h2>Nouveau message — site Pizzeria 77</h2>
+  // --- Email al ristorante (interna, sempre in francese) ---
+  const htmlRistorante = `
+    <h2>Nouveau message — site La Molisana</h2>
     <p><strong>Nom :</strong> ${esc(nome)}</p>
     <p><strong>Email :</strong> ${esc(email)}</p>
     <p><strong>Téléphone :</strong> ${esc(telefono) || "—"}</p>
@@ -80,14 +80,14 @@ export const POST: APIRoute = async ({ request }) => {
     <p>${esc(messaggio).replace(/\n/g, "<br>")}</p>
   `;
 
-  // --- Email di ringraziamento al cliente (template dark brand, bilingue) ---
+  // --- Email di ringraziamento al cliente (template brand, bilingue) ---
   const htmlCliente = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1a1a1a; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#000000;border:1px solid #2a2a2a;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1a1718; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
         <td style="padding:40px 40px 24px;text-align:center;">
-          <img src="${LOGO_URL}" alt="Pizzeria 77" width="64" height="64" style="display:inline-block;border:0;" />
-          <p style="margin:18px 0 0;color:#b3b3b3;font-size:11px;letter-spacing:4px;">THIS IS PIZZERIA 77</p>
+          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:18px 0 0;color:#b3aca6;font-size:11px;letter-spacing:4px;">LA MOLISANA · PIZZA &amp; PASTA</p>
         </td>
       </tr>
       <tr>
@@ -98,9 +98,9 @@ export const POST: APIRoute = async ({ request }) => {
       </tr>
       <tr>
         <td style="padding:30px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ffffff;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #dfab4e;">
             <tr>
-              <td style="padding:18px 24px;color:#b3b3b3;font-size:12px;letter-spacing:2px;text-transform:uppercase;vertical-align:top;">${t.yourMessage}</td>
+              <td style="padding:18px 24px;color:#dfab4e;font-size:12px;letter-spacing:2px;text-transform:uppercase;vertical-align:top;">${t.yourMessage}</td>
               <td style="padding:18px 24px;color:#ffffff;font-size:14px;line-height:1.6;text-align:right;">${esc(messaggio).replace(/\n/g, "<br>")}</td>
             </tr>
           </table>
@@ -113,12 +113,12 @@ export const POST: APIRoute = async ({ request }) => {
       </tr>
       <tr>
         <td style="padding:0 40px 40px;text-align:center;">
-          <a href="tel:${TEL}" style="display:inline-block;background:#ffffff;color:#000000;text-decoration:none;padding:14px 34px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.callBtn}</a>
+          <a href="tel:${TEL}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #2a2a2a;text-align:center;">
-          <p style="margin:0;color:#777777;font-size:12px;line-height:1.8;">Chaussée de Bruxelles 77, 1410 Waterloo<br>+32 (0)2 647 77 77 · info@pizzeria77.be</p>
+        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · info@lamolisana.be</p>
         </td>
       </tr>
     </table>
@@ -126,16 +126,16 @@ export const POST: APIRoute = async ({ request }) => {
   `;
 
   try {
-    // 1) Messaggio alla pizzeria
-    const { error: errP } = await resend.emails.send({
+    // 1) Messaggio al ristorante
+    const { error: errR } = await resend.emails.send({
       from: FROM,
       to: TO,
       bcc: BCC,
       replyTo: email,
-      subject: oggetto ? `Contact site : ${oggetto}` : "Nouveau message — site Pizzeria 77",
-      html: htmlPizzeria,
+      subject: oggetto ? `Contact site : ${oggetto}` : "Nouveau message — site La Molisana",
+      html: htmlRistorante,
     });
-    if (errP) {
+    if (errR) {
       return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
     }
 

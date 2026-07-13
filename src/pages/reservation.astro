@@ -1,0 +1,46 @@
+---
+// Pagina ISOLATA col widget prenotazioni RestoHub (resto-genius).
+// Viene caricata SOLO dentro l'iframe del modale Réserver: il widget
+// richiede il Tailwind CDN, che qui non può contaminare gli stili
+// del resto del sito. Nessun Layout, nessun header/footer.
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Réservation — La Molisana</title>
+    <script is:inline src="https://cdn.tailwindcss.com"></script>
+    <script
+      is:inline
+      src="https://resto-genius.com/scripts/integrated.min.js"
+      data-info="{id:cmct49qhe00qkyaaw70kqq69n;position:bottom-right;token:2e6afcb1-d77c-4234-a2d7-389f44615372;color:}"
+      async
+    ></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #231f20;
+      }
+      #integrated {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        min-height: 100dvh;
+      }
+      iframe {
+        width: 100%;
+        height: auto;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="integrated"></div>
+  </body>
+</html>

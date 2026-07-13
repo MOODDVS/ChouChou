@@ -1,12 +1,86 @@
 ---
+// Pagina Contact:
+// - hero come le altre pagine (foto + overlay + tricolore)
+// - colonna sinistra: informazioni (indirizzo, contatti, orari LIVE
+//   dall'admin — stessa logica del footer — e servizi)
+// - colonna destra: form messaggio (NIENTE prenotazioni: nota con
+//   invito a chiamare) -> POST /api/contact
+// - sotto: Google Map edge-to-edge in bianco e nero col pin.
 import Layout from "../../layouts/Layout.astro";
 import ContactForm from "../../components/ContactForm.tsx";
 import { getLangFromUrl, useTranslations } from "../../i18n/ui";
+import { supabaseAdmin } from "../../lib/db";
 
 const lang = getLangFromUrl(Astro.url);
 const tr = useTranslations(lang);
+const en = lang === "en";
 
-// Oggetto label passato all'isola React (già tradotto lato server).
+const HERO_FOTO = "/la-molisana-home-foto-01.webp";
+const MAP_SRC =
+  "https://www.google.com/maps?q=La+Molisana,+Avenue+Adolphe+Demeur+37,+1060+Saint-Gilles&output=embed";
+
+const PHONE_DISPLAY = "+32 455 13 14 65";
+const PHONE_TEL = "+32455131465";
+const EMAIL = "info@lamolisana.be";
+
+// --- Orari settimanali dal DB (settings) — sempre allineati con l'admin ---
+const DAYS = en
+  ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  : ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dim
+const CLOSED = en ? "Closed" : "Fermé";
+const CLOSED_LINE = en ? "closed" : "fermé";
+
+function hhmm(t: string | null): string {
+  return t ? String(t).slice(0, 5) : "";
+}
+function bande(row: any): string {
+  const b: string[] = [];
+  if (row?.lunch_active && row.lunch_open && row.lunch_close) b.push(`${hhmm(row.lunch_open)} – ${hhmm(row.lunch_close)}`);
+  if (row?.dinner_active && row.dinner_open && row.dinner_close) b.push(`${hhmm(row.dinner_open)} – ${hhmm(row.dinner_close)}`);
+  return b.length ? b.join(" · ") : CLOSED;
+}
+
+let horaires: { days: string; val: string }[] = [];
+let fermetures: string[] = [];
+try {
+  const { data } = await supabaseAdmin
+    .from("settings")
+    .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
+  if (data && data.length) {
+    const byDay: Record<number, any> = {};
+    for (const r of data) byDay[r.day_of_week] = r;
+    const seq = ORDER.map((d) => ({ label: DAYS[d], val: bande(byDay[d]) }));
+
+    const runs: string[][] = [];
+    for (let i = 0; i < seq.length; i++) {
+      if (seq[i].val !== CLOSED) continue;
+      if (i > 0 && seq[i - 1].val === CLOSED) runs[runs.length - 1].push(seq[i].label);
+      else runs.push([seq[i].label]);
+    }
+    fermetures = runs.map((r) => (r.length === 1 ? r[0] : `${r[0]} – ${r[r.length - 1]}`));
+
+    const aperti = seq.filter((x) => x.val !== CLOSED);
+    const groups: { val: string; days: string[] }[] = [];
+    for (const it of aperti) {
+      const last = groups[groups.length - 1];
+      if (last && last.val === it.val) last.days.push(it.label);
+      else groups.push({ val: it.val, days: [it.label] });
+    }
+    horaires = groups.map((g) => ({
+      days: g.days.length === 1 ? g.days[0] : `${g.days[0]} – ${g.days[g.days.length - 1]}`,
+      val: g.val,
+    }));
+  }
+} catch {
+  horaires = [];
+}
+if (!horaires.length) {
+  horaires = en ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }] : [{ days: "Lun – Dim", val: "11:00 – 23:30" }];
+  fermetures = en ? ["Tuesday"] : ["Mardi"];
+}
+
+// Label del form per l'isola React (già tradotte lato server).
 const formLabels = {
   name: tr("contact.name"),
   email: tr("contact.email"),
@@ -19,366 +93,364 @@ const formLabels = {
   error: tr("contact.error"),
   consentPre: tr("contact.consentPre"),
   consentLink: tr("contact.consentLink"),
-  privacyHref: "/en/privacy",
+  privacyHref: en ? "/en/privacy" : "/privacy",
+};
+
+// Icone a linea, oro (currentColor dal CSS).
+const ICO: Record<string, string> = {
+  pin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-5.7-7-11a7 7 0 0 1 14 0c0 5.3-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+  tel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l1.5 4-2 1.5a12.5 12.5 0 0 0 7 7L16 14.5l4 1.5v3a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>',
+  card: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M6.5 14.5h4"/></svg>',
+  wifi: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5a12.5 12.5 0 0 1 16 0"/><path d="M7 13a8 8 0 0 1 10 0"/><path d="M9.8 16.2a4 4 0 0 1 4.4 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg>',
+  parking: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 16.5v-9h3.2a2.6 2.6 0 0 1 0 5.2H10"/></svg>',
+};
+
+const L = {
+  sub: en
+    ? "Italian restaurant in Saint-Gilles — Av. Adolphe Demeur 37, 1060 Brussels. Call us or send us a message."
+    : "Restaurant italien à Saint-Gilles — Av. Adolphe Demeur 37, 1060 Bruxelles. Appelez-nous ou écrivez-nous.",
+  payments: en ? "Cash, Visa, Mastercard, debit cards" : "Cash, Visa, Mastercard, carte de débit",
+  servicesTxt: en ? "Wi-Fi, terrace, take-away" : "Wi-Fi, terrasse, take-away",
+  parking: en ? "Parking nearby" : "Parking à proximité",
+  formTitle: en ? "Send us a message" : "Envoyez-nous un message",
+  formNote: en
+    ? `This form is not for reservations — to book a table, call us on ${PHONE_DISPLAY}.`
+    : `Ce formulaire n'est pas destiné aux réservations — pour réserver une table, appelez-nous au ${PHONE_DISPLAY}.`,
+  mapTitle: en ? "Map — La Molisana, Saint-Gilles" : "Carte — La Molisana, Saint-Gilles",
 };
 ---
 
-<Layout title={tr("nav.contact") + " — Pizzeria 77"}>
-  <section class="ct-head">
-    <div class="ct-head__inner">
-      <p class="ct-head__claim">THIS IS PIZZERIA 77</p>
-      <h1 class="ct-head__title">{tr("contact.heroTitle")}</h1>
+<Layout title={en ? "Contact — La Molisana, Italian Restaurant in Saint-Gilles, Brussels" : "Contact — La Molisana, Restaurant Italien à Saint-Gilles, Bruxelles"}>
+  <section class="ct-hero">
+    <img class="ct-hero__bg" src={HERO_FOTO} alt="" loading="eager" decoding="async" />
+    <div class="ct-hero__overlay" aria-hidden="true"></div>
+    <div class="ct-hero__inner">
+      <h1 class="ct-hero__title">Contact</h1>
+      <p class="ct-hero__sub">{L.sub}</p>
     </div>
+    <div class="ct-hero__flag" aria-hidden="true"></div>
   </section>
 
-  <div class="ct-wrap">
-    <div class="ct-grid">
-      <div class="ct-info">
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.address")}</h2>
-          <p>Chaussée de Bruxelles 77<br />1410 Waterloo, Belgique</p>
-        </div>
-
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.hours")}</h2>
-          <p>{tr("contact.hoursValue")}</p>
-          <p class="ct-muted">{tr("contact.hoursNote")}</p>
-        </div>
-
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.phone2")}</h2>
-          <p><a href="tel:+3226477777">+32 (0)2 647 77 77</a></p>
-          <p><a href="tel:+32477555077">+32 (0)477 55 50 77</a></p>
-        </div>
-
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.emailLabel")}</h2>
-          <p><a href="mailto:info@pizzeria77.be">info@pizzeria77.be</a></p>
-        </div>
-
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.services")}</h2>
-          <p>{tr("contact.servicesValue")}</p>
-        </div>
-
-        <div class="ct-block">
-          <h2 class="ct-block__title">{tr("contact.follow")}</h2>
-          <p class="ct-social">
-            <a href="https://www.instagram.com/pizzeria77waterloo/" target="_blank" rel="noopener">Instagram</a>
-            <a href="https://www.facebook.com/profile.php?id=61551793199466" target="_blank" rel="noopener">Facebook</a>
-          </p>
-        </div>
+  <div class="ct">
+    <div class="ct-info">
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.pin} />
+        <p>Av. Adolphe Demeur 37<br />1060 Bruxelles</p>
       </div>
 
-      <div class="ct-formwrap">
-        <h2 class="ct-block__title">{tr("contact.formTitle")}</h2>
-        <ContactForm t={formLabels} lang={lang} client:load />
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.tel} />
+        <p><a href={`tel:${PHONE_TEL}`}>{PHONE_DISPLAY}</a></p>
       </div>
+
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.clock} />
+        <p>
+          {horaires.map((h) => (
+            <span>{horaires.length > 1 ? `${h.days} : ${h.val}` : h.val}<br /></span>
+          ))}
+          {fermetures.map((f) => (
+            <span class="ct-closed">{(en ? "closed on " : "fermé le ") + f.toLowerCase()}<br /></span>
+          ))}
+        </p>
+      </div>
+
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.mail} />
+        <p><a href={`mailto:${EMAIL}`}>{EMAIL}</a></p>
+      </div>
+
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.card} />
+        <p>{L.payments}</p>
+      </div>
+
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.wifi} />
+        <p>{L.servicesTxt}</p>
+      </div>
+
+      <div class="ct-row">
+        <span class="ct-ico" set:html={ICO.parking} />
+        <p>{L.parking}</p>
+      </div>
+    </div>
+
+    <div class="ct-form">
+      <h2 class="ct-form__title">{L.formTitle}</h2>
+      <p class="ct-form__note">{L.formNote}</p>
+      <ContactForm t={formLabels} lang={lang} client:load />
     </div>
   </div>
 
-  {/* Mappa Google Maps caricata SOLO con consenso cookie (GDPR). */}
-  <section class="ct-map" id="ct-map" data-map-src="https://www.google.com/maps?q=Chauss%C3%A9e+de+Bruxelles+77,+1410+Waterloo&output=embed" data-map-title={tr("contact.mapTitle")}>
-    <div class="ct-map__placeholder" id="ct-map-placeholder">
-      <p class="ct-map__text">This map uses Google Maps, which may set third-party cookies. Load it only if you accept.</p>
-      <button type="button" class="ct-map__btn" id="ct-map-load">Load the map</button>
-    </div>
-  </section>
-
-  <script is:inline>
-    (function () {
-      var KEY = "p77-cookie-consent";
-      var sec = document.getElementById("ct-map");
-      var placeholder = document.getElementById("ct-map-placeholder");
-      var btn = document.getElementById("ct-map-load");
-      if (!sec) return;
-
-      function caricaMappa() {
-        if (sec.querySelector("iframe")) return; // già caricata
-        var iframe = document.createElement("iframe");
-        iframe.title = sec.getAttribute("data-map-title") || "Map";
-        iframe.src = sec.getAttribute("data-map-src");
-        iframe.width = "100%";
-        iframe.height = "100%";
-        iframe.style.border = "0";
-        iframe.loading = "lazy";
-        iframe.referrerPolicy = "no-referrer-when-downgrade";
-        if (placeholder) placeholder.remove();
-        sec.appendChild(iframe);
-      }
-
-      function consenso() {
-        try { return window.localStorage.getItem(KEY); } catch (e) { return null; }
-      }
-
-      // Se l'utente ha già accettato in passato, carica subito.
-      if (consenso() === "accepted") {
-        caricaMappa();
-      }
-
-      // Bottone "carica mappa": carica E registra il consenso.
-      if (btn) {
-        btn.addEventListener("click", function () {
-          try { window.localStorage.setItem(KEY, "accepted"); } catch (e) {}
-          caricaMappa();
-          window.dispatchEvent(new CustomEvent("cookie-consent-changed", { detail: { consent: "accepted" } }));
-        });
-      }
-
-      // Se l'utente accetta dal banner globale, carica la mappa.
-      window.addEventListener("cookie-consent-changed", function (e) {
-        if (e.detail && e.detail.consent === "accepted") caricaMappa();
-      });
-    })();
-  </script>
+  <section class="ct-map" id="ct-map" data-map-src={MAP_SRC} data-map-title={L.mapTitle}></section>
 </Layout>
 
 <style>
-  /* ---------- TESTATA ---------- */
-  .ct-head {
+  /* ---------- HERO (stesso pattern delle altre pagine) ---------- */
+  .ct-hero {
+    position: relative;
+    min-height: clamp(280px, 36vh, 420px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: 5rem 1.5rem 3rem;
-    border-bottom: 1px solid var(--c-line);
+    padding: 3.5rem 1.5rem 4rem;
+    overflow: hidden;
   }
-
-  .ct-head__claim {
-    font-family: var(--font-title);
-    letter-spacing: 0.35em;
-    font-size: 0.9rem;
-    color: var(--c-muted);
+  .ct-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+  .ct-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .ct-hero__inner { position: relative; z-index: 2; }
+  .ct-hero__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    letter-spacing: 0.02em;
+    line-height: 1.1;
     margin: 0 0 0.9rem;
-  }
-
-  .ct-head__title {
-    font-family: var(--font-title);
-    font-size: clamp(3.25rem, 10vw, 6rem);
-    line-height: 0.92;
-    margin: 0;
     color: var(--c-text);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ct-in 0.8s ease-out 0.15s forwards;
+  }
+  .ct-hero__sub {
+    max-width: 620px;
+    margin: 0 auto;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.85);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ct-in 0.8s ease-out 0.3s forwards;
+  }
+  .ct-hero__flag {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    z-index: 2;
+    background: linear-gradient(
+      90deg,
+      #007153 0%, #007153 33.333%,
+      #ffffff 33.333%, #ffffff 66.666%,
+      #ed1c24 66.666%, #ed1c24 100%
+    );
+  }
+  @keyframes ct-in {
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  /* ---------- CORPO ---------- */
-  .ct-wrap {
+  /* ---------- INFO + FORM ---------- */
+  .ct {
+    display: grid;
+    grid-template-columns: 38% 1fr;
+    gap: 4.5rem;
     max-width: var(--maxw);
     margin: 0 auto;
-    padding: 4rem 1.5rem 4rem;
+    padding: 4.5rem 2rem 5rem;
+    align-items: start;
   }
 
-  .ct-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.2fr;
-    gap: 4rem;
-  }
-
-  .ct-block {
-    margin-bottom: 2rem;
-  }
-
-  .ct-block__title {
-    font-family: var(--font-title);
-    font-size: 1.6rem;
-    letter-spacing: 0.02em;
-    margin: 0 0 0.6rem;
-    color: var(--c-text);
-  }
-
-  .ct-info p {
-    margin: 0 0 0.25rem;
-    color: var(--c-text);
-    line-height: 1.5;
-  }
-
-  .ct-muted {
-    color: var(--c-muted) !important;
-    font-size: 0.92rem;
-  }
-
-  .ct-info a {
-    color: var(--c-text);
-    text-decoration: none;
-    border-bottom: 1px solid var(--c-line);
-    transition: border-color 0.2s ease;
-  }
-
-  .ct-info a:hover {
-    border-color: var(--c-text);
-  }
-
-  .ct-social {
+  .ct-row {
     display: flex;
-    gap: 1.5rem;
+    align-items: flex-start;
+    gap: 1.1rem;
+    margin-bottom: 1.9rem;
+  }
+  .ct-row:last-child { margin-bottom: 0; }
+  .ct-ico {
+    flex-shrink: 0;
+    color: var(--c-accent);
+    margin-top: 0.15rem;
+  }
+  .ct-ico :global(svg) {
+    width: 24px;
+    height: 24px;
+    display: block;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .ct-row p {
+    font-family: var(--font-body);
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin: 0;
+  }
+  .ct-row a { color: var(--c-text); text-decoration: none; transition: color 0.15s; }
+  .ct-row a:hover { color: var(--c-accent); }
+  .ct-closed { opacity: 0.55; }
+
+  .ct-form__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+    margin: 0 0 0.7rem;
+  }
+  .ct-form__note {
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--c-muted);
+    margin: 0 0 1.8rem;
   }
 
-  /* ---------- MAPPA ---------- */
+  /* ---------- MAPPA B/N edge-to-edge ---------- */
   .ct-map {
     width: 100%;
-    height: 420px;
-    border-top: 1px solid var(--c-line);
+    height: clamp(360px, 50vh, 520px);
+    background: #2a2627;
+  }
+
+  /* ---------- RESPONSIVE ---------- */
+  @media (max-width: 900px) {
+    .ct {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+      padding: 3rem 1.5rem 3.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ct-hero__title, .ct-hero__sub { opacity: 1; transform: none; animation: none; }
+  }
+</style>
+
+<!-- Stili del form (isola React: servono selettori globali) -->
+<style is:global>
+  .cf { display: flex; flex-direction: column; gap: 1rem; }
+  .cf-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .cf-input,
+  .cf-textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0;
+    transition: border-color 0.2s;
+  }
+  .cf-input::placeholder,
+  .cf-textarea::placeholder { color: var(--c-muted); }
+  .cf-input:focus,
+  .cf-textarea:focus { outline: none; border-color: var(--c-accent); }
+  .cf-textarea { min-height: 150px; resize: vertical; }
+
+  .cf-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--c-muted);
+    cursor: pointer;
+  }
+  .cf-consent a { color: var(--c-text); }
+  .cf-consent a:hover { color: var(--c-accent); }
+  .cf-consent__box { margin-top: 0.2rem; accent-color: var(--c-accent); }
+
+  .cf-error {
+    color: #ff6b6b;
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  .cf-btn {
+    align-self: flex-start;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #fff;
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 13px 38px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .cf-btn:hover:not(:disabled) {
+    background: #fff;
+    color: var(--c-bg);
+    transform: scale(0.96);
+  }
+  .cf-btn:disabled { opacity: 0.5; cursor: wait; }
+
+  .cf-success {
+    border: 2px solid var(--c-accent);
+    padding: 1.6rem 1.8rem;
+    font-family: var(--font-body);
+    color: var(--c-text);
+    line-height: 1.6;
   }
 
   .ct-map iframe {
     display: block;
     width: 100%;
     height: 100%;
-  }
-  .ct-map__placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    box-sizing: border-box;
-    text-align: center;
-    background: #0d0d0d;
-  }
-  .ct-map__text {
-    margin: 0;
-    color: var(--c-muted);
-    font-size: 0.9rem;
-    max-width: 420px;
-    line-height: 1.5;
-  }
-  .ct-map__btn {
-    font-family: var(--font-title);
-    font-size: 1rem;
-    letter-spacing: 0.05em;
-    padding: 0.6rem 1.8rem;
-    background: var(--c-text);
-    color: var(--c-bg);
-    border: 1px solid var(--c-text);
-    border-radius: 0;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-  .ct-map__btn:hover {
-    background: transparent;
-    color: var(--c-text);
+    border: 0;
+    /* bianco e nero */
+    filter: grayscale(1) contrast(1.02);
   }
 
-  @media (max-width: 800px) {
-    .ct-grid {
-      grid-template-columns: 1fr;
-      gap: 2.5rem;
-    }
+  @media (max-width: 640px) {
+    .cf-row { grid-template-columns: 1fr; }
+    .cf-btn { align-self: stretch; }
   }
 </style>
 
-<style is:global>
-  /* ---------- FORM (globale: gli elementi vivono dentro l'isola React) ---------- */
-  .cf {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+<script>
+  // Mappa caricata solo quando arriva in vista (risparmia il peso di
+  // Google Maps a chi non scorre fin lì).
+  const sec = document.getElementById("ct-map");
+  if (sec) {
+    const carica = () => {
+      if (sec.querySelector("iframe")) return;
+      const iframe = document.createElement("iframe");
+      iframe.title = sec.getAttribute("data-map-title") || "Map";
+      iframe.src = sec.getAttribute("data-map-src") || "";
+      iframe.loading = "lazy";
+      iframe.referrerPolicy = "no-referrer-when-downgrade";
+      sec.appendChild(iframe);
+    };
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            carica();
+            oss.disconnect();
+          }
+        }
+      },
+      { rootMargin: "400px 0px" }
+    );
+    oss.observe(sec);
   }
-
-  .cf-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
-  .cf-input,
-  .cf-textarea {
-    width: 100%;
-    background: transparent;
-    border: 1px solid var(--c-text);
-    color: var(--c-text);
-    font-family: var(--font-body);
-    font-size: 1rem;
-    padding: 0.85rem 1rem;
-    border-radius: 0;
-    box-sizing: border-box;
-  }
-
-  .cf-input:focus,
-  .cf-textarea:focus {
-    outline: none;
-    border-color: var(--c-text);
-    box-shadow: 0 0 0 1px var(--c-text);
-  }
-
-  .cf-input::placeholder,
-  .cf-textarea::placeholder {
-    color: var(--c-muted);
-  }
-
-  .cf-textarea {
-    resize: vertical;
-  }
-
-  .cf-btn {
-    align-self: flex-start;
-    background: var(--c-text);
-    color: var(--c-bg);
-    border: 1px solid var(--c-text);
-    font-family: var(--font-title);
-    font-size: 1.15rem;
-    letter-spacing: 0.05em;
-    padding: 0.7rem 2.2rem;
-    border-radius: 0;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-
-  .cf-btn:hover:not(:disabled) {
-    background: transparent;
-    color: var(--c-text);
-  }
-
-  .cf-btn:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
-
-  .cf-error {
-    color: #ff6b6b;
-    font-size: 0.92rem;
-    margin: 0;
-  }
-
-  .cf-success {
-    border: 1px solid var(--c-text);
-    padding: 2rem;
-    text-align: center;
-  }
-
-  .cf-success p {
-    margin: 0;
-    color: var(--c-text);
-    font-size: 1.1rem;
-  }
-
-  .cf-consent {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.6rem;
-    color: var(--c-muted);
-    font-size: 0.9rem;
-    line-height: 1.45;
-    cursor: pointer;
-  }
-
-  .cf-consent__box {
-    width: 18px;
-    height: 18px;
-    margin: 0.15rem 0 0;
-    flex-shrink: 0;
-    accent-color: var(--c-text);
-    cursor: pointer;
-  }
-
-  .cf-consent a {
-    color: var(--c-text);
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-
-  @media (max-width: 800px) {
-    .cf-row {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+</script>

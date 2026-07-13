@@ -7,6 +7,8 @@
 // Le immagini si cambiano QUI: percorsi in SLIDES (public/slideshow/).
 // Se un'immagine manca, viene saltata dalla rotazione (niente flash nero).
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { DateTime } from "luxon";
+import { configGiornoEffettiva } from "../lib/schedule";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -19,8 +21,25 @@ const SLIDES = [
 
 const L = {
   menu: en ? "Our menu" : "Notre carte",
-  order: en ? "Order" : "Commander",
+  reserve: en ? "Book a table" : "Réserver",
 };
+
+// --- Stato di OGGI (rispetta anche i giorni speciali dell'admin) ---
+let statoOggi: "open" | "closed" | null = null;
+let fasceOggi: string[] = [];
+try {
+  const cfg = await configGiornoEffettiva(DateTime.now());
+  if (cfg) {
+    const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : "");
+    if (cfg.lunch_active && cfg.lunch_open && cfg.lunch_close)
+      fasceOggi.push(`${hhmm(cfg.lunch_open)} – ${hhmm(cfg.lunch_close)}`);
+    if (cfg.dinner_active && cfg.dinner_open && cfg.dinner_close)
+      fasceOggi.push(`${hhmm(cfg.dinner_open)} – ${hhmm(cfg.dinner_close)}`);
+    statoOggi = fasceOggi.length > 0 ? "open" : "closed";
+  }
+} catch {
+  statoOggi = null; // DB irraggiungibile: nessun badge, niente errori in pagina
+}
 ---
 
 <section class="hero" id="hero">
@@ -45,9 +64,21 @@ const L = {
     <p class="hero-city">Bruxelles, Saint&#8209;Gilles</p>
     <div class="hero-cta">
       <a href={getLocalizedUrl("/menu", lang)} class="hero-btn">{L.menu}</a>
-      <a href={getLocalizedUrl("/order", lang)} class="hero-btn hero-btn-order">{L.order}</a>
+      <button type="button" class="hero-btn hero-btn-order" data-reserver>{L.reserve}</button>
     </div>
   </div>
+
+  {statoOggi === "open" && (
+    <div class="hero-today is-open">
+      <p class="ht-line">{en ? "We are open today" : "Nous sommes ouverts aujourd'hui"}</p>
+      <p class="ht-hours">{fasceOggi.join(" · ")}</p>
+    </div>
+  )}
+  {statoOggi === "closed" && (
+    <div class="hero-today is-closed">
+      <p class="ht-line">{en ? "We are closed today" : "Nous sommes fermés aujourd'hui"}</p>
+    </div>
+  )}
 
   <div class="hero-flag" aria-hidden="true"></div>
 </section>
@@ -144,6 +175,8 @@ const L = {
     margin-top: 2.2rem;
   }
   .hero-btn {
+    background: transparent;
+    cursor: pointer;
     font-family: var(--font-display);
     font-size: 0.88rem;
     font-weight: 700;
@@ -162,6 +195,60 @@ const L = {
     transform: scale(0.96);
   }
 
+  /* --- Badge "aperti/chiusi oggi" --- */
+  .hero-today {
+    position: absolute;
+    left: 50%;
+    bottom: 36px;
+    transform: translateX(-50%);
+    z-index: 3;
+    text-align: center;
+    padding: 0.55rem 1.4rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 16px); /* parte più in basso e centrato */
+    animation: hero-today-in 0.8s ease-out 1s forwards;
+  }
+  @keyframes hero-today-in {
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .hero-today.is-open {
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .hero-today.is-closed {
+    background: rgba(237, 28, 36, 0.92);
+  }
+  .ht-line {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .is-open .ht-line::before {
+    content: "";
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #2e9e6b;
+    margin-right: 0.5rem;
+    vertical-align: 1px;
+  }
+  .ht-hours {
+    margin: 0.15rem 0 0;
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    letter-spacing: 0.03em;
+    color: #fff;
+  }
+
   /* --- Striscia tricolore --- */
   .hero-flag {
     position: absolute;
@@ -177,6 +264,11 @@ const L = {
     );
   }
 
+  @media (max-width: 900px) {
+    /* Sopra la barra fissa Commander/Réserver/burger (64px + 14 di margine) */
+    .hero-today { bottom: 96px; }
+  }
+
   @media (max-width: 640px) {
     .hero-cta {
       flex-direction: column;
@@ -185,12 +277,13 @@ const L = {
       gap: 0.8rem;
     }
     .hero-btn { padding: 13px 26px; text-align: center; }
-    /* Commander è già nella barra fissa in basso: qui sparisce */
+    /* Réserver è già nella barra fissa in basso: qui sparisce */
     .hero-btn-order { display: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .hero-center > * { animation: none; opacity: 1; transform: none; }
+    .hero-today { animation: none; opacity: 1; transform: translate(-50%, 0); }
     .hero-slide { transition: none; }
   }
 </style>

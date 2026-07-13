@@ -1,45 +1,480 @@
 ---
-// Placeholder — L'Ambiance. Struttura base da riempire con foto/testi.
+// Pagina "L'Ambiance": hero banner + storia della famiglia (testi dal
+// vecchio sito, refusi corretti) + galleria fotografica a mosaico +
+// blocco social + CTA Commander.
+// Le foto della galleria: public/ambiance/ambiance-01.webp ... -16.webp
+// (metti quelle che hai: le mancanti spariscono da sole).
 import Layout from "../layouts/Layout.astro";
-import { getLangFromUrl } from "../i18n/ui";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+
 const lang = getLangFromUrl(Astro.url);
-const text = lang === "en" ? "This page is coming soon." : "Cette page est en préparation.";
+const en = lang === "en";
+
+const HERO_FOTO = "/la-molisana-ambiance-hero.webp";
+
+const FB = "https://www.facebook.com/pizzerialamolisana";
+const IG = "https://www.instagram.com/pizzeria.lamolisana/";
+
+const L = {
+  title: "L'Ambiance",
+  sub: en
+    ? "A warm dining room and terrace in the heart of Saint-Gilles — the spirit of a Molise family in Brussels."
+    : "Une salle chaleureuse et une terrasse au cœur de Saint-Gilles — l'esprit d'une famille du Molise à Bruxelles.",
+  famTitle: en ? "La Molisana, a family spirit" : "La Molisana, un esprit de famille",
+  p1: en
+    ? "Meet this charming family from Molise, Italy, who brought their passion for food to Brussels by opening their own pizzeria in Saint-Gilles."
+    : "Rencontrez cette charmante famille du Molise, en Italie, qui a apporté sa passion pour la cuisine à Bruxelles, avec l'ouverture de sa propre pizzeria à Saint-Gilles.",
+  p2: en
+    ? "With years of experience in the restaurant trade, they know how to craft delicious dishes that will transport your taste buds straight to Molise."
+    : "Avec des années d'expérience dans la restauration, ils savent comment concocter de délicieux plats qui transporteront vos papilles directement au Molise.",
+  p3: en
+    ? "And what would a pizza be without a little Neapolitan influence? Their unique blend of Molise cuisine with a touch of Napoli will not leave you wanting."
+    : "Et qu'est-ce qu'une pizza sans un peu d'influence napolitaine ? Leur mélange unique de cuisine molisane avec une touche de Napoli ne vous laissera pas sur votre faim.",
+  p4: en
+    ? "Come visit pizzeria La Molisana and discover the flavours of Molise."
+    : "Venez rendre visite à la pizzeria La Molisana et découvrez les saveurs du Molise.",
+  follow: en
+    ? "Follow us on social media and stay up to date with our news"
+    : "Suivez-nous sur les réseaux et soyez toujours au courant de nos nouveautés",
+  ctaTxt: en
+    ? "Order your dishes directly from La Molisana"
+    : "Commandez vos plats directement chez La Molisana",
+  ctaBtn: en ? "Order" : "Commander",
+};
 ---
 
-<Layout title="L'Ambiance — La Molisana">
-  <section class="ph">
-    <div class="ph-inner">
-      <p class="ph-claim">La Molisana</p>
-      <h1 class="ph-title">L'Ambiance</h1>
-      <p class="ph-text">{text}</p>
+<Layout title={en ? "The Ambiance — La Molisana, Italian Restaurant in Saint-Gilles, Brussels" : "L'Ambiance — La Molisana, Restaurant Italien à Saint-Gilles, Bruxelles"}>
+  <section class="amb-hero">
+    <img class="amb-hero__bg" src={HERO_FOTO} alt="" loading="eager" decoding="async" />
+    <div class="amb-hero__overlay" aria-hidden="true"></div>
+    <div class="amb-hero__inner">
+      <h1 class="amb-hero__title">{L.title}</h1>
+      <p class="amb-hero__sub">{L.sub}</p>
     </div>
+    <div class="amb-hero__flag" aria-hidden="true"></div>
+  </section>
+
+  <section class="fam">
+    <figure class="fam-big">
+      <img src="/ambiance/la-molisana-famille.webp" alt={en ? "The La Molisana family at the restaurant" : "La famille La Molisana au restaurant"} loading="lazy" decoding="async" />
+    </figure>
+
+    <div class="fam-text">
+      <h2 class="fam-title">{L.famTitle}</h2>
+      <p>{L.p1}</p>
+      <p>{L.p2}</p>
+      <p>{L.p3}</p>
+      <p>{L.p4}</p>
+    </div>
+
+    <div class="fam-thumbs">
+      {[1, 2, 3, 4].map((n) => (
+        <img
+          src={`/ambiance/la-molisana-famille-0${n}.webp`}
+          alt={(en ? "La Molisana — the family at work " : "La Molisana — la famille au travail ") + n}
+          loading="lazy"
+          decoding="async"
+        />
+      ))}
+    </div>
+  </section>
+
+  <section class="amb-follow">
+    <h2 class="amb-follow__title">{L.follow}</h2>
+    <div class="amb-follow__icons">
+      <a href={FB} target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+        <svg viewBox="0 0 176 176" fill="currentColor" aria-hidden="true">
+          <path d="M171.63,40.85C167.68,25,151,8.31,135.15,4.36A262,262,0,0,0,88,0,262.18,262.18,0,0,0,40.85,4.36C25,8.31,8.32,25,4.37,40.85a256.4,256.4,0,0,0,0,94.3C8.32,151,25,167.7,40.85,171.64A262.18,262.18,0,0,0,88,176q6.72,0,13.4-.35a268.5,268.5,0,0,0,33.75-4c15.89-3.94,32.53-20.6,36.48-36.49A262.39,262.39,0,0,0,176,86.49,262.11,262.11,0,0,0,171.63,40.85ZM115.88,77.59l-1.77,15.32a2.86,2.86,0,0,1-2.82,2.57h-16l-.08,45.45a2.05,2.05,0,0,1-2,2.07H77a2,2,0,0,1-2-2.08L75,95.48H63a2.87,2.87,0,0,1-2.84-2.9L60.1,77.25a2.88,2.88,0,0,1,2.84-2.92H75V59.53C75,42.35,85.2,33,100.16,33h12.26a2.88,2.88,0,0,1,2.85,2.92V48.83a2.88,2.88,0,0,1-2.85,2.92H104.9c-8.13,0-9.71,4-9.71,9.77V74.33h17.87A2.89,2.89,0,0,1,115.88,77.59Z" />
+        </svg>
+      </a>
+      <a href={IG} target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+        <svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true">
+          <path d="m301 256c0 24.851562-20.148438 45-45 45s-45-20.148438-45-45 20.148438-45 45-45 45 20.148438 45 45zm0 0" />
+          <path d="m332 120h-152c-33.085938 0-60 26.914062-60 60v152c0 33.085938 26.914062 60 60 60h152c33.085938 0 60-26.914062 60-60v-152c0-33.085938-26.914062-60-60-60zm-76 211c-41.355469 0-75-33.644531-75-75s33.644531-75 75-75 75 33.644531 75 75-33.644531 75-75 75zm86-146c-8.285156 0-15-6.714844-15-15s6.714844-15 15-15 15 6.714844 15 15-6.714844 15-15 15zm0 0" />
+          <path d="m377 0h-242c-74.4375 0-135 60.5625-135 135v242c0 74.4375 60.5625 135 135 135h242c74.4375 0 135-60.5625 135-135v-242c0-74.4375-60.5625-135-135-135zm45 332c0 49.625-40.375 90-90 90h-152c-49.625 0-90-40.375-90-90v-152c0-49.625 40.375-90 90-90h152c49.625 0 90 40.375 90 90zm0 0" />
+        </svg>
+      </a>
+    </div>
+  </section>
+
+  <section class="par" aria-label={en ? "Photo gallery" : "Galerie photos"}>
+    {[0, 1, 2].map((r) => (
+      <div class="par-row" data-dir={r === 1 ? "-1" : "1"}>
+        {[1, 2, 3, 4].map((c) => {
+          const n = String(r * 4 + c).padStart(2, "0");
+          return (
+            <img
+              src={`/ambiance/ambiance-${n}.webp`}
+              alt={(en ? "La Molisana, Italian restaurant in Saint-Gilles — ambiance " : "La Molisana, restaurant italien à Saint-Gilles — ambiance ") + (r * 4 + c)}
+              loading="lazy"
+              decoding="async"
+              onerror="this.style.visibility='hidden'"
+            />
+          );
+        })}
+      </div>
+    ))}
+  </section>
+
+  <section class="amb-cta">
+    <p class="amb-cta__txt">{L.ctaTxt}</p>
+    <a href={getLocalizedUrl("/order", lang)} class="amb-cta__btn">{L.ctaBtn}</a>
   </section>
 </Layout>
 
 <style>
-  .ph {
-    min-height: calc(100vh - 76px);
+  /* ---------- HERO (stesso pattern della carta) ---------- */
+  .amb-hero {
+    position: relative;
+    min-height: clamp(280px, 36vh, 420px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 4rem 1.5rem 8rem;
+    padding: 3.5rem 1.5rem 4rem;
+    overflow: hidden;
   }
-  .ph-inner { max-width: 640px; }
-  .ph-claim {
+  .amb-hero__bg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+  .amb-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, 0.55);
+  }
+  .amb-hero__inner { position: relative; z-index: 2; }
+  .amb-hero__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(2.4rem, 5vw, 3.4rem);
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    margin: 0 0 0.9rem;
+    color: var(--c-text);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: amb-in 0.8s ease-out 0.15s forwards;
+  }
+  .amb-hero__sub {
+    max-width: 620px;
+    margin: 0 auto;
     font-family: var(--font-body);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.85);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: amb-in 0.8s ease-out 0.3s forwards;
+  }
+  .amb-hero__flag {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 12px;
+    z-index: 2;
+    background: linear-gradient(
+      90deg,
+      #007153 0%, #007153 33.333%,
+      #ffffff 33.333%, #ffffff 66.666%,
+      #ed1c24 66.666%, #ed1c24 100%
+    );
+  }
+  @keyframes amb-in {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- FAMIGLIA: collage foto + testo sovrapposto ---------- */
+  .fam {
+    display: grid;
+    grid-template-columns: 1fr 54%;
+    column-gap: 0;
+    row-gap: 2rem;
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: 4.5rem 2rem 3rem;
+  }
+  .fam-big {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .fam-big img {
+    display: block;
+    width: 100%;
+    height: clamp(380px, 55vh, 620px);
+    object-fit: cover;
+  }
+  /* Il blocco testo risale sopra l'angolo basso-destro della foto grande */
+  .fam-text {
+    grid-column: 2;
+    position: relative;
+    z-index: 2;
+    background: var(--c-bg);
+    margin-top: -110px;
+    padding: 3.5rem 2.5rem 0 4.5rem;
+  }
+  /* Ombra del blocco testo sulla foto: SOLO in alto e a sinistra,
+     e solo nella fascia che copre davvero la foto (i 110px di
+     sovrapposizione) — niente ombra sotto né a destra. */
+  .fam-text::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    box-shadow: 0 0 26px rgba(0, 0, 0, 0.5);
+    clip-path: inset(-60px 0 calc(100% - 110px) -60px);
+  }
+  .fam-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+    line-height: 1.15;
+    margin: 0 0 1.6rem;
+  }
+  .fam-text p {
+    font-family: var(--font-body);
+    font-size: 1.02rem;
+    line-height: 1.75;
+    margin: 0 0 1.2rem;
+  }
+  .fam-thumbs {
+    grid-column: 1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    align-self: start;
+    justify-self: end;
+    width: 100%;
+    max-width: 480px;
+    /* stesso respiro del gap verticale con la foto grande (2rem) */
+    margin-right: 2rem;
+  }
+  .fam-thumbs img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+  }
+
+  /* Animazione d'ingresso della sezione famiglia */
+  .fam-big,
+  .fam-text > *,
+  .fam-thumbs img {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .fam-text > :nth-child(1) { transition-delay: 0.15s; }
+  .fam-text > :nth-child(2) { transition-delay: 0.3s; }
+  .fam-text > :nth-child(3) { transition-delay: 0.45s; }
+  .fam-text > :nth-child(4) { transition-delay: 0.6s; }
+  .fam-text > :nth-child(5) { transition-delay: 0.75s; }
+  .fam-thumbs img:nth-child(1) { transition-delay: 0.25s; }
+  .fam-thumbs img:nth-child(2) { transition-delay: 0.35s; }
+  .fam-thumbs img:nth-child(3) { transition-delay: 0.45s; }
+  .fam-thumbs img:nth-child(4) { transition-delay: 0.55s; }
+  .fam.in-view .fam-big,
+  .fam.in-view .fam-text > *,
+  .fam.in-view .fam-thumbs img {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* ---------- GALLERIA PARALLASSE (3 righe x 4 colonne) ----------
+     Le righe scivolano orizzontalmente con lo scroll della pagina:
+     1a e 3a verso destra, 2a verso sinistra. Movimento gestito dallo
+     script in fondo; le righe sono più larghe del contenitore per
+     non scoprire mai i bordi. */
+  .par {
+    width: 100%;
+    padding: 2.5rem 0 3rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+  /* Riga "giustificata" oltre i bordi dello schermo: larghezza
+     100vw + 120px (60 per lato). Con lo scivolamento massimo di ±40px
+     il bordo più vicino resta SEMPRE ad almeno 20px fuori schermo.
+     Le larghezze delle foto sono proporzionali alle loro proporzioni
+     reali (impostate dallo script) => stessa altezza, foto intere. */
+  .par-row {
+    display: flex;
+    gap: 1.25rem;
+    width: calc(100vw + 120px);
+    margin-left: -60px;
+    will-change: transform;
+  }
+  .par-row img {
+    display: block;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  /* ---------- SUIVEZ-NOUS ---------- */
+  .amb-follow {
+    text-align: center;
+    padding: 2.5rem 1.5rem;
+  }
+  .amb-follow__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+    max-width: 640px;
+    margin: 0 auto 1.4rem;
+  }
+  .amb-follow__icons {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+  }
+  .amb-follow__icons a {
+    color: var(--c-text);
+    display: inline-flex;
+    transition: color 0.15s;
+  }
+  .amb-follow__icons a:hover { color: var(--c-accent); }
+  .amb-follow__icons svg { width: 26px; height: 26px; display: block; }
+
+  /* ---------- CTA FINALE ---------- */
+  .amb-cta {
+    text-align: center;
+    padding: 2rem 1.5rem 6rem;
+  }
+  .amb-cta__txt {
+    font-family: var(--font-display);
+    font-size: clamp(1.2rem, 2.2vw, 1.6rem);
+    margin: 0 0 1.6rem;
+  }
+  .amb-cta__btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 0.88rem;
     font-weight: 700;
-    letter-spacing: 0.25em;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    font-size: 0.8rem;
-    color: var(--c-accent);
-    margin-bottom: 1rem;
+    color: #fff;
+    text-decoration: none;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    padding: 13px 38px;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
   }
-  .ph-title {
-    font-family: var(--font-title);
-    font-size: clamp(3rem, 9vw, 6rem);
-    letter-spacing: 0.03em;
-    line-height: 0.95;
+  .amb-cta__btn:hover {
+    background: #fff;
+    color: var(--c-bg);
+    transform: scale(0.96);
   }
-  .ph-text { color: var(--c-muted); font-size: 1.05rem; margin-top: 1.25rem; }
+
+  /* ---------- RESPONSIVE ---------- */
+
+  @media (max-width: 900px) {
+    /* Famiglia in colonna: foto grande, testo, poi le 4 piccole */
+    .fam {
+      grid-template-columns: 1fr;
+      padding: 3rem 1.5rem 2rem;
+      row-gap: 0;
+    }
+    .fam-big img { height: auto; }
+    .fam-text {
+      grid-column: 1;
+      margin-top: 0;
+      padding: 1.8rem 0 0;
+    }
+    .fam-text::before { display: none; }
+    .fam-thumbs {
+      grid-column: 1;
+      grid-row: auto;
+      margin-top: 2rem;
+      gap: 1rem;
+    }
+  }
+  @media (max-width: 640px) {
+    .par { padding: 1.5rem 0 2rem; gap: 0.75rem; }
+    .par-row { gap: 0.75rem; width: calc(100vw + 80px); margin-left: -40px; }
+    .amb-cta { padding-bottom: 8rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .amb-hero__title, .amb-hero__sub { opacity: 1; transform: none; animation: none; }
+    .fam-big, .fam-text > *, .fam-thumbs img { opacity: 1; transform: none; transition: none; }
+    .par-row { transform: none !important; }
+  }
 </style>
+
+<script>
+  // Entrata a cascata della sezione famiglia quando arriva in vista.
+  const fam = document.querySelector(".fam");
+  if (fam) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            fam.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.05 }
+    );
+    oss.observe(fam);
+  }
+
+  // Galleria parallasse: le righe scivolano con lo scroll (leggero:
+  // max ±70px sull'intera traversata dello schermo).
+  const par = document.querySelector<HTMLElement>(".par");
+  const righe = Array.from(par?.querySelectorAll<HTMLElement>(".par-row") ?? []);
+  const riduci = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Ogni foto pesa quanto il suo rapporto larghezza/altezza:
+  // così la riga riempie ESATTAMENTE la larghezza, tutte le foto
+  // hanno la stessa altezza e nessuna viene tagliata.
+  for (const img of Array.from(par?.querySelectorAll<HTMLImageElement>("img") ?? [])) {
+    const applica = () => {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      img.style.flexGrow = String(img.naturalWidth / img.naturalHeight);
+      img.style.aspectRatio = `${img.naturalWidth} / ${img.naturalHeight}`;
+    };
+    if (img.complete) applica();
+    else img.addEventListener("load", applica);
+  }
+
+  if (par && righe.length && !riduci) {
+    let inCoda = false;
+    function aggiorna() {
+      const r = par!.getBoundingClientRect();
+      const vh = window.innerHeight;
+      // progresso -1..1 mentre la sezione attraversa lo schermo
+      const centro = r.top + r.height / 2 - vh / 2;
+      const p = Math.max(-1, Math.min(1, centro / (vh / 2 + r.height / 2)));
+      const spostamento = -p * 40;
+      for (const riga of righe) {
+        const dir = Number(riga.dataset.dir || "1");
+        riga.style.transform = `translateX(${(spostamento * dir).toFixed(1)}px)`;
+      }
+      inCoda = false;
+    }
+    window.addEventListener(
+      "scroll",
+      () => {
+        if (!inCoda) {
+          inCoda = true;
+          requestAnimationFrame(aggiorna);
+        }
+      },
+      { passive: true }
+    );
+    aggiorna();
+  }
+</script>
