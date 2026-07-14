@@ -1,5 +1,6 @@
 import type { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
+import { cacheOr } from "./cache";
 import { TIMEZONE, type ConfigGiorno } from "./slots";
 
 /**
@@ -10,21 +11,75 @@ import { TIMEZONE, type ConfigGiorno } from "./slots";
  *    suoi orari anche un giorno normalmente chiuso.
  * A parità di data, 'closed' ha priorità su 'open'.
  * Usata sia da /api/slots sia dal checkout: DEVONO essere d'accordo.
+ *
+ * PERFORMANCE: le due tabelle vengono lette UNA volta e tenute in una
+ * cache da 60s. Chiamare questa funzione più volte nella stessa pagina
+ * (es. il calcolo della prossima riapertura) non costa query extra.
  */
+
+interface RigaSettings {
+  day_of_week: number;
+  lunch_active: boolean;
+  lunch_open: string | null;
+  lunch_close: string | null;
+  dinner_active: boolean;
+  dinner_open: string | null;
+  dinner_close: string | null;
+  prep_time_minutes: number;
+  slot_duration_minutes: number;
+  exceptional_closures: unknown;
+}
+
+interface RigaSpeciale {
+  date_from: string;
+  date_to: string;
+  type: string;
+  lunch_open: string | null;
+  lunch_close: string | null;
+  dinner_open: string | null;
+  dinner_close: string | null;
+}
+
+/** Tutti i 7 giorni della tabella settings (cache 60s). */
+async function tutteLeSettings(): Promise<RigaSettings[]> {
+  return cacheOr("sched:settings", async () => {
+    const { data, error } = await supabaseAdmin
+      .from("settings")
+      .select(
+        "day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes, exceptional_closures"
+      );
+    if (error || !data) throw new Error("settings illeggibili");
+    return data as RigaSettings[];
+  });
+}
+
+/** Giorni speciali attuali e futuri prossimi (cache 60s). */
+async function giorniSpeciali(): Promise<RigaSpeciale[]> {
+  return cacheOr("sched:special", async () => {
+    const { data, error } = await supabaseAdmin
+      .from("special_days")
+      .select("date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close")
+      .order("type", { ascending: true }); // 'closed' prima di 'open'
+    if (error || !data) throw new Error("special_days illeggibili");
+    return data as RigaSpeciale[];
+  });
+}
+
 export async function configGiornoEffettiva(ora: DateTime): Promise<ConfigGiorno | null> {
   const oggi = ora.setZone(TIMEZONE);
   const dayOfWeek = oggi.weekday === 7 ? 0 : oggi.weekday;
   const iso = oggi.toFormat("yyyy-MM-dd");
 
-  const { data: settings, error } = await supabaseAdmin
-    .from("settings")
-    .select(
-      "lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes, exceptional_closures"
-    )
-    .eq("day_of_week", dayOfWeek)
-    .single();
-
-  if (error || !settings) return null;
+  let settings: RigaSettings | undefined;
+  let sp: RigaSpeciale | undefined;
+  try {
+    const [tutte, speciali] = await Promise.all([tutteLeSettings(), giorniSpeciali()]);
+    settings = tutte.find((r) => r.day_of_week === dayOfWeek);
+    sp = speciali.find((s) => s.date_from <= iso && s.date_to >= iso);
+  } catch {
+    return null;
+  }
+  if (!settings) return null;
 
   const base: ConfigGiorno = {
     lunch_active: settings.lunch_active,
@@ -39,16 +94,6 @@ export async function configGiornoEffettiva(ora: DateTime): Promise<ConfigGiorno
       ? settings.exceptional_closures
       : [],
   };
-
-  // Giorno speciale per la data di oggi? ('closed' vince su 'open')
-  const { data: sp } = await supabaseAdmin
-    .from("special_days")
-    .select("type, lunch_open, lunch_close, dinner_open, dinner_close")
-    .lte("date_from", iso)
-    .gte("date_to", iso)
-    .order("type", { ascending: true })
-    .limit(1)
-    .maybeSingle();
 
   if (!sp) return base;
 

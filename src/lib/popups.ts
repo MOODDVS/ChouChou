@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "./db";
 import { DateTime } from "luxon";
+import { cacheOr } from "./cache";
 
 /**
  * Pop-up di comunicazione (admin Marketing → Pop-up) valido ADESSO
@@ -49,14 +50,18 @@ interface RigaPopup {
 
 export async function popupPerPagina(slug: string, lang: "fr" | "en" = "fr"): Promise<PopupPubblico | null> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from("popups")
-      .select(
-        "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
-      )
-      .eq("active", true)
-      .order("created_at", { ascending: false });
-    if (error || !data) return null;
+    // Cache 60s: una sola query per TUTTE le pagine del sito
+    const data = await cacheOr("popups:attivi", async () => {
+      const { data: righe, error } = await supabaseAdmin
+        .from("popups")
+        .select(
+          "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
+        )
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (error || !righe) throw new Error("popups illeggibili");
+      return righe;
+    });
 
     const ora = DateTime.now().setZone("Europe/Brussels");
     const oggi = ora.toISODate() ?? "";

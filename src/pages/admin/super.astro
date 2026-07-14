@@ -1,0 +1,206 @@
+---
+// Pannello admin — SUPER ADMIN (solo admin@moodd.online).
+// Decide quali pagine dell'admin sono visibili agli altri utenti:
+// le pagine spente spariscono dalla barra di navigazione e sono
+// bloccate anche ad accesso diretto (redirect verso l'Accueil).
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin MOODD — La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #362c28;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 760px; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+      .sub { color: var(--c-muted); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.6; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      .rows { display: flex; flex-direction: column; gap: 0.4rem; }
+      .row {
+        display: flex; align-items: center; gap: 1rem;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 1rem 1.3rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      }
+      .row.is-off { opacity: 0.55; }
+      .row-name { flex: 1; font-weight: 700; font-size: 1.02rem; }
+      .row-state { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+
+      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .track {
+        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
+        background: var(--c-line); transition: background 0.2s;
+      }
+      .switch .track::before {
+        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+        border-radius: 50%; background: #231f20; transition: transform 0.2s;
+      }
+      .switch input:checked + .track { background: var(--c-accent); }
+      .switch input:checked + .track::before { transform: translateX(20px); }
+
+      .note { color: var(--c-muted); font-size: 0.8rem; margin-top: 1.2rem; line-height: 1.6; }
+
+      .toast {
+        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
+        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
+        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
+        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      }
+      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.is-error { border-color: #ed1c24; }
+
+      @media (max-width: 640px) {
+        main { padding: 1.5rem 1rem 8rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>Admin MOODD</h1>
+        <p class="sub">
+          Choisis les pages visibles pour les autres utilisateurs de l'admin.
+          Une page désactivée disparaît de la barre de navigation et son accès
+          direct est bloqué. Toi, tu vois toujours tout.
+        </p>
+        <div class="state" id="state">Chargement…</div>
+        <div class="rows" id="rows" style="display:none"></div>
+        <p class="note">
+          L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
+          Les modifications sont immédiates pour tous les utilisateurs.
+        </p>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <AdminNav current="super" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { isSuper, PAGINE_ADMIN } from "../../lib/superAdmin";
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const rowsEl = document.getElementById("rows") as HTMLDivElement;
+        const toastEl = document.getElementById("toast") as HTMLDivElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        // Pagina riservata al super admin MOODD
+        if (!isSuper(userData.user.email)) {
+          window.location.replace("/admin");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const headers = {
+          Authorization: `Bearer ${sessionData.session?.access_token ?? ""}`,
+          "Content-Type": "application/json",
+        };
+
+        let toastTimer: number | undefined;
+        function toast(msg: string, isErr = false) {
+          toastEl.textContent = msg;
+          toastEl.classList.toggle("is-error", isErr);
+          toastEl.classList.add("is-visible");
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2200);
+        }
+
+        let nascoste: string[] = [];
+
+        function render() {
+          rowsEl.innerHTML = PAGINE_ADMIN.map((p) => {
+            const visibile = !nascoste.includes(p.key);
+            return `
+            <div class="row${visibile ? "" : " is-off"}" data-k="${p.key}">
+              <span class="row-name">${p.label}</span>
+              <span class="row-state">${visibile ? "Visible" : "Masquée"}</span>
+              <label class="switch"><input type="checkbox" class="t-vis" ${visibile ? "checked" : ""} /><span class="track"></span></label>
+            </div>`;
+          }).join("");
+        }
+
+        async function salva() {
+          try {
+            const res = await fetch("/api/admin/pages", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ hidden: nascoste }),
+            });
+            if (!res.ok) throw new Error();
+            toast("Enregistré ✓");
+          } catch {
+            toast("Enregistrement impossible", true);
+          }
+        }
+
+        rowsEl.addEventListener("change", async (e) => {
+          const t = e.target as HTMLInputElement;
+          if (!t.classList.contains("t-vis")) return;
+          const k = (t.closest(".row") as HTMLElement).dataset.k!;
+          nascoste = t.checked ? nascoste.filter((x) => x !== k) : [...nascoste, k];
+          render();
+          await salva();
+        });
+
+        try {
+          const res = await fetch("/api/admin/pages", { headers });
+          if (!res.ok) throw new Error();
+          nascoste = ((await res.json()) as { hidden: string[] }).hidden;
+          stateEl.style.display = "none";
+          rowsEl.style.display = "flex";
+          render();
+        } catch {
+          stateEl.textContent = "Erreur de chargement.";
+        }
+      })();
+    </script>
+  </body>
+</html>

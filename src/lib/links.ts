@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./db";
+import { cacheOr } from "./cache";
 
 /**
  * Link social e recensioni del ristorante, gestiti dall'admin
@@ -47,16 +48,19 @@ const FALLBACK: Record<string, string> = {
   instagram: "https://www.instagram.com/pizzeria.lamolisana/",
 };
 
-/** I social con URL compilato nell'admin, nell'ordine FB/IG/TikTok/LinkedIn/X. */
+/** I social con URL compilato nell'admin, nell'ordine FB/IG/TikTok/LinkedIn/X.
+ *  Cache 60s: Header + Footer + pagine non rifanno la query a ogni render. */
 export async function linksSocial(): Promise<LinkSocial[]> {
   try {
-    const { data, error } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", SOCIAL.map((s) => "link_" + s.k));
-    if (error) throw error;
-    const map = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
-    return SOCIAL.map((s) => ({ ...s, url: map.get("link_" + s.k) ?? "" })).filter((s) => s.url);
+    return await cacheOr("links:social", async () => {
+      const { data, error } = await supabaseAdmin
+        .from("app_config")
+        .select("key, value")
+        .in("key", SOCIAL.map((s) => "link_" + s.k));
+      if (error) throw error;
+      const map = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
+      return SOCIAL.map((s) => ({ ...s, url: map.get("link_" + s.k) ?? "" })).filter((s) => s.url);
+    });
   } catch {
     return SOCIAL.map((s) => ({ ...s, url: FALLBACK[s.k] ?? "" })).filter((s) => s.url);
   }
@@ -65,12 +69,15 @@ export async function linksSocial(): Promise<LinkSocial[]> {
 /** Link "Laisser un avis" della scheda Google Business ("" se non impostato). */
 export async function linkGoogleReview(): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "link_google_review")
-      .maybeSingle();
-    return String(data?.value ?? "").trim();
+    return await cacheOr("links:google_review", async () => {
+      const { data, error } = await supabaseAdmin
+        .from("app_config")
+        .select("value")
+        .eq("key", "link_google_review")
+        .maybeSingle();
+      if (error) throw error;
+      return String(data?.value ?? "").trim();
+    });
   } catch {
     return "";
   }

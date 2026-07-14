@@ -2,6 +2,7 @@
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { supabaseAdmin } from "../lib/db";
 import { linksSocial } from "../lib/links";
+import { cacheOr } from "../lib/cache";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -36,9 +37,14 @@ function bande(row: any): string {
 let horaires: { days: string; val: string }[] = [];
 let fermetures: string[] = [];
 try {
-  const { data } = await supabaseAdmin
-    .from("settings")
-    .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
+  // Cache 60s: il footer è su tutte le pagine, una query basta
+  const data = await cacheOr("footer:settings", async () => {
+    const { data: righe, error } = await supabaseAdmin
+      .from("settings")
+      .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
+    if (error || !righe) throw new Error("settings illeggibili");
+    return righe;
+  });
   if (data && data.length) {
     const byDay: Record<number, any> = {};
     for (const r of data) byDay[r.day_of_week] = r;

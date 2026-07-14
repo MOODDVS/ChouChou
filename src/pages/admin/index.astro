@@ -175,7 +175,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           </div>
 
           <!-- Commandes -->
-          <a class="tile" href="/admin/orders">
+          <a class="tile" href="/admin/orders" data-admin-page="orders">
             <div class="tile-title">Commandes</div>
             <div class="tile-big" id="ord-count">0</div>
             <div class="tile-sub" id="ord-sub">aujourd'hui</div>
@@ -186,7 +186,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           </a>
 
           <!-- Horaires -->
-          <a class="tile" href="/admin/settings">
+          <a class="tile" href="/admin/settings" data-admin-page="settings">
             <div class="tile-title">Horaires</div>
             <div class="sched-status" id="sched-status">—</div>
             <div id="sched-bands-wrap"></div>
@@ -203,7 +203,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           </a>
 
           <!-- Menu -->
-          <a class="tile" href="/admin/menu">
+          <a class="tile" href="/admin/menu" data-admin-page="menu">
             <div class="tile-title">Menu</div>
             <div class="menu-counts">
               <div><span class="mc-num" id="menu-food">0</span><span class="mc-lab">🍴 plats</span></div>
@@ -216,7 +216,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           </a>
 
           <!-- Statistiques (2 colonne) -->
-          <div class="tile tile-stats">
+          <div class="tile tile-stats" data-admin-page="stats">
             <div class="st-head">
               <div class="tile-title">Statistiques</div>
               <a class="st-link" href="/admin/stats">Voir tout →</a>

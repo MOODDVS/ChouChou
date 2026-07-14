@@ -25,6 +25,13 @@ const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// Cache dei token già verificati (60s): evita un round-trip al server
+// Auth di Supabase per OGNI chiamata API dell'admin. I token durano 1 ora:
+// riusare l'esito per 60 secondi è sicuro, e un logout invalida comunque
+// la sessione lato client.
+const CACHE_TOKEN_MS = 60_000;
+const tokenVerificati = new Map<string, { scade: number; user: Awaited<ReturnType<typeof authClient.auth.getUser>>["data"]["user"] }>();
+
 /**
  * Verifica la richiesta: estrae il token Bearer e lo valida.
  * Ritorna l'utente se autenticato, altrimenti null.
@@ -37,9 +44,14 @@ export async function verificaStaff(request: Request) {
 
   if (!token) return null;
 
+  const inCache = tokenVerificati.get(token);
+  if (inCache && Date.now() < inCache.scade) return inCache.user;
+
   const { data, error } = await authClient.auth.getUser(token);
   if (error || !data.user) return null;
 
+  if (tokenVerificati.size > 200) tokenVerificati.clear();
+  tokenVerificati.set(token, { scade: Date.now() + CACHE_TOKEN_MS, user: data.user });
   return data.user;
 }
 

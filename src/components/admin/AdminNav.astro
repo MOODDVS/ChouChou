@@ -3,12 +3,12 @@
 // Stile: pillola "liquid glass", ogni voce con icona sopra e label piccola sotto.
 // Visibile su tutti i dispositivi (fissa in basso, centrata).
 interface Props {
-  current?: "home" | "orders" | "clients" | "menu" | "stats" | "marketing" | "settings";
+  current?: "home" | "orders" | "clients" | "menu" | "stats" | "marketing" | "settings" | "super";
 }
 const { current } = Astro.props;
 ---
 
-<nav class="admin-nav" aria-label="Navigation admin">
+<nav class="admin-nav" aria-label="Navigation admin" data-current={current ?? ""}>
   <a href="/admin" class={current === "home" ? "active" : ""} aria-label="Accueil">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M3 11.5 12 4l9 7.5" />
@@ -16,7 +16,7 @@ const { current } = Astro.props;
     </svg>
     <span>Accu.</span>
   </a>
-  <a href="/admin/orders" class={current === "orders" ? "active" : ""} aria-label="Commandes">
+  <a href="/admin/orders" data-page="orders" class={current === "orders" ? "active" : ""} aria-label="Commandes">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" />
       <path d="M4 6h16" />
@@ -24,7 +24,7 @@ const { current } = Astro.props;
     </svg>
     <span>Comm.</span>
   </a>
-  <a href="/admin/clients" class={current === "clients" ? "active" : ""} aria-label="Clients">
+  <a href="/admin/clients" data-page="clients" class={current === "clients" ? "active" : ""} aria-label="Clients">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
@@ -33,14 +33,14 @@ const { current } = Astro.props;
     </svg>
     <span>Clie.</span>
   </a>
-  <a href="/admin/menu" class={current === "menu" ? "active" : ""} aria-label="Menu">
+  <a href="/admin/menu" data-page="menu" class={current === "menu" ? "active" : ""} aria-label="Menu">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
       <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
     </svg>
     <span>Menu</span>
   </a>
-  <a href="/admin/stats" class={current === "stats" ? "active" : ""} aria-label="Statistiques">
+  <a href="/admin/stats" data-page="stats" class={current === "stats" ? "active" : ""} aria-label="Statistiques">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <line x1="18" y1="20" x2="18" y2="10" />
       <line x1="12" y1="20" x2="12" y2="4" />
@@ -48,7 +48,7 @@ const { current } = Astro.props;
     </svg>
     <span>Stat.</span>
   </a>
-  <a href="/admin/marketing" class={current === "marketing" ? "active" : ""} aria-label="Marketing">
+  <a href="/admin/marketing" data-page="marketing" class={current === "marketing" ? "active" : ""} aria-label="Marketing">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M3 11v3" />
       <path d="M7 9v7" />
@@ -58,7 +58,7 @@ const { current } = Astro.props;
     </svg>
     <span>Mark.</span>
   </a>
-  <a href="/admin/settings" class={current === "settings" ? "active" : ""} aria-label="Réglages">
+  <a href="/admin/settings" data-page="settings" class={current === "settings" ? "active" : ""} aria-label="Réglages">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <line x1="4" y1="21" x2="4" y2="14" />
       <line x1="4" y1="10" x2="4" y2="3" />
@@ -73,6 +73,15 @@ const { current } = Astro.props;
     <span>Régl.</span>
   </a>
 </nav>
+
+<!-- Bottone SUPER ADMIN (solo admin@moodd.online): isola separata a sinistra -->
+<a href="/admin/super" class={"admin-super" + (current === "super" ? " active" : "")} id="admin-nav-super" aria-label="Admin MOODD" style="display:none">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </svg>
+  <span>Admin</span>
+</a>
 
 <style is:global>
   .admin-nav {
@@ -130,6 +139,45 @@ const { current } = Astro.props;
     color: #231f20;
   }
 
+  /* --- Isola separata del super admin (ingranaggio, a sinistra) --- */
+  .admin-super {
+    position: fixed;
+    bottom: 1.25rem;
+    left: 1rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.18rem;
+    font-family: var(--font-body, system-ui, sans-serif);
+    font-size: 0.56rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--c-muted, #b3aca6);
+    text-decoration: none;
+    padding: 0.42rem 0.85rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    transition: color 0.2s, background 0.2s;
+  }
+  .admin-super svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .admin-super:hover { color: var(--c-text, #fff); }
+  .admin-super.active { background: var(--c-accent, #dfab4e); color: #231f20; }
+
   @media (max-width: 520px) {
     .admin-nav {
       left: 1rem;
@@ -141,5 +189,53 @@ const { current } = Astro.props;
       flex: 1;
       padding: 0.42rem 0.3rem;
     }
+    /* su mobile la barra occupa tutta la larghezza: l'ingranaggio sale sopra */
+    .admin-super { bottom: calc(1.25rem + 72px); }
   }
 </style>
+
+<script>
+  import { supabaseBrowser } from "../../lib/supabaseBrowser";
+  import { isSuper } from "../../lib/superAdmin";
+
+  // Visibilità delle pagine admin:
+  // - super admin (MOODD): vede tutto + il bottone ingranaggio
+  // - altri utenti: le pagine nascoste spariscono dalla barra e dai tile,
+  //   e l'accesso diretto a una pagina nascosta rimanda all'Accueil.
+  (async () => {
+    const nav = document.querySelector(".admin-nav[data-current]") as HTMLElement | null;
+    if (!nav) return;
+    const { data } = await supabaseBrowser.auth.getSession();
+    const token = data.session?.access_token ?? "";
+    const email = data.session?.user?.email ?? "";
+    if (!token) return;
+    const current = nav.dataset.current ?? "";
+
+    if (isSuper(email)) {
+      const sup = document.getElementById("admin-nav-super");
+      if (sup) sup.style.display = "flex";
+      return; // il super vede tutto
+    }
+    if (current === "super") {
+      window.location.replace("/admin");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/pages", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const { hidden } = (await res.json()) as { hidden: string[] };
+      if (!hidden.length) return;
+
+      for (const k of hidden) {
+        nav.querySelector(`a[data-page="${k}"]`)?.remove();
+        document.querySelectorAll(`[data-admin-page="${k}"]`).forEach((el) => el.remove());
+      }
+      if (hidden.includes(current)) window.location.replace("/admin");
+    } catch {
+      // rete assente: non si blocca l'admin
+    }
+  })();
+</script>
