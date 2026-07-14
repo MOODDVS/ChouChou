@@ -1,0 +1,1307 @@
+---
+// Pannello admin — MARKETING.
+// Tab "Pop-up": gestione dei modali di comunicazione del sito pubblico.
+// Ogni pop-up: immagine/titolo/testo/max 2 bottoni (facoltativi tranne il
+// titolo), scelta delle pagine, programmazione (sempre / date / giorni+ore)
+// e numero massimo di visualizzazioni per visitatore.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Marketing — Admin La Molisana</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #362c28;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
+      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+
+      /* Tabs (come Réglages) */
+      .mtabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .mtab {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.2rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .mtab:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+
+      .actionsbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .pill {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-weight: 700; font-size: 0.85rem;
+        padding: 0.55rem 1.1rem; cursor: pointer; border-radius: 999px;
+        transition: border-color 0.2s;
+      }
+      .pill:hover { border-color: var(--c-accent); }
+
+      /* Card pop-up */
+      .pops { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
+      .pop {
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        display: flex; flex-direction: column; gap: 0.7rem;
+      }
+      .pop.is-off { opacity: 0.55; }
+      .pop-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; }
+      .pop-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.03em; }
+      .pop-text { color: var(--c-muted); font-size: 0.88rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .pop-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+      .m-tag {
+        display: inline-block; padding: 0.16rem 0.55rem; border: 1px solid var(--c-line);
+        border-radius: 999px; color: var(--c-muted); font-size: 0.7rem;
+        text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+      }
+      .m-tag.gold { border-color: rgba(223, 171, 78, 0.5); color: var(--c-accent); }
+      .pop-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
+
+      /* Switch */
+      .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+      .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .track {
+        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
+        background: var(--c-line); transition: background 0.2s;
+      }
+      .switch .track::before {
+        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
+        border-radius: 50%; background: #231f20; transition: transform 0.2s;
+      }
+      .switch input:checked + .track { background: var(--c-accent); }
+      .switch input:checked + .track::before { transform: translateX(20px); }
+
+      /* Bottoni icona (come le altre pagine admin) */
+      .i-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); border-radius: 50%;
+        color: var(--c-muted); cursor: pointer; font-size: 0.95rem;
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
+      }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-edit { margin-left: auto; }
+      .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
+
+      /* Modale form */
+      .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        justify-content: center; padding: 3vh 1rem; overflow-y: auto;
+      }
+      .overlay.is-open { display: flex; }
+      /* margin auto = sempre centrato, ma scrollabile se più alto dello schermo */
+      .modal { width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-text); }
+
+      .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.1rem 0 0.4rem; }
+      .f-lab:first-of-type { margin-top: 0; }
+      .f-input, .f-area {
+        width: 100%; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem;
+        padding: 0.65rem 0.85rem; border-radius: 8px; transition: border-color 0.2s;
+      }
+      .f-input::placeholder, .f-area::placeholder { color: var(--c-muted); opacity: 0.7; }
+      .f-input:focus, .f-area:focus { outline: none; border-color: var(--c-accent); }
+      .f-area { min-height: 90px; resize: vertical; }
+      .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+      .f-row--img { grid-template-columns: 1fr auto; align-items: center; }
+      .picks--lang { margin-bottom: 0.2rem; }
+      .picks--lang .pick { min-width: 56px; text-align: center; font-size: 0.9rem; }
+      .f-hint { font-size: 0.72rem; color: var(--c-muted); margin-top: 0.3rem; }
+
+      /* Pillole selezionabili (pagine, giorni, programmazione) */
+      .picks { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .pick {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-size: 0.82rem; font-weight: 700; padding: 0.4rem 0.85rem; cursor: pointer;
+        border-radius: 999px; user-select: none;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .pick:hover { border-color: var(--c-accent); }
+      .pick.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+
+      .sched-block { display: none; margin-top: 0.8rem; }
+      .sched-block.is-visible { display: block; }
+      .f-date { cursor: pointer; }
+
+      /* --- Datepicker custom (brand, come Réglages) --- */
+      .dp-panel {
+        position: fixed; z-index: 320; width: 308px;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
+      }
+      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
+      .dp-nav {
+        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
+        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
+      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
+      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+      .dp-cell {
+        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
+        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
+        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
+        transition: background 0.15s, color 0.15s;
+      }
+      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
+      .dp-vuota { cursor: default; }
+      .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
+      .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
+      @media (pointer: coarse) {
+        .dp-panel { width: 340px; }
+        .dp-cell { min-height: 44px; font-size: 1.05rem; }
+      }
+
+      .m-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+      .m-save {
+        background: var(--c-accent); border: 1px solid var(--c-accent); color: #231f20;
+        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
+        padding: 0.6rem 1.6rem; cursor: pointer; border-radius: 999px;
+        transition: filter 0.2s;
+      }
+      .m-save:hover { filter: brightness(1.1); }
+      .m-save:disabled { opacity: 0.5; cursor: wait; }
+      .m-err { color: #ff6b6b; font-size: 0.85rem; }
+
+      /* Newsletter */
+      .n-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
+      @media (max-width: 720px) { .n-stats { grid-template-columns: 1fr; } }
+      .n-stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.3rem 1.5rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .n-stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.5rem; }
+      .n-stat-big { font-family: var(--font-title); font-size: 2.4rem; line-height: 1; color: var(--c-accent); }
+      .n-stat-sub { font-size: 1.1rem; color: var(--c-muted); margin-left: 0.4rem; }
+      .n-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+      .n-stat-note { display: block; color: var(--c-muted); font-size: 0.78rem; margin-top: 0.5rem; }
+      .c-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+      .c-pack {
+        display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        padding: 1.1rem 0.8rem; cursor: pointer; border-radius: 12px;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .c-pack:hover { border-color: var(--c-accent); transform: scale(0.98); }
+      .c-pack.is-on { border-color: var(--c-accent); background: rgba(223, 171, 78, 0.12); }
+      .c-pack:disabled { opacity: 0.5; cursor: wait; }
+      .c-pack-n { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
+      .c-pack-p { font-size: 0.9rem; font-weight: 700; }
+      .n-htitle { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 0.8rem; }
+      .n-row { display: flex; align-items: baseline; gap: 0.9rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 0.8rem 1.2rem; margin-bottom: 0.4rem; }
+      .n-row-subject { flex: 1; font-weight: 700; }
+      .n-row-count { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-accent); white-space: nowrap; }
+      .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
+      .m-save.confirm { background: #a3320f; border-color: #a3320f; color: #fff; }
+
+      /* Toast */
+      .toast {
+        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
+        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
+        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
+        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      }
+      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.is-error { border-color: #ed1c24; }
+
+      @media (max-width: 640px) {
+        main { padding: 1.5rem 1rem 8rem; }
+        .f-row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>Marketing</h1>
+
+        <div class="mtabs" id="mtabs">
+          <button class="mtab is-active" data-tab="popup">Pop-up</button>
+          <button class="mtab" data-tab="news">Newsletter</button>
+        </div>
+
+        <div class="state" id="state">Chargement…</div>
+
+        <div id="tab-popup" style="display:none">
+          <div class="actionsbar">
+            <button class="pill" id="add-btn">+ Nouveau pop-up</button>
+          </div>
+          <div class="state" id="empty" style="display:none">
+            Aucun pop-up pour le moment. Créez-en un&nbsp;: il apparaîtra sur les pages choisies.
+          </div>
+          <div class="pops" id="pops"></div>
+        </div>
+
+        <div id="tab-news" style="display:none">
+          <div class="n-stats">
+            <div class="n-stat">
+              <div class="n-stat-lab">Envoyées ce mois-ci</div>
+              <div class="n-stat-big"><span id="n-sent">—</span><span class="n-stat-sub">/ 1000</span></div>
+            </div>
+            <div class="n-stat">
+              <div class="n-stat-lab">Envois restants</div>
+              <div class="n-stat-row">
+                <div class="n-stat-big" id="n-remaining">—</div>
+                <button class="pill" id="c-buy" type="button">+ Ajouter des crédits</button>
+              </div>
+              <span class="n-stat-note" id="n-purchased"></span>
+            </div>
+            <div class="n-stat">
+              <div class="n-stat-lab">Destinataires</div>
+              <div class="n-stat-big" id="n-recipients">—</div>
+            </div>
+          </div>
+
+          <div class="actionsbar">
+            <button class="pill" id="n-add">+ Nouvelle newsletter</button>
+          </div>
+
+          <h2 class="n-htitle">Derniers envois</h2>
+          <div class="state" id="n-hempty" style="display:none">Aucun envoi pour le moment.</div>
+          <div class="n-history" id="n-history"></div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Modale creazione/modifica -->
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <button class="m-close" id="m-close" type="button" aria-label="Fermer">×</button>
+        <h2 id="m-title">Nouveau pop-up</h2>
+
+        <div class="picks picks--lang" id="f-lang">
+          <span class="pick is-on" data-l="fr">FR</span>
+          <span class="pick" data-l="en">EN</span>
+        </div>
+        <p class="f-hint" style="margin:0.4rem 0 0.9rem">
+          Le pop-up n'apparaît sur une version du site que si le titre de cette
+          langue est rempli.
+        </p>
+
+        <label class="f-lab" for="f-img">Image</label>
+        <div class="f-row f-row--img">
+          <input type="text" class="f-input" id="f-img" placeholder="https://… ou téléversez un fichier →" />
+          <button class="pill" id="f-upload" type="button">Téléverser</button>
+          <input type="file" id="f-file" accept="image/*" style="display:none" />
+        </div>
+        <p class="f-hint" id="f-upload-state"></p>
+
+        <div id="panel-fr">
+          <label class="f-lab" for="f-title">Titre</label>
+          <input type="text" class="f-input" id="f-title" placeholder="Ex. Fermeture exceptionnelle, Menu de Noël…" />
+
+          <label class="f-lab" for="f-body">Texte</label>
+          <textarea class="f-area" id="f-body" placeholder="Le message du pop-up (facultatif)"></textarea>
+
+          <label class="f-lab">Bouton 1 (facultatif)</label>
+          <div class="f-row">
+            <input type="text" class="f-input" id="f-b1l" placeholder="Label — ex. Réserver" />
+            <input type="text" class="f-input" id="f-b1u" placeholder="Lien — https://…, /order ou #reserver" />
+          </div>
+
+          <label class="f-lab">Bouton 2 (facultatif)</label>
+          <div class="f-row">
+            <input type="text" class="f-input" id="f-b2l" placeholder="Label" />
+            <input type="text" class="f-input" id="f-b2u" placeholder="Lien" />
+          </div>
+          <p class="f-hint">Astuce&nbsp;: le lien <strong>#reserver</strong> ouvre le module de réservation.</p>
+        </div>
+
+        <div id="panel-en" style="display:none">
+          <label class="f-lab" for="f-title-en">Title</label>
+          <input type="text" class="f-input" id="f-title-en" placeholder="Ex. Exceptional closure, Christmas menu…" />
+
+          <label class="f-lab" for="f-body-en">Text</label>
+          <textarea class="f-area" id="f-body-en" placeholder="The pop-up message (optional)"></textarea>
+
+          <label class="f-lab">Bouton 1 — label EN</label>
+          <input type="text" class="f-input" id="f-b1l-en" placeholder="Label — ex. Book a table" />
+
+          <label class="f-lab">Bouton 2 — label EN</label>
+          <input type="text" class="f-input" id="f-b2l-en" placeholder="Label" />
+          <p class="f-hint">Les liens des boutons sont définis dans l'onglet FR (partagés entre les deux langues).</p>
+        </div>
+
+        <label class="f-lab">Pages où il apparaît *</label>
+        <div class="picks" id="f-pages"></div>
+
+        <label class="f-lab">Programmation</label>
+        <div class="picks" id="f-kind">
+          <span class="pick is-on" data-k="always">Indéfini</span>
+          <span class="pick" data-k="dates">Période (dates)</span>
+          <span class="pick" data-k="weekly">Jours &amp; heures</span>
+        </div>
+
+        <div class="sched-block" id="sched-dates">
+          <div class="f-row">
+            <div>
+              <label class="f-lab" for="f-ds">Du</label>
+              <input type="text" class="f-input f-date" id="f-ds" readonly placeholder="jj/mm/aaaa" />
+            </div>
+            <div>
+              <label class="f-lab" for="f-de">Au</label>
+              <input type="text" class="f-input f-date" id="f-de" readonly placeholder="jj/mm/aaaa" />
+            </div>
+          </div>
+        </div>
+
+        <div class="sched-block" id="sched-weekly">
+          <div class="picks" id="f-days"></div>
+          <div class="f-row" style="margin-top:0.8rem">
+            <div>
+              <label class="f-lab" for="f-hs">De</label>
+              <input type="time" class="f-input" id="f-hs" />
+            </div>
+            <div>
+              <label class="f-lab" for="f-he">À</label>
+              <input type="time" class="f-input" id="f-he" />
+            </div>
+          </div>
+        </div>
+
+        <label class="f-lab" for="f-max">Visualisations max par visiteur</label>
+        <input type="number" class="f-input" id="f-max" min="1" max="10" value="3" style="max-width:120px" />
+
+        <div class="m-foot">
+          <button class="m-save" id="m-save" type="button">Enregistrer</button>
+          <span class="sw-wrap">
+            <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
+            <span class="sw-lab">Actif</span>
+          </span>
+          <span class="m-err" id="m-err"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale acquisto crediti -->
+    <div class="overlay" id="c-overlay">
+      <div class="modal" style="max-width:520px">
+        <button class="m-close" id="c-close" type="button" aria-label="Fermer">×</button>
+        <h2>Acheter des crédits</h2>
+        <p class="f-hint" style="margin-bottom:1.1rem">
+          Les crédits n'expirent jamais&nbsp;: ils sont utilisés une fois les
+          1000 envois mensuels inclus épuisés. Paiement sécurisé par Stripe.
+        </p>
+        <div class="c-packs">
+          <button class="c-pack" type="button" data-pack="500" data-price="5,99 €"><span class="c-pack-n">+500</span><span class="c-pack-p">5,99&nbsp;€</span></button>
+          <button class="c-pack" type="button" data-pack="1000" data-price="9,99 €"><span class="c-pack-n">+1000</span><span class="c-pack-p">9,99&nbsp;€</span></button>
+          <button class="c-pack" type="button" data-pack="2000" data-price="14,99 €"><span class="c-pack-n">+2000</span><span class="c-pack-p">14,99&nbsp;€</span></button>
+          <button class="c-pack" type="button" data-pack="5000" data-price="29,99 €"><span class="c-pack-n">+5000</span><span class="c-pack-p">29,99&nbsp;€</span></button>
+        </div>
+        <div class="m-foot" id="c-foot" style="display:none">
+          <button class="m-save" id="c-checkout" type="button">Payer</button>
+          <span class="m-err" id="c-err"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale nuova newsletter -->
+    <div class="overlay" id="n-overlay">
+      <div class="modal">
+        <button class="m-close" id="n-close" type="button" aria-label="Fermer">×</button>
+        <h2>Nouvelle newsletter</h2>
+
+        <label class="f-lab" for="n-subject">Objet *</label>
+        <input type="text" class="f-input" id="n-subject" placeholder="Ex. Nouveau menu d'automne 🍂" />
+
+        <label class="f-lab" for="n-msg">Message *</label>
+        <textarea class="f-area" id="n-msg" style="min-height:140px" placeholder="Le contenu de la newsletter…"></textarea>
+
+        <label class="f-lab" for="n-img">Image</label>
+        <div class="f-row f-row--img">
+          <input type="text" class="f-input" id="n-img" placeholder="https://… ou téléversez un fichier →" />
+          <button class="pill" id="n-upload" type="button">Téléverser</button>
+          <input type="file" id="n-file" accept="image/*" style="display:none" />
+        </div>
+        <p class="f-hint" id="n-upload-state"></p>
+
+        <label class="f-lab">Bouton (facultatif)</label>
+        <div class="f-row">
+          <input type="text" class="f-input" id="n-btnl" placeholder="Label — ex. Voir le menu" />
+          <input type="text" class="f-input" id="n-btnu" placeholder="Lien — https://…" />
+        </div>
+
+        <div class="m-foot">
+          <button class="m-save" id="n-send" type="button">Envoyer à tous</button>
+          <button class="pill" id="n-test" type="button">M'envoyer un test</button>
+          <span class="m-err" id="n-err"></span>
+        </div>
+        <p class="f-hint" style="margin-top:0.6rem">
+          Chaque email contient un lien de désinscription (obligatoire). Les clients
+          désinscrits ne sont plus jamais contactés.
+        </p>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <AdminNav current="marketing" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      type Popup = {
+        id: string;
+        title: string | null;
+        body: string | null;
+        image_url: string | null;
+        btn1_label: string | null;
+        btn1_url: string | null;
+        btn2_label: string | null;
+        btn2_url: string | null;
+        title_en: string | null;
+        body_en: string | null;
+        btn1_label_en: string | null;
+        btn2_label_en: string | null;
+        pages: string[];
+        active: boolean;
+        schedule_kind: "always" | "dates" | "weekly";
+        date_start: string | null;
+        date_end: string | null;
+        days: number[] | null;
+        hour_start: string | null;
+        hour_end: string | null;
+        max_shows: number;
+      };
+
+      const PAGINE: { k: string; label: string }[] = [
+        { k: "home", label: "Accueil" },
+        { k: "menu", label: "Notre Carte" },
+        { k: "order", label: "Commander" },
+        { k: "ambiance", label: "Ambiance" },
+        { k: "contact", label: "Contact" },
+        { k: "links", label: "Links" },
+      ];
+      const GIORNI: { n: number; label: string }[] = [
+        { n: 1, label: "Lun" }, { n: 2, label: "Mar" }, { n: 3, label: "Mer" },
+        { n: 4, label: "Jeu" }, { n: 5, label: "Ven" }, { n: 6, label: "Sam" }, { n: 0, label: "Dim" },
+      ];
+      const ICO_TRASH =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
+      const ICO_PEN = "✎";
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const tabPopup = document.getElementById("tab-popup") as HTMLDivElement;
+        const popsEl = document.getElementById("pops") as HTMLDivElement;
+        const emptyEl = document.getElementById("empty") as HTMLDivElement;
+        const toastEl = document.getElementById("toast") as HTMLDivElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
+        if (userErr || !userData.user) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = userData.user.email ?? "";
+        app.style.display = "flex";
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const headers = {
+          Authorization: `Bearer ${sessionData.session?.access_token ?? ""}`,
+          "Content-Type": "application/json",
+        };
+
+        let toastTimer: number | undefined;
+        function toast(msg: string, isErr = false) {
+          toastEl.textContent = msg;
+          toastEl.classList.toggle("is-error", isErr);
+          toastEl.classList.add("is-visible");
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+        }
+
+        // ---------- Lista ----------
+        let popups: Popup[] = [];
+
+        function riassuntoProgramma(p: Popup): string {
+          if (p.schedule_kind === "dates") {
+            const f = (d: string | null) => (d ? d.split("-").reverse().join("/") : "?");
+            return `${f(p.date_start)} → ${f(p.date_end)}`;
+          }
+          if (p.schedule_kind === "weekly") {
+            const nomi = GIORNI.filter((g) => (p.days ?? []).includes(g.n)).map((g) => g.label).join(", ");
+            const hh = (h: string | null) => String(h ?? "").slice(0, 5);
+            return `${nomi} · ${hh(p.hour_start)}–${hh(p.hour_end)}`;
+          }
+          return "Indéfini";
+        }
+
+        function render() {
+          if (popups.length === 0) {
+            popsEl.innerHTML = "";
+            emptyEl.style.display = "block";
+            return;
+          }
+          emptyEl.style.display = "none";
+          popsEl.innerHTML = popups
+            .map((p) => {
+              const pagine = PAGINE.filter((x) => p.pages.includes(x.k)).map((x) => x.label).join(" · ");
+              const lingue =
+                (p.title ? `<span class="m-tag">FR</span>` : "") +
+                (p.title_en ? `<span class="m-tag">EN</span>` : "");
+              return `
+              <div class="pop${p.active ? "" : " is-off"}" data-id="${p.id}">
+                <div class="pop-top">
+                  <div class="pop-title">${esc(p.title || p.title_en || "")}</div>
+                </div>
+                ${p.body ? `<div class="pop-text">${esc(p.body)}</div>` : ""}
+                <div class="pop-meta">
+                  <span class="m-tag gold">${esc(pagine)}</span>
+                  ${lingue}
+                  <span class="m-tag">${esc(riassuntoProgramma(p))}</span>
+                  <span class="m-tag">${p.max_shows}× max</span>
+                </div>
+                <div class="pop-actions">
+                  <span class="sw-wrap">
+                    <label class="switch"><input type="checkbox" class="t-active" ${p.active ? "checked" : ""} /><span class="track"></span></label>
+                    <span class="sw-lab">${p.active ? "Actif" : "Inactif"}</span>
+                  </span>
+                  <button class="i-btn i-edit" title="Modifier">${ICO_PEN}</button>
+                  <button class="i-btn i-del" title="Supprimer">${ICO_TRASH}</button>
+                </div>
+              </div>`;
+            })
+            .join("");
+        }
+
+        // ---------- Tabs Pop-up / Newsletter ----------
+        const tabNews = document.getElementById("tab-news") as HTMLDivElement;
+        const mtabs = document.getElementById("mtabs") as HTMLDivElement;
+        let tabAttivo = "popup";
+
+        function mostraTab(t: string) {
+          tabAttivo = t;
+          mtabs.querySelectorAll<HTMLElement>(".mtab").forEach((el) =>
+            el.classList.toggle("is-active", el.dataset.tab === t)
+          );
+          tabPopup.style.display = t === "popup" ? "block" : "none";
+          tabNews.style.display = t === "news" ? "block" : "none";
+        }
+        mtabs.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+          if (!el) return;
+          mostraTab(el.dataset.tab ?? "popup");
+          if (el.dataset.tab === "news") caricaNews();
+        });
+
+        async function carica() {
+          try {
+            const res = await fetch("/api/admin/popups", { headers });
+            if (!res.ok) {
+              stateEl.textContent = "Erreur de chargement.";
+              return;
+            }
+            popups = ((await res.json()) as { popups: Popup[] }).popups;
+            stateEl.style.display = "none";
+            mostraTab(tabAttivo);
+            render();
+          } catch {
+            stateEl.textContent = "Erreur de connexion.";
+          }
+        }
+
+        // ---------- Modale ----------
+        const overlay = document.getElementById("overlay") as HTMLDivElement;
+        const mTitle = document.getElementById("m-title") as HTMLHeadingElement;
+        const mErr = document.getElementById("m-err") as HTMLSpanElement;
+        const mSave = document.getElementById("m-save") as HTMLButtonElement;
+        const fTitle = document.getElementById("f-title") as HTMLInputElement;
+        const fBody = document.getElementById("f-body") as HTMLTextAreaElement;
+        const fImg = document.getElementById("f-img") as HTMLInputElement;
+        const fB1l = document.getElementById("f-b1l") as HTMLInputElement;
+        const fB1u = document.getElementById("f-b1u") as HTMLInputElement;
+        const fB2l = document.getElementById("f-b2l") as HTMLInputElement;
+        const fB2u = document.getElementById("f-b2u") as HTMLInputElement;
+        const fTitleEn = document.getElementById("f-title-en") as HTMLInputElement;
+        const fBodyEn = document.getElementById("f-body-en") as HTMLTextAreaElement;
+        const fB1lEn = document.getElementById("f-b1l-en") as HTMLInputElement;
+        const fB2lEn = document.getElementById("f-b2l-en") as HTMLInputElement;
+        const fPages = document.getElementById("f-pages") as HTMLDivElement;
+        const fKind = document.getElementById("f-kind") as HTMLDivElement;
+        const fDays = document.getElementById("f-days") as HTMLDivElement;
+        const fDs = document.getElementById("f-ds") as HTMLInputElement;
+        const fDe = document.getElementById("f-de") as HTMLInputElement;
+        const fHs = document.getElementById("f-hs") as HTMLInputElement;
+        const fHe = document.getElementById("f-he") as HTMLInputElement;
+        const fMax = document.getElementById("f-max") as HTMLInputElement;
+        const fActive = document.getElementById("f-active") as HTMLInputElement;
+        const schedDates = document.getElementById("sched-dates") as HTMLDivElement;
+        const schedWeekly = document.getElementById("sched-weekly") as HTMLDivElement;
+
+        let editId: string | null = null;
+
+        // Tab lingua FR/EN del form
+        const fLang = document.getElementById("f-lang") as HTMLDivElement;
+        const panelFr = document.getElementById("panel-fr") as HTMLDivElement;
+        const panelEn = document.getElementById("panel-en") as HTMLDivElement;
+        function mostraLingua(l: string) {
+          fLang.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", el.dataset.l === l)
+          );
+          panelFr.style.display = l === "fr" ? "block" : "none";
+          panelEn.style.display = l === "en" ? "block" : "none";
+        }
+        fLang.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (el) mostraLingua(el.dataset.l ?? "fr");
+        });
+
+        // Pillole pagine e giorni
+        fPages.innerHTML = PAGINE.map((p) => `<span class="pick" data-p="${p.k}">${p.label}</span>`).join("");
+        fDays.innerHTML = GIORNI.map((g) => `<span class="pick" data-d="${g.n}">${g.label}</span>`).join("");
+        [fPages, fDays].forEach((box) =>
+          box.addEventListener("click", (e) => {
+            const el = (e.target as HTMLElement).closest(".pick");
+            if (el) el.classList.toggle("is-on");
+          })
+        );
+
+        function kindAttivo(): string {
+          return (fKind.querySelector(".pick.is-on") as HTMLElement)?.dataset.k ?? "always";
+        }
+        fKind.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          fKind.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          el.classList.add("is-on");
+          schedDates.classList.toggle("is-visible", el.dataset.k === "dates");
+          schedWeekly.classList.toggle("is-visible", el.dataset.k === "weekly");
+        });
+
+        function apriModale(p: Popup | null) {
+          editId = p?.id ?? null;
+          mTitle.textContent = p ? "Modifier le pop-up" : "Nouveau pop-up";
+          mErr.textContent = "";
+          fUploadState.textContent = "";
+          mostraLingua("fr");
+          fTitle.value = p?.title ?? "";
+          fBody.value = p?.body ?? "";
+          fImg.value = p?.image_url ?? "";
+          fB1l.value = p?.btn1_label ?? "";
+          fB1u.value = p?.btn1_url ?? "";
+          fB2l.value = p?.btn2_label ?? "";
+          fB2u.value = p?.btn2_url ?? "";
+          fTitleEn.value = p?.title_en ?? "";
+          fBodyEn.value = p?.body_en ?? "";
+          fB1lEn.value = p?.btn1_label_en ?? "";
+          fB2lEn.value = p?.btn2_label_en ?? "";
+          fMax.value = String(p?.max_shows ?? 3);
+          fActive.checked = p ? p.active : true;
+          fDs.dataset.iso = p?.date_start ?? "";
+          fDs.value = p?.date_start ? fmtFr(p.date_start) : "";
+          fDe.dataset.iso = p?.date_end ?? "";
+          fDe.value = p?.date_end ? fmtFr(p.date_end) : "";
+          fHs.value = String(p?.hour_start ?? "").slice(0, 5);
+          fHe.value = String(p?.hour_end ?? "").slice(0, 5);
+
+          const pagineOn = p?.pages ?? ["home"];
+          fPages.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", pagineOn.includes(el.dataset.p ?? ""))
+          );
+          const giorniOn = p?.days ?? [];
+          fDays.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", giorniOn.includes(Number(el.dataset.d)))
+          );
+          const kind = p?.schedule_kind ?? "always";
+          fKind.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", el.dataset.k === kind)
+          );
+          schedDates.classList.toggle("is-visible", kind === "dates");
+          schedWeekly.classList.toggle("is-visible", kind === "weekly");
+
+          overlay.classList.add("is-open");
+        }
+        function chiudiModale() {
+          overlay.classList.remove("is-open");
+        }
+
+        // ---------- Datepicker custom (brand, come Réglages) ----------
+        const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+        const DOW = ["L", "M", "M", "J", "V", "S", "D"];
+        let dpTarget: HTMLInputElement | null = null;
+        let dpAnno = 0;
+        let dpMese = 0; // 0-11
+        const dpPanel = document.createElement("div");
+        dpPanel.className = "dp-panel";
+        dpPanel.style.display = "none";
+        document.body.appendChild(dpPanel);
+
+        function isoOggi(): string {
+          const d = new Date();
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+        function isoDi(y: number, m: number, g: number): string {
+          return `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
+        }
+        function fmtFr(iso: string): string {
+          const [y, m, d] = iso.split("-");
+          return `${d}/${m}/${y}`;
+        }
+        function dpRender() {
+          const oggi = isoOggi();
+          const sel = dpTarget?.dataset.iso ?? "";
+          const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7; // lunedì=0
+          const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
+          const oy = Number(oggi.slice(0, 4));
+          const om = Number(oggi.slice(5, 7)) - 1;
+          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
+          let celle = "";
+          for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
+          for (let g = 1; g <= nGiorni; g++) {
+            const iso = isoDi(dpAnno, dpMese, g);
+            const cls = ["dp-cell"];
+            if (iso < oggi) cls.push("dp-off");
+            if (iso === oggi) cls.push("dp-today");
+            if (iso === sel) cls.push("dp-sel");
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${iso < oggi ? "disabled" : ""}>${g}</button>`;
+          }
+          dpPanel.innerHTML = `
+            <div class="dp-head">
+              <button type="button" class="dp-nav" data-nav="-1" ${prevOff ? "disabled" : ""}>‹</button>
+              <span class="dp-title">${MESI[dpMese]} ${dpAnno}</span>
+              <button type="button" class="dp-nav" data-nav="1">›</button>
+            </div>
+            <div class="dp-dow">${DOW.map((g) => `<span>${g}</span>`).join("")}</div>
+            <div class="dp-grid">${celle}</div>`;
+        }
+        function dpApri(target: HTMLInputElement) {
+          dpTarget = target;
+          const base = target.dataset.iso || isoOggi();
+          dpAnno = Number(base.slice(0, 4));
+          dpMese = Number(base.slice(5, 7)) - 1;
+          dpRender();
+          dpPanel.style.display = "block";
+          const r = target.getBoundingClientRect();
+          const pw = dpPanel.offsetWidth || 308;
+          const ph = dpPanel.offsetHeight || 360;
+          dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
+          dpPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+        }
+        function dpChiudi() {
+          dpPanel.style.display = "none";
+          dpTarget = null;
+        }
+        dpPanel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("dp-nav")) {
+            dpMese += Number(t.dataset.nav);
+            if (dpMese < 0) { dpMese = 11; dpAnno--; }
+            if (dpMese > 11) { dpMese = 0; dpAnno++; }
+            dpRender();
+            return;
+          }
+          if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
+            const iso = t.dataset.iso;
+            dpTarget.dataset.iso = iso;
+            dpTarget.value = fmtFr(iso);
+            // se la fine manca o è prima dell'inizio, allineala
+            const fromIso = fDs.dataset.iso ?? "";
+            const toIso = fDe.dataset.iso ?? "";
+            if (dpTarget === fDs && (!toIso || toIso < fromIso)) {
+              fDe.dataset.iso = iso;
+              fDe.value = fmtFr(iso);
+            }
+            dpChiudi();
+          }
+        });
+        [fDs, fDe].forEach((el) => {
+          el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            dpApri(el);
+          });
+        });
+        document.addEventListener("click", (e) => {
+          if (dpPanel.style.display !== "none" && !dpPanel.contains(e.target as Node)) dpChiudi();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") dpChiudi();
+        });
+
+        // ---------- Upload immagine (Supabase Storage via API) ----------
+        const fUpload = document.getElementById("f-upload") as HTMLButtonElement;
+        const fFile = document.getElementById("f-file") as HTMLInputElement;
+        const fUploadState = document.getElementById("f-upload-state") as HTMLParagraphElement;
+
+        fUpload.addEventListener("click", () => fFile.click());
+        fFile.addEventListener("change", async () => {
+          const file = fFile.files?.[0];
+          if (!file) return;
+          if (file.size > 4 * 1024 * 1024) {
+            fUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+            return;
+          }
+          fUpload.disabled = true;
+          fUploadState.textContent = "Téléversement…";
+          try {
+            const base64 = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => rej(new Error());
+              r.readAsDataURL(file);
+            });
+            const resp = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ filename: file.name, data: base64 }),
+            });
+            const j = await resp.json();
+            if (!resp.ok) {
+              fUploadState.textContent = j.error ?? "Erreur de téléversement";
+              return;
+            }
+            fImg.value = j.url;
+            fUploadState.textContent = "Image téléversée ✓";
+          } catch {
+            fUploadState.textContent = "Erreur de connexion";
+          } finally {
+            fUpload.disabled = false;
+            fFile.value = "";
+          }
+        });
+
+        document.getElementById("add-btn")!.addEventListener("click", () => apriModale(null));
+        document.getElementById("m-close")!.addEventListener("click", chiudiModale);
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) chiudiModale();
+        });
+
+        mSave.addEventListener("click", async () => {
+          mErr.textContent = "";
+          const payload = {
+            id: editId ?? undefined,
+            title: fTitle.value,
+            body: fBody.value,
+            image_url: fImg.value,
+            btn1_label: fB1l.value,
+            btn1_url: fB1u.value,
+            btn2_label: fB2l.value,
+            btn2_url: fB2u.value,
+            title_en: fTitleEn.value,
+            body_en: fBodyEn.value,
+            btn1_label_en: fB1lEn.value,
+            btn2_label_en: fB2lEn.value,
+            pages: Array.from(fPages.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => el.dataset.p!),
+            active: fActive.checked,
+            schedule_kind: kindAttivo(),
+            date_start: fDs.dataset.iso || null,
+            date_end: fDe.dataset.iso || null,
+            days: Array.from(fDays.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => Number(el.dataset.d)),
+            hour_start: fHs.value || null,
+            hour_end: fHe.value || null,
+            max_shows: Number(fMax.value),
+          };
+          mSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/popups", {
+              method: editId ? "PUT" : "POST",
+              headers,
+              body: JSON.stringify(payload),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              mErr.textContent = j.error ?? "Erreur";
+              return;
+            }
+            chiudiModale();
+            toast(editId ? "Pop-up modifié" : "Pop-up créé");
+            await carica();
+          } catch {
+            mErr.textContent = "Erreur de connexion";
+          } finally {
+            mSave.disabled = false;
+          }
+        });
+
+        // ---------- Azioni sulle card ----------
+        popsEl.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const card = t.closest(".pop") as HTMLElement | null;
+          if (!card) return;
+          const id = card.dataset.id!;
+          const p = popups.find((x) => x.id === id);
+          if (!p) return;
+
+          if (t.closest(".i-edit")) {
+            apriModale(p);
+            return;
+          }
+
+          const del = t.closest(".i-del") as HTMLButtonElement | null;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Confirmer ?";
+              setTimeout(() => {
+                del.classList.remove("confirm");
+                del.innerHTML = ICO_TRASH;
+              }, 3000);
+              return;
+            }
+            try {
+              const res = await fetch("/api/admin/popups?id=" + encodeURIComponent(id), {
+                method: "DELETE",
+                headers,
+              });
+              if (!res.ok) {
+                toast("Suppression impossible", true);
+                return;
+              }
+              toast("Pop-up supprimé");
+              await carica();
+            } catch {
+              toast("Erreur de connexion", true);
+            }
+            return;
+          }
+
+          const sw = t.closest(".t-active") as HTMLInputElement | null;
+          if (sw) {
+            try {
+              const res = await fetch("/api/admin/popups", {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({ id, active: sw.checked }),
+              });
+              if (!res.ok) throw new Error();
+              p.active = sw.checked;
+              render();
+            } catch {
+              sw.checked = !sw.checked;
+              toast("Enregistrement impossible", true);
+            }
+          }
+        });
+
+        // ---------- Newsletter ----------
+        const nSent = document.getElementById("n-sent") as HTMLSpanElement;
+        const nRemaining = document.getElementById("n-remaining") as HTMLDivElement;
+        const nRecipients = document.getElementById("n-recipients") as HTMLDivElement;
+        const nSubject = document.getElementById("n-subject") as HTMLInputElement;
+        const nMsg = document.getElementById("n-msg") as HTMLTextAreaElement;
+        const nImg = document.getElementById("n-img") as HTMLInputElement;
+        const nBtnl = document.getElementById("n-btnl") as HTMLInputElement;
+        const nBtnu = document.getElementById("n-btnu") as HTMLInputElement;
+        const nSend = document.getElementById("n-send") as HTMLButtonElement;
+        const nTest = document.getElementById("n-test") as HTMLButtonElement;
+        const nErr = document.getElementById("n-err") as HTMLSpanElement;
+        const nHistory = document.getElementById("n-history") as HTMLDivElement;
+        const nHempty = document.getElementById("n-hempty") as HTMLDivElement;
+
+        type NewsStato = {
+          sent_this_month: number;
+          quota: number;
+          remaining: number;
+          purchased_balance: number;
+          recipients: number;
+          history: { subject: string; count: number; created_at: string }[];
+        };
+        const nPurchased = document.getElementById("n-purchased") as HTMLSpanElement;
+
+        let destinatariNoti = 0;
+
+        // Modale newsletter
+        const nOverlay = document.getElementById("n-overlay") as HTMLDivElement;
+        document.getElementById("n-add")!.addEventListener("click", () => {
+          nErr.textContent = "";
+          nUploadState.textContent = "";
+          nOverlay.classList.add("is-open");
+        });
+        document.getElementById("n-close")!.addEventListener("click", () => nOverlay.classList.remove("is-open"));
+        nOverlay.addEventListener("click", (e) => {
+          if (e.target === nOverlay) nOverlay.classList.remove("is-open");
+        });
+
+        async function caricaNews() {
+          // "Guarigione" acquisti pending (pagati ma mai verificati)
+          try {
+            await fetch("/api/admin/credits", { headers });
+          } catch {
+            // non bloccante
+          }
+          try {
+            const res = await fetch("/api/admin/newsletter", { headers });
+            if (!res.ok) return;
+            const s = (await res.json()) as NewsStato;
+            destinatariNoti = s.recipients;
+            nSent.textContent = String(s.sent_this_month);
+            nRemaining.textContent = String(s.remaining);
+            nPurchased.textContent =
+              s.purchased_balance > 0 ? `dont ${s.purchased_balance} crédits achetés` : "";
+            nRecipients.textContent = String(s.recipients);
+            if (s.history.length === 0) {
+              nHistory.innerHTML = "";
+              nHempty.style.display = "block";
+            } else {
+              nHempty.style.display = "none";
+              nHistory.innerHTML = s.history
+                .map((h) => {
+                  const d = new Date(h.created_at).toLocaleDateString("fr-BE", {
+                    day: "2-digit", month: "2-digit", year: "numeric",
+                    timeZone: "Europe/Brussels",
+                  });
+                  return `<div class="n-row"><span class="n-row-subject">${esc(h.subject)}</span><span class="n-row-count">${h.count} emails</span><span class="n-row-date">${d}</span></div>`;
+                })
+                .join("");
+            }
+          } catch {
+            // silenzioso: le stat restano "—"
+          }
+        }
+
+        function payloadNews() {
+          return {
+            subject: nSubject.value,
+            message: nMsg.value,
+            image_url: nImg.value,
+            btn_label: nBtnl.value,
+            btn_url: nBtnu.value,
+          };
+        }
+
+        // Upload immagine newsletter (stesso endpoint dei pop-up)
+        const nUpload = document.getElementById("n-upload") as HTMLButtonElement;
+        const nFile = document.getElementById("n-file") as HTMLInputElement;
+        const nUploadState = document.getElementById("n-upload-state") as HTMLParagraphElement;
+        nUpload.addEventListener("click", () => nFile.click());
+        nFile.addEventListener("change", async () => {
+          const file = nFile.files?.[0];
+          if (!file) return;
+          if (file.size > 4 * 1024 * 1024) {
+            nUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+            return;
+          }
+          nUpload.disabled = true;
+          nUploadState.textContent = "Téléversement…";
+          try {
+            const base64 = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => rej(new Error());
+              r.readAsDataURL(file);
+            });
+            const resp = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ filename: file.name, data: base64 }),
+            });
+            const j = await resp.json();
+            if (!resp.ok) {
+              nUploadState.textContent = j.error ?? "Erreur de téléversement";
+              return;
+            }
+            nImg.value = j.url;
+            nUploadState.textContent = "Image téléversée ✓";
+          } catch {
+            nUploadState.textContent = "Erreur de connexion";
+          } finally {
+            nUpload.disabled = false;
+            nFile.value = "";
+          }
+        });
+
+        // Test: una sola email al proprio indirizzo
+        nTest.addEventListener("click", async () => {
+          nErr.textContent = "";
+          nTest.disabled = true;
+          try {
+            const res = await fetch("/api/admin/newsletter", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ ...payloadNews(), test: true }),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              nErr.textContent = j.error ?? "Erreur";
+              return;
+            }
+            toast(`Test envoyé à ${j.to}`);
+          } catch {
+            nErr.textContent = "Erreur de connexion";
+          } finally {
+            nTest.disabled = false;
+          }
+        });
+
+        // Invio a tutti: conferma in 2 tap (come le cancellazioni)
+        let nConfermaTimer: number | undefined;
+        nSend.addEventListener("click", async () => {
+          nErr.textContent = "";
+          if (!nSend.classList.contains("confirm")) {
+            nSend.classList.add("confirm");
+            nSend.textContent = `Confirmer l'envoi à ${destinatariNoti} clients ?`;
+            window.clearTimeout(nConfermaTimer);
+            nConfermaTimer = window.setTimeout(() => {
+              nSend.classList.remove("confirm");
+              nSend.textContent = "Envoyer à tous";
+            }, 4000);
+            return;
+          }
+          window.clearTimeout(nConfermaTimer);
+          nSend.classList.remove("confirm");
+          nSend.textContent = "Envoi…";
+          nSend.disabled = true;
+          try {
+            const res = await fetch("/api/admin/newsletter", {
+              method: "POST",
+              headers,
+              body: JSON.stringify(payloadNews()),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              nErr.textContent = j.error ?? "Erreur";
+              return;
+            }
+            toast(`Newsletter envoyée à ${j.sent} clients`);
+            nSubject.value = "";
+            nMsg.value = "";
+            nImg.value = "";
+            nBtnl.value = "";
+            nBtnu.value = "";
+            nOverlay.classList.remove("is-open");
+            await caricaNews();
+          } catch {
+            nErr.textContent = "Erreur de connexion";
+          } finally {
+            nSend.disabled = false;
+            nSend.textContent = "Envoyer à tous";
+          }
+        });
+
+        // ---------- Acquisto crediti (Stripe MOODD) ----------
+        const cOverlay = document.getElementById("c-overlay") as HTMLDivElement;
+        const cErr = document.getElementById("c-err") as HTMLSpanElement;
+        const cFoot = document.getElementById("c-foot") as HTMLDivElement;
+        const cCheckout = document.getElementById("c-checkout") as HTMLButtonElement;
+        let packScelto: string | null = null;
+
+        function resetPacks() {
+          packScelto = null;
+          cErr.textContent = "";
+          cFoot.style.display = "none";
+          cOverlay.querySelectorAll<HTMLElement>(".c-pack").forEach((b) => b.classList.remove("is-on"));
+        }
+
+        document.getElementById("c-buy")!.addEventListener("click", () => {
+          resetPacks();
+          cOverlay.classList.add("is-open");
+        });
+        document.getElementById("c-close")!.addEventListener("click", () => cOverlay.classList.remove("is-open"));
+        cOverlay.addEventListener("click", (e) => {
+          if (e.target === cOverlay) cOverlay.classList.remove("is-open");
+        });
+
+        // 1° passo: scegli il pack → appare il bottone di pagamento
+        cOverlay.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest(".c-pack") as HTMLButtonElement | null;
+          if (!btn) return;
+          packScelto = btn.dataset.pack ?? null;
+          cOverlay.querySelectorAll<HTMLElement>(".c-pack").forEach((b) =>
+            b.classList.toggle("is-on", b === btn)
+          );
+          cCheckout.textContent = `Payer ${btn.dataset.price} →`;
+          cFoot.style.display = "flex";
+          cErr.textContent = "";
+        });
+
+        // 2° passo: checkout Stripe
+        cCheckout.addEventListener("click", async () => {
+          if (!packScelto) return;
+          cErr.textContent = "";
+          cCheckout.disabled = true;
+          try {
+            const res = await fetch("/api/admin/credits", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ pack: packScelto }),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              cErr.textContent = j.error ?? "Erreur";
+              return;
+            }
+            window.location.href = j.url; // → Stripe Checkout
+          } catch {
+            cErr.textContent = "Erreur de connexion";
+          } finally {
+            cCheckout.disabled = false;
+          }
+        });
+
+        await carica();
+
+        // Ritorno da Stripe: verifica il pagamento e accredita
+        const creditSession = new URLSearchParams(window.location.search).get("credit_session");
+        if (creditSession) {
+          window.history.replaceState({}, "", "/admin/marketing");
+          mostraTab("news");
+          try {
+            const res = await fetch("/api/admin/credits", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ session_id: creditSession }),
+            });
+            const j = await res.json();
+            if (res.ok) toast(`+${j.credits} crédits ajoutés ✓`);
+            else toast(j.error ?? "Vérification impossible", true);
+          } catch {
+            toast("Erreur de connexion", true);
+          }
+          await caricaNews();
+        }
+      })();
+    </script>
+  </body>
+</html>

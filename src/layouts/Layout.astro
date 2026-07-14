@@ -4,6 +4,7 @@ import Footer from "../components/Footer.astro";
 import MobileNav from "../components/MobileNav.astro";
 import CookieBanner from "../components/CookieBanner.astro";
 import ReservationModal from "../components/ReservationModal.astro";
+import SitePopup from "../components/SitePopup.astro";
 import { getLangFromUrl } from "../i18n/ui";
 
 interface Props {
@@ -389,6 +390,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     <Footer />
     <MobileNav />
     <ReservationModal />
+    <SitePopup />
     <CookieBanner />
   </body>
 </html>

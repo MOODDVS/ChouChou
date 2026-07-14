@@ -1,0 +1,227 @@
+---
+// Pop-up di comunicazione (gestito dall'admin: Marketing → Pop-up).
+// Reso lato server SOLO se un pop-up è valido adesso per questa pagina;
+// il limite di visualizzazioni per visitatore (max_shows) è applicato
+// qui con localStorage. Bottone con link "#reserver" = apre il modale
+// prenotazioni RestoHub.
+import { popupPerPagina } from "../lib/popups";
+
+const raw = Astro.url.pathname.replace(/\/$/, "") || "/";
+const en = raw === "/en" || raw.startsWith("/en/");
+const path = raw.replace(/^\/en(?=\/|$)/, "") || "/";
+const MAP: Record<string, string> = {
+  "/": "home",
+  "/menu": "menu",
+  "/order": "order",
+  "/ambiance": "ambiance",
+  "/contact": "contact",
+  "/links": "links",
+};
+const slug = MAP[path];
+const pop = slug ? await popupPerPagina(slug, en ? "en" : "fr") : null;
+
+// Link interni localizzati sulla versione EN (/order -> /en/order)
+function localizza(url: string): string {
+  return en && url.startsWith("/") && !url.startsWith("/en") ? "/en" + url : url;
+}
+const btn1 = pop?.btn1_label && pop?.btn1_url ? { label: pop.btn1_label, url: localizza(pop.btn1_url) } : null;
+const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: localizza(pop.btn2_url) } : null;
+---
+
+{pop && (
+  <div class="sitepop" id="sitepop" data-pop-id={pop.id} data-max={pop.max_shows} aria-hidden="true">
+    <div class="sitepop__overlay" data-sitepop-close></div>
+    <div class="sitepop__box" role="dialog" aria-modal="true" aria-label={pop.title}>
+      <button class="sitepop__close" type="button" data-sitepop-close aria-label="Fermer">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+      {pop.image_url && <img class="sitepop__img" src={pop.image_url} alt="" />}
+      <div class="sitepop__body">
+        <h2 class="sitepop__title">{pop.title}</h2>
+        {pop.body && <p class="sitepop__text">{pop.body}</p>}
+        {(btn1 || btn2) && (
+          <div class="sitepop__btns">
+            {btn1 && (btn1.url === "#reserver"
+              ? <button type="button" class="sitepop__btn sitepop__btn--solid" data-reserver data-sitepop-close>{btn1.label}</button>
+              : <a href={btn1.url} class="sitepop__btn sitepop__btn--solid">{btn1.label}</a>)}
+            {btn2 && (btn2.url === "#reserver"
+              ? <button type="button" class="sitepop__btn sitepop__btn--outline" data-reserver data-sitepop-close>{btn2.label}</button>
+              : <a href={btn2.url} class="sitepop__btn sitepop__btn--outline">{btn2.label}</a>)}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+<style>
+  .sitepop {
+    position: fixed;
+    inset: 0;
+    z-index: 180; /* sotto il modale prenotazioni (200) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+  }
+  .sitepop.open {
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .sitepop__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .sitepop__box {
+    position: relative;
+    width: min(480px, 100%);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    background: var(--c-bg);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+    transform: translateY(16px);
+    transition: transform 0.3s ease;
+  }
+  .sitepop.open .sitepop__box { transform: none; }
+
+  .sitepop__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(35, 31, 32, 0.65);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .sitepop__close:hover { background: rgba(35, 31, 32, 0.9); }
+  .sitepop__close svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    fill: none;
+  }
+
+  .sitepop__img {
+    display: block;
+    width: 100%;
+    max-height: 240px;
+    object-fit: cover;
+  }
+
+  .sitepop__body {
+    padding: 1.8rem 1.8rem 2rem;
+    text-align: center;
+  }
+  .sitepop__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.6rem;
+    line-height: 1.2;
+    color: var(--c-accent);
+    margin: 0 0 0.8rem;
+  }
+  .sitepop__text {
+    font-family: var(--font-body);
+    font-size: 0.98rem;
+    line-height: 1.65;
+    color: var(--c-text);
+    margin: 0;
+    white-space: pre-line;
+  }
+  .sitepop__btns {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: 1.5rem;
+  }
+  .sitepop__btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.9rem 1.2rem;
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    text-align: center;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  .sitepop__btn:hover { transform: scale(0.97); }
+  .sitepop__btn--solid {
+    background: var(--c-accent);
+    color: var(--c-bg);
+    border: 1px solid var(--c-accent);
+  }
+  .sitepop__btn--solid:hover { background: #fff; border-color: #fff; color: var(--c-bg); }
+  .sitepop__btn--outline {
+    background: transparent;
+    color: var(--c-text);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+  }
+  .sitepop__btn--outline:hover { background: #fff; border-color: #fff; color: var(--c-bg); }
+</style>
+
+<script>
+  const pop = document.getElementById("sitepop");
+  if (pop) {
+    const chiave = "lm-pop-" + (pop.dataset.popId ?? "");
+    const max = Number(pop.dataset.max ?? "3") || 3;
+
+    let viste = 0;
+    try {
+      viste = Number(window.localStorage.getItem(chiave) ?? "0") || 0;
+    } catch {
+      // localStorage non disponibile: si mostra comunque
+    }
+
+    function chiudi() {
+      pop!.classList.remove("open");
+      pop!.setAttribute("aria-hidden", "true");
+    }
+
+    if (viste < max) {
+      window.setTimeout(() => {
+        pop.classList.add("open");
+        pop.setAttribute("aria-hidden", "false");
+        try {
+          window.localStorage.setItem(chiave, String(viste + 1));
+        } catch {
+          // pazienza: senza storage il limite non è applicabile
+        }
+      }, 900);
+
+      pop.addEventListener("click", (e) => {
+        if ((e.target as HTMLElement).closest("[data-sitepop-close]")) chiudi();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") chiudi();
+      });
+    }
+  }
+</script>
