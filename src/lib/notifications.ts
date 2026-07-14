@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
@@ -104,6 +105,7 @@ export async function inviaNotifiche(o: OrdineNotifica): Promise<void> {
     emailCliente(o),
     emailCucina(o),
     slackCucina(o),
+    emailReview(o),
   ]);
 }
 
@@ -310,5 +312,114 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
     });
   } catch (e) {
     console.error("Errore Slack:", e);
+  }
+}
+
+// Testi dell'email di richiesta recensione, nelle due lingue.
+const TXT_REVIEW = {
+  fr: {
+    subject: (name: string) => `${name}, votre avis compte pour nous ⭐`,
+    title: "Votre avis compte",
+    intro: (name: string) =>
+      `Merci ${name} pour votre commande d'hier !<br>` +
+      `Nous espérons que vous vous êtes régalé.<br>` +
+      `Un petit avis de votre part nous aide énormément&nbsp;— cela ne prend qu'une minute.`,
+    btn: "Laisser un avis Google",
+    sign: "À très bientôt,<br>La famille de La Molisana",
+  },
+  en: {
+    subject: (name: string) => `${name}, your feedback means a lot ⭐`,
+    title: "Your opinion matters",
+    intro: (name: string) =>
+      `Thank you ${name} for your order yesterday!<br>` +
+      `We hope you enjoyed it.<br>` +
+      `A quick review helps us enormously&nbsp;— it only takes a minute.`,
+    btn: "Leave a Google review",
+    sign: "See you soon,<br>The La Molisana family",
+  },
+} as const;
+
+/**
+ * Email di richiesta recensione Google, PROGRAMMATA su Resend
+ * (scheduledAt) per le 11:30 del giorno dopo l'ordine, ora di Bruxelles.
+ * Parte solo se il link Google Review è impostato nell'admin
+ * (Réglages → Liens). Nessun cron: la consegna è gestita da Resend.
+ */
+async function emailReview(o: OrdineNotifica): Promise<void> {
+  if (!resend || !RESEND_FROM) return;
+
+  // Link recensione dall'admin: senza link, niente email.
+  let reviewUrl = "";
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "link_google_review")
+      .maybeSingle();
+    reviewUrl = String(data?.value ?? "").trim();
+  } catch {
+    return;
+  }
+  if (!reviewUrl) return;
+
+  const t = TXT_REVIEW[o.lang === "en" ? "en" : "fr"];
+  const nome = esc(o.customer_name.split(" ")[0] || o.customer_name);
+
+  // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
+  const quando = DateTime.fromISO(o.pickup_time)
+    .setZone("Europe/Brussels")
+    .plus({ days: 1 })
+    .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">LA MOLISANA — PIZZA &amp; PASTA</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
+          <p style="margin:18px 0 0;color:#b3aca6;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px 40px 6px;text-align:center;">
+          <p style="margin:0;color:#dfab4e;font-size:26px;letter-spacing:6px;">★★★★★</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 40px 8px;text-align:center;">
+          <a href="${reviewUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:22px 40px 8px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <p style="margin:0 0 26px;color:#8f8781;font-size:13px;line-height:1.7;">${t.sign}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · pizzeria@lamolisana.be</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM,
+      to: o.customer_email,
+      subject: t.subject(nome),
+      html,
+      scheduledAt: quando.toISO() ?? undefined,
+    });
+  } catch (e) {
+    console.error("Errore programmazione email recensione:", e);
   }
 }
