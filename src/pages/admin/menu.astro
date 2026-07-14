@@ -232,9 +232,30 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
       @media (max-width: 640px) {
         main { padding: 1.5rem 1rem 8rem; }
-        .item { flex-wrap: wrap; gap: 0.6rem; }
-        .i-main { flex-basis: 100%; }
         .actionsbar .search { flex-basis: 100%; order: 3; margin-left: 0; }
+
+        /* Card piatto riorganizzata su griglia:
+           r1: handle · nome+descrizione · edit
+           r2:          prezzo · allergeni
+           r3: toggle Menu · toggle Cmd  ·  delete */
+        .item {
+          display: grid;
+          grid-template-columns: auto auto 1fr auto;
+          row-gap: 0.7rem;
+          column-gap: 0.9rem;
+          align-items: center;
+        }
+        .i-drag { grid-column: 1; grid-row: 1; align-self: start; }
+        .i-main { grid-column: 2 / 4; grid-row: 1; }
+        .i-desc { white-space: normal; margin-top: 0.2rem; }
+        .i-edit { grid-column: 4; grid-row: 1; align-self: start; justify-self: end; }
+        .i-price { grid-column: 2; grid-row: 2; justify-self: start; margin-right: 0; }
+        .i-price .i-col { align-items: flex-start; min-width: 0; }
+        .i-price .i-col + .i-col { margin-left: 1rem; }
+        .i-alg { grid-column: 3 / 5; grid-row: 2; justify-self: start; }
+        .sw-wrap:has(.t-av) { grid-column: 2; grid-row: 3; justify-self: start; }
+        .sw-wrap:has(.t-or) { grid-column: 3; grid-row: 3; justify-self: start; }
+        .i-del { grid-column: 4; grid-row: 3; justify-self: end; }
       }
     </style>
   </head>
