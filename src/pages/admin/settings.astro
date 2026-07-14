@@ -186,6 +186,7 @@ const LNK = [
       .section[data-tab="general"] .field input,
       .section[data-tab="general"] .kemails { flex: 1; width: auto; max-width: none; min-width: 0; }
       .section[data-tab="general"] .kemail-row input { width: auto; max-width: none; }
+      .section[data-tab="general"] .field input.g-zip { flex: 0 0 120px; }
       .section[data-tab="general"] .kemail-add { margin-left: calc(260px + 1rem); }
       .section[data-tab="general"] .hint { margin: 0.4rem 0 1.1rem calc(260px + 1rem); }
       @media (max-width: 700px) {
@@ -328,8 +329,17 @@ const LNK = [
               <input type="text" id="g-name" placeholder="Migraf SRL" />
             </div>
             <div class="field">
-              <label for="g-address">Adresse</label>
-              <input type="text" id="g-address" placeholder="Av. Adolphe Demeur 37, 1060 Saint-Gilles" />
+              <label for="g-street">Adresse (rue et numéro)</label>
+              <input type="text" id="g-street" placeholder="Av. Adolphe Demeur 37" />
+            </div>
+            <div class="field">
+              <label for="g-zip">Code postal &amp; ville</label>
+              <input type="text" id="g-zip" class="g-zip" placeholder="1060" autocomplete="off" />
+              <input type="text" id="g-city" placeholder="Saint-Gilles" />
+            </div>
+            <div class="field">
+              <label for="g-country">Pays</label>
+              <input type="text" id="g-country" placeholder="Belgique" />
             </div>
             <div class="field">
               <label for="g-vat">Numéro de TVA</label>
@@ -564,7 +574,10 @@ const LNK = [
         // --- Tab Général ---
         const G_CAMPI: [string, string][] = [
           ["company_name", "g-name"],
-          ["company_address", "g-address"],
+          ["company_street", "g-street"],
+          ["company_zip", "g-zip"],
+          ["company_city", "g-city"],
+          ["company_country", "g-country"],
           ["company_vat", "g-vat"],
           ["company_iban", "g-iban"],
           ["public_phone", "g-phone"],

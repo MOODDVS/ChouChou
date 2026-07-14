@@ -25,7 +25,10 @@ const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [
   "company_name",
-  "company_address",
+  "company_street",
+  "company_zip",
+  "company_city",
+  "company_country",
   "company_vat",
   "company_iban",
   "public_phone",
