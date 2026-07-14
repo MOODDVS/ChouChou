@@ -42,11 +42,12 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
-      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       /* Tabs (come Réglages) */
-      .mtabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .mtabs { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
       .mtab {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
@@ -247,13 +248,22 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         main { padding: 1.5rem 1rem 8rem; }
         .f-row { grid-template-columns: 1fr; }
       }
+      /* Loader dentro i bottoni di salvataggio */
+      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
+      .is-loading::after {
+        content: ""; position: absolute; inset: 0; margin: auto;
+        width: 18px; height: 18px; border-radius: 50%;
+        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        animation: btnspin 0.7s linear infinite;
+      }
+      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1>Marketing</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v3" /><path d="M7 9v7" /><path d="M7 9l10-5v16l-10-5" /><path d="M17 8.5a4 4 0 0 1 0 7" /><path d="M9.5 16.5 11 21" /></svg>Marketing</h1>
 
         <div class="mtabs" id="mtabs">
           <button class="mtab is-active" data-tab="popup">Pop-up</button>
@@ -944,6 +954,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             max_shows: Number(fMax.value),
           };
           mSave.disabled = true;
+          mSave.classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/popups", {
               method: editId ? "PUT" : "POST",
@@ -962,6 +973,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             mErr.textContent = "Erreur de connexion";
           } finally {
             mSave.disabled = false;
+            mSave.classList.remove("is-loading");
           }
         });
 
@@ -1193,6 +1205,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           nSend.classList.remove("confirm");
           nSend.textContent = "Envoi…";
           nSend.disabled = true;
+          nSend.classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/newsletter", {
               method: "POST",
@@ -1216,6 +1229,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             nErr.textContent = "Erreur de connexion";
           } finally {
             nSend.disabled = false;
+            nSend.classList.remove("is-loading");
             nSend.textContent = "Envoyer à tous";
           }
         });
@@ -1261,6 +1275,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           if (!packScelto) return;
           cErr.textContent = "";
           cCheckout.disabled = true;
+          cCheckout.classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/credits", {
               method: "POST",
@@ -1277,6 +1292,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             cErr.textContent = "Erreur de connexion";
           } finally {
             cCheckout.disabled = false;
+            cCheckout.classList.remove("is-loading");
           }
         });
 

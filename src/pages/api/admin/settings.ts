@@ -22,6 +22,20 @@ const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
 const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
 
+// Informazioni del tab "Général" (salvate in app_config con la loro chiave)
+const CHIAVI_GENERAL = [
+  "company_name",
+  "company_address",
+  "company_vat",
+  "company_iban",
+  "public_phone",
+  "public_email",
+  "contact_emails",
+  "newsletter_from_email",
+  "whatsapp_number",
+];
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -52,10 +66,12 @@ export const GET: APIRoute = async ({ request }) => {
   const { data: cfgRows } = await supabaseAdmin
     .from("app_config")
     .select("key, value")
-    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k)]);
+    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k), ...CHIAVI_GENERAL]);
   const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
   const links: Record<string, string> = {};
   for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
+  const general: Record<string, string> = {};
+  for (const k of CHIAVI_GENERAL) general[k] = cfg.get(k) ?? "";
 
   return json({
     days,
@@ -64,6 +80,7 @@ export const GET: APIRoute = async ({ request }) => {
     kitchen_email: cfg.get("kitchen_email") ?? "",
     orders_closed: cfg.get("orders_closed") === "1",
     links,
+    general,
   });
 };
 
@@ -124,6 +141,7 @@ export const PUT: APIRoute = async ({ request }) => {
     slot_duration_minutes?: number;
     kitchen_email?: string;
     links?: Record<string, string>;
+    general?: Record<string, string>;
   };
   try {
     body = await request.json();
@@ -164,6 +182,23 @@ export const PUT: APIRoute = async ({ request }) => {
         return json({ error: `Lien invalide (${k}) : il doit commencer par https://` }, 400);
       }
       linkPuliti.push(["link_" + k, v]);
+    }
+  }
+
+  // Tab Général: testi liberi + email validate
+  const generalPulito: [string, string][] = [];
+  if (body.general && typeof body.general === "object") {
+    for (const k of CHIAVI_GENERAL) {
+      const v = String((body.general as Record<string, unknown>)[k] ?? "").trim();
+      if (k === "contact_emails" && v) {
+        for (const e of v.split(",").map((x) => x.trim()).filter(Boolean)) {
+          if (!RE_EMAIL.test(e)) return json({ error: `Email contact invalide : ${e}` }, 400);
+        }
+      }
+      if ((k === "newsletter_from_email" || k === "public_email") && v && !RE_EMAIL.test(v)) {
+        return json({ error: `Email invalide : ${v}` }, 400);
+      }
+      generalPulito.push([k, v]);
     }
   }
 
@@ -225,6 +260,13 @@ export const PUT: APIRoute = async ({ request }) => {
     const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
     if (error) {
       return json({ error: "Liens non enregistrés" }, 500);
+    }
+  }
+
+  for (const [key, value] of generalPulito) {
+    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
+    if (error) {
+      return json({ error: "Informations générales non enregistrées" }, 500);
     }
   }
 

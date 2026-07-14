@@ -33,6 +33,24 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+/** Mittente della newsletter: admin Réglages → Général → "Email expéditeur
+ *  newsletter" (fallback su RESEND_FROM). Deve appartenere al dominio
+ *  verificato su Resend, altrimenti l'invio viene rifiutato da Resend. */
+async function mittenteNewsletter(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "newsletter_from_email")
+      .maybeSingle();
+    const v = String(data?.value ?? "").trim();
+    if (v) return `La Molisana <${v}>`;
+  } catch {
+    // fallback
+  }
+  return RESEND_FROM as string;
+}
+
 /** Token anti-abuso del link di disiscrizione (HMAC dell'email). */
 function tokenDisiscrizione(email: string): string {
   return crypto.createHmac("sha256", SECRET).update(email.toLowerCase()).digest("hex").slice(0, 24);
@@ -193,7 +211,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!dest) return json({ error: "Email du compte staff introuvable" }, 400);
     try {
       await resend.emails.send({
-        from: RESEND_FROM,
+        from: await mittenteNewsletter(),
         to: dest,
         subject: `[TEST] ${subject}`,
         html: htmlNewsletter({ ...contenuto, email: dest }),
@@ -220,8 +238,9 @@ export const POST: APIRoute = async ({ request }) => {
   let inviateOra = 0;
   try {
     for (let i = 0; i < dest.length; i += 100) {
+      const mittente = await mittenteNewsletter();
       const lotto = dest.slice(i, i + 100).map((email) => ({
-        from: RESEND_FROM as string,
+        from: mittente,
         to: email,
         subject,
         html: htmlNewsletter({ ...contenuto, email }),

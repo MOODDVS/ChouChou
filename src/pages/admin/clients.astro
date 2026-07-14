@@ -40,7 +40,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
-      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       /* Barra azioni (pulsante + ricerca), stile pagina Menu */
@@ -171,13 +172,22 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         .c-num { text-align: left; }
         .c-orders, .c-total { font-size: 1.1rem; }
       }
+      /* Loader dentro i bottoni di salvataggio */
+      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
+      .is-loading::after {
+        content: ""; position: absolute; inset: 0; margin: auto;
+        width: 18px; height: 18px; border-radius: 50%;
+        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        animation: btnspin 0.7s linear infinite;
+      }
+      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1>Clients</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Clients</h1>
         <div class="actionsbar">
           <button class="pill add-btn" id="add-btn">+ Ajouter un client</button>
           <input id="search" class="search" type="search" placeholder="Rechercher (nom, email, téléphone)…" />
@@ -469,6 +479,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
           mMsg.textContent = "";
           mSave.disabled = true;
+          mSave.classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/clients", {
               method: "POST",
@@ -487,6 +498,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             mMsg.textContent = "Erreur de connexion.";
           } finally {
             mSave.disabled = false;
+            mSave.classList.remove("is-loading");
           }
         }
 

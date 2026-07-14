@@ -45,7 +45,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
-      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 0.25rem; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.25rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .today-label { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; text-transform: capitalize; color: var(--c-muted); margin-bottom: 0.5rem; }
       .count { color: var(--c-muted); font-size: 0.85rem; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
@@ -149,7 +150,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       <main>
         <div class="head-row">
           <div>
-            <h1>Commandes</h1>
+            <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>Commandes</h1>
             <p class="today-label" id="today-label"></p>
             <p class="count" id="count"></p>
           </div>

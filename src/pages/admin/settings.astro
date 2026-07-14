@@ -50,12 +50,13 @@ const LNK = [
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
-      h1 { font-family: var(--font-title); font-size: 2.2rem; letter-spacing: 0.04em; margin-bottom: 1.5rem; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.5rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       h2 { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.04em; color: var(--c-muted); margin: 0 0 1rem; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       #content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
-      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 1.5rem; }
+      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin: 0 0 1.5rem; border-bottom: 1px solid var(--c-line); }
       .tabs button {
         font-family: var(--font-title);
         font-size: 1.05rem;
@@ -74,7 +75,7 @@ const LNK = [
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
-      #content[data-tab="liens"] { max-width: none; }
+      #content[data-tab="liens"], #content[data-tab="general"] { max-width: none; }
       .lnk-field { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; }
       .lnk-field:last-of-type { margin-bottom: 0.9rem; }
       .lnk-lab { display: flex; align-items: center; gap: 0.8rem; min-width: 200px; }
@@ -125,7 +126,7 @@ const LNK = [
         .save-bar.is-visible { transform: translateY(0); }
       }
       @media (min-width: 900px) {
-        #content { grid-template-columns: 1.4fr 1fr; }
+        #content { grid-template-columns: 1fr 1fr; }
       }
 
       /* --- Riga giorno --- */
@@ -179,6 +180,19 @@ const LNK = [
       .field { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
       .field:last-child { margin-bottom: 0; }
       .field label { min-width: 220px; }
+      /* Tab Général: input a tutta larghezza, tutto allineato a sinistra */
+      .section[data-tab="general"] .field { flex-wrap: nowrap; }
+      .section[data-tab="general"] .field label { min-width: 260px; flex-shrink: 0; }
+      .section[data-tab="general"] .field input,
+      .section[data-tab="general"] .kemails { flex: 1; width: auto; max-width: none; min-width: 0; }
+      .section[data-tab="general"] .kemail-row input { width: auto; max-width: none; }
+      .section[data-tab="general"] .kemail-add { margin-left: calc(260px + 1rem); }
+      .section[data-tab="general"] .hint { margin: 0.4rem 0 1.1rem calc(260px + 1rem); }
+      @media (max-width: 700px) {
+        .section[data-tab="general"] .field { flex-wrap: wrap; }
+        .section[data-tab="general"] .field input, .section[data-tab="general"] .kemails { flex-basis: 100%; }
+        .section[data-tab="general"] .kemail-add, .section[data-tab="general"] .hint { margin-left: 0; }
+      }
       .hint { color: var(--c-muted); font-size: 0.8rem; }
 
       .save {
@@ -279,15 +293,25 @@ const LNK = [
         .band input[type="time"] { flex: 1; min-width: 0; }
         .sp-row input[type="time"] { flex: 1; min-width: 0; }
       }
+      /* Loader dentro i bottoni di salvataggio */
+      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
+      .is-loading::after {
+        content: ""; position: absolute; inset: 0; margin: auto;
+        width: 18px; height: 18px; border-radius: 50%;
+        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        animation: btnspin 0.7s linear infinite;
+      }
+      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1>Réglages</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Réglages</h1>
 
         <div class="tabs" id="tabs" role="tablist">
+          <button type="button" data-t="general">Général</button>
           <button type="button" data-t="horaire" class="is-active">Horaire</button>
           <button type="button" data-t="cuisine">Cuisine</button>
           <button type="button" data-t="liens">Liens</button>
@@ -297,6 +321,50 @@ const LNK = [
         <div class="state" id="state">Chargement…</div>
 
         <div id="content" style="display:none" data-tab="horaire">
+          <div class="section" data-tab="general" style="display:none">
+            <h2>Informations générales</h2>
+            <div class="field">
+              <label for="g-name">Nom de la société</label>
+              <input type="text" id="g-name" placeholder="Migraf SRL" />
+            </div>
+            <div class="field">
+              <label for="g-address">Adresse</label>
+              <input type="text" id="g-address" placeholder="Av. Adolphe Demeur 37, 1060 Saint-Gilles" />
+            </div>
+            <div class="field">
+              <label for="g-vat">Numéro de TVA</label>
+              <input type="text" id="g-vat" placeholder="BE 0899.648.967" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="g-iban">IBAN</label>
+              <input type="text" id="g-iban" placeholder="BE12 3456 7890 1234" autocomplete="off" />
+            </div>
+            <div class="field">
+              <label for="g-phone">Téléphone public</label>
+              <input type="text" id="g-phone" placeholder="+32 455 13 14 65" autocomplete="tel" inputmode="tel" />
+            </div>
+            <div class="field">
+              <label for="g-email">Email publique</label>
+              <input type="email" id="g-email" placeholder="pizzeria@lamolisana.be" />
+            </div>
+            <div class="field field-emails">
+              <label>Emails du formulaire de contact</label>
+              <div class="kemails" id="cemails"></div>
+            </div>
+            <button type="button" class="kemail-add" id="cemail-add">+ Ajouter un email</button>
+            <p class="hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</p>
+            <div class="field" style="margin-top:1.2rem">
+              <label for="g-nlfrom">Email expéditeur newsletter</label>
+              <input type="email" id="g-nlfrom" placeholder="pizzeria@lamolisana.be" />
+            </div>
+            <p class="hint">Doit appartenir au domaine vérifié sur Resend.</p>
+            <div class="field">
+              <label for="g-wa">Numéro WhatsApp</label>
+              <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" />
+            </div>
+            <p class="hint">Réservé à la future intégration WhatsApp.</p>
+          </div>
+
           <div class="section" data-tab="horaire">
             <h2>Horaires d'ouverture (take-away)</h2>
             <div id="days"></div>
@@ -493,6 +561,50 @@ const LNK = [
           dirty();
         });
 
+        // --- Tab Général ---
+        const G_CAMPI: [string, string][] = [
+          ["company_name", "g-name"],
+          ["company_address", "g-address"],
+          ["company_vat", "g-vat"],
+          ["company_iban", "g-iban"],
+          ["public_phone", "g-phone"],
+          ["public_email", "g-email"],
+          ["newsletter_from_email", "g-nlfrom"],
+          ["whatsapp_number", "g-wa"],
+        ];
+        const gEls = new Map(G_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
+        gEls.forEach((el) => el.addEventListener("input", dirty));
+
+        const cemailsBox = document.getElementById("cemails") as HTMLDivElement;
+        const cemailAdd = document.getElementById("cemail-add") as HTMLButtonElement;
+
+        function aggiungiRigaEmailContact(valore = "") {
+          const riga = document.createElement("div");
+          riga.className = "kemail-row";
+          riga.innerHTML =
+            '<input type="email" placeholder="pizzeria@lamolisana.be" />' +
+            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+          const inp = riga.querySelector("input") as HTMLInputElement;
+          inp.value = valore;
+          inp.addEventListener("input", dirty);
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            if (!cemailsBox.querySelector(".kemail-row")) aggiungiRigaEmailContact();
+            dirty();
+          });
+          cemailsBox.appendChild(riga);
+        }
+        function emailsContact(): string {
+          return Array.from(cemailsBox.querySelectorAll<HTMLInputElement>("input"))
+            .map((i) => i.value.trim())
+            .filter(Boolean)
+            .join(", ");
+        }
+        cemailAdd.addEventListener("click", () => {
+          aggiungiRigaEmailContact();
+          dirty();
+        });
+
         // --- Link social / recensioni (tab Liens) ---
         const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
         const lnkEls = new Map(
@@ -520,7 +632,7 @@ const LNK = [
         const headers = { Authorization: `Bearer ${token}` };
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string> };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string> };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = "Erreur de chargement."; return; }
@@ -542,6 +654,13 @@ const LNK = [
           const el = lnkEls.get(k);
           if (el) el.value = dati.links?.[k] ?? "";
         }
+        gEls.forEach((el, k) => {
+          el.value = dati.general?.[k] ?? "";
+        });
+        cemailsBox.innerHTML = "";
+        const listaContact = String(dati.general?.contact_emails ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
+        if (listaContact.length === 0) aggiungiRigaEmailContact();
+        else listaContact.forEach((e: string) => aggiungiRigaEmailContact(e));
 
         stateEl.style.display = "none";
         contentEl.style.display = "grid";
@@ -875,6 +994,7 @@ const LNK = [
           });
 
           saveBtn.disabled = true;
+          saveBtn.classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/settings", {
               method: "PUT",
@@ -887,6 +1007,12 @@ const LNK = [
                 links: Object.fromEntries(
                   CHIAVI_LINK.map((k) => [k, (lnkEls.get(k)?.value ?? "").trim()])
                 ),
+                general: {
+                  ...Object.fromEntries(
+                    Array.from(gEls.entries()).map(([k, el]) => [k, el.value.trim()])
+                  ),
+                  contact_emails: emailsContact(),
+                },
               }),
             });
             const json = await res.json();
@@ -910,6 +1036,7 @@ const LNK = [
             msgEl.classList.add("err");
           } finally {
             saveBtn.disabled = false;
+            saveBtn.classList.remove("is-loading");
           }
         });
       })();
@@ -927,7 +1054,7 @@ const LNK = [
     if (contenuto) contenuto.dataset.tab = t;
     // Enregistrer serve solo dove ci sono campi da salvare
     const bar = document.querySelector<HTMLElement>(".save-bar");
-    if (bar) bar.style.display = t === "horaire" || t === "cuisine" || t === "liens" ? "" : "none";
+    if (bar) bar.style.display = t === "general" || t === "horaire" || t === "cuisine" || t === "liens" ? "" : "none";
     try {
       sessionStorage.setItem(TAB_KEY, t);
     } catch {

@@ -1,9 +1,27 @@
 import type { APIRoute } from "astro";
+import { supabaseAdmin } from "../../lib/db";
 import { Resend } from "resend";
 
 const resend = new Resend(import.meta.env.RESEND_API_KEY);
 const FROM = "La Molisana <info@lamolisana.be>";
-const TO = "pizzeria@lamolisana.be";
+const TO_FALLBACK = "pizzeria@lamolisana.be";
+
+/** Destinatari del form: admin Réglages → Général → "Emails du formulaire
+ *  de contact" (fallback sull'indirizzo storico se non impostato). */
+async function destinatariContact(): Promise<string[]> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "contact_emails")
+      .maybeSingle();
+    const lista = String(data?.value ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    if (lista.length > 0) return lista;
+  } catch {
+    // DB irraggiungibile: fallback
+  }
+  return [TO_FALLBACK];
+}
 const BCC = "enquiries@moodd.online";
 
 // URL pubblico del sito (per il logo nell'email). In locale: http://localhost:4321
@@ -129,7 +147,7 @@ export const POST: APIRoute = async ({ request }) => {
     // 1) Messaggio al ristorante
     const { error: errR } = await resend.emails.send({
       from: FROM,
-      to: TO,
+      to: await destinatariContact(),
       bcc: BCC,
       replyTo: email,
       subject: oggetto ? `Contact site : ${oggetto}` : "Nouveau message — site La Molisana",
