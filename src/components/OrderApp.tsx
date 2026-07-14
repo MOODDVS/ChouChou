@@ -58,6 +58,8 @@ interface OrderStrings {
   ariaRemove: string;
   ariaAdd: string;
   tabBoissons: string;
+  closedToday: string;
+  reopenInfo: string;
   consentPre: string;
   consentLink: string;
   privacyHref: string;
@@ -67,6 +69,7 @@ interface OrderAppProps {
   menu: MenuCategoria[];
   t: OrderStrings;
   lang: "fr" | "en";
+  closedToday?: boolean;
 }
 
 type Vista = "menu" | "checkout";
@@ -97,7 +100,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAppProps) {
   // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
   // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
   // Boissons = tutte le bevande (category_order >= 9)
@@ -479,12 +482,26 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
           ))}
         </div>
 
-        <aside className="order-cart">
-          <h2 className="order-cart-title">{t.cartTitle}</h2>
-          {linee.length === 0 ? (
-            <p className="order-cart-empty">{t.cartEmpty}</p>
+        <aside className={"order-cart" + (closedToday ? " order-cart--ferme" : "")}>
+          {closedToday ? (
+            <div className="order-ferme">
+              <div className="order-ferme-row">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m6.5 6.5 11 11" />
+                </svg>
+                <span>{t.closedToday}</span>
+              </div>
+              {t.reopenInfo && <p className="order-ferme-sub">{t.reopenInfo}</p>}
+            </div>
+          ) : linee.length === 0 ? (
+            <>
+              <h2 className="order-cart-title">{t.cartTitle}</h2>
+              <p className="order-cart-empty">{t.cartEmpty}</p>
+            </>
           ) : (
             <>
+              <h2 className="order-cart-title">{t.cartTitle}</h2>
               <RigheCarrello />
               <div className="order-cart-total">
                 <span>{t.total} ({numArticoli} {t.items})</span>
@@ -498,18 +515,28 @@ export default function OrderApp({ menu, t, lang }: OrderAppProps) {
         </aside>
       </div>
 
-      {linee.length > 0 && (
-        <button type="button" className="order-mobcart" onClick={() => setVista("checkout")}>
-          <span className="order-mobcart-count">{numArticoli}</span>
-          <span className="order-mobcart-label">{t.seeCart}</span>
-          <span className="order-mobcart-total">{euro(totale)}</span>
-          <span className="order-mobcart-arrow" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M5 12h14" />
-              <path d="m13 6 6 6-6 6" />
-            </svg>
-          </span>
-        </button>
+      {closedToday ? (
+        <div className="order-mobcart order-mobcart--ferme">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="m6.5 6.5 11 11" />
+          </svg>
+          <span>{t.closedToday}</span>
+        </div>
+      ) : (
+        linee.length > 0 && (
+          <button type="button" className="order-mobcart" onClick={() => setVista("checkout")}>
+            <span className="order-mobcart-count">{numArticoli}</span>
+            <span className="order-mobcart-label">{t.seeCart}</span>
+            <span className="order-mobcart-total">{euro(totale)}</span>
+            <span className="order-mobcart-arrow" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M5 12h14" />
+                <path d="m13 6 6 6-6 6" />
+              </svg>
+            </span>
+          </button>
+        )
       )}
     </div>
   );

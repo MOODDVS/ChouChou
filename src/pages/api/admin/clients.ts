@@ -22,6 +22,7 @@ interface RigaCliente {
   name: string | null;
   email: string | null;
   phone: string | null;
+  hidden: boolean;
 }
 
 interface Cliente {
@@ -71,7 +72,7 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
   for (let da = 0; ; da += PAGINA) {
     const { data, error } = await supabaseAdmin
       .from("clients")
-      .select("id, name, email, phone")
+      .select("id, name, email, phone, hidden")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return null;
@@ -90,13 +91,22 @@ export const GET: APIRoute = async ({ request }) => {
 
   const mappa = new Map<string, Cliente>();
 
+  // 0) Chiavi dei clienti nascosti ("cancellati" dall'admin): vanno
+  //    esclusi sia come record manuali sia come aggregato degli ordini.
+  const nascosti = new Set<string>();
+  for (const m of manuali) {
+    if (!m.hidden) continue;
+    const k = chiave((m.email ?? "").trim(), (m.phone ?? "").trim(), (m.name ?? "").trim());
+    if (k) nascosti.add(k);
+  }
+
   // 1) Aggregazione dagli ordini (ordine cronologico → l'ultimo vince sui dati).
   for (const o of ordini) {
     const email = (o.customer_email ?? "").trim();
     const phone = (o.customer_phone ?? "").trim();
     const name = (o.customer_name ?? "").trim();
     const key = chiave(email, phone, name);
-    if (!key) continue;
+    if (!key || nascosti.has(key)) continue;
 
     let c = mappa.get(key);
     if (!c) {
@@ -113,6 +123,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   // 2) Fusione dei clienti manuali (aggiungono contatti o completano i dati).
   for (const m of manuali) {
+    if (m.hidden) continue;
     const email = (m.email ?? "").trim();
     const phone = (m.phone ?? "").trim();
     const name = (m.name ?? "").trim();
@@ -168,16 +179,45 @@ export const POST: APIRoute = async ({ request }) => {
   return json({ ok: true, id: data.id }, 201);
 };
 
-// Cancella un cliente MANUALE (record nella tabella `clients`).
-// I clienti derivati dagli ordini non hanno id qui e non sono cancellabili.
+// Cancella un cliente dalla lista.
+// - cliente manuale SENZA ordini (?id=..&orders=0): eliminazione vera
+// - cliente CON ordini: gli ordini restano (contabilità), quindi il
+//   cliente viene NASCOSTO (hidden=true). Se non ha ancora un record
+//   nella tabella `clients` (vecchi ordini pre-materializzazione),
+//   il record viene creato già nascosto, così la fusione lo esclude.
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const id = url.searchParams.get("id");
-  if (!id) return json({ error: "id manquant" }, 400);
+  const id = url.searchParams.get("id") ?? "";
+  const orders = Number(url.searchParams.get("orders") ?? "0");
+  const email = (url.searchParams.get("email") ?? "").trim();
+  const phone = (url.searchParams.get("phone") ?? "").trim();
+  const name = (url.searchParams.get("name") ?? "").trim();
 
-  const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
+  if (!id && !email && !phone && !name) return json({ error: "Client non identifiable" }, 400);
+
+  // Manuale puro, mai ordinato: si elimina davvero.
+  if (id && orders === 0) {
+    const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
+    if (error) return json({ error: "Suppression impossible" }, 500);
+    return json({ ok: true });
+  }
+
+  // Con ordini: si nasconde.
+  if (id) {
+    const { error } = await supabaseAdmin.from("clients").update({ hidden: true }).eq("id", id);
+    if (error) return json({ error: "Suppression impossible" }, 500);
+    return json({ ok: true });
+  }
+
+  // Derivato dagli ordini senza record: lo si crea già nascosto.
+  const { error } = await supabaseAdmin.from("clients").insert({
+    name,
+    email: email || null,
+    phone: phone || null,
+    hidden: true,
+  });
   if (error) return json({ error: "Suppression impossible" }, 500);
   return json({ ok: true });
 };

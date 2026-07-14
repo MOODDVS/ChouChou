@@ -354,7 +354,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
                 <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
                 <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
                 <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
-                <div class="cell c-act">${c.id ? `<button class="i-btn i-del" data-id="${esc(c.id)}" title="Supprimer">${ICO_TRASH}</button>` : ""}</div>
+                <div class="cell c-act"><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
@@ -388,20 +388,27 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           render();
         });
 
-        // Cancella un cliente manuale — conferma a 2 tocchi (come nel menu).
+        // Cancella un cliente — conferma a 2 tocchi (come nel menu).
+        // Manuale senza ordini: eliminato davvero. Con ordini: nascosto
+        // dalla lista (gli ordini restano in contabilità).
         rowsEl.addEventListener("click", async (e) => {
           const del = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null;
           if (!del) return;
-          const id = del.dataset.id;
-          if (!id) return;
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
             del.textContent = "Confirmer ?";
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
+          const params = new URLSearchParams({
+            id: del.dataset.id ?? "",
+            email: del.dataset.email ?? "",
+            phone: del.dataset.phone ?? "",
+            name: del.dataset.name ?? "",
+            orders: del.dataset.orders ?? "0",
+          });
           try {
-            const res = await fetch("/api/admin/clients?id=" + encodeURIComponent(id), { method: "DELETE", headers });
+            const res = await fetch("/api/admin/clients?" + params.toString(), { method: "DELETE", headers });
             if (!res.ok) { toast("Suppression impossible", true); return; }
             toast("Client supprimé");
             await carica();

@@ -9,10 +9,54 @@ import Layout from "../../layouts/Layout.astro";
 import OrderApp from "../../components/OrderApp";
 import { getMenuOrderable, supabaseAdmin } from "../../lib/db";
 import { getLangFromUrl, useTranslations } from "../../i18n/ui";
+import { DateTime } from "luxon";
+import { configGiornoEffettiva } from "../../lib/schedule";
 
 const lang = getLangFromUrl(Astro.url);
 const tr = useTranslations(lang);
 const en = lang === "en";
+
+// Ristorante chiuso OGGI (es. martedì, o giorno speciale dell'admin)?
+// Il carrello diventa un avviso "fermé aujourd'hui" ben visibile,
+// con sotto la prossima riapertura ("Nous serons ouverts demain dès 11:00").
+let chiusoOggi = false;
+let riapertura = "";
+try {
+  const cfg = await configGiornoEffettiva(DateTime.now());
+  if (cfg) {
+    const midi = cfg.lunch_active && cfg.lunch_open && cfg.lunch_close;
+    const soir = cfg.dinner_active && cfg.dinner_open && cfg.dinner_close;
+    chiusoOggi = !midi && !soir;
+  }
+
+  if (chiusoOggi) {
+    // Cerca il primo giorno d'apertura nei prossimi 7 (giorni speciali inclusi)
+    const oggi = DateTime.now().setZone("Europe/Brussels");
+    const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : "");
+    for (let i = 1; i <= 7; i++) {
+      const giorno = oggi.plus({ days: i });
+      const c = await configGiornoEffettiva(giorno);
+      if (!c) continue;
+      let ora = "";
+      if (c.lunch_active && c.lunch_open && c.lunch_close) ora = hhmm(c.lunch_open);
+      else if (c.dinner_active && c.dinner_open && c.dinner_close) ora = hhmm(c.dinner_open);
+      if (!ora) continue;
+      if (i === 1) {
+        riapertura = en
+          ? `We'll be open tomorrow from ${ora}`
+          : `Nous serons ouverts demain dès ${ora}`;
+      } else {
+        const nomeGiorno = giorno.setLocale(en ? "en" : "fr").toFormat("cccc");
+        riapertura = en
+          ? `We'll be open on ${nomeGiorno} from ${ora}`
+          : `Nous serons ouverts ${nomeGiorno} dès ${ora}`;
+      }
+      break;
+    }
+  }
+} catch {
+  // in dubbio niente avviso: lo slot picker segnala comunque l'assenza di orari
+}
 
 // Servizio chiuso dall'admin? (bottone "Fermer" nella pagina Commandes)
 let ordiniChiusi = false;
@@ -60,6 +104,8 @@ const orderStrings = {
   ariaRemove: tr("order.aria.remove"),
   ariaAdd: tr("order.aria.add"),
   tabBoissons: en ? "Drinks" : "Boissons",
+  closedToday: en ? "We're closed today" : "On est fermé aujourd'hui",
+  reopenInfo: riapertura,
   consentPre: tr("contact.consentPre"),
   consentLink: tr("contact.consentLink"),
   privacyHref: en ? "/en/privacy" : "/privacy",
@@ -96,7 +142,7 @@ const orderStrings = {
       <a class="order-closed__phone" href="tel:+32455131465">+32 455 13 14 65</a>
     </section>
   ) : (
-    <OrderApp menu={menu} t={orderStrings} lang={lang} client:load />
+    <OrderApp menu={menu} t={orderStrings} lang={lang} closedToday={chiusoOggi} client:load />
   )}
 </Layout>
 
@@ -417,6 +463,50 @@ const orderStrings = {
     color: var(--c-accent);
   }
   .order-cart-empty { color: var(--c-muted); }
+
+  /* Ristorante chiuso oggi: il carrello diventa l'avviso rosso
+     (fondo rosso trasparente, bordo rosso pieno, testo centrato + icona) */
+  .order-cart--ferme {
+    background: transparent;
+    border: none;
+    padding: 0;
+  }
+  .order-ferme {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(237, 28, 36, 0.18);
+    border: 1px solid #ed1c24;
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    line-height: 1.35;
+    text-align: center;
+    padding: 1.4rem 1.2rem;
+    border-radius: 10px;
+  }
+  .order-ferme-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+  }
+  .order-ferme svg {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    fill: none;
+    stroke: #ed1c24;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .order-ferme-sub {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.85);
+  }
   .order-cart-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
   .order-cart-line { border-bottom: 1px solid var(--c-line); padding-bottom: 1rem; }
   .order-cart-line-top { display: flex; justify-content: space-between; gap: 0.8rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--c-text); }
@@ -670,6 +760,29 @@ const orderStrings = {
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+
+    /* Ristorante chiuso oggi: barra rossa PIENA al posto del panier
+       (il contenuto scorre sotto: serve fondo opaco per la leggibilità) */
+    .order-mobcart--ferme {
+      justify-content: center;
+      gap: 0.6rem;
+      background: #ed1c24;
+      border: none;
+      color: #fff;
+      cursor: default;
+      font-size: 1rem;
+      letter-spacing: 0.05em;
+      text-align: center;
+    }
+    .order-mobcart--ferme svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+      stroke-linecap: round;
     }
   }
 </style>

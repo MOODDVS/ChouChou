@@ -71,6 +71,13 @@ export const POST: APIRoute = async ({ request }) => {
           total_cents: aggiornato.total_cents,
           lang: aggiornato.lang === "en" ? "en" : "fr",
         });
+        // Registra (o completa) il cliente nella tabella `clients`.
+        // Mai bloccante: un errore qui non deve far fallire il webhook.
+        await registraCliente({
+          name: aggiornato.customer_name,
+          email: aggiornato.customer_email,
+          phone: aggiornato.customer_phone,
+        });
       } else {
       // Nessuna riga aggiornata: ordine già processato (evento duplicato) o inesistente.
       console.log(`Ordine ${orderId} già processato o non trovato (idempotenza)`);
@@ -83,3 +90,46 @@ export const POST: APIRoute = async ({ request }) => {
     headers: { "Content-Type": "application/json" },
   });
 };
+
+/**
+ * Salva il cliente dell'ordine nella tabella `clients` (rubrica admin).
+ * - se un cliente con la stessa email esiste già: completa solo il
+ *   telefono se mancava (niente doppioni, fusione per email)
+ * - altrimenti lo crea
+ */
+async function registraCliente(c: {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}): Promise<void> {
+  try {
+    const email = (c.email ?? "").trim().toLowerCase();
+    if (!email) return; // senza email non c'è chiave di fusione affidabile
+
+    const { data: esistente } = await supabaseAdmin
+      .from("clients")
+      .select("id, phone, hidden")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+
+    if (esistente) {
+      // Un nuovo ordine riattiva un cliente nascosto e completa il telefono.
+      const patch: { phone?: string; hidden?: boolean } = {};
+      if (!esistente.phone && c.phone) patch.phone = c.phone;
+      if (esistente.hidden) patch.hidden = false;
+      if (Object.keys(patch).length > 0) {
+        await supabaseAdmin.from("clients").update(patch).eq("id", esistente.id);
+      }
+      return;
+    }
+
+    await supabaseAdmin.from("clients").insert({
+      name: c.name ?? "",
+      email,
+      phone: c.phone,
+    });
+  } catch (e) {
+    console.error("[webhook] registrazione cliente fallita:", e);
+  }
+}
