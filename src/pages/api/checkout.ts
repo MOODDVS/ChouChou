@@ -5,6 +5,13 @@ import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
 import { prezzoEffettivo } from "../../lib/pricing";
+import {
+  calcolaScontoCoupon,
+  verificaLimitiUso,
+  normalizzaCodice,
+  type CouponRow,
+  type LineaCoupon,
+} from "../../lib/coupons";
 
 export const prerender = false;
 
@@ -25,6 +32,7 @@ interface CheckoutRequest {
   items: { id: string; qty: number; supplement?: Supplemento }[];
   slot: string;
   note?: string;
+  coupon?: string;
   customer: {
     name: string;
     surname: string;
@@ -89,7 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
   const ids = body.items.map((i) => i.id);
   const { data: piatti, error: errMenu } = await supabaseAdmin
     .from("menu_items")
-    .select("id, name, price_cents, available, category_order, discount_type, discount_value")
+    .select("id, name, category, price_cents, available, category_order, discount_type, discount_value")
     .in("id", ids);
 
   if (errMenu || !piatti) {
@@ -104,6 +112,8 @@ export const POST: APIRoute = async ({ request }) => {
     price_cents: number;
     notes: string;
   }[] = [];
+  // Righe per il calcolo del coupon (prezzo base effettivo, senza supplementi).
+  const lineeCoupon: LineaCoupon[] = [];
 
   for (const richiesto of body.items) {
     const piatto = piatti.find((p) => p.id === richiesto.id);
@@ -138,6 +148,12 @@ export const POST: APIRoute = async ({ request }) => {
       price_cents: prezzoUnitario,
       notes: supplemento === "none" ? "" : SUPPL_LABEL[supplemento],
     });
+    lineeCoupon.push({
+      price_cents: prezzoBase,
+      is_promo: prezzoBase < piatto.price_cents,
+      category: piatto.category,
+      qty,
+    });
   }
 
   // Nota libera dell'ordine: la aggiungo come voce speciale in items (qty 0, prezzo 0),
@@ -155,21 +171,59 @@ export const POST: APIRoute = async ({ request }) => {
 
   const totalCents = itemsOrdine.reduce((s, i) => s + i.price_cents * i.qty, 0);
 
+  // ---- Code promo: validazione + sconto REALE, ricalcolato lato server ----
+  // Non ci si fida mai dell'importo mandato dal browser: si rilegge il coupon
+  // dal DB e si ricalcola. Se non è (più) valido si rifiuta, così il cliente
+  // può togliere il codice e riprovare.
+  let couponId: string | null = null;
+  let couponCodeSalvato: string | null = null;
+  let scontoCents = 0;
+  const codeInput = normalizzaCodice(body.coupon ?? "");
+  if (codeInput) {
+    const { data: coupon } = await supabaseAdmin
+      .from("coupons")
+      .select("*")
+      .eq("code_norm", codeInput)
+      .maybeSingle();
+    if (!coupon) {
+      return err(409, lang === "en" ? "Invalid promo code." : "Code promo non valide.");
+    }
+    const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, lang);
+    if (ris.error) return err(409, ris.error);
+    const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email, supabaseAdmin, lang);
+    if (limite) return err(409, limite);
+    scontoCents = Math.min(ris.discount_cents, totalCents);
+    couponId = (coupon as CouponRow).id;
+    couponCodeSalvato = (coupon as CouponRow).code;
+  }
+
+  const totaleIncassato = Math.max(0, totalCents - scontoCents);
+
   const [h, m] = body.slot.split(":").map((n) => parseInt(n, 10));
   const pickup = ora.set({ hour: h, minute: m, second: 0, millisecond: 0 });
 
+  // Le colonne coupon_* si scrivono SOLO se un coupon è stato applicato: così
+  // gli ordini normali funzionano anche se la migration coupons.sql non è
+  // ancora stata lanciata su Supabase.
+  const datiOrdine: Record<string, unknown> = {
+    status: "pending",
+    pickup_time: pickup.toISO(),
+    customer_name: `${body.customer.name} ${body.customer.surname}`.trim(),
+    customer_email: body.customer.email,
+    customer_phone: body.customer.phone,
+    items: itemsOrdine,
+    total_cents: totaleIncassato,
+    lang,
+  };
+  if (couponId) {
+    datiOrdine.coupon_id = couponId;
+    datiOrdine.coupon_code = couponCodeSalvato;
+    datiOrdine.coupon_discount_cents = scontoCents;
+  }
+
   const { data: ordine, error: errInsert } = await supabaseAdmin
     .from("orders")
-    .insert({
-      status: "pending",
-      pickup_time: pickup.toISO(),
-      customer_name: `${body.customer.name} ${body.customer.surname}`.trim(),
-      customer_email: body.customer.email,
-      customer_phone: body.customer.phone,
-      items: itemsOrdine,
-      total_cents: totalCents,
-      lang,
-    })
+    .insert(datiOrdine)
     .select("id")
     .single();
 
@@ -184,6 +238,10 @@ export const POST: APIRoute = async ({ request }) => {
       orderId: ordine.id,
       siteUrl,
       lang,
+      discount:
+        scontoCents > 0
+          ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }
+          : undefined,
     });
     await supabaseAdmin
       .from("orders")

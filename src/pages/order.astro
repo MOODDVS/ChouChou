@@ -85,6 +85,13 @@ const orderStrings = {
   pickupTime: tr("order.pickupTime"),
   notes: tr("order.notes"),
   notesPlaceholder: tr("order.notesPlaceholder"),
+  coupon: tr("order.coupon"),
+  couponPlaceholder: tr("order.couponPlaceholder"),
+  couponApply: tr("order.couponApply"),
+  couponRemove: tr("order.couponRemove"),
+  couponInvalid: tr("order.couponInvalid"),
+  subtotal: tr("order.subtotal"),
+  discount: tr("order.discount"),
   total: tr("order.total"),
   items: tr("order.items"),
   toCheckout: tr("order.toCheckout"),
@@ -658,6 +665,72 @@ const orderStrings = {
   .order-consent a { color: var(--c-text); text-decoration: underline; text-underline-offset: 2px; }
   .order-consent a:hover { color: var(--c-accent); }
 
+  /* Campo code promo + applicazione */
+  .order-coupon { margin: 0 0 1rem; }
+  .order-coupon-row { display: flex; gap: 0.5rem; }
+  .order-coupon-row .order-input { flex: 1; }
+  .order-coupon-apply {
+    flex: 0 0 auto;
+    padding: 0 1.1rem;
+    background: transparent;
+    border: 1px solid var(--c-accent);
+    color: var(--c-accent);
+    font-family: var(--font-display);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .order-coupon-apply:hover:not(:disabled) { background: var(--c-accent); color: var(--c-bg); }
+  .order-coupon-apply:disabled { opacity: 0.5; cursor: not-allowed; }
+  .order-coupon-applied {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--c-accent);
+    background: rgba(223, 171, 78, 0.1);
+  }
+  .order-coupon-code {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+  }
+  .order-coupon-amount { color: var(--c-text); font-weight: 700; }
+  .order-coupon-remove {
+    margin-left: auto;
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--c-line);
+    color: var(--c-muted);
+    border-radius: 50%;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .order-coupon-remove:hover { border-color: #ed1c24; color: #fff; }
+  .order-coupon-msg { margin: 0.5rem 0 0; font-size: 0.82rem; color: #ff6b6b; }
+
+  .order-cart-subtotal,
+  .order-cart-discount {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--c-muted);
+    margin: 0.2rem 0;
+  }
+  .order-cart-discount { color: var(--c-accent); }
+
   /* ---- SlotPicker ---- */
   .slotpicker { margin-bottom: 0.5rem; }
   .slotpicker-fascia { margin-bottom: 1.2rem; }
@@ -669,9 +742,14 @@ const orderStrings = {
     margin: 0 0 0.6rem;
     color: var(--c-accent);
   }
-  .slotpicker-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .slotpicker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
   .slotpicker-btn {
-    padding: 0.45rem 0.85rem;
+    padding: 0.45rem 0.5rem;
+    text-align: center;
     border: 1px solid var(--c-line);
     background: transparent;
     color: var(--c-text);
@@ -687,6 +765,33 @@ const orderStrings = {
     border-color: var(--c-accent);
   }
   .slotpicker-msg { color: var(--c-muted); font-size: 0.9rem; }
+
+  /* Bottone "Afficher tous les horaires" / "Afficher moins" */
+  .slotpicker-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.7rem;
+    padding: 0.3rem 0.1rem;
+    background: none;
+    border: none;
+    color: var(--c-accent);
+    font-family: var(--font-body);
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .slotpicker-toggle:hover { text-decoration: underline; }
+  .slotpicker-toggle-ico {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.2s ease;
+  }
+  .slotpicker-toggle-ico.is-open { transform: rotate(180deg); }
 
   /* ---- Barra carrello flottante mobile (nascosta su desktop) ---- */
   .order-mobcart { display: none; }

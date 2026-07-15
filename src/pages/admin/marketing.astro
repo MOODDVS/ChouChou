@@ -160,6 +160,17 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .sched-block.is-visible { display: block; }
       .f-date { cursor: pointer; }
 
+      /* Modale coupon: più largo e con più aria fra le sezioni (solo qui) */
+      #cp-overlay .modal { max-width: 780px; padding: 2.25rem; }
+      #cp-overlay .f-lab { margin-top: 1.75rem; }
+      #cp-overlay .f-lab:first-of-type { margin-top: 0; }
+      #cp-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
+      #cp-overlay .f-row .f-lab { margin-top: 0; }
+      #cp-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
+      #cp-overlay .sched-block { margin-top: 1.2rem; }
+      #cp-overlay .f-hint { margin-top: 0.1rem; }
+      #cp-overlay .m-foot { margin-top: 2.4rem; }
+
       /* --- Datepicker custom (brand, come Réglages) --- */
       .dp-panel {
         position: fixed; z-index: 320; width: 308px;
@@ -268,6 +279,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         <div class="mtabs" id="mtabs">
           <button class="mtab is-active" data-tab="popup">Pop-up</button>
           <button class="mtab" data-tab="news">Newsletter</button>
+          <button class="mtab" data-tab="coupons">Coupons</button>
         </div>
 
         <div class="state" id="state">Chargement…</div>
@@ -280,6 +292,16 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             Aucun pop-up pour le moment. Créez-en un&nbsp;: il apparaîtra sur les pages choisies.
           </div>
           <div class="pops" id="pops"></div>
+        </div>
+
+        <div id="tab-coupons" style="display:none">
+          <div class="actionsbar">
+            <button class="pill" id="cp-add">+ Nouveau coupon</button>
+          </div>
+          <div class="state" id="cp-empty" style="display:none">
+            Aucun coupon pour le moment. Créez-en un&nbsp;: le client pourra le saisir au paiement.
+          </div>
+          <div class="pops" id="coupons"></div>
         </div>
 
         <div id="tab-news" style="display:none">
@@ -483,6 +505,109 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       </div>
     </div>
 
+    <!-- Modale coupon -->
+    <div class="overlay" id="cp-overlay">
+      <div class="modal">
+        <button class="m-close" id="cp-close" type="button" aria-label="Fermer">×</button>
+        <h2 id="cp-title">Nouveau coupon</h2>
+
+        <label class="f-lab" for="cp-code">Code *</label>
+        <input type="text" class="f-input" id="cp-code" placeholder="ex. BIENVENUE10" style="text-transform:uppercase" />
+
+        <label class="f-lab" for="cp-desc">Description (interne, optionnel)</label>
+        <input type="text" class="f-input" id="cp-desc" placeholder="ex. Réduction de bienvenue" />
+
+        <label class="f-lab">Type de réduction *</label>
+        <div class="picks" id="cp-type">
+          <span class="pick is-on" data-t="percent">Pourcentage</span>
+          <span class="pick" data-t="fixed">Montant fixe</span>
+        </div>
+
+        <div class="f-row">
+          <div>
+            <label class="f-lab" for="cp-value"><span id="cp-value-lab">Valeur (%)</span> *</label>
+            <input type="number" class="f-input" id="cp-value" min="0" step="0.01" placeholder="10" />
+          </div>
+          <div>
+            <label class="f-lab" for="cp-maxcap">Plafond de réduction (€)</label>
+            <input type="number" class="f-input" id="cp-maxcap" min="0" step="0.01" placeholder="illimité" />
+          </div>
+        </div>
+
+        <label class="f-lab" for="cp-minspend">Dépense minimale (€)</label>
+        <input type="number" class="f-input" id="cp-minspend" min="0" step="0.01" placeholder="aucune" style="max-width:200px" />
+
+        <label class="f-lab">Programmation</label>
+        <div class="picks" id="cp-kind">
+          <span class="pick is-on" data-k="always">Indéfini</span>
+          <span class="pick" data-k="dates">Période (dates)</span>
+          <span class="pick" data-k="weekly">Jours &amp; heures</span>
+        </div>
+
+        <div class="sched-block" id="cp-sched-dates">
+          <div class="f-row">
+            <div>
+              <label class="f-lab" for="cp-ds">Du</label>
+              <input type="date" class="f-input" id="cp-ds" />
+            </div>
+            <div>
+              <label class="f-lab" for="cp-de">Au</label>
+              <input type="date" class="f-input" id="cp-de" />
+            </div>
+          </div>
+        </div>
+
+        <div class="sched-block" id="cp-sched-weekly">
+          <div class="picks" id="cp-days"></div>
+          <div class="f-row" style="margin-top:0.8rem">
+            <div>
+              <label class="f-lab" for="cp-hs">De</label>
+              <input type="time" class="f-input" id="cp-hs" />
+            </div>
+            <div>
+              <label class="f-lab" for="cp-he">À</label>
+              <input type="time" class="f-input" id="cp-he" />
+            </div>
+          </div>
+        </div>
+
+        <div class="f-row">
+          <div>
+            <label class="f-lab" for="cp-perclient">Utilisations par client</label>
+            <input type="number" class="f-input" id="cp-perclient" min="1" step="1" placeholder="illimité" />
+          </div>
+          <div>
+            <label class="f-lab" for="cp-global">Utilisations totales</label>
+            <input type="number" class="f-input" id="cp-global" min="1" step="1" placeholder="illimité" />
+          </div>
+        </div>
+
+        <label class="f-lab">Catégories concernées</label>
+        <p class="f-hint" style="margin:-0.2rem 0 0.5rem">Aucune sélection = toutes les catégories.</p>
+        <div class="picks" id="cp-cats"></div>
+
+        <label class="f-lab">Cumul avec les promotions du menu</label>
+        <div class="picks" id="cp-combine">
+          <span class="pick is-on" data-c="stack">Se cumule</span>
+          <span class="pick" data-c="exclude">Exclut les plats en promo</span>
+          <span class="pick" data-c="block">Refusé si promo au panier</span>
+        </div>
+
+        <div class="m-foot" style="flex-wrap:wrap;gap:1rem">
+          <button class="m-save" id="cp-save" type="button">Enregistrer</button>
+          <span class="sw-wrap">
+            <label class="switch"><input type="checkbox" id="cp-new" /><span class="track"></span></label>
+            <span class="sw-lab">Nouveaux clients</span>
+          </span>
+          <span class="sw-wrap">
+            <label class="switch"><input type="checkbox" id="cp-active" checked /><span class="track"></span></label>
+            <span class="sw-lab">Actif</span>
+          </span>
+          <span class="m-err" id="cp-err"></span>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <AdminNav current="marketing" />
@@ -549,17 +674,22 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           window.location.replace("/admin/login");
         });
 
-        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
-        if (userErr || !userData.user) {
+        // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
+        // gira in background solo per validare il token (revoca → login).
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) {
           window.location.replace("/admin/login");
           return;
         }
-        userEmail.textContent = userData.user.email ?? "";
+        userEmail.textContent = session.user.email ?? "";
         app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
 
-        const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const headers = {
-          Authorization: `Bearer ${sessionData.session?.access_token ?? ""}`,
+          Authorization: `Bearer ${session.access_token ?? ""}`,
           "Content-Type": "application/json",
         };
 
@@ -628,6 +758,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
         // ---------- Tabs Pop-up / Newsletter ----------
         const tabNews = document.getElementById("tab-news") as HTMLDivElement;
+        const tabCoupons = document.getElementById("tab-coupons") as HTMLDivElement;
         const mtabs = document.getElementById("mtabs") as HTMLDivElement;
         let tabAttivo = "popup";
 
@@ -638,12 +769,14 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           );
           tabPopup.style.display = t === "popup" ? "block" : "none";
           tabNews.style.display = t === "news" ? "block" : "none";
+          tabCoupons.style.display = t === "coupons" ? "block" : "none";
         }
         mtabs.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;
           if (!el) return;
           mostraTab(el.dataset.tab ?? "popup");
           if (el.dataset.tab === "news") caricaNews();
+          if (el.dataset.tab === "coupons") caricaCoupons();
         });
 
         async function carica() {
@@ -1317,6 +1450,390 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           }
           await caricaNews();
         }
+
+        // ============================================================
+        // ---------- Tab COUPONS ----------
+        // ============================================================
+        interface Coupon {
+          id: string;
+          code: string;
+          description: string | null;
+          discount_type: "percent" | "fixed";
+          discount_value: number;
+          max_discount_cents: number | null;
+          min_spend_cents: number | null;
+          schedule_kind: "always" | "dates" | "weekly";
+          date_start: string | null;
+          date_end: string | null;
+          days: number[] | null;
+          hour_start: string | null;
+          hour_end: string | null;
+          per_customer_limit: number | null;
+          global_limit: number | null;
+          categories: string[];
+          combine_with_promo: "stack" | "exclude" | "block";
+          new_customers_only: boolean;
+          active: boolean;
+          uses: number;
+        }
+
+        const cpEmpty = document.getElementById("cp-empty") as HTMLDivElement;
+        const cpList = document.getElementById("coupons") as HTMLDivElement;
+        const cpOverlay = document.getElementById("cp-overlay") as HTMLDivElement;
+        const cpTitle = document.getElementById("cp-title") as HTMLHeadingElement;
+        const cpCode = document.getElementById("cp-code") as HTMLInputElement;
+        const cpDesc = document.getElementById("cp-desc") as HTMLInputElement;
+        const cpType = document.getElementById("cp-type") as HTMLDivElement;
+        const cpValue = document.getElementById("cp-value") as HTMLInputElement;
+        const cpValueLab = document.getElementById("cp-value-lab") as HTMLSpanElement;
+        const cpMaxcap = document.getElementById("cp-maxcap") as HTMLInputElement;
+        const cpMinspend = document.getElementById("cp-minspend") as HTMLInputElement;
+        const cpKind = document.getElementById("cp-kind") as HTMLDivElement;
+        const cpSchedDates = document.getElementById("cp-sched-dates") as HTMLDivElement;
+        const cpSchedWeekly = document.getElementById("cp-sched-weekly") as HTMLDivElement;
+        const cpDs = document.getElementById("cp-ds") as HTMLInputElement;
+        const cpDe = document.getElementById("cp-de") as HTMLInputElement;
+        const cpDaysBox = document.getElementById("cp-days") as HTMLDivElement;
+        const cpHs = document.getElementById("cp-hs") as HTMLInputElement;
+        const cpHe = document.getElementById("cp-he") as HTMLInputElement;
+        const cpPerClient = document.getElementById("cp-perclient") as HTMLInputElement;
+        const cpGlobal = document.getElementById("cp-global") as HTMLInputElement;
+        const cpCatsBox = document.getElementById("cp-cats") as HTMLDivElement;
+        const cpCombine = document.getElementById("cp-combine") as HTMLDivElement;
+        const cpNew = document.getElementById("cp-new") as HTMLInputElement;
+        const cpActive = document.getElementById("cp-active") as HTMLInputElement;
+        const cpSave = document.getElementById("cp-save") as HTMLButtonElement;
+        const cpErr = document.getElementById("cp-err") as HTMLSpanElement;
+
+        let coupons: Coupon[] = [];
+        let cpEditId: string | null = null;
+        let cpCatsCaricate = false;
+
+        function cpEuro(cents: number): string {
+          return (cents / 100).toFixed(2).replace(".", ",") + " €";
+        }
+
+        // Popola i giorni della settimana (una volta sola)
+        cpDaysBox.innerHTML = GIORNI.map((g) => `<span class="pick" data-d="${g.n}">${g.label}</span>`).join("");
+
+        async function cpCaricaCategorie() {
+          if (cpCatsCaricate) return;
+          try {
+            const res = await fetch("/api/admin/categories", { headers });
+            const j = await res.json();
+            const cats: { name: string }[] = j.categories ?? [];
+            cpCatsBox.innerHTML = cats
+              .map((c) => `<span class="pick" data-cat="${esc(c.name)}">${esc(c.name)}</span>`)
+              .join("");
+            cpCatsCaricate = true;
+          } catch {
+            cpCatsBox.innerHTML = "";
+          }
+        }
+
+        function cpProg(c: Coupon): string {
+          if (c.schedule_kind === "dates") {
+            const f = (d: string | null) => (d ? d.split("-").reverse().join("/") : "?");
+            return `${f(c.date_start)} → ${f(c.date_end)}`;
+          }
+          if (c.schedule_kind === "weekly") {
+            const nomi = GIORNI.filter((g) => (c.days ?? []).includes(g.n)).map((g) => g.label).join(", ");
+            const hh = (h: string | null) => String(h ?? "").slice(0, 5);
+            return `${nomi} · ${hh(c.hour_start)}–${hh(c.hour_end)}`;
+          }
+          return "Indéfini";
+        }
+
+        function cpValoreLabel(c: Coupon): string {
+          return c.discount_type === "percent" ? `−${c.discount_value}%` : `−${cpEuro(c.discount_value)}`;
+        }
+
+        function cpRender() {
+          if (coupons.length === 0) {
+            cpList.innerHTML = "";
+            cpEmpty.style.display = "block";
+            return;
+          }
+          cpEmpty.style.display = "none";
+          cpList.innerHTML = coupons
+            .map((c) => {
+              const tags: string[] = [`<span class="m-tag gold">${cpValoreLabel(c)}</span>`];
+              if (c.max_discount_cents) tags.push(`<span class="m-tag">max ${cpEuro(c.max_discount_cents)}</span>`);
+              if (c.min_spend_cents) tags.push(`<span class="m-tag">min ${cpEuro(c.min_spend_cents)}</span>`);
+              tags.push(`<span class="m-tag">${esc(cpProg(c))}</span>`);
+              tags.push(
+                `<span class="m-tag">${c.categories.length ? esc(c.categories.join(", ")) : "Toutes catégories"}</span>`
+              );
+              const combineLbl =
+                c.combine_with_promo === "stack"
+                  ? "Cumulable"
+                  : c.combine_with_promo === "exclude"
+                    ? "Hors promos"
+                    : "Pas si promo";
+              tags.push(`<span class="m-tag">${combineLbl}</span>`);
+              if (c.new_customers_only) tags.push(`<span class="m-tag">Nouveaux clients</span>`);
+              const usiTxt = c.global_limit
+                ? `${c.uses} / ${c.global_limit} utilisés`
+                : `${c.uses} utilisé${c.uses === 1 ? "" : "s"}`;
+              const perCli = c.per_customer_limit ? ` · ${c.per_customer_limit}/client` : "";
+              tags.push(`<span class="m-tag">${usiTxt}${perCli}</span>`);
+              return `
+                <div class="pop ${c.active ? "" : "is-off"}">
+                  <div class="pop-top">
+                    <div class="pop-title">${esc(c.code)}</div>
+                  </div>
+                  ${c.description ? `<div class="pop-text">${esc(c.description)}</div>` : ""}
+                  <div class="pop-meta">${tags.join("")}</div>
+                  <div class="pop-actions">
+                    <span class="sw-wrap">
+                      <label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? "checked" : ""} /><span class="track"></span></label>
+                      <span class="sw-lab">Actif</span>
+                    </span>
+                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="Modifier">${ICO_PEN}</button>
+                    <button class="i-btn i-del" data-del="${c.id}" aria-label="Supprimer">${ICO_TRASH}</button>
+                  </div>
+                </div>`;
+            })
+            .join("");
+        }
+
+        async function caricaCoupons() {
+          await cpCaricaCategorie();
+          try {
+            const res = await fetch("/api/admin/coupons", { headers });
+            const j = await res.json();
+            coupons = j.coupons ?? [];
+            cpRender();
+          } catch {
+            toast("Chargement des coupons impossible", true);
+          }
+        }
+
+        function cpSingleSel(box: HTMLElement, el: HTMLElement) {
+          box.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          el.classList.add("is-on");
+        }
+        function cpTipoAttivo(): string {
+          return (cpType.querySelector(".pick.is-on") as HTMLElement)?.dataset.t ?? "percent";
+        }
+        function cpKindAttivo(): string {
+          return (cpKind.querySelector(".pick.is-on") as HTMLElement)?.dataset.k ?? "always";
+        }
+        function cpCombineAttivo(): string {
+          return (cpCombine.querySelector(".pick.is-on") as HTMLElement)?.dataset.c ?? "stack";
+        }
+        function cpAggiornaUnita() {
+          cpValueLab.textContent = cpTipoAttivo() === "percent" ? "Valeur (%)" : "Montant (€)";
+        }
+
+        cpType.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          cpSingleSel(cpType, el);
+          cpAggiornaUnita();
+        });
+        cpCombine.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (el) cpSingleSel(cpCombine, el);
+        });
+        cpKind.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          cpSingleSel(cpKind, el);
+          cpSchedDates.classList.toggle("is-visible", el.dataset.k === "dates");
+          cpSchedWeekly.classList.toggle("is-visible", el.dataset.k === "weekly");
+        });
+        cpCatsBox.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (el) el.classList.toggle("is-on");
+        });
+        cpDaysBox.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (el) el.classList.toggle("is-on");
+        });
+
+        function cpEurToCents(v: string): number | null {
+          const n = parseFloat(String(v).replace(",", "."));
+          return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+        }
+        function cpIntPos(v: string): number | null {
+          const n = parseInt(v, 10);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        }
+
+        function cpApri(c: Coupon | null) {
+          cpEditId = c?.id ?? null;
+          cpTitle.textContent = c ? "Modifier le coupon" : "Nouveau coupon";
+          cpErr.textContent = "";
+          cpCode.value = c?.code ?? "";
+          cpDesc.value = c?.description ?? "";
+
+          const tipo = c?.discount_type ?? "percent";
+          cpType.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", el.dataset.t === tipo));
+          cpValue.value = c ? (tipo === "fixed" ? (c.discount_value / 100).toString() : String(c.discount_value)) : "";
+          cpMaxcap.value = c?.max_discount_cents ? (c.max_discount_cents / 100).toString() : "";
+          cpMinspend.value = c?.min_spend_cents ? (c.min_spend_cents / 100).toString() : "";
+          cpAggiornaUnita();
+
+          const kind = c?.schedule_kind ?? "always";
+          cpKind.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", el.dataset.k === kind));
+          cpSchedDates.classList.toggle("is-visible", kind === "dates");
+          cpSchedWeekly.classList.toggle("is-visible", kind === "weekly");
+          cpDs.value = c?.date_start ?? "";
+          cpDe.value = c?.date_end ?? "";
+          const giorniOn = c?.days ?? [];
+          cpDaysBox.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", giorniOn.includes(Number(el.dataset.d)))
+          );
+          cpHs.value = c?.hour_start ? String(c.hour_start).slice(0, 5) : "";
+          cpHe.value = c?.hour_end ? String(c.hour_end).slice(0, 5) : "";
+
+          cpPerClient.value = c?.per_customer_limit ? String(c.per_customer_limit) : "";
+          cpGlobal.value = c?.global_limit ? String(c.global_limit) : "";
+
+          const catsOn = c?.categories ?? [];
+          cpCatsBox.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
+            el.classList.toggle("is-on", catsOn.includes(el.dataset.cat ?? ""))
+          );
+
+          const combine = c?.combine_with_promo ?? "stack";
+          cpCombine.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", el.dataset.c === combine));
+
+          cpNew.checked = c?.new_customers_only ?? false;
+          cpActive.checked = c ? c.active : true;
+
+          cpOverlay.classList.add("is-open");
+        }
+        function cpChiudi() {
+          cpOverlay.classList.remove("is-open");
+        }
+
+        document.getElementById("cp-add")!.addEventListener("click", () => cpApri(null));
+        document.getElementById("cp-close")!.addEventListener("click", cpChiudi);
+        cpOverlay.addEventListener("click", (e) => {
+          if (e.target === cpOverlay) cpChiudi();
+        });
+
+        function cpRaccogli() {
+          const tipo = cpTipoAttivo();
+          const valoreRaw = cpValue.value.trim();
+          const discount_value = tipo === "fixed" ? cpEurToCents(valoreRaw) ?? 0 : parseInt(valoreRaw, 10) || 0;
+          const kind = cpKindAttivo();
+          return {
+            id: cpEditId ?? undefined,
+            code: cpCode.value.trim(),
+            description: cpDesc.value.trim(),
+            discount_type: tipo,
+            discount_value,
+            max_discount_cents: cpEurToCents(cpMaxcap.value.trim()),
+            min_spend_cents: cpEurToCents(cpMinspend.value.trim()),
+            schedule_kind: kind,
+            date_start: kind === "dates" ? cpDs.value || null : null,
+            date_end: kind === "dates" ? cpDe.value || null : null,
+            days:
+              kind === "weekly"
+                ? Array.from(cpDaysBox.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => Number(el.dataset.d))
+                : null,
+            hour_start: kind === "weekly" ? cpHs.value || null : null,
+            hour_end: kind === "weekly" ? cpHe.value || null : null,
+            per_customer_limit: cpIntPos(cpPerClient.value),
+            global_limit: cpIntPos(cpGlobal.value),
+            categories: Array.from(cpCatsBox.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => el.dataset.cat!),
+            combine_with_promo: cpCombineAttivo(),
+            new_customers_only: cpNew.checked,
+            active: cpActive.checked,
+          };
+        }
+
+        cpSave.addEventListener("click", async () => {
+          const payload = cpRaccogli();
+          cpErr.textContent = "";
+          cpSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/coupons", {
+              method: cpEditId ? "PUT" : "POST",
+              headers,
+              body: JSON.stringify(payload),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              cpErr.textContent = j.error ?? "Enregistrement impossible";
+              return;
+            }
+            cpChiudi();
+            toast(cpEditId ? "Coupon modifié" : "Coupon créé");
+            await caricaCoupons();
+          } catch {
+            cpErr.textContent = "Erreur de connexion";
+          } finally {
+            cpSave.disabled = false;
+          }
+        });
+
+        let cpDelPending: string | null = null;
+        let cpDelTimer: number | undefined;
+        cpList.addEventListener("click", async (e) => {
+          const target = e.target as HTMLElement;
+          const edit = target.closest("[data-edit]") as HTMLElement | null;
+          if (edit) {
+            const c = coupons.find((x) => x.id === edit.dataset.edit);
+            if (c) cpApri(c);
+            return;
+          }
+          const del = target.closest("[data-del]") as HTMLElement | null;
+          if (del) {
+            const id = del.dataset.del!;
+            if (cpDelPending === id) {
+              window.clearTimeout(cpDelTimer);
+              cpDelPending = null;
+              try {
+                const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "DELETE", headers });
+                if (!res.ok) {
+                  toast("Suppression impossible", true);
+                  return;
+                }
+                toast("Coupon supprimé");
+                await caricaCoupons();
+              } catch {
+                toast("Erreur de connexion", true);
+              }
+              return;
+            }
+            cpDelPending = id;
+            del.classList.add("confirm");
+            del.textContent = "Confirmer ?";
+            window.clearTimeout(cpDelTimer);
+            cpDelTimer = window.setTimeout(() => {
+              cpDelPending = null;
+              del.classList.remove("confirm");
+              del.innerHTML = ICO_TRASH;
+            }, 3000);
+          }
+        });
+        cpList.addEventListener("change", async (e) => {
+          const sw = (e.target as HTMLElement).closest("[data-toggle]") as HTMLInputElement | null;
+          if (!sw) return;
+          const id = sw.dataset.toggle!;
+          try {
+            const res = await fetch("/api/admin/coupons", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ id, active: sw.checked }),
+            });
+            if (!res.ok) {
+              sw.checked = !sw.checked;
+              toast("Enregistrement impossible", true);
+              return;
+            }
+            const c = coupons.find((x) => x.id === id);
+            if (c) c.active = sw.checked;
+            const card = sw.closest(".pop");
+            if (card) card.classList.toggle("is-off", !sw.checked);
+          } catch {
+            sw.checked = !sw.checked;
+            toast("Erreur de connexion", true);
+          }
+        });
       })();
     </script>
   </body>

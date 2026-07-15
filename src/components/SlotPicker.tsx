@@ -8,6 +8,11 @@ interface SlotPickerProps {
 
 type Stato = "loading" | "ok" | "chiuso" | "errore";
 
+// La griglia è a 4 colonne (vedi CSS .slotpicker-grid). Quando gli orari di
+// una fascia superano 3 righe (12 slot) la lista si accorcia e compare un
+// bottone per mostrarli/nasconderli tutti.
+const SLOT_VISIBILI = 12;
+
 export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
   const t = useTranslations(lang);
 
@@ -70,25 +75,73 @@ export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
   return (
     <div className="slotpicker">
       {lunch.length > 0 && (
-        <div className="slotpicker-fascia">
-          {spezzato && <h4 className="slotpicker-titolo">{t("slot.lunch")}</h4>}
-          <div className="slotpicker-grid">
-            {lunch.map((slot) => (
-              <SlotBtn key={slot} slot={slot} attivo={slot === selezionato} onClick={() => scegli(slot)} />
-            ))}
-          </div>
-        </div>
+        <FasciaSlot
+          titolo={spezzato ? t("slot.lunch") : null}
+          slots={lunch}
+          selezionato={selezionato}
+          onScegli={scegli}
+          labelPiu={t("slot.showAll")}
+          labelMeno={t("slot.showLess")}
+        />
       )}
 
       {dinner.length > 0 && (
-        <div className="slotpicker-fascia">
-          {spezzato && <h4 className="slotpicker-titolo">{t("slot.dinner")}</h4>}
-          <div className="slotpicker-grid">
-            {dinner.map((slot) => (
-              <SlotBtn key={slot} slot={slot} attivo={slot === selezionato} onClick={() => scegli(slot)} />
-            ))}
-          </div>
-        </div>
+        <FasciaSlot
+          titolo={spezzato ? t("slot.dinner") : null}
+          slots={dinner}
+          selezionato={selezionato}
+          onScegli={scegli}
+          labelPiu={t("slot.showAll")}
+          labelMeno={t("slot.showLess")}
+        />
+      )}
+    </div>
+  );
+}
+
+interface FasciaSlotProps {
+  titolo: string | null;
+  slots: string[];
+  selezionato: string | null;
+  onScegli: (slot: string) => void;
+  labelPiu: string;
+  labelMeno: string;
+}
+
+function FasciaSlot({ titolo, slots, selezionato, onScegli, labelPiu, labelMeno }: FasciaSlotProps) {
+  const [espanso, setEspanso] = useState(false);
+
+  const troppi = slots.length > SLOT_VISIBILI;
+  // Se lo slot selezionato è oltre i primi 12 (l'utente l'aveva scelto dopo
+  // aver espanso) la lista resta aperta, così la sua scelta resta visibile.
+  const idxSel = selezionato ? slots.indexOf(selezionato) : -1;
+  const mostraTutti = !troppi || espanso || idxSel >= SLOT_VISIBILI;
+  const visibili = mostraTutti ? slots : slots.slice(0, SLOT_VISIBILI);
+
+  return (
+    <div className="slotpicker-fascia">
+      {titolo && <h4 className="slotpicker-titolo">{titolo}</h4>}
+      <div className="slotpicker-grid">
+        {visibili.map((slot) => (
+          <SlotBtn key={slot} slot={slot} attivo={slot === selezionato} onClick={() => onScegli(slot)} />
+        ))}
+      </div>
+      {troppi && (
+        <button
+          type="button"
+          className="slotpicker-toggle"
+          aria-expanded={mostraTutti}
+          onClick={() => setEspanso((v) => !v)}
+        >
+          <span>{mostraTutti ? labelMeno : labelPiu}</span>
+          <svg
+            className={"slotpicker-toggle-ico" + (mostraTutti ? " is-open" : "")}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
       )}
     </div>
   );

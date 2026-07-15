@@ -75,7 +75,7 @@ const LNK = [
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
-      #content[data-tab="liens"], #content[data-tab="general"] { max-width: none; }
+      #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"] { max-width: none; }
       .lnk-field { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; }
       .lnk-field:last-of-type { margin-bottom: 0.9rem; }
       .lnk-lab { display: flex; align-items: center; gap: 0.8rem; min-width: 200px; }
@@ -209,6 +209,104 @@ const LNK = [
       .msg { font-size: 0.9rem; }
       .msg.ok { color: #4caf7d; }
       .msg.err { color: #ff6b6b; }
+
+      /* --- Team (rubrica contatti) --- */
+      .tm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
+      .tm-head-txt { flex: 1; min-width: 0; }
+      .tm-head-txt h2 { margin: 0 0 0.5rem; }
+      .tm-head-txt .hint { max-width: 680px; }
+      .tm-add { margin-top: 0; flex-shrink: 0; white-space: nowrap; }
+      .tm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.1rem 0 1.3rem; }
+      .tm-fil {
+        background: transparent; border: 1px solid rgba(179, 172, 166, 0.45); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.03em;
+        padding: 0.35rem 0.85rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .tm-fil:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .tm-fil.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .tm-group { margin-bottom: 1.6rem; }
+      .tm-group:last-child { margin-bottom: 0; }
+      .tm-group-title { font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.06em; color: var(--c-accent); margin-bottom: 0.6rem; text-transform: uppercase; }
+      .tm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.9rem; }
+      .tm-card { background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.25rem 1.4rem; display: flex; flex-direction: column; }
+      .tm-card.is-off { opacity: 0.5; }
+      .tm-card-head { display: flex; align-items: flex-start; gap: 0.9rem; }
+      .tm-card-id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+      .tm-card-nameline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+      .tm-card-details { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; }
+      .tm-card-company { font-size: 0.95rem; color: var(--c-muted); }
+      .tm-card-ico { width: 22px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; color: var(--c-accent); }
+      .tm-ico-svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .tm-card-note { font-size: 0.95rem; color: var(--c-muted); word-break: break-word; margin-top: 0.6rem; }
+      .tm-avatar {
+        width: 52px; height: 52px; flex-shrink: 0; border-radius: 50%; overflow: hidden;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--font-body); font-weight: 700; font-size: 1.05rem;
+        color: #fff; text-transform: uppercase; background: var(--c-line); user-select: none;
+      }
+      .tm-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .tm-avatar-lg { width: 76px; height: 76px; font-size: 1.6rem; }
+      .tm-avatar-edit { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 0.3rem; }
+      .tm-avatar-side { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
+      .tm-upl {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
+        padding: 0.45rem 0.9rem; border-radius: 8px; cursor: pointer;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .tm-upl:hover { background: var(--c-accent); color: #231f20; }
+      .tm-upl-rm { border-color: var(--c-line); color: var(--c-muted); }
+      .tm-upl-rm:hover { background: transparent; border-color: #ed1c24; color: #ff6b6b; }
+      .tm-upl-state { font-size: 0.75rem; color: var(--c-muted); }
+      .tm-card-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+      .tm-card-name { font-weight: 700; font-size: 1.1rem; color: var(--c-text); }
+      .tm-card-role { color: var(--c-muted); font-size: 0.95rem; }
+      .tm-badge { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid rgba(223, 171, 78, 0.5); color: var(--c-accent); white-space: nowrap; }
+      .tm-card-line { display: grid; grid-template-columns: 22px 1fr; gap: 0.55rem; align-items: center; font-size: 0.95rem; color: var(--c-muted); word-break: break-word; }
+      .tm-card-line a { color: var(--c-text); text-decoration: none; transition: color 0.15s; }
+      .tm-card-line a:hover { color: var(--c-accent); text-decoration: underline; }
+      .tm-card-actions { display: flex; gap: 0.5rem; margin-top: 0.9rem; }
+      .tm-ibtn {
+        width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); border-radius: 50%;
+        color: var(--c-muted); cursor: pointer; font-size: 0.9rem;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .tm-ibtn.edit { margin-left: auto; }
+      .tm-ibtn.edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .tm-ibtn.del { background: rgba(237, 28, 36, 0.22); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .tm-ibtn.del:hover { background: rgba(237, 28, 36, 0.5); border-color: #ed1c24; }
+      .tm-ibtn.del.confirm { width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.72rem; background: #a3320f; border-color: #a3320f; white-space: nowrap; }
+
+      /* --- Modale team --- */
+      .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        justify-content: center; padding: 3vh 1rem; overflow-y: auto;
+      }
+      .overlay.is-open { display: flex; }
+      .overlay .modal { width: 100%; max-width: 660px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 2rem; position: relative; margin: auto; }
+      .overlay .modal h2 { color: var(--c-text); margin-bottom: 1.2rem; }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-text); }
+      .overlay .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.2rem 0 0.4rem; }
+      .overlay .f-lab:first-of-type { margin-top: 0; }
+      .overlay .f-input {
+        width: 100%; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 0.8rem; border-radius: 8px;
+        color-scheme: dark; max-width: none;
+      }
+      .overlay .f-input:focus { outline: none; border-color: var(--c-accent); }
+      .overlay select.f-input { cursor: pointer; }
+      .overlay textarea.f-input { resize: vertical; }
+      .f-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.6rem; }
+      .overlay .f-row2 .f-lab { margin-top: 0; }
+      @media (max-width: 620px) { .f-row2 { grid-template-columns: 1fr; } }
+      .tm-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 1.1rem; margin-top: 1.9rem; }
+      .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+      .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .tm-save { box-shadow: none; font-size: 1rem; padding: 0.6rem 1.6rem; }
 
       /* --- Jours spéciaux --- */
       .sp-type { display: inline-flex; }
@@ -456,8 +554,16 @@ const LNK = [
           </div>
 
           <div class="section" data-tab="team" style="display:none">
-            <h2>Team</h2>
-            <p class="hint">Section en préparation — la gestion de l'équipe arrivera ici.</p>
+            <div class="tm-head">
+              <div class="tm-head-txt">
+                <h2>Team</h2>
+                <p class="hint">Répertoire des personnes liées au restaurant : personnel, fournisseurs, techniciens, comptable, partenaires… (contacts uniquement pour l'instant).</p>
+              </div>
+              <button type="button" class="kemail-add tm-add" id="tm-add">+ Ajouter un contact</button>
+            </div>
+            <div class="tm-filters" id="tm-filters"></div>
+            <div class="tm-list" id="tm-list"></div>
+            <p class="hint tm-empty" id="tm-empty" style="display:none">Aucun contact pour le moment.</p>
           </div>
 
           <div class="save-bar">
@@ -466,6 +572,81 @@ const LNK = [
           </div>
         </div>
       </main>
+    </div>
+
+    <!-- Modale contact Team -->
+    <div class="overlay" id="tm-overlay">
+      <div class="modal">
+        <button class="m-close" id="tm-close" type="button" aria-label="Fermer">×</button>
+        <h2 id="tm-title">Nouveau contact</h2>
+
+        <div class="tm-avatar-edit">
+          <span class="tm-avatar tm-avatar-lg" id="tm-avatar-prev"></span>
+          <div class="tm-avatar-side">
+            <button type="button" class="tm-upl" id="tm-upload">Téléverser une photo</button>
+            <button type="button" class="tm-upl tm-upl-rm" id="tm-photo-rm" style="display:none">Retirer la photo</button>
+            <input type="file" id="tm-file" accept="image/*" style="display:none" />
+            <p class="tm-upl-state" id="tm-upload-state"></p>
+          </div>
+        </div>
+
+        <label class="f-lab" for="tm-name">Nom *</label>
+        <input type="text" class="f-input" id="tm-name" placeholder="Nom et prénom / société" />
+
+        <div class="f-row2">
+          <div>
+            <label class="f-lab" for="tm-cat">Catégorie</label>
+            <select class="f-input" id="tm-cat"></select>
+          </div>
+          <div>
+            <label class="f-lab" for="tm-role">Fonction / rôle</label>
+            <input type="text" class="f-input" id="tm-role" placeholder="ex. Pizzaiolo, Comptable…" />
+          </div>
+        </div>
+
+        <div class="f-row2">
+          <div>
+            <label class="f-lab" for="tm-phone">Téléphone</label>
+            <input type="text" class="f-input" id="tm-phone" placeholder="+32…" />
+          </div>
+          <div>
+            <label class="f-lab" for="tm-email">Email</label>
+            <input type="text" class="f-input" id="tm-email" placeholder="email@…" />
+          </div>
+        </div>
+
+        <div class="f-row2">
+          <div>
+            <label class="f-lab" for="tm-phone2">Téléphone 2</label>
+            <input type="text" class="f-input" id="tm-phone2" placeholder="(optionnel)" />
+          </div>
+          <div>
+            <label class="f-lab" for="tm-email2">Email 2</label>
+            <input type="text" class="f-input" id="tm-email2" placeholder="(optionnel)" />
+          </div>
+        </div>
+
+        <div class="f-row2">
+          <div>
+            <label class="f-lab" for="tm-company">Société / entreprise</label>
+            <input type="text" class="f-input" id="tm-company" placeholder="(fournisseurs, externes…)" />
+          </div>
+          <div>
+            <label class="f-lab" for="tm-website">Site / lien</label>
+            <input type="text" class="f-input" id="tm-website" placeholder="https://…" />
+          </div>
+        </div>
+
+        <label class="f-lab" for="tm-notes">Notes</label>
+        <textarea class="f-input" id="tm-notes" rows="3" placeholder="Notes internes…"></textarea>
+
+        <div class="tm-foot">
+          <button class="save tm-save" id="tm-save" type="button">Enregistrer</button>
+          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-emp" /><span class="track"></span></label><span class="sw-lab">Employé</span></span>
+          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-active" checked /><span class="track"></span></label><span class="sw-lab">Actif</span></span>
+          <span class="msg err" id="tm-err"></span>
+        </div>
+      </div>
     </div>
 
     <AdminNav current="settings" />
@@ -632,16 +813,21 @@ const LNK = [
           window.location.replace("/admin/login");
         });
 
-        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
-        if (userErr || !userData.user) {
+        // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
+        // gira in background solo per validare il token (revoca → login).
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) {
           window.location.replace("/admin/login");
           return;
         }
-        userEmail.textContent = userData.user.email ?? "";
+        userEmail.textContent = session.user.email ?? "";
         app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
 
-        const { data: sessionData } = await supabaseBrowser.auth.getSession();
-        const token = sessionData.session?.access_token ?? "";
+        const token = session.access_token ?? "";
         const headers = { Authorization: `Bearer ${token}` };
 
         // --- Carica i valori attuali ---
@@ -1052,6 +1238,349 @@ const LNK = [
             saveBtn.classList.remove("is-loading");
           }
         });
+
+        // ============================================================
+        // ----- Team (rubrica contatti) -----
+        // ============================================================
+        const TM_CATS: { k: string; label: string }[] = [
+          { k: "direction", label: "Direction" },
+          { k: "cuisine", label: "Cuisine" },
+          { k: "salle", label: "Salle & Bar" },
+          { k: "admin", label: "Administration" },
+          { k: "fournisseurs", label: "Fournisseurs" },
+          { k: "technique", label: "Technique & Maintenance" },
+          { k: "marketing", label: "Marketing & Digital" },
+          { k: "consultants", label: "Consultants" },
+          { k: "partenaires", label: "Partenaires" },
+        ];
+
+        interface TeamMember {
+          id: string; name: string; category: string; role: string | null;
+          is_employee: boolean; phone: string | null; email: string | null;
+          phone2: string | null; email2: string | null; company: string | null;
+          website: string | null; photo_url: string | null; notes: string | null; active: boolean;
+        }
+
+        const tmListEl = document.getElementById("tm-list") as HTMLDivElement;
+        const tmEmptyEl = document.getElementById("tm-empty") as HTMLParagraphElement;
+        const tmFiltersEl = document.getElementById("tm-filters") as HTMLDivElement;
+        const tmOverlay = document.getElementById("tm-overlay") as HTMLDivElement;
+        const tmTitle = document.getElementById("tm-title") as HTMLHeadingElement;
+        const tmName = document.getElementById("tm-name") as HTMLInputElement;
+        const tmCat = document.getElementById("tm-cat") as HTMLSelectElement;
+        const tmRole = document.getElementById("tm-role") as HTMLInputElement;
+        const tmPhone = document.getElementById("tm-phone") as HTMLInputElement;
+        const tmEmail = document.getElementById("tm-email") as HTMLInputElement;
+        const tmPhone2 = document.getElementById("tm-phone2") as HTMLInputElement;
+        const tmEmail2 = document.getElementById("tm-email2") as HTMLInputElement;
+        const tmCompany = document.getElementById("tm-company") as HTMLInputElement;
+        const tmWebsite = document.getElementById("tm-website") as HTMLInputElement;
+        const tmNotes = document.getElementById("tm-notes") as HTMLTextAreaElement;
+        const tmAvatarPrev = document.getElementById("tm-avatar-prev") as HTMLSpanElement;
+        const tmUpload = document.getElementById("tm-upload") as HTMLButtonElement;
+        const tmPhotoRm = document.getElementById("tm-photo-rm") as HTMLButtonElement;
+        const tmFile = document.getElementById("tm-file") as HTMLInputElement;
+        const tmUploadState = document.getElementById("tm-upload-state") as HTMLParagraphElement;
+        const tmEmp = document.getElementById("tm-emp") as HTMLInputElement;
+        const tmActive = document.getElementById("tm-active") as HTMLInputElement;
+        const tmSave = document.getElementById("tm-save") as HTMLButtonElement;
+        const tmErr = document.getElementById("tm-err") as HTMLSpanElement;
+
+        tmCat.innerHTML = TM_CATS.map((c) => `<option value="${c.k}">${c.label}</option>`).join("");
+
+        let team: TeamMember[] = [];
+        let tmEditId: string | null = null;
+        let tmFiltro = "all";
+        let tmPhotoUrl = "";
+
+        function tmEsc(s: string): string {
+          return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+
+        // Avatar: foto se presente, altrimenti pastiglia rotonda con le iniziali
+        // (colore stabile derivato dal nome).
+        function tmInitiali(name: string): string {
+          const parts = name.trim().split(/\s+/).filter(Boolean);
+          if (parts.length === 0) return "";
+          if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        function tmColore(name: string): string {
+          let h = 0;
+          for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+          return `hsl(${h}, 42%, 40%)`;
+        }
+        function tmAvatarHTML(m: TeamMember): string {
+          if (m.photo_url) return `<span class="tm-avatar"><img src="${tmEsc(m.photo_url)}" alt="" loading="lazy" /></span>`;
+          return `<span class="tm-avatar" style="background:${tmColore(m.name)}">${tmEsc(tmInitiali(m.name))}</span>`;
+        }
+        function tmRenderAvatarPreview() {
+          if (tmPhotoUrl) {
+            tmAvatarPrev.innerHTML = `<img src="${tmEsc(tmPhotoUrl)}" alt="" />`;
+            tmAvatarPrev.style.background = "";
+            tmPhotoRm.style.display = "";
+          } else {
+            const name = tmName.value;
+            tmAvatarPrev.textContent = tmInitiali(name);
+            tmAvatarPrev.style.background = name.trim() ? tmColore(name) : "";
+            tmPhotoRm.style.display = "none";
+          }
+        }
+
+        function tmRenderFiltri() {
+          const usate = new Set(team.map((m) => m.category));
+          const chips = [`<button type="button" class="tm-fil${tmFiltro === "all" ? " is-on" : ""}" data-f="all">Tous</button>`];
+          for (const c of TM_CATS) {
+            if (!usate.has(c.k)) continue;
+            chips.push(`<button type="button" class="tm-fil${tmFiltro === c.k ? " is-on" : ""}" data-f="${c.k}">${c.label}</button>`);
+          }
+          tmFiltersEl.innerHTML = chips.join("");
+        }
+
+        const TM_ICO_PHONE = `<svg class="tm-ico-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.98.36 1.92.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.89.34 1.83.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+        const TM_ICO_MAIL = `<svg class="tm-ico-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22 6 12 13 2 6"/></svg>`;
+        const TM_ICO_GLOBE = `<svg class="tm-ico-svg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+        function tmCardHTML(m: TeamMember): string {
+          // Righe con icona in colonna fissa (icone allineate verticalmente).
+          const lines: string[] = [];
+          if (m.phone) {
+            const p2 = m.phone2 ? ` · <a href="tel:${tmEsc(m.phone2)}">${tmEsc(m.phone2)}</a>` : "";
+            lines.push(`<div class="tm-card-line"><span class="tm-card-ico">${TM_ICO_PHONE}</span><span><a href="tel:${tmEsc(m.phone)}">${tmEsc(m.phone)}</a>${p2}</span></div>`);
+          } else if (m.phone2) {
+            lines.push(`<div class="tm-card-line"><span class="tm-card-ico">${TM_ICO_PHONE}</span><span><a href="tel:${tmEsc(m.phone2)}">${tmEsc(m.phone2)}</a></span></div>`);
+          }
+          const mail = m.email || m.email2;
+          if (mail) lines.push(`<div class="tm-card-line"><span class="tm-card-ico">${TM_ICO_MAIL}</span><span><a href="mailto:${tmEsc(mail)}">${tmEsc(mail)}</a></span></div>`);
+          if (m.website) {
+            const u = /^https?:\/\//.test(m.website) ? m.website : "https://" + m.website;
+            const disp = m.website.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+            lines.push(`<div class="tm-card-line"><span class="tm-card-ico">${TM_ICO_GLOBE}</span><span><a href="${tmEsc(u)}" target="_blank" rel="noopener">${tmEsc(disp)}</a></span></div>`);
+          }
+          const dettInner =
+            (m.company ? `<div class="tm-card-company">${tmEsc(m.company)}</div>` : "") +
+            lines.join("") +
+            (m.notes ? `<div class="tm-card-note">${tmEsc(m.notes)}</div>` : "");
+          const dettagli = dettInner ? `<div class="tm-card-details">${dettInner}</div>` : "";
+          return `
+            <div class="tm-card${m.active ? "" : " is-off"}">
+              <div class="tm-card-head">
+                ${tmAvatarHTML(m)}
+                <div class="tm-card-id">
+                  <div class="tm-card-nameline">
+                    <span class="tm-card-name">${tmEsc(m.name)}</span>
+                    ${m.is_employee ? `<span class="tm-badge emp">Employé</span>` : ""}
+                  </div>
+                  ${m.role ? `<span class="tm-card-role">${tmEsc(m.role)}</span>` : ""}
+                  ${dettagli}
+                </div>
+              </div>
+              <div class="tm-card-actions">
+                <button type="button" class="tm-ibtn edit" data-edit="${m.id}" aria-label="Modifier">✎</button>
+                <button type="button" class="tm-ibtn del" data-del="${m.id}" aria-label="Supprimer">✕</button>
+              </div>
+            </div>`;
+        }
+
+        function tmRender() {
+          tmRenderFiltri();
+          const visibili = team.filter((m) => tmFiltro === "all" || m.category === tmFiltro);
+          if (visibili.length === 0) {
+            tmListEl.innerHTML = "";
+            tmEmptyEl.style.display = "block";
+            return;
+          }
+          tmEmptyEl.style.display = "none";
+          const html: string[] = [];
+          for (const c of TM_CATS) {
+            const membri = visibili.filter((m) => m.category === c.k);
+            if (membri.length === 0) continue;
+            html.push(
+              `<div class="tm-group"><div class="tm-group-title">${c.label}</div><div class="tm-cards">${membri.map(tmCardHTML).join("")}</div></div>`
+            );
+          }
+          tmListEl.innerHTML = html.join("");
+        }
+
+        async function tmCarica() {
+          try {
+            const res = await fetch("/api/admin/team", { headers });
+            const j = await res.json();
+            team = j.team ?? [];
+            tmRender();
+          } catch {
+            tmListEl.innerHTML = "";
+            tmEmptyEl.textContent = "Erreur de chargement.";
+            tmEmptyEl.style.display = "block";
+          }
+        }
+
+        function tmApri(m: TeamMember | null) {
+          tmEditId = m?.id ?? null;
+          tmTitle.textContent = m ? "Modifier le contact" : "Nouveau contact";
+          tmErr.textContent = "";
+          tmName.value = m?.name ?? "";
+          tmCat.value = m?.category ?? "direction";
+          tmRole.value = m?.role ?? "";
+          tmPhone.value = m?.phone ?? "";
+          tmEmail.value = m?.email ?? "";
+          tmPhone2.value = m?.phone2 ?? "";
+          tmEmail2.value = m?.email2 ?? "";
+          tmCompany.value = m?.company ?? "";
+          tmWebsite.value = m?.website ?? "";
+          tmNotes.value = m?.notes ?? "";
+          tmEmp.checked = m?.is_employee ?? false;
+          tmActive.checked = m ? m.active : true;
+          tmPhotoUrl = m?.photo_url ?? "";
+          tmUploadState.textContent = "";
+          tmRenderAvatarPreview();
+          tmOverlay.classList.add("is-open");
+        }
+        function tmChiudi() {
+          tmOverlay.classList.remove("is-open");
+        }
+
+        document.getElementById("tm-add")?.addEventListener("click", () => tmApri(null));
+        document.getElementById("tm-close")?.addEventListener("click", tmChiudi);
+        tmOverlay.addEventListener("click", (e) => {
+          if (e.target === tmOverlay) tmChiudi();
+        });
+
+        // Aggiorna le iniziali mentre si scrive il nome (se non c'è foto)
+        tmName.addEventListener("input", () => {
+          if (!tmPhotoUrl) tmRenderAvatarPreview();
+        });
+
+        // Upload foto (riusa /api/admin/upload, bucket popups)
+        tmUpload.addEventListener("click", () => tmFile.click());
+        tmFile.addEventListener("change", async () => {
+          const file = tmFile.files?.[0];
+          if (!file) return;
+          if (file.size > 4 * 1024 * 1024) {
+            tmUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+            return;
+          }
+          tmUpload.disabled = true;
+          tmUploadState.textContent = "Téléversement…";
+          try {
+            const base64 = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => rej(new Error());
+              r.readAsDataURL(file);
+            });
+            const resp = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ filename: file.name, data: base64 }),
+            });
+            const j = await resp.json();
+            if (!resp.ok) {
+              tmUploadState.textContent = j.error ?? "Erreur de téléversement";
+              return;
+            }
+            tmPhotoUrl = j.url;
+            tmRenderAvatarPreview();
+            tmUploadState.textContent = "Photo téléversée ✓";
+          } catch {
+            tmUploadState.textContent = "Erreur de connexion";
+          } finally {
+            tmUpload.disabled = false;
+            tmFile.value = "";
+          }
+        });
+        tmPhotoRm.addEventListener("click", () => {
+          tmPhotoUrl = "";
+          tmUploadState.textContent = "";
+          tmRenderAvatarPreview();
+        });
+
+        tmFiltersEl.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".tm-fil") as HTMLElement | null;
+          if (!el) return;
+          tmFiltro = el.dataset.f ?? "all";
+          tmRender();
+        });
+
+        tmSave.addEventListener("click", async () => {
+          const payload = {
+            id: tmEditId ?? undefined,
+            name: tmName.value.trim(),
+            category: tmCat.value,
+            role: tmRole.value.trim(),
+            phone: tmPhone.value.trim(),
+            email: tmEmail.value.trim(),
+            phone2: tmPhone2.value.trim(),
+            email2: tmEmail2.value.trim(),
+            company: tmCompany.value.trim(),
+            website: tmWebsite.value.trim(),
+            photo_url: tmPhotoUrl,
+            notes: tmNotes.value.trim(),
+            is_employee: tmEmp.checked,
+            active: tmActive.checked,
+          };
+          if (!payload.name) {
+            tmErr.textContent = "Le nom est obligatoire.";
+            return;
+          }
+          tmErr.textContent = "";
+          tmSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/team", {
+              method: tmEditId ? "PUT" : "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              tmErr.textContent = j.error ?? "Enregistrement impossible";
+              return;
+            }
+            tmChiudi();
+            await tmCarica();
+          } catch {
+            tmErr.textContent = "Erreur de connexion";
+          } finally {
+            tmSave.disabled = false;
+          }
+        });
+
+        let tmDelPending: string | null = null;
+        let tmDelTimer: number | undefined;
+        tmListEl.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const edit = t.closest("[data-edit]") as HTMLElement | null;
+          if (edit) {
+            const m = team.find((x) => x.id === edit.dataset.edit);
+            if (m) tmApri(m);
+            return;
+          }
+          const del = t.closest("[data-del]") as HTMLElement | null;
+          if (del) {
+            const id = del.dataset.del!;
+            if (tmDelPending === id) {
+              window.clearTimeout(tmDelTimer);
+              tmDelPending = null;
+              try {
+                const res = await fetch("/api/admin/team?id=" + id, { method: "DELETE", headers });
+                if (res.ok) await tmCarica();
+              } catch {
+                /* noop */
+              }
+              return;
+            }
+            tmDelPending = id;
+            del.classList.add("confirm");
+            del.textContent = "Confirmer ?";
+            window.clearTimeout(tmDelTimer);
+            tmDelTimer = window.setTimeout(() => {
+              tmDelPending = null;
+              del.classList.remove("confirm");
+              del.textContent = "✕";
+            }, 3000);
+          }
+        });
+
+        tmCarica();
       })();
     
   // ----- Tab della pagina (Horaire / Cuisine / Liens / Team) -----

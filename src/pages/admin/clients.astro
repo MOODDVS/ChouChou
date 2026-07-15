@@ -294,16 +294,21 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           window.location.replace("/admin/login");
         });
 
-        const { data: userData, error: userErr } = await supabaseBrowser.auth.getUser();
-        if (userErr || !userData.user) {
+        // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
+        // gira in background solo per validare il token (revoca → login).
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) {
           window.location.replace("/admin/login");
           return;
         }
-        userEmail.textContent = userData.user.email ?? "";
+        userEmail.textContent = session.user.email ?? "";
         app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
 
-        const { data: sessionData } = await supabaseBrowser.auth.getSession();
-        const token = sessionData.session?.access_token ?? "";
+        const token = session.access_token ?? "";
         const headers = { Authorization: `Bearer ${token}` };
 
         let tutti: Client[] = [];

@@ -39,6 +39,13 @@ interface OrderStrings {
   pickupTime: string;
   notes: string;
   notesPlaceholder: string;
+  coupon: string;
+  couponPlaceholder: string;
+  couponApply: string;
+  couponRemove: string;
+  couponInvalid: string;
+  subtotal: string;
+  discount: string;
   total: string;
   items: string;
   toCheckout: string;
@@ -83,6 +90,7 @@ interface StatoSalvato {
   telefono: string;
   email: string;
   noteOrdine: string;
+  coupon: string;
 }
 
 function leggiStatoSalvato(): Partial<StatoSalvato> {
@@ -139,6 +147,10 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
   const [telefono, setTelefono] = useState(salvato.telefono ?? "");
   const [email, setEmail] = useState(salvato.email ?? "");
   const [noteOrdine, setNoteOrdine] = useState(salvato.noteOrdine ?? "");
+  const [coupon, setCoupon] = useState(salvato.coupon ?? "");
+  const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
   const [accettato, setAccettato] = useState(false);
 
   const [invio, setInvio] = useState(false);
@@ -147,12 +159,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const dati: StatoSalvato = { linee, nome, cognome, telefono, email, noteOrdine };
+      const dati: StatoSalvato = { linee, nome, cognome, telefono, email, noteOrdine, coupon };
       window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(dati));
     } catch {
       // sessionStorage non disponibile: l'app funziona comunque.
     }
-  }, [linee, nome, cognome, telefono, email, noteOrdine]);
+  }, [linee, nome, cognome, telefono, email, noteOrdine, coupon]);
 
   // Al cambio vista (menu <-> checkout) riporta la pagina in cima:
   // senza questo, passando al checkout la pagina resta scrollata in basso.
@@ -254,6 +266,55 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
 
   const totale = linee.reduce((s, l) => s + prezzoRiga(l), 0);
   const numArticoli = linee.reduce((s, l) => s + l.qty, 0);
+  // Sconto coupon (indicativo lato client: il checkout lo ricalcola e valida).
+  const scontoCents = couponApplicato ? Math.min(couponApplicato.discount_cents, totale) : 0;
+  const totaleFinale = Math.max(0, totale - scontoCents);
+
+  // Se il carrello cambia dopo aver applicato un coupon, l'importo dello sconto
+  // potrebbe non essere più corretto: si annulla e il cliente lo riapplica.
+  useEffect(() => {
+    setCouponApplicato(null);
+    setCouponMsg(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linee]);
+
+  async function applicaCoupon() {
+    const code = coupon.trim();
+    if (!code || couponLoading) return;
+    setCouponLoading(true);
+    setCouponMsg(null);
+    try {
+      const res = await fetch("/api/coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
+          email: email.trim(),
+          lang,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCouponApplicato({ code: data.code, discount_cents: data.discount_cents, label: data.label });
+        setCouponMsg(null);
+      } else {
+        setCouponApplicato(null);
+        setCouponMsg(data.error ?? t.couponInvalid);
+      }
+    } catch {
+      setCouponApplicato(null);
+      setCouponMsg(t.errConnection);
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function rimuoviCoupon() {
+    setCouponApplicato(null);
+    setCouponMsg(null);
+    setCoupon("");
+  }
 
   const emailValida = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const formValido =
@@ -277,6 +338,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           items: linee.map((l) => ({ id: l.id, qty: l.qty })),
           slot,
           note: noteOrdine,
+          coupon: couponApplicato?.code ?? "",
           customer: { name: nome, surname: cognome, phone: telefono, email },
           lang,
         }),
@@ -397,6 +459,50 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
               <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
               <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
+            <div className="order-coupon">
+              <label className="order-field-label" htmlFor="order-coupon-field">{t.coupon}</label>
+              {couponApplicato ? (
+                <div className="order-coupon-applied">
+                  <span className="order-coupon-code">{couponApplicato.code}</span>
+                  <span className="order-coupon-amount">−{euro(scontoCents)}</span>
+                  <button
+                    type="button"
+                    className="order-coupon-remove"
+                    onClick={rimuoviCoupon}
+                    aria-label={t.couponRemove}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <div className="order-coupon-row">
+                  <input
+                    id="order-coupon-field"
+                    className="order-input"
+                    type="text"
+                    autoComplete="off"
+                    placeholder={t.couponPlaceholder}
+                    value={coupon}
+                    onChange={(e) => setCoupon(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applicaCoupon();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="order-coupon-apply"
+                    onClick={applicaCoupon}
+                    disabled={!coupon.trim() || couponLoading}
+                  >
+                    {couponLoading ? "…" : t.couponApply}
+                  </button>
+                </div>
+              )}
+              {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
+            </div>
             <label className="order-consent">
               <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} />
               <span>
@@ -404,10 +510,27 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
                 <a href={t.privacyHref} target="_blank" rel="noopener">{t.consentLink}</a>
               </span>
             </label>
-            <div className="order-cart-total">
-              <span>{t.total} ({numArticoli} {t.items})</span>
-              <strong>{euro(totale)}</strong>
-            </div>
+            {scontoCents > 0 ? (
+              <>
+                <div className="order-cart-subtotal">
+                  <span>{t.subtotal}</span>
+                  <span>{euro(totale)}</span>
+                </div>
+                <div className="order-cart-discount">
+                  <span>{t.discount} ({couponApplicato?.code})</span>
+                  <span>−{euro(scontoCents)}</span>
+                </div>
+                <div className="order-cart-total">
+                  <span>{t.total} ({numArticoli} {t.items})</span>
+                  <strong>{euro(totaleFinale)}</strong>
+                </div>
+              </>
+            ) : (
+              <div className="order-cart-total">
+                <span>{t.total} ({numArticoli} {t.items})</span>
+                <strong>{euro(totale)}</strong>
+              </div>
+            )}
             <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
               {invio ? t.paying : t.pay}
             </button>
