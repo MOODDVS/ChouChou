@@ -4,6 +4,7 @@
 // email cucina.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
 
 // Tab "Liens": social + recensioni Google (icone piatte, currentColor)
 const LNK = [
@@ -99,7 +100,7 @@ const LNK = [
       }
       .kemail-del:hover { background: rgba(237, 28, 36, 0.4); }
       .kemail-add {
-        margin-top: 0.7rem;
+        margin-top: 0.6rem;
         background: transparent;
         border: 1px solid var(--c-accent);
         color: var(--c-accent);
@@ -179,17 +180,46 @@ const LNK = [
 
       .field { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
       .field:last-child { margin-bottom: 0; }
-      .field label { min-width: 220px; }
+      .field label { flex: 0 0 220px; max-width: 220px; }
       /* Tab Général: input a tutta larghezza, tutto allineato a sinistra */
       .section[data-tab="general"] .field { flex-wrap: nowrap; }
-      .section[data-tab="general"] .field label { min-width: 260px; flex-shrink: 0; }
+      .section[data-tab="general"] .field label { flex: 0 0 260px; max-width: 260px; }
       .section[data-tab="general"] .field input,
       .section[data-tab="general"] .kemails { flex: 1; width: auto; max-width: none; min-width: 0; }
       .section[data-tab="general"] .kemail-row input { width: auto; max-width: none; }
       .section[data-tab="general"] .field input.g-zip { flex: 0 0 120px; }
-      .section[data-tab="general"] .kemail-add { margin-left: calc(260px + 1rem); }
-      .section[data-tab="general"] .hint { margin: 0.4rem 0 1.1rem calc(260px + 1rem); }
+      /* Descrizione del campo: sempre sotto il suo label */
+      .field:has(.lab-hint) { align-items: flex-start; }
+      .lab-hint {
+        display: block;
+        color: var(--c-muted);
+        font-size: 0.78rem;
+        font-weight: 400;
+        line-height: 1.5;
+        margin-top: 0.25rem;
+        padding-right: 1rem;
+      }
+      /* Righe dinamiche + bottone "+ Ajouter" in un'unica colonna a destra:
+         il bottone sta SEMPRE subito sotto l'ultima riga del suo campo. */
+      .dyn-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
+      .dyn-col .kemails, .dyn-col .rzones { width: 100%; }
+      /* Righe "sezione sala": nome + coperti + elimina */
+      .rzones { display: flex; flex-direction: column; gap: 0.6rem; }
+      .rz-row { display: flex; gap: 0.5rem; align-items: center; }
+      .rz-row .rz-name { flex: 1; min-width: 0; }
+      .section[data-tab="reservations"] .field .rz-row .rz-seats { flex: 0 0 110px; width: 110px; }
+      .section[data-tab="reservations"] .rzones { flex: 1; }
+      /* Tab Réservations: stessi allineamenti (label più lunghe: 300px) */
+      .section[data-tab="reservations"] .field { flex-wrap: nowrap; }
+      .section[data-tab="reservations"] .field label { flex: 0 0 300px; max-width: 300px; }
+      .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
       @media (max-width: 700px) {
+        .section[data-tab="reservations"] .field { flex-wrap: wrap; }
+        .section[data-tab="reservations"] .field input { flex-basis: 100%; }
+        .section[data-tab="reservations"] .hint { margin-left: 0; }
+      }
+      @media (max-width: 700px) {
+        .field label { flex: 0 0 auto; max-width: none; }
         .section[data-tab="general"] .field { flex-wrap: wrap; }
         .section[data-tab="general"] .field input, .section[data-tab="general"] .kemails { flex-basis: 100%; }
         .section[data-tab="general"] .kemail-add, .section[data-tab="general"] .hint { margin-left: 0; }
@@ -412,6 +442,7 @@ const LNK = [
         <div class="tabs" id="tabs" role="tablist">
           <button type="button" data-t="general">Général</button>
           <button type="button" data-t="horaire" class="is-active">Horaire</button>
+          <button type="button" data-t="reservations">Réservations</button>
           <button type="button" data-t="cuisine">Cuisine</button>
           <button type="button" data-t="liens">Liens</button>
           <button type="button" data-t="team">Team</button>
@@ -456,21 +487,20 @@ const LNK = [
               <input type="email" id="g-email" placeholder="pizzeria@lamolisana.be" />
             </div>
             <div class="field field-emails">
-              <label>Emails du formulaire de contact</label>
-              <div class="kemails" id="cemails"></div>
+              <label>Emails du formulaire de contact<span class="lab-hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</span></label>
+              <div class="dyn-col">
+                <div class="kemails" id="cemails"></div>
+                <button type="button" class="kemail-add" id="cemail-add">+ Ajouter un email</button>
+              </div>
             </div>
-            <button type="button" class="kemail-add" id="cemail-add">+ Ajouter un email</button>
-            <p class="hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</p>
             <div class="field" style="margin-top:1.2rem">
-              <label for="g-nlfrom">Email expéditeur newsletter</label>
+              <label for="g-nlfrom">Email expéditeur newsletter<span class="lab-hint">Doit appartenir au domaine vérifié sur Resend.</span></label>
               <input type="email" id="g-nlfrom" placeholder="pizzeria@lamolisana.be" />
             </div>
-            <p class="hint">Doit appartenir au domaine vérifié sur Resend.</p>
             <div class="field">
-              <label for="g-wa">Numéro WhatsApp</label>
+              <label for="g-wa">Numéro WhatsApp<span class="lab-hint">Réservé à la future intégration WhatsApp.</span></label>
               <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" />
             </div>
-            <p class="hint">Réservé à la future intégration WhatsApp.</p>
           </div>
 
           <div class="section" data-tab="horaire">
@@ -521,6 +551,29 @@ const LNK = [
             </div>
           </div>
 
+          <div class="section" data-tab="reservations" style="display:none">
+            <h2>Réservations</h2>
+            <div class="field field-zones">
+              <label>Sections &amp; couverts<span class="lab-hint">Ex. Intérieur 40, Terrasse 60. Le total est la somme des sections.</span></label>
+              <div class="dyn-col">
+                <div class="rzones" id="r-zones"></div>
+                <button type="button" class="kemail-add" id="r-zone-add">+ Ajouter une section</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="r-hold">Durée d'occupation d'une table (min)<span class="lab-hint">Une table de 19:00 se libère à 19:00 + durée.</span></label>
+              <input type="number" id="r-hold" min="15" max="360" step="15" placeholder="90" />
+            </div>
+            <div class="field" style="margin-top:1.2rem">
+              <label for="r-from">Email expéditeur (confirmations clients)</label>
+              <input type="email" id="r-from" placeholder="pizzeria@lamolisana.be" />
+            </div>
+            <div class="field">
+              <label for="r-notify">Email de réception des demandes</label>
+              <input type="email" id="r-notify" placeholder="pizzeria@lamolisana.be" />
+            </div>
+          </div>
+
           <div class="section" data-tab="cuisine">
             <h2>Cuisine</h2>
             <div class="field">
@@ -532,11 +585,12 @@ const LNK = [
               <input type="number" id="slot" min="5" max="120" step="5" />
             </div>
             <div class="field field-emails">
-              <label>Emails cuisine (commandes)</label>
-              <div class="kemails" id="kemails"></div>
+              <label>Emails cuisine (commandes)<span class="lab-hint">Chaque adresse reçoit une notification à chaque commande payée.</span></label>
+              <div class="dyn-col">
+                <div class="kemails" id="kemails"></div>
+                <button type="button" class="kemail-add" id="kemail-add">+ Ajouter un email</button>
+              </div>
             </div>
-            <button type="button" class="kemail-add" id="kemail-add">+ Ajouter un email</button>
-            <p class="hint">Chaque adresse reçoit une notification à chaque commande payée.</p>
           </div>
 
           <div class="section" data-tab="liens" style="display:none">
@@ -572,6 +626,7 @@ const LNK = [
           </div>
         </div>
       </main>
+      <AdminFooter />
     </div>
 
     <!-- Modale contact Team -->
@@ -799,6 +854,53 @@ const LNK = [
           dirty();
         });
 
+        // --- Tab Réservations ---
+        const R_CAMPI: [string, string][] = [
+          ["reservation_hold_minutes", "r-hold"],
+          ["reservation_from_email", "r-from"],
+          ["reservation_notify_email", "r-notify"],
+        ];
+        const rEls = new Map(R_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
+        rEls.forEach((el) => el.addEventListener("input", dirty));
+
+        // Sezioni della sala (nome + coperti), righe dinamiche
+        const rZonesBox = document.getElementById("r-zones") as HTMLDivElement;
+        const rZoneAdd = document.getElementById("r-zone-add") as HTMLButtonElement;
+
+        function aggiungiRigaZona(nome = "", posti = "") {
+          const riga = document.createElement("div");
+          riga.className = "rz-row";
+          riga.innerHTML =
+            '<input type="text" class="rz-name" placeholder="Ex. Intérieur" />' +
+            '<input type="number" class="rz-seats" min="1" max="500" step="1" placeholder="40" />' +
+            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+          const iNome = riga.querySelector(".rz-name") as HTMLInputElement;
+          const iPosti = riga.querySelector(".rz-seats") as HTMLInputElement;
+          iNome.value = nome;
+          iPosti.value = posti;
+          iNome.addEventListener("input", dirty);
+          iPosti.addEventListener("input", dirty);
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            if (!rZonesBox.querySelector(".rz-row")) aggiungiRigaZona();
+            dirty();
+          });
+          rZonesBox.appendChild(riga);
+        }
+        function zonesJSON(): string {
+          const zone = Array.from(rZonesBox.querySelectorAll<HTMLElement>(".rz-row"))
+            .map((r) => ({
+              name: (r.querySelector(".rz-name") as HTMLInputElement).value.trim(),
+              seats: Number((r.querySelector(".rz-seats") as HTMLInputElement).value),
+            }))
+            .filter((z) => z.name || z.seats);
+          return zone.length ? JSON.stringify(zone) : "";
+        }
+        rZoneAdd.addEventListener("click", () => {
+          aggiungiRigaZona();
+          dirty();
+        });
+
         // --- Link social / recensioni (tab Liens) ---
         const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
         const lnkEls = new Map(
@@ -831,7 +933,7 @@ const LNK = [
         const headers = { Authorization: `Bearer ${token}` };
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string> };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = "Erreur de chargement."; return; }
@@ -856,6 +958,17 @@ const LNK = [
         gEls.forEach((el, k) => {
           el.value = dati.general?.[k] ?? "";
         });
+        rEls.forEach((el, k) => {
+          el.value = dati.reservations?.[k] ?? "";
+        });
+        rZonesBox.innerHTML = "";
+        try {
+          const zone = JSON.parse(dati.reservations?.reservation_zones || "[]") as { name: string; seats: number }[];
+          if (zone.length === 0) aggiungiRigaZona();
+          else zone.forEach((z) => aggiungiRigaZona(z.name, String(z.seats)));
+        } catch {
+          aggiungiRigaZona();
+        }
         cemailsBox.innerHTML = "";
         const listaContact = String(dati.general?.contact_emails ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
         if (listaContact.length === 0) aggiungiRigaEmailContact();
@@ -1211,6 +1324,12 @@ const LNK = [
                     Array.from(gEls.entries()).map(([k, el]) => [k, el.value.trim()])
                   ),
                   contact_emails: emailsContact(),
+                },
+                reservations: {
+                  ...Object.fromEntries(
+                    Array.from(rEls.entries()).map(([k, el]) => [k, el.value.trim()])
+                  ),
+                  reservation_zones: zonesJSON(),
                 },
               }),
             });
@@ -1596,7 +1715,7 @@ const LNK = [
     if (contenuto) contenuto.dataset.tab = t;
     // Enregistrer serve solo dove ci sono campi da salvare
     const bar = document.querySelector<HTMLElement>(".save-bar");
-    if (bar) bar.style.display = t === "general" || t === "horaire" || t === "cuisine" || t === "liens" ? "" : "none";
+    if (bar) bar.style.display = t === "general" || t === "horaire" || t === "reservations" || t === "cuisine" || t === "liens" ? "" : "none";
     try {
       sessionStorage.setItem(TAB_KEY, t);
     } catch {

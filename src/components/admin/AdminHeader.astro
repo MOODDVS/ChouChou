@@ -8,17 +8,24 @@
       <img src="/SVG/favLa-Molisana-.svg" alt="La Molisana" />
     </a>
     <div class="ah-date">
-      <span class="ah-date-txt" id="ah-date-txt"></span>
+      <svg class="ah-date-ico" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </svg>
+      <span class="ah-date-day" id="ah-date-day"></span>
+      <span class="ah-date-rest" id="ah-date-rest"></span>
     </div>
   </div>
+  <div class="ah-clock" id="ah-clock" aria-label="Heure actuelle">
+    <svg class="ah-clock-ico" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15 14" />
+    </svg>
+    <time id="ah-clock-time">--:--:--</time>
+  </div>
   <div class="ah-user">
-    <div class="ah-clock" id="ah-clock" aria-label="Heure actuelle">
-      <svg class="ah-clock-ico" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="9" />
-        <polyline points="12 7 12 12 15 14" />
-      </svg>
-      <time id="ah-clock-time">--:--:--</time>
-    </div>
     <span id="user-email" class="ah-email"></span>
     <button id="fs-btn" type="button" class="ah-logout" aria-label="Plein écran" title="Plein écran">
       <svg id="fs-ico-in" viewBox="0 0 24 24" aria-hidden="true">
@@ -49,11 +56,14 @@
   .ah-left { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
   .ah-brand { display: flex; align-items: center; }
   .ah-brand img { width: 48px; height: 48px; display: block; border-radius: 10px; border: 1px solid var(--c-line); }
-  .ah-date { display: flex; align-items: baseline; min-width: 0; }
-  .ah-date-txt { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em; color: var(--c-accent); white-space: nowrap; text-transform: uppercase; }
+  .ah-date { display: flex; align-items: center; gap: 0.5rem; min-width: 0; font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+  .ah-date-ico { width: 18px; height: 18px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ah-date-day { color: var(--c-accent); }
+  .ah-date-rest { color: var(--c-text); }
   .ah-user { display: flex; align-items: center; gap: 1rem; }
-  .ah-clock { display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.05em; color: var(--c-accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .ah-clock-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  /* Orologio centrato nell'header: icona oro, ora bianca */
+  .ah-clock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.05em; color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ah-clock-ico { width: 20px; height: 20px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ah-email { font-size: 0.85rem; color: var(--c-muted); }
   /* Mobile (telefoni): niente data né orologio, header essenziale. */
   @media (max-width: 640px) {
@@ -127,13 +137,14 @@
   // Fuso Europe/Brussels come nel resto dell'app: l'ora è quella del
   // ristorante anche se il tablet è impostato su un altro fuso.
   const TZ = "Europe/Brussels";
-  const dateTxt = document.getElementById("ah-date-txt");
+  const dateDay = document.getElementById("ah-date-day");
+  const dateRest = document.getElementById("ah-date-rest");
   const clockEl = document.getElementById("ah-clock-time");
   let ultimoGiorno = "";
 
   function aggiornaData(now: Date) {
-    if (!dateTxt) return;
-    // "dimanche - 12 juillet 2026" — il MAIUSCOLO lo applica il CSS (text-transform).
+    if (!dateDay || !dateRest) return;
+    // Giorno in ORO, resto della data in bianco (MAIUSCOLO via CSS).
     const wd = now.toLocaleDateString("fr-BE", { timeZone: TZ, weekday: "long" });
     const resto = now.toLocaleDateString("fr-BE", {
       timeZone: TZ,
@@ -141,7 +152,8 @@
       month: "long",
       year: "numeric",
     });
-    dateTxt.textContent = wd + " - " + resto;
+    dateDay.textContent = wd;
+    dateRest.textContent = resto;
   }
 
   function aggiornaOrologio() {

@@ -8,6 +8,7 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
 ---
 
 <html lang="fr">
@@ -209,6 +210,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         <h2 class="done-title" id="done-title" style="display:none">Terminées &amp; annulées</h2>
         <div class="grid" id="grid-done"></div>
       </main>
+      <AdminFooter />
     </div>
 
     <AdminNav current="orders" />

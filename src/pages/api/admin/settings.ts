@@ -39,6 +39,14 @@ const CHIAVI_GENERAL = [
 ];
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Impostazioni del tab "Réservations" (V1: capienza semplice, niente tavoli)
+const CHIAVI_RESA = [
+  "reservation_zones",        // sezioni della sala: JSON [{name, seats}]
+  "reservation_hold_minutes", // per quanto un tavolo resta occupato
+  "reservation_from_email",   // mittente delle conferme al cliente
+  "reservation_notify_email", // dove arrivano le richieste
+];
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -69,12 +77,14 @@ export const GET: APIRoute = async ({ request }) => {
   const { data: cfgRows } = await supabaseAdmin
     .from("app_config")
     .select("key, value")
-    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k), ...CHIAVI_GENERAL]);
+    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k), ...CHIAVI_GENERAL, ...CHIAVI_RESA]);
   const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
   const links: Record<string, string> = {};
   for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
   const general: Record<string, string> = {};
   for (const k of CHIAVI_GENERAL) general[k] = cfg.get(k) ?? "";
+  const reservations: Record<string, string> = {};
+  for (const k of CHIAVI_RESA) reservations[k] = cfg.get(k) ?? "";
 
   return json({
     days,
@@ -84,6 +94,7 @@ export const GET: APIRoute = async ({ request }) => {
     orders_closed: cfg.get("orders_closed") === "1",
     links,
     general,
+    reservations,
   });
 };
 
@@ -145,6 +156,7 @@ export const PUT: APIRoute = async ({ request }) => {
     kitchen_email?: string;
     links?: Record<string, string>;
     general?: Record<string, string>;
+    reservations?: Record<string, string>;
   };
   try {
     body = await request.json();
@@ -202,6 +214,47 @@ export const PUT: APIRoute = async ({ request }) => {
         return json({ error: `Email invalide : ${v}` }, 400);
       }
       generalPulito.push([k, v]);
+    }
+  }
+
+  // Tab Réservations: numeri e email validati
+  const resaPulito: [string, string][] = [];
+  if (body.reservations && typeof body.reservations === "object") {
+    for (const k of CHIAVI_RESA) {
+      let v = String((body.reservations as Record<string, unknown>)[k] ?? "").trim();
+      if (k === "reservation_zones" && v) {
+        // JSON [{name, seats}]: nomi non vuoti, posti 1-500, max 20 sezioni
+        let zone: { name?: unknown; seats?: unknown }[];
+        try {
+          zone = JSON.parse(v);
+        } catch {
+          return json({ error: "Sections invalides" }, 400);
+        }
+        if (!Array.isArray(zone) || zone.length > 20) {
+          return json({ error: "Sections invalides (max 20)" }, 400);
+        }
+        const pulite: { name: string; seats: number }[] = [];
+        for (const z of zone) {
+          const name = String(z.name ?? "").trim();
+          const seats = Math.floor(Number(z.seats));
+          if (!name) return json({ error: "Chaque section doit avoir un nom" }, 400);
+          if (!Number.isFinite(seats) || seats < 1 || seats > 500) {
+            return json({ error: `Couverts invalides pour « ${name} » (1–500)` }, 400);
+          }
+          pulite.push({ name, seats });
+        }
+        v = JSON.stringify(pulite);
+      }
+      if (k === "reservation_hold_minutes" && v) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n < 15 || n > 360) {
+          return json({ error: "Durée d'occupation invalide (15–360 min)" }, 400);
+        }
+      }
+      if ((k === "reservation_from_email" || k === "reservation_notify_email") && v && !RE_EMAIL.test(v)) {
+        return json({ error: `Email invalide : ${v}` }, 400);
+      }
+      resaPulito.push([k, v]);
     }
   }
 
@@ -270,6 +323,13 @@ export const PUT: APIRoute = async ({ request }) => {
     const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
     if (error) {
       return json({ error: "Informations générales non enregistrées" }, 500);
+    }
+  }
+
+  for (const [key, value] of resaPulito) {
+    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
+    if (error) {
+      return json({ error: "Réservations non enregistrées" }, 500);
     }
   }
 

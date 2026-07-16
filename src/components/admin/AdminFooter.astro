@@ -1,0 +1,33 @@
+---
+// Footer minimale delle pagine admin (componente condiviso, incluso
+// una volta per pagina). FISSO in basso: non scorre con il contenuto.
+// Linea leggera sopra per delimitarlo; la nav flottante gli passa sopra.
+---
+
+<footer class="ah-footer">
+  <span>©2026 - All rights reserved MOODD - MOODD Admin v2.1</span>
+</footer>
+
+<style>
+  .ah-footer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80; /* sotto la nav flottante (100) */
+    padding: 0.45rem 1.5rem;
+    text-align: right;
+    font-family: var(--font-body, system-ui, sans-serif);
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    color: var(--c-muted, #b3aca6);
+    background: rgba(35, 31, 32, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--c-line, #3a3335);
+    white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .ah-footer { padding: 0.4rem 1rem; }
+  }
+</style>
