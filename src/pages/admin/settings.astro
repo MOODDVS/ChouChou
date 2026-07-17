@@ -431,7 +431,25 @@ import { CLIENT } from "../../config/client";
       .rc-btn.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
       .rservices { display: flex; flex-direction: column; gap: 0.6rem; }
       .dyn-col .rservices { width: 100%; }
-      .rs-row { display: flex; gap: 0.5rem; align-items: center; }
+      .rs-row {
+        display: flex; flex-direction: column; gap: 0.45rem; align-items: stretch;
+        padding-bottom: 0.75rem; border-bottom: 1px dashed var(--c-line);
+      }
+      .rs-row:last-of-type { border-bottom: none; padding-bottom: 0; }
+      .rs-line1 { display: flex; gap: 0.5rem; align-items: center; }
+      .rs-line2 { display: flex; gap: 1.2rem; align-items: center; flex-wrap: nowrap; }
+      .section[data-tab="reservations"] .field .rs-row .rs-line2 input {
+        flex: 0 0 78px; width: 78px; min-width: 0; height: 38px; box-sizing: border-box;
+        padding: 0.4rem 0.5rem; text-align: center;
+      }
+      .rs-mini {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        color: var(--c-muted); font-size: 0.78rem; letter-spacing: 0.02em;
+      }
+      /* Il label generico del tab ha flex-basis 300px: qui deve stare compatto */
+      .section[data-tab="reservations"] .field .rs-row label.rs-mini {
+        flex: 0 0 auto; max-width: none; width: auto;
+      }
       .rs-row .rs-key {
         flex: 1; min-width: 0; height: 42px; box-sizing: border-box;
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
@@ -1352,14 +1370,18 @@ import { CLIENT } from "../../config/client";
           const riga = document.createElement("div");
           riga.className = "rs-row";
           riga.innerHTML =
+            '<div class="rs-line1">' +
             '<select class="rs-key">' +
             Object.entries(SERVIZI_WIDGET).map(([k, v]) => `<option value="${k}">${v.fr}</option>`).join("") +
             "</select>" +
             '<input type="time" class="rs-from" />' +
             '<input type="time" class="rs-to" />' +
-            '<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" title="Durée d\'occupation d\'une table (min)" />' +
-            '<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" title="Créneau (min)" />' +
-            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>' +
+            "</div>" +
+            '<div class="rs-line2">' +
+            '<label class="rs-mini">Table (min)<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" /></label>' +
+            '<label class="rs-mini">Créneau (min)<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" /></label>' +
+            "</div>";
           const iK = riga.querySelector(".rs-key") as HTMLSelectElement;
           const iD = riga.querySelector(".rs-from") as HTMLInputElement;
           const iA = riga.querySelector(".rs-to") as HTMLInputElement;
