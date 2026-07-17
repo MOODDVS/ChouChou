@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 
 export const prerender = false;
 
@@ -36,13 +37,19 @@ const CHIAVI_GENERAL = [
   "contact_emails",
   "newsletter_from_email",
   "whatsapp_number",
+  "timezone",                 // fuso orario del ristorante (IANA, es. Europe/Brussels)
 ];
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Impostazioni del tab "Réservations" (V1: capienza semplice, niente tavoli)
 const CHIAVI_RESA = [
   "reservation_zones",        // sezioni della sala: JSON [{name, seats}]
-  "reservation_hold_minutes", // per quanto un tavolo resta occupato
+  "reservation_min_notice_minutes", // minuti minimi di preavviso per prenotare (0 = nessuno)
+  "reservation_zone_choice",  // "1" il cliente sceglie la sezione, "0" no
+  "reservation_max_people",   // massimo di persone accettato dal widget
+  "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
+  "reservation_corner_style", // angoli del widget: "rounded" | "square"
+  "reservation_languages",    // lingue attive sul widget: JSON ["fr","en",…]
   "reservation_from_email",   // mittente delle conferme al cliente
   "reservation_notify_email", // dove arrivano le richieste
 ];
@@ -77,7 +84,17 @@ export const GET: APIRoute = async ({ request }) => {
   const { data: cfgRows } = await supabaseAdmin
     .from("app_config")
     .select("key, value")
-    .in("key", ["kitchen_email", "orders_closed", ...CHIAVI_LINK.map((k) => "link_" + k), ...CHIAVI_GENERAL, ...CHIAVI_RESA]);
+    .in("key", [
+      "kitchen_email",
+      "orders_closed",
+      // legacy: durée/créneau globali e délai in ore, solo per il prefill
+      "reservation_hold_minutes",
+      "reservation_slot_minutes",
+      "reservation_min_notice_hours",
+      ...CHIAVI_LINK.map((k) => "link_" + k),
+      ...CHIAVI_GENERAL,
+      ...CHIAVI_RESA,
+    ]);
   const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
   const links: Record<string, string> = {};
   for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
@@ -85,6 +102,9 @@ export const GET: APIRoute = async ({ request }) => {
   for (const k of CHIAVI_GENERAL) general[k] = cfg.get(k) ?? "";
   const reservations: Record<string, string> = {};
   for (const k of CHIAVI_RESA) reservations[k] = cfg.get(k) ?? "";
+  reservations["reservation_hold_minutes"] = cfg.get("reservation_hold_minutes") ?? "";
+  reservations["reservation_slot_minutes"] = cfg.get("reservation_slot_minutes") ?? "";
+  reservations["reservation_min_notice_hours"] = cfg.get("reservation_min_notice_hours") ?? "";
 
   return json({
     days,
@@ -213,6 +233,13 @@ export const PUT: APIRoute = async ({ request }) => {
       if ((k === "newsletter_from_email" || k === "public_email") && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
       }
+      if (k === "timezone" && v) {
+        try {
+          new Intl.DateTimeFormat("en", { timeZone: v });
+        } catch {
+          return json({ error: `Fuseau horaire invalide : ${v}` }, 400);
+        }
+      }
       generalPulito.push([k, v]);
     }
   }
@@ -250,6 +277,76 @@ export const PUT: APIRoute = async ({ request }) => {
         if (!Number.isFinite(n) || n < 15 || n > 360) {
           return json({ error: "Durée d'occupation invalide (15–360 min)" }, 400);
         }
+      }
+      if (k === "reservation_slot_minutes" && v) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n < 10 || n > 120) {
+          return json({ error: "Créneau de réservation invalide (10–120 min)" }, 400);
+        }
+      }
+      if (k === "reservation_zone_choice" && v && v !== "0" && v !== "1") {
+        return json({ error: "Valeur invalide (choix de section)" }, 400);
+      }
+      if (k === "reservation_corner_style" && v && v !== "rounded" && v !== "square") {
+        return json({ error: "Valeur invalide (style des angles)" }, 400);
+      }
+      if (k === "reservation_languages" && v) {
+        let lista: unknown;
+        try {
+          lista = JSON.parse(v);
+        } catch {
+          return json({ error: "Langues invalides" }, 400);
+        }
+        if (!Array.isArray(lista)) return json({ error: "Langues invalides" }, 400);
+        const validi = new Set<string>(LINGUE_WIDGET.map((l) => l.code));
+        const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && validi.has(c)));
+        scelte.add("fr"); // il francese resta sempre attivo
+        v = JSON.stringify(LINGUE_WIDGET.map((l) => l.code).filter((c) => scelte.has(c)));
+      }
+      if (k === "reservation_min_notice_minutes" && v) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n < 0 || n > 4320) {
+          return json({ error: "Délai minimum invalide (0–4320 minutes)" }, 400);
+        }
+      }
+      if (k === "reservation_max_people" && v) {
+        const n = Math.floor(Number(v));
+        if (!Number.isFinite(n) || n < 1 || n > 100) {
+          return json({ error: "Personnes maximum invalide (1–100)" }, 400);
+        }
+      }
+      if (k === "reservation_services" && v) {
+        let lista: unknown;
+        try {
+          lista = JSON.parse(v);
+        } catch {
+          return json({ error: "Services invalides" }, 400);
+        }
+        if (!Array.isArray(lista) || lista.length > 3) {
+          return json({ error: "Services invalides (max 3)" }, 400);
+        }
+        const RE_ORA = /^\d{2}:\d{2}$/;
+        const puliti: { key: string; from: string; to: string; hold: number; slot: number }[] = [];
+        for (const sv of lista) {
+          const key = String((sv as { key?: unknown }).key ?? "").trim();
+          if (!SERVIZI_WIDGET[key]) return json({ error: "Service inconnu" }, 400);
+          const from = String((sv as { from?: unknown }).from ?? "");
+          const to = String((sv as { to?: unknown }).to ?? "");
+          if (!RE_ORA.test(from) || !RE_ORA.test(to) || from >= to) {
+            return json({ error: `Horaires invalides pour « ${SERVIZI_WIDGET[key].fr} »` }, 400);
+          }
+          // Durée d'occupation e créneau propri di ogni service
+          const hold = Math.floor(Number((sv as { hold?: unknown }).hold));
+          if (!Number.isFinite(hold) || hold < 15 || hold > 360) {
+            return json({ error: `Durée d'occupation invalide pour « ${SERVIZI_WIDGET[key].fr} » (15–360 min)` }, 400);
+          }
+          const slot = Math.floor(Number((sv as { slot?: unknown }).slot));
+          if (!Number.isFinite(slot) || slot < 10 || slot > 120) {
+            return json({ error: `Créneau invalide pour « ${SERVIZI_WIDGET[key].fr} » (10–120 min)` }, 400);
+          }
+          puliti.push({ key, from, to, hold, slot });
+        }
+        v = JSON.stringify(puliti);
       }
       if ((k === "reservation_from_email" || k === "reservation_notify_email") && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);

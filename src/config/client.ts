@@ -16,7 +16,12 @@ export const CLIENT = {
   logoAdmin: "/SVG/favLa-Molisana-.svg",
   /** Logo esteso (pagina login admin). */
   logoLogin: "/SVG/logoLa-Molisana-.svg",
-  /** Fallback di Réglages → Général. */
+  /** Pagina condizioni/privacy linkata dal widget di prenotazione
+   *  (per lingua; le lingue non elencate usano "en", poi "fr"). */
+  privacyUrl: { fr: "/privacy", en: "/en/privacy" } as Record<string, string>,
+  /** Paese del ristorante (ISO): default dei prefissi telefonici. */
+  paese: "BE",
+  /** Fallback de Réglages → Général. */
   telefono: "+32 455 13 14 65",
   email: "pizzeria@lamolisana.be",
   indirizzo: "Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles",

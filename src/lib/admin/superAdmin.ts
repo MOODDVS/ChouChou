@@ -9,6 +9,7 @@ export const SUPER_EMAIL = "admin@moodd.online";
  *  "home" resta sempre accessibile: è l'approdo dopo il login. */
 export const PAGINE_ADMIN: { key: string; label: string }[] = [
   { key: "orders", label: "Commandes" },
+  { key: "reservations", label: "Réservations" },
   { key: "clients", label: "Clients" },
   { key: "menu", label: "Menu" },
   { key: "stats", label: "Statistiques" },

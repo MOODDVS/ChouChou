@@ -26,6 +26,11 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 17 | `newsletter_credits.sql` | Crediti newsletter acquistati (Stripe MOODD) |
 | 18 | `team.sql` | Rubrica Team (contatti, foto, predisposizione accessi) |
 | 19 | `documents.sql` | Bucket `documents` (PDF, admin → Assets) |
+| 20 | `reservations.sql` | Prenotazioni V1 (widget proprio, conferma automatica, cancel_token) |
+| 21 | `reservations_source.sql` | Colonna `source` (web / walkin / phone / google) |
+| 22 | `service_closures.sql` | Chiusure di servizio per giorno (Complet / Fermeture exceptionnelle) |
+| 23 | `zone_closures.sql` | Chiusure di section per giorno (Terrasse fermée, ecc.) |
+| 24 | `reservations_review.sql` | Email di recensione: id Resend per poterla annullare |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

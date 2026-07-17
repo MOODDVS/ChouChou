@@ -67,7 +67,7 @@ import { CLIENT } from "../../config/client";
       .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .thead, .row {
         display: grid;
-        grid-template-columns: 2fr 2.4fr 1.6fr 1fr 1.1fr 96px;
+        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 64px 64px 1.1fr 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
@@ -85,11 +85,46 @@ import { CLIENT } from "../../config/client";
       .th.sorted { color: var(--c-accent); }
       .th.sorted .arrow { opacity: 1; }
 
-      .row { border-bottom: 1px solid var(--c-line); }
+      .row { border-bottom: 1px solid var(--c-line); cursor: pointer; transition: background 0.12s; }
+      .row:hover { background: rgba(223, 171, 78, 0.05); }
+      .c-name { white-space: nowrap; overflow: hidden; }
+      .c-email, .c-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; }
+      .act-contacts { color: var(--c-muted); font-size: 0.88rem; margin: -0.4rem 0 1rem; }
+      .act-state { color: var(--c-muted); font-style: italic; padding: 0.6rem 0; }
+      .act-row {
+        display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+        padding: 0.7rem 0; border-bottom: 1px solid var(--c-line);
+      }
+      .act-row:last-child { border-bottom: none; }
+      .act-ico { display: inline-flex; flex-shrink: 0; }
+      .act-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .act-when { font-weight: 700; font-size: 0.9rem; min-width: 128px; }
+      .act-label { flex: 1; color: var(--c-muted); font-size: 0.88rem; min-width: 140px; }
+      .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; }
+      .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
+      .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
       .row:hover { background: rgba(255, 255, 255, 0.03); }
       .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-name { font-weight: 700; }
+      .c-name .c-ico { display: inline-flex; gap: 0.3rem; margin-left: 0.45rem; vertical-align: middle; }
+      .c-name .c-ico svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .c-name .c-ico svg.ico-ns { stroke: #ed1c24; }
+      .th-ico svg {
+        width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8;
+        stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px;
+      }
+      /* La freccetta del sort passa a sinistra: l'icona resta a filo destro, come i numeri */
+      .th-ico .arrow { order: -1; }
+      .c-name .c-ico span { display: inline-flex; }
+      .tag-new {
+        display: inline-block; margin-left: 0.45rem; vertical-align: middle;
+        background: var(--c-accent); color: #231f20; border-radius: 999px;
+        font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+        padding: 0.12rem 0.5rem;
+      }
       .c-name .tag { font-family: var(--font-body); font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); border: 1px solid var(--c-accent); border-radius: 999px; padding: 0.05rem 0.4rem; margin-left: 0.5rem; vertical-align: middle; }
       .cell a { color: var(--c-muted); text-decoration: none; }
       .cell a:hover { color: var(--c-accent); }
@@ -110,6 +145,19 @@ import { CLIENT } from "../../config/client";
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
       .loading { opacity: 0.45; pointer-events: none; }
+
+      .tel-prefix {
+        flex: 0 0 118px; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem;
+        padding: 0.55rem 0.5rem; color-scheme: dark; border-radius: 0;
+      }
+      .tel-prefix:focus { outline: none; border-color: var(--c-accent); }
+      select.tel-prefix {
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 12px;
+        padding-right: 2.1rem;
+      }
 
       /* Modale ajout client */
       .overlay {
@@ -172,7 +220,7 @@ import { CLIENT } from "../../config/client";
         }
         .c-email, .c-phone { grid-column: 1 / -1; }
         .c-num { text-align: left; }
-        .c-orders, .c-total { font-size: 1.1rem; }
+        .c-orders, .c-resa, .c-total { font-size: 1.1rem; }
       }
       /* Loader dentro i bottoni di salvataggio */
       .is-loading { position: relative; color: transparent !important; pointer-events: none; }
@@ -202,7 +250,8 @@ import { CLIENT } from "../../config/client";
               <button class="th" data-sort="name">Nom <span class="arrow"></span></button>
               <button class="th" data-sort="email">Email <span class="arrow"></span></button>
               <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
-              <button class="th num" data-sort="orders">Commandes <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="orders" title="Commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg> <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="reservations" title="Résas"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg> <span class="arrow"></span></button>
               <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
@@ -215,13 +264,30 @@ import { CLIENT } from "../../config/client";
     </div>
 
     <!-- Modale ajout client -->
+    <!-- Modale attività cliente: storico ordini + prenotazioni -->
+    <div class="overlay" id="act-overlay">
+      <div class="modal">
+        <button class="m-close" id="act-close" aria-label="Fermer">×</button>
+        <h2 id="act-name">Client</h2>
+        <p class="act-contacts" id="act-contacts"></p>
+        <div class="act-state" id="act-state">Chargement…</div>
+        <div id="act-list"></div>
+      </div>
+    </div>
+
     <div class="overlay" id="overlay">
       <div class="modal">
         <button class="m-close" id="m-close" aria-label="Fermer">×</button>
         <h2>Ajouter un client</h2>
-        <div class="f-field">
-          <span class="f-label">Nom et prénom *</span>
-          <input type="text" id="f-name" maxlength="120" autocomplete="off" />
+        <div style="display:flex; gap:0.8rem;">
+          <div class="f-field" style="flex:1">
+            <span class="f-label">Prénom</span>
+            <input type="text" id="f-fname" maxlength="60" autocomplete="off" />
+          </div>
+          <div class="f-field" style="flex:1">
+            <span class="f-label">Nom *</span>
+            <input type="text" id="f-lname" maxlength="60" autocomplete="off" />
+          </div>
         </div>
         <div class="f-field">
           <span class="f-label">Email</span>
@@ -229,7 +295,10 @@ import { CLIENT } from "../../config/client";
         </div>
         <div class="f-field">
           <span class="f-label">Téléphone</span>
-          <input type="text" id="f-phone" maxlength="40" autocomplete="off" inputmode="tel" />
+          <div style="display:flex; gap:0.5rem;">
+            <select id="f-prefix" class="tel-prefix"></select>
+            <input type="text" id="f-phone" maxlength="20" autocomplete="off" inputmode="tel" style="flex:1" />
+          </div>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
@@ -245,6 +314,8 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { CLIENT } from "../../config/client";
 
       type Client = {
         id: string | null;
@@ -252,12 +323,16 @@ import { CLIENT } from "../../config/client";
         email: string;
         phone: string;
         orders: number;
+        reservations: number;
+        noshows: number;
         total_cents: number;
         last_order: string | null;
+        first_activity: string | null;
         manual: boolean;
+        key?: string;
       };
       type Resp = { count: number; clients: Client[] };
-      type SortKey = "name" | "email" | "phone" | "orders" | "total";
+      type SortKey = "name" | "email" | "phone" | "orders" | "reservations" | "total";
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -265,6 +340,12 @@ import { CLIENT } from "../../config/client";
       function euro(cents: number): string {
         return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
       }
+      const ICO_ORD =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>';
+      const ICO_NOSHOW =
+        '<svg class="ico-ns" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>';
+      const ICO_RESA =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>';
       const ICO_TRASH =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
 
@@ -284,7 +365,25 @@ import { CLIENT } from "../../config/client";
         // Modale
         const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
         const overlay = document.getElementById("overlay") as HTMLDivElement;
-        const fName = document.getElementById("f-name") as HTMLInputElement;
+        const fPrefix = document.getElementById("f-prefix") as HTMLSelectElement;
+        const PREFISSO_DEFAULT = PREFISSI.find((pf) => pf.code === CLIENT.paese)?.dial ?? PREFISSI[0].dial;
+        fPrefix.innerHTML = PREFISSI.map(
+          (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
+        ).join("");
+        fPrefix.value = PREFISSO_DEFAULT;
+        const fFname = document.getElementById("f-fname") as HTMLInputElement;
+        // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
+        // e spostato nella tendina, numero ripulito.
+        setTimeout(() => {
+          const fPhoneEl = document.getElementById("f-phone") as HTMLInputElement;
+          fPhoneEl.addEventListener("input", () => {
+            const sep = separaPrefisso(fPhoneEl.value);
+            if (!sep) return;
+            fPrefix.value = sep.dial;
+            fPhoneEl.value = sep.resto;
+          });
+        }, 0);
+        const fLname = document.getElementById("f-lname") as HTMLInputElement;
         const fEmail = document.getElementById("f-email") as HTMLInputElement;
         const fPhone = document.getElementById("f-phone") as HTMLInputElement;
         const mMsg = document.getElementById("m-msg") as HTMLSpanElement;
@@ -330,6 +429,7 @@ import { CLIENT } from "../../config/client";
         function compare(a: Client, b: Client): number {
           let r: number;
           if (sortKey === "orders") r = a.orders - b.orders;
+          else if (sortKey === "reservations") r = a.reservations - b.reservations;
           else if (sortKey === "total") r = a.total_cents - b.total_cents;
           else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "fr", { sensitivity: "base" });
           return sortAsc ? r : -r;
@@ -364,18 +464,35 @@ import { CLIENT } from "../../config/client";
             .map((c) => {
               const email = esc(c.email);
               const phone = esc(c.phone);
-              const tag = c.manual && c.orders === 0 ? '<span class="tag">Ajouté</span>' : "";
+              // New: cliente arrivato da meno di 2 settimane (solo tempo,
+              // resta anche se nel frattempo riordina o riprenota)
+              const nuovo = !!c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000;
+              const attivita =
+                (c.noshows ?? 0) > 0
+                  ? `<span title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}</span>`
+                  : "";
               return `
-              <div class="row">
-                <div class="cell c-name">${esc(c.name) || "—"}${tag}</div>
+              <div class="row" data-key="${esc(c.key ?? "")}">
+                <div class="cell c-name">${esc(c.name) || "—"}${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita ? `<span class="c-ico">${attivita}</span>` : ""}</div>
                 <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
                 <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
                 <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
+                <div class="cell c-num c-resa" data-label="Résas">${c.reservations}</div>
                 <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
                 <div class="cell c-act"><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
+          // Colonna Nom = nome più largo (tag e icone comprese): mai troncato,
+          // email e téléphone si stringono per fargli spazio
+          const tavola = document.querySelector(".table") as HTMLElement | null;
+          if (tavola) {
+            let maxNome = 120;
+            rowsEl.querySelectorAll<HTMLElement>(".c-name").forEach((el) => {
+              maxNome = Math.max(maxNome, el.scrollWidth);
+            });
+            tavola.style.setProperty("--col-nome", `${Math.min(maxNome + 4, 440)}px`);
+          }
         }
 
         function updateHeader() {
@@ -409,9 +526,83 @@ import { CLIENT } from "../../config/client";
         // Cancella un cliente — conferma a 2 tocchi (come nel menu).
         // Manuale senza ordini: eliminato davvero. Con ordini: nascosto
         // dalla lista (gli ordini restano in contabilità).
+        // ---- Modale attività cliente ----
+        const actOverlay = document.getElementById("act-overlay") as HTMLDivElement;
+        const actList = document.getElementById("act-list") as HTMLDivElement;
+        const actState = document.getElementById("act-state") as HTMLDivElement;
+        function chiudiAttivita() {
+          actOverlay.classList.remove("is-open");
+        }
+        (document.getElementById("act-close") as HTMLButtonElement).addEventListener("click", chiudiAttivita);
+        actOverlay.addEventListener("click", (e) => {
+          if (e.target === actOverlay) chiudiAttivita();
+        });
+        function dataOra(iso: string): string {
+          const d = new Date(iso);
+          const gg = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+          const hh = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+          return `${gg} · ${hh}`;
+        }
+        const STATO_ACT: Record<string, string> = {
+          cancelled: "Annulée",
+          noshow: "No-show",
+          done: "Fini",
+          confirmed: "Confirmée",
+          paid: "Payée",
+        };
+        async function apriAttivita(c: Client) {
+          (document.getElementById("act-name") as HTMLElement).textContent = c.name || "—";
+          (document.getElementById("act-contacts") as HTMLElement).textContent =
+            [c.email, c.phone].filter(Boolean).join(" · ") || "";
+          actList.innerHTML = "";
+          actState.style.display = "";
+          actState.textContent = "Chargement…";
+          actOverlay.classList.add("is-open");
+          try {
+            const res = await fetch("/api/admin/clients?activity=" + encodeURIComponent(c.key ?? ""), { headers });
+            if (!res.ok) throw new Error();
+            const j = (await res.json()) as {
+              activity?: { type: string; when: string; label: string; status: string; amount_cents: number | null }[];
+            };
+            const atti = j.activity ?? [];
+            if (!atti.length) {
+              actState.textContent = "Aucune activité.";
+              return;
+            }
+            actState.style.display = "none";
+            actList.innerHTML = atti
+              .map((a) => {
+                const ico = a.type === "order" ? ICO_ORD : ICO_RESA;
+                const stato =
+                  a.type === "reservation" && a.status !== "confirmed" && a.status !== "done"
+                    ? `<span class="act-status ${a.status === "cancelled" ? "ko" : "ns"}">${STATO_ACT[a.status] ?? a.status}</span>`
+                    : "";
+                const importo = a.amount_cents != null ? `<span class="act-amount">${euro(a.amount_cents)}</span>` : "";
+                return `<div class="act-row">
+                    <span class="act-ico">${ico}</span>
+                    <span class="act-when">${dataOra(a.when)}</span>
+                    <span class="act-label">${esc(a.label)}</span>
+                    ${importo}${stato}
+                  </div>`;
+              })
+              .join("");
+          } catch {
+            actState.textContent = "Erreur de chargement.";
+          }
+        }
+
         rowsEl.addEventListener("click", async (e) => {
           const del = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null;
-          if (!del) return;
+          if (!del) {
+            // Click sulla riga (ma non su un link): storico del cliente
+            if ((e.target as HTMLElement).closest("a")) return;
+            const riga = (e.target as HTMLElement).closest(".row") as HTMLElement | null;
+            const k = riga?.dataset.key ?? "";
+            if (!k) return;
+            const c = tutti.find((x) => x.key === k);
+            if (c) apriAttivita(c);
+            return;
+          }
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
             del.textContent = "Confirmer ?";
@@ -460,12 +651,14 @@ import { CLIENT } from "../../config/client";
 
         // --- Modale aggiungi cliente ---
         function apriModale() {
-          fName.value = "";
+          fFname.value = "";
+          fLname.value = "";
+          fPrefix.value = PREFISSO_DEFAULT;
           fEmail.value = "";
           fPhone.value = "";
           mMsg.textContent = "";
           overlay.classList.add("is-open");
-          fName.focus();
+          fFname.focus();
         }
         function chiudiModale() {
           overlay.classList.remove("is-open");
@@ -479,10 +672,15 @@ import { CLIENT } from "../../config/client";
         });
 
         async function salva() {
-          const name = fName.value.trim();
+          const name = `${fFname.value.trim()} ${fLname.value.trim()}`.trim();
           const email = fEmail.value.trim();
-          const phone = fPhone.value.trim();
-          if (!name) { mMsg.textContent = "Le nom est obligatoire."; fName.focus(); return; }
+          const grezzo = fPhone.value.trim();
+          const phone = !grezzo
+            ? ""
+            : grezzo.startsWith("+")
+              ? grezzo
+              : `${fPrefix.value} ${grezzo.replace(/^0/, "")}`;
+          if (!fLname.value.trim()) { mMsg.textContent = "Le nom est obligatoire."; fLname.focus(); return; }
           if (!email && !phone) { mMsg.textContent = "Email ou téléphone requis."; fEmail.focus(); return; }
 
           mMsg.textContent = "";
@@ -511,7 +709,7 @@ import { CLIENT } from "../../config/client";
         }
 
         mSave.addEventListener("click", salva);
-        [fName, fEmail, fPhone].forEach((el) =>
+        [fFname, fLname, fEmail, fPhone].forEach((el) =>
           el.addEventListener("keydown", (e) => {
             if ((e as KeyboardEvent).key === "Enter") salva();
           })

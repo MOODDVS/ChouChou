@@ -34,7 +34,7 @@ import { CLIENT } from "../../config/client";
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -78,6 +78,217 @@ import { CLIENT } from "../../config/client";
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
       #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"] { max-width: none; }
+      #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
+      @media (max-width: 1100px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
+
+      /* --- Aperçu widget réservations --- */
+      .rw-note { color: var(--c-muted); font-size: 0.8rem; line-height: 1.6; margin-bottom: 1rem; }
+      .rw {
+        background: #231f20; border: 1px solid #3a3335; padding: 1.6rem 1.5rem; max-width: 450px;
+        --rw-rpill: 999px; --rw-rbox: 8px; border-radius: 14px;
+        position: relative;
+      }
+      .rlangs { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .rl-btn {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.82rem;
+        padding: 0.35rem 0.9rem; border-radius: 999px; cursor: pointer;
+      }
+      .rl-btn:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .rl-btn.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .rl-btn.is-locked { cursor: default; }
+
+      .rw-lang { position: absolute; top: 0.8rem; right: 1rem; z-index: 5; }
+      .rw-lang-btn {
+        display: flex; align-items: center; gap: 0.35rem; background: none; border: none;
+        color: #b3aca6; font-size: 0.74rem; letter-spacing: 0.08em; cursor: pointer;
+        font-family: var(--font-body); padding: 0.2rem 0.1rem;
+      }
+      .rw-lang-btn:hover { color: #fff; }
+      .rw-lang-ico { width: 15px; height: 15px; fill: none; stroke: #dfab4e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-lang-chev { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-lang-menu {
+        position: absolute; top: calc(100% + 6px); right: 0; min-width: 140px;
+        background: #1c1819; border: 1px solid #3a3335; border-radius: var(--rw-rbox);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); overflow: hidden;
+      }
+      .rw-lang-it {
+        display: flex; align-items: center; gap: 0.55rem; width: 100%; text-align: left;
+        background: none; border: none; color: #fff; font-size: 0.85rem;
+        padding: 0.55rem 0.9rem; cursor: pointer; font-family: var(--font-body);
+      }
+      .rw-li-flag { font-size: 1rem; line-height: 1; }
+      .rw-li-name { flex: 1; }
+      .rw-li-code { color: #b3aca6; font-size: 0.68rem; letter-spacing: 0.08em; }
+      .rw-lang-it:hover { background: #2b2523; }
+      .rw-lang-it.is-on { color: #dfab4e; font-weight: 700; }
+      .rw.rw--square { --rw-rpill: 0px; --rw-rbox: 0px; border-radius: 0; }
+      .rw-claim { color: #dfab4e; font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; text-align: center; margin: 0 0 0.35rem; }
+      .rw-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #fff; font-size: 1.45rem; text-align: center; margin: 0 0 1.2rem; }
+      .rw-f { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; min-width: 0; }
+      .rw-acc { border-bottom: 1px solid #3a3335; padding-bottom: 0.35rem; margin-bottom: 0.35rem; }
+      .rw-acc-head {
+        width: 100%; display: flex; align-items: center; gap: 0.6rem;
+        background: none; border: none; padding: 0.65rem 0; cursor: pointer; text-align: left;
+      }
+      .rw-acc-val { margin-left: auto; color: #dfab4e; font-size: 0.88rem; font-weight: 700; }
+      .rw-acc-ico { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke: #b3aca6; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+      .rw-acc.is-open .rw-acc-ico { transform: rotate(180deg); }
+      .rw-acc-lico { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: #dfab4e; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-acc-body {
+        display: grid; grid-template-rows: 0fr;
+        transition: grid-template-rows 0.28s ease;
+      }
+      .rw-acc.is-open .rw-acc-body { grid-template-rows: 1fr; }
+      .rw-acc-inner {
+        min-height: 0; overflow: hidden;
+        display: flex; flex-direction: column; gap: 0.5rem;
+        padding: 0 0 0 0; transition: padding 0.28s ease;
+      }
+      .rw-acc.is-open .rw-acc-inner { padding: 0.2rem 0 0.6rem; }
+      .rw-days { display: flex; gap: 0.4rem; }
+      .rw-day {
+        flex: 1; background: #1c1819; border: 1px solid #3a3335; color: #b3aca6;
+        padding: 0.5rem 0; border-radius: var(--rw-rpill); font-size: 0.85rem; cursor: pointer;
+        font-family: var(--font-body);
+      }
+      .rw-day:hover { border-color: #dfab4e; color: #fff; }
+      .rw-day.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; font-weight: 700; }
+      .rw-day:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+      .rw-day:disabled:hover { border-color: #3a3335; color: #b3aca6; }
+      .rw-datein {
+        background: #1c1819 !important; border: 1px solid #3a3335 !important; color: #fff;
+        padding: 0.5rem 0.7rem; font-size: 0.88rem; text-align: center; cursor: pointer;
+        width: 100%; border-radius: var(--rw-rbox);
+      }
+      .rw-datein:focus { outline: none; border-color: #dfab4e !important; }
+      .rw-lab { color: #b3aca6; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+      .rw-box { background: #1c1819; border: 1px solid #3a3335; color: #fff; padding: 0.5rem 0.7rem; font-size: 0.88rem; display: flex; align-items: center; justify-content: center; gap: 0.8rem; }
+      .rw-pgrid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .rw-p {
+        min-width: 44px; padding: 0.45rem 0.6rem; background: #1c1819; border: 1px solid #3a3335;
+        color: #fff; border-radius: var(--rw-rbox); font-size: 0.85rem; cursor: pointer; text-align: center;
+        font-family: var(--font-body);
+      }
+      .rw-p:hover { border-color: #dfab4e; }
+      .rw-p.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; font-weight: 700; }
+      .rw-alert {
+        margin: 0.5rem 0 0; padding: 0.6rem 0.8rem; font-size: 0.8rem; line-height: 1.5;
+        background: rgba(223, 171, 78, 0.12); border: 1px solid #dfab4e; color: #dfab4e;
+        border-radius: var(--rw-rbox);
+      }
+      .rw-zones { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+      .rw-zone { background: #1c1819; border: 1px solid #3a3335; color: #b3aca6; padding: 0.4rem 0.9rem; border-radius: var(--rw-rpill); font-size: 0.82rem; cursor: pointer; }
+      .rw-zone.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; }
+      .rw-stabs { display: flex; gap: 0.4rem; }
+      .rw-stab {
+        flex: 1; background: #1c1819; border: 1px solid #3a3335; color: #b3aca6;
+        padding: 0.45rem 0; border-radius: var(--rw-rpill); font-size: 0.85rem; cursor: pointer;
+        font-family: var(--font-body);
+      }
+      .rw-stab:hover { border-color: #dfab4e; color: #fff; }
+      .rw-stab.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; font-weight: 700; }
+      .rw-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+      .rw-more {
+        grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 0.45rem;
+        background: none; border: none; color: #dfab4e; font-size: 0.8rem; letter-spacing: 0.05em;
+        padding: 0.45rem 0 0.1rem; cursor: pointer; font-family: var(--font-body);
+      }
+      .rw-more:hover { text-decoration: underline; }
+      .rw-noslot { grid-column: 1 / -1; text-align: center; color: #b3aca6; font-size: 0.85rem; font-style: italic; margin: 0.4rem 0; }
+      /* Orario complet: sbarrato e non selezionabile */
+      .rw-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); pointer-events: none; }
+      .rw-slot-full::after {
+        content: "✕"; position: absolute; inset: 0; display: flex; align-items: center;
+        justify-content: center; color: #b3aca6; font-size: 0.85rem;
+      }
+      .rw-more-ico { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+      .rw-more-ico.is-up { transform: rotate(180deg); }
+      .rw-slot { background: #1c1819; border: 1px solid #3a3335; color: #fff; padding: 0.45rem 0; border-radius: var(--rw-rbox); font-size: 0.82rem; text-align: center; cursor: pointer; }
+      .rw-slot.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; font-weight: 700; }
+      .rw-sep { grid-column: 1 / -1; color: #b3aca6; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0.3rem; }
+      .rw-btn {
+        width: 100%; margin-top: 0.4rem; background: #dfab4e; color: #231f20; border: 1px solid #dfab4e;
+        font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em;
+        font-size: 0.95rem; padding: 0.8rem 0; cursor: pointer; transition: background 0.2s, color 0.2s;
+        border-radius: var(--rw-rbox);
+      }
+      .rw-btn:hover { background: transparent; color: #dfab4e; }
+
+      /* --- Step 2 : récapitulatif + formulaire --- */
+      .rw-recap {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;
+        background: #1c1819; border: 1px solid #3a3335; border-radius: var(--rw-rbox);
+        padding: 0.85rem 0.6rem; margin-bottom: 1rem; text-align: center;
+      }
+      .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+      .rw-rc-lab { color: #b3aca6; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
+      .rw-rc-ico { width: 12px; height: 12px; flex-shrink: 0; fill: none; stroke: #dfab4e; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-rc-val { color: #dfab4e; font-size: 0.9rem; font-weight: 700; }
+      .rw-rc-sub { color: #b3aca6; font-size: 0.72rem; }
+      .rw-frow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+      .rw .rw-in {
+        flex: 1; width: 100%; min-width: 0; background: #1c1819; border: 1px solid #3a3335;
+        color: #fff; padding: 0.55rem 0.7rem; font-size: 0.88rem;
+        border-radius: var(--rw-rbox); font-family: var(--font-body); max-width: none;
+      }
+      .rw .rw-in:focus { outline: none; border-color: #dfab4e; }
+      .rw .rw-in::placeholder { color: #8f8781; }
+      .rw .rw-in:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 40px #1c1819 inset;
+        -webkit-text-fill-color: #fff;
+        caret-color: #fff;
+      }
+      .rw-in-societe { margin-bottom: 0.6rem; }
+      .rw-ta { resize: vertical; margin-bottom: 0.6rem; display: block; }
+      .rw .rw-tel-prefix { flex: 0 0 112px; color-scheme: dark; cursor: pointer; }
+      .rw select.rw-tel-prefix {
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 12px;
+        padding-right: 2.1rem;
+      }
+      .rw-terms {
+        display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer;
+        color: #b3aca6; font-size: 0.78rem; line-height: 1.5; margin-bottom: 0.8rem;
+      }
+      .rw-terms input { accent-color: #dfab4e; width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; cursor: pointer; }
+      .rw-terms a { color: #dfab4e; text-decoration: underline; text-underline-offset: 2px; }
+      .rw-terms a:hover { color: #fff; }
+      .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+      .rw-btn:disabled:hover { background: #dfab4e; color: #231f20; }
+      .rw-opts { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.35rem 0 0.7rem; }
+      .rw-opt {
+        background: #1c1819; border: 1px solid #3a3335; color: #b3aca6;
+        padding: 0.4rem 0.9rem; border-radius: var(--rw-rpill); font-size: 0.82rem; cursor: pointer;
+        font-family: var(--font-body);
+      }
+      .rw-opt:hover { border-color: #dfab4e; color: #fff; }
+      .rw-opt.is-on { background: #dfab4e; border-color: #dfab4e; color: #231f20; font-weight: 700; }
+      .rw-frow-btns { margin-bottom: 0; }
+      .rw-frow-btns .rw-btn { width: auto; flex: 1.7; margin-top: 0; }
+      .rw-back {
+        flex: 0 0 54px; display: flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid #3a3335; color: #b3aca6;
+        padding: 0.8rem 0; border-radius: var(--rw-rbox); cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      .rw-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-back:hover { color: #fff; border-color: #b3aca6; }
+
+      /* --- Step 3 : merci --- */
+      .rw-done { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; text-align: center; padding: 0.8rem 0 0.2rem; }
+      .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: #dfab4e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      .rw-done-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #fff; font-size: 1.35rem; margin: 0; }
+      .rw-done-msg { color: #b3aca6; font-size: 0.88rem; line-height: 1.6; margin: 0; max-width: 320px; }
+      .rw-done-recap { color: #dfab4e; font-size: 0.85rem; font-weight: 700; margin: 0; }
+      .rw-done-new {
+        margin-top: 0.5rem; width: 100%; background: transparent; border: 1px solid #3a3335; color: #b3aca6;
+        font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.1em;
+        font-size: 0.82rem; padding: 0.7rem 0; border-radius: var(--rw-rbox); cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      .rw-done-new:hover { color: #fff; border-color: #b3aca6; }
       .lnk-field { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem; }
       .lnk-field:last-of-type { margin-bottom: 0.9rem; }
       .lnk-lab { display: flex; align-items: center; gap: 0.8rem; min-width: 200px; }
@@ -209,11 +420,50 @@ import { CLIENT } from "../../config/client";
       .rz-row { display: flex; gap: 0.5rem; align-items: center; }
       .rz-row .rz-name { flex: 1; min-width: 0; }
       .section[data-tab="reservations"] .field .rz-row .rz-seats { flex: 0 0 110px; width: 110px; }
+      .rgroup-sep { border: none; border-top: 1px solid var(--c-line); margin: 1.6rem 0; }
+      .rcorners { display: flex; gap: 0.4rem; }
+      .rc-btn {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.05em;
+        padding: 0.4rem 1.2rem; border-radius: 999px; cursor: pointer;
+      }
+      .rc-btn:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .rc-btn.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .rservices { display: flex; flex-direction: column; gap: 0.6rem; }
+      .dyn-col .rservices { width: 100%; }
+      .rs-row { display: flex; gap: 0.5rem; align-items: center; }
+      .rs-row .rs-key {
+        flex: 1; min-width: 0; height: 42px; box-sizing: border-box;
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; color-scheme: dark; border-radius: 0;
+      }
+      .rs-row .rs-key:focus { outline: none; border-color: var(--c-accent); }
+      .rs-row select.rs-key, select.tz-select {
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 12px;
+        padding-right: 2.1rem;
+      }
+      .tz-select {
+        flex: 1; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; color-scheme: dark; border-radius: 0;
+      }
+      .tz-select:focus { outline: none; border-color: var(--c-accent); }
+      .section[data-tab="reservations"] .field .rs-row .rs-from,
+      .section[data-tab="reservations"] .field .rs-row .rs-to {
+        flex: 0 0 108px; width: 108px; height: 42px; box-sizing: border-box; padding: 0.5rem 0.6rem;
+      }
+      .section[data-tab="reservations"] .field .rs-row .rs-hold,
+      .section[data-tab="reservations"] .field .rs-row .rs-slot {
+        flex: 0 0 78px; width: 78px; height: 42px; box-sizing: border-box; padding: 0.5rem 0.5rem; text-align: center;
+      }
       .section[data-tab="reservations"] .rzones { flex: 1; }
       /* Tab Réservations: stessi allineamenti (label più lunghe: 300px) */
       .section[data-tab="reservations"] .field { flex-wrap: nowrap; }
       .section[data-tab="reservations"] .field label { flex: 0 0 300px; max-width: 300px; }
       .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
+      .section[data-tab="reservations"] .field label.switch { flex: 0 0 44px; max-width: 44px; width: 44px; }
+      .section[data-tab="reservations"] .field .switch input { flex: none; width: 0; min-width: 0; }
       @media (max-width: 700px) {
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
         .section[data-tab="reservations"] .field input { flex-basis: 100%; }
@@ -472,6 +722,31 @@ import { CLIENT } from "../../config/client";
               <input type="text" id="g-country" placeholder="Belgique" />
             </div>
             <div class="field">
+              <label for="g-tz">Fuseau horaire<span class="lab-hint">Utilisé pour calculer les heures réservables en temps réel.</span></label>
+              <select id="g-tz" class="tz-select">
+                <option value="Europe/Brussels">Europe/Brussels</option>
+                <option value="Europe/Paris">Europe/Paris</option>
+                <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                <option value="Europe/Luxembourg">Europe/Luxembourg</option>
+                <option value="Europe/Berlin">Europe/Berlin</option>
+                <option value="Europe/Zurich">Europe/Zurich</option>
+                <option value="Europe/Rome">Europe/Rome</option>
+                <option value="Europe/Madrid">Europe/Madrid</option>
+                <option value="Europe/Lisbon">Europe/Lisbon</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="Europe/Dublin">Europe/Dublin</option>
+                <option value="Europe/Vienna">Europe/Vienna</option>
+                <option value="Europe/Athens">Europe/Athens</option>
+                <option value="Europe/Warsaw">Europe/Warsaw</option>
+                <option value="Europe/Stockholm">Europe/Stockholm</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Toronto">America/Toronto</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Asia/Dubai">Asia/Dubai</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="g-vat">Numéro de TVA</label>
               <input type="text" id="g-vat" placeholder="BE 0899.648.967" autocomplete="off" />
             </div>
@@ -481,11 +756,11 @@ import { CLIENT } from "../../config/client";
             </div>
             <div class="field">
               <label for="g-phone">Téléphone public</label>
-              <input type="text" id="g-phone" placeholder="+32 455 13 14 65" autocomplete="tel" inputmode="tel" />
+              <input type="text" id="g-phone" placeholder="+32 455 13 14 65" autocomplete="tel" inputmode="tel" readonly data-noauto="1" />
             </div>
             <div class="field">
               <label for="g-email">Email publique</label>
-              <input type="email" id="g-email" placeholder="info@restaurant.be" />
+              <input type="email" id="g-email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field field-emails">
               <label>Emails du formulaire de contact<span class="lab-hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</span></label>
@@ -496,11 +771,11 @@ import { CLIENT } from "../../config/client";
             </div>
             <div class="field" style="margin-top:1.2rem">
               <label for="g-nlfrom">Email expéditeur newsletter<span class="lab-hint">Doit appartenir au domaine vérifié sur Resend.</span></label>
-              <input type="email" id="g-nlfrom" placeholder="info@restaurant.be" />
+              <input type="email" id="g-nlfrom" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field">
               <label for="g-wa">Numéro WhatsApp<span class="lab-hint">Réservé à la future intégration WhatsApp.</span></label>
-              <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" />
+              <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" readonly data-noauto="1" />
             </div>
           </div>
 
@@ -554,6 +829,16 @@ import { CLIENT } from "../../config/client";
 
           <div class="section" data-tab="reservations" style="display:none">
             <h2>Réservations</h2>
+            <!-- 1. Design -->
+            <div class="field">
+              <label>Style des angles du widget<span class="lab-hint">Assorti au design du site : angles droits ou arrondis.</span></label>
+              <div class="rcorners" id="r-corners">
+                <button type="button" class="rc-btn" data-c="square">Droits</button>
+                <button type="button" class="rc-btn is-on" data-c="rounded">Arrondis</button>
+              </div>
+            </div>
+            <hr class="rgroup-sep" />
+            <!-- 2. Sections -->
             <div class="field field-zones">
               <label>Sections &amp; couverts<span class="lab-hint">Ex. Intérieur 40, Terrasse 60. Le total est la somme des sections.</span></label>
               <div class="dyn-col">
@@ -562,16 +847,164 @@ import { CLIENT } from "../../config/client";
               </div>
             </div>
             <div class="field">
-              <label for="r-hold">Durée d'occupation d'une table (min)<span class="lab-hint">Une table de 19:00 se libère à 19:00 + durée.</span></label>
-              <input type="number" id="r-hold" min="15" max="360" step="15" placeholder="90" />
+              <label for="r-zonechoice">Choix de la section par le client<span class="lab-hint">Activé : le client choisit sa section (Intérieur, Terrasse…). Désactivé : il réserve simplement, vous placez.</span></label>
+              <label class="switch"><input type="checkbox" id="r-zonechoice" checked /><span class="track"></span></label>
             </div>
-            <div class="field" style="margin-top:1.2rem">
+            <hr class="rgroup-sep" />
+            <!-- 3. Services -->
+            <div class="field field-services">
+              <label>Services de réservation<span class="lab-hint">Jusqu'à 3 plages : nom, horaires, durée d'occupation d'une table (min) et créneau (min). Ex. Midi 12:00–15:00, table 60, créneau 15.</span></label>
+              <div class="dyn-col">
+                <div class="rservices" id="r-services"></div>
+                <button type="button" class="kemail-add" id="r-service-add">+ Ajouter un service</button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="r-maxp">Personnes maximum par réservation<span class="lab-hint">Au-delà de ce nombre, le widget invite à appeler le restaurant.</span></label>
+              <input type="number" id="r-maxp" min="1" max="100" step="1" placeholder="8" />
+            </div>
+            <div class="field">
+              <label for="r-notice">Délai minimum avant réservation (min)<span class="lab-hint">Ex. 240 : à 18:00, le premier créneau proposé est 22:00. 0 = réservable jusqu'à la dernière minute.</span></label>
+              <input type="number" id="r-notice" min="0" max="4320" step="15" placeholder="0" />
+            </div>
+            <hr class="rgroup-sep" />
+            <!-- 4. Langues -->
+            <div class="field">
+              <label>Langues du widget<span class="lab-hint">Le français est toujours actif. Le client change de langue via le globe en haut du widget.</span></label>
+              <div class="rlangs" id="r-langs"></div>
+            </div>
+            <hr class="rgroup-sep" />
+            <!-- 5. Emails -->
+            <div class="field">
               <label for="r-from">Email expéditeur (confirmations clients)</label>
-              <input type="email" id="r-from" placeholder="info@restaurant.be" />
+              <input type="email" id="r-from" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field">
               <label for="r-notify">Email de réception des demandes</label>
-              <input type="email" id="r-notify" placeholder="info@restaurant.be" />
+              <input type="email" id="r-notify" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
+            </div>
+          </div>
+
+          <div class="section" data-tab="reservations" style="display:none">
+            <h2>Aperçu du widget</h2>
+            <p class="rw-note">Aperçu indicatif du module de réservation qui apparaîtra sur le site (V1 à venir). Il reflète les sections et le créneau choisis à gauche.</p>
+            <div class="rw">
+              <div class="rw-lang" id="rw-lang">
+                <button type="button" class="rw-lang-btn" id="rw-lang-btn">
+                  <svg class="rw-lang-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
+                  <span id="rw-lang-cur">FR</span>
+                  <svg class="rw-lang-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                <div class="rw-lang-menu" id="rw-lang-menu" style="display:none"></div>
+              </div>
+              <p class="rw-claim">{CLIENT.nome}</p>
+              <h3 class="rw-title" id="rw-title">Réserver une table</h3>
+              <div id="rw-step1">
+              <div class="rw-acc is-open" data-acc="date">
+                <button type="button" class="rw-acc-head">
+                  <svg class="rw-acc-lico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                  <span class="rw-lab">Date</span>
+                  <span class="rw-acc-val" id="rw-val-date"></span>
+                  <svg class="rw-acc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                <div class="rw-acc-body">
+                  <div class="rw-acc-inner">
+                    <div class="rw-days">
+                      <button type="button" class="rw-day" id="rw-auj">Aujourd'hui</button>
+                      <button type="button" class="rw-day" id="rw-dem">Demain</button>
+                    </div>
+                    <input type="text" class="rw-datein" id="rw-date" readonly placeholder="Ou choisir une date…" />
+                  </div>
+                </div>
+              </div>
+              <div class="rw-acc" data-acc="personnes">
+                <button type="button" class="rw-acc-head">
+                  <svg class="rw-acc-lico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                  <span class="rw-lab">Personnes</span>
+                  <span class="rw-acc-val" id="rw-val-pers"></span>
+                  <svg class="rw-acc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                <div class="rw-acc-body">
+                  <div class="rw-acc-inner">
+                    <div class="rw-pgrid" id="rw-pgrid"></div>
+                    <p class="rw-alert" id="rw-alert" style="display:none"></p>
+                  </div>
+                </div>
+              </div>
+              <div class="rw-acc" data-acc="zone" id="rw-zone-field">
+                <button type="button" class="rw-acc-head">
+                  <svg class="rw-acc-lico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>
+                  <span class="rw-lab">Section</span>
+                  <span class="rw-acc-val" id="rw-val-zone"></span>
+                  <svg class="rw-acc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                <div class="rw-acc-body">
+                  <div class="rw-acc-inner">
+                    <div class="rw-zones" id="rw-zones"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="rw-acc" data-acc="heure">
+                <button type="button" class="rw-acc-head">
+                  <svg class="rw-acc-lico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                  <span class="rw-lab">Heure</span>
+                  <span class="rw-acc-val" id="rw-val-heure"></span>
+                  <svg class="rw-acc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </button>
+                <div class="rw-acc-body">
+                  <div class="rw-acc-inner">
+                    <div class="rw-stabs" id="rw-stabs"></div>
+                    <div class="rw-slots" id="rw-slots"></div>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="rw-btn" id="rw-cta">Réserver</button>
+              </div>
+
+              <div id="rw-step2" style="display:none">
+                <div class="rw-recap">
+                  <div><span class="rw-rc-lab" id="rw-rc-l1"></span><span class="rw-rc-val" id="rw-rc-v1"></span></div>
+                  <div><span class="rw-rc-lab" id="rw-rc-l2"></span><span class="rw-rc-val" id="rw-rc-v2"></span></div>
+                  <div><span class="rw-rc-lab" id="rw-rc-l3"></span><span class="rw-rc-val" id="rw-rc-v3"></span><span class="rw-rc-sub" id="rw-rc-zone"></span></div>
+                </div>
+                <div class="rw-frow">
+                  <input type="text" class="rw-in" id="rw-f-prenom" autocomplete="off" />
+                  <input type="text" class="rw-in" id="rw-f-nom" autocomplete="off" />
+                </div>
+                <div class="rw-frow">
+                  <select class="rw-in rw-tel-prefix" id="rw-f-prefix"></select>
+                  <input type="tel" class="rw-in" id="rw-f-tel" autocomplete="off" />
+                </div>
+                <div class="rw-frow">
+                  <input type="email" class="rw-in" id="rw-f-email" autocomplete="off" />
+                </div>
+                <span class="rw-lab" id="rw-opt-lab"></span>
+                <div class="rw-opts">
+                  <button type="button" class="rw-opt" id="rw-opt-chaise"></button>
+                  <button type="button" class="rw-opt" id="rw-opt-calme"></button>
+                  <button type="button" class="rw-opt" id="rw-opt-biz"></button>
+                </div>
+                <input type="text" class="rw-in rw-in-societe" id="rw-f-societe" style="display:none" autocomplete="off" />
+                <textarea class="rw-in rw-ta" id="rw-f-notes" rows="3" autocomplete="off"></textarea>
+                <label class="rw-terms">
+                  <input type="checkbox" id="rw-f-terms" />
+                  <span id="rw-terms-txt"></span>
+                </label>
+                <div class="rw-frow rw-frow-btns">
+                  <button type="button" class="rw-back" id="rw-back"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg></button>
+                  <button type="button" class="rw-btn" id="rw-confirm"></button>
+                </div>
+              </div>
+
+              <div id="rw-step3" style="display:none">
+                <div class="rw-done">
+                  <svg class="rw-done-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="8 12.5 11 15.5 16 9.5" /></svg>
+                  <h4 class="rw-done-title" id="rw-done-title"></h4>
+                  <p class="rw-done-msg" id="rw-done-msg"></p>
+                  <p class="rw-done-recap" id="rw-done-recap"></p>
+                  <button type="button" class="rw-done-new" id="rw-done-new"></button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -709,6 +1142,9 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { SERVIZI_WIDGET, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
+      import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { CLIENT as CLIENTE_CFG } from "../../config/client";
 
       type Giorno = {
         day_of_week: number;
@@ -783,7 +1219,7 @@ import { CLIENT } from "../../config/client";
           const riga = document.createElement("div");
           riga.className = "kemail-row";
           riga.innerHTML =
-            '<input type="email" placeholder="cuisine@restaurant.be" />' +
+            '<input type="email" placeholder="cuisine@restaurant.be" autocomplete="off" readonly data-noauto="1" />' +
             '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
@@ -821,6 +1257,7 @@ import { CLIENT } from "../../config/client";
           ["public_email", "g-email"],
           ["newsletter_from_email", "g-nlfrom"],
           ["whatsapp_number", "g-wa"],
+          ["timezone", "g-tz"],
         ];
         const gEls = new Map(G_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
         gEls.forEach((el) => el.addEventListener("input", dirty));
@@ -832,7 +1269,7 @@ import { CLIENT } from "../../config/client";
           const riga = document.createElement("div");
           riga.className = "kemail-row";
           riga.innerHTML =
-            '<input type="email" placeholder="info@restaurant.be" />' +
+            '<input type="email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />' +
             '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
@@ -857,7 +1294,8 @@ import { CLIENT } from "../../config/client";
 
         // --- Tab Réservations ---
         const R_CAMPI: [string, string][] = [
-          ["reservation_hold_minutes", "r-hold"],
+          ["reservation_min_notice_minutes", "r-notice"],
+          ["reservation_max_people", "r-maxp"],
           ["reservation_from_email", "r-from"],
           ["reservation_notify_email", "r-notify"],
         ];
@@ -900,7 +1338,625 @@ import { CLIENT } from "../../config/client";
         rZoneAdd.addEventListener("click", () => {
           aggiungiRigaZona();
           dirty();
+          renderAnteprima();
         });
+
+        // Services di prenotazione (label + fascia oraria), max 3
+        const rServicesBox = document.getElementById("r-services") as HTMLDivElement;
+        const rServiceAdd = document.getElementById("r-service-add") as HTMLButtonElement;
+        function aggiornaAddServizio() {
+          rServiceAdd.style.display = rServicesBox.querySelectorAll(".rs-row").length >= 3 ? "none" : "";
+        }
+        function aggiungiRigaServizio(label = "", da = "", a = "", hold = "", slot = "") {
+          if (rServicesBox.querySelectorAll(".rs-row").length >= 3) return;
+          const riga = document.createElement("div");
+          riga.className = "rs-row";
+          riga.innerHTML =
+            '<select class="rs-key">' +
+            Object.entries(SERVIZI_WIDGET).map(([k, v]) => `<option value="${k}">${v.fr}</option>`).join("") +
+            "</select>" +
+            '<input type="time" class="rs-from" />' +
+            '<input type="time" class="rs-to" />' +
+            '<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" title="Durée d\'occupation d\'une table (min)" />' +
+            '<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" title="Créneau (min)" />' +
+            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+          const iK = riga.querySelector(".rs-key") as HTMLSelectElement;
+          const iD = riga.querySelector(".rs-from") as HTMLInputElement;
+          const iA = riga.querySelector(".rs-to") as HTMLInputElement;
+          const iH = riga.querySelector(".rs-hold") as HTMLInputElement;
+          const iS = riga.querySelector(".rs-slot") as HTMLInputElement;
+          if (label && SERVIZI_WIDGET[label]) iK.value = label;
+          iD.value = da;
+          iA.value = a;
+          iH.value = hold;
+          iS.value = slot;
+          [iK, iD, iA, iH, iS].forEach((el) => {
+            el.addEventListener("input", dirty);
+            el.addEventListener("input", renderAnteprima);
+            el.addEventListener("change", () => {
+              dirty();
+              renderAnteprima();
+            });
+          });
+          (riga.querySelector(".kemail-del") as HTMLButtonElement).addEventListener("click", () => {
+            riga.remove();
+            aggiornaAddServizio();
+            dirty();
+            renderAnteprima();
+          });
+          rServicesBox.appendChild(riga);
+          aggiornaAddServizio();
+        }
+        function servicesJSON(): string {
+          const lista = Array.from(rServicesBox.querySelectorAll<HTMLElement>(".rs-row"))
+            .map((r) => ({
+              key: (r.querySelector(".rs-key") as HTMLSelectElement).value,
+              from: (r.querySelector(".rs-from") as HTMLInputElement).value,
+              to: (r.querySelector(".rs-to") as HTMLInputElement).value,
+              hold: Math.floor(Number((r.querySelector(".rs-hold") as HTMLInputElement).value)) || 90,
+              slot: Math.floor(Number((r.querySelector(".rs-slot") as HTMLInputElement).value)) || 30,
+            }))
+            .filter((sv) => sv.from || sv.to);
+          return lista.length ? JSON.stringify(lista) : "";
+        }
+        rServiceAdd.addEventListener("click", () => {
+          aggiungiRigaServizio();
+          dirty();
+        });
+
+        // Angoli del widget: droits o arrondis
+        const rCorners = document.getElementById("r-corners") as HTMLDivElement;
+        let rwAngoli: "rounded" | "square" = "rounded";
+        function applicaAngoli() {
+          rCorners.querySelectorAll<HTMLElement>(".rc-btn").forEach((b) => b.classList.toggle("is-on", b.dataset.c === rwAngoli));
+          document.querySelector(".rw")?.classList.toggle("rw--square", rwAngoli === "square");
+        }
+        rCorners.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rc-btn") as HTMLElement | null;
+          if (!b) return;
+          rwAngoli = b.dataset.c === "square" ? "square" : "rounded";
+          applicaAngoli();
+          dirty();
+        });
+        applicaAngoli();
+
+        // Lingue ATTIVE sul widget (scelte dal ristoratore; FR sempre attivo)
+        const rLangsBox = document.getElementById("r-langs") as HTMLDivElement;
+        function costruisciLingue(attive: string[]) {
+          rLangsBox.innerHTML = LINGUE_WIDGET.map((l) => {
+            const on = l.code === "fr" || attive.includes(l.code);
+            return `<button type="button" class="rl-btn${on ? " is-on" : ""}${l.code === "fr" ? " is-locked" : ""}" data-l="${l.code}"${l.code === "fr" ? ' title="Toujours actif"' : ""}>${l.flag} ${l.label}</button>`;
+          }).join("");
+        }
+        function rwLingueAttive(): LinguaWidget[] {
+          const codes = Array.from(rLangsBox.querySelectorAll<HTMLElement>(".rl-btn.is-on")).map((b) => b.dataset.l as LinguaWidget);
+          return codes.length ? codes : (["fr", "en"] as LinguaWidget[]);
+        }
+        function lingueJSON(): string {
+          return JSON.stringify(rwLingueAttive());
+        }
+        rLangsBox.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rl-btn") as HTMLElement | null;
+          if (!b || b.classList.contains("is-locked")) return;
+          b.classList.toggle("is-on");
+          dirty();
+          if (!rwLingueAttive().includes(rwLingua)) rwLingua = "fr";
+          applicaLingua();
+        });
+        costruisciLingue(["fr", "en"]);
+
+        // Lingua del widget — dizionario dedicato dell'engine
+        function applicaLingua() {
+          const t = T();
+          (document.getElementById("rw-lang-cur") as HTMLElement).textContent = rwLingua.toUpperCase();
+          (document.querySelector(".rw") as HTMLElement).dir = rwLingua === "ar" ? "rtl" : "ltr";
+          renderLangMenu();
+          (document.getElementById("rw-title") as HTMLElement).textContent = t.titre;
+          const lab = (acc: string, txt: string) => {
+            const el = document.querySelector<HTMLElement>(`.rw-acc[data-acc="${acc}"] .rw-lab`);
+            if (el) el.textContent = txt;
+          };
+          lab("date", t.date);
+          lab("personnes", t.personnes);
+          lab("zone", t.section);
+          lab("heure", t.heure);
+          (document.getElementById("rw-auj") as HTMLButtonElement).textContent = t.aujourdhui;
+          (document.getElementById("rw-dem") as HTMLButtonElement).textContent = t.demain;
+          (document.getElementById("rw-date") as HTMLInputElement).placeholder = t.choisirDate;
+          // Step 2
+          (document.getElementById("rw-f-prenom") as HTMLInputElement).placeholder = t.prenom;
+          (document.getElementById("rw-f-nom") as HTMLInputElement).placeholder = t.nom;
+          (document.getElementById("rw-f-tel") as HTMLInputElement).placeholder = t.telephone;
+          (document.getElementById("rw-f-email") as HTMLInputElement).placeholder = t.email;
+          (document.getElementById("rw-opt-lab") as HTMLElement).textContent = t.options;
+          (document.getElementById("rw-opt-chaise") as HTMLButtonElement).textContent = t.chaiseBebe;
+          (document.getElementById("rw-opt-calme") as HTMLButtonElement).textContent = t.endroitCalme;
+          (document.getElementById("rw-opt-biz") as HTMLButtonElement).textContent = t.business;
+          (document.getElementById("rw-f-societe") as HTMLInputElement).placeholder = t.societe;
+          (document.getElementById("rw-f-notes") as HTMLTextAreaElement).placeholder = t.notesPh;
+          const urlPrivacy =
+            CLIENTE_CFG.privacyUrl[rwLingua] ?? CLIENTE_CFG.privacyUrl.en ?? CLIENTE_CFG.privacyUrl.fr ?? "/privacy";
+          (document.getElementById("rw-terms-txt") as HTMLElement).innerHTML = t.accepteConditions
+            .replace("[", `<a href="${urlPrivacy}" target="_blank" rel="noopener">`)
+            .replace("]", "</a>");
+          (document.getElementById("rw-back") as HTMLButtonElement).title = t.retour;
+          (document.getElementById("rw-back") as HTMLButtonElement).setAttribute("aria-label", t.retour);
+          (document.getElementById("rw-confirm") as HTMLButtonElement).textContent = t.confirmer;
+          renderPersone();
+          renderAnteprima();
+          if ((document.getElementById("rw-step2") as HTMLElement).style.display !== "none") aggiornaRecap();
+          if ((document.getElementById("rw-step3") as HTMLElement).style.display !== "none") aggiornaDone();
+        }
+        const rwLangMenu = document.getElementById("rw-lang-menu") as HTMLDivElement;
+        function renderLangMenu() {
+          rwLangMenu.innerHTML = rwLingueAttive()
+            .map((c) => {
+              const meta = LINGUE_WIDGET.find((l) => l.code === c);
+              return `<button type="button" class="rw-lang-it${c === rwLingua ? " is-on" : ""}" data-l="${c}"><span class="rw-li-flag">${meta?.flag ?? ""}</span><span class="rw-li-name">${meta?.label ?? c}</span><span class="rw-li-code">${c.toUpperCase()}</span></button>`;
+            })
+            .join("");
+        }
+        (document.getElementById("rw-lang-btn") as HTMLButtonElement).addEventListener("click", (e) => {
+          e.stopPropagation();
+          renderLangMenu();
+          rwLangMenu.style.display = rwLangMenu.style.display === "none" ? "" : "none";
+        });
+        rwLangMenu.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rw-lang-it") as HTMLElement | null;
+          if (!b) return;
+          rwLingua = (b.dataset.l as LinguaWidget) ?? "fr";
+          rwLangMenu.style.display = "none";
+          applicaLingua();
+        });
+        document.addEventListener("click", () => {
+          rwLangMenu.style.display = "none";
+        });
+
+        // ---- Aperçu live del widget di prenotazione (colonna destra) ----
+        const rZoneChoice = document.getElementById("r-zonechoice") as HTMLInputElement;
+        const rwDate = document.getElementById("rw-date") as HTMLInputElement;
+        const rwZones = document.getElementById("rw-zones") as HTMLDivElement;
+        const rwSlots = document.getElementById("rw-slots") as HTMLDivElement;
+
+        function slotHHMM(min: number): string {
+          const h = Math.floor(min / 60);
+          const m = min % 60;
+          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        }
+
+        // Jours spéciaux correnti (riempita da caricaSpecial): serve al
+        // datepicker del widget per bloccare i giorni di chiusura.
+        let spCache: { date_from: string; date_to: string; type: string }[] = [];
+
+        /** Il ristorante è aperto quel giorno? Stessa logica del motore:
+         *  chiusura speciale > apertura speciale > orario settimanale. */
+        function rwGiornoAperto(iso: string): boolean {
+          let spClosed = false;
+          let spOpen = false;
+          for (const sp of spCache) {
+            if (sp.date_from <= iso && iso <= sp.date_to) {
+              if (sp.type === "closed") spClosed = true;
+              else spOpen = true;
+            }
+          }
+          if (spClosed) return false;
+          if (spOpen) return true;
+          const dow = new Date(iso + "T12:00:00").getDay(); // 0 = dimanche (come settings)
+          const row = document.querySelector<HTMLElement>(`.day-row[data-day="${dow}"]`);
+          if (!row) return true; // orari non ancora caricati: nessun blocco
+          return (row.querySelector(".d-active") as HTMLInputElement).checked;
+        }
+
+        function rwIsoPiuGiorni(g: number): string {
+          const d = new Date();
+          d.setDate(d.getDate() + g);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+        function apriAcc(chiave: string | null) {
+          document.querySelectorAll<HTMLElement>(".rw-acc").forEach((a) => {
+            a.classList.toggle("is-open", a.dataset.acc === chiave);
+          });
+        }
+        function prossimaAcc(dopo: string) {
+          const ordine = ["date", "personnes", "zone", "heure"];
+          const visibili = ordine.filter((k) => {
+            const el = document.querySelector<HTMLElement>(`.rw-acc[data-acc="${k}"]`);
+            return el && el.style.display !== "none";
+          });
+          const i = visibili.indexOf(dopo);
+          apriAcc(i >= 0 && i + 1 < visibili.length ? visibili[i + 1] : null);
+        }
+
+        function rwImpostaData(iso: string) {
+          rwDate.value = fmtFr(iso);
+          rwDate.dataset.iso = iso;
+          (document.getElementById("rw-val-date") as HTMLElement).textContent = fmtFr(iso);
+          const auj = document.getElementById("rw-auj") as HTMLButtonElement;
+          const dem = document.getElementById("rw-dem") as HTMLButtonElement;
+          auj.classList.toggle("is-on", iso === rwIsoPiuGiorni(0));
+          dem.classList.toggle("is-on", iso === rwIsoPiuGiorni(1));
+          auj.disabled = !rwGiornoAperto(rwIsoPiuGiorni(0)) || !rwHaOrari(rwIsoPiuGiorni(0));
+          dem.disabled = !rwGiornoAperto(rwIsoPiuGiorni(1)) || !rwHaOrari(rwIsoPiuGiorni(1));
+          auj.title = auj.disabled ? "Fermé" : "";
+          dem.title = dem.disabled ? "Fermé" : "";
+        }
+        function rwMaxPersone(): number {
+          const el = document.getElementById("r-maxp") as HTMLInputElement;
+          const n = Math.floor(Number(el.value));
+          return Number.isFinite(n) && n >= 1 ? Math.min(100, n) : 8;
+        }
+
+        function renderAnteprima() {
+          (document.getElementById("rw-zone-field") as HTMLElement).style.display = rZoneChoice.checked ? "" : "none";
+          const isoGiorno = rwDate.dataset.iso ?? rwIsoPiuGiorni(0);
+          const datiGiorno = rwReseDel(isoGiorno);
+          const znChiuse = datiGiorno?.zoneChiuse ?? [];
+          // Sezioni: dalle righe correnti dell'editor (live), meno quelle chiuse quel giorno
+          const nomi = Array.from(rZonesBox.querySelectorAll<HTMLInputElement>(".rz-name"))
+            .map((i) => i.value.trim())
+            .filter(Boolean)
+            .filter((n) => !znChiuse.some((c) => c.zone === n));
+          const zone = nomi.length ? nomi : [T().salle];
+          const attiva = rwZones.querySelector(".is-on")?.textContent ?? "";
+          rwZones.innerHTML = zone
+            .map((z, i) => {
+              const on = z === attiva || (i === 0 && !zone.includes(attiva));
+              return `<span class="rw-zone${on ? " is-on" : ""}">${z.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</span>`;
+            })
+            .join("");
+          // Créneaux: ogni service usa il SUO passo (créneau per service)
+          // Solo gli orari realmente prenotabili: dopo adesso + préavis (fuso del ristorante)
+          const soglia = rwSoglia(isoGiorno);
+          const svChiusi = datiGiorno?.chiusure ?? [];
+          const servizi = rwServizi()
+            // Service chiuso dal ristoratore (Complet / Fermeture exceptionnelle)
+            .filter((sv) => !svChiusi.some((c) => c.service_key === sv.key))
+            .map((sv) => {
+              const slots: number[] = [];
+              for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) slots.push(m);
+              return { ...sv, slots };
+            })
+            .filter((sv) => sv.slots.length > 0);
+          if (rwServIdx >= servizi.length) rwServIdx = 0;
+          const stabs = document.getElementById("rw-stabs") as HTMLDivElement;
+          stabs.style.display = servizi.length > 1 ? "" : "none";
+          stabs.innerHTML = servizi
+            .map(
+              (sv, i) =>
+                `<button type="button" class="rw-stab${i === rwServIdx ? " is-on" : ""}" data-i="${i}">${sv.label.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</button>`
+            )
+            .join("");
+          const att = servizi[rwServIdx];
+          const tutti: number[] = att ? att.slots : [];
+          const LIMITE = 12; // 3 righe da 4 colonne
+          const visibili = rwEspanso ? tutti : tutti.slice(0, LIMITE);
+          // Orari pieni: prenotazioni reali che si sovrappongono allo slot
+          // Occupazione: durée d'occupation PROPRIA di ogni service
+          const reseGiorno = datiGiorno?.rese ?? [];
+          const capienza = rwCapienza() - znChiuse.reduce((t, c) => t + rwPostiZona(c.zone), 0);
+          const holdByKey = new Map(servizi.map((sv) => [sv.key, sv.hold]));
+          const holdNuovo = att?.hold ?? 90;
+          // Section scelta nel widget (solo se il cliente può scegliere)
+          const zonaSel = rZoneChoice.checked ? (rwZones.querySelector(".is-on")?.textContent ?? "").trim() : "";
+          const postiZona = zonaSel ? rwPostiZona(zonaSel) : 0;
+          const slotPieno = (sMin: number): boolean => {
+            if (!capienza) return false;
+            let occTot = 0;
+            let occZona = 0;
+            for (const rr of reseGiorno) {
+              const rMin = rwMinuti(rr.heure.slice(0, 5));
+              if (rMin < 0) continue;
+              const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
+              if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
+                occTot += rr.people;
+                if (zonaSel && (rr.zone ?? "") === zonaSel) occZona += rr.people;
+              }
+            }
+            if (occTot + rwN > capienza) return true;
+            return postiZona > 0 && occZona + rwN > postiZona;
+          };
+          let html = visibili
+            .map((m) => `<span class="rw-slot${slotPieno(m) ? " rw-slot-full" : ""}">${slotHHMM(m)}</span>`)
+            .join("");
+          if (tutti.length > LIMITE) {
+            html += `<button type="button" class="rw-more">${rwEspanso ? T().voirMoins : T().voirPlus}<svg class="rw-more-ico${rwEspanso ? " is-up" : ""}" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>`;
+          }
+          if (!att) html = `<p class="rw-noslot">${T().aucuneHeure}</p>`;
+          rwSlots.innerHTML = html;
+          rwSlots.querySelector(".rw-slot:not(.rw-slot-full)")?.classList.add("is-on");
+          (document.getElementById("rw-val-zone") as HTMLElement).textContent =
+            rwZones.querySelector(".is-on")?.textContent ?? "";
+          const oraSel = rwSlots.querySelector(".is-on")?.textContent ?? "";
+          (document.getElementById("rw-val-heure") as HTMLElement).textContent =
+            att && oraSel && servizi.length > 1 ? `${att.label} · ${oraSel}` : oraSel;
+        }
+
+        (document.getElementById("r-notice") as HTMLInputElement).addEventListener("input", renderAnteprima);
+        (document.getElementById("g-tz") as HTMLSelectElement).addEventListener("change", renderAnteprima);
+        rZoneChoice.addEventListener("change", () => {
+          dirty();
+          renderAnteprima();
+        });
+        rZonesBox.addEventListener("input", renderAnteprima);
+        rZonesBox.addEventListener("click", () => setTimeout(renderAnteprima, 0)); // dopo la rimozione di una riga
+        rwZones.addEventListener("click", (e) => {
+          const z = (e.target as HTMLElement).closest(".rw-zone");
+          if (!z) return;
+          rwZones.querySelectorAll(".rw-zone").forEach((el) => el.classList.toggle("is-on", el === z));
+          (document.getElementById("rw-val-zone") as HTMLElement).textContent = z.textContent ?? "";
+          renderAnteprima(); // il pieno dipende anche dalla section scelta
+          prossimaAcc("zone");
+        });
+        (document.getElementById("rw-stabs") as HTMLDivElement).addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".rw-stab") as HTMLElement | null;
+          if (!t) return;
+          rwServIdx = Number(t.dataset.i);
+          rwEspanso = false;
+          renderAnteprima();
+        });
+        // ---- Step 2 : récapitulatif + formulaire ----
+        const RW_RC_ICO = {
+          date: '<svg class="rw-rc-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>',
+          heure: '<svg class="rw-rc-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>',
+          pers: '<svg class="rw-rc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>',
+        };
+        function aggiornaRecap() {
+          const t = T();
+          (document.getElementById("rw-rc-l1") as HTMLElement).innerHTML = RW_RC_ICO.date + `<span>${t.date}</span>`;
+          (document.getElementById("rw-rc-v1") as HTMLElement).textContent = rwDate.value;
+          (document.getElementById("rw-rc-l2") as HTMLElement).innerHTML = RW_RC_ICO.heure + `<span>${t.heure}</span>`;
+          (document.getElementById("rw-rc-v2") as HTMLElement).textContent =
+            (document.getElementById("rw-val-heure") as HTMLElement).textContent ?? "";
+          (document.getElementById("rw-rc-l3") as HTMLElement).innerHTML = RW_RC_ICO.pers + `<span>${t.personnes}</span>`;
+          (document.getElementById("rw-rc-v3") as HTMLElement).textContent =
+            (document.getElementById("rw-val-pers") as HTMLElement).textContent ?? "";
+          const zoneField = document.getElementById("rw-zone-field") as HTMLElement;
+          (document.getElementById("rw-rc-zone") as HTMLElement).textContent =
+            zoneField.style.display === "none" ? "" : rwZones.querySelector(".is-on")?.textContent ?? "";
+        }
+        function aggiornaDone() {
+          const t = T();
+          (document.getElementById("rw-done-title") as HTMLElement).textContent = t.merci;
+          (document.getElementById("rw-done-msg") as HTMLElement).textContent = t.confMsg;
+          (document.getElementById("rw-done-new") as HTMLButtonElement).textContent = t.nouvelleResa;
+          const heure = (document.getElementById("rw-val-heure") as HTMLElement).textContent ?? "";
+          const pers = (document.getElementById("rw-val-pers") as HTMLElement).textContent ?? "";
+          (document.getElementById("rw-done-recap") as HTMLElement).textContent = `${rwDate.value} · ${heure} · ${pers}`;
+        }
+        function vaiStep(n: 1 | 2 | 3) {
+          (document.getElementById("rw-step1") as HTMLElement).style.display = n === 1 ? "" : "none";
+          (document.getElementById("rw-step2") as HTMLElement).style.display = n === 2 ? "" : "none";
+          (document.getElementById("rw-step3") as HTMLElement).style.display = n === 3 ? "" : "none";
+          if (n === 2) aggiornaRecap();
+          if (n === 3) aggiornaDone();
+        }
+        // Prefisso telefonico: default dal paese del ristorante (config)
+        const rwPrefix = document.getElementById("rw-f-prefix") as HTMLSelectElement;
+        rwPrefix.innerHTML = PREFISSI.map((pf) => `<option value="${pf.dial}">${pf.flag} ${pf.dial}</option>`).join("");
+        rwPrefix.value = PREFISSI.find((pf) => pf.code === CLIENTE_CFG.paese)?.dial ?? PREFISSI[0].dial;
+        // "+33 6…" o "0033…" nel campo numero → prefisso in tendina, numero pulito
+        const rwTel = document.getElementById("rw-f-tel") as HTMLInputElement;
+        rwTel.addEventListener("input", () => {
+          const sep = separaPrefisso(rwTel.value);
+          if (!sep) return;
+          rwPrefix.value = sep.dial;
+          rwTel.value = sep.resto;
+        });
+
+        // Condizioni del ristorante: senza spunta niente Confirmer
+        const rwTerms = document.getElementById("rw-f-terms") as HTMLInputElement;
+        function aggiornaConferma() {
+          (document.getElementById("rw-confirm") as HTMLButtonElement).disabled = !rwTerms.checked;
+        }
+        rwTerms.addEventListener("change", aggiornaConferma);
+        aggiornaConferma();
+
+        // SOLO SIMULAZIONE (aperçu): nessuna email, nessun cliente creato.
+        // Nella V1 il Confirmer chiamerà l'API di prenotazione.
+        (document.getElementById("rw-confirm") as HTMLButtonElement).addEventListener("click", () => vaiStep(3));
+        (document.getElementById("rw-done-new") as HTMLButtonElement).addEventListener("click", () => vaiStep(1));
+        (document.getElementById("rw-cta") as HTMLButtonElement).addEventListener("click", () => {
+          if (rwTroppi) return; // Téléphoner : nella V1 aprirà tel:
+          vaiStep(2);
+        });
+        (document.getElementById("rw-back") as HTMLButtonElement).addEventListener("click", () => vaiStep(1));
+        document.querySelectorAll<HTMLButtonElement>(".rw-opt").forEach((b) => {
+          b.addEventListener("click", () => {
+            b.classList.toggle("is-on");
+            if (b.id === "rw-opt-biz") {
+              (document.getElementById("rw-f-societe") as HTMLInputElement).style.display =
+                b.classList.contains("is-on") ? "" : "none";
+            }
+          });
+        });
+
+        rwSlots.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest(".rw-more")) {
+            rwEspanso = !rwEspanso;
+            renderAnteprima();
+            return;
+          }
+          const sl = (e.target as HTMLElement).closest(".rw-slot");
+          if (!sl) return;
+          rwSlots.querySelectorAll(".rw-slot").forEach((el) => el.classList.toggle("is-on", el === sl));
+          const stabsEl = document.getElementById("rw-stabs") as HTMLElement;
+          const labAttivo = stabsEl.style.display === "none" ? "" : stabsEl.querySelector(".is-on")?.textContent ?? "";
+          (document.getElementById("rw-val-heure") as HTMLElement).textContent =
+            labAttivo ? `${labAttivo} · ${sl.textContent}` : sl.textContent ?? "";
+          apriAcc(null);
+        });
+        let rwN = 2;
+        let rwLingua: LinguaWidget = "fr"; // lingua del widget (separata dal sito)
+        const T = () => TESTI_WIDGET[rwLingua];
+        let rwServIdx = 0; // service attivo nel tab Heure
+        let rwEspanso = false; // orari: mostra oltre le prime 3 righe
+        let rwTroppi = false; // il cliente ha scelto "N+" (oltre il massimo)
+
+        // Prenotazioni reali del giorno mostrato nell'anteprima → orari pieni
+        type RwGiorno = {
+          rese: { heure: string; people: number; zone: string | null; service_key: string | null }[];
+          chiusure: { service_key: string; reason: string }[];
+          zoneChiuse: { zone: string; reason: string }[];
+        };
+        const rwReseCache = new Map<string, RwGiorno>();
+        let rwReseFetching = "";
+        let rwAuthPronta = false; // headers create più sotto: prima niente fetch
+        function rwReseDel(iso: string): RwGiorno | null {
+          if (!rwAuthPronta) return null;
+          if (rwReseCache.has(iso)) return rwReseCache.get(iso) ?? null;
+          if (rwReseFetching !== iso) {
+            rwReseFetching = iso;
+            fetch("/api/admin/reservations?date=" + iso, { headers })
+              .then((r) => (r.ok ? r.json() : null))
+              .then((j) => {
+                if (!j) return;
+                rwReseCache.set(iso, {
+                  rese: ((j.reservations ?? []) as { heure: string; people: number; zone: string | null; service_key: string | null; status: string }[]).filter(
+                    (x) => x.status === "confirmed"
+                  ),
+                  chiusure: (j.closures ?? []) as { service_key: string; reason: string }[],
+                  zoneChiuse: (j.zone_closures ?? []) as { zone: string; reason: string }[],
+                });
+                renderAnteprima();
+              })
+              .catch(() => { /* anteprima senza sbarrati */ });
+          }
+          return null;
+        }
+        /** Coperti di una section (dal form). 0 = sconosciuta/illimitata. */
+        function rwPostiZona(nome: string): number {
+          for (const r of Array.from(rZonesBox.querySelectorAll<HTMLElement>(".rz-row"))) {
+            if ((r.querySelector(".rz-name") as HTMLInputElement).value.trim() === nome) {
+              const n = Math.floor(Number((r.querySelector(".rz-seats") as HTMLInputElement).value));
+              return Number.isFinite(n) && n > 0 ? n : 0;
+            }
+          }
+          return 0;
+        }
+        /** Capienza totale = somma dei coperti delle sections (form). */
+        function rwCapienza(): number {
+          return Array.from(rZonesBox.querySelectorAll<HTMLInputElement>(".rz-seats")).reduce((t, el) => {
+            const n = Math.floor(Number(el.value));
+            return t + (Number.isFinite(n) && n > 0 ? n : 0);
+          }, 0);
+        }
+        function rwTz(): string {
+          return (document.getElementById("g-tz") as HTMLSelectElement).value || "Europe/Brussels";
+        }
+        function rwMinutiAdesso(): number {
+          const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: rwTz(), hour: "2-digit", minute: "2-digit", hour12: false })
+            .format(new Date())
+            .split(":");
+          return Number(h) * 60 + Number(m);
+        }
+        /** Primo minuto prenotabile del giorno scelto: adesso + preavviso, meno i giorni di distanza. */
+        function rwSoglia(iso: string): number {
+          const notice = Math.min(4320, Math.max(0, Math.floor(Number((document.getElementById("r-notice") as HTMLInputElement).value)) || 0));
+          const oggiTz = new Intl.DateTimeFormat("en-CA", { timeZone: rwTz() }).format(new Date());
+          const diff = Math.round((Date.parse(iso) - Date.parse(oggiTz)) / 86400000);
+          return rwMinutiAdesso() + notice - diff * 1440;
+        }
+        /** Il giorno ha almeno un créneau prenotabile? (per Aujourd'hui/Demain) */
+        function rwHaOrari(iso: string): boolean {
+          const soglia = rwSoglia(iso);
+          return rwServizi().some((sv) => {
+            for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) return true;
+            return false;
+          });
+        }
+        function rwMinuti(hhmm: string): number {
+          const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+          return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+        }
+        function rwServizi(): { key: string; label: string; da: number; a: number; hold: number; slot: number }[] {
+          const righe = Array.from(rServicesBox.querySelectorAll<HTMLElement>(".rs-row"))
+            .map((r) => {
+              const key = (r.querySelector(".rs-key") as HTMLSelectElement).value;
+              return {
+                key,
+                label: SERVIZI_WIDGET[key]?.[rwLingua] ?? key,
+                da: rwMinuti((r.querySelector(".rs-from") as HTMLInputElement).value),
+                a: rwMinuti((r.querySelector(".rs-to") as HTMLInputElement).value),
+                hold: Math.min(360, Math.max(15, Math.floor(Number((r.querySelector(".rs-hold") as HTMLInputElement).value)) || 90)),
+                slot: Math.min(120, Math.max(10, Math.floor(Number((r.querySelector(".rs-slot") as HTMLInputElement).value)) || 30)),
+              };
+            })
+            .filter((sv) => sv.da >= 0 && sv.a > sv.da);
+          return righe.length
+            ? righe
+            : [
+                { key: "midi", label: SERVIZI_WIDGET.midi[rwLingua], da: 12 * 60, a: 14 * 60, hold: 90, slot: 30 },
+                { key: "soir", label: SERVIZI_WIDGET.soir[rwLingua], da: 18 * 60, a: 21 * 60 + 30, hold: 90, slot: 30 },
+              ];
+        }
+        const rwPGrid = document.getElementById("rw-pgrid") as HTMLDivElement;
+        const rwAlert = document.getElementById("rw-alert") as HTMLParagraphElement;
+        const rwCta = document.getElementById("rw-cta") as HTMLButtonElement;
+
+        function renderPersone() {
+          const max = rwMaxPersone();
+          if (!rwTroppi && rwN > max) rwN = max;
+          let html = "";
+          for (let n = 1; n <= max; n++) {
+            html += `<button type="button" class="rw-p${!rwTroppi && rwN === n ? " is-on" : ""}" data-n="${n}">${n}</button>`;
+          }
+          html += `<button type="button" class="rw-p${rwTroppi ? " is-on" : ""}" data-n="plus">${max + 1}+</button>`;
+          rwPGrid.innerHTML = html;
+          (document.getElementById("rw-val-pers") as HTMLElement).textContent = rwTroppi ? `${max + 1}+` : `${rwN} ${T().pers}`;
+          if (rwTroppi) {
+            rwAlert.textContent = T().tropMonde(max);
+            rwAlert.style.display = "";
+            rwCta.textContent = T().telephoner;
+          } else {
+            rwAlert.style.display = "none";
+            rwCta.textContent = T().reserver;
+          }
+        }
+        rwPGrid.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rw-p") as HTMLButtonElement | null;
+          if (!b) return;
+          if (b.dataset.n === "plus") {
+            rwTroppi = true;
+          } else {
+            rwTroppi = false;
+            rwN = Number(b.dataset.n);
+          }
+          renderPersone();
+          renderAnteprima(); // il numero di persone cambia gli orari pieni
+          if (!rwTroppi) prossimaAcc("personnes");
+        });
+        (document.getElementById("r-maxp") as HTMLInputElement).addEventListener("input", renderPersone);
+        renderPersone();
+        (document.getElementById("rw-auj") as HTMLButtonElement).addEventListener("click", () => {
+          rwImpostaData(rwIsoPiuGiorni(0));
+          prossimaAcc("date");
+        });
+        (document.getElementById("rw-dem") as HTMLButtonElement).addEventListener("click", () => {
+          rwImpostaData(rwIsoPiuGiorni(1));
+          prossimaAcc("date");
+        });
+        rwDate.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dpApri(rwDate);
+        });
+        rwDate.addEventListener("change", () => {
+          rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
+          prossimaAcc("date");
+        });
+        document.querySelectorAll<HTMLElement>(".rw-acc-head").forEach((h) => {
+          h.addEventListener("click", () => {
+            const acc = h.closest(".rw-acc") as HTMLElement;
+            apriAcc(acc.classList.contains("is-open") ? null : acc.dataset.acc ?? null);
+          });
+        });
+        document.addEventListener("change", (e) => {
+          const t = e.target as HTMLElement;
+          if (t instanceof HTMLInputElement && t.classList.contains("d-active")) {
+            rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
+          }
+        });
+        rwImpostaData(rwIsoPiuGiorni(0));
+        applicaLingua();
 
         // --- Link social / recensioni (tab Liens) ---
         const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
@@ -932,6 +1988,7 @@ import { CLIENT } from "../../config/client";
 
         const token = session.access_token ?? "";
         const headers = { Authorization: `Bearer ${token}` };
+        rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
         let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
@@ -961,7 +2018,12 @@ import { CLIENT } from "../../config/client";
         });
         rEls.forEach((el, k) => {
           el.value = dati.reservations?.[k] ?? "";
+          if (k === "reservation_min_notice_minutes" && !el.value) {
+            const ore = Math.floor(Number(dati.reservations?.reservation_min_notice_hours));
+            if (Number.isFinite(ore) && ore > 0) el.value = String(ore * 60);
+          }
         });
+        rZoneChoice.checked = (dati.reservations?.reservation_zone_choice ?? "1") !== "0";
         rZonesBox.innerHTML = "";
         try {
           const zone = JSON.parse(dati.reservations?.reservation_zones || "[]") as { name: string; seats: number }[];
@@ -970,6 +2032,42 @@ import { CLIENT } from "../../config/client";
         } catch {
           aggiungiRigaZona();
         }
+        rServicesBox.innerHTML = "";
+        try {
+          const servizi = JSON.parse(dati.reservations?.reservation_services || "[]") as { key?: string; label?: string; from: string; to: string; hold?: number; slot?: number }[];
+          const holdVecchio = String(dati.reservations?.reservation_hold_minutes ?? "");
+          const slotVecchio = String(dati.reservations?.reservation_slot_minutes ?? "");
+          const chiaveDi = (sv: { key?: string; label?: string }): string => {
+            if (sv.key && SERVIZI_WIDGET[sv.key]) return sv.key;
+            const lab = (sv.label ?? "").trim().toLowerCase();
+            const hit = Object.entries(SERVIZI_WIDGET).find(([, vv]) => vv.fr.toLowerCase() === lab);
+            return hit ? hit[0] : "midi";
+          };
+          if (servizi.length === 0) aggiungiRigaServizio();
+          else
+            servizi.forEach((sv) =>
+              aggiungiRigaServizio(
+                chiaveDi(sv),
+                sv.from,
+                sv.to,
+                sv.hold ? String(sv.hold) : holdVecchio,
+                sv.slot ? String(sv.slot) : slotVecchio
+              )
+            );
+        } catch {
+          aggiungiRigaServizio();
+        }
+        aggiornaAddServizio();
+        rwAngoli = dati.reservations?.reservation_corner_style === "square" ? "square" : "rounded";
+        applicaAngoli();
+        try {
+          costruisciLingue(JSON.parse(dati.reservations?.reservation_languages || '["fr","en"]') as string[]);
+        } catch {
+          costruisciLingue(["fr", "en"]);
+        }
+        if (!rwLingueAttive().includes(rwLingua)) rwLingua = "fr";
+        applicaLingua();
+        renderAnteprima();
         cemailsBox.innerHTML = "";
         const listaContact = String(dati.general?.contact_emails ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
         if (listaContact.length === 0) aggiungiRigaEmailContact();
@@ -1047,9 +2145,11 @@ import { CLIENT } from "../../config/client";
             if (!res.ok) return;
             const j = await res.json();
             const items = (j.days as SpecialDay[]) ?? [];
+            spCache = items;
             spList.innerHTML = items.length
               ? items.map(spItemHTML).join("")
               : '<p class="hint">Aucun jour spécial programmé.</p>';
+            rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
           } catch { /* silenzioso: la lista resta com'era */ }
         }
         spTClosed.addEventListener("click", () => {
@@ -1181,10 +2281,14 @@ import { CLIENT } from "../../config/client";
           for (let g = 1; g <= nGiorni; g++) {
             const iso = isoDi(dpAnno, dpMese, g);
             const cls = ["dp-cell"];
-            if (iso < oggi) cls.push("dp-off");
+            // Solo nel datepicker del widget: i giorni di chiusura
+            // (settimanale o jour spécial) non sono selezionabili.
+            const chiuso = dpTarget === rwDate && iso >= oggi && !rwGiornoAperto(iso);
+            const off = iso < oggi || chiuso;
+            if (off) cls.push("dp-off");
             if (iso === oggi) cls.push("dp-today");
             if (iso === sel) cls.push("dp-sel");
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${iso < oggi ? "disabled" : ""}>${g}</button>`;
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off ? "disabled" : ""}${chiuso ? ' title="Fermé"' : ""}>${g}</button>`;
           }
           dpPanel.innerHTML = `
             <div class="dp-head">
@@ -1232,6 +2336,7 @@ import { CLIENT } from "../../config/client";
               spTo.dataset.iso = iso;
               spTo.value = fmtFr(iso);
             }
+            dpTarget.dispatchEvent(new Event("change"));
             dpChiudi();
           }
         });
@@ -1331,6 +2436,10 @@ import { CLIENT } from "../../config/client";
                     Array.from(rEls.entries()).map(([k, el]) => [k, el.value.trim()])
                   ),
                   reservation_zones: zonesJSON(),
+                  reservation_zone_choice: rZoneChoice.checked ? "1" : "0",
+                  reservation_services: servicesJSON(),
+                  reservation_corner_style: rwAngoli,
+                  reservation_languages: lingueJSON(),
                 },
               }),
             });
@@ -1734,6 +2843,17 @@ import { CLIENT } from "../../config/client";
     /* niente ripristino */
   }
   mostraTab(tabIniziale);
+
+  // Anti-autofill: i campi marcati data-noauto restano readonly (Chrome non
+  // riempie mai i readonly); si sbloccano solo quando l'utente ci clicca.
+  document.addEventListener("focusin", (e) => {
+    const t = e.target;
+    if (t instanceof HTMLInputElement && t.dataset.noauto === "1") t.readOnly = false;
+  });
+  document.addEventListener("focusout", (e) => {
+    const t = e.target;
+    if (t instanceof HTMLInputElement && t.dataset.noauto === "1") t.readOnly = true;
+  });
 </script>
   </body>
 </html>

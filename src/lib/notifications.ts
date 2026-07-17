@@ -426,3 +426,135 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
     console.error("Errore programmazione email recensione:", e);
   }
 }
+
+// Testi dell'email recensione dopo una PRENOTAZIONE (visita al ristorante).
+const TXT_REVIEW_RESA = {
+  fr: {
+    subject: (name: string) => `${name}, votre avis compte pour nous ⭐`,
+    title: "Votre avis compte",
+    intro: (name: string) =>
+      `Merci ${name} pour votre visite d'hier !<br>` +
+      `Nous espérons que vous avez passé un bon moment.<br>` +
+      `Un petit avis de votre part nous aide énormément&nbsp;— cela ne prend qu'une minute.`,
+    btn: "Laisser un avis Google",
+    sign: CLIENT.firma.fr,
+  },
+  en: {
+    subject: (name: string) => `${name}, your feedback means a lot ⭐`,
+    title: "Your opinion matters",
+    intro: (name: string) =>
+      `Thank you ${name} for visiting us yesterday!<br>` +
+      `We hope you had a great time.<br>` +
+      `A quick review helps us enormously&nbsp;— it only takes a minute.`,
+    btn: "Leave a Google review",
+    sign: CLIENT.firma.en,
+  },
+} as const;
+
+/** Dati minimi di una prenotazione per l'email recensione. */
+export interface ResaReview {
+  date: string; // YYYY-MM-DD della prenotazione
+  first_name: string;
+  last_name: string;
+  email: string;
+  lang: string;
+}
+
+/**
+ * Email recensione Google per una PRENOTAZIONE, programmata su Resend
+ * per le 11:30 del giorno DOPO la data della prenotazione (Bruxelles).
+ * Ritorna l'id Resend (per poterla annullare su cancellation/no-show),
+ * o null se non è partita (niente email, niente link, orario passato).
+ */
+export async function emailReviewResa(r: ResaReview): Promise<string | null> {
+  if (!resend || !RESEND_FROM) return null;
+  const email = r.email.trim();
+  if (!email) return null;
+  const dati = await datiRistorante();
+
+  let reviewUrl = "";
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "link_google_review")
+      .maybeSingle();
+    reviewUrl = String(data?.value ?? "").trim();
+  } catch {
+    return null;
+  }
+  if (!reviewUrl) return null;
+
+  // 11:30 del giorno dopo la prenotazione; se è già passato, niente email.
+  const quando = DateTime.fromISO(r.date, { zone: "Europe/Brussels" })
+    .plus({ days: 1 })
+    .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
+  if (quando <= DateTime.now()) return null;
+
+  const t = TXT_REVIEW_RESA[r.lang === "en" ? "en" : "fr"];
+  const nome = esc(r.first_name.trim() || r.last_name.trim() || "");
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
+          <p style="margin:18px 0 0;color:#b3aca6;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px 40px 6px;text-align:center;">
+          <p style="margin:0;color:#dfab4e;font-size:26px;letter-spacing:6px;">★★★★★</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 40px 8px;text-align:center;">
+          <a href="${reviewUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:22px 40px 8px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <p style="margin:0 0 26px;color:#8f8781;font-size:13px;line-height:1.7;">${t.sign}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    const { data } = await resend.emails.send({
+      from: RESEND_FROM,
+      to: email,
+      subject: t.subject(nome),
+      html,
+      scheduledAt: quando.toISO() ?? undefined,
+    });
+    return data?.id ?? null;
+  } catch (e) {
+    console.error("Errore programmazione email recensione résa:", e);
+    return null;
+  }
+}
+
+/** Annulla un'email recensione programmata (annullamento / no-show). */
+export async function annullaEmailReview(emailId: string): Promise<void> {
+  if (!resend || !emailId) return;
+  try {
+    await resend.emails.cancel(emailId);
+  } catch (e) {
+    console.error("Errore annullamento email recensione:", e);
+  }
+}
