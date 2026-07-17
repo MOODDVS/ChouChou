@@ -6,13 +6,14 @@
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin MOODD — La Molisana</title>
+    <title>{"Admin MOODD — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -113,7 +114,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuper, PAGINE_ADMIN } from "../../lib/superAdmin";
+      import { isSuper, PAGINE_ADMIN } from "../../lib/admin/superAdmin";
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;

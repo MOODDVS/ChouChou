@@ -2,10 +2,11 @@
 // Footer minimale delle pagine admin (componente condiviso, incluso
 // una volta per pagina). FISSO in basso: non scorre con il contenuto.
 // Linea leggera sopra per delimitarlo; la nav flottante gli passa sopra.
+import { PRODOTTO } from "../../config/client";
 ---
 
 <footer class="ah-footer">
-  <span>©2026 - All rights reserved MOODD - MOODD Admin v2.1</span>
+  <span>{PRODOTTO.copyright + " - " + PRODOTTO.nome + " " + PRODOTTO.versione}</span>
 </footer>
 
 <style>

@@ -13,6 +13,7 @@ export const PAGINE_ADMIN: { key: string; label: string }[] = [
   { key: "menu", label: "Menu" },
   { key: "stats", label: "Statistiques" },
   { key: "marketing", label: "Marketing" },
+  { key: "assets", label: "Assets" },
   { key: "settings", label: "Réglages" },
 ];
 

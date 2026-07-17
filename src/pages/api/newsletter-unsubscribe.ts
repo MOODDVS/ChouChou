@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { CLIENT } from "../../config/client";
 import crypto from "node:crypto";
 import { supabaseAdmin } from "../../lib/db";
 
@@ -22,7 +23,7 @@ function pagina(titolo: string, testo: string): Response {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>${titolo} — La Molisana</title>
+  <title>${titolo} — ${CLIENT.nome}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;700&display=swap" />
@@ -41,7 +42,7 @@ function pagina(titolo: string, testo: string): Response {
 </head>
 <body>
   <div class="box">
-    <p class="claim">La Molisana — Pizza &amp; Pasta</p>
+    <p class="claim">${CLIENT.nome} — ${CLIENT.claim}</p>
     <h1>${titolo}</h1>
     <p>${testo}</p>
     <a href="/">Retour à l'accueil</a>

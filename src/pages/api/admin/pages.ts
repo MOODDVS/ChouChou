@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
-import { isSuper, PAGINE_ADMIN } from "../../../lib/superAdmin";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { isSuper, PAGINE_ADMIN } from "../../../lib/admin/superAdmin";
 
 export const prerender = false;
 

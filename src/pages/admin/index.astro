@@ -5,13 +5,14 @@
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin — La Molisana</title>
+    <title>{"Admin — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -58,8 +59,20 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
       .state { color: var(--c-muted); padding: 1rem 0; }
 
       /* --- Tile Statistiques (2 colonne) --- */
-      .tile-stats { grid-column: 1 / -1; }
+      .tile-stats { grid-column: span 2; }
       @media (max-width: 560px) { .tile-stats { grid-column: 1 / -1; } }
+
+      /* --- Card Photos récentes (2 colonne, griglia 4x2) --- */
+      .tile-photos { grid-column: span 2; }
+      @media (max-width: 560px) { .tile-photos { grid-column: 1 / -1; } }
+      .ph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
+      .ph-cell {
+        display: block; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden;
+        transition: border-color 0.15s, transform 0.15s;
+      }
+      .ph-cell:hover { border-color: var(--c-accent); transform: scale(0.97); }
+      .ph-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+      .ph-empty { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; }
       .st-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
       .st-head .tile-title { margin-bottom: 0; }
       .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
@@ -239,6 +252,15 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
                 <div class="st-labs" id="st-labs"></div>
               </div>
             </div>
+          </div>
+
+          <!-- Photos récentes (2 colonne) -->
+          <div class="tile tile-photos" data-admin-page="assets">
+            <div class="st-head">
+              <div class="tile-title">Photos récentes</div>
+              <a class="st-link" href="/admin/assets">Voir tout →</a>
+            </div>
+            <div class="ph-grid" id="ph-grid"></div>
           </div>
         </div>
       </main>
@@ -504,6 +526,29 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         cardsEl.style.display = "grid";
 
         avviaNote(headers);
+
+        // ---------- Photos récentes (bibliothèque, ultime 8) ----------
+        (async () => {
+          const phGrid = document.getElementById("ph-grid") as HTMLElement;
+          try {
+            const res = await fetch("/api/admin/images", { headers });
+            if (!res.ok) throw new Error();
+            const images = (((await res.json()) as { images: { url: string; name: string }[] }).images) ?? [];
+            if (!images.length) {
+              phGrid.innerHTML = '<div class="ph-empty">Aucune image pour le moment — téléverse une photo depuis Menu ou Marketing.</div>';
+              return;
+            }
+            phGrid.innerHTML = images
+              .slice(0, 8)
+              .map(
+                (i) =>
+                  `<a class="ph-cell" href="/admin/assets" title="${escHtml(i.name)}"><img src="${escHtml(i.url)}" alt="" loading="lazy" /></a>`
+              )
+              .join("");
+          } catch {
+            phGrid.innerHTML = '<div class="ph-empty">Images indisponibles.</div>';
+          }
+        })();
 
         try {
           const [resOrd, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([

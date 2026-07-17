@@ -2,8 +2,10 @@ import type { APIRoute } from "astro";
 import crypto from "node:crypto";
 import { Resend } from "resend";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
-import { statoQuota, QUOTA_MESE } from "../../../lib/newsletterQuota";
+import { datiRistorante, type DatiRistorante } from "../../../lib/ristorante";
+import { CLIENT } from "../../../config/client";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { statoQuota, QUOTA_MESE } from "../../../lib/admin/newsletterQuota";
 
 export const prerender = false;
 
@@ -44,7 +46,7 @@ async function mittenteNewsletter(): Promise<string> {
       .eq("key", "newsletter_from_email")
       .maybeSingle();
     const v = String(data?.value ?? "").trim();
-    if (v) return `La Molisana <${v}>`;
+    if (v) return `${CLIENT.nome} <${v}>`;
   } catch {
     // fallback
   }
@@ -92,7 +94,7 @@ async function destinatari(): Promise<string[]> {
   return [...emails];
 }
 
-function htmlNewsletter(input: {
+function htmlNewsletter(dati: DatiRistorante, input: {
   subject: string;
   message: string;
   image_url?: string;
@@ -116,8 +118,8 @@ function htmlNewsletter(input: {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
         <td style="padding:36px 40px 18px;text-align:center;">
-          <img src="${logo}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">LA MOLISANA — PIZZA &amp; PASTA</p>
+          <img src="${logo}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       ${img}
@@ -136,8 +138,8 @@ function htmlNewsletter(input: {
       <tr>
         <td style="padding:0 40px 28px;border-top:1px solid #3a3335;">
           <p style="margin:20px 0 0;color:#8f8781;font-size:12px;line-height:1.8;text-align:center;">
-            Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · pizzeria@lamolisana.be<br>
-            Vous recevez cet email car vous êtes client de La Molisana.
+            ${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}<br>
+            Vous recevez cet email car vous êtes client de ${esc(dati.nome)}.
             <a href="${unsub}" style="color:#b3aca6;">Se désinscrire</a>
           </p>
         </td>
@@ -204,6 +206,7 @@ export const POST: APIRoute = async ({ request }) => {
     btn_label: (body.btn_label ?? "").trim(),
     btn_url: (body.btn_url ?? "").trim(),
   };
+  const dati = await datiRistorante();
 
   // ---- Invio di TEST: solo all'email dello staff loggato ----
   if (body.test === true) {
@@ -214,7 +217,7 @@ export const POST: APIRoute = async ({ request }) => {
         from: await mittenteNewsletter(),
         to: dest,
         subject: `[TEST] ${subject}`,
-        html: htmlNewsletter({ ...contenuto, email: dest }),
+        html: htmlNewsletter(dati, { ...contenuto, email: dest }),
       });
     } catch {
       return json({ error: "Envoi du test impossible" }, 502);
@@ -243,7 +246,7 @@ export const POST: APIRoute = async ({ request }) => {
         from: mittente,
         to: email,
         subject,
-        html: htmlNewsletter({ ...contenuto, email }),
+        html: htmlNewsletter(dati, { ...contenuto, email }),
       }));
       const { error } = await resend.batch.send(lotto);
       if (error) throw error;

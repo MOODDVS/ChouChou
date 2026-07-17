@@ -1,0 +1,203 @@
+---
+// Modale "Bibliothèque" riutilizzabile : mostra tutte le immagini già
+// caricate (bucket `menu` e `popups`) e lascia sceglierne una senza
+// doverla ricaricare. Comunicazione via eventi window :
+//   apertura  → window.dispatchEvent(new CustomEvent("imgpick:open"))
+//               (detail.mode = "link" mostra anche il tab Documents:
+//                serve a scegliere un URL da incollare in un campo lien)
+//   selezione → evento "imgpick:pick" con detail = { url }
+// La pagina che lo usa tiene il riferimento al campo di destinazione
+// e ascolta "imgpick:pick".
+---
+
+<div class="imgpick-overlay" id="imgpick-overlay">
+  <div class="imgpick-modal">
+    <button class="imgpick-close" id="imgpick-close" aria-label="Fermer">×</button>
+    <h2>Bibliothèque d'images</h2>
+    <div class="imgpick-tabs" id="imgpick-tabs">
+      <button type="button" class="imgpick-tab is-on" data-b="">Toutes</button>
+      <button type="button" class="imgpick-tab" data-b="menu">Menu</button>
+      <button type="button" class="imgpick-tab" data-b="marketing">Marketing</button>
+      <button type="button" class="imgpick-tab" data-b="libre">Libres</button>
+      <button type="button" class="imgpick-tab" data-b="docs" id="imgpick-tab-docs" style="display:none">Documents</button>
+    </div>
+    <div class="imgpick-state" id="imgpick-state">Chargement…</div>
+    <div class="imgpick-grid" id="imgpick-grid"></div>
+  </div>
+</div>
+
+<style is:global>
+  .imgpick-overlay {
+    position: fixed; inset: 0; z-index: 340; display: none;
+    background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
+  }
+  .imgpick-overlay.is-open { display: flex; }
+  .imgpick-modal {
+    width: 100%; max-width: 680px; max-height: 86vh; overflow-y: auto;
+    background: var(--c-bg, #231f20); border: 1px solid var(--c-line, #3a3335);
+    padding: 1.75rem; position: relative; margin: auto;
+  }
+  .imgpick-modal h2 { font-family: var(--font-title, sans-serif); font-size: 1.6rem; letter-spacing: 0.04em; margin: 0 0 1rem; }
+  .imgpick-close {
+    position: absolute; top: 0.8rem; right: 1rem; background: none; border: none;
+    color: var(--c-muted, #b3aca6); font-size: 1.6rem; cursor: pointer; line-height: 1;
+  }
+  .imgpick-close:hover { color: var(--c-text, #fff); }
+  .imgpick-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+  .imgpick-tab {
+    background: var(--c-card, #362c28); border: 1px solid var(--c-line, #3a3335); color: var(--c-muted, #b3aca6);
+    font-family: var(--font-title, sans-serif); font-size: 0.95rem; letter-spacing: 0.05em;
+    padding: 0.35rem 1rem; cursor: pointer; border-radius: 999px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .imgpick-tab:hover { color: var(--c-text, #fff); border-color: var(--c-accent, #dfab4e); }
+  .imgpick-tab.is-on { background: var(--c-accent, #dfab4e); border-color: var(--c-accent, #dfab4e); color: #231f20; }
+  .imgpick-state { color: var(--c-muted, #b3aca6); text-align: center; padding: 1.5rem 0; }
+  .imgpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; }
+  .imgpick-cell {
+    padding: 0; border: 1px solid var(--c-line, #3a3335); background: var(--c-card, #362c28);
+    cursor: pointer; border-radius: 8px; overflow: hidden; display: block;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .imgpick-cell:hover { border-color: var(--c-accent, #dfab4e); transform: scale(0.97); }
+  .imgpick-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .imgpick-cell--pdf {
+    aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.4rem; color: var(--c-muted, #b3aca6); padding: 0.4rem;
+  }
+  .imgpick-cell--pdf svg { width: 26px; height: 26px; fill: none; stroke: var(--c-accent, #dfab4e); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .imgpick-doc-name { font-size: 0.62rem; word-break: break-all; text-align: center; max-height: 2.4em; overflow: hidden; }
+  .imgpick-cell--pdf img { object-position: top; }
+</style>
+
+<script>
+  import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+  type Img = { bucket: string; name: string; url: string; used_by: string[]; tags: string[] };
+  type Doc = { name: string; url: string; thumb_url: string | null };
+
+  const ICO_PDF =
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>';
+
+  const overlay = document.getElementById("imgpick-overlay") as HTMLDivElement;
+  const grid = document.getElementById("imgpick-grid") as HTMLDivElement;
+  const stateEl = document.getElementById("imgpick-state") as HTMLDivElement;
+  const tabsEl = document.getElementById("imgpick-tabs") as HTMLDivElement;
+
+  let imgs: Img[] = [];
+  let docs: Doc[] = [];
+  let modo: "image" | "link" = "image";
+  let filtro = "";
+
+  function esc(s: string): string {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function render() {
+    if (filtro === "docs") {
+      if (!docs.length) {
+        stateEl.style.display = "";
+        stateEl.textContent = "Aucun document.";
+        grid.innerHTML = "";
+        return;
+      }
+      stateEl.style.display = "none";
+      grid.innerHTML = docs
+        .map((d) =>
+          d.thumb_url
+            ? `<button type="button" class="imgpick-cell" data-url="${esc(d.url)}" title="${esc(d.name)}"><img src="${esc(d.thumb_url)}" alt="" loading="lazy" /></button>`
+            : `<button type="button" class="imgpick-cell imgpick-cell--pdf" data-url="${esc(d.url)}" title="${esc(d.name)}">${ICO_PDF}<span class="imgpick-doc-name">${esc(d.name)}</span></button>`
+        )
+        .join("");
+      return;
+    }
+    const vis = !filtro
+      ? imgs
+      : filtro === "libre"
+        ? imgs.filter((i) => !i.tags.length)
+        : imgs.filter((i) => i.tags.includes(filtro));
+    if (!vis.length) {
+      stateEl.style.display = "";
+      stateEl.textContent = "Aucune image.";
+      grid.innerHTML = "";
+      return;
+    }
+    stateEl.style.display = "none";
+    grid.innerHTML = vis
+      .map(
+        (i) =>
+          `<button type="button" class="imgpick-cell" data-url="${esc(i.url)}" title="${esc(i.name)}"><img src="${esc(i.url)}" alt="" loading="lazy" /></button>`
+      )
+      .join("");
+  }
+
+  async function carica() {
+    stateEl.style.display = "";
+    stateEl.textContent = "Chargement…";
+    grid.innerHTML = "";
+    try {
+      const { data } = await supabaseBrowser.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const [resImg, resDoc] = await Promise.all([
+        fetch("/api/admin/images", { headers: { Authorization: `Bearer ${token}` } }),
+        modo === "link"
+          ? fetch("/api/admin/documents", { headers: { Authorization: `Bearer ${token}` } })
+          : Promise.resolve(null),
+      ]);
+      if (!resImg.ok) throw new Error();
+      imgs = ((await resImg.json()) as { images: Img[] }).images;
+      docs = resDoc && resDoc.ok ? ((await resDoc.json()) as { documents: Doc[] }).documents : [];
+      render();
+    } catch {
+      stateEl.textContent = "Erreur de chargement.";
+    }
+  }
+
+  function chiudi() {
+    overlay.classList.remove("is-open");
+  }
+
+  window.addEventListener("imgpick:open", (e) => {
+    modo = (e as CustomEvent<{ mode?: string }>).detail?.mode === "link" ? "link" : "image";
+    const tabDocs = document.getElementById("imgpick-tab-docs") as HTMLButtonElement;
+    tabDocs.style.display = modo === "link" ? "" : "none";
+    if (modo !== "link" && filtro === "docs") {
+      filtro = "";
+      tabsEl.querySelectorAll<HTMLElement>(".imgpick-tab").forEach((el) => el.classList.toggle("is-on", el.dataset.b === ""));
+    }
+    overlay.classList.add("is-open");
+    void carica(); // ricarica sempre: include gli upload appena fatti
+  });
+
+  tabsEl.addEventListener("click", (e) => {
+    const t = (e.target as HTMLElement).closest(".imgpick-tab") as HTMLElement | null;
+    if (!t) return;
+    filtro = t.dataset.b ?? "";
+    tabsEl.querySelectorAll(".imgpick-tab").forEach((el) => el.classList.toggle("is-on", el === t));
+    render();
+  });
+
+  grid.addEventListener("click", (e) => {
+    const cell = (e.target as HTMLElement).closest(".imgpick-cell") as HTMLElement | null;
+    if (!cell) return;
+    window.dispatchEvent(new CustomEvent("imgpick:pick", { detail: { url: cell.dataset.url ?? "" } }));
+    chiudi();
+  });
+
+  (document.getElementById("imgpick-close") as HTMLButtonElement).addEventListener("click", chiudi);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) chiudi();
+  });
+  // Capture su window: l'Escape chiude SOLO la galleria, non il modale sotto
+  window.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape" && overlay.classList.contains("is-open")) {
+        e.stopPropagation();
+        chiudi();
+      }
+    },
+    true
+  );
+</script>

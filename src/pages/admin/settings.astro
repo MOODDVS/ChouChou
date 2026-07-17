@@ -15,13 +15,14 @@ const LNK = [
   { k: "x", label: "X (Twitter)", ph: "https://x.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.46l8.6-9.83L0 1.15h7.59l5.24 6.93zM17.6 20.64h2.04L6.49 3.24H4.3z"/></svg>' },
   { k: "google_review", label: "Google — avis", ph: "https://g.page/r/.../review", icon: '<svg viewBox="0 0 24 24"><path d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.44a5.5 5.5 0 0 1-2.39 3.61v3h3.87c2.26-2.09 3.58-5.16 3.58-8.8z"/><path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24z"/><path d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.63H1.29a12 12 0 0 0 0 10.74z"/><path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.98 11.98 0 0 0 12 0 12 12 0 0 0 1.29 6.63l3.98 3.09C6.22 6.87 8.87 4.75 12 4.75z"/></svg>' },
 ];
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Réglages — Admin La Molisana</title>
+    <title>{"Réglages — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -440,8 +441,8 @@ const LNK = [
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Réglages</h1>
 
         <div class="tabs" id="tabs" role="tablist">
-          <button type="button" data-t="general">Général</button>
-          <button type="button" data-t="horaire" class="is-active">Horaire</button>
+          <button type="button" data-t="general" class="is-active">Général</button>
+          <button type="button" data-t="horaire">Horaire</button>
           <button type="button" data-t="reservations">Réservations</button>
           <button type="button" data-t="cuisine">Cuisine</button>
           <button type="button" data-t="liens">Liens</button>
@@ -450,8 +451,8 @@ const LNK = [
 
         <div class="state" id="state">Chargement…</div>
 
-        <div id="content" style="display:none" data-tab="horaire">
-          <div class="section" data-tab="general" style="display:none">
+        <div id="content" style="display:none" data-tab="general">
+          <div class="section" data-tab="general">
             <h2>Informations générales</h2>
             <div class="field">
               <label for="g-name">Nom de la société</label>
@@ -484,7 +485,7 @@ const LNK = [
             </div>
             <div class="field">
               <label for="g-email">Email publique</label>
-              <input type="email" id="g-email" placeholder="pizzeria@lamolisana.be" />
+              <input type="email" id="g-email" placeholder="info@restaurant.be" />
             </div>
             <div class="field field-emails">
               <label>Emails du formulaire de contact<span class="lab-hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</span></label>
@@ -495,7 +496,7 @@ const LNK = [
             </div>
             <div class="field" style="margin-top:1.2rem">
               <label for="g-nlfrom">Email expéditeur newsletter<span class="lab-hint">Doit appartenir au domaine vérifié sur Resend.</span></label>
-              <input type="email" id="g-nlfrom" placeholder="pizzeria@lamolisana.be" />
+              <input type="email" id="g-nlfrom" placeholder="info@restaurant.be" />
             </div>
             <div class="field">
               <label for="g-wa">Numéro WhatsApp<span class="lab-hint">Réservé à la future intégration WhatsApp.</span></label>
@@ -503,12 +504,12 @@ const LNK = [
             </div>
           </div>
 
-          <div class="section" data-tab="horaire">
+          <div class="section" data-tab="horaire" style="display:none">
             <h2>Horaires d'ouverture (take-away)</h2>
             <div id="days"></div>
           </div>
 
-          <div class="section" data-tab="horaire">
+          <div class="section" data-tab="horaire" style="display:none">
             <h2>Jours spéciaux</h2>
             <div class="sp-list" id="sp-list"></div>
             <div class="sp-add">
@@ -566,15 +567,15 @@ const LNK = [
             </div>
             <div class="field" style="margin-top:1.2rem">
               <label for="r-from">Email expéditeur (confirmations clients)</label>
-              <input type="email" id="r-from" placeholder="pizzeria@lamolisana.be" />
+              <input type="email" id="r-from" placeholder="info@restaurant.be" />
             </div>
             <div class="field">
               <label for="r-notify">Email de réception des demandes</label>
-              <input type="email" id="r-notify" placeholder="pizzeria@lamolisana.be" />
+              <input type="email" id="r-notify" placeholder="info@restaurant.be" />
             </div>
           </div>
 
-          <div class="section" data-tab="cuisine">
+          <div class="section" data-tab="cuisine" style="display:none">
             <h2>Cuisine</h2>
             <div class="field">
               <label for="prep">Temps de préparation (min)</label>
@@ -782,7 +783,7 @@ const LNK = [
           const riga = document.createElement("div");
           riga.className = "kemail-row";
           riga.innerHTML =
-            '<input type="email" placeholder="cuisine@lamolisana.be" />' +
+            '<input type="email" placeholder="cuisine@restaurant.be" />' +
             '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
@@ -831,7 +832,7 @@ const LNK = [
           const riga = document.createElement("div");
           riga.className = "kemail-row";
           riga.innerHTML =
-            '<input type="email" placeholder="pizzeria@lamolisana.be" />' +
+            '<input type="email" placeholder="info@restaurant.be" />' +
             '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
@@ -1725,12 +1726,14 @@ const LNK = [
 
   tabBtns.forEach((b) => b.addEventListener("click", () => mostraTab(b.dataset.t ?? "horaire")));
 
+  let tabIniziale = "general";
   try {
     const salvato = sessionStorage.getItem(TAB_KEY);
-    if (salvato && tabBtns.some((b) => b.dataset.t === salvato)) mostraTab(salvato);
+    if (salvato && tabBtns.some((b) => b.dataset.t === salvato)) tabIniziale = salvato;
   } catch {
     /* niente ripristino */
   }
+  mostraTab(tabIniziale);
 </script>
   </body>
 </html>

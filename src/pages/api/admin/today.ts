@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { configGiornoEffettiva } from "../../../lib/schedule";
 import { TIMEZONE } from "../../../lib/slots";
 

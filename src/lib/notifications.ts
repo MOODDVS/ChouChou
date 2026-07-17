@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
+import { datiRistorante } from "./ristorante";
+import { CLIENT } from "../config/client";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -11,7 +13,6 @@ const BCC = "enquiries@moodd.online";
 // URL pubblico del sito (per il logo nell'email cliente).
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
-const TEL = "+32455131465";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
@@ -118,6 +119,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   const t = TXT[o.lang === "en" ? "en" : "fr"];
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
+  const dati = await datiRistorante();
 
   const righeHtml = piatti
     .map(
@@ -138,8 +140,8 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">LA MOLISANA — PIZZA &amp; PASTA</p>
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
@@ -173,12 +175,12 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${TEL}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · pizzeria@lamolisana.be</p>
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -325,7 +327,7 @@ const TXT_REVIEW = {
       `Nous espérons que vous vous êtes régalé.<br>` +
       `Un petit avis de votre part nous aide énormément&nbsp;— cela ne prend qu'une minute.`,
     btn: "Laisser un avis Google",
-    sign: "À très bientôt,<br>La famille de La Molisana",
+    sign: CLIENT.firma.fr,
   },
   en: {
     subject: (name: string) => `${name}, your feedback means a lot ⭐`,
@@ -335,7 +337,7 @@ const TXT_REVIEW = {
       `We hope you enjoyed it.<br>` +
       `A quick review helps us enormously&nbsp;— it only takes a minute.`,
     btn: "Leave a Google review",
-    sign: "See you soon,<br>The La Molisana family",
+    sign: CLIENT.firma.en,
   },
 } as const;
 
@@ -347,6 +349,7 @@ const TXT_REVIEW = {
  */
 async function emailReview(o: OrdineNotifica): Promise<void> {
   if (!resend || !RESEND_FROM) return;
+  const dati = await datiRistorante();
 
   // Link recensione dall'admin: senza link, niente email.
   let reviewUrl = "";
@@ -376,8 +379,8 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">LA MOLISANA — PIZZA &amp; PASTA</p>
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
@@ -404,7 +407,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
       </tr>
       <tr>
         <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · pizzeria@lamolisana.be</p>
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>

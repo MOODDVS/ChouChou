@@ -7,13 +7,15 @@
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Marketing — Admin La Molisana</title>
+    <title>{"Marketing — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -356,6 +358,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         <div class="f-row f-row--img">
           <input type="text" class="f-input" id="f-img" placeholder="https://… ou téléversez un fichier →" />
           <button class="pill" id="f-upload" type="button">Téléverser</button>
+          <button class="pill" id="f-lib" type="button">Bibliothèque</button>
           <input type="file" id="f-file" accept="image/*" style="display:none" />
         </div>
         <p class="f-hint" id="f-upload-state"></p>
@@ -371,12 +374,14 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
           <div class="f-row">
             <input type="text" class="f-input" id="f-b1l" placeholder="Label — ex. Réserver" />
             <input type="text" class="f-input" id="f-b1u" placeholder="Lien — https://…, /order ou #reserver" />
+            <button class="pill asset-pick" type="button" data-target="f-b1u" title="Choisir un asset (image ou PDF)">Assets</button>
           </div>
 
           <label class="f-lab">Bouton 2 (facultatif)</label>
           <div class="f-row">
             <input type="text" class="f-input" id="f-b2l" placeholder="Label" />
             <input type="text" class="f-input" id="f-b2u" placeholder="Lien" />
+            <button class="pill asset-pick" type="button" data-target="f-b2u" title="Choisir un asset (image ou PDF)">Assets</button>
           </div>
           <p class="f-hint">Astuce&nbsp;: le lien <strong>#reserver</strong> ouvre le module de réservation.</p>
         </div>
@@ -485,6 +490,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         <div class="f-row f-row--img">
           <input type="text" class="f-input" id="n-img" placeholder="https://… ou téléversez un fichier →" />
           <button class="pill" id="n-upload" type="button">Téléverser</button>
+          <button class="pill" id="n-lib" type="button">Bibliothèque</button>
           <input type="file" id="n-file" accept="image/*" style="display:none" />
         </div>
         <p class="f-hint" id="n-upload-state"></p>
@@ -493,6 +499,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         <div class="f-row">
           <input type="text" class="f-input" id="n-btnl" placeholder="Label — ex. Voir le menu" />
           <input type="text" class="f-input" id="n-btnu" placeholder="Lien — https://…" />
+          <button class="pill asset-pick" type="button" data-target="n-btnu" title="Choisir un asset (image ou PDF)">Assets</button>
         </div>
 
         <div class="m-foot">
@@ -612,10 +619,13 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 
     <div class="toast" id="toast"></div>
 
+    <ImagePicker />
+
     <AdminNav current="marketing" />
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { comprimiFoto } from "../../lib/admin/imageCompress";
 
       type Popup = {
         id: string;
@@ -1024,23 +1034,25 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         fFile.addEventListener("change", async () => {
           const file = fFile.files?.[0];
           if (!file) return;
-          if (file.size > 4 * 1024 * 1024) {
-            fUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
-            return;
-          }
           fUpload.disabled = true;
-          fUploadState.textContent = "Téléversement…";
+          fUploadState.textContent = "Compression…";
           try {
+            const foto = await comprimiFoto(file);
+            if (foto.size > 4 * 1024 * 1024) {
+              fUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+              return;
+            }
+            fUploadState.textContent = "Téléversement…";
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
               r.onload = () => res(String(r.result).split(",")[1] ?? "");
               r.onerror = () => rej(new Error());
-              r.readAsDataURL(file);
+              r.readAsDataURL(foto);
             });
             const resp = await fetch("/api/admin/upload", {
               method: "POST",
               headers,
-              body: JSON.stringify({ filename: file.name, data: base64 }),
+              body: JSON.stringify({ filename: foto.name, data: base64 }),
             });
             const j = await resp.json();
             if (!resp.ok) {
@@ -1266,23 +1278,25 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         nFile.addEventListener("change", async () => {
           const file = nFile.files?.[0];
           if (!file) return;
-          if (file.size > 4 * 1024 * 1024) {
-            nUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
-            return;
-          }
           nUpload.disabled = true;
-          nUploadState.textContent = "Téléversement…";
+          nUploadState.textContent = "Compression…";
           try {
+            const foto = await comprimiFoto(file);
+            if (foto.size > 4 * 1024 * 1024) {
+              nUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+              return;
+            }
+            nUploadState.textContent = "Téléversement…";
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
               r.onload = () => res(String(r.result).split(",")[1] ?? "");
               r.onerror = () => rej(new Error());
-              r.readAsDataURL(file);
+              r.readAsDataURL(foto);
             });
             const resp = await fetch("/api/admin/upload", {
               method: "POST",
               headers,
-              body: JSON.stringify({ filename: file.name, data: base64 }),
+              body: JSON.stringify({ filename: foto.name, data: base64 }),
             });
             const j = await resp.json();
             if (!resp.ok) {
@@ -1297,6 +1311,29 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
             nUpload.disabled = false;
             nFile.value = "";
           }
+        });
+
+        // ---------- Bibliothèque : riusa un'immagine già caricata ----------
+        let pickTarget: HTMLInputElement | null = null;
+        (document.getElementById("f-lib") as HTMLButtonElement).addEventListener("click", () => {
+          pickTarget = fImg;
+          window.dispatchEvent(new CustomEvent("imgpick:open"));
+        });
+        (document.getElementById("n-lib") as HTMLButtonElement).addEventListener("click", () => {
+          pickTarget = nImg;
+          window.dispatchEvent(new CustomEvent("imgpick:open"));
+        });
+        window.addEventListener("imgpick:pick", (e) => {
+          if (!pickTarget) return;
+          pickTarget.value = (e as CustomEvent<{ url: string }>).detail.url;
+          pickTarget = null;
+        });
+        // Campi "lien": scegli un asset (immagine O documento) e incolla l'URL
+        document.querySelectorAll<HTMLButtonElement>(".asset-pick").forEach((b) => {
+          b.addEventListener("click", () => {
+            pickTarget = document.getElementById(b.dataset.target ?? "") as HTMLInputElement;
+            window.dispatchEvent(new CustomEvent("imgpick:open", { detail: { mode: "link" } }));
+          });
         });
 
         // Test: una sola email al proprio indirizzo

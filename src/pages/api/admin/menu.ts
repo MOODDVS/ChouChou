@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
 
 const SELECT =
-  "id, category, category_order, sort_order, name, description_fr, description_en, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
 
 /** Ordine della sezione (menu_categories); null se la sezione non esiste. */
 async function ordineCategoria(nome: string): Promise<number | null> {
@@ -67,6 +67,11 @@ function validaCampi(
   if ("description_en" in body) {
     const v = String(body.description_en ?? "").trim();
     campi.description_en = v ? v.slice(0, 500) : null;
+  }
+  if ("image_url" in body) {
+    const v = String(body.image_url ?? "").trim();
+    if (v && !/^https:\/\/\S+$/i.test(v)) return { errore: "Photo invalide" };
+    campi.image_url = v ? v.slice(0, 500) : null;
   }
   if ("allergens" in body) {
     const arr = body.allergens;

@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "./db";
+import { supabaseAdmin } from "../db";
 import { DateTime } from "luxon";
 
 /**

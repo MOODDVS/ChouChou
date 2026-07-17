@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { normalizzaCodice } from "../../../lib/coupons";
 
 export const prerender = false;

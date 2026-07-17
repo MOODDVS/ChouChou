@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./db";
+import { CLIENT } from "../config/client";
 import { cacheOr } from "./cache";
 
 /**
@@ -42,11 +43,8 @@ const SOCIAL: { k: string; label: string; icon: string }[] = [
   },
 ];
 
-// Fallback usato SOLO se il DB non risponde: i profili noti del ristorante.
-const FALLBACK: Record<string, string> = {
-  facebook: "https://www.facebook.com/pizzerialamolisana",
-  instagram: "https://www.instagram.com/pizzeria.lamolisana/",
-};
+// Fallback usato SOLO se il DB non risponde (configurato per cliente).
+const FALLBACK: Record<string, string> = CLIENT.socialFallback;
 
 /** I social con URL compilato nell'admin, nell'ordine FB/IG/TikTok/LinkedIn/X.
  *  Cache 60s: Header + Footer + pagine non rifanno la query a ogni render. */

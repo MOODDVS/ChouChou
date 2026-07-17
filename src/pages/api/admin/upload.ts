@@ -1,13 +1,14 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
 
 // POST /api/admin/upload — carica un'immagine su Supabase Storage
-// (bucket pubblico `popups`) e ritorna l'URL pubblico.
-// Corpo JSON: { filename: "foto.webp", data: "<base64 senza prefisso>" }
-// Usato dal modale pop-up (Marketing) per il campo Image.
+// e ritorna l'URL pubblico.
+// Corpo JSON: { filename: "foto.webp", data: "<base64 senza prefisso>",
+//               bucket?: "popups" | "menu" | "documents" } (default: popups)
+// Usato dal modale pop-up (Marketing) e dal modale piatto (Menu).
 
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const TIPI: Record<string, string> = {
@@ -17,6 +18,7 @@ const TIPI: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif",
   svg: "image/svg+xml",
+  pdf: "application/pdf",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -30,18 +32,25 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { filename?: string; data?: string };
+  let body: { filename?: string; data?: string; bucket?: string };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
   }
 
+  // Bucket di destinazione: solo quelli previsti (mai libero dal client)
+  const bucket = body.bucket === "menu" || body.bucket === "documents" ? body.bucket : "popups";
+
   const filename = (body.filename ?? "").trim();
   const estensione = filename.split(".").pop()?.toLowerCase() ?? "";
   const contentType = TIPI[estensione];
   if (!contentType) {
-    return json({ error: "Format non supporté (jpg, png, webp, gif, svg)" }, 400);
+    return json({ error: "Format non supporté (jpg, png, webp, gif, svg, pdf)" }, 400);
+  }
+  // I PDF vanno SOLO nel bucket documents (e viceversa)
+  if ((contentType === "application/pdf") !== (bucket === "documents")) {
+    return json({ error: "Format et destination incohérents" }, 400);
   }
 
   let bytes: Buffer;
@@ -51,7 +60,10 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Fichier illisible" }, 400);
   }
   if (bytes.length === 0) return json({ error: "Fichier vide" }, 400);
-  if (bytes.length > MAX_BYTES) return json({ error: "Fichier trop lourd (max 4 Mo)" }, 400);
+  const maxBytes = bucket === "documents" ? 10 * 1024 * 1024 : MAX_BYTES;
+  if (bytes.length > maxBytes) {
+    return json({ error: bucket === "documents" ? "Fichier trop lourd (max 10 Mo)" : "Fichier trop lourd (max 4 Mo)" }, 400);
+  }
 
   // Nome unico: timestamp + nome pulito (niente collisioni, niente caratteri strani)
   const pulito = filename
@@ -62,10 +74,10 @@ export const POST: APIRoute = async ({ request }) => {
   const path = `${Date.now()}-${pulito}`;
 
   const { error } = await supabaseAdmin.storage
-    .from("popups")
+    .from(bucket)
     .upload(path, bytes, { contentType, upsert: false });
   if (error) return json({ error: "Téléversement impossible" }, 500);
 
-  const { data } = supabaseAdmin.storage.from("popups").getPublicUrl(path);
+  const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(path);
   return json({ ok: true, url: data.publicUrl }, 201);
 };

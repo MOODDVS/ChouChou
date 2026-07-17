@@ -1,10 +1,12 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../lib/db";
+import { datiRistorante } from "../../lib/ristorante";
+import { CLIENT } from "../../config/client";
 import { Resend } from "resend";
 
 const resend = new Resend(import.meta.env.RESEND_API_KEY);
-const FROM = "La Molisana <info@lamolisana.be>";
-const TO_FALLBACK = "pizzeria@lamolisana.be";
+const FROM = import.meta.env.RESEND_FROM ?? `${CLIENT.nome} <${CLIENT.email}>`;
+const TO_FALLBACK = CLIENT.email;
 
 /** Destinatari del form: admin Réglages → Général → "Emails du formulaire
  *  de contact" (fallback sull'indirizzo storico se non impostato). */
@@ -27,14 +29,13 @@ const BCC = "enquiries@moodd.online";
 // URL pubblico del sito (per il logo nell'email). In locale: http://localhost:4321
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const LOGO_URL = `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
-const TEL = "+32455131465";
 
 type Lang = "fr" | "en";
 
 // Testi dell'email al cliente, nelle due lingue.
 const T = {
   fr: {
-    subject: "Merci pour votre message — La Molisana",
+    subject: `Merci pour votre message — ${CLIENT.nome}`,
     title: "Merci !",
     intro: (p: string) =>
       `Bonjour ${p},<br>nous avons bien reçu votre message et nous vous répondrons dans les plus brefs délais.`,
@@ -43,7 +44,7 @@ const T = {
     callBtn: "Nous appeler",
   },
   en: {
-    subject: "Thank you for your message — La Molisana",
+    subject: `Thank you for your message — ${CLIENT.nome}`,
     title: "Thank you!",
     intro: (p: string) =>
       `Hello ${p},<br>we have received your message and will get back to you as soon as possible.`,
@@ -85,10 +86,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Prénom per il saluto (prima parola del nome).
   const prenom = nome.split(/\s+/)[0] || nome;
+  const dati = await datiRistorante();
 
   // --- Email al ristorante (interna, sempre in francese) ---
   const htmlRistorante = `
-    <h2>Nouveau message — site La Molisana</h2>
+    <h2>Nouveau message — site ${esc(dati.nome)}</h2>
     <p><strong>Nom :</strong> ${esc(nome)}</p>
     <p><strong>Email :</strong> ${esc(email)}</p>
     <p><strong>Téléphone :</strong> ${esc(telefono) || "—"}</p>
@@ -104,8 +106,8 @@ export const POST: APIRoute = async ({ request }) => {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
         <td style="padding:40px 40px 24px;text-align:center;">
-          <img src="${LOGO_URL}" alt="La Molisana" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:18px 0 0;color:#b3aca6;font-size:11px;letter-spacing:4px;">LA MOLISANA · PIZZA &amp; PASTA</p>
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:18px 0 0;color:#b3aca6;font-size:11px;letter-spacing:4px;">${esc((dati.nome + " · " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
@@ -131,12 +133,12 @@ export const POST: APIRoute = async ({ request }) => {
       </tr>
       <tr>
         <td style="padding:0 40px 40px;text-align:center;">
-          <a href="tel:${TEL}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.callBtn}</a>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">Av. Adolphe Demeur 37, 1060 Saint-Gilles — Bruxelles<br>+32 455 13 14 65 · info@lamolisana.be</p>
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -150,7 +152,7 @@ export const POST: APIRoute = async ({ request }) => {
       to: await destinatariContact(),
       bcc: BCC,
       replyTo: email,
-      subject: oggetto ? `Contact site : ${oggetto}` : "Nouveau message — site La Molisana",
+      subject: oggetto ? `Contact site : ${oggetto}` : `Nouveau message — site ${CLIENT.nome}`,
       html: htmlRistorante,
     });
     if (errR) {

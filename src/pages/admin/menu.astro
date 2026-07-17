@@ -5,13 +5,15 @@
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Menu — Admin La Molisana</title>
+    <title>{"Menu — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -108,6 +110,15 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
       }
       .item.is-hidden-item { opacity: 0.55; }
+      .i-thumb {
+        width: 44px; height: 44px; flex-shrink: 0; border-radius: 8px;
+        object-fit: cover; border: 1px solid var(--c-line); display: block;
+      }
+      .i-thumb--ph {
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255, 255, 255, 0.04); color: var(--c-muted);
+      }
+      .ph-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
       .i-main { flex: 1; min-width: 0; }
       .i-name { font-weight: 700; }
       .i-badges { display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; }
@@ -179,6 +190,15 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
       .alg-item input { accent-color: var(--c-accent); width: 16px; height: 16px; flex-shrink: 0; }
       .alg-num { color: var(--c-muted); font-size: 0.72rem; min-width: 1.2rem; }
 
+      .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+      .f-img-prev {
+        width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
+        border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
+        display: flex; align-items: center; justify-content: center; color: var(--c-muted);
+      }
+      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .f-img-btn { font-size: 0.95rem; padding: 0.45rem 1.2rem; }
+
       .m-toggles { display: flex; gap: 2rem; margin: 0.4rem 0 1.2rem; }
       .m-toggle { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
       .m-toggle .switch { width: 44px; height: 24px; }
@@ -248,7 +268,8 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
           align-items: center;
         }
         .i-drag { grid-column: 1; grid-row: 1; align-self: start; }
-        .i-main { grid-column: 2 / 4; grid-row: 1; }
+        .i-thumb { grid-column: 2; grid-row: 1; width: 40px; height: 40px; align-self: start; }
+        .i-main { grid-column: 3; grid-row: 1; }
         .i-desc { white-space: normal; margin-top: 0.2rem; }
         .i-edit { grid-column: 4; grid-row: 1; align-self: start; justify-self: end; }
         .i-price { grid-column: 2; grid-row: 2; justify-self: start; margin-right: 0; }
@@ -308,6 +329,19 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
           <div class="f-field" style="flex: 2">
             <span class="f-label">Section *</span>
             <select id="f-cat"></select>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Photo (optionnelle)</span>
+            <div class="f-img-row">
+              <span class="f-img-prev" id="f-img-prev"></span>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">Téléverser une photo</button>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">Bibliothèque</button>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">Retirer</button>
+              <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+              <span class="f-label" id="f-img-state"></span>
+            </div>
           </div>
         </div>
         <div class="f-row">
@@ -404,10 +438,13 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 
     <div class="toast" id="toast"></div>
 
+    <ImagePicker />
+
     <AdminNav current="menu" />
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { comprimiFoto } from "../../lib/admin/imageCompress";
 
       type Item = {
         id: string; category: string; category_order: number; sort_order: number;
@@ -415,6 +452,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean;
+        image_url: string | null;
       };
       type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
 
@@ -433,6 +471,8 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 
       const ICO_TRASH =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
+      const ICO_IMG =
+        '<svg class="ph-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>';
 
       let items: Item[] = [];
       let cats: Cat[] = [];
@@ -495,9 +535,13 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
         const alg = it.allergens?.length ? `<span class="i-alg">Alg. ${it.allergens.join(",")}</span>` : "";
         const dim = !it.available ? " is-hidden-item" : "";
+        const thumb = it.image_url
+          ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
+          : `<span class="i-thumb i-thumb--ph" title="Pas de photo">${ICO_IMG}</span>`;
         return `
           <div class="item${dim}" data-id="${it.id}">
             <span class="i-btn i-drag" title="Glisser pour réordonner">⠿</span>
+            ${thumb}
             <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
@@ -604,6 +648,60 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
       const fSpicy = document.getElementById("f-spicy") as HTMLInputElement;
       const fSuggestion = document.getElementById("f-suggestion") as HTMLInputElement;
       const mSave = document.getElementById("m-save") as HTMLButtonElement;
+      const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
+      const fImgUp = document.getElementById("f-img-up") as HTMLButtonElement;
+      const fImgDel = document.getElementById("f-img-del") as HTMLButtonElement;
+      const fImgFile = document.getElementById("f-img-file") as HTMLInputElement;
+      const fImgState = document.getElementById("f-img-state") as HTMLSpanElement;
+      let imgUrl: string | null = null;
+
+      function renderFotoPrev() {
+        fImgPrev.innerHTML = imgUrl ? `<img src="${esc(imgUrl)}" alt="" />` : ICO_IMG;
+        fImgDel.style.display = imgUrl ? "" : "none";
+      }
+      fImgUp.addEventListener("click", () => fImgFile.click());
+      fImgDel.addEventListener("click", () => { imgUrl = null; renderFotoPrev(); });
+      (document.getElementById("f-img-lib") as HTMLButtonElement).addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("imgpick:open"));
+      });
+      window.addEventListener("imgpick:pick", (e) => {
+        if (!overlay.classList.contains("is-open")) return; // modale piatto chiuso
+        imgUrl = (e as CustomEvent<{ url: string }>).detail.url;
+        renderFotoPrev();
+        fImgState.textContent = "";
+      });
+      fImgFile.addEventListener("change", async () => {
+        const file = fImgFile.files?.[0];
+        if (!file) return;
+        fImgState.textContent = "Compression…";
+        fImgUp.disabled = true;
+        try {
+          const foto = await comprimiFoto(file);
+          if (foto.size > 4 * 1024 * 1024) throw new Error("Photo trop lourde (max 4 Mo)");
+          fImgState.textContent = "Téléversement…";
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => reject(new Error("Fichier illisible"));
+            r.readAsDataURL(foto);
+          });
+          const res = await fetch("/api/admin/upload", {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: foto.name, data: b64, bucket: "menu" }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+          imgUrl = j.url as string;
+          renderFotoPrev();
+          fImgState.textContent = "";
+        } catch (err) {
+          fImgState.textContent = err instanceof Error ? err.message : "Téléversement impossible.";
+        } finally {
+          fImgUp.disabled = false;
+          fImgFile.value = "";
+        }
+      });
 
       fAlg.innerHTML = ALLERGENI.map(
         ([n, lab]) => `<label class="alg-item"><input type="checkbox" value="${n}" /><span class="alg-num">${n}</span>${lab}</label>`
@@ -635,6 +733,9 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
         fVegan.checked = it?.is_vegan ?? false;
         fSpicy.checked = it?.is_spicy ?? false;
         fSuggestion.checked = it?.is_suggestion ?? false;
+        imgUrl = it?.image_url ?? null;
+        fImgState.textContent = "";
+        renderFotoPrev();
         fAlg.querySelectorAll<HTMLInputElement>("input").forEach((cb) => {
           cb.checked = !!it?.allergens?.includes(Number(cb.value));
         });
@@ -676,6 +777,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
           is_vegan: fVegan.checked,
           is_spicy: fSpicy.checked,
           is_suggestion: fSuggestion.checked,
+          image_url: imgUrl,
           discount_type: fDtype.value || null,
           discount_value: fDtype.value === "fixed"
             ? Math.round(parseFloat(fDval.value.replace(",", ".") || "0") * 100)

@@ -2,13 +2,14 @@
 // Pagina di login dello staff.
 // Standalone: NON usa Layout.astro (niente header/footer/nav del sito pubblico).
 // La logica di autenticazione gira nel browser tramite supabaseBrowser.
+import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Admin — La Molisana</title>
+    <title>{"Admin — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -122,9 +123,9 @@
   </head>
   <body>
     <div class="box">
-      <img class="logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
+      <img class="logo" src={CLIENT.logoLogin} alt={CLIENT.nome} />
       <h1>Espace Staff</h1>
-      <p class="subtitle">La Molisana — Administration</p>
+      <p class="subtitle">{CLIENT.nome + " — Administration"}</p>
 
       <div class="error" id="error"></div>
 

@@ -1,11 +1,12 @@
 ---
 // Header condiviso delle pagine admin (dashboard, ordini).
+import { CLIENT } from "../../config/client";
 ---
 
 <header class="ah-header">
   <div class="ah-left">
-    <a href="/admin" class="ah-brand" aria-label="La Molisana — Accueil">
-      <img src="/SVG/favLa-Molisana-.svg" alt="La Molisana" />
+    <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
+      <img src={CLIENT.logoAdmin} alt={CLIENT.nome} />
     </a>
     <div class="ah-date">
       <svg class="ah-date-ico" viewBox="0 0 24 24" aria-hidden="true">

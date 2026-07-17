@@ -1,0 +1,916 @@
+---
+// Pannello admin — IMAGES : bibliothèque di tutte le immagini caricate
+// nei bucket Storage (`menu` = foto dei piatti, `popups` = pop-up e
+// newsletter). Filtro per origine, copia dell'URL, eliminazione con
+// doppia conferma (bloccata se l'immagine è ancora utilizzata).
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
+import { CLIENT } from "../../config/client";
+---
+
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{"Assets — Admin " + CLIENT.nome}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#231f20" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-bg: #231f20;
+        --c-text: #ffffff;
+        --c-accent: #dfab4e;
+        --c-muted: #b3aca6;
+        --c-line: #3a3335;
+        --c-card: #362c28;
+        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
+      .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+      .spacer { flex: 1; }
+      .pill { font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+      .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
+      .add-btn:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
+      .add-btn:disabled { cursor: not-allowed; }
+
+      /* --- Tabs origine --- */
+      .tabs { display: flex; gap: 0.4rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
+      .tab {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.1rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
+
+      .tabs-sub { border-bottom: none; padding-bottom: 0; margin-bottom: 1.25rem; }
+      .tabs-sub .tab { font-size: 0.9rem; padding: 0.35rem 0.95rem; }
+
+      /* --- Card documenti (PDF) --- */
+      .card-pdf-ph {
+        width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        color: var(--c-muted); background: rgba(255, 255, 255, 0.04);
+      }
+      .card-pdf-ph svg { width: 42px; height: 42px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+      .card-img .card-pdf-thumb { object-position: top; }
+
+      /* --- Griglia immagini --- */
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; }
+      .card {
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        display: flex; flex-direction: column;
+      }
+      .card-img { display: block; }
+      .card-img img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+      .card-body { padding: 0.6rem 0.75rem 0.2rem; flex: 1; }
+      .card-name { font-size: 0.72rem; color: var(--c-muted); word-break: break-all; line-height: 1.4; }
+      .card-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
+      .tag {
+        font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em;
+        padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
+      }
+      .tag-b { border: 1px solid var(--c-accent); color: var(--c-accent); }
+      .tag-l { border: 1px solid var(--c-line); color: var(--c-muted); }
+      .tag-u { background: var(--c-accent); color: #231f20; font-weight: 700; cursor: help; }
+      .meta-txt { font-size: 0.68rem; color: var(--c-muted); white-space: nowrap; }
+      .card-date { font-size: 0.68rem; color: var(--c-muted); margin-top: 0.35rem; }
+      .card-actions { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.75rem 0.75rem; }
+      .card-actions .spacer { flex: 1; }
+
+      .i-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-text);
+        cursor: pointer; border-radius: 50%; font-size: 0.95rem;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .i-btn:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+      .i-btn .k-ico {
+        width: 15px; height: 15px; fill: none; stroke: currentColor;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
+      .i-del:hover:not(:disabled) { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
+
+      /* --- Modale édition --- */
+      .overlay {
+        position: fixed; inset: 0; z-index: 300; display: none;
+        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        align-items: center; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
+      }
+      .overlay.is-open { display: flex; }
+      .modal { width: 100%; max-width: 460px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
+      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close:hover { color: var(--c-text); }
+      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.3rem; }
+      .ed-prev {
+        border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
+        display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; min-height: 90px;
+      }
+      .ed-prev img { max-width: 100%; max-height: 180px; display: block; }
+      .ed-meta { color: var(--c-muted); font-size: 0.78rem; margin-bottom: 1rem; }
+      .ed-name-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+      .ed-name-row input {
+        flex: 1; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0; min-width: 0;
+      }
+      .ed-name-row input:focus { outline: none; border-color: var(--c-accent); }
+      .ed-ext { color: var(--c-muted); font-size: 0.9rem; }
+      .ed-compress {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.5rem 1.4rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.15s, color 0.15s;
+      }
+      .ed-compress:hover:not(:disabled) { background: var(--c-accent); color: #231f20; }
+      .ed-compress:disabled { opacity: 0.5; cursor: not-allowed; }
+      .ed-state { color: var(--c-muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.1em; }
+      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 1.4rem; }
+      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
+      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
+      .m-save {
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
+        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
+        transition: background 0.2s, color 0.2s;
+      }
+      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
+      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
+      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
+      .is-loading::after {
+        content: ""; position: absolute; inset: 0; margin: auto;
+        width: 18px; height: 18px; border-radius: 50%;
+        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        animation: btnspin 0.7s linear infinite;
+      }
+      @keyframes btnspin { to { transform: rotate(360deg); } }
+
+      /* Toast */
+      .toast {
+        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
+        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
+      }
+      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.err { border-color: #a3320f; color: #ff8a8f; }
+
+      @media (max-width: 640px) {
+        main { padding: 1.5rem 1rem 8rem; }
+        .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <div class="topbar">
+          <h1>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+              <polyline points="2 17 12 22 22 17" />
+              <polyline points="2 12 12 17 22 12" />
+            </svg>
+            Assets
+          </h1>
+          <span class="spacer"></span>
+          <button class="pill add-btn" id="add-btn">+ Ajouter une image</button>
+          <input type="file" id="add-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+          <button class="pill add-btn" id="add-doc-btn" style="display:none">+ Ajouter un document</button>
+          <input type="file" id="add-doc-file" accept=".pdf" style="display:none" />
+        </div>
+        <div class="tabs" id="main-tabs">
+          <button class="tab is-active" data-t="images">Images</button>
+          <button class="tab" data-t="documents">Documents</button>
+        </div>
+
+        <section data-tab="images">
+        <div class="tabs tabs-sub" id="tabs">
+          <button class="tab is-active" data-b="">Toutes<span class="n" id="n-all"></span></button>
+          <button class="tab" data-b="menu">Menu<span class="n" id="n-menu"></span></button>
+          <button class="tab" data-b="marketing">Marketing<span class="n" id="n-pop"></span></button>
+          <button class="tab" data-b="libre">Libres<span class="n" id="n-lib"></span></button>
+        </div>
+        <div class="state" id="state">Chargement…</div>
+        <div class="grid" id="grid" style="display:none"></div>
+        </section>
+
+        <section data-tab="documents" style="display:none">
+          <div class="state" id="doc-state">Chargement…</div>
+          <div class="grid" id="doc-grid" style="display:none"></div>
+        </section>
+      </main>
+      <AdminFooter />
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- Modale édition image -->
+    <div class="overlay" id="ed-overlay">
+      <div class="modal">
+        <button class="m-close" id="ed-close" aria-label="Fermer">×</button>
+        <h2 id="ed-title">Modifier l’image</h2>
+        <div class="ed-prev"><img id="ed-img" alt="" /></div>
+        <div class="ed-meta" id="ed-meta"></div>
+        <span class="f-label">Nom du fichier</span>
+        <div class="ed-name-row">
+          <input type="text" id="ed-name" maxlength="70" />
+          <span class="ed-ext" id="ed-ext"></span>
+        </div>
+        <button type="button" class="ed-compress" id="ed-compress">Compresser en WebP 60%</button>
+        <p class="ed-state" id="ed-state"></p>
+        <div class="m-actions">
+          <span class="m-msg" id="ed-msg"></span>
+          <button class="m-cancel" id="ed-cancel">Annuler</button>
+          <button class="m-save" id="ed-save">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <AdminNav current="assets" />
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { comprimiFoto } from "../../lib/admin/imageCompress";
+
+      type Img = {
+        bucket: "menu" | "popups";
+        name: string;
+        url: string;
+        size: number;
+        created_at: string;
+        used_by: string[];
+        tags: ("menu" | "marketing")[];
+      };
+
+      const ICO_TRASH =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
+      const ICO_COPY =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>';
+
+      const ICO_PDF =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>';
+
+      type Doc = { name: string; url: string; thumb_url: string | null; size: number; created_at: string };
+      let docs: Doc[] = [];
+      let imgs: Img[] = [];
+      let filtro = "";
+      let headers: Record<string, string> = {};
+
+      function esc(s: string): string {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+      function peso(bytes: number): string {
+        if (!bytes) return "";
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} Ko`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+      }
+      function dataFr(iso: string): string {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return isNaN(d.getTime()) ? "" : d.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" });
+      }
+
+      const toastEl = document.getElementById("toast") as HTMLDivElement;
+      let toastTimer: number | undefined;
+      function toast(msg: string, err = false) {
+        toastEl.textContent = msg;
+        toastEl.className = "toast show" + (err ? " err" : "");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 3000);
+      }
+
+      const gridEl = document.getElementById("grid") as HTMLDivElement;
+      const stateEl = document.getElementById("state") as HTMLDivElement;
+      const tabsEl = document.getElementById("tabs") as HTMLDivElement;
+
+      function cardHTML(i: Img): string {
+        const usata = i.used_by.length > 0;
+        const tagsB = i.tags.length
+          ? i.tags.map((t) => `<span class="tag tag-b">${t === "menu" ? "Menu" : "Marketing"}</span>`).join("")
+          : '<span class="tag tag-l">Libre</span>';
+        const tagU = usata
+          ? `<span class="tag tag-u" title="${esc(i.used_by.join(", "))}">Utilisée</span>`
+          : "";
+        const del = usata
+          ? `<button class="i-btn i-del a-del" disabled title="Utilisée — impossible à supprimer">${ICO_TRASH}</button>`
+          : `<button class="i-btn i-del a-del" title="Supprimer">${ICO_TRASH}</button>`;
+        return `
+          <div class="card" data-bucket="${i.bucket}" data-name="${esc(i.name)}" data-url="${esc(i.url)}">
+            <a class="card-img" href="${esc(i.url)}" target="_blank" rel="noopener" title="Ouvrir en grand">
+              <img src="${esc(i.url)}" alt="" loading="lazy" />
+            </a>
+            <div class="card-body">
+              <div class="card-name">${esc(i.name)}</div>
+              <div class="card-meta">
+                ${tagsB}
+                ${tagU}
+                <span class="meta-txt">${peso(i.size)}</span>
+              </div>
+              <div class="card-date">${dataFr(i.created_at)}</div>
+            </div>
+            <div class="card-actions">
+              <button class="i-btn a-copy" title="Copier l'URL">${ICO_COPY}</button>
+              <button class="i-btn a-edit" title="Modifier">✎</button>
+              <span class="spacer"></span>
+              ${del}
+            </div>
+          </div>`;
+      }
+
+      function render() {
+        const nAll = document.getElementById("n-all") as HTMLSpanElement;
+        const nMenu = document.getElementById("n-menu") as HTMLSpanElement;
+        const nPop = document.getElementById("n-pop") as HTMLSpanElement;
+        nAll.textContent = String(imgs.length);
+        nMenu.textContent = String(imgs.filter((i) => i.tags.includes("menu")).length);
+        nPop.textContent = String(imgs.filter((i) => i.tags.includes("marketing")).length);
+        (document.getElementById("n-lib") as HTMLSpanElement).textContent = String(
+          imgs.filter((i) => !i.tags.length).length
+        );
+
+        const vis = !filtro
+          ? imgs
+          : filtro === "libre"
+            ? imgs.filter((i) => !i.tags.length)
+            : imgs.filter((i) => i.tags.includes(filtro as "menu" | "marketing"));
+        if (!vis.length) {
+          gridEl.style.display = "none";
+          stateEl.style.display = "";
+          stateEl.textContent = "Aucune image pour le moment — téléverse une photo depuis Menu ou Marketing.";
+          return;
+        }
+        stateEl.style.display = "none";
+        gridEl.style.display = "";
+        gridEl.innerHTML = vis.map(cardHTML).join("");
+      }
+
+      async function carica() {
+        try {
+          const res = await fetch("/api/admin/images", { headers });
+          if (!res.ok) throw new Error();
+          imgs = ((await res.json()) as { images: Img[] }).images;
+          render();
+        } catch {
+          stateEl.style.display = "";
+          stateEl.textContent = "Erreur de chargement.";
+        }
+      }
+
+      // ---------- Documents (PDF) ----------
+      function renderDocs() {
+        const st = document.getElementById("doc-state") as HTMLDivElement;
+        const grid = document.getElementById("doc-grid") as HTMLDivElement;
+        if (!docs.length) {
+          grid.style.display = "none";
+          st.style.display = "";
+          st.textContent = "Aucun document pour le moment — ajoute un PDF avec le bouton en haut.";
+          return;
+        }
+        st.style.display = "none";
+        grid.style.display = "";
+        grid.innerHTML = docs
+          .map(
+            (d) => `
+          <div class="card" data-name="${esc(d.name)}">
+            <a class="card-img" href="${esc(d.url)}" target="_blank" rel="noopener" title="Ouvrir le PDF">
+              ${d.thumb_url ? `<img class="card-pdf-thumb" src="${esc(d.thumb_url)}" alt="" loading="lazy" />` : `<span class="card-pdf-ph">${ICO_PDF}</span>`}
+            </a>
+            <div class="card-body">
+              <div class="card-name">${esc(d.name)}</div>
+              <div class="card-meta">
+                <span class="tag tag-b">PDF</span>
+                <span class="meta-txt">${peso(d.size)}</span>
+              </div>
+              <div class="card-date">${dataFr(d.created_at)}</div>
+            </div>
+            <div class="card-actions">
+              <button class="i-btn d-copy" title="Copier l'URL">${ICO_COPY}</button>
+              <button class="i-btn d-edit" title="Renommer">✎</button>
+              <span class="spacer"></span>
+              <button class="i-btn i-del d-del" title="Supprimer">${ICO_TRASH}</button>
+            </div>
+          </div>`
+          )
+          .join("");
+      }
+
+      // ---------- Anteprima PDF (prima pagina → webp, generata al caricamento) ----------
+      let pdfjsPromise: Promise<any> | null = null;
+      function caricaPdfjs(): Promise<any> {
+        if (!pdfjsPromise) {
+          pdfjsPromise = new Promise((resolve, reject) => {
+            const sc = document.createElement("script");
+            sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            sc.onload = () => {
+              const lib = (window as any).pdfjsLib;
+              lib.GlobalWorkerOptions.workerSrc =
+                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+              resolve(lib);
+            };
+            sc.onerror = () => reject(new Error("pdf.js indisponible"));
+            document.head.appendChild(sc);
+          });
+        }
+        return pdfjsPromise;
+      }
+
+      async function generaAnteprima(file: File): Promise<string | null> {
+        try {
+          const lib = await caricaPdfjs();
+          const buf = await file.arrayBuffer();
+          const pdf = await lib.getDocument({ data: buf }).promise;
+          const page = await pdf.getPage(1);
+          const vp1 = page.getViewport({ scale: 1 });
+          const vp = page.getViewport({ scale: 480 / vp1.width });
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(vp.width);
+          canvas.height = Math.round(vp.height);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
+          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.7));
+          if (!blob || blob.size > 512 * 1024) return null;
+          return await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => reject(new Error());
+            r.readAsDataURL(blob);
+          });
+        } catch {
+          return null; // PDF protetto o illeggibile: si resta sull'icona
+        }
+      }
+
+      async function caricaDocs() {
+        try {
+          const res = await fetch("/api/admin/documents", { headers });
+          if (!res.ok) throw new Error();
+          docs = ((await res.json()) as { documents: Doc[] }).documents;
+          renderDocs();
+        } catch {
+          const st = document.getElementById("doc-state") as HTMLDivElement;
+          st.style.display = "";
+          st.textContent = "Erreur de chargement.";
+        }
+      }
+
+      // ---------- Modale édition : rinomina + compressione a posteriori ----------
+      const edOverlay = document.getElementById("ed-overlay") as HTMLDivElement;
+      const edImg = document.getElementById("ed-img") as HTMLImageElement;
+      const edMeta = document.getElementById("ed-meta") as HTMLDivElement;
+      const edName = document.getElementById("ed-name") as HTMLInputElement;
+      const edExt = document.getElementById("ed-ext") as HTMLSpanElement;
+      const edCompress = document.getElementById("ed-compress") as HTMLButtonElement;
+      const edState = document.getElementById("ed-state") as HTMLParagraphElement;
+      const edMsg = document.getElementById("ed-msg") as HTMLSpanElement;
+      const edSave = document.getElementById("ed-save") as HTMLButtonElement;
+
+      const edTitle = document.getElementById("ed-title") as HTMLHeadingElement;
+      let edTarget: Img | null = null;
+      let edDoc: Doc | null = null;
+      let edCompressa: File | null = null;
+
+      function spezzaNome(nome: string): { base: string; ext: string } {
+        const i = nome.lastIndexOf(".");
+        return i > 0 ? { base: nome.slice(0, i), ext: nome.slice(i) } : { base: nome, ext: "" };
+      }
+
+      function apriEdit(img: Img) {
+        edTarget = img;
+        edDoc = null;
+        edCompressa = null;
+        edTitle.textContent = "Modifier l'image";
+        (edImg.parentElement as HTMLElement).style.display = "";
+        const { base, ext } = spezzaNome(img.name);
+        edImg.src = img.url;
+        edMeta.textContent = `Poids : ${peso(img.size)} · ${dataFr(img.created_at)}`;
+        edName.value = base;
+        edExt.textContent = ext;
+        edMsg.textContent = "";
+        edState.textContent = "";
+        const giaOttimizzata = ext.toLowerCase() === ".webp" && img.size < 400 * 1024;
+        edCompress.style.display = giaOttimizzata ? "none" : "";
+        edCompress.disabled = false;
+        if (giaOttimizzata) edState.textContent = "Déjà au format WebP et légère — compression inutile.";
+        edOverlay.classList.add("is-open");
+      }
+      function chiudiEdit() {
+        edOverlay.classList.remove("is-open");
+        edTarget = null;
+        edDoc = null;
+        edCompressa = null;
+      }
+
+      function apriEditDoc(d: Doc) {
+        edDoc = d;
+        edTarget = null;
+        edCompressa = null;
+        edTitle.textContent = "Renommer le document";
+        (edImg.parentElement as HTMLElement).style.display = "none";
+        edCompress.style.display = "none";
+        edMeta.textContent = `Poids : ${peso(d.size)} · ${dataFr(d.created_at)}`;
+        edName.value = spezzaNome(d.name).base;
+        edExt.textContent = ".pdf";
+        edMsg.textContent = "";
+        edState.textContent = "";
+        edOverlay.classList.add("is-open");
+      }
+
+      async function salvaDoc() {
+        if (!edDoc) return;
+        edMsg.textContent = "";
+        const base = edName.value.trim();
+        if (!base) {
+          edMsg.textContent = "Nom requis.";
+          return;
+        }
+        const nuovo = base + ".pdf";
+        if (nuovo === edDoc.name) {
+          chiudiEdit();
+          return;
+        }
+        edSave.disabled = true;
+        edSave.classList.add("is-loading");
+        try {
+          const res = await fetch("/api/admin/documents", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ name: edDoc.name, new_name: nuovo }),
+          });
+          const j = await res.json();
+          if (!res.ok) {
+            edMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            return;
+          }
+          chiudiEdit();
+          toast("Document modifié ✓");
+          await caricaDocs();
+        } catch {
+          edMsg.textContent = "Erreur de connexion.";
+        } finally {
+          edSave.disabled = false;
+          edSave.classList.remove("is-loading");
+        }
+      }
+
+      edCompress.addEventListener("click", async () => {
+        if (!edTarget) return;
+        edCompress.disabled = true;
+        edState.textContent = "Compression…";
+        try {
+          const blob = await (await fetch(edTarget.url)).blob();
+          const originale = new File([blob], edTarget.name, { type: blob.type });
+          const ridotta = await comprimiFoto(originale);
+          if (ridotta === originale || ridotta.size >= originale.size) {
+            edState.textContent = "Compression sans gain — l'image est déjà optimisée.";
+            edCompress.disabled = false;
+            return;
+          }
+          edCompressa = ridotta;
+          edImg.src = URL.createObjectURL(ridotta);
+          edExt.textContent = spezzaNome(ridotta.name).ext;
+          const pct = Math.round((1 - ridotta.size / originale.size) * 100);
+          edState.textContent = `${peso(originale.size)} → ${peso(ridotta.size)} (−${pct}%) — enregistre pour appliquer.`;
+        } catch {
+          edState.textContent = "Compression impossible (image illisible).";
+          edCompress.disabled = false;
+        }
+      });
+
+      edSave.addEventListener("click", async () => {
+        if (edDoc) {
+          await salvaDoc();
+          return;
+        }
+        if (!edTarget) return;
+        edMsg.textContent = "";
+        const base = edName.value.trim();
+        if (!base) {
+          edMsg.textContent = "Nom requis.";
+          return;
+        }
+        const { ext } = spezzaNome(edTarget.name);
+        const body: Record<string, unknown> = { bucket: edTarget.bucket, name: edTarget.name };
+        if (edCompressa) {
+          body.new_name = base + spezzaNome(edCompressa.name).ext;
+          body.data = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => reject(new Error());
+            r.readAsDataURL(edCompressa!);
+          });
+        } else {
+          const nuovo = base + ext;
+          if (nuovo === edTarget.name) {
+            chiudiEdit();
+            return; // niente da modificare
+          }
+          body.new_name = nuovo;
+        }
+        edSave.disabled = true;
+        edSave.classList.add("is-loading");
+        try {
+          const res = await fetch("/api/admin/images", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok) {
+            edMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            return;
+          }
+          chiudiEdit();
+          toast("Image modifiée ✓");
+          await carica();
+        } catch {
+          edMsg.textContent = "Erreur de connexion.";
+        } finally {
+          edSave.disabled = false;
+          edSave.classList.remove("is-loading");
+        }
+      });
+
+      (document.getElementById("ed-close") as HTMLButtonElement).addEventListener("click", chiudiEdit);
+      (document.getElementById("ed-cancel") as HTMLButtonElement).addEventListener("click", chiudiEdit);
+      edOverlay.addEventListener("click", (e) => {
+        if (e.target === edOverlay) chiudiEdit();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") chiudiEdit();
+      });
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
+
+        logoutBtn.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        // Sblocco immediato con la sessione locale; getUser() valida in background
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        userEmail.textContent = session.user.email ?? "";
+        app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
+
+        headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
+        await carica();
+        void caricaDocs();
+
+        tabsEl.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+          if (!t) return;
+          filtro = t.dataset.b ?? "";
+          tabsEl.querySelectorAll(".tab").forEach((el) => el.classList.toggle("is-active", el === t));
+          render();
+        });
+
+        // ---------- Ajout libre : immagine senza alcuna correlazione ----------
+        // Il tag Menu/Marketing arriverà da solo quando (e se) verrà usata.
+        const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
+        const addFile = document.getElementById("add-file") as HTMLInputElement;
+        addBtn.addEventListener("click", () => addFile.click());
+        addFile.addEventListener("change", async () => {
+          const file = addFile.files?.[0];
+          if (!file) return;
+          addBtn.disabled = true;
+          addBtn.classList.add("is-loading");
+          try {
+            const foto = await comprimiFoto(file);
+            if (foto.size > 4 * 1024 * 1024) throw new Error("Fichier trop lourd (max 4 Mo)");
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.readAsDataURL(foto);
+            });
+            const res = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups" }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+            toast("Image ajoutée ✓");
+            await carica();
+          } catch (err) {
+            toast(err instanceof Error ? err.message : "Téléversement impossible", true);
+          } finally {
+            addBtn.disabled = false;
+            addBtn.classList.remove("is-loading");
+            addFile.value = "";
+          }
+        });
+
+        // ---------- Ajout d'un document (PDF) ----------
+        const addDocBtn = document.getElementById("add-doc-btn") as HTMLButtonElement;
+        const addDocFile = document.getElementById("add-doc-file") as HTMLInputElement;
+        addDocBtn.addEventListener("click", () => addDocFile.click());
+        addDocFile.addEventListener("change", async () => {
+          const file = addDocFile.files?.[0];
+          if (!file) return;
+          if (!file.name.toLowerCase().endsWith(".pdf")) {
+            toast("Seuls les PDF sont acceptés", true);
+            addDocFile.value = "";
+            return;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            toast("Fichier trop lourd (max 10 Mo)", true);
+            addDocFile.value = "";
+            return;
+          }
+          addDocBtn.disabled = true;
+          addDocBtn.classList.add("is-loading");
+          try {
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.readAsDataURL(file);
+            });
+            const res = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ filename: file.name, data: b64, bucket: "documents" }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+            // Anteprima della prima pagina (best-effort: se fallisce resta l'icona)
+            const nomeCaricato = decodeURIComponent(String(j.url ?? "").split("/").pop() ?? "");
+            const thumb = await generaAnteprima(file);
+            if (thumb && nomeCaricato) {
+              await fetch("/api/admin/documents", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ name: nomeCaricato, thumb }),
+              }).catch(() => {});
+            }
+            toast("Document ajouté ✓");
+            await caricaDocs();
+          } catch (err) {
+            toast(err instanceof Error ? err.message : "Téléversement impossible", true);
+          } finally {
+            addDocBtn.disabled = false;
+            addDocBtn.classList.remove("is-loading");
+            addDocFile.value = "";
+          }
+        });
+
+        // ---------- Azioni sulle righe documenti ----------
+        (document.getElementById("doc-grid") as HTMLDivElement).addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const row = t.closest(".card") as HTMLElement | null;
+          if (!row) return;
+          const doc = docs.find((d) => d.name === row.dataset.name);
+          if (!doc) return;
+
+          if (t.closest(".d-copy")) {
+            try {
+              await navigator.clipboard.writeText(doc.url);
+              toast("URL copiée ✓");
+            } catch {
+              toast("Copie impossible", true);
+            }
+            return;
+          }
+          if (t.closest(".d-edit")) {
+            apriEditDoc(doc);
+            return;
+          }
+          const del = t.closest(".d-del") as HTMLButtonElement | null;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Confirmer ?";
+              setTimeout(() => {
+                del.classList.remove("confirm");
+                del.innerHTML = ICO_TRASH;
+              }, 3000);
+              return;
+            }
+            try {
+              const res = await fetch("/api/admin/documents?name=" + encodeURIComponent(doc.name), {
+                method: "DELETE",
+                headers,
+              });
+              const j = await res.json();
+              if (!res.ok) {
+                toast(j.error ?? "Suppression impossible", true);
+                return;
+              }
+              toast("Document supprimé");
+              await caricaDocs();
+            } catch {
+              toast("Erreur de connexion", true);
+            }
+          }
+        });
+
+        // ---------- Tab principali Images / Documents ----------
+        const mainTabs = document.getElementById("main-tabs") as HTMLDivElement;
+        const secImgs = document.querySelector('section[data-tab="images"]') as HTMLElement;
+        const secDocs = document.querySelector('section[data-tab="documents"]') as HTMLElement;
+        function mostraTab(t: string) {
+          secImgs.style.display = t === "images" ? "" : "none";
+          secDocs.style.display = t === "documents" ? "" : "none";
+          addBtn.style.display = t === "images" ? "" : "none";
+          addDocBtn.style.display = t === "documents" ? "" : "none";
+          mainTabs.querySelectorAll<HTMLElement>(".tab").forEach((el) => el.classList.toggle("is-active", el.dataset.t === t));
+          sessionStorage.setItem("lm-adm-assets-tab", t);
+        }
+        mainTabs.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+          if (t?.dataset.t) mostraTab(t.dataset.t);
+        });
+        mostraTab(sessionStorage.getItem("lm-adm-assets-tab") ?? "images");
+
+        gridEl.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const card = t.closest(".card") as HTMLElement | null;
+          if (!card) return;
+
+          if (t.closest(".a-edit")) {
+            const img = imgs.find((x) => x.bucket === card.dataset.bucket && x.name === card.dataset.name);
+            if (img) apriEdit(img);
+            return;
+          }
+
+          if (t.closest(".a-copy")) {
+            try {
+              await navigator.clipboard.writeText(card.dataset.url ?? "");
+              toast("URL copiée ✓");
+            } catch {
+              toast("Copie impossible", true);
+            }
+            return;
+          }
+
+          const del = t.closest(".a-del") as HTMLButtonElement | null;
+          if (del && !del.disabled) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Confirmer ?";
+              setTimeout(() => {
+                del.classList.remove("confirm");
+                del.innerHTML = ICO_TRASH;
+              }, 3000);
+              return;
+            }
+            try {
+              const qs = new URLSearchParams({ bucket: card.dataset.bucket ?? "", name: card.dataset.name ?? "" });
+              const res = await fetch("/api/admin/images?" + qs.toString(), { method: "DELETE", headers });
+              const j = await res.json();
+              if (!res.ok) {
+                toast(j.error ?? "Suppression impossible", true);
+                return;
+              }
+              toast("Image supprimée");
+              await carica();
+            } catch {
+              toast("Erreur de connexion", true);
+            }
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

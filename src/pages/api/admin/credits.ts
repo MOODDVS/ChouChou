@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import Stripe from "stripe";
 import { supabaseAdmin } from "../../../lib/db";
-import { verificaStaff, nonAutorizzato } from "../../../lib/adminAuth";
+import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { CLIENT } from "../../../config/client";
 
 export const prerender = false;
 
@@ -90,7 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `Crédits newsletter +${pack.credits} — La Molisana`,
+              name: `Crédits newsletter +${pack.credits} — ${CLIENT.nome}`,
               description: "Crédits d'envoi newsletter (sans expiration)",
             },
             unit_amount: pack.amount_cents,
