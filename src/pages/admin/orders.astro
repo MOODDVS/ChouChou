@@ -121,11 +121,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
       .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
-      /* Card annulée : contenuto sbiadito, MA i bottoni assoluti restano opachi.
-         (Dim sul contenuto, non sull'intera card, così .btn-refund è 100% opaco.) */
-      .card.off > *:not(.btn-refund):not(.btn-rollback) { opacity: 0.45; }
+      /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
+         bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
+      .card.off > *:not(.btn-refund):not(.btn-rollback):not(.card-top) { opacity: 0.45; }
+      .card.off .card-top .time,
+      .card.off .card-top .tag:not(.tag-refund),
+      .card.off .card-top .total,
+      .card.off .card-top .btn-print { opacity: 0.45; }
       .card.refundable { padding-bottom: 3.6rem; } /* spazio per il bottone assoluto */
-      .card.done { padding-bottom: 3.4rem; opacity: 0.62; } /* spazio rollback + leggermente trasparente */
+      .card.done { padding-bottom: 3.4rem; } /* spazio rollback */
+      .card.done > *:not(.btn-rollback):not(.card-top) { opacity: 0.62; }
+      .card.done .card-top .time,
+      .card.done .card-top .tag,
+      .card.done .card-top .total,
+      .card.done .card-top .btn-print { opacity: 0.62; }
       .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
       .ct-left { display: flex; align-items: center; gap: 0.6rem; }
       .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
@@ -171,6 +180,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         width: 22px; height: 22px; border-radius: 50%;
         background: #2e9e6b; color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
       }
+      /* Card annulée : ✕ blanc rond sur fond rouge, à côté du prix */
+      .badge-ko {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: var(--c-red); color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
+      }
       /* Rollback : rond doré, position absolue en bas à droite de la card */
       .btn-rollback {
         position: absolute; right: 0.9rem; bottom: 0.9rem;
@@ -194,7 +209,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .btn-print:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .btn-print svg { width: 17px; height: 17px; }
       /* Remboursement : tag stato in alto + bottone doré absolu en bas à droite */
-      .tag-refund { border: 1px solid #2e9e6b; color: #2e9e6b; }
+      .tag-refund {
+        border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-size: 0.6rem; padding: 0.08rem 0.45rem; border-radius: 999px;
+      }
       .btn-refund {
         position: absolute; right: 0.9rem; bottom: 0.9rem; z-index: 2;
         font-family: var(--font-title); font-size: 0.9rem; letter-spacing: 0.03em;
@@ -380,7 +398,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // Etichetta di stato (solo per le card spente)
         let tag = "";
         if (o.status === "done") tag = `<span class="tag tag-done">Terminée</span>`;
-        if (o.status === "cancelled") tag = `<span class="tag tag-cancel">Annulée</span>`;
+
 
         // Ordini attivi: Terminée + Annuler.
         // Ordini terminati: ✓ vert rond à côté du prix + bouton rollback doré
@@ -394,6 +412,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             : "";
 
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="Terminée">✓</span>` : "";
+        const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="Annulée">✕</span>` : "";
         // Bottone stampante (ristampa ticket): reso solo se STAMPA_TICKET = true.
         const stampaBtn = STAMPA_TICKET
           ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="Ré-imprimer le ticket" aria-label="Ré-imprimer le ticket">${ICON_PRINT}</button>`
@@ -428,7 +447,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
                 ${tag}
               </div>
-              <span class="ct-right">${stampaBtn}${badgeOk}<span class="total">${euro(o.total_cents)}</span></span>
+              <span class="ct-right">${stampaBtn}${badgeOk}${badgeKo}<span class="total">${euro(o.total_cents)}</span></span>
             </div>
             <p class="name">${esc(o.customer_name)}${langBadge}</p>
             <p class="row">Email : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>

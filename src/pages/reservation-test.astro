@@ -5,6 +5,17 @@
 // /reservation): niente Layout/header/footer, si potrà caricare in iframe.
 // Dati dalle API pubbliche /api/reservation (config, ?date=, ?month=, POST).
 import { CLIENT } from "../config/client";
+import { datiRistorante } from "../lib/ristorante";
+
+export const prerender = false;
+
+// Telefono per il bottone "Téléphoner": da Réglages → Général (cache 60s),
+// fallback sul config statico del cliente.
+let telWidget = CLIENT.telefono;
+try {
+  const dati = await datiRistorante();
+  if (dati.tel) telWidget = dati.tel;
+} catch { /* fallback config */ }
 ---
 
 <!doctype html>
@@ -167,7 +178,7 @@ import { CLIENT } from "../config/client";
       .rw-loading { text-align: center; color: #b3aca6; font-size: 0.9rem; padding: 2rem 0; }
     </style>
   </head>
-  <body>
+  <body data-tel={telWidget}>
     <div class="page">
       <div class="rw" id="rw">
         <div class="rw-lang" id="rw-lang" style="display:none">
@@ -248,15 +259,15 @@ import { CLIENT } from "../config/client";
             <div><span class="rw-rc-lab" data-t="personnes"></span><span class="rw-rc-val" id="rw-rc-v3"></span><span class="rw-rc-sub" id="rw-rc-zone"></span></div>
           </div>
           <div class="rw-frow">
-            <input type="text" class="rw-in" id="rw-f-prenom" autocomplete="off" />
-            <input type="text" class="rw-in" id="rw-f-nom" autocomplete="off" />
+            <input type="text" class="rw-in" id="rw-f-prenom" autocomplete="given-name" />
+            <input type="text" class="rw-in" id="rw-f-nom" autocomplete="family-name" />
           </div>
           <div class="rw-frow">
             <select class="rw-in rw-tel-prefix" id="rw-f-prefix"></select>
-            <input type="tel" class="rw-in" id="rw-f-tel" autocomplete="off" />
+            <input type="tel" class="rw-in" id="rw-f-tel" autocomplete="tel-national" inputmode="tel" />
           </div>
           <div class="rw-frow">
-            <input type="email" class="rw-in" id="rw-f-email" autocomplete="off" />
+            <input type="email" class="rw-in" id="rw-f-email" autocomplete="email" inputmode="email" />
           </div>
           <span class="rw-lab" id="rw-opt-lab"></span>
           <div class="rw-opts">
@@ -264,7 +275,7 @@ import { CLIENT } from "../config/client";
             <button type="button" class="rw-opt" id="rw-opt-calme"></button>
             <button type="button" class="rw-opt" id="rw-opt-biz"></button>
           </div>
-          <input type="text" class="rw-in rw-in-societe" id="rw-f-societe" style="display:none" autocomplete="off" />
+          <input type="text" class="rw-in rw-in-societe" id="rw-f-societe" style="display:none" autocomplete="organization" />
           <textarea class="rw-in rw-ta" id="rw-f-notes" rows="3" autocomplete="off"></textarea>
           <label class="rw-terms">
             <input type="checkbox" id="rw-f-terms" />
@@ -308,7 +319,7 @@ import { CLIENT } from "../config/client";
         timezone: string;
       }
       type Resa = { heure: string; people: number; zone: string | null; service_key: string | null };
-      type Giorno = { rese: Resa[]; svcClosed: string[]; zoneClosed: string[] };
+      type Giorno = { rese: Resa[]; svcClosed: string[]; zoneClosed: string[]; spOpen: boolean; spRanges: [number, number][] | null };
 
       const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
       const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -389,14 +400,27 @@ import { CLIENT } from "../config/client";
       // servIdx punta al servizio sbagliato (es. "Midi" con orari della Soir).
       function serviziDisp(): { key: string; label: string; da: number; a: number; hold: number; slot: number; slots: number[] }[] {
         if (closedSet.has(isoSel)) return [];
-        const svcClosed = dayCache.get(isoSel)?.svcClosed ?? [];
+        const dg = dayCache.get(isoSel);
+        const svcClosed = dg?.svcClosed ?? [];
+        // Jour spécial "ouvert": scavalca i giorni dei services e, se ha orari
+        // propri, limita ogni service all'intersezione con le sue fasce
+        const spOpen = dg?.spOpen ?? false;
+        const spRanges = spOpen ? (dg?.spRanges ?? null) : null;
         const s = soglia(isoSel);
         return servizi()
           .filter((sv) => !svcClosed.includes(sv.key))
-          .filter((sv) => serveGiorno(sv, isoSel))
+          .filter((sv) => spOpen || serveGiorno(sv, isoSel))
           .map((sv) => {
+            const finestre: [number, number][] = spRanges
+              ? spRanges
+                  .map(([r1, r2]) => [Math.max(sv.da, r1), Math.min(sv.a, r2)] as [number, number])
+                  .filter(([f1, f2]) => f2 > f1)
+              : [[sv.da, sv.a]];
             const slots: number[] = [];
-            for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= s) slots.push(m);
+            for (const [fda, fa] of finestre) {
+              for (let m = fda; m <= fa; m += sv.slot) if (m >= s && !slots.includes(m)) slots.push(m);
+            }
+            slots.sort((x, y) => x - y);
             return { ...sv, slots };
           })
           .filter((sv) => sv.slots.length > 0);
@@ -412,9 +436,11 @@ import { CLIENT } from "../config/client";
             rese: (j.reservations ?? []) as Resa[],
             svcClosed: (j.service_closures ?? []) as string[],
             zoneClosed: (j.zone_closures ?? []) as string[],
+            spOpen: Boolean(j.special_open),
+            spRanges: (j.special_ranges ?? null) as [number, number][] | null,
           });
         } catch {
-          dayCache.set(iso, { rese: [], svcClosed: [], zoneClosed: [] });
+          dayCache.set(iso, { rese: [], svcClosed: [], zoneClosed: [], spOpen: false, spRanges: null });
         }
       }
 
@@ -799,7 +825,11 @@ import { CLIENT } from "../config/client";
 
         // CTA step1 → step2 (o téléphoner)
         $("rw-cta").addEventListener("click", () => {
-          if (troppi) { window.location.href = "tel:" + CLIENT.telephone.replace(/\s/g, ""); return; }
+          if (troppi) {
+            const tel = document.body.dataset.tel || CLIENT.telefono;
+            window.location.href = "tel:" + tel.replace(/[^+\d]/g, "");
+            return;
+          }
           const ora = $("rw-slots").querySelector(".rw-slot.is-on")?.textContent ?? "";
           if (!isoSel || !ora) { apri("heure"); return; }
           // Recap

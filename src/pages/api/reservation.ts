@@ -135,8 +135,11 @@ async function leggiConfig(): Promise<WidgetConfig> {
         const from = String(sv.from ?? "");
         const to = String(sv.to ?? "");
         if (!key || !HHMM.test(from) || !HHMM.test(to)) continue;
-        const days = Array.isArray(sv.days)
-          ? Array.from(new Set(sv.days.map((d: unknown) => Math.floor(Number(d))).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6)))
+        const days: number[] = Array.isArray(sv.days)
+          ? (sv.days as unknown[])
+              .map((d) => Math.floor(Number(d)))
+              .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+              .filter((d, i, a) => a.indexOf(d) === i)
           : [];
         services.push({
           key,
@@ -212,6 +215,38 @@ async function leggiConfig(): Promise<WidgetConfig> {
   return { services, zones, zoneChoice, capacity, maxPeople, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
 }
 
+/** Jour spécial che copre la data.
+ *  { chiuso:true }                     → giorno fermé (special closed)
+ *  { aperto:true, ranges:[[da,a],…] }  → special ouvert con orari PROPRI (minuti)
+ *  { aperto:true, ranges:null }        → special ouvert senza orari (si usano i services)
+ *  null                                → nessun jour spécial (giorno normale) */
+async function specialeDelGiorno(date: string): Promise<{ chiuso: boolean; aperto: boolean; ranges: [number, number][] | null } | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("special_days")
+      .select("type, lunch_open, lunch_close, dinner_open, dinner_close")
+      .lte("date_from", date)
+      .gte("date_to", date);
+    const righe = data ?? [];
+    if (righe.some((r) => r.type === "closed")) return { chiuso: true, aperto: false, ranges: null };
+    const open = righe.find((r) => r.type === "open");
+    if (!open) return null;
+    const ranges: [number, number][] = [];
+    const coppie: [unknown, unknown][] = [
+      [open.lunch_open, open.lunch_close],
+      [open.dinner_open, open.dinner_close],
+    ];
+    for (const [o, c] of coppie) {
+      const da = minutiDi(String(o ?? "").slice(0, 5));
+      const a = minutiDi(String(c ?? "").slice(0, 5));
+      if (da >= 0 && a > da) ranges.push([da, a]);
+    }
+    return { chiuso: false, aperto: true, ranges: ranges.length ? ranges : null };
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ url }) => {
   // ---- Config ----
   if (url.searchParams.get("config")) {
@@ -228,8 +263,9 @@ export const GET: APIRoute = async ({ url }) => {
       .select(CAMPI_EMAIL + ", status")
       .eq("cancel_token", token)
       .maybeSingle();
-    if (error || !data || data.status !== "confirmed") return json({ error: "lienInvalide" }, 404);
-    const { status, id, ...pub } = data as Record<string, unknown>;
+    const riga = (data ?? null) as unknown as ({ status?: string } & Record<string, unknown>) | null;
+    if (error || !riga || riga.status !== "confirmed") return json({ error: "lienInvalide" }, 404);
+    const { status, id, ...pub } = riga;
     return json({ reservation: pub });
   }
 
@@ -254,7 +290,7 @@ export const GET: APIRoute = async ({ url }) => {
         .select("date, service_key, people")
         .gte("date", primo)
         .lte("date", ultimo)
-        .eq("status", "confirmed"),
+        .in("status", ["confirmed", "seated"]),
     ]);
 
     const apertoSett = new Map<number, boolean>();
@@ -319,7 +355,7 @@ export const GET: APIRoute = async ({ url }) => {
     .from("reservations")
     .select("heure, people, zone, service_key")
     .eq("date", date)
-    .eq("status", "confirmed");
+    .in("status", ["confirmed", "seated"]);
   if (excl && RE_UUID.test(excl)) dayQ = dayQ.neq("cancel_token", excl);
   const { data, error } = await dayQ;
   if (error) return json({ reservations: [], service_closures: [], zone_closures: [] });
@@ -337,6 +373,9 @@ export const GET: APIRoute = async ({ url }) => {
     /* nessuna chiusura */
   }
 
+  // Jour spécial "ouvert": il widget adatta i services alle sue fasce orarie
+  const speciale = await specialeDelGiorno(date);
+
   return json({
     reservations: (data ?? []).map((r) => ({
       heure: r.heure,
@@ -346,6 +385,8 @@ export const GET: APIRoute = async ({ url }) => {
     })),
     service_closures: serviceClosures,
     zone_closures: zoneClosures,
+    special_open: Boolean(speciale?.aperto),
+    special_ranges: speciale?.aperto ? speciale.ranges : null,
   });
 };
 
@@ -365,11 +406,40 @@ async function verificaCreneau(
   const sog = nowMin + cfg.minNoticeMinutes - diff * 1440;
   if (diff < 0 || slotMin < sog) return "creneauPris";
 
+  // Giorno aperto? (special fermé > special ouvert > horaire hebdo)
+  const speciale = await specialeDelGiorno(p.date);
+  if (speciale?.chiuso) return "creneauPris";
+  const dow = new Date(p.date + "T12:00:00").getDay();
+  if (!speciale?.aperto) {
+    try {
+      const { data: sett } = await supabaseAdmin
+        .from("settings")
+        .select("lunch_active, dinner_active")
+        .eq("day_of_week", dow)
+        .maybeSingle();
+      if (sett && !sett.lunch_active && !sett.dinner_active) return "creneauPris";
+    } catch { /* senza orari: nessun blocco */ }
+  }
+
+  // Slot dentro la finestra del service scelto; giorni del service rispettati
+  // (ma un jour spécial "ouvert" li scavalca); fasce speciali intersecate
+  const svScelto = p.service_key ? cfg.services.find((sv) => sv.key === p.service_key) : undefined;
+  if (svScelto) {
+    const da = minutiDi(svScelto.from);
+    const a = minutiDi(svScelto.to);
+    if (da >= 0 && a > da && !(slotMin >= da && slotMin <= a)) return "creneauPris";
+    if (!speciale?.aperto && svScelto.days.length > 0 && !svScelto.days.includes(dow)) return "creneauPris";
+    if (speciale?.aperto && speciale.ranges) {
+      const dentro = speciale.ranges.some(([r1, r2]) => slotMin >= Math.max(da, r1) && slotMin <= Math.min(a, r2));
+      if (!dentro) return "creneauPris";
+    }
+  }
+
   let dayQ = supabaseAdmin
     .from("reservations")
     .select("heure, people, zone, service_key")
     .eq("date", p.date)
-    .eq("status", "confirmed");
+    .in("status", ["confirmed", "seated"]);
   if (p.excludeToken && RE_UUID.test(p.excludeToken)) dayQ = dayQ.neq("cancel_token", p.excludeToken);
 
   const [chiusrv, chzone, day] = await Promise.all([

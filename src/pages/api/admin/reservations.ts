@@ -26,7 +26,7 @@ export const prerender = false;
 // PATCH { id, ... }    → cambio stato E/O modifica completa dei campi
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
-const STATI = ["confirmed", "cancelled", "noshow", "done"];
+const STATI = ["confirmed", "seated", "cancelled", "noshow", "done"];
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -125,7 +125,7 @@ export const GET: APIRoute = async ({ request, url }) => {
         .select("date, service_key, people")
         .gte("date", primo)
         .lte("date", ultimo)
-        .eq("status", "confirmed"), // Fini/annullate/no-show liberano i tavoli
+        .in("status", ["confirmed", "seated"]), // Fini/annullate/no-show liberano i tavoli
     ]);
 
     const apertoSett = new Map<number, boolean>();

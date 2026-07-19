@@ -19,6 +19,7 @@ export interface ResaGiorno {
   couverts: number;
   closures?: { service_key: string; reason: string }[];
   zone_closures?: { zone: string; reason: string }[];
+  special_open?: boolean; // jour spécial "ouvert": scavalca i giorni dei services
   hold_minutes?: number;
   config?: ResaGiornoConfig;
   missing?: boolean;
@@ -37,7 +38,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
   }
 
   const couverts = (data ?? [])
-    .filter((r) => r.status === "confirmed")
+    .filter((r) => r.status === "confirmed" || r.status === "seated")
     .reduce((s, r) => s + (r.people ?? 0), 0);
 
   // Config réservations (Réglages): durata tavolo, créneau, services, sezioni
@@ -94,15 +95,20 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
   }
 
   // Chiusure di servizio e di section del giorno (tabelle assenti = nessuna)
+  // + jour spécial "ouvert" (scavalca i giorni di applicazione dei services)
   let closures: { service_key: string; reason: string }[] = [];
   let zoneClosures: { zone: string; reason: string }[] = [];
+  let specialOpen = false;
   try {
-    const [ch, zch] = await Promise.all([
+    const [ch, zch, sp] = await Promise.all([
       supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
       supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
+      supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date),
     ]);
     if (!ch.error && ch.data) closures = ch.data;
     if (!zch.error && zch.data) zoneClosures = zch.data;
+    const righe = sp.data ?? [];
+    specialOpen = righe.some((r) => r.type === "open") && !righe.some((r) => r.type === "closed");
   } catch { /* nessuna chiusura */ }
 
   return {
@@ -110,6 +116,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
     couverts,
     closures,
     zone_closures: zoneClosures,
+    special_open: specialOpen,
     hold_minutes: hold,
     config: { slot_minutes: slot, services, zones, capacity, zone_seats: zoneSeats, timezone: tz },
   };

@@ -1589,7 +1589,34 @@ import { CLIENT } from "../../config/client";
 
         // Jours spéciaux correnti (riempita da caricaSpecial): serve al
         // datepicker del widget per bloccare i giorni di chiusura.
-        let spCache: { date_from: string; date_to: string; type: string }[] = [];
+        let spCache: {
+          date_from: string;
+          date_to: string;
+          type: string;
+          lunch_open?: string | null;
+          lunch_close?: string | null;
+          dinner_open?: string | null;
+          dinner_close?: string | null;
+        }[] = [];
+
+        /** Jour spécial "ouvert" del giorno: fasce orarie proprie in minuti
+         *  (null = niente special open, o special open senza orari). */
+        function rwFasceSpeciali(iso: string): [number, number][] | null {
+          const sp = spCache.find((x) => x.type === "open" && x.date_from <= iso && iso <= x.date_to);
+          if (!sp) return null;
+          const ranges: [number, number][] = [];
+          for (const [o, c] of [[sp.lunch_open, sp.lunch_close], [sp.dinner_open, sp.dinner_close]]) {
+            const da = rwMinuti(String(o ?? "").slice(0, 5));
+            const a = rwMinuti(String(c ?? "").slice(0, 5));
+            if (da >= 0 && a > da) ranges.push([da, a]);
+          }
+          return ranges.length ? ranges : null;
+        }
+        /** Il giorno è un jour spécial "ouvert"? (scavalca i giorni dei services) */
+        function rwSpecialOpen(iso: string): boolean {
+          if (spCache.some((x) => x.type === "closed" && x.date_from <= iso && iso <= x.date_to)) return false;
+          return spCache.some((x) => x.type === "open" && x.date_from <= iso && iso <= x.date_to);
+        }
 
         /** Il ristorante è aperto quel giorno? Stessa logica del motore:
          *  chiusura speciale > apertura speciale > orario settimanale. */
@@ -1670,15 +1697,25 @@ import { CLIENT } from "../../config/client";
           // Créneaux: ogni service usa il SUO passo (créneau per service)
           // Solo gli orari realmente prenotabili: dopo adesso + préavis (fuso del ristorante)
           const soglia = rwSoglia(isoGiorno);
+          const spOpenGiorno = rwSpecialOpen(isoGiorno);
+          const spFasceGiorno = spOpenGiorno ? rwFasceSpeciali(isoGiorno) : null;
           const svChiusi = datiGiorno?.chiusure ?? [];
           const servizi = rwServizi()
             // Service chiuso dal ristoratore (Complet / Fermeture exceptionnelle)
             .filter((sv) => !svChiusi.some((c) => c.service_key === sv.key))
             // Service non attivo in quel giorno della settimana
-            .filter((sv) => rwServeGiorno(sv, isoGiorno))
+            .filter((sv) => spOpenGiorno || rwServeGiorno(sv, isoGiorno))
             .map((sv) => {
+              const finestre: [number, number][] = spFasceGiorno
+                ? spFasceGiorno
+                    .map(([r1, r2]) => [Math.max(sv.da, r1), Math.min(sv.a, r2)] as [number, number])
+                    .filter(([f1, f2]) => f2 > f1)
+                : [[sv.da, sv.a]];
               const slots: number[] = [];
-              for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) slots.push(m);
+              for (const [fda, fa] of finestre) {
+                for (let m = fda; m <= fa; m += sv.slot) if (m >= soglia && !slots.includes(m)) slots.push(m);
+              }
+              slots.sort((x, y) => x - y);
               return { ...sv, slots };
             })
             .filter((sv) => sv.slots.length > 0);
@@ -1879,7 +1916,7 @@ import { CLIENT } from "../../config/client";
                 if (!j) return;
                 rwReseCache.set(iso, {
                   rese: ((j.reservations ?? []) as { heure: string; people: number; zone: string | null; service_key: string | null; status: string }[]).filter(
-                    (x) => x.status === "confirmed"
+                    (x) => x.status === "confirmed" || x.status === "seated"
                   ),
                   chiusure: (j.closures ?? []) as { service_key: string; reason: string }[],
                   zoneChiuse: (j.zone_closures ?? []) as { zone: string; reason: string }[],
@@ -1926,10 +1963,17 @@ import { CLIENT } from "../../config/client";
         /** Il giorno ha almeno un créneau prenotabile? (per Aujourd'hui/Demain) */
         function rwHaOrari(iso: string): boolean {
           const soglia = rwSoglia(iso);
-          return rwServizi().filter((sv) => rwServeGiorno(sv, iso)).some((sv) => {
-            for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) return true;
-            return false;
-          });
+          const spOpen = rwSpecialOpen(iso);
+          const fasce = spOpen ? rwFasceSpeciali(iso) : null;
+          return rwServizi()
+            .filter((sv) => spOpen || rwServeGiorno(sv, iso))
+            .some((sv) => {
+              const finestre: [number, number][] = fasce
+                ? fasce.map(([r1, r2]) => [Math.max(sv.da, r1), Math.min(sv.a, r2)] as [number, number]).filter(([f1, f2]) => f2 > f1)
+                : [[sv.da, sv.a]];
+              for (const [fda, fa] of finestre) for (let m = fda; m <= fa; m += sv.slot) if (m >= soglia) return true;
+              return false;
+            });
         }
         function rwMinuti(hhmm: string): number {
           const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);

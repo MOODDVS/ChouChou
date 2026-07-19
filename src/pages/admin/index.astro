@@ -735,7 +735,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
 
       (async () => {
-        const cards = document.getElementById("cards") as HTMLElement | null;
+        const cards = document.getElementById("cards") as HTMLElement;
         if (!cards) return;
         const btn = document.getElementById("organiser-btn") as HTMLButtonElement | null;
         const btnReset = document.getElementById("organiser-reset") as HTMLButtonElement | null;
