@@ -123,7 +123,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       /* Card prenotazione */
       .res {
-        display: flex; align-items: center; gap: 1.1rem; position: relative;
+        display: flex; align-items: center; gap: 1.1rem; position: relative; cursor: pointer;
         background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.85rem 1.1rem; margin-bottom: 0.45rem;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
@@ -354,6 +354,86 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
+      /* Modale dettagli prenotazione */
+      .dt-badge {
+        display: inline-block; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 0.32rem 0.85rem; border-radius: 999px; border: none; margin-bottom: 1.1rem;
+        font-weight: 700; color: #fff;
+      }
+      .dt-timer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.55rem; }
+      .dt-timer-head .dt-badge { margin-bottom: 0; }
+      #dt-title { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+      .dt-new {
+        display: inline-block; background: var(--c-accent); color: #231f20; font-family: var(--font-body);
+        font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 0.28rem 0.65rem; border-radius: 999px;
+      }
+      .dt-meta {
+        font-size: 0.85rem; color: #fff; font-weight: 700; padding-top: 0.35rem; min-width: 0;
+        display: flex; align-items: center; flex-wrap: wrap;
+      }
+      .dt-meta .sep { color: var(--c-accent); font-weight: 700; margin: 0 0.35rem; }
+      .dt-meta .src { display: inline-flex; margin-right: 0.55rem; }
+      .dt-meta .src svg { width: 17px; height: 17px; color: var(--c-accent); display: block; }
+      .dt-contacts {
+        display: flex; flex-wrap: wrap; gap: 0.45rem 1.2rem;
+        margin: -0.55rem 0 1.1rem; font-size: 0.88rem;
+      }
+      .dt-contacts:empty { display: none; }
+      .dt-contacts .r-c svg { width: 15px; height: 15px; }
+      .dt-contacts a { color: var(--c-text); text-decoration: none; }
+      .dt-contacts a:hover { color: var(--c-accent); }
+      .dt-note {
+        display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 1.1rem;
+        color: #fff; font-style: italic; font-size: 0.92rem; line-height: 1.45;
+      }
+      .dt-note:empty { display: none; }
+      .dt-stats { border-top: 1px solid var(--c-line); padding-top: 0.5rem; margin: 1.1rem 0 0; }
+      .dt-stats .v b { font-weight: 700; }
+      .dt-stats:empty { display: none; }
+      .dt-chip {
+        font-size: 0.78rem; color: var(--c-muted); border: 1px solid var(--c-line);
+        background: var(--c-card); border-radius: 999px; padding: 0.28rem 0.75rem; white-space: nowrap;
+      }
+      .dt-chip b { color: var(--c-text); font-weight: 700; }
+      .dt-chip.gold { color: var(--c-accent); border-color: var(--c-accent); }
+      .dt-chip.warn { color: #ff8a8f; border-color: #7a3a3a; }
+      .dt-timer {
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px;
+        padding: 0.9rem 1rem 1rem; margin-bottom: 1.1rem;
+      }
+      .dt-clock {
+        font-family: var(--font-title); font-size: 2.6rem; color: var(--c-accent);
+        letter-spacing: 0.06em; line-height: 1.1; margin: 0.15rem 0 0.6rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .dt-track { height: 4px; background: var(--c-line); border-radius: 999px; overflow: hidden; }
+      .dt-fill { display: block; height: 100%; width: 0; background: var(--c-accent); transition: width 1s linear; }
+      .dt-fin { margin-top: 0.5rem; font-size: 0.8rem; color: var(--c-muted); }
+      .dt-spend { margin-top: 0.85rem; }
+      .dt-spend-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
+      .dt-spend-row .nm-in { max-width: 140px; flex: 0 1 auto; }
+      .dt-spend-save {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        font-family: var(--font-title); font-size: 0.85rem; letter-spacing: 0.05em;
+        padding: 0.35rem 1rem; border-radius: 999px; cursor: pointer;
+      }
+      .dt-spend-save:hover { background: var(--c-accent); color: #231f20; }
+      .dt-opts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.75rem; }
+      .dt-opts:empty { display: none; }
+      .dt-opts .tag {
+        border: 1px solid var(--c-accent); color: var(--c-accent); border-radius: 999px;
+        font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase;
+        padding: 0.22rem 0.6rem; font-weight: 700;
+      }
+      .dt-row {
+        display: flex; justify-content: space-between; gap: 1rem;
+        padding: 0.5rem 0; border-bottom: 1px solid var(--c-line); font-size: 0.92rem;
+      }
+      .dt-row:last-child { border-bottom: none; }
+      .dt-row .k { color: var(--c-muted); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; padding-top: 0.15rem; flex: 0 0 auto; }
+      .dt-row .v { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+      .dt-row .v a { color: var(--c-text); }
       .f-row { display: flex; gap: 0.8rem; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 0; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
@@ -630,6 +710,37 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       </div>
     </div>
 
+    <!-- Modale dettagli prenotazione (click sulla card) -->
+    <div class="overlay" id="dt-overlay">
+      <div class="modal">
+        <button class="m-close" id="dt-close" aria-label="Fermer">×</button>
+        <h2 id="dt-title">Réservation</h2>
+        <div class="dt-contacts" id="dt-contacts"></div>
+        <div id="dt-status"></div>
+        <div class="dt-timer" id="dt-timer" style="display:none">
+          <div class="dt-timer-head">
+            <span class="dt-meta" id="dt-meta"></span>
+            <span id="dt-tstatus"></span>
+          </div>
+          <div class="dt-opts" id="dt-opts"></div>
+          <span class="f-label" id="dt-tlab">À table depuis</span>
+          <div class="dt-clock" id="dt-clock">—</div>
+          <div class="dt-track" id="dt-track"><span class="dt-fill" id="dt-fill"></span></div>
+          <div class="dt-fin" id="dt-fin"></div>
+          <div class="dt-spend" id="dt-spend" style="display:none">
+            <span class="f-label">Addition</span>
+            <div class="dt-spend-row">
+              <input type="text" class="nm-in" id="dt-spend-in" inputmode="decimal" autocomplete="off" placeholder="0,00 €" />
+              <button type="button" class="dt-spend-save" id="dt-spend-save">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+        <div class="dt-note" id="dt-note"></div>
+        <div id="dt-rows"></div>
+        <div class="dt-stats" id="dt-stats"></div>
+      </div>
+    </div>
+
     <!-- Modale services du jour: chiusure par service -->
     <div class="overlay" id="sv-overlay">
       <div class="modal">
@@ -743,6 +854,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         birthday?: boolean;
         special_event?: boolean;
         seated_at?: string | null;
+        table_minutes?: number | null;
+        spent_cents?: number | null;
         notes: string | null;
         status: string;
         source?: string | null;
@@ -989,7 +1102,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>';
       function renderFiltroServ() {
         const box = document.getElementById("f-serv") as HTMLDivElement;
-        const servizi = (nmCfg.services ?? []).filter((sv) => SERVIZI_WIDGET[sv.key]);
+        // Solo i servizi che si applicano al giorno visualizzato (days),
+        // con override "jour spécial ouvert" (come nel modale).
+        const dow = new Date(giorno + "T12:00:00").getDay();
+        const servizi = (nmCfg.services ?? [])
+          .filter((sv) => SERVIZI_WIDGET[sv.key])
+          .filter((sv) => spOpenOggi || !sv.days || sv.days.length === 0 || sv.days.includes(dow));
         if (servizi.length < 2) {
           box.innerHTML = "";
           filtroServ = "";
@@ -1687,10 +1805,241 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           cestinoArmato.innerHTML = ICO_TRASH;
           cestinoArmato = null;
         }
+        // ---- Modale dettagli (click sulla card) con timer live ----
+        const dtOverlay = document.getElementById("dt-overlay") as HTMLDivElement;
+        let dtTimerInt = 0;
+        let dtId = ""; // resa mostrata nel modale (per scartare risposte in ritardo)
+        function chiudiDettagli() {
+          dtOverlay.classList.remove("is-open");
+          if (dtTimerInt) {
+            clearInterval(dtTimerInt);
+            dtTimerInt = 0;
+          }
+        }
+        function hhmmDa(min: number): string {
+          return `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+        }
+        function apriDettagli(id: string) {
+          const r = rese.find((x) => x.id === id);
+          if (!r) return;
+          dtId = r.id;
+          (document.getElementById("dt-title") as HTMLElement).textContent =
+            `${r.first_name} ${r.last_name}`.trim() || "Réservation";
+
+          // Badge di stato (stessi colori del menu stati; confirmed passata l'ora = En cours)
+          const stKey = r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status;
+          const st = STATI_MENU.find((x) => x.st === stKey) ?? STATI_MENU.find((x) => x.st === r.status);
+          const stHtml = st
+            ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>`
+            : "";
+          const enCours = r.status === "seated" || (r.status === "confirmed" && fase(r) === "encours");
+          const conBlocco = enCours || r.status === "done"; // Fini: stesso blocco, senza cronometro live
+
+          // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
+          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""]?.fr;
+          const righe: string[] = [];
+          const dett = (k: string, v: string) => righe.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
+          if (!conBlocco) {
+            dett("Date", esc(dataFr(r.date)));
+            dett("Heure", esc(r.heure));
+            if (svLbl) dett("Service", esc(svLbl));
+            dett("Personnes", String(r.people));
+          }
+          if (!conBlocco && r.zone) dett("Section", esc(r.zone));
+          const contattiDt: string[] = [];
+          if (r.phone)
+            contattiDt.push(`<span class="r-c">${ICO_TEL}<a href="tel:${esc(r.phone).replace(/\s/g, "")}">${esc(r.phone)}</a></span>`);
+          if (r.email)
+            contattiDt.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>`);
+          (document.getElementById("dt-contacts") as HTMLElement).innerHTML = contattiDt.join("");
+          if (!conBlocco && r.source && SRC_TITRE[r.source]) dett("Origine", esc(SRC_TITRE[r.source]));
+          const opz: string[] = [];
+          if (r.high_chair) opz.push("Chaise bébé");
+          if (r.quiet) opz.push("Endroit calme");
+          if (r.business) opz.push("Business" + (r.company ? ` (${r.company})` : ""));
+          if (r.birthday) opz.push("Anniversaire");
+          if (r.special_event) opz.push("Événement spécial");
+          if (!conBlocco && opz.length) dett("Options", esc(opz.join(" · ")));
+          (document.getElementById("dt-opts") as HTMLElement).innerHTML = conBlocco
+            ? opz.map((o) => `<span class="tag">${esc(o)}</span>`).join("")
+            : "";
+
+          (document.getElementById("dt-note") as HTMLElement).innerHTML = r.notes
+            ? `<svg class="r-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg><span>${esc(r.notes)}</span>`
+            : "";
+          (document.getElementById("dt-rows") as HTMLElement).innerHTML = righe.join("");
+
+          // Timer live (solo En cours). Ancore in ms calcolate UNA volta partendo
+          // dal fuso del ristorante; poi il tick usa solo differenze Date.now().
+          if (dtTimerInt) {
+            clearInterval(dtTimerInt);
+            dtTimerInt = 0;
+          }
+          const timerBox = document.getElementById("dt-timer") as HTMLDivElement;
+          const srcIco =
+            r.source && ICO_SRC[r.source]
+              ? `<span class="src" title="${esc(SRC_TITRE[r.source] ?? "")}">${ICO_SRC[r.source]}</span>`
+              : "";
+          (document.getElementById("dt-meta") as HTMLElement).innerHTML = conBlocco
+            ? srcIco +
+              [dataFr(r.date), r.heure, svLbl, `${r.people} pers.`, r.zone]
+                .filter(Boolean)
+                .map((v) => esc(String(v)))
+                .join('<span class="sep">·</span>')
+            : "";
+          if (enCours) {
+            const hold = holdDi(r.service_key);
+            const inizioMin = minutiDa(r.heure);
+            const arrivoMs = r.status === "seated" && r.seated_at ? Date.parse(r.seated_at) : NaN;
+            const startMs = Number.isFinite(arrivoMs)
+              ? arrivoMs
+              : Date.now() - Math.max(0, minutiOra() - inizioMin) * 60000;
+            const fineMs = Date.now() + (inizioMin + hold - minutiOra()) * 60000;
+            (document.getElementById("dt-fin") as HTMLElement).textContent =
+              `Fin prévue à ${hhmmDa(inizioMin + hold)} · durée ${hold} min`;
+            const labEc = document.getElementById("dt-tlab") as HTMLElement;
+            labEc.style.display = "";
+            labEc.textContent = "À table depuis";
+            (document.getElementById("dt-spend") as HTMLElement).style.display = "none";
+            (document.getElementById("dt-clock") as HTMLElement).style.display = "";
+            (document.getElementById("dt-track") as HTMLElement).style.display = "";
+            const clockEl = document.getElementById("dt-clock") as HTMLElement;
+            const fillEl = document.getElementById("dt-fill") as HTMLElement;
+            const tick = () => {
+              const sec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+              const h = Math.floor(sec / 3600);
+              const m = Math.floor((sec % 3600) / 60);
+              const ss = sec % 60;
+              clockEl.textContent =
+                (h > 0 ? `${h}:${String(m).padStart(2, "0")}` : String(m)) + `:${String(ss).padStart(2, "0")}`;
+              const pct = Math.max(0, Math.min(100, ((Date.now() - startMs) / Math.max(60000, fineMs - startMs)) * 100));
+              fillEl.style.width = `${pct.toFixed(2)}%`;
+            };
+            tick();
+            dtTimerInt = window.setInterval(tick, 1000);
+            timerBox.style.display = "";
+          } else if (r.status === "done") {
+            // Fini: stesso blocco, durata REGISTRATA (table_minutes) al posto del live
+            const lab = document.getElementById("dt-tlab") as HTMLElement;
+            const clockEl = document.getElementById("dt-clock") as HTMLElement;
+            const trackEl = document.getElementById("dt-track") as HTMLElement;
+            (document.getElementById("dt-fin") as HTMLElement).textContent = "";
+            const tm =
+              r.table_minutes != null && r.table_minutes > 0
+                ? Math.round(r.table_minutes)
+                : holdDi(r.service_key) + 15; // vecchie senza dato: durée prevista + 15 (auto-Fini)
+            lab.style.display = "";
+            lab.textContent = "Temps à table";
+            clockEl.style.display = "";
+            clockEl.textContent = tm < 90 ? `${tm} min` : `${Math.floor(tm / 60)} h ${String(tm % 60).padStart(2, "0")}`;
+            trackEl.style.display = "";
+            (document.getElementById("dt-fill") as HTMLElement).style.width = "100%";
+            (document.getElementById("dt-spend") as HTMLElement).style.display = "";
+            (document.getElementById("dt-spend-in") as HTMLInputElement).value =
+              r.spent_cents != null ? `${(r.spent_cents / 100).toFixed(2).replace(".", ",")} €` : "";
+            timerBox.style.display = "";
+          } else {
+            timerBox.style.display = "none";
+          }
+          (document.getElementById("dt-tstatus") as HTMLElement).innerHTML = conBlocco ? stHtml : "";
+          (document.getElementById("dt-status") as HTMLElement).innerHTML = conBlocco ? "" : stHtml;
+
+          // Statistiche cliente (async, arrivano dopo l'apertura)
+          const statsBox = document.getElementById("dt-stats") as HTMLDivElement;
+          statsBox.innerHTML = "";
+          if (r.email || r.phone) {
+            const qs = new URLSearchParams({ client_stats: "1" });
+            if (r.email) qs.set("client_email", r.email);
+            if (r.phone) qs.set("client_phone", r.phone);
+            const mioId = r.id;
+            fetch(`/api/admin/reservations?${qs.toString()}`, { headers })
+              .then(async (res) => {
+                if (!res.ok || dtId !== mioId) return;
+                const j = (await res.json()) as {
+                  total: number; visites: number; noshows: number; cancelled: number;
+                  avg_people: number | null; avg_lead_min: number | null;
+                  avg_table_min: number | null; avg_spent_cents: number | null;
+                };
+                if (j.total <= 1 && j.visites <= 1 && !j.noshows && !j.cancelled) {
+                  (document.getElementById("dt-title") as HTMLElement).insertAdjacentHTML(
+                    "beforeend",
+                    '<span class="dt-new">Nouveau</span>'
+                  );
+                }
+                const fmtMin = (m: number): string =>
+                  m < 90 ? `${Math.max(1, Math.round(m))} min` : `${Math.floor(m / 60)} h ${String(Math.round(m) % 60).padStart(2, "0")}`;
+                const righeSt: string[] = [];
+                const rigaSt = (k: string, v: string) =>
+                  righeSt.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
+                rigaSt("Réservations", `<b>${j.total}</b>`);
+                rigaSt("Annulations", `<b>${j.cancelled}</b>`);
+                rigaSt("No-show", j.noshows > 0 ? `<b style="color:#ff8a8f">${j.noshows}</b>` : `<b>0</b>`);
+                if (j.avg_table_min != null) rigaSt("Temps à table (moyenne)", `<b>~${fmtMin(j.avg_table_min)}</b>`);
+                if (j.avg_people != null) {
+                  const m = Math.round(j.avg_people * 10) / 10;
+                  rigaSt("Personnes (moyenne)", `<b>${String(m).replace(".", ",")}</b>`);
+                }
+                if (j.avg_lead_min != null) {
+                  const min = j.avg_lead_min;
+                  const lbl =
+                    min < 90
+                      ? `${Math.max(1, Math.round(min))} min`
+                      : min < 2880
+                        ? `${Math.round(min / 60)} h`
+                        : `${Math.round(min / 1440)} j`;
+                  rigaSt("Réserve à l'avance", `<b>~${lbl}</b>`);
+                }
+                if (j.avg_spent_cents != null) {
+                  const eur = (j.avg_spent_cents / 100).toFixed(j.avg_spent_cents % 100 ? 2 : 0).replace(".", ",");
+                  rigaSt("Dépense (moyenne)", `<b>~${eur} €</b>`);
+                }
+                if (dtId === mioId) statsBox.innerHTML = righeSt.join("");
+              })
+              .catch(() => { /* niente stats: il modale resta utilizzabile */ });
+          }
+
+          dtOverlay.classList.add("is-open");
+        }
+        (document.getElementById("dt-spend-save") as HTMLButtonElement).addEventListener("click", async () => {
+          const r = rese.find((x) => x.id === dtId);
+          if (!r) return;
+          const grezzo = (document.getElementById("dt-spend-in") as HTMLInputElement).value
+            .trim()
+            .replace(/[€\s]/g, "")
+            .replace(",", ".");
+          let cents: number | null = null;
+          if (grezzo !== "") {
+            const n = Number(grezzo);
+            if (!Number.isFinite(n) || n < 0 || n > 100000) {
+              toast("Montant invalide", "err");
+              return;
+            }
+            cents = Math.round(n * 100);
+          }
+          try {
+            const res = await fetch("/api/admin/reservations", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id: dtId, spent_cents: cents }),
+            });
+            if (!res.ok) throw new Error();
+            r.spent_cents = cents;
+            toast("Addition enregistrée");
+          } catch {
+            toast("Enregistrement impossible", "err");
+          }
+        });
+        (document.getElementById("dt-close") as HTMLButtonElement).addEventListener("click", chiudiDettagli);
+        dtOverlay.addEventListener("click", (e) => {
+          if (e.target === dtOverlay) chiudiDettagli();
+        });
+
         rowsEl.addEventListener("click", (e) => {
           const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
           if (!btn) {
             disarmaCestino();
+            const card = (e.target as HTMLElement).closest(".res") as HTMLElement | null;
+            if (card?.dataset.id && !(e.target as HTMLElement).closest("a")) apriDettagli(card.dataset.id);
             return;
           }
           const id = (btn.closest(".res") as HTMLElement | null)?.dataset.id ?? "";

@@ -33,6 +33,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 24 | `reservations_review.sql` | Email di recensione: id Resend per poterla annullare |
 | 25 | `reservations_options.sql` | Opzioni `birthday` + `special_event` (Anniversaire / Événement spécial) |
 | 26 | `reservations_seated.sql` | `seated_at`: arrivo reale al tavolo (timer En cours) |
+| 27 | `reservations_table_time.sql` | `table_minutes`: durata reale del tavolo (Fini manuale = tempo reale; auto-Fini = durée+15; no-show = azzerata) |
+| 28 | `reservations_spent.sql` | `spent_cents`: addition inserita dallo staff a fine tavolo (modale dettagli) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

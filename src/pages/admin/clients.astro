@@ -139,10 +139,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .th-ico .arrow { order: -1; }
       .c-name .c-ico span { display: inline-flex; }
       .tag-new {
-        display: inline-block; margin-left: 0.45rem; vertical-align: middle;
+        display: inline-flex; align-items: center; height: 17px; box-sizing: border-box;
+        margin-left: 0.45rem; vertical-align: middle;
         background: var(--c-accent); color: #231f20; border-radius: 999px;
         font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
-        padding: 0.12rem 0.5rem;
+        padding: 0 0.5rem;
+      }
+      .tag-ns {
+        display: inline-flex; align-items: center; gap: 0.32rem; height: 17px; box-sizing: border-box;
+        margin-left: 0.45rem; vertical-align: middle;
+        background: #ed1c24; color: #fff; border-radius: 999px;
+        font-size: 0.58rem; font-weight: 800; letter-spacing: 0.05em;
+        padding: 0 0.55rem 0 3px; line-height: 1;
+      }
+      .tag-ns svg.ico-ns {
+        width: 11px; height: 11px; fill: none; stroke: #fff;
+        stroke-width: 2.1; stroke-linecap: round; stroke-linejoin: round; display: block;
       }
       .c-name .tag { font-family: var(--font-body); font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); border: 1px solid var(--c-accent); border-radius: 999px; padding: 0.05rem 0.4rem; margin-left: 0.5rem; vertical-align: middle; }
       .cell a { color: var(--c-muted); text-decoration: none; }
@@ -365,7 +377,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       const ICO_ORD =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>';
       const ICO_NOSHOW =
-        '<svg class="ico-ns" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>';
+        '<svg class="ico-ns" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="4.9" y1="4.9" x2="19.1" y2="19.1" /></svg>';
       const ICO_RESA =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>';
       const ICO_TRASH =
@@ -491,11 +503,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               const nuovo = !!c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000;
               const attivita =
                 (c.noshows ?? 0) > 0
-                  ? `<span title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}</span>`
+                  ? `<span class="tag-ns" title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}${c.noshows}</span>`
                   : "";
               return `
               <div class="row" data-key="${esc(c.key ?? "")}">
-                <div class="cell c-name">${esc(c.name) || "—"}${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita ? `<span class="c-ico">${attivita}</span>` : ""}</div>
+                <div class="cell c-name">${esc(c.name) || "—"}${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita}</div>
                 <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
                 <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
                 <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>

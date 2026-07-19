@@ -126,10 +126,36 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         return adesso >= inizio + holdDiKey(r.service_key ?? null) + 15;
       });
       if (daChiudere.length) {
-        await supabaseAdmin
-          .from("reservations")
-          .update({ status: "done" })
-          .in("id", daChiudere.map((r) => r.id));
+        // Durata reale del tavolo per l'auto-Fini: il manager ha lasciato correre
+        // → si registra fino a heure + durée + 15 (dall'arrivo reale se seated_at).
+        const offMin = (() => {
+          try {
+            const d = new Date();
+            const loc = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+            const utc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+            return (loc.getTime() - utc.getTime()) / 60000;
+          } catch {
+            return 0;
+          }
+        })();
+        const esiti = await Promise.all(
+          daChiudere.map((r) => {
+            const inizioMs = Date.parse(`${date}T${String(r.heure ?? "").slice(0, 5)}:00Z`) - offMin * 60000;
+            const fineMs = inizioMs + (holdDiKey(r.service_key ?? null) + 15) * 60000;
+            const arrivo = r.seated_at ? Date.parse(String(r.seated_at)) : NaN;
+            const startMs = Number.isFinite(arrivo) ? Math.min(arrivo, fineMs) : inizioMs;
+            const durata = Number.isFinite(fineMs) ? Math.max(0, Math.round((fineMs - startMs) / 60000)) : null;
+            r.table_minutes = durata;
+            return supabaseAdmin.from("reservations").update({ status: "done", table_minutes: durata }).eq("id", r.id);
+          })
+        );
+        // Migrazione #27 non ancora lanciata: si chiude senza durata
+        if (esiti.some((e) => e.error && String(e.error.message ?? "").includes("table_minutes"))) {
+          await supabaseAdmin
+            .from("reservations")
+            .update({ status: "done" })
+            .in("id", daChiudere.map((r) => r.id));
+        }
         for (const r of daChiudere) r.status = "done"; // riflesso subito nella risposta
       }
     }

@@ -104,6 +104,86 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ reservations: data ?? [] });
   }
 
+  // Statistiche CLIENTE per il modale dettagli (match per email e/o telefono)
+  if (url.searchParams.get("client_stats") === "1") {
+    const email = (url.searchParams.get("client_email") ?? "").trim().toLowerCase();
+    const phone = (url.searchParams.get("client_phone") ?? "").trim();
+    if (!email && !phone) return json({ error: "Client manquant" }, 400);
+
+    type RigaStat = {
+      id: string;
+      date: string;
+      heure: string;
+      people: number | null;
+      status: string;
+      source?: string | null;
+      created_at: string;
+      table_minutes?: number | null;
+      spent_cents?: number | null;
+    };
+    const campiStat = "id, date, heure, people, status, source, created_at, table_minutes, spent_cents";
+    const righe = new Map<string, RigaStat>();
+    if (email) {
+      const { data } = await supabaseAdmin.from("reservations").select(campiStat).ilike("email", email).limit(500);
+      for (const r of (data ?? []) as RigaStat[]) righe.set(r.id, r);
+    }
+    if (phone) {
+      const { data } = await supabaseAdmin.from("reservations").select(campiStat).eq("phone", phone).limit(500);
+      for (const r of (data ?? []) as RigaStat[]) righe.set(r.id, r);
+    }
+    const tutte = [...righe.values()];
+
+    // Anticipo di prenotazione: momento della résa (fuso ristorante) - created_at.
+    const { data: tzRow } = await supabaseAdmin.from("app_config").select("value").eq("key", "timezone").maybeSingle();
+    const tz = String(tzRow?.value || "Europe/Brussels");
+    const offsetMin = (utcMs: number): number => {
+      try {
+        const d = new Date(utcMs);
+        const loc = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+        const utc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+        return (loc.getTime() - utc.getTime()) / 60000;
+      } catch {
+        return 0;
+      }
+    };
+
+    const visites = tutte.filter((r) => r.status === "done" || r.status === "seated").length;
+    const noshows = tutte.filter((r) => r.status === "noshow").length;
+    const annullate = tutte.filter((r) => r.status === "cancelled").length;
+    const conPers = tutte.filter((r) => r.status !== "cancelled" && Number(r.people) > 0);
+    const mediaPers = conPers.length
+      ? conPers.reduce((t, r) => t + Number(r.people), 0) / conPers.length
+      : null;
+    const anticipi = tutte
+      .filter((r) => r.status !== "cancelled" && r.source !== "walkin" && r.created_at && /^\d{2}:\d{2}/.test(r.heure ?? ""))
+      .map((r) => {
+        const base = Date.parse(`${r.date}T12:00:00Z`);
+        const resaMs = Date.parse(`${r.date}T${r.heure.slice(0, 5)}:00Z`) - offsetMin(base) * 60000;
+        return (resaMs - Date.parse(r.created_at)) / 60000;
+      })
+      .filter((m) => Number.isFinite(m) && m >= 0);
+    const mediaAnticipo = anticipi.length ? anticipi.reduce((a, b) => a + b, 0) / anticipi.length : null;
+    const durate = tutte
+      .filter((r) => r.status === "done" && Number.isFinite(Number(r.table_minutes)) && Number(r.table_minutes) > 0)
+      .map((r) => Number(r.table_minutes));
+    const mediaTavolo = durate.length ? durate.reduce((a, b) => a + b, 0) / durate.length : null;
+    const spese = tutte
+      .filter((r) => Number.isFinite(Number(r.spent_cents)) && Number(r.spent_cents) > 0)
+      .map((r) => Number(r.spent_cents));
+    const mediaSpesa = spese.length ? spese.reduce((a, b) => a + b, 0) / spese.length : null;
+
+    return json({
+      total: tutte.length,
+      visites,
+      noshows,
+      cancelled: annullate,
+      avg_people: mediaPers,
+      avg_lead_min: mediaAnticipo,
+      avg_table_min: mediaTavolo,
+      avg_spent_cents: mediaSpesa,
+    });
+  }
+
   // Vista mese per il datepicker del modale manuale
   const month = url.searchParams.get("month") ?? "";
   if (/^\d{4}-\d{2}$/.test(month)) {
@@ -231,6 +311,7 @@ export const POST: APIRoute = async ({ request }) => {
     company?: string;
     birthday?: boolean;
     special_event?: boolean;
+    spent_cents?: number | null;
     source?: string;
   };
   try {
@@ -353,6 +434,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     company?: string;
     birthday?: boolean;
     special_event?: boolean;
+    spent_cents?: number | null;
     source?: string;
   };
   try {
@@ -369,8 +451,46 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (!STATI.includes(body.status)) return json({ error: "Statut invalide" }, 400);
     upd.status = body.status;
     // Timer tavolo: "En cours" manuale = arrivo reale; ritorno a Confirmée lo azzera
-    if (body.status === "seated") upd.seated_at = new Date().toISOString();
-    if (body.status === "confirmed") upd.seated_at = null;
+    if (body.status === "seated") {
+      upd.seated_at = new Date().toISOString();
+      upd.table_minutes = null;
+    }
+    if (body.status === "confirmed") {
+      upd.seated_at = null;
+      upd.table_minutes = null;
+    }
+    // No-show / annulée: il tempo al tavolo non conta (azzerato)
+    if (body.status === "noshow" || body.status === "cancelled") upd.table_minutes = null;
+    // Fini MANUALE: registra la durata reale (dall'arrivo al click)
+    if (body.status === "done") {
+      const { data: cur } = await supabaseAdmin
+        .from("reservations")
+        .select("date, heure, seated_at, status")
+        .eq("id", id)
+        .maybeSingle();
+      if (cur && (cur.status === "confirmed" || cur.status === "seated")) {
+        const { data: tzRow } = await supabaseAdmin
+          .from("app_config")
+          .select("value")
+          .eq("key", "timezone")
+          .maybeSingle();
+        const tz = String(tzRow?.value || "Europe/Brussels");
+        let offMin = 0;
+        try {
+          const d = new Date();
+          const loc = new Date(d.toLocaleString("en-US", { timeZone: tz }));
+          const utc = new Date(d.toLocaleString("en-US", { timeZone: "UTC" }));
+          offMin = (loc.getTime() - utc.getTime()) / 60000;
+        } catch { /* fuso invalido: UTC */ }
+        const inizioMs =
+          Date.parse(`${cur.date}T${String(cur.heure ?? "").slice(0, 5)}:00Z`) - offMin * 60000;
+        const arrivo = cur.seated_at ? Date.parse(String(cur.seated_at)) : NaN;
+        const startMs = Number.isFinite(arrivo) ? arrivo : inizioMs;
+        if (Number.isFinite(startMs)) {
+          upd.table_minutes = Math.max(0, Math.round((Date.now() - startMs) / 60000));
+        }
+      }
+    }
   }
   if (body.date !== undefined) {
     if (!RE_DATA.test(String(body.date))) return json({ error: "Date invalide" }, 400);
@@ -402,6 +522,15 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.quiet !== undefined) upd.quiet = Boolean(body.quiet);
   if (body.birthday !== undefined) upd.birthday = Boolean(body.birthday);
   if (body.special_event !== undefined) upd.special_event = Boolean(body.special_event);
+  if (body.spent_cents !== undefined) {
+    if (body.spent_cents === null) {
+      upd.spent_cents = null;
+    } else {
+      const n = Math.round(Number(body.spent_cents));
+      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) return json({ error: "Montant invalide" }, 400);
+      upd.spent_cents = n;
+    }
+  }
   if (body.business !== undefined) {
     upd.business = Boolean(body.business);
     upd.company = Boolean(body.business) ? String(body.company ?? "").trim() : "";
@@ -433,6 +562,30 @@ export const PATCH: APIRoute = async ({ request }) => {
   // Migrazione #26 non ancora lanciata: si riprova senza la colonna seated_at
   if (error && upd.seated_at !== undefined && error.message.includes("seated_at")) {
     delete upd.seated_at;
+    if (Object.keys(upd).length) {
+      ({ data, error } = await supabaseAdmin
+        .from("reservations")
+        .update(upd)
+        .eq("id", id)
+        .select("*")
+        .single());
+    }
+  }
+  // Migrazione #27 non ancora lanciata: si riprova senza la colonna table_minutes
+  if (error && upd.table_minutes !== undefined && error.message.includes("table_minutes")) {
+    delete upd.table_minutes;
+    if (Object.keys(upd).length) {
+      ({ data, error } = await supabaseAdmin
+        .from("reservations")
+        .update(upd)
+        .eq("id", id)
+        .select("*")
+        .single());
+    }
+  }
+  // Migrazione #28 non ancora lanciata: si riprova senza la colonna spent_cents
+  if (error && upd.spent_cents !== undefined && error.message.includes("spent_cents")) {
+    delete upd.spent_cents;
     if (Object.keys(upd).length) {
       ({ data, error } = await supabaseAdmin
         .from("reservations")
