@@ -13,6 +13,24 @@ import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
 import { CLIENT } from "../../config/client";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { caricaHomeData } from "../../lib/admin/caricaHomeData";
+
+export const prerender = false;
+
+// SSR (Fase 2): se il cookie di sessione è valido, pre-carichiamo le 5 isole
+// principali sul server → appaiono già piene (le statistiche restano lato
+// client). Se il cookie manca/è scaduto o c'è errore, ssrHome resta null e la
+// pagina carica tutto lato client come prima (nessun rischio).
+let ssrHome: unknown = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) ssrHome = await caricaHomeData();
+} catch {
+  ssrHome = null;
+}
+const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -254,6 +272,9 @@ import { CLIENT } from "../../config/client";
     </div>
 
     <AdminNav current="home" />
+
+    <!-- Dati SSR (Fase 2): 5 isole pre-caricate dal server, lette dal client. -->
+    <script id="ssr-home" type="application/json" is:inline set:html={ssrHomeJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -524,16 +545,54 @@ import { CLIENT } from "../../config/client";
         })();
 
         try {
-          const [resOrd, resResa, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
-            fetch("/api/admin/orders", { headers }),
-            fetch("/api/admin/reservations?date=" + oggiKey, { headers }),
-            fetch("/api/admin/today", { headers }),
-            fetch("/api/admin/menu", { headers }),
-            fetch("/api/admin/categories", { headers }),
-            fetch("/api/admin/stats?period=day", { headers }),
-            fetch("/api/admin/stats?period=month", { headers }),
-            fetch("/api/admin/stats?period=week", { headers }),
-          ]);
+          // SSR (Fase 2): 5 isole pre-caricate dal server (ssr-home). Se
+          // presenti, i tile principali appaiono all'istante senza fetch; le
+          // statistiche (3) partono subito ma si attendono solo al momento
+          // dell'uso, così non bloccano i primi tile. Senza SSR → come prima.
+          const fakeRes = (obj: any) => ({ ok: true, json: async () => obj });
+          let ssrHome: any = null;
+          try {
+            const raw = document.getElementById("ssr-home")?.textContent?.trim();
+            if (raw) ssrHome = JSON.parse(raw);
+          } catch {
+            ssrHome = null;
+          }
+
+          let resOrd: any, resResa: any, resToday: any, resMenu: any, resCats: any;
+          let resSD: any, resSM: any, resSW: any;
+
+          if (ssrHome) {
+            resOrd = fakeRes(ssrHome.orders);
+            resResa = fakeRes(ssrHome.resa);
+            resToday = fakeRes(ssrHome.today);
+            resMenu = fakeRes(ssrHome.menu);
+            resCats = fakeRes(ssrHome.categories);
+            const pSD = fetch("/api/admin/stats?period=day", { headers });
+            const pSM = fetch("/api/admin/stats?period=month", { headers });
+            const pSW = fetch("/api/admin/stats?period=week", { headers });
+            const lazy = (p: Promise<Response>) => ({
+              ok: true,
+              json: async () => {
+                const r = await p;
+                if (!r.ok) throw new Error();
+                return r.json();
+              },
+            });
+            resSD = lazy(pSD);
+            resSM = lazy(pSM);
+            resSW = lazy(pSW);
+          } else {
+            [resOrd, resResa, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
+              fetch("/api/admin/orders", { headers }),
+              fetch("/api/admin/reservations?date=" + oggiKey, { headers }),
+              fetch("/api/admin/today", { headers }),
+              fetch("/api/admin/menu", { headers }),
+              fetch("/api/admin/categories", { headers }),
+              fetch("/api/admin/stats?period=day", { headers }),
+              fetch("/api/admin/stats?period=month", { headers }),
+              fetch("/api/admin/stats?period=week", { headers }),
+            ]);
+          }
 
           // ---------- Commandes ----------
           if (resOrd.ok) {

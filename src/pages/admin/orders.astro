@@ -8,6 +8,40 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
+import { DateTime } from "luxon";
+import { supabaseAdmin } from "../../lib/db";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+
+export const prerender = false;
+
+// --- SSR (Fase 2): se il cookie di sessione è valido, carichiamo i primi
+// ordini GIÀ sul server → la pagina arriva coi dati (niente pagina vuota→fetch).
+// Stessa query di GET /api/admin/orders. Se il cookie manca/è scaduto o c'è un
+// errore, ssrOrders resta null e il client carica come prima (nessun rischio).
+let ssrOrders: unknown[] | null = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) {
+    const soglia = DateTime.now()
+      .setZone("Europe/Brussels")
+      .minus({ days: 7 })
+      .startOf("day")
+      .toISO();
+    const { data } = await supabaseAdmin
+      .from("orders")
+      .select(
+        "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id"
+      )
+      .in("status", ["paid", "done", "cancelled"])
+      .gte("pickup_time", soglia)
+      .order("pickup_time", { ascending: true });
+    ssrOrders = data ?? [];
+  }
+} catch {
+  ssrOrders = null;
+}
+const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -71,7 +105,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
         transition: border-color 0.2s, background 0.2s;
       }
-      .prep-btn svg { width: 27px; height: 22px; display: block; }
+      .prep-btn svg { width: 24px; height: 24px; display: block; }
+      .prep-close svg { width: 26px; height: 21px; } /* icône X : garde son ratio */
       .prep-btn .m { font-size: 0.8rem; color: var(--c-muted); }
       .prep-btn:hover { border-color: var(--c-accent); }
       .prep-btn.active { border-color: var(--c-accent); background: rgba(223, 171, 78, 0.14); }
@@ -85,8 +120,12 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
-      .card { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
-      .card.off { opacity: 0.45; }
+      .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      /* Card annulée : contenuto sbiadito, MA i bottoni assoluti restano opachi.
+         (Dim sul contenuto, non sull'intera card, così .btn-refund è 100% opaco.) */
+      .card.off > *:not(.btn-refund):not(.btn-rollback) { opacity: 0.45; }
+      .card.refundable { padding-bottom: 3.6rem; } /* spazio per il bottone assoluto */
+      .card.done { padding-bottom: 3.4rem; opacity: 0.62; } /* spazio rollback + leggermente trasparente */
       .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
       .ct-left { display: flex; align-items: center; gap: 0.6rem; }
       .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
@@ -125,6 +164,68 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       .btn-cancel { border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; }
       .btn-cancel:hover { border-color: var(--c-red); }
       .btn-cancel.confirm { background: rgba(237, 28, 36, 0.25); border-color: var(--c-red); color: #fff; }
+      /* Card terminée : ✓ blanc rond sur fond vert, à côté du prix */
+      .ct-right { display: inline-flex; align-items: center; gap: 0.5rem; }
+      .badge-ok {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: #2e9e6b; color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
+      }
+      /* Rollback : rond doré, position absolue en bas à droite de la card */
+      .btn-rollback {
+        position: absolute; right: 0.9rem; bottom: 0.9rem;
+        width: 40px; height: 40px; border-radius: 50%; border: none;
+        background: var(--c-accent); color: var(--c-bg);
+        font-size: 1.2rem; line-height: 1; display: inline-flex;
+        align-items: center; justify-content: center; cursor: pointer;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+        transition: transform 0.1s, filter 0.15s;
+      }
+      .btn-rollback:hover { filter: brightness(1.08); }
+      .btn-rollback:active { transform: scale(0.94); }
+      .btn-rollback:disabled { opacity: 0.5; cursor: wait; }
+      /* Bottone stampante (ristampa ticket) — predisposto, mostrato solo quando attivo */
+      .btn-print {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; padding: 0; border-radius: 8px;
+        border: 1px solid var(--c-line); background: transparent; color: var(--c-muted);
+        cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .btn-print:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .btn-print svg { width: 17px; height: 17px; }
+      /* Remboursement : tag stato in alto + bottone doré absolu en bas à droite */
+      .tag-refund { border: 1px solid #2e9e6b; color: #2e9e6b; }
+      .btn-refund {
+        position: absolute; right: 0.9rem; bottom: 0.9rem; z-index: 2;
+        font-family: var(--font-title); font-size: 0.9rem; letter-spacing: 0.03em;
+        padding: 0.5rem 0.95rem; border-radius: 999px; border: none;
+        background: var(--c-accent); color: var(--c-bg); font-weight: 700;
+        cursor: pointer; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+        transition: transform 0.1s, filter 0.15s;
+      }
+      .btn-refund:hover { filter: brightness(1.08); }
+      .btn-refund:active { transform: scale(0.96); }
+      .btn-refund:disabled { opacity: 0.6; cursor: wait; }
+      /* Modale remboursement */
+      .rf-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.62); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
+      .rf-overlay.is-open { display: flex; }
+      .rf-modal { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+      .rf-title { font-family: var(--font-title); font-size: 1.4rem; margin: 0 0 0.3rem; color: var(--c-accent); }
+      .rf-sub { color: var(--c-muted); font-size: 0.9rem; margin: 0 0 1.1rem; }
+      .rf-label { display: block; font-size: 0.8rem; color: var(--c-muted); margin-bottom: 0.4rem; }
+      .rf-inputrow { display: flex; align-items: center; gap: 0.5rem; }
+      .rf-euro { color: var(--c-muted); font-size: 1.2rem; }
+      .rf-amount { flex: 0 1 170px; background: #1c1819; border: 1px solid var(--c-line); color: #fff; font-size: 1.15rem; padding: 0.6rem 0.7rem; border-radius: 8px; }
+      .rf-all { background: transparent; border: 2px solid var(--c-accent); color: var(--c-accent); font-weight: 700; padding: 0.55rem 1.05rem; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background 0.15s, color 0.15s; }
+      .rf-all:hover { background: var(--c-accent); color: var(--c-bg); }
+      .rf-msg { min-height: 1.1rem; font-size: 0.85rem; margin: 0.7rem 0 0; color: #ff8a8f; }
+      .rf-msg.ok { color: #2e9e6b; }
+      .rf-actions { display: flex; gap: 0.7rem; margin-top: 1.3rem; }
+      .rf-actions button { flex: 1; font-family: var(--font-title); font-size: 1rem; padding: 0.6rem; cursor: pointer; border-radius: 8px; }
+      .rf-cancel { background: var(--c-red); border: 1px solid var(--c-red); color: #fff; font-weight: 700; }
+      .rf-cancel:hover { filter: brightness(1.08); }
+      .rf-confirm { background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .rf-confirm:disabled { opacity: 0.5; cursor: wait; }
 
       /* --- Sezione terminati/annullati --- */
       .done-title {
@@ -158,40 +259,15 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             <p class="prep-lab">Préparation<span class="prep-note" id="prep-note"></span></p>
             <div class="prep-btns" role="group" aria-label="Temps de préparation">
               <button class="prep-btn" type="button" data-min="15" title="Rapide — 15 minutes">
-                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
-                  <ellipse cx="13.5" cy="15" rx="9" ry="5.5" />
-                  <circle cx="23.5" cy="11" r="4" />
-                  <ellipse cx="18.5" cy="6" rx="5.5" ry="1.7" transform="rotate(32 18.5 6)" />
-                  <ellipse cx="17" cy="8.5" rx="5.3" ry="1.6" transform="rotate(15 17 8.5)" />
-                  <circle cx="4.8" cy="13.5" r="2.2" />
-                  <path d="M8 19 L4.5 22" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                  <path d="M18 19.5 L21.5 22" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                </svg>
+                <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><path d="m58.982 46.321c.006-.145.018-.289.018-.436 0-8.567-5.834-16.111-13.57-17.547-5.452-1.011-11.985.293-17.476 3.49a22.546 22.546 0 0 0 -2.954 2.006 13.213 13.213 0 0 0 -.28-2.848 24.743 24.743 0 0 0 10.68-3.715c7.111-4.216 11.028-9.833 9.111-13.067-1.3-2.187-4.836-2.549-9.188-1.255 1.2-4.05.8-7.121-1.169-8.39-1.615-1.041-3.953-.616-6.576 1.2a26.723 26.723 0 0 0 -6.814 7.422c-2.589 4.024-4.1 8.259-4.133 11.392a18.094 18.094 0 0 0 -5.718 1.636c-3.031 1.329-6.4 3.027-8.03 6.372a9.658 9.658 0 0 0 .288 8.637c2.261 4.1 6.449 4.791 9.32 4.791a23.373 23.373 0 0 0 2.353-.134l.484-.052c.322-.036.639-.088.951-.15.681 2.185 2.826 7.315 8.388 9.266 1.752.615 2.263 1.465 2.389 2.057h-1.056a4 4 0 0 0 -4 4 1 1 0 0 0 1 1h26.786a2.372 2.372 0 0 0 2.214-2.496 2.607 2.607 0 0 0 -.941-2.045 15.182 15.182 0 0 0 3.187-2 5.045 5.045 0 0 0 2.546.691 5.153 5.153 0 0 0 2.19-9.823zm-53.275-6.614-.689.689c-.029-.049-.065-.089-.093-.139a7.453 7.453 0 0 1 -.711-1.885l.079-.079a1 1 0 0 1 1.414 1.414zm8.175-5.825a1 1 0 0 1 -1.414 0 .978.978 0 0 0 -.842-.274.8.8 0 0 0 -.6.41c-.031.074-.029.065-.029-.013a1 1 0 0 1 -1.997-.005 2.011 2.011 0 0 1 .26-.914 2.777 2.777 0 0 1 2.066-1.455 2.988 2.988 0 0 1 2.556.837 1 1 0 0 1 0 1.414zm9.469-6.134c-1.821-.393-.679-1.913-.051-2.711a22.629 22.629 0 0 1 14.508-8.316c3.919-.721 3.681 2.123 2.2 3.651a24.945 24.945 0 0 1 -6.063 4.414c-3.964 2.125-7.958 3.172-10.594 2.962zm10.984 29.466a8.894 8.894 0 0 1 -5.335-8.006c0-.069 0-.138 0-.208 0-6.085 3.366-8.189 6.374-8.857a9.969 9.969 0 0 0 -1.039 17.071z"/></svg>
                 <span class="m">15 min</span>
               </button>
               <button class="prep-btn" type="button" data-min="30" title="Normal — 30 minutes">
-                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
-                  <path d="M6 5 Q4.5 9.5 8 11.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" />
-                  <rect x="7.5" y="10.5" width="13.5" height="7.5" rx="3.7" />
-                  <circle cx="22" cy="9.5" r="3.7" />
-                  <rect x="24.5" y="8.8" width="4.6" height="3" rx="1.5" />
-                  <ellipse cx="20.6" cy="6.6" rx="1.7" ry="2.7" transform="rotate(-18 20.6 6.6)" />
-                  <path d="M10 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                  <path d="M13.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                  <path d="M16.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                  <path d="M19.5 17.5 V21.8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" />
-                </svg>
+                <svg viewBox="0 0 441.23 441.23" fill="currentColor" aria-hidden="true"><path d="M440.651,132.739c-0.888-2.354-2.721-4.229-5.054-5.171L396.39,111.75c-2.435-12.666-12.056-22.81-24.436-26.008l-2.115-24.363c-0.309-3.565-2.701-6.608-6.093-7.751c-3.391-1.142-7.137-0.167-9.541,2.484l-10.062,11.099l-6.22-21.766c-1.072-3.752-4.44-6.386-8.341-6.521c-3.924-0.139-7.444,2.258-8.773,5.928L274.34,173.047c0,0-172.127,8.035-172.199,8.039c-35.296,2.121-68.735-16.765-85.167-48.119c-2.309-4.402-7.748-6.102-12.149-3.794c-4.403,2.308-6.101,7.747-3.794,12.149c14.69,28.03,40.708,47.75,70.541,54.93c-3.097,3.609-9.751,12.554-13.642,26.617c-4.231,15.291-5.756,39.667,9.801,70.619L42.499,327.76c-1.474,2.001-2.054,4.523-1.603,6.968l11.105,60.218c0.787,4.268,4.51,7.367,8.851,7.367h11.312c2.669,0,5.2-1.185,6.911-3.233c1.71-2.05,2.422-4.753,1.944-7.378l-7.032-38.627l74.401-55.853c0.131-0.099-0.126,0.107,0,0c7.114-5.975,12.278-12.556,15.972-19.322c38.777,6.808,91.844,16.02,125.857,21.498l14.986,95.314c0.689,4.377,4.46,7.602,8.891,7.602h9.308c4.971,0,9-4.029,9-9V296.56c8.449-5.77,11.469-15.42,13.472-24.871c0.063-0.297,20.022-92.416,20.022-92.416c3.762,0.627,7.561,0.956,11.388,0.956c26.356,0,50.492-15.431,62.987-40.271C441.401,137.712,441.539,135.094,440.651,132.739z"/></svg>
                 <span class="m">30 min</span>
               </button>
               <button class="prep-btn" type="button" data-min="45" title="Chargé — 45 minutes">
-                <svg viewBox="0 0 30 24" fill="currentColor" aria-hidden="true">
-                  <path d="M5.5 16.5 a9.5 8.5 0 0 1 19 0 z" />
-                  <rect x="22.5" y="13.5" width="3.5" height="3" rx="1.5" />
-                  <circle cx="26.6" cy="15" r="2.6" />
-                  <ellipse cx="9.5" cy="18.2" rx="2.1" ry="1.7" />
-                  <ellipse cx="20" cy="18.2" rx="2.1" ry="1.7" />
-                  <path d="M5.8 15.5 L2.8 17.6 L5.6 18.5 Z" />
-                </svg>
+                <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="m83.9 23.3h-3.9c-5.5 0-10 4.5-10 10v10c0 11-17.9 20-40 20h-17.6c-1.3 0-2.4 1.1-2.4 2.4v1.9c0 1.3 1.1 2.4 2.4 2.4 1.7 0 2.8 1.7 2.3 3.2 0 .1-.1.2-.1.2-.6 1.6.6 3.2 2.2 3.2h2c1 0 1.9-.6 2.3-1.6.4-1.1.8-2.3 1.1-3.4.3-1 1.2-1.7 2.3-1.7h8.9c10.1 0 19.3-1.7 26.7-4.6 1.4-.5 2.9.2 3.2 1.7.7 2.7 1.4 5.4 2.3 8 .3 1 1.3 1.6 2.3 1.6h2c1.7 0 2.8-1.6 2.2-3.2-1.3-3.5-2.3-7.1-3.1-10.8-.2-.9.2-1.9.9-2.4 4.8-3.4 8-7.6 9.4-12.2.3-.9 1-1.5 1.9-1.7 5.1-.9 8.8-3.4 8.8-6.3v-10.5c0-3.4-2.7-6.2-6.1-6.2zm-3.3 12.5c-1.9.4-3.5-1.2-3-3 .2-.9.9-1.6 1.8-1.8 1.9-.5 3.5 1.2 3.1 3.1-.3.7-1 1.5-1.9 1.7z"/><path d="m10.2 53.3c-.2 1.8 1.2 3.3 3 3.3h16.8c20.3 0 33.3-7.9 33.3-13.3v-11.7c0-1-.5-1.9-1.4-2.5-5.3-3.6-11.7-5.7-18.6-5.7-17.2-.1-31.5 13.1-33.1 29.9z"/></svg>
                 <span class="m">45 min</span>
               </button>
               <button class="prep-btn prep-close" type="button" id="btn-close-orders" title="Fermer les commandes en ligne">
@@ -211,7 +287,29 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
       </main>
     </div>
 
+    <!-- Modale Remboursement -->
+    <div class="rf-overlay" id="rf-overlay" role="dialog" aria-modal="true" aria-labelledby="rf-title">
+      <div class="rf-modal">
+        <h2 class="rf-title" id="rf-title">Rembourser la commande</h2>
+        <p class="rf-sub" id="rf-sub"></p>
+        <label class="rf-label" for="rf-amount">Montant à rembourser</label>
+        <div class="rf-inputrow">
+          <span class="rf-euro">€</span>
+          <input class="rf-amount" id="rf-amount" type="number" inputmode="decimal" min="0" step="0.01" />
+          <button class="rf-all" type="button" id="rf-all">Tout</button>
+        </div>
+        <p class="rf-msg" id="rf-msg"></p>
+        <div class="rf-actions">
+          <button class="rf-cancel" type="button" id="rf-cancel">Annuler</button>
+          <button class="rf-confirm" type="button" id="rf-confirm">Rembourser</button>
+        </div>
+      </div>
+    </div>
+
     <AdminNav current="orders" />
+
+    <!-- Dati SSR (Fase 2): ordini pre-caricati dal server, letti dal client. -->
+    <script id="ssr-orders" type="application/json" is:inline set:html={ssrOrdersJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -228,6 +326,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         total_cents: number;
         lang: string | null;
         created_at: string;
+        refunded_cents?: number;
+        stripe_session_id?: string | null;
       };
 
       function esc(s: string): string {
@@ -248,6 +348,12 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           minute: "2-digit",
         });
       }
+
+      // Ristampa ticket — PREDISPOSTO ma NASCOSTO (§4.5 stampante termica).
+      // Domani, con la stampa automatica attiva: mettere STAMPA_TICKET = true
+      // per mostrare il bottone, e collegare ristampaTicket() a /api/admin/print.
+      const STAMPA_TICKET = false;
+      const ICON_PRINT = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>`;
 
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");
@@ -276,7 +382,9 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
         if (o.status === "done") tag = `<span class="tag tag-done">Terminée</span>`;
         if (o.status === "cancelled") tag = `<span class="tag tag-cancel">Annulée</span>`;
 
-        // Bottoni solo sugli ordini attivi
+        // Ordini attivi: Terminée + Annuler.
+        // Ordini terminati: ✓ vert rond à côté du prix + bouton rollback doré
+        // (position absolue, en bas à droite) pour remettre « en cours ».
         const actions =
           o.status === "paid"
             ? `<div class="actions">
@@ -285,14 +393,42 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
                </div>`
             : "";
 
+        const badgeOk = o.status === "done" ? `<span class="badge-ok" title="Terminée">✓</span>` : "";
+        // Bottone stampante (ristampa ticket): reso solo se STAMPA_TICKET = true.
+        const stampaBtn = STAMPA_TICKET
+          ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="Ré-imprimer le ticket" aria-label="Ré-imprimer le ticket">${ICON_PRINT}</button>`
+          : "";
+        const rollback =
+          o.status === "done"
+            ? `<button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="Remettre en cours" aria-label="Remettre en cours">↩</button>`
+            : "";
+        // Ordini ANNULÉS pagati con Stripe: rimborso (totale o parziale).
+        // Stato rimborso = tag in alto; bottone "Rembourser" = assoluto in basso
+        // a destra (come il rollback), 100% opaco.
+        const refunded = o.refunded_cents ?? 0;
+        const residuo = o.total_cents - refunded;
+        const isStripe = o.status === "cancelled" && !!o.stripe_session_id;
+        if (isStripe && refunded > 0) {
+          tag += residuo > 0
+            ? `<span class="tag tag-refund">Remboursé ${euro(refunded)}</span>`
+            : `<span class="tag tag-refund">Remboursé ✓</span>`;
+        }
+        const refundBtn =
+          isStripe && residuo > 0
+            ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">Rembourser</button>`
+            : "";
+        const cardCls =
+          (o.status === "paid" ? "" : o.status === "done" ? " done" : " off") +
+          (refundBtn ? " refundable" : "");
+
         return `
-          <div class="card${o.status === "paid" ? "" : " off"}">
+          <div class="card${cardCls}">
             <div class="card-top">
               <div class="ct-left">
                 <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
                 ${tag}
               </div>
-              <span class="total">${euro(o.total_cents)}</span>
+              <span class="ct-right">${stampaBtn}${badgeOk}<span class="total">${euro(o.total_cents)}</span></span>
             </div>
             <p class="name">${esc(o.customer_name)}${langBadge}</p>
             <p class="row">Email : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
@@ -300,6 +436,8 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
             ${actions}
+            ${refundBtn}
+            ${rollback}
           </div>`;
       }
 
@@ -504,11 +642,23 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           }
         }
 
+        // Ristampa ticket — PREDISPOSTO ma inattivo finché non c'è la stampa
+        // automatica. Domani: implementare qui la POST verso /api/admin/print.
+        function ristampaTicket(id: string) {
+          // TODO (§4.5 stampante): await fetch("/api/admin/print", { method:"POST",
+          //   headers:{...headers,"Content-Type":"application/json"}, body:JSON.stringify({ id }) });
+          void id;
+        }
+
         gridEl.addEventListener("click", (e) => {
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
           if (!btn || btn.disabled) return;
           const id = btn.dataset.id ?? "";
 
+          if (btn.dataset.act === "print") {
+            ristampaTicket(id);
+            return;
+          }
           if (btn.dataset.act === "done") {
             cambiaStato(id, "done", btn);
             return;
@@ -522,6 +672,100 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
             btn.classList.add("confirm");
             btn.textContent = "Confirmer ?";
             confirmTimer = window.setTimeout(resetConfirm, 4000);
+          }
+        });
+
+        // Card TERMINÉE : rollback (→ paid) + ristampa ticket (predisposta).
+        gridDoneEl.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
+          if (!btn || btn.disabled) return;
+          if (btn.dataset.act === "print") {
+            ristampaTicket(btn.dataset.id ?? "");
+            return;
+          }
+          if (btn.dataset.act === "refund") {
+            apriRimborso(btn);
+            return;
+          }
+          if (btn.dataset.act === "rollback") {
+            cambiaStato(btn.dataset.id ?? "", "paid", btn);
+          }
+        });
+
+        // ---- Modale Remboursement (rimborso Stripe, totale o parziale) ----
+        const rfOverlay = document.getElementById("rf-overlay") as HTMLDivElement;
+        const rfSub = document.getElementById("rf-sub") as HTMLParagraphElement;
+        const rfAmount = document.getElementById("rf-amount") as HTMLInputElement;
+        const rfMsg = document.getElementById("rf-msg") as HTMLParagraphElement;
+        const rfConfirm = document.getElementById("rf-confirm") as HTMLButtonElement;
+        const rfCancel = document.getElementById("rf-cancel") as HTMLButtonElement;
+        const rfAll = document.getElementById("rf-all") as HTMLButtonElement;
+        let rfId = "";
+        let rfResiduo = 0;
+
+        function apriRimborso(btn: HTMLButtonElement) {
+          rfId = btn.dataset.id ?? "";
+          rfResiduo = Math.max(0, Math.round(Number(btn.dataset.residuo ?? "0")));
+          rfMsg.textContent = "";
+          rfMsg.classList.remove("ok");
+          rfSub.textContent = `Montant remboursable : ${euro(rfResiduo)}`;
+          rfAmount.value = (rfResiduo / 100).toFixed(2);
+          rfAmount.max = (rfResiduo / 100).toFixed(2);
+          rfConfirm.disabled = false;
+          rfOverlay.classList.add("is-open");
+          rfAmount.focus();
+          rfAmount.select();
+        }
+        function chiudiRimborso() {
+          rfOverlay.classList.remove("is-open");
+        }
+        rfCancel.addEventListener("click", chiudiRimborso);
+        rfOverlay.addEventListener("click", (e) => {
+          if (e.target === rfOverlay) chiudiRimborso();
+        });
+        rfAll.addEventListener("click", () => {
+          rfAmount.value = (rfResiduo / 100).toFixed(2);
+        });
+
+        rfConfirm.addEventListener("click", async () => {
+          const euros = Number(String(rfAmount.value).replace(",", "."));
+          const cents = Math.round(euros * 100);
+          if (!Number.isFinite(cents) || cents <= 0) {
+            rfMsg.classList.remove("ok");
+            rfMsg.textContent = "Montant invalide.";
+            return;
+          }
+          if (cents > rfResiduo) {
+            rfMsg.classList.remove("ok");
+            rfMsg.textContent = `Maximum : ${euro(rfResiduo)}.`;
+            return;
+          }
+          rfConfirm.disabled = true;
+          rfMsg.classList.remove("ok");
+          rfMsg.textContent = "Remboursement en cours…";
+          try {
+            const r = await fetch("/api/admin/refund", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id: rfId, amount_cents: cents }),
+            });
+            const j = await r.json().catch(() => ({}) as any);
+            if (!r.ok) {
+              rfMsg.classList.remove("ok");
+              rfMsg.textContent = j.error || "Remboursement impossible.";
+              rfConfirm.disabled = false;
+              return;
+            }
+            const ord = ordini.find((o) => o.id === rfId);
+            if (ord) ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + cents);
+            rfMsg.classList.add("ok");
+            rfMsg.textContent = `Remboursé : ${euro(Number(j.amount ?? cents))} ✓`;
+            render();
+            setTimeout(chiudiRimborso, 1200);
+          } catch {
+            rfMsg.classList.remove("ok");
+            rfMsg.textContent = "Erreur de connexion.";
+            rfConfirm.disabled = false;
           }
         });
 
@@ -563,8 +807,27 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
           void carica(true);
         }
 
-        // Primo caricamento (mostra "Chargement…").
-        await carica();
+        // Primo render: se il server ha già fornito gli ordini (SSR, Fase 2),
+        // li usiamo SUBITO senza fetch; altrimenti carichiamo come prima.
+        const ssrEl = document.getElementById("ssr-orders");
+        const ssrRaw = ssrEl?.textContent?.trim();
+        let ssrOk = false;
+        if (ssrRaw) {
+          try {
+            const list = JSON.parse(ssrRaw) as Order[];
+            ordini = list;
+            firmaOrdini = firmaDa(list);
+            render();
+            ssrOk = true;
+          } catch {
+            ssrOk = false;
+          }
+        }
+        if (!ssrOk) {
+          await carica(); // nessun dato SSR → comportamento attuale
+        } else {
+          void carica(true); // già mostrato: riallinea in background, silenzioso
+        }
 
         // 1) evento da AdminNav all'arrivo di un nuovo ordine pagato
         window.addEventListener("moodd:new-order", () => refreshLive());

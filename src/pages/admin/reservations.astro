@@ -8,6 +8,28 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
+
+export const prerender = false;
+
+// SSR (Fase 2): giorno mostrato = ?date valido, oppure oggi in Europe/Brussels
+// (stesso default del client al primo render). Se il cookie di sessione è
+// valido, carichiamo il giorno GIÀ sul server → la lista arriva coi dati.
+// Altrimenti ssrResa resta null e il client carica come prima (nessun rischio).
+const pDateSSR = Astro.url.searchParams.get("date") ?? "";
+const ssrGiorno = /^\d{4}-\d{2}-\d{2}$/.test(pDateSSR)
+  ? pDateSSR
+  : new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels" }).format(new Date());
+let ssrResa: unknown = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) ssrResa = await caricaResaGiorno(ssrGiorno);
+} catch {
+  ssrResa = null;
+}
+const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -664,6 +686,9 @@ import { CLIENT } from "../../config/client";
 
     <AdminNav current="reservations" />
 
+    <!-- Dati SSR (Fase 2): giorno pre-caricato dal server, letto dal client. -->
+    <script id="ssr-resa" type="application/json" is:inline set:html={ssrResaJson} data-giorno={ssrGiorno}></script>
+
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
@@ -989,17 +1014,15 @@ import { CLIENT } from "../../config/client";
       // `silenzioso = true` → aggiornamento in background: niente spinner, e si
       // ridisegna SOLO se i dati sono cambiati. Così la lista si aggiorna sul
       // posto quando arriva/cambia/sparisce una prenotazione, senza ricaricare.
-      async function carica(silenzioso = false) {
+      async function carica(silenzioso = false, datiIniziali?: any) {
         modoRicerca = false;
-        if (!silenzioso) {
+        if (!silenzioso && !datiIniziali) {
           stateEl.style.display = "";
           rowsEl.style.display = "none";
           emptyEl.style.display = "none";
         }
         try {
-          const res = await fetch("/api/admin/reservations?date=" + giorno, { headers });
-          if (!res.ok) throw new Error();
-          const j = (await res.json()) as {
+          let j: {
             reservations: Resa[];
             closures?: { service_key: string; reason: string }[];
             zone_closures?: { zone: string; reason: string }[];
@@ -1007,6 +1030,13 @@ import { CLIENT } from "../../config/client";
             config?: typeof nmCfg;
             missing?: boolean;
           };
+          if (datiIniziali) {
+            j = datiIniziali; // dati già pronti (SSR): niente fetch
+          } else {
+            const res = await fetch("/api/admin/reservations?date=" + giorno, { headers });
+            if (!res.ok) throw new Error();
+            j = await res.json();
+          }
           const firma = firmaListaDa(j.reservations, j.closures, j.zone_closures);
           // Refresh silenzioso e niente è cambiato: non toccare il DOM.
           if (silenzioso && firma === firmaLista) return;
@@ -1056,7 +1086,27 @@ import { CLIENT } from "../../config/client";
         });
 
         headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
-        await carica();
+
+        // Primo render: se il server ha già caricato il giorno mostrato (SSR,
+        // Fase 2) e coincide col giorno del client, lo usiamo SUBITO senza
+        // fetch; poi un refresh silenzioso riallinea. Altrimenti come prima.
+        const ssrResaEl = document.getElementById("ssr-resa");
+        const ssrResaRaw = ssrResaEl?.textContent?.trim();
+        const ssrResaGiorno = ssrResaEl?.getAttribute("data-giorno") ?? "";
+        let ssrResaOk = false;
+        if (ssrResaRaw && ssrResaGiorno === giorno) {
+          try {
+            await carica(false, JSON.parse(ssrResaRaw));
+            ssrResaOk = true;
+          } catch {
+            ssrResaOk = false;
+          }
+        }
+        if (!ssrResaOk) {
+          await carica();
+        } else {
+          void carica(true); // riallinea in background, silenzioso
+        }
 
         // ---- Aggiornamento live della lista ----
         // Ricarica il giorno mostrato SOLO se non stai cercando, la scheda è

@@ -23,3 +23,37 @@ export const supabaseBrowser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
   },
 });
+
+// ============================================================
+// Cookie di sessione per il RENDER LATO SERVER (SSR) — Fase 2
+// ============================================================
+// La sessione vive nel localStorage (sopra), ma il localStorage NON è
+// leggibile dal server. Durante una navigazione di pagina il browser invia
+// solo i COOKIE (non l'header Authorization), quindi per far autenticare il
+// server in SSR teniamo un cookie con l'access token, sincronizzato al login,
+// ad ogni refresh del token e al logout.
+//
+// È ADDITIVO: non tocca l'auth esistente. Se il cookie manca o è scaduto, le
+// pagine ricadono sul comportamento attuale (fetch lato client). Non è
+// httpOnly (lo scrive il client) → stessa esposizione del token già in
+// localStorage. Scope `Path=/admin` così viaggia solo sulle pagine admin.
+function scriviCookieToken(token: string | null): void {
+  if (typeof document === "undefined" || typeof location === "undefined") return;
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  if (token) {
+    document.cookie = `mdd_at=${token}; Path=/admin; Max-Age=3600; SameSite=Lax${secure}`;
+  } else {
+    document.cookie = `mdd_at=; Path=/admin; Max-Age=0; SameSite=Lax${secure}`;
+  }
+}
+
+if (typeof document !== "undefined") {
+  // sync iniziale (pagina aperta con sessione già presente)
+  supabaseBrowser.auth.getSession().then(({ data }) => {
+    scriviCookieToken(data.session?.access_token ?? null);
+  });
+  // login / refresh token / logout
+  supabaseBrowser.auth.onAuthStateChange((_event, session) => {
+    scriviCookieToken(session?.access_token ?? null);
+  });
+}

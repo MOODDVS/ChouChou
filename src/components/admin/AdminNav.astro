@@ -326,7 +326,11 @@ const { current } = Astro.props;
     }
 
     let since = new Date().toISOString();
-    let sinceOrdini = new Date().toISOString();
+    // Ordini: NON usiamo l'orario di creazione (un ordine nasce 'pending' e
+    // diventa 'paid' dopo, col webhook → il segnalibro temporale lo mancava).
+    // Teniamo invece l'insieme degli ID già pagati e avvisiamo sui NUOVI.
+    const ordiniVisti = new Set<string>();
+    let baselineOrdini = false;
     let lastDate = "";
     let lastHref = "/admin/reservations";
     let tTimer: number | undefined;
@@ -397,20 +401,36 @@ const { current } = Astro.props;
     }
     async function pollOrdini() {
       try {
-        const res = await fetch("/api/admin/orders?new_since=" + encodeURIComponent(sinceOrdini), { headers });
+        const res = await fetch("/api/admin/orders?recent_paid=1", { headers });
         if (!res.ok) return;
-        const j = (await res.json()) as { orders?: any[]; now?: string };
-        if (j.now) sinceOrdini = j.now;
-        const ordini = j.orders ?? [];
-        if (!ordini.length) return;
-        mostraOrdine(ordini);
+        const j = (await res.json()) as { orders?: any[] };
+        const ordini = (j.orders ?? []) as any[];
+
+        // Primo giro: registra gli ordini GIÀ pagati come "visti", senza avvisare.
+        if (!baselineOrdini) {
+          for (const o of ordini) ordiniVisti.add(o.id);
+          baselineOrdini = true;
+          return;
+        }
+
+        const nuovi = ordini.filter((o) => !ordiniVisti.has(o.id));
+        for (const o of ordini) ordiniVisti.add(o.id);
+        // Tiene l'insieme limitato: se cresce troppo, lo ricostruisce dai recenti.
+        if (ordiniVisti.size > 500) {
+          ordiniVisti.clear();
+          for (const o of ordini) ordiniVisti.add(o.id);
+        }
+        if (!nuovi.length) return;
+
+        mostraOrdine(nuovi);
         suona(beepOrder); // beep del controller ×3
-        for (const o of ordini) window.dispatchEvent(new CustomEvent("moodd:new-order", { detail: o }));
+        for (const o of nuovi) window.dispatchEvent(new CustomEvent("moodd:new-order", { detail: o }));
       } catch {
         // rete assente: nessun blocco
       }
     }
 
+    pollOrdini(); // baseline immediata: registra i pagati già presenti al load
     window.setInterval(poll, 20000);
     window.setInterval(pollOrdini, 20000);
     document.addEventListener("visibilitychange", () => {

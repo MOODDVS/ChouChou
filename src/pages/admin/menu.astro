@@ -7,6 +7,23 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
+
+export const prerender = false;
+
+// SSR (Fase 2): se il cookie di sessione è valido, pre-carichiamo categorie +
+// piatti sul server. Altrimenti ssrMenu resta null e la pagina carica come
+// prima (nessun rischio).
+let ssrMenu: unknown = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) ssrMenu = await caricaMenuPagina();
+} catch {
+  ssrMenu = null;
+}
+const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -442,6 +459,9 @@ import { CLIENT } from "../../config/client";
 
     <AdminNav current="menu" />
 
+    <!-- Dati SSR (Fase 2): categorie + piatti pre-caricati dal server. -->
+    <script id="ssr-menu" type="application/json" is:inline set:html={ssrMenuJson}></script>
+
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
@@ -607,17 +627,23 @@ import { CLIENT } from "../../config/client";
           : '<p class="state">Section vide — ajoute un plat ou supprime la section.</p>';
       }
 
-      async function caricaTutto() {
-        const [rc, ri] = await Promise.all([
-          fetch("/api/admin/categories", { headers }),
-          fetch("/api/admin/menu", { headers }),
-        ]);
-        if (!rc.ok || !ri.ok) {
-          stateEl.textContent = "Erreur de chargement.";
-          return false;
+      async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
+        if (datiIniziali) {
+          // Dati già pronti dal server (SSR): niente fetch.
+          cats = datiIniziali.categories ?? [];
+          items = datiIniziali.items ?? [];
+        } else {
+          const [rc, ri] = await Promise.all([
+            fetch("/api/admin/categories", { headers }),
+            fetch("/api/admin/menu", { headers }),
+          ]);
+          if (!rc.ok || !ri.ok) {
+            stateEl.textContent = "Erreur de chargement.";
+            return false;
+          }
+          cats = ((await rc.json()).categories as Cat[]) ?? [];
+          items = ((await ri.json()).items as Item[]) ?? [];
         }
-        cats = ((await rc.json()).categories as Cat[]) ?? [];
-        items = ((await ri.json()).items as Item[]) ?? [];
         if (!attiva || !cats.some((c) => c.name === attiva)) {
           attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? cats[0]?.name ?? "";
         }
@@ -1009,7 +1035,15 @@ import { CLIENT } from "../../config/client";
         headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
 
         renderNuovaKind();
-        await caricaTutto();
+        // Primo caricamento: usa i dati SSR (Fase 2) se presenti, senza fetch.
+        let ssrMenuDati: { categories: Cat[]; items: Item[] } | null = null;
+        try {
+          const raw = document.getElementById("ssr-menu")?.textContent?.trim();
+          if (raw) ssrMenuDati = JSON.parse(raw);
+        } catch {
+          ssrMenuDati = null;
+        }
+        await caricaTutto(ssrMenuDati ?? undefined);
 
         searchEl.addEventListener("input", renderList);
         tabsEl.addEventListener("click", (e) => {

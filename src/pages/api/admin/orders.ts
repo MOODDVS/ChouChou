@@ -21,8 +21,24 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  // Polling: nuovi ordini PAGATI creati dopo `new_since` (per il beep + toast
-  // "Nouvelle commande" nell'admin). Ritorna anche l'ora del server.
+  // Polling toast "Nouvelle commande": gli ultimi ordini PAGATI (per created_at).
+  // Il client tiene gli ID già visti e avvisa sui NUOVI. Non si usa più un
+  // segnalibro temporale: un ordine nasce 'pending' e diventa 'paid' dopo
+  // (webhook), quindi il confronto su created_at mancava le transizioni.
+  const recentPaid = url.searchParams.get("recent_paid");
+  if (recentPaid) {
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, customer_name, total_cents, pickup_time, created_at")
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) return json({ orders: [], now });
+    return json({ orders: data ?? [], now });
+  }
+
+  // (Retro-compat) vecchio parametro `new_since`: ordini pagati creati dopo.
   const newSince = url.searchParams.get("new_since");
   if (newSince) {
     const now = new Date().toISOString();
@@ -48,7 +64,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const { data, error } = await supabaseAdmin
     .from("orders")
     .select(
-      "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at"
+      "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id"
     )
     .in("status", ["paid", "done", "cancelled"])
     .gte("pickup_time", soglia)

@@ -181,6 +181,17 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
   return user;
 }
 
+/**
+ * Verifica un token IN LOCALE (per il render lato server delle pagine /admin).
+ * Ritorna lo StaffUser se la firma è valida, altrimenti null. NON fa fallback
+ * di rete: in SSR, se la verifica locale non riesce, la pagina ricade
+ * semplicemente sul caricamento lato client.
+ */
+export async function verificaTokenLocale(token: string): Promise<StaffUser | null> {
+  if (!token) return null;
+  return verificaLocale(token);
+}
+
 /** Risposta standard 401 per richieste non autenticate. */
 export function nonAutorizzato(): Response {
   return new Response(JSON.stringify({ error: "Non autorisé" }), {

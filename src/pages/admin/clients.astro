@@ -6,6 +6,25 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { caricaClienti } from "../../lib/admin/caricaClienti";
+
+export const prerender = false;
+
+// SSR (Fase 2): se il cookie di sessione è valido, pre-carichiamo la lista
+// clienti sul server. Altrimenti ssrClients resta null → caricamento client.
+let ssrClients: unknown = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) {
+    const r = await caricaClienti();
+    if (!("error" in r)) ssrClients = r;
+  }
+} catch {
+  ssrClients = null;
+}
+const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -311,6 +330,9 @@ import { CLIENT } from "../../config/client";
     <div class="toast" id="toast"></div>
 
     <AdminNav current="clients" />
+
+    <!-- Dati SSR (Fase 2): lista clienti pre-caricata dal server. -->
+    <script id="ssr-clients" type="application/json" is:inline set:html={ssrClientsJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -626,16 +648,21 @@ import { CLIENT } from "../../config/client";
           }
         });
 
-        async function carica() {
+        async function carica(datiIniziali?: Resp) {
           contentEl.classList.add("loading");
           try {
-            const res = await fetch("/api/admin/clients", { headers });
-            if (!res.ok) {
-              stateEl.textContent = "Erreur de chargement.";
-              stateEl.style.display = "block";
-              return;
+            let data: Resp;
+            if (datiIniziali) {
+              data = datiIniziali; // dati già pronti dal server (SSR)
+            } else {
+              const res = await fetch("/api/admin/clients", { headers });
+              if (!res.ok) {
+                stateEl.textContent = "Erreur de chargement.";
+                stateEl.style.display = "block";
+                return;
+              }
+              data = (await res.json()) as Resp;
             }
-            const data = (await res.json()) as Resp;
             tutti = data.clients;
             stateEl.style.display = "none";
             contentEl.style.display = "block";
@@ -715,7 +742,15 @@ import { CLIENT } from "../../config/client";
           })
         );
 
-        await carica();
+        // Primo caricamento: usa i dati SSR (Fase 2) se presenti, senza fetch.
+        let ssrClientsDati: Resp | null = null;
+        try {
+          const raw = document.getElementById("ssr-clients")?.textContent?.trim();
+          if (raw) ssrClientsDati = JSON.parse(raw);
+        } catch {
+          ssrClientsDati = null;
+        }
+        await carica(ssrClientsDati ?? undefined);
       })();
     </script>
   </body>

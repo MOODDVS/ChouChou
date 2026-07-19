@@ -5,6 +5,23 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { calcolaStats } from "../../lib/admin/calcolaStats";
+
+export const prerender = false;
+
+// SSR (Fase 2): se il cookie di sessione è valido, pre-calcoliamo le stats del
+// periodo di default ("day") sul server. Altrimenti ssrStats resta null → la
+// pagina calcola lato client come prima.
+let ssrStats: unknown = null;
+try {
+  const token = Astro.cookies.get("mdd_at")?.value ?? "";
+  const staff = token ? await verificaTokenLocale(token) : null;
+  if (staff) ssrStats = await calcolaStats("day");
+} catch {
+  ssrStats = null;
+}
+const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c") : "";
 ---
 
 <html lang="fr">
@@ -149,6 +166,9 @@ import { CLIENT } from "../../config/client";
     </div>
 
     <AdminNav current="stats" />
+
+    <!-- Dati SSR (Fase 2): stats del periodo "day" pre-calcolate dal server. -->
+    <script id="ssr-stats" type="application/json" is:inline set:html={ssrStatsJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -309,16 +329,21 @@ import { CLIENT } from "../../config/client";
         });
         chartEl.addEventListener("pointerleave", () => { tipEl.style.display = "none"; });
 
-        async function carica() {
+        async function carica(datiIniziali?: Stats) {
           contentEl.classList.add("loading");
           try {
-            const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
-            if (!res.ok) {
-              stateEl.textContent = "Erreur de chargement.";
-              stateEl.style.display = "block";
-              return;
+            let s: Stats;
+            if (datiIniziali) {
+              s = datiIniziali; // dati già pronti dal server (SSR)
+            } else {
+              const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
+              if (!res.ok) {
+                stateEl.textContent = "Erreur de chargement.";
+                stateEl.style.display = "block";
+                return;
+              }
+              s = (await res.json()) as Stats;
             }
-            const s = (await res.json()) as Stats;
             stateEl.style.display = "none";
             contentEl.style.display = "block";
             render(s);
@@ -338,7 +363,16 @@ import { CLIENT } from "../../config/client";
           carica();
         });
 
-        await carica();
+        // Primo caricamento: usa le stats SSR (Fase 2) se presenti e il periodo
+        // è ancora "day" (il default pre-calcolato dal server), senza fetch.
+        let ssrStatsDati: Stats | null = null;
+        try {
+          const raw = document.getElementById("ssr-stats")?.textContent?.trim();
+          if (raw && periodo === "day") ssrStatsDati = JSON.parse(raw);
+        } catch {
+          ssrStatsDati = null;
+        }
+        await carica(ssrStatsDati ?? undefined);
       })();
     </script>
   </body>
