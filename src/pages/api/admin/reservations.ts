@@ -119,13 +119,13 @@ export const GET: APIRoute = async ({ request, url }) => {
         .select("type, date_from, date_to")
         .lte("date_from", ultimo)
         .gte("date_to", primo),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones"]),
+      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "timezone"]),
       supabaseAdmin
         .from("reservations")
-        .select("date, service_key, people")
+        .select("date, service_key, people, status")
         .gte("date", primo)
         .lte("date", ultimo)
-        .in("status", ["confirmed", "seated"]), // Fini/annullate/no-show liberano i tavoli
+        .neq("status", "cancelled"), // tutte tranne le annullate (per il pallino "occupé")
     ]);
 
     const apertoSett = new Map<number, boolean>();
@@ -151,11 +151,27 @@ export const GET: APIRoute = async ({ request, url }) => {
       }
     } catch { /* nessuna section: mai completo */ }
 
-    // Coperti per giorno+service (prenotazioni senza service noto: ignorate)
+    // Oggi nel fuso del ristorante (per contare i "Fini" solo nel passato)
+    const tz = cfgMap.get("timezone") || "Europe/Brussels";
+    let oggiIso = new Date().toISOString().slice(0, 10);
+    try {
+      oggiIso = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    } catch { /* timezone non valida: fallback UTC */ }
+
+    // Coperti per giorno+service (prenotazioni senza service noto: ignorate).
+    // Occupano: confirmed + seated; i "done" contano solo per i giorni passati
+    // (storico "complet"), oggi/futuro liberano il tavolo. No-show: mai.
     const coperti = new Map<string, number>();
+    const copertiGiorno = new Map<string, number>();
+    const occupati = new Set<string>();
     for (const r of rese.data ?? []) {
+      occupati.add(r.date);
+      const conta =
+        r.status === "confirmed" || r.status === "seated" || (r.status === "done" && r.date < oggiIso);
+      if (!conta) continue;
       const k = `${r.date}|${r.service_key ?? ""}`;
       coperti.set(k, (coperti.get(k) ?? 0) + (r.people ?? 0));
+      copertiGiorno.set(r.date, (copertiGiorno.get(r.date) ?? 0) + (r.people ?? 0));
     }
 
     const chiusi: string[] = [];
@@ -180,11 +196,11 @@ export const GET: APIRoute = async ({ request, url }) => {
       if (capienza > 0) {
         const pieno = services.length
           ? services.every((sv) => (coperti.get(`${iso}|${sv.key}`) ?? 0) >= capienza)
-          : (rese.data ?? []).filter((r) => r.date === iso).reduce((t, r) => t + (r.people ?? 0), 0) >= capienza;
+          : (copertiGiorno.get(iso) ?? 0) >= capienza;
         if (pieno) pieni.push(iso);
       }
     }
-    return json({ closed: chiusi, full: pieni });
+    return json({ closed: chiusi, full: pieni, busy: [...occupati].sort() });
   }
 
   const date = url.searchParams.get("date") ?? "";
@@ -213,6 +229,8 @@ export const POST: APIRoute = async ({ request }) => {
     quiet?: boolean;
     business?: boolean;
     company?: string;
+    birthday?: boolean;
+    special_event?: boolean;
     source?: string;
   };
   try {
@@ -253,6 +271,8 @@ export const POST: APIRoute = async ({ request }) => {
       quiet: Boolean(body.quiet),
       business: Boolean(body.business),
       company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
+      birthday: Boolean(body.birthday),
+      special_event: Boolean(body.special_event),
       lang: "fr",
       status: "confirmed",
     })
@@ -280,6 +300,8 @@ export const POST: APIRoute = async ({ request }) => {
           quiet: Boolean(body.quiet),
           business: Boolean(body.business),
           company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
+          birthday: Boolean(body.birthday),
+          special_event: Boolean(body.special_event),
           lang: "fr",
           status: "confirmed",
         })
@@ -329,6 +351,8 @@ export const PATCH: APIRoute = async ({ request }) => {
     quiet?: boolean;
     business?: boolean;
     company?: string;
+    birthday?: boolean;
+    special_event?: boolean;
     source?: string;
   };
   try {
@@ -344,6 +368,9 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.status !== undefined) {
     if (!STATI.includes(body.status)) return json({ error: "Statut invalide" }, 400);
     upd.status = body.status;
+    // Timer tavolo: "En cours" manuale = arrivo reale; ritorno a Confirmée lo azzera
+    if (body.status === "seated") upd.seated_at = new Date().toISOString();
+    if (body.status === "confirmed") upd.seated_at = null;
   }
   if (body.date !== undefined) {
     if (!RE_DATA.test(String(body.date))) return json({ error: "Date invalide" }, 400);
@@ -373,6 +400,8 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.notes !== undefined) upd.notes = String(body.notes).trim() || null;
   if (body.high_chair !== undefined) upd.high_chair = Boolean(body.high_chair);
   if (body.quiet !== undefined) upd.quiet = Boolean(body.quiet);
+  if (body.birthday !== undefined) upd.birthday = Boolean(body.birthday);
+  if (body.special_event !== undefined) upd.special_event = Boolean(body.special_event);
   if (body.business !== undefined) {
     upd.business = Boolean(body.business);
     upd.company = Boolean(body.business) ? String(body.company ?? "").trim() : "";
@@ -392,6 +421,18 @@ export const PATCH: APIRoute = async ({ request }) => {
   // Migrazione #21 non ancora lanciata: si riprova senza la colonna source
   if (error && upd.source !== undefined && error.message.includes("source")) {
     delete upd.source;
+    if (Object.keys(upd).length) {
+      ({ data, error } = await supabaseAdmin
+        .from("reservations")
+        .update(upd)
+        .eq("id", id)
+        .select("*")
+        .single());
+    }
+  }
+  // Migrazione #26 non ancora lanciata: si riprova senza la colonna seated_at
+  if (error && upd.seated_at !== undefined && error.message.includes("seated_at")) {
+    delete upd.seated_at;
     if (Object.keys(upd).length) {
       ({ data, error } = await supabaseAdmin
         .from("reservations")

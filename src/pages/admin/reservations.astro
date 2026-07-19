@@ -123,10 +123,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       /* Card prenotazione */
       .res {
-        display: flex; align-items: center; gap: 1.1rem;
+        display: flex; align-items: center; gap: 1.1rem; position: relative;
         background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.85rem 1.1rem; margin-bottom: 0.45rem;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      }
+      /* Ligne "En cours": avanza da sinistra per tutta la durée du tavolo */
+      .r-live {
+        position: absolute; left: 0; bottom: 0; height: 2px; max-width: 100%;
+        background: var(--c-accent); pointer-events: none;
+        transition: width 1.5s linear;
       }
       .res.is-off { opacity: 0.5; }
       .r-closed-head {
@@ -140,7 +146,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .r-heure { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); line-height: 1.1; }
       .r-time-src { display: flex; justify-content: center; margin-top: 0.35rem; }
       .r-time-src svg { width: 16px; height: 16px; color: var(--c-muted); }
-      .r-main { flex: 0 1 340px; min-width: 0; align-self: flex-start; }
+      .r-main { flex: 0 1 460px; min-width: 0; align-self: flex-start; }
       .r-name { font-weight: 700; font-size: 1.02rem; }
       .r-tags { display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; flex-wrap: wrap; }
       .r-tag {
@@ -440,6 +446,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
       .dp-vuota { cursor: default; }
       .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-cell.dp-off:not(:disabled) { cursor: pointer; }
+      .dp-cell { position: relative; }
+      .dp-dot {
+        position: absolute; left: 50%; transform: translateX(-50%); bottom: 4px;
+        width: 4px; height: 4px; border-radius: 50%; background: var(--c-accent);
+      }
+      .dp-sel .dp-dot { background: #231f20; }
       .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
       .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
       .dp-full:not(.dp-sel) { box-shadow: inset 0 0 0 2px #e5484d; }
@@ -470,6 +483,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         border: 1px solid #ed1c24; background: rgba(237, 28, 36, 0.1); color: #ff8a8f;
         border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 0.8rem; margin-bottom: 0.5rem;
       }
+      /* Icona rossa sul tab di un service chiuso al pubblico (bypass possibile) */
+      .nm-tab-closed {
+        width: 13px; height: 13px; margin-left: 0.45rem; flex-shrink: 0;
+        fill: none; stroke: #ed1c24; stroke-width: 2; stroke-linecap: round;
+      }
+      .nm-stabs .nm-pill { display: inline-flex; align-items: center; justify-content: center; }
       /* Orario complet: sbarrato ma cliccabile (bypass del ristoratore) */
       .nm-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); }
       .nm-slot-full::after {
@@ -562,6 +581,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           <div class="d-label" id="d-label">—</div>
           <button class="d-nav" id="d-next" aria-label="Jour suivant">›</button>
           <button class="d-today" id="d-today">Aujourd'hui</button>
+          <button class="d-nav" id="d-cal" aria-label="Aller à une date">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="17" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
           <span class="spacer"></span>
           <input type="text" id="d-search" class="d-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
         </div>
@@ -665,6 +692,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               <button type="button" class="nm-opt" id="m-opt-chaise">Chaise bébé</button>
               <button type="button" class="nm-opt" id="m-opt-calme">Endroit calme</button>
               <button type="button" class="nm-opt" id="m-opt-biz">Business</button>
+              <button type="button" class="nm-opt" id="m-opt-anniv">Anniversaire</button>
+              <button type="button" class="nm-opt" id="m-opt-event">Événement spécial</button>
             </div>
             <div class="nm-frow" id="m-soc-row" style="display:none">
               <input type="text" class="nm-in" id="m-societe" maxlength="120" autocomplete="off" placeholder="Nom de la société" />
@@ -711,6 +740,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         quiet: boolean;
         business: boolean;
         company: string | null;
+        birthday?: boolean;
+        special_event?: boolean;
+        seated_at?: string | null;
         notes: string | null;
         status: string;
         source?: string | null;
@@ -885,6 +917,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (r.high_chair) tags.push("Chaise bébé");
         if (r.quiet) tags.push("Endroit calme");
         if (r.business && !r.company) tags.push("Business");
+        if (r.birthday) tags.push("Anniversaire");
+        if (r.special_event) tags.push("Évén. spécial");
         return tags.length
           ? `<span class="r-tags">${tags.map((t) => `<span class="r-tag">${t}</span>`).join("")}</span>`
           : "";
@@ -907,6 +941,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           r.status === "confirmed" || r.status === "seated"
             ? `<button class="i-btn b-edit" data-act="edit" title="Modifier">${ICO_EDIT}</button>`
             : "";
+        // Ligne dorée "En cours" + timer tavolo (per ora invisibile: data-min).
+        // Parte dall'arrivo reale (seated_at) se impostato a mano, altrimenti
+        // dall'ora prenotata; piena al termine della durée du service.
+        let barra = "";
+        if (r.status === "seated" || (r.status === "confirmed" && fase(r) === "encours")) {
+          // La linea copre la fenêtre du tavolo: piena a heure + durée (hold).
+          // Se il cliente è arrivato prima (seated_at), parte dall'arrivo reale
+          // ma arriva comunque al 100% alla fine prevista della prenotazione.
+          // TUTTO nel fuso del ristorante (come fase/minutiOra): l'orologio
+          // del device può essere su un altro fuso e falserebbe il calcolo.
+          const hold = holdDi(r.service_key);
+          const fineMin = minutiDa(r.heure) + hold; // fine prevista (minuti del giorno)
+          const arrivoMs = r.status === "seated" && r.seated_at ? Date.parse(r.seated_at) : NaN;
+          const trascorsi = Number.isFinite(arrivoMs)
+            ? Math.max(0, (Date.now() - arrivoMs) / 60000) // minuti reali al tavolo
+            : Math.max(0, minutiOra() - minutiDa(r.heure));
+          const restanti = Math.max(0, fineMin - minutiOra());
+          const pct = Math.min(100, (trascorsi / Math.max(1, trascorsi + restanti)) * 100);
+          barra = `<span class="r-live" data-min="${Math.floor(trascorsi)}" style="width:${pct.toFixed(2)}%"></span>`;
+        }
         return `
           <div class="res${off}${r.notes ? "" : " no-note"}" data-id="${r.id}">
             <div class="r-time">
@@ -927,6 +981,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <div class="r-pers"><b>${r.people}</b><span>pers.</span></div>
             <span class="r-state-col">${badge(r)}</span>
             <span class="r-del">${matita}${cestino}</span>
+            ${barra}
           </div>`;
       }
 
@@ -1686,6 +1741,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           dSearch.value = "";
           void carica();
         });
+        const dCalBtn = document.getElementById("d-cal") as HTMLButtonElement;
+        dCalBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dCalBtn.dataset.iso = giorno;
+          dpApri(dCalBtn as unknown as HTMLInputElement);
+        });
 
         // ---- Filtro per service (icona = tutti) ----
         (document.getElementById("f-serv") as HTMLDivElement).addEventListener("click", (e) => {
@@ -1781,10 +1842,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let nmChaise = false;
         let nmCalme = false;
         let nmBiz = false;
+        let nmAnniv = false;
+        let nmEvent = false;
         function nmRenderOpts() {
           (document.getElementById("m-opt-chaise") as HTMLButtonElement).classList.toggle("is-on", nmChaise);
           (document.getElementById("m-opt-calme") as HTMLButtonElement).classList.toggle("is-on", nmCalme);
           (document.getElementById("m-opt-biz") as HTMLButtonElement).classList.toggle("is-on", nmBiz);
+          (document.getElementById("m-opt-anniv") as HTMLButtonElement).classList.toggle("is-on", nmAnniv);
+          (document.getElementById("m-opt-event") as HTMLButtonElement).classList.toggle("is-on", nmEvent);
           (document.getElementById("m-soc-row") as HTMLDivElement).style.display = nmBiz ? "" : "none";
         }
         (document.getElementById("m-opt-chaise") as HTMLButtonElement).addEventListener("click", () => {
@@ -1797,6 +1862,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         });
         (document.getElementById("m-opt-biz") as HTMLButtonElement).addEventListener("click", () => {
           nmBiz = !nmBiz;
+          nmRenderOpts();
+        });
+        (document.getElementById("m-opt-anniv") as HTMLButtonElement).addEventListener("click", () => {
+          nmAnniv = !nmAnniv;
+          nmRenderOpts();
+        });
+        (document.getElementById("m-opt-event") as HTMLButtonElement).addEventListener("click", () => {
+          nmEvent = !nmEvent;
           nmRenderOpts();
         });
 
@@ -1873,9 +1946,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (nmServIdx >= servizi.length) nmServIdx = 0;
           const stabs = document.getElementById("nm-stabs") as HTMLDivElement;
           stabs.style.display = servizi.length > 1 ? "" : "none";
+          const svChiusiGiorno = (datiGiorno?.svCh ?? []).map((c) => c.service_key);
+          const ICO_SV_CHIUSO =
+            '<svg class="nm-tab-closed" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="5.8" y1="5.8" x2="18.2" y2="18.2" /></svg>';
           stabs.innerHTML = servizi
-            .map((sv, i) => `<button type="button" class="nm-pill${i === nmServIdx ? " is-on" : ""}" data-i="${i}">${esc(sv.label)}</button>`)
+            .map((sv, i) => {
+              const chiuso = svChiusiGiorno.includes(sv.key);
+              return `<button type="button" class="nm-pill${i === nmServIdx ? " is-on" : ""}" data-i="${i}"${chiuso ? ' title="Fermé au public ce jour"' : ""}>${esc(sv.label)}${chiuso ? ICO_SV_CHIUSO : ""}</button>`;
+            })
             .join("");
+          // Con un solo service ma chiuso, i tab restano visibili (per l'icona)
+          if (svChiusiGiorno.some((k) => servizi.some((sv) => sv.key === k))) stabs.style.display = "";
+          // Banner sotto i tab quando il service ATTIVO è chiuso al pubblico
+          const chSv = (datiGiorno?.svCh ?? []).find((c) => c.service_key === (servizi[nmServIdx]?.key ?? ""));
+          const noteEl = document.getElementById("nm-closed-note") as HTMLDivElement;
+          if (chSv) {
+            noteEl.style.display = "";
+            noteEl.textContent = `Service fermé au public ce jour — ${RAGIONE_FR[chSv.reason] ?? chSv.reason}. Le widget n'accepte plus de réservations ; vous pouvez quand même en ajouter.`;
+          } else {
+            noteEl.style.display = "none";
+          }
           const att = servizi[nmServIdx];
           nmServKey = att?.key ?? "";
           if (nmHeure && !att?.slots.includes(nmHeure)) nmHeure = "";
@@ -1887,15 +1977,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const capienza =
             (nmCfg.capacity ?? 0) -
             zoneCh.reduce((t, c) => t + (nmCfg.zone_seats?.[c.zone] ?? 0), 0);
-          // Il service attivo è chiuso al pubblico quel giorno? Avviso (bypass possibile)
-          const chSv = (datiGiorno?.svCh ?? []).find((c) => c.service_key === (att?.key ?? ""));
-          const noteEl = document.getElementById("nm-closed-note") as HTMLDivElement;
-          if (chSv) {
-            noteEl.style.display = "";
-            noteEl.textContent = `Service fermé au public ce jour — ${RAGIONE_FR[chSv.reason] ?? chSv.reason}. Le widget n'accepte plus de réservations ; vous pouvez quand même en ajouter.`;
-          } else {
-            noteEl.style.display = "none";
-          }
           const zonaChiusa = nmZone !== "" && zoneCh.some((c) => c.zone === nmZone);
           // Con una section scelta vale anche il SUO limite: le prenotazioni
           // "Indifférent" contano solo sul totale (le piazza il ristoratore)
@@ -1994,6 +2075,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmEditId = resa?.id ?? null;
           nmReseCache.clear();
           nmReseFetching = "";
+          // Pre-scalda i dati di domani (chiusure/occupazione già pronti al click su "Demain")
+          setTimeout(() => nmReseDel(isoPiuGiorni(isoOggi(), 1)), 0);
           // Il tipo si può cambiare solo per le prenotazioni gestite a mano
           nmSrcEditable = !resa || !resa.source || resa.source === "walkin" || resa.source === "phone";
           (document.getElementById("nm-type-lab") as HTMLElement).style.display = nmSrcEditable ? "" : "none";
@@ -2009,6 +2092,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmChaise = resa?.high_chair ?? false;
           nmCalme = resa?.quiet ?? false;
           nmBiz = resa?.business ?? false;
+          nmAnniv = resa?.birthday ?? false;
+          nmEvent = resa?.special_event ?? false;
           (document.getElementById("m-societe") as HTMLInputElement).value = resa?.company ?? "";
           nmRenderOpts();
           nmZone = resa?.zone ?? "";
@@ -2071,6 +2156,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let dpAnno = 0;
         let dpMese = 0; // 0-11
         let dpTarget: HTMLInputElement | null = null; // campo data a cui è agganciato
+        let dpLibero = false; // true = salto data (passato consentito)
         const dpPanel = document.createElement("div");
         dpPanel.className = "dp-panel";
         dpPanel.style.display = "none";
@@ -2110,7 +2196,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           return null;
         }
 
-        const dpCache = new Map<string, { closed: string[]; full: string[] }>();
+        const dpCache = new Map<string, { closed: string[]; full: string[]; busy: string[] }>();
         function dpChiave(): string {
           return `${dpAnno}-${String(dpMese + 1).padStart(2, "0")}`;
         }
@@ -2120,8 +2206,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           try {
             const res = await fetch(`/api/admin/reservations?month=${chiave}`, { headers });
             if (!res.ok) return;
-            const j = (await res.json()) as { closed?: string[]; full?: string[] };
-            dpCache.set(chiave, { closed: j.closed ?? [], full: j.full ?? [] });
+            const j = (await res.json()) as { closed?: string[]; full?: string[]; busy?: string[] };
+            dpCache.set(chiave, { closed: j.closed ?? [], full: j.full ?? [], busy: j.busy ?? [] });
             // Se il calendario è ancora aperto sullo stesso mese, si aggiorna
             if (dpPanel.style.display !== "none" && dpChiave() === chiave) dpRender();
           } catch { /* calendario senza indicazioni */ }
@@ -2134,22 +2220,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
           const oy = Number(oggi.slice(0, 4));
           const om = Number(oggi.slice(5, 7)) - 1;
-          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
+          const prevOff = !dpLibero && (dpAnno < oy || (dpAnno === oy && dpMese <= om));
           let celle = "";
           for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
           for (let g = 1; g <= nGiorni; g++) {
             const iso = `${dpAnno}-${String(dpMese + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
             const cls = ["dp-cell"];
             const info = dpCache.get(dpChiave());
-            const chiuso = iso >= oggi && (info?.closed.includes(iso) ?? false);
-            const pieno = iso >= oggi && (info?.full.includes(iso) ?? false);
+            const chiuso = (dpLibero || iso >= oggi) && (info?.closed.includes(iso) ?? false);
+            const pieno = (dpLibero || iso >= oggi) && (info?.full.includes(iso) ?? false);
             const off = iso < oggi || chiuso;
+            const punto = dpLibero && (info?.busy.includes(iso) ?? false);
             if (off) cls.push("dp-off");
             if (pieno) cls.push("dp-full");
             if (iso === oggi) cls.push("dp-today");
             if (iso === sel) cls.push("dp-sel");
             const hint = chiuso ? ' title="Fermé"' : pieno ? ' title="Complet"' : "";
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off ? "disabled" : ""}${hint}>${g}</button>`;
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off && !dpLibero ? "disabled" : ""}${hint}>${g}${punto ? '<span class="dp-dot"></span>' : ""}</button>`;
           }
           dpPanel.innerHTML = `
             <div class="dp-head">
@@ -2162,6 +2249,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         function dpApri(target: HTMLInputElement) {
           dpTarget = target;
+          dpLibero = (target as unknown as HTMLElement) === dCalBtn;
           const base = target.dataset.iso || isoOggi();
           dpAnno = Number(base.slice(0, 4));
           dpMese = Number(base.slice(5, 7)) - 1;
@@ -2188,7 +2276,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             return;
           }
           if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
-            if (dpTarget === campo("m-date")) {
+            if ((dpTarget as unknown as HTMLElement) === dCalBtn) {
+              giorno = t.dataset.iso;
+              dSearch.value = "";
+              void carica();
+            } else if (dpTarget === campo("m-date")) {
               nmSetData(t.dataset.iso);
             } else {
               dpTarget.dataset.iso = t.dataset.iso;
@@ -2277,6 +2369,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               quiet: nmCalme,
               business: nmBiz,
               company: nmBiz ? (document.getElementById("m-societe") as HTMLInputElement).value.trim() : "",
+              birthday: nmAnniv,
+              special_event: nmEvent,
             };
             if (nmSrcEditable) corpo.source = nmTipo === "phone" ? "phone" : "walkin";
             if (nmEditId) corpo.id = nmEditId;

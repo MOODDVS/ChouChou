@@ -16,7 +16,7 @@ const RE_UUID = /^[0-9a-f-]{36}$/i;
 
 /** Campi restituiti dall'insert/update per comporre le email. */
 const CAMPI_EMAIL =
-  "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, notes, high_chair, quiet, business, company";
+  "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, notes, high_chair, quiet, business, company, birthday, special_event";
 
 /** Programma l'email recensione e salva l'id Resend (best-effort). */
 async function programmaReview(r: {
@@ -277,7 +277,7 @@ export const GET: APIRoute = async ({ url }) => {
     const primo = `${month}-01`;
     const ultimo = `${month}-${String(nGiorni).padStart(2, "0")}`;
 
-    const [orari, speciali, cfg, rese] = await Promise.all([
+    const [orari, speciali, cfg, rese, chiusureSv] = await Promise.all([
       supabaseAdmin.from("settings").select("day_of_week, lunch_active, dinner_active"),
       supabaseAdmin
         .from("special_days")
@@ -291,13 +291,21 @@ export const GET: APIRoute = async ({ url }) => {
         .gte("date", primo)
         .lte("date", ultimo)
         .in("status", ["confirmed", "seated"]),
+      supabaseAdmin.from("service_closures").select("date, service_key").gte("date", primo).lte("date", ultimo),
     ]);
 
     const apertoSett = new Map<number, boolean>();
     for (const g of orari.data ?? []) apertoSett.set(g.day_of_week, Boolean(g.lunch_active || g.dinner_active));
 
     const cfgMap = new Map((cfg.data ?? []).map((r) => [r.key, String(r.value ?? "")]));
-    let services: { key?: string; label?: string }[] = [];
+    // Chiusure di service per giorno (per marcare "complet" i giorni tutti chiusi)
+    const chiusePerGiorno = new Map<string, Set<string>>();
+    for (const c of chiusureSv.data ?? []) {
+      const d = String(c.date);
+      if (!chiusePerGiorno.has(d)) chiusePerGiorno.set(d, new Set());
+      chiusePerGiorno.get(d)!.add(String(c.service_key));
+    }
+    let services: { key?: string; label?: string; days?: unknown }[] = [];
     try {
       const arr = JSON.parse(cfgMap.get("reservation_services") || "[]");
       if (Array.isArray(arr)) services = arr;
@@ -335,12 +343,23 @@ export const GET: APIRoute = async ({ url }) => {
         closed.push(iso);
         continue;
       }
-      if (capienza > 0) {
-        const pieno = services.length
-          ? services.every((sv) => (coperti.get(`${iso}|${keyServizio(sv) ?? ""}`) ?? 0) >= capienza)
+      const spOpenDay = (speciali.data ?? []).some((sp) => iso >= sp.date_from && iso <= sp.date_to && sp.type === "open");
+      // Services ATTIVI quel giorno (days rispettati; jour spécial ouvert = tutti)
+      const attivi = services.filter((sv) => {
+        if (!keyServizio(sv)) return false;
+        const days = Array.isArray(sv.days) ? (sv.days as unknown[]).map((d) => Math.floor(Number(d))) : [];
+        return spOpenDay || days.length === 0 || days.includes(dow);
+      });
+      // Tutti i services del giorno chiusi dal ristoratore → giorno "complet"
+      const chSet = chiusePerGiorno.get(iso);
+      const tuttiChiusi = attivi.length > 0 && !!chSet && attivi.every((sv) => chSet.has(keyServizio(sv) ?? ""));
+      let pieno = tuttiChiusi;
+      if (!pieno && capienza > 0) {
+        pieno = attivi.length
+          ? attivi.every((sv) => (coperti.get(`${iso}|${keyServizio(sv) ?? ""}`) ?? 0) >= capienza)
           : (rese.data ?? []).filter((r) => r.date === iso).reduce((t, r) => t + (r.people ?? 0), 0) >= capienza;
-        if (pieno) full.push(iso);
       }
+      if (pieno) full.push(iso);
     }
     return json({ closed, full });
   }
@@ -515,6 +534,8 @@ function leggiCampi(body: Record<string, unknown>) {
       quiet: Boolean(body.quiet),
       business: Boolean(body.business),
       company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
+      birthday: Boolean(body.birthday),
+      special_event: Boolean(body.special_event),
       notes: String(body.notes ?? "").trim() || null,
     },
   };

@@ -31,6 +31,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 22 | `service_closures.sql` | Chiusure di servizio per giorno (Complet / Fermeture exceptionnelle) |
 | 23 | `zone_closures.sql` | Chiusure di section per giorno (Terrasse fermée, ecc.) |
 | 24 | `reservations_review.sql` | Email di recensione: id Resend per poterla annullare |
+| 25 | `reservations_options.sql` | Opzioni `birthday` + `special_event` (Anniversaire / Événement spécial) |
+| 26 | `reservations_seated.sql` | `seated_at`: arrivo reale al tavolo (timer En cours) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

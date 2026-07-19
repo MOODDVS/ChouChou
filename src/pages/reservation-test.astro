@@ -109,6 +109,7 @@ try {
       .dp-vuota { cursor: default; }
       .dp-off { color: #5d5555; cursor: not-allowed; }
       .dp-today { box-shadow: inset 0 0 0 1px #dfab4e; }
+      .dp-complet { border: 1px solid #ed1c24 !important; background: rgba(237, 28, 36, 0.3); color: #fff; }
       .dp-sel { background: #dfab4e; color: #231f20; font-weight: 700; }
       @media (pointer: coarse) {
         .dp-panel { width: 340px; }
@@ -220,7 +221,6 @@ try {
             </button>
             <div class="rw-acc-body"><div class="rw-acc-inner">
               <div class="rw-pgrid" id="rw-pgrid"></div>
-              <p class="rw-alert" id="rw-alert" style="display:none"></p>
             </div></div>
           </div>
 
@@ -249,6 +249,7 @@ try {
             </div></div>
           </div>
 
+          <p class="rw-alert" id="rw-alert" style="display:none"></p>
           <button type="button" class="rw-btn" id="rw-cta">Réserver</button>
         </div>
 
@@ -274,6 +275,8 @@ try {
             <button type="button" class="rw-opt" id="rw-opt-chaise"></button>
             <button type="button" class="rw-opt" id="rw-opt-calme"></button>
             <button type="button" class="rw-opt" id="rw-opt-biz"></button>
+            <button type="button" class="rw-opt" id="rw-opt-anniv"></button>
+            <button type="button" class="rw-opt" id="rw-opt-event"></button>
           </div>
           <input type="text" class="rw-in rw-in-societe" id="rw-f-societe" style="display:none" autocomplete="organization" />
           <textarea class="rw-in rw-ta" id="rw-f-notes" rows="3" autocomplete="off"></textarea>
@@ -333,6 +336,7 @@ try {
       let isoSel = "";
       let dayCache = new Map<string, Giorno>();
       let closedSet = new Set<string>();
+      let fullSet = new Set<string>(); // giorni "complet": cliccabili ma pieni
       let modifyToken = "";   // ?token= → modalità modifica
       let excludeToken = "";  // esclude la prenotazione stessa dalla disponibilità
 
@@ -465,6 +469,26 @@ try {
       }
 
       function render() {
+        // Giorno "complet" (capienza esaurita o tutti i services chiusi):
+        // niente scelta persone/sezione/orari — messaggio e Téléphoner
+        const giornoPieno = fullSet.has(isoSel);
+        const accPers = document.querySelector<HTMLElement>('.rw-acc[data-acc="personnes"]');
+        const accHeure = document.querySelector<HTMLElement>('.rw-acc[data-acc="heure"]');
+        if (giornoPieno) {
+          if (accPers) accPers.style.display = "none";
+          if (accHeure) accHeure.style.display = "none";
+          $("rw-zone-field").style.display = "none";
+          $("rw-alert").textContent = T().completAppelez;
+          $("rw-alert").style.display = "";
+          $("rw-cta").textContent = T().telephoner;
+          return;
+        }
+        if (accPers) accPers.style.display = "";
+        if (accHeure) accHeure.style.display = "";
+        if (!troppi) {
+          $("rw-alert").style.display = "none";
+          $("rw-cta").textContent = T().reserver;
+        }
         $("rw-zone-field").style.display = CFG.zoneChoice ? "" : "none";
         const giorno = dayCache.get(isoSel);
         const zoneClosed = giorno?.zoneClosed ?? [];
@@ -516,8 +540,11 @@ try {
         const tuttiPieni = !!att && tutti.length > 0 && tutti.every((m) => pieno(m));
         let html = visibili.map((m) => `<span class="rw-slot${pieno(m) ? " rw-slot-full" : ""}">${hhmm(m)}</span>`).join("");
         if (tutti.length > LIMITE) html += `<button type="button" class="rw-more">${espanso ? T().voirMoins : T().voirPlus}<svg class="rw-more-ico${espanso ? " is-up" : ""}" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>`;
-        if (!att) html = `<p class="rw-noslot">${esc(T().aucuneHeure)}</p>`;
-        else if (tuttiPieni) html = `<p class="rw-noslot rw-complet">${esc(T().complet)}</p>`;
+        if (!att) {
+          html = fullSet.has(isoSel)
+            ? `<p class="rw-noslot rw-complet">${esc(T().complet)}</p>`
+            : `<p class="rw-noslot">${esc(T().aucuneHeure)}</p>`;
+        } else if (tuttiPieni) html = `<p class="rw-noslot rw-complet">${esc(T().complet)}</p>`;
         $("rw-slots").innerHTML = html;
         $("rw-slots").querySelector(".rw-slot:not(.rw-slot-full)")?.classList.add("is-on");
 
@@ -565,6 +592,8 @@ try {
         $("rw-opt-chaise").textContent = t.chaiseBebe;
         $("rw-opt-calme").textContent = t.endroitCalme;
         $("rw-opt-biz").textContent = t.business;
+        $("rw-opt-anniv").textContent = t.anniversaire;
+        $("rw-opt-event").textContent = t.specialEvent;
         ($("rw-f-prenom") as HTMLInputElement).placeholder = t.prenom;
         ($("rw-f-nom") as HTMLInputElement).placeholder = t.nom;
         ($("rw-f-tel") as HTMLInputElement).placeholder = t.telephone;
@@ -618,6 +647,7 @@ try {
           zone: string | null; first_name: string; last_name: string; phone: string;
           email: string; lang: string; high_chair?: boolean; quiet?: boolean;
           business?: boolean; company?: string | null; notes?: string | null;
+          birthday?: boolean; special_event?: boolean;
         };
         let resaMod: ResaMod | null = null;
         const tk = new URLSearchParams(location.search).get("token") ?? "";
@@ -672,7 +702,7 @@ try {
           try {
             const j = await (await fetch("/api/reservation?month=" + key)).json();
             for (const d of j.closed ?? []) closedSet.add(d);
-            for (const d of j.full ?? []) closedSet.add(d);
+            for (const d of j.full ?? []) fullSet.add(d);
           } catch { /* nessun blocco */ }
         }
         function dpRender() {
@@ -689,6 +719,7 @@ try {
             const cls = ["dp-cell"];
             const off = giornoOff(iso);
             if (off) cls.push("dp-off");
+            if (!off && fullSet.has(iso)) cls.push("dp-complet");
             if (iso === oggi) cls.push("dp-today");
             if (iso === isoSel) cls.push("dp-sel");
             celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}"${off ? " disabled" : ""}>${g}</button>`;
@@ -749,7 +780,7 @@ try {
           const mesi = m1 === m2 ? [m1] : [m1, m2];
           mesi.forEach((m) => mesiCaricati.add(m));
           const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((x) => x.json())));
-          for (const rr of risp) { for (const d of rr.closed ?? []) closedSet.add(d); for (const d of rr.full ?? []) closedSet.add(d); }
+          for (const rr of risp) { for (const d of rr.closed ?? []) closedSet.add(d); for (const d of rr.full ?? []) fullSet.add(d); }
         } catch { /* nessun blocco datepicker */ }
 
         const auj = $("rw-auj") as HTMLButtonElement;
@@ -761,7 +792,7 @@ try {
 
         // Data iniziale: primo giorno prenotabile fra oggi e +14
         let iniz = "";
-        for (let g = 0; g <= 14; g++) { const iso = isoPiu(g); if (!closedSet.has(iso) && haOrari(iso)) { iniz = iso; break; } }
+        for (let g = 0; g <= 14; g++) { const iso = isoPiu(g); if (!closedSet.has(iso) && !fullSet.has(iso) && haOrari(iso)) { iniz = iso; break; } }
         if (!iniz) iniz = isoPiu(0);
 
         // Interazioni
@@ -818,6 +849,8 @@ try {
         // Options business → société
         $("rw-opt-chaise").addEventListener("click", () => $("rw-opt-chaise").classList.toggle("is-on"));
         $("rw-opt-calme").addEventListener("click", () => $("rw-opt-calme").classList.toggle("is-on"));
+        $("rw-opt-anniv").addEventListener("click", () => $("rw-opt-anniv").classList.toggle("is-on"));
+        $("rw-opt-event").addEventListener("click", () => $("rw-opt-event").classList.toggle("is-on"));
         $("rw-opt-biz").addEventListener("click", () => {
           const on = $("rw-opt-biz").classList.toggle("is-on");
           $("rw-f-societe").style.display = on ? "" : "none";
@@ -825,7 +858,7 @@ try {
 
         // CTA step1 → step2 (o téléphoner)
         $("rw-cta").addEventListener("click", () => {
-          if (troppi) {
+          if (troppi || fullSet.has(isoSel)) {
             const tel = document.body.dataset.tel || CLIENT.telefono;
             window.location.href = "tel:" + tel.replace(/[^+\d]/g, "");
             return;
@@ -875,6 +908,8 @@ try {
               quiet: $("rw-opt-calme").classList.contains("is-on"),
               business: $("rw-opt-biz").classList.contains("is-on"),
               company: ($("rw-f-societe") as HTMLInputElement).value.trim(),
+              birthday: $("rw-opt-anniv").classList.contains("is-on"),
+              special_event: $("rw-opt-event").classList.contains("is-on"),
               notes: ($("rw-f-notes") as HTMLTextAreaElement).value.trim(),
             };
             if (modifyToken) payload.token = modifyToken;
@@ -936,6 +971,8 @@ try {
           }
           $("rw-opt-chaise").classList.toggle("is-on", Boolean(r.high_chair));
           $("rw-opt-calme").classList.toggle("is-on", Boolean(r.quiet));
+          $("rw-opt-anniv").classList.toggle("is-on", Boolean(r.birthday));
+          $("rw-opt-event").classList.toggle("is-on", Boolean(r.special_event));
           const biz = Boolean(r.business);
           $("rw-opt-biz").classList.toggle("is-on", biz);
           $("rw-f-societe").style.display = biz ? "" : "none";

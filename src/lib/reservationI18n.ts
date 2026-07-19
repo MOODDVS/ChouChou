@@ -48,6 +48,7 @@ export interface TestiWidget {
   demain: string;
   choisirDate: string;
   aucuneHeure: string;
+  completAppelez: string;
   complet: string;
   erreurEnvoi: string;
   creneauPris: string;
@@ -71,6 +72,8 @@ export interface TestiWidget {
   chaiseBebe: string;
   endroitCalme: string;
   business: string;
+  anniversaire: string;
+  specialEvent: string;
   societe: string;
   notesPh: string;
   retour: string;
@@ -92,6 +95,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Demain",
     choisirDate: "Ou choisir une date…",
     aucuneHeure: "Aucune heure disponible ce jour",
+    completAppelez: "Nous sommes complets ce jour-là — mais essayez toujours de nous appeler, au cas où il y aurait un désistement.",
     complet: "Complet — plus de place pour ce nombre de personnes",
     erreurEnvoi: "Une erreur est survenue — veuillez réessayer dans un instant.",
     creneauPris: "Ce créneau vient d'être complet. Merci de choisir un autre horaire.",
@@ -116,6 +120,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "Chaise bébé",
     endroitCalme: "Endroit calme",
     business: "Repas d'affaires",
+    anniversaire: "Anniversaire",
+    specialEvent: "Événement spécial",
     societe: "Société",
     notesPh: "Allergies, occasion spéciale…",
     retour: "Retour",
@@ -135,6 +141,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Tomorrow",
     choisirDate: "Or pick a date…",
     aucuneHeure: "No times available on this day",
+    completAppelez: "We are fully booked that day — but do try calling us, in case of a cancellation.",
     complet: "Fully booked for this party size",
     erreurEnvoi: "An error occurred — please try again in a moment.",
     creneauPris: "This time slot has just filled up. Please pick another time.",
@@ -159,6 +166,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "High chair",
     endroitCalme: "Quiet spot",
     business: "Business meal",
+    anniversaire: "Birthday",
+    specialEvent: "Special event",
     societe: "Company",
     notesPh: "Allergies, special occasion…",
     retour: "Back",
@@ -178,6 +187,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Mañana",
     choisirDate: "O elegir una fecha…",
     aucuneHeure: "No hay horarios disponibles este día",
+    completAppelez: "Estamos completos ese día — pero pruebe a llamarnos, por si hubiera alguna cancelación.",
     complet: "Completo para este número de personas",
     erreurEnvoi: "Se ha producido un error — inténtelo de nuevo en un momento.",
     creneauPris: "Este horario se acaba de completar. Elija otro horario.",
@@ -202,6 +212,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "Trona",
     endroitCalme: "Zona tranquila",
     business: "Comida de negocios",
+    anniversaire: "Cumpleaños",
+    specialEvent: "Evento especial",
     societe: "Empresa",
     notesPh: "Alergias, ocasión especial…",
     retour: "Volver",
@@ -221,6 +233,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Domani",
     choisirDate: "O scegli una data…",
     aucuneHeure: "Nessun orario disponibile per questo giorno",
+    completAppelez: "Siamo al completo per quel giorno — ma prova comunque a chiamarci, in caso di disdetta.",
     complet: "Completo per questo numero di persone",
     erreurEnvoi: "Si è verificato un errore — riprova tra un istante.",
     creneauPris: "Questo orario si è appena riempito. Scegli un altro orario.",
@@ -245,6 +258,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "Seggiolone",
     endroitCalme: "Zona tranquilla",
     business: "Pranzo di lavoro",
+    anniversaire: "Compleanno",
+    specialEvent: "Evento speciale",
     societe: "Società",
     notesPh: "Allergie, occasioni speciali…",
     retour: "Indietro",
@@ -264,6 +279,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Morgen",
     choisirDate: "Oder Datum wählen…",
     aucuneHeure: "An diesem Tag sind keine Uhrzeiten verfügbar",
+    completAppelez: "Wir sind an diesem Tag ausgebucht — versuchen Sie es aber gerne telefonisch, falls etwas frei wird.",
     complet: "Ausgebucht für diese Personenzahl",
     erreurEnvoi: "Ein Fehler ist aufgetreten — bitte versuchen Sie es gleich erneut.",
     creneauPris: "Dieser Zeitpunkt ist soeben ausgebucht. Bitte wählen Sie eine andere Uhrzeit.",
@@ -288,6 +304,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "Hochstuhl",
     endroitCalme: "Ruhiger Platz",
     business: "Geschäftsessen",
+    anniversaire: "Geburtstag",
+    specialEvent: "Besonderer Anlass",
     societe: "Firma",
     notesPh: "Allergien, besonderer Anlass…",
     retour: "Zurück",
@@ -307,6 +325,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Завтра",
     choisirDate: "Или выберите дату…",
     aucuneHeure: "В этот день нет доступного времени",
+    completAppelez: "В этот день всё забронировано — но попробуйте позвонить нам: иногда бронь отменяется.",
     complet: "Мест нет для такого числа гостей",
     erreurEnvoi: "Произошла ошибка — пожалуйста, повторите попытку чуть позже.",
     creneauPris: "Это время только что заняли. Пожалуйста, выберите другое время.",
@@ -331,6 +350,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "Детский стульчик",
     endroitCalme: "Тихое место",
     business: "Деловая встреча",
+    anniversaire: "День рождения",
+    specialEvent: "Особый случай",
     societe: "Компания",
     notesPh: "Аллергии, особый повод…",
     retour: "Назад",
@@ -350,6 +371,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "غداً",
     choisirDate: "أو اختر تاريخاً…",
     aucuneHeure: "لا توجد أوقات متاحة في هذا اليوم",
+    completAppelez: "نحن محجوزون بالكامل في ذلك اليوم — لكن جرّب الاتصال بنا، فقد يُلغى حجز ما.",
     complet: "مكتمل لهذا العدد من الأشخاص",
     erreurEnvoi: "حدث خطأ — يرجى المحاولة مرة أخرى بعد قليل.",
     creneauPris: "هذا الموعد اكتمل للتو. يرجى اختيار وقت آخر.",
@@ -374,6 +396,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "كرسي أطفال",
     endroitCalme: "مكان هادئ",
     business: "اجتماع عمل",
+    anniversaire: "عيد ميلاد",
+    specialEvent: "مناسبة خاصة",
     societe: "الشركة",
     notesPh: "حساسية، مناسبة خاصة…",
     retour: "رجوع",
@@ -393,6 +417,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "明天",
     choisirDate: "或选择日期…",
     aucuneHeure: "当天没有可预订的时间",
+    completAppelez: "当天已订满——但欢迎致电咨询，或许会有人取消。",
     complet: "该人数已订满",
     erreurEnvoi: "发生错误，请稍后重试。",
     creneauPris: "该时段刚刚被订满，请选择其他时间。",
@@ -416,6 +441,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "婴儿椅",
     endroitCalme: "安静的位置",
     business: "商务用餐",
+    anniversaire: "生日",
+    specialEvent: "特别活动",
     societe: "公司",
     notesPh: "过敏、特殊场合…",
     retour: "返回",
@@ -435,6 +462,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "明日",
     choisirDate: "または日付を選択…",
     aucuneHeure: "この日にご予約いただける時間はありません",
+    completAppelez: "その日は満席ですが、キャンセルが出る場合もございますのでお電話でお問い合わせください。",
     complet: "この人数では満席です",
     erreurEnvoi: "エラーが発生しました。しばらくしてからもう一度お試しください。",
     creneauPris: "この時間帯はただいま満席になりました。別の時間をお選びください。",
@@ -459,6 +487,8 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     chaiseBebe: "ベビーチェア",
     endroitCalme: "静かな席",
     business: "ビジネス",
+    anniversaire: "誕生日",
+    specialEvent: "特別なイベント",
     societe: "会社名",
     notesPh: "アレルギー、特別な機会など…",
     retour: "戻る",

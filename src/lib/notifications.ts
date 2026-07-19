@@ -586,6 +586,8 @@ export interface ResaEmail {
   quiet?: boolean;
   business?: boolean;
   company?: string | null;
+  birthday?: boolean;
+  special_event?: boolean;
 }
 
 /** Codice lingua valido per il widget (fallback fr). */
@@ -968,6 +970,8 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
   if (r.high_chair) opzioni.push("Chaise bébé");
   if (r.quiet) opzioni.push("Endroit calme");
   if (r.business) opzioni.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
+  if (r.birthday) opzioni.push("Anniversaire");
+  if (r.special_event) opzioni.push("Événement spécial");
 
   const extra = [
     r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : "",

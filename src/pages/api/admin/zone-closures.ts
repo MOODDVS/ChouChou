@@ -35,6 +35,11 @@ export const GET: APIRoute = async ({ request, url }) => {
       }
     } catch { /* default */ }
     const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    // Storico limitato a 90 giorni: le chiusure più vecchie si eliminano da sole
+    try {
+      const limite = new Date(Date.parse(oggi) - 90 * 86400000).toISOString().slice(0, 10);
+      await supabaseAdmin.from("zone_closures").delete().lt("date", limite);
+    } catch { /* mai bloccante */ }
     const { data, error } = await supabaseAdmin
       .from("zone_closures")
       .select("date, zone, reason")

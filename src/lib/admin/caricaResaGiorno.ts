@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../db";
 // forma esatta attesa dalla pagina /admin/reservations. UNICA fonte di verità:
 // usata sia da GET /api/admin/reservations?date= sia dal render lato server
 // (SSR, Fase 2) del frontmatter della pagina, così non possono divergere.
+// Tutte le letture partono IN PARALLELO (una sola andata al DB di latenza).
 
 export interface ResaGiornoConfig {
   slot_minutes: number;
@@ -26,20 +27,33 @@ export interface ResaGiorno {
 }
 
 export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select("*")
-    .eq("date", date)
-    .order("heure", { ascending: true })
-    .order("created_at", { ascending: true });
+  const [reseQ, cfgQ, chQ, zchQ, spQ] = await Promise.all([
+    supabaseAdmin
+      .from("reservations")
+      .select("*")
+      .eq("date", date)
+      .order("heure", { ascending: true })
+      .order("created_at", { ascending: true }),
+    supabaseAdmin
+      .from("app_config")
+      .select("key, value")
+      .in("key", [
+        "reservation_hold_minutes",
+        "reservation_slot_minutes",
+        "reservation_services",
+        "reservation_zones",
+        "timezone",
+      ]),
+    supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
+    supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
+    supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date),
+  ]);
+
+  const { data, error } = reseQ;
   if (error) {
     // Tabella non ancora creata (migrazione da lanciare): pagina vuota, non rotta
     return { reservations: [], couverts: 0, missing: true };
   }
-
-  const couverts = (data ?? [])
-    .filter((r) => r.status === "confirmed" || r.status === "seated")
-    .reduce((s, r) => s + (r.people ?? 0), 0);
 
   // Config réservations (Réglages): durata tavolo, créneau, services, sezioni
   let hold = 90;
@@ -50,17 +64,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
   const zoneSeats: Record<string, number> = {};
   let tz = "Europe/Brussels";
   try {
-    const { data: cfg } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", [
-        "reservation_hold_minutes",
-        "reservation_slot_minutes",
-        "reservation_services",
-        "reservation_zones",
-        "timezone",
-      ]);
-    const m = new Map((cfg ?? []).map((r) => [r.key, String(r.value ?? "")]));
+    const m = new Map((cfgQ.data ?? []).map((r) => [r.key, String(r.value ?? "")]));
     const nH = Math.floor(Number(m.get("reservation_hold_minutes")));
     if (Number.isFinite(nH) && nH >= 15 && nH <= 360) hold = nH;
     const nS = Math.floor(Number(m.get("reservation_slot_minutes")));
@@ -94,22 +98,53 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
     /* default */
   }
 
+  // ---- Auto-Fini ----
+  // Il bottone "Fini ?" appare a fine durée; se il ristoratore lo ignora per
+  // 15 minuti, la prenotazione si chiude DA SOLA (status → done). Gira qui
+  // (fonte unica di lettura del giorno): ogni caricamento/refresh la applica.
+  try {
+    const oggiTz = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
+    if (date <= oggiTz) {
+      const [hh, mm] = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false })
+        .format(new Date())
+        .split(":");
+      const adesso = Number(hh) * 60 + Number(mm);
+      const minutiHH = (v: string): number => {
+        const m = /^(\d{1,2}):(\d{2})/.exec(v);
+        return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+      };
+      const holdDiKey = (key: string | null): number => {
+        const sv = (services as { key?: string; hold?: unknown }[]).find((x) => x.key === key);
+        const n = Math.floor(Number(sv?.hold));
+        return Number.isFinite(n) && n >= 15 && n <= 360 ? n : hold;
+      };
+      const daChiudere = (data ?? []).filter((r) => {
+        if (r.status !== "confirmed" && r.status !== "seated") return false;
+        if (date < oggiTz) return true; // giorni passati: si chiudono comunque
+        const inizio = minutiHH(String(r.heure ?? ""));
+        if (inizio < 0) return false;
+        return adesso >= inizio + holdDiKey(r.service_key ?? null) + 15;
+      });
+      if (daChiudere.length) {
+        await supabaseAdmin
+          .from("reservations")
+          .update({ status: "done" })
+          .in("id", daChiudere.map((r) => r.id));
+        for (const r of daChiudere) r.status = "done"; // riflesso subito nella risposta
+      }
+    }
+  } catch { /* mai bloccante */ }
+
+  const couverts = (data ?? [])
+    .filter((r) => r.status === "confirmed" || r.status === "seated")
+    .reduce((s, r) => s + (r.people ?? 0), 0);
+
   // Chiusure di servizio e di section del giorno (tabelle assenti = nessuna)
   // + jour spécial "ouvert" (scavalca i giorni di applicazione dei services)
-  let closures: { service_key: string; reason: string }[] = [];
-  let zoneClosures: { zone: string; reason: string }[] = [];
-  let specialOpen = false;
-  try {
-    const [ch, zch, sp] = await Promise.all([
-      supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
-      supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
-      supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date),
-    ]);
-    if (!ch.error && ch.data) closures = ch.data;
-    if (!zch.error && zch.data) zoneClosures = zch.data;
-    const righe = sp.data ?? [];
-    specialOpen = righe.some((r) => r.type === "open") && !righe.some((r) => r.type === "closed");
-  } catch { /* nessuna chiusura */ }
+  const closures = (!chQ.error && chQ.data ? chQ.data : []) as { service_key: string; reason: string }[];
+  const zoneClosures = (!zchQ.error && zchQ.data ? zchQ.data : []) as { zone: string; reason: string }[];
+  const righeSp = (!spQ.error && spQ.data ? spQ.data : []) as { type: string }[];
+  const specialOpen = righeSp.some((r) => r.type === "open") && !righeSp.some((r) => r.type === "closed");
 
   return {
     reservations: data ?? [],
