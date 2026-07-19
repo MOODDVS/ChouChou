@@ -1,7 +1,17 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { emailReviewResa, annullaEmailReview } from "../../../lib/notifications";
+import { emailReviewResa, annullaEmailReview, emailAnnullataResa, type ResaEmail } from "../../../lib/notifications";
+import { registraCliente } from "../../../lib/registraCliente";
+
+/** Registra il cliente di una prenotazione manuale nella rubrica `clients`. */
+function registraClienteResa(r: { first_name?: string; last_name?: string; email?: string; phone?: string }): void {
+  void registraCliente({
+    name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
+    email: r.email ?? null,
+    phone: r.phone ?? null,
+  });
+}
 
 export const prerender = false;
 
@@ -27,6 +37,53 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+
+  // Polling: nuove prenotazioni PUBBLICHE create dopo `new_since` (per il
+  // toast globale dell'admin). Solo source web/google (le walk-in/phone le
+  // crea lo staff stesso → nessun avviso). Ritorna anche l'ora del server.
+  const newSince = url.searchParams.get("new_since");
+  if (newSince) {
+    const now = new Date().toISOString();
+
+    // Nuove prenotazioni (INSERT dopo `since`)
+    const ins = await supabaseAdmin
+      .from("reservations")
+      .select("id, first_name, last_name, date, heure, people, source, status, created_at")
+      .gt("created_at", newSince)
+      .order("created_at", { ascending: true })
+      .limit(30);
+
+    // Azioni del CLIENTE (annullo / modifica dal link email), se la colonna
+    // client_action_at esiste. Se la migrazione non è lanciata: lista vuota.
+    let chgRows: { id: string; first_name: string; last_name: string; date: string; heure: string; people: number; status: string }[] = [];
+    try {
+      const chg = await supabaseAdmin
+        .from("reservations")
+        .select("id, first_name, last_name, date, heure, people, status, client_action_at")
+        .gt("client_action_at", newSince)
+        .order("client_action_at", { ascending: true })
+        .limit(30);
+      if (!chg.error && chg.data) chgRows = chg.data as typeof chgRows;
+    } catch {
+      chgRows = [];
+    }
+
+    const changedIds = new Set(chgRows.map((r) => r.id));
+    const news = (ins.error ? [] : ins.data ?? [])
+      .filter((r) => (r.source === "web" || r.source === "google") && !changedIds.has(r.id))
+      .map((r) => ({ id: r.id, first_name: r.first_name, last_name: r.last_name, date: r.date, heure: r.heure, people: r.people }));
+    const changes = chgRows.map((r) => ({
+      id: r.id,
+      first_name: r.first_name,
+      last_name: r.last_name,
+      date: r.date,
+      heure: r.heure,
+      people: r.people,
+      kind: r.status === "cancelled" ? "cancelled" : "modified",
+    }));
+
+    return json({ news, changes, now });
+  }
 
   // Ricerca libera: nome, email o telefono
   const q = (url.searchParams.get("q") ?? "").trim();
@@ -314,12 +371,14 @@ export const POST: APIRoute = async ({ request }) => {
         .single();
       if (!e2 && d2) {
         void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+        registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
         return json({ reservation: d2 });
       }
     }
     return json({ error: "Création impossible" }, 500);
   }
   void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+  registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
   return json({ reservation: data });
 };
 
@@ -434,6 +493,10 @@ export const PATCH: APIRoute = async ({ request }) => {
       void annullaEmailReview(emailId);
       void supabaseAdmin.from("reservations").update({ review_email_id: null }).eq("id", id);
     }
+  }
+  // Annullata dal ristoratore: avvisa il cliente nella sua lingua
+  if (upd.status === "cancelled" && (data as { email?: string }).email) {
+    void emailAnnullataResa(data as unknown as ResaEmail);
   }
   return json({ reservation: data });
 };

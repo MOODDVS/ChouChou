@@ -1,0 +1,13 @@
+---
+// Isola "Commandes" della Accueil → pagina Commandes.
+// data-admin-page="orders": AdminNav la rimuove se il super la disattiva.
+---
+<a class="tile" href="/admin/orders" data-admin-page="orders" data-tile="orders">
+  <div class="tile-title">Commandes</div>
+  <div class="tile-big" id="ord-count">0</div>
+  <div class="tile-sub" id="ord-sub">aujourd'hui</div>
+  <div class="tile-next">
+    <span class="lab">Prochain retrait</span>
+    <span class="val" id="ord-next">—</span>
+  </div>
+</a>

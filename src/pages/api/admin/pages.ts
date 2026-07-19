@@ -1,17 +1,18 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuper, PAGINE_ADMIN } from "../../../lib/admin/superAdmin";
+import { isSuper, PAGINE_ADMIN, TABS_VALIDI } from "../../../lib/admin/superAdmin";
 
 export const prerender = false;
 
-// Visibilità delle pagine admin per gli utenti NON super (MOODD).
-// La lista delle pagine nascoste vive in app_config.admin_pages_hidden
-// (array JSON di chiavi, es. ["stats","marketing"]).
-// GET → { hidden, super } : letto da AdminNav su ogni pagina
-// PUT → { hidden } : SOLO il super admin può modificarla
+// Visibilità di pagine E tab dell'admin per gli utenti NON super (MOODD).
+// - admin_pages_hidden : array JSON di chiavi pagina (es. ["stats","marketing"])
+// - admin_tabs_hidden  : array JSON di "pagina:tab" (es. ["marketing:news"])
+// GET → { hidden, hiddenTabs, super } : letto da AdminNav e dalle pagine con tab
+// PUT → { hidden, hiddenTabs } : SOLO il super admin può modificarla
 
 const CHIAVE = "admin_pages_hidden";
+const CHIAVE_TABS = "admin_tabs_hidden";
 const VALIDE = PAGINE_ADMIN.map((p) => p.key);
 
 function json(body: unknown, status = 200): Response {
@@ -21,15 +22,15 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function leggiNascoste(): Promise<string[]> {
+async function leggiLista(chiave: string, validi: string[]): Promise<string[]> {
   try {
     const { data } = await supabaseAdmin
       .from("app_config")
       .select("value")
-      .eq("key", CHIAVE)
+      .eq("key", chiave)
       .maybeSingle();
     const arr = JSON.parse(data?.value ?? "[]");
-    return Array.isArray(arr) ? arr.filter((k) => VALIDE.includes(k)) : [];
+    return Array.isArray(arr) ? arr.filter((k) => validi.includes(k)) : [];
   } catch {
     return [];
   }
@@ -39,10 +40,11 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  return json({
-    hidden: await leggiNascoste(),
-    super: isSuper(staff.email),
-  });
+  const [hidden, hiddenTabs] = await Promise.all([
+    leggiLista(CHIAVE, VALIDE),
+    leggiLista(CHIAVE_TABS, TABS_VALIDI),
+  ]);
+  return json({ hidden, hiddenTabs, super: isSuper(staff.email) });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
@@ -52,7 +54,7 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ error: "Réservé à l'administrateur MOODD" }, 403);
   }
 
-  let body: { hidden?: string[] };
+  let body: { hidden?: string[]; hiddenTabs?: string[] };
   try {
     body = await request.json();
   } catch {
@@ -64,10 +66,20 @@ export const PUT: APIRoute = async ({ request }) => {
     : null;
   if (hidden === null) return json({ error: "Liste invalide" }, 400);
 
+  // hiddenTabs è opzionale: se assente, non lo tocca.
+  const hiddenTabs = Array.isArray(body.hiddenTabs)
+    ? [...new Set(body.hiddenTabs.filter((k) => TABS_VALIDI.includes(k)))]
+    : null;
+
+  const upserts: { key: string; value: string }[] = [
+    { key: CHIAVE, value: JSON.stringify(hidden) },
+  ];
+  if (hiddenTabs !== null) upserts.push({ key: CHIAVE_TABS, value: JSON.stringify(hiddenTabs) });
+
   const { error } = await supabaseAdmin
     .from("app_config")
-    .upsert({ key: CHIAVE, value: JSON.stringify(hidden) }, { onConflict: "key" });
+    .upsert(upserts, { onConflict: "key" });
   if (error) return json({ error: "Enregistrement impossible" }, 500);
 
-  return json({ ok: true, hidden });
+  return json({ ok: true, hidden, hiddenTabs: hiddenTabs ?? undefined });
 };

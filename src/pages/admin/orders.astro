@@ -8,15 +8,13 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
-import AdminFooter from "../../components/admin/AdminFooter.astro";
-import { CLIENT } from "../../config/client";
 ---
 
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Commandes — Admin " + CLIENT.nome}</title>
+    <title>Commandes — Admin La Molisana</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -211,7 +209,6 @@ import { CLIENT } from "../../config/client";
         <h2 class="done-title" id="done-title" style="display:none">Terminées &amp; annulées</h2>
         <div class="grid" id="grid-done"></div>
       </main>
-      <AdminFooter />
     </div>
 
     <AdminNav current="orders" />
@@ -528,18 +525,56 @@ import { CLIENT } from "../../config/client";
           }
         });
 
-        try {
-          const res = await fetch("/api/admin/orders", { headers });
-          if (!res.ok) {
-            stateEl.textContent = "Erreur de chargement.";
-            return;
-          }
-          const json = await res.json();
-          ordini = (json.orders as Order[]) ?? [];
-          render();
-        } catch {
-          stateEl.textContent = "Erreur de connexion.";
+        // Firma compatta: serve a capire se un refresh silenzioso ha portato
+        // davvero delle novità. Se non cambia, non si tocca il DOM.
+        let firmaOrdini = "";
+        function firmaDa(list: Order[]): string {
+          return JSON.stringify(
+            list.map((o) => [o.id, o.status, o.pickup_time, o.total_cents, o.customer_name])
+          );
         }
+
+        // `silenzioso = true` → aggiornamento in background: niente messaggio di
+        // caricamento e si ridisegna SOLO se qualcosa è cambiato. Così un nuovo
+        // ordine appare da solo, senza ricaricare la pagina e senza lampeggìo.
+        async function carica(silenzioso = false) {
+          try {
+            const res = await fetch("/api/admin/orders", { headers });
+            if (!res.ok) {
+              if (!silenzioso) stateEl.textContent = "Erreur de chargement.";
+              return;
+            }
+            const json = await res.json();
+            const list = (json.orders as Order[]) ?? [];
+            const firma = firmaDa(list);
+            if (silenzioso && firma === firmaOrdini) return;
+            firmaOrdini = firma;
+            ordini = list;
+            render();
+          } catch {
+            if (!silenzioso) stateEl.textContent = "Erreur de connexion.";
+          }
+        }
+
+        // Aggiornamento live silenzioso: non interrompe una conferma "Annuler".
+        function refreshLive() {
+          if (document.visibilityState !== "visible") return;
+          if (confirmId) return;
+          void carica(true);
+        }
+
+        // Primo caricamento (mostra "Chargement…").
+        await carica();
+
+        // 1) evento da AdminNav all'arrivo di un nuovo ordine pagato
+        window.addEventListener("moodd:new-order", () => refreshLive());
+        // 2) quando torni sulla scheda dell'admin
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") refreshLive();
+        });
+        // 3) rete di sicurezza ogni 25s, SILENZIOSA: ridisegna solo se qualcosa
+        //    è cambiato (es. stato modificato da un altro dispositivo).
+        setInterval(refreshLive, 25_000);
       })();
     </script>
   </body>

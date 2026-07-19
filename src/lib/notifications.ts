@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { CLIENT } from "../config/client";
+import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -557,4 +558,478 @@ export async function annullaEmailReview(emailId: string): Promise<void> {
   } catch (e) {
     console.error("Errore annullamento email recensione:", e);
   }
+}
+
+// ============================================================
+// EMAIL PRENOTAZIONI (widget pubblico)
+//  1) conferma al cliente (lingua sua) con link Modifier / Annuler
+//  2) notifica al ristorante (reservation_notify_email)
+//  3) annullamento dal ristoratore → email al cliente
+// ============================================================
+
+/** Dati di una prenotazione per comporre le email. */
+export interface ResaEmail {
+  id: string;
+  date: string; // YYYY-MM-DD
+  heure: string; // "HH:MM"
+  service_key: string | null;
+  people: number;
+  zone: string | null;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  lang: string;
+  cancel_token: string;
+  notes?: string | null;
+  high_chair?: boolean;
+  quiet?: boolean;
+  business?: boolean;
+  company?: string | null;
+}
+
+/** Codice lingua valido per il widget (fallback fr). */
+function lw(lang: string): LinguaWidget {
+  return (TESTI_WIDGET as Record<string, unknown>)[lang] ? (lang as LinguaWidget) : "fr";
+}
+
+const LOCALE_RESA: Record<LinguaWidget, string> = {
+  fr: "fr-FR", en: "en-GB", es: "es-ES", it: "it-IT", de: "de-DE",
+  ru: "ru-RU", ar: "ar", zh: "zh-CN", ja: "ja-JP",
+};
+
+/** Data leggibile (es. "vendredi 18 juillet 2026") nella lingua del cliente. */
+function fmtDataResa(iso: string, lang: LinguaWidget): string {
+  try {
+    return new Intl.DateTimeFormat(LOCALE_RESA[lang] ?? "fr-FR", {
+      timeZone: "Europe/Brussels",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(iso + "T12:00:00"));
+  } catch {
+    return iso.split("-").reverse().join("/");
+  }
+}
+
+/** Etichetta del service nella lingua del cliente (o vuoto). */
+function labelService(key: string | null, lang: LinguaWidget): string {
+  if (!key) return "";
+  return SERVIZI_WIDGET[key]?.[lang] ?? SERVIZI_WIDGET[key]?.fr ?? "";
+}
+
+// Frasi delle email prenotazione, per lingua. Le etichette (Date, Heure,
+// Personnes, Section, "Annuler ma réservation") arrivano da TESTI_WIDGET.
+interface TxtResa {
+  confSubject: (nome: string) => string;
+  confTitle: string;
+  confLead: (name: string) => string;
+  modifier: string;
+  hint: string;
+  cancSubject: (nome: string) => string;
+  cancTitle: string;
+  cancLead: (name: string) => string;
+  cancInfo: string;
+}
+
+const TXT_RESA: Record<LinguaWidget, TxtResa> = {
+  fr: {
+    confSubject: (n) => `Votre réservation chez ${n} est confirmée`,
+    confTitle: "Réservation confirmée",
+    confLead: (name) => `Merci ${name} !<br>Votre table est réservée. Nous avons hâte de vous accueillir.`,
+    modifier: "Modifier ma réservation",
+    hint: "Un empêchement ? Vous pouvez modifier ou annuler votre réservation en un clic ci-dessus.",
+    cancSubject: (n) => `Votre réservation chez ${n} a été annulée`,
+    cancTitle: "Réservation annulée",
+    cancLead: (name) => `Bonjour ${name},<br>Votre réservation a été annulée.`,
+    cancInfo: "Pour toute question ou pour réserver à nouveau, n'hésitez pas à nous contacter.",
+  },
+  en: {
+    confSubject: (n) => `Your booking at ${n} is confirmed`,
+    confTitle: "Booking confirmed",
+    confLead: (name) => `Thank you ${name}!<br>Your table is booked. We look forward to welcoming you.`,
+    modifier: "Change my booking",
+    hint: "Plans changed? You can change or cancel your booking in one click above.",
+    cancSubject: (n) => `Your booking at ${n} has been cancelled`,
+    cancTitle: "Booking cancelled",
+    cancLead: (name) => `Hello ${name},<br>Your booking has been cancelled.`,
+    cancInfo: "For any question or to book again, please don't hesitate to contact us.",
+  },
+  es: {
+    confSubject: (n) => `Su reserva en ${n} está confirmada`,
+    confTitle: "Reserva confirmada",
+    confLead: (name) => `¡Gracias ${name}!<br>Su mesa está reservada. Le esperamos con gusto.`,
+    modifier: "Modificar mi reserva",
+    hint: "¿Un imprevisto? Puede modificar o cancelar su reserva con un clic arriba.",
+    cancSubject: (n) => `Su reserva en ${n} ha sido cancelada`,
+    cancTitle: "Reserva cancelada",
+    cancLead: (name) => `Hola ${name},<br>Su reserva ha sido cancelada.`,
+    cancInfo: "Para cualquier duda o para reservar de nuevo, no dude en contactarnos.",
+  },
+  it: {
+    confSubject: (n) => `La tua prenotazione da ${n} è confermata`,
+    confTitle: "Prenotazione confermata",
+    confLead: (name) => `Grazie ${name}!<br>Il tuo tavolo è prenotato. Ti aspettiamo con piacere.`,
+    modifier: "Modifica la prenotazione",
+    hint: "Un imprevisto? Puoi modificare o annullare la tua prenotazione con un clic qui sopra.",
+    cancSubject: (n) => `La tua prenotazione da ${n} è stata annullata`,
+    cancTitle: "Prenotazione annullata",
+    cancLead: (name) => `Ciao ${name},<br>La tua prenotazione è stata annullata.`,
+    cancInfo: "Per qualsiasi domanda o per prenotare di nuovo, non esitare a contattarci.",
+  },
+  de: {
+    confSubject: (n) => `Ihre Reservierung bei ${n} ist bestätigt`,
+    confTitle: "Reservierung bestätigt",
+    confLead: (name) => `Danke ${name}!<br>Ihr Tisch ist reserviert. Wir freuen uns auf Sie.`,
+    modifier: "Reservierung ändern",
+    hint: "Etwas dazwischengekommen? Sie können Ihre Reservierung oben mit einem Klick ändern oder stornieren.",
+    cancSubject: (n) => `Ihre Reservierung bei ${n} wurde storniert`,
+    cancTitle: "Reservierung storniert",
+    cancLead: (name) => `Hallo ${name},<br>Ihre Reservierung wurde storniert.`,
+    cancInfo: "Bei Fragen oder für eine neue Reservierung kontaktieren Sie uns gerne.",
+  },
+  ru: {
+    confSubject: (n) => `Ваше бронирование в ${n} подтверждено`,
+    confTitle: "Бронирование подтверждено",
+    confLead: (name) => `Спасибо, ${name}!<br>Ваш столик забронирован. Будем рады вас видеть.`,
+    modifier: "Изменить бронирование",
+    hint: "Изменились планы? Вы можете изменить или отменить бронирование одним нажатием выше.",
+    cancSubject: (n) => `Ваше бронирование в ${n} отменено`,
+    cancTitle: "Бронирование отменено",
+    cancLead: (name) => `Здравствуйте, ${name}!<br>Ваше бронирование отменено.`,
+    cancInfo: "По любым вопросам или для нового бронирования, пожалуйста, свяжитесь с нами.",
+  },
+  ar: {
+    confSubject: (n) => `تم تأكيد حجزك في ${n}`,
+    confTitle: "تم تأكيد الحجز",
+    confLead: (name) => `شكراً ${name}!<br>تم حجز طاولتك. نتطلع إلى استقبالك.`,
+    modifier: "تعديل حجزي",
+    hint: "طرأ ظرف ما؟ يمكنك تعديل أو إلغاء حجزك بنقرة واحدة أعلاه.",
+    cancSubject: (n) => `تم إلغاء حجزك في ${n}`,
+    cancTitle: "تم إلغاء الحجز",
+    cancLead: (name) => `مرحباً ${name}،<br>تم إلغاء حجزك.`,
+    cancInfo: "لأي سؤال أو لإجراء حجز جديد، لا تتردد في الاتصال بنا.",
+  },
+  zh: {
+    confSubject: (n) => `您在 ${n} 的预订已确认`,
+    confTitle: "预订已确认",
+    confLead: (name) => `谢谢您，${name}！<br>您的餐桌已预订。期待您的光临。`,
+    modifier: "修改我的预订",
+    hint: "计划有变？您可以通过上方一键修改或取消您的预订。",
+    cancSubject: (n) => `您在 ${n} 的预订已取消`,
+    cancTitle: "预订已取消",
+    cancLead: (name) => `您好 ${name}，<br>您的预订已取消。`,
+    cancInfo: "如有任何疑问或需要重新预订，请随时与我们联系。",
+  },
+  ja: {
+    confSubject: (n) => `${n} のご予約が確定しました`,
+    confTitle: "ご予約確定",
+    confLead: (name) => `${name} 様、ありがとうございます！<br>お席をご用意しました。お越しをお待ちしております。`,
+    modifier: "予約を変更する",
+    hint: "ご都合が変わりましたか？上のボタンからワンクリックで変更・キャンセルできます。",
+    cancSubject: (n) => `${n} のご予約はキャンセルされました`,
+    cancTitle: "ご予約キャンセル",
+    cancLead: (name) => `${name} 様<br>ご予約はキャンセルされました。`,
+    cancInfo: "ご不明な点や再予約については、お気軽にお問い合わせください。",
+  },
+};
+
+/** Mittente delle email cliente: reservation_from_email (Réglages) o RESEND_FROM. */
+async function resaFromEmail(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "reservation_from_email")
+      .maybeSingle();
+    const v = String(data?.value ?? "").trim();
+    if (v) return v;
+  } catch {
+    /* fallback */
+  }
+  return RESEND_FROM ?? "";
+}
+
+/** Destinatario delle notifiche al ristorante (reservation_notify_email). */
+async function resaNotifyEmail(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "reservation_notify_email")
+      .maybeSingle();
+    return String(data?.value ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Riga di riepilogo (etichetta / valore) dell'email prenotazione. */
+function rigaRecap(lab: string, val: string): string {
+  if (!val) return "";
+  return `<tr>
+    <td style="padding:10px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${esc(lab)}</td>
+    <td style="padding:10px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:16px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${esc(val)}</td>
+  </tr>`;
+}
+
+/** Header + recap comune (design dark brand) di tutte le email prenotazione. */
+function guscioResa(opts: {
+  nome: string;
+  claimUpper: string;
+  dir: string;
+  title: string;
+  lead: string;
+  recapRows: string;
+  ctaHtml: string;
+  footerHtml: string;
+  indirizzo: string;
+  contatti: string;
+}): string {
+  return `
+  <div dir="${opts.dir}" style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="${esc(opts.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc(opts.claimUpper)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${esc(opts.title)}</h1>
+          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${opts.lead}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px 8px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+            ${opts.recapRows}
+          </table>
+        </td>
+      </tr>
+      ${opts.ctaHtml}
+      <tr>
+        <td style="padding:0 40px 4px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:8px auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+        </td>
+      </tr>
+      ${opts.footerHtml}
+      <tr>
+        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(opts.indirizzo)}<br>${esc(opts.contatti)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+}
+
+/** URL base pubblico, senza slash finale. */
+function siteBase(): string {
+  return SITE_URL.replace(/\/$/, "");
+}
+
+/** Email di CONFERMA al cliente, con link Modifier / Annuler. */
+async function emailConfermaResa(r: ResaEmail): Promise<void> {
+  const from = await resaFromEmail();
+  if (!resend || !from) {
+    console.warn("Resend non configurato: salto conferma prenotazione");
+    return;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const t = TXT_RESA[lang];
+  const dati = await datiRistorante();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
+  const recap =
+    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(w.heure, heureVal) +
+    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(w.section, r.zone) : "");
+
+  const modifyUrl = `${siteBase()}/reservation-test?token=${r.cancel_token}`;
+  const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
+
+  const ctaHtml = `
+    <tr>
+      <td style="padding:22px 40px 4px;text-align:center;">
+        <a href="${modifyUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#b3aca6;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #3a3335;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+      </td>
+    </tr>`;
+
+  const footerHtml = `
+    <tr>
+      <td style="padding:0 40px 30px;text-align:center;">
+        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
+      </td>
+    </tr>`;
+
+  const html = guscioResa({
+    nome: dati.nome,
+    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: t.confTitle,
+    lead: t.confLead(esc(nome)),
+    recapRows: recap,
+    ctaHtml,
+    footerHtml,
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: t.confSubject(dati.nome),
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email conferma prenotazione:", e);
+  }
+}
+
+/** Email al CLIENTE quando la prenotazione è annullata dal ristorante. */
+export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
+  const from = await resaFromEmail();
+  if (!resend || !from || !r.email) {
+    console.warn("Resend non configurato: salto email annullamento");
+    return;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const t = TXT_RESA[lang];
+  const dati = await datiRistorante();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const recap =
+    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(w.heure, r.heure) +
+    rigaRecap(w.personnes, `${r.people} ${w.pers}`);
+
+  const bookUrl = `${siteBase()}/reservation-test`;
+  const ctaHtml = `
+    <tr>
+      <td style="padding:22px 40px 4px;text-align:center;">
+        <a href="${bookUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+      </td>
+    </tr>`;
+
+  const footerHtml = `
+    <tr>
+      <td style="padding:0 40px 30px;text-align:center;">
+        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.cancInfo)}</p>
+      </td>
+    </tr>`;
+
+  const html = guscioResa({
+    nome: dati.nome,
+    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: t.cancTitle,
+    lead: t.cancLead(esc(nome)),
+    recapRows: recap,
+    ctaHtml,
+    footerHtml,
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: t.cancSubject(dati.nome),
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email annullamento prenotazione:", e);
+  }
+}
+
+/** Email di NOTIFICA al ristorante (FR, design chiaro operativo). */
+async function emailNotificaResa(r: ResaEmail): Promise<void> {
+  const dest = await resaNotifyEmail();
+  const from = await resaFromEmail();
+  if (!resend || !from || !dest) {
+    console.warn("Resend/notify prenotazioni non configurati: salto notifica ristorante");
+    return;
+  }
+  const servFr = labelService(r.service_key, "fr");
+  const dataFr = fmtDataResa(r.date, "fr");
+  const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+
+  const opzioni: string[] = [];
+  if (r.high_chair) opzioni.push("Chaise bébé");
+  if (r.quiet) opzioni.push("Endroit calme");
+  if (r.business) opzioni.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
+
+  const extra = [
+    r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : "",
+    servFr ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Service</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(servFr)}</td></tr>` : "",
+    opzioni.length ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Options</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(opzioni.join(" · "))}</td></tr>` : "",
+    r.notes ? `<tr><td colspan="2" style="padding:10px 0 0;"><div style="background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;color:#7a4a09;font-size:14px;"><strong>Note :</strong> ${esc(r.notes)}</div></td></tr>` : "",
+  ].join("");
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
+      <tr>
+        <td style="padding:24px 32px;background:#231f20;">
+          <table role="presentation" width="100%"><tr>
+            <td style="color:#dfab4e;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle réservation</td>
+            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #231f20;">
+          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
+          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
+          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 32px 26px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
+            ${extra}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
+      bcc: BCC,
+      subject: `Nouvelle réservation — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email notifica ristorante:", e);
+  }
+}
+
+/**
+ * Invia le notifiche di una nuova prenotazione dal widget: conferma al
+ * cliente + notifica al ristorante. Non lancia mai eccezioni.
+ */
+export async function inviaNotificheResa(r: ResaEmail): Promise<void> {
+  await Promise.allSettled([emailConfermaResa(r), emailNotificaResa(r)]);
+}
+
+/** Solo la conferma al cliente (usata dopo una MODIFICA della prenotazione). */
+export async function inviaConfermaResa(r: ResaEmail): Promise<void> {
+  await emailConfermaResa(r);
 }

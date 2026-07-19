@@ -626,6 +626,7 @@ import { CLIENT } from "../../config/client";
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { isSuper } from "../../lib/admin/superAdmin";
 
       type Popup = {
         id: string;
@@ -790,6 +791,30 @@ import { CLIENT } from "../../config/client";
           if (el.dataset.tab === "news") caricaNews();
           if (el.dataset.tab === "coupons") caricaCoupons();
         });
+
+        // Super vede tutti i tab; agli altri nascondi quelli disattivati (super admin).
+        if (!isSuper(session.user.email ?? "")) {
+          try {
+            const rp = await fetch("/api/admin/pages", { headers });
+            if (rp.ok) {
+              const { hiddenTabs } = (await rp.json()) as { hiddenTabs?: string[] };
+              const nasc = (hiddenTabs ?? [])
+                .filter((k) => k.startsWith("marketing:"))
+                .map((k) => k.slice("marketing:".length));
+              for (const tk of nasc) {
+                mtabs.querySelector(`.mtab[data-tab="${tk}"]`)?.remove();
+                document.getElementById("tab-" + tk)?.remove();
+              }
+              // Se il tab attivo/di default è stato tolto, passa al primo visibile
+              if (!mtabs.querySelector(`.mtab[data-tab="${tabAttivo}"]`)) {
+                const primo = mtabs.querySelector<HTMLElement>(".mtab");
+                if (primo) tabAttivo = primo.dataset.tab ?? "popup";
+              }
+            }
+          } catch {
+            /* rete assente: mostra tutto */
+          }
+        }
 
         async function carica() {
           try {

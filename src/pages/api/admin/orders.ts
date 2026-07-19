@@ -17,9 +17,25 @@ function json(body: unknown, status = 200): Response {
 // paid (attivi), done (terminati), cancelled (annullati).
 // I 'pending' (checkout Stripe mai completato) restano fuori.
 // Protetto: serve un token staff valido.
-export const GET: APIRoute = async ({ request }) => {
+export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+
+  // Polling: nuovi ordini PAGATI creati dopo `new_since` (per il beep + toast
+  // "Nouvelle commande" nell'admin). Ritorna anche l'ora del server.
+  const newSince = url.searchParams.get("new_since");
+  if (newSince) {
+    const now = new Date().toISOString();
+    const { data, error } = await supabaseAdmin
+      .from("orders")
+      .select("id, customer_name, total_cents, pickup_time, created_at")
+      .eq("status", "paid")
+      .gt("created_at", newSince)
+      .order("created_at", { ascending: true })
+      .limit(20);
+    if (error) return json({ orders: [], now });
+    return json({ orders: data ?? [], now });
+  }
 
   // Soglia: 7 giorni fa a mezzanotte, fuso Europe/Brussels, in ISO completo
   // (pickup_time è timestamptz, quindi confronto con un istante ISO).

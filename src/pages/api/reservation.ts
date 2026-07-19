@@ -1,0 +1,612 @@
+import type { APIRoute } from "astro";
+import { supabaseAdmin } from "../../lib/db";
+import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
+import {
+  inviaNotificheResa,
+  inviaConfermaResa,
+  emailReviewResa,
+  annullaEmailReview,
+  type ResaEmail,
+} from "../../lib/notifications";
+import { registraCliente } from "../../lib/registraCliente";
+
+export const prerender = false;
+
+const RE_UUID = /^[0-9a-f-]{36}$/i;
+
+/** Campi restituiti dall'insert/update per comporre le email. */
+const CAMPI_EMAIL =
+  "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, notes, high_chair, quiet, business, company";
+
+/** Programma l'email recensione e salva l'id Resend (best-effort). */
+async function programmaReview(r: {
+  id: string;
+  date: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  lang: string;
+}): Promise<void> {
+  try {
+    const emailId = await emailReviewResa(r);
+    if (!emailId) return;
+    await supabaseAdmin.from("reservations").update({ review_email_id: emailId }).eq("id", r.id);
+  } catch {
+    /* nessun blocco */
+  }
+}
+
+// ============================================================
+// API PUBBLICA del widget prenotazioni (senza auth).
+// GET ?config=1        → configurazione per il rendering del widget
+// GET ?date=YYYY-MM-DD → disponibilità del giorno: prenotazioni CONFERMATE
+//                        ridotte a heure/people/zone/service_key (nessun
+//                        dato personale) + chiusure services/sections.
+// GET ?month=YYYY-MM   → per il datepicker: giorni chiusi e "complets".
+// POST                 → creazione prenotazione (in arrivo, prossimo step).
+//
+// Il calcolo dei créneaux pieni avviene nel widget con questi dati + config;
+// la stessa logica verrà ricontrollata lato server nel POST.
+// ============================================================
+
+const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+function intOf(v: unknown): number {
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) ? n : NaN;
+}
+function clamp(n: number, lo: number, hi: number, def: number): number {
+  return Number.isFinite(n) && n >= lo && n <= hi ? n : def;
+}
+function minutiDi(hhmm: string): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm));
+  return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+}
+/** Minuti da mezzanotte "adesso" nel fuso del ristorante. */
+function oraTzMinuti(tz: string): number {
+  const [h, m] = new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false })
+    .format(new Date())
+    .split(":");
+  return Number(h) * 60 + Number(m);
+}
+
+/** Risolve la key del service: sv.key se valida, altrimenti dal label FR. */
+function keyServizio(sv: { key?: string; label?: string }): string | null {
+  const k = String(sv.key ?? "");
+  if (k && SERVIZI_WIDGET[k]) return k;
+  const lab = String(sv.label ?? "").trim().toLowerCase();
+  if (lab) {
+    const hit = Object.entries(SERVIZI_WIDGET).find(([, vv]) => vv.fr.toLowerCase() === lab);
+    if (hit) return hit[0];
+  }
+  return null;
+}
+
+interface WidgetConfig {
+  services: { key: string; from: string; to: string; hold: number; slot: number; days: number[] }[];
+  zones: { name: string; seats: number }[];
+  zoneChoice: boolean;
+  capacity: number;
+  maxPeople: number;
+  minNoticeMinutes: number;
+  cornerStyle: "square" | "rounded";
+  languages: string[];
+  timezone: string;
+}
+
+/** Legge la configurazione réservations da app_config. */
+async function leggiConfig(): Promise<WidgetConfig> {
+  const { data } = await supabaseAdmin
+    .from("app_config")
+    .select("key, value")
+    .in("key", [
+      "reservation_services",
+      "reservation_zones",
+      "reservation_zone_choice",
+      "reservation_max_people",
+      "reservation_min_notice_minutes",
+      "reservation_min_notice_hours",
+      "reservation_hold_minutes",
+      "reservation_slot_minutes",
+      "reservation_corner_style",
+      "reservation_languages",
+      "timezone",
+    ]);
+  const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
+
+  const holdLeg = clamp(intOf(m.get("reservation_hold_minutes")), 15, 360, 90);
+  const slotLeg = clamp(intOf(m.get("reservation_slot_minutes")), 10, 120, 30);
+
+  // Services (hold/slot PER service, fallback ai globali legacy)
+  const services: WidgetConfig["services"] = [];
+  try {
+    const arr = JSON.parse(m.get("reservation_services") || "[]");
+    if (Array.isArray(arr)) {
+      for (const sv of arr) {
+        const key = keyServizio(sv);
+        const from = String(sv.from ?? "");
+        const to = String(sv.to ?? "");
+        if (!key || !HHMM.test(from) || !HHMM.test(to)) continue;
+        const days = Array.isArray(sv.days)
+          ? Array.from(new Set(sv.days.map((d: unknown) => Math.floor(Number(d))).filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6)))
+          : [];
+        services.push({
+          key,
+          from,
+          to,
+          hold: clamp(intOf(sv.hold), 15, 360, holdLeg),
+          slot: clamp(intOf(sv.slot), 10, 120, slotLeg),
+          days,
+        });
+      }
+    }
+  } catch {
+    /* nessun service configurato */
+  }
+
+  // Zones + capienza totale
+  const zones: WidgetConfig["zones"] = [];
+  let capacity = 0;
+  try {
+    const arr = JSON.parse(m.get("reservation_zones") || "[]");
+    if (Array.isArray(arr)) {
+      for (const z of arr) {
+        const name = String(z.name ?? "").trim();
+        const seats = intOf(z.seats);
+        if (name && Number.isFinite(seats) && seats > 0) {
+          zones.push({ name, seats });
+          capacity += seats;
+        }
+      }
+    }
+  } catch {
+    /* nessuna section */
+  }
+
+  // Délai minimo (minuti; fallback ore×60)
+  let minNotice = intOf(m.get("reservation_min_notice_minutes"));
+  if (!(minNotice >= 0)) {
+    const ore = intOf(m.get("reservation_min_notice_hours"));
+    minNotice = ore > 0 ? ore * 60 : 0;
+  }
+  minNotice = Math.min(4320, Math.max(0, minNotice || 0));
+
+  // Personnes maximum (1–100, default 8)
+  let maxPeople = intOf(m.get("reservation_max_people"));
+  if (!(maxPeople >= 1)) maxPeople = 8;
+  maxPeople = Math.min(100, maxPeople);
+
+  const cornerStyle = m.get("reservation_corner_style") === "square" ? "square" : "rounded";
+
+  // Lingue del widget (fr sempre presente)
+  let languages: string[] = ["fr", "en"];
+  try {
+    const arr = JSON.parse(m.get("reservation_languages") || "[]");
+    if (Array.isArray(arr) && arr.length) languages = arr.map((x) => String(x));
+  } catch {
+    /* default */
+  }
+  if (!languages.includes("fr")) languages = ["fr", ...languages];
+
+  const zoneChoice = (m.get("reservation_zone_choice") ?? "1") !== "0";
+
+  let timezone = "Europe/Brussels";
+  const vTz = m.get("timezone") ?? "";
+  if (vTz) {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: vTz });
+      timezone = vTz;
+    } catch {
+      /* fuso invalido: default */
+    }
+  }
+
+  return { services, zones, zoneChoice, capacity, maxPeople, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
+}
+
+export const GET: APIRoute = async ({ url }) => {
+  // ---- Config ----
+  if (url.searchParams.get("config")) {
+    const config = await leggiConfig();
+    return json({ config });
+  }
+
+  // ---- Prefill da token (modifica): dati della prenotazione confermata ----
+  const token = url.searchParams.get("token") ?? "";
+  if (token) {
+    if (!RE_UUID.test(token)) return json({ error: "lienInvalide" }, 404);
+    const { data, error } = await supabaseAdmin
+      .from("reservations")
+      .select(CAMPI_EMAIL + ", status")
+      .eq("cancel_token", token)
+      .maybeSingle();
+    if (error || !data || data.status !== "confirmed") return json({ error: "lienInvalide" }, 404);
+    const { status, id, ...pub } = data as Record<string, unknown>;
+    return json({ reservation: pub });
+  }
+
+  // ---- Vista mese (datepicker) ----
+  const month = url.searchParams.get("month") ?? "";
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    const [anno, mese] = month.split("-").map(Number);
+    const nGiorni = new Date(anno, mese, 0).getDate();
+    const primo = `${month}-01`;
+    const ultimo = `${month}-${String(nGiorni).padStart(2, "0")}`;
+
+    const [orari, speciali, cfg, rese] = await Promise.all([
+      supabaseAdmin.from("settings").select("day_of_week, lunch_active, dinner_active"),
+      supabaseAdmin
+        .from("special_days")
+        .select("type, date_from, date_to")
+        .lte("date_from", ultimo)
+        .gte("date_to", primo),
+      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones"]),
+      supabaseAdmin
+        .from("reservations")
+        .select("date, service_key, people")
+        .gte("date", primo)
+        .lte("date", ultimo)
+        .eq("status", "confirmed"),
+    ]);
+
+    const apertoSett = new Map<number, boolean>();
+    for (const g of orari.data ?? []) apertoSett.set(g.day_of_week, Boolean(g.lunch_active || g.dinner_active));
+
+    const cfgMap = new Map((cfg.data ?? []).map((r) => [r.key, String(r.value ?? "")]));
+    let services: { key?: string; label?: string }[] = [];
+    try {
+      const arr = JSON.parse(cfgMap.get("reservation_services") || "[]");
+      if (Array.isArray(arr)) services = arr;
+    } catch {
+      /* vuoto */
+    }
+    let capienza = 0;
+    try {
+      const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
+      if (Array.isArray(arr)) {
+        capienza = arr.reduce((t: number, z: { seats?: unknown }) => {
+          const n = intOf(z.seats);
+          return t + (Number.isFinite(n) && n > 0 ? n : 0);
+        }, 0);
+      }
+    } catch {
+      /* nessuna section */
+    }
+
+    const coperti = new Map<string, number>();
+    for (const r of rese.data ?? []) {
+      const k = `${r.date}|${r.service_key ?? ""}`;
+      coperti.set(k, (coperti.get(k) ?? 0) + (r.people ?? 0));
+    }
+
+    const closed: string[] = [];
+    const full: string[] = [];
+    for (let g = 1; g <= nGiorni; g++) {
+      const iso = `${month}-${String(g).padStart(2, "0")}`;
+      const dow = new Date(anno, mese - 1, g).getDay();
+      let aperto = apertoSett.get(dow) ?? true;
+      for (const sp of speciali.data ?? []) if (iso >= sp.date_from && iso <= sp.date_to && sp.type === "open") aperto = true;
+      for (const sp of speciali.data ?? []) if (iso >= sp.date_from && iso <= sp.date_to && sp.type === "closed") aperto = false;
+      if (!aperto) {
+        closed.push(iso);
+        continue;
+      }
+      if (capienza > 0) {
+        const pieno = services.length
+          ? services.every((sv) => (coperti.get(`${iso}|${keyServizio(sv) ?? ""}`) ?? 0) >= capienza)
+          : (rese.data ?? []).filter((r) => r.date === iso).reduce((t, r) => t + (r.people ?? 0), 0) >= capienza;
+        if (pieno) full.push(iso);
+      }
+    }
+    return json({ closed, full });
+  }
+
+  // ---- Disponibilità del giorno ----
+  const date = url.searchParams.get("date") ?? "";
+  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+
+  // Modifica: esclude la prenotazione stessa dal calcolo disponibilità
+  const excl = url.searchParams.get("exclude") ?? "";
+  let dayQ = supabaseAdmin
+    .from("reservations")
+    .select("heure, people, zone, service_key")
+    .eq("date", date)
+    .eq("status", "confirmed");
+  if (excl && RE_UUID.test(excl)) dayQ = dayQ.neq("cancel_token", excl);
+  const { data, error } = await dayQ;
+  if (error) return json({ reservations: [], service_closures: [], zone_closures: [] });
+
+  let serviceClosures: string[] = [];
+  let zoneClosures: string[] = [];
+  try {
+    const [ch, zch] = await Promise.all([
+      supabaseAdmin.from("service_closures").select("service_key").eq("date", date),
+      supabaseAdmin.from("zone_closures").select("zone").eq("date", date),
+    ]);
+    if (!ch.error && ch.data) serviceClosures = ch.data.map((r) => String(r.service_key)).filter(Boolean);
+    if (!zch.error && zch.data) zoneClosures = zch.data.map((r) => String(r.zone)).filter(Boolean);
+  } catch {
+    /* nessuna chiusura */
+  }
+
+  return json({
+    reservations: (data ?? []).map((r) => ({
+      heure: r.heure,
+      people: r.people,
+      zone: r.zone,
+      service_key: r.service_key,
+    })),
+    service_closures: serviceClosures,
+    zone_closures: zoneClosures,
+  });
+};
+
+// Ricontrolla la disponibilità LATO SERVER con la stessa logica del widget.
+// Ritorna null se OK, oppure la chiave d'errore ("creneauPris").
+// excludeToken: in modifica, ignora la prenotazione stessa nel calcolo.
+async function verificaCreneau(
+  cfg: WidgetConfig,
+  p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number; excludeToken?: string }
+): Promise<string | null> {
+  const slotMin = minutiDi(p.heure);
+
+  // Délai minimo / giorno passato
+  const nowMin = oraTzMinuti(cfg.timezone);
+  const oggiTz = new Intl.DateTimeFormat("en-CA", { timeZone: cfg.timezone }).format(new Date());
+  const diff = Math.round((Date.parse(p.date) - Date.parse(oggiTz)) / 86400000);
+  const sog = nowMin + cfg.minNoticeMinutes - diff * 1440;
+  if (diff < 0 || slotMin < sog) return "creneauPris";
+
+  let dayQ = supabaseAdmin
+    .from("reservations")
+    .select("heure, people, zone, service_key")
+    .eq("date", p.date)
+    .eq("status", "confirmed");
+  if (p.excludeToken && RE_UUID.test(p.excludeToken)) dayQ = dayQ.neq("cancel_token", p.excludeToken);
+
+  const [chiusrv, chzone, day] = await Promise.all([
+    supabaseAdmin.from("service_closures").select("service_key").eq("date", p.date),
+    supabaseAdmin.from("zone_closures").select("zone").eq("date", p.date),
+    dayQ,
+  ]);
+  const svcClosed = (chiusrv.data ?? []).map((r) => String(r.service_key));
+  const zoneClosed = (chzone.data ?? []).map((r) => String(r.zone));
+  if (p.service_key && svcClosed.includes(p.service_key)) return "creneauPris";
+  if (p.zone && zoneClosed.includes(p.zone)) return "creneauPris";
+
+  // Capienza (meno le sezioni chiuse) + occupazione sovrapposta
+  const capienza = cfg.capacity - cfg.zones.filter((z) => zoneClosed.includes(z.name)).reduce((t, z) => t + z.seats, 0);
+  const holdByKey = new Map(cfg.services.map((s) => [s.key, s.hold]));
+  const holdNuovo = (p.service_key ? holdByKey.get(p.service_key) : undefined) ?? cfg.services[0]?.hold ?? 90;
+  const postiZona = p.zone ? cfg.zones.find((z) => z.name === p.zone)?.seats ?? 0 : 0;
+
+  if (capienza > 0) {
+    let occTot = 0;
+    let occZona = 0;
+    for (const rr of day.data ?? []) {
+      const rMin = minutiDi(String(rr.heure).slice(0, 5));
+      if (rMin < 0) continue;
+      const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
+      if (rMin < slotMin + holdNuovo && rMin + rHold > slotMin) {
+        occTot += rr.people ?? 0;
+        if (p.zone && (rr.zone ?? "") === p.zone) occZona += rr.people ?? 0;
+      }
+    }
+    if (occTot + p.people > capienza) return "creneauPris";
+    if (postiZona > 0 && occZona + p.people > postiZona) return "creneauPris";
+  }
+  return null;
+}
+
+/** Estrae e normalizza i campi comuni del body (POST/PUT). */
+function leggiCampi(body: Record<string, unknown>) {
+  const date = String(body.date ?? "");
+  const heure = String(body.heure ?? "");
+  const people = Math.floor(Number(body.people));
+  const first_name = String(body.first_name ?? "").trim();
+  const last_name = String(body.last_name ?? "").trim();
+  const phone = String(body.phone ?? "").trim();
+  const email = String(body.email ?? "").trim();
+  const service_key = /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null;
+  const zone = String(body.zone ?? "").trim() || null;
+  const langRaw = String(body.lang ?? "fr");
+  const lang = /^[a-z]{2}$/.test(langRaw) ? langRaw : "fr";
+  const valido =
+    RE_DATA.test(date) &&
+    HHMM.test(heure) &&
+    Number.isFinite(people) &&
+    people >= 1 &&
+    people <= 100 &&
+    !!last_name &&
+    !!phone &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return {
+    valido,
+    riga: {
+      date,
+      heure,
+      service_key,
+      people,
+      zone,
+      first_name: first_name || last_name,
+      last_name,
+      phone,
+      email,
+      lang,
+      high_chair: Boolean(body.high_chair),
+      quiet: Boolean(body.quiet),
+      business: Boolean(body.business),
+      company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
+      notes: String(body.notes ?? "").trim() || null,
+    },
+  };
+}
+
+// ============================================================
+// POST → crea una prenotazione (dal widget pubblico).
+// Ricontrolla la disponibilità LATO SERVER con la stessa logica del widget:
+// se il créneau è stato preso nel frattempo → 409 { error: "creneauPris" }.
+// Conferma automatica (status confirmed, source web, cancel_token).
+// ============================================================
+export const POST: APIRoute = async ({ request }) => {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ ok: false, error: "champsInvalides" }, 400);
+  }
+
+  const { valido, riga } = leggiCampi(body);
+  if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
+
+  const cfg = await leggiConfig();
+  const errC = await verificaCreneau(cfg, {
+    date: riga.date,
+    heure: riga.heure,
+    service_key: riga.service_key,
+    zone: riga.zone,
+    people: riga.people,
+  });
+  if (errC) return json({ ok: false, error: errC }, 409);
+
+  const base: Record<string, unknown> = { ...riga, status: "confirmed" };
+
+  // Insert (fallback senza `source` se la migrazione #21 non è lanciata)
+  let ins = await supabaseAdmin.from("reservations").insert({ ...base, source: "web" }).select(CAMPI_EMAIL).single();
+  if (ins.error && ins.error.message.includes("source")) {
+    ins = await supabaseAdmin.from("reservations").insert(base).select(CAMPI_EMAIL).single();
+  }
+  if (ins.error || !ins.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
+
+  // Email conferma cliente + notifica ristorante + programmazione recensione.
+  const resa = ins.data as unknown as ResaEmail;
+  void inviaNotificheResa(resa);
+  // Registra la persona nella rubrica `clients` (come il webhook per gli ordini)
+  void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone });
+  void programmaReview({
+    id: resa.id,
+    date: resa.date,
+    first_name: resa.first_name,
+    last_name: resa.last_name,
+    email: resa.email,
+    lang: resa.lang,
+  });
+
+  return json({ ok: true, id: resa.id, cancel_token: resa.cancel_token });
+};
+
+// ============================================================
+// PUT → modifica una prenotazione esistente (dal link "Modifier").
+// Identificata dal cancel_token; ri-controlla la disponibilità escludendo
+// sé stessa; re-invia la conferma aggiornata. 409 se il créneau è pieno.
+// ============================================================
+export const PUT: APIRoute = async ({ request }) => {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ ok: false, error: "champsInvalides" }, 400);
+  }
+
+  const token = String(body.token ?? "");
+  if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
+
+  // La prenotazione deve esistere ed essere confermata
+  const { data: attuale } = await supabaseAdmin
+    .from("reservations")
+    .select("id, status")
+    .eq("cancel_token", token)
+    .maybeSingle();
+  if (!attuale || attuale.status !== "confirmed") return json({ ok: false, error: "lienInvalide" }, 404);
+
+  const { valido, riga } = leggiCampi(body);
+  if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
+
+  const cfg = await leggiConfig();
+  const errC = await verificaCreneau(cfg, {
+    date: riga.date,
+    heure: riga.heure,
+    service_key: riga.service_key,
+    zone: riga.zone,
+    people: riga.people,
+    excludeToken: token,
+  });
+  if (errC) return json({ ok: false, error: errC }, 409);
+
+  let upd = await supabaseAdmin
+    .from("reservations")
+    .update({ ...riga, client_action_at: new Date().toISOString() })
+    .eq("cancel_token", token)
+    .eq("status", "confirmed")
+    .select(CAMPI_EMAIL)
+    .single();
+  // Migrazione client_action_at non ancora lanciata: si modifica senza il campo
+  if (upd.error && String(upd.error.message ?? "").includes("client_action_at")) {
+    upd = await supabaseAdmin
+      .from("reservations")
+      .update(riga)
+      .eq("cancel_token", token)
+      .eq("status", "confirmed")
+      .select(CAMPI_EMAIL)
+      .single();
+  }
+  if (upd.error || !upd.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
+
+  // Conferma aggiornata al cliente (con i nuovi dettagli)
+  void inviaConfermaResa(upd.data as unknown as ResaEmail);
+
+  return json({ ok: true, id: upd.data.id, cancel_token: upd.data.cancel_token });
+};
+
+// ============================================================
+// DELETE → annulla una prenotazione dal link "Annuler" (cancel_token).
+// status → cancelled; annulla l'email recensione programmata. Idempotente.
+// ============================================================
+export const DELETE: APIRoute = async ({ request }) => {
+  let body: Record<string, unknown> = {};
+  try {
+    body = await request.json();
+  } catch {
+    /* token può arrivare anche in query, ma qui è nel body */
+  }
+  const token = String(body.token ?? "");
+  if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
+
+  const stamp = new Date().toISOString();
+  let upd = await supabaseAdmin
+    .from("reservations")
+    .update({ status: "cancelled", client_action_at: stamp })
+    .eq("cancel_token", token)
+    .eq("status", "confirmed")
+    .select("*")
+    .maybeSingle();
+  // Migrazione client_action_at non ancora lanciata: si annulla senza il campo
+  if (upd.error && String(upd.error.message ?? "").includes("client_action_at")) {
+    upd = await supabaseAdmin
+      .from("reservations")
+      .update({ status: "cancelled" })
+      .eq("cancel_token", token)
+      .eq("status", "confirmed")
+      .select("*")
+      .maybeSingle();
+  }
+  if (upd.error) return json({ ok: false, error: "erreurEnvoi" }, 500);
+  if (!upd.data) return json({ ok: false, error: "lienInvalide" }, 404);
+
+  // Annulla la recensione programmata (se presente)
+  const emailId = String((upd.data as { review_email_id?: string | null }).review_email_id ?? "");
+  if (emailId) {
+    void annullaEmailReview(emailId);
+    void supabaseAdmin.from("reservations").update({ review_email_id: null }).eq("id", upd.data.id);
+  }
+
+  return json({ ok: true });
+};

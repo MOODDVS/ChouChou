@@ -48,6 +48,7 @@ export interface TestiWidget {
   demain: string;
   choisirDate: string;
   aucuneHeure: string;
+  complet: string;
   erreurEnvoi: string;
   creneauPris: string;
   champsInvalides: string;
@@ -91,6 +92,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Demain",
     choisirDate: "Ou choisir une date…",
     aucuneHeure: "Aucune heure disponible ce jour",
+    complet: "Complet — plus de place pour ce nombre de personnes",
     erreurEnvoi: "Une erreur est survenue — veuillez réessayer dans un instant.",
     creneauPris: "Ce créneau vient d'être complet. Merci de choisir un autre horaire.",
     champsInvalides: "Merci de vérifier les champs obligatoires.",
@@ -133,6 +135,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Tomorrow",
     choisirDate: "Or pick a date…",
     aucuneHeure: "No times available on this day",
+    complet: "Fully booked for this party size",
     erreurEnvoi: "An error occurred — please try again in a moment.",
     creneauPris: "This time slot has just filled up. Please pick another time.",
     champsInvalides: "Please check the required fields.",
@@ -175,6 +178,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Mañana",
     choisirDate: "O elegir una fecha…",
     aucuneHeure: "No hay horarios disponibles este día",
+    complet: "Completo para este número de personas",
     erreurEnvoi: "Se ha producido un error — inténtelo de nuevo en un momento.",
     creneauPris: "Este horario se acaba de completar. Elija otro horario.",
     champsInvalides: "Compruebe los campos obligatorios.",
@@ -217,6 +221,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Domani",
     choisirDate: "O scegli una data…",
     aucuneHeure: "Nessun orario disponibile per questo giorno",
+    complet: "Completo per questo numero di persone",
     erreurEnvoi: "Si è verificato un errore — riprova tra un istante.",
     creneauPris: "Questo orario si è appena riempito. Scegli un altro orario.",
     champsInvalides: "Controlla i campi obbligatori.",
@@ -259,6 +264,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Morgen",
     choisirDate: "Oder Datum wählen…",
     aucuneHeure: "An diesem Tag sind keine Uhrzeiten verfügbar",
+    complet: "Ausgebucht für diese Personenzahl",
     erreurEnvoi: "Ein Fehler ist aufgetreten — bitte versuchen Sie es gleich erneut.",
     creneauPris: "Dieser Zeitpunkt ist soeben ausgebucht. Bitte wählen Sie eine andere Uhrzeit.",
     champsInvalides: "Bitte überprüfen Sie die Pflichtfelder.",
@@ -301,6 +307,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "Завтра",
     choisirDate: "Или выберите дату…",
     aucuneHeure: "В этот день нет доступного времени",
+    complet: "Мест нет для такого числа гостей",
     erreurEnvoi: "Произошла ошибка — пожалуйста, повторите попытку чуть позже.",
     creneauPris: "Это время только что заняли. Пожалуйста, выберите другое время.",
     champsInvalides: "Пожалуйста, проверьте обязательные поля.",
@@ -343,6 +350,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "غداً",
     choisirDate: "أو اختر تاريخاً…",
     aucuneHeure: "لا توجد أوقات متاحة في هذا اليوم",
+    complet: "مكتمل لهذا العدد من الأشخاص",
     erreurEnvoi: "حدث خطأ — يرجى المحاولة مرة أخرى بعد قليل.",
     creneauPris: "هذا الموعد اكتمل للتو. يرجى اختيار وقت آخر.",
     champsInvalides: "يرجى التحقق من الحقول الإلزامية.",
@@ -385,6 +393,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "明天",
     choisirDate: "或选择日期…",
     aucuneHeure: "当天没有可预订的时间",
+    complet: "该人数已订满",
     erreurEnvoi: "发生错误，请稍后重试。",
     creneauPris: "该时段刚刚被订满，请选择其他时间。",
     champsInvalides: "请检查必填项。",
@@ -426,6 +435,7 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     demain: "明日",
     choisirDate: "または日付を選択…",
     aucuneHeure: "この日にご予約いただける時間はありません",
+    complet: "この人数では満席です",
     erreurEnvoi: "エラーが発生しました。しばらくしてからもう一度お試しください。",
     creneauPris: "この時間帯はただいま満席になりました。別の時間をお選びください。",
     champsInvalides: "必須項目をご確認ください。",

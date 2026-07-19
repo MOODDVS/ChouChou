@@ -196,6 +196,7 @@ import { CLIENT } from "../../config/client";
       }
       .rw-more:hover { text-decoration: underline; }
       .rw-noslot { grid-column: 1 / -1; text-align: center; color: #b3aca6; font-size: 0.85rem; font-style: italic; margin: 0.4rem 0; }
+      .rw-complet { color: #dfab4e; font-style: normal; font-weight: 700; }
       /* Orario complet: sbarrato e non selezionabile */
       .rw-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); pointer-events: none; }
       .rw-slot-full::after {
@@ -450,6 +451,19 @@ import { CLIENT } from "../../config/client";
       .section[data-tab="reservations"] .field .rs-row label.rs-mini {
         flex: 0 0 auto; max-width: none; width: auto;
       }
+      /* Giorni di applicazione del service */
+      .rs-line3 { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+      .rs-days-lab { color: var(--c-muted); font-size: 0.78rem; letter-spacing: 0.02em; }
+      .rs-days { display: flex; gap: 0.55rem; flex-wrap: wrap; }
+      .rs-day {
+        width: 34px; height: 34px; flex: 0 0 34px; padding: 0; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.66rem; letter-spacing: 0.02em; border-radius: 50%;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      .rs-day:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .rs-day.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .rs-row .rs-key {
         flex: 1; min-width: 0; height: 42px; box-sizing: border-box;
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
@@ -871,7 +885,7 @@ import { CLIENT } from "../../config/client";
             <hr class="rgroup-sep" />
             <!-- 3. Services -->
             <div class="field field-services">
-              <label>Services de réservation<span class="lab-hint">Jusqu'à 3 plages : nom, horaires, durée d'occupation d'une table (min) et créneau (min). Ex. Midi 12:00–15:00, table 60, créneau 15.</span></label>
+              <label>Services de réservation<span class="lab-hint">Jusqu'à 5 plages : nom, horaires, jours d'application, durée d'occupation d'une table (min) et créneau (min). Ex. Midi 12:00–15:00 (Lun–Ven), table 60, créneau 15.</span></label>
               <div class="dyn-col">
                 <div class="rservices" id="r-services"></div>
                 <button type="button" class="kemail-add" id="r-service-add">+ Ajouter un service</button>
@@ -1160,6 +1174,7 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { isSuper } from "../../lib/admin/superAdmin";
       import { SERVIZI_WIDGET, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
@@ -1362,11 +1377,16 @@ import { CLIENT } from "../../config/client";
         // Services di prenotazione (label + fascia oraria), max 3
         const rServicesBox = document.getElementById("r-services") as HTMLDivElement;
         const rServiceAdd = document.getElementById("r-service-add") as HTMLButtonElement;
+        // Giorni della settimana (0 = dimanche, come settings.day_of_week)
+        const RS_DAYS = [
+          { v: 1, l: "Lu" }, { v: 2, l: "Ma" }, { v: 3, l: "Me" }, { v: 4, l: "Je" },
+          { v: 5, l: "Ve" }, { v: 6, l: "Sa" }, { v: 0, l: "Di" },
+        ];
         function aggiornaAddServizio() {
-          rServiceAdd.style.display = rServicesBox.querySelectorAll(".rs-row").length >= 3 ? "none" : "";
+          rServiceAdd.style.display = rServicesBox.querySelectorAll(".rs-row").length >= 5 ? "none" : "";
         }
-        function aggiungiRigaServizio(label = "", da = "", a = "", hold = "", slot = "") {
-          if (rServicesBox.querySelectorAll(".rs-row").length >= 3) return;
+        function aggiungiRigaServizio(label = "", da = "", a = "", hold = "", slot = "", days: number[] | null = null) {
+          if (rServicesBox.querySelectorAll(".rs-row").length >= 5) return;
           const riga = document.createElement("div");
           riga.className = "rs-row";
           riga.innerHTML =
@@ -1381,6 +1401,12 @@ import { CLIENT } from "../../config/client";
             '<div class="rs-line2">' +
             '<label class="rs-mini">Table (min)<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" /></label>' +
             '<label class="rs-mini">Créneau (min)<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" /></label>' +
+            "</div>" +
+            '<div class="rs-line3">' +
+            '<span class="rs-days-lab">Jours</span>' +
+            '<div class="rs-days">' +
+            RS_DAYS.map((d) => `<button type="button" class="rs-day" data-d="${d.v}">${d.l}</button>`).join("") +
+            "</div>" +
             "</div>";
           const iK = riga.querySelector(".rs-key") as HTMLSelectElement;
           const iD = riga.querySelector(".rs-from") as HTMLInputElement;
@@ -1392,6 +1418,18 @@ import { CLIENT } from "../../config/client";
           iA.value = a;
           iH.value = hold;
           iS.value = slot;
+          // Giorni: se non specificati (dati vecchi o vuoti) → tutti selezionati
+          const attivi = days && days.length ? days : RS_DAYS.map((d) => d.v);
+          riga.querySelectorAll<HTMLButtonElement>(".rs-day").forEach((b) => {
+            if (attivi.includes(Number(b.dataset.d))) b.classList.add("is-on");
+          });
+          (riga.querySelector(".rs-days") as HTMLElement).addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest(".rs-day") as HTMLElement | null;
+            if (!b) return;
+            b.classList.toggle("is-on");
+            dirty();
+            renderAnteprima();
+          });
           [iK, iD, iA, iH, iS].forEach((el) => {
             el.addEventListener("input", dirty);
             el.addEventListener("input", renderAnteprima);
@@ -1417,6 +1455,9 @@ import { CLIENT } from "../../config/client";
               to: (r.querySelector(".rs-to") as HTMLInputElement).value,
               hold: Math.floor(Number((r.querySelector(".rs-hold") as HTMLInputElement).value)) || 90,
               slot: Math.floor(Number((r.querySelector(".rs-slot") as HTMLInputElement).value)) || 30,
+              days: Array.from(r.querySelectorAll<HTMLElement>(".rs-day.is-on"))
+                .map((b) => Number(b.dataset.d))
+                .sort((x, y) => x - y),
             }))
             .filter((sv) => sv.from || sv.to);
           return lista.length ? JSON.stringify(lista) : "";
@@ -1633,6 +1674,8 @@ import { CLIENT } from "../../config/client";
           const servizi = rwServizi()
             // Service chiuso dal ristoratore (Complet / Fermeture exceptionnelle)
             .filter((sv) => !svChiusi.some((c) => c.service_key === sv.key))
+            // Service non attivo in quel giorno della settimana
+            .filter((sv) => rwServeGiorno(sv, isoGiorno))
             .map((sv) => {
               const slots: number[] = [];
               for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) slots.push(m);
@@ -1677,6 +1720,7 @@ import { CLIENT } from "../../config/client";
             if (occTot + rwN > capienza) return true;
             return postiZona > 0 && occZona + rwN > postiZona;
           };
+          const tuttiPieni = !!att && tutti.length > 0 && tutti.every((m) => slotPieno(m));
           let html = visibili
             .map((m) => `<span class="rw-slot${slotPieno(m) ? " rw-slot-full" : ""}">${slotHHMM(m)}</span>`)
             .join("");
@@ -1684,6 +1728,7 @@ import { CLIENT } from "../../config/client";
             html += `<button type="button" class="rw-more">${rwEspanso ? T().voirMoins : T().voirPlus}<svg class="rw-more-ico${rwEspanso ? " is-up" : ""}" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>`;
           }
           if (!att) html = `<p class="rw-noslot">${T().aucuneHeure}</p>`;
+          else if (tuttiPieni) html = `<p class="rw-noslot rw-complet">${T().complet}</p>`;
           rwSlots.innerHTML = html;
           rwSlots.querySelector(".rw-slot:not(.rw-slot-full)")?.classList.add("is-on");
           (document.getElementById("rw-val-zone") as HTMLElement).textContent =
@@ -1881,7 +1926,7 @@ import { CLIENT } from "../../config/client";
         /** Il giorno ha almeno un créneau prenotabile? (per Aujourd'hui/Demain) */
         function rwHaOrari(iso: string): boolean {
           const soglia = rwSoglia(iso);
-          return rwServizi().some((sv) => {
+          return rwServizi().filter((sv) => rwServeGiorno(sv, iso)).some((sv) => {
             for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= soglia) return true;
             return false;
           });
@@ -1890,7 +1935,7 @@ import { CLIENT } from "../../config/client";
           const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
           return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
         }
-        function rwServizi(): { key: string; label: string; da: number; a: number; hold: number; slot: number }[] {
+        function rwServizi(): { key: string; label: string; da: number; a: number; hold: number; slot: number; days: number[] }[] {
           const righe = Array.from(rServicesBox.querySelectorAll<HTMLElement>(".rs-row"))
             .map((r) => {
               const key = (r.querySelector(".rs-key") as HTMLSelectElement).value;
@@ -1901,15 +1946,21 @@ import { CLIENT } from "../../config/client";
                 a: rwMinuti((r.querySelector(".rs-to") as HTMLInputElement).value),
                 hold: Math.min(360, Math.max(15, Math.floor(Number((r.querySelector(".rs-hold") as HTMLInputElement).value)) || 90)),
                 slot: Math.min(120, Math.max(10, Math.floor(Number((r.querySelector(".rs-slot") as HTMLInputElement).value)) || 30)),
+                days: Array.from(r.querySelectorAll<HTMLElement>(".rs-day.is-on")).map((b) => Number(b.dataset.d)),
               };
             })
             .filter((sv) => sv.da >= 0 && sv.a > sv.da);
           return righe.length
             ? righe
             : [
-                { key: "midi", label: SERVIZI_WIDGET.midi[rwLingua], da: 12 * 60, a: 14 * 60, hold: 90, slot: 30 },
-                { key: "soir", label: SERVIZI_WIDGET.soir[rwLingua], da: 18 * 60, a: 21 * 60 + 30, hold: 90, slot: 30 },
+                { key: "midi", label: SERVIZI_WIDGET.midi[rwLingua], da: 12 * 60, a: 14 * 60, hold: 90, slot: 30, days: [] },
+                { key: "soir", label: SERVIZI_WIDGET.soir[rwLingua], da: 18 * 60, a: 21 * 60 + 30, hold: 90, slot: 30, days: [] },
               ];
+        }
+        /** Il service è attivo in quel giorno? (days vuoto = tutti i giorni) */
+        function rwServeGiorno(sv: { days: number[] }, iso: string): boolean {
+          if (!sv.days || sv.days.length === 0) return true;
+          return sv.days.includes(new Date(iso + "T12:00:00").getDay());
         }
         const rwPGrid = document.getElementById("rw-pgrid") as HTMLDivElement;
         const rwAlert = document.getElementById("rw-alert") as HTMLParagraphElement;
@@ -2056,7 +2107,7 @@ import { CLIENT } from "../../config/client";
         }
         rServicesBox.innerHTML = "";
         try {
-          const servizi = JSON.parse(dati.reservations?.reservation_services || "[]") as { key?: string; label?: string; from: string; to: string; hold?: number; slot?: number }[];
+          const servizi = JSON.parse(dati.reservations?.reservation_services || "[]") as { key?: string; label?: string; from: string; to: string; hold?: number; slot?: number; days?: number[] }[];
           const holdVecchio = String(dati.reservations?.reservation_hold_minutes ?? "");
           const slotVecchio = String(dati.reservations?.reservation_slot_minutes ?? "");
           const chiaveDi = (sv: { key?: string; label?: string }): string => {
@@ -2073,7 +2124,8 @@ import { CLIENT } from "../../config/client";
                 sv.from,
                 sv.to,
                 sv.hold ? String(sv.hold) : holdVecchio,
-                sv.slot ? String(sv.slot) : slotVecchio
+                sv.slot ? String(sv.slot) : slotVecchio,
+                Array.isArray(sv.days) ? sv.days : null
               )
             );
         } catch {
@@ -2436,9 +2488,19 @@ import { CLIENT } from "../../config/client";
           saveBtn.disabled = true;
           saveBtn.classList.add("is-loading");
           try {
+            // Token FRESCO al momento del salvataggio: la sessione si rinnova da
+            // sola, ma `headers` è stato catturato all'apertura della pagina e
+            // dopo ~1h sarebbe scaduto → 401 "Non autorisé". getSession() qui
+            // restituisce il token corrente (rinnovato).
+            const { data: sessNow } = await supabaseBrowser.auth.getSession();
+            const tokenNow = sessNow.session?.access_token;
+            if (!tokenNow) {
+              window.location.replace("/admin/login");
+              return;
+            }
             const res = await fetch("/api/admin/settings", {
               method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
+              headers: { Authorization: `Bearer ${tokenNow}`, "Content-Type": "application/json" },
               body: JSON.stringify({
                 days,
                 prep_time_minutes: Number(prepEl.value),
@@ -2834,37 +2896,64 @@ import { CLIENT } from "../../config/client";
         tmCarica();
       })();
     
-  // ----- Tab della pagina (Horaire / Cuisine / Liens / Team) -----
-  const tabBtns = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button"));
-  const TAB_KEY = "lm-adm-settings-tab";
-
-  function mostraTab(t: string) {
-    tabBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.t === t));
-    document.querySelectorAll<HTMLElement>("#content .section[data-tab]").forEach((sec) => {
-      sec.style.display = sec.dataset.tab === t ? "" : "none";
-    });
-    const contenuto = document.getElementById("content");
-    if (contenuto) contenuto.dataset.tab = t;
-    // Enregistrer serve solo dove ci sono campi da salvare
-    const bar = document.querySelector<HTMLElement>(".save-bar");
-    if (bar) bar.style.display = t === "general" || t === "horaire" || t === "reservations" || t === "cuisine" || t === "liens" ? "" : "none";
+  // ----- Tab della pagina (visibilità gestita dal super admin) -----
+  (async () => {
+    // Super vede tutti i tab; agli altri togli quelli disattivati (super admin).
     try {
-      sessionStorage.setItem(TAB_KEY, t);
+      const { data: sd } = await supabaseBrowser.auth.getSession();
+      const email = sd.session?.user?.email ?? "";
+      if (sd.session && !isSuper(email)) {
+        const rp = await fetch("/api/admin/pages", {
+          headers: { Authorization: `Bearer ${sd.session.access_token ?? ""}` },
+        });
+        if (rp.ok) {
+          const { hiddenTabs } = (await rp.json()) as { hiddenTabs?: string[] };
+          const nasc = (hiddenTabs ?? [])
+            .filter((k) => k.startsWith("settings:"))
+            .map((k) => k.slice("settings:".length));
+          for (const tk of nasc) {
+            document.querySelector(`#tabs button[data-t="${tk}"]`)?.remove();
+            document.querySelector(`#content .section[data-tab="${tk}"]`)?.remove();
+          }
+        }
+      }
     } catch {
-      /* storage non disponibile: pazienza */
+      /* rete assente: mostra tutto */
     }
-  }
 
-  tabBtns.forEach((b) => b.addEventListener("click", () => mostraTab(b.dataset.t ?? "horaire")));
+    const tabBtns = Array.from(document.querySelectorAll<HTMLButtonElement>("#tabs button"));
+    const TAB_KEY = "lm-adm-settings-tab";
 
-  let tabIniziale = "general";
-  try {
-    const salvato = sessionStorage.getItem(TAB_KEY);
-    if (salvato && tabBtns.some((b) => b.dataset.t === salvato)) tabIniziale = salvato;
-  } catch {
-    /* niente ripristino */
-  }
-  mostraTab(tabIniziale);
+    function mostraTab(t: string) {
+      tabBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.t === t));
+      document.querySelectorAll<HTMLElement>("#content .section[data-tab]").forEach((sec) => {
+        sec.style.display = sec.dataset.tab === t ? "" : "none";
+      });
+      const contenuto = document.getElementById("content");
+      if (contenuto) contenuto.dataset.tab = t;
+      // Enregistrer serve solo dove ci sono campi da salvare
+      const bar = document.querySelector<HTMLElement>(".save-bar");
+      if (bar) bar.style.display = t === "general" || t === "horaire" || t === "reservations" || t === "cuisine" || t === "liens" ? "" : "none";
+      try {
+        sessionStorage.setItem(TAB_KEY, t);
+      } catch {
+        /* storage non disponibile: pazienza */
+      }
+    }
+
+    tabBtns.forEach((b) => b.addEventListener("click", () => mostraTab(b.dataset.t ?? "horaire")));
+
+    let tabIniziale = "general";
+    try {
+      const salvato = sessionStorage.getItem(TAB_KEY);
+      if (salvato && tabBtns.some((b) => b.dataset.t === salvato)) tabIniziale = salvato;
+    } catch {
+      /* niente ripristino */
+    }
+    // Se il tab iniziale è stato tolto, parti dal primo visibile
+    if (!tabBtns.some((b) => b.dataset.t === tabIniziale)) tabIniziale = tabBtns[0]?.dataset.t ?? "horaire";
+    mostraTab(tabIniziale);
+  })();
 
   // Anti-autofill: i campi marcati data-noauto restano readonly (Chrome non
   // riempie mai i readonly); si sbloccano solo quando l'utente ci clicca.

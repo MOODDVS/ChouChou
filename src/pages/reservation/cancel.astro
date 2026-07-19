@@ -1,0 +1,166 @@
+---
+// PAGINA di annullamento prenotazione (link "Annuler" nell'email cliente).
+// Standalone (come /reservation-test). Legge ?token=, mostra il riepilogo,
+// chiede conferma e chiama DELETE /api/reservation. Multilingua: usa la
+// lingua salvata nella prenotazione. RestoHub non è toccato.
+import { CLIENT } from "../../config/client";
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Annulation — {CLIENT.nome}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;600;700&display=swap"
+    />
+    <style is:global>
+      :root { --font-body: "Nunito Sans", system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
+      .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; }
+      .rw { background: #231f20; border: 1px solid #3a3335; border-radius: 14px; padding: 2rem 1.6rem; width: 100%; max-width: 440px; text-align: center; }
+      .rw-claim { color: #dfab4e; font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; margin: 0 0 0.35rem; }
+      .rw-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
+      .rw-loading { color: #b3aca6; font-size: 0.9rem; padding: 1.5rem 0; }
+      .rw-recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: #1c1819; border: 1px solid #3a3335; border-radius: 8px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
+      .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+      .rw-rc-lab { color: #b3aca6; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+      .rw-rc-val { color: #dfab4e; font-size: 0.95rem; font-weight: 700; }
+      .rw-btn { width: 100%; background: #dfab4e; color: #231f20; border: 1px solid #dfab4e; font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.8rem 0; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; }
+      .rw-btn:hover { background: transparent; color: #dfab4e; }
+      .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+      .rw-btn-danger { background: #b3352f; border-color: #b3352f; color: #fff; }
+      .rw-btn-danger:hover { background: transparent; color: #ff8a8f; border-color: #ff8a8f; }
+      .rw-msg { color: #b3aca6; font-size: 0.9rem; line-height: 1.6; margin: 0.6rem 0 0; }
+      .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: #dfab4e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 0.6rem; }
+      .rw-err { color: #ff8a8f; font-size: 0.85rem; margin: 0.8rem 0 0; min-height: 1em; }
+      .rw-book { display: inline-block; margin-top: 1.1rem; color: #dfab4e; font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; }
+      .rw-book:hover { color: #fff; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="rw" id="rw" dir="ltr">
+        <p class="rw-claim">{CLIENT.nome}</p>
+        <h3 class="rw-title" id="rw-title">Annuler ma réservation</h3>
+
+        <div id="rw-loading" class="rw-loading">…</div>
+
+        <div id="rw-confirm-box" style="display:none">
+          <div class="rw-recap">
+            <div><span class="rw-rc-lab" id="rw-l-date"></span><span class="rw-rc-val" id="rw-v-date"></span></div>
+            <div><span class="rw-rc-lab" id="rw-l-heure"></span><span class="rw-rc-val" id="rw-v-heure"></span></div>
+            <div><span class="rw-rc-lab" id="rw-l-pers"></span><span class="rw-rc-val" id="rw-v-pers"></span></div>
+          </div>
+          <button type="button" class="rw-btn rw-btn-danger" id="rw-do-cancel"></button>
+          <p class="rw-err" id="rw-err"></p>
+        </div>
+
+        <div id="rw-done-box" style="display:none">
+          <svg class="rw-done-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="8 12.5 11 15.5 16 9.5" /></svg>
+          <p class="rw-msg" id="rw-done-msg"></p>
+          <a class="rw-book" id="rw-book" href="/reservation-test"></a>
+        </div>
+
+        <div id="rw-invalid-box" style="display:none">
+          <p class="rw-msg" id="rw-invalid-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      import { TESTI_WIDGET, SERVIZI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
+
+      type Resa = {
+        date: string; heure: string; service_key: string | null; people: number;
+        zone: string | null; lang: string;
+      };
+
+      const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+      const codeValido = (c: string): c is LinguaWidget => LINGUE_WIDGET.some((l) => l.code === c);
+
+      let lingua: LinguaWidget = "fr";
+      const T = () => TESTI_WIDGET[lingua] ?? TESTI_WIDGET.fr;
+
+      function fmtDate(iso: string): string {
+        try {
+          return new Intl.DateTimeFormat(lingua === "fr" ? "fr-FR" : lingua, { timeZone: "Europe/Brussels", weekday: "short", day: "2-digit", month: "long" }).format(new Date(iso + "T12:00:00"));
+        } catch {
+          return iso.split("-").reverse().join("/");
+        }
+      }
+
+      function mostraInvalido() {
+        $("rw-loading").style.display = "none";
+        $("rw-confirm-box").style.display = "none";
+        $("rw-invalid-box").style.display = "";
+        $("rw-invalid-msg").textContent = T().lienInvalide;
+      }
+
+      (async () => {
+        const token = new URLSearchParams(location.search).get("token") ?? "";
+        if (!token) { mostraInvalido(); return; }
+
+        let resa: Resa | null = null;
+        try {
+          const r = await fetch("/api/reservation?token=" + encodeURIComponent(token));
+          const j = await r.json();
+          if (j.reservation) resa = j.reservation as Resa;
+        } catch { /* rete */ }
+        if (!resa) { mostraInvalido(); return; }
+
+        if (resa.lang && codeValido(resa.lang)) lingua = resa.lang as LinguaWidget;
+        const t = T();
+        ($("rw") as HTMLElement).dir = lingua === "ar" ? "rtl" : "ltr";
+        $("rw-title").textContent = t.annulerTitre;
+
+        // Riepilogo
+        $("rw-l-date").textContent = t.date;
+        $("rw-l-heure").textContent = t.heure;
+        $("rw-l-pers").textContent = t.personnes;
+        $("rw-v-date").textContent = fmtDate(resa.date);
+        const servLab = resa.service_key ? SERVIZI_WIDGET[resa.service_key]?.[lingua] ?? "" : "";
+        $("rw-v-heure").textContent = resa.heure;
+        $("rw-v-pers").textContent = String(resa.people);
+        void servLab; // (service non mostrato nel riepilogo compatto)
+
+        $("rw-do-cancel").textContent = t.annulerConfirme;
+        $("rw-done-msg").textContent = t.annuleeOk;
+        $("rw-book").textContent = t.nouvelleResa;
+
+        $("rw-loading").style.display = "none";
+        $("rw-confirm-box").style.display = "";
+
+        $("rw-do-cancel").addEventListener("click", async () => {
+          const btn = $("rw-do-cancel") as HTMLButtonElement;
+          btn.disabled = true;
+          $("rw-err").textContent = "";
+          try {
+            const res = await fetch("/api/reservation", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token }),
+            });
+            const j = await res.json();
+            if (j.ok) {
+              $("rw-confirm-box").style.display = "none";
+              $("rw-done-box").style.display = "";
+            } else {
+              $("rw-err").textContent = j.error === "lienInvalide" ? T().lienInvalide : T().erreurEnvoi;
+              btn.disabled = false;
+            }
+          } catch {
+            $("rw-err").textContent = T().erreurEnvoi;
+            btn.disabled = false;
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

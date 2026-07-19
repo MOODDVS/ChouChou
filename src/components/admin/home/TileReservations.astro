@@ -1,0 +1,14 @@
+---
+// Isola "Réservations" della Accueil → pagina Réservations.
+// data-admin-page="reservations": AdminNav la rimuove se il super la disattiva.
+// Gli id sono popolati dallo script di index.astro (résas + couverts di oggi).
+---
+<a class="tile" href="/admin/reservations" data-admin-page="reservations" data-tile="reservations">
+  <div class="tile-title">Réservations</div>
+  <div class="tile-big" id="resa-count">0</div>
+  <div class="tile-sub" id="resa-sub">aujourd'hui</div>
+  <div class="tile-next">
+    <span class="lab">Prochaine réservation</span>
+    <span class="val" id="resa-next">—</span>
+  </div>
+</a>

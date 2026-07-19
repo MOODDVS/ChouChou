@@ -1,0 +1,15 @@
+import { createClient } from "@supabase/supabase-js";
+import fs from "fs";
+const env = Object.fromEntries(fs.readFileSync(".env","utf8").split("\n").filter(l=>l.includes("=")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(), l.slice(i+1).trim().replace(/^["']|["']$/g,"")]}));
+const url = env.SUPABASE_URL, key = env.SUPABASE_SERVICE_KEY, anon = env.SUPABASE_ANON_KEY;
+const db = createClient(url, key, { auth:{persistSession:false} });
+const t = async (label, fn) => { const s=Date.now(); try{ const r=await fn(); const ms=Date.now()-s; console.log(`${String(ms).padStart(5)} ms  ${label}  ${r}`);}catch(e){console.log(`  ERR  ${label}  ${e.message}`);} };
+await t("warmup count menu     ", async()=>{ const {count}=await db.from("menu_items").select("*",{count:"exact",head:true}); return `rows=${count}`; });
+await t("menu_items full       ", async()=>{ const {data}=await db.from("menu_items").select("*"); return `rows=${data?.length}`; });
+await t("orders 7d             ", async()=>{ const {data}=await db.from("orders").select("id,status,pickup_time,items,total_cents,created_at").in("status",["paid","done","cancelled"]).order("pickup_time"); return `rows=${data?.length}`; });
+await t("reservations 500      ", async()=>{ const {data,error}=await db.from("reservations").select("*").limit(500); return error?error.message:`rows=${data?.length}`; });
+await t("clients 1000          ", async()=>{ const {data,error}=await db.from("clients").select("*").limit(1000); return error?error.message:`rows=${data?.length}`; });
+await t("app_config all        ", async()=>{ const {data,error}=await db.from("app_config").select("*"); return error?error.message:`rows=${data?.length}`; });
+const authc = createClient(url, anon, { auth:{persistSession:false} });
+await t("auth getUser roundtrip", async()=>{ await authc.auth.getUser("bogus.token.here"); return "done"; });
+await t("auth getUser roundtrip", async()=>{ await authc.auth.getUser("bogus.token.here"); return "done(2nd)"; });

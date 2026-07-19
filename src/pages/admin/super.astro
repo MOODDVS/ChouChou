@@ -42,7 +42,7 @@ import { CLIENT } from "../../config/client";
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 760px; }
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 620px; margin: 0 auto; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .sub { color: var(--c-muted); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.6; }
@@ -57,6 +57,19 @@ import { CLIENT } from "../../config/client";
       .row.is-off { opacity: 0.55; }
       .row-name { flex: 1; font-weight: 700; font-size: 1.02rem; }
       .row-state { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+
+      /* Tab interni a una pagina: scendono (tendina) quando la pagina è attiva,
+         affiancati quando c'è spazio, impilati su mobile. */
+      .rowwrap { display: flex; flex-direction: column; }
+      .subrows { display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.45rem; padding: 0.5rem 0 0.75rem 1.5rem; }
+      .subrow { display: flex; align-items: center; gap: 0.65rem; background: #2b2320; border: 1px solid var(--c-line); padding: 0.5rem 0.85rem; }
+      .subrow.is-off { opacity: 0.6; }
+      .subrow-name { font-size: 0.9rem; white-space: nowrap; }
+      @media (max-width: 640px) {
+        .subrows { flex-direction: column; }
+        .subrow { justify-content: space-between; }
+        .subrow-name { flex: 1; }
+      }
 
       .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
       .switch input { opacity: 0; width: 0; height: 0; }
@@ -114,7 +127,7 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuper, PAGINE_ADMIN } from "../../lib/admin/superAdmin";
+      import { isSuper, PAGINE_ADMIN, TABS_ADMIN } from "../../lib/admin/superAdmin";
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -163,15 +176,33 @@ import { CLIENT } from "../../config/client";
         }
 
         let nascoste: string[] = [];
+        let nascosteTab: string[] = [];
 
         function render() {
           rowsEl.innerHTML = PAGINE_ADMIN.map((p) => {
             const visibile = !nascoste.includes(p.key);
+            const tabs = TABS_ADMIN[p.key] ?? [];
+            const sub = tabs.length && visibile
+              ? `<div class="subrows">${tabs
+                  .map((tb) => {
+                    const tk = `${p.key}:${tb.key}`;
+                    const vis = !nascosteTab.includes(tk);
+                    return `
+              <div class="subrow${vis ? "" : " is-off"}" data-tk="${tk}">
+                <span class="subrow-name">${tb.label}</span>
+                <label class="switch"><input type="checkbox" class="t-tab" ${vis ? "checked" : ""} /><span class="track"></span></label>
+              </div>`;
+                  })
+                  .join("")}</div>`
+              : "";
             return `
-            <div class="row${visibile ? "" : " is-off"}" data-k="${p.key}">
-              <span class="row-name">${p.label}</span>
-              <span class="row-state">${visibile ? "Visible" : "Masquée"}</span>
-              <label class="switch"><input type="checkbox" class="t-vis" ${visibile ? "checked" : ""} /><span class="track"></span></label>
+            <div class="rowwrap" data-k="${p.key}">
+              <div class="row${visibile ? "" : " is-off"}">
+                <span class="row-name">${p.label}</span>
+                <span class="row-state">${visibile ? "Visible" : "Masquée"}</span>
+                <label class="switch"><input type="checkbox" class="t-vis" ${visibile ? "checked" : ""} /><span class="track"></span></label>
+              </div>
+              ${sub}
             </div>`;
           }).join("");
         }
@@ -181,7 +212,7 @@ import { CLIENT } from "../../config/client";
             const res = await fetch("/api/admin/pages", {
               method: "PUT",
               headers,
-              body: JSON.stringify({ hidden: nascoste }),
+              body: JSON.stringify({ hidden: nascoste, hiddenTabs: nascosteTab }),
             });
             if (!res.ok) throw new Error();
             toast("Enregistré ✓");
@@ -192,17 +223,25 @@ import { CLIENT } from "../../config/client";
 
         rowsEl.addEventListener("change", async (e) => {
           const t = e.target as HTMLInputElement;
-          if (!t.classList.contains("t-vis")) return;
-          const k = (t.closest(".row") as HTMLElement).dataset.k!;
-          nascoste = t.checked ? nascoste.filter((x) => x !== k) : [...nascoste, k];
-          render();
-          await salva();
+          if (t.classList.contains("t-vis")) {
+            const k = (t.closest(".rowwrap") as HTMLElement).dataset.k!;
+            nascoste = t.checked ? nascoste.filter((x) => x !== k) : [...nascoste, k];
+            render();
+            await salva();
+          } else if (t.classList.contains("t-tab")) {
+            const tk = (t.closest(".subrow") as HTMLElement).dataset.tk!;
+            nascosteTab = t.checked ? nascosteTab.filter((x) => x !== tk) : [...nascosteTab, tk];
+            render();
+            await salva();
+          }
         });
 
         try {
           const res = await fetch("/api/admin/pages", { headers });
           if (!res.ok) throw new Error();
-          nascoste = ((await res.json()) as { hidden: string[] }).hidden;
+          const dati = (await res.json()) as { hidden: string[]; hiddenTabs?: string[] };
+          nascoste = dati.hidden ?? [];
+          nascosteTab = dati.hiddenTabs ?? [];
           stateEl.style.display = "none";
           rowsEl.style.display = "flex";
           render();

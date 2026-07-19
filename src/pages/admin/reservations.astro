@@ -750,7 +750,9 @@ import { CLIENT } from "../../config/client";
         });
       }
 
-      let giorno = isoOggi();
+      // Giorno mostrato: ?date=YYYY-MM-DD (dal toast "Nouvelle réservation") o oggi
+      const pDateURL = new URLSearchParams(location.search).get("date");
+      let giorno = pDateURL && /^\d{4}-\d{2}-\d{2}$/.test(pDateURL) ? pDateURL : isoOggi();
       let modoRicerca = false; // il campo di ricerca sta mostrando risultati
       let filtroServ = ""; // "" = tutti i services, altrimenti la key (midi, soir…)
       function dataFr(iso: string): string {
@@ -958,11 +960,42 @@ import { CLIENT } from "../../config/client";
             : "");
       }
 
-      async function carica() {
+      // Firma compatta di ciò che è mostrato: serve a capire se un refresh
+      // silenzioso ha portato davvero delle novità. Se la firma non cambia,
+      // non si tocca il DOM (zero lampeggìo).
+      let firmaLista = "";
+      function firmaListaDa(
+        rs: Resa[],
+        cl?: { service_key: string; reason: string }[],
+        zc?: { zone: string; reason: string }[]
+      ): string {
+        return JSON.stringify([
+          rs.map((r) => [
+            r.id,
+            r.status,
+            r.heure,
+            r.people,
+            r.service_key ?? "",
+            r.zone ?? "",
+            r.first_name,
+            r.last_name,
+            r.notes ?? "",
+          ]),
+          (cl ?? []).map((c) => [c.service_key, c.reason]),
+          (zc ?? []).map((z) => [z.zone, z.reason]),
+        ]);
+      }
+
+      // `silenzioso = true` → aggiornamento in background: niente spinner, e si
+      // ridisegna SOLO se i dati sono cambiati. Così la lista si aggiorna sul
+      // posto quando arriva/cambia/sparisce una prenotazione, senza ricaricare.
+      async function carica(silenzioso = false) {
         modoRicerca = false;
-        stateEl.style.display = "";
-        rowsEl.style.display = "none";
-        emptyEl.style.display = "none";
+        if (!silenzioso) {
+          stateEl.style.display = "";
+          rowsEl.style.display = "none";
+          emptyEl.style.display = "none";
+        }
         try {
           const res = await fetch("/api/admin/reservations?date=" + giorno, { headers });
           if (!res.ok) throw new Error();
@@ -974,6 +1007,10 @@ import { CLIENT } from "../../config/client";
             config?: typeof nmCfg;
             missing?: boolean;
           };
+          const firma = firmaListaDa(j.reservations, j.closures, j.zone_closures);
+          // Refresh silenzioso e niente è cambiato: non toccare il DOM.
+          if (silenzioso && firma === firmaLista) return;
+          firmaLista = firma;
           rese = j.reservations;
           chiusureOggi = j.closures ?? [];
           chiusureZoneOggi = j.zone_closures ?? [];
@@ -992,7 +1029,7 @@ import { CLIENT } from "../../config/client";
           }
           render();
         } catch {
-          stateEl.textContent = "Erreur de chargement.";
+          if (!silenzioso) stateEl.textContent = "Erreur de chargement.";
         }
       }
 
@@ -1020,6 +1057,30 @@ import { CLIENT } from "../../config/client";
 
         headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
         await carica();
+
+        // ---- Aggiornamento live della lista ----
+        // Ricarica il giorno mostrato SOLO se non stai cercando, la scheda è
+        // visibile e non c'è un modale aperto (per non chiuderlo sotto le mani).
+        function refreshLive() {
+          if (modoRicerca) return;
+          if (document.visibilityState !== "visible") return;
+          if (document.querySelector(".overlay.is-open")) return;
+          void carica(true); // silenzioso: aggiorna solo se qualcosa è cambiato
+        }
+        // 1) evento da AdminNav (nuova / annullée / modifiée dal cliente)
+        window.addEventListener("moodd:new-resa", (e) => {
+          const d = (e as CustomEvent).detail as { date?: string } | null;
+          if (d && d.date === giorno) refreshLive();
+        });
+        // 2) quando torni sulla scheda dell'admin
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") refreshLive();
+        });
+        // 3) rete di sicurezza ogni 25s, ORA SILENZIOSA: ricontrolla i dati ma
+        //    ridisegna solo se sono cambiati (disdette/modifiche del cliente,
+        //    prenotazioni spostate ad altro giorno). Nessun lampeggìo.
+        setInterval(refreshLive, 25_000);
+
         // Gli stati temporali (En cours / Fini ?) si aggiornano da soli
         setInterval(render, 60_000);
 

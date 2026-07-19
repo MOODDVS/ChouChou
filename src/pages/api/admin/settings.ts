@@ -322,11 +322,11 @@ export const PUT: APIRoute = async ({ request }) => {
         } catch {
           return json({ error: "Services invalides" }, 400);
         }
-        if (!Array.isArray(lista) || lista.length > 3) {
-          return json({ error: "Services invalides (max 3)" }, 400);
+        if (!Array.isArray(lista) || lista.length > 5) {
+          return json({ error: "Services invalides (max 5)" }, 400);
         }
         const RE_ORA = /^\d{2}:\d{2}$/;
-        const puliti: { key: string; from: string; to: string; hold: number; slot: number }[] = [];
+        const puliti: { key: string; from: string; to: string; hold: number; slot: number; days: number[] }[] = [];
         for (const sv of lista) {
           const key = String((sv as { key?: unknown }).key ?? "").trim();
           if (!SERVIZI_WIDGET[key]) return json({ error: "Service inconnu" }, 400);
@@ -344,7 +344,12 @@ export const PUT: APIRoute = async ({ request }) => {
           if (!Number.isFinite(slot) || slot < 10 || slot > 120) {
             return json({ error: `Créneau invalide pour « ${SERVIZI_WIDGET[key].fr} » (10–120 min)` }, 400);
           }
-          puliti.push({ key, from, to, hold, slot });
+          // Giorni di applicazione (0=dim … 6=sam). Assenti/vuoti = tutti i giorni.
+          const giorniRaw = (sv as { days?: unknown }).days;
+          const days = Array.isArray(giorniRaw)
+            ? Array.from(new Set(giorniRaw.map((d) => Math.floor(Number(d))).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))).sort((a, b) => a - b)
+            : [];
+          puliti.push({ key, from, to, hold, slot, days });
         }
         v = JSON.stringify(puliti);
       }

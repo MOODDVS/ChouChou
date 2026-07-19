@@ -5,6 +5,13 @@
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import TileNotes from "../../components/admin/home/TileNotes.astro";
+import TileCommandes from "../../components/admin/home/TileCommandes.astro";
+import TileReservations from "../../components/admin/home/TileReservations.astro";
+import TileHoraires from "../../components/admin/home/TileHoraires.astro";
+import TileMenu from "../../components/admin/home/TileMenu.astro";
+import TileStats from "../../components/admin/home/TileStats.astro";
+import TilePhotos from "../../components/admin/home/TilePhotos.astro";
 import { CLIENT } from "../../config/client";
 ---
 
@@ -168,6 +175,39 @@ import { CLIENT } from "../../config/client";
       .note-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .note-del.confirm { padding: 0 0.7rem; font-size: 0.72rem; color: #fff; background: #a3320f; border-color: #a3320f; }
       .notes-empty { color: rgba(35, 31, 32, 0.65); font-size: 0.9rem; padding: 0.4rem 0; }
+
+      /* ---- Organiser : FAB flottante in basso a sinistra (come les chiusure Réservations) ---- */
+      .org-fab {
+        position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
+        width: 52px; height: 52px; border-radius: 50%;
+        background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
+      }
+      .org-fab:hover { background: transparent; color: var(--c-accent); }
+      .org-fab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .org-fab.is-on { background: transparent; color: var(--c-accent); }
+      .org-fab-reset { left: 5.6rem; }
+
+      .tile { position: relative; }
+      .tile-move, .tile-resize { display: none; }
+      .cards.editing .tile { outline: 1px dashed var(--c-line); cursor: default; }
+      .cards.editing .tile.dragging { opacity: 0.45; }
+      .cards.editing .tile-move {
+        display: flex; align-items: center; justify-content: center;
+        position: absolute; top: 8px; left: 8px; width: 30px; height: 30px; z-index: 6;
+        background: rgba(35, 31, 32, 0.9); border: 1px solid var(--c-accent); border-radius: 8px;
+        color: var(--c-accent); cursor: grab; touch-action: none;
+      }
+      .cards.editing .tile-move:active { cursor: grabbing; }
+      .cards.editing .tile-move svg { width: 16px; height: 16px; fill: currentColor; }
+      .cards.editing .tile-resize {
+        display: block; position: absolute; right: 5px; bottom: 5px; width: 18px; height: 18px; z-index: 6;
+        cursor: nwse-resize; touch-action: none;
+        border-right: 3px solid var(--c-accent); border-bottom: 3px solid var(--c-accent);
+        border-bottom-right-radius: 6px;
+      }
     </style>
   </head>
   <body>
@@ -176,94 +216,24 @@ import { CLIENT } from "../../config/client";
       <main>
         <div class="state" id="state">Chargement…</div>
         <div class="cards" id="cards" style="display:none">
-          <!-- Notes (primo tile, colori invertiti) -->
-          <div class="tile tile-notes" id="notes-tile">
-            <div class="ntile-head">
-              <div class="tile-title">Notes</div>
-              <button class="ntile-btn ntile-expand" id="notes-expand" type="button" title="Agrandir" aria-label="Agrandir">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-              </button>
-              <button class="ntile-btn ntile-add" id="notes-add" type="button" title="Ajouter une note" aria-label="Ajouter une note">+</button>
-            </div>
-            <div class="notes-preview" id="notes-preview"></div>
-          </div>
-
-          <!-- Commandes -->
-          <a class="tile" href="/admin/orders" data-admin-page="orders">
-            <div class="tile-title">Commandes</div>
-            <div class="tile-big" id="ord-count">0</div>
-            <div class="tile-sub" id="ord-sub">aujourd'hui</div>
-            <div class="tile-next">
-              <span class="lab">Prochain retrait</span>
-              <span class="val" id="ord-next">—</span>
-            </div>
-          </a>
-
-          <!-- Horaires -->
-          <a class="tile" href="/admin/settings" data-admin-page="settings">
-            <div class="tile-title">Horaires</div>
-            <div class="sched-status" id="sched-status">—</div>
-            <div id="sched-bands-wrap"></div>
-            <div class="tile-next sched-two">
-              <div>
-                <span class="lab">Préparation</span>
-                <span class="val" id="sched-prep">—</span>
-              </div>
-              <div>
-                <span class="lab">Créneaux</span>
-                <span class="val" id="sched-slot">—</span>
-              </div>
-            </div>
-          </a>
-
-          <!-- Menu -->
-          <a class="tile" href="/admin/menu" data-admin-page="menu">
-            <div class="tile-title">Menu</div>
-            <div class="menu-counts">
-              <div><span class="mc-num" id="menu-food">0</span><span class="mc-lab">🍴 plats</span></div>
-              <div><span class="mc-num" id="menu-drink">0</span><span class="mc-lab">🍷 boissons</span></div>
-            </div>
-            <div class="tile-next">
-              <span class="lab">Indisponibles (masqués du site)</span>
-              <span class="val" id="menu-indispo">—</span>
-            </div>
-          </a>
-
-          <!-- Statistiques (2 colonne) -->
-          <div class="tile tile-stats" data-admin-page="stats">
-            <div class="st-head">
-              <div class="tile-title">Statistiques</div>
-              <a class="st-link" href="/admin/stats">Voir tout →</a>
-            </div>
-            <div class="st-grid">
-              <div class="st-left">
-                <div class="st-two">
-                  <div><span class="st-lab">C.A. ajd.</span><span class="st-big" id="st-ca-day">—</span></div>
-                  <div><span class="st-lab">C.A. mois</span><span class="st-big" id="st-ca-month">—</span></div>
-                </div>
-                <div class="st-facts">
-                  <div><span class="st-lab">Plat le plus commandé (mois)</span><span class="val" id="st-top">—</span></div>
-                  <div><span class="st-lab">Heure de pointe (mois)</span><span class="val" id="st-peak">—</span></div>
-                </div>
-              </div>
-              <div class="st-chart">
-                <span class="st-lab">Commandes cette semaine</span>
-                <div class="st-bars" id="st-bars"></div>
-                <div class="st-labs" id="st-labs"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Photos récentes (2 colonne) -->
-          <div class="tile tile-photos" data-admin-page="assets">
-            <div class="st-head">
-              <div class="tile-title">Photos récentes</div>
-              <a class="st-link" href="/admin/assets">Voir tout →</a>
-            </div>
-            <div class="ph-grid" id="ph-grid"></div>
-          </div>
+          <TileNotes />
+          <TileCommandes />
+          <TileReservations />
+          <TileHoraires />
+          <TileMenu />
+          <TileStats />
+          <TilePhotos />
         </div>
       </main>
+
+      <!-- FAB Organiser (disposizione delle isole) -->
+      <button class="org-fab" id="organiser-btn" type="button" title="Organiser mes tuiles" aria-label="Organiser" style="display:none">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      </button>
+      <button class="org-fab org-fab-reset" id="organiser-reset" type="button" title="Réinitialiser la disposition" aria-label="Réinitialiser" style="display:none">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>
+      </button>
+
       <AdminFooter />
     </div>
 
@@ -290,6 +260,7 @@ import { CLIENT } from "../../config/client";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
       type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
+      type ResaRow = { heure: string; first_name?: string; last_name?: string; people: number; status: string };
       type Config = {
         lunch_active: boolean; lunch_open: string | null; lunch_close: string | null;
         dinner_active: boolean; dinner_open: string | null; dinner_close: string | null;
@@ -524,6 +495,8 @@ import { CLIENT } from "../../config/client";
         // Cards visibili subito; Notes e tile si popolano in parallelo.
         stateEl.style.display = "none";
         cardsEl.style.display = "grid";
+        const fabOrg = document.getElementById("organiser-btn");
+        if (fabOrg) fabOrg.style.display = "flex";
 
         avviaNote(headers);
 
@@ -551,8 +524,9 @@ import { CLIENT } from "../../config/client";
         })();
 
         try {
-          const [resOrd, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
+          const [resOrd, resResa, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
             fetch("/api/admin/orders", { headers }),
+            fetch("/api/admin/reservations?date=" + oggiKey, { headers }),
             fetch("/api/admin/today", { headers }),
             fetch("/api/admin/menu", { headers }),
             fetch("/api/admin/categories", { headers }),
@@ -580,6 +554,32 @@ import { CLIENT } from "../../config/client";
             } else {
               ordNextEl.textContent = "Aucun à venir";
               ordNextEl.classList.add("none");
+            }
+          }
+
+          // ---------- Réservations (aujourd'hui) ----------
+          if (resResa.ok) {
+            const jr = await resResa.json();
+            const rese = ((jr.reservations as ResaRow[]) ?? []).filter((r) => r.status === "confirmed");
+            const couv = Number(jr.couverts ?? 0);
+            (document.getElementById("resa-count") as HTMLElement).textContent = String(rese.length);
+            (document.getElementById("resa-sub") as HTMLElement).textContent =
+              rese.length > 0 ? `aujourd'hui · ${couv} couv.` : "aujourd'hui";
+
+            const nowHM = new Intl.DateTimeFormat("en-GB", {
+              timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit", hour12: false,
+            }).format(new Date());
+            const prossima = rese
+              .slice()
+              .sort((a, b) => (a.heure < b.heure ? -1 : 1))
+              .find((r) => String(r.heure).slice(0, 5) >= nowHM);
+            const resaNextEl = document.getElementById("resa-next") as HTMLElement;
+            if (prossima) {
+              const nome = `${prossima.first_name ?? ""} ${prossima.last_name ?? ""}`.trim();
+              resaNextEl.textContent = `${String(prossima.heure).slice(0, 5)} — ${nome} (${prossima.people})`;
+            } else {
+              resaNextEl.textContent = "Aucune à venir";
+              resaNextEl.classList.add("none");
             }
           }
 
@@ -668,6 +668,183 @@ import { CLIENT } from "../../config/client";
         } catch {
           /* i tile degradano in silenzio; la pagina resta usabile */
         }
+      })();
+    </script>
+
+    <!-- Organiser : ordine + dimensione delle isole (per utente, salvato in DB) -->
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      (async () => {
+        const cards = document.getElementById("cards") as HTMLElement | null;
+        if (!cards) return;
+        const btn = document.getElementById("organiser-btn") as HTMLButtonElement | null;
+        const btnReset = document.getElementById("organiser-reset") as HTMLButtonElement | null;
+
+        type Item = { key: string; w?: number; minH?: number };
+        const KEYS = ["notes", "orders", "reservations", "settings", "menu", "stats", "assets"];
+        const DEFAULT_LAYOUT: Item[] = [
+          { key: "notes", w: 1 }, { key: "orders", w: 1 }, { key: "reservations", w: 1 }, { key: "settings", w: 1 },
+          { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
+        ];
+
+        let editing = false;
+
+        const { data: sd } = await supabaseBrowser.auth.getSession();
+        const token = sd.session?.access_token ?? "";
+        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+        const mappa = () => {
+          const m = new Map<string, HTMLElement>();
+          cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => m.set(t.dataset.tile as string, t));
+          return m;
+        };
+        const colonne = () =>
+          window.matchMedia("(max-width:560px)").matches ? 1 : window.matchMedia("(max-width:1100px)").matches ? 2 : 4;
+
+        function applicaSpans() {
+          const c = colonne();
+          cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => {
+            const w = Math.min(c, Math.max(1, Number(t.dataset.w || 1)));
+            t.style.gridColumn = "span " + w;
+            const mh = Number(t.dataset.minh || 0);
+            t.style.minHeight = mh > 0 ? mh + "px" : "";
+          });
+        }
+        window.addEventListener("resize", applicaSpans);
+
+        function applicaLayout(layout: Item[]) {
+          const m = mappa();
+          const usati = new Set<string>();
+          for (const it of layout) {
+            const t = m.get(it.key);
+            if (!t) continue;
+            usati.add(it.key);
+            t.dataset.w = String(Math.min(4, Math.max(1, Number(it.w) || 1)));
+            if (it.minH && it.minH > 0) t.dataset.minh = String(it.minH);
+            else delete t.dataset.minh;
+            cards.appendChild(t);
+          }
+          for (const key of KEYS) {
+            if (usati.has(key)) continue;
+            const t = m.get(key);
+            if (!t) continue;
+            t.dataset.w = String(DEFAULT_LAYOUT.find((d) => d.key === key)?.w ?? 1);
+            delete t.dataset.minh;
+            cards.appendChild(t);
+          }
+          applicaSpans();
+        }
+
+        function layoutCorrente(): Item[] {
+          const out: Item[] = [];
+          cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => {
+            const w = Math.min(4, Math.max(1, Number(t.dataset.w || 1)));
+            const mh = Number(t.dataset.minh || 0);
+            out.push(mh > 0 ? { key: t.dataset.tile as string, w, minH: mh } : { key: t.dataset.tile as string, w });
+          });
+          return out;
+        }
+
+        let salvaTimer: number | undefined;
+        function salva() {
+          window.clearTimeout(salvaTimer);
+          salvaTimer = window.setTimeout(() => {
+            fetch("/api/admin/home-layout", { method: "PUT", headers, body: JSON.stringify({ layout: layoutCorrente() }) }).catch(() => {});
+          }, 400);
+        }
+
+        // Carica il layout salvato (o default)
+        try {
+          const res = await fetch("/api/admin/home-layout", { headers });
+          const j = await res.json();
+          applicaLayout(Array.isArray(j.layout) && j.layout.length ? (j.layout as Item[]) : DEFAULT_LAYOUT);
+        } catch {
+          applicaLayout(DEFAULT_LAYOUT);
+        }
+
+        // Maniglie iniettate in ogni isola
+        const GRIP =
+          '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>';
+        cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => {
+          const mv = document.createElement("div");
+          mv.className = "tile-move";
+          mv.title = "Déplacer";
+          mv.innerHTML = GRIP;
+          const rz = document.createElement("div");
+          rz.className = "tile-resize";
+          rz.title = "Redimensionner";
+          t.appendChild(mv);
+          t.appendChild(rz);
+
+          // Trascinamento (riordino) — parte dalla maniglia in alto a sinistra
+          mv.addEventListener("pointerdown", () => { if (editing) t.setAttribute("draggable", "true"); });
+          mv.addEventListener("pointerup", () => t.removeAttribute("draggable"));
+          t.addEventListener("dragstart", (e) => {
+            if (!editing) { e.preventDefault(); return; }
+            t.classList.add("dragging");
+            if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+          });
+          t.addEventListener("dragend", () => {
+            t.classList.remove("dragging");
+            t.removeAttribute("draggable");
+            salva();
+          });
+          t.addEventListener("dragover", (e) => {
+            if (!editing) return;
+            e.preventDefault();
+            const dragging = cards.querySelector(".dragging") as HTMLElement | null;
+            if (!dragging || dragging === t) return;
+            const r = t.getBoundingClientRect();
+            const dopo = e.clientY - r.top > r.height / 2 || e.clientX - r.left > r.width / 2;
+            if (dopo) t.after(dragging); else t.before(dragging);
+          });
+
+          // Ridimensionamento — maniglia in basso a destra (larghezza + altezza)
+          rz.addEventListener("pointerdown", (e) => {
+            if (!editing) return;
+            e.preventDefault();
+            e.stopPropagation();
+            rz.setPointerCapture(e.pointerId);
+            const startX = e.clientX, startY = e.clientY;
+            const startW = Math.min(4, Math.max(1, Number(t.dataset.w || 1)));
+            const startH = t.getBoundingClientRect().height;
+            const c = colonne();
+            const cellW = (cards.clientWidth - 20 * (c - 1)) / c;
+            const onMove = (ev: PointerEvent) => {
+              const w = Math.min(c, Math.max(1, startW + Math.round((ev.clientX - startX) / cellW)));
+              t.dataset.w = String(w);
+              t.style.gridColumn = "span " + w;
+              const nh = Math.round(Math.min(900, Math.max(140, startH + (ev.clientY - startY))));
+              t.dataset.minh = String(nh);
+              t.style.minHeight = nh + "px";
+            };
+            const onUp = (ev: PointerEvent) => {
+              rz.releasePointerCapture(ev.pointerId);
+              rz.removeEventListener("pointermove", onMove);
+              rz.removeEventListener("pointerup", onUp);
+              salva();
+            };
+            rz.addEventListener("pointermove", onMove);
+            rz.addEventListener("pointerup", onUp);
+          });
+        });
+
+        // In modalità edit i link delle isole non navigano
+        cards.addEventListener("click", (e) => {
+          if (!editing) return;
+          if ((e.target as HTMLElement).closest("a.tile")) e.preventDefault();
+        }, true);
+
+        function setEditing(on: boolean) {
+          editing = on;
+          cards.classList.toggle("editing", on);
+          btn?.classList.toggle("is-on", on);
+          if (btn) btn.title = on ? "Terminé" : "Organiser mes tuiles";
+          if (btnReset) btnReset.style.display = on ? "flex" : "none";
+        }
+        btn?.addEventListener("click", () => setEditing(!editing));
+        btnReset?.addEventListener("click", () => { applicaLayout(DEFAULT_LAYOUT); salva(); });
       })();
     </script>
   </body>

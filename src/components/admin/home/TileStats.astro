@@ -1,0 +1,27 @@
+---
+// Isola "Statistiques" della Accueil (larga 2 colonne) → pagina Statistiques.
+// data-admin-page="stats".
+---
+<div class="tile tile-stats" data-admin-page="stats" data-tile="stats">
+  <div class="st-head">
+    <div class="tile-title">Statistiques</div>
+    <a class="st-link" href="/admin/stats">Voir tout →</a>
+  </div>
+  <div class="st-grid">
+    <div class="st-left">
+      <div class="st-two">
+        <div><span class="st-lab">C.A. ajd.</span><span class="st-big" id="st-ca-day">—</span></div>
+        <div><span class="st-lab">C.A. mois</span><span class="st-big" id="st-ca-month">—</span></div>
+      </div>
+      <div class="st-facts">
+        <div><span class="st-lab">Plat le plus commandé (mois)</span><span class="val" id="st-top">—</span></div>
+        <div><span class="st-lab">Heure de pointe (mois)</span><span class="val" id="st-peak">—</span></div>
+      </div>
+    </div>
+    <div class="st-chart">
+      <span class="st-lab">Commandes cette semaine</span>
+      <div class="st-bars" id="st-bars"></div>
+      <div class="st-labs" id="st-labs"></div>
+    </div>
+  </div>
+</div>
