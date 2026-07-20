@@ -9,6 +9,7 @@ import TileNotes from "../../components/admin/home/TileNotes.astro";
 import TileCommandes from "../../components/admin/home/TileCommandes.astro";
 import TileReservations from "../../components/admin/home/TileReservations.astro";
 import TileHoraires from "../../components/admin/home/TileHoraires.astro";
+import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
@@ -131,6 +132,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .sched-two { display: flex; gap: 1.5rem; }
       .sched-two > div { flex: 1; }
 
+      /* --- Tile Jours spéciaux --- */
+      .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
+      .spx-row { display: flex; align-items: center; gap: 0.55rem; font-size: 0.92rem; min-width: 0; }
+      .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
+      .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
+      .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+      .spx-date { font-weight: 800; color: #fff; white-space: nowrap; }
+      .spx-note { color: var(--c-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .spx-more { color: var(--c-muted); font-size: 0.8rem; }
+      .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
+
       /* --- Tile Menu --- */
       .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
       .mc-num { font-family: var(--font-title); font-size: 2.8rem; line-height: 1; color: var(--c-accent); display: block; }
@@ -238,6 +250,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           <TileCommandes />
           <TileReservations />
           <TileHoraires />
+          <TileJoursSpeciaux />
           <TileMenu />
           <TileStats />
           <TilePhotos />
@@ -559,6 +572,34 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
         })();
 
+        // ---------- Jours spéciaux (fetch autonomo, fuori dal batch SSR) ----------
+        (async () => {
+          const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
+          if (!wrap) return;
+          try {
+            const res = await fetch("/api/admin/special-days", { headers });
+            if (!res.ok) throw new Error();
+            const days = (((await res.json()) as { days: { type: string; date_from: string; date_to: string; note?: string | null }[] }).days) ?? [];
+            if (!days.length) {
+              wrap.innerHTML = '<div class="spx-empty">Aucun jour spécial à venir</div>';
+              return;
+            }
+            const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
+            const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            const MAX = 4;
+            wrap.innerHTML =
+              days.slice(0, MAX).map((sp) => {
+                const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
+                const b = sp.type === "closed" ? '<span class="spx-b closed">Fermé</span>' : '<span class="spx-b open">Ouvert</span>';
+                const nota = sp.note ? `<span class="spx-note">${esc(String(sp.note))}</span>` : "";
+                return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
+              }).join("") +
+              (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} autres…</div>` : "");
+          } catch {
+            wrap.innerHTML = '<div class="spx-empty">Indisponible</div>';
+          }
+        })();
+
         try {
           // SSR (Fase 2): 5 isole pre-caricate dal server (ssr-home). Se
           // presenti, i tile principali appaiono all'istante senza fetch; le
@@ -756,10 +797,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnReset = document.getElementById("organiser-reset") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number };
-        const KEYS = ["notes", "orders", "reservations", "settings", "menu", "stats", "assets"];
+        const KEYS = ["notes", "orders", "reservations", "settings", "special", "menu", "stats", "assets"];
         const DEFAULT_LAYOUT: Item[] = [
           { key: "notes", w: 1 }, { key: "orders", w: 1 }, { key: "reservations", w: 1 }, { key: "settings", w: 1 },
-          { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
+          { key: "special", w: 1 }, { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
         ];
 
         let editing = false;

@@ -3084,6 +3084,9 @@ import { CLIENT } from "../../config/client";
     } catch {
       /* niente ripristino */
     }
+    // ?tab=horaire (es. tile Jours spéciaux della Accueil) vince su tutto
+    const tabUrl = new URLSearchParams(location.search).get("tab");
+    if (tabUrl && tabBtns.some((b) => b.dataset.t === tabUrl)) tabIniziale = tabUrl;
     // Se il tab iniziale è stato tolto, parti dal primo visibile
     if (!tabBtns.some((b) => b.dataset.t === tabIniziale)) tabIniziale = tabBtns[0]?.dataset.t ?? "horaire";
     mostraTab(tabIniziale);

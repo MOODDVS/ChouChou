@@ -1,0 +1,9 @@
+---
+// Isola "Jours spéciaux" della Accueil → Réglages, tab Horaires.
+// data-admin-page="settings": AdminNav la rimuove se il super disattiva Réglages.
+// La lista è popolata dallo script di index.astro (GET /api/admin/special-days).
+---
+<a class="tile" href="/admin/settings?tab=horaire" data-admin-page="settings" data-tile="special">
+  <div class="tile-title">Jours spéciaux</div>
+  <div id="spx-list" class="spx-list"><div class="state">Chargement…</div></div>
+</a>
