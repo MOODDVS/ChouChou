@@ -61,6 +61,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+      .t-stats { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .t-pill {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        border-radius: 999px; padding: 0.32rem 0.9rem; font-size: 0.82rem; white-space: nowrap;
+      }
+      .t-pill b { color: #fff; font-size: 0.95rem; }
+      .t-pill.gold { border-color: var(--c-accent); }
+      .t-pill.gold b { color: var(--c-accent); }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .spacer { flex: 1; }
@@ -69,8 +78,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .actionsbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
       .actionsbar .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 1.2rem 0.6rem 2.4rem;
-        border-radius: 999px; flex: 1; min-width: 220px; margin-left: 3rem;
+        font-family: var(--font-body); font-size: 0.88rem; padding: 0.45rem 1rem 0.45rem 2.3rem;
+        border-radius: 999px; flex: 0 1 300px; min-width: 200px; margin-left: auto;
         background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
         background-repeat: no-repeat; background-position: 0.9rem center; background-size: 14px;
       }
@@ -80,6 +89,20 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
+      .mn-float { position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90; display: flex; gap: 0.6rem; }
+      .mn-fab {
+        display: inline-flex; align-items: center; box-sizing: border-box;
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-size: 1.05rem; padding: 0 1.5rem; border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+      }
+      .mn-fab:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      .mn-fab svg {
+        width: 17px; height: 17px; margin-right: 0.45rem; display: block;
+        fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      }
+      @media (max-width: 520px) { .mn-float { bottom: calc(1.25rem + 72px); right: 1rem; } }
       .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
       .add-btn:hover { background: transparent; color: var(--c-accent); }
       .sec-btn { background: transparent; color: var(--c-muted); border: 1px solid var(--c-line); font-size: 1.05rem; padding: 0.55rem 1.4rem; }
@@ -95,28 +118,37 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       /* --- Tabs sezioni --- */
       .tabs {
-        display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.2rem 0 0.6rem;
-        margin-bottom: 1.25rem; scrollbar-width: thin;
+        display: flex; gap: 0.4rem; overflow-x: auto; padding: 0.2rem 0;
+        flex: 1; min-width: 0; scrollbar-width: thin;
       }
       .tab {
         flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.45rem 1.1rem; cursor: pointer; border-radius: 999px;
+        font-family: var(--font-body); font-size: 0.82rem; letter-spacing: 0;
+        padding: 0.4rem 1rem; cursor: pointer; border-radius: 999px;
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
       .tab .k-ico { width: 13px; height: 13px; margin-right: 0.35rem; vertical-align: -2px; }
-      .k-wrap {
-        position: sticky; left: 0; z-index: 2;
-        display: flex; gap: 0.4rem; flex-shrink: 0;
-        background: var(--c-bg);
-        padding-right: 0.8rem; margin-right: 0.4rem;
-        box-shadow: 8px 0 8px -6px rgba(0, 0, 0, 0.6);
+      .k-filtri {
+        display: flex; gap: 0.45rem; flex-wrap: wrap;
+        padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line);
       }
-      .k-tab { padding: 0.45rem 0.8rem; }
-      .k-tab .k-ico { width: 16px; height: 16px; margin-right: 0; }
+      .kf-pill {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.5rem 1.2rem; border-radius: 10px; cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .kf-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .kf-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .kf-pill .k-ico { width: 15px; height: 15px; }
+      .kf-pill .t-ico {
+        width: 16px; height: 16px; margin-right: 0;
+        fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      }
 
       .cat-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1rem 0 0.6rem; }
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
@@ -316,13 +348,13 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       <main>
         <div class="topbar">
           <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menu</h1>
+          <div class="t-stats" id="t-stats"></div>
         </div>
+        <div class="k-filtri" id="k-filtri"></div>
         <div class="actionsbar">
-          <button class="pill add-btn" id="sec-btn">Gérer les sections</button>
-          <button class="pill add-btn" id="add-btn">+ Ajouter un plat</button>
+          <div class="tabs" id="tabs"></div>
           <input type="text" class="search" id="search" placeholder="Rechercher un plat…" />
         </div>
-        <div class="tabs" id="tabs"></div>
         <div class="state" id="state">Chargement…</div>
         <div id="list"></div>
       </main>
@@ -459,6 +491,18 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
     <ImagePicker />
 
+    <!-- Bottoni flottanti (come Résa/Commandes/Clients) -->
+    <div class="mn-float" id="mn-float">
+      <button class="pill mn-fab mn-fab-sec" id="sec-btn" title="Gérer les sections">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        Catégories
+      </button>
+      <button class="pill mn-fab" id="add-btn" title="Ajouter un plat">+ Ajou. plat</button>
+    </div>
+
     <AdminNav current="menu" />
 
     <!-- Dati SSR (Fase 2): categorie + piatti pre-caricati dal server. -->
@@ -499,7 +543,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       let items: Item[] = [];
       let cats: Cat[] = [];
       let attiva = ""; // nome sezione attiva
-      let kindFiltro: "food" | "drink" = "food"; // filtro tab: cibo o bevande
+      type KindTab = "food" | "drink" | "lunch" | "menus";
+      let kindFiltro: KindTab = "food"; // filtro tab: cibo, bevande, lunch, menus
       let editId: string | null = null;
       let nuovaKind: "food" | "drink" = "food";
       let headers: Record<string, string> = {};
@@ -574,19 +619,43 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           </div>`;
       }
 
+      function posizionaMenuFabs() {
+        const barra = document.querySelector(".admin-nav") as HTMLElement | null;
+        const box = document.getElementById("mn-float") as HTMLElement | null;
+        if (!barra || !box) return;
+        if (!window.matchMedia("(min-width: 521px)").matches) {
+          box.style.bottom = "";
+          box.querySelectorAll<HTMLElement>(".mn-fab").forEach((b) => (b.style.height = ""));
+          return;
+        }
+        const r = barra.getBoundingClientRect();
+        box.style.bottom = `${window.innerHeight - r.bottom}px`;
+        box.querySelectorAll<HTMLElement>(".mn-fab").forEach((b) => (b.style.height = `${r.height}px`));
+      }
+      window.addEventListener("resize", posizionaMenuFabs);
+      window.addEventListener("DOMContentLoaded", posizionaMenuFabs);
+      posizionaMenuFabs();
+
+      function renderStatsTitolo() {
+        const nCibo = cats.filter((c) => c.kind === "food").reduce((t, c) => t + c.count, 0);
+        const nBev = cats.filter((c) => c.kind === "drink").reduce((t, c) => t + c.count, 0);
+        (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
+          `<span class="t-pill gold"><b>${nCibo}</b> plat${nCibo > 1 ? "s" : ""}</span>` +
+          `<span class="t-pill"><b>${nBev}</b> boisson${nBev > 1 ? "s" : ""}</span>`;
+      }
       function renderTabs() {
+        renderStatsTitolo();
         // Se la sezione attiva è dell'altro tipo, segui il suo tipo
         const catAttiva = cats.find((c) => c.name === attiva);
         if (catAttiva && catAttiva.kind !== kindFiltro) kindFiltro = catAttiva.kind;
 
         const visibili = cats.filter((c) => c.kind === kindFiltro);
-        const selettore =
-          `<span class="k-wrap">` +
-          `<button class="tab k-tab${kindFiltro === "food" ? " is-active" : ""}" data-kind="food" title="Nourriture">${ICO_FOOD}</button>` +
-          `<button class="tab k-tab${kindFiltro === "drink" ? " is-active" : ""}" data-kind="drink" title="Boissons">${ICO_DRINK}</button>` +
-          `</span>`;
+        (document.getElementById("k-filtri") as HTMLDivElement).innerHTML =
+          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}Plats</button>` +
+          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}Boissons</button>` +
+          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>Lunch</button>` +
+          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menus</button>`;
         tabsEl.innerHTML =
-          selettore +
           visibili
             .map(
               (c) =>
@@ -598,6 +667,11 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       function renderList() {
         const filtro = searchEl.value.trim().toLowerCase();
         listEl.dataset.mode = filtro ? "search" : "cat";
+        // Tab in costruzione: per ora vuoti (li riempiremo più avanti)
+        if (!filtro && (kindFiltro === "lunch" || kindFiltro === "menus")) {
+          listEl.innerHTML = `<p class="state">Section « ${kindFiltro === "lunch" ? "Lunch" : "Menus"} » — bientôt.</p>`;
+          return;
+        }
         if (filtro) {
           // Ricerca globale: risultati raggruppati per sezione
           const gruppi = new Map<string, Item[]>();
@@ -1048,6 +1122,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         await caricaTutto(ssrMenuDati ?? undefined);
 
         searchEl.addEventListener("input", renderList);
+        (document.getElementById("k-filtri") as HTMLDivElement).addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".kf-pill") as HTMLElement | null;
+          if (!t || !t.dataset.kind) return;
+          kindFiltro = t.dataset.kind as KindTab;
+          attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+          searchEl.value = "";
+          renderTabs();
+          renderList();
+        });
         tabsEl.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
           if (!t) return;

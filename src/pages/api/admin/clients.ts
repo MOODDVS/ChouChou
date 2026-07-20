@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
 export const prerender = false;
 
@@ -394,6 +395,15 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
   }
 
+  // Foto precedente: se viene tolta o sostituita, il file va eliminato
+  let vecchiaFoto: string | null = null;
+  if (idRiga) {
+    try {
+      const { data } = await supabaseAdmin.from("clients").select("photo_url").eq("id", idRiga).maybeSingle();
+      vecchiaFoto = (data as { photo_url?: string | null } | null)?.photo_url ?? null;
+    } catch { /* colonna assente */ }
+  }
+
   let esito = idRiga
     ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
     : await supabaseAdmin.from("clients").insert(patch).select("id").single();
@@ -406,6 +416,12 @@ export const PATCH: APIRoute = async ({ request }) => {
       : await supabaseAdmin.from("clients").insert(patch).select("id").single();
   }
   if (esito.error) return json({ error: "Enregistrement impossible" }, 500);
+
+  // Foto tolta o sostituita → il vecchio file sparisce dallo Storage
+  // (dopo l'update: la riga non la referenzia più, la guardia passa)
+  if (vecchiaFoto && vecchiaFoto !== (patch.photo_url ?? null)) {
+    await eliminaFotoStorage(vecchiaFoto);
+  }
 
   // Newsletter: opt-out = riga in newsletter_optout; opt-in = riga rimossa
   if (body.newsletter_optout !== undefined && email) {
@@ -439,17 +455,31 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
   if (!id && !email && !phone && !name) return json({ error: "Client non identifiable" }, 400);
 
+  // Foto del cliente: va eliminata definitivamente in entrambi i casi
+  let fotoDaEliminare: string | null = null;
+  if (id) {
+    try {
+      const { data } = await supabaseAdmin.from("clients").select("photo_url").eq("id", id).maybeSingle();
+      fotoDaEliminare = (data as { photo_url?: string | null } | null)?.photo_url ?? null;
+    } catch { /* colonna assente */ }
+  }
+
   // Manuale puro, mai ordinato: si elimina davvero.
   if (id && orders === 0) {
     const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
     if (error) return json({ error: "Suppression impossible" }, 500);
+    await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
 
-  // Con ordini: si nasconde.
+  // Con ordini: si nasconde (e si stacca la foto, che viene eliminata).
   if (id) {
-    const { error } = await supabaseAdmin.from("clients").update({ hidden: true }).eq("id", id);
-    if (error) return json({ error: "Suppression impossible" }, 500);
+    let upd = await supabaseAdmin.from("clients").update({ hidden: true, photo_url: null }).eq("id", id);
+    if (upd.error && String(upd.error.message ?? "").includes("photo_url")) {
+      upd = await supabaseAdmin.from("clients").update({ hidden: true }).eq("id", id);
+    }
+    if (upd.error) return json({ error: "Suppression impossible" }, 500);
+    await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
 

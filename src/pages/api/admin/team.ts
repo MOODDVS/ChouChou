@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
 export const prerender = false;
 
@@ -133,8 +134,15 @@ export const PUT: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
+  // Foto precedente: se tolta o sostituita, il file va eliminato dallo Storage
+  const { data: prima } = await supabaseAdmin.from("team").select("photo_url").eq("id", body.id).maybeSingle();
+  const vecchiaFoto = prima?.photo_url ?? null;
+
   const { error } = await supabaseAdmin.from("team").update(v.valori!).eq("id", body.id);
   if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (vecchiaFoto && vecchiaFoto !== (v.valori!.photo_url || null)) {
+    await eliminaFotoStorage(vecchiaFoto);
+  }
   return json({ ok: true });
 };
 
@@ -145,7 +153,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const id = url.searchParams.get("id");
   if (!id) return json({ error: "id manquant" }, 400);
 
+  const { data: prima } = await supabaseAdmin.from("team").select("photo_url").eq("id", id).maybeSingle();
   const { error } = await supabaseAdmin.from("team").delete().eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);
+  await eliminaFotoStorage(prima?.photo_url ?? null);
   return json({ ok: true });
 };
