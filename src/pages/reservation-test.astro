@@ -322,7 +322,7 @@ try {
         timezone: string;
       }
       type Resa = { heure: string; people: number; zone: string | null; service_key: string | null };
-      type Giorno = { rese: Resa[]; svcClosed: string[]; zoneClosed: string[]; spOpen: boolean; spRanges: [number, number][] | null };
+      type Giorno = { rese: Resa[]; svcClosed: string[]; zoneClosed: string[]; spOpen: boolean; spRanges: [number, number][] | null; spServices: string[] | null };
 
       const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
       const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -336,6 +336,7 @@ try {
       let isoSel = "";
       let dayCache = new Map<string, Giorno>();
       let closedSet = new Set<string>();
+      let openSet = new Set<string>();
       let fullSet = new Set<string>(); // giorni "complet": cliccabili ma pieni
       let modifyToken = "";   // ?token= → modalità modifica
       let excludeToken = "";  // esclude la prenotazione stessa dalla disponibilità
@@ -395,6 +396,7 @@ try {
         return sv.days.includes(new Date(iso + "T12:00:00").getDay());
       }
       function haOrari(iso: string): boolean {
+        if (openSet.has(iso)) return true;
         const s = soglia(iso);
         return servizi().filter((sv) => serveGiorno(sv, iso)).some((sv) => { for (let m = sv.da; m <= sv.a; m += sv.slot) if (m >= s) return true; return false; });
       }
@@ -410,10 +412,17 @@ try {
         // propri, limita ogni service all'intersezione con le sue fasce
         const spOpen = dg?.spOpen ?? false;
         const spRanges = spOpen ? (dg?.spRanges ?? null) : null;
+        const spServ = spOpen ? (dg?.spServices ?? null) : null;
+        // token "key|from-to" costruito sugli orari del service
+        const hhTok = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        const attivoSp = (sv: { key: string; da: number; a: number }): boolean => {
+          if (spServ === null) return true; // legacy: tutti
+          return spServ.includes(`${sv.key}|${hhTok(sv.da)}-${hhTok(sv.a)}`) || spServ.includes(sv.key);
+        };
         const s = soglia(isoSel);
         return servizi()
           .filter((sv) => !svcClosed.includes(sv.key))
-          .filter((sv) => spOpen || serveGiorno(sv, isoSel))
+          .filter((sv) => (spOpen ? attivoSp(sv) : serveGiorno(sv, isoSel)))
           .map((sv) => {
             const finestre: [number, number][] = spRanges
               ? spRanges
@@ -442,9 +451,10 @@ try {
             zoneClosed: (j.zone_closures ?? []) as string[],
             spOpen: Boolean(j.special_open),
             spRanges: (j.special_ranges ?? null) as [number, number][] | null,
+            spServices: (j.special_services ?? null) as string[] | null,
           });
         } catch {
-          dayCache.set(iso, { rese: [], svcClosed: [], zoneClosed: [], spOpen: false, spRanges: null });
+          dayCache.set(iso, { rese: [], svcClosed: [], zoneClosed: [], spOpen: false, spRanges: null, spServices: null });
         }
       }
 
@@ -702,6 +712,7 @@ try {
           try {
             const j = await (await fetch("/api/reservation?month=" + key)).json();
             for (const d of j.closed ?? []) closedSet.add(d);
+            for (const d of j.open ?? []) openSet.add(d);
             for (const d of j.full ?? []) fullSet.add(d);
           } catch { /* nessun blocco */ }
         }
@@ -780,7 +791,7 @@ try {
           const mesi = m1 === m2 ? [m1] : [m1, m2];
           mesi.forEach((m) => mesiCaricati.add(m));
           const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((x) => x.json())));
-          for (const rr of risp) { for (const d of rr.closed ?? []) closedSet.add(d); for (const d of rr.full ?? []) fullSet.add(d); }
+          for (const rr of risp) { for (const d of rr.closed ?? []) closedSet.add(d); for (const d of rr.full ?? []) fullSet.add(d); for (const d of rr.open ?? []) openSet.add(d); }
         } catch { /* nessun blocco datepicker */ }
 
         const auj = $("rw-auj") as HTMLButtonElement;

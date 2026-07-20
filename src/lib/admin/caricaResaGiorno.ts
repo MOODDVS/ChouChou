@@ -21,6 +21,7 @@ export interface ResaGiorno {
   closures?: { service_key: string; reason: string }[];
   zone_closures?: { zone: string; reason: string }[];
   special_open?: boolean; // jour spécial "ouvert": scavalca i giorni dei services
+  special_services?: string[] | null; // lista servizi attivi del giorno speciale (null = tutti)
   hold_minutes?: number;
   config?: ResaGiornoConfig;
   missing?: boolean;
@@ -46,7 +47,18 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
       ]),
     supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
     supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
-    supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date),
+    supabaseAdmin
+      .from("special_days")
+      .select("type, services")
+      .lte("date_from", date)
+      .gte("date_to", date)
+      .then(async (r) => {
+        // Migrazione #33 non ancora lanciata: senza la colonna (= tutti)
+        if (r.error && String(r.error.message ?? "").includes("services")) {
+          return supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date);
+        }
+        return r;
+      }),
   ]);
 
   const { data, error } = reseQ;
@@ -169,8 +181,11 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
   // + jour spécial "ouvert" (scavalca i giorni di applicazione dei services)
   const closures = (!chQ.error && chQ.data ? chQ.data : []) as { service_key: string; reason: string }[];
   const zoneClosures = (!zchQ.error && zchQ.data ? zchQ.data : []) as { zone: string; reason: string }[];
-  const righeSp = (!spQ.error && spQ.data ? spQ.data : []) as { type: string }[];
+  const righeSp = (!spQ.error && spQ.data ? spQ.data : []) as { type: string; services?: unknown }[];
   const specialOpen = righeSp.some((r) => r.type === "open") && !righeSp.some((r) => r.type === "closed");
+  const rigaOpen = specialOpen ? righeSp.find((r) => r.type === "open") : undefined;
+  const specialServices =
+    rigaOpen && Array.isArray(rigaOpen.services) ? (rigaOpen.services as unknown[]).map((t) => String(t)) : null;
 
   return {
     reservations: data ?? [],
@@ -178,6 +193,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
     closures,
     zone_closures: zoneClosures,
     special_open: specialOpen,
+    special_services: specialOpen ? specialServices : null,
     hold_minutes: hold,
     config: { slot_minutes: slot, services, zones, capacity, zone_seats: zoneSeats, timezone: tz },
   };

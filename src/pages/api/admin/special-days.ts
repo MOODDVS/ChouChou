@@ -25,11 +25,21 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("special_days")
-    .select("id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note")
+    .select("id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note, services")
     .gte("date_to", oggiISO())
     .order("date_from", { ascending: true });
+  // Migrazione #33 non ancora lanciata: si rilegge senza la colonna services
+  if (error && String(error.message ?? "").includes("services")) {
+    const retry = await supabaseAdmin
+      .from("special_days")
+      .select("id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note")
+      .gte("date_to", oggiISO())
+      .order("date_from", { ascending: true });
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) return json({ error: "Lecture impossible" }, 500);
   return json({ days: data ?? [] });
@@ -49,6 +59,7 @@ export const POST: APIRoute = async ({ request }) => {
     dinner_open?: string | null;
     dinner_close?: string | null;
     note?: string;
+    services?: string[] | null;
   };
   try {
     body = await request.json();
@@ -102,7 +113,17 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Chevauchement avec un jour spécial existant" }, 400);
   }
 
-  const { error } = await supabaseAdmin.from("special_days").insert({
+  // Servizi attivi (solo "ouvert"): token "key|HH:MM-HH:MM".
+  // null = tutti (retro-compatibile) · [] = nessuno (solo ordini).
+  let services: string[] | null = null;
+  if (type === "open" && Array.isArray(body.services)) {
+    services = body.services
+      .map((t) => String(t))
+      .filter((t) => /^[a-z_]{1,30}(\|([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d)?$/.test(t))
+      .slice(0, 10);
+  }
+
+  const riga: Record<string, unknown> = {
     type,
     date_from: from,
     date_to: to,
@@ -111,8 +132,15 @@ export const POST: APIRoute = async ({ request }) => {
     dinner_open,
     dinner_close,
     note: String(body.note ?? "").slice(0, 200),
-  });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  };
+  if (services !== null) riga.services = services;
+  let ins = await supabaseAdmin.from("special_days").insert(riga);
+  // Migrazione #33 non ancora lanciata: si salva senza la colonna
+  if (ins.error && String(ins.error.message ?? "").includes("services")) {
+    delete riga.services;
+    ins = await supabaseAdmin.from("special_days").insert(riga);
+  }
+  if (ins.error) return json({ error: "Enregistrement impossible" }, 500);
 
   return json({ ok: true });
 };

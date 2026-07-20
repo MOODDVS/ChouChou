@@ -639,10 +639,33 @@ import { CLIENT } from "../../config/client";
       .sp-badge { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.55rem; border-radius: 999px; font-weight: 700; }
       .sp-b-closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
       .sp-b-open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
-      .sp-txt { flex: 1; }
+      .sp-txt { flex: 1; display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+      .sp-date { font-weight: 800; color: #fff; }
+      .sp-ore { color: var(--c-muted); font-size: 0.82rem; }
+      .sp-note { color: var(--c-muted); font-style: italic; font-size: 0.82rem; }
+      .sp-sv-pill { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.12rem 0.6rem; font-size: 0.72rem; font-weight: 700; background: rgba(223, 171, 78, 0.14); color: var(--c-gold); border: 1px solid rgba(223, 171, 78, 0.35); white-space: nowrap; }
+      .sp-sv-pill small { font-weight: 600; opacity: 0.8; font-size: 0.68rem; }
+      .sp-sv-pill.is-cmd { background: rgba(93, 85, 85, 0.25); color: var(--c-muted); border-color: var(--c-line); }
       .sp-del { background: none; border: none; color: var(--c-muted); font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0 0.2rem; }
       .sp-del:hover { color: #ff6b6b; }
       .sp-add { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+      .sp-servs-wrap { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem; }
+      .sp-servs { display: flex; flex-wrap: wrap; gap: 0.5rem 1.3rem; }
+      .sp-sv {
+        display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
+        font-size: 0.86rem; color: var(--c-muted); user-select: none;
+      }
+      .sp-sv.is-on { color: var(--c-text); }
+      .sp-sw {
+        position: relative; width: 40px; height: 20px; border-radius: 999px;
+        background: var(--c-line); transition: background 0.15s; flex-shrink: 0;
+      }
+      .sp-sw::before {
+        content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+        border-radius: 50%; background: #8f8781; transition: transform 0.15s, background 0.15s;
+      }
+      .sp-sv.is-on .sp-sw { background: var(--c-accent); }
+      .sp-sv.is-on .sp-sw::before { transform: translateX(20px); background: #231f20; }
       .sp-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
       .sp-dates { flex-wrap: nowrap; }
       #sp-hours { flex-direction: column; gap: 0.6rem; }
@@ -853,6 +876,11 @@ import { CLIENT } from "../../config/client";
                   <input type="time" id="sp-do" value="18:00" />
                   <span class="hint">→</span>
                   <input type="time" id="sp-dc" value="23:00" />
+                </div>
+                <div class="sp-servs-wrap">
+                  <span class="band-label">Services actifs ce jour</span>
+                  <div class="sp-servs" id="sp-servs"></div>
+                  <span class="hint">Aucun service activé = jour ouvert seulement pour commander (pas de réservations).</span>
                 </div>
               </div>
               <div class="sp-row">
@@ -1601,6 +1629,7 @@ import { CLIENT } from "../../config/client";
           lunch_close?: string | null;
           dinner_open?: string | null;
           dinner_close?: string | null;
+          services?: unknown;
         }[] = [];
 
         /** Jour spécial "ouvert" del giorno: fasce orarie proprie in minuti
@@ -1620,6 +1649,16 @@ import { CLIENT } from "../../config/client";
         function rwSpecialOpen(iso: string): boolean {
           if (spCache.some((x) => x.type === "closed" && x.date_from <= iso && iso <= x.date_to)) return false;
           return spCache.some((x) => x.type === "open" && x.date_from <= iso && iso <= x.date_to);
+        }
+        /** Lista servizi del jour spécial "ouvert" (null = tutti, [] = nessuno). */
+        function rwSpServizi(iso: string): string[] | null {
+          const sp = spCache.find((x) => x.type === "open" && x.date_from <= iso && iso <= x.date_to);
+          return sp && Array.isArray(sp.services) ? (sp.services as unknown[]).map((t) => String(t)) : null;
+        }
+        function rwSvAttivoSp(sv: { key: string; da: number; a: number }, lista: string[] | null): boolean {
+          if (lista === null) return true;
+          const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+          return lista.includes(`${sv.key}|${hh(sv.da)}-${hh(sv.a)}`) || lista.includes(sv.key);
         }
 
         /** Il ristorante è aperto quel giorno? Stessa logica del motore:
@@ -1703,12 +1742,13 @@ import { CLIENT } from "../../config/client";
           const soglia = rwSoglia(isoGiorno);
           const spOpenGiorno = rwSpecialOpen(isoGiorno);
           const spFasceGiorno = spOpenGiorno ? rwFasceSpeciali(isoGiorno) : null;
+          const spServGiorno = spOpenGiorno ? rwSpServizi(isoGiorno) : null;
           const svChiusi = datiGiorno?.chiusure ?? [];
           const servizi = rwServizi()
             // Service chiuso dal ristoratore (Complet / Fermeture exceptionnelle)
             .filter((sv) => !svChiusi.some((c) => c.service_key === sv.key))
             // Service non attivo in quel giorno della settimana
-            .filter((sv) => spOpenGiorno || rwServeGiorno(sv, isoGiorno))
+            .filter((sv) => (spOpenGiorno ? rwSvAttivoSp(sv, spServGiorno) : rwServeGiorno(sv, isoGiorno)))
             .map((sv) => {
               const finestre: [number, number][] = spFasceGiorno
                 ? spFasceGiorno
@@ -1969,8 +2009,9 @@ import { CLIENT } from "../../config/client";
           const soglia = rwSoglia(iso);
           const spOpen = rwSpecialOpen(iso);
           const fasce = spOpen ? rwFasceSpeciali(iso) : null;
+          const spServ = spOpen ? rwSpServizi(iso) : null;
           return rwServizi()
-            .filter((sv) => spOpen || rwServeGiorno(sv, iso))
+            .filter((sv) => (spOpen ? rwSvAttivoSp(sv, spServ) : rwServeGiorno(sv, iso)))
             .some((sv) => {
               const finestre: [number, number][] = fasce
                 ? fasce.map(([r1, r2]) => [Math.max(sv.da, r1), Math.min(sv.a, r2)] as [number, number]).filter(([f1, f2]) => f2 > f1)
@@ -2219,6 +2260,7 @@ import { CLIENT } from "../../config/client";
           lunch_open: string | null; lunch_close: string | null;
           dinner_open: string | null; dinner_close: string | null;
           note: string;
+          services?: string[] | null;
         };
         const spList = document.getElementById("sp-list") as HTMLDivElement;
         const spFrom = document.getElementById("sp-from") as HTMLInputElement;
@@ -2250,16 +2292,28 @@ import { CLIENT } from "../../config/client";
             : `${fmtData(s.date_from)} → ${fmtData(s.date_to)}`;
           let ore = "";
           if (s.type === "open" && s.lunch_open && s.lunch_close) {
-            ore = ` · ${s.lunch_open.slice(0, 5)}–${s.lunch_close.slice(0, 5)}`;
+            ore = `${s.lunch_open.slice(0, 5)}–${s.lunch_close.slice(0, 5)}`;
             if (s.dinner_open && s.dinner_close) {
               ore += ` / ${s.dinner_open.slice(0, 5)}–${s.dinner_close.slice(0, 5)}`;
             }
+            ore = `<span class="sp-ore">${ore}</span>`;
           }
-          const nota = s.note ? ` · ${s.note}` : "";
+          let servTxt = "";
+          if (s.type === "open" && Array.isArray(s.services)) {
+            servTxt = s.services.length
+              ? s.services.map((t) => {
+                  const [k, h] = t.split("|");
+                  const nome = SERVIZI_WIDGET[k]?.fr ?? k;
+                  const orario = h ? ` <small>${h.replace("-", "–")}</small>` : "";
+                  return `<span class="sp-sv-pill">${nome}${orario}</span>`;
+                }).join("")
+              : '<span class="sp-sv-pill is-cmd">Commandes seules</span>';
+          }
+          const nota = s.note ? `<span class="sp-note">${s.note}</span>` : "";
           const badge = s.type === "closed"
             ? '<span class="sp-badge sp-b-closed">Fermé</span>'
             : '<span class="sp-badge sp-b-open">Ouvert</span>';
-          return `<div class="sp-item">${badge}<span class="sp-txt">${dates}${ore}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="Supprimer">×</button></div>`;
+          return `<div class="sp-item">${badge}<span class="sp-txt"><span class="sp-date">${dates}</span>${ore}${servTxt}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="Supprimer">×</button></div>`;
         }
         async function caricaSpecial() {
           try {
@@ -2274,6 +2328,36 @@ import { CLIENT } from "../../config/client";
             rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
           } catch { /* silenzioso: la lista resta com'era */ }
         }
+        // Switch dei servizi per il giorno speciale "Ouvert".
+        // Token "key|from-to" (distingue due servizi con la stessa chiave,
+        // es. i due "Soir"). DEFAULT: tutti SPENTI (scelta Enzo 20/07).
+        const spServsEl = document.getElementById("sp-servs") as HTMLDivElement;
+        const spServSel = new Set<string>();
+        function spToken(sv: { key: string; da: number; a: number }): string {
+          const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+          return `${sv.key}|${hh(sv.da)}-${hh(sv.a)}`;
+        }
+        function renderSpServs() {
+          const servizi = rwServizi();
+          spServsEl.innerHTML = servizi.length
+            ? servizi
+                .map((sv) => {
+                  const tok = spToken(sv);
+                  const lab = `${SERVIZI_WIDGET[sv.key]?.fr ?? sv.key}`;
+                  const ore = tok.split("|")[1].replace("-", "–");
+                  return `<span class="sp-sv${spServSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="sp-sw"></span>${lab} · ${ore}</span>`;
+                })
+                .join("")
+            : '<span class="hint">Aucun service configuré (onglet Réservations).</span>';
+        }
+        spServsEl.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".sp-sv") as HTMLElement | null;
+          if (!el || !el.dataset.tok) return;
+          if (spServSel.has(el.dataset.tok)) spServSel.delete(el.dataset.tok);
+          else spServSel.add(el.dataset.tok);
+          renderSpServs();
+        });
+
         spTClosed.addEventListener("click", () => {
           spType = "closed";
           spTClosed.classList.add("is-active");
@@ -2285,6 +2369,7 @@ import { CLIENT } from "../../config/client";
           spTOpen.classList.add("is-active");
           spTClosed.classList.remove("is-active");
           spHours.style.display = "flex";
+          renderSpServs();
         });
         spMContinu.addEventListener("click", () => {
           spMode = "continu";
@@ -2327,6 +2412,7 @@ import { CLIENT } from "../../config/client";
                 lunch_close: spType === "open" ? spLc.value : null,
                 dinner_open: spType === "open" && spMode === "coupe" ? spDo.value : null,
                 dinner_close: spType === "open" && spMode === "coupe" ? spDc.value : null,
+                services: spType === "open" ? [...spServSel] : null,
                 note: spNote.value.trim(),
               }),
             });

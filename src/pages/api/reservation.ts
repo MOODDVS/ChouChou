@@ -220,17 +220,30 @@ async function leggiConfig(): Promise<WidgetConfig> {
  *  { aperto:true, ranges:[[da,a],…] }  → special ouvert con orari PROPRI (minuti)
  *  { aperto:true, ranges:null }        → special ouvert senza orari (si usano i services)
  *  null                                → nessun jour spécial (giorno normale) */
-async function specialeDelGiorno(date: string): Promise<{ chiuso: boolean; aperto: boolean; ranges: [number, number][] | null } | null> {
+async function specialeDelGiorno(
+  date: string
+): Promise<{ chiuso: boolean; aperto: boolean; ranges: [number, number][] | null; servizi: string[] | null } | null> {
   try {
-    const { data } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("special_days")
-      .select("type, lunch_open, lunch_close, dinner_open, dinner_close")
+      .select("type, lunch_open, lunch_close, dinner_open, dinner_close, services")
       .lte("date_from", date)
       .gte("date_to", date);
-    const righe = data ?? [];
-    if (righe.some((r) => r.type === "closed")) return { chiuso: true, aperto: false, ranges: null };
+    // Migrazione #33 non ancora lanciata: senza la colonna (= tutti i servizi)
+    if (error && String(error.message ?? "").includes("services")) {
+      const retry = await supabaseAdmin
+        .from("special_days")
+        .select("type, lunch_open, lunch_close, dinner_open, dinner_close")
+        .lte("date_from", date)
+        .gte("date_to", date);
+      data = retry.data as typeof data;
+      error = retry.error;
+    }
+    const righe = (data ?? []) as { type: string; lunch_open?: unknown; lunch_close?: unknown; dinner_open?: unknown; dinner_close?: unknown; services?: unknown }[];
+    if (righe.some((r) => r.type === "closed")) return { chiuso: true, aperto: false, ranges: null, servizi: null };
     const open = righe.find((r) => r.type === "open");
     if (!open) return null;
+    const servizi = Array.isArray(open.services) ? (open.services as unknown[]).map((t) => String(t)) : null;
     const ranges: [number, number][] = [];
     const coppie: [unknown, unknown][] = [
       [open.lunch_open, open.lunch_close],
@@ -241,10 +254,17 @@ async function specialeDelGiorno(date: string): Promise<{ chiuso: boolean; apert
       const a = minutiDi(String(c ?? "").slice(0, 5));
       if (da >= 0 && a > da) ranges.push([da, a]);
     }
-    return { chiuso: false, aperto: true, ranges: ranges.length ? ranges : null };
+    return { chiuso: false, aperto: true, ranges: ranges.length ? ranges : null, servizi };
   } catch {
     return null;
   }
+}
+
+/** Un service è attivo in un jour spécial "ouvert" con lista servizi?
+ *  lista null = tutti (retro-compatibile) · [] = nessuno · token "key|from-to" o solo key. */
+function svAttivoSpeciale(key: string, from: string, to: string, lista: string[] | null): boolean {
+  if (lista === null) return true;
+  return lista.includes(`${key}|${from}-${to}`) || lista.includes(key);
 }
 
 export const GET: APIRoute = async ({ url }) => {
@@ -281,9 +301,20 @@ export const GET: APIRoute = async ({ url }) => {
       supabaseAdmin.from("settings").select("day_of_week, lunch_active, dinner_active"),
       supabaseAdmin
         .from("special_days")
-        .select("type, date_from, date_to")
+        .select("type, date_from, date_to, services")
         .lte("date_from", ultimo)
-        .gte("date_to", primo),
+        .gte("date_to", primo)
+        .then(async (r) => {
+          // Migrazione #33 non ancora lanciata: si rilegge senza la colonna
+          if (r.error && String(r.error.message ?? "").includes("services")) {
+            return supabaseAdmin
+              .from("special_days")
+              .select("type, date_from, date_to")
+              .lte("date_from", ultimo)
+              .gte("date_to", primo);
+          }
+          return r;
+        }),
       supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones"]),
       supabaseAdmin
         .from("reservations")
@@ -333,6 +364,7 @@ export const GET: APIRoute = async ({ url }) => {
 
     const closed: string[] = [];
     const full: string[] = [];
+    const open: string[] = [];
     for (let g = 1; g <= nGiorni; g++) {
       const iso = `${month}-${String(g).padStart(2, "0")}`;
       const dow = new Date(anno, mese - 1, g).getDay();
@@ -343,13 +375,27 @@ export const GET: APIRoute = async ({ url }) => {
         closed.push(iso);
         continue;
       }
-      const spOpenDay = (speciali.data ?? []).some((sp) => iso >= sp.date_from && iso <= sp.date_to && sp.type === "open");
-      // Services ATTIVI quel giorno (days rispettati; jour spécial ouvert = tutti)
+      const spOpen = (speciali.data ?? []).find(
+        (sp) => iso >= sp.date_from && iso <= sp.date_to && sp.type === "open"
+      ) as { services?: unknown } | undefined;
+      const spOpenDay = Boolean(spOpen);
+      const spLista = spOpen && Array.isArray(spOpen.services) ? (spOpen.services as unknown[]).map((t) => String(t)) : null;
+      // Services ATTIVI quel giorno: days rispettati; jour spécial ouvert =
+      // la LISTA del giorno (null = tutti, [] = nessuno → solo commandes)
       const attivi = services.filter((sv) => {
         if (!keyServizio(sv)) return false;
+        if (spOpenDay) {
+          return svAttivoSpeciale(String(sv.key ?? ""), String((sv as { from?: unknown }).from ?? ""), String((sv as { to?: unknown }).to ?? ""), spLista);
+        }
         const days = Array.isArray(sv.days) ? (sv.days as unknown[]).map((d) => Math.floor(Number(d))) : [];
-        return spOpenDay || days.length === 0 || days.includes(dow);
+        return days.length === 0 || days.includes(dow);
       });
+      // Giorno speciale con ZERO servizi attivi: non prenotabile → "complet"
+      if (spOpenDay && spLista !== null && attivi.length === 0) {
+        full.push(iso);
+        continue;
+      }
+      if (spOpenDay && attivi.length > 0) open.push(iso);
       // Tutti i services del giorno chiusi dal ristoratore → giorno "complet"
       const chSet = chiusePerGiorno.get(iso);
       const tuttiChiusi = attivi.length > 0 && !!chSet && attivi.every((sv) => chSet.has(keyServizio(sv) ?? ""));
@@ -361,7 +407,7 @@ export const GET: APIRoute = async ({ url }) => {
       }
       if (pieno) full.push(iso);
     }
-    return json({ closed, full });
+    return json({ closed, full, open });
   }
 
   // ---- Disponibilità del giorno ----
@@ -406,6 +452,7 @@ export const GET: APIRoute = async ({ url }) => {
     zone_closures: zoneClosures,
     special_open: Boolean(speciale?.aperto),
     special_ranges: speciale?.aperto ? speciale.ranges : null,
+    special_services: speciale?.aperto ? speciale.servizi : null,
   });
 };
 
@@ -448,6 +495,9 @@ async function verificaCreneau(
     const a = minutiDi(svScelto.to);
     if (da >= 0 && a > da && !(slotMin >= da && slotMin <= a)) return "creneauPris";
     if (!speciale?.aperto && svScelto.days.length > 0 && !svScelto.days.includes(dow)) return "creneauPris";
+    if (speciale?.aperto && !svAttivoSpeciale(svScelto.key, svScelto.from, svScelto.to, speciale.servizi)) {
+      return "creneauPris"; // service spento in quel giorno speciale
+    }
     if (speciale?.aperto && speciale.ranges) {
       const dentro = speciale.ranges.some(([r1, r2]) => slotMin >= Math.max(da, r1) && slotMin <= Math.min(a, r2));
       if (!dentro) return "creneauPris";

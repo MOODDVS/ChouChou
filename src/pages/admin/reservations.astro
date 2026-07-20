@@ -958,6 +958,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       // Chiusure di servizio del giorno mostrato (pillole + bottone cloche)
       let chiusureOggi: { service_key: string; reason: string }[] = [];
       let spOpenOggi = false; // jour spécial "ouvert" del giorno mostrato
+      let spServiziOggi: string[] | null = null; // lista servizi del giorno speciale (null = tutti)
+      /** Service attivo in un jour spécial "ouvert" con lista (token "key|from-to" o key). */
+      function svAttivoSpRaw(key: string, from: string, to: string, lista: string[] | null): boolean {
+        if (lista === null) return true;
+        return lista.includes(`${key}|${from}-${to}`) || lista.includes(key);
+      }
+      function svAttivoSp(sv: { key: string; da: number; a: number }, lista: string[] | null): boolean {
+        const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+        return svAttivoSpRaw(sv.key, hh(sv.da), hh(sv.a), lista);
+      }
       let chiusureZoneOggi: { zone: string; reason: string }[] = [];
       const RAGIONE_FR: Record<string, string> = { full: "Complet", closed: "Fermeture exceptionnelle" };
       function aggiornaChiusureUI() {
@@ -1133,7 +1143,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const dow = new Date(giorno + "T12:00:00").getDay();
         const servizi = (nmCfg.services ?? [])
           .filter((sv) => SERVIZI_WIDGET[sv.key])
-          .filter((sv) => spOpenOggi || !sv.days || sv.days.length === 0 || sv.days.includes(dow));
+          .filter((sv) =>
+            spOpenOggi
+              ? svAttivoSpRaw(sv.key, String(sv.from ?? ""), String(sv.to ?? ""), spServiziOggi)
+              : !sv.days || sv.days.length === 0 || sv.days.includes(dow)
+          );
         if (servizi.length < 2) {
           box.innerHTML = "";
           filtroServ = "";
@@ -1240,6 +1254,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             closures?: { service_key: string; reason: string }[];
             zone_closures?: { zone: string; reason: string }[];
             special_open?: boolean;
+            special_services?: string[] | null;
             hold_minutes?: number;
             config?: typeof nmCfg;
             missing?: boolean;
@@ -1258,6 +1273,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           rese = j.reservations;
           chiusureOggi = j.closures ?? [];
           spOpenOggi = Boolean(j.special_open);
+          spServiziOggi = (j.special_services ?? null) as string[] | null;
           chiusureZoneOggi = j.zone_closures ?? [];
           aggiornaChiusureUI();
           if (j.hold_minutes) holdMinutes = j.hold_minutes;
@@ -1418,7 +1434,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
         function svRender() {
           const spOpen = svData === giorno ? spOpenOggi : false;
-          const servizi = nmServizi().filter((sv) => spOpen || nmServeGiorno(sv, svData));
+          const spServ = svData === giorno ? spServiziOggi : null;
+          const servizi = nmServizi().filter((sv) => (spOpen ? svAttivoSp(sv, spServ) : nmServeGiorno(sv, svData)));
           if (!servizi.length) {
             svList.innerHTML = '<p class="sv-vuoto">Aucun service configuré dans Réglages → Réservations.</p>';
             return;
@@ -2373,9 +2390,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const oggiSel = selIso === isoOggi() && !nmEditId;
           const datiGiorno = nmReseDel(selIso);
           const spOpen = datiGiorno?.spOpen ?? false;
+          const spServ = spOpen ? (datiGiorno?.spServ ?? null) : null;
           const servizi = nmServizi()
             // Service attivo quel giorno della settimana (jour spécial ouvert = tutti)
-            .filter((sv) => spOpen || nmServeGiorno(sv, selIso))
+            .filter((sv) => (spOpen ? svAttivoSp(sv, spServ) : nmServeGiorno(sv, selIso)))
             .map((sv) => {
               const soglia = oggiSel ? minutiOra() - sv.slot : -1;
               const slots: string[] = [];
@@ -2614,12 +2632,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           zoneCh: { zone: string; reason: string }[];
           svCh: { service_key: string; reason: string }[];
           spOpen: boolean;
+          spServ: string[] | null;
         };
         const nmReseCache = new Map<string, NmGiorno>();
         let nmReseFetching = "";
         function nmReseDel(iso: string): NmGiorno | null {
           if (iso === giorno) {
-            return { rese: rese.filter((r) => r.status === "confirmed" || r.status === "seated"), zoneCh: chiusureZoneOggi, svCh: chiusureOggi, spOpen: spOpenOggi };
+            return { rese: rese.filter((r) => r.status === "confirmed" || r.status === "seated"), zoneCh: chiusureZoneOggi, svCh: chiusureOggi, spOpen: spOpenOggi, spServ: spServiziOggi };
           }
           if (nmReseCache.has(iso)) return nmReseCache.get(iso) ?? null;
           if (nmReseFetching !== iso) {
@@ -2633,6 +2652,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   zoneCh: (j.zone_closures ?? []) as { zone: string; reason: string }[],
                   svCh: (j.closures ?? []) as { service_key: string; reason: string }[],
                   spOpen: Boolean(j.special_open),
+                  spServ: (j.special_services ?? null) as string[] | null,
                 });
                 if (mOverlay.classList.contains("is-open")) nmRenderOre();
               })
