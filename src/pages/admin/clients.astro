@@ -71,22 +71,63 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
-      .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
-      .add-btn:hover { background: transparent; color: var(--c-accent); }
+      .fl-filtri { display: inline-flex; gap: 0.45rem; }
+      .fl-pill {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.85rem; padding: 0.45rem 1.1rem;
+        border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .fl-pill { display: inline-flex; align-items: center; justify-content: center; }
+      .fl-pill svg {
+        width: 15px; height: 15px; display: block; fill: none; stroke: currentColor;
+        stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      }
+      .fl-pill b { margin-left: 0.4rem; font-weight: 800; color: #fff; }
+      .fl-pill.is-on b { color: #231f20; }
+      .fl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .cl-add {
+        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
+        display: inline-flex; align-items: center; box-sizing: border-box;
+        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
+        padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+      }
+      .cl-add:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      @media (max-width: 520px) { .cl-add { bottom: calc(1.25rem + 72px); } }
       .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 1.2rem;
-        border-radius: 999px; flex: 1; min-width: 220px; margin-left: 3rem;
+        font-family: var(--font-body); font-size: 0.88rem; padding: 0.45rem 1rem;
+        border-radius: 999px; flex: 0 1 300px; min-width: 200px; margin-left: auto;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+        background-repeat: no-repeat; background-position: 0.85rem center; background-size: 14px;
+        padding-left: 2.3rem;
       }
       .search::placeholder { color: var(--c-muted); }
       .search:focus { outline: none; border-color: var(--c-accent); }
       .count { color: var(--c-muted); font-size: 0.9rem; white-space: nowrap; }
+      .titlebar {
+        display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+        padding-bottom: 1.1rem; border-bottom: 1px solid var(--c-line); margin-bottom: 1.3rem;
+      }
+      .titlebar h1 { margin-bottom: 0; }
+      .t-stats { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .t-pill {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        border-radius: 999px; padding: 0.32rem 0.9rem; font-size: 0.82rem; white-space: nowrap;
+      }
+      .t-pill b { color: #fff; font-size: 0.95rem; }
+      .t-pill.gold { border-color: var(--c-accent); }
+      .t-pill.gold b { color: var(--c-accent); }
 
       /* Tabella (CSS grid) */
       .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       .thead, .row {
         display: grid;
-        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 64px 64px 1.1fr 96px;
+        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 96px 86px 86px 110px 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
@@ -106,7 +147,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
       .row { border-bottom: 1px solid var(--c-line); cursor: pointer; transition: background 0.12s; }
       .row:hover { background: rgba(223, 171, 78, 0.05); }
-      .c-name { white-space: nowrap; overflow: hidden; }
+      .c-name { white-space: nowrap; overflow: hidden; display: flex; align-items: center; }
+      .c-avatar {
+        width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: rgba(223, 171, 78, 0.16); color: var(--c-accent);
+        border: 1px solid rgba(223, 171, 78, 0.45);
+        font-size: 0.76rem; font-weight: 800; letter-spacing: 0.02em;
+        margin-right: 0.65rem; user-select: none;
+      }
+      .c-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .c-email, .c-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; }
       .act-contacts { color: var(--c-muted); font-size: 0.88rem; margin: -0.4rem 0 1rem; }
@@ -132,8 +182,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .c-name .c-ico svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .c-name .c-ico svg.ico-ns { stroke: #ed1c24; }
       .th-ico svg {
-        width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8;
-        stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px;
+        width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8;
+        stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 0.25rem;
       }
       /* La freccetta del sort passa a sinistra: l'icona resta a filo destro, come i numeri */
       .th-ico .arrow { order: -1; }
@@ -160,9 +210,39 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .cell a { color: var(--c-muted); text-decoration: none; }
       .cell a:hover { color: var(--c-accent); }
       .c-num { text-align: right; font-variant-numeric: tabular-nums; }
+      .c-since { color: var(--c-muted); font-size: 0.82rem; text-align: right; white-space: nowrap; }
       .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .c-total { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.03em; color: var(--c-accent); }
-      .c-act { display: flex; justify-content: flex-end; overflow: visible; }
+      .c-act { display: flex; justify-content: flex-end; gap: 0.45rem; overflow: visible; }
+      .ed-photo-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
+      .ed-avatar { width: 64px; height: 64px; font-size: 1.25rem; margin-right: 0; }
+      .ed-upl {
+        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer;
+        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .ed-upl:hover { background: var(--c-accent); color: #231f20; }
+      .ed-upl-rm { border-color: var(--c-line); color: var(--c-muted); margin-left: 0.4rem; }
+      .ed-upl-rm:hover { background: transparent; border-color: #ed1c24; color: #ff6b6b; }
+      .ed-danger { border-color: #7a3a3a; color: #ff8a8f; }
+      .ed-danger:hover { background: rgba(237, 28, 36, 0.25); border-color: #ed1c24; color: #ff8a8f; }
+      .ed-row2 {
+        display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+        border-top: 1px solid var(--c-line); padding: 0.85rem 0; margin-top: 0.3rem;
+      }
+      .ed-hint { color: var(--c-muted); font-size: 0.82rem; margin: 0.2rem 0 0; }
+      .ed-hint.warn { color: #ff8a8f; }
+      .ed-hint.ok { color: #2e9e6b; }
+      .ed-upl-state { color: var(--c-muted); font-size: 0.78rem; margin: 0.4rem 0 0; min-height: 1em; }
+      .ed-err { color: #ff8a8f; font-size: 0.85rem; min-height: 1.1em; margin: 0.5rem 0; }
+      .ed-save {
+        width: 100%; background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.6rem; border-radius: 999px; cursor: pointer; transition: background 0.2s, color 0.2s;
+      }
+      .ed-save:hover { background: transparent; color: var(--c-accent); }
+      .ed-save:disabled { opacity: 0.6; cursor: wait; }
       .k-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .i-btn {
         width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -244,6 +324,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         }
         .cell { white-space: normal; }
         .c-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
+        .c-since { display: none; }
         .c-act { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
         .cell[data-label]::before {
           content: attr(data-label) " · ";
@@ -268,11 +349,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <div id="app">
       <AdminHeader />
       <main>
-        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Clients</h1>
+        <div class="titlebar">
+          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Clients</h1>
+          <div class="t-stats" id="t-stats"></div>
+        </div>
         <div class="actionsbar">
-          <button class="pill add-btn" id="add-btn">+ Ajouter un client</button>
+          <div class="fl-filtri" id="fl-filtri">
+            <button type="button" class="fl-pill is-on" data-f="all" title="Tous">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+            </button>
+            <button type="button" class="fl-pill" data-f="new">New</button>
+            <button type="button" class="fl-pill" data-f="noshow">No-show</button>
+            <button type="button" class="fl-pill" data-f="optin">Opted-in</button>
+            <button type="button" class="fl-pill" data-f="optout">Opted-out</button>
+          </div>
           <input id="search" class="search" type="search" placeholder="Rechercher (nom, email, téléphone)…" />
-          <div class="count" id="count"></div>
+          <div class="count" id="count" style="display:none"></div>
         </div>
         <div class="state" id="state">Chargement…</div>
         <div id="content" style="display:none">
@@ -281,8 +373,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               <button class="th" data-sort="name">Nom <span class="arrow"></span></button>
               <button class="th" data-sort="email">Email <span class="arrow"></span></button>
               <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="orders" title="Commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg> <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="reservations" title="Résas"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg> <span class="arrow"></span></button>
+              <button class="th num" data-sort="since" title="Client depuis">Depuis <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="reservations" title="Réservations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>Résa <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="orders" title="Commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>Comm. <span class="arrow"></span></button>
               <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
@@ -303,6 +396,42 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         <p class="act-contacts" id="act-contacts"></p>
         <div class="act-state" id="act-state">Chargement…</div>
         <div id="act-list"></div>
+      </div>
+    </div>
+
+    <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
+    <button class="cl-add" id="add-btn" type="button">+ Ajouter un client</button>
+
+    <!-- Modale modifica cliente (matita): dati + foto -->
+    <div class="overlay" id="ed-overlay">
+      <div class="modal">
+        <button class="m-close" id="ed-close" aria-label="Fermer">×</button>
+        <h2 id="ed-title">Modifier le client</h2>
+        <div class="ed-photo-row">
+          <span class="c-avatar ed-avatar" id="ed-avatar">?</span>
+          <div>
+            <button type="button" class="ed-upl" id="ed-upload">Téléverser une photo</button>
+            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">Retirer</button>
+            <input type="file" id="ed-file" accept="image/*" style="display:none" />
+            <p class="ed-upl-state" id="ed-upl-state"></p>
+          </div>
+        </div>
+        <div style="display:flex; gap:0.8rem;">
+          <div class="f-field" style="flex:1"><span class="f-label">Prénom</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
+          <div class="f-field" style="flex:1"><span class="f-label">Nom *</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
+        </div>
+        <div class="f-field"><span class="f-label">Email</span><input type="email" id="ed-email" autocomplete="off" /></div>
+        <div class="f-field"><span class="f-label">Téléphone</span><input type="tel" id="ed-phone" autocomplete="off" /></div>
+        <div class="ed-row2">
+          <div><span class="f-label">Newsletter</span><p class="ed-hint" id="ed-news-state"></p></div>
+          <button type="button" class="ed-upl" id="ed-news-btn"></button>
+        </div>
+        <div class="ed-row2" id="ed-block-row">
+          <div><span class="f-label">Réservations</span><p class="ed-hint" id="ed-block-state"></p></div>
+          <button type="button" class="ed-upl" id="ed-block-btn"></button>
+        </div>
+        <p class="ed-err" id="ed-err"></p>
+        <button type="button" class="ed-save" id="ed-save">Enregistrer</button>
       </div>
     </div>
 
@@ -359,6 +488,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         orders: number;
         reservations: number;
         noshows: number;
+        photo_url?: string | null;
+        blocked?: boolean;
+        newsletter_optout?: boolean;
         total_cents: number;
         last_order: string | null;
         first_activity: string | null;
@@ -366,7 +498,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         key?: string;
       };
       type Resp = { count: number; clients: Client[] };
-      type SortKey = "name" | "email" | "phone" | "orders" | "reservations" | "total";
+      type SortKey = "name" | "email" | "phone" | "since" | "orders" | "reservations" | "total";
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -380,6 +512,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         '<svg class="ico-ns" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="4.9" y1="4.9" x2="19.1" y2="19.1" /></svg>';
       const ICO_RESA =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>';
+      const ICO_EDIT =
+        '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>';
       const ICO_TRASH =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
 
@@ -398,6 +532,31 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         // Modale
         const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
+        let filtroLista: "all" | "new" | "noshow" | "optin" | "optout" = "all";
+        (document.getElementById("fl-filtri") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
+          if (!b) return;
+          const fSel = b.dataset.f ?? "all";
+          filtroLista =
+            fSel === "new" || fSel === "noshow" || fSel === "optin" || fSel === "optout" ? fSel : "all";
+          document.querySelectorAll("#fl-filtri .fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
+          render();
+        });
+        // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
+        function posizionaAdd() {
+          const barra = document.querySelector(".admin-nav") as HTMLElement | null;
+          if (!barra) return;
+          if (!window.matchMedia("(min-width: 521px)").matches) {
+            addBtn.style.height = "";
+            addBtn.style.bottom = "";
+            return;
+          }
+          const r = barra.getBoundingClientRect();
+          addBtn.style.height = `${r.height}px`;
+          addBtn.style.bottom = `${window.innerHeight - r.bottom}px`;
+        }
+        posizionaAdd();
+        window.addEventListener("resize", posizionaAdd);
         const overlay = document.getElementById("overlay") as HTMLDivElement;
         const fPrefix = document.getElementById("f-prefix") as HTMLSelectElement;
         const PREFISSO_DEFAULT = PREFISSI.find((pf) => pf.code === CLIENT.paese)?.dial ?? PREFISSI[0].dial;
@@ -462,7 +621,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         function compare(a: Client, b: Client): number {
           let r: number;
-          if (sortKey === "orders") r = a.orders - b.orders;
+          if (sortKey === "since")
+            r = (a.first_activity ? Date.parse(a.first_activity) : 0) - (b.first_activity ? Date.parse(b.first_activity) : 0);
+          else if (sortKey === "orders") r = a.orders - b.orders;
           else if (sortKey === "reservations") r = a.reservations - b.reservations;
           else if (sortKey === "total") r = a.total_cents - b.total_cents;
           else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "fr", { sensitivity: "base" });
@@ -471,7 +632,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         function render() {
           const q = filtro.trim().toLowerCase();
-          const lista = tutti
+          let lista = tutti
             .filter((c) =>
               !q ||
               c.name.toLowerCase().includes(q) ||
@@ -480,9 +641,36 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             )
             .sort(compare);
 
+          if (filtroLista === "new")
+            lista = lista.filter(
+              (c) => !!c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000
+            );
+          if (filtroLista === "noshow") lista = lista.filter((c) => (c.noshows ?? 0) > 0);
+          if (filtroLista === "optin") lista = lista.filter((c) => c.email && !c.newsletter_optout);
+          if (filtroLista === "optout") lista = lista.filter((c) => Boolean(c.newsletter_optout));
+
           countEl.textContent =
             `${lista.length} client${lista.length > 1 ? "s" : ""}` +
             (q && lista.length !== tutti.length ? ` / ${tutti.length}` : "");
+          countEl.style.display = q ? "" : "none"; // conteggio filtrato: solo in ricerca
+
+          // Pillola del titolo: solo il totale; i conteggi vivono nei filtri
+          const nNuovi = tutti.filter(
+            (c) => !!c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000
+          ).length;
+          const nOptin = tutti.filter((c) => c.email && !c.newsletter_optout).length;
+          const nOptout = tutti.filter((c) => Boolean(c.newsletter_optout)).length;
+          const nNoshow = tutti.filter((c) => (c.noshows ?? 0) > 0).length;
+          (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
+            `<span class="t-pill gold"><b>${tutti.length}</b> client${tutti.length > 1 ? "s" : ""}</span>`;
+          const setFl = (f: string, label: string, n: number) => {
+            const b = document.querySelector(`#fl-filtri .fl-pill[data-f="${f}"]`) as HTMLElement | null;
+            if (b) b.innerHTML = `${label} <b>${n}</b>`;
+          };
+          setFl("new", "New", nNuovi);
+          setFl("noshow", "No-show", nNoshow);
+          setFl("optin", "Opted-in", nOptin);
+          setFl("optout", "Opted-out", nOptout);
 
           if (!lista.length) {
             rowsEl.innerHTML = "";
@@ -501,19 +689,29 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               // New: cliente arrivato da meno di 2 settimane (solo tempo,
               // resta anche se nel frattempo riordina o riprenota)
               const nuovo = !!c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000;
+              const parti = (c.name ?? "").trim().split(/\s+/).filter(Boolean);
+              const iniz = ((parti[0]?.[0] ?? "") + (parti[1]?.[0] ?? "")).toUpperCase() || "?";
+              const avatar = c.photo_url
+                ? `<span class="c-avatar"><img src="${esc(c.photo_url)}" alt="" /></span>`
+                : `<span class="c-avatar">${esc(iniz)}</span>`;
               const attivita =
                 (c.noshows ?? 0) > 0
                   ? `<span class="tag-ns" title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}${c.noshows}</span>`
                   : "";
               return `
               <div class="row" data-key="${esc(c.key ?? "")}">
-                <div class="cell c-name">${esc(c.name) || "—"}${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita}</div>
+                <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita}</div>
                 <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
                 <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
-                <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
+                <div class="cell c-since" data-label="Depuis">${
+                  c.first_activity
+                    ? new Date(c.first_activity).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                    : "—"
+                }</div>
                 <div class="cell c-num c-resa" data-label="Résas">${c.reservations}</div>
+                <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
                 <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
-                <div class="cell c-act"><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
+                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="Modifier">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
@@ -627,6 +825,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         }
 
         rowsEl.addEventListener("click", async (e) => {
+          const ed = (e.target as HTMLElement).closest(".i-edit") as HTMLButtonElement | null;
+          if (ed) {
+            const c = tutti.find((x) => x.key === (ed.dataset.editkey ?? ""));
+            if (c) apriEdit(c);
+            return;
+          }
           const del = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null;
           if (!del) {
             // Click sulla riga (ma non su un link): storico del cliente
@@ -658,6 +862,193 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             await carica();
           } catch {
             toast("Erreur de connexion", true);
+          }
+        });
+
+        // ---- Modale MODIFICA cliente (matita): dati + foto ----
+        const edOverlay = document.getElementById("ed-overlay") as HTMLDivElement;
+        const edAvatar = document.getElementById("ed-avatar") as HTMLSpanElement;
+        const edUplState = document.getElementById("ed-upl-state") as HTMLParagraphElement;
+        const edPhotoRm = document.getElementById("ed-photo-rm") as HTMLButtonElement;
+        const edFile = document.getElementById("ed-file") as HTMLInputElement;
+        let edCliente: Client | null = null;
+        let edPhotoUrl = "";
+        let edOptout = false;
+        let edBlocked = false;
+
+        function edRenderFlags() {
+          const haEmail = !!(document.getElementById("ed-email") as HTMLInputElement).value.trim();
+          const newsState = document.getElementById("ed-news-state") as HTMLElement;
+          const newsBtn = document.getElementById("ed-news-btn") as HTMLButtonElement;
+          if (!haEmail) {
+            newsState.textContent = "Sans email — pas de newsletter";
+            newsState.className = "ed-hint";
+            newsBtn.style.display = "none";
+          } else {
+            newsBtn.style.display = "";
+            newsState.textContent = edOptout ? "Désinscrit (opt-out)" : "Inscrit (opt-in) ✓";
+            newsState.className = "ed-hint" + (edOptout ? " warn" : " ok");
+            newsBtn.textContent = edOptout ? "Réinscrire" : "Désinscrire";
+            newsBtn.classList.toggle("ed-danger", !edOptout);
+          }
+          const blockState = document.getElementById("ed-block-state") as HTMLElement;
+          const blockBtn = document.getElementById("ed-block-btn") as HTMLButtonElement;
+          blockState.textContent = edBlocked
+            ? "Bloquées — le widget refusera cet email/téléphone"
+            : "Autorisées (les commandes le restent toujours)";
+          blockState.className = "ed-hint" + (edBlocked ? " warn" : "");
+          blockBtn.textContent = edBlocked ? "Débloquer" : "Bloquer les réservations";
+          blockBtn.classList.toggle("ed-danger", !edBlocked);
+        }
+
+        function edRenderAvatar() {
+          const nome = `${(document.getElementById("ed-fname") as HTMLInputElement).value} ${(document.getElementById("ed-lname") as HTMLInputElement).value}`;
+          if (edPhotoUrl) {
+            edAvatar.innerHTML = `<img src="${esc(edPhotoUrl)}" alt="" />`;
+          } else {
+            const parti = nome.trim().split(/\s+/).filter(Boolean);
+            edAvatar.textContent = ((parti[0]?.[0] ?? "") + (parti[1]?.[0] ?? "")).toUpperCase() || "?";
+          }
+          edPhotoRm.style.display = edPhotoUrl ? "" : "none";
+        }
+        function apriNuovo() {
+          edCliente = null;
+          edPhotoUrl = "";
+          edOptout = false;
+          edBlocked = false;
+          (document.getElementById("ed-title") as HTMLElement).textContent = "Ajouter un client";
+          (document.getElementById("ed-block-row") as HTMLElement).style.display = "none";
+          for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"])
+            (document.getElementById(idc) as HTMLInputElement).value = "";
+          (document.getElementById("ed-err") as HTMLElement).textContent = "";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Ajouter";
+          edUplState.textContent = "";
+          edRenderAvatar();
+          edRenderFlags();
+          edOverlay.classList.add("is-open");
+        }
+        function apriEdit(c: Client) {
+          edCliente = c;
+          edPhotoUrl = c.photo_url ?? "";
+          (document.getElementById("ed-title") as HTMLElement).textContent = "Modifier le client";
+          (document.getElementById("ed-block-row") as HTMLElement).style.display = "";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Enregistrer";
+          edOptout = Boolean(c.newsletter_optout);
+          edBlocked = Boolean(c.blocked);
+          const parti = (c.name ?? "").trim().split(/\s+/).filter(Boolean);
+          (document.getElementById("ed-fname") as HTMLInputElement).value = parti[0] ?? "";
+          (document.getElementById("ed-lname") as HTMLInputElement).value = parti.slice(1).join(" ");
+          (document.getElementById("ed-email") as HTMLInputElement).value = c.email ?? "";
+          (document.getElementById("ed-phone") as HTMLInputElement).value = c.phone ?? "";
+          (document.getElementById("ed-err") as HTMLElement).textContent = "";
+          edUplState.textContent = "";
+          edRenderAvatar();
+          edRenderFlags();
+          edOverlay.classList.add("is-open");
+        }
+        (document.getElementById("ed-news-btn") as HTMLButtonElement).addEventListener("click", () => {
+          edOptout = !edOptout;
+          edRenderFlags();
+        });
+        (document.getElementById("ed-block-btn") as HTMLButtonElement).addEventListener("click", () => {
+          edBlocked = !edBlocked;
+          edRenderFlags();
+        });
+        (document.getElementById("ed-email") as HTMLInputElement).addEventListener("input", edRenderFlags);
+        (document.getElementById("ed-close") as HTMLButtonElement).addEventListener("click", () => edOverlay.classList.remove("is-open"));
+        edOverlay.addEventListener("click", (e) => {
+          if (e.target === edOverlay) edOverlay.classList.remove("is-open");
+        });
+        for (const idc of ["ed-fname", "ed-lname"])
+          (document.getElementById(idc) as HTMLInputElement).addEventListener("input", () => {
+            if (!edPhotoUrl) edRenderAvatar();
+          });
+        (document.getElementById("ed-upload") as HTMLButtonElement).addEventListener("click", () => edFile.click());
+        edPhotoRm.addEventListener("click", () => {
+          edPhotoUrl = "";
+          edRenderAvatar();
+        });
+        edFile.addEventListener("change", async () => {
+          const file = edFile.files?.[0];
+          if (!file) return;
+          if (file.size > 4 * 1024 * 1024) {
+            edUplState.textContent = "Fichier trop lourd (max 4 Mo).";
+            return;
+          }
+          edUplState.textContent = "Téléversement…";
+          try {
+            const base64 = await new Promise<string>((res, rej) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => rej(new Error());
+              r.readAsDataURL(file);
+            });
+            const resp = await fetch("/api/admin/upload", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ filename: file.name, data: base64 }),
+            });
+            const j = (await resp.json()) as { url?: string; error?: string };
+            if (!resp.ok || !j.url) {
+              edUplState.textContent = j.error ?? "Erreur de téléversement";
+              return;
+            }
+            edPhotoUrl = j.url;
+            edRenderAvatar();
+            edUplState.textContent = "Photo téléversée ✓";
+          } catch {
+            edUplState.textContent = "Erreur de connexion";
+          } finally {
+            edFile.value = "";
+          }
+        });
+        (document.getElementById("ed-save") as HTMLButtonElement).addEventListener("click", async () => {
+          const errEl = document.getElementById("ed-err") as HTMLElement;
+          errEl.textContent = "";
+          const prenomV = (document.getElementById("ed-fname") as HTMLInputElement).value.trim();
+          const cognomeV = (document.getElementById("ed-lname") as HTMLInputElement).value.trim();
+          const nome = `${prenomV} ${cognomeV}`.trim();
+          const emailV = (document.getElementById("ed-email") as HTMLInputElement).value.trim();
+          const telV = (document.getElementById("ed-phone") as HTMLInputElement).value.trim();
+          if (!cognomeV && !prenomV) {
+            errEl.textContent = "Le nom est obligatoire.";
+            return;
+          }
+          if (!edCliente && !emailV && !telV) {
+            errEl.textContent = "Renseignez au moins un email ou un téléphone.";
+            return;
+          }
+          const btn = document.getElementById("ed-save") as HTMLButtonElement;
+          btn.disabled = true;
+          try {
+            const corpo: Record<string, unknown> = {
+              id: edCliente?.id ?? null,
+              match_email: edCliente ? edCliente.email : emailV,
+              match_phone: edCliente ? edCliente.phone : telV,
+              name: nome,
+              email: emailV,
+              phone: telV,
+              photo_url: edPhotoUrl || null,
+              newsletter_optout: edOptout,
+            };
+            if (edCliente) corpo.blocked = edBlocked; // in creazione il blocco non si tocca
+            const res = await fetch("/api/admin/clients", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify(corpo),
+            });
+            const j = (await res.json()) as { error?: string };
+            if (!res.ok) {
+              errEl.textContent = j.error ?? "Enregistrement impossible";
+              return;
+            }
+            edOverlay.classList.remove("is-open");
+            toast(edCliente ? "Client modifié" : "Client ajouté");
+            await carica();
+          } catch {
+            errEl.textContent = "Erreur de connexion";
+          } finally {
+            btn.disabled = false;
           }
         });
 
@@ -704,7 +1095,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           overlay.classList.remove("is-open");
         }
 
-        addBtn.addEventListener("click", apriModale);
+        addBtn.addEventListener("click", apriNuovo); // modale unificato (ex apriModale)
         mCancel.addEventListener("click", chiudiModale);
         mClose.addEventListener("click", chiudiModale);
         overlay.addEventListener("click", (e) => {

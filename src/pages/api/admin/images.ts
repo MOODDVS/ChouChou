@@ -77,17 +77,25 @@ async function aggiornaRiferimenti(vecchio: string, nuovo: string): Promise<void
   await supabaseAdmin.from("popups").update({ image_url: nuovo }).eq("image_url", vecchio);
 }
 
-/** URL delle foto dei contatti Team: esclusi dalla bibliothèque. */
+/** URL delle foto dei contatti Team E dei CLIENTI: esclusi dalla
+ *  bibliothèque (sono avatar privati, non asset riutilizzabili). */
 async function fotoTeam(): Promise<Set<string>> {
+  const escluse = new Set<string>();
   try {
     const { data } = await supabaseAdmin
       .from("team")
       .select("photo_url")
       .not("photo_url", "is", null);
-    return new Set((data ?? []).map((r) => String(r.photo_url)));
-  } catch {
-    return new Set();
-  }
+    for (const r of data ?? []) escluse.add(String(r.photo_url));
+  } catch { /* tabella assente */ }
+  try {
+    const { data } = await supabaseAdmin
+      .from("clients")
+      .select("photo_url")
+      .not("photo_url", "is", null);
+    for (const r of data ?? []) escluse.add(String(r.photo_url));
+  } catch { /* migrazione #31 non lanciata */ }
+  return escluse;
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -152,7 +160,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     return json({ error: `Image utilisée par : ${dove.map((u) => u.label).join(", ")}` }, 409);
   }
   if (escluse.has(publicUrl)) {
-    return json({ error: "Photo d'un contact (Team) — gérée depuis Réglages → Team" }, 409);
+    return json({ error: "Photo d'un contact (Team) ou d'un client — gérée depuis sa fiche" }, 409);
   }
 
   const { error } = await supabaseAdmin.storage.from(bucket).remove([name]);
@@ -189,7 +197,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   // Le foto dei contatti Team non si toccano da qui
   if ((await fotoTeam()).has(vecchioUrl)) {
-    return json({ error: "Photo d'un contact (Team) — gérée depuis Réglages → Team" }, 409);
+    return json({ error: "Photo d'un contact (Team) ou d'un client — gérée depuis sa fiche" }, 409);
   }
 
   // --- Sostituzione con la versione compressa ---

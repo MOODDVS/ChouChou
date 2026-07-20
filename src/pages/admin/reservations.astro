@@ -88,30 +88,57 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .fs-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .fs-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .fs-pill svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .d-pill {
+        display: inline-flex; align-items: center; gap: 0.15rem;
+        background: #1c1819; border: 1px solid var(--c-line);
+        border-radius: 999px; padding: 0.25rem 0.35rem;
+      }
       .d-nav {
-        width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; box-sizing: border-box;
+        display: inline-flex; align-items: center; justify-content: center;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         border-radius: 50%; cursor: pointer; font-size: 1.1rem;
-        transition: border-color 0.15s, color 0.15s;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .d-nav:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .d-label { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; min-width: 260px; text-align: center; }
+      .d-label {
+        font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em;
+        min-width: 260px; text-align: center; cursor: pointer; transition: color 0.15s;
+        padding: 0 0.5rem; line-height: 1;
+      }
+      .d-label:hover { color: var(--c-accent); }
       .d-label.is-today { color: var(--c-accent); }
       .d-today {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+        background: var(--c-accent); border: 1px solid var(--c-accent); color: #231f20;
         font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.05em;
-        padding: 0.4rem 1.2rem; border-radius: 999px; cursor: pointer;
+        height: 42px; box-sizing: border-box; display: inline-flex; align-items: center;
+        padding: 0 1.2rem 1px; border-radius: 999px; cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
       }
-      .d-today:hover { background: var(--c-accent); color: #231f20; }
+      .d-today:hover { background: transparent; color: var(--c-accent); }
+      /* Giorno mostrato = oggi: bottone "spento" (trasparente, bordo e scritta bianchi) */
+      .d-today.is-now { background: transparent; border-color: rgba(255, 255, 255, 0.4); color: #fff; opacity: 0.55; }
+      .d-today.is-now:hover { background: transparent; color: #fff; }
       .spacer { flex: 1; }
       .d-search {
         height: 38px; width: 250px; max-width: 100%; box-sizing: border-box;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        border-radius: 999px; padding: 0 1rem; font-family: var(--font-body); font-size: 0.88rem;
+        border-radius: 999px; padding: 0 1rem 0 2.3rem; font-family: var(--font-body); font-size: 0.88rem;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+        background-repeat: no-repeat; background-position: 0.85rem center; background-size: 14px;
       }
+      .d-search-wrap { position: relative; display: inline-flex; }
+      .d-search-wrap .d-search { padding-right: 2.1rem; }
+      .d-search-x {
+        position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
+        width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+        background: #1c1819; color: var(--c-text); font-size: 1rem; line-height: 1;
+        display: flex; align-items: center; justify-content: center; padding: 0 0 2px;
+      }
+      .d-search-x:hover { background: var(--c-accent); color: #231f20; }
       .d-search::placeholder { color: var(--c-muted); }
       .d-search:focus { outline: none; border-color: var(--c-accent); }
-      .r-date { color: var(--c-muted); font-size: 0.72rem; margin-top: 0.2rem; }
+      .r-date { color: #fff; font-size: 0.72rem; margin-top: 0.2rem; }
       /* Pillola couverts/résas: sotto la linea, a destra */
       .d-stats {
         color: var(--c-muted); font-size: 0.85rem; white-space: nowrap;
@@ -261,22 +288,24 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Bottone flottante + modale aggiunta manuale */
       .fab {
         position: fixed; right: 1.5rem; bottom: 4.4rem; z-index: 90;
+        display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
         padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-        transition: background 0.2s, color 0.2s;
+        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
-      .fab:hover { background: transparent; color: var(--c-accent); }
+      .fab:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
       .fab-serv {
         position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
         width: 52px; height: 52px; border-radius: 50%;
         background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
         display: flex; align-items: center; justify-content: center; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-        transition: border-color 0.2s, color 0.2s, background 0.2s;
+        transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
       }
-      .fab-serv:hover { background: transparent; color: var(--c-accent); }
+      .fab-serv:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      .fab-serv.has-closed:hover { background: rgba(223, 171, 78, 0.3); border-color: #ed1c24; transform: scale(0.94); }
       /* Almeno un service del giorno è chiuso */
       .fab-serv.has-closed { background: rgba(223, 171, 78, 0.3); border-color: #ed1c24; color: var(--c-accent); }
       .fab-zone { left: 5.6rem; }
@@ -657,20 +686,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         </div>
         <div class="d-closed" id="d-closed"></div>
         <div class="daybar">
-          <button class="d-nav" id="d-prev" aria-label="Jour précédent">‹</button>
-          <div class="d-label" id="d-label">—</div>
-          <button class="d-nav" id="d-next" aria-label="Jour suivant">›</button>
+          <div class="d-pill">
+            <button class="d-nav" id="d-prev" aria-label="Jour précédent">‹</button>
+            <div class="d-label" id="d-label">—</div>
+            <button class="d-nav" id="d-next" aria-label="Jour suivant">›</button>
+          </div>
           <button class="d-today" id="d-today">Aujourd'hui</button>
-          <button class="d-nav" id="d-cal" aria-label="Aller à une date">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="17" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-          </button>
           <span class="spacer"></span>
-          <input type="text" id="d-search" class="d-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
+          <span class="d-search-wrap">
+            <input type="text" id="d-search" class="d-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
+            <button type="button" class="d-search-x" id="d-search-x" aria-label="Effacer la recherche" style="display:none">×</button>
+          </span>
         </div>
         <div class="subbar">
           <div class="f-serv" id="f-serv"></div>
@@ -1126,13 +1152,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       function render() {
         const filtrate = rese.filter((r) => !filtroServ || r.service_key === filtroServ);
+        // La X della ricerca segue sempre il contenuto del campo (anche quando
+        // viene azzerato dal codice: frecce, Aujourd'hui, salto data, toast)
+        const sx = document.getElementById("d-search-x") as HTMLElement | null;
+        const si = document.getElementById("d-search") as HTMLInputElement | null;
+        if (sx && si) sx.style.display = si.value ? "" : "none";
         if (modoRicerca) {
           labelEl.textContent = `Recherche — ${filtrate.length} résultat${filtrate.length === 1 ? "" : "s"}`;
           labelEl.classList.remove("is-today");
+          (document.getElementById("d-today") as HTMLElement).classList.remove("is-now");
           statsEl.innerHTML = "";
         } else {
           labelEl.textContent = labelGiorno(giorno);
           labelEl.classList.toggle("is-today", giorno === isoOggi());
+          (document.getElementById("d-today") as HTMLElement).classList.toggle("is-now", giorno === isoOggi());
           const attive = filtrate.filter((r) => r.status === "confirmed" || r.status === "seated");
           const couverts = attive.reduce((s, r) => s + r.people, 0);
           statsEl.innerHTML = filtrate.length
@@ -1833,7 +1866,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>`
             : "";
           const enCours = r.status === "seated" || (r.status === "confirmed" && fase(r) === "encours");
-          const conBlocco = enCours || r.status === "done"; // Fini: stesso blocco, senza cronometro live
+          const conBlocco = r.status === "confirmed" || r.status === "seated" || r.status === "done";
 
           // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
           const svLbl = SERVIZI_WIDGET[r.service_key ?? ""]?.fr;
@@ -1937,6 +1970,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             (document.getElementById("dt-spend") as HTMLElement).style.display = "";
             (document.getElementById("dt-spend-in") as HTMLInputElement).value =
               r.spent_cents != null ? `${(r.spent_cents / 100).toFixed(2).replace(".", ",")} €` : "";
+            timerBox.style.display = "";
+          } else if (r.status === "confirmed") {
+            // Confirmée non ancora iniziata: stesso blocco, timer fermo a zero
+            const lab = document.getElementById("dt-tlab") as HTMLElement;
+            lab.style.display = "";
+            lab.textContent = "À table depuis";
+            const clockEl = document.getElementById("dt-clock") as HTMLElement;
+            clockEl.style.display = "";
+            clockEl.textContent = "0:00";
+            (document.getElementById("dt-track") as HTMLElement).style.display = "";
+            (document.getElementById("dt-fill") as HTMLElement).style.width = "0%";
+            const holdC = holdDi(r.service_key);
+            (document.getElementById("dt-fin") as HTMLElement).textContent =
+              `Fin prévue à ${hhmmDa(minutiDa(r.heure) + holdC)} · durée ${holdC} min`;
+            (document.getElementById("dt-spend") as HTMLElement).style.display = "none";
             timerBox.style.display = "";
           } else {
             timerBox.style.display = "none";
@@ -2090,12 +2138,51 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           dSearch.value = "";
           void carica();
         });
-        const dCalBtn = document.getElementById("d-cal") as HTMLButtonElement;
-        dCalBtn.addEventListener("click", (e) => {
+        labelEl.addEventListener("click", (e) => {
+          if (modoRicerca) return; // durante la ricerca il label è un contatore
           e.stopPropagation();
-          dCalBtn.dataset.iso = giorno;
-          dpApri(dCalBtn as unknown as HTMLInputElement);
+          labelEl.dataset.iso = giorno;
+          dpApri(labelEl as unknown as HTMLInputElement);
         });
+
+        // ---- FAB allineati con l'isola dei link (stessa base e altezza) ----
+        function posizionaFabs() {
+          const barra = document.querySelector(".admin-nav") as HTMLElement | null;
+          if (!barra) return;
+          const largo = window.matchMedia("(min-width: 521px)").matches;
+          const pill = document.getElementById("fab-add") as HTMLElement | null;
+          const cerchi = [
+            document.getElementById("fab-serv") as HTMLElement | null,
+            document.getElementById("fab-zone") as HTMLElement | null,
+          ];
+          if (!largo) {
+            if (pill) {
+              pill.style.height = "";
+              pill.style.bottom = "";
+            }
+            for (const c of cerchi)
+              if (c) {
+                c.style.width = "";
+                c.style.height = "";
+                c.style.bottom = "";
+              }
+            return; // mobile: barra a tutta larghezza, i FAB restano sopra
+          }
+          const r = barra.getBoundingClientRect();
+          const base = `${window.innerHeight - r.bottom}px`;
+          if (pill) {
+            pill.style.height = `${r.height}px`;
+            pill.style.bottom = base;
+          }
+          for (const c of cerchi)
+            if (c) {
+              c.style.width = `${r.height}px`;
+              c.style.height = `${r.height}px`;
+              c.style.bottom = base;
+            }
+        }
+        posizionaFabs();
+        window.addEventListener("resize", posizionaFabs);
 
         // ---- Filtro per service (icona = tutti) ----
         (document.getElementById("f-serv") as HTMLDivElement).addEventListener("click", (e) => {
@@ -2127,7 +2214,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             stateEl.textContent = "Erreur de recherche.";
           }
         }
+        const dSearchX = document.getElementById("d-search-x") as HTMLButtonElement;
+        dSearchX.addEventListener("click", () => {
+          dSearch.value = "";
+          dSearchX.style.display = "none";
+          window.clearTimeout(searchTimer);
+          if (modoRicerca) void carica();
+          dSearch.focus();
+        });
         dSearch.addEventListener("input", () => {
+          dSearchX.style.display = dSearch.value ? "" : "none";
           window.clearTimeout(searchTimer);
           searchTimer = window.setTimeout(() => {
             const q = dSearch.value.trim();
@@ -2598,7 +2694,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         function dpApri(target: HTMLInputElement) {
           dpTarget = target;
-          dpLibero = (target as unknown as HTMLElement) === dCalBtn;
+          dpLibero = (target as unknown as HTMLElement) === labelEl;
           const base = target.dataset.iso || isoOggi();
           dpAnno = Number(base.slice(0, 4));
           dpMese = Number(base.slice(5, 7)) - 1;
@@ -2625,7 +2721,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             return;
           }
           if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
-            if ((dpTarget as unknown as HTMLElement) === dCalBtn) {
+            if ((dpTarget as unknown as HTMLElement) === labelEl) {
               giorno = t.dataset.iso;
               dSearch.value = "";
               void carica();

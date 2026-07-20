@@ -22,6 +22,9 @@ interface RigaCliente {
   email: string | null;
   phone: string | null;
   hidden: boolean;
+  photo_url?: string | null;
+  blocked?: boolean | null;
+  created_at?: string | null;
 }
 
 interface RigaResa {
@@ -45,6 +48,9 @@ interface Cliente {
   last_order: string | null;
   first_activity: string | null;
   manual: boolean;
+  photo_url?: string | null;
+  blocked?: boolean;
+  newsletter_optout?: boolean;
   key?: string;
 }
 
@@ -88,14 +94,24 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
 async function clientiManuali(): Promise<RigaCliente[] | null> {
   const PAGINA = 1000;
   const tutti: RigaCliente[] = [];
+  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("clients")
-      .select("id, name, email, phone, hidden")
+      .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
+    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
+      campi = "id, name, email, phone, hidden, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("clients")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     if (error) return null;
-    tutti.push(...((data ?? []) as RigaCliente[]));
+    tutti.push(...((data ?? []) as unknown as RigaCliente[]));
     if (!data || data.length < PAGINA) break;
   }
   return tutti;
@@ -175,15 +191,28 @@ export async function caricaClienti(): Promise<{ count: number; clients: Cliente
     if (esistente) {
       esistente.id = m.id;
       esistente.manual = true;
+      if (m.photo_url) esistente.photo_url = m.photo_url;
+      if (m.blocked) esistente.blocked = true;
+      if (m.created_at && (!esistente.first_activity || m.created_at < esistente.first_activity))
+        esistente.first_activity = m.created_at;
       if (!esistente.name && name) esistente.name = name;
       if (!esistente.email && email) esistente.email = email;
       if (!esistente.phone && phone) esistente.phone = phone;
     } else {
       mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: true,
+        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
       });
     }
   }
+
+  // Newsletter: opt-out = presenza in newsletter_optout (come l'API)
+  try {
+    const { data: optout } = await supabaseAdmin.from("newsletter_optout").select("email");
+    const setOptout = new Set((optout ?? []).map((r) => String(r.email ?? "").toLowerCase()));
+    for (const c of mappa.values()) {
+      if (c.email && setOptout.has(c.email.toLowerCase())) c.newsletter_optout = true;
+    }
+  } catch { /* tabella assente: tutti opt-in */ }
 
   const clienti = [...mappa.entries()]
     .map(([k, c]) => ({ ...c, key: k }))

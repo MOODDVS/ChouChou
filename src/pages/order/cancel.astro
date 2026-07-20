@@ -1,0 +1,171 @@
+---
+// PAGINA di annullamento ORDINE (link "Annuler ma commande" nell'email col
+// link di pagamento). Standalone, stile di /reservation/cancel. Legge ?token=,
+// mostra il riepilogo, chiede conferma e chiama POST /api/order-cancel.
+import { CLIENT } from "../../config/client";
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Annulation — {CLIENT.nome}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;600;700&display=swap"
+    />
+    <style is:global>
+      :root { --font-body: "Nunito Sans", system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
+      .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; }
+      .rw { background: #231f20; border: 1px solid #3a3335; border-radius: 14px; padding: 2rem 1.6rem; width: 100%; max-width: 440px; text-align: center; }
+      .rw-claim { color: #dfab4e; font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; margin: 0 0 0.35rem; }
+      .rw-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
+      .rw-loading { color: #b3aca6; font-size: 0.9rem; padding: 1.5rem 0; }
+      .rw-recap { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; background: #1c1819; border: 1px solid #3a3335; border-radius: 8px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
+      .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+      .rw-rc-lab { color: #b3aca6; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+      .rw-rc-val { color: #dfab4e; font-size: 0.95rem; font-weight: 700; }
+      .rw-btn { width: 100%; font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.8rem 0; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; }
+      .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+      .rw-btn-danger { background: #b3352f; border: 1px solid #b3352f; color: #fff; }
+      .rw-btn-danger:hover { background: transparent; color: #ff8a8f; border-color: #ff8a8f; }
+      .rw-msg { color: #b3aca6; font-size: 0.9rem; line-height: 1.6; margin: 0.6rem 0 0; }
+      .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: #dfab4e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 0.6rem; }
+      .rw-err { color: #ff8a8f; font-size: 0.85rem; margin: 0.8rem 0 0; min-height: 1em; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="rw">
+        <p class="rw-claim">{CLIENT.nome}</p>
+        <h3 class="rw-title" id="oc-title">Annuler ma commande</h3>
+
+        <div id="oc-loading" class="rw-loading">…</div>
+
+        <div id="oc-box" style="display:none">
+          <div class="rw-recap">
+            <div><span class="rw-rc-lab" id="oc-l-heure"></span><span class="rw-rc-val" id="oc-v-heure"></span></div>
+            <div><span class="rw-rc-lab" id="oc-l-total"></span><span class="rw-rc-val" id="oc-v-total"></span></div>
+          </div>
+          <button type="button" class="rw-btn rw-btn-danger" id="oc-btn"></button>
+          <p class="rw-err" id="oc-err"></p>
+        </div>
+
+        <div id="oc-done" style="display:none">
+          <svg class="rw-done-ico" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M8 12l3 3 5 -6" />
+          </svg>
+          <p class="rw-msg" id="oc-done-msg"></p>
+        </div>
+
+        <p class="rw-msg" id="oc-invalid" style="display:none"></p>
+      </div>
+    </div>
+
+    <script>
+      const T = {
+        fr: {
+          title: "Annuler ma commande",
+          heure: "Retrait",
+          total: "Total",
+          btn: "Annuler ma commande",
+          done: "Votre commande a bien été annulée. À bientôt !",
+          invalid: "Ce lien n'est plus valide.",
+          paid: "Cette commande a déjà été payée — appelez-nous pour toute modification.",
+          err: "Une erreur est survenue, réessayez.",
+        },
+        en: {
+          title: "Cancel my order",
+          heure: "Pickup",
+          total: "Total",
+          btn: "Cancel my order",
+          done: "Your order has been cancelled. See you soon!",
+          invalid: "This link is no longer valid.",
+          paid: "This order has already been paid — please call us for any change.",
+          err: "Something went wrong, please try again.",
+        },
+      } as const;
+
+      const $ = (id: string) => document.getElementById(id) as HTMLElement;
+      const token = new URLSearchParams(location.search).get("token") ?? "";
+      let lang: "fr" | "en" = "fr";
+
+      function applica() {
+        const t = T[lang];
+        $("oc-title").textContent = t.title;
+        $("oc-l-heure").textContent = t.heure;
+        $("oc-l-total").textContent = t.total;
+        $("oc-btn").textContent = t.btn;
+      }
+
+      (async () => {
+        applica();
+        try {
+          const r = await fetch(`/api/order-cancel?token=${encodeURIComponent(token)}`);
+          $("oc-loading").style.display = "none";
+          if (!r.ok) {
+            $("oc-invalid").textContent = T[lang].invalid;
+            ($("oc-invalid") as HTMLElement).style.display = "block";
+            return;
+          }
+          const j = (await r.json()) as {
+            status: string; pickup_time: string; total_cents: number; lang: "fr" | "en";
+          };
+          lang = j.lang;
+          applica();
+          if (j.status === "cancelled") {
+            $("oc-done-msg").textContent = T[lang].done;
+            $("oc-done").style.display = "block";
+            return;
+          }
+          if (j.status !== "pending") {
+            $("oc-invalid").textContent = T[lang].paid;
+            $("oc-invalid").style.display = "block";
+            return;
+          }
+          $("oc-v-heure").textContent = new Date(j.pickup_time).toLocaleTimeString("fr-FR", {
+            hour: "2-digit", minute: "2-digit", timeZone: "Europe/Brussels",
+          });
+          $("oc-v-total").textContent = (j.total_cents / 100).toFixed(2).replace(".", ",") + " €";
+          $("oc-box").style.display = "block";
+        } catch {
+          $("oc-loading").style.display = "none";
+          $("oc-invalid").textContent = T[lang].err;
+          $("oc-invalid").style.display = "block";
+        }
+      })();
+
+      $("oc-btn").addEventListener("click", async () => {
+        const btn = $("oc-btn") as HTMLButtonElement;
+        btn.disabled = true;
+        $("oc-err").textContent = "";
+        try {
+          const r = await fetch("/api/order-cancel", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          });
+          if (r.status === 409) {
+            $("oc-err").textContent = T[lang].paid;
+            return;
+          }
+          if (!r.ok) throw new Error();
+          $("oc-box").style.display = "none";
+          $("oc-done-msg").textContent = T[lang].done;
+          $("oc-done").style.display = "block";
+        } catch {
+          $("oc-err").textContent = T[lang].err;
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

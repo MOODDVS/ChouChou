@@ -201,9 +201,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
         display: flex; align-items: center; justify-content: center; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-        transition: border-color 0.2s, color 0.2s, background 0.2s;
+        transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
       }
-      .org-fab:hover { background: transparent; color: var(--c-accent); }
+      .org-fab:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
       .org-fab svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
       .org-fab.is-on { background: transparent; color: var(--c-accent); }
       .org-fab-reset { left: 5.6rem; }
@@ -518,6 +518,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         cardsEl.style.display = "grid";
         const fabOrg = document.getElementById("organiser-btn");
         if (fabOrg) fabOrg.style.display = "flex";
+        posizionaIsole();
+
+        // ---- Allineamento isole (SOLO home): ingranaggio Admin subito a sinistra
+        // dell'isola dei link; FAB Organiser a sinistra, centrato con l'isola.
+        function posizionaIsole() {
+          const nav = document.querySelector(".admin-nav") as HTMLElement | null;
+          if (!nav) return;
+          const largo = window.matchMedia("(min-width: 521px)").matches;
+          const r = nav.getBoundingClientRect();
+          for (const id of ["organiser-btn", "organiser-reset"]) {
+            const el = document.getElementById(id) as HTMLElement | null;
+            if (el) el.style.bottom = largo ? `${window.innerHeight - r.bottom + (r.height - 52) / 2}px` : "";
+          }
+        }
+        window.addEventListener("resize", posizionaIsole);
 
         avviaNote(headers);
 

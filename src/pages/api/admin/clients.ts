@@ -23,6 +23,9 @@ interface RigaCliente {
   email: string | null;
   phone: string | null;
   hidden: boolean;
+  photo_url?: string | null;
+  blocked?: boolean | null;
+  created_at?: string | null;
 }
 
 interface Cliente {
@@ -37,6 +40,9 @@ interface Cliente {
   last_order: string | null;
   first_activity: string | null; // PRIMA attività in assoluto (per il tag New)
   manual: boolean;
+  photo_url?: string | null;
+  blocked?: boolean;
+  newsletter_optout?: boolean;
   key?: string; // chiave di aggregazione (per il dettaglio attività)
 }
 
@@ -139,14 +145,24 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
 async function clientiManuali(): Promise<RigaCliente[] | null> {
   const PAGINA = 1000;
   const tutti: RigaCliente[] = [];
+  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("clients")
-      .select("id, name, email, phone, hidden")
+      .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
+    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
+      campi = "id, name, email, phone, hidden, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("clients")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     if (error) return null;
-    tutti.push(...((data ?? []) as RigaCliente[]));
+    tutti.push(...((data ?? []) as unknown as RigaCliente[]));
     if (!data || data.length < PAGINA) break;
   }
   return tutti;
@@ -262,15 +278,29 @@ export const GET: APIRoute = async ({ request, url }) => {
     if (esistente) {
       esistente.id = m.id;
       esistente.manual = true;
+      if (m.photo_url) esistente.photo_url = m.photo_url;
+      if (m.blocked) esistente.blocked = true;
+      if (m.created_at && (!esistente.first_activity || m.created_at < esistente.first_activity))
+        esistente.first_activity = m.created_at;
       if (!esistente.name && name) esistente.name = name;
       if (!esistente.email && email) esistente.email = email;
       if (!esistente.phone && phone) esistente.phone = phone;
     } else {
       mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: true,
+        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
       });
     }
   }
+
+  // Newsletter: chi prenota/ordina/è aggiunto a mano è OPT-IN per default;
+  // opt-out = presenza in newsletter_optout (stessa fonte del link email).
+  try {
+    const { data: optout } = await supabaseAdmin.from("newsletter_optout").select("email");
+    const setOptout = new Set((optout ?? []).map((r) => String(r.email ?? "").toLowerCase()));
+    for (const c of mappa.values()) {
+      if (c.email && setOptout.has(c.email.toLowerCase())) c.newsletter_optout = true;
+    }
+  } catch { /* tabella assente: tutti opt-in */ }
 
   const clienti = [...mappa.entries()]
     .map(([k, c]) => ({ ...c, key: k }))
@@ -307,6 +337,88 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true, id: data.id }, 201);
+};
+
+// PATCH → modifica i dati di un cliente (modale matita nella pagina Clients).
+// Se il cliente aggregato non ha ancora un record in `clients` (viene dagli
+// ordini/prenotazioni), il record viene CREATO: da lì in poi nome/foto
+// prevalgono sui dati grezzi. Match: id → email → telefono.
+export const PATCH: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  let body: {
+    id?: string | null;
+    match_email?: string;
+    match_phone?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    photo_url?: string | null;
+    blocked?: boolean;
+    newsletter_optout?: boolean;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "Corps invalide" }, 400);
+  }
+
+  const name = (body.name ?? "").trim();
+  const email = (body.email ?? "").trim();
+  const phone = (body.phone ?? "").trim();
+  if (!name) return json({ error: "Le nom est obligatoire" }, 400);
+  if (!email && !phone) return json({ error: "Renseignez au moins un email ou un téléphone" }, 400);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Email invalide" }, 400);
+
+  const patch: Record<string, unknown> = {
+    name,
+    email: email || null,
+    phone: phone || null,
+    photo_url: typeof body.photo_url === "string" && body.photo_url ? body.photo_url : null,
+  };
+  if (body.blocked !== undefined) patch.blocked = Boolean(body.blocked);
+
+  // Record esistente? (id esplicito, poi email, poi telefono)
+  let idRiga = (body.id ?? "").trim() || null;
+  if (!idRiga) {
+    const mEmail = (body.match_email ?? "").trim();
+    const mPhone = (body.match_phone ?? "").trim();
+    if (mEmail) {
+      const { data } = await supabaseAdmin.from("clients").select("id").ilike("email", mEmail).limit(1).maybeSingle();
+      if (data) idRiga = data.id;
+    }
+    if (!idRiga && mPhone) {
+      const { data } = await supabaseAdmin.from("clients").select("id").eq("phone", mPhone).limit(1).maybeSingle();
+      if (data) idRiga = data.id;
+    }
+  }
+
+  let esito = idRiga
+    ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
+    : await supabaseAdmin.from("clients").insert(patch).select("id").single();
+  // Migrazioni #31/#32 non ancora lanciate: si salva senza le colonne nuove
+  if (esito.error && (String(esito.error.message ?? "").includes("photo_url") || String(esito.error.message ?? "").includes("blocked"))) {
+    delete patch.photo_url;
+    delete patch.blocked;
+    esito = idRiga
+      ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
+      : await supabaseAdmin.from("clients").insert(patch).select("id").single();
+  }
+  if (esito.error) return json({ error: "Enregistrement impossible" }, 500);
+
+  // Newsletter: opt-out = riga in newsletter_optout; opt-in = riga rimossa
+  if (body.newsletter_optout !== undefined && email) {
+    try {
+      if (body.newsletter_optout) {
+        await supabaseAdmin.from("newsletter_optout").upsert({ email: email.toLowerCase() }, { onConflict: "email" });
+      } else {
+        await supabaseAdmin.from("newsletter_optout").delete().eq("email", email.toLowerCase());
+      }
+    } catch { /* tabella assente: ignorato */ }
+  }
+
+  return json({ ok: true, id: esito.data?.id ?? idRiga });
 };
 
 // Cancella un cliente dalla lista.

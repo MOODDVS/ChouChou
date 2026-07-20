@@ -225,6 +225,126 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .btn-refund:active { transform: scale(0.96); }
       .btn-refund:disabled { opacity: 0.6; cursor: wait; }
       /* Modale remboursement */
+      /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
+      .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
+      .tag-paid { background: #2e9e6b; color: #fff; border-radius: 999px; white-space: nowrap; }
+      .btn-resend { border: 1px solid rgba(255, 255, 255, 0.65); color: #fff; white-space: nowrap; }
+      .btn-resend:hover { background: #fff; color: #231f20; border-color: #fff; }
+      .nc-add {
+        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
+        display: inline-flex; align-items: center; box-sizing: border-box;
+        background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.06em;
+        padding: 0 1.6rem; border-radius: 999px; cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+      }
+      .nc-add:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      @media (max-width: 520px) { .nc-add { bottom: calc(1.25rem + 72px); } }
+      .nc-overlay {
+        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none;
+        align-items: center; justify-content: center; z-index: 1000; padding: 3vh 1rem; overflow-y: auto;
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      }
+      .nc-overlay.is-open { display: flex; }
+      .nc-modal {
+        background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem;
+        width: 100%; max-width: 960px; position: relative; margin: auto;
+      }
+      .nc-modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.2rem; }
+      .nc-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .nc-close:hover { color: var(--c-text); }
+      .nc-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 1.6rem; }
+      /* le colonne non devono MAI allargarsi oltre il modale (min-width:auto
+         della grid): senza questo le pillole categorie sfondano il layout */
+      .nc-grid > * { min-width: 0; }
+      @media (max-width: 760px) { .nc-grid { grid-template-columns: 1fr; } }
+      .nc-lab { display: block; font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; margin: 0.9rem 0 0.4rem; }
+      .nc-lab:first-child { margin-top: 0; }
+      .nc-row { display: flex; gap: 0.5rem; }
+      .nc-in {
+        width: 100%; min-width: 0; box-sizing: border-box; background: #1c1819; border: 1px solid var(--c-line);
+        color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
+        font-family: var(--font-body); margin-bottom: 0.55rem;
+      }
+      .nc-in:focus { outline: none; border-color: var(--c-accent); }
+      .nc-in::placeholder { color: #8f8781; }
+      .nc-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+      .nc-pill {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 0.9rem;
+        border-radius: 999px; cursor: pointer;
+      }
+      .nc-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .nc-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nc-slots { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+      .nc-more { border-color: var(--c-accent); color: var(--c-accent); }
+      .nc-slots .nc-pill { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+      .nc-slots-empty { color: var(--c-muted); font-size: 0.85rem; }
+      .nc-cats {
+        display: flex; gap: 0.35rem; overflow-x: auto; flex-wrap: nowrap;
+        margin-bottom: 0.55rem; padding-bottom: 0.35rem;
+        scrollbar-width: thin; scrollbar-color: var(--c-line) transparent;
+      }
+      .nc-cats::-webkit-scrollbar { height: 5px; }
+      .nc-cats::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 999px; }
+      .nc-cats .nc-pill { flex: 0 0 auto; white-space: nowrap; }
+      .nc-items { max-height: 250px; overflow-y: auto; border: 1px solid var(--c-line); border-radius: 8px; }
+      .nc-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
+      .nc-item:last-child { border-bottom: none; }
+      .nc-item .n { flex: 1; min-width: 0; }
+      .nc-item .p { color: var(--c-muted); white-space: nowrap; }
+      .nc-plus {
+        width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-accent);
+        background: transparent; color: var(--c-accent); font-size: 1rem; line-height: 1;
+        cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      }
+      .nc-plus:hover { background: var(--c-accent); color: #231f20; }
+      .nc-cart { min-height: 44px; display: flex; flex-direction: column; gap: 1rem; }
+      .nc-cart-empty { color: var(--c-muted); font-size: 0.85rem; padding: 0.4rem 0; }
+      .nc-cline { border-bottom: 1px solid var(--c-line); padding-bottom: 1rem; }
+      .nc-cline-top {
+        display: flex; justify-content: space-between; gap: 0.8rem;
+        font-weight: 700; margin-bottom: 0.5rem; color: var(--c-text); font-size: 0.95rem;
+      }
+      .nc-cline-controls { display: flex; align-items: center; gap: 0.5rem; }
+      .nc-cline-controls button {
+        width: 30px; height: 30px; border: 1px solid var(--c-line); background: transparent;
+        color: var(--c-text); cursor: pointer; font-size: 1.1rem; border-radius: 8px;
+        transition: border-color 0.2s ease;
+      }
+      .nc-cline-controls button:hover { border-color: var(--c-accent); }
+      .nc-cline-qty { min-width: 22px; text-align: center; color: var(--c-text); font-weight: 700; }
+      .nc-cline-remove {
+        margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+        background: rgba(237, 28, 36, 0.25) !important; border: 1px solid rgba(237, 28, 36, 0.35) !important;
+        color: #fff !important; border-radius: 8px;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+      .nc-cline-remove:hover { background: rgba(237, 28, 36, 0.55) !important; border-color: #ed1c24 !important; }
+      .nc-cline-remove svg {
+        width: 14px; height: 14px; fill: none; stroke: currentColor;
+        stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+      }
+      .nc-total { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; font-size: 1rem; }
+      .nc-total b { color: var(--c-accent); font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; }
+      .nc-send {
+        width: 100%; margin-top: 0.9rem; background: var(--c-accent); color: #231f20;
+        border: 2px solid var(--c-accent); font-family: var(--font-title); font-size: 1rem;
+        letter-spacing: 0.05em; padding: 0.7rem; border-radius: 999px; cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+      .nc-send:hover { background: transparent; color: var(--c-accent); }
+      .nc-send:disabled { opacity: 0.6; cursor: wait; }
+      .nc-toast {
+        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-200%);
+        z-index: 2000; background: #2e9e6b; color: #fff; font-weight: 700; font-size: 0.9rem;
+        padding: 0.7rem 1.4rem; border-radius: 999px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        transition: transform 0.35s ease, opacity 0.35s ease; pointer-events: none;
+        opacity: 0; visibility: hidden;
+      }
+      .nc-toast.err { background: #b3261e; }
+      .nc-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
       .rf-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.62); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
       .rf-overlay.is-open { display: flex; }
       .rf-modal { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
@@ -324,6 +444,45 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       </div>
     </div>
 
+    <!-- Nouvelle commande (manuale con link di pagamento) -->
+    <button class="nc-add" id="nc-add" type="button" style="display:none">+ Commande</button>
+    <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
+      <div class="nc-modal">
+        <button class="nc-close" id="nc-close" aria-label="Fermer">×</button>
+        <h2>Nouvelle commande</h2>
+        <div class="nc-grid">
+          <div class="nc-left">
+            <span class="nc-lab">Client</span>
+            <div class="nc-row">
+              <input type="text" class="nc-in" id="nc-prenom" placeholder="Prénom" autocomplete="off" />
+              <input type="text" class="nc-in" id="nc-nom" placeholder="Nom *" autocomplete="off" />
+            </div>
+            <input type="email" class="nc-in" id="nc-email" placeholder="Email *" autocomplete="off" />
+            <input type="tel" class="nc-in" id="nc-tel" placeholder="Téléphone" autocomplete="off" />
+            <span class="nc-lab">Langue de l'email</span>
+            <div class="nc-pills" id="nc-langs">
+              <button type="button" class="nc-pill is-on" data-lang="fr">Français</button>
+              <button type="button" class="nc-pill" data-lang="en">English</button>
+            </div>
+            <span class="nc-lab">Retrait aujourd'hui</span>
+            <div class="nc-slots" id="nc-slots"><span class="nc-slots-empty">Chargement…</span></div>
+            <span class="nc-lab">Note</span>
+            <textarea class="nc-in" id="nc-note" rows="2"></textarea>
+          </div>
+          <div class="nc-right">
+            <span class="nc-lab">Menu</span>
+            <div class="nc-cats" id="nc-cats"></div>
+            <div class="nc-items" id="nc-items"></div>
+            <span class="nc-lab">Panier</span>
+            <div class="nc-cart" id="nc-cart"><div class="nc-cart-empty">Panier vide</div></div>
+            <div class="nc-total"><span>Total</span><b id="nc-total">0,00 €</b></div>
+            <button type="button" class="nc-send" id="nc-send">Créer &amp; envoyer le lien de paiement</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="nc-toast" id="nc-toast"></div>
+
     <AdminNav current="orders" />
 
     <!-- Dati SSR (Fase 2): ordini pre-caricati dal server, letti dal client. -->
@@ -398,6 +557,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // Etichetta di stato (solo per le card spente)
         let tag = "";
         if (o.status === "done") tag = `<span class="tag tag-done">Terminée</span>`;
+        if (o.status === "pending") tag = `<span class="tag tag-pending" title="En attente de paiement">Att. de paie.</span>`;
+        if (o.status === "paid") tag = `<span class="tag tag-paid">Payé</span>`;
 
 
         // Ordini attivi: Terminée + Annuler.
@@ -409,7 +570,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ Terminée</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">Annuler</button>
                </div>`
-            : "";
+            : o.status === "pending"
+              ? `<div class="actions">
+                   <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="Renvoyer l'email de paiement">Ren. email</button>
+                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">Annuler</button>
+                 </div>`
+              : "";
 
         const badgeOk = o.status === "done" ? `<span class="badge-ok" title="Terminée">✓</span>` : "";
         const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="Annulée">✕</span>` : "";
@@ -426,7 +592,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // a destra (come il rollback), 100% opaco.
         const refunded = o.refunded_cents ?? 0;
         const residuo = o.total_cents - refunded;
-        const isStripe = o.status === "cancelled" && !!o.stripe_session_id;
+        // Rimborsabile solo se PAGATO davvero: dopo il webhook stripe_session_id
+        // è l'id cs_… ; un pending annullato ha ancora l'URL del link (mai incassato).
+        const isStripe = o.status === "cancelled" && /^cs_/.test(String(o.stripe_session_id ?? ""));
         if (isStripe && refunded > 0) {
           tag += residuo > 0
             ? `<span class="tag tag-refund">Remboursé ${euro(refunded)}</span>`
@@ -437,7 +605,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">Rembourser</button>`
             : "";
         const cardCls =
-          (o.status === "paid" ? "" : o.status === "done" ? " done" : " off") +
+          (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
           (refundBtn ? " refundable" : "");
 
         return `
@@ -612,16 +780,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
             .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
 
-          const attivi = ordOggi.filter((o) => o.status === "paid");
+          // I pending MANUALI (link di pagamento inviato) stanno tra gli attivi
+          const attivi = ordOggi.filter((o) => o.status === "paid" || o.status === "pending");
           const spenti = ordOggi.filter((o) => o.status === "done" || o.status === "cancelled");
 
-          // Conteggio e totale: attivi + terminati (gli annullati non contano)
-          const validi = ordOggi.filter((o) => o.status !== "cancelled");
-          const tot = validi.reduce((s, o) => s + o.total_cents, 0);
-          countEl.textContent =
-            validi.length > 0
-              ? (validi.length === 1 ? "1 commande" : `${validi.length} commandes`) + ` · ${euro(tot)}`
-              : "";
+          // Conteggio e totale: solo il denaro INCASSATO (paid + done);
+          // i pending si contano a parte ("en attente")
+          const incassati = ordOggi.filter((o) => o.status === "paid" || o.status === "done");
+          const pendenti = ordOggi.filter((o) => o.status === "pending").length;
+          const tot = incassati.reduce((s, o) => s + o.total_cents, 0);
+          const parti: string[] = [];
+          if (incassati.length)
+            parti.push((incassati.length === 1 ? "1 commande" : `${incassati.length} commandes`) + ` · ${euro(tot)}`);
+          if (pendenti) parti.push(`${pendenti} en attente`);
+          countEl.textContent = parti.join(" · ");
 
           if (ordOggi.length === 0) {
             stateEl.textContent = "Aucune commande payée aujourd'hui.";
@@ -680,6 +852,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
           if (btn.dataset.act === "done") {
             cambiaStato(id, "done", btn);
+            return;
+          }
+          if (btn.dataset.act === "resend") {
+            btn.disabled = true;
+            fetch("/api/admin/orders", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ resend_id: id }),
+            })
+              .then(async (r) => {
+                const j = (await r.json()) as { error?: string };
+                if (!r.ok) throw new Error(j.error || "Envoi impossible");
+                ncToast("Email de paiement renvoyé");
+              })
+              .catch((e2) => ncToast(e2 instanceof Error ? e2.message : "Envoi impossible", true))
+              .finally(() => {
+                btn.disabled = false;
+              });
             return;
           }
           // Annuler: primo tocco arma la conferma, secondo tocco conferma
@@ -857,6 +1047,251 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // 3) rete di sicurezza ogni 25s, SILENZIOSA: ridisegna solo se qualcosa
         //    è cambiato (es. stato modificato da un altro dispositivo).
         setInterval(refreshLive, 25_000);
+
+        // ---- Nouvelle commande MANUALE (link di pagamento Stripe via email) ----
+        const ncOverlay = document.getElementById("nc-overlay") as HTMLDivElement;
+        const ncToastEl = document.getElementById("nc-toast") as HTMLDivElement;
+        let ncToastTimer = 0;
+        function ncToast(msg: string, err = false) {
+          ncToastEl.textContent = msg;
+          ncToastEl.classList.toggle("err", err);
+          ncToastEl.classList.add("show");
+          window.clearTimeout(ncToastTimer);
+          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("show"), 3500);
+        }
+        type VoceMenu = {
+          id: string; name: string; category: string; price_cents: number;
+          available: boolean; orderable?: boolean;
+          discount_type?: string | null; discount_value?: number | null;
+        };
+        let ncMenu: VoceMenu[] = [];
+        const ncCart = new Map<string, { voce: VoceMenu; qty: number }>();
+        let ncLang: "fr" | "en" = "fr";
+        let ncSlot = "";
+        let ncSlotsTutti: string[] = [];
+        let ncSlotsEstesi = false;
+        function ncRenderSlots() {
+          const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
+          if (!ncSlotsTutti.length) {
+            slotsBox.innerHTML = '<span class="nc-slots-empty">Aucun créneau disponible aujourd&#39;hui</span>';
+            return;
+          }
+          const LIM = 17; // ~3 righe; l'ultima cella è la pillola "+N"
+          const visibili = ncSlotsEstesi ? ncSlotsTutti : ncSlotsTutti.slice(0, LIM);
+          slotsBox.innerHTML =
+            visibili
+              .map((sl) => `<button type="button" class="nc-pill${sl === ncSlot ? " is-on" : ""}" data-slot="${sl}">${sl}</button>`)
+              .join("") +
+            (ncSlotsTutti.length > LIM
+              ? `<button type="button" class="nc-pill nc-more" data-more="1">${ncSlotsEstesi ? "Moins" : `+${ncSlotsTutti.length - LIM}`}</button>`
+              : "");
+        }
+        // Stesso calcolo di lib/pricing.ts (il server ricalcola comunque dal DB)
+        function ncPrezzo(v: VoceMenu): number {
+          const val = Math.round(Number(v.discount_value ?? 0));
+          if (!v.discount_type || val <= 0) return v.price_cents;
+          if (v.discount_type === "fixed") return Math.min(v.price_cents, val);
+          if (v.discount_type === "percent") return Math.max(0, Math.round(v.price_cents * (1 - Math.min(val, 100) / 100)));
+          return v.price_cents;
+        }
+        let ncCat = "";
+        function ncRenderCats() {
+          const catte: string[] = [];
+          for (const v of ncMenu) if (!catte.includes(v.category)) catte.push(v.category);
+          if (!ncCat && catte.length) ncCat = catte[0];
+          (document.getElementById("nc-cats") as HTMLDivElement).innerHTML = catte
+            .map((c) => `<button type="button" class="nc-pill${c === ncCat ? " is-on" : ""}" data-cat="${esc(c)}">${esc(c)}</button>`)
+            .join("");
+        }
+        function ncRenderItems() {
+          (document.getElementById("nc-items") as HTMLDivElement).innerHTML = ncMenu
+            .filter((v) => v.category === ncCat)
+            .map(
+              (v) =>
+                `<div class="nc-item"><span class="n">${esc(v.name)}</span><span class="p">${euro(ncPrezzo(v))}</span><button type="button" class="nc-plus" data-add="${v.id}">+</button></div>`
+            )
+            .join("");
+        }
+        function ncRenderCart() {
+          const box = document.getElementById("nc-cart") as HTMLDivElement;
+          const righe = [...ncCart.values()];
+          const ICO_BIN =
+            '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+          box.innerHTML = righe.length
+            ? righe
+                .map(
+                  ({ voce, qty }) =>
+                    `<div class="nc-cline">
+                       <div class="nc-cline-top"><span>${esc(voce.name)}</span><span>${euro(ncPrezzo(voce) * qty)}</span></div>
+                       <div class="nc-cline-controls">
+                         <button type="button" data-meno="${voce.id}" aria-label="Moins">−</button>
+                         <span class="nc-cline-qty">${qty}</span>
+                         <button type="button" data-piu="${voce.id}" aria-label="Plus">+</button>
+                         <button type="button" class="nc-cline-remove" data-del="${voce.id}" aria-label="Retirer">${ICO_BIN}</button>
+                       </div>
+                     </div>`
+                )
+                .join("")
+            : '<div class="nc-cart-empty">Panier vide</div>';
+          const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
+          (document.getElementById("nc-total") as HTMLElement).textContent = euro(tot);
+        }
+        async function apriNc() {
+          ncCart.clear();
+          ncSlot = "";
+          ncLang = "fr";
+          for (const id of ["nc-prenom", "nc-nom", "nc-email", "nc-tel", "nc-note"])
+            (document.getElementById(id) as HTMLInputElement).value = "";
+          document
+            .querySelectorAll("#nc-langs .nc-pill")
+            .forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.lang === "fr"));
+          ncRenderCart();
+          ncOverlay.classList.add("is-open");
+          // Créneaux di OGGI (stessa fonte del sito)
+          const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
+          slotsBox.innerHTML = '<span class="nc-slots-empty">Chargement…</span>';
+          ncSlotsTutti = [];
+          ncSlotsEstesi = false;
+          fetch("/api/slots")
+            .then(async (r) => {
+              if (!r.ok) throw new Error();
+              const j = (await r.json()) as { lunch: string[]; dinner: string[] };
+              ncSlotsTutti = [...(j.lunch ?? []), ...(j.dinner ?? [])];
+              ncRenderSlots();
+            })
+            .catch(() => {
+              slotsBox.innerHTML = '<span class="nc-slots-empty">Créneaux indisponibles</span>';
+            });
+          // Menu (caricato una volta, solo piatti ordinabili)
+          if (!ncMenu.length) {
+            try {
+              const r = await fetch("/api/admin/menu", { headers });
+              if (r.ok) {
+                const j = (await r.json()) as { items: VoceMenu[] };
+                ncMenu = (j.items ?? []).filter((v) => v.available && v.orderable !== false);
+                ncRenderCats();
+              }
+            } catch { /* menu assente: lista vuota */ }
+          } else {
+            ncRenderCats();
+          }
+          ncRenderItems();
+        }
+        (document.getElementById("nc-add") as HTMLButtonElement).addEventListener("click", () => void apriNc());
+        (document.getElementById("nc-close") as HTMLButtonElement).addEventListener("click", () => ncOverlay.classList.remove("is-open"));
+        ncOverlay.addEventListener("click", (e) => {
+          if (e.target === ncOverlay) ncOverlay.classList.remove("is-open");
+        });
+        (document.getElementById("nc-cats") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
+          if (!b || !b.dataset.cat) return;
+          ncCat = b.dataset.cat;
+          ncRenderCats();
+          ncRenderItems();
+        });
+        (document.getElementById("nc-langs") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
+          if (!b) return;
+          ncLang = b.dataset.lang === "en" ? "en" : "fr";
+          document.querySelectorAll("#nc-langs .nc-pill").forEach((x) => x.classList.toggle("is-on", x === b));
+        });
+        (document.getElementById("nc-slots") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
+          if (!b) return;
+          if (b.dataset.more) {
+            ncSlotsEstesi = !ncSlotsEstesi;
+            ncRenderSlots();
+            return;
+          }
+          if (!b.dataset.slot) return;
+          ncSlot = b.dataset.slot;
+          ncRenderSlots();
+        });
+        (document.getElementById("nc-items") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("[data-add]") as HTMLElement | null;
+          if (!b) return;
+          const voce = ncMenu.find((v) => v.id === b.dataset.add);
+          if (!voce) return;
+          const cur = ncCart.get(voce.id);
+          ncCart.set(voce.id, { voce, qty: (cur?.qty ?? 0) + 1 });
+          ncRenderCart();
+        });
+        (document.getElementById("nc-cart") as HTMLDivElement).addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          const del = t.closest("[data-del]") as HTMLElement | null;
+          if (del) {
+            ncCart.delete(del.dataset.del ?? "");
+            ncRenderCart();
+            return;
+          }
+          const piu = t.closest("[data-piu]") as HTMLElement | null;
+          const meno = t.closest("[data-meno]") as HTMLElement | null;
+          const idv = piu?.dataset.piu ?? meno?.dataset.meno ?? "";
+          const riga = ncCart.get(idv);
+          if (!riga) return;
+          riga.qty += piu ? 1 : -1;
+          if (riga.qty <= 0) ncCart.delete(idv);
+          ncRenderCart();
+        });
+        (document.getElementById("nc-send") as HTMLButtonElement).addEventListener("click", async () => {
+          const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
+          const emailCl = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
+          if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl)) {
+            ncToast("Nom et email valides requis", true);
+            return;
+          }
+          if (!ncSlot) {
+            ncToast("Choisir un créneau de retrait", true);
+            return;
+          }
+          if (!ncCart.size) {
+            ncToast("Le panier est vide", true);
+            return;
+          }
+          const btn = document.getElementById("nc-send") as HTMLButtonElement;
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/orders", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                first_name: (document.getElementById("nc-prenom") as HTMLInputElement).value,
+                last_name: nom,
+                email: emailCl,
+                phone: (document.getElementById("nc-tel") as HTMLInputElement).value,
+                lang: ncLang,
+                slot: ncSlot,
+                note: (document.getElementById("nc-note") as HTMLTextAreaElement).value,
+                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty })),
+              }),
+            });
+            const j = (await res.json()) as { error?: string };
+            if (!res.ok) throw new Error(j.error || "Création impossible");
+            ncOverlay.classList.remove("is-open");
+            ncToast("Commande créée — lien de paiement envoyé");
+            void carica(true);
+          } catch (e2) {
+            ncToast(e2 instanceof Error ? e2.message : "Création impossible", true);
+          } finally {
+            btn.disabled = false;
+          }
+        });
+        function posizionaNcAdd() {
+          const barra = document.querySelector(".admin-nav") as HTMLElement | null;
+          const btn = document.getElementById("nc-add") as HTMLElement | null;
+          if (!barra || !btn) return;
+          if (!window.matchMedia("(min-width: 521px)").matches) {
+            btn.style.height = "";
+            btn.style.bottom = "";
+            return; // mobile: la barra è a tutta larghezza, il bottone resta sopra
+          }
+          const r = barra.getBoundingClientRect();
+          btn.style.height = `${r.height}px`;
+          btn.style.bottom = `${window.innerHeight - r.bottom}px`;
+        }
+        (document.getElementById("nc-add") as HTMLElement).style.display = "inline-flex";
+        posizionaNcAdd();
+        window.addEventListener("resize", posizionaNcAdd);
       })();
     </script>
   </body>

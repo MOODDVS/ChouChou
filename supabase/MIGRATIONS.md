@@ -35,6 +35,10 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 26 | `reservations_seated.sql` | `seated_at`: arrivo reale al tavolo (timer En cours) |
 | 27 | `reservations_table_time.sql` | `table_minutes`: durata reale del tavolo (Fini manuale = tempo reale; auto-Fini = durée+15; no-show = azzerata) |
 | 28 | `reservations_spent.sql` | `spent_cents`: addition inserita dallo staff a fine tavolo (modale dettagli) |
+| 29 | `orders_source.sql` | `source` su orders: 'web' (sito) / 'manual' (ordine creato dallo staff con link di pagamento) |
+| 30 | `orders_cancel_token.sql` | `cancel_token` su orders: link « Annuler ma commande » nell'email di pagamento |
+| 31 | `clients_photo.sql` | `photo_url` su clients: foto del cliente (modale di modifica) |
+| 32 | `clients_block.sql` | `blocked` su clients: blocco delle prenotazioni dal widget (ordini sempre permessi) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

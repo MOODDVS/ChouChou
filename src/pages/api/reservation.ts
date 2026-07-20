@@ -495,6 +495,25 @@ async function verificaCreneau(
   return null;
 }
 
+/** Cliente BLOCCATO per le prenotazioni (pagina Clients, matita → Bloquer).
+ *  Confronto per email (case-insens.) o telefono (solo cifre, senza 0 iniziali):
+ *  i formati dei numeri variano (+32 4xx / 04xx). Gli ordini NON passano di qui. */
+async function clienteBloccato(email: string, phone: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabaseAdmin.from("clients").select("email, phone").eq("blocked", true).limit(500);
+    if (error || !data) return false; // colonna assente (#32) o nessun blocco
+    const em = email.trim().toLowerCase();
+    const cifre = phone.replace(/\D/g, "").replace(/^0+/, "");
+    for (const r of data) {
+      const re = String(r.email ?? "").trim().toLowerCase();
+      if (em && re && re === em) return true;
+      const rp = String(r.phone ?? "").replace(/\D/g, "").replace(/^0+/, "");
+      if (cifre && rp && Math.min(rp.length, cifre.length) >= 8 && (rp.endsWith(cifre) || cifre.endsWith(rp))) return true;
+    }
+  } catch { /* mai bloccante */ }
+  return false;
+}
+
 /** Estrae e normalizza i campi comuni del body (POST/PUT). */
 function leggiCampi(body: Record<string, unknown>) {
   const date = String(body.date ?? "");
@@ -558,6 +577,11 @@ export const POST: APIRoute = async ({ request }) => {
   const { valido, riga } = leggiCampi(body);
   if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
 
+  // Cliente bloccato: errore GENERICO (non si rivela il blocco)
+  if (await clienteBloccato(riga.email, riga.phone)) {
+    return json({ ok: false, error: "erreurEnvoi" }, 403);
+  }
+
   const cfg = await leggiConfig();
   const errC = await verificaCreneau(cfg, {
     date: riga.date,
@@ -620,6 +644,11 @@ export const PUT: APIRoute = async ({ request }) => {
 
   const { valido, riga } = leggiCampi(body);
   if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
+
+  // Cliente bloccato: errore GENERICO (non si rivela il blocco)
+  if (await clienteBloccato(riga.email, riga.phone)) {
+    return json({ ok: false, error: "erreurEnvoi" }, 403);
+  }
 
   const cfg = await leggiConfig();
   const errC = await verificaCreneau(cfg, {

@@ -200,6 +200,124 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   }
 }
 
+// Testi dell'email "link di pagamento" (ordine creato dallo staff).
+const TXT_PAY = {
+  fr: {
+    subject: (num: string) => `Votre commande #${num} — paiement en ligne`,
+    title: "Finalisez votre commande",
+    intro: (name: string, num: string) =>
+      `Bonjour ${name},<br>voici le récapitulatif de votre commande #${num}. Cliquez sur le bouton ci-dessous pour la régler en ligne.`,
+    pickup: "Retrait prévu à",
+    note: "Note",
+    total: "Total",
+    payBtn: "Payer ma commande",
+    valid: "Le lien de paiement est valable 24 heures.",
+    cancelLink: "Annuler ma commande",
+  },
+  en: {
+    subject: (num: string) => `Your order #${num} — online payment`,
+    title: "Complete your order",
+    intro: (name: string, num: string) =>
+      `Hello ${name},<br>here is the summary of your order #${num}. Click the button below to pay online.`,
+    pickup: "Pickup at",
+    note: "Note",
+    total: "Total",
+    payBtn: "Pay my order",
+    valid: "The payment link is valid for 24 hours.",
+    cancelLink: "Cancel my order",
+  },
+} as const;
+
+/** Email al cliente con il LINK DI PAGAMENTO Stripe (ordine manuale staff). */
+export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; cancel_url?: string | null }): Promise<void> {
+  if (!resend || !RESEND_FROM) {
+    console.warn("Resend non configurato: salto email link di pagamento");
+    return;
+  }
+  const t = TXT_PAY[o.lang === "en" ? "en" : "fr"];
+  const { piatti, noteCliente } = separaItems(o);
+  const ora = oraRitiro(o.pickup_time);
+  const dati = await datiRistorante();
+
+  const righeHtml = piatti
+    .map(
+      (i) => `
+      <tr>
+        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+      </tr>`
+    )
+    .join("");
+  const noteHtml = noteCliente
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    : "";
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 40px 8px;text-align:center;">
+          <p style="margin:0;color:#b3aca6;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:#dfab4e;font-size:42px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${ora}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+            ${righeHtml}
+            ${noteHtml}
+            <tr>
+              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Georgia,'Times New Roman',serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:#dfab4e;font-size:19px;text-align:right;font-family:Georgia,'Times New Roman',serif;">${euro(o.total_cents)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 8px;text-align:center;">
+          <a href="${o.pay_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
+          <p style="margin:14px 0 0;color:#8f8781;font-size:12px;">${t.valid}</p>
+          ${o.cancel_url ? `<p style="margin:18px 0 0;"><a href="${o.cancel_url}" style="color:#ff8a8f;font-size:12px;text-decoration:underline;text-underline-offset:2px;">${t.cancelLink}</a></p>` : ""}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:20px 40px 4px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 24px;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM,
+      to: o.customer_email,
+      subject: t.subject(o.numero),
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email link di pagamento:", e);
+  }
+}
+
 /** Email di notifica alla cucina (design chiaro operativo). */
 async function emailCucina(o: OrdineNotifica): Promise<void> {
   const dest = await kitchenEmail();

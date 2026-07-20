@@ -258,7 +258,10 @@ const { current } = Astro.props;
 
     if (isSuper(email)) {
       const sup = document.getElementById("admin-nav-super");
-      if (sup) sup.style.display = "flex";
+      if (sup) {
+        sup.style.display = "flex";
+        posizionaSuper();
+      }
       return; // il super vede tutto
     }
     if (current === "super") {
@@ -283,6 +286,28 @@ const { current } = Astro.props;
       // rete assente: non si blocca l'admin
     }
   })();
+
+  // --- Ingranaggio Admin: accanto all'isola dei link, stessa altezza (ogni pagina) ---
+  function posizionaSuper() {
+    const barra = document.querySelector(".admin-nav") as HTMLElement | null;
+    const sup = document.getElementById("admin-nav-super") as HTMLElement | null;
+    if (!barra || !sup || sup.style.display === "none") return;
+    if (!window.matchMedia("(min-width: 521px)").matches) {
+      // mobile: la barra occupa tutta la larghezza → resta la regola CSS (sopra la barra)
+      sup.style.left = "";
+      sup.style.bottom = "";
+      sup.style.height = "";
+      return;
+    }
+    const r = barra.getBoundingClientRect();
+    sup.style.height = `${r.height}px`;
+    sup.style.boxSizing = "border-box";
+    sup.style.justifyContent = "center";
+    const g = sup.getBoundingClientRect();
+    sup.style.left = `${Math.max(8, r.left - g.width - 12)}px`;
+    sup.style.bottom = `${window.innerHeight - r.bottom}px`;
+  }
+  window.addEventListener("resize", posizionaSuper);
 
   // --- Poller globale: toast "Nouvelle réservation" su OGNI pagina admin ---
   // Ogni ~20s chiede le prenotazioni PUBBLICHE (web/google) create dopo l'ultimo
