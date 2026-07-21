@@ -70,11 +70,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       #app { display: none; min-height: 100vh; flex-direction: column; }
       main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
 
-      .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.25rem; }
-      @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, 1fr); } }
-      @media (max-width: 560px) { .cards { grid-template-columns: 1fr; } }
+      /* minmax(0,1fr): colonne SEMPRE uguali (il contenuto largo non può
+         allargare la sua colonna). grid-auto-rows + align-items:start =
+         masonry: ogni tile occupa N micro-righe in base alla SUA altezza,
+         quindi una tile alta non allunga le vicine e le tile sotto risalgono. */
+      .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.25rem; grid-auto-rows: 10px; align-items: start; }
+      @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 560px) { .cards { grid-template-columns: minmax(0, 1fr); } }
 
-      .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .tile { display: block; min-width: 0; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
       .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: translateY(-1.5px); }
@@ -1066,6 +1070,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         }
         window.addEventListener("resize", applicaSpans);
 
+        // Masonry: span verticale = altezza reale della tile in micro-righe.
+        // Un ResizeObserver lo tiene aggiornato quando il contenuto cambia
+        // (note caricate, liste, minHeight trascinato con la maniglia).
+        const MICRO = 10, GAPPX = 20; // grid-auto-rows 10px, gap 1.25rem
+        const spanAltezza = (t: HTMLElement) => {
+          const h = t.getBoundingClientRect().height;
+          const n = Math.max(1, Math.ceil((h + GAPPX) / (MICRO + GAPPX)));
+          const nuovo = "span " + n;
+          if (t.style.gridRowEnd !== nuovo) t.style.gridRowEnd = nuovo;
+        };
+        const roTile = new ResizeObserver((voci) => {
+          for (const v of voci) spanAltezza(v.target as HTMLElement);
+        });
+        cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => roTile.observe(t));
+
         function applicaLayout(layout: Item[]) {
           const m = mappa();
           const usati = new Set<string>();
@@ -1165,10 +1184,22 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const c = colonne();
             const cellW = (cards.clientWidth - 20 * (c - 1)) / c;
             const onMove = (ev: PointerEvent) => {
+              // Larghezza: già a scatti di colonna
               const w = Math.min(c, Math.max(1, startW + Math.round((ev.clientX - startX) / cellW)));
               t.dataset.w = String(w);
               t.style.gridColumn = "span " + w;
-              const nh = Math.round(Math.min(900, Math.max(140, startH + (ev.clientY - startY))));
+              let nh = Math.round(Math.min(900, Math.max(140, startH + (ev.clientY - startY))));
+              // SNAP DI RIGA: se il fondo arriva vicino (±16px) al fondo di
+              // un'altra tile, si aggancia per allinearsi con quella riga.
+              const mioTop = t.getBoundingClientRect().top;
+              let aggancio: number | null = null;
+              cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((o) => {
+                if (o === t) return;
+                const cand = o.getBoundingClientRect().bottom - mioTop;
+                if (cand < 140) return;
+                if (Math.abs(cand - nh) < 16 && (aggancio === null || Math.abs(cand - nh) < Math.abs(aggancio - nh))) aggancio = cand;
+              });
+              if (aggancio !== null) nh = Math.round(aggancio);
               t.dataset.minh = String(nh);
               t.style.minHeight = nh + "px";
             };

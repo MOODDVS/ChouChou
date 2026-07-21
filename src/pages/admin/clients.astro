@@ -289,6 +289,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         width: 100%; color-scheme: dark;
       }
       .modal input:focus { outline: none; border-color: var(--c-accent); }
+      .ed-telrow { display: flex; gap: 0.5rem; }
+      .ed-telrow input { flex: 1; min-width: 0; }
+      .ed-prefix {
+        flex: 0 0 auto; width: 118px; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.4rem;
+        border-radius: 0; color-scheme: dark; cursor: pointer;
+      }
+      .ed-prefix:focus { outline: none; border-color: var(--c-accent); }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -421,7 +429,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           <div class="f-field" style="flex:1"><span class="f-label">Nom *</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
         </div>
         <div class="f-field"><span class="f-label">Email</span><input type="email" id="ed-email" autocomplete="off" /></div>
-        <div class="f-field"><span class="f-label">Téléphone</span><input type="tel" id="ed-phone" autocomplete="off" /></div>
+        <div class="f-field"><span class="f-label">Téléphone</span>
+          <span class="ed-telrow">
+            <select id="ed-prefix" class="ed-prefix" aria-label="Indicatif"></select>
+            <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
+          </span>
+        </div>
         <div class="ed-row2">
           <div><span class="f-label">Newsletter</span><p class="ed-hint" id="ed-news-state"></p></div>
           <button type="button" class="ed-upl" id="ed-news-btn"></button>
@@ -564,6 +577,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         fPrefix.value = PREFISSO_DEFAULT;
+        // Select prefisso del MODALE cliente (stessa lista del widget)
+        const edPrefixEl = () => document.getElementById("ed-prefix") as HTMLSelectElement;
+        edPrefixEl().innerHTML = PREFISSI.map(
+          (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
+        ).join("");
+        edPrefixEl().value = PREFISSO_DEFAULT;
         const fFname = document.getElementById("f-fname") as HTMLInputElement;
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
         // e spostato nella tendina, numero ripulito.
@@ -920,6 +939,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (document.getElementById("ed-block-row") as HTMLElement).style.display = "none";
           for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"])
             (document.getElementById(idc) as HTMLInputElement).value = "";
+          edPrefixEl().value = PREFISSO_DEFAULT;
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
           (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Ajouter";
           edUplState.textContent = "";
@@ -939,7 +959,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (document.getElementById("ed-fname") as HTMLInputElement).value = parti[0] ?? "";
           (document.getElementById("ed-lname") as HTMLInputElement).value = parti.slice(1).join(" ");
           (document.getElementById("ed-email") as HTMLInputElement).value = c.email ?? "";
-          (document.getElementById("ed-phone") as HTMLInputElement).value = c.phone ?? "";
+          {
+            const sep = separaPrefisso(c.phone ?? "");
+            edPrefixEl().value = sep?.dial ?? PREFISSO_DEFAULT;
+            (document.getElementById("ed-phone") as HTMLInputElement).value = sep ? sep.resto : (c.phone ?? "");
+          }
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
           edUplState.textContent = "";
           edRenderAvatar();
@@ -1009,7 +1033,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const cognomeV = (document.getElementById("ed-lname") as HTMLInputElement).value.trim();
           const nome = `${prenomV} ${cognomeV}`.trim();
           const emailV = (document.getElementById("ed-email") as HTMLInputElement).value.trim();
-          const telV = (document.getElementById("ed-phone") as HTMLInputElement).value.trim();
+          const telGrezzo = (document.getElementById("ed-phone") as HTMLInputElement).value.trim();
+          const telV = telGrezzo
+            ? telGrezzo.startsWith("+") || telGrezzo.startsWith("00")
+              ? telGrezzo
+              : `${edPrefixEl().value} ${telGrezzo.replace(/^0/, "")}`
+            : "";
           if (!cognomeV && !prenomV) {
             errEl.textContent = "Le nom est obligatoire.";
             return;

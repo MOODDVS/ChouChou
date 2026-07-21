@@ -112,6 +112,25 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .prep-btn.active { border-color: var(--c-accent); background: rgba(223, 171, 78, 0.14); }
       .prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
       .prep-btn:disabled { opacity: 0.5; cursor: wait; }
+      /* Ricerca ordini (convenzione campo compatto con lente) */
+      .o-search {
+        height: 38px; width: 250px; max-width: 100%; box-sizing: border-box;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        border-radius: 999px; padding: 0 2.1rem 0 2.3rem; font-family: var(--font-body); font-size: 0.88rem;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+        background-repeat: no-repeat; background-position: 0.85rem center; background-size: 14px;
+      }
+      .o-search::placeholder { color: var(--c-muted); }
+      .o-search:focus { outline: none; border-color: var(--c-accent); }
+      .o-search-wrap { position: relative; display: inline-flex; }
+      .o-search-x {
+        position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
+        width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
+        background: #1c1819; color: var(--c-text); font-size: 1rem; line-height: 1;
+        display: flex; align-items: center; justify-content: center; padding: 0 0 2px;
+      }
+      .o-search-x:hover { background: var(--c-accent); color: #231f20; }
+      .card .time .o-date { color: #fff; font-size: 0.72rem; font-weight: 400; }
       /* Bottone "Fermer": chiude/riapre le commandes online */
       .prep-close .m { color: var(--c-muted); }
       .prep-close:hover { border-color: #ed1c24; }
@@ -394,6 +413,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             <p class="count" id="count"></p>
           </div>
           <div class="prep">
+            <span class="o-search-wrap">
+              <input type="text" id="o-search" class="o-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
+              <button type="button" class="o-search-x" id="o-search-x" aria-label="Effacer la recherche" style="display:none">×</button>
+            </span>
             <p class="prep-lab">Préparation<span class="prep-note" id="prep-note"></span></p>
             <div class="prep-btns" role="group" aria-label="Temps de préparation">
               <button class="prep-btn" type="button" data-min="15" title="Rapide — 15 minutes">
@@ -532,6 +555,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       const STAMPA_TICKET = false;
       const ICON_PRINT = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>`;
 
+      // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
+      let ricerca = "";
+      const dataBrussels = (iso: string): string =>
+        new Date(iso).toLocaleDateString("fr-BE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Brussels" });
+
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");
         const piatti = o.items.filter((i) => i.id !== "note");
@@ -612,7 +640,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           <div class="card${cardCls}">
             <div class="card-top">
               <div class="ct-left">
-                <span class="time">${esc(oraBrussels(o.pickup_time))}</span>
+                <span class="time">${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>
                 ${tag}
               </div>
               <span class="ct-right">${stampaBtn}${badgeOk}${badgeKo}<span class="total">${euro(o.total_cents)}</span></span>
@@ -771,6 +799,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const oggi = new Date();
           const oggiKey = dayKeyBrussels(oggi.toISOString());
 
+          // Modalità RICERCA: tutti gli ordini caricati (non solo oggi), flat
+          if (ricerca) {
+            const q = ricerca;
+            const trovati = ordini
+              .filter((o) => `${o.customer_name ?? ""} ${o.customer_email ?? ""} ${o.customer_phone ?? ""}`.toLowerCase().includes(q))
+              .sort((a, b) => (a.pickup_time > b.pickup_time ? -1 : 1));
+            labelEl.textContent = `Recherche — ${trovati.length} résultat${trovati.length === 1 ? "" : "s"}`;
+            countEl.textContent = "";
+            if (trovati.length === 0) {
+              stateEl.textContent = "Aucune commande trouvée.";
+              stateEl.style.display = "block";
+            } else {
+              stateEl.style.display = "none";
+            }
+            gridEl.innerHTML = trovati.map(cardHTML).join("");
+            gridDoneEl.innerHTML = "";
+            doneTitleEl.style.display = "none";
+            return;
+          }
+
           labelEl.textContent =
             "Aujourd'hui — " +
             oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
@@ -809,6 +857,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           gridDoneEl.innerHTML = spenti.map(cardHTML).join("");
           doneTitleEl.style.display = spenti.length > 0 ? "block" : "none";
         }
+
+        // --- Campo ricerca ---
+        const oSearch = document.getElementById("o-search") as HTMLInputElement | null;
+        const oSearchX = document.getElementById("o-search-x") as HTMLButtonElement | null;
+        const aggiornaRicerca = () => {
+          ricerca = (oSearch?.value ?? "").trim().toLowerCase();
+          if (oSearchX) oSearchX.style.display = ricerca ? "" : "none";
+          render();
+        };
+        oSearch?.addEventListener("input", aggiornaRicerca);
+        oSearchX?.addEventListener("click", () => {
+          if (oSearch) oSearch.value = "";
+          aggiornaRicerca();
+          oSearch?.focus();
+        });
 
         async function cambiaStato(id: string, status: string, btn: HTMLButtonElement) {
           const card = btn.closest(".card");

@@ -283,9 +283,12 @@ export const GET: APIRoute = async ({ request, url }) => {
       if (m.blocked) esistente.blocked = true;
       if (m.created_at && (!esistente.first_activity || m.created_at < esistente.first_activity))
         esistente.first_activity = m.created_at;
-      if (!esistente.name && name) esistente.name = name;
-      if (!esistente.email && email) esistente.email = email;
-      if (!esistente.phone && phone) esistente.phone = phone;
+      // Il record `clients` è il dato CURATO (modale admin): prevale
+      // sull'aggregazione da ordini/prenotazioni (prima riempiva solo i
+      // buchi → modificare il cognome dal modale non si vedeva mai).
+      if (name) esistente.name = name;
+      if (email) esistente.email = email;
+      if (phone) esistente.phone = phone;
     } else {
       mappa.set(key, {
         id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
