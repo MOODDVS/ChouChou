@@ -10,6 +10,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
+import { aggiornaTimezone } from "../../lib/slots";
 
 export const prerender = false;
 
@@ -20,7 +21,7 @@ export const prerender = false;
 const pDateSSR = Astro.url.searchParams.get("date") ?? "";
 const ssrGiorno = /^\d{4}-\d{2}-\d{2}$/.test(pDateSSR)
   ? pDateSSR
-  : new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels" }).format(new Date());
+  : new Intl.DateTimeFormat("en-CA", { timeZone: await aggiornaTimezone() }).format(new Date());
 let ssrResa: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";

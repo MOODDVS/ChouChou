@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../db";
 import { configGiornoEffettiva } from "../schedule";
-import { TIMEZONE } from "../slots";
+import { TIMEZONE, aggiornaTimezone } from "../slots";
 
 // Dati "oggi" per l'admin (endpoint /api/admin/today + SSR caricaHomeData):
 //   - config       → config oraria effettiva di oggi (come prima)
@@ -25,6 +25,7 @@ function bande(cfg: NonNullable<CfgGiorno>): { open: string; close: string }[] {
 }
 
 export async function caricaToday() {
+  await aggiornaTimezone();
   const ora = DateTime.now().setZone(TIMEZONE);
   const config = await configGiornoEffettiva(ora);
   const hm = ora.toFormat("HH:mm");

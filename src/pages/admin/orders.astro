@@ -11,6 +11,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { aggiornaTimezone } from "../../lib/slots";
 
 export const prerender = false;
 
@@ -24,7 +25,7 @@ try {
   const staff = token ? await verificaTokenLocale(token) : null;
   if (staff) {
     const soglia = DateTime.now()
-      .setZone("Europe/Brussels")
+      .setZone(await aggiornaTimezone())
       .minus({ days: 7 })
       .startOf("day")
       .toISO();
@@ -536,14 +537,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       function euro(cents: number): string {
         return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
       }
-      // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso di Bruxelles.
+      // Fuso del ristorante, esposto dall'header (data-tz)
+      const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
+      // Chiave-giorno (YYYY-MM-DD) di un istante ISO, nel fuso del ristorante.
       function dayKeyBrussels(iso: string): string {
-        return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
+        return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ_LOCALE });
       }
       // Ora HH:MM di un istante ISO, nel fuso di Bruxelles.
       function oraBrussels(iso: string): string {
         return new Date(iso).toLocaleTimeString("fr-BE", {
-          timeZone: "Europe/Brussels",
+          timeZone: TZ_LOCALE,
           hour: "2-digit",
           minute: "2-digit",
         });
@@ -558,7 +561,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
       let ricerca = "";
       const dataBrussels = (iso: string): string =>
-        new Date(iso).toLocaleDateString("fr-BE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "Europe/Brussels" });
+        new Date(iso).toLocaleDateString("fr-BE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
 
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");

@@ -377,18 +377,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       function euro(cents: number): string {
         return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
       }
+      // Fuso del ristorante, esposto dall'header (data-tz)
+      const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       function oraDa(iso: string): string {
-        return new Date(iso).toLocaleTimeString("fr-BE", { timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit" });
+        return new Date(iso).toLocaleTimeString("fr-BE", { timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit" });
       }
       function dayKeyBrussels(iso: string): string {
-        return new Date(iso).toLocaleDateString("en-CA", { timeZone: "Europe/Brussels" });
+        return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ_LOCALE });
       }
       function escHtml(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
       function noteDate(iso: string): string {
         return new Date(iso).toLocaleString("fr-BE", {
-          timeZone: "Europe/Brussels", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+          timeZone: TZ_LOCALE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
         });
       }
       function fasce(cfg: NonNullable<Config>): string[] {
@@ -697,7 +699,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             ];
             return ev.map(([d, n]) => [iso(d), n]);
           };
-          const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels" }).format(new Date());
+          const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
           const anno = Number(oggiBx.slice(0, 4));
           const futuri = [...eventiAnno(anno), ...eventiAnno(anno + 1)]
             .filter(([d]) => d >= oggiBx)
@@ -855,7 +857,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             }
 
             const nowHM = new Intl.DateTimeFormat("en-GB", {
-              timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit", hour12: false,
+              timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit", hour12: false,
             }).format(new Date());
             const escR = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
             const prossime = rese
@@ -911,8 +913,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               else if (g === 1) quando = "demain";
               else {
                 const dt = new Date(Date.now() + g * 86400000);
-                quando = dt.toLocaleDateString("fr-BE", { weekday: "long", timeZone: "Europe/Brussels" });
-                if (g > 6) quando += " " + dt.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Brussels" });
+                quando = dt.toLocaleDateString("fr-BE", { weekday: "long", timeZone: TZ_LOCALE });
+                if (g > 6) quando += " " + dt.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
               }
               reLab.textContent = "Réouverture";
               reVal.textContent = `${quando} à ${jt.reopen.heure}`;

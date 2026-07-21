@@ -1,9 +1,13 @@
 ---
 // Header condiviso delle pagine admin (dashboard, ordini).
+// data-tz: fuso del ristorante (app_config.timezone) esposto al client —
+// orologio, data e formattazioni delle pagine admin lo leggono da qui.
 import { CLIENT } from "../../config/client";
+import { aggiornaTimezone } from "../../lib/slots";
+const TZ_RISTO = await aggiornaTimezone();
 ---
 
-<header class="ah-header">
+<header class="ah-header" data-tz={TZ_RISTO}>
   <div class="ah-left">
     <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
       <img src={CLIENT.logoAdmin} alt={CLIENT.nome} />
@@ -135,9 +139,9 @@ import { CLIENT } from "../../config/client";
   document.addEventListener("webkitfullscreenchange", aggiornaIcona);
 
   // ----- Data (accanto al logo) + orologio live (a destra) -----
-  // Fuso Europe/Brussels come nel resto dell'app: l'ora è quella del
-  // ristorante anche se il tablet è impostato su un altro fuso.
-  const TZ = "Europe/Brussels";
+  // Fuso del RISTORANTE (Réglages → Général, esposto in data-tz): l'ora è
+  // quella del locale anche se il tablet è impostato su un altro fuso.
+  const TZ = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
   const dateDay = document.getElementById("ah-date-day");
   const dateRest = document.getElementById("ah-date-rest");
   const clockEl = document.getElementById("ah-clock-time");

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "./db";
 import { DateTime } from "luxon";
 import { cacheOr } from "./cache";
+import { TIMEZONE } from "./slots";
 
 /**
  * Pop-up di comunicazione (admin Marketing → Pop-up) valido ADESSO
@@ -63,7 +64,7 @@ export async function popupPerPagina(slug: string, lang: "fr" | "en" = "fr"): Pr
       return righe;
     });
 
-    const ora = DateTime.now().setZone("Europe/Brussels");
+    const ora = DateTime.now().setZone(TIMEZONE);
     const oggi = ora.toISODate() ?? "";
     const hhmm = ora.toFormat("HH:mm");
     const giorno = ora.weekday % 7; // luxon: 1=lundi…7=dimanche → 0=dimanche…6=samedi

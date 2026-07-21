@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
+import { TIMEZONE } from "./slots";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -83,7 +84,7 @@ function oraRitiro(iso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Brussels",
+    timeZone: TIMEZONE,
   });
 }
 
@@ -489,7 +490,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
 
   // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
   const quando = DateTime.fromISO(o.pickup_time)
-    .setZone("Europe/Brussels")
+    .setZone(TIMEZONE)
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
@@ -605,7 +606,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   if (!reviewUrl) return null;
 
   // 11:30 del giorno dopo la prenotazione; se è già passato, niente email.
-  const quando = DateTime.fromISO(r.date, { zone: "Europe/Brussels" })
+  const quando = DateTime.fromISO(r.date, { zone: TIMEZONE })
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
   if (quando <= DateTime.now()) return null;
@@ -722,7 +723,7 @@ const LOCALE_RESA: Record<LinguaWidget, string> = {
 function fmtDataResa(iso: string, lang: LinguaWidget): string {
   try {
     return new Intl.DateTimeFormat(LOCALE_RESA[lang] ?? "fr-FR", {
-      timeZone: "Europe/Brussels",
+      timeZone: TIMEZONE,
       weekday: "long",
       day: "numeric",
       month: "long",

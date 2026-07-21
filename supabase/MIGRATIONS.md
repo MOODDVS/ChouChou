@@ -41,6 +41,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 32 | `clients_block.sql` | `blocked` su clients: blocco delle prenotazioni dal widget (ordini sempre permessi) |
 | 33 | `special_days_services.sql` | `services` su special_days: switch dei servizi attivi nei giorni speciali "ouvert" |
 | 34 | `admin_notes_tags.sql` | `tags` su admin_notes: etichette Important / Récurrent / Fournisseur sulle note |
+| 35 | `brand_bucket.sql` | Bucket Storage `brand`: loghi (normale/negativo/1 colore) + favicon da Réglages → Général |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

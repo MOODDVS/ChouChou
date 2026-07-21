@@ -18,6 +18,7 @@ const TIPI: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif",
   svg: "image/svg+xml",
+  ico: "image/x-icon",
   pdf: "application/pdf",
 };
 
@@ -40,7 +41,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Bucket di destinazione: solo quelli previsti (mai libero dal client)
-  const bucket = body.bucket === "menu" || body.bucket === "documents" ? body.bucket : "popups";
+  const bucket =
+    body.bucket === "menu" || body.bucket === "documents" || body.bucket === "brand" ? body.bucket : "popups";
 
   const filename = (body.filename ?? "").trim();
   const estensione = filename.split(".").pop()?.toLowerCase() ?? "";
@@ -50,6 +52,10 @@ export const POST: APIRoute = async ({ request }) => {
   }
   // I PDF vanno SOLO nel bucket documents (e viceversa)
   if ((contentType === "application/pdf") !== (bucket === "documents")) {
+    return json({ error: "Format et destination incohérents" }, 400);
+  }
+  // Le favicon .ico SOLO nel bucket brand
+  if (contentType === "image/x-icon" && bucket !== "brand") {
     return json({ error: "Format et destination incohérents" }, 400);
   }
 

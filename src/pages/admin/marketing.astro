@@ -1278,7 +1278,7 @@ import { CLIENT } from "../../config/client";
                 .map((h) => {
                   const d = new Date(h.created_at).toLocaleDateString("fr-BE", {
                     day: "2-digit", month: "2-digit", year: "numeric",
-                    timeZone: "Europe/Brussels",
+                    timeZone: (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels",
                   });
                   return `<div class="n-row"><span class="n-row-subject">${esc(h.subject)}</span><span class="n-row-count">${h.count} emails</span><span class="n-row-date">${d}</span></div>`;
                 })

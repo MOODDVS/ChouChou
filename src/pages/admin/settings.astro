@@ -418,6 +418,25 @@ import { CLIENT } from "../../config/client";
       .field:last-child { margin-bottom: 0; }
       .field label { flex: 0 0 220px; max-width: 220px; }
       /* Tab Général: input a tutta larghezza, tutto allineato a sinistra */
+      .brand-title { border-top: 1px solid var(--c-line); padding-top: 1.4rem; margin-top: 1.6rem; }
+      .brand-grid { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
+      .brand-card { flex: 1 1 200px; min-width: 180px; border: 1px solid var(--c-line); padding: 0.9rem; }
+      .brand-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); margin-bottom: 0.6rem; }
+      .brand-prev { height: 92px; display: flex; align-items: center; justify-content: center; background: #1c1819; border: 1px solid var(--c-line); margin-bottom: 0.7rem; }
+      .brand-prev.light { background: #f2ede4; }
+      .brand-prev img { max-height: 72px; max-width: 88%; }
+      .brand-prev.fav img { max-height: 32px; max-width: 32px; }
+      .brand-empty { color: var(--c-muted); }
+      .brand-btns { display: flex; gap: 0.5rem; }
+      .brand-up {
+        border-radius: 8px; border: 1px solid var(--c-accent); background: none; color: var(--c-accent);
+        font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem;
+        cursor: pointer; transition: background 0.15s, color 0.15s; display: inline-block;
+      }
+      .brand-up:hover { background: var(--c-accent); color: #231f20; }
+      .brand-btns { align-items: center; }
+      .brand-rm.confirm { height: 32px; }
+      .brand-hint { color: var(--c-muted); font-size: 0.78rem; margin-top: 0.8rem; }
       .section[data-tab="general"] .field { flex-wrap: nowrap; }
       .section[data-tab="general"] .field label { flex: 0 0 260px; max-width: 260px; }
       .section[data-tab="general"] .field input,
@@ -788,6 +807,10 @@ import { CLIENT } from "../../config/client";
               <input type="text" id="g-name" placeholder="Migraf SRL" />
             </div>
             <div class="field">
+              <label for="g-rname">Nom du restaurant</label>
+              <input type="text" id="g-rname" placeholder="La Molisana" />
+            </div>
+            <div class="field">
               <label for="g-street">Adresse (rue et numéro)</label>
               <input type="text" id="g-street" placeholder="Av. Adolphe Demeur 37" />
             </div>
@@ -856,6 +879,43 @@ import { CLIENT } from "../../config/client";
               <label for="g-wa">Numéro WhatsApp<span class="lab-hint">Réservé à la future intégration WhatsApp.</span></label>
               <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" readonly data-noauto="1" />
             </div>
+
+            <h2 class="brand-title">Logos &amp; favicon</h2>
+            <div class="brand-grid">
+              <div class="brand-card" data-bk="brand_logo">
+                <p class="brand-lab">Logo</p>
+                <div class="brand-prev"><span class="brand-empty">—</span><img alt="Logo" style="display:none" /></div>
+                <div class="brand-btns">
+                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
+              <div class="brand-card" data-bk="brand_logo_negative">
+                <p class="brand-lab">Logo négatif</p>
+                <div class="brand-prev light"><span class="brand-empty">—</span><img alt="Logo négatif" style="display:none" /></div>
+                <div class="brand-btns">
+                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
+              <div class="brand-card" data-bk="brand_logo_mono">
+                <p class="brand-lab">Logo 1 couleur</p>
+                <div class="brand-prev"><span class="brand-empty">—</span><img alt="Logo 1 couleur" style="display:none" /></div>
+                <div class="brand-btns">
+                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
+              <div class="brand-card" data-bk="brand_favicon">
+                <p class="brand-lab">Favicon</p>
+                <div class="brand-prev fav"><span class="brand-empty">—</span><img alt="Favicon" style="display:none" /></div>
+                <div class="brand-btns">
+                  <label class="brand-up">Téléverser<input type="file" accept=".ico,.svg,.png" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
+            </div>
+            <p class="brand-hint">SVG ou PNG conseillés (favicon : .ico, .svg ou .png). Enregistrer pour appliquer.</p>
           </div>
 
           <div class="section" data-tab="horaire" style="display:none">
@@ -1351,6 +1411,7 @@ import { CLIENT } from "../../config/client";
         // --- Tab Général ---
         const G_CAMPI: [string, string][] = [
           ["company_name", "g-name"],
+          ["restaurant_name", "g-rname"],
           ["company_street", "g-street"],
           ["company_zip", "g-zip"],
           ["company_city", "g-city"],
@@ -1365,6 +1426,69 @@ import { CLIENT } from "../../config/client";
         ];
         const gEls = new Map(G_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
         gEls.forEach((el) => el.addEventListener("input", dirty));
+
+        // --- Logos & favicon (bucket "brand", URL in app_config) ---
+        const BRAND_CHIAVI = ["brand_logo", "brand_logo_negative", "brand_logo_mono", "brand_favicon"];
+        const brandVal: Record<string, string> = Object.fromEntries(BRAND_CHIAVI.map((k) => [k, ""]));
+        const brandPrev = (card: HTMLElement) => {
+          const k = card.dataset.bk as string;
+          const img = card.querySelector(".brand-prev img") as HTMLImageElement;
+          const vuoto = card.querySelector(".brand-empty") as HTMLElement;
+          const rm = card.querySelector(".brand-rm") as HTMLButtonElement;
+          const url = brandVal[k] ?? "";
+          img.style.display = url ? "" : "none";
+          if (url) img.src = url;
+          vuoto.style.display = url ? "none" : "";
+          rm.style.display = url ? "" : "none";
+        };
+        document.querySelectorAll<HTMLElement>(".brand-card").forEach((card) => {
+          const k = card.dataset.bk as string;
+          const fileInp = card.querySelector("input[type=file]") as HTMLInputElement;
+          fileInp.addEventListener("change", async () => {
+            const f = fileInp.files?.[0];
+            fileInp.value = "";
+            if (!f) return;
+            if (f.size > 4 * 1024 * 1024) { stateEl.textContent = "Fichier trop lourd (max 4 Mo)."; return; }
+            stateEl.textContent = "Téléversement…";
+            try {
+              const b64 = await new Promise<string>((ok, ko) => {
+                const r = new FileReader();
+                r.onload = () => ok(String(r.result).split(",")[1] ?? "");
+                r.onerror = () => ko(new Error("lettura"));
+                r.readAsDataURL(f);
+              });
+              const { data: sFr } = await supabaseBrowser.auth.getSession();
+              const res = await fetch("/api/admin/upload", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${sFr.session?.access_token ?? ""}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ bucket: "brand", filename: f.name, data: b64 }),
+              });
+              const j = await res.json();
+              if (!res.ok || !j.url) { stateEl.textContent = j.error ?? "Téléversement impossible."; return; }
+              brandVal[k] = j.url as string;
+              brandPrev(card);
+              stateEl.textContent = "";
+              dirty();
+            } catch {
+              stateEl.textContent = "Erreur de connexion.";
+            }
+          });
+          const rmBtn = card.querySelector(".brand-rm") as HTMLButtonElement;
+          const BRAND_TRASH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>`;
+          rmBtn.addEventListener("click", () => {
+            if (!rmBtn.classList.contains("confirm")) {
+              rmBtn.classList.add("confirm");
+              rmBtn.textContent = "Supprimer ?";
+              setTimeout(() => { rmBtn.classList.remove("confirm"); rmBtn.innerHTML = BRAND_TRASH; }, 4000);
+              return;
+            }
+            rmBtn.classList.remove("confirm");
+            rmBtn.innerHTML = BRAND_TRASH;
+            brandVal[k] = "";
+            brandPrev(card);
+            dirty();
+          });
+        });
 
         const cemailsBox = document.getElementById("cemails") as HTMLDivElement;
         const cemailAdd = document.getElementById("cemail-add") as HTMLButtonElement;
@@ -2279,6 +2403,8 @@ import { CLIENT } from "../../config/client";
         gEls.forEach((el, k) => {
           el.value = dati.general?.[k] ?? "";
         });
+        for (const k of BRAND_CHIAVI) brandVal[k] = String(dati.general?.[k] ?? "");
+        document.querySelectorAll<HTMLElement>(".brand-card").forEach(brandPrev);
         rEls.forEach((el, k) => {
           el.value = dati.reservations?.[k] ?? "";
           if (k === "reservation_min_notice_minutes" && !el.value) {
@@ -2748,6 +2874,7 @@ import { CLIENT } from "../../config/client";
                   ...Object.fromEntries(
                     Array.from(gEls.entries()).map(([k, el]) => [k, el.value.trim()])
                   ),
+                  ...brandVal,
                   contact_emails: emailsContact(),
                 },
                 reservations: {

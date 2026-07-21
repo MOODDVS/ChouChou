@@ -26,6 +26,7 @@ const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [
   "company_name",
+  "restaurant_name",          // nome pubblico del locale (insegna)
   "company_street",
   "company_zip",
   "company_city",
@@ -38,6 +39,10 @@ const CHIAVI_GENERAL = [
   "newsletter_from_email",
   "whatsapp_number",
   "timezone",                 // fuso orario del ristorante (IANA, es. Europe/Brussels)
+  "brand_logo",               // URL loghi + favicon (bucket Storage "brand")
+  "brand_logo_negative",
+  "brand_logo_mono",
+  "brand_favicon",
 ];
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

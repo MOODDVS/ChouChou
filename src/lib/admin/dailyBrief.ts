@@ -4,7 +4,7 @@ import { supabaseAdmin } from "../db";
 import { CLIENT } from "../../config/client";
 import { SERVIZI_WIDGET } from "../reservationI18n";
 import { caricaToday } from "./caricaToday";
-import { TIMEZONE } from "../slots";
+import { TIMEZONE, aggiornaTimezone } from "../slots";
 
 // Email quotidiana "Votre journée" (récap di ieri + programma di oggi).
 // Chiamata dall'endpoint /api/cron/daily-brief (protetto da CRON_SECRET),
@@ -88,6 +88,7 @@ function intestazione(testo: string): string {
 
 // ---------------------------------------------------------------- invio
 export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; reason: string }> {
+  await aggiornaTimezone();
   const ora = DateTime.now().setZone(TIMEZONE);
   const oggiISO = ora.toISODate() ?? "";
   const ieri = ora.minus({ days: 1 });

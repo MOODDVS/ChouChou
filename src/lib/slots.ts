@@ -1,6 +1,35 @@
 import { DateTime } from "luxon";
+import { supabaseAdmin } from "./db";
 
-export const TIMEZONE = "Europe/Brussels";
+/**
+ * Fuso orario del RISTORANTE. Default Bruxelles; il valore vero arriva da
+ * app_config.timezone (Réglages → Général). Live binding ESM: chi importa
+ * TIMEZONE vede sempre il valore aggiornato. Il refresh (cache 60s) viene
+ * innescato dai punti d'ingresso async: configGiornoEffettiva, caricaToday,
+ * dailyBrief — quindi ogni calcolo di slot/orari usa il fuso configurato.
+ */
+export let TIMEZONE = "Europe/Brussels";
+let tzUltimaLettura = 0;
+export async function aggiornaTimezone(): Promise<string> {
+  const adesso = Date.now();
+  if (adesso - tzUltimaLettura < 60_000) return TIMEZONE;
+  tzUltimaLettura = adesso;
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "timezone")
+      .maybeSingle();
+    const v = String(data?.value ?? "").trim();
+    if (v) {
+      new Intl.DateTimeFormat("en", { timeZone: v }); // valida (throw se invalido)
+      TIMEZONE = v;
+    }
+  } catch {
+    /* config assente o fuso invalido: si tiene il valore attuale */
+  }
+  return TIMEZONE;
+}
 
 /** Configurazione oraria di una singola fascia. */
 export interface OrariApertura {

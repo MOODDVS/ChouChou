@@ -61,7 +61,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Soglia: 7 giorni fa a mezzanotte, fuso Europe/Brussels, in ISO completo
   // (pickup_time è timestamptz, quindi confronto con un istante ISO).
   const soglia = DateTime.now()
-    .setZone("Europe/Brussels")
+    .setZone(TIMEZONE)
     .minus({ days: 7 })
     .startOf("day")
     .toISO();

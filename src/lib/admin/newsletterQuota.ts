@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../db";
 import { DateTime } from "luxon";
+import { TIMEZONE } from "../slots";
 
 /**
  * Quota newsletter condivisa tra le API (invio e crediti).
@@ -31,12 +32,12 @@ export async function statoQuota(): Promise<StatoQuota> {
   const perMese = new Map<string, number>();
   for (const r of log ?? []) {
     const chiave = DateTime.fromISO(r.created_at, { zone: "utc" })
-      .setZone("Europe/Brussels")
+      .setZone(TIMEZONE)
       .toFormat("yyyy-MM");
     perMese.set(chiave, (perMese.get(chiave) ?? 0) + (r.count ?? 0));
   }
 
-  const meseCorrente = DateTime.now().setZone("Europe/Brussels").toFormat("yyyy-MM");
+  const meseCorrente = DateTime.now().setZone(TIMEZONE).toFormat("yyyy-MM");
   const sentThisMonth = perMese.get(meseCorrente) ?? 0;
 
   // Crediti consumati = somma delle eccedenze mensili oltre le incluse
