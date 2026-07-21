@@ -143,8 +143,8 @@ import { CLIENT } from "../../config/client";
           $("rw-err").textContent = "";
           try {
             const res = await fetch("/api/reservation", {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Method-Override": "DELETE" },
               body: JSON.stringify({ token }),
             });
             const j = await res.json();

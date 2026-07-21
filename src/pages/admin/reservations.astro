@@ -1523,8 +1523,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   body: JSON.stringify({ date: svData, service_key: key, reason }),
                 })
               : await fetch(`/api/admin/service-closures?date=${svData}&service_key=${key}`, {
-                  method: "DELETE",
-                  headers,
+                  method: "POST",
+                  headers: { ...headers, "X-Method-Override": "DELETE" },
                 });
             const j = await res.json();
             if (!res.ok) {
@@ -1594,8 +1594,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void (async () => {
             try {
               await fetch(`/api/admin/service-closures?date=${dataDel}&service_key=${key}`, {
-                method: "DELETE",
-                headers,
+                method: "POST",
+                headers: { ...headers, "X-Method-Override": "DELETE" },
               });
             } catch { /* la lista resta com'era */ }
             if (dataDel === svData) {
@@ -1636,10 +1636,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void (async () => {
             try {
               if (x.dataset.tipo === "service") {
-                await fetch(`/api/admin/service-closures?date=${giorno}&service_key=${k}`, { method: "DELETE", headers });
+                await fetch(`/api/admin/service-closures?date=${giorno}&service_key=${k}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
                 chiusureOggi = chiusureOggi.filter((c) => c.service_key !== k);
               } else {
-                await fetch(`/api/admin/zone-closures?date=${giorno}&zone=${encodeURIComponent(k)}`, { method: "DELETE", headers });
+                await fetch(`/api/admin/zone-closures?date=${giorno}&zone=${encodeURIComponent(k)}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
                 chiusureZoneOggi = chiusureZoneOggi.filter((c) => c.zone !== k);
               }
             } catch { /* la pillola resta */ }
@@ -1742,8 +1742,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   body: JSON.stringify({ date: znData, zone: zona, reason }),
                 })
               : await fetch(`/api/admin/zone-closures?date=${znData}&zone=${encodeURIComponent(zona)}`, {
-                  method: "DELETE",
-                  headers,
+                  method: "POST",
+                  headers: { ...headers, "X-Method-Override": "DELETE" },
                 });
             const j = await res.json();
             if (!res.ok) {
@@ -1826,8 +1826,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void (async () => {
             try {
               await fetch(`/api/admin/zone-closures?date=${dataDel}&zone=${encodeURIComponent(zona)}`, {
-                method: "DELETE",
-                headers,
+                method: "POST",
+                headers: { ...headers, "X-Method-Override": "DELETE" },
               });
             } catch { /* la lista resta com'era */ }
             if (dataDel === znData) {

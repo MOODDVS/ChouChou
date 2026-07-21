@@ -856,7 +856,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             orders: del.dataset.orders ?? "0",
           });
           try {
-            const res = await fetch("/api/admin/clients?" + params.toString(), { method: "DELETE", headers });
+            const res = await fetch("/api/admin/clients?" + params.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
             if (!res.ok) { toast("Suppression impossible", true); return; }
             toast("Client supprimé");
             await carica();

@@ -839,8 +839,8 @@ import { CLIENT } from "../../config/client";
             }
             try {
               const res = await fetch("/api/admin/documents?name=" + encodeURIComponent(doc.name), {
-                method: "DELETE",
-                headers,
+                method: "POST",
+                headers: { ...headers, "X-Method-Override": "DELETE" },
               });
               const j = await res.json();
               if (!res.ok) {
@@ -907,7 +907,7 @@ import { CLIENT } from "../../config/client";
             }
             try {
               const qs = new URLSearchParams({ bucket: card.dataset.bucket ?? "", name: card.dataset.name ?? "" });
-              const res = await fetch("/api/admin/images?" + qs.toString(), { method: "DELETE", headers });
+              const res = await fetch("/api/admin/images?" + qs.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
               const j = await res.json();
               if (!res.ok) {
                 toast(j.error ?? "Suppression impossible", true);

@@ -2537,7 +2537,7 @@ import { CLIENT } from "../../config/client";
           const t = e.target as HTMLElement;
           if (!t.classList.contains("sp-del")) return;
           try {
-            await fetch("/api/admin/special-days?id=" + t.dataset.id, { method: "DELETE", headers });
+            await fetch("/api/admin/special-days?id=" + t.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
             await caricaSpecial();
           } catch { /* la lista resta com'era */ }
         });
@@ -3109,7 +3109,7 @@ import { CLIENT } from "../../config/client";
               window.clearTimeout(tmDelTimer);
               tmDelPending = null;
               try {
-                const res = await fetch("/api/admin/team?id=" + id, { method: "DELETE", headers });
+                const res = await fetch("/api/admin/team?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
                 if (res.ok) await tmCarica();
               } catch {
                 /* noop */

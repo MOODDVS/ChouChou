@@ -1180,8 +1180,8 @@ import { CLIENT } from "../../config/client";
             }
             try {
               const res = await fetch("/api/admin/popups?id=" + encodeURIComponent(id), {
-                method: "DELETE",
-                headers,
+                method: "POST",
+                headers: { ...headers, "X-Method-Override": "DELETE" },
               });
               if (!res.ok) {
                 toast("Suppression impossible", true);
@@ -1855,7 +1855,7 @@ import { CLIENT } from "../../config/client";
               window.clearTimeout(cpDelTimer);
               cpDelPending = null;
               try {
-                const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "DELETE", headers });
+                const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
                 if (!res.ok) {
                   toast("Suppression impossible", true);
                   return;

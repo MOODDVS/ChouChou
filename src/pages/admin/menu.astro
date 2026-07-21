@@ -987,7 +987,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           return;
         }
         if (t.closest(".s-del")) {
-          const res = await fetch("/api/admin/categories?id=" + id, { method: "DELETE", headers });
+          const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
           if (!res.ok) {
             const j = await res.json();
             secMsg.textContent = j.error ?? "Suppression impossible.";
@@ -1180,7 +1180,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
               return;
             }
             try {
-              const res = await fetch("/api/admin/menu?id=" + id, { method: "DELETE", headers });
+              const res = await fetch("/api/admin/menu?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
               if (!res.ok) { toast("Suppression impossible", true); return; }
               toast("Plat supprimé");
               await caricaTutto();
