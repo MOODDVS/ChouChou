@@ -41,6 +41,17 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Requête invalide" }, 400);
   }
 
+  // Cancellazione via POST: il firewall dell'hosting blocca il metodo
+  // DELETE dai browser mobili (403 prima di arrivare all'app), quindi la
+  // suppression viaggia come POST { delete_id }.
+  const delId = String(body.delete_id ?? "");
+  if (delId) {
+    if (!/^[0-9a-f-]{36}$/i.test(delId)) return json({ error: "Id invalide" }, 400);
+    const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", delId);
+    if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
+    return json({ ok: true });
+  }
+
   const content = String(body.content ?? "").trim();
   if (!content) return json({ error: "Note vide" }, 400);
   const author = (staff.email ?? "").slice(0, 120) || null;

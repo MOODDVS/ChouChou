@@ -477,7 +477,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             }
             msgEl.textContent = "";
             try {
-              const res = await fetch("/api/admin/notes?id=" + id, { method: "DELETE", headers });
+              const res = await fetch("/api/admin/notes", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ delete_id: id }),
+              });
               if (res.ok) { notes = notes.filter((x) => x.id !== id); render(); }
               else { msgEl.textContent = await erroreDa(res, "Suppression impossible."); }
             } catch { msgEl.textContent = "Erreur de connexion."; }
