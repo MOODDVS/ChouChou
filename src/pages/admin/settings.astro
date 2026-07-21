@@ -81,9 +81,28 @@ import { CLIENT } from "../../config/client";
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
-      #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"] { max-width: none; }
+      #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"] { max-width: none; }
       #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
       @media (max-width: 1100px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
+
+      /* --- Tab Notifications --- */
+      .nf-row { display: flex; align-items: flex-end; gap: 1.4rem; border: 1px solid var(--c-line); padding: 1.1rem 1.3rem; flex-wrap: wrap; }
+      .nf-txt { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 260px; margin-bottom: 2px; }
+      .nf-txt strong { font-size: 1rem; }
+      .nf-txt strong .nf-badge { display: inline-block; background: #2e9e6b; color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
+      .nf-txt span { color: var(--c-muted); font-size: 0.84rem; line-height: 1.55; }
+      .nf-sw { width: 46px; height: 25px; border-radius: 999px; background: #5d5555; border: none; cursor: pointer; position: relative; transition: background 0.2s; padding: 0; flex: 0 0 auto; margin-bottom: 8px; }
+      .nf-sw .nf-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+      .nf-sw.is-on { background: var(--c-accent); }
+      .nf-sw.is-on .nf-knob { left: 24px; }
+      .nf-msg { margin-top: 0.8rem; font-size: 0.85rem; color: var(--c-muted); min-height: 1.2em; }
+      .nf-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+      .nf-f-hour { flex: 0 0 140px; }
+      .nf-f-email { flex: 0 0 300px; }
+      .nf-field label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
+      .nf-field input { background: #1c1819; border: 1px solid var(--c-line); color: #fff; padding: 0.6rem 0.85rem; font-family: var(--font-body); font-size: 0.95rem; width: 100%; box-sizing: border-box; color-scheme: dark; }
+      .nf-field input:focus { outline: none; border-color: var(--c-accent); }
+      @media (max-width: 900px) { .nf-f-hour, .nf-f-email { flex: 1 1 100%; } }
 
       /* --- Aperçu widget réservations --- */
       .rw-note { color: var(--c-muted); font-size: 0.8rem; line-height: 1.6; margin-bottom: 1rem; }
@@ -756,6 +775,7 @@ import { CLIENT } from "../../config/client";
           <button type="button" data-t="cuisine"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>Cuisine</button>
           <button type="button" data-t="liens"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Liens</button>
           <button type="button" data-t="team"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Team</button>
+          <button type="button" data-t="notifications"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>Notifications</button>
         </div>
 
         <div class="state" id="state">Chargement…</div>
@@ -1089,6 +1109,25 @@ import { CLIENT } from "../../config/client";
                 <button type="button" class="kemail-add" id="kemail-add">+ Ajouter un email</button>
               </div>
             </div>
+          </div>
+
+          <div class="section" data-tab="notifications" style="display:none">
+            <div class="nf-row">
+              <div class="nf-txt">
+                <strong>Email « Votre journée » <span class="nf-badge" id="nf-badge" style="display:none">Activée</span></strong>
+                <span>Le récap d'hier et le programme du jour, envoyé chaque jour à l'heure choisie.</span>
+              </div>
+              <div class="nf-field nf-f-hour">
+                <label for="nf-hour">Heure d'envoi</label>
+                <input type="time" id="nf-hour" value="09:00" />
+              </div>
+              <div class="nf-field nf-f-email">
+                <label for="nf-email">Email de réception</label>
+                <input type="email" id="nf-email" placeholder="Vide = adresse des réservations" autocomplete="off" />
+              </div>
+              <button type="button" class="nf-sw" id="nf-daily" aria-label="Activer ou désactiver l'email quotidienne"><span class="nf-knob"></span></button>
+            </div>
+            <p class="nf-msg" id="nf-msg"></p>
           </div>
 
           <div class="section" data-tab="liens" style="display:none">
@@ -2162,6 +2201,68 @@ import { CLIENT } from "../../config/client";
           stateEl.textContent = "Erreur de connexion.";
           return;
         }
+
+        // --- Tab Notifications: toggle email quotidienne (salvataggio immediato) ---
+        const nfSw = document.getElementById("nf-daily") as HTMLButtonElement | null;
+        const nfMsg = document.getElementById("nf-msg") as HTMLParagraphElement | null;
+        const nfHour = document.getElementById("nf-hour") as HTMLInputElement | null;
+        const nfEmail = document.getElementById("nf-email") as HTMLInputElement | null;
+        const nfDati = dati as unknown as { daily_brief_enabled?: boolean; daily_brief_hour?: string; daily_brief_email?: string };
+        if (nfHour) nfHour.value = nfDati.daily_brief_hour || "09:00";
+        if (nfEmail) nfEmail.value = nfDati.daily_brief_email || "";
+        let nfOn = Boolean(nfDati.daily_brief_enabled);
+        const nfBadge = document.getElementById("nf-badge") as HTMLSpanElement | null;
+        const nfAggiorna = () => {
+          nfSw?.classList.toggle("is-on", nfOn);
+          if (nfBadge) nfBadge.style.display = nfOn ? "" : "none";
+        };
+        nfAggiorna();
+        nfSw?.addEventListener("click", async () => {
+          const nuovo = !nfOn;
+          nfOn = nuovo;
+          nfAggiorna();
+          if (nfMsg) nfMsg.textContent = "";
+          try {
+            const { data: sFresca } = await supabaseBrowser.auth.getSession();
+            const tk = sFresca.session?.access_token ?? "";
+            const res = await fetch("/api/admin/settings", {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ daily_brief_enabled: nuovo }),
+            });
+            if (!res.ok) throw new Error();
+          } catch {
+            nfOn = !nuovo;
+            nfAggiorna();
+            if (nfMsg) nfMsg.textContent = "Enregistrement impossible — réessaie.";
+          }
+        });
+        const nfPatch = async (body: Record<string, string>, okMsg: string) => {
+          if (nfMsg) nfMsg.textContent = "";
+          try {
+            const { data: sFresca } = await supabaseBrowser.auth.getSession();
+            const tk = sFresca.session?.access_token ?? "";
+            const res = await fetch("/api/admin/settings", {
+              method: "PATCH",
+              headers: { Authorization: `Bearer ${tk}`, "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (!res.ok) {
+              const j = await res.json().catch(() => null);
+              if (nfMsg) nfMsg.textContent = (j as { error?: string } | null)?.error ?? "Enregistrement impossible — réessaie.";
+              return;
+            }
+            if (nfMsg) nfMsg.textContent = okMsg;
+          } catch {
+            if (nfMsg) nfMsg.textContent = "Erreur de connexion.";
+          }
+        };
+        nfHour?.addEventListener("change", () => {
+          if (nfHour.value) nfPatch({ daily_brief_hour: nfHour.value }, `Heure d'envoi enregistrée (${nfHour.value}).`);
+        });
+        nfEmail?.addEventListener("change", () => {
+          nfPatch({ daily_brief_email: nfEmail.value.trim() }, nfEmail.value.trim() ? "Adresse enregistrée." : "Adresse par défaut (réservations) rétablie.");
+        });
 
         const mappa = new Map(dati.days.map((g) => [g.day_of_week, g]));
         daysEl.innerHTML = ORDINE.map((d) => rigaGiorno(mappa.get(d)!)).join("");

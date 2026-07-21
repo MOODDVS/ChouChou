@@ -4,8 +4,20 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
 
-const SELECT = "id, content, author, done, created_at";
+const SELECT = "id, content, author, done, created_at, tags";
+const SELECT_BASE = "id, content, author, done, created_at";
 const MAX_LEN = 1000;
+const TAGS_VALIDI = ["important", "recurrent", "fournisseur"];
+
+/** true se l'errore è "colonna tags assente" (migrazione #34 non lanciata). */
+function senzaTags(err: { message?: string } | null): boolean {
+  return !!err && String(err.message ?? "").includes("tags");
+}
+
+function leggiTags(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.map((t) => String(t)).filter((t) => TAGS_VALIDI.includes(t)))];
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -19,11 +31,20 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("admin_notes")
     .select(SELECT)
     .order("done", { ascending: true })
     .order("created_at", { ascending: false });
+  if (senzaTags(error)) {
+    const retry = await supabaseAdmin
+      .from("admin_notes")
+      .select(SELECT_BASE)
+      .order("done", { ascending: true })
+      .order("created_at", { ascending: false });
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) return json({ error: "Lecture impossible" }, 500);
   return json({ notes: data ?? [] });
@@ -55,12 +76,22 @@ export const POST: APIRoute = async ({ request }) => {
   const content = String(body.content ?? "").trim();
   if (!content) return json({ error: "Note vide" }, 400);
   const author = (staff.email ?? "").slice(0, 120) || null;
+  const tags = leggiTags(body.tags);
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("admin_notes")
-    .insert({ content: content.slice(0, MAX_LEN), author })
+    .insert({ content: content.slice(0, MAX_LEN), author, tags: tags.length ? tags : null })
     .select(SELECT)
     .single();
+  if (senzaTags(error)) {
+    const retry = await supabaseAdmin
+      .from("admin_notes")
+      .insert({ content: content.slice(0, MAX_LEN), author })
+      .select(SELECT_BASE)
+      .single();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error || !data) return json({ error: "Création impossible" }, 500);
   return json({ note: data });
@@ -90,12 +121,22 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("admin_notes")
     .update(campi)
     .eq("id", id)
     .select(SELECT)
     .single();
+  if (senzaTags(error)) {
+    const retry = await supabaseAdmin
+      .from("admin_notes")
+      .update(campi)
+      .eq("id", id)
+      .select(SELECT_BASE)
+      .single();
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error || !data) return json({ error: "Modification impossible" }, 500);
   return json({ note: data });

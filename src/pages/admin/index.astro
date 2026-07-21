@@ -76,9 +76,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-      .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-      .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .tile-big { font-family: var(--font-title); font-size: 3.2rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
+      .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+      .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: translateY(-1.5px); }
+      .tile-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
+      .ord-two { display: flex; gap: 1.5rem; }
+      .ord-two > div { flex: 1; min-width: 0; }
+      .ord-nexts { display: flex; flex-direction: column; gap: 0.35rem; }
+      .ord-nx { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.95rem; min-width: 0; }
+      .ord-nx .nx-h { font-weight: 800; color: var(--c-accent); flex: 0 0 auto; }
+      .ord-nx .nx-n { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .resa-two { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; margin-bottom: 1.25rem; }
+      .resa-two .tile-sub { margin-bottom: 0; }
+      .resa-mini { display: flex; align-items: flex-end; gap: 0.45rem; padding-top: 0.2rem; }
+      .resa-mini .rmc { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+      .resa-mini .rmc b { font-size: 0.74rem; color: #fff; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+      .resa-mini .rmc i { width: 18px; border-radius: 2px 2px 0 0; display: block; }
       .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
       .tile-next { border-top: 1px solid var(--c-line); padding-top: 1rem; font-size: 0.95rem; }
       .tile-next .lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
@@ -127,7 +139,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* --- Tile Horaires --- */
       .sched-status { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.03em; line-height: 1; margin-bottom: 0.9rem; }
       .sched-status.open { color: var(--c-accent); }
-      .sched-status.closed { color: #ff8a8f; font-family: var(--font-body); font-weight: 800; font-size: 1.2rem; letter-spacing: 0; }
+      .sched-status.closed { color: #d24d55; }
       .sched-bands { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
       .sched-band { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; }
       .sched-band .clock { width: 15px; height: 15px; stroke: var(--c-accent); fill: none; stroke-width: 1.8; flex-shrink: 0; }
@@ -152,6 +164,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .spx-note { color: var(--c-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .spx-more { color: var(--c-muted); font-size: 0.8rem; }
       .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
+      .spx-evts { display: flex; flex-direction: column; gap: 0.55rem; }
+      .spx-ev { display: flex; align-items: center; gap: 0.65rem; min-width: 0; }
+      .ev-cal { width: 50px; flex: 0 0 auto; background: #1c1819; border: 1px solid var(--c-line); border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 0.3rem 0 0.28rem; line-height: 1; }
+      .ev-cal b { font-family: var(--font-title); font-size: 1.1rem; color: #fff; }
+      .ev-cal i { font-style: normal; font-size: 0.56rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); margin-top: 3px; }
+      .ev-nome { display: block; font-weight: 700; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ev-gg { display: block; color: var(--c-muted); font-size: 0.76rem; text-transform: capitalize; }
+      .ev-nome .spx-b { font-size: 0.56rem; padding: 0.1rem 0.45rem; vertical-align: 2px; margin-left: 0.25rem; }
 
       /* --- Tile Menu --- */
       .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
@@ -195,6 +215,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .notes-compose textarea::placeholder { color: rgba(35, 31, 32, 0.5); }
       .notes-compose textarea:focus { outline: none; border-color: var(--c-brown); }
       .notes-compose-actions { display: flex; justify-content: flex-end; }
+      .notes-compose-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+      .nc-tags { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .nc-tag { border-radius: 999px; border: 1px solid rgba(35, 31, 32, 0.45); background: transparent; color: #2c2013; font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; padding: 0.28rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+      .nc-tag.is-on { background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
+      .note-tags { display: flex; gap: 0.35rem; margin-top: 0.3rem; flex-wrap: wrap; }
+      .note-tag { border-radius: 999px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.5rem; }
+      .note-tag.t-important { background: #8f2e15; color: #fff; }
+      .note-tag.t-recurrent { background: var(--c-brown); color: var(--c-accent); }
+      .note-tag.t-fournisseur { background: #007153; color: #fff; }
+      .np-item .note-tag { transform: translateY(-1px); }
       .nc-save { background: var(--c-brown); border: 1px solid var(--c-brown); color: var(--c-accent); font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.04em; padding: 0.5rem 1.6rem; cursor: pointer; border-radius: 999px; transition: background 0.15s, color 0.15s; }
       .nc-save:hover:not(:disabled) { background: transparent; color: var(--c-brown); }
       .nc-save:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -288,6 +318,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         <div class="notes-compose">
           <textarea id="notes-input" maxlength="1000" placeholder="Un rappel pour l'équipe… (ex. « livraison farine à 10h », « rappeler le fournisseur »)"></textarea>
           <div class="notes-compose-actions">
+            <div class="nc-tags" id="nc-tags">
+              <button type="button" class="nc-tag" data-tag="important">Important</button>
+              <button type="button" class="nc-tag" data-tag="recurrent">Récurrent</button>
+              <button type="button" class="nc-tag" data-tag="fournisseur">Fournisseur</button>
+            </div>
             <button class="nc-save" id="nc-save" type="button">Ajouter</button>
           </div>
         </div>
@@ -314,7 +349,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       } | null;
       type MenuRow = { category: string; available: boolean };
       type Cat = { name: string; kind: "food" | "drink" };
-      type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string };
+      type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null };
       type StatsResp = {
         revenue_cents: number;
         peak_hour: number | null;
@@ -378,6 +413,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return `${fallback} (HTTP ${res.status})`; }
         }
 
+        const TAG_FR: Record<string, string> = { important: "Important", recurrent: "Récurrent", fournisseur: "Fournisseur" };
+        const tagPills = (n: Note): string => {
+          const t = Array.isArray(n.tags) ? n.tags.filter((x) => TAG_FR[x]) : [];
+          return t.length ? `<div class="note-tags">${t.map((x) => `<span class="note-tag t-${x}">${TAG_FR[x]}</span>`).join("")}</div>` : "";
+        };
+
         function renderPreview() {
           if (notes.length === 0) {
             preview.innerHTML = '<p class="np-empty">Aucune note. Appuie sur + pour en ajouter.</p>';
@@ -390,7 +431,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               .map(
                 (n) => `
               <div class="np-item${n.done ? " done" : ""}">
-                <span class="np-dot"></span><span class="np-text">${escHtml(n.content)}</span>
+                <span class="np-dot"></span><span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
               </div>`
               )
               .join("") +
@@ -407,7 +448,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             <div class="note${n.done ? " done" : ""}" data-id="${n.id}">
               <button class="note-check" type="button" title="${n.done ? "Rouvrir" : "Marquer comme fait"}">${n.done ? CHECK_ICON : ""}</button>
               <div class="note-body">
-                <div class="note-text">${escHtml(n.content)}</div>
+                <div class="note-text">${escHtml(n.content)}</div>${tagPills(n)}
                 <div class="note-meta">${n.author ? escHtml(n.author) + " · " : ""}${noteDate(n.created_at)}</div>
               </div>
               <button class="note-del" type="button" title="Supprimer">${TRASH_ICON}</button>
@@ -431,6 +472,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
+        const tagSel = new Set<string>();
+        const tagsBox = document.getElementById("nc-tags") as HTMLElement | null;
+        tagsBox?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-tag") as HTMLButtonElement | null;
+          if (!b || !b.dataset.tag) return;
+          const t = b.dataset.tag;
+          if (tagSel.has(t)) tagSel.delete(t); else tagSel.add(t);
+          b.classList.toggle("is-on", tagSel.has(t));
+        });
+        const azzeraTag = () => {
+          tagSel.clear();
+          tagsBox?.querySelectorAll(".nc-tag").forEach((b) => b.classList.remove("is-on"));
+        };
+
         saveBtn.addEventListener("click", async () => {
           const content = input.value.trim();
           if (!content) { input.focus(); return; }
@@ -440,11 +495,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const res = await fetch("/api/admin/notes", {
               method: "POST",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ content }),
+              body: JSON.stringify({ content, tags: [...tagSel] }),
             });
             if (res.ok) {
               notes.unshift((await res.json()).note as Note);
               input.value = "";
+              azzeraTag();
               render();
             } else {
               msgEl.textContent = await erroreDa(res, "Ajout impossible.");
@@ -588,6 +644,86 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
         })();
 
+        // ---------- Événements du pays (calcolo locale, nessuna API) ----------
+        // Feste ufficiali belghe + date commerciali utili a un ristorante.
+        // Le feste mobili derivano dalla Pasqua (algoritmo di Gauss).
+        (async () => {
+          const box = document.getElementById("spx-evts") as HTMLElement | null;
+          if (!box) return;
+          const pasqua = (anno: number): Date => {
+            const a = anno % 19, b = Math.floor(anno / 100), c = anno % 100;
+            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+            const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
+            const m = Math.floor((a + 11 * h + 22 * l) / 451);
+            const mese = Math.floor((h + l - 7 * m + 114) / 31);
+            const giorno = ((h + l - 7 * m + 114) % 31) + 1;
+            return new Date(anno, mese - 1, giorno);
+          };
+          const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          const somma = (d: Date, gg: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + gg);
+          const nDomenica = (anno: number, mese0: number, n: number): Date => {
+            const primo = new Date(anno, mese0, 1);
+            const off = (7 - primo.getDay()) % 7; // prima domenica
+            return new Date(anno, mese0, 1 + off + (n - 1) * 7);
+          };
+          const eventiAnno = (anno: number): [string, string][] => {
+            const P = pasqua(anno);
+            const ev: [Date, string][] = [
+              [new Date(anno, 0, 1), "Nouvel An"],
+              [new Date(anno, 1, 14), "Saint-Valentin"],
+              [somma(P, -47), "Mardi Gras"],
+              [P, "Pâques"],
+              [somma(P, 1), "Lundi de Pâques"],
+              [new Date(anno, 4, 1), "Fête du Travail"],
+              [nDomenica(anno, 4, 2), "Fête des Mères"],
+              [somma(P, 39), "Ascension"],
+              [somma(P, 49), "Pentecôte"],
+              [somma(P, 50), "Lundi de Pentecôte"],
+              [nDomenica(anno, 5, 2), "Fête des Pères"],
+              [new Date(anno, 6, 21), "Fête nationale belge"],
+              [new Date(anno, 7, 15), "Assomption"],
+              [new Date(anno, 9, 31), "Halloween"],
+              [new Date(anno, 10, 1), "Toussaint"],
+              [new Date(anno, 10, 11), "Armistice"],
+              [new Date(anno, 11, 6), "Saint-Nicolas"],
+              [new Date(anno, 11, 24), "Réveillon de Noël"],
+              [new Date(anno, 11, 25), "Noël"],
+              [new Date(anno, 11, 31), "Réveillon du Nouvel An"],
+            ];
+            return ev.map(([d, n]) => [iso(d), n]);
+          };
+          const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Brussels" }).format(new Date());
+          const anno = Number(oggiBx.slice(0, 4));
+          const futuri = [...eventiAnno(anno), ...eventiAnno(anno + 1)]
+            .filter(([d]) => d >= oggiBx)
+            .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+            .slice(0, 3);
+
+          // Aperto/chiuso quel giorno: month API pubblica (orari settimanali +
+          // jours spéciaux, stessa fonte del widget). Errore → nessun tag.
+          const chiusi = new Set<string>();
+          let tagOk = false;
+          try {
+            const mesi = [...new Set(futuri.map(([d]) => d.slice(0, 7)))];
+            const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((r) => r.json())));
+            for (const rr of risp) for (const d of rr.closed ?? []) chiusi.add(d);
+            tagOk = true;
+          } catch { /* niente tag */ }
+
+          box.innerHTML = futuri
+            .map(([d, nome]) => {
+              const dt = new Date(d + "T12:00:00");
+              const mese = dt.toLocaleDateString("fr-BE", { month: "short" }).replace(".", "");
+              const gg = dt.toLocaleDateString("fr-BE", { weekday: "long" });
+              const tag = tagOk
+                ? (chiusi.has(d) ? '<span class="spx-b closed">Fermé</span>' : '<span class="spx-b open">Ouvert</span>')
+                : "";
+              return `<div class="spx-ev"><span class="ev-cal"><b>${Number(d.slice(8, 10))}</b><i>${mese}</i></span><span class="ev-txt"><span class="ev-nome">${nome}${tag ? " " + tag : ""}</span><span class="ev-gg">${gg}</span></span></div>`;
+            })
+            .join("");
+        })();
+
         // ---------- Jours spéciaux (fetch autonomo, fuori dal batch SSR) ----------
         (async () => {
           const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
@@ -674,44 +810,62 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
             const ordTot = ordOggi.reduce((s, o) => s + o.total_cents, 0);
             (document.getElementById("ord-count") as HTMLElement).textContent = String(ordOggi.length);
-            (document.getElementById("ord-sub") as HTMLElement).textContent =
-              ordOggi.length > 0 ? `aujourd'hui · ${euro(ordTot)}` : "aujourd'hui";
+            (document.getElementById("ord-tot") as HTMLElement).textContent = euro(ordTot);
 
             const oraOra = new Date();
-            const prossimoOrd = ordOggi.find((o) => o.status === "paid" && new Date(o.pickup_time) >= oraOra);
-            const ordNextEl = document.getElementById("ord-next") as HTMLElement;
-            if (prossimoOrd) {
-              ordNextEl.textContent = `${oraDa(prossimoOrd.pickup_time)} — ${prossimoOrd.customer_name}`;
-            } else {
-              ordNextEl.textContent = "Aucun à venir";
-              ordNextEl.classList.add("none");
-            }
+            const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            const prossimi = ordOggi.filter((o) => o.status === "paid" && new Date(o.pickup_time) >= oraOra).slice(0, 3);
+            const ordNextList = document.getElementById("ord-next-list") as HTMLElement;
+            ordNextList.innerHTML = prossimi.length
+              ? prossimi.map((o) => `<div class="ord-nx"><span class="nx-h">${oraDa(o.pickup_time)}</span><span class="nx-n">${esc(String(o.customer_name ?? ""))}</span></div>`).join("")
+              : '<span class="val none">Aucun à venir</span>';
           }
 
           // ---------- Réservations (aujourd'hui) ----------
           if (resResa.ok) {
             const jr = await resResa.json();
-            const rese = ((jr.reservations as ResaRow[]) ?? []).filter((r) => r.status === "confirmed");
+            const tutte = (jr.reservations as ResaRow[]) ?? [];
+            const rese = tutte.filter((r) => r.status === "confirmed");
             const couv = Number(jr.couverts ?? 0);
             (document.getElementById("resa-count") as HTMLElement).textContent = String(rese.length);
             (document.getElementById("resa-sub") as HTMLElement).textContent =
               rese.length > 0 ? `aujourd'hui · ${couv} couv.` : "aujourd'hui";
 
+            // Mini-grafica: conteggio per stato (stessi colori della pagina Résa)
+            const STATI: [string, string, string][] = [
+              ["confirmed", "Conf.", "#2e9e6b"],
+              ["seated", "En cours", "#3b82f6"],
+              ["done", "Fini", "#b3aca6"],
+              ["noshow", "No-show", "#dfab4e"],
+              ["cancelled", "Annul.", "#ed1c24"],
+            ];
+            const miniEl = document.getElementById("resa-mini") as HTMLElement | null;
+            if (miniEl) {
+              const contaSt = (st: string) => tutte.filter((r) => r.status === st).length;
+              const max = Math.max(1, ...STATI.map(([st]) => contaSt(st)));
+              miniEl.innerHTML = STATI.map(([st, lab, col]) => {
+                const n = contaSt(st);
+                const h = Math.max(2, Math.round((n / max) * 34));
+                return `<span class="rmc" title="${lab}"><b>${n}</b><i style="height:${h}px;background:${col}"></i></span>`;
+              }).join("");
+            }
+
             const nowHM = new Intl.DateTimeFormat("en-GB", {
               timeZone: "Europe/Brussels", hour: "2-digit", minute: "2-digit", hour12: false,
             }).format(new Date());
-            const prossima = rese
+            const escR = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            const prossime = rese
               .slice()
               .sort((a, b) => (a.heure < b.heure ? -1 : 1))
-              .find((r) => String(r.heure).slice(0, 5) >= nowHM);
-            const resaNextEl = document.getElementById("resa-next") as HTMLElement;
-            if (prossima) {
-              const nome = `${prossima.first_name ?? ""} ${prossima.last_name ?? ""}`.trim();
-              resaNextEl.textContent = `${String(prossima.heure).slice(0, 5)} — ${nome} (${prossima.people})`;
-            } else {
-              resaNextEl.textContent = "Aucune à venir";
-              resaNextEl.classList.add("none");
-            }
+              .filter((r) => String(r.heure).slice(0, 5) >= nowHM)
+              .slice(0, 3);
+            const resaNextList = document.getElementById("resa-next-list") as HTMLElement;
+            resaNextList.innerHTML = prossime.length
+              ? prossime.map((r) => {
+                  const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
+                  return `<div class="ord-nx"><span class="nx-h">${String(r.heure).slice(0, 5)}</span><span class="nx-n">${escR(nome)} (${r.people})</span></div>`;
+                }).join("")
+              : '<span class="val none">Aucune à venir</span>';
           }
 
           // ---------- Horaires (aujourd'hui) ----------
@@ -767,15 +921,21 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // ---------- Cuisine ----------
           const cuiStatus = document.getElementById("cui-status") as HTMLElement | null;
           const cuiSw = document.getElementById("cui-sw") as HTMLButtonElement | null;
-          const setCucina = (chiusa: boolean) => {
+          // La cucina è chiusa se il manager l'ha chiusa (switch) O se il
+          // ristorante è chiuso oggi (nessuna fascia). Lo switch riflette solo
+          // la chiusura manuale.
+          const giornoSenzaServizio = !cfg || fasce(cfg).length === 0;
+          let cucinaChiusaManuale = Boolean(jt?.orders_closed);
+          const aggiornaCucina = () => {
+            const chiusa = cucinaChiusaManuale || giornoSenzaServizio;
             if (cuiStatus) {
               cuiStatus.textContent = chiusa ? "Fermée" : "Ouverte";
               cuiStatus.classList.toggle("closed", chiusa);
               cuiStatus.classList.toggle("open", !chiusa);
             }
-            cuiSw?.classList.toggle("is-on", !chiusa);
+            cuiSw?.classList.toggle("is-on", !cucinaChiusaManuale);
           };
-          setCucina(Boolean(jt?.orders_closed));
+          aggiornaCucina();
           if (cfg) {
             const cp = document.getElementById("cui-prep") as HTMLElement | null;
             if (cp) cp.textContent = `${cfg.prep_time_minutes} min`;
@@ -785,17 +945,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           cuiSw?.addEventListener("click", async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const chiudi = cuiSw.classList.contains("is-on"); // acceso = aperta → si chiude
-            setCucina(chiudi);
+            const nuovo = !cucinaChiusaManuale;
+            cucinaChiusaManuale = nuovo;
+            aggiornaCucina();
             try {
               const res = await fetch("/api/admin/settings", {
                 method: "PATCH",
                 headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ orders_closed: chiudi }),
+                body: JSON.stringify({ orders_closed: nuovo }),
               });
-              if (!res.ok) setCucina(!chiudi);
+              if (!res.ok) { cucinaChiusaManuale = !nuovo; aggiornaCucina(); }
             } catch {
-              setCucina(!chiudi);
+              cucinaChiusaManuale = !nuovo;
+              aggiornaCucina();
             }
           });
 

@@ -40,6 +40,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 31 | `clients_photo.sql` | `photo_url` su clients: foto del cliente (modale di modifica) |
 | 32 | `clients_block.sql` | `blocked` su clients: blocco delle prenotazioni dal widget (ordini sempre permessi) |
 | 33 | `special_days_services.sql` | `services` su special_days: switch dei servizi attivi nei giorni speciali "ouvert" |
+| 34 | `admin_notes_tags.sql` | `tags` su admin_notes: etichette Important / Récurrent / Fournisseur sulle note |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
@@ -60,3 +61,4 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `RESEND_FROM` | .env + host | Mittente email (dominio verificato) |
 | `KITCHEN_EMAIL` | .env + host | Fallback email cucina (prio: app_config) |
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
+| `CRON_SECRET` | .env + host | Protegge /api/cron/daily-brief (email quotidiana "Votre journée") |

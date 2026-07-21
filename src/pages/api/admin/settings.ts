@@ -87,6 +87,9 @@ export const GET: APIRoute = async ({ request }) => {
     .in("key", [
       "kitchen_email",
       "orders_closed",
+      "daily_brief_enabled",
+      "daily_brief_hour",
+      "daily_brief_email",
       // legacy: durée/créneau globali e délai in ore, solo per il prefill
       "reservation_hold_minutes",
       "reservation_slot_minutes",
@@ -112,6 +115,9 @@ export const GET: APIRoute = async ({ request }) => {
     slot_duration_minutes: days[0]?.slot_duration_minutes ?? 15,
     kitchen_email: cfg.get("kitchen_email") ?? "",
     orders_closed: cfg.get("orders_closed") === "1",
+    daily_brief_enabled: cfg.get("daily_brief_enabled") === "1",
+    daily_brief_hour: cfg.get("daily_brief_hour") || "09:00",
+    daily_brief_email: cfg.get("daily_brief_email") ?? "",
     links,
     general,
     reservations,
@@ -125,7 +131,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { prep_time_minutes?: number; orders_closed?: boolean };
+  let body: { prep_time_minutes?: number; orders_closed?: boolean; daily_brief_enabled?: boolean; daily_brief_hour?: string; daily_brief_email?: string };
   try {
     body = await request.json();
   } catch {
@@ -134,8 +140,39 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   const vuoleChiusura = typeof body.orders_closed === "boolean";
   const vuolePrep = body.prep_time_minutes !== undefined;
-  if (!vuoleChiusura && !vuolePrep) {
+  const vuoleBrief = typeof body.daily_brief_enabled === "boolean";
+  const vuoleBriefOra = typeof body.daily_brief_hour === "string";
+  const vuoleBriefEmail = typeof body.daily_brief_email === "string";
+  if (!vuoleChiusura && !vuolePrep && !vuoleBrief && !vuoleBriefOra && !vuoleBriefEmail) {
     return json({ error: "Requête invalide" }, 400);
+  }
+
+  // Ora d'invio dell'email quotidienne (HH:MM, fuso del ristorante)
+  if (vuoleBriefOra) {
+    const ora = String(body.daily_brief_hour).trim();
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(ora)) return json({ error: "Heure invalide" }, 400);
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "daily_brief_hour", value: ora }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
+
+  // Destinatario dell'email quotidienne (vuoto = default réservations)
+  if (vuoleBriefEmail) {
+    const em = String(body.daily_brief_email).trim();
+    if (em && !RE_EMAIL.test(em)) return json({ error: `Email invalide : ${em}` }, 400);
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "daily_brief_email", value: em }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
+
+  // Toggle email "Votre journée" (récap quotidiano delle 9h00)
+  if (vuoleBrief) {
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "daily_brief_enabled", value: body.daily_brief_enabled ? "1" : "0" }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
   }
 
   // Toggle chiusura ordini online (app_config.orders_closed = "1"/"0").
