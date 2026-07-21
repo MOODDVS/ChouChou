@@ -363,7 +363,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         let notes: Note[] = [];
 
         async function erroreDa(res: Response, fallback: string): Promise<string> {
-          try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return fallback; }
+          try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return `${fallback} (HTTP ${res.status})`; }
         }
 
         function renderPreview() {

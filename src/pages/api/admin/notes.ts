@@ -99,6 +99,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
 
   const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
   return json({ ok: true });
 };
