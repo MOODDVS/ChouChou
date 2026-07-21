@@ -10,7 +10,7 @@ export const prerender = false;
 // GET → { layout } (null = layout di default)
 // PUT → { layout } salva
 
-const TILE_KEYS = ["notes", "orders", "reservations", "settings", "special", "menu", "stats", "assets"];
+const TILE_KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "stats", "assets"];
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

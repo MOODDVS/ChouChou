@@ -2,18 +2,12 @@
 // Isola "Horaires" della Accueil → pagina Réglages.
 // data-admin-page="settings": legata alla pagina Réglages (non a un tab).
 ---
-<a class="tile" href="/admin/settings" data-admin-page="settings" data-tile="settings">
-  <div class="tile-title">Horaires</div>
+<a class="tile" href="/admin/settings?tab=horaire" data-admin-page="settings" data-tile="settings">
+  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>Horaires</div>
   <div class="sched-status" id="sched-status">—</div>
   <div id="sched-bands-wrap"></div>
-  <div class="tile-next sched-two">
-    <div>
-      <span class="lab">Préparation</span>
-      <span class="val" id="sched-prep">—</span>
-    </div>
-    <div>
-      <span class="lab">Créneaux</span>
-      <span class="val" id="sched-slot">—</span>
-    </div>
+  <div class="tile-next">
+    <span class="lab" id="sched-reopen-lab">Réouverture</span>
+    <span class="val" id="sched-reopen">—</span>
   </div>
 </a>

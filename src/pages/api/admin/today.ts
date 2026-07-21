@@ -1,8 +1,6 @@
 import type { APIRoute } from "astro";
-import { DateTime } from "luxon";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { configGiornoEffettiva } from "../../../lib/schedule";
-import { TIMEZONE } from "../../../lib/slots";
+import { caricaToday } from "../../../lib/admin/caricaToday";
 
 export const prerender = false;
 
@@ -13,9 +11,9 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const config = await configGiornoEffettiva(DateTime.now().setZone(TIMEZONE));
+  const dati = await caricaToday();
 
-  return new Response(JSON.stringify({ config }), {
+  return new Response(JSON.stringify(dati), {
     status: 200,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });

@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../db";
 import { caricaResaGiorno } from "./caricaResaGiorno";
-import { configGiornoEffettiva } from "../schedule";
+import { caricaToday } from "./caricaToday";
 import { TIMEZONE } from "../slots";
 
 // Pre-carica lato server (SSR, Fase 2) le 5 isole principali della Accueil,
@@ -31,7 +31,7 @@ export async function caricaHomeData() {
       .gte("pickup_time", soglia)
       .order("pickup_time", { ascending: true }),
     caricaResaGiorno(oggiKey),
-    configGiornoEffettiva(oggi),
+    caricaToday(),
     supabaseAdmin
       .from("menu_items")
       .select(MENU_SELECT)
@@ -59,7 +59,7 @@ export async function caricaHomeData() {
   return {
     orders: { orders: ordersRes.data ?? [] },
     resa,
-    today: { config: todayCfg },
+    today: todayCfg,
     menu: { items: menuRes.data ?? [] },
     categories: { categories },
   };

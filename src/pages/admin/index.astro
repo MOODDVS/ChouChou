@@ -10,6 +10,7 @@ import TileCommandes from "../../components/admin/home/TileCommandes.astro";
 import TileReservations from "../../components/admin/home/TileReservations.astro";
 import TileHoraires from "../../components/admin/home/TileHoraires.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
+import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
@@ -75,7 +76,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       .tile { display: block; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-      .tile-title { font-family: var(--font-title); font-size: 1.7rem; letter-spacing: 0.04em; margin-bottom: 1rem; }
+      .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+      .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .tile-big { font-family: var(--font-title); font-size: 3.2rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
       .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
       .tile-next { border-top: 1px solid var(--c-line); padding-top: 1rem; font-size: 0.95rem; }
@@ -125,12 +127,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* --- Tile Horaires --- */
       .sched-status { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.03em; line-height: 1; margin-bottom: 0.9rem; }
       .sched-status.open { color: var(--c-accent); }
-      .sched-status.closed { color: var(--c-muted); }
+      .sched-status.closed { color: #ff8a8f; font-family: var(--font-body); font-weight: 800; font-size: 1.2rem; letter-spacing: 0; }
       .sched-bands { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
       .sched-band { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; }
       .sched-band .clock { width: 15px; height: 15px; stroke: var(--c-accent); fill: none; stroke-width: 1.8; flex-shrink: 0; }
       .sched-two { display: flex; gap: 1.5rem; }
       .sched-two > div { flex: 1; }
+
+      /* --- Tile Cuisine --- */
+      .cui-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--c-line); margin-top: 1.1rem; padding-top: 1rem; }
+      .cui-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
+      .cui-sw { width: 44px; height: 24px; border-radius: 999px; background: #5d5555; border: none; cursor: pointer; position: relative; transition: background 0.2s; padding: 0; flex: 0 0 auto; }
+      .cui-sw .cui-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+      .cui-sw.is-on { background: var(--c-accent); }
+      .cui-sw.is-on .cui-knob { left: 23px; }
 
       /* --- Tile Jours spéciaux --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -152,6 +162,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* --- Tile Notes (colori invertiti: fondo oro, testo marrone) --- */
       .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); }
       .tile-notes .tile-title { color: var(--c-brown); }
+      .tile-notes .tile-title .tt-ico { stroke: var(--c-brown); }
       .ntile-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
       .ntile-head .tile-title { margin-bottom: 0; }
       .ntile-btn { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--c-brown); background: transparent; color: var(--c-brown); padding: 0; transition: background 0.15s, color 0.15s; }
@@ -251,6 +262,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           <TileReservations />
           <TileHoraires />
           <TileJoursSpeciaux />
+          <TileCuisine />
           <TileMenu />
           <TileStats />
           <TilePhotos />
@@ -705,7 +717,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // ---------- Horaires (aujourd'hui) ----------
           const statusEl = document.getElementById("sched-status") as HTMLElement;
           const bandsWrap = document.getElementById("sched-bands-wrap") as HTMLElement;
-          const cfg = resToday.ok ? ((await resToday.json()).config as Config) : null;
+          type Today = { config: Config; orders_closed?: boolean; closes_at?: string | null; reopen?: { in_days: number; heure: string } | null };
+          const jt: Today | null = resToday.ok ? ((await resToday.json()) as Today) : null;
+          const cfg = jt?.config ?? null;
           if (!cfg) {
             statusEl.textContent = "Indisponible";
             statusEl.classList.add("closed");
@@ -723,9 +737,67 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 b.map((f) => `<span class="sched-band">${CLOCK}${f}</span>`).join("") +
                 `</div>`;
             }
-            (document.getElementById("sched-prep") as HTMLElement).textContent = `${cfg.prep_time_minutes} min`;
-            (document.getElementById("sched-slot") as HTMLElement).textContent = `${cfg.slot_duration_minutes} min`;
           }
+
+          // Réouverture / fermeture del giorno (tile Horaires)
+          const reLab = document.getElementById("sched-reopen-lab") as HTMLElement | null;
+          const reVal = document.getElementById("sched-reopen") as HTMLElement | null;
+          if (reLab && reVal) {
+            if (jt?.closes_at) {
+              reLab.textContent = "Fermeture";
+              reVal.textContent = `à ${jt.closes_at}`;
+            } else if (jt?.reopen) {
+              const g = jt.reopen.in_days;
+              let quando: string;
+              if (g === 0) quando = "aujourd'hui";
+              else if (g === 1) quando = "demain";
+              else {
+                const dt = new Date(Date.now() + g * 86400000);
+                quando = dt.toLocaleDateString("fr-BE", { weekday: "long", timeZone: "Europe/Brussels" });
+                if (g > 6) quando += " " + dt.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", timeZone: "Europe/Brussels" });
+              }
+              reLab.textContent = "Réouverture";
+              reVal.textContent = `${quando} à ${jt.reopen.heure}`;
+            } else {
+              reVal.textContent = "—";
+              reVal.classList.add("none");
+            }
+          }
+
+          // ---------- Cuisine ----------
+          const cuiStatus = document.getElementById("cui-status") as HTMLElement | null;
+          const cuiSw = document.getElementById("cui-sw") as HTMLButtonElement | null;
+          const setCucina = (chiusa: boolean) => {
+            if (cuiStatus) {
+              cuiStatus.textContent = chiusa ? "Fermée" : "Ouverte";
+              cuiStatus.classList.toggle("closed", chiusa);
+              cuiStatus.classList.toggle("open", !chiusa);
+            }
+            cuiSw?.classList.toggle("is-on", !chiusa);
+          };
+          setCucina(Boolean(jt?.orders_closed));
+          if (cfg) {
+            const cp = document.getElementById("cui-prep") as HTMLElement | null;
+            if (cp) cp.textContent = `${cfg.prep_time_minutes} min`;
+            const cs = document.getElementById("cui-slot") as HTMLElement | null;
+            if (cs) cs.textContent = `${cfg.slot_duration_minutes} min`;
+          }
+          cuiSw?.addEventListener("click", async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const chiudi = cuiSw.classList.contains("is-on"); // acceso = aperta → si chiude
+            setCucina(chiudi);
+            try {
+              const res = await fetch("/api/admin/settings", {
+                method: "PATCH",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ orders_closed: chiudi }),
+              });
+              if (!res.ok) setCucina(!chiudi);
+            } catch {
+              setCucina(!chiudi);
+            }
+          });
 
           // ---------- Menu ----------
           if (resMenu.ok && resCats.ok) {
@@ -801,10 +873,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnReset = document.getElementById("organiser-reset") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number };
-        const KEYS = ["notes", "orders", "reservations", "settings", "special", "menu", "stats", "assets"];
+        const KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "stats", "assets"];
         const DEFAULT_LAYOUT: Item[] = [
           { key: "notes", w: 1 }, { key: "orders", w: 1 }, { key: "reservations", w: 1 }, { key: "settings", w: 1 },
-          { key: "special", w: 1 }, { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
+          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
         ];
 
         let editing = false;
