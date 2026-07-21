@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
+import { postiDalPlan } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailReviewResa, annullaEmailReview, emailAnnullataResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
@@ -199,7 +200,7 @@ export const GET: APIRoute = async ({ request, url }) => {
         .select("type, date_from, date_to")
         .lte("date_from", ultimo)
         .gte("date_to", primo),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "timezone"]),
+      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode", "timezone"]),
       supabaseAdmin
         .from("reservations")
         .select("date, service_key, people, status")
@@ -221,11 +222,12 @@ export const GET: APIRoute = async ({ request, url }) => {
     } catch { /* nessun service configurato */ }
     // Capacità per servizio = somma dei coperti delle sections (Réglages)
     let capienza = 0;
+    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
-        capienza = arr.reduce((t: number, z: { seats?: unknown }) => {
-          const n = Math.floor(Number(z.seats));
+        capienza = arr.reduce((t: number, z: { name?: unknown; seats?: unknown }) => {
+          const n = planPosti ? Math.floor(planPosti.get(String(z.name ?? "").trim()) ?? 0) : Math.floor(Number(z.seats));
           return t + (Number.isFinite(n) && n > 0 ? n : 0);
         }, 0);
       }

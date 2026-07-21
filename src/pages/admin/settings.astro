@@ -85,13 +85,72 @@ import { CLIENT } from "../../config/client";
       #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
       @media (max-width: 1100px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
 
+      /* --- Plan de salle (tab Réservations) --- */
+      .sl-col { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
+      /* dentro la colonna il flex-basis è l'ALTEZZA: si rimettono le misure vere */
+      .section[data-tab="reservations"] .field .sl-col label.switch { flex: 0 0 auto; width: 44px; max-width: 44px; height: 24px; }
+      .sl-filtri { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .section[data-tab="reservations"] .field-zones { margin-bottom: 2.2rem; }
+      .section[data-tab="reservations"] .field-services { margin-bottom: 2.2rem; }
+      .section[data-tab="reservations"] .field-services ~ .field { margin-bottom: 2.2rem; }
+      .section[data-tab="reservations"] .sl-filter-field { margin-bottom: 2.2rem; }
+      .overlay .modal.sl-modal { max-width: 1200px; width: 92vw; }
+      .sl-modal .sl-wrap { margin: 0.6rem 0 0; }
+      .sl-pill { background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+      .sl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .sl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .sl-pill .sl-pn { color: var(--c-accent); font-weight: 700; }
+      .sl-wrap { margin-bottom: 1.4rem; }
+      .sl-tools { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+      .sl-add { border-radius: 8px; border: 1px solid var(--c-accent); background: none; color: var(--c-accent); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+      .sl-add:hover { background: var(--c-accent); color: #231f20; }
+      .sl-tot { margin-left: auto; background: rgba(223, 171, 78, 0.14); border: 1px solid rgba(223, 171, 78, 0.4); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
+      .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: #ff8a8f; }
+      .sl-tot:empty { display: none; }
+      .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
+      .sl-canvas {
+        position: relative; width: 100%; aspect-ratio: 1000 / 600; background: #141112;
+        border: 1px solid var(--c-line); overflow: hidden; touch-action: none;
+      }
+      #sl-area-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+      #sl-area-svg .sl-handle { pointer-events: all; }
+      #sl-tavoli { position: absolute; inset: 0; pointer-events: none; }
+      #sl-tavoli .sl-table { pointer-events: auto; }
+      .sl-canvas.disegno { cursor: crosshair; }
+      .sl-canvas.disegno #sl-tavoli .sl-table { pointer-events: none; opacity: 0.45; }
+      .sl-area-btn { border-radius: 8px; border: 1px solid var(--c-line); background: #1c1819; color: var(--c-text); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+      .sl-area-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .sl-area-btn.attivo { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .sl-table { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--c-card); border: 1.5px solid #6b5c50; color: #fff; cursor: grab; user-select: none; -webkit-user-select: none; font-size: 0.7rem; line-height: 1.15; box-sizing: border-box; }
+      .sl-table.round { border-radius: 50%; }
+      .sl-table.square, .sl-table.rect { border-radius: 8px; }
+      .sl-table.sel { border-color: var(--c-accent); box-shadow: 0 0 0 2px rgba(223, 171, 78, 0.35); }
+      .sl-table b { font-size: 0.78rem; pointer-events: none; }
+      .sl-table i { font-style: normal; color: var(--c-muted); font-size: 0.62rem; pointer-events: none; }
+      .sl-links { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.6rem; }
+      .sl-links:empty { display: none; }
+      .sl-link-chip { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(223, 171, 78, 0.12); border: 1px solid rgba(223, 171, 78, 0.4); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.25rem 0.4rem 0.25rem 0.7rem; border-radius: 999px; }
+      .sl-link-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; }
+      .sl-link-chip button:hover { color: #ff8a8f; }
+      .sl-link-chip button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
+      .sl-table.lk { border-color: var(--c-accent); }
+      .sl-edit { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; flex-wrap: wrap; }
+      .sl-edit input { background: #1c1819; border: 1px solid var(--c-line); color: #fff; padding: 0.45rem 0.6rem; font-family: var(--font-body); font-size: 0.9rem; }
+      .sl-edit input:focus { outline: none; border-color: var(--c-accent); }
+      #sl-nome { width: 120px; }
+      #sl-posti { width: 70px; }
+      .sl-shapes { display: flex; gap: 0.35rem; }
+      .sl-sh { background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.74rem; padding: 0.3rem 0.7rem; border-radius: 999px; cursor: pointer; }
+      .sl-sh.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+
       /* --- Tab Notifications --- */
       .nf-row { display: flex; align-items: flex-end; gap: 1.4rem; border: 1px solid var(--c-line); padding: 1.1rem 1.3rem; flex-wrap: wrap; }
       .nf-txt { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 260px; margin-bottom: 2px; }
       .nf-txt strong { font-size: 1rem; }
       .nf-txt strong .nf-badge { display: inline-block; background: #2e9e6b; color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
       .nf-txt span { color: var(--c-muted); font-size: 0.84rem; line-height: 1.55; }
-      .nf-sw { width: 46px; height: 25px; border-radius: 999px; background: #5d5555; border: none; cursor: pointer; position: relative; transition: background 0.2s; padding: 0; flex: 0 0 auto; margin-bottom: 8px; }
+      .nf-sw { width: 46px; height: 25px; border-radius: 999px; background: #1c1819; border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; margin-bottom: 8px; }
+      .nf-sw.is-on { border-color: var(--c-accent); }
       .nf-sw .nf-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: left 0.2s; }
       .nf-sw.is-on { background: var(--c-accent); }
       .nf-sw.is-on .nf-knob { left: 24px; }
@@ -376,7 +435,7 @@ import { CLIENT } from "../../config/client";
       .mode { display: none; }
       .day-row.is-open .mode { display: inline-flex; }
       .mode button {
-        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
         padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
       }
@@ -396,8 +455,10 @@ import { CLIENT } from "../../config/client";
       .switch input { opacity: 0; width: 0; height: 0; }
       .switch .track {
         position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-line); transition: background 0.2s;
+        background: #1c1819; border: 1px solid var(--c-line); box-sizing: border-box;
+        transition: background 0.2s, border-color 0.2s;
       }
+      .switch input:checked + .track { border-color: var(--c-accent); }
       .switch .track::before {
         content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
         left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s;
@@ -466,17 +527,17 @@ import { CLIENT } from "../../config/client";
       .rgroup-sep { border: none; border-top: 1px solid var(--c-line); margin: 1.6rem 0; }
       .rcorners { display: flex; gap: 0.4rem; }
       .rc-btn {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.05em;
         padding: 0.4rem 1.2rem; border-radius: 999px; cursor: pointer;
       }
       .rc-btn:hover { color: var(--c-text); border-color: var(--c-accent); }
       .rc-btn.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
-      .rservices { display: flex; flex-direction: column; gap: 0.6rem; }
+      .rservices { display: flex; flex-direction: column; gap: 1.4rem; }
       .dyn-col .rservices { width: 100%; }
       .rs-row {
         display: flex; flex-direction: column; gap: 0.45rem; align-items: stretch;
-        padding-bottom: 0.75rem; border-bottom: 1px dashed var(--c-line);
+        padding-bottom: 1.4rem; border-bottom: 1px dashed var(--c-line);
       }
       .rs-row:last-of-type { border-bottom: none; padding-bottom: 0; }
       .rs-line1 { display: flex; gap: 0.5rem; align-items: center; }
@@ -556,9 +617,10 @@ import { CLIENT } from "../../config/client";
         background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em;
         padding: 0.75rem 2.4rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.25s, color 0.25s, border-color 0.25s;
+        transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.15s;
       }
-      .save:hover:not(:disabled):not(.is-saved) { background: transparent; color: var(--c-accent); }
+      /* Convenzione bottoni flottanti: hover = shrink + oro più scuro (mai trasparente) */
+      .save:hover:not(:disabled):not(.is-saved) { background: #c9963d; border-color: #c9963d; color: #231f20; transform: scale(0.94); }
       .save:disabled { opacity: 0.5; cursor: not-allowed; }
       .save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
       .msg { font-size: 0.9rem; }
@@ -666,7 +728,7 @@ import { CLIENT } from "../../config/client";
       /* --- Jours spéciaux --- */
       .sp-type { display: inline-flex; }
       .sp-type button {
-        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
         padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
       }
@@ -696,8 +758,10 @@ import { CLIENT } from "../../config/client";
       .sp-sv.is-on { color: var(--c-text); }
       .sp-sw {
         position: relative; width: 40px; height: 20px; border-radius: 999px;
-        background: var(--c-line); transition: background 0.15s; flex-shrink: 0;
+        background: #1c1819; border: 1px solid var(--c-line); box-sizing: border-box;
+        transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
       }
+      .sp-sv.is-on .sp-sw { border-color: var(--c-accent); }
       .sp-sw::before {
         content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
         border-radius: 50%; background: #8f8781; transition: transform 0.15s, background 0.15s;
@@ -982,12 +1046,49 @@ import { CLIENT } from "../../config/client";
               </div>
             </div>
             <hr class="rgroup-sep" />
-            <!-- 2. Sections -->
+            <!-- 2. Sections + plan de salle -->
             <div class="field field-zones">
               <label>Sections &amp; couverts<span class="lab-hint">Ex. Intérieur 40, Terrasse 60. Le total est la somme des sections.</span></label>
               <div class="dyn-col">
                 <div class="rzones" id="r-zones"></div>
                 <button type="button" class="kemail-add" id="r-zone-add">+ Ajouter une section</button>
+              </div>
+            </div>
+            <div class="field sl-filter-field">
+              <label>Plan de salle<span class="lab-hint">Choisis une section pour dessiner ses tables (s'ouvre dans une fenêtre). Interrupteur ACTIVÉ : les places réelles sont celles des tables dessinées — les couverts des sections sont ignorés.</span></label>
+              <div class="dyn-col sl-col">
+                <label class="switch"><input type="checkbox" id="r-planmode" /><span class="track"></span></label>
+                <div class="sl-filtri" id="sl-filtri"></div>
+              </div>
+            </div>
+            <div class="overlay" id="sl-overlay">
+              <div class="modal sl-modal">
+                <button class="m-close" id="sl-close" type="button" aria-label="Fermer">×</button>
+                <h2 id="sl-title">Plan de salle</h2>
+                <div class="sl-wrap" id="sl-wrap">
+              <div class="sl-tools">
+                <button type="button" class="sl-add" data-sh="round">+ Ronde</button>
+                <button type="button" class="sl-add" data-sh="square">+ Carrée</button>
+                <button type="button" class="sl-add" data-sh="rect">+ Rect.</button>
+                <button type="button" class="sl-area-btn" id="sl-area-btn">✎ Dessiner la salle</button>
+                <button type="button" class="sl-area-btn" id="sl-link-btn">🔗 Lier des tables</button>
+                <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label="Effacer la salle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                <span class="sl-tot" id="sl-tot"></span>
+                <span class="sl-msg" id="sl-msg"></span>
+              </div>
+              <div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div>
+              <div class="sl-links" id="sl-links"></div>
+              <div class="sl-edit" id="sl-edit" style="display:none">
+                <input type="text" id="sl-nome" placeholder="Nom (T1)" maxlength="12" autocomplete="off" />
+                <input type="number" id="sl-posti" min="1" max="30" title="Places" />
+                <div class="sl-shapes">
+                  <button type="button" class="sl-sh" data-sh="round">Ronde</button>
+                  <button type="button" class="sl-sh" data-sh="square">Carrée</button>
+                  <button type="button" class="sl-sh" data-sh="rect">Rect.</button>
+                </div>
+                <button type="button" class="tm-ibtn del" id="sl-del" aria-label="Supprimer la table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+              </div>
+                </div>
               </div>
             </div>
             <div class="field">
@@ -1534,6 +1635,527 @@ import { CLIENT } from "../../config/client";
         const rZonesBox = document.getElementById("r-zones") as HTMLDivElement;
         const rZoneAdd = document.getElementById("r-zone-add") as HTMLButtonElement;
 
+        // ================= PLAN DE SALLE (tavoli per section) =================
+        type Tavolo = { id: string; zone: string; name: string; seats: number; shape: string; x: number; y: number; w: number; h: number };
+        const slFiltri = document.getElementById("sl-filtri") as HTMLDivElement;
+        const slOverlay = document.getElementById("sl-overlay") as HTMLDivElement;
+        const slTitle = document.getElementById("sl-title") as HTMLElement;
+        const slClose = document.getElementById("sl-close") as HTMLButtonElement;
+        const slCanvas = document.getElementById("sl-canvas") as HTMLDivElement;
+        const slEdit = document.getElementById("sl-edit") as HTMLDivElement;
+        const slNome = document.getElementById("sl-nome") as HTMLInputElement;
+        const slPosti = document.getElementById("sl-posti") as HTMLInputElement;
+        const slDel = document.getElementById("sl-del") as HTMLButtonElement;
+        const slMsg = document.getElementById("sl-msg") as HTMLSpanElement;
+        const SL_TRASH = slDel.innerHTML;
+        let slZona: string | null = null;          // null = "Liste"
+        let slTavoli: Tavolo[] = [];
+        let slSel: Tavolo | null = null;
+
+        const rPlanMode = document.getElementById("r-planmode") as HTMLInputElement;
+        const slDimSeats = () => {
+          rZonesBox.querySelectorAll<HTMLInputElement>(".rz-seats").forEach((i) => {
+            i.disabled = rPlanMode.checked;
+            i.style.opacity = rPlanMode.checked ? "0.35" : "";
+            i.title = rPlanMode.checked ? "Places gérées par le plan de salle" : "";
+          });
+        };
+        rPlanMode.addEventListener("change", () => { dirty(); slDimSeats(); renderAnteprima(); });
+
+        // Posti totali disegnati per ogni sezione (mostrati nelle pillole)
+        const slTotali = new Map<string, number>();
+        const slMaxIns = new Map<string, number>(); // max persone INSIEME per zona
+        async function slCaricaTotali() {
+          try {
+            const res = await slFetch("/api/admin/tables");
+            if (!res.ok) return;
+            const j = await res.json();
+            slTotali.clear();
+            slMaxIns.clear();
+            const postiId = new Map<string, number>();
+            for (const t of (j.tables as { id?: string; zone?: string; seats?: number }[]) ?? []) {
+              const z = String(t.zone ?? "").trim();
+              const n = Math.floor(Number(t.seats)) || 0;
+              if (!z || n <= 0) continue;
+              postiId.set(String(t.id), n);
+              slTotali.set(z, (slTotali.get(z) ?? 0) + n);
+              slMaxIns.set(z, Math.max(slMaxIns.get(z) ?? 0, n));
+            }
+            const legami = (j.links ?? {}) as Record<string, string[][]>;
+            for (const [z, gruppi] of Object.entries(legami)) {
+              if (!Array.isArray(gruppi)) continue;
+              for (const g of gruppi) {
+                if (!Array.isArray(g)) continue;
+                const somma = g.reduce((t, id) => t + (postiId.get(String(id)) ?? 0), 0);
+                slMaxIns.set(z, Math.max(slMaxIns.get(z) ?? 0, somma));
+              }
+            }
+            slRenderFiltri();
+          } catch { /* pillole senza numero */ }
+        }
+
+        const slNomiZone = (): string[] =>
+          Array.from(rZonesBox.querySelectorAll<HTMLInputElement>(".rz-name"))
+            .map((i) => i.value.trim())
+            .filter(Boolean);
+
+        async function slFetch(url: string, init?: RequestInit): Promise<Response> {
+          const { data: sf } = await supabaseBrowser.auth.getSession();
+          return fetch(url, {
+            ...init,
+            headers: {
+              Authorization: `Bearer ${sf.session?.access_token ?? ""}`,
+              "Content-Type": "application/json",
+              ...((init?.headers as Record<string, string>) ?? {}),
+            },
+          });
+        }
+
+        // Dimensioni (unità canvas 1000×600) da forma + posti
+        function slMisura(shape: string, seats: number): { w: number; h: number } {
+          if (shape === "rect") return { w: Math.min(240, 90 + seats * 12), h: 70 };
+          const lato = Math.min(160, 70 + seats * 8);
+          return { w: lato, h: lato };
+        }
+
+        function slRenderFiltri() {
+          slDimSeats();
+          const zone = slNomiZone();
+          if (slZona && !zone.includes(slZona)) slChiudi();
+          slFiltri.innerHTML = zone.length
+            ? zone.map((z) => {
+                const posti = slTotali.get(z);
+                const extra = posti ? ` <span class="sl-pn">${posti} pl.</span>` : "";
+                return `<button type="button" class="sl-pill" data-z="${z.replace(/"/g, "&quot;")}">${z}${extra}</button>`;
+              }).join("")
+            : '<span class="lab-hint">Ajoute d\'abord une section.</span>';
+        }
+        function slApri(zona: string) {
+          slZona = zona;
+          slTitle.textContent = "Plan de salle — " + zona;
+          slOverlay.classList.add("is-open");
+          void slCarica(zona);
+        }
+        function slChiudi() {
+          slZona = null;
+          slSel = null;
+          slOverlay.classList.remove("is-open");
+          void slCaricaTotali().then(() => renderAnteprima()); // pillole + aperçu aggiornati
+        }
+
+        const slTot = document.getElementById("sl-tot") as HTMLSpanElement;
+        const slAreaSvg = document.getElementById("sl-area-svg") as unknown as SVGElement;
+        const slTavoliBox = document.getElementById("sl-tavoli") as HTMLDivElement;
+        const slAreaBtn = document.getElementById("sl-area-btn") as HTMLButtonElement;
+        const slAreaDel = document.getElementById("sl-area-del") as HTMLButtonElement;
+        const SL_AREA_TRASH = slAreaDel.innerHTML;
+        let slArea: number[][] | null = null; // perimetro salvato (4 angoli del rettangolo)
+        let slLinks: string[][] = [];         // gruppi di tavoli unibili
+        let slLinkMode = false;
+        const slLinkSel = new Set<string>();
+        const slLinkBtn = document.getElementById("sl-link-btn") as HTMLButtonElement;
+        const slLinksBox = document.getElementById("sl-links") as HTMLDivElement;
+        let slRect: { x: number; y: number; w: number; h: number } | null = null; // in modifica
+
+        // La stanza È la superficie quadrettata: fondo + griglia (pattern SVG
+        // ritagliato sul rettangolo) + bordo. Fuori resta il fondo scuro.
+        const SL_DEFS = `<defs><pattern id="sl-griglia" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(58,51,53,0.6)" stroke-width="1" /></pattern></defs>`;
+        const slStanza = (r: { x: number; y: number; w: number; h: number }, modifica: boolean): string =>
+          SL_DEFS +
+          `<rect class="sl-r-base" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="#1c1819" />` +
+          `<rect class="sl-r-grid" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="url(#sl-griglia)" />` +
+          `<rect class="sl-r-bordo" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="${modifica ? "#dfab4e" : "#8a7a6b"}" stroke-width="2"${modifica ? ' stroke-dasharray="8 5"' : ""} />`;
+
+        const slRectDaArea = (): { x: number; y: number; w: number; h: number } => {
+          if (!slArea || slArea.length === 0) return { x: 0, y: 0, w: 1000, h: 600 };
+          const xs = slArea.map((pt) => pt[0]);
+          const ys = slArea.map((pt) => pt[1]);
+          const x = Math.min(...xs), y = Math.min(...ys);
+          return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y };
+        };
+
+        function slRenderArea() {
+          if (slRect) return; // in modifica: gestita da slRenderEdit
+          let svg = slStanza(slRectDaArea(), false);
+          // Linee tratteggiate tra i tavoli di ogni liaison
+          const centro = (id: string): [number, number] | null => {
+            const t = slTavoli.find((x) => x.id === id);
+            return t ? [t.x + t.w / 2, t.y + t.h / 2] : null;
+          };
+          for (const gruppo of slLinks) {
+            const pts = gruppo.map(centro).filter(Boolean) as [number, number][];
+            for (let i = 1; i < pts.length; i++) {
+              svg += `<line x1="${pts[i - 1][0]}" y1="${pts[i - 1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke="#dfab4e" stroke-width="2.5" stroke-dasharray="4 5" opacity="0.75" />`;
+            }
+          }
+          slAreaSvg.innerHTML = svg;
+        }
+
+        function slRenderLinks() {
+          slLinksBox.innerHTML = slLinks
+            .map((gruppo, i) => {
+              // La liaison è una CATENA (ordine dei click = ordine fisico della
+              // fila): le combinazioni valide sono le sotto-catene CONTIGUE di
+              // 2+ tavoli. Un gruppo da 3 persone usa la combi da 4 (2 tavoli),
+              // da 5 quella da 6 (3 tavoli), ecc.
+              const fila = gruppo
+                .map((id) => slTavoli.find((x) => x.id === id))
+                .filter(Boolean) as Tavolo[];
+              if (fila.length < 2) return "";
+              const combi = new Set<number>();
+              for (let da = 0; da < fila.length; da++) {
+                let somma = 0;
+                for (let a = da; a < fila.length; a++) {
+                  somma += fila[a].seats || 0;
+                  if (a > da) combi.add(somma);
+                }
+              }
+              const liste = [...combi].sort((x, y) => x - y);
+              const nomi = fila.map((t) => t.name.replace(/</g, "&lt;")).join(" + ");
+              return `<span class="sl-link-chip" title="Combinaisons contiguës possibles">🔗 ${nomi} · combi ${liste.join(" / ")} pl.<button type="button" data-i="${i}" aria-label="Ôter la liaison">×</button></span>`;
+            })
+            .join("");
+        }
+
+        async function slSalvaLinks() {
+          try {
+            const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, links: slLinks }) });
+            if (!res.ok) slMsg.textContent = "Enregistrement des liaisons impossible.";
+          } catch { slMsg.textContent = "Erreur de connexion."; }
+          slRenderLinks();
+          slRenderArea();
+        }
+
+        function slAggiornaLinkBtn() {
+          slLinkBtn.classList.toggle("attivo", slLinkMode);
+          slLinkBtn.textContent = slLinkMode
+            ? slLinkSel.size >= 2 ? `✓ Lier (${slLinkSel.size})` : `Clique les tables… (${slLinkSel.size})`
+            : "🔗 Lier des tables";
+        }
+
+        slLinkBtn.addEventListener("click", () => {
+          if (!slLinkMode) {
+            slLinkMode = true;
+            slLinkSel.clear();
+            slSeleziona(null);
+          } else {
+            if (slLinkSel.size >= 2) {
+              slLinks.push([...slLinkSel]);
+              void slSalvaLinks();
+            }
+            slLinkMode = false;
+            slLinkSel.clear();
+            slRenderCanvas();
+          }
+          slAggiornaLinkBtn();
+        });
+
+        slLinksBox.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("button[data-i]") as HTMLButtonElement | null;
+          if (!b) return;
+          if (!b.classList.contains("armato")) {
+            b.classList.add("armato");
+            b.textContent = "Ôter ?";
+            setTimeout(() => { b.classList.remove("armato"); b.textContent = "×"; }, 4000);
+            return;
+          }
+          slLinks.splice(Number(b.dataset.i), 1);
+          void slSalvaLinks();
+        });
+
+        const slManiglia = (edge: string, cx: number, cy: number, curs: string): string =>
+          `<rect class="sl-handle" data-edge="${edge}" x="${cx - 16}" y="${cy - 16}" width="32" height="32" rx="5" fill="#dfab4e" stroke="#231f20" stroke-width="2" style="cursor:${curs}" />`;
+
+        function slRenderEdit() {
+          if (!slRect) return;
+          const r = slRect;
+          slAreaSvg.innerHTML =
+            slStanza(r, true) +
+            slManiglia("top", r.x + r.w / 2, r.y, "ns-resize") +
+            slManiglia("bottom", r.x + r.w / 2, r.y + r.h, "ns-resize") +
+            slManiglia("left", r.x, r.y + r.h / 2, "ew-resize") +
+            slManiglia("right", r.x + r.w, r.y + r.h / 2, "ew-resize");
+        }
+
+        function slAggiornaEditAttrs() {
+          const r = slRect;
+          if (!r) return;
+          slAreaSvg.querySelectorAll(".sl-r-base, .sl-r-grid, .sl-r-bordo").forEach((el) => {
+            el.setAttribute("x", String(r.x));
+            el.setAttribute("y", String(r.y));
+            el.setAttribute("width", String(r.w));
+            el.setAttribute("height", String(r.h));
+          });
+          const pos: Record<string, [number, number]> = {
+            top: [r.x + r.w / 2, r.y],
+            bottom: [r.x + r.w / 2, r.y + r.h],
+            left: [r.x, r.y + r.h / 2],
+            right: [r.x + r.w, r.y + r.h / 2],
+          };
+          slAreaSvg.querySelectorAll<SVGRectElement>(".sl-handle").forEach((hd) => {
+            const pt = pos[hd.dataset.edge ?? ""];
+            if (!pt) return;
+            hd.setAttribute("x", String(pt[0] - 16));
+            hd.setAttribute("y", String(pt[1] - 16));
+          });
+        }
+
+        function slAggiornaAreaBtn() {
+          slAreaBtn.classList.toggle("attivo", !!slRect);
+          slAreaBtn.textContent = slRect ? "✓ Terminer" : slArea ? "✎ Modifier la salle" : "✎ Dessiner la salle";
+          slAreaDel.style.display = slArea && !slRect ? "" : "none";
+          slCanvas.classList.toggle("disegno", !!slRect);
+        }
+
+        async function slSalvaArea(area: number[][] | null) {
+          try {
+            const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, area }) });
+            if (!res.ok) { slMsg.textContent = "Enregistrement de la salle impossible."; return; }
+            slArea = area;
+          } catch { slMsg.textContent = "Erreur de connexion."; }
+          slRenderArea();
+          slAggiornaAreaBtn();
+        }
+
+        slAreaBtn.addEventListener("click", () => {
+          if (!slRect) {
+            slRect = slRectDaArea();
+            slSeleziona(null);
+            slRenderEdit();
+          } else {
+            const r = slRect;
+            slRect = null;
+            void slSalvaArea([[r.x, r.y], [r.x + r.w, r.y], [r.x + r.w, r.y + r.h], [r.x, r.y + r.h]]);
+          }
+          slAggiornaAreaBtn();
+        });
+
+        // Drag dei bordi del rettangolo (maniglie sui 4 lati, snap 20)
+        slAreaSvg.addEventListener("pointerdown", (e) => {
+          const hd = (e.target as Element).closest(".sl-handle") as SVGRectElement | null;
+          if (!hd || !slRect) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const edge = hd.dataset.edge ?? "";
+          const onMove = (ev: PointerEvent) => {
+            const r = slRect;
+            if (!r) return;
+            const rc = slCanvas.getBoundingClientRect();
+            const ux = Math.round((((ev.clientX - rc.left) / rc.width) * 1000) / 20) * 20;
+            const uy = Math.round((((ev.clientY - rc.top) / rc.height) * 600) / 20) * 20;
+            if (edge === "left") { const nx = Math.min(Math.max(0, ux), r.x + r.w - 200); r.w = r.x + r.w - nx; r.x = nx; }
+            if (edge === "right") { r.w = Math.max(200, Math.min(1000 - r.x, ux - r.x)); }
+            if (edge === "top") { const ny = Math.min(Math.max(0, uy), r.y + r.h - 160); r.h = r.y + r.h - ny; r.y = ny; }
+            if (edge === "bottom") { r.h = Math.max(160, Math.min(600 - r.y, uy - r.y)); }
+            slAggiornaEditAttrs();
+          };
+          const onUp = () => window.removeEventListener("pointermove", onMove);
+          window.addEventListener("pointermove", onMove);
+          window.addEventListener("pointerup", onUp, { once: true });
+        });
+
+        slAreaDel.addEventListener("click", () => {
+          if (!slAreaDel.classList.contains("confirm")) {
+            slAreaDel.classList.add("confirm");
+            slAreaDel.textContent = "Effacer ?";
+            setTimeout(() => {
+              if (slAreaDel.classList.contains("confirm")) {
+                slAreaDel.classList.remove("confirm");
+                slAreaDel.innerHTML = SL_AREA_TRASH;
+              }
+            }, 4000);
+            return;
+          }
+          slAreaDel.classList.remove("confirm");
+          slAreaDel.innerHTML = SL_AREA_TRASH;
+          void slSalvaArea(null);
+        });
+        function slAggiornaTot() {
+          if (!slZona) { slTot.textContent = ""; return; }
+          const posti = slTavoli.reduce((t, x) => t + (x.seats || 0), 0);
+          slTot.textContent = `${slTavoli.length} table${slTavoli.length === 1 ? "" : "s"} · ${posti} place${posti === 1 ? "" : "s"}`;
+        }
+
+        function slRenderCanvas() {
+          slAggiornaTot();
+          slRenderLinks();
+          slRenderArea();
+          slTavoliBox.innerHTML = slTavoli
+            .map((t) => {
+              const sel = (slSel && slSel.id === t.id) || slLinkSel.has(t.id) ? " sel" : "";
+              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} pl.</i></div>`;
+            })
+            .join("");
+        }
+
+        function slSeleziona(t: Tavolo | null) {
+          slSel = t;
+          slEdit.style.display = t ? "" : "none";
+          if (t) {
+            slNome.value = t.name;
+            slPosti.value = String(t.seats);
+            document.querySelectorAll<HTMLElement>(".sl-sh").forEach((b) => b.classList.toggle("is-on", b.dataset.sh === t.shape));
+          }
+          slRenderCanvas();
+        }
+
+        async function slCarica(zona: string) {
+          slMsg.textContent = "Chargement…";
+          try {
+            const res = await slFetch("/api/admin/tables?zone=" + encodeURIComponent(zona));
+            const j = await res.json();
+            if (!res.ok) throw new Error();
+            slTavoli = (j.tables as Tavolo[]) ?? [];
+            slArea = Array.isArray(j.area) ? (j.area as number[][]) : null;
+            slLinks = Array.isArray(j.links) ? (j.links as string[][]) : [];
+            slLinkMode = false;
+            slLinkSel.clear();
+            slAggiornaLinkBtn();
+            slRenderLinks();
+            slRect = null;
+            slAggiornaAreaBtn();
+            slRenderArea();
+            slMsg.textContent = slTavoli.length ? "" : "Aucune table — ajoute-en une.";
+          } catch {
+            slTavoli = [];
+            slMsg.textContent = "Erreur de chargement (migration #36 lancée ?).";
+          }
+          slSeleziona(null);
+        }
+
+        slFiltri.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".sl-pill") as HTMLElement | null;
+          if (b?.dataset.z) slApri(b.dataset.z);
+        });
+        slClose.addEventListener("click", slChiudi);
+        slOverlay.addEventListener("click", (e) => { if (e.target === slOverlay) slChiudi(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && slOverlay.classList.contains("is-open")) slChiudi(); });
+
+        // Aggiunta tavolo
+        document.querySelectorAll<HTMLButtonElement>(".sl-add").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (!slZona) return;
+            const shape = btn.dataset.sh ?? "square";
+            const mis = slMisura(shape, 4);
+            const n = slTavoli.length;
+            const riga = {
+              zone: slZona,
+              name: "T" + (n + 1),
+              seats: 4,
+              shape,
+              x: Math.min(1000 - mis.w, 40 + (n % 5) * 180),
+              y: Math.min(600 - mis.h, 40 + Math.floor(n / 5) * 150),
+              ...mis,
+            };
+            try {
+              const res = await slFetch("/api/admin/tables", { method: "POST", body: JSON.stringify(riga) });
+              const j = await res.json();
+              if (!res.ok) { slMsg.textContent = j.error ?? "Création impossible."; return; }
+              slTavoli.push(j.table as Tavolo);
+              slMsg.textContent = "";
+              slSeleziona(j.table as Tavolo);
+            } catch { slMsg.textContent = "Erreur de connexion."; }
+          });
+        });
+
+        async function slPatch(t: Tavolo, campi: Partial<Tavolo>) {
+          Object.assign(t, campi);
+          slRenderCanvas();
+          try {
+            const res = await slFetch("/api/admin/tables", { method: "PATCH", body: JSON.stringify({ id: t.id, ...campi }) });
+            if (!res.ok) slMsg.textContent = "Enregistrement impossible.";
+          } catch { slMsg.textContent = "Erreur de connexion."; }
+        }
+
+        // Drag con snap (20 unità) + click per selezionare
+        slCanvas.addEventListener("pointerdown", (e) => {
+          if (slRect) return; // in modifica salle: si usano solo le maniglie
+          const el = (e.target as HTMLElement).closest(".sl-table") as HTMLElement | null;
+          // Modalità liaison: click = seleziona/deseleziona il tavolo
+          if (slLinkMode) {
+            if (el?.dataset.id) {
+              if (slLinkSel.has(el.dataset.id)) slLinkSel.delete(el.dataset.id);
+              else slLinkSel.add(el.dataset.id);
+              slRenderCanvas();
+              slAggiornaLinkBtn();
+            }
+            return;
+          }
+          if (!el) { slSeleziona(null); return; }
+          e.preventDefault();
+          const t = slTavoli.find((x) => x.id === el.dataset.id);
+          if (!t) return;
+          const scala = slCanvas.clientWidth / 1000;
+          const sx = e.clientX, sy = e.clientY, ox = t.x, oy = t.y;
+          let mosso = false;
+          el.setPointerCapture(e.pointerId);
+          const onMove = (ev: PointerEvent) => {
+            const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
+            if (Math.abs(dx) + Math.abs(dy) > 6) mosso = true;
+            if (!mosso) return;
+            const nx = Math.round(Math.min(1000 - t.w, Math.max(0, ox + dx)) / 20) * 20;
+            const ny = Math.round(Math.min(600 - t.h, Math.max(0, oy + dy)) / 20) * 20;
+            t.x = nx; t.y = ny;
+            el.style.left = nx / 10 + "%";
+            el.style.top = ny / 6 + "%";
+          };
+          const onUp = (ev: PointerEvent) => {
+            el.releasePointerCapture(ev.pointerId);
+            el.removeEventListener("pointermove", onMove);
+            el.removeEventListener("pointerup", onUp);
+            if (mosso) void slPatch(t, { x: t.x, y: t.y });
+            else slSeleziona(t);
+          };
+          el.addEventListener("pointermove", onMove);
+          el.addEventListener("pointerup", onUp);
+        });
+
+        // Pannello di modifica
+        slNome.addEventListener("change", () => { if (slSel && slNome.value.trim()) void slPatch(slSel, { name: slNome.value.trim() }); });
+        slPosti.addEventListener("change", () => {
+          if (!slSel) return;
+          const seats = Math.min(30, Math.max(1, Math.floor(Number(slPosti.value)) || 1));
+          slPosti.value = String(seats);
+          void slPatch(slSel, { seats, ...slMisura(slSel.shape, seats) });
+        });
+        document.querySelectorAll<HTMLButtonElement>(".sl-sh").forEach((b) => {
+          b.addEventListener("click", () => {
+            if (!slSel) return;
+            const shape = b.dataset.sh ?? "square";
+            document.querySelectorAll<HTMLElement>(".sl-sh").forEach((x) => x.classList.toggle("is-on", x === b));
+            void slPatch(slSel, { shape, ...slMisura(shape, slSel.seats) });
+          });
+        });
+        slDel.addEventListener("click", async () => {
+          if (!slSel) return;
+          if (!slDel.classList.contains("confirm")) {
+            slDel.classList.add("confirm");
+            slDel.textContent = "Supprimer ?";
+            setTimeout(() => { slDel.classList.remove("confirm"); slDel.innerHTML = SL_TRASH; }, 4000);
+            return;
+          }
+          slDel.classList.remove("confirm");
+          slDel.innerHTML = SL_TRASH;
+          const t = slSel;
+          try {
+            const res = await slFetch("/api/admin/tables?id=" + t.id, { method: "POST", headers: { "X-Method-Override": "DELETE" } });
+            if (!res.ok) { slMsg.textContent = "Suppression impossible."; return; }
+            slTavoli = slTavoli.filter((x) => x.id !== t.id);
+            const prima = slLinks.length;
+            slLinks = slLinks.map((g) => g.filter((id) => id !== t.id)).filter((g) => g.length >= 2);
+            if (slLinks.length !== prima) void slSalvaLinks();
+            slSeleziona(null);
+          } catch { slMsg.textContent = "Erreur de connexion."; }
+        });
+
+        // Le pillole seguono le section (aggiunta/rinomina/cancellazione)
+        rZonesBox.addEventListener("input", slRenderFiltri);
+        new MutationObserver(slRenderFiltri).observe(rZonesBox, { childList: true });
+        slRenderFiltri();
+        void slCaricaTotali();
+        // ================= fine PLAN DE SALLE =================
+
+
         function aggiungiRigaZona(nome = "", posti = "") {
           const riga = document.createElement("div");
           riga.className = "rz-row";
@@ -1879,7 +2501,13 @@ import { CLIENT } from "../../config/client";
         function rwMaxPersone(): number {
           const el = document.getElementById("r-maxp") as HTMLInputElement;
           const n = Math.floor(Number(el.value));
-          return Number.isFinite(n) && n >= 1 ? Math.min(100, n) : 8;
+          const base = Number.isFinite(n) && n >= 1 ? Math.min(100, n) : 8;
+          // Plan de salle attivo: oltre la miglior combinazione → "téléphonez"
+          if (rPlanMode.checked && slMaxIns.size) {
+            const migliore = Math.max(0, ...slNomiZone().map((z) => slMaxIns.get(z) ?? 0));
+            if (migliore > 0) return Math.min(base, migliore);
+          }
+          return base;
         }
 
         function renderAnteprima() {
@@ -1891,7 +2519,8 @@ import { CLIENT } from "../../config/client";
           const nomi = Array.from(rZonesBox.querySelectorAll<HTMLInputElement>(".rz-name"))
             .map((i) => i.value.trim())
             .filter(Boolean)
-            .filter((n) => !znChiuse.some((c) => c.zone === n));
+            .filter((n) => !znChiuse.some((c) => c.zone === n))
+            .filter((n) => !rPlanMode.checked || (slMaxIns.get(n) ?? 0) >= rwN);
           const zone = nomi.length ? nomi : [T().salle];
           const attiva = rwZones.querySelector(".is-on")?.textContent ?? "";
           rwZones.innerHTML = zone
@@ -1952,17 +2581,33 @@ import { CLIENT } from "../../config/client";
             if (!capienza) return false;
             let occTot = 0;
             let occZona = 0;
+            const occPer = new Map<string, number>();
             for (const rr of reseGiorno) {
               const rMin = rwMinuti(rr.heure.slice(0, 5));
               if (rMin < 0) continue;
               const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
               if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
                 occTot += rr.people;
+                const rz = (rr.zone ?? "").trim();
+                if (rz) occPer.set(rz, (occPer.get(rz) ?? 0) + rr.people);
                 if (zonaSel && (rr.zone ?? "") === zonaSel) occZona += rr.people;
               }
             }
             if (occTot + rwN > capienza) return true;
-            return postiZona > 0 && occZona + rwN > postiZona;
+            if (postiZona > 0 && occZona + rwN > postiZona) return true;
+            // Indifférent: serve UNA section che possa ospitare tutta la tavolata
+            if (!zonaSel) {
+              const zone = slNomiZone().filter((n) => !znChiuse.some((c) => c.zone === n));
+              if (zone.length > 0) {
+                const ok = zone.some(
+                  (n) =>
+                    (!rPlanMode.checked || (slMaxIns.get(n) ?? 0) >= rwN) &&
+                    (occPer.get(n) ?? 0) + rwN <= rwPostiZona(n)
+                );
+                if (!ok) return true;
+              }
+            }
+            return false;
           };
           const tuttiPieni = !!att && tutti.length > 0 && tutti.every((m) => slotPieno(m));
           let html = visibili
@@ -2136,6 +2781,8 @@ import { CLIENT } from "../../config/client";
         }
         /** Coperti di una section (dal form). 0 = sconosciuta/illimitata. */
         function rwPostiZona(nome: string): number {
+          // Plan de salle attivo: i posti veri sono quelli dei tavoli disegnati
+          if (rPlanMode.checked) return slTotali.get(nome.trim()) ?? 0;
           for (const r of Array.from(rZonesBox.querySelectorAll<HTMLElement>(".rz-row"))) {
             if ((r.querySelector(".rz-name") as HTMLInputElement).value.trim() === nome) {
               const n = Math.floor(Number((r.querySelector(".rz-seats") as HTMLInputElement).value));
@@ -2146,6 +2793,10 @@ import { CLIENT } from "../../config/client";
         }
         /** Capienza totale = somma dei coperti delle sections (form). */
         function rwCapienza(): number {
+          if (rPlanMode.checked) {
+            // Somma dei posti disegnati delle sole sezioni esistenti
+            return slNomiZone().reduce((t, z) => t + (slTotali.get(z) ?? 0), 0);
+          }
           return Array.from(rZonesBox.querySelectorAll<HTMLInputElement>(".rz-seats")).reduce((t, el) => {
             const n = Math.floor(Number(el.value));
             return t + (Number.isFinite(n) && n > 0 ? n : 0);
@@ -2405,6 +3056,8 @@ import { CLIENT } from "../../config/client";
         });
         for (const k of BRAND_CHIAVI) brandVal[k] = String(dati.general?.[k] ?? "");
         document.querySelectorAll<HTMLElement>(".brand-card").forEach(brandPrev);
+        rPlanMode.checked = (dati.reservations as Record<string, string> | undefined)?.reservation_plan_mode === "1";
+        slDimSeats();
         rEls.forEach((el, k) => {
           el.value = dati.reservations?.[k] ?? "";
           if (k === "reservation_min_notice_minutes" && !el.value) {
@@ -2883,6 +3536,7 @@ import { CLIENT } from "../../config/client";
                   ),
                   reservation_zones: zonesJSON(),
                   reservation_zone_choice: rZoneChoice.checked ? "1" : "0",
+                  reservation_plan_mode: rPlanMode.checked ? "1" : "0",
                   reservation_services: servicesJSON(),
                   reservation_corner_style: rwAngoli,
                   reservation_languages: lingueJSON(),

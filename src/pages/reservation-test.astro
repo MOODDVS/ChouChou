@@ -309,13 +309,14 @@ try {
       import { CLIENT } from "../config/client";
 
       type Servizio = { key: string; from: string; to: string; hold: number; slot: number; days: number[] };
-      type Zona = { name: string; seats: number };
+      type Zona = { name: string; seats: number; max_ins?: number };
       interface Config {
         services: Servizio[];
         zones: Zona[];
         zoneChoice: boolean;
         capacity: number;
         maxPeople: number;
+        planMode?: boolean;
         minNoticeMinutes: number;
         cornerStyle: "square" | "rounded";
         languages: string[];
@@ -459,8 +460,13 @@ try {
       }
 
       // ---------- Render step 1 ----------
+      function maxPrenotabile(): number {
+        if (!CFG.planMode) return CFG.maxPeople;
+        const migliore = Math.max(0, ...CFG.zones.map((z) => z.max_ins ?? 0));
+        return migliore > 0 ? Math.min(CFG.maxPeople, migliore) : CFG.maxPeople;
+      }
       function renderPersone() {
-        const max = CFG.maxPeople;
+        const max = maxPrenotabile();
         if (!troppi && rwN > max) rwN = max;
         let html = "";
         for (let n = 1; n <= max; n++) html += `<button type="button" class="rw-p${!troppi && rwN === n ? " is-on" : ""}" data-n="${n}">${n}</button>`;
@@ -504,7 +510,10 @@ try {
         const zoneClosed = giorno?.zoneClosed ?? [];
 
         // Sezioni disponibili
-        const zoneDisp = CFG.zones.map((z) => z.name).filter((n) => !zoneClosed.includes(n));
+        const zoneDisp = CFG.zones
+          .filter((z) => !CFG.planMode || (z.max_ins ?? 0) >= rwN)
+          .map((z) => z.name)
+          .filter((n) => !zoneClosed.includes(n));
         const zone = zoneDisp.length ? zoneDisp : [T().salle];
         const attivaZ = $("rw-zones").querySelector(".is-on")?.textContent ?? "";
         $("rw-zones").innerHTML = zone.map((z, i) => {
@@ -533,17 +542,31 @@ try {
         const pieno = (sMin: number): boolean => {
           if (!capienza) return false;
           let occTot = 0, occZona = 0;
+          const occPer = new Map<string, number>();
           for (const rr of rese) {
             const rMin = minuti(rr.heure.slice(0, 5));
             if (rMin < 0) continue;
             const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
             if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
               occTot += rr.people;
+              const rz = (rr.zone ?? "").trim();
+              if (rz) occPer.set(rz, (occPer.get(rz) ?? 0) + rr.people);
               if (zonaSel && (rr.zone ?? "") === zonaSel) occZona += rr.people;
             }
           }
           if (occTot + rwN > capienza) return true;
-          return postiZona > 0 && occZona + rwN > postiZona;
+          if (postiZona > 0 && occZona + rwN > postiZona) return true;
+          // Indifférent: serve UNA section che possa ospitare tutta la tavolata
+          if (!zonaSel && CFG.zones.length > 0) {
+            const ok = CFG.zones.some(
+              (z) =>
+                !zoneClosed.includes(z.name) &&
+                (!CFG.planMode || (z.max_ins ?? 0) >= rwN) &&
+                (occPer.get(z.name) ?? 0) + rwN <= z.seats
+            );
+            if (!ok) return true;
+          }
+          return false;
         };
 
         // Tutti gli orari del service sono pieni per questo numero di persone?
@@ -948,7 +971,7 @@ try {
         // Precompila i campi in modalità modifica (?token=)
         async function prefillModifica(r: ResaMod) {
           troppi = false;
-          rwN = Math.min(CFG.maxPeople, Math.max(1, r.people));
+          rwN = Math.min(maxPrenotabile(), Math.max(1, r.people));
           renderPersone();
           espanso = true; // mostra tutti gli orari: l'ora attuale è sempre presente
           await impostaData(r.date);

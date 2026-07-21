@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../lib/db";
+import { postiDalPlan, maxInsiemePerZona } from "../../lib/planSalle";
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 import {
   inviaNotificheResa,
@@ -92,10 +93,11 @@ function keyServizio(sv: { key?: string; label?: string }): string | null {
 
 interface WidgetConfig {
   services: { key: string; from: string; to: string; hold: number; slot: number; days: number[] }[];
-  zones: { name: string; seats: number }[];
+  zones: { name: string; seats: number; max_ins?: number }[];
   zoneChoice: boolean;
   capacity: number;
   maxPeople: number;
+  planMode: boolean;
   minNoticeMinutes: number;
   cornerStyle: "square" | "rounded";
   languages: string[];
@@ -110,6 +112,7 @@ async function leggiConfig(): Promise<WidgetConfig> {
     .in("key", [
       "reservation_services",
       "reservation_zones",
+      "reservation_plan_mode",
       "reservation_zone_choice",
       "reservation_max_people",
       "reservation_min_notice_minutes",
@@ -155,17 +158,19 @@ async function leggiConfig(): Promise<WidgetConfig> {
     /* nessun service configurato */
   }
 
-  // Zones + capienza totale
+  // Zones + capienza totale (plan de salle attivo → posti dai tavoli disegnati)
   const zones: WidgetConfig["zones"] = [];
   let capacity = 0;
+  const planPosti = await postiDalPlan(m.get("reservation_plan_mode"));
+  const planMaxIns = await maxInsiemePerZona(m.get("reservation_plan_mode"));
   try {
     const arr = JSON.parse(m.get("reservation_zones") || "[]");
     if (Array.isArray(arr)) {
       for (const z of arr) {
         const name = String(z.name ?? "").trim();
-        const seats = intOf(z.seats);
+        const seats = planPosti ? Math.floor(planPosti.get(name) ?? 0) : intOf(z.seats);
         if (name && Number.isFinite(seats) && seats > 0) {
-          zones.push({ name, seats });
+          zones.push({ name, seats, max_ins: planMaxIns ? planMaxIns.get(name) ?? 0 : undefined });
           capacity += seats;
         }
       }
@@ -212,7 +217,7 @@ async function leggiConfig(): Promise<WidgetConfig> {
     }
   }
 
-  return { services, zones, zoneChoice, capacity, maxPeople, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
+  return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
 }
 
 /** Jour spécial che copre la data.
@@ -315,7 +320,7 @@ export const GET: APIRoute = async ({ url }) => {
           }
           return r;
         }),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones"]),
+      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode"]),
       supabaseAdmin
         .from("reservations")
         .select("date, service_key, people")
@@ -344,11 +349,12 @@ export const GET: APIRoute = async ({ url }) => {
       /* vuoto */
     }
     let capienza = 0;
+    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
-        capienza = arr.reduce((t: number, z: { seats?: unknown }) => {
-          const n = intOf(z.seats);
+        capienza = arr.reduce((t: number, z: { name?: unknown; seats?: unknown }) => {
+          const n = planPosti ? Math.floor(planPosti.get(String(z.name ?? "").trim()) ?? 0) : intOf(z.seats);
           return t + (Number.isFinite(n) && n > 0 ? n : 0);
         }, 0);
       }
@@ -463,6 +469,13 @@ async function verificaCreneau(
   cfg: WidgetConfig,
   p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number; excludeToken?: string }
 ): Promise<string | null> {
+  // Plan de salle attivo: nessuna combinazione di tavoli per questo numero
+  // di persone → il créneau non è accettabile (l'admin invece bypassa).
+  if (cfg.planMode) {
+    const perZona = (nome: string): number => cfg.zones.find((z) => z.name === nome)?.max_ins ?? 0;
+    const consentiti = p.zone ? perZona(p.zone) : Math.max(0, ...cfg.zones.map((z) => z.max_ins ?? 0));
+    if (consentiti > 0 && p.people > consentiti) return "creneauPris";
+  }
   const slotMin = minutiDi(p.heure);
 
   // Délai minimo / giorno passato
@@ -530,17 +543,31 @@ async function verificaCreneau(
   if (capienza > 0) {
     let occTot = 0;
     let occZona = 0;
+    const occPer = new Map<string, number>();
     for (const rr of day.data ?? []) {
       const rMin = minutiDi(String(rr.heure).slice(0, 5));
       if (rMin < 0) continue;
       const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
       if (rMin < slotMin + holdNuovo && rMin + rHold > slotMin) {
         occTot += rr.people ?? 0;
+        const rz = String(rr.zone ?? "").trim();
+        if (rz) occPer.set(rz, (occPer.get(rz) ?? 0) + (rr.people ?? 0));
         if (p.zone && (rr.zone ?? "") === p.zone) occZona += rr.people ?? 0;
       }
     }
     if (occTot + p.people > capienza) return "creneauPris";
     if (postiZona > 0 && occZona + p.people > postiZona) return "creneauPris";
+    // "Indifférent": ALMENO UNA section deve poter ospitare l'intera tavolata
+    // (2 posti liberi qui e 3 là NON fanno un tavolo da 4).
+    if (!p.zone && cfg.zones.length > 0) {
+      const ok = cfg.zones.some(
+        (z) =>
+          !zoneClosed.includes(z.name) &&
+          (!cfg.planMode || (z.max_ins ?? 0) >= p.people) &&
+          (occPer.get(z.name) ?? 0) + p.people <= z.seats
+      );
+      if (!ok) return "creneauPris";
+    }
   }
   return null;
 }

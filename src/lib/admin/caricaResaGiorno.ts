@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../db";
+import { postiDalPlan } from "../planSalle";
 
 // Carica le prenotazioni di un giorno + la configurazione + le chiusure, nella
 // forma esatta attesa dalla pagina /admin/reservations. UNICA fonte di verità:
@@ -43,6 +44,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         "reservation_slot_minutes",
         "reservation_services",
         "reservation_zones",
+        "reservation_plan_mode",
         "timezone",
       ]),
     supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
@@ -85,13 +87,14 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
       const arr = JSON.parse(m.get("reservation_services") || "[]");
       if (Array.isArray(arr)) services = arr;
     } catch { /* vuoto */ }
+    const planPosti = await postiDalPlan(m.get("reservation_plan_mode"));
     try {
       const arr = JSON.parse(m.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
         zones = arr.map((z: { name?: string }) => String(z.name ?? "")).filter(Boolean);
         for (const z of arr as { name?: string; seats?: unknown }[]) {
           const nome = String(z.name ?? "");
-          const n = Math.floor(Number(z.seats));
+          const n = planPosti ? Math.floor(planPosti.get(nome.trim()) ?? 0) : Math.floor(Number(z.seats));
           if (nome && Number.isFinite(n) && n > 0) {
             zoneSeats[nome] = n;
             capacity += n;

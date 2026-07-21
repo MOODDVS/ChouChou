@@ -153,7 +153,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       /* --- Tile Cuisine --- */
       .cui-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--c-line); margin-top: 1.1rem; padding-top: 1rem; }
       .cui-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
-      .cui-sw { width: 44px; height: 24px; border-radius: 999px; background: #5d5555; border: none; cursor: pointer; position: relative; transition: background 0.2s; padding: 0; flex: 0 0 auto; }
+      .cui-sw { width: 44px; height: 24px; border-radius: 999px; background: #1c1819; border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; }
+      .cui-sw.is-on { border-color: var(--c-accent); }
       .cui-sw .cui-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.2s; }
       .cui-sw.is-on { background: var(--c-accent); }
       .cui-sw.is-on .cui-knob { left: 23px; }

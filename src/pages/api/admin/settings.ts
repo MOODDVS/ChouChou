@@ -51,6 +51,7 @@ const CHIAVI_RESA = [
   "reservation_zones",        // sezioni della sala: JSON [{name, seats}]
   "reservation_min_notice_minutes", // minuti minimi di preavviso per prenotare (0 = nessuno)
   "reservation_zone_choice",  // "1" il cliente sceglie la sezione, "0" no
+  "reservation_plan_mode",    // "1" i posti veri vengono dal plan de salle (tavoli disegnati)
   "reservation_max_people",   // massimo di persone accettato dal widget
   "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
   "reservation_corner_style", // angoli del widget: "rounded" | "square"

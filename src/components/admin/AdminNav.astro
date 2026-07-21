@@ -197,15 +197,22 @@ const { current } = Astro.props;
   .admin-super.active { background: var(--c-accent, #dfab4e); color: #231f20; }
 
   @media (max-width: 520px) {
+    /* Icone a grandezza normale + SCROLL laterale dentro l'isola.
+       La voce attiva viene riportata in vista dallo script (scrollIntoView). */
     .admin-nav {
       left: 1rem;
       right: 1rem;
       transform: none;
-      justify-content: space-around;
+      justify-content: flex-start;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      scroll-behavior: smooth;
     }
+    .admin-nav::-webkit-scrollbar { display: none; }
     .admin-nav a {
-      flex: 1;
-      padding: 0.42rem 0.3rem;
+      flex: 0 0 auto;
+      padding: 0.42rem 0.85rem;
     }
     /* su mobile la barra occupa tutta la larghezza: l'ingranaggio sale sopra */
     .admin-super { bottom: calc(1.25rem + 72px); }
@@ -456,6 +463,13 @@ const { current } = Astro.props;
     }
 
     pollOrdini(); // baseline immediata: registra i pagati già presenti al load
+
+    // Mobile: l'isola scorre in orizzontale → la pagina ATTIVA va portata in vista
+    if (window.matchMedia("(max-width: 520px)").matches) {
+      const nav = document.querySelector(".admin-nav") as HTMLElement | null;
+      const attivo = nav?.querySelector("a.active") as HTMLElement | null;
+      if (nav && attivo) nav.scrollLeft = attivo.offsetLeft - (nav.clientWidth - attivo.offsetWidth) / 2;
+    }
     window.setInterval(poll, 20000);
     window.setInterval(pollOrdini, 20000);
     document.addEventListener("visibilitychange", () => {

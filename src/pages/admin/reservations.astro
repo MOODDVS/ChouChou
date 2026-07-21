@@ -636,6 +636,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-step .nm-p-meno:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .nm-step.is-on .nm-p-libre { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .nm-zones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+      .nm-warn { color: var(--c-accent); background: rgba(223, 171, 78, 0.1); border: 1px solid rgba(223, 171, 78, 0.4); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
       .nm-zone {
         background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
@@ -805,12 +806,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <input type="text" id="m-date" class="nm-datein" readonly placeholder="Choisir une date…" />
             <span class="f-label nm-gap">Personnes</span>
             <div class="nm-pers" id="nm-pers"></div>
+            <span class="f-label nm-gap" id="nm-zone-lab">Section</span>
+            <div class="nm-zones" id="nm-zones"></div>
+            <p class="nm-warn" id="nm-warn" style="display:none"></p>
             <span class="f-label nm-gap">Service &amp; heure</span>
             <div class="nm-stabs" id="nm-stabs"></div>
             <div class="nm-closed-note" id="nm-closed-note" style="display:none"></div>
             <div class="nm-slots" id="nm-slots"></div>
-            <span class="f-label nm-gap" id="nm-zone-lab">Section</span>
-            <div class="nm-zones" id="nm-zones"></div>
           </div>
           <div class="nm-col">
             <span class="f-label">Client</span>
@@ -2344,6 +2346,58 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let nmEspanso = false; // orari: mostra oltre le prime 3 righe
         let nmHeure = "";
         let nmPers = 2;
+
+        // Plan de salle: max persone "insieme" per sezione (tavolo singolo più
+        // grande o catena di liaison più capiente). null = plan mode spento.
+        let planMax: Map<string, number> | null = null;
+        async function caricaPlanMax() {
+          try {
+            const r = await fetch("/api/admin/tables", { headers });
+            if (!r.ok) return;
+            const j = await r.json();
+            if (!j.plan_mode) { planMax = null; return; }
+            const tavoli = (j.tables ?? []) as { id: string; zone: string; seats: number }[];
+            const postiId = new Map(tavoli.map((t) => [t.id, Math.floor(Number(t.seats)) || 0]));
+            const m = new Map<string, number>();
+            for (const t of tavoli) {
+              const z = String(t.zone ?? "").trim();
+              if (z) m.set(z, Math.max(m.get(z) ?? 0, Math.floor(Number(t.seats)) || 0));
+            }
+            const legami = (j.links ?? {}) as Record<string, string[][]>;
+            for (const [z, gruppi] of Object.entries(legami)) {
+              if (!Array.isArray(gruppi)) continue;
+              for (const g of gruppi) {
+                if (!Array.isArray(g)) continue;
+                const somma = g.reduce((t, id) => t + (postiId.get(String(id)) ?? 0), 0);
+                m.set(z, Math.max(m.get(z) ?? 0, somma));
+              }
+            }
+            planMax = m;
+          } catch { planMax = null; }
+        }
+        void caricaPlanMax();
+
+        let nmMsgResto = "";
+        function nmAggiornaAvviso() {
+          const el = document.getElementById("nm-warn") as HTMLElement | null;
+          if (!el) return;
+          const msg: string[] = [];
+          if (planMax && planMax.size > 0) {
+            let max = 0;
+            if (nmZone) max = planMax.get(nmZone) ?? 0;
+            else for (const val of planMax.values()) max = Math.max(max, val);
+            if (max > 0 && nmPers > max) {
+              msg.push(`⚠ Aucune combinaison de tables pour ${nmPers} pers.${nmZone ? ` en ${nmZone}` : ""} (max ${max} ensemble) — vous pouvez quand même enregistrer.`);
+            }
+          }
+          if (nmMsgResto) msg.push(nmMsgResto);
+          if (msg.length) {
+            el.innerHTML = msg.map((m) => m.replace(/&/g, "&amp;").replace(/</g, "&lt;")).join("<br />");
+            el.style.display = "";
+          } else {
+            el.style.display = "none";
+          }
+        }
         let nmZone = "";
 
         function nmServizi(): { key: string; label: string; da: number; a: number; hold: number; slot: number; days: number[] }[] {
@@ -2384,6 +2438,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
 
         function nmRenderOre() {
+          nmAggiornaAvviso();
           // Oggi: si mostrano solo gli orari non ancora passati (fuso del
           // ristorante); lo slot in corso resta selezionabile per i walk-in.
           // Ogni service usa il SUO créneau e la SUA durée d'occupation.
@@ -2446,6 +2501,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           // "Indifférent" contano solo sul totale (le piazza il ristoratore)
           const postiZona = nmZone ? (nmCfg.zone_seats?.[nmZone] ?? 0) : 0;
           const holdNuovo = att?.hold ?? holdMinutes; // durée del service attivo
+          const occPerZona = (sMin: number): Map<string, number> => {
+            const m = new Map<string, number>();
+            for (const rr of reseGiorno) {
+              if (nmEditId && rr.id === nmEditId) continue;
+              const rMin = minutiDa(rr.heure);
+              const rHold = holdDi(rr.service_key);
+              if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
+                const rz = (rr.zone ?? "").trim();
+                if (rz) m.set(rz, (m.get(rz) ?? 0) + rr.people);
+              }
+            }
+            return m;
+          };
           const slotPieno = (hh: string): boolean => {
             if (zonaChiusa) return true; // section fermée quel giorno: tutto ✕ (bypass possibile)
             // Tutte le sections chiuse: nessun coperto disponibile quel giorno
@@ -2464,7 +2532,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               }
             }
             if (occTot + nmPers > capienza) return true;
-            return postiZona > 0 && occZona + nmPers > postiZona;
+            if (postiZona > 0 && occZona + nmPers > postiZona) return true;
+            if (!nmZone && (nmCfg.zones ?? []).length > 0) {
+              const okz = (nmCfg.zones ?? []).some(
+                (z) => !zoneCh.some((c) => c.zone === z) && (occPerZona(sMin).get(z) ?? 0) + nmPers <= (nmCfg.zone_seats?.[z] ?? 0)
+              );
+              if (!okz) return true;
+            }
+            return false;
           };
           const LIMITE = 12; // 3 righe da 4 colonne
           const tutti = att ? att.slots : [];
@@ -2480,6 +2555,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           if (!att) html = '<p class="nm-noslot">Plus aucune heure disponible ce jour.</p>';
           (document.getElementById("nm-slots") as HTMLDivElement).innerHTML = html;
+
+          // Posti RESTANTI all'ora scelta: se nessuna section può ospitare
+          // l'intera tavolata → avviso (l'admin può comunque registrare)
+          nmMsgResto = "";
+          if (nmHeure && capienza > 0) {
+            const occ = occPerZona(minutiDa(nmHeure));
+            const zoneAperte = (nmCfg.zones ?? []).filter((z) => !zoneCh.some((c) => c.zone === z));
+            const resto = (z: string) => Math.max(0, (nmCfg.zone_seats?.[z] ?? 0) - (occ.get(z) ?? 0));
+            const ok = nmZone
+              ? zoneAperte.includes(nmZone) && resto(nmZone) >= nmPers
+              : zoneAperte.some((z) => resto(z) >= nmPers);
+            if (!ok && zoneAperte.length > 0) {
+              const dett = zoneAperte.map((z) => `${z} : ${resto(z)}`).join(" · ");
+              nmMsgResto = `⚠ Plus assez de places ensemble pour ${nmPers} pers. à ${nmHeure}${nmZone ? ` en ${nmZone}` : ""} (restantes — ${dett}). Vous pouvez quand même enregistrer.`;
+            }
+          }
+          nmAggiornaAvviso();
         }
 
         function nmRenderPers() {
