@@ -360,6 +360,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     await resend.emails.send({
       from: RESEND_FROM,
       to: dest,
+      bcc: "enquiries@moodd.online",
       subject: `Votre journée — ${dataLunga}`,
       html,
     });

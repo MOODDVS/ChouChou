@@ -467,15 +467,33 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     } catch { /* colonna assente */ }
   }
 
-  // Manuale puro, mai ordinato: si elimina davvero.
-  if (id && orders === 0) {
+  // Il cliente resta "derivabile" dalla lista se ha ordini pagati OPPURE
+  // prenotazioni (di QUALSIASI stato: anche annullate ricreano la riga). In tal
+  // caso NON si elimina davvero — si nasconde — altrimenti l'aggregazione lo
+  // ricrea e riappare (bug "serve cancellare due volte").
+  let haPrenotazioni = false;
+  if (email || phone) {
+    const conds: string[] = [];
+    if (email) conds.push(`email.eq.${email}`);
+    if (phone) conds.push(`phone.eq.${phone}`);
+    const { data: pr } = await supabaseAdmin
+      .from("reservations")
+      .select("id")
+      .or(conds.join(","))
+      .limit(1);
+    haPrenotazioni = !!(pr && pr.length);
+  }
+  const haAttivita = orders > 0 || haPrenotazioni;
+
+  // Manuale puro, SENZA nessuna attività (né ordini né prenotazioni): eliminazione vera.
+  if (id && !haAttivita) {
     const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
     if (error) return json({ error: "Suppression impossible" }, 500);
     await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
 
-  // Con ordini: si nasconde (e si stacca la foto, che viene eliminata).
+  // Con attività: si nasconde (e si stacca la foto, che viene eliminata).
   if (id) {
     let upd = await supabaseAdmin.from("clients").update({ hidden: true, photo_url: null }).eq("id", id);
     if (upd.error && String(upd.error.message ?? "").includes("photo_url")) {

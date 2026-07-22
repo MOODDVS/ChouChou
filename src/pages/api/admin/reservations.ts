@@ -677,3 +677,32 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   return json({ reservation: data });
 };
+
+// DELETE /api/admin/reservations?id=... — ELIMINA DEFINITIVAMENTE la
+// prenotazione (riga rimossa dal DB). Nessuna email al cliente: l'annullamento
+// con avviso resta la transizione di stato → cancelled (badge di stato).
+// Arriva come POST + X-Method-Override: DELETE (il WAF blocca i DELETE mobili).
+export const DELETE: APIRoute = async ({ request, url }) => {
+  const staff = await verificaStaff(request);
+  if (!staff) return nonAutorizzato();
+
+  const id = url.searchParams.get("id") ?? "";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+
+  // Se c'era una email-recensione programmata, annullala prima di eliminare.
+  try {
+    const { data: pre } = await supabaseAdmin
+      .from("reservations")
+      .select("review_email_id")
+      .eq("id", id)
+      .maybeSingle();
+    const emailId = (pre as { review_email_id?: string | null } | null)?.review_email_id;
+    if (emailId) void annullaEmailReview(emailId);
+  } catch {
+    /* best-effort */
+  }
+
+  const { error } = await supabaseAdmin.from("reservations").delete().eq("id", id);
+  if (error) return json({ error: "Suppression impossible" }, 500);
+  return json({ ok: true });
+};

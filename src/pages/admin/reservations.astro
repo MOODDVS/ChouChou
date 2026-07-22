@@ -209,6 +209,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         font-size: 1.4rem; letter-spacing: 0.03em; line-height: 1.1; white-space: nowrap; font-weight: 400;
       }
       .r-tav-sez { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      /* Tavolo SUGGERITO (demande pending): tono attenuato, non è ancora attribuito */
+      .r-tav-sugg { color: #8f8781; font-size: 1.15rem; }
 
       .r-badge {
         font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
@@ -265,7 +267,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       .r-state-col { display: flex; flex-direction: row; align-items: center; gap: 0.45rem; }
       .r-actions { display: inline-flex; gap: 0.45rem; align-items: center; }
-      .r-del { display: inline-flex; flex-direction: row; gap: 0.45rem; align-items: center; min-width: 75px; justify-content: center; }
+      .r-del { display: inline-flex; flex-direction: row; gap: 0.45rem; align-items: center; min-width: 75px; justify-content: flex-end; }
       .b-edit { width: 34px; height: 34px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
       .b-edit .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .b-edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
@@ -290,7 +292,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         .r-zone { grid-column: 3; grid-row: 1 / span 2; }
         .r-pers { grid-column: 4; grid-row: 1 / span 2; }
         .r-state-col { grid-column: 5; grid-row: 1 / span 2; align-self: center; justify-self: center; flex-direction: column; }
-        .r-del { grid-column: 6; grid-row: 1 / span 2; align-self: center; flex-direction: column; min-width: 34px; }
+        .r-del { grid-column: 6; grid-row: 1 / span 2; align-self: center; flex-direction: column; min-width: 34px; justify-content: center; }
       }
 
       /* Bottone flottante + modale aggiunta manuale */
@@ -1052,6 +1054,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         (document.getElementById("fab-zone") as HTMLElement).classList.toggle("has-closed", chiusureZoneOggi.length > 0);
       }
       let rese: Resa[] = [];
+      // Tavolo SUGGERITO per le demande in attesa (dry-run, non occupa nulla):
+      // id prenotazione -> { names, zone }. Vuoto = nessun tavolo libero.
+      const suggeriti = new Map<string, { names: string[]; zone: string }>();
       let holdMinutes = 90;
       let nmCfg: {
         slot_minutes: number;
@@ -1146,12 +1151,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (mail) parti.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${mail}">${mail}</a></span>`);
         if (r.business && r.company) parti.push(`<span class="r-c">${ICO_BIZ}<span>${esc(r.company)}</span></span>`);
         const contatti = parti.join("");
-        const cestino =
-          r.status === "confirmed" || r.status === "seated"
-            ? `<button class="i-btn b-annule" data-act="cancel" title="Annuler">${ICO_TRASH}</button>`
-            : "";
+        // Supprimer: disponibile su TUTTI gli stati (anche Fini / No-show).
+        const cestino = `<button class="i-btn b-annule" data-act="delete" title="Supprimer">${ICO_TRASH}</button>`;
+        // Modifier: confirmée/seated + pending (une demande peut être ajustée).
         const matita =
-          r.status === "confirmed" || r.status === "seated"
+          r.status === "confirmed" || r.status === "seated" || r.status === "pending"
             ? `<button class="i-btn b-edit" data-act="edit" title="Modifier">${ICO_EDIT}</button>`
             : "";
         // Ligne dorée "En cours" + timer tavolo (per ora invisibile: data-min).
@@ -1175,6 +1179,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           barra = `<span class="r-live" data-min="${Math.floor(trascorsi)}" style="width:${pct.toFixed(2)}%"></span>`;
         }
         const tavLbl = etichettaTavoli(r);
+        // Demande pending: tavolo SUGGERITO (anteprima, non ancora attribuito).
+        const sugg = r.status === "pending" ? suggeriti.get(r.id) : undefined;
         return `
           <div class="res${off}${r.notes ? "" : " no-note"}" data-id="${r.id}">
             <div class="r-time">
@@ -1191,7 +1197,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               ${contatti ? `<div class="r-sub">${contatti}</div>` : ""}
             </div>
             <div class="r-note-col">${r.notes ? `<svg class="r-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg><span>${esc(r.notes)}</span>` : ""}</div>
-            <div class="r-zone">${tavLbl ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>` : esc(r.zone ?? "")}</div>
+            <div class="r-zone">${
+              tavLbl
+                ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>`
+                : sugg && sugg.names.length
+                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join(" + "))}</b><span class="r-tav-sez">${esc(sugg.zone)} · suggéré</span>`
+                  : esc(r.zone ?? "")
+            }</div>
             <div class="r-pers"><b>${r.people}</b><span>pers.</span></div>
             <span class="r-state-col">${badge(r)}</span>
             <span class="r-del">${matita}${cestino}</span>
@@ -1341,6 +1353,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (silenzioso && firma === firmaLista) return;
           firmaLista = firma;
           rese = j.reservations;
+          if (!silenzioso) suggeriti.clear(); // ricalcola i suggerimenti per il giorno
           chiusureOggi = j.closures ?? [];
           spOpenOggi = Boolean(j.special_open);
           spServiziOggi = (j.special_services ?? null) as string[] | null;
@@ -1359,9 +1372,50 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             emptyEl.textContent = "Aucune réservation ce jour.";
           }
           render();
+          void caricaSuggeriti(); // tavoli suggeriti per le demande pending (dry-run)
         } catch {
           if (!silenzioso) stateEl.textContent = "Erreur de chargement.";
         }
+      }
+
+      // Calcola il tavolo SUGGERITO per ogni demande pending (dry-run: stesso
+      // motore, exclude=sé, NON occupa nulla). Solo per i pending non ancora in
+      // cache; alla fine ridisegna. Best-effort: un errore non blocca la lista.
+      async function caricaSuggeriti() {
+        const pend = rese.filter((r) => r.status === "pending" && !suggeriti.has(r.id));
+        if (!pend.length) return;
+        await Promise.all(
+          pend.map(async (r) => {
+            try {
+              const params = new URLSearchParams({
+                assign: "1",
+                date: r.date,
+                heure: String(r.heure).slice(0, 5),
+                people: String(r.people),
+                exclude: r.id,
+              });
+              if (r.service_key) params.set("service", r.service_key);
+              if (r.zone) params.set("zone", r.zone);
+              const res = await fetch("/api/admin/tables?" + params.toString(), { headers });
+              if (!res.ok) {
+                suggeriti.set(r.id, { names: [], zone: "" });
+                return;
+              }
+              const j = (await res.json()) as {
+                proposal?: { ids: string[]; names: string[]; zone: string } | null;
+              };
+              suggeriti.set(
+                r.id,
+                j.proposal && j.proposal.names?.length
+                  ? { names: j.proposal.names, zone: j.proposal.zone }
+                  : { names: [], zone: "" }
+              );
+            } catch {
+              suggeriti.set(r.id, { names: [], zone: "" });
+            }
+          })
+        );
+        render();
       }
 
       (async () => {
@@ -1447,6 +1501,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             await carica();
           } catch {
             toast("Modification impossible", "err");
+          }
+        }
+        // Eliminazione DEFINITIVA della prenotazione (riga rimossa, niente email).
+        // Via POST + X-Method-Override (il WAF Hostinger blocca i DELETE mobili).
+        async function eliminaResa(id: string) {
+          try {
+            const res = await fetch("/api/admin/reservations?id=" + encodeURIComponent(id), {
+              method: "POST",
+              headers: { ...headers, "X-Method-Override": "DELETE" },
+            });
+            if (!res.ok) throw new Error();
+            toast("Réservation supprimée", "ok");
+            await carica();
+          } catch {
+            toast("Suppression impossible", "err");
           }
         }
         // ---- Menu degli stati (badge cliccabile) ----
@@ -2255,12 +2324,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const id = (btn.closest(".res") as HTMLElement | null)?.dataset.id ?? "";
           if (!id) return;
           const act = btn.dataset.act;
-          if (act === "cancel") {
+          if (act === "delete") {
             e.stopPropagation(); // il testo sostituisce l'icona: senza stop il "click fuori" disarmerebbe subito
-            // Primo tap: chiede conferma; secondo tap: annulla davvero
+            // Primo tap: chiede conferma; secondo tap: elimina DAVVERO la resa
             if (cestinoArmato === btn) {
               disarmaCestino();
-              void cambiaStato(id, "cancelled");
+              void eliminaResa(id);
             } else {
               disarmaCestino();
               cestinoArmato = btn;

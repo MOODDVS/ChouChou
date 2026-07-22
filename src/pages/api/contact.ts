@@ -163,6 +163,7 @@ export const POST: APIRoute = async ({ request }) => {
     await resend.emails.send({
       from: FROM,
       to: email,
+      bcc: BCC,
       subject: t.subject,
       html: htmlCliente,
     });

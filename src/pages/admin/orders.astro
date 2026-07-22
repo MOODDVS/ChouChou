@@ -8,6 +8,7 @@
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
@@ -447,6 +448,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <h2 class="done-title" id="done-title" style="display:none">Terminées &amp; annulées</h2>
         <div class="grid" id="grid-done"></div>
       </main>
+      <AdminFooter />
     </div>
 
     <!-- Modale Remboursement -->

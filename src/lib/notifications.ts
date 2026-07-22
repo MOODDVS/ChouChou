@@ -194,7 +194,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
-      html,
+      html: avvolgiScuro(html),
     });
   } catch (e) {
     console.error("Errore email cliente:", e);
@@ -312,7 +312,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(o.numero),
-      html,
+      html: avvolgiScuro(html),
     });
   } catch (e) {
     console.error("Errore email link di pagamento:", e);
@@ -539,7 +539,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(nome),
-      html,
+      html: avvolgiScuro(html),
       scheduledAt: quando.toISO() ?? undefined,
     });
   } catch (e) {
@@ -659,7 +659,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
       from: RESEND_FROM,
       to: email,
       subject: t.subject(nome),
-      html,
+      html: avvolgiScuro(html),
       scheduledAt: quando.toISO() ?? undefined,
     });
     return data?.id ?? null;
@@ -935,6 +935,20 @@ function rigaRecap(lab: string, val: string): string {
   </tr>`;
 }
 
+// Avvolge l'HTML di una email nel DOCUMENTO SCURO completo (head color-scheme
+// dark + body/table con sfondo #1c1819): elimina il "riquadro bianco" che il
+// client email mette attorno al contenuto. Stessa tecnica dell'email quotidiana.
+function avvolgiScuro(inner: string, dir = "ltr"): string {
+  return `<!doctype html>
+  <html dir="${dir}" lang="fr">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark" /><meta name="supported-color-schemes" content="dark" /></head>
+  <body bgcolor="#1c1819" style="margin:0;padding:0;background:#1c1819;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1c1819" style="background:#1c1819;margin:0;padding:0;"><tr><td>
+  ${inner}
+  </td></tr></table>
+  </body></html>`;
+}
+
 /** Header + recap comune (design dark brand) di tutte le email prenotazione. */
 function guscioResa(opts: {
   nome: string;
@@ -1048,7 +1062,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.confSubject(dati.nome),
-      html,
+      html: avvolgiScuro(html),
     });
   } catch (e) {
     console.error("Errore email conferma prenotazione:", e);
@@ -1114,7 +1128,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.pendSubject(dati.nome),
-      html,
+      html: avvolgiScuro(html),
     });
   } catch (e) {
     console.error("Errore email demande prenotazione:", e);
@@ -1172,7 +1186,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.cancSubject(dati.nome),
-      html,
+      html: avvolgiScuro(html),
     });
   } catch (e) {
     console.error("Errore email annullamento prenotazione:", e);
