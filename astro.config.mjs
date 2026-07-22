@@ -8,6 +8,16 @@ import sitemap from "@astrojs/sitemap";
 export default defineConfig({
   output: "server",
   adapter: node({ mode: "standalone" }),
+  // Dietro il proxy Hostinger, la protezione CSRF integrata di Astro
+  // (security.checkOrigin, attiva di default) confronta l'Origin del browser
+  // con l'host che ricostruisce dalla richiesta proxata: i due non coincidono,
+  // quindi TUTTE le POST/PUT/PATCH/DELETE prive di Content-Type JSON venivano
+  // rifiutate con 403 «Cross-site … form submissions are forbidden» (es. le
+  // cancellazioni admin via POST + X-Method-Override). In locale l'Origin
+  // coincide con l'host, perciò lì funzionava. La disattiviamo: l'admin è
+  // autenticato via Bearer token (non via cookie), quindi non è esposto a CSRF,
+  // e gli endpoint pubblici sono non autenticati e già inviano JSON.
+  security: { checkOrigin: false },
   integrations: [react(), sitemap()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {
