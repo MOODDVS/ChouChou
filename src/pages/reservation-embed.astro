@@ -1,0 +1,43 @@
+---
+// Widget prenotazioni MOODD in versione NUDA (niente Layout/header/footer).
+// Caricato SOLO dentro l'iframe del modale "Réserver". La pagina intera con
+// header + footer è /reservation.
+import ReservationWidget from "../components/ReservationWidget.astro";
+import { CLIENT } from "../config/client";
+import { datiRistorante } from "../lib/ristorante";
+
+export const prerender = false;
+
+let telWidget = CLIENT.telefono;
+try {
+  const dati = await datiRistorante();
+  if (dati.tel) telWidget = dati.tel;
+} catch { /* fallback config */ }
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Réservation — {CLIENT.nome}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-muted: #b3aca6;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
+    </style>
+  </head>
+  <body>
+    <ReservationWidget telWidget={telWidget} />
+  </body>
+</html>

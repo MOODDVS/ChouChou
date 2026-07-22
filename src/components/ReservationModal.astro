@@ -15,7 +15,7 @@
       </svg>
     </button>
     <img class="resmod__logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
-    <iframe id="resmod-frame" title="Réservation — La Molisana" data-src="/reservation"></iframe>
+    <iframe id="resmod-frame" title="Réservation — La Molisana" data-src="/reservation-embed"></iframe>
   </div>
 </div>
 
@@ -116,7 +116,7 @@
   function apri() {
     // Il widget si carica solo alla prima apertura
     if (frame && !frame.getAttribute("src")) {
-      frame.setAttribute("src", frame.dataset.src ?? "/reservation");
+      frame.setAttribute("src", frame.dataset.src ?? "/reservation-embed");
     }
     mod?.classList.add("open");
     mod?.setAttribute("aria-hidden", "false");
