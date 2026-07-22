@@ -194,6 +194,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
+      bcc: BCC,
       html: avvolgiScuro(html),
     });
   } catch (e) {
@@ -312,6 +313,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(o.numero),
+      bcc: BCC,
       html: avvolgiScuro(html),
     });
   } catch (e) {
@@ -539,6 +541,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
       from: RESEND_FROM,
       to: o.customer_email,
       subject: t.subject(nome),
+      bcc: BCC,
       html: avvolgiScuro(html),
       scheduledAt: quando.toISO() ?? undefined,
     });
@@ -659,6 +662,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
       from: RESEND_FROM,
       to: email,
       subject: t.subject(nome),
+      bcc: BCC,
       html: avvolgiScuro(html),
       scheduledAt: quando.toISO() ?? undefined,
     });
@@ -1026,7 +1030,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
     rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(w.section, r.zone) : "");
 
-  const modifyUrl = `${siteBase()}/reservation-test?token=${r.cancel_token}`;
+  const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
   const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
@@ -1062,6 +1066,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.confSubject(dati.nome),
+      bcc: BCC,
       html: avvolgiScuro(html),
     });
   } catch (e) {
@@ -1092,7 +1097,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
     rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(w.section, r.zone) : "");
 
-  const modifyUrl = `${siteBase()}/reservation-test?token=${r.cancel_token}`;
+  const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
   const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
@@ -1128,6 +1133,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.pendSubject(dati.nome),
+      bcc: BCC,
       html: avvolgiScuro(html),
     });
   } catch (e) {
@@ -1153,7 +1159,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
     rigaRecap(w.heure, r.heure) +
     rigaRecap(w.personnes, `${r.people} ${w.pers}`);
 
-  const bookUrl = `${siteBase()}/reservation-test`;
+  const bookUrl = `${siteBase()}/reservation`;
   const ctaHtml = `
     <tr>
       <td style="padding:22px 40px 4px;text-align:center;">
@@ -1186,6 +1192,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
       from,
       to: r.email,
       subject: t.cancSubject(dati.nome),
+      bcc: BCC,
       html: avvolgiScuro(html),
     });
   } catch (e) {
