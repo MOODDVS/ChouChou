@@ -156,7 +156,7 @@ export async function assegnaTavoli(p: {
     const { data: cfgRows } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
-      .in("key", ["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority"]);
+      .in("key", ["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones"]);
     const cfg = new Map((cfgRows ?? []).map((r) => [r.key, String(r.value ?? "")]));
     if (cfg.get("reservation_plan_mode") !== "1") return null;
 
@@ -184,6 +184,17 @@ export async function assegnaTavoli(p: {
       const pr = JSON.parse(cfg.get("reservation_zone_priority") || "[]");
       if (Array.isArray(pr)) priorita = pr.map(String).filter(Boolean);
     } catch { /* nessuna priorità */ }
+    // Nessuna priorità salvata (mai trascinato nel modale Sections): vale
+    // l'ordine delle sections dei Réglages — è quello che il modale NUMERA,
+    // quindi deve essere sempre vero. La 1ª si riempie prima.
+    if (!priorita.length) {
+      try {
+        const zs = JSON.parse(cfg.get("reservation_zones") || "[]");
+        if (Array.isArray(zs)) {
+          priorita = (zs as { name?: unknown }[]).map((z) => String(z?.name ?? "").trim()).filter(Boolean);
+        }
+      } catch { /* niente zones configurate */ }
+    }
 
     const [tavQ, chzQ] = await Promise.all([
       supabaseAdmin.from("restaurant_tables").select("id, zone, name, seats"),
@@ -255,6 +266,11 @@ export async function assegnaESalva(
   p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number }
 ): Promise<void> {
   try {
+    // Attribuzione manuale (reservation_auto_tables = "0"): il motore non
+    // tocca MAI i tavoli — li mette/toglie il ristoratore dal modale.
+    const { data: at } = await supabaseAdmin
+      .from("app_config").select("value").eq("key", "reservation_auto_tables").maybeSingle();
+    if (String(at?.value ?? "1") === "0") return;
     const scelta = await assegnaTavoli({ ...p, excludeId: id });
     await supabaseAdmin.from("reservations").update({ tables: scelta ? scelta.ids : null }).eq("id", id);
   } catch { /* mai bloccante */ }

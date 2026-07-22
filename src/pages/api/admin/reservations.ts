@@ -2,9 +2,16 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { emailReviewResa, annullaEmailReview, emailAnnullataResa, type ResaEmail } from "../../../lib/notifications";
+import { emailReviewResa, annullaEmailReview, emailAnnullataResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
+
+/** Id tavoli validi (uuid) da un body: max 8, [] -> null. */
+function tavoliDalBody(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const ids = (v as unknown[]).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 8);
+  return ids.length ? ids : null;
+}
 
 /** Registra il cliente di una prenotazione manuale nella rubrica `clients`. */
 function registraClienteResa(r: { first_name?: string; last_name?: string; email?: string; phone?: string }): void {
@@ -27,7 +34,7 @@ export const prerender = false;
 // PATCH { id, ... }    → cambio stato E/O modifica completa dei campi
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
-const STATI = ["confirmed", "seated", "cancelled", "noshow", "done"];
+const STATI = ["pending", "confirmed", "seated", "cancelled", "noshow", "done"];
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -315,6 +322,7 @@ export const POST: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
     body = await request.json();
@@ -394,6 +402,11 @@ export const POST: APIRoute = async ({ request }) => {
         .single();
       if (!e2 && d2) {
         await assegnaESalva(String((d2 as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
+        if (body.tables !== undefined && Array.isArray(body.tables)) {
+          try {
+            await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((d2 as { id?: unknown }).id ?? ""));
+          } catch { /* #37 assente */ }
+        }
         void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
         registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
         return json({ reservation: d2 });
@@ -402,6 +415,11 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Création impossible" }, 500);
   }
   await assegnaESalva(String((data as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
+  if (body.tables !== undefined && Array.isArray(body.tables)) {
+    try {
+      await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((data as { id?: unknown }).id ?? ""));
+    } catch { /* #37 assente */ }
+  }
   void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
   registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
   return json({ reservation: data });
@@ -442,6 +460,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
     body = await request.json();
@@ -453,9 +472,14 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   // Solo i campi presenti nel body vengono modificati
   const upd: Record<string, unknown> = {};
+  let statoPrima = ""; // per la transizione Demande (pending) -> Confirmée
   if (body.status !== undefined) {
     if (!STATI.includes(body.status)) return json({ error: "Statut invalide" }, 400);
     upd.status = body.status;
+    if (body.status === "confirmed") {
+      const { data: pv } = await supabaseAdmin.from("reservations").select("status").eq("id", id).maybeSingle();
+      statoPrima = String(pv?.status ?? "");
+    }
     // Timer tavolo: "En cours" manuale = arrivo reale; ritorno a Confirmée lo azzera
     if (body.status === "seated") {
       upd.seated_at = new Date().toISOString();
@@ -545,6 +569,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (body.source !== "walkin" && body.source !== "phone") return json({ error: "Origine invalide" }, 400);
     upd.source = body.source;
   }
+  if (body.tables !== undefined && Array.isArray(body.tables)) upd.tables = tavoliDalBody(body.tables);
   if (!Object.keys(upd).length) return json({ error: "Rien à modifier" }, 400);
 
   let { data, error } = await supabaseAdmin
@@ -589,6 +614,18 @@ export const PATCH: APIRoute = async ({ request }) => {
         .single());
     }
   }
+  // Migrazione #37 non ancora lanciata: si riprova senza la colonna tables
+  if (error && upd.tables !== undefined && error.message.includes("tables")) {
+    delete upd.tables;
+    if (Object.keys(upd).length) {
+      ({ data, error } = await supabaseAdmin
+        .from("reservations")
+        .update(upd)
+        .eq("id", id)
+        .select("*")
+        .single());
+    }
+  }
   // Migrazione #28 non ancora lanciata: si riprova senza la colonna spent_cents
   if (error && upd.spent_cents !== undefined && error.message.includes("spent_cents")) {
     delete upd.spent_cents;
@@ -614,13 +651,20 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (upd.status === "cancelled" && (data as { email?: string }).email) {
     void emailAnnullataResa(data as unknown as ResaEmail);
   }
+  // Demande CONFERMATA dal ristoratore: ORA parte l'email di conferma al
+  // cliente + la recensione J+1 (in modalità demande non erano partite)
+  if (upd.status === "confirmed" && statoPrima === "pending") {
+    if ((data as { email?: string }).email) void inviaConfermaResa(data as unknown as ResaEmail);
+    void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+  }
   // Plan de salle: annullata/no-show libera i tavoli; dati cambiati (o ritorno
   // a Confirmée) -> riassegnazione con i valori AGGIORNATI della riga
   if (upd.status === "cancelled" || upd.status === "noshow") {
     try { await supabaseAdmin.from("reservations").update({ tables: null }).eq("id", id); } catch { /* #37 assente */ }
   } else if (
-    body.date !== undefined || body.heure !== undefined || body.people !== undefined ||
-    body.zone !== undefined || body.service_key !== undefined || upd.status === "confirmed"
+    body.tables === undefined && // tavoli scelti a mano: non si ricalcola nulla
+    (body.date !== undefined || body.heure !== undefined || body.people !== undefined ||
+      body.zone !== undefined || body.service_key !== undefined || upd.status === "confirmed")
   ) {
     const r = data as { date?: string; heure?: string; service_key?: string | null; zone?: string | null; people?: number };
     await assegnaESalva(id, {

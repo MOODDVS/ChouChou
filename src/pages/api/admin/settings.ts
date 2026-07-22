@@ -52,6 +52,8 @@ const CHIAVI_RESA = [
   "reservation_min_notice_minutes", // minuti minimi di preavviso per prenotare (0 = nessuno)
   "reservation_zone_choice",  // "1" il cliente sceglie la sezione, "0" no
   "reservation_plan_mode",    // "1" i posti veri vengono dal plan de salle (tavoli disegnati)
+  "reservation_auto_accept",  // "1" conferma subito (default) · "0" demandes PENDING, conferma il ristoratore
+  "reservation_auto_tables",  // "1" tavoli assegnati dal motore (default) · "0" li attribuisce il ristoratore
   "reservation_max_people",   // massimo di persone accettato dal widget
   "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
   "reservation_corner_style", // angoli del widget: "rounded" | "square"
@@ -329,6 +331,9 @@ export const PUT: APIRoute = async ({ request }) => {
       }
       if (k === "reservation_zone_choice" && v && v !== "0" && v !== "1") {
         return json({ error: "Valeur invalide (choix de section)" }, 400);
+      }
+      if ((k === "reservation_auto_accept" || k === "reservation_auto_tables") && v && v !== "0" && v !== "1") {
+        return json({ error: "Valeur invalide (interrupteur)" }, 400);
       }
       if (k === "reservation_corner_style" && v && v !== "rounded" && v !== "square") {
         return json({ error: "Valeur invalide (style des angles)" }, 400);

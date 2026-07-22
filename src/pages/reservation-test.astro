@@ -317,6 +317,7 @@ try {
         capacity: number;
         maxPeople: number;
         planMode?: boolean;
+        autoAccept?: boolean;
         minNoticeMinutes: number;
         cornerStyle: "square" | "rounded";
         languages: string[];
@@ -540,6 +541,8 @@ try {
         const zonaSel = CFG.zoneChoice ? ($("rw-zones").querySelector(".is-on")?.textContent ?? "").trim() : "";
         const postiZona = zonaSel ? CFG.zones.find((z) => z.name === zonaSel)?.seats ?? 0 : 0;
         const pieno = (sMin: number): boolean => {
+          // Auto-accept spento: si accetta tutto come demande (mai "complet")
+          if (CFG.autoAccept === false) return false;
           if (!capienza) return false;
           let occTot = 0, occZona = 0;
           const occPer = new Map<string, number>();

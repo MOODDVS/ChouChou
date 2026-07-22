@@ -752,6 +752,10 @@ interface TxtResa {
   cancTitle: string;
   cancLead: (name: string) => string;
   cancInfo: string;
+  pendSubject: (nome: string) => string;
+  pendTitle: string;
+  pendLead: (name: string) => string;
+  pendInfo: string;
 }
 
 const TXT_RESA: Record<LinguaWidget, TxtResa> = {
@@ -765,6 +769,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Réservation annulée",
     cancLead: (name) => `Bonjour ${name},<br>Votre réservation a été annulée.`,
     cancInfo: "Pour toute question ou pour réserver à nouveau, n'hésitez pas à nous contacter.",
+    pendSubject: (n) => `Votre demande de réservation chez ${n}`,
+    pendTitle: "Demande envoyée",
+    pendLead: (name) => `Merci ${name} !<br>Votre demande de réservation a bien été envoyée.`,
+    pendInfo: "Elle sera confirmée par le restaurant — vous recevrez alors un email de confirmation.",
   },
   en: {
     confSubject: (n) => `Your booking at ${n} is confirmed`,
@@ -776,6 +784,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Booking cancelled",
     cancLead: (name) => `Hello ${name},<br>Your booking has been cancelled.`,
     cancInfo: "For any question or to book again, please don't hesitate to contact us.",
+    pendSubject: (n) => `Your booking request at ${n}`,
+    pendTitle: "Request sent",
+    pendLead: (name) => `Thank you ${name}!<br>Your booking request has been sent.`,
+    pendInfo: "It will be confirmed by the restaurant — you will then receive a confirmation email.",
   },
   es: {
     confSubject: (n) => `Su reserva en ${n} está confirmada`,
@@ -787,6 +799,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Reserva cancelada",
     cancLead: (name) => `Hola ${name},<br>Su reserva ha sido cancelada.`,
     cancInfo: "Para cualquier duda o para reservar de nuevo, no dude en contactarnos.",
+    pendSubject: (n) => `Su solicitud de reserva en ${n}`,
+    pendTitle: "Solicitud enviada",
+    pendLead: (name) => `¡Gracias ${name}!<br>Su solicitud de reserva ha sido enviada.`,
+    pendInfo: "Será confirmada por el restaurante — entonces recibirá un email de confirmación.",
   },
   it: {
     confSubject: (n) => `La tua prenotazione da ${n} è confermata`,
@@ -798,6 +814,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Prenotazione annullata",
     cancLead: (name) => `Ciao ${name},<br>La tua prenotazione è stata annullata.`,
     cancInfo: "Per qualsiasi domanda o per prenotare di nuovo, non esitare a contattarci.",
+    pendSubject: (n) => `La tua richiesta di prenotazione da ${n}`,
+    pendTitle: "Richiesta inviata",
+    pendLead: (name) => `Grazie ${name}!<br>La tua richiesta di prenotazione è stata inviata.`,
+    pendInfo: "Sarà confermata dal ristorante — riceverai allora un'email di conferma.",
   },
   de: {
     confSubject: (n) => `Ihre Reservierung bei ${n} ist bestätigt`,
@@ -809,6 +829,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Reservierung storniert",
     cancLead: (name) => `Hallo ${name},<br>Ihre Reservierung wurde storniert.`,
     cancInfo: "Bei Fragen oder für eine neue Reservierung kontaktieren Sie uns gerne.",
+    pendSubject: (n) => `Ihre Reservierungsanfrage bei ${n}`,
+    pendTitle: "Anfrage gesendet",
+    pendLead: (name) => `Danke ${name}!<br>Ihre Reservierungsanfrage wurde gesendet.`,
+    pendInfo: "Sie wird vom Restaurant bestätigt — Sie erhalten dann eine Bestätigungs-E-Mail.",
   },
   ru: {
     confSubject: (n) => `Ваше бронирование в ${n} подтверждено`,
@@ -820,6 +844,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Бронирование отменено",
     cancLead: (name) => `Здравствуйте, ${name}!<br>Ваше бронирование отменено.`,
     cancInfo: "По любым вопросам или для нового бронирования, пожалуйста, свяжитесь с нами.",
+    pendSubject: (n) => `Ваш запрос на бронирование в ${n}`,
+    pendTitle: "Запрос отправлен",
+    pendLead: (name) => `Спасибо, ${name}!<br>Ваш запрос на бронирование отправлен.`,
+    pendInfo: "Ресторан подтвердит его — после этого вы получите письмо с подтверждением.",
   },
   ar: {
     confSubject: (n) => `تم تأكيد حجزك في ${n}`,
@@ -831,6 +859,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "تم إلغاء الحجز",
     cancLead: (name) => `مرحباً ${name}،<br>تم إلغاء حجزك.`,
     cancInfo: "لأي سؤال أو لإجراء حجز جديد، لا تتردد في الاتصال بنا.",
+    pendSubject: (n) => `طلب الحجز الخاص بك في ${n}`,
+    pendTitle: "تم إرسال الطلب",
+    pendLead: (name) => `شكراً ${name}!<br>تم إرسال طلب الحجز الخاص بك.`,
+    pendInfo: "سيؤكده المطعم — وستصلك بعدها رسالة تأكيد بالبريد الإلكتروني.",
   },
   zh: {
     confSubject: (n) => `您在 ${n} 的预订已确认`,
@@ -842,6 +874,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "预订已取消",
     cancLead: (name) => `您好 ${name}，<br>您的预订已取消。`,
     cancInfo: "如有任何疑问或需要重新预订，请随时与我们联系。",
+    pendSubject: (n) => `您在 ${n} 的订位申请`,
+    pendTitle: "申请已发送",
+    pendLead: (name) => `谢谢您，${name}！<br>您的订位申请已发送。`,
+    pendInfo: "餐厅确认后，您将收到确认邮件。",
   },
   ja: {
     confSubject: (n) => `${n} のご予約が確定しました`,
@@ -853,6 +889,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "ご予約キャンセル",
     cancLead: (name) => `${name} 様<br>ご予約はキャンセルされました。`,
     cancInfo: "ご不明な点や再予約については、お気軽にお問い合わせください。",
+    pendSubject: (n) => `${n} のご予約リクエスト`,
+    pendTitle: "リクエスト送信済み",
+    pendLead: (name) => `${name} 様、ありがとうございます。<br>ご予約リクエストを承りました。`,
+    pendInfo: "レストランの確認後、確認メールをお送りいたします。",
   },
 };
 
@@ -1015,6 +1055,72 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   }
 }
 
+/** Email al CLIENTE quando la richiesta è INVIATA ma non ancora confermata
+ *  (reservation_auto_accept = "0" → statut pending). Stessi CTA modifica/
+ *  annulla della conferma; la vera email di conferma parte quando il
+ *  ristoratore passa la prenotazione a Confirmée. */
+async function emailDemandeResa(r: ResaEmail): Promise<void> {
+  const from = await resaFromEmail();
+  if (!resend || !from) {
+    console.warn("Resend non configurato: salto demande prenotazione");
+    return;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const t = TXT_RESA[lang];
+  const dati = await datiRistorante();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
+  const recap =
+    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(w.heure, heureVal) +
+    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(w.section, r.zone) : "");
+
+  const modifyUrl = `${siteBase()}/reservation-test?token=${r.cancel_token}`;
+  const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
+
+  const ctaHtml = `
+    <tr>
+      <td style="padding:22px 40px 4px;text-align:center;">
+        <a href="${modifyUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#b3aca6;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #3a3335;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+      </td>
+    </tr>`;
+
+  const footerHtml = `
+    <tr>
+      <td style="padding:0 40px 30px;text-align:center;">
+        <p style="margin:0;color:#dfab4e;font-size:13px;line-height:1.7;">${esc(t.pendInfo)}</p>
+      </td>
+    </tr>`;
+
+  const html = guscioResa({
+    nome: dati.nome,
+    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: t.pendTitle,
+    lead: t.pendLead(esc(nome)),
+    recapRows: recap,
+    ctaHtml,
+    footerHtml,
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: t.pendSubject(dati.nome),
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email demande prenotazione:", e);
+  }
+}
+
 /** Email al CLIENTE quando la prenotazione è annullata dal ristorante. */
 export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const from = await resaFromEmail();
@@ -1155,4 +1261,13 @@ export async function inviaNotificheResa(r: ResaEmail): Promise<void> {
 /** Solo la conferma al cliente (usata dopo una MODIFICA della prenotazione). */
 export async function inviaConfermaResa(r: ResaEmail): Promise<void> {
   await emailConfermaResa(r);
+}
+
+/**
+ * Notifiche di una DEMANDE (auto-accept spento): email « demande reçue » al
+ * cliente + notifica al ristorante. La conferma parte solo quando il
+ * ristoratore passa la prenotazione a Confirmée.
+ */
+export async function inviaNotificheDemandeResa(r: ResaEmail): Promise<void> {
+  await Promise.allSettled([emailDemandeResa(r), emailNotificaResa(r)]);
 }

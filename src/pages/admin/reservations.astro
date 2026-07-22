@@ -201,9 +201,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .r-pers { text-align: center; min-width: 56px; }
       .r-pers b { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.03em; display: block; line-height: 1.1; }
-      .r-pers span { color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
-      .r-zone { color: var(--c-muted); font-size: 0.78rem; min-width: 80px; text-align: center; }
-      .r-tav { color: var(--c-accent); font-size: 0.72rem; letter-spacing: 0.04em; margin-top: 2px; white-space: nowrap; }
+      .r-pers span { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      .r-zone { color: var(--c-muted); font-size: 0.78rem; width: 190px; flex: 0 0 190px; text-align: left; }
+      .r-tav-nom { overflow: hidden; text-overflow: ellipsis; }
+      .r-tav-nom {
+        display: block; font-family: var(--font-title); color: var(--c-accent);
+        font-size: 1.4rem; letter-spacing: 0.03em; line-height: 1.1; white-space: nowrap; font-weight: 400;
+      }
+      .r-tav-sez { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
 
       .r-badge {
         font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
@@ -231,6 +236,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .r-badge.ns { background: rgba(223, 171, 78, 0.14); border: 1px solid var(--c-accent); color: var(--c-accent); }
       .r-badge.bl { background: rgba(59, 130, 246, 0.16); border: 1px solid #3b82f6; color: #8ab6ff; }
       .r-badge.gr { background: rgba(179, 172, 166, 0.12); border: 1px solid var(--c-muted); color: var(--c-muted); }
+      .r-badge.pd { background: var(--c-accent); border: 1px solid var(--c-accent); color: #231f20; font-weight: 700; }
       .b-fini {
         width: 118px; height: 34px; border-radius: 999px; border: 1px solid var(--c-accent);
         background: rgba(223, 171, 78, 0.15); color: var(--c-accent);
@@ -650,6 +656,18 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-step.is-on .nm-p-libre { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .nm-zones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
       .nm-warn { color: var(--c-accent); background: rgba(223, 171, 78, 0.1); border: 1px solid rgba(223, 171, 78, 0.4); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
+      .nm-tables-man { flex-wrap: wrap; }
+      .nm-tv-lab { color: var(--c-muted); font-size: 0.82rem; margin-inline-end: 0.2rem; }
+      .nm-tv-z { width: 100%; color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.2rem; }
+      .nm-tv {
+        background: #231f20; border: 1px solid var(--c-line); color: var(--c-text);
+        border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 0.82rem;
+        font-family: var(--font-body); cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      }
+      .nm-tv:hover:not(:disabled) { border-color: var(--c-accent); }
+      .nm-tv.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-tv.is-busy { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+      .nm-tv-tot { color: var(--c-accent); font-size: 0.82rem; font-weight: 700; margin-inline-start: 0.3rem; }
       .nm-tables {
         display: flex; align-items: center; gap: 0.6rem;
         color: var(--c-text); background: #1c1819; border: 1px solid var(--c-line);
@@ -917,11 +935,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       // NB: dichiarato QUI (scope esterno) perché render() è fuori dalla IIFE
       // del modale; l'assegnazione avviene in caricaPlanMax (closure).
       let planNomi: Map<string, string> | null = null; // id tavolo -> nome
+      let planZoneTav: Map<string, string> | null = null; // id tavolo -> section
       function etichettaTavoli(r: Resa): string {
         if (!Array.isArray(r.tables) || r.tables.length === 0 || !planNomi) return "";
         const mappa = planNomi; // il narrowing non entra nella callback del map
         const nomi = r.tables.map((id) => mappa.get(String(id)) ?? "").filter(Boolean);
         return nomi.join(" + ");
+      }
+      // Section da mostrare sotto il tavolo: quella scelta, o quella del
+      // primo tavolo assegnato (prenotazioni "Indifférent").
+      function sezioneTavoli(r: Resa): string {
+        if (r.zone) return r.zone;
+        if (!Array.isArray(r.tables) || !r.tables.length || !planZoneTav) return "";
+        return planZoneTav.get(String(r.tables[0])) ?? "";
       }
 
       // Origine della prenotazione: walk-in, téléphone, sito web, Google
@@ -1082,6 +1108,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       function badge(r: Resa): string {
         // Sempre cliccabile: apre il menu con tutti gli stati
+        if (r.status === "pending") return '<button class="r-badge pd" data-act="status">En attente</button>';
         if (r.status === "cancelled") return '<button class="r-badge ko" data-act="status">Annulée</button>';
         if (r.status === "noshow") return '<button class="r-badge ns" data-act="status">No-show</button>';
         if (r.status === "done") return '<button class="r-badge gr" data-act="status">Fini</button>';
@@ -1164,7 +1191,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               ${contatti ? `<div class="r-sub">${contatti}</div>` : ""}
             </div>
             <div class="r-note-col">${r.notes ? `<svg class="r-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg><span>${esc(r.notes)}</span>` : ""}</div>
-            <div class="r-zone">${esc(r.zone ?? "")}${tavLbl ? `<div class="r-tav">${esc(tavLbl)}</div>` : ""}</div>
+            <div class="r-zone">${tavLbl ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>` : esc(r.zone ?? "")}</div>
             <div class="r-pers"><b>${r.people}</b><span>pers.</span></div>
             <span class="r-state-col">${badge(r)}</span>
             <span class="r-del">${matita}${cestino}</span>
@@ -1220,8 +1247,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           (document.getElementById("d-today") as HTMLElement).classList.toggle("is-now", giorno === isoOggi());
           const attive = filtrate.filter((r) => r.status === "confirmed" || r.status === "seated");
           const couverts = attive.reduce((s, r) => s + r.people, 0);
+          const attesa = filtrate.filter((r) => r.status === "pending").length;
           statsEl.innerHTML = filtrate.length
-            ? `<b>${couverts}</b> couverts · ${attive.length} résa${attive.length > 1 ? "s" : ""}`
+            ? `<b>${couverts}</b> couverts · ${attive.length} résa${attive.length > 1 ? "s" : ""}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> en attente` : ""}`
             : "";
         }
         if (!filtrate.length) {
@@ -1241,8 +1269,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               : a.heure > b.heure
                 ? 1
                 : 0;
-        const inCorso = filtrate.filter((r) => r.status === "confirmed" || r.status === "seated").sort(perOra);
-        const chiuse = filtrate.filter((r) => r.status !== "confirmed" && r.status !== "seated").sort(perOra);
+        const inCorso = filtrate
+          .filter((r) => r.status === "confirmed" || r.status === "seated" || r.status === "pending")
+          .sort(perOra);
+        const chiuse = filtrate
+          .filter((r) => r.status !== "confirmed" && r.status !== "seated" && r.status !== "pending")
+          .sort(perOra);
         rowsEl.innerHTML =
           inCorso.map(riga).join("") +
           (chiuse.length
@@ -1419,6 +1451,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         // ---- Menu degli stati (badge cliccabile) ----
         const STATI_MENU: { st: string; label: string; colore: string }[] = [
+          { st: "pending", label: "En attente", colore: "#dfab4e" },
           { st: "confirmed", label: "Confirmée", colore: "#2e9e6b" },
           { st: "seated", label: "En cours", colore: "#3b82f6" },
           { st: "done", label: "Fini", colore: "#b3aca6" },
@@ -2459,13 +2492,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // Plan de salle: max persone "insieme" per sezione (tavolo singolo più
         // grande o catena di liaison più capiente). null = plan mode spento.
         let planMax: Map<string, number> | null = null;
+        let planTavoli: { id: string; zone: string; name: string; seats: number }[] = [];
+        let planAuto = true;    // reservation_auto_tables ("0" = attribuzione manuale)
+        let planModeOn = false; // reservation_plan_mode
+        let nmTavSel = new Set<string>(); // tavoli scelti a mano nel modale
         async function caricaPlanMax() {
           try {
             const r = await fetch("/api/admin/tables", { headers });
             if (!r.ok) return;
             const j = await r.json();
-            const tutti = (j.tables ?? []) as { id: string; name: string }[];
+            const tutti = (j.tables ?? []) as { id: string; name: string; zone: string; seats: number }[];
             planNomi = new Map(tutti.map((t) => [String(t.id), String(t.name ?? "")]));
+            planZoneTav = new Map(tutti.map((t) => [String(t.id), String(t.zone ?? "")]));
+            planTavoli = tutti.map((t) => ({ id: String(t.id), zone: String(t.zone ?? "").trim(), name: String(t.name ?? ""), seats: Math.floor(Number(t.seats)) || 0 }));
+            planAuto = j.auto_tables !== false;
+            planModeOn = !!j.plan_mode;
             znPrio = Array.isArray(j.priority) ? (j.priority as unknown[]).map(String) : [];
             if (!j.plan_mode) { planMax = null; return; }
             const tavoli = (j.tables ?? []) as { id: string; zone: string; seats: number }[];
@@ -2484,7 +2525,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 m.set(z, Math.max(m.get(z) ?? 0, somma));
               }
             }
-            planMax = m;
+            planMax = planAuto ? m : null; // manuale: niente avvisi combinazione
           } catch { planMax = null; }
           // Nomi arrivati dopo il primo render della lista: etichette tavoli
           try { render(); } catch { /* lista non ancora pronta */ }
@@ -2696,6 +2737,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         async function nmAggiornaTavoli() {
           const el = document.getElementById("nm-tables") as HTMLElement | null;
           if (!el) return;
+          // Attribuzione MANUALE: chips dei tavoli al posto dell'anteprima
+          if (planModeOn && !planAuto) {
+            nmRenderTavoliManuali();
+            return;
+          }
+          el.classList.remove("nm-tables-man");
           const date = campo("m-date").dataset.iso ?? "";
           if (!planMax || planMax.size === 0 || !nmHeure || !date) {
             el.style.display = "none";
@@ -2725,6 +2772,65 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (seq === nmTavSeq) el.style.display = "none";
           }
         }
+
+        // ---- Attribuzione MANUALE dei tavoli (reservation_auto_tables = "0") ----
+        // Tavoli occupati nella finestra dell'ora scelta (stesse regole hold)
+        function nmTavoliOccupati(): Set<string> {
+          const occ = new Set<string>();
+          const selIso = campo("m-date").dataset.iso ?? "";
+          const dati = nmReseDel(selIso);
+          if (!dati || !nmHeure) return occ;
+          const sMin = minutiDa(nmHeure);
+          const holdNuovo = holdDi(nmServKey || null);
+          for (const rr of dati.rese) {
+            if (nmEditId && rr.id === nmEditId) continue;
+            const rMin = minutiDa(rr.heure);
+            const rHold = holdDi(rr.service_key);
+            if (rMin < sMin + holdNuovo && rMin + rHold > sMin && Array.isArray(rr.tables)) {
+              for (const idT of rr.tables) occ.add(String(idT));
+            }
+          }
+          return occ;
+        }
+        function nmRenderTavoliManuali() {
+          const el = document.getElementById("nm-tables") as HTMLElement | null;
+          if (!el) return;
+          const visibili = planTavoli.filter((t) => !nmZone || t.zone === nmZone);
+          if (!visibili.length || !nmHeure) { el.style.display = "none"; return; }
+          const occ = nmTavoliOccupati();
+          for (const idT of [...nmTavSel]) if (occ.has(idT)) nmTavSel.delete(idT);
+          const perZona = new Map<string, typeof visibili>();
+          for (const t of visibili) {
+            if (!perZona.has(t.zone)) perZona.set(t.zone, []);
+            perZona.get(t.zone)!.push(t);
+          }
+          let html = '<span class="nm-tv-lab">Table(s) :</span>';
+          for (const [z, lista] of perZona) {
+            if (perZona.size > 1) html += `<span class="nm-tv-z">${esc(z)}</span>`;
+            html += lista
+              .map((t) => {
+                const busy = occ.has(t.id);
+                const on = nmTavSel.has(t.id);
+                return `<button type="button" class="nm-tv${on ? " is-on" : ""}${busy ? " is-busy" : ""}" data-tv="${t.id}"${busy ? " disabled" : ""}>${esc(t.name)} · ${t.seats}</button>`;
+              })
+              .join("");
+          }
+          if (nmTavSel.size) {
+            const posti = [...nmTavSel].reduce((tot, idT) => tot + (planTavoli.find((t) => t.id === idT)?.seats ?? 0), 0);
+            html += `<span class="nm-tv-tot">${posti} pl. pour ${nmPers}</span>`;
+          }
+          el.classList.add("nm-tables-man");
+          el.innerHTML = html;
+          el.style.display = "";
+        }
+        (document.getElementById("nm-tables") as HTMLElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nm-tv[data-tv]") as HTMLButtonElement | null;
+          if (!b || b.disabled) return;
+          const idT = b.dataset.tv ?? "";
+          if (nmTavSel.has(idT)) nmTavSel.delete(idT);
+          else nmTavSel.add(idT);
+          nmRenderTavoliManuali();
+        });
 
         function nmRenderPers() {
           const box = document.getElementById("nm-pers") as HTMLDivElement;
@@ -2795,6 +2901,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmServPref = resa?.service_key ?? "";
           nmEspanso = false;
           nmPers = resa?.people ?? 2;
+          nmTavSel = new Set((resa?.tables ?? []).map(String));
           nmTipo = resa?.source === "phone" ? "phone" : "walkin";
           nmRenderTipo();
           nmChaise = resa?.high_chair ?? false;
@@ -3083,6 +3190,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               special_event: nmEvent,
             };
             if (nmSrcEditable) corpo.source = nmTipo === "phone" ? "phone" : "walkin";
+            if (planModeOn && !planAuto) corpo.tables = [...nmTavSel];
             if (nmEditId) corpo.id = nmEditId;
             const res = await fetch("/api/admin/reservations", {
               method: nmEditId ? "PATCH" : "POST",

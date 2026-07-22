@@ -1047,6 +1047,12 @@ import { CLIENT } from "../../config/client";
             </div>
             <hr class="rgroup-sep" />
             <!-- 2. Sections + plan de salle -->
+            <div class="field">
+              <label>Accepter tout de suite<span class="lab-hint">ACTIVÉ : les réservations sont confirmées automatiquement s'il y a de la place. DÉSACTIVÉ : le widget envoie une demande (statut « En attente ») et c'est vous qui confirmez — le client reçoit l'email de confirmation à ce moment-là.</span></label>
+              <div class="dyn-col sl-col">
+                <label class="switch"><input type="checkbox" id="r-autoaccept" /><span class="track"></span></label>
+              </div>
+            </div>
             <div class="field field-zones">
               <label>Sections &amp; couverts<span class="lab-hint">Ex. Intérieur 40, Terrasse 60. Le total est la somme des sections.</span></label>
               <div class="dyn-col">
@@ -1059,6 +1065,12 @@ import { CLIENT } from "../../config/client";
               <div class="dyn-col sl-col">
                 <label class="switch"><input type="checkbox" id="r-planmode" /><span class="track"></span></label>
                 <div class="sl-filtri" id="sl-filtri"></div>
+              </div>
+            </div>
+            <div class="field">
+              <label>Attribuer les tables automatiquement<span class="lab-hint">ACTIVÉ : le moteur choisit les tables (la plus petite combinaison qui suffit, sections prioritaires d'abord). DÉSACTIVÉ : seuls les couverts comptent — vous attribuez les tables à la main dans la fenêtre de réservation.</span></label>
+              <div class="dyn-col sl-col">
+                <label class="switch"><input type="checkbox" id="r-autotables" /><span class="track"></span></label>
               </div>
             </div>
             <div class="overlay" id="sl-overlay">
@@ -1653,6 +1665,8 @@ import { CLIENT } from "../../config/client";
         let slSel: Tavolo | null = null;
 
         const rPlanMode = document.getElementById("r-planmode") as HTMLInputElement;
+        const rAutoAccept = document.getElementById("r-autoaccept") as HTMLInputElement;
+        const rAutoTables = document.getElementById("r-autotables") as HTMLInputElement;
         const slDimSeats = () => {
           rZonesBox.querySelectorAll<HTMLInputElement>(".rz-seats").forEach((i) => {
             i.disabled = rPlanMode.checked;
@@ -1661,6 +1675,8 @@ import { CLIENT } from "../../config/client";
           });
         };
         rPlanMode.addEventListener("change", () => { dirty(); slDimSeats(); renderAnteprima(); });
+        rAutoAccept.addEventListener("change", () => { dirty(); renderAnteprima(); });
+        rAutoTables.addEventListener("change", () => { dirty(); renderAnteprima(); });
 
         // Posti totali disegnati per ogni sezione (mostrati nelle pillole)
         const slTotali = new Map<string, number>();
@@ -2503,7 +2519,7 @@ import { CLIENT } from "../../config/client";
           const n = Math.floor(Number(el.value));
           const base = Number.isFinite(n) && n >= 1 ? Math.min(100, n) : 8;
           // Plan de salle attivo: oltre la miglior combinazione → "téléphonez"
-          if (rPlanMode.checked && slMaxIns.size) {
+          if (rPlanMode.checked && rAutoTables.checked && slMaxIns.size) {
             const migliore = Math.max(0, ...slNomiZone().map((z) => slMaxIns.get(z) ?? 0));
             if (migliore > 0) return Math.min(base, migliore);
           }
@@ -2520,7 +2536,7 @@ import { CLIENT } from "../../config/client";
             .map((i) => i.value.trim())
             .filter(Boolean)
             .filter((n) => !znChiuse.some((c) => c.zone === n))
-            .filter((n) => !rPlanMode.checked || (slMaxIns.get(n) ?? 0) >= rwN);
+            .filter((n) => !(rPlanMode.checked && rAutoTables.checked) || (slMaxIns.get(n) ?? 0) >= rwN);
           const zone = nomi.length ? nomi : [T().salle];
           const attiva = rwZones.querySelector(".is-on")?.textContent ?? "";
           rwZones.innerHTML = zone
@@ -2578,6 +2594,7 @@ import { CLIENT } from "../../config/client";
           const zonaSel = rZoneChoice.checked ? (rwZones.querySelector(".is-on")?.textContent ?? "").trim() : "";
           const postiZona = zonaSel ? rwPostiZona(zonaSel) : 0;
           const slotPieno = (sMin: number): boolean => {
+            if (!rAutoAccept.checked) return false; // demandes: si accetta tutto
             if (!capienza) return false;
             let occTot = 0;
             let occZona = 0;
@@ -2601,7 +2618,7 @@ import { CLIENT } from "../../config/client";
               if (zone.length > 0) {
                 const ok = zone.some(
                   (n) =>
-                    (!rPlanMode.checked || (slMaxIns.get(n) ?? 0) >= rwN) &&
+                    (!(rPlanMode.checked && rAutoTables.checked) || (slMaxIns.get(n) ?? 0) >= rwN) &&
                     (occPer.get(n) ?? 0) + rwN <= rwPostiZona(n)
                 );
                 if (!ok) return true;
@@ -3057,6 +3074,9 @@ import { CLIENT } from "../../config/client";
         for (const k of BRAND_CHIAVI) brandVal[k] = String(dati.general?.[k] ?? "");
         document.querySelectorAll<HTMLElement>(".brand-card").forEach(brandPrev);
         rPlanMode.checked = (dati.reservations as Record<string, string> | undefined)?.reservation_plan_mode === "1";
+        // Default ATTIVI (comportamento storico) finché non vengono spenti
+        rAutoAccept.checked = (dati.reservations as Record<string, string> | undefined)?.reservation_auto_accept !== "0";
+        rAutoTables.checked = (dati.reservations as Record<string, string> | undefined)?.reservation_auto_tables !== "0";
         slDimSeats();
         rEls.forEach((el, k) => {
           el.value = dati.reservations?.[k] ?? "";
@@ -3537,6 +3557,8 @@ import { CLIENT } from "../../config/client";
                   reservation_zones: zonesJSON(),
                   reservation_zone_choice: rZoneChoice.checked ? "1" : "0",
                   reservation_plan_mode: rPlanMode.checked ? "1" : "0",
+                  reservation_auto_accept: rAutoAccept.checked ? "1" : "0",
+                  reservation_auto_tables: rAutoTables.checked ? "1" : "0",
                   reservation_services: servicesJSON(),
                   reservation_corner_style: rwAngoli,
                   reservation_languages: lingueJSON(),

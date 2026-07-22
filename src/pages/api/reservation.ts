@@ -4,6 +4,7 @@ import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSa
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 import {
   inviaNotificheResa,
+  inviaNotificheDemandeResa,
   inviaConfermaResa,
   emailReviewResa,
   annullaEmailReview,
@@ -98,6 +99,8 @@ interface WidgetConfig {
   capacity: number;
   maxPeople: number;
   planMode: boolean;
+  autoAccept: boolean;  // "0" = demandes PENDING (niente controllo capienza)
+  autoTables: boolean;  // "0" = niente tavoli automatici né vincoli combinazione
   minNoticeMinutes: number;
   cornerStyle: "square" | "rounded";
   languages: string[];
@@ -114,6 +117,8 @@ async function leggiConfig(): Promise<WidgetConfig> {
       "reservation_zones",
       "reservation_plan_mode",
       "reservation_zone_choice",
+      "reservation_auto_accept",
+      "reservation_auto_tables",
       "reservation_max_people",
       "reservation_min_notice_minutes",
       "reservation_min_notice_hours",
@@ -217,7 +222,12 @@ async function leggiConfig(): Promise<WidgetConfig> {
     }
   }
 
-  return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
+  const autoAccept = (m.get("reservation_auto_accept") ?? "1") !== "0";
+  const autoTables = (m.get("reservation_auto_tables") ?? "1") !== "0";
+  // planMode qui governa i VINCOLI di combinazione (max-insieme ecc.):
+  // con l'attribuzione automatica spenta contano solo i posti → false.
+  // I POSTI restano comunque quelli del disegno (planPosti sopra).
+  return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti && autoTables, autoAccept, autoTables, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
 }
 
 /** Jour spécial che copre la data.
@@ -289,7 +299,7 @@ export const GET: APIRoute = async ({ url }) => {
       .eq("cancel_token", token)
       .maybeSingle();
     const riga = (data ?? null) as unknown as ({ status?: string } & Record<string, unknown>) | null;
-    if (error || !riga || riga.status !== "confirmed") return json({ error: "lienInvalide" }, 404);
+    if (error || !riga || (riga.status !== "confirmed" && riga.status !== "pending")) return json({ error: "lienInvalide" }, 404);
     const { status, id, ...pub } = riga;
     return json({ reservation: pub });
   }
@@ -320,7 +330,7 @@ export const GET: APIRoute = async ({ url }) => {
           }
           return r;
         }),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode"]),
+      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode", "reservation_auto_accept"]),
       supabaseAdmin
         .from("reservations")
         .select("date, service_key, people")
@@ -349,6 +359,9 @@ export const GET: APIRoute = async ({ url }) => {
       /* vuoto */
     }
     let capienza = 0;
+    // Auto-accept spento: si accetta tutto → la capienza non rende "complet"
+    // (capienza 0 = il calcolo dei giorni pieni sotto viene saltato)
+    const mAutoAccept = (cfgMap.get("reservation_auto_accept") ?? "1") !== "0";
     const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
@@ -406,7 +419,7 @@ export const GET: APIRoute = async ({ url }) => {
       const chSet = chiusePerGiorno.get(iso);
       const tuttiChiusi = attivi.length > 0 && !!chSet && attivi.every((sv) => chSet.has(keyServizio(sv) ?? ""));
       let pieno = tuttiChiusi;
-      if (!pieno && capienza > 0) {
+      if (!pieno && capienza > 0 && mAutoAccept) {
         pieno = attivi.length
           ? attivi.every((sv) => (coperti.get(`${iso}|${keyServizio(sv) ?? ""}`) ?? 0) >= capienza)
           : (rese.data ?? []).filter((r) => r.date === iso).reduce((t, r) => t + (r.people ?? 0), 0) >= capienza;
@@ -471,7 +484,7 @@ async function verificaCreneau(
 ): Promise<string | null> {
   // Plan de salle attivo: nessuna combinazione di tavoli per questo numero
   // di persone → il créneau non è accettabile (l'admin invece bypassa).
-  if (cfg.planMode) {
+  if (cfg.planMode && cfg.autoAccept) {
     const perZona = (nome: string): number => cfg.zones.find((z) => z.name === nome)?.max_ins ?? 0;
     const consentiti = p.zone ? perZona(p.zone) : Math.max(0, ...cfg.zones.map((z) => z.max_ins ?? 0));
     if (consentiti > 0 && p.people > consentiti) return "creneauPris";
@@ -533,6 +546,10 @@ async function verificaCreneau(
   const zoneClosed = (chzone.data ?? []).map((r) => String(r.zone));
   if (p.service_key && svcClosed.includes(p.service_key)) return "creneauPris";
   if (p.zone && zoneClosed.includes(p.zone)) return "creneauPris";
+
+  // Auto-accept spento: orari e chiusure valgono (sopra), la CAPIENZA no —
+  // si accetta tutto come demande PENDING e decide il ristoratore.
+  if (!cfg.autoAccept) return null;
 
   // Capienza (meno le sezioni chiuse) + occupazione sovrapposta
   const capienza = cfg.capacity - cfg.zones.filter((z) => zoneClosed.includes(z.name)).reduce((t, z) => t + z.seats, 0);
@@ -669,7 +686,8 @@ export const POST: APIRoute = async ({ request }) => {
   });
   if (errC) return json({ ok: false, error: errC }, 409);
 
-  const base: Record<string, unknown> = { ...riga, status: "confirmed" };
+  // Auto-accept spento → la richiesta nasce PENDING (conferma il ristoratore)
+  const base: Record<string, unknown> = { ...riga, status: cfg.autoAccept ? "confirmed" : "pending" };
 
   // Insert (fallback senza `source` se la migrazione #21 non è lanciata)
   let ins = await supabaseAdmin.from("reservations").insert({ ...base, source: "web" }).select(CAMPI_EMAIL).single();
@@ -679,31 +697,39 @@ export const POST: APIRoute = async ({ request }) => {
   if (ins.error || !ins.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
 
   // Plan de salle: tavoli assegnati anche alle prenotazioni dal widget
-  // (il cliente non li vede; servono ai conteggi e alla lista admin)
+  // (il cliente non li vede; servono ai conteggi e alla lista admin).
+  // In modalità demande i tavoli si assegnano ALLA CONFERMA, non ora.
   const resaId = String((ins.data as { id?: unknown }).id ?? "");
-  await assegnaESalva(resaId, {
-    date: riga.date,
-    heure: riga.heure,
-    service_key: riga.service_key,
-    zone: riga.zone,
-    people: riga.people,
-  });
+  if (cfg.autoAccept) {
+    await assegnaESalva(resaId, {
+      date: riga.date,
+      heure: riga.heure,
+      service_key: riga.service_key,
+      zone: riga.zone,
+      people: riga.people,
+    });
+  }
 
-  // Email conferma cliente + notifica ristorante + programmazione recensione.
+  // Email al cliente (conferma O « demande reçue ») + notifica ristorante.
+  // La recensione si programma solo per le confermate (per le demandes
+  // parte quando il ristoratore conferma, dall'API admin).
   const resa = ins.data as unknown as ResaEmail;
-  void inviaNotificheResa(resa);
+  if (cfg.autoAccept) void inviaNotificheResa(resa);
+  else void inviaNotificheDemandeResa(resa);
   // Registra la persona nella rubrica `clients` (come il webhook per gli ordini)
   void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone });
-  void programmaReview({
-    id: resa.id,
-    date: resa.date,
-    first_name: resa.first_name,
-    last_name: resa.last_name,
-    email: resa.email,
-    lang: resa.lang,
-  });
+  if (cfg.autoAccept) {
+    void programmaReview({
+      id: resa.id,
+      date: resa.date,
+      first_name: resa.first_name,
+      last_name: resa.last_name,
+      email: resa.email,
+      lang: resa.lang,
+    });
+  }
 
-  return json({ ok: true, id: resa.id, cancel_token: resa.cancel_token });
+  return json({ ok: true, id: resa.id, cancel_token: resa.cancel_token, pending: !cfg.autoAccept });
 };
 
 // ============================================================
@@ -728,7 +754,7 @@ export const PUT: APIRoute = async ({ request }) => {
     .select("id, status")
     .eq("cancel_token", token)
     .maybeSingle();
-  if (!attuale || attuale.status !== "confirmed") return json({ ok: false, error: "lienInvalide" }, 404);
+  if (!attuale || (attuale.status !== "confirmed" && attuale.status !== "pending")) return json({ ok: false, error: "lienInvalide" }, 404);
 
   const { valido, riga } = leggiCampi(body);
   if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
@@ -753,7 +779,7 @@ export const PUT: APIRoute = async ({ request }) => {
     .from("reservations")
     .update({ ...riga, client_action_at: new Date().toISOString() })
     .eq("cancel_token", token)
-    .eq("status", "confirmed")
+    .in("status", ["confirmed", "pending"])
     .select(CAMPI_EMAIL)
     .single();
   // Migrazione client_action_at non ancora lanciata: si modifica senza il campo
@@ -762,23 +788,27 @@ export const PUT: APIRoute = async ({ request }) => {
       .from("reservations")
       .update(riga)
       .eq("cancel_token", token)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "pending"])
       .select(CAMPI_EMAIL)
       .single();
   }
   if (upd.error || !upd.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
 
-  // Plan de salle: riassegnazione con i nuovi dettagli
-  await assegnaESalva(String(upd.data.id), {
-    date: riga.date,
-    heure: riga.heure,
-    service_key: riga.service_key,
-    zone: riga.zone,
-    people: riga.people,
-  });
+  // Plan de salle: riassegnazione con i nuovi dettagli (solo se confermata —
+  // le demandes pending ricevono i tavoli alla conferma del ristoratore)
+  if (attuale.status === "confirmed") {
+    await assegnaESalva(String(upd.data.id), {
+      date: riga.date,
+      heure: riga.heure,
+      service_key: riga.service_key,
+      zone: riga.zone,
+      people: riga.people,
+    });
+  }
 
-  // Conferma aggiornata al cliente (con i nuovi dettagli)
-  void inviaConfermaResa(upd.data as unknown as ResaEmail);
+  // Email aggiornata al cliente: conferma, o « demande reçue » se pending
+  if (attuale.status === "pending") void inviaNotificheDemandeResa(upd.data as unknown as ResaEmail);
+  else void inviaConfermaResa(upd.data as unknown as ResaEmail);
 
   return json({ ok: true, id: upd.data.id, cancel_token: upd.data.cancel_token });
 };
@@ -802,7 +832,7 @@ export const DELETE: APIRoute = async ({ request }) => {
     .from("reservations")
     .update({ status: "cancelled", client_action_at: stamp })
     .eq("cancel_token", token)
-    .eq("status", "confirmed")
+    .in("status", ["confirmed", "pending"])
     .select("*")
     .maybeSingle();
   // Migrazione client_action_at non ancora lanciata: si annulla senza il campo
@@ -811,7 +841,7 @@ export const DELETE: APIRoute = async ({ request }) => {
       .from("reservations")
       .update({ status: "cancelled" })
       .eq("cancel_token", token)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "pending"])
       .select("*")
       .maybeSingle();
   }

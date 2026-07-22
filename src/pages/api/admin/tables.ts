@@ -68,14 +68,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   let area: number[][] | null = null;
   let links: unknown = [];
   let planMode = false;
+  let autoTables = true;
   let priority: string[] = [];
   try {
     const { data: cfg } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
-      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_mode", "reservation_zone_priority"]);
+      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
     const m = new Map((cfg ?? []).map((r) => [r.key, r.value ?? ""]));
     planMode = m.get("reservation_plan_mode") === "1";
+    autoTables = (m.get("reservation_auto_tables") ?? "1") !== "0";
     const aree = JSON.parse(m.get("reservation_plan_areas") || "{}") as Record<string, unknown>;
     const legami = JSON.parse(m.get("reservation_plan_links") || "{}") as Record<string, unknown>;
     if (zone) {
@@ -87,7 +89,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const pr = JSON.parse(m.get("reservation_zone_priority") || "[]");
     if (Array.isArray(pr)) priority = pr.map(String).filter(Boolean);
   } catch { /* nessuna area/liaison/priorità */ }
-  return json({ tables: data ?? [], area, links, plan_mode: planMode, priority });
+  return json({ tables: data ?? [], area, links, plan_mode: planMode, auto_tables: autoTables, priority });
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
