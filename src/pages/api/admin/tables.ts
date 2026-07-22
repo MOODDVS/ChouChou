@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
+import { assegnaTavoli } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
@@ -36,6 +37,28 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
+  // ?assign=1 -> ANTEPRIMA assegnazione per il modale admin: quali tavoli
+  // riceverebbe una prenotazione a questi date/heure/people/zone (dry-run,
+  // niente viene salvato). proposal = null se nessuna combinazione libera.
+  if (url.searchParams.get("assign") === "1") {
+    const date = url.searchParams.get("date") ?? "";
+    const heure = url.searchParams.get("heure") ?? "";
+    const people = Math.floor(Number(url.searchParams.get("people")));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure) || !Number.isFinite(people) || people < 1) {
+      return json({ error: "Paramètres invalides" }, 400);
+    }
+    const exclude = url.searchParams.get("exclude") ?? "";
+    const proposal = await assegnaTavoli({
+      date,
+      heure,
+      service_key: (url.searchParams.get("service") ?? "").trim() || null,
+      zone: (url.searchParams.get("zone") ?? "").trim() || null,
+      people,
+      excludeId: /^[0-9a-f-]{36}$/i.test(exclude) ? exclude : undefined,
+    });
+    return json({ proposal });
+  }
+
   const zone = (url.searchParams.get("zone") ?? "").trim();
   let q = supabaseAdmin.from("restaurant_tables").select(SELECT).order("created_at", { ascending: true });
   if (zone) q = q.eq("zone", zone);
@@ -45,11 +68,12 @@ export const GET: APIRoute = async ({ request, url }) => {
   let area: number[][] | null = null;
   let links: unknown = [];
   let planMode = false;
+  let priority: string[] = [];
   try {
     const { data: cfg } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
-      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_mode"]);
+      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_mode", "reservation_zone_priority"]);
     const m = new Map((cfg ?? []).map((r) => [r.key, r.value ?? ""]));
     planMode = m.get("reservation_plan_mode") === "1";
     const aree = JSON.parse(m.get("reservation_plan_areas") || "{}") as Record<string, unknown>;
@@ -60,8 +84,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     } else {
       links = legami; // mappa completa { zone: [[id,…], …] }
     }
-  } catch { /* nessuna area/liaison */ }
-  return json({ tables: data ?? [], area, links, plan_mode: planMode });
+    const pr = JSON.parse(m.get("reservation_zone_priority") || "[]");
+    if (Array.isArray(pr)) priority = pr.map(String).filter(Boolean);
+  } catch { /* nessuna area/liaison/priorità */ }
+  return json({ tables: data ?? [], area, links, plan_mode: planMode, priority });
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
@@ -84,12 +110,28 @@ export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { zone?: unknown; area?: unknown };
+  let body: { zone?: unknown; area?: unknown; priority?: unknown };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
   }
+  // Priorità di riempimento: { priority: ["Interieur", "Terrasse", …] }.
+  // Ordine con cui l'assegnazione tavoli riempie le sections quando il
+  // cliente sceglie "Indifférent" (1° = si riempie prima).
+  if ("priority" in body) {
+    const grezzi = Array.isArray((body as { priority?: unknown }).priority)
+      ? ((body as { priority: unknown[] }).priority)
+      : null;
+    if (!grezzi || grezzi.length > 20) return json({ error: "Priorité invalide" }, 400);
+    const priority = grezzi.map((z) => String(z).trim().slice(0, 60)).filter(Boolean);
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "reservation_zone_priority", value: JSON.stringify(priority) }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    return json({ ok: true, priority });
+  }
+
   const zone = String(body.zone ?? "").trim().slice(0, 60);
   if (!zone) return json({ error: "Section obligatoire" }, 400);
 

@@ -783,7 +783,7 @@ import { CLIENT } from "../../config/client";
 
       /* --- Datepicker custom (brand) --- */
       .dp-panel {
-        position: fixed; z-index: 220; width: 308px;
+        position: fixed; z-index: 220; width: 344px;
         background: var(--c-card); border: 1px solid var(--c-line);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
       }
@@ -796,7 +796,7 @@ import { CLIENT } from "../../config/client";
       }
       .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
       .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
+      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
       .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
       .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
       .dp-cell {
@@ -811,7 +811,7 @@ import { CLIENT } from "../../config/client";
       .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
       .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
       @media (pointer: coarse) {
-        .dp-panel { width: 340px; }
+        .dp-panel { width: 372px; }
         .dp-cell { min-height: 44px; font-size: 1.05rem; }
       }
       #sp-note { flex: 1; min-width: 140px; }

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../lib/db";
-import { postiDalPlan, maxInsiemePerZona } from "../../lib/planSalle";
+import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSalle";
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 import {
   inviaNotificheResa,
@@ -678,6 +678,17 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (ins.error || !ins.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
 
+  // Plan de salle: tavoli assegnati anche alle prenotazioni dal widget
+  // (il cliente non li vede; servono ai conteggi e alla lista admin)
+  const resaId = String((ins.data as { id?: unknown }).id ?? "");
+  await assegnaESalva(resaId, {
+    date: riga.date,
+    heure: riga.heure,
+    service_key: riga.service_key,
+    zone: riga.zone,
+    people: riga.people,
+  });
+
   // Email conferma cliente + notifica ristorante + programmazione recensione.
   const resa = ins.data as unknown as ResaEmail;
   void inviaNotificheResa(resa);
@@ -756,6 +767,15 @@ export const PUT: APIRoute = async ({ request }) => {
       .single();
   }
   if (upd.error || !upd.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
+
+  // Plan de salle: riassegnazione con i nuovi dettagli
+  await assegnaESalva(String(upd.data.id), {
+    date: riga.date,
+    heure: riga.heure,
+    service_key: riga.service_key,
+    zone: riga.zone,
+    people: riga.people,
+  });
 
   // Conferma aggiornata al cliente (con i nuovi dettagli)
   void inviaConfermaResa(upd.data as unknown as ResaEmail);

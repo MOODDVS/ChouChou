@@ -203,6 +203,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .r-pers b { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.03em; display: block; line-height: 1.1; }
       .r-pers span { color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
       .r-zone { color: var(--c-muted); font-size: 0.78rem; min-width: 80px; text-align: center; }
+      .r-tav { color: var(--c-accent); font-size: 0.72rem; letter-spacing: 0.04em; margin-top: 2px; white-space: nowrap; }
 
       .r-badge {
         font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em;
@@ -334,6 +335,18 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         padding: 0.9rem 0; border-bottom: 1px solid var(--c-line);
       }
       .sv-row:last-child { border-bottom: none; }
+      .sv-row.zn-dragging { opacity: 0.6; background: #1c1819; border-radius: 10px; }
+      .zn-grip {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        color: var(--c-muted); cursor: grab; touch-action: none; border-radius: 8px; flex: 0 0 auto;
+      }
+      .zn-grip:hover { color: var(--c-accent); background: #1c1819; }
+      .zn-grip:active { cursor: grabbing; }
+      .zn-grip svg { width: 18px; height: 18px; }
+      .zn-prio {
+        font-family: var(--font-title); color: var(--c-accent); font-size: 1.1rem;
+        width: 20px; text-align: center; flex: 0 0 auto; transform: translateY(-1.5px);
+      }
       .sv-row.is-past { opacity: 0.45; }
       .sv-nom { font-weight: 700; font-size: 1rem; }
       .sv-heures { color: var(--c-muted); font-size: 0.82rem; }
@@ -531,7 +544,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-datein { cursor: pointer; text-align: center; }
       /* Datepicker brand (comme le widget) */
       .dp-panel {
-        position: fixed; z-index: 460; width: 308px;
+        position: fixed; z-index: 460; width: 344px;
         background: var(--c-card); border: 1px solid var(--c-line);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
       }
@@ -544,7 +557,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
       .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
+      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
       .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
       .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
       .dp-cell {
@@ -567,7 +580,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
       .dp-full:not(.dp-sel) { box-shadow: inset 0 0 0 2px #e5484d; }
       @media (pointer: coarse) {
-        .dp-panel { width: 340px; }
+        .dp-panel { width: 372px; }
         .dp-cell { min-height: 44px; font-size: 1.05rem; }
       }
       .nm-stabs { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
@@ -637,6 +650,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-step.is-on .nm-p-libre { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
       .nm-zones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
       .nm-warn { color: var(--c-accent); background: rgba(223, 171, 78, 0.1); border: 1px solid rgba(223, 171, 78, 0.4); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
+      .nm-tables {
+        display: flex; align-items: center; gap: 0.6rem;
+        color: var(--c-text); background: #1c1819; border: 1px solid var(--c-line);
+        border-left: 3px solid var(--c-accent); border-radius: 8px;
+        padding: 0.6rem 0.9rem; font-size: 0.88rem; line-height: 1.5; margin-top: 0.6rem;
+      }
+      .nm-tables b { color: var(--c-accent); font-family: var(--font-title); font-size: 1.25rem; font-weight: 400; letter-spacing: 0.05em; transform: translateY(-1.5px); display: inline-block; }
       .nm-zone {
         background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
@@ -809,6 +829,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <span class="f-label nm-gap" id="nm-zone-lab">Section</span>
             <div class="nm-zones" id="nm-zones"></div>
             <p class="nm-warn" id="nm-warn" style="display:none"></p>
+            <p class="nm-tables" id="nm-tables" style="display:none"></p>
             <span class="f-label nm-gap">Service &amp; heure</span>
             <div class="nm-stabs" id="nm-stabs"></div>
             <div class="nm-closed-note" id="nm-closed-note" style="display:none"></div>
@@ -888,6 +909,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         notes: string | null;
         status: string;
         source?: string | null;
+        tables?: string[] | null; // id dei tavoli assegnati (plan de salle, #37)
+      }
+
+      // Plan de salle (#37): id tavoli -> "T02 + T03" (nomi da planNomi,
+      // caricati con /api/admin/tables). Vuoto se non assegnati o plan spento.
+      // NB: dichiarato QUI (scope esterno) perché render() è fuori dalla IIFE
+      // del modale; l'assegnazione avviene in caricaPlanMax (closure).
+      let planNomi: Map<string, string> | null = null; // id tavolo -> nome
+      function etichettaTavoli(r: Resa): string {
+        if (!Array.isArray(r.tables) || r.tables.length === 0 || !planNomi) return "";
+        const mappa = planNomi; // il narrowing non entra nella callback del map
+        const nomi = r.tables.map((id) => mappa.get(String(id)) ?? "").filter(Boolean);
+        return nomi.join(" + ");
       }
 
       // Origine della prenotazione: walk-in, téléphone, sito web, Google
@@ -1113,6 +1147,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const pct = Math.min(100, (trascorsi / Math.max(1, trascorsi + restanti)) * 100);
           barra = `<span class="r-live" data-min="${Math.floor(trascorsi)}" style="width:${pct.toFixed(2)}%"></span>`;
         }
+        const tavLbl = etichettaTavoli(r);
         return `
           <div class="res${off}${r.notes ? "" : " no-note"}" data-id="${r.id}">
             <div class="r-time">
@@ -1129,7 +1164,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               ${contatti ? `<div class="r-sub">${contatti}</div>` : ""}
             </div>
             <div class="r-note-col">${r.notes ? `<svg class="r-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg><span>${esc(r.notes)}</span>` : ""}</div>
-            <div class="r-zone">${esc(r.zone ?? "")}</div>
+            <div class="r-zone">${esc(r.zone ?? "")}${tavLbl ? `<div class="r-tav">${esc(tavLbl)}</div>` : ""}</div>
             <div class="r-pers"><b>${r.people}</b><span>pers.</span></div>
             <span class="r-state-col">${badge(r)}</span>
             <span class="r-del">${matita}${cestino}</span>
@@ -1657,6 +1692,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const znDateIn = document.getElementById("zn-datein") as HTMLInputElement;
         let znData = giorno;
         let znLista: { zone: string; reason: string }[] = [];
+        let znPrio: string[] = []; // priorità di riempimento (1° = si riempie prima)
 
         function znRender() {
           const zone = nmCfg.zones ?? [];
@@ -1664,8 +1700,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             znList.innerHTML = '<p class="sv-vuoto">Aucune section configurée dans Réglages → Réservations.</p>';
             return;
           }
-          znList.innerHTML = zone
-            .map((z) => {
+          const posPrio = (z: string) => { const i = znPrio.indexOf(z); return i === -1 ? 999 : i; };
+          const ordinate = [...zone].sort((a, b) => posPrio(a) - posPrio(b));
+          znList.innerHTML = ordinate
+            .map((z, i) => {
               const chiusa = znLista.find((c) => c.zone === z);
               const posti = nmCfg.zone_seats?.[z] ?? 0;
               const raisons = chiusa
@@ -1674,7 +1712,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                      <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-z="${esc(z)}" data-r="closed">Fermeture exceptionnelle</button>
                    </div>`
                 : "";
-              return `<div class="sv-row">
+              return `<div class="sv-row" data-zrow="${esc(z)}">
+                  <span class="zn-grip" title="Glisser pour changer la priorité de remplissage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg></span>
+                  <span class="zn-prio">${i + 1}</span>
                   <div class="sv-info">
                     <div class="sv-nom">${esc(z)}</div>
                     <div class="sv-heures">${posti ? `${posti} couverts` : ""}</div>
@@ -1766,6 +1806,71 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           znRender();
           void znFutureCarica();
         }
+
+        // ---- Priorità di riempimento: drag con handle (1° = si riempie prima).
+        // L'ordine è usato dall'assegnazione tavoli quando il cliente sceglie
+        // "Indifférent". Salvato in app_config (reservation_zone_priority).
+        let znDrag: HTMLElement | null = null;
+        function znNumeri() {
+          [...znList.querySelectorAll(".zn-prio")].forEach((el, i) => { el.textContent = String(i + 1); });
+        }
+        async function znSalvaPrio() {
+          const ordine = ([...znList.querySelectorAll(".sv-row")] as HTMLElement[])
+            .map((r) => r.dataset.zrow ?? "")
+            .filter(Boolean);
+          try {
+            const res = await fetch("/api/admin/tables", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ priority: ordine }),
+            });
+            if (!res.ok) { toast("Enregistrement impossible", "err"); return; }
+            znPrio = ordine;
+            toast("Priorité enregistrée ✓", "ok");
+          } catch {
+            toast("Erreur de connexion", "err");
+          }
+        }
+        znList.addEventListener("pointerdown", (e) => {
+          const grip = (e.target as HTMLElement).closest(".zn-grip") as HTMLElement | null;
+          if (!grip) return;
+          const row = grip.closest(".sv-row") as HTMLElement | null;
+          if (!row) return;
+          e.preventDefault();
+          znDrag = row;
+          row.classList.add("zn-dragging");
+          try { grip.setPointerCapture(e.pointerId); } catch { /* ok */ }
+        });
+        znList.addEventListener("pointermove", (e) => {
+          if (!znDrag) return;
+          const righe = [...znList.querySelectorAll(".sv-row")] as HTMLElement[];
+          let posato = false;
+          for (const r of righe) {
+            if (r === znDrag) continue;
+            const b = r.getBoundingClientRect();
+            if (e.clientY < b.top + b.height / 2) {
+              if (r !== znDrag.nextElementSibling) znList.insertBefore(znDrag, r);
+              posato = true;
+              break;
+            }
+          }
+          if (!posato && znList.lastElementChild !== znDrag) znList.appendChild(znDrag);
+          znNumeri();
+        });
+        const znFineDrag = () => {
+          if (!znDrag) return;
+          znDrag.classList.remove("zn-dragging");
+          znDrag = null;
+          znNumeri();
+          void znSalvaPrio();
+        };
+        znList.addEventListener("pointerup", znFineDrag);
+        znList.addEventListener("pointercancel", () => {
+          if (!znDrag) return;
+          znDrag.classList.remove("zn-dragging");
+          znDrag = null;
+          znRender(); // annullato: si torna all'ordine salvato
+        });
 
         (document.getElementById("fab-zone") as HTMLButtonElement).addEventListener("click", () => {
           znOverlay.classList.add("is-open");
@@ -1899,6 +2004,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             dett("Personnes", String(r.people));
           }
           if (!conBlocco && r.zone) dett("Section", esc(r.zone));
+          if (!conBlocco) {
+            const tv = etichettaTavoli(r);
+            if (tv) dett("Table(s)", esc(tv));
+          }
           const contattiDt: string[] = [];
           if (r.phone)
             contattiDt.push(`<span class="r-c">${ICO_TEL}<a href="tel:${esc(r.phone).replace(/\s/g, "")}">${esc(r.phone)}</a></span>`);
@@ -2355,6 +2464,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const r = await fetch("/api/admin/tables", { headers });
             if (!r.ok) return;
             const j = await r.json();
+            const tutti = (j.tables ?? []) as { id: string; name: string }[];
+            planNomi = new Map(tutti.map((t) => [String(t.id), String(t.name ?? "")]));
+            znPrio = Array.isArray(j.priority) ? (j.priority as unknown[]).map(String) : [];
             if (!j.plan_mode) { planMax = null; return; }
             const tavoli = (j.tables ?? []) as { id: string; zone: string; seats: number }[];
             const postiId = new Map(tavoli.map((t) => [t.id, Math.floor(Number(t.seats)) || 0]));
@@ -2374,6 +2486,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
             planMax = m;
           } catch { planMax = null; }
+          // Nomi arrivati dopo il primo render della lista: etichette tavoli
+          try { render(); } catch { /* lista non ancora pronta */ }
         }
         void caricaPlanMax();
 
@@ -2572,6 +2686,44 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
           }
           nmAggiornaAvviso();
+          void nmAggiornaTavoli();
+        }
+
+        // Plan de salle: quali tavoli riceverebbe la prenotazione (anteprima
+        // live dal server, stesso algoritmo del salvataggio). Contatore per
+        // scartare le risposte arrivate fuori ordine.
+        let nmTavSeq = 0;
+        async function nmAggiornaTavoli() {
+          const el = document.getElementById("nm-tables") as HTMLElement | null;
+          if (!el) return;
+          const date = campo("m-date").dataset.iso ?? "";
+          if (!planMax || planMax.size === 0 || !nmHeure || !date) {
+            el.style.display = "none";
+            return;
+          }
+          const seq = ++nmTavSeq;
+          try {
+            const par = new URLSearchParams({ assign: "1", date, heure: nmHeure, people: String(nmPers) });
+            if (nmZone) par.set("zone", nmZone);
+            if (nmServKey) par.set("service", nmServKey);
+            if (nmEditId) par.set("exclude", nmEditId);
+            const r = await fetch(`/api/admin/tables?${par}`, { headers });
+            if (seq !== nmTavSeq) return; // nel frattempo è cambiato qualcosa
+            if (!r.ok) { el.style.display = "none"; return; }
+            const j = await r.json();
+            const p = j.proposal as { names: string[]; zone: string } | null;
+            if (p && Array.isArray(p.names) && p.names.length) {
+              const nomi = p.names.map((n) => String(n).replace(/&/g, "&amp;").replace(/</g, "&lt;")).join(" + ");
+              const z = String(p.zone ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
+              el.innerHTML = `Table(s) attribuée(s) : <b>${nomi}</b>${z ? ` · ${z}` : ""}`;
+              el.style.display = "";
+            } else {
+              el.innerHTML = "Aucune table libre à attribuer pour ce créneau.";
+              el.style.display = "";
+            }
+          } catch {
+            if (seq === nmTavSeq) el.style.display = "none";
+          }
         }
 
         function nmRenderPers() {

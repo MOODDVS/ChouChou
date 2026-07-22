@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { postiDalPlan } from "../../../lib/planSalle";
+import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailReviewResa, annullaEmailReview, emailAnnullataResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
@@ -331,6 +331,8 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Personnes invalide (1–100)" }, 400);
   }
 
+  const svKey = /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null;
+  const zonaSel = String(body.zone ?? "").trim() || null;
   const riga: Record<string, unknown> = {
     source: body.source === "phone" ? "phone" : "walkin",
   };
@@ -340,9 +342,9 @@ export const POST: APIRoute = async ({ request }) => {
       ...riga,
       date,
       heure,
-      service_key: /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null,
+      service_key: svKey,
       people,
-      zone: String(body.zone ?? "").trim() || null,
+      zone: zonaSel,
       first_name:
         String(body.first_name ?? "").trim() ||
         (String(body.last_name ?? "").trim() ? "" : "Walk-in"),
@@ -369,9 +371,9 @@ export const POST: APIRoute = async ({ request }) => {
         .insert({
           date,
           heure,
-          service_key: /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null,
+          service_key: svKey,
           people,
-          zone: String(body.zone ?? "").trim() || null,
+          zone: zonaSel,
           first_name:
             String(body.first_name ?? "").trim() ||
             (String(body.last_name ?? "").trim() ? "" : "Walk-in"),
@@ -391,6 +393,7 @@ export const POST: APIRoute = async ({ request }) => {
         .select("*")
         .single();
       if (!e2 && d2) {
+        await assegnaESalva(String((d2 as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
         void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
         registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
         return json({ reservation: d2 });
@@ -398,6 +401,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     return json({ error: "Création impossible" }, 500);
   }
+  await assegnaESalva(String((data as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
   void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
   registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
   return json({ reservation: data });
@@ -609,6 +613,23 @@ export const PATCH: APIRoute = async ({ request }) => {
   // Annullata dal ristoratore: avvisa il cliente nella sua lingua
   if (upd.status === "cancelled" && (data as { email?: string }).email) {
     void emailAnnullataResa(data as unknown as ResaEmail);
+  }
+  // Plan de salle: annullata/no-show libera i tavoli; dati cambiati (o ritorno
+  // a Confirmée) -> riassegnazione con i valori AGGIORNATI della riga
+  if (upd.status === "cancelled" || upd.status === "noshow") {
+    try { await supabaseAdmin.from("reservations").update({ tables: null }).eq("id", id); } catch { /* #37 assente */ }
+  } else if (
+    body.date !== undefined || body.heure !== undefined || body.people !== undefined ||
+    body.zone !== undefined || body.service_key !== undefined || upd.status === "confirmed"
+  ) {
+    const r = data as { date?: string; heure?: string; service_key?: string | null; zone?: string | null; people?: number };
+    await assegnaESalva(id, {
+      date: String(r.date ?? ""),
+      heure: String(r.heure ?? "").slice(0, 5),
+      service_key: r.service_key ?? null,
+      zone: r.zone ?? null,
+      people: Math.floor(Number(r.people)) || 1,
+    });
   }
   return json({ reservation: data });
 };
