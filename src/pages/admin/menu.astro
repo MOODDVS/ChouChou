@@ -75,7 +75,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .spacer { flex: 1; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
-      .actionsbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
+      .actionsbar { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; padding-bottom: 0.5rem; margin-bottom: 1rem; }
       .actionsbar .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.88rem; padding: 0.45rem 1rem 0.45rem 2.3rem;
@@ -176,7 +176,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .i-badge { font-size: 0.82rem; line-height: 1; }
       .b-best { color: var(--c-accent); }
       .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .i-alg { color: var(--c-muted); font-size: 0.72rem; white-space: nowrap; }
+      .i-alg {
+        color: var(--c-muted); font-size: 0.72rem;
+        flex: 0 0 9.5rem; text-align: left; white-space: normal; line-height: 1.4;
+      }
       .i-price { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; white-space: nowrap; margin-right: 1.25rem; }
       .i-promo { color: var(--c-accent); }
       .i-old { color: var(--c-muted); font-size: 0.85rem; margin-right: 0.35rem; }
@@ -228,7 +231,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
-      input[type="text"], input[type="number"], select, textarea {
+      input[type="text"], input[type="number"], input[type="date"], select, textarea {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
         width: 100%; color-scheme: dark;
@@ -291,6 +294,98 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         padding: 0.45rem 1.4rem; cursor: pointer; border-radius: 999px;
       }
       .sec-addbtn:hover { background: var(--c-accent); color: #231f20; }
+
+      /* --- Lunch: card formule --- */
+      .lu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: start; }
+      .lu-card {
+        display: flex; flex-direction: column; gap: 0.85rem;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 1.1rem 1.2rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      }
+      .lu-card.is-hidden-item { opacity: 0.55; }
+      .lu-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
+      .lu-dates { color: #ffffff; font-size: 0.95rem; font-weight: 700; margin-top: 0.2rem; }
+      .lu-courses { display: flex; flex-direction: column; gap: 0.55rem; }
+      .lu-course-tit { display: block; font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.06em; color: var(--c-accent); margin-bottom: 0.1rem; }
+      .lu-course-plats { color: #ffffff; font-size: 0.95rem; font-weight: 700; line-height: 1.5; }
+      .lu-combos { display: flex; flex-direction: column; gap: 0.15rem; }
+      .lu-combo {
+        display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem;
+        font-size: 0.85rem; color: var(--c-muted);
+        padding: 0.3rem 0; border-bottom: 1px dashed var(--c-line);
+      }
+      .lu-combo:last-child { border-bottom: none; }
+      .lu-combo b { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: #ffffff; font-weight: 400; }
+      .lu-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
+      .lu-actions .sw-wrap { margin-right: auto; }
+
+      /* --- Lunch: modale --- */
+      .luf-courses { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+      .luf-course {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.05em;
+        padding: 0.45rem 1.1rem; border-radius: 999px; cursor: pointer;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .luf-course:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .luf-course.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .luf-course.is-lock { cursor: default; }
+      .lu-block { border: 1px solid var(--c-line); padding: 0.8rem; margin-bottom: 0.9rem; }
+      .lu-block-tit { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em; color: var(--c-accent); margin-bottom: 0.55rem; }
+      .lu-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.55rem; }
+      .lu-chip {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        background: rgba(255, 255, 255, 0.04); border: 1px solid var(--c-line);
+        border-radius: 999px; padding: 0.28rem 0.75rem; font-size: 0.82rem;
+      }
+      .lu-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
+      .lu-chip button:hover { color: #ff8a8f; }
+      .lu-combo-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.45rem; }
+      .lu-combo-lab { flex: 1; font-size: 0.9rem; }
+      .lu-combo-row input { width: 110px; text-align: right; }
+
+      /* --- Datepicker custom (brand), come Réglages — z sopra l'overlay (300) --- */
+      #lu-from, #lu-to { cursor: pointer; }
+      .dp-panel {
+        position: fixed; z-index: 420; width: 344px;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
+      }
+      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
+      .dp-nav {
+        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
+        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
+      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
+      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+      .dp-cell {
+        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
+        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
+        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
+        transition: background 0.15s, color 0.15s;
+      }
+      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
+      .dp-vuota { cursor: default; }
+      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
+      .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
+      .dp-clear {
+        width: 100%; margin-top: 0.6rem; background: transparent;
+        border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.8rem; padding: 0.45rem 0;
+        border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .dp-clear:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      @media (pointer: coarse) {
+        .dp-panel { width: 372px; }
+        .dp-cell { min-height: 44px; font-size: 1.05rem; }
+      }
 
       /* Toast */
       .toast {
@@ -487,6 +582,53 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       </div>
     </div>
 
+    <!-- Modale lunch -->
+    <div class="overlay" id="lu-overlay">
+      <div class="modal">
+        <button class="m-close" id="lu-close" aria-label="Fermer">×</button>
+        <h2 id="lu-title">Ajouter un lunch</h2>
+        <div class="f-row">
+          <div class="f-field" style="flex: 2">
+            <span class="f-label">Nom</span>
+            <input type="text" id="lu-name" maxlength="60" placeholder="Lunch" />
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Composition (1 seul plat = « Plat du jour »)</span>
+            <div class="luf-courses" id="lu-courses"></div>
+          </div>
+        </div>
+        <div class="f-row">
+          <div class="f-field">
+            <span class="f-label">Du (vide = sans limite)</span>
+            <input type="text" id="lu-from" placeholder="Sans limite" readonly />
+          </div>
+          <div class="f-field">
+            <span class="f-label">Au (vide = sans limite)</span>
+            <input type="text" id="lu-to" placeholder="Sans limite" readonly />
+          </div>
+        </div>
+        <div id="lu-items"></div>
+        <div class="lu-block">
+          <div class="lu-block-tit">Prix par combinaison</div>
+          <p class="f-label" style="margin-bottom: 0.55rem">Laisse vide les combinaisons non proposées.</p>
+          <div id="lu-combos"></div>
+        </div>
+        <div class="m-toggles">
+          <label class="m-toggle">
+            <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
+            Actif
+          </label>
+        </div>
+        <div class="m-actions">
+          <span class="m-msg" id="lu-msg"></span>
+          <button class="m-cancel" id="lu-cancel">Annuler</button>
+          <button class="m-save" id="lu-save">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <ImagePicker />
@@ -600,7 +742,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function itemHTML(it: Item): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
-        const alg = it.allergens?.length ? `<span class="i-alg">Alg. ${it.allergens.join(",")}</span>` : "";
+        // Colonna allergeni: sempre presente (anche vuota) così le righe restano allineate
+        const alg = `<span class="i-alg">${it.allergens?.length ? `Alg. ${it.allergens.join(",")}` : ""}</span>`;
         const dim = !it.available ? " is-hidden-item" : "";
         const thumb = it.image_url
           ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
@@ -645,6 +788,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function renderTabs() {
         renderStatsTitolo();
+        aggiornaFabs();
         // Se la sezione attiva è dell'altro tipo, segui il suo tipo
         const catAttiva = cats.find((c) => c.name === attiva);
         if (catAttiva && catAttiva.kind !== kindFiltro) kindFiltro = catAttiva.kind;
@@ -667,9 +811,13 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       function renderList() {
         const filtro = searchEl.value.trim().toLowerCase();
         listEl.dataset.mode = filtro ? "search" : "cat";
-        // Tab in costruzione: per ora vuoti (li riempiremo più avanti)
-        if (!filtro && (kindFiltro === "lunch" || kindFiltro === "menus")) {
-          listEl.innerHTML = `<p class="state">Section « ${kindFiltro === "lunch" ? "Lunch" : "Menus"} » — bientôt.</p>`;
+        if (kindFiltro === "lunch") {
+          renderLunchList(filtro);
+          return;
+        }
+        // Tab in costruzione: per ora vuoto
+        if (!filtro && kindFiltro === "menus") {
+          listEl.innerHTML = `<p class="state">Section « Menus » — bientôt.</p>`;
           return;
         }
         if (filtro) {
@@ -1083,6 +1231,452 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         }
       });
 
+      // ---------- Lunch (formules du midi) ----------
+      type Lunch = {
+        id: string; name: string; courses: string[];
+        date_from: string | null; date_to: string | null;
+        items: Record<string, string[]>;
+        combos: { parts: string[]; price_cents: number }[];
+        active: boolean;
+      };
+      const PORTATE: string[] = ["entree", "plat", "dessert"]; // ordine canonico
+      const PORTATA_LAB: Record<string, string> = { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+      let lunches: Lunch[] = [];
+      let lunchPronto = false; // primo GET già fatto
+      let lunchFetching = false;
+      let lunchEditId: string | null = null;
+
+      async function caricaLunches() {
+        if (lunchFetching) return;
+        lunchFetching = true;
+        try {
+          const res = await fetch("/api/admin/lunch", { headers });
+          if (!res.ok) throw new Error();
+          lunches = ((await res.json()).lunches as Lunch[]) ?? [];
+        } catch {
+          lunches = [];
+        } finally {
+          lunchPronto = true;
+          lunchFetching = false;
+        }
+        if (kindFiltro === "lunch") renderList();
+      }
+
+      function comboLabel(parts: string[]): string {
+        return parts.map((p) => PORTATA_LAB[p] ?? p).join(" + ");
+      }
+      function lunchDatesLabel(l: Lunch): string {
+        const f = (s: string | null) => (s ? s.split("-").reverse().join("/") : "");
+        if (l.date_from && l.date_to) return `Du ${f(l.date_from)} au ${f(l.date_to)}`;
+        if (l.date_from) return `À partir du ${f(l.date_from)}`;
+        if (l.date_to) return `Jusqu'au ${f(l.date_to)}`;
+        return "Sans limite de dates";
+      }
+      function lunchHTML(l: Lunch): string {
+        const combos = (l.combos ?? [])
+          .map((c) => `<div class="lu-combo"><span>${esc(comboLabel(c.parts))}</span><b>${euro(c.price_cents)}</b></div>`)
+          .join("");
+        const portate = (l.courses ?? [])
+          .map((pt) => {
+            const nomi = (l.items?.[pt] ?? [])
+              .map((id) => items.find((x) => x.id === id)?.name ?? "")
+              .filter(Boolean);
+            if (!nomi.length) return "";
+            return `<div class="lu-course"><span class="lu-course-tit">${PORTATA_LAB[pt] ?? pt}</span><span class="lu-course-plats">${esc(nomi.join(" · "))}</span></div>`;
+          })
+          .join("");
+        return `
+          <div class="lu-card${l.active ? "" : " is-hidden-item"}" data-id="${l.id}">
+            <div class="lu-main">
+              <div class="lu-name">${esc(l.name)}</div>
+              <div class="lu-dates">${lunchDatesLabel(l)}</div>
+            </div>
+            ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
+            <div class="lu-combos">${combos}</div>
+            <div class="lu-actions">
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Actif</span></span>
+              <button class="i-btn lu-edit" title="Modifier">✎</button>
+              <button class="i-btn i-del lu-del" title="Supprimer">${ICO_TRASH}</button>
+            </div>
+          </div>`;
+      }
+      function renderLunchList(filtro: string) {
+        if (!lunchPronto) {
+          listEl.innerHTML = '<p class="state">Chargement…</p>';
+          void caricaLunches();
+          return;
+        }
+        const arr = lunches.filter((l) => !filtro || l.name.toLowerCase().includes(filtro));
+        listEl.innerHTML = arr.length
+          ? `<div class="lu-grid">${arr.map(lunchHTML).join("")}</div>`
+          : '<p class="state">Aucun lunch — ajoute une formule avec « + Ajou. lunch ».</p>';
+      }
+
+      // Bottone flottante: etichetta secondo il tab attivo
+      function aggiornaFabs() {
+        const add = document.getElementById("add-btn") as HTMLButtonElement | null;
+        if (!add) return;
+        // Su Lunch/Menus l'intera actionsbar (tab sezioni + ricerca) sparisce:
+        // niente seconda linea sotto i filtri, la lista risale
+        const barra = document.querySelector(".actionsbar") as HTMLElement | null;
+        if (barra) barra.style.display = kindFiltro === "lunch" || kindFiltro === "menus" ? "none" : "";
+        if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ Ajou. lunch"; }
+        else if (kindFiltro === "menus") { add.style.display = "none"; }
+        else { add.style.display = ""; add.textContent = "+ Ajou. plat"; }
+      }
+
+      // ---------- Modale lunch ----------
+      const luOverlay = document.getElementById("lu-overlay") as HTMLDivElement;
+      const luTitle = document.getElementById("lu-title") as HTMLHeadingElement;
+      const luMsg = document.getElementById("lu-msg") as HTMLSpanElement;
+      const luName = document.getElementById("lu-name") as HTMLInputElement;
+      const luFrom = document.getElementById("lu-from") as HTMLInputElement;
+      const luTo = document.getElementById("lu-to") as HTMLInputElement;
+      const luCoursesEl = document.getElementById("lu-courses") as HTMLDivElement;
+      const luItemsEl = document.getElementById("lu-items") as HTMLDivElement;
+      const luCombosEl = document.getElementById("lu-combos") as HTMLDivElement;
+      const luActive = document.getElementById("lu-active") as HTMLInputElement;
+      const luSave = document.getElementById("lu-save") as HTMLButtonElement;
+      let luCourses: string[] = ["plat"]; // portate attive
+      let luItems: Record<string, string[]> = {}; // piatti scelti per portata
+      let luPrezzi: Record<string, string> = {}; // "entree+plat" -> testo input prezzo
+
+      function aggiornaLuNome() {
+        luName.placeholder = luCourses.length === 1 ? "Plat du jour" : "Lunch";
+      }
+      function renderLuCourses() {
+        luCoursesEl.innerHTML = PORTATE.map((p) => {
+          const on = luCourses.includes(p);
+          const lock = p === "plat" ? " is-lock" : ""; // il plat c'è sempre
+          return `<button type="button" class="luf-course${on ? " is-on" : ""}${lock}" data-p="${p}">${PORTATA_LAB[p]}</button>`;
+        }).join("");
+      }
+      function renderLuItems() {
+        luItemsEl.innerHTML = luCourses
+          .map((p) => {
+            const scelti = luItems[p] ?? [];
+            const opzioni = cats
+              .filter((c) => c.kind === "food")
+              .map((c) => {
+                const dentro = items
+                  .filter((i) => i.category === c.name && !scelti.includes(i.id))
+                  .map((i) => `<option value="${i.id}">${esc(i.name)}</option>`)
+                  .join("");
+                return dentro ? `<optgroup label="${esc(c.name)}">${dentro}</optgroup>` : "";
+              })
+              .join("");
+            const chips = scelti
+              .map((id) => {
+                const it = items.find((x) => x.id === id);
+                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-p="${p}" data-id="${id}" title="Retirer">×</button></span>`;
+              })
+              .join("");
+            return `
+            <div class="lu-block">
+              <div class="lu-block-tit">${PORTATA_LAB[p]} — plats au choix</div>
+              <select class="lu-sel" data-p="${p}">
+                <option value="">Ajouter un plat du menu…</option>${opzioni}
+              </select>
+              <div class="lu-chips">${chips || '<span class="f-label">Aucun plat sélectionné.</span>'}</div>
+            </div>`;
+          })
+          .join("");
+      }
+      // Combinazioni possibili: sottoinsiemi delle portate attive che contengono il plat
+      function comboPossibili(): string[][] {
+        const extra = luCourses.filter((p) => p !== "plat");
+        const out: string[][] = [];
+        for (let mask = 0; mask < 1 << extra.length; mask++) {
+          const dentro = new Set<string>(["plat"]);
+          extra.forEach((p, i) => { if (mask & (1 << i)) dentro.add(p); });
+          out.push(PORTATE.filter((p) => dentro.has(p)));
+        }
+        out.sort((a, b) => a.length - b.length);
+        return out;
+      }
+      function salvaPrezziCorrenti() {
+        luCombosEl.querySelectorAll<HTMLInputElement>("input").forEach((inp) => {
+          luPrezzi[inp.dataset.k!] = inp.value;
+        });
+      }
+      function renderLuCombos() {
+        luCombosEl.innerHTML = comboPossibili()
+          .map((parts) => {
+            const k = parts.join("+");
+            const solo = parts.length === 1 && luCourses.length === 1 ? " (plat du jour)" : "";
+            return `
+            <div class="lu-combo-row">
+              <span class="lu-combo-lab">${comboLabel(parts)}${solo}</span>
+              <input type="number" min="0" step="0.01" inputmode="decimal" placeholder="€" data-k="${k}" value="${esc(luPrezzi[k] ?? "")}" />
+            </div>`;
+          })
+          .join("");
+      }
+
+      function apriLunchModale(l: Lunch | null) {
+        lunchEditId = l?.id ?? null;
+        luTitle.textContent = l ? "Modifier le lunch" : "Ajouter un lunch";
+        luMsg.textContent = "";
+        luName.value = l?.name ?? "";
+        impostaData(luFrom, l?.date_from ?? "");
+        impostaData(luTo, l?.date_to ?? "");
+        luActive.checked = l?.active ?? true;
+        luCourses = PORTATE.filter((p) => p === "plat" || (l?.courses ?? []).includes(p));
+        luItems = {};
+        for (const p of luCourses) luItems[p] = [...(l?.items?.[p] ?? [])];
+        luPrezzi = {};
+        for (const c of l?.combos ?? []) luPrezzi[c.parts.join("+")] = (c.price_cents / 100).toFixed(2);
+        aggiornaLuNome();
+        renderLuCourses();
+        renderLuItems();
+        renderLuCombos();
+        luOverlay.classList.add("is-open");
+      }
+      function chiudiLunchModale() {
+        dpChiudi();
+        luOverlay.classList.remove("is-open");
+        lunchEditId = null;
+      }
+
+      // ---- Datepicker brand (come Réglages/Résa) per le date del lunch ----
+      const MESI_DP = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+      const DOW_DP = ["L", "M", "M", "J", "V", "S", "D"];
+      let dpTarget: HTMLInputElement | null = null;
+      let dpAnno = 0;
+      let dpMese = 0; // 0-11
+      const dpPanel = document.createElement("div");
+      dpPanel.className = "dp-panel";
+      dpPanel.style.display = "none";
+      document.body.appendChild(dpPanel);
+
+      function isoOggi(): string {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      }
+      function isoDi(y: number, m: number, g: number): string {
+        return `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
+      }
+      function fmtFr(iso: string): string {
+        const [y, m, d] = iso.split("-");
+        return `${d}/${m}/${y}`;
+      }
+      function impostaData(el: HTMLInputElement, iso: string) {
+        el.dataset.iso = iso;
+        el.value = iso ? fmtFr(iso) : "";
+      }
+      function dpAperto(): boolean {
+        return dpPanel.style.display !== "none";
+      }
+      function dpRender() {
+        const oggi = isoOggi();
+        const sel = dpTarget?.dataset.iso ?? "";
+        const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7; // lunedì=0
+        const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
+        let celle = "";
+        for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
+        for (let g = 1; g <= nGiorni; g++) {
+          const iso = isoDi(dpAnno, dpMese, g);
+          const cls = ["dp-cell"];
+          if (iso === oggi) cls.push("dp-today");
+          if (iso === sel) cls.push("dp-sel");
+          // Nessun giorno vietato: le date di validità possono anche stare nel passato
+          celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}">${g}</button>`;
+        }
+        dpPanel.innerHTML = `
+          <div class="dp-head">
+            <button type="button" class="dp-nav" data-nav="-1">‹</button>
+            <span class="dp-title">${MESI_DP[dpMese]} ${dpAnno}</span>
+            <button type="button" class="dp-nav" data-nav="1">›</button>
+          </div>
+          <div class="dp-dow">${DOW_DP.map((g) => `<span>${g}</span>`).join("")}</div>
+          <div class="dp-grid">${celle}</div>
+          <button type="button" class="dp-clear">Effacer — sans limite</button>`;
+      }
+      function dpApri(target: HTMLInputElement) {
+        dpTarget = target;
+        const base = target.dataset.iso || isoOggi();
+        dpAnno = Number(base.slice(0, 4));
+        dpMese = Number(base.slice(5, 7)) - 1;
+        dpRender();
+        dpPanel.style.display = "block";
+        const r = target.getBoundingClientRect();
+        const pw = dpPanel.offsetWidth || 344;
+        const ph = dpPanel.offsetHeight || 380;
+        dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
+        dpPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+      }
+      function dpChiudi() {
+        dpPanel.style.display = "none";
+        dpTarget = null;
+      }
+      dpPanel.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const t = e.target as HTMLElement;
+        if (t.classList.contains("dp-nav")) {
+          dpMese += Number(t.dataset.nav);
+          if (dpMese < 0) { dpMese = 11; dpAnno--; }
+          if (dpMese > 11) { dpMese = 0; dpAnno++; }
+          dpRender();
+          return;
+        }
+        if (t.classList.contains("dp-clear") && dpTarget) {
+          impostaData(dpTarget, "");
+          dpChiudi();
+          return;
+        }
+        if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
+          const iso = t.dataset.iso;
+          impostaData(dpTarget, iso);
+          // se la fine esiste ed è prima dell'inizio, allineala
+          if (dpTarget === luFrom) {
+            const toIso = luTo.dataset.iso ?? "";
+            if (toIso && toIso < iso) impostaData(luTo, iso);
+          }
+          dpChiudi();
+        }
+      });
+      [luFrom, luTo].forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dpApri(el);
+        });
+      });
+      document.addEventListener("click", (e) => {
+        if (dpAperto() && !dpPanel.contains(e.target as Node)) dpChiudi();
+      });
+
+      luCoursesEl.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest(".luf-course") as HTMLElement | null;
+        if (!b || b.dataset.p === "plat") return;
+        const p = b.dataset.p!;
+        salvaPrezziCorrenti();
+        luCourses = luCourses.includes(p) ? luCourses.filter((x) => x !== p) : [...luCourses, p];
+        luCourses = PORTATE.filter((x) => luCourses.includes(x));
+        aggiornaLuNome();
+        renderLuCourses();
+        renderLuItems();
+        renderLuCombos();
+      });
+      luItemsEl.addEventListener("change", (e) => {
+        const sel = e.target as HTMLSelectElement;
+        if (!sel.classList.contains("lu-sel") || !sel.value) return;
+        const p = sel.dataset.p!;
+        luItems[p] = [...(luItems[p] ?? []), sel.value];
+        renderLuItems();
+      });
+      luItemsEl.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest(".lu-chip button") as HTMLElement | null;
+        if (!b) return;
+        luItems[b.dataset.p!] = (luItems[b.dataset.p!] ?? []).filter((id) => id !== b.dataset.id);
+        renderLuItems();
+      });
+
+      async function salvaLunch() {
+        luMsg.textContent = "";
+        salvaPrezziCorrenti();
+        const combos: { parts: string[]; price_cents: number }[] = [];
+        for (const parts of comboPossibili()) {
+          const raw = (luPrezzi[parts.join("+")] ?? "").trim();
+          if (!raw) continue; // combinazione non proposta
+          const cents = Math.round(parseFloat(raw.replace(",", ".")) * 100);
+          if (!Number.isFinite(cents) || cents <= 0) {
+            luMsg.textContent = `Prix invalide (${comboLabel(parts)}).`;
+            return;
+          }
+          combos.push({ parts, price_cents: cents });
+        }
+        if (!combos.length) { luMsg.textContent = "Indique au moins un prix de combinaison."; return; }
+        const dFrom = luFrom.dataset.iso ?? "";
+        const dTo = luTo.dataset.iso ?? "";
+        if (dFrom && dTo && dFrom > dTo) {
+          luMsg.textContent = "La date de fin précède le début.";
+          return;
+        }
+        const body: Record<string, unknown> = {
+          name: luName.value.trim() || (luCourses.length === 1 ? "Plat du jour" : "Lunch"),
+          courses: luCourses,
+          date_from: dFrom,
+          date_to: dTo,
+          items: Object.fromEntries(luCourses.map((p) => [p, luItems[p] ?? []])),
+          combos,
+          active: luActive.checked,
+        };
+        if (lunchEditId) body.id = lunchEditId;
+        luSave.disabled = true;
+        luSave.classList.add("is-loading");
+        try {
+          const res = await fetch("/api/admin/lunch", {
+            method: lunchEditId ? "PATCH" : "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok) {
+            luMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+          } else {
+            toast(lunchEditId ? "Lunch modifié ✓" : "Lunch ajouté ✓");
+            chiudiLunchModale();
+            await caricaLunches();
+          }
+        } catch {
+          luMsg.textContent = "Erreur de connexion.";
+        } finally {
+          luSave.disabled = false;
+          luSave.classList.remove("is-loading");
+        }
+      }
+
+      (document.getElementById("lu-close") as HTMLButtonElement).addEventListener("click", chiudiLunchModale);
+      (document.getElementById("lu-cancel") as HTMLButtonElement).addEventListener("click", chiudiLunchModale);
+      luOverlay.addEventListener("click", (e) => { if (e.target === luOverlay) chiudiLunchModale(); });
+      luSave.addEventListener("click", salvaLunch);
+
+      // Azioni sulle card lunch (delega)
+      listEl.addEventListener("click", async (e) => {
+        const t = e.target as HTMLElement;
+        const card = t.closest(".lu-card") as HTMLElement | null;
+        if (!card) return;
+        const l = lunches.find((x) => x.id === card.dataset.id);
+        if (!l) return;
+        if (t.closest(".lu-edit")) { apriLunchModale(l); return; }
+        const del = t.closest(".lu-del") as HTMLButtonElement | null;
+        if (del) {
+          if (!del.classList.contains("confirm")) {
+            del.classList.add("confirm");
+            del.textContent = "Confirmer ?";
+            setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/lunch?id=" + l.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+            if (!res.ok) { toast("Suppression impossible", true); return; }
+            toast("Lunch supprimé");
+            await caricaLunches();
+          } catch {
+            toast("Erreur de connexion", true);
+          }
+        }
+      });
+      listEl.addEventListener("change", async (e) => {
+        const t = e.target as HTMLInputElement;
+        if (!t.classList.contains("lu-act")) return;
+        const card = t.closest(".lu-card") as HTMLElement;
+        try {
+          const res = await fetch("/api/admin/lunch", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ id: card.dataset.id, active: t.checked }),
+          });
+          if (!res.ok) throw new Error();
+          const l = lunches.find((x) => x.id === card.dataset.id);
+          if (l) l.active = t.checked;
+          card.classList.toggle("is-hidden-item", !t.checked);
+        } catch {
+          t.checked = !t.checked;
+          toast("Modification impossible", true);
+        }
+      });
+
       // ---------- Avvio ----------
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -1145,7 +1739,11 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           renderList();
         });
 
-        (document.getElementById("add-btn") as HTMLButtonElement).addEventListener("click", () => apriModale(null));
+        (document.getElementById("add-btn") as HTMLButtonElement).addEventListener("click", () => {
+          if (kindFiltro === "lunch") { apriLunchModale(null); return; }
+          if (kindFiltro === "menus") return;
+          apriModale(null);
+        });
         (document.getElementById("sec-btn") as HTMLButtonElement).addEventListener("click", () => {
           secMsg.textContent = "";
           renderSezioni();
@@ -1158,7 +1756,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         overlay.addEventListener("click", (e) => { if (e.target === overlay) chiudiModale(); });
         secOverlay.addEventListener("click", (e) => { if (e.target === secOverlay) secOverlay.classList.remove("is-open"); });
         document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") { chiudiModale(); secOverlay.classList.remove("is-open"); }
+          if (e.key === "Escape") {
+            if (dpAperto()) { dpChiudi(); return; }
+            chiudiModale(); chiudiLunchModale(); secOverlay.classList.remove("is-open");
+          }
         });
 
         // Azioni sui piatti (delega)

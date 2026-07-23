@@ -44,6 +44,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 35 | `brand_bucket.sql` | Bucket Storage `brand`: loghi (normale/negativo/1 colore) + favicon da Réglages → Général |
 | 36 | `restaurant_tables.sql` | Plan de salle: tavoli per section (nome, posti, forma, posizione) disegnati nei Réglages |
 | 37 | `reservations_tables.sql` | `tables` su reservations: tavoli assegnati automaticamente (plan de salle fase 2) |
+| 38 | `lunch_menus.sql` | Formules Lunch: portate, intervallo date, piatti dal menu, combinazioni con prezzo |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
