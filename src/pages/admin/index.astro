@@ -91,6 +91,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .ord-nx .nx-n { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .resa-two { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; margin-bottom: 1.25rem; }
       .resa-two .tile-sub { margin-bottom: 0; }
+      .resa-perm { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
+      .resa-perm .rp-pill {
+        border: 1px solid #d24d55; color: #d24d55; background: rgba(210, 77, 85, 0.08);
+        border-radius: 999px; padding: 0.22rem 0.6rem; font-size: 0.68rem;
+        letter-spacing: 0.02em; white-space: nowrap;
+      }
       .resa-mini { display: flex; align-items: flex-end; gap: 0.45rem; padding-top: 0.2rem; }
       .resa-mini .rmc { display: flex; flex-direction: column; align-items: center; gap: 3px; }
       .resa-mini .rmc b { font-size: 0.74rem; color: #fff; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -343,6 +349,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
       type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
@@ -855,6 +862,23 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 const h = Math.max(2, Math.round((n / max) * 34));
                 return `<span class="rmc" title="${lab}"><b>${n}</b><i style="height:${h}px;background:${col}"></i></span>`;
               }).join("");
+            }
+
+            // Chiusure «jusqu'à réouverture» (reason: permanent, da caricaResaGiorno)
+            const escP = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            const permEl = document.getElementById("resa-perm") as HTMLElement | null;
+            if (permEl) {
+              const svPerm = ((jr.closures ?? []) as { service_key: string; reason: string }[])
+                .filter((c) => c.reason === "permanent")
+                .map((c) => SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key);
+              const znPerm = ((jr.zone_closures ?? []) as { zone: string; reason: string }[])
+                .filter((c) => c.reason === "permanent")
+                .map((c) => c.zone);
+              const nomi = [...svPerm, ...znPerm];
+              permEl.innerHTML = nomi
+                .map((n) => `<span class="rp-pill">${escP(n)} — fermé jusqu\u2019à réouverture</span>`)
+                .join("");
+              permEl.style.display = nomi.length ? "" : "none";
             }
 
             const nowHM = new Intl.DateTimeFormat("en-GB", {
