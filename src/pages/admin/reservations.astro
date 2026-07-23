@@ -374,6 +374,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-switch input:checked + .sv-track::before { transform: translateX(20px); background: #231f20; }
       .sv-switch input:disabled + .sv-track { cursor: not-allowed; }
       .sv-raisons { display: flex; gap: 0.4rem; flex-basis: 100%; }
+      .sv-state.is-perm { color: #d24d55; font-weight: 700; }
+      .sv-permbtn {
+        flex-basis: 100%;
+        max-width: max-content;
+        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.78rem;
+        font-family: var(--font-body); cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .sv-permbtn:hover { border-color: #d24d55; color: #d24d55; }
+      .sv-permbtn.is-on { border-color: var(--c-accent); color: var(--c-accent); }
+      .sv-permbtn.is-on:hover { border-color: var(--c-accent); color: var(--c-accent); filter: brightness(1.15); }
       .sv-raison {
         background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.8rem; cursor: pointer;
@@ -1034,20 +1045,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         return svAttivoSpRaw(sv.key, hh(sv.da), hh(sv.a), lista);
       }
       let chiusureZoneOggi: { zone: string; reason: string }[] = [];
-      const RAGIONE_FR: Record<string, string> = { full: "Complet", closed: "Fermeture exceptionnelle" };
+      const RAGIONE_FR: Record<string, string> = { full: "Complet", closed: "Fermeture exceptionnelle", permanent: "jusqu\u2019à réouverture" };
       function aggiornaChiusureUI() {
         const box = document.getElementById("d-closed") as HTMLElement;
         box.innerHTML =
           chiusureOggi
             .map((c) => {
               const nome = SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key;
-              return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" aria-label="Rouvrir">×</button></span>`;
+              return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="Rouvrir">×</button></span>`;
             })
             .join("") +
           chiusureZoneOggi
             .map(
               (c) =>
-                `<span class="d-closed-pill">${esc(c.zone)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" aria-label="Rouvrir">×</button></span>`
+                `<span class="d-closed-pill">${esc(c.zone)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="Rouvrir">×</button></span>`
             )
             .join("");
         (document.getElementById("fab-serv") as HTMLElement).classList.toggle("has-closed", chiusureOggi.length > 0);
@@ -1571,6 +1582,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const svDateIn = document.getElementById("sv-datein") as HTMLInputElement;
         let svData = giorno; // data su cui agisce il modale (anche futura)
         let svLista: { service_key: string; reason: string }[] = [];
+        let svPerm: string[] = []; // services fermés «jusqu'à réouverture»
 
         function svRender() {
           const spOpen = svData === giorno ? spOpenOggi : false;
@@ -1584,25 +1596,37 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const adesso = minutiOra();
           svList.innerHTML = servizi
             .map((sv) => {
+              const perm = svPerm.includes(sv.key);
               const chiusa = svLista.find((c) => c.service_key === sv.key);
               const passato = oggi && sv.a < adesso;
-              const raisons = chiusa
+              const raisons = chiusa && !perm
                 ? `<div class="sv-raisons">
                      <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-k="${sv.key}" data-r="full">Complet</button>
                      <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-k="${sv.key}" data-r="closed">Fermeture exceptionnelle</button>
                    </div>`
                 : "";
+              // Fermé «jusqu'à réouverture»: lo switch per data non ha senso
+              const stato = perm
+                ? '<span class="sv-state is-perm">Fermé jusqu\u2019à réouverture</span>'
+                : passato
+                  ? '<span class="sv-past-lab">Service terminé</span>'
+                  : `<span class="sv-state">${chiusa ? "Fermé" : "Ouvert"}</span>`;
+              const switchHtml = perm
+                ? ""
+                : `<label class="sv-switch">
+                    <input type="checkbox" data-k="${sv.key}" ${chiusa ? "" : "checked"} ${passato ? "disabled" : ""} />
+                    <span class="sv-track"></span>
+                  </label>`;
+              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pk="${sv.key}">${perm ? "Rouvrir le service" : "Fermer jusqu\u2019à réouverture"}</button>`;
               return `<div class="sv-row${passato ? " is-past" : ""}">
                   <div class="sv-info">
                     <div class="sv-nom">${esc(sv.label)}</div>
                     <div class="sv-heures">${slotHHMM(sv.da)} – ${slotHHMM(sv.a)}</div>
                   </div>
-                  ${passato ? '<span class="sv-past-lab">Service terminé</span>' : `<span class="sv-state">${chiusa ? "Fermé" : "Ouvert"}</span>`}
-                  <label class="sv-switch">
-                    <input type="checkbox" data-k="${sv.key}" ${chiusa ? "" : "checked"} ${passato ? "disabled" : ""} />
-                    <span class="sv-track"></span>
-                  </label>
+                  ${stato}
+                  ${switchHtml}
                   ${raisons}
+                  ${permBtn}
                 </div>`;
             })
             .join("");
@@ -1613,6 +1637,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const res = await fetch("/api/admin/service-closures?date=" + svData, { headers });
             const j = await res.json();
             svLista = j.closures ?? [];
+            svPerm = (j.permanent ?? []) as string[];
           } catch {
             svLista = [];
           }
@@ -1763,10 +1788,40 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void svSalva(t.dataset.k, t.checked ? null : "full");
         });
         svList.addEventListener("click", (e) => {
+          const pb = (e.target as HTMLElement).closest(".sv-permbtn") as HTMLElement | null;
+          if (pb) {
+            const k = pb.dataset.pk ?? "";
+            void svSalvaPerm(k, !svPerm.includes(k));
+            return;
+          }
           const b = (e.target as HTMLElement).closest(".sv-raison") as HTMLElement | null;
           if (!b) return;
           void svSalva(b.dataset.k ?? "", b.dataset.r ?? "full");
         });
+
+        // Chiusura/riapertura «jusqu'à réouverture» di un service
+        async function svSalvaPerm(key: string, closed: boolean) {
+          if (!key) return;
+          try {
+            const res = await fetch("/api/admin/service-closures", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ permanent_key: key, closed }),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              toast(j.error ?? "Enregistrement impossible", "err");
+              return;
+            }
+            svPerm = (j.permanent ?? []) as string[];
+            toast(closed ? "Service fermé jusqu\u2019à réouverture" : "Service rouvert ✓", "ok");
+          } catch {
+            toast("Erreur de connexion", "err");
+            return;
+          }
+          svRender();
+          await carica(); // pillole del giorno + occupazione aggiornate
+        }
 
         // La X sulle pillole riapre subito il service / la section
         (document.getElementById("d-closed") as HTMLElement).addEventListener("click", (e) => {
@@ -1775,11 +1830,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const k = x.dataset.k ?? "";
           void (async () => {
             try {
+              const permanente = x.dataset.r === "permanent";
               if (x.dataset.tipo === "service") {
-                await fetch(`/api/admin/service-closures?date=${giorno}&service_key=${k}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                if (permanente) {
+                  await fetch("/api/admin/service-closures", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ permanent_key: k, closed: false }) });
+                } else {
+                  await fetch(`/api/admin/service-closures?date=${giorno}&service_key=${k}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                }
                 chiusureOggi = chiusureOggi.filter((c) => c.service_key !== k);
               } else {
-                await fetch(`/api/admin/zone-closures?date=${giorno}&zone=${encodeURIComponent(k)}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                if (permanente) {
+                  await fetch("/api/admin/zone-closures", { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ permanent_zone: k, closed: false }) });
+                } else {
+                  await fetch(`/api/admin/zone-closures?date=${giorno}&zone=${encodeURIComponent(k)}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                }
                 chiusureZoneOggi = chiusureZoneOggi.filter((c) => c.zone !== k);
               }
             } catch { /* la pillola resta */ }
@@ -1794,6 +1858,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const znDateIn = document.getElementById("zn-datein") as HTMLInputElement;
         let znData = giorno;
         let znLista: { zone: string; reason: string }[] = [];
+        let znPerm: string[] = []; // sections fermées «jusqu'à réouverture»
         let znPrio: string[] = []; // priorità di riempimento (1° = si riempie prima)
 
         function znRender() {
@@ -1806,14 +1871,25 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const ordinate = [...zone].sort((a, b) => posPrio(a) - posPrio(b));
           znList.innerHTML = ordinate
             .map((z, i) => {
+              const perm = znPerm.includes(z);
               const chiusa = znLista.find((c) => c.zone === z);
               const posti = nmCfg.zone_seats?.[z] ?? 0;
-              const raisons = chiusa
+              const raisons = chiusa && !perm
                 ? `<div class="sv-raisons">
                      <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-z="${esc(z)}" data-r="full">Complet</button>
                      <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-z="${esc(z)}" data-r="closed">Fermeture exceptionnelle</button>
                    </div>`
                 : "";
+              const stato = perm
+                ? '<span class="sv-state is-perm">Fermée jusqu\u2019à réouverture</span>'
+                : `<span class="sv-state">${chiusa ? "Fermée" : "Ouverte"}</span>`;
+              const switchHtml = perm
+                ? ""
+                : `<label class="sv-switch">
+                    <input type="checkbox" data-z="${esc(z)}" ${chiusa ? "" : "checked"} />
+                    <span class="sv-track"></span>
+                  </label>`;
+              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pz="${esc(z)}">${perm ? "Rouvrir la section" : "Fermer jusqu\u2019à réouverture"}</button>`;
               return `<div class="sv-row" data-zrow="${esc(z)}">
                   <span class="zn-grip" title="Glisser pour changer la priorité de remplissage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg></span>
                   <span class="zn-prio">${i + 1}</span>
@@ -1821,12 +1897,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                     <div class="sv-nom">${esc(z)}</div>
                     <div class="sv-heures">${posti ? `${posti} couverts` : ""}</div>
                   </div>
-                  <span class="sv-state">${chiusa ? "Fermée" : "Ouverte"}</span>
-                  <label class="sv-switch">
-                    <input type="checkbox" data-z="${esc(z)}" ${chiusa ? "" : "checked"} />
-                    <span class="sv-track"></span>
-                  </label>
+                  ${stato}
+                  ${switchHtml}
                   ${raisons}
+                  ${permBtn}
                 </div>`;
             })
             .join("");
@@ -1837,6 +1911,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const res = await fetch("/api/admin/zone-closures?date=" + znData, { headers });
             const j = await res.json();
             znLista = j.closures ?? [];
+            znPerm = (j.permanent ?? []) as string[];
           } catch {
             znLista = [];
           }
@@ -2002,10 +2077,40 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void znSalva(t.dataset.z, t.checked ? null : "closed");
         });
         znList.addEventListener("click", (e) => {
+          const pb = (e.target as HTMLElement).closest(".sv-permbtn") as HTMLElement | null;
+          if (pb) {
+            const z = pb.dataset.pz ?? "";
+            void znSalvaPerm(z, !znPerm.includes(z));
+            return;
+          }
           const b = (e.target as HTMLElement).closest(".sv-raison") as HTMLElement | null;
           if (!b || !b.dataset.z) return;
           void znSalva(b.dataset.z, b.dataset.r ?? "closed");
         });
+
+        // Chiusura/riapertura «jusqu'à réouverture» di una section
+        async function znSalvaPerm(zona: string, closed: boolean) {
+          if (!zona) return;
+          try {
+            const res = await fetch("/api/admin/zone-closures", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ permanent_zone: zona, closed }),
+            });
+            const j = await res.json();
+            if (!res.ok) {
+              toast(j.error ?? "Enregistrement impossible", "err");
+              return;
+            }
+            znPerm = (j.permanent ?? []) as string[];
+            toast(closed ? "Section fermée jusqu\u2019à réouverture" : "Section rouverte ✓", "ok");
+          } catch {
+            toast("Erreur de connexion", "err");
+            return;
+          }
+          znRender();
+          await carica(); // pillole del giorno + occupazione aggiornate
+        }
         let znFutArmato: HTMLElement | null = null;
         let znFutTimer = 0;
         function znFutDisarma() {

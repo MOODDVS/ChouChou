@@ -657,6 +657,16 @@ export const PATCH: APIRoute = async ({ request }) => {
     if ((data as { email?: string }).email) void inviaConfermaResa(data as unknown as ResaEmail);
     void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
   }
+  // RIPRISTINO da Annulée/No-show a Confirmée: la recensione era stata
+  // annullata su Resend → si RIPROGRAMMA. Solo se non ce n'è già una attiva
+  // (review_email_id vuoto — l'annullo lo azzera); emailReviewResa salta da
+  // sola gli orari già passati (mai invii retroattivi).
+  if (upd.status === "confirmed" && (statoPrima === "cancelled" || statoPrima === "noshow")) {
+    const giaProgrammata = String((data as { review_email_id?: string | null }).review_email_id ?? "");
+    if (!giaProgrammata) {
+      void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+    }
+  }
   // Plan de salle: annullata/no-show libera i tavoli; dati cambiati (o ritorno
   // a Confirmée) -> riassegnazione con i valori AGGIORNATI della riga
   if (upd.status === "cancelled" || upd.status === "noshow") {

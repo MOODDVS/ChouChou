@@ -230,6 +230,27 @@ async function leggiConfig(): Promise<WidgetConfig> {
   return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti && autoTables, autoAccept, autoTables, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
 }
 
+/** Service e sections chiusi «jusqu'à réouverture» (app_config).
+ *  Contano come chiusi OGNI giorno finché il ristoratore non riapre. */
+async function chiusurePermanenti(): Promise<{ svc: string[]; zone: string[] }> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["service_closures_permanent", "zone_closures_permanent"]);
+    const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
+    const leggi = (k: string): string[] => {
+      try {
+        const arr = JSON.parse(m.get(k) || "[]");
+        return Array.isArray(arr) ? arr.map((x) => String(x).trim()).filter(Boolean) : [];
+      } catch { return []; }
+    };
+    return { svc: leggi("service_closures_permanent"), zone: leggi("zone_closures_permanent") };
+  } catch {
+    return { svc: [], zone: [] };
+  }
+}
+
 /** Jour spécial che copre la data.
  *  { chiuso:true }                     → giorno fermé (special closed)
  *  { aperto:true, ranges:[[da,a],…] }  → special ouvert con orari PROPRI (minuti)
@@ -362,12 +383,15 @@ export const GET: APIRoute = async ({ url }) => {
     // Auto-accept spento: si accetta tutto → la capienza non rende "complet"
     // (capienza 0 = il calcolo dei giorni pieni sotto viene saltato)
     const mAutoAccept = (cfgMap.get("reservation_auto_accept") ?? "1") !== "0";
+    const permM = await chiusurePermanenti();
     const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
         capienza = arr.reduce((t: number, z: { name?: unknown; seats?: unknown }) => {
-          const n = planPosti ? Math.floor(planPosti.get(String(z.name ?? "").trim()) ?? 0) : intOf(z.seats);
+          const nome = String(z.name ?? "").trim();
+          if (permM.zone.includes(nome)) return t; // section chiusa fino a riapertura
+          const n = planPosti ? Math.floor(planPosti.get(nome) ?? 0) : intOf(z.seats);
           return t + (Number.isFinite(n) && n > 0 ? n : 0);
         }, 0);
       }
@@ -416,8 +440,8 @@ export const GET: APIRoute = async ({ url }) => {
       }
       if (spOpenDay && attivi.length > 0) open.push(iso);
       // Tutti i services del giorno chiusi dal ristoratore → giorno "complet"
-      const chSet = chiusePerGiorno.get(iso);
-      const tuttiChiusi = attivi.length > 0 && !!chSet && attivi.every((sv) => chSet.has(keyServizio(sv) ?? ""));
+      const chSet = new Set([...(chiusePerGiorno.get(iso) ?? []), ...permM.svc]);
+      const tuttiChiusi = attivi.length > 0 && chSet.size > 0 && attivi.every((sv) => chSet.has(keyServizio(sv) ?? ""));
       let pieno = tuttiChiusi;
       if (!pieno && capienza > 0 && mAutoAccept) {
         pieno = attivi.length
@@ -447,12 +471,16 @@ export const GET: APIRoute = async ({ url }) => {
   let serviceClosures: string[] = [];
   let zoneClosures: string[] = [];
   try {
-    const [ch, zch] = await Promise.all([
+    const [ch, zch, permD] = await Promise.all([
       supabaseAdmin.from("service_closures").select("service_key").eq("date", date),
       supabaseAdmin.from("zone_closures").select("zone").eq("date", date),
+      chiusurePermanenti(),
     ]);
     if (!ch.error && ch.data) serviceClosures = ch.data.map((r) => String(r.service_key)).filter(Boolean);
     if (!zch.error && zch.data) zoneClosures = zch.data.map((r) => String(r.zone)).filter(Boolean);
+    // Chiusure «jusqu'à réouverture»: valgono per OGNI data
+    serviceClosures = [...new Set([...serviceClosures, ...permD.svc])];
+    zoneClosures = [...new Set([...zoneClosures, ...permD.zone])];
   } catch {
     /* nessuna chiusura */
   }
@@ -542,8 +570,9 @@ async function verificaCreneau(
     supabaseAdmin.from("zone_closures").select("zone").eq("date", p.date),
     dayQ,
   ]);
-  const svcClosed = (chiusrv.data ?? []).map((r) => String(r.service_key));
-  const zoneClosed = (chzone.data ?? []).map((r) => String(r.zone));
+  const perm = await chiusurePermanenti();
+  const svcClosed = [...new Set([...(chiusrv.data ?? []).map((r) => String(r.service_key)), ...perm.svc])];
+  const zoneClosed = [...new Set([...(chzone.data ?? []).map((r) => String(r.zone)), ...perm.zone])];
   if (p.service_key && svcClosed.includes(p.service_key)) return "creneauPris";
   if (p.zone && zoneClosed.includes(p.zone)) return "creneauPris";
 

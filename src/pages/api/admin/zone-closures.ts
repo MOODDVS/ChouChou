@@ -5,10 +5,21 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 export const prerender = false;
 
 // Chiusure di SECTION per giorno (admin Réservations).
-// GET    ?date=YYYY-MM-DD          → { closures: [{ zone, reason }] }
+// GET    ?date=YYYY-MM-DD          → { closures: [{ zone, reason }], permanent: [zone…] }
 // GET    ?future=1                 → { closures: [{ date, zone, reason }] } da oggi in poi
 // POST   { date, zone, reason }    → chiude (upsert; reason: full | closed)
+// POST   { permanent_zone, closed }→ chiude/riapre FINO A RIAPERTURA MANUALE
+//                                    (app_config zone_closures_permanent)
 // DELETE ?date=&zone=              → riapre
+
+/** Lista delle sections chiuse «jusqu'à réouverture» (app_config, mai bloccante). */
+async function leggiPermanenti(): Promise<string[]> {
+  try {
+    const { data } = await supabaseAdmin.from("app_config").select("value").eq("key", "zone_closures_permanent").maybeSingle();
+    const arr = JSON.parse(String(data?.value || "[]"));
+    return Array.isArray(arr) ? arr.map((z) => String(z).trim()).filter((z) => z && z.length <= 60) : [];
+  } catch { return []; }
+}
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -52,21 +63,35 @@ export const GET: APIRoute = async ({ request, url }) => {
   const date = url.searchParams.get("date") ?? "";
   if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
 
+  const permanent = await leggiPermanenti();
   const { data, error } = await supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date);
   // Tabella non ancora creata (migrazione #23): nessuna chiusura, non rotta
-  if (error) return json({ closures: [], missing: true });
-  return json({ closures: data ?? [] });
+  if (error) return json({ closures: [], permanent, missing: true });
+  return json({ closures: data ?? [], permanent });
 };
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { date?: string; zone?: string; reason?: string };
+  let body: { date?: string; zone?: string; reason?: string; permanent_zone?: string; closed?: boolean };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
+  }
+
+  // Chiusura PERMANENTE: { permanent_zone, closed: true|false }
+  if (body.permanent_zone !== undefined) {
+    const zona = String(body.permanent_zone ?? "").trim().slice(0, 60);
+    if (!zona) return json({ error: "Section invalide" }, 400);
+    const lista = await leggiPermanenti();
+    const nuova = body.closed ? [...new Set([...lista, zona])] : lista.filter((z) => z !== zona);
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert({ key: "zone_closures_permanent", value: JSON.stringify(nuova) }, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    return json({ ok: true, permanent: nuova });
   }
   const date = String(body.date ?? "");
   if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);

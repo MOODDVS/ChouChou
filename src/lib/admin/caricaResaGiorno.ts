@@ -46,6 +46,8 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         "reservation_zones",
         "reservation_plan_mode",
         "timezone",
+        "service_closures_permanent",
+        "zone_closures_permanent",
       ]),
     supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
     supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
@@ -184,6 +186,23 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
   // + jour spécial "ouvert" (scavalca i giorni di applicazione dei services)
   const closures = (!chQ.error && chQ.data ? chQ.data : []) as { service_key: string; reason: string }[];
   const zoneClosures = (!zchQ.error && zchQ.data ? zchQ.data : []) as { zone: string; reason: string }[];
+  // Chiusure «jusqu'à réouverture» (app_config): valgono per OGNI data.
+  // reason "permanent" così la UI le distingue (pillole, riapertura).
+  try {
+    const mPerm = new Map((cfgQ.data ?? []).map((r) => [r.key, String(r.value ?? "")]));
+    const leggiPerm = (k: string): string[] => {
+      try {
+        const a = JSON.parse(mPerm.get(k) || "[]");
+        return Array.isArray(a) ? a.map((x) => String(x).trim()).filter(Boolean) : [];
+      } catch { return []; }
+    };
+    for (const k of leggiPerm("service_closures_permanent")) {
+      if (!closures.some((c) => c.service_key === k)) closures.push({ service_key: k, reason: "permanent" });
+    }
+    for (const z of leggiPerm("zone_closures_permanent")) {
+      if (!zoneClosures.some((c) => c.zone === z)) zoneClosures.push({ zone: z, reason: "permanent" });
+    }
+  } catch { /* mai bloccante */ }
   const righeSp = (!spQ.error && spQ.data ? spQ.data : []) as { type: string; services?: unknown }[];
   const specialOpen = righeSp.some((r) => r.type === "open") && !righeSp.some((r) => r.type === "closed");
   const rigaOpen = specialOpen ? righeSp.find((r) => r.type === "open") : undefined;

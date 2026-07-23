@@ -101,6 +101,52 @@ const { current } = Astro.props;
   <span>Admin</span>
 </a>
 
+<!-- ANTI-FLASH permessi: script SINCRONO (gira prima del primo paint).
+     Con cache dei permessi dell'ULTIMO utente visto su questo browser:
+     nasconde subito le voci vietate (nav + tile). Senza cache (primo login):
+     nav invisibile finché lo script asincrono non ha la lista vera. Il tag
+     <style id="nav-permessi"> viene rimosso dallo script asincrono. -->
+<script is:inline>
+  (() => {
+    try {
+      // Email dell'utente corrente: sessione Supabase in localStorage (sync)
+      let email = "";
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || "";
+        if (/^sb-.*-auth-token$/.test(k)) {
+          const v = JSON.parse(localStorage.getItem(k) || "null");
+          email = (v && (v.user?.email || v.currentSession?.user?.email)) || "";
+          break;
+        }
+      }
+      const raw = localStorage.getItem("mdd_nav_hidden");
+      const cache = raw ? JSON.parse(raw) : null;
+      const st = document.createElement("style");
+      st.id = "nav-permessi";
+      if (cache && email && cache.email === email) {
+        // CSS da pagine vietate (nav + tile) E tab vietati (pillole + sezioni)
+        const ok = (x) => /^[a-z]+$/.test(String(x));
+        const sel = [];
+        for (const k of Array.isArray(cache.hidden) ? cache.hidden : []) {
+          if (ok(k)) sel.push(`.admin-nav a[data-page="${k}"]`, `[data-admin-page="${k}"]`);
+        }
+        for (const t of Array.isArray(cache.hiddenTabs) ? cache.hiddenTabs : []) {
+          const [p, k] = String(t).split(":");
+          if (!ok(p) || !ok(k)) continue;
+          if (p === "marketing") sel.push(`#mtabs .mtab[data-tab="${k}"]`);
+          if (p === "settings") sel.push(`#tabs button[data-t="${k}"]`, `#content .section[data-tab="${k}"]`);
+        }
+        if (sel.length) st.textContent = sel.join(", ") + " { display: none !important; }";
+      } else {
+        // Primo accesso su questo browser: meglio nav e barre tab invisibili
+        // un attimo che mostrare voci vietate
+        st.textContent = ".admin-nav, #mtabs, #tabs { visibility: hidden; }";
+      }
+      document.head.appendChild(st);
+    } catch { /* niente cache: la nav resta visibile */ }
+  })();
+</script>
+
 <style is:global>
   .admin-nav {
     position: fixed;
@@ -255,13 +301,45 @@ const { current } = Astro.props;
   // - altri utenti: le pagine nascoste spariscono dalla barra e dai tile,
   //   e l'accesso diretto a una pagina nascosta rimanda all'Accueil.
   (async () => {
+    // "svela": toglie lo <style id="nav-permessi"> messo dallo script inline
+    // anti-flash (cache o nav invisibile) — da chiamare a OGNI uscita.
+    const svela = () => document.getElementById("nav-permessi")?.remove();
     const nav = document.querySelector(".admin-nav[data-current]") as HTMLElement | null;
-    if (!nav) return;
+    if (!nav) { svela(); return; }
     const { data } = await supabaseBrowser.auth.getSession();
     const token = data.session?.access_token ?? "";
     const email = data.session?.user?.email ?? "";
-    if (!token) return;
+    if (!token) { svela(); return; }
     const current = nav.dataset.current ?? "";
+    // Cache permessi per l'anti-flash del PROSSIMO caricamento (per utente)
+    const salvaCache = (hidden: string[], hiddenTabs: string[]) => {
+      try { localStorage.setItem("mdd_nav_hidden", JSON.stringify({ email, hidden, hiddenTabs })); } catch { /* storage pieno */ }
+    };
+    // CSS finale dei permessi (stesse regole dello script inline): resta nel
+    // <style id="nav-permessi"> così le pillole tab sono nascoste PRIMA che
+    // gli script di pagina (marketing/settings) le rimuovano davvero.
+    const cssPermessi = (hidden: string[], hiddenTabs: string[]): string => {
+      const ok = (x: string) => /^[a-z]+$/.test(x);
+      const sel: string[] = [];
+      for (const k of hidden) if (ok(k)) sel.push(`.admin-nav a[data-page="${k}"]`, `[data-admin-page="${k}"]`);
+      for (const t of hiddenTabs) {
+        const [p, k] = String(t).split(":");
+        if (!p || !k || !ok(p) || !ok(k)) continue;
+        if (p === "marketing") sel.push(`#mtabs .mtab[data-tab="${k}"]`);
+        if (p === "settings") sel.push(`#tabs button[data-t="${k}"]`, `#content .section[data-tab="${k}"]`);
+      }
+      return sel.length ? sel.join(", ") + " { display: none !important; }" : "";
+    };
+    const applicaStile = (css: string) => {
+      let st = document.getElementById("nav-permessi") as HTMLStyleElement | null;
+      if (!css) { st?.remove(); return; }
+      if (!st) {
+        st = document.createElement("style");
+        st.id = "nav-permessi";
+        document.head.appendChild(st);
+      }
+      st.textContent = css;
+    };
 
     if (isSuper(email)) {
       const sup = document.getElementById("admin-nav-super");
@@ -269,6 +347,8 @@ const { current } = Astro.props;
         sup.style.display = "flex";
         posizionaSuper();
       }
+      salvaCache([], []);
+      svela();
       return; // il super vede tutto
     }
     if (current === "super") {
@@ -280,17 +360,24 @@ const { current } = Astro.props;
       const res = await fetch("/api/admin/pages", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return;
-      const { hidden } = (await res.json()) as { hidden: string[] };
-      if (!hidden.length) return;
+      if (!res.ok) { svela(); return; }
+      const j = (await res.json()) as { hidden: string[]; hiddenTabs?: string[] };
+      const hidden = j.hidden ?? [];
+      const hiddenTabs = j.hiddenTabs ?? [];
+      salvaCache(hidden, hiddenTabs);
 
       for (const k of hidden) {
         nav.querySelector(`a[data-page="${k}"]`)?.remove();
         document.querySelectorAll(`[data-admin-page="${k}"]`).forEach((el) => el.remove());
       }
+      // Stile PERSISTENTE coi permessi veri: sostituisce quello dell'inline
+      // (che poteva essere "nav invisibile" al primo accesso) e tiene coperte
+      // le pillole tab finché gli script di pagina non le tolgono dal DOM.
+      applicaStile(cssPermessi(hidden, hiddenTabs));
       if (hidden.includes(current)) window.location.replace("/admin");
     } catch {
       // rete assente: non si blocca l'admin
+      svela();
     }
   })();
 

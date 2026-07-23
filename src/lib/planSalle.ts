@@ -156,7 +156,7 @@ export async function assegnaTavoli(p: {
     const { data: cfgRows } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
-      .in("key", ["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones"]);
+      .in("key", ["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones", "zone_closures_permanent"]);
     const cfg = new Map((cfgRows ?? []).map((r) => [r.key, String(r.value ?? "")]));
     if (cfg.get("reservation_plan_mode") !== "1") return null;
 
@@ -204,7 +204,12 @@ export async function assegnaTavoli(p: {
     const tavoli = (tavQ.data as { id: string; zone: string; name: string; seats: number }[])
       .map((t) => ({ id: String(t.id), zone: String(t.zone ?? "").trim(), name: String(t.name ?? ""), seats: Math.floor(Number(t.seats)) || 0 }))
       .filter((t) => t.zone && t.seats > 0);
-    const zoneChiuse = (chzQ.data ?? []).map((r) => String(r.zone));
+    let zoneChiuse = (chzQ.data ?? []).map((r) => String(r.zone));
+    // Sections chiuse «jusqu'à réouverture»: mai tavoli assegnati lì
+    try {
+      const permZ = JSON.parse(cfg.get("zone_closures_permanent") || "[]");
+      if (Array.isArray(permZ)) zoneChiuse = [...new Set([...zoneChiuse, ...permZ.map((z) => String(z).trim()).filter(Boolean)])];
+    } catch { /* niente */ }
 
     // Prenotazioni del giorno (confirmed/seated). Se la colonna `tables`
     // manca (#37 non lanciata) si riprova senza: tutte "virtuali".

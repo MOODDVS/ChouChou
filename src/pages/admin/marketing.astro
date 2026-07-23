@@ -784,9 +784,10 @@ import { CLIENT } from "../../config/client";
           mtabs.querySelectorAll<HTMLElement>(".mtab").forEach((el) =>
             el.classList.toggle("is-active", el.dataset.tab === t)
           );
-          tabPopup.style.display = t === "popup" ? "block" : "none";
-          tabNews.style.display = t === "news" ? "block" : "none";
-          tabCoupons.style.display = t === "coupons" ? "block" : "none";
+          const vietato = (el: HTMLElement) => el.dataset.off === "1";
+          tabPopup.style.display = t === "popup" && !vietato(tabPopup) ? "block" : "none";
+          tabNews.style.display = t === "news" && !vietato(tabNews) ? "block" : "none";
+          tabCoupons.style.display = t === "coupons" && !vietato(tabCoupons) ? "block" : "none";
         }
         mtabs.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;
@@ -807,7 +808,13 @@ import { CLIENT } from "../../config/client";
                 .map((k) => k.slice("marketing:".length));
               for (const tk of nasc) {
                 mtabs.querySelector(`.mtab[data-tab="${tk}"]`)?.remove();
-                document.getElementById("tab-" + tk)?.remove();
+                // NON rimuovere il contenuto: i listener più sotto cercano i
+                // bottoni interni (add-btn, n-add…) e morirebbero su null.
+                const cont = document.getElementById("tab-" + tk);
+                if (cont) {
+                  cont.style.display = "none";
+                  cont.dataset.off = "1"; // mostraTab non lo riaccende mai
+                }
               }
               // Se il tab attivo/di default è stato tolto, passa al primo visibile
               if (!mtabs.querySelector(`.mtab[data-tab="${tabAttivo}"]`)) {
@@ -831,6 +838,9 @@ import { CLIENT } from "../../config/client";
             stateEl.style.display = "none";
             mostraTab(tabAttivo);
             render();
+            // Tab di default diverso da popup (tab vietati): dati subito
+            if (tabAttivo === "news") void caricaNews();
+            if (tabAttivo === "coupons") void caricaCoupons();
           } catch {
             stateEl.textContent = "Erreur de connexion.";
           }
