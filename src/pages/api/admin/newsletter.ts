@@ -32,15 +32,26 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const [quota, seg, { data: log }] = await Promise.all([
-    statoQuota(),
-    contatoriSegmenti(),
-    supabaseAdmin
+  const [quota, seg] = await Promise.all([statoQuota(), contatoriSegmenti()]);
+  // Storico: prova con le colonne extra (card), fallback al log basico
+  let log: unknown[] = [];
+  {
+    const esteso = await supabaseAdmin
       .from("newsletter_log")
-      .select("subject, count, created_at")
+      .select("subject, count, created_at, image_url, message, segment, btn_label, btn_url, btn2_label, btn2_url")
       .order("created_at", { ascending: false })
-      .limit(12),
-  ]);
+      .limit(12);
+    if (!esteso.error) {
+      log = esteso.data ?? [];
+    } else {
+      const basico = await supabaseAdmin
+        .from("newsletter_log")
+        .select("subject, count, created_at")
+        .order("created_at", { ascending: false })
+        .limit(12);
+      log = basico.data ?? [];
+    }
+  }
 
   return json({
     sent_this_month: quota.sent_this_month,
@@ -50,7 +61,7 @@ export const GET: APIRoute = async ({ request }) => {
     recipients: seg.counts.tous?.tous ?? 0,
     opted_out: seg.esclusi,
     segments: seg.counts,
-    history: log ?? [],
+    history: log,
   });
 };
 

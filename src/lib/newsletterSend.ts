@@ -254,7 +254,15 @@ export function htmlNewsletter(
       </td></tr>`
     : "";
 
-  return `
+  return `<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark" />
+<meta name="supported-color-schemes" content="dark" />
+</head>
+<body bgcolor="#1c1819" style="margin:0;padding:0;background:#1c1819;">
   <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
       <tr>
@@ -292,7 +300,9 @@ export function htmlNewsletter(
         </td>
       </tr>
     </table>
-  </div>`;
+  </div>
+</body>
+</html>`;
 }
 
 /** Un solo invio di test all'email dello staff. */
@@ -310,6 +320,15 @@ export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Log dell'invio: prova con i dati extra (foto/messaggio/segmento per le
+ *  card "Derniers envois"); se le colonne non esistono ancora, log basico. */
+async function logInvio(riga: { subject: string; count: number; image_url?: string | null; message?: string | null; segment?: string | null; btn_label?: string | null; btn_url?: string | null; btn2_label?: string | null; btn2_url?: string | null }) {
+  const { error } = await supabaseAdmin.from("newsletter_log").insert(riga);
+  if (error) {
+    await supabaseAdmin.from("newsletter_log").insert({ subject: riga.subject, count: riga.count });
   }
 }
 
@@ -354,11 +373,11 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
     console.error("[newsletter] envoi interrompu:", e);
     // Registra comunque quanto è partito, per non sforare la quota
     if (inviateOra > 0) {
-      await supabaseAdmin.from("newsletter_log").insert({ subject: contenuto.subject, count: inviateOra });
+      await logInvio({ subject: contenuto.subject, count: inviateOra, image_url: contenuto.image_url || null, message: contenuto.message || null, segment: `${lang}:${group}`, btn_label: contenuto.btn_label || null, btn_url: contenuto.btn_url || null, btn2_label: contenuto.btn2_label || null, btn2_url: contenuto.btn2_url || null });
     }
     return { ok: false, error: `Envoi interrompu après ${inviateOra} emails. Réessayez plus tard.`, status: 502 };
   }
 
-  await supabaseAdmin.from("newsletter_log").insert({ subject: contenuto.subject, count: inviateOra });
+  await logInvio({ subject: contenuto.subject, count: inviateOra, image_url: contenuto.image_url || null, message: contenuto.message || null, segment: `${lang}:${group}`, btn_label: contenuto.btn_label || null, btn_url: contenuto.btn_url || null, btn2_label: contenuto.btn2_label || null, btn2_url: contenuto.btn2_url || null });
   return { ok: true, sent: inviateOra };
 }

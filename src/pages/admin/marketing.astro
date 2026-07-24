@@ -103,6 +103,17 @@ import { CLIENT } from "../../config/client";
       .nn-msg { color: var(--c-muted); font-size: 0.8rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       .nn-foot { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; margin-top: 0.2rem; font-size: 0.75rem; color: var(--c-muted); }
       .nn-foot .nn-quando { margin-right: auto; color: var(--c-text); font-weight: 700; }
+      .nn-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+      .nn-tag {
+        display: inline-block; background: var(--c-accent); color: #231f20;
+        font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
+        padding: 0.2rem 0.6rem; border-radius: 999px;
+      }
+      .nn-img {
+        width: calc(100% + 2.2rem); margin: -1rem -1.1rem 0.35rem;
+        height: 130px; object-fit: cover; display: block;
+        border-bottom: 1px solid var(--c-line);
+      }
 
       /* Card pop-up */
       .pops { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
@@ -1313,7 +1324,7 @@ import { CLIENT } from "../../config/client";
           recipients: number;
           opted_out: number;
           segments?: Record<string, Record<string, number>>;
-          history: { subject: string; count: number; created_at: string }[];
+          history: { subject: string; count: number; created_at: string; image_url?: string | null; message?: string | null; segment?: string | null; btn_label?: string | null; btn_url?: string | null; btn2_label?: string | null; btn2_url?: string | null }[];
         };
         const nPurchased = document.getElementById("n-purchased") as HTMLSpanElement;
 
@@ -1370,20 +1381,22 @@ import { CLIENT } from "../../config/client";
             segCounts = s.segments ?? {};
             renderSeg();
             void caricaProgrammate();
+            historyCache = s.history;
             if (s.history.length === 0) {
               nHistory.innerHTML = "";
               nHempty.style.display = "block";
             } else {
               nHempty.style.display = "none";
-              nHistory.innerHTML = s.history
-                .map((h) => {
+              nHistory.innerHTML = `<div class="nn-grid">${s.history
+                .map((h, i) => {
                   const d = new Date(h.created_at).toLocaleDateString("fr-BE", {
                     day: "2-digit", month: "2-digit", year: "numeric",
                     timeZone: (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels",
                   });
-                  return `<div class="n-row"><span class="n-row-subject">${esc(h.subject)}</span><span class="n-row-count">${h.count} emails</span><span class="n-row-date">${d}</span></div>`;
+                  const foto = h.image_url ? `<img class="nn-img" src="${esc(h.image_url)}" alt="" loading="lazy" />` : "";
+                  return `<div class="nn-card is-click" data-i="${i}" title="Relancer cette newsletter">${foto}<div class="nn-tit">${esc(h.subject)}</div>${h.message ? `<div class="nn-msg">${esc(h.message)}</div>` : ""}${h.segment ? segPills(h.segment) : ""}<div class="nn-foot"><span class="nn-quando">${d}</span><span>${h.count} emails</span></div></div>`;
                 })
-                .join("");
+                .join("")}</div>`;
             }
           } catch {
             // silenzioso: le stat restano "—"
@@ -1559,9 +1572,11 @@ import { CLIENT } from "../../config/client";
         function contaSeg(l: string, g: string): number | undefined {
           return segCounts[l]?.[g];
         }
-        function segLabel(seg: string): string {
+        function segPills(seg: string): string {
           const [sl, sg] = String(seg ?? "").split(":");
-          return (LANG_LAB[sl] ?? "Toutes langues") + (sg && sg !== "tous" ? " · " + (SEG_LAB[sg] ?? sg) : "");
+          const pills: string[] = [LANG_LAB[sl] ?? "Toutes langues"];
+          if (sg && sg !== "tous") pills.push(SEG_LAB[sg] ?? sg);
+          return `<div class="nn-tags">${pills.map((t) => `<span class="nn-tag">${t}</span>`).join("")}</div>`;
         }
         function renderSeg() {
           nLang.innerHTML = Object.keys(LANG_LAB)
@@ -1669,6 +1684,32 @@ import { CLIENT } from "../../config/client";
         }
 
         let draftId: string | null = null;
+        let historyCache: NewsStato["history"] = [];
+
+        // Rilancio di un invio passato: NUOVA istanza (modale precompilato,
+        // contenuto + filtri; nessun legame con l'invio originale)
+        nHistory.addEventListener("click", (e) => {
+          const card = (e.target as HTMLElement).closest(".nn-card") as HTMLElement | null;
+          if (!card?.dataset.i) return;
+          const h = historyCache[Number(card.dataset.i)];
+          if (!h) return;
+          draftId = null;
+          nErr.textContent = "";
+          nSubject.value = h.subject ?? "";
+          nMsg.value = h.message ?? "";
+          nImg.value = h.image_url ?? "";
+          nBtnl.value = h.btn_label ?? "";
+          nBtnu.value = h.btn_url ?? "";
+          nBtn2l.value = h.btn2_label ?? "";
+          nBtn2u.value = h.btn2_url ?? "";
+          const [sl, sg] = String(h.segment ?? "tous:tous").split(":");
+          langScelta = sl || "tous";
+          segScelto = sg || "tous";
+          quando = "now";
+          renderSeg();
+          aggiornaProg();
+          nOverlay.classList.add("is-open");
+        });
         let draftsCache: { id: string; subject: string; message: string; image_url: string | null; btn_label: string | null; btn_url: string | null; btn2_label: string | null; btn2_url: string | null; segment: string }[] = [];
 
         async function salvaBrouillon() {
@@ -1755,7 +1796,7 @@ import { CLIENT } from "../../config/client";
             dtit.style.display = draftsCache.length ? "" : "none";
             dbox.innerHTML = draftsCache.length
               ? `<div class="nn-grid">${draftsCache
-                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="Reprendre ce brouillon"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}<div class="nn-foot"><span class="nn-quando">brouillon</span><span>${segLabel(r.segment)}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`)
+                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="Reprendre ce brouillon"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">brouillon</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`)
                   .join("")}</div>`
               : "";
             const tit = document.getElementById("np-tit") as HTMLElement;
@@ -1774,7 +1815,7 @@ import { CLIENT } from "../../config/client";
                 } else {
                   quandoTxt = `le ${r.recur_day} du mois à ${hh}`;
                 }
-                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><span>${segLabel(r.segment)}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`;
+                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`;
               })
               .join("") + "</div>" : "";
           } catch { /* lista invariata */ }

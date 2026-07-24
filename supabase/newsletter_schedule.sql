@@ -31,6 +31,15 @@ alter table public.newsletter_schedule add column if not exists btn2_label text;
 alter table public.newsletter_schedule add column if not exists btn2_url text;
 alter table public.newsletter_schedule add column if not exists draft boolean not null default false;
 
+-- Log invii: dati extra per le card "Derniers envois" (idempotenti)
+alter table public.newsletter_log add column if not exists image_url text;
+alter table public.newsletter_log add column if not exists message text;
+alter table public.newsletter_log add column if not exists segment text;
+alter table public.newsletter_log add column if not exists btn_label text;
+alter table public.newsletter_log add column if not exists btn_url text;
+alter table public.newsletter_log add column if not exists btn2_label text;
+alter table public.newsletter_log add column if not exists btn2_url text;
+
 alter table public.newsletter_schedule enable row level security;
 -- (nessuna policy: accesso solo con service key)
 
