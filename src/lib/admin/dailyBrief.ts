@@ -347,7 +347,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
       </tr>
       <tr>
         <td style="padding:26px 40px 34px;text-align:center;">
-          <p style="margin:0;color:#5d5555;font-size:11px;line-height:1.7;">${esc(CLIENT.nome)} · Récap automatique quotidien (${oraInvio}) — désactivable dans Réglages → Notifications.</p>
+          <p style="margin:0;color:#5d5555;font-size:11px;line-height:1.7;">${esc(CLIENT.nome)} · Récap automatique quotidien (${oraInvio}) — désactivable dans Admin → Notifications.</p>
         </td>
       </tr>
     </table>

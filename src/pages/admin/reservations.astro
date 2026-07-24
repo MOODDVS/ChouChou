@@ -1589,7 +1589,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const spServ = svData === giorno ? spServiziOggi : null;
           const servizi = nmServizi().filter((sv) => (spOpen ? svAttivoSp(sv, spServ) : nmServeGiorno(sv, svData)));
           if (!servizi.length) {
-            svList.innerHTML = '<p class="sv-vuoto">Aucun service configuré dans Réglages → Réservations.</p>';
+            svList.innerHTML = '<p class="sv-vuoto">Aucun service configuré dans Admin → Réservations.</p>';
             return;
           }
           const oggi = svData === isoOggi();
@@ -1864,7 +1864,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         function znRender() {
           const zone = nmCfg.zones ?? [];
           if (!zone.length) {
-            znList.innerHTML = '<p class="sv-vuoto">Aucune section configurée dans Réglages → Réservations.</p>';
+            znList.innerHTML = '<p class="sv-vuoto">Aucune section configurée dans Admin → Réservations.</p>';
             return;
           }
           const posPrio = (z: string) => { const i = znPrio.indexOf(z); return i === -1 ? 999 : i; };

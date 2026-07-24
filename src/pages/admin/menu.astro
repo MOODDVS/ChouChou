@@ -690,6 +690,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       let editId: string | null = null;
       let nuovaKind: "food" | "drink" = "food";
       let headers: Record<string, string> = {};
+      let tabVietati: string[] = []; // tab del Menu nascosti a questo utente (Réglages MOODD)
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -799,6 +800,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}Boissons</button>` +
           `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>Lunch</button>` +
           `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menus</button>`;
+        // Tab vietati dal super: la pillola sparisce anche a ogni re-render
+        for (const tv of tabVietati) {
+          (document.getElementById("k-filtri") as HTMLDivElement).querySelector(`.kf-pill[data-kind="${tv}"]`)?.remove();
+        }
         tabsEl.innerHTML =
           visibili
             .map(
@@ -825,6 +830,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           const gruppi = new Map<string, Item[]>();
           for (const it of items) {
             if (!it.name.toLowerCase().includes(filtro)) continue;
+            if (tabVietati.includes(cats.find((c) => c.name === it.category)?.kind ?? "")) continue;
             if (!gruppi.has(it.category)) gruppi.set(it.category, []);
             gruppi.get(it.category)!.push(it);
           }
@@ -1854,6 +1860,28 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             toast("Modification impossible", true);
           }
         });
+
+        // --- Tab del Menu vietati a questo utente (decisi dal super in Réglages MOODD) ---
+        try {
+          const rp = await fetch("/api/admin/pages", { headers });
+          if (rp.ok) {
+            const jp = (await rp.json()) as { hiddenTabs?: string[]; super?: boolean };
+            if (!jp.super) {
+              tabVietati = (jp.hiddenTabs ?? [])
+                .filter((t) => t.startsWith("menu:"))
+                .map((t) => t.slice(5));
+              if (tabVietati.length) {
+                if (tabVietati.includes(kindFiltro)) {
+                  const ordine: KindTab[] = ["food", "drink", "lunch", "menus"];
+                  kindFiltro = ordine.find((k) => !tabVietati.includes(k)) ?? kindFiltro;
+                  attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? "";
+                }
+                renderTabs();
+                renderList();
+              }
+            }
+          }
+        } catch { /* rete assente: si resta com'è */ }
       })();
     </script>
   </body>

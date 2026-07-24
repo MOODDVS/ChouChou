@@ -15,7 +15,7 @@ export const PAGINE_ADMIN: { key: string; label: string }[] = [
   { key: "stats", label: "Statistiques" },
   { key: "marketing", label: "Marketing" },
   { key: "assets", label: "Assets" },
-  { key: "settings", label: "Réglages" },
+  { key: "settings", label: "Admin" },
 ];
 
 /** Tab interni alle pagine che si possono nascondere singolarmente.
@@ -26,6 +26,12 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "popup", label: "Pop-up" },
     { key: "news", label: "Newsletter" },
     { key: "coupons", label: "Coupons" },
+  ],
+  menu: [
+    { key: "food", label: "Plats" },
+    { key: "drink", label: "Boissons" },
+    { key: "lunch", label: "Lunch" },
+    { key: "menus", label: "Menus" },
   ],
   settings: [
     { key: "general", label: "Général" },

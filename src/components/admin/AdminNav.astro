@@ -76,7 +76,7 @@ const { current } = Astro.props;
     </svg>
     <span>Assets</span>
   </a>
-  <a href="/admin/settings" data-page="settings" class={current === "settings" ? "active" : ""} aria-label="Réglages">
+  <a href="/admin/settings" data-page="settings" class={current === "settings" ? "active" : ""} aria-label="Admin">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <line x1="4" y1="21" x2="4" y2="14" />
       <line x1="4" y1="10" x2="4" y2="3" />
@@ -88,17 +88,17 @@ const { current } = Astro.props;
       <line x1="9" y1="8" x2="15" y2="8" />
       <line x1="17" y1="16" x2="23" y2="16" />
     </svg>
-    <span>Régl.</span>
+    <span>Admin</span>
   </a>
 </nav>
 
 <!-- Bottone SUPER ADMIN (solo admin@moodd.online): isola separata a sinistra -->
-<a href="/admin/super" class={"admin-super" + (current === "super" ? " active" : "")} id="admin-nav-super" aria-label="Admin MOODD" style="display:none">
+<a href="/admin/super" class={"admin-super" + (current === "super" ? " active" : "")} id="admin-nav-super" aria-label="Réglages" style="display:none">
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </svg>
-  <span>Admin</span>
+  <span>Réglages</span>
 </a>
 
 <!-- ANTI-FLASH permessi: script SINCRONO (gira prima del primo paint).
@@ -135,12 +135,13 @@ const { current } = Astro.props;
           if (!ok(p) || !ok(k)) continue;
           if (p === "marketing") sel.push(`#mtabs .mtab[data-tab="${k}"]`);
           if (p === "settings") sel.push(`#tabs button[data-t="${k}"]`, `#content .section[data-tab="${k}"]`);
+          if (p === "menu") sel.push(`#k-filtri .kf-pill[data-kind="${k}"]`);
         }
         if (sel.length) st.textContent = sel.join(", ") + " { display: none !important; }";
       } else {
         // Primo accesso su questo browser: meglio nav e barre tab invisibili
         // un attimo che mostrare voci vietate
-        st.textContent = ".admin-nav, #mtabs, #tabs { visibility: hidden; }";
+        st.textContent = ".admin-nav, #mtabs, #tabs, #k-filtri { visibility: hidden; }";
       }
       document.head.appendChild(st);
     } catch { /* niente cache: la nav resta visibile */ }
@@ -327,6 +328,7 @@ const { current } = Astro.props;
         if (!p || !k || !ok(p) || !ok(k)) continue;
         if (p === "marketing") sel.push(`#mtabs .mtab[data-tab="${k}"]`);
         if (p === "settings") sel.push(`#tabs button[data-t="${k}"]`, `#content .section[data-tab="${k}"]`);
+        if (p === "menu") sel.push(`#k-filtri .kf-pill[data-kind="${k}"]`);
       }
       return sel.length ? sel.join(", ") + " { display: none !important; }" : "";
     };
