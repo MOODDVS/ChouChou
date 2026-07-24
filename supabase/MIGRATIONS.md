@@ -47,6 +47,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 38 | `lunch_menus.sql` | Formules Lunch: portate, intervallo date, piatti dal menu, combinazioni con prezzo |
 | 39 | `newsletter_schedule.sql` | Newsletter programmate/ricorrenti: contenuto, segmento, una-tantum o weekly/monthly |
 | 40 | `admin_docs_meta.sql` | Metadati documents admin: email riferimento, scadenza e preavviso dei contratti |
+| 41 | `orders_refund.sql` | Rimborsi Stripe su orders: totale rimborsato, data, id ultimo refund |
+| 42 | `reservations_client_action.sql` | `client_action_at` su reservations: annullo/modifica dal cliente (toast live admin) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

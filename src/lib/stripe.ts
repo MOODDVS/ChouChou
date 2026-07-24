@@ -2,15 +2,32 @@ import Stripe from "stripe";
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 
-if (!STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY mancante nel file .env");
-}
-
 /**
- * Client Stripe lato SERVER.
+ * Client Stripe lato SERVER, creato in modo PIGRO alla prima vera chiamata.
+ * Cosi' il motore parte anche SENZA STRIPE_SECRET_KEY nel .env (template,
+ * clienti senza ordini online): l'errore arriva solo se si usa davvero
+ * Stripe (checkout, rimborso, link di pagamento).
  * Usa la secret key: solo in endpoint API / codice server, mai nel browser.
  */
-export const stripe = new Stripe(STRIPE_SECRET_KEY);
+let _stripe: Stripe | null = null;
+
+function clientStripe(): Stripe {
+  if (!_stripe) {
+    if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY mancante nel file .env");
+    _stripe = new Stripe(STRIPE_SECRET_KEY);
+  }
+  return _stripe;
+}
+
+// Proxy: stessa interfaccia di prima (`stripe.checkout...`), zero modifiche
+// negli altri file; l'istanza vera nasce al primo accesso a una proprieta'.
+export const stripe = new Proxy({} as Stripe, {
+  get(_t, prop) {
+    const c = clientStripe() as unknown as Record<string | symbol, unknown>;
+    const v = c[prop];
+    return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(c) : v;
+  },
+});
 
 /** Una riga d'ordine già validata e con prezzo letto dal DB. */
 export interface VoceCheckout {
