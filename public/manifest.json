@@ -1,7 +1,7 @@
 {
   "id": "/admin",
-  "name": "La Molisana — Admin",
-  "short_name": "LM Admin",
+  "name": "MOODD Admin",
+  "short_name": "MOODD",
   "start_url": "/admin",
   "scope": "/",
   "display": "standalone",

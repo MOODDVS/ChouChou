@@ -1,45 +1,44 @@
 ---
-import Layout from "../layouts/Layout.astro";
-import Hero from "../components/Hero.astro";
-import Story from "../components/Story.astro";
-import Features from "../components/Features.astro";
-import Molise from "../components/Molise.astro";
-import PhotoStrip from "../components/PhotoStrip.astro";
-import CtaFinal from "../components/CtaFinal.astro";
-import { linksSocial } from "../lib/links";
-const social = await linksSocial();
+// Homepage "coming soon" del TEMPLATE: il cliente parte SOLO con l'admin.
+// Quando si attiva il sito pubblico, questa pagina si sostituisce con la
+// vera home (le pagine pubbliche esistono già, non sono linkate).
+import { CLIENT } from "../config/client";
+export const prerender = false;
 ---
 
-<Layout transparentHeader={true} title="La Molisana — Pizzeria & Restaurant Italien à Saint-Gilles, Bruxelles">
-  <script type="application/ld+json" is:inline set:html={JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "Restaurant",
-    "name": "La Molisana",
-    "servesCuisine": ["Cuisine italienne", "Pizza", "Pâtes"],
-    "priceRange": "€€",
-    "telephone": "+32455131465",
-    "email": "info@lamolisana.be",
-    "url": "https://lamolisana.be",
-    "image": "https://lamolisana.be/slideshow/slide-01.webp",
-    "address": {
-      "@type": "PostalAddress",
-      "streetAddress": "Avenue Adolphe Demeur 37",
-      "postalCode": "1060",
-      "addressLocality": "Saint-Gilles (Bruxelles)",
-      "addressCountry": "BE"
-    },
-    "openingHoursSpecification": [{
-      "@type": "OpeningHoursSpecification",
-      "dayOfWeek": ["Monday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-      "opens": "11:00",
-      "closes": "23:30"
-    }],
-    "sameAs": social.map((s) => s.url)
-  })} />
-  <Hero />
-  <Story />
-  <Features />
-  <Molise />
-  <PhotoStrip />
-  <CtaFinal />
-</Layout>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{CLIENT.nome}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;700&display=swap"
+    />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        background: #231f20; color: #ffffff; font-family: "Nunito Sans", system-ui, sans-serif;
+        text-align: center; padding: 2rem;
+      }
+      .box { max-width: 480px; }
+      .logo { width: 84px; height: 84px; border-radius: 18px; margin: 0 auto 1.6rem; display: block; }
+      h1 { font-family: "Bebas Neue", system-ui, sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; }
+      .riga { width: 64px; height: 3px; background: #dfab4e; margin: 1.1rem auto 1.3rem; }
+      p { color: #b3aca6; font-size: 0.95rem; line-height: 1.7; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <img class="logo" src="/icon-192.png" alt={CLIENT.nome} />
+      <h1>{CLIENT.nome}</h1>
+      <div class="riga"></div>
+      <p>Bientôt en ligne.</p>
+    </div>
+  </body>
+</html>

@@ -34,5 +34,5 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
-  site: "https://pizzeria77.be",
+  site: "https://example.com", // CAMBIARE per cliente (vedi SETUP.md)
 });
