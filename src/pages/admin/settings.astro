@@ -81,7 +81,7 @@ import { CLIENT } from "../../config/client";
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
-      #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"] { max-width: none; }
+      #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"], #content[data-tab="documents"] { max-width: none; }
       #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
       @media (max-width: 1100px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
 
@@ -633,6 +633,66 @@ import { CLIENT } from "../../config/client";
       .tm-head-txt h2 { margin: 0 0 0.5rem; }
       .tm-head-txt .hint { max-width: 680px; }
       .tm-add { margin-top: 0; flex-shrink: 0; white-space: nowrap; }
+      /* --- Tab Documents (PDF per categoria) --- */
+      .dc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; }
+      .dc-card {
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        display: flex; flex-direction: column;
+      }
+      .dc-img { display: block; }
+      .dc-img img { width: 100%; aspect-ratio: 1; object-fit: cover; object-position: top; display: block; }
+      .dc-ph {
+        width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
+        color: var(--c-muted); background: rgba(255, 255, 255, 0.04);
+      }
+      .dc-ph svg { width: 42px; height: 42px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+      .dc-body { padding: 0.6rem 0.75rem 0.2rem; flex: 1; }
+      .dc-name { font-size: 0.72rem; color: var(--c-muted); word-break: break-all; line-height: 1.4; }
+      .dc-name input {
+        width: 100%; background: #1c1819; border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.72rem; padding: 0.25rem 0.4rem;
+      }
+      .dc-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.45rem; }
+      .dc-tag {
+        font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em;
+        padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
+        background: var(--c-accent); color: #231f20; font-weight: 700;
+      }
+      .dc-txt { font-size: 0.68rem; color: var(--c-muted); white-space: nowrap; }
+      .dc-date { font-size: 0.68rem; color: var(--c-muted); margin: 0.35rem 0 0; }
+      .dc-actions { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.75rem 0.75rem; }
+      .dc-spacer { flex: 1; }
+      .dc-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-text);
+        cursor: pointer; border-radius: 50%; font-size: 0.95rem;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .dc-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .dc-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
+      .dc-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
+      .dc-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
+      .dc-warn1 { color: var(--c-accent); font-weight: 700; }
+      .dc-warn2 { color: #ff8a8f; font-weight: 700; }
+      .dc-resil {
+        margin-top: 0.5rem; width: 100%; background: transparent;
+        border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.7rem; font-weight: 700;
+        letter-spacing: 0.03em; padding: 0.4rem 0; border-radius: 999px; cursor: pointer;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .dc-resil:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .dc-resil.confirm { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .dc-resil-ok { color: var(--c-accent); font-weight: 700; }
+      /* Respiro nel modale Documents */
+      #dc-overlay .f-lab { margin-top: 1.4rem; }
+      #dc-overlay #dc-fname { margin-bottom: 0.2rem; }
+      #dc-contrat > div { margin-top: 0.6rem; }
+      #dc-contrat .f-input { margin-bottom: 0.2rem; }
+      #dc-overlay .dc-foot { margin-top: 1.8rem; }
+      .dc-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
+      .dc-err { color: #ff8a8f; font-size: 0.85rem; flex: 1; }
       .tm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.1rem 0 1.3rem; }
       .tm-fil {
         background: transparent; border: 1px solid rgba(179, 172, 166, 0.45); color: var(--c-muted);
@@ -783,7 +843,7 @@ import { CLIENT } from "../../config/client";
 
       /* --- Datepicker custom (brand) --- */
       .dp-panel {
-        position: fixed; z-index: 220; width: 344px;
+        position: fixed; z-index: 420; width: 344px; /* sopra gli overlay dei modali */
         background: var(--c-card); border: 1px solid var(--c-line);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
       }
@@ -858,6 +918,7 @@ import { CLIENT } from "../../config/client";
           <button type="button" data-t="cuisine"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>Cuisine</button>
           <button type="button" data-t="liens"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Liens</button>
           <button type="button" data-t="team"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Team</button>
+          <button type="button" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>Documents</button>
           <button type="button" data-t="notifications"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>Notifications</button>
         </div>
 
@@ -1330,6 +1391,20 @@ import { CLIENT } from "../../config/client";
             <p class="hint tm-empty" id="tm-empty" style="display:none">Aucun contact pour le moment.</p>
           </div>
 
+          <div class="section" data-tab="documents" style="display:none">
+            <div class="tm-head">
+              <div class="tm-head-txt">
+                <h2>Documents</h2>
+                <p class="hint">Contrats, factures, reçus, documents légaux… (PDF, max 10 Mo). Chaque document est classé par catégorie au téléversement.</p>
+              </div>
+              <button type="button" class="kemail-add tm-add" id="dc-add">+ Ajouter un document</button>
+              <input type="file" id="dc-file" accept=".pdf" style="display:none" />
+            </div>
+            <div class="tm-filters" id="dc-filtri"></div>
+            <p class="hint" id="dc-state">Chargement…</p>
+            <div class="dc-grid" id="dc-grid" style="display:none"></div>
+          </div>
+
           <div class="save-bar">
             <button class="save" id="save-btn">Enregistrer</button>
             <span class="msg" id="msg"></span>
@@ -1337,6 +1412,48 @@ import { CLIENT } from "../../config/client";
         </div>
       </main>
       <AdminFooter />
+    </div>
+
+    <!-- Modale catégorie document (Admin → Documents) -->
+    <div class="overlay" id="dc-overlay">
+      <div class="modal" style="max-width: 520px">
+        <button class="m-close" id="dc-close" type="button" aria-label="Fermer">×</button>
+        <h2 id="dc-title">Nouveau document</h2>
+        <p class="hint" id="dc-fname" style="margin-bottom: 0.4rem"></p>
+        <span class="f-lab" id="dc-nom-lab" style="display:none">Nom du fichier</span>
+        <input type="text" class="f-input" id="dc-nom" maxlength="80" style="display:none" />
+        <span class="f-lab">Catégorie</span>
+        <div class="tm-filters" id="dc-cats" style="margin: 0.5rem 0 0.4rem"></div>
+        <div id="dc-contrat" style="display:none">
+          <span class="f-lab">Email de référence du contrat</span>
+          <input type="text" class="f-input" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
+          <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
+            <div style="flex:1; min-width:170px">
+              <span class="f-lab">Date d'échéance</span>
+              <div style="display:flex; gap:0.4rem; align-items:center">
+                <input type="text" class="f-input" id="dc-exp" placeholder="Sans échéance" readonly style="cursor:pointer" />
+                <button type="button" class="dc-btn" id="dc-exp-x" title="Effacer la date">×</button>
+              </div>
+            </div>
+            <div style="flex:1; min-width:170px">
+              <span class="f-lab">Préavis (résilier avant)</span>
+              <div style="display:flex; gap:0.5rem">
+                <input type="number" class="f-input" id="dc-nval" min="0" max="365" placeholder="3" style="max-width:90px" />
+                <select class="f-input" id="dc-nunit" style="max-width:120px">
+                  <option value="mois">mois</option>
+                  <option value="jours">jours</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="dc-resil" id="dc-resil" style="display:none; margin-top:1.4rem">Demander la résiliation</button>
+          <p class="hint dc-resil-ok" id="dc-resil-info" style="display:none; margin-top:1rem"></p>
+        </div>
+        <div class="dc-foot">
+          <span class="dc-err" id="dc-err"></span>
+          <button type="button" class="kemail-add tm-add" id="dc-up">Téléverser</button>
+        </div>
+      </div>
     </div>
 
     <!-- Modale contact Team -->
@@ -3611,6 +3728,407 @@ import { CLIENT } from "../../config/client";
           phone2: string | null; email2: string | null; company: string | null;
           website: string | null; photo_url: string | null; notes: string | null; active: boolean;
         }
+
+        // ---------- Documents (tab Documents): PDF per categoria ----------
+        const DOC_CATS: { k: string; lab: string }[] = [
+          { k: "contrat", lab: "Contrats" },
+          { k: "facture", lab: "Factures" },
+          { k: "recu", lab: "Reçus" },
+          { k: "legal", lab: "Légal" },
+          { k: "autre", lab: "Autre" },
+        ];
+        interface DocAmm {
+          cat: string; name: string; url: string; thumb_url: string | null; size: number; created_at: string;
+          email: string | null; expires: string | null; notice_value: number | null; notice_unit: string | null;
+          resiliation_at: string | null;
+        }
+        let dcDocs: DocAmm[] = [];
+        let dcFiltro = "all";
+        let dcCatScelta = "autre";
+        let dcFilePronto: File | null = null;
+        let dcEditDoc: DocAmm | null = null; // documento in modifica (null = upload)
+        const dcGrid = document.getElementById("dc-grid") as HTMLDivElement;
+        const dcStateEl = document.getElementById("dc-state") as HTMLParagraphElement;
+        const dcFiltriEl = document.getElementById("dc-filtri") as HTMLDivElement;
+        const dcOverlay = document.getElementById("dc-overlay") as HTMLDivElement;
+        const dcCatsEl = document.getElementById("dc-cats") as HTMLDivElement;
+        const dcErr = document.getElementById("dc-err") as HTMLSpanElement;
+        const dcUp = document.getElementById("dc-up") as HTMLButtonElement;
+        const dcFile = document.getElementById("dc-file") as HTMLInputElement;
+        const DC_PDF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>';
+
+        const dcLab = (cat: string) => DOC_CATS.find((c) => c.k === cat)?.lab ?? cat;
+        function dcPeso(b: number): string {
+          if (b > 1024 * 1024) return (b / (1024 * 1024)).toFixed(1).replace(".", ",") + " Mo";
+          if (b > 1024) return Math.round(b / 1024) + " Ko";
+          return b + " o";
+        }
+        function dcData(iso: string): string {
+          return iso ? new Date(iso).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+        }
+        // Riga scadenza dei contratti: oro < 30 giorni dal limite di recesso,
+        // rossa quando il limite è raggiunto/superato
+        function dcEcheance(d: DocAmm): string {
+          if (d.cat !== "contrat" || !d.expires) return "";
+          const giorni = (d.notice_value ?? 0) * (d.notice_unit === "jours" ? 1 : 30);
+          const exp = new Date(d.expires + "T12:00:00");
+          const limite = new Date(exp.getTime() - giorni * 86400000);
+          const fmt = (x: Date) => x.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" });
+          const oggi = Date.now();
+          const cls = oggi >= limite.getTime() ? " dc-warn2" : limite.getTime() - oggi < 30 * 86400000 ? " dc-warn1" : "";
+          const preavviso = d.notice_value ? ` · résilier avant ${fmt(limite)}` : "";
+          return `<p class="dc-date${cls}">Échéance ${fmt(exp)}${preavviso}</p>`;
+        }
+        function dcRenderFiltri() {
+          const conta = (k: string) => dcDocs.filter((d) => d.cat === k).length;
+          dcFiltriEl.innerHTML =
+            `<button type="button" class="tm-fil${dcFiltro === "all" ? " is-on" : ""}" data-f="all">Tous (${dcDocs.length})</button>` +
+            DOC_CATS.map((c) => `<button type="button" class="tm-fil${dcFiltro === c.k ? " is-on" : ""}" data-f="${c.k}">${c.lab} (${conta(c.k)})</button>`).join("");
+        }
+        function dcRender() {
+          dcRenderFiltri();
+          const lista = dcDocs.filter((d) => dcFiltro === "all" || d.cat === dcFiltro);
+          if (!lista.length) {
+            dcGrid.style.display = "none";
+            dcStateEl.style.display = "";
+            dcStateEl.textContent = dcDocs.length ? "Aucun document dans cette catégorie." : "Aucun document — ajoute un PDF avec le bouton en haut.";
+            return;
+          }
+          dcStateEl.style.display = "none";
+          dcGrid.style.display = "";
+          dcGrid.innerHTML = lista
+            .map((d) => `
+            <div class="dc-card" data-cat="${d.cat}" data-name="${tmEsc(d.name)}">
+              <a class="dc-img" href="${tmEsc(d.url)}" target="_blank" rel="noopener" title="Ouvrir le PDF">
+                ${d.thumb_url ? `<img src="${tmEsc(d.thumb_url)}" alt="" loading="lazy" />` : `<span class="dc-ph">${DC_PDF}</span>`}
+              </a>
+              <div class="dc-body">
+                <div class="dc-name">${tmEsc(d.name)}</div>
+                <div class="dc-meta"><span class="dc-tag">${dcLab(d.cat)}</span><span class="dc-txt">${dcPeso(d.size)}</span></div>
+                <p class="dc-date">${dcData(d.created_at)}</p>${dcEcheance(d)}
+                ${d.resiliation_at ? `<p class="dc-date dc-resil-ok">Résiliation demandée le ${dcData(d.resiliation_at)}</p>` : ""}
+              </div>
+              <div class="dc-actions">
+                <button type="button" class="dc-btn dc-ren" title="Renommer">✎</button>
+                <span class="dc-spacer"></span>
+                <button type="button" class="dc-btn dc-del" title="Supprimer">×</button>
+              </div>
+            </div>`)
+            .join("");
+        }
+        async function dcCarica() {
+          try {
+            const res = await fetch("/api/admin/docs", { headers });
+            if (!res.ok) throw new Error();
+            dcDocs = ((await res.json()) as { documents: DocAmm[] }).documents ?? [];
+            dcRender();
+          } catch {
+            dcStateEl.textContent = "Erreur de chargement.";
+          }
+        }
+        dcFiltriEl.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tm-fil") as HTMLElement | null;
+          if (!t?.dataset.f) return;
+          dcFiltro = t.dataset.f;
+          dcRender();
+        });
+
+        // Scelta file → modale categoria → upload
+        (document.getElementById("dc-add") as HTMLButtonElement).addEventListener("click", () => dcFile.click());
+        const dcTitle = document.getElementById("dc-title") as HTMLHeadingElement;
+        const dcFnameEl = document.getElementById("dc-fname") as HTMLParagraphElement;
+        const dcNomLab = document.getElementById("dc-nom-lab") as HTMLElement;
+        const dcNom = document.getElementById("dc-nom") as HTMLInputElement;
+        const dcMail = document.getElementById("dc-mail") as HTMLInputElement;
+        const dcExp = document.getElementById("dc-exp") as HTMLInputElement;
+        const dcNval = document.getElementById("dc-nval") as HTMLInputElement;
+        const dcNunit = document.getElementById("dc-nunit") as HTMLSelectElement;
+        function dcRenderCats() {
+          dcCatsEl.innerHTML = DOC_CATS.map((c) => `<button type="button" class="tm-fil${dcCatScelta === c.k ? " is-on" : ""}" data-c="${c.k}">${c.lab}</button>`).join("");
+          (document.getElementById("dc-contrat") as HTMLElement).style.display = dcCatScelta === "contrat" ? "" : "none";
+        }
+        // Data di scadenza col datepicker brand della pagina
+        dcExp.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dpApri(dcExp);
+        });
+        (document.getElementById("dc-exp-x") as HTMLButtonElement).addEventListener("click", () => {
+          dcExp.value = "";
+          dcExp.dataset.iso = "";
+        });
+        function dcMetaPayload(): Record<string, unknown> {
+          if (dcCatScelta !== "contrat") return {};
+          return {
+            email: dcMail.value.trim(),
+            expires: dcExp.dataset.iso ?? "",
+            notice_value: Number(dcNval.value || 0),
+            notice_unit: dcNunit.value,
+          };
+        }
+        function dcCompilaMeta(d: DocAmm | null) {
+          dcMail.value = d?.email ?? "";
+          dcExp.dataset.iso = d?.expires ?? "";
+          dcExp.value = d?.expires ? dcData(d.expires) : "";
+          dcNval.value = d?.notice_value ? String(d.notice_value) : "";
+          dcNunit.value = d?.notice_unit === "jours" ? "jours" : "mois";
+        }
+        // Bottone «Demander la résiliation»: solo in MODIFICA di un contrat
+        // con email di riferimento salvata e senza richiesta già inviata
+        function dcAggiornaResil() {
+          const btn = document.getElementById("dc-resil") as HTMLButtonElement;
+          const info = document.getElementById("dc-resil-info") as HTMLElement;
+          const d = dcEditDoc;
+          const attivo = !!d && d.cat === "contrat" && !!d.email && !d.resiliation_at;
+          btn.style.display = attivo ? "" : "none";
+          btn.disabled = false;
+          btn.classList.remove("confirm");
+          btn.textContent = "Demander la résiliation";
+          if (d?.resiliation_at) {
+            info.style.display = "";
+            info.textContent = `Résiliation demandée le ${dcData(d.resiliation_at)}`;
+          } else {
+            info.style.display = "none";
+          }
+        }
+        (document.getElementById("dc-resil") as HTMLButtonElement).addEventListener("click", async () => {
+          const d = dcEditDoc;
+          const btn = document.getElementById("dc-resil") as HTMLButtonElement;
+          if (!d) return;
+          if (!btn.classList.contains("confirm")) {
+            btn.classList.add("confirm");
+            btn.textContent = "Envoyer la demande ?";
+            setTimeout(() => {
+              btn.classList.remove("confirm");
+              btn.textContent = "Demander la résiliation";
+            }, 4000);
+            return;
+          }
+          btn.disabled = true;
+          btn.textContent = "Envoi…";
+          try {
+            const res = await fetch("/api/admin/docs", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ cat: d.cat, name: d.name, resiliation: true }),
+            });
+            const j = (await res.json().catch(() => ({}))) as { error?: string };
+            if (!res.ok) {
+              dcErr.textContent = j.error ?? "Envoi impossible.";
+              dcAggiornaResil();
+              return;
+            }
+            dcEditDoc = null;
+            dcOverlay.classList.remove("is-open");
+            await dcCarica();
+          } catch {
+            dcErr.textContent = "Erreur de connexion.";
+            dcAggiornaResil();
+          }
+        });
+        dcCatsEl.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tm-fil") as HTMLElement | null;
+          if (!t?.dataset.c) return;
+          dcCatScelta = t.dataset.c;
+          dcRenderCats();
+        });
+        dcFile.addEventListener("change", () => {
+          const f = dcFile.files?.[0];
+          dcFile.value = "";
+          if (!f) return;
+          if (!f.name.toLowerCase().endsWith(".pdf")) {
+            dcStateEl.style.display = "";
+            dcStateEl.textContent = "Seuls les PDF sont acceptés.";
+            return;
+          }
+          if (f.size > 10 * 1024 * 1024) {
+            dcStateEl.style.display = "";
+            dcStateEl.textContent = "Fichier trop lourd (max 10 Mo).";
+            return;
+          }
+          dcFilePronto = f;
+          dcEditDoc = null;
+          dcErr.textContent = "";
+          dcTitle.textContent = "Nouveau document";
+          dcUp.textContent = "Téléverser";
+          dcFnameEl.textContent = f.name;
+          dcFnameEl.style.display = "";
+          dcNomLab.style.display = "none";
+          dcNom.style.display = "none";
+          dcCompilaMeta(null);
+          dcAggiornaResil();
+          dcCatScelta = dcFiltro !== "all" ? dcFiltro : "autre";
+          dcRenderCats();
+          dcOverlay.classList.add("is-open");
+        });
+        (document.getElementById("dc-close") as HTMLButtonElement).addEventListener("click", () => dcOverlay.classList.remove("is-open"));
+        dcOverlay.addEventListener("click", (e) => {
+          if (e.target === dcOverlay) dcOverlay.classList.remove("is-open");
+        });
+
+        // Anteprima prima pagina con pdf.js (best-effort, come Assets)
+        let dcPdfjs: Promise<any> | null = null;
+        function dcCaricaPdfjs(): Promise<any> {
+          if (!dcPdfjs) {
+            dcPdfjs = new Promise((resolve, reject) => {
+              const sc = document.createElement("script");
+              sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+              sc.onload = () => {
+                const lib = (window as any).pdfjsLib;
+                lib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+                resolve(lib);
+              };
+              sc.onerror = () => reject(new Error("pdf.js indisponible"));
+              document.head.appendChild(sc);
+            });
+          }
+          return dcPdfjs;
+        }
+        async function dcAnteprima(file: File): Promise<string | null> {
+          try {
+            const lib = await dcCaricaPdfjs();
+            const buf = await file.arrayBuffer();
+            const pdf = await lib.getDocument({ data: buf }).promise;
+            const page = await pdf.getPage(1);
+            const vp1 = page.getViewport({ scale: 1 });
+            const vp = page.getViewport({ scale: 480 / vp1.width });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(vp.width);
+            canvas.height = Math.round(vp.height);
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return null;
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+            const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.7));
+            if (!blob || blob.size > 512 * 1024) return null;
+            return await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => reject(new Error());
+              r.readAsDataURL(blob);
+            });
+          } catch {
+            return null; // PDF protetto o illeggibile: resta l'icona
+          }
+        }
+        dcUp.addEventListener("click", async () => {
+          // ---- MODIFICA: nome + categoria + metadati contratto ----
+          if (dcEditDoc) {
+            dcErr.textContent = "";
+            const nuovo = dcNom.value.trim();
+            if (!nuovo) { dcErr.textContent = "Nom requis."; return; }
+            dcUp.disabled = true;
+            try {
+              const res = await fetch("/api/admin/docs", {
+                method: "PATCH",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  cat: dcEditDoc.cat,
+                  name: dcEditDoc.name,
+                  new_name: nuovo,
+                  new_cat: dcCatScelta,
+                  ...dcMetaPayload(),
+                }),
+              });
+              const j = await res.json();
+              if (!res.ok) throw new Error(j.error ?? "Modification impossible");
+              dcEditDoc = null;
+              dcOverlay.classList.remove("is-open");
+              await dcCarica();
+            } catch (err) {
+              dcErr.textContent = err instanceof Error ? err.message : "Modification impossible";
+            } finally {
+              dcUp.disabled = false;
+            }
+            return;
+          }
+          const f = dcFilePronto;
+          if (!f) return;
+          dcErr.textContent = "";
+          dcUp.disabled = true;
+          try {
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.readAsDataURL(f);
+            });
+            const res = await fetch("/api/admin/docs", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ cat: dcCatScelta, filename: f.name, data: b64, ...dcMetaPayload() }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+            const thumb = await dcAnteprima(f);
+            if (thumb && j.name) {
+              await fetch("/api/admin/docs", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ cat: dcCatScelta, name: j.name, thumb }),
+              }).catch(() => {});
+            }
+            dcFilePronto = null;
+            dcOverlay.classList.remove("is-open");
+            dcFiltro = dcCatScelta; // si atterra sulla categoria appena usata
+            await dcCarica();
+          } catch (err) {
+            dcErr.textContent = err instanceof Error ? err.message : "Téléversement impossible";
+          } finally {
+            dcUp.disabled = false;
+          }
+        });
+
+        // Azioni card: rinomina inline + elimina con conferma 2 tap
+        dcGrid.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const card = t.closest(".dc-card") as HTMLElement | null;
+          if (!card) return;
+          const cat = card.dataset.cat ?? "";
+          const name = card.dataset.name ?? "";
+
+          if (t.closest(".dc-ren")) {
+            const d = dcDocs.find((x) => x.cat === cat && x.name === name);
+            if (!d) return;
+            dcEditDoc = d;
+            dcFilePronto = null;
+            dcErr.textContent = "";
+            dcTitle.textContent = "Modifier le document";
+            dcUp.textContent = "Enregistrer";
+            dcFnameEl.style.display = "none";
+            dcNomLab.style.display = "";
+            dcNom.style.display = "";
+            dcNom.value = d.name;
+            dcCatScelta = d.cat;
+            dcCompilaMeta(d);
+            dcAggiornaResil();
+            dcRenderCats();
+            dcOverlay.classList.add("is-open");
+            return;
+          }
+
+          const del = t.closest(".dc-del") as HTMLButtonElement | null;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "Confirmer ?";
+              setTimeout(() => {
+                del.classList.remove("confirm");
+                del.textContent = "×";
+              }, 3000);
+              return;
+            }
+            const res = await fetch(`/api/admin/docs?cat=${encodeURIComponent(cat)}&name=${encodeURIComponent(name)}`, {
+              method: "POST",
+              headers: { ...headers, "X-Method-Override": "DELETE" },
+            });
+            if (!res.ok) {
+              dcStateEl.style.display = "";
+              dcStateEl.textContent = "Suppression impossible.";
+              return;
+            }
+            await dcCarica();
+          }
+        });
+        void dcCarica();
 
         const tmListEl = document.getElementById("tm-list") as HTMLDivElement;
         const tmEmptyEl = document.getElementById("tm-empty") as HTMLParagraphElement;

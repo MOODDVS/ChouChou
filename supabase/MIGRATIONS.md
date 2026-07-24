@@ -46,6 +46,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 37 | `reservations_tables.sql` | `tables` su reservations: tavoli assegnati automaticamente (plan de salle fase 2) |
 | 38 | `lunch_menus.sql` | Formules Lunch: portate, intervallo date, piatti dal menu, combinazioni con prezzo |
 | 39 | `newsletter_schedule.sql` | Newsletter programmate/ricorrenti: contenuto, segmento, una-tantum o weekly/monthly |
+| 40 | `admin_docs_meta.sql` | Metadati documents admin: email riferimento, scadenza e preavviso dei contratti |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

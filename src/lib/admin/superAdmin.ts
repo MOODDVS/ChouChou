@@ -40,6 +40,7 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "cuisine", label: "Cuisine" },
     { key: "liens", label: "Liens" },
     { key: "team", label: "Team" },
+    { key: "documents", label: "Documents" },
     { key: "notifications", label: "Notifications" },
   ],
 };
