@@ -6,22 +6,23 @@ import CookieBanner from "../components/CookieBanner.astro";
 import ReservationModal from "../components/ReservationModal.astro";
 import SitePopup from "../components/SitePopup.astro";
 import { getLangFromUrl } from "../i18n/ui";
+import { CLIENT } from "../config/client";
 
 interface Props {
   title?: string;
   transparentHeader?: boolean;
 }
-const { title = "La Molisana — Pizza & Pasta", transparentHeader = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
 // SEO: descrizione unica per tutto il sito (bilingue), immagine di condivisione.
 const description =
   lang === "en"
-    ? "La Molisana — authentic Italian cuisine in Saint-Gilles, Brussels. Pizza, homemade pasta and Molise specialities. Order online for takeaway. Av. Adolphe Demeur 37."
-    : "La Molisana — cuisine italienne authentique à Saint-Gilles, Bruxelles. Pizza, pâtes maison et spécialités du Molise. Commandez en ligne à emporter. Av. Adolphe Demeur 37.";
+    ? `${CLIENT.nome} — ${CLIENT.claim}.`
+    : `${CLIENT.nome} — ${CLIENT.claim}.`;
 
-const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://lamolisana.be").replace(/\/$/, "");
+const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://example.com").replace(/\/$/, "");
 const ogImage = `${siteUrl}/slideshow/slide-01.webp`;
 const canonical = new URL(Astro.url.pathname, siteUrl).href;
 const ogLocale = lang === "en" ? "en_US" : "fr_BE";
@@ -41,7 +42,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn, iMessage) -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="La Molisana" />
+    <meta property="og:site_name" content={CLIENT.nome} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImage} />

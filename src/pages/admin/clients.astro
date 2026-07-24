@@ -38,7 +38,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#231f20" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -47,12 +47,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     />
     <style is:global>
       :root {
-        --c-bg: #231f20;
-        --c-text: #ffffff;
-        --c-accent: #dfab4e;
-        --c-muted: #b3aca6;
-        --c-line: #3a3335;
-        --c-card: #362c28;
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -82,20 +84,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         width: 15px; height: 15px; display: block; fill: none; stroke: currentColor;
         stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
       }
-      .fl-pill b { margin-left: 0.4rem; font-weight: 800; color: #fff; }
-      .fl-pill.is-on b { color: #231f20; }
+      .fl-pill b { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
+      .fl-pill.is-on b { color: var(--c-bg); }
       .fl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .cl-add {
         position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
         display: inline-flex; align-items: center; box-sizing: border-box;
-        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
         padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
-      .cl-add:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      .cl-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
       @media (max-width: 520px) { .cl-add { bottom: calc(1.25rem + 72px); } }
       .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
@@ -119,12 +121,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         border-radius: 999px; padding: 0.32rem 0.9rem; font-size: 0.82rem; white-space: nowrap;
       }
-      .t-pill b { color: #fff; font-size: 0.95rem; }
+      .t-pill b { color: var(--c-text); font-size: 0.95rem; }
       .t-pill.gold { border-color: var(--c-accent); }
       .t-pill.gold b { color: var(--c-accent); }
 
       /* Tabella (CSS grid) */
-      .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .thead, .row {
         display: grid;
         grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 96px 86px 86px 110px 96px;
@@ -146,13 +148,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .th.sorted .arrow { opacity: 1; }
 
       .row { border-bottom: 1px solid var(--c-line); cursor: pointer; transition: background 0.12s; }
-      .row:hover { background: rgba(223, 171, 78, 0.05); }
+      .row:hover { background: color-mix(in srgb, var(--c-accent) 5%, transparent); }
       .c-name { white-space: nowrap; overflow: hidden; display: flex; align-items: center; }
       .c-avatar {
         width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
         display: inline-flex; align-items: center; justify-content: center;
-        background: rgba(223, 171, 78, 0.16); color: var(--c-accent);
-        border: 1px solid rgba(223, 171, 78, 0.45);
+        background: color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent);
+        border: 1px solid color-mix(in srgb, var(--c-accent) 45%, transparent);
         font-size: 0.76rem; font-weight: 800; letter-spacing: 0.02em;
         margin-right: 0.65rem; user-select: none;
       }
@@ -191,7 +193,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .tag-new {
         display: inline-flex; align-items: center; height: 17px; box-sizing: border-box;
         margin-left: 0.45rem; vertical-align: middle;
-        background: var(--c-accent); color: #231f20; border-radius: 999px;
+        background: var(--c-accent); color: var(--c-bg); border-radius: 999px;
         font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
         padding: 0 0.5rem;
       }
@@ -222,7 +224,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
-      .ed-upl:hover { background: var(--c-accent); color: #231f20; }
+      .ed-upl:hover { background: var(--c-accent); color: var(--c-bg); }
       .ed-upl-rm { border-color: var(--c-line); color: var(--c-muted); margin-left: 0.4rem; }
       .ed-upl-rm:hover { background: transparent; border-color: #ed1c24; color: #ff6b6b; }
       .ed-danger { border-color: #7a3a3a; color: #ff8a8f; }
@@ -237,7 +239,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .ed-upl-state { color: var(--c-muted); font-size: 0.78rem; margin: 0.4rem 0 0; min-height: 1em; }
       .ed-err { color: #ff8a8f; font-size: 0.85rem; min-height: 1.1em; margin: 0.5rem 0; }
       .ed-save {
-        width: 100%; background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
+        width: 100%; background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
         padding: 0.6rem; border-radius: 999px; cursor: pointer; transition: background 0.2s, color 0.2s;
       }
@@ -302,7 +304,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
       .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-save {
-        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
         padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s;
       }
@@ -314,7 +316,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
         z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
         opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
       }
       .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -347,7 +349,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .is-loading::after {
         content: ""; position: absolute; inset: 0; margin: auto;
         width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
         animation: btnspin 0.7s linear infinite;
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }

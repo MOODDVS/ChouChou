@@ -30,6 +30,25 @@ Il remote `engine` servirà per gli aggiornamenti (punto 7).
 - `astro.config.mjs` — `site: "https://www.dominiocliente.be"`.
 - Testi legali (`src/pages/privacy.astro`, `cookies.astro` + versioni `en/`)
   quando si attiverà il sito pubblico.
+- **Sito pubblico (solo quando si attiva)**: le pagine vetrina e i testi
+  contengono ancora i CONTENUTI La Molisana — sono la struttura di esempio,
+  da riscrivere col contenuto del cliente. Finché il sito non è linkato,
+  nessuno le vede.
+
+### Lo strato "vetrina" (esempio La Molisana) — regole
+
+- **NEL TEMPLATE è CONGELATO**: questi file non si modificano MAI più qui
+  (La Molisana condivide la storia git: una cancellazione nel template le
+  cancellerebbe il sito live al merge).
+- **NEL REPO DI UN CLIENTE nuovo si possono CANCELLARE subito** (o tenere
+  come riferimento): le cancellazioni nel repo cliente sono definitive e i
+  merge dal template non le faranno tornare.
+- File vetrina (cancellabili nel cliente): `src/pages/{menu,ambiance,jobs,
+  contact}.astro` + versioni `en/`, `src/components/{Hero,Story,Molise,
+  Features,PhotoStrip,CtaFinal}.astro`, gran parte di `src/i18n/*.json`.
+- Da TENERE sempre (motore pubblico): `order*`, `reservation*`, `links`,
+  `unsubscribe`, `privacy/cookies` (struttura), `Layout`, `Header/Footer/
+  MobileNav/CookieBanner/ReservationModal/SitePopup` (si ribrandizzano).
 
 Tutto il resto (ragione sociale, IVA, orari, loghi caricati, link social,
 fuso orario…) si configura DALL'ADMIN in Admin → Général, senza codice.

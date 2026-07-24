@@ -10,7 +10,7 @@ const TZ_RISTO = await aggiornaTimezone();
 <header class="ah-header" data-tz={TZ_RISTO}>
   <div class="ah-left">
     <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
-      <img src={CLIENT.logoAdmin} alt={CLIENT.nome} />
+      <img id="ah-logo" src={CLIENT.logoAdmin} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
     </a>
     <div class="ah-date">
       <svg class="ah-date-ico" viewBox="0 0 24 24" aria-hidden="true">
@@ -57,7 +57,12 @@ const TZ_RISTO = await aggiornaTimezone();
 </header>
 
 <style>
-  .ah-header { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35); }
+  html.glass .ah-header {
+    background: rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .ah-header { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); background: var(--c-bg); box-shadow: 0 4px 16px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15))); }
   .ah-left { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
   .ah-brand { display: flex; align-items: center; }
   .ah-brand img { width: 48px; height: 48px; display: block; border-radius: 10px; border: 1px solid var(--c-line); }

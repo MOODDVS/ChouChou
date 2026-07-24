@@ -44,7 +44,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#231f20" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -53,12 +53,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     />
     <style is:global>
       :root {
-        --c-bg: #231f20;
-        --c-text: #ffffff;
-        --c-accent: #dfab4e;
-        --c-muted: #b3aca6;
-        --c-line: #3a3335;
-        --c-card: #362c28;
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -87,11 +89,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .fs-pill svg { display: block; }
       .fs-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .fs-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .fs-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .fs-pill svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .d-pill {
         display: inline-flex; align-items: center; gap: 0.15rem;
-        background: #1c1819; border: 1px solid var(--c-line);
+        background: var(--c-input); border: 1px solid var(--c-line);
         border-radius: 999px; padding: 0.25rem 0.35rem;
       }
       .d-nav {
@@ -119,11 +121,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .d-today:hover { border-color: var(--c-accent); color: var(--c-text); }
       .d-today .n { font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; opacity: 0.75; }
       /* Attivo (= oggi in vista giorno): pieno oro come i filtri delle pagine */
-      .d-today.is-now { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
-      .d-today.is-now:hover { background: var(--c-accent); color: #231f20; }
+      .d-today.is-now { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .d-today.is-now:hover { background: var(--c-accent); color: var(--c-bg); }
       /* --- Viste Semaine / Mois --- */
-      .d-vista.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
-      .d-vista.is-on:hover { background: var(--c-accent); color: #231f20; }
+      .d-vista.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .d-vista.is-on:hover { background: var(--c-accent); color: var(--c-bg); }
       .vs-head {
         display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap;
         font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em;
@@ -132,7 +134,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .vs-head:hover { color: var(--c-accent); }
       .vs-head.is-today { color: var(--c-accent); }
       .vs-head .vs-n { font-family: var(--font-body); font-size: 0.8rem; letter-spacing: 0; color: var(--c-muted); }
-      .vs-head .vs-n b { color: #fff; }
+      .vs-head .vs-n b { color: var(--c-text); }
       .vs-head .vs-n i, .vm-r i { color: var(--c-accent); font-style: normal; }
       .vs-row {
         display: flex; align-items: center; gap: 1rem;
@@ -144,7 +146,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .vs-h { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-accent); min-width: 3.2rem; }
       .vs-nome { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .vs-p { white-space: nowrap; font-size: 0.85rem; color: var(--c-muted); }
-      .vs-p b { color: #fff; font-size: 0.95rem; }
+      .vs-p b { color: var(--c-text); font-size: 0.95rem; }
       .vs-z { color: var(--c-muted); font-size: 0.8rem; white-space: nowrap; }
       .vs-st { font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
       .vm-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 0.3rem; }
@@ -162,7 +164,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .vm-cell.is-today .vm-d { color: var(--c-accent); }
       .vm-mois { font-size: 0.7rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       .vm-c { font-size: 0.8rem; color: var(--c-muted); }
-      .vm-c b { color: #fff; font-size: 0.95rem; }
+      .vm-c b { color: var(--c-text); font-size: 0.95rem; }
       .vm-r { font-size: 0.72rem; color: var(--c-muted); }
       @media (max-width: 640px) {
         .vm-cell { min-height: 70px; padding: 0.35rem 0.4rem; }
@@ -181,13 +183,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .d-search-x {
         position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
         width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
-        background: #1c1819; color: var(--c-text); font-size: 1rem; line-height: 1;
+        background: var(--c-input); color: var(--c-text); font-size: 1rem; line-height: 1;
         display: flex; align-items: center; justify-content: center; padding: 0 0 2px;
       }
-      .d-search-x:hover { background: var(--c-accent); color: #231f20; }
+      .d-search-x:hover { background: var(--c-accent); color: var(--c-bg); }
       .d-search::placeholder { color: var(--c-muted); }
       .d-search:focus { outline: none; border-color: var(--c-accent); }
-      .r-date { color: #fff; font-size: 0.72rem; margin-top: 0.2rem; }
+      .r-date { color: var(--c-text); font-size: 0.72rem; margin-top: 0.2rem; }
       /* Pillola couverts/résas: sotto la linea, a destra */
       .d-stats {
         color: var(--c-muted); font-size: 0.85rem; white-space: nowrap;
@@ -202,7 +204,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         display: flex; align-items: center; gap: 1.1rem; position: relative; cursor: pointer;
         background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.85rem 1.1rem; margin-bottom: 0.45rem;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
       }
       /* Ligne "En cours": avanza da sinistra per tutta la durée du tavolo */
       .r-live {
@@ -239,7 +241,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .r-c svg { width: 13px; height: 13px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .r-note-col {
         flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 0.5rem;
-        color: #ffffff; font-size: 0.92rem; font-style: italic; line-height: 1.45;
+        color: var(--c-text); font-size: 0.92rem; font-style: italic; line-height: 1.45;
         align-self: flex-start; padding-top: 0.12rem;
       }
       .r-note-ico {
@@ -271,7 +273,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .st-menu {
         position: fixed; z-index: 460; min-width: 150px; display: none;
         background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.35rem;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.35rem;
       }
       .st-menu button {
         display: flex; align-items: center; gap: 0.5rem; width: 100%;
@@ -283,21 +285,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .st-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
       .r-badge.ok { background: rgba(46, 158, 107, 0.18); border: 1px solid #2e9e6b; color: #6fd0a3; }
       .r-badge.ko { background: rgba(237, 28, 36, 0.15); border: 1px solid #ed1c24; color: #ff8a8f; }
-      .r-badge.ns { background: rgba(223, 171, 78, 0.14); border: 1px solid var(--c-accent); color: var(--c-accent); }
+      .r-badge.ns { background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid var(--c-accent); color: var(--c-accent); }
       .r-badge.bl { background: rgba(59, 130, 246, 0.16); border: 1px solid #3b82f6; color: #8ab6ff; }
       .r-badge.gr { background: rgba(179, 172, 166, 0.12); border: 1px solid var(--c-muted); color: var(--c-muted); }
-      .r-badge.pd { background: var(--c-accent); border: 1px solid var(--c-accent); color: #231f20; font-weight: 700; }
+      .r-badge.pd { background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .b-fini {
         width: 118px; height: 34px; border-radius: 999px; border: 1px solid var(--c-accent);
-        background: rgba(223, 171, 78, 0.15); color: var(--c-accent);
+        background: color-mix(in srgb, var(--c-accent) 15%, transparent); color: var(--c-accent);
         font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
         text-transform: uppercase; letter-spacing: 0.06em; cursor: pointer;
         animation: finipulse 1.6s ease-in-out infinite;
       }
-      .b-fini:hover { background: var(--c-accent); color: #231f20; }
+      .b-fini:hover { background: var(--c-accent); color: var(--c-bg); }
       @keyframes finipulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(223, 171, 78, 0.35); }
-        50% { box-shadow: 0 0 0 8px rgba(223, 171, 78, 0); }
+        0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-accent) 35%, transparent); }
+        50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--c-accent) 0%, transparent); }
       }
 
       .i-btn {
@@ -347,25 +349,25 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .fab {
         position: fixed; right: 1.5rem; bottom: 4.4rem; z-index: 90;
         display: inline-flex; align-items: center; box-sizing: border-box;
-        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
         padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
-      .fab:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
+      .fab:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
       .fab-serv {
         position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
         width: 52px; height: 52px; border-radius: 50%;
-        background: var(--c-accent); color: #231f20; border: 2px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
         display: flex; align-items: center; justify-content: center; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: border-color 0.2s, color 0.2s, background 0.2s, transform 0.15s;
       }
-      .fab-serv:hover { background: #c9963d; border-color: #c9963d; transform: scale(0.94); }
-      .fab-serv.has-closed:hover { background: rgba(223, 171, 78, 0.3); border-color: #ed1c24; transform: scale(0.94); }
+      .fab-serv:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
+      .fab-serv.has-closed:hover { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: #ed1c24; transform: scale(0.94); }
       /* Almeno un service del giorno è chiuso */
-      .fab-serv.has-closed { background: rgba(223, 171, 78, 0.3); border-color: #ed1c24; color: var(--c-accent); }
+      .fab-serv.has-closed { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: #ed1c24; color: var(--c-accent); }
       .fab-zone { left: 5.6rem; }
       .d-closed {
         position: absolute; top: 6.4rem; left: 50%; transform: translateX(-50%); z-index: 80;
@@ -373,12 +375,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         max-width: 90vw; pointer-events: auto;
       }
       .d-closed:empty { display: none; }
-      .d-closed-pill { background: rgba(35, 31, 32, 0.92); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); }
+      .d-closed-pill { background: color-mix(in srgb, var(--c-bg) 92%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15))); }
       .d-closed-x {
         background: none; border: none; color: #ff8a8f; cursor: pointer;
         font-size: 1.05rem; line-height: 1; padding: 0 0 0 0.1rem; margin-left: 0.15rem;
       }
-      .d-closed-x:hover { color: #fff; }
+      .d-closed-x:hover { color: var(--c-text); }
       .d-closed-pill {
         display: inline-flex; align-items: center; gap: 0.35rem;
         border: 1px solid #ed1c24; color: #ff8a8f; background: rgba(237, 28, 36, 0.12);
@@ -391,12 +393,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         padding: 0.9rem 0; border-bottom: 1px solid var(--c-line);
       }
       .sv-row:last-child { border-bottom: none; }
-      .sv-row.zn-dragging { opacity: 0.6; background: #1c1819; border-radius: 10px; }
+      .sv-row.zn-dragging { opacity: 0.6; background: var(--c-input); border-radius: 10px; }
       .zn-grip {
         width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
         color: var(--c-muted); cursor: grab; touch-action: none; border-radius: 8px; flex: 0 0 auto;
       }
-      .zn-grip:hover { color: var(--c-accent); background: #1c1819; }
+      .zn-grip:hover { color: var(--c-accent); background: var(--c-input); }
       .zn-grip:active { cursor: grabbing; }
       .zn-grip svg { width: 18px; height: 18px; }
       .zn-prio {
@@ -419,14 +421,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         background: var(--c-muted); border-radius: 50%; transition: transform 0.2s, background 0.2s;
       }
       .sv-switch input:checked + .sv-track { background: var(--c-accent); }
-      .sv-switch input:checked + .sv-track::before { transform: translateX(20px); background: #231f20; }
+      .sv-switch input:checked + .sv-track::before { transform: translateX(20px); background: var(--c-bg); }
       .sv-switch input:disabled + .sv-track { cursor: not-allowed; }
       .sv-raisons { display: flex; gap: 0.4rem; flex-basis: 100%; }
       .sv-state.is-perm { color: #d24d55; font-weight: 700; }
       .sv-permbtn {
         flex-basis: 100%;
         max-width: max-content;
-        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.78rem;
         font-family: var(--font-body); cursor: pointer; transition: border-color 0.15s, color 0.15s;
       }
@@ -434,12 +436,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-permbtn.is-on { border-color: var(--c-accent); color: var(--c-accent); }
       .sv-permbtn.is-on:hover { border-color: var(--c-accent); color: var(--c-accent); filter: brightness(1.15); }
       .sv-raison {
-        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.8rem; cursor: pointer;
         font-family: var(--font-body);
       }
       .sv-raison:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .sv-raison.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .sv-raison.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .sv-state { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
       .sv-vuoto { color: var(--c-muted); font-style: italic; padding: 0.8rem 0; }
       .sv-days { margin-top: 0.4rem; }
@@ -468,18 +470,18 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-badge {
         display: inline-block; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
         padding: 0.32rem 0.85rem; border-radius: 999px; border: none; margin-bottom: 1.1rem;
-        font-weight: 700; color: #fff;
+        font-weight: 700; color: var(--c-text);
       }
       .dt-timer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.55rem; }
       .dt-timer-head .dt-badge { margin-bottom: 0; }
       #dt-title { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
       .dt-new {
-        display: inline-block; background: var(--c-accent); color: #231f20; font-family: var(--font-body);
+        display: inline-block; background: var(--c-accent); color: var(--c-bg); font-family: var(--font-body);
         font-size: 0.66rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
         padding: 0.28rem 0.65rem; border-radius: 999px;
       }
       .dt-meta {
-        font-size: 0.85rem; color: #fff; font-weight: 700; padding-top: 0.35rem; min-width: 0;
+        font-size: 0.85rem; color: var(--c-text); font-weight: 700; padding-top: 0.35rem; min-width: 0;
         display: flex; align-items: center; flex-wrap: wrap;
       }
       .dt-meta .sep { color: var(--c-accent); font-weight: 700; margin: 0 0.35rem; }
@@ -495,7 +497,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-contacts a:hover { color: var(--c-accent); }
       .dt-note {
         display: flex; align-items: flex-start; gap: 0.5rem; margin: 0 0 1.1rem;
-        color: #fff; font-style: italic; font-size: 0.92rem; line-height: 1.45;
+        color: var(--c-text); font-style: italic; font-size: 0.92rem; line-height: 1.45;
       }
       .dt-note:empty { display: none; }
       .dt-stats { border-top: 1px solid var(--c-line); padding-top: 0.5rem; margin: 1.1rem 0 0; }
@@ -528,7 +530,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         font-family: var(--font-title); font-size: 0.85rem; letter-spacing: 0.05em;
         padding: 0.35rem 1rem; border-radius: 999px; cursor: pointer;
       }
-      .dt-spend-save:hover { background: var(--c-accent); color: #231f20; }
+      .dt-spend-save:hover { background: var(--c-accent); color: var(--c-bg); }
       .dt-opts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.75rem; }
       .dt-opts:empty { display: none; }
       .dt-opts .tag {
@@ -556,7 +558,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Form del modale: stesso design dello step 2 del widget */
       .nm-frow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
       .modal .nm-in {
-        flex: 1; width: 100%; min-width: 0; background: #1c1819; border: 1px solid var(--c-line);
+        flex: 1; width: 100%; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
         font-family: var(--font-body); max-width: none;
       }
@@ -572,19 +574,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal textarea.nm-in { resize: vertical; min-height: 72px; }
       .nm-opts { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.35rem 0 0.7rem; }
       .nm-opt {
-        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
         font-family: var(--font-body);
       }
       .nm-opt:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .nm-opt.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-opt.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .modal textarea { resize: vertical; min-height: 56px; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
       .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-save {
-        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
         padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s;
@@ -600,12 +602,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-col .f-label { margin-bottom: 0.4rem; display: block; }
       .nm-days { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
       .nm-pill {
-        flex: 1; background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        flex: 1; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.5rem 0; border-radius: 999px; font-size: 0.85rem; cursor: pointer;
         font-family: var(--font-body);
       }
       .nm-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .nm-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-pill-ico { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; }
       .nm-pill-ico svg { width: 15px; height: 15px; }
       .nm-datein { cursor: pointer; text-align: center; }
@@ -613,7 +615,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dp-panel {
         position: fixed; z-index: 460; width: 344px;
         background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55); padding: 0.9rem;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.9rem;
       }
       .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
       .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
@@ -644,9 +646,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .dp-dot--medio { background: var(--c-accent); } /* 31-80% */
       .dp-dot--alto { background: #ed1c24; } /* 81%+ */
-      .dp-sel .dp-dot { background: #231f20; }
+      .dp-sel .dp-dot { background: var(--c-bg); }
       .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
-      .dp-sel { background: var(--c-accent); color: #231f20; font-weight: 700; }
+      .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .dp-full:not(.dp-sel) { box-shadow: inset 0 0 0 2px #e5484d; }
       @media (pointer: coarse) {
         .dp-panel { width: 372px; }
@@ -664,12 +666,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-more-ico { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
       .nm-more-ico.is-up { transform: rotate(180deg); }
       .nm-slot {
-        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-text);
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text);
         padding: 0.45rem 0; border-radius: 8px; font-size: 0.82rem; text-align: center; cursor: pointer;
         font-family: var(--font-body);
       }
       .nm-slot:hover { border-color: var(--c-accent); }
-      .nm-slot.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-slot.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-noslot { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; font-style: italic; margin: 0.3rem 0; }
       .nm-closed-note {
         border: 1px solid #ed1c24; background: rgba(237, 28, 36, 0.1); color: #ff8a8f;
@@ -687,17 +689,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         content: "✕"; position: absolute; inset: 0; display: flex; align-items: center;
         justify-content: center; color: var(--c-muted); font-size: 0.85rem; pointer-events: none;
       }
-      .nm-slot-full.is-on { color: rgba(35, 31, 32, 0.4); }
-      .nm-slot-full.is-on::after { color: #231f20; }
+      .nm-slot-full.is-on { color: color-mix(in srgb, var(--c-bg) 40%, transparent); }
+      .nm-slot-full.is-on::after { color: var(--c-bg); }
       .nm-pers { display: flex; flex-wrap: nowrap; gap: 0.4rem; }
       .nm-pers .nm-p { flex: 1; min-width: 0; padding-left: 0; padding-right: 0; }
       .nm-p {
-        min-width: 42px; padding: 0.45rem 0.5rem; background: #1c1819; border: 1px solid var(--c-line);
+        min-width: 42px; padding: 0.45rem 0.5rem; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); border-radius: 8px; font-size: 0.85rem; cursor: pointer; text-align: center;
         font-family: var(--font-body);
       }
       .nm-p:hover { border-color: var(--c-accent); }
-      .nm-p.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-p.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       /* Larghezza garantita: − (34) + numero (min 50) + + (34); le pillole si stringono */
       .nm-step { flex: 0 0 auto; display: flex; min-width: 118px; }
       .nm-step .nm-p-libre {
@@ -708,7 +710,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-step .nm-p-libre::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
       .nm-step .nm-p-piu,
       .nm-step .nm-p-meno {
-        flex: 0 0 34px; background: #1c1819; border: 1px solid var(--c-line);
+        flex: 0 0 34px; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); font-size: 1.05rem; cursor: pointer;
         font-family: var(--font-body); line-height: 1;
       }
@@ -716,35 +718,35 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-step .nm-p-piu { border-left: none; border-radius: 0 8px 8px 0; }
       .nm-step .nm-p-piu:hover,
       .nm-step .nm-p-meno:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .nm-step.is-on .nm-p-libre { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-step.is-on .nm-p-libre { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-zones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-      .nm-warn { color: var(--c-accent); background: rgba(223, 171, 78, 0.1); border: 1px solid rgba(223, 171, 78, 0.4); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
+      .nm-warn { color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
       .nm-tables-man { flex-wrap: wrap; }
       .nm-tv-lab { color: var(--c-muted); font-size: 0.82rem; margin-inline-end: 0.2rem; }
       .nm-tv-z { width: 100%; color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.2rem; }
       .nm-tv {
-        background: #231f20; border: 1px solid var(--c-line); color: var(--c-text);
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
         border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 0.82rem;
         font-family: var(--font-body); cursor: pointer; transition: border-color 0.15s, background 0.15s;
       }
       .nm-tv:hover:not(:disabled) { border-color: var(--c-accent); }
-      .nm-tv.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-tv.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-tv.is-busy { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
       .nm-tv-tot { color: var(--c-accent); font-size: 0.82rem; font-weight: 700; margin-inline-start: 0.3rem; }
       .nm-tables {
         display: flex; align-items: center; gap: 0.6rem;
-        color: var(--c-text); background: #1c1819; border: 1px solid var(--c-line);
+        color: var(--c-text); background: var(--c-input); border: 1px solid var(--c-line);
         border-left: 3px solid var(--c-accent); border-radius: 8px;
         padding: 0.6rem 0.9rem; font-size: 0.88rem; line-height: 1.5; margin-top: 0.6rem;
       }
       .nm-tables b { color: var(--c-accent); font-family: var(--font-title); font-size: 1.25rem; font-weight: 400; letter-spacing: 0.05em; transform: translateY(-1.5px); display: inline-block; }
       .nm-zone {
-        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
         font-family: var(--font-body);
       }
       .nm-zone:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .nm-zone.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; font-weight: 700; }
+      .nm-zone.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       @media (max-width: 760px) {
         .nm-grid { grid-template-columns: 1fr; }
       }
@@ -754,7 +756,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
         z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
         opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
       }
       .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -1611,11 +1613,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         // ---- Menu degli stati (badge cliccabile) ----
         const STATI_MENU: { st: string; label: string; colore: string }[] = [
-          { st: "pending", label: "En attente", colore: "#dfab4e" },
+          { st: "pending", label: "En attente", colore: "var(--c-accent)" },
           { st: "confirmed", label: "Confirmée", colore: "#2e9e6b" },
           { st: "seated", label: "En cours", colore: "#3b82f6" },
-          { st: "done", label: "Fini", colore: "#b3aca6" },
-          { st: "noshow", label: "No-show", colore: "#dfab4e" },
+          { st: "done", label: "Fini", colore: "var(--c-muted)" },
+          { st: "noshow", label: "No-show", colore: "var(--c-accent)" },
           { st: "cancelled", label: "Annulée", colore: "#ed1c24" },
         ];
         const stMenu = document.createElement("div");
@@ -2544,10 +2546,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const btnSem = document.getElementById("d-sem") as HTMLButtonElement;
         const btnMois = document.getElementById("d-mois") as HTMLButtonElement;
         const VISTA_ST: Record<string, { lab: string; col: string }> = {
-          pending: { lab: "En attente", col: "#dfab4e" },
+          pending: { lab: "En attente", col: "var(--c-accent)" },
           confirmed: { lab: "Confirmée", col: "#2e9e6b" },
           seated: { lab: "En cours", col: "#3b82f6" },
-          done: { lab: "Fini", col: "#b3aca6" },
+          done: { lab: "Fini", col: "var(--c-muted)" },
         };
         let vistaSeq = 0;
 
@@ -2618,7 +2620,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             html += `<div class="vs-head${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}">${labelGiorno(iso)}<span class="vs-n">${conte}</span></div>`;
             html += arr
               .map((r) => {
-                const st = VISTA_ST[r.status] ?? { lab: r.status, col: "#b3aca6" };
+                const st = VISTA_ST[r.status] ?? { lab: r.status, col: "var(--c-muted)" };
                 const tav = etichettaTavoli(r);
                 return `<div class="vs-row" data-date="${iso}"><span class="vs-h">${esc(r.heure.slice(0, 5))}</span><span class="vs-nome">${esc(`${r.first_name} ${r.last_name}`.trim())}</span><span class="vs-p"><b>${r.people}</b> pers.</span><span class="vs-z">${esc(tav || r.zone || "")}</span><span class="vs-st" style="color:${st.col}">${st.lab}</span></div>`;
               })

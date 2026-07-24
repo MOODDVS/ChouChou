@@ -1,4 +1,5 @@
 ---
+import { CLIENT } from "../config/client";
 // Pagina "Links" — destinazione del QR code (sul tavolo, in vetrina…).
 // Solo l'essenziale: bottoni impilati (Réserver, Commander, Notre Carte,
 // avis Google se impostato nell'admin) e i social sotto.
@@ -10,10 +11,10 @@ const social = await linksSocial();
 const googleReview = await linkGoogleReview();
 ---
 
-<Layout title="Links — La Molisana, Pizza & Pasta à Saint-Gilles, Bruxelles">
+<Layout title={`Links — ${CLIENT.nome}`}>
   <section class="lnk">
-    <h1 class="lnk-title">La Molisana</h1>
-    <p class="lnk-sub">Pizza &amp; Pasta — Saint-Gilles, Bruxelles</p>
+    <h1 class="lnk-title">{CLIENT.nome}</h1>
+    <p class="lnk-sub">{CLIENT.claim}</p>
 
     <div class="lnk-btns">
       <button type="button" class="lnk-btn" data-reserver>Réserver</button>

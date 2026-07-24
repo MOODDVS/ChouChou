@@ -20,7 +20,7 @@ import { CLIENT } from "../../config/client";
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#231f20" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -29,12 +29,14 @@ import { CLIENT } from "../../config/client";
     />
     <style is:global>
       :root {
-        --c-bg: #231f20;
-        --c-text: #ffffff;
-        --c-accent: #dfab4e;
-        --c-muted: #b3aca6;
-        --c-line: #3a3335;
-        --c-card: #362c28;
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -49,7 +51,7 @@ import { CLIENT } from "../../config/client";
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
       .spacer { flex: 1; }
       .pill { font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s, border-color 0.2s; }
-      .add-btn { background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
+      .add-btn { background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
       .add-btn:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
       .add-btn:disabled { cursor: not-allowed; }
 
@@ -67,7 +69,7 @@ import { CLIENT } from "../../config/client";
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
 
       .tabs-sub { border-bottom: none; padding-bottom: 0; margin-bottom: 1.25rem; }
@@ -90,7 +92,7 @@ import { CLIENT } from "../../config/client";
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; }
       .card {
         background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         display: flex; flex-direction: column;
       }
       .card-img { display: block; }
@@ -104,7 +106,7 @@ import { CLIENT } from "../../config/client";
       }
       .tag-b { border: 1px solid var(--c-accent); color: var(--c-accent); }
       .tag-l { border: 1px solid var(--c-line); color: var(--c-muted); }
-      .tag-u { background: var(--c-accent); color: #231f20; font-weight: 700; cursor: help; }
+      .tag-u { background: var(--c-accent); color: var(--c-bg); font-weight: 700; cursor: help; }
       .meta-txt { font-size: 0.68rem; color: var(--c-muted); white-space: nowrap; }
       .card-date { font-size: 0.68rem; color: var(--c-muted); margin-top: 0.35rem; }
       .card-actions { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.75rem 0.75rem; }
@@ -157,14 +159,14 @@ import { CLIENT } from "../../config/client";
         padding: 0.5rem 1.4rem; cursor: pointer; border-radius: 999px;
         transition: background 0.15s, color 0.15s;
       }
-      .ed-compress:hover:not(:disabled) { background: var(--c-accent); color: #231f20; }
+      .ed-compress:hover:not(:disabled) { background: var(--c-accent); color: var(--c-bg); }
       .ed-compress:disabled { opacity: 0.5; cursor: not-allowed; }
       .ed-state { color: var(--c-muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.1em; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 1.4rem; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
       .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-save {
-        background: var(--c-accent); color: #231f20; border: 1px solid var(--c-accent);
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
         padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s;
@@ -176,7 +178,7 @@ import { CLIENT } from "../../config/client";
       .is-loading::after {
         content: ""; position: absolute; inset: 0; margin: auto;
         width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid rgba(35, 31, 32, 0.3); border-top-color: #231f20;
+        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
         animation: btnspin 0.7s linear infinite;
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
@@ -186,7 +188,7 @@ import { CLIENT } from "../../config/client";
         position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
         z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
         padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
         opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
       }
       .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

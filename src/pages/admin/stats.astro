@@ -35,7 +35,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#231f20" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -44,12 +44,14 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
     />
     <style is:global>
       :root {
-        --c-bg: #231f20;
-        --c-text: #ffffff;
-        --c-accent: #dfab4e;
-        --c-muted: #b3aca6;
-        --c-line: #3a3335;
-        --c-card: #362c28;
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -71,18 +73,18 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .period:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .period.is-active { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .period.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       /* Griglia stat */
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
       @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-      .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.7rem; }
       .stat-big { font-family: var(--font-title); font-size: 3rem; line-height: 1; color: var(--c-accent); }
       .stat-sub { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.6rem; }
 
       /* Top piatti */
-      .top { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .top { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .top-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
       .top-row { display: flex; align-items: center; gap: 0.9rem; padding: 0.55rem 0; border-bottom: 1px solid var(--c-line); }
       .top-row:last-child { border-bottom: none; }
@@ -95,7 +97,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .top-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0 0.9rem; }
 
       /* Istogramma */
-      .chart { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; margin-bottom: 1.25rem; position: relative; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+      .chart { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; margin-bottom: 1.25rem; position: relative; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .chart-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); margin-bottom: 1rem; }
       .chart-wrap { overflow-x: auto; padding-bottom: 0.2rem; }
       .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 200px; border-bottom: 1px solid var(--c-line); }
@@ -110,7 +112,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         position: absolute; z-index: 10; pointer-events: none; display: none;
         background: var(--c-bg); border: 1px solid var(--c-accent); color: var(--c-text);
         font-size: 0.8rem; padding: 0.35rem 0.7rem; border-radius: 999px; white-space: nowrap;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
       }
 
       .loading { opacity: 0.45; pointer-events: none; }

@@ -20,7 +20,7 @@ import { CLIENT } from "../../config/client";
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="theme-color" content="#231f20" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -29,12 +29,14 @@ import { CLIENT } from "../../config/client";
     />
     <style is:global>
       :root {
-        --c-bg: #231f20;
-        --c-text: #ffffff;
-        --c-accent: #dfab4e;
-        --c-muted: #b3aca6;
-        --c-line: #3a3335;
-        --c-card: #362c28;
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
         --font-title: "Bebas Neue", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -43,6 +45,12 @@ import { CLIENT } from "../../config/client";
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 620px; margin: 0 auto; }
+      /* Con spazio: 2 colonne — permessi a sinistra, design a destra */
+      @media (min-width: 1080px) {
+        main { max-width: none; }
+        .sup-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+        .sup-col .tema-titre { margin-top: 0; }
+      }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .sub { color: var(--c-muted); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.6; }
@@ -52,7 +60,7 @@ import { CLIENT } from "../../config/client";
       .row {
         display: flex; align-items: center; gap: 1rem;
         background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 1rem 1.3rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+        padding: 1rem 1.3rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
       }
       .row.is-off { opacity: 0.55; }
       .row-name { flex: 1; font-weight: 700; font-size: 1.02rem; }
@@ -62,7 +70,7 @@ import { CLIENT } from "../../config/client";
          affiancati quando c'è spazio, impilati su mobile. */
       .rowwrap { display: flex; flex-direction: column; }
       .subrows { display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.45rem; padding: 0.5rem 0 0.75rem 1.5rem; }
-      .subrow { display: flex; align-items: center; gap: 0.65rem; background: #2b2320; border: 1px solid var(--c-line); padding: 0.5rem 0.85rem; }
+      .subrow { display: flex; align-items: center; gap: 0.65rem; background: var(--c-input); border: 1px solid var(--c-line); padding: 0.5rem 0.85rem; }
       .subrow.is-off { opacity: 0.6; }
       .subrow-name { font-size: 0.9rem; white-space: nowrap; }
       @media (max-width: 640px) {
@@ -79,19 +87,45 @@ import { CLIENT } from "../../config/client";
       }
       .switch .track::before {
         content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
-        border-radius: 50%; background: #231f20; transition: transform 0.2s;
+        border-radius: 50%; background: var(--c-bg); transition: transform 0.2s;
       }
       .switch input:checked + .track { background: var(--c-accent); }
       .switch input:checked + .track::before { transform: translateX(20px); }
 
       .note { color: var(--c-muted); font-size: 0.8rem; margin-top: 1.2rem; line-height: 1.6; }
 
+      /* --- Couleurs du brand --- */
+      .tema-titre { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; margin: 2.4rem 0 0.35rem; }
+      .tema-rows { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1.1rem; }
+      .tema-row {
+        display: flex; align-items: center; gap: 1rem;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 0.75rem 1.3rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      }
+      .tema-nom { flex: 1; font-weight: 700; font-size: 0.95rem; }
+      .tema-hex { color: var(--c-muted); font-size: 0.78rem; font-family: ui-monospace, monospace; letter-spacing: 0.03em; }
+      .tema-pick {
+        width: 46px; height: 30px; padding: 0; border: 1px solid var(--c-line);
+        border-radius: 6px; background: none; cursor: pointer; flex-shrink: 0;
+      }
+      .tema-pick::-webkit-color-swatch-wrapper { padding: 2px; }
+      .tema-pick::-webkit-color-swatch { border: none; border-radius: 4px; }
+      .tema-range { flex: 0 0 150px; accent-color: var(--c-accent); cursor: pointer; }
+      .tema-reset {
+        margin-top: 0.75rem; align-self: flex-start;
+        background: var(--c-input); color: var(--c-muted); border: 1px solid var(--c-line);
+        font-family: var(--font-body); font-weight: 700; font-size: 0.85rem;
+        padding: 0.6rem 1.1rem; border-radius: 8px; cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .tema-reset:hover { color: var(--c-text); border-color: var(--c-accent); }
+
       .toast {
         position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
         background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
         padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
         opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
       }
       .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
       .toast.is-error { border-color: #ed1c24; }
@@ -106,17 +140,31 @@ import { CLIENT } from "../../config/client";
       <AdminHeader />
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>Réglages</h1>
-        <p class="sub">
-          Choisis les pages visibles pour les autres utilisateurs de l'admin.
-          Une page désactivée disparaît de la barre de navigation et son accès
-          direct est bloqué. Toi, tu vois toujours tout.
-        </p>
-        <div class="state" id="state">Chargement…</div>
-        <div class="rows" id="rows" style="display:none"></div>
-        <p class="note">
-          L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
-          Les modifications sont immédiates pour tous les utilisateurs.
-        </p>
+        <div class="sup-cols">
+          <div class="sup-col">
+            <p class="sub">
+              Choisis les pages visibles pour les autres utilisateurs de l'admin.
+              Une page désactivée disparaît de la barre de navigation et son accès
+              direct est bloqué. Toi, tu vois toujours tout.
+            </p>
+            <div class="state" id="state">Chargement…</div>
+            <div class="rows" id="rows" style="display:none"></div>
+            <p class="note">
+              L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
+              Les modifications sont immédiates pour tous les utilisateurs.
+            </p>
+          </div>
+
+          <div class="sup-col">
+            <h2 class="tema-titre">Design</h2>
+            <p class="sub">
+              L'admin prend les couleurs du client. Les couleurs « signal »
+              (vert = succès, rouge = erreur) ne changent pas.
+            </p>
+            <div class="tema-rows" id="tema-rows" style="display:none"></div>
+            <button class="tema-reset" id="tema-reset" style="display:none">Revenir aux couleurs MOODD</button>
+          </div>
+        </div>
       </main>
       <AdminFooter />
     </div>
@@ -127,7 +175,7 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuper, PAGINE_ADMIN, TABS_ADMIN } from "../../lib/admin/superAdmin";
+      import { isSuper, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -236,15 +284,133 @@ import { CLIENT } from "../../config/client";
           }
         });
 
+        // ---- Couleurs du brand ----
+        const temaRowsEl = document.getElementById("tema-rows") as HTMLDivElement;
+        const temaResetEl = document.getElementById("tema-reset") as HTMLButtonElement;
+        const TEMA_LABEL: Record<string, string> = {
+          accent: "Accent (boutons, actifs)",
+          hover: "Accent — survol",
+          bg: "Fond",
+          card: "Cartes",
+          input: "Champs & éléments sombres",
+          line: "Lignes & bordures",
+          muted: "Texte secondaire",
+          text: "Texte principal",
+        };
+        let tema: Record<string, string> = {};
+
+        // Applica SUBITO i colori a questa pagina (anteprima live) + cache
+        function applicaTema() {
+          const root = document.documentElement;
+          for (const k of TEMA_CHIAVI) {
+            if (tema[k]) root.style.setProperty("--c-" + k, tema[k]);
+            else root.style.removeProperty("--c-" + k);
+          }
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", tema.bg ?? "#ffffff");
+          root.classList.toggle("glass", tema.glass === "on");
+          if (tema.shadow !== undefined) root.style.setProperty("--sh", String(Number(tema.shadow) / 100));
+          else root.style.removeProperty("--sh");
+          try { localStorage.setItem("mdd_theme", JSON.stringify(tema)); } catch { /* pieno */ }
+        }
+
+        function renderTema() {
+          const glassOn = tema.glass === "on";
+          temaRowsEl.innerHTML =
+            TEMA_CHIAVI.map((k) => {
+              const v = tema[k] ?? TEMA_DEFAULT[k];
+              return `
+            <div class="tema-row" data-tk="${k}">
+              <span class="tema-nom">${TEMA_LABEL[k] ?? k}</span>
+              <span class="tema-hex">${v}</span>
+              <input type="color" class="tema-pick" value="${v}" />
+            </div>`;
+            }).join("") +
+            `
+            <div class="tema-row">
+              <span class="tema-nom">Effet verre (transparences)</span>
+              <span class="tema-hex">${glassOn ? "oui" : "opaque"}</span>
+              <label class="switch"><input type="checkbox" id="tema-glass" ${glassOn ? "checked" : ""} /><span class="track"></span></label>
+            </div>
+            <div class="tema-row">
+              <span class="tema-nom">Ombres</span>
+              <span class="tema-hex" id="tema-shadow-v">${tema.shadow ?? "15"}%</span>
+              <input type="range" class="tema-range" id="tema-shadow" min="0" max="100" step="5" value="${tema.shadow ?? "15"}" />
+            </div>`;
+          document.getElementById("tema-shadow")?.addEventListener("input", (e) => {
+            const v = (e.target as HTMLInputElement).value;
+            if (v === "15") delete tema.shadow;
+            else tema.shadow = v;
+            const lbl = document.getElementById("tema-shadow-v");
+            if (lbl) lbl.textContent = v + "%";
+            applicaTema();
+            salvaTema();
+          });
+          document.getElementById("tema-glass")?.addEventListener("change", (e) => {
+            const on = (e.target as HTMLInputElement).checked;
+            if (on) tema.glass = "on";
+            else delete tema.glass;
+            renderTema();
+            applicaTema();
+            salvaTema();
+          });
+        }
+
+        let temaTimer: number | undefined;
+        function salvaTema() {
+          window.clearTimeout(temaTimer);
+          temaTimer = window.setTimeout(async () => {
+            try {
+              const res = await fetch("/api/admin/pages", {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({ hidden: nascoste, hiddenTabs: nascosteTab, theme: tema }),
+              });
+              if (!res.ok) throw new Error();
+              toast("Couleurs enregistrées ✓");
+            } catch {
+              toast("Enregistrement impossible", true);
+            }
+          }, 500);
+        }
+
+        temaRowsEl.addEventListener("input", (e) => {
+          const t = e.target as HTMLInputElement;
+          if (!t.classList.contains("tema-pick")) return;
+          const k = (t.closest(".tema-row") as HTMLElement).dataset.tk!;
+          tema[k] = t.value.toLowerCase();
+          const hex = (t.closest(".tema-row") as HTMLElement).querySelector(".tema-hex");
+          if (hex) hex.textContent = tema[k];
+          applicaTema();
+          salvaTema();
+        });
+
+        temaResetEl.addEventListener("click", () => {
+          tema = {};
+          renderTema();
+          applicaTema();
+          salvaTema();
+        });
+
         try {
           const res = await fetch("/api/admin/pages", { headers });
           if (!res.ok) throw new Error();
-          const dati = (await res.json()) as { hidden: string[]; hiddenTabs?: string[] };
+          const dati = (await res.json()) as {
+            hidden: string[];
+            hiddenTabs?: string[];
+            theme?: Record<string, string>;
+          };
           nascoste = dati.hidden ?? [];
           nascosteTab = dati.hiddenTabs ?? [];
+          tema = dati.theme ?? {};
           stateEl.style.display = "none";
           rowsEl.style.display = "flex";
+          temaRowsEl.style.display = "flex";
+          temaResetEl.style.display = "inline-block";
           render();
+          renderTema();
+          applicaTema();
         } catch {
           stateEl.textContent = "Erreur de chargement.";
         }

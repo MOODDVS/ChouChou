@@ -2,8 +2,8 @@ import { defineMiddleware, sequence } from "astro:middleware";
 
 /**
  * Host canonico: forza il www.
- * Se PUBLIC_SITE_URL = https://www.lamolisana.be, ogni richiesta GET/HEAD
- * arrivata su lamolisana.be (apex, senza www) riceve un 301 verso lo
+ * Se PUBLIC_SITE_URL = https://www.dominiocliente.be, ogni richiesta GET/HEAD
+ * arrivata su dominiocliente.be (apex, senza www) riceve un 301 verso lo
  * stesso percorso su www. Engine-safe:
  * - si attiva SOLO se l’host di PUBLIC_SITE_URL inizia con "www."
  *   (altrimenti il middleware non fa nulla);
