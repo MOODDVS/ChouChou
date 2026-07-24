@@ -289,7 +289,30 @@ export const GET: APIRoute = async ({ request, url }) => {
         if (pieno) pieni.push(iso);
       }
     }
-    return json({ closed: chiusi, full: pieni, busy: [...occupati].sort() });
+    // Tasso d'occupazione per giorno (colore del pallino nel datepicker):
+    // coperti contati / capacità della giornata (capienza sala × n. services)
+    const taux: Record<string, number> = {};
+    if (capienza > 0) {
+      const capGiorno = capienza * Math.max(1, services.length);
+      for (const [iso, n] of copertiGiorno) taux[iso] = Math.round((n / capGiorno) * 100);
+    }
+    return json({ closed: chiusi, full: pieni, busy: [...occupati].sort(), taux });
+  }
+
+  // Intervallo di giorni (viste Semaine/Mois): tutte le prenotazioni ordinate
+  const da = url.searchParams.get("from") ?? "";
+  const a = url.searchParams.get("to") ?? "";
+  if (RE_DATA.test(da) && RE_DATA.test(a) && da <= a) {
+    const { data, error } = await supabaseAdmin
+      .from("reservations")
+      .select("*")
+      .gte("date", da)
+      .lte("date", a)
+      .order("date", { ascending: true })
+      .order("heure", { ascending: true })
+      .limit(1000);
+    if (error) return json({ reservations: [] });
+    return json({ reservations: data ?? [] });
   }
 
   const date = url.searchParams.get("date") ?? "";

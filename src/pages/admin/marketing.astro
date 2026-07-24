@@ -72,6 +72,37 @@ import { CLIENT } from "../../config/client";
         transition: border-color 0.2s;
       }
       .pill:hover { border-color: var(--c-accent); }
+      #c-buy { background: #1c1819; }
+      /* Pillole segmenti/programmazione nel modale newsletter */
+      .seg-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+      .seg-pill {
+        background: #1c1819; border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
+        padding: 0.45rem 0.9rem; border-radius: 999px; cursor: pointer;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .seg-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .seg-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: #231f20; }
+      .seg-pill .n { opacity: 0.7; margin-left: 0.3rem; }
+      .np-del {
+        background: none; border: 1px solid var(--c-line); color: var(--c-muted);
+        width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .np-del:hover, .np-del.confirm { border-color: #ed1c24; color: #ff8a8f; }
+      /* Card di brouillons e programmate */
+      .nn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.9rem; align-items: start; margin-bottom: 1.5rem; }
+      .nn-card {
+        display: flex; flex-direction: column; gap: 0.5rem;
+        background: var(--c-card); border: 1px solid var(--c-line);
+        padding: 1rem 1.1rem; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+      }
+      .nn-card.is-click { cursor: pointer; transition: border-color 0.15s; }
+      .nn-card.is-click:hover { border-color: var(--c-accent); }
+      .nn-tit { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.04em; color: var(--c-accent); }
+      .nn-msg { color: var(--c-muted); font-size: 0.8rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .nn-foot { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; margin-top: 0.2rem; font-size: 0.75rem; color: var(--c-muted); }
+      .nn-foot .nn-quando { margin-right: auto; color: var(--c-text); font-weight: 700; }
 
       /* Card pop-up */
       .pops { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.25rem; }
@@ -315,7 +346,7 @@ import { CLIENT } from "../../config/client";
           <div class="n-stats">
             <div class="n-stat">
               <div class="n-stat-lab">Envoyées ce mois-ci</div>
-              <div class="n-stat-big"><span id="n-sent">—</span><span class="n-stat-sub">/ 1000</span></div>
+              <div class="n-stat-big"><span id="n-sent">—</span><span class="n-stat-sub" id="n-quota">/ —</span></div>
             </div>
             <div class="n-stat">
               <div class="n-stat-lab">Envois restants</div>
@@ -327,13 +358,20 @@ import { CLIENT } from "../../config/client";
             </div>
             <div class="n-stat">
               <div class="n-stat-lab">Destinataires</div>
-              <div class="n-stat-big" id="n-recipients">—</div>
+              <div class="n-stat-big"><span id="n-recipients">—</span><span class="n-stat-sub">opted-in</span></div>
+              <span class="n-stat-note" id="n-optout"></span>
             </div>
           </div>
 
           <div class="actionsbar">
             <button class="pill" id="n-add">+ Nouvelle newsletter</button>
           </div>
+
+          <h2 class="n-htitle" id="nd-tit" style="display:none">Brouillons</h2>
+          <div class="n-history" id="nd-list"></div>
+
+          <h2 class="n-htitle" id="np-tit" style="display:none">Programmées</h2>
+          <div class="n-history" id="np-list"></div>
 
           <h2 class="n-htitle">Derniers envois</h2>
           <div class="state" id="n-hempty" style="display:none">Aucun envoi pour le moment.</div>
@@ -484,6 +522,11 @@ import { CLIENT } from "../../config/client";
         <button class="m-close" id="n-close" type="button" aria-label="Fermer">×</button>
         <h2>Nouvelle newsletter</h2>
 
+        <label class="f-lab">Destinataires — langue</label>
+        <div class="seg-row" id="n-lang"></div>
+        <label class="f-lab">Destinataires — groupe</label>
+        <div class="seg-row" id="n-seg"></div>
+
         <label class="f-lab" for="n-subject">Objet *</label>
         <input type="text" class="f-input" id="n-subject" placeholder="Ex. Nouveau menu d'automne 🍂" />
 
@@ -506,9 +549,31 @@ import { CLIENT } from "../../config/client";
           <button class="pill asset-pick" type="button" data-target="n-btnu" title="Choisir un asset (image ou PDF)">Assets</button>
         </div>
 
+        <label class="f-lab">Bouton 2 (facultatif)</label>
+        <div class="f-row">
+          <input type="text" class="f-input" id="n-btn2l" placeholder="Label — ex. Réserver une table" />
+          <input type="text" class="f-input" id="n-btn2u" placeholder="Lien — https://…" />
+          <button class="pill asset-pick" type="button" data-target="n-btn2u" title="Choisir un asset (image ou PDF)">Assets</button>
+        </div>
+
+        <label class="f-lab">Envoi</label>
+        <div class="seg-row" id="n-when">
+          <button type="button" class="seg-pill is-on" data-w="now">Maintenant</button>
+          <button type="button" class="seg-pill" data-w="date">Programmer</button>
+          <button type="button" class="seg-pill" data-w="weekly">Chaque semaine</button>
+          <button type="button" class="seg-pill" data-w="monthly">Chaque mois</button>
+        </div>
+        <div class="f-row" id="n-prog" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap">
+          <input type="text" class="f-input" id="np-date" placeholder="Date" readonly style="max-width:160px; cursor:pointer; display:none" />
+          <span class="seg-row" id="np-dow" style="display:none; margin-bottom:0"></span>
+          <input type="number" class="f-input" id="np-day" min="1" max="28" value="1" title="Jour du mois" style="max-width:90px; display:none" />
+          <select class="f-input" id="np-heure" style="max-width:110px"></select>
+        </div>
+
         <div class="m-foot">
           <button class="m-save" id="n-send" type="button">Envoyer à tous</button>
           <button class="pill" id="n-test" type="button">M'envoyer un test</button>
+          <button class="pill" id="n-draft" type="button">Enregistrer le brouillon</button>
           <span class="m-err" id="n-err"></span>
         </div>
         <p class="f-hint" style="margin-top:0.6rem">
@@ -1232,6 +1297,8 @@ import { CLIENT } from "../../config/client";
         const nImg = document.getElementById("n-img") as HTMLInputElement;
         const nBtnl = document.getElementById("n-btnl") as HTMLInputElement;
         const nBtnu = document.getElementById("n-btnu") as HTMLInputElement;
+        const nBtn2l = document.getElementById("n-btn2l") as HTMLInputElement;
+        const nBtn2u = document.getElementById("n-btn2u") as HTMLInputElement;
         const nSend = document.getElementById("n-send") as HTMLButtonElement;
         const nTest = document.getElementById("n-test") as HTMLButtonElement;
         const nErr = document.getElementById("n-err") as HTMLSpanElement;
@@ -1244,6 +1311,8 @@ import { CLIENT } from "../../config/client";
           remaining: number;
           purchased_balance: number;
           recipients: number;
+          opted_out: number;
+          segments?: Record<string, Record<string, number>>;
           history: { subject: string; count: number; created_at: string }[];
         };
         const nPurchased = document.getElementById("n-purchased") as HTMLSpanElement;
@@ -1255,6 +1324,20 @@ import { CLIENT } from "../../config/client";
         document.getElementById("n-add")!.addEventListener("click", () => {
           nErr.textContent = "";
           nUploadState.textContent = "";
+          // Modale PULITO: nuova newsletter = niente residui né brouillon agganciato
+          draftId = null;
+          nSubject.value = "";
+          nMsg.value = "";
+          nImg.value = "";
+          nBtnl.value = "";
+          nBtnu.value = "";
+          nBtn2l.value = "";
+          nBtn2u.value = "";
+          langScelta = "tous";
+          segScelto = "tous";
+          quando = "now";
+          renderSeg();
+          aggiornaProg();
           nOverlay.classList.add("is-open");
         });
         document.getElementById("n-close")!.addEventListener("click", () => nOverlay.classList.remove("is-open"));
@@ -1275,10 +1358,18 @@ import { CLIENT } from "../../config/client";
             const s = (await res.json()) as NewsStato;
             destinatariNoti = s.recipients;
             nSent.textContent = String(s.sent_this_month);
+            // Totale disponibile del mese: incluse (quota) + crediti acquistati
+            const totale = document.getElementById("n-quota");
+            if (totale) totale.textContent = `/ ${s.sent_this_month + s.remaining}`;
             nRemaining.textContent = String(s.remaining);
             nPurchased.textContent =
               s.purchased_balance > 0 ? `dont ${s.purchased_balance} crédits achetés` : "";
             nRecipients.textContent = String(s.recipients);
+            const oo = document.getElementById("n-optout");
+            if (oo) oo.textContent = s.opted_out > 0 ? `${s.opted_out} opted-out` : "aucun opted-out";
+            segCounts = s.segments ?? {};
+            renderSeg();
+            void caricaProgrammate();
             if (s.history.length === 0) {
               nHistory.innerHTML = "";
               nHempty.style.display = "block";
@@ -1301,11 +1392,14 @@ import { CLIENT } from "../../config/client";
 
         function payloadNews() {
           return {
+            segment: `${langScelta}:${segScelto}`,
             subject: nSubject.value,
             message: nMsg.value,
             image_url: nImg.value,
             btn_label: nBtnl.value,
             btn_url: nBtnu.value,
+            btn2_label: nBtn2l.value,
+            btn2_url: nBtn2u.value,
           };
         }
 
@@ -1402,9 +1496,10 @@ import { CLIENT } from "../../config/client";
         let nConfermaTimer: number | undefined;
         nSend.addEventListener("click", async () => {
           nErr.textContent = "";
+          if (quando !== "now") { void programmaNews(); return; }
           if (!nSend.classList.contains("confirm")) {
             nSend.classList.add("confirm");
-            nSend.textContent = `Confirmer l'envoi à ${destinatariNoti} clients ?`;
+            nSend.textContent = `Confirmer l'envoi à ${contaSeg(langScelta, segScelto) ?? destinatariNoti} clients ?`;
             window.clearTimeout(nConfermaTimer);
             nConfermaTimer = window.setTimeout(() => {
               nSend.classList.remove("confirm");
@@ -1429,6 +1524,10 @@ import { CLIENT } from "../../config/client";
               return;
             }
             toast(`Newsletter envoyée à ${j.sent} clients`);
+            if (draftId) {
+              void fetch("/api/admin/newsletter-schedule?id=" + draftId, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } }).then(() => caricaProgrammate());
+              draftId = null;
+            }
             nSubject.value = "";
             nMsg.value = "";
             nImg.value = "";
@@ -1442,6 +1541,261 @@ import { CLIENT } from "../../config/client";
             nSend.disabled = false;
             nSend.classList.remove("is-loading");
             nSend.textContent = "Envoyer à tous";
+          }
+        });
+
+        // ---------- Segmenti destinatari + programmazione (#39) ----------
+        // La LINGUA è primaria (fr = sito FR o sconosciuta · en = tutte le
+        // altre); il gruppo vale DENTRO la lingua. segment = "lingua:gruppo".
+        const LANG_LAB: Record<string, string> = { tous: "Toutes langues", fr: "FR", en: "EN" };
+        const SEG_LAB: Record<string, string> = {
+          tous: "Tous", nouveaux: "Nouveaux", top50: "Top 50", resa: "Ont réservé", commande: "Ont commandé",
+        };
+        let langScelta = "tous";
+        let segScelto = "tous";
+        let segCounts: Record<string, Record<string, number>> = {};
+        const nLang = document.getElementById("n-lang") as HTMLDivElement;
+        const nSeg = document.getElementById("n-seg") as HTMLDivElement;
+        function contaSeg(l: string, g: string): number | undefined {
+          return segCounts[l]?.[g];
+        }
+        function segLabel(seg: string): string {
+          const [sl, sg] = String(seg ?? "").split(":");
+          return (LANG_LAB[sl] ?? "Toutes langues") + (sg && sg !== "tous" ? " · " + (SEG_LAB[sg] ?? sg) : "");
+        }
+        function renderSeg() {
+          nLang.innerHTML = Object.keys(LANG_LAB)
+            .map((k) => `<button type="button" class="seg-pill${langScelta === k ? " is-on" : ""}" data-lang="${k}">${LANG_LAB[k]}${contaSeg(k, "tous") !== undefined ? `<span class="n">${contaSeg(k, "tous")}</span>` : ""}</button>`)
+            .join("");
+          nSeg.innerHTML = Object.keys(SEG_LAB)
+            .map((k) => `<button type="button" class="seg-pill${segScelto === k ? " is-on" : ""}" data-seg="${k}">${SEG_LAB[k]}${contaSeg(langScelta, k) !== undefined ? `<span class="n">${contaSeg(langScelta, k)}</span>` : ""}</button>`)
+            .join("");
+        }
+        nLang.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".seg-pill") as HTMLElement | null;
+          if (!t?.dataset.lang) return;
+          langScelta = t.dataset.lang;
+          renderSeg();
+          aggiornaTestoInvio();
+        });
+        nSeg.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".seg-pill") as HTMLElement | null;
+          if (!t?.dataset.seg) return;
+          segScelto = t.dataset.seg;
+          renderSeg();
+          aggiornaTestoInvio();
+        });
+
+        let quando = "now"; // now | date | weekly | monthly
+        const nWhen = document.getElementById("n-when") as HTMLDivElement;
+        const nProg = document.getElementById("n-prog") as HTMLDivElement;
+        const npDate = document.getElementById("np-date") as HTMLInputElement;
+        const npDow = document.getElementById("np-dow") as HTMLElement;
+        const npDay = document.getElementById("np-day") as HTMLInputElement;
+        const npHeure = document.getElementById("np-heure") as HTMLSelectElement;
+        npHeure.innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}"${h === 10 ? " selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("");
+        const DOW_LAB = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+        let dowScelto = 5; // venerdì
+        function renderDow() {
+          npDow.innerHTML = DOW_LAB.map((l, i) => `<button type="button" class="seg-pill${dowScelto === i + 1 ? " is-on" : ""}" data-d="${i + 1}">${l}</button>`).join("");
+        }
+        npDow.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".seg-pill") as HTMLElement | null;
+          if (!t?.dataset.d) return;
+          dowScelto = Number(t.dataset.d);
+          renderDow();
+        });
+        function aggiornaTestoInvio() {
+          if (nSend.classList.contains("confirm")) return;
+          nSend.textContent = quando === "now" ? (langScelta === "tous" && segScelto === "tous" ? "Envoyer à tous" : "Envoyer au groupe") : "Programmer";
+        }
+        function aggiornaProg() {
+          nProg.style.display = quando === "now" ? "none" : "flex";
+          npDate.style.display = quando === "date" ? "" : "none";
+          npDow.style.display = quando === "weekly" ? "flex" : "none";
+          npDay.style.display = quando === "monthly" ? "" : "none";
+          nWhen.querySelectorAll(".seg-pill").forEach((pl) => pl.classList.toggle("is-on", (pl as HTMLElement).dataset.w === quando));
+          aggiornaTestoInvio();
+        }
+        nWhen.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".seg-pill") as HTMLElement | null;
+          if (!t?.dataset.w) return;
+          quando = t.dataset.w;
+          aggiornaProg();
+        });
+        npDate.addEventListener("click", (e) => {
+          e.stopPropagation();
+          dpApri(npDate);
+        });
+        renderDow();
+        renderSeg();
+        aggiornaProg();
+
+        async function programmaNews() {
+          nErr.textContent = "";
+          if (!nSubject.value.trim()) { nErr.textContent = "L'objet est obligatoire"; return; }
+          if (!nMsg.value.trim()) { nErr.textContent = "Le message est obligatoire"; return; }
+          const body: Record<string, unknown> = { ...payloadNews(), heure: Number(npHeure.value) };
+          if (quando === "date") {
+            if (!npDate.dataset.iso) { nErr.textContent = "Choisis la date."; return; }
+            body.send_date = npDate.dataset.iso;
+          } else {
+            body.recur = quando; // weekly | monthly
+            if (quando === "weekly") body.recur_dow = dowScelto;
+            else body.recur_day = Math.min(28, Math.max(1, Number(npDay.value || 1)));
+          }
+          nSend.disabled = true;
+          nSend.classList.add("is-loading");
+          try {
+            const res = await fetch("/api/admin/newsletter-schedule", { method: "POST", headers, body: JSON.stringify(body) });
+            const j = await res.json();
+            if (!res.ok) { nErr.textContent = j.error ?? "Erreur"; return; }
+            toast("Newsletter programmée ✓");
+            if (draftId) {
+              void fetch("/api/admin/newsletter-schedule?id=" + draftId, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              draftId = null;
+            }
+            nOverlay.classList.remove("is-open");
+            quando = "now";
+            aggiornaProg();
+            void caricaProgrammate();
+          } catch {
+            nErr.textContent = "Erreur de connexion";
+          } finally {
+            nSend.disabled = false;
+            nSend.classList.remove("is-loading");
+            aggiornaTestoInvio();
+          }
+        }
+
+        let draftId: string | null = null;
+        let draftsCache: { id: string; subject: string; message: string; image_url: string | null; btn_label: string | null; btn_url: string | null; btn2_label: string | null; btn2_url: string | null; segment: string }[] = [];
+
+        async function salvaBrouillon() {
+          nErr.textContent = "";
+          if (!nSubject.value.trim() && !nMsg.value.trim()) {
+            nErr.textContent = "Rien à enregistrer";
+            return;
+          }
+          const bd = document.getElementById("n-draft") as HTMLButtonElement;
+          bd.disabled = true;
+          try {
+            const res = await fetch("/api/admin/newsletter-schedule", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ ...payloadNews(), draft: true, id: draftId ?? undefined }),
+            });
+            const j = await res.json();
+            if (!res.ok) { nErr.textContent = j.error ?? "Erreur"; return; }
+            draftId = j.schedule?.id ?? null;
+            toast("Brouillon enregistré ✓");
+            nOverlay.classList.remove("is-open");
+            void caricaProgrammate();
+          } catch {
+            nErr.textContent = "Erreur de connexion";
+          } finally {
+            bd.disabled = false;
+          }
+        }
+        (document.getElementById("n-draft") as HTMLButtonElement).addEventListener("click", () => void salvaBrouillon());
+
+        function apriBrouillon(r: (typeof draftsCache)[number]) {
+          draftId = r.id;
+          nErr.textContent = "";
+          nSubject.value = r.subject === "(brouillon)" ? "" : r.subject;
+          nMsg.value = r.message ?? "";
+          nImg.value = r.image_url ?? "";
+          nBtnl.value = r.btn_label ?? "";
+          nBtnu.value = r.btn_url ?? "";
+          nBtn2l.value = r.btn2_label ?? "";
+          nBtn2u.value = r.btn2_url ?? "";
+          const [sl, sg] = String(r.segment ?? "tous:tous").split(":");
+          langScelta = sl || "tous";
+          segScelto = sg || "tous";
+          quando = "now";
+          renderSeg();
+          aggiornaProg();
+          nOverlay.classList.add("is-open");
+        }
+        (document.getElementById("nd-list") as HTMLElement).addEventListener("click", async (e) => {
+          const del = (e.target as HTMLElement).closest(".np-del") as HTMLButtonElement | null;
+          const row = (e.target as HTMLElement).closest(".nn-card") as HTMLElement | null;
+          if (!row) return;
+          if (del) {
+            if (!del.classList.contains("confirm")) {
+              del.classList.add("confirm");
+              del.textContent = "?";
+              setTimeout(() => { del.classList.remove("confirm"); del.textContent = "×"; }, 3000);
+              return;
+            }
+            try {
+              const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              if (!res.ok) { toast("Suppression impossible", true); return; }
+              if (draftId === row.dataset.id) draftId = null;
+              toast("Brouillon supprimé");
+              void caricaProgrammate();
+            } catch {
+              toast("Erreur de connexion", true);
+            }
+            return;
+          }
+          const r = draftsCache.find((x) => x.id === row.dataset.id);
+          if (r) apriBrouillon(r);
+        });
+
+        async function caricaProgrammate() {
+          try {
+            const res = await fetch("/api/admin/newsletter-schedule", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { schedules?: { id: string; subject: string; message?: string; segment: string; send_at: string | null; recur: string | null; recur_dow: number | null; recur_day: number | null; recur_heure: number | null }[] };
+            const righe = j.schedules ?? [];
+            draftsCache = ((j as { drafts?: typeof draftsCache }).drafts ?? []);
+            const dtit = document.getElementById("nd-tit") as HTMLElement;
+            const dbox = document.getElementById("nd-list") as HTMLElement;
+            dtit.style.display = draftsCache.length ? "" : "none";
+            dbox.innerHTML = draftsCache.length
+              ? `<div class="nn-grid">${draftsCache
+                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="Reprendre ce brouillon"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}<div class="nn-foot"><span class="nn-quando">brouillon</span><span>${segLabel(r.segment)}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`)
+                  .join("")}</div>`
+              : "";
+            const tit = document.getElementById("np-tit") as HTMLElement;
+            const box = document.getElementById("np-list") as HTMLElement;
+            tit.style.display = righe.length ? "" : "none";
+            const tz = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
+            const JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+            box.innerHTML = righe.length ? '<div class="nn-grid">' + righe
+              .map((r) => {
+                const hh = `${String(r.recur_heure ?? 10).padStart(2, "0")}:00`;
+                let quandoTxt = "";
+                if (r.send_at) {
+                  quandoTxt = new Date(r.send_at).toLocaleString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: tz });
+                } else if (r.recur === "weekly") {
+                  quandoTxt = `chaque ${JOURS[(r.recur_dow ?? 1) - 1]} à ${hh}`;
+                } else {
+                  quandoTxt = `le ${r.recur_day} du mois à ${hh}`;
+                }
+                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><span>${segLabel(r.segment)}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`;
+              })
+              .join("") + "</div>" : "";
+          } catch { /* lista invariata */ }
+        }
+        (document.getElementById("np-list") as HTMLElement).addEventListener("click", async (e) => {
+          const b = (e.target as HTMLElement).closest(".np-del") as HTMLButtonElement | null;
+          if (!b) return;
+          const row = b.closest(".nn-card") as HTMLElement;
+          if (!b.classList.contains("confirm")) {
+            b.classList.add("confirm");
+            b.textContent = "?";
+            setTimeout(() => { b.classList.remove("confirm"); b.textContent = "×"; }, 3000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+            if (!res.ok) { toast("Suppression impossible", true); return; }
+            toast("Programmée supprimée");
+            void caricaProgrammate();
+          } catch {
+            toast("Erreur de connexion", true);
           }
         });
 
