@@ -7,16 +7,18 @@
 // Le immagini si cambiano QUI: percorsi in SLIDES (public/slideshow/).
 // Se un'immagine manca, viene saltata dalla rotazione (niente flash nero).
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { siteImages, siteImg } from "../lib/siteImages";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../lib/schedule";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
+const IMGS = await siteImages();
 const SLIDES = [
-  "/slideshow/slide-01.webp",
-  "/slideshow/slide-02.webp",
-  "/slideshow/slide-03.webp",
+  siteImg(IMGS, "site_hero_1", "/slideshow/slide-01.webp"),
+  siteImg(IMGS, "site_hero_2", "/slideshow/slide-02.webp"),
+  siteImg(IMGS, "site_hero_3", "/slideshow/slide-03.webp"),
 ];
 
 const L = {

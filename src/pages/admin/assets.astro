@@ -7,6 +7,15 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
+import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
+
+const sitePages = SITE_PAGES.filter((p) => SITE_IMAGE_SLOTS.some((s) => s.page === p));
+function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
+  const g: Record<string, typeof SITE_IMAGE_SLOTS> = {};
+  for (const s of SITE_IMAGE_SLOTS) if (s.page === p) (g[s.group] ??= []).push(s);
+  return Object.entries(g);
+}
 ---
 
 <html lang="fr">
@@ -220,11 +229,51 @@ import { CLIENT } from "../../config/client";
           <input type="file" id="add-doc-file" accept=".pdf" style="display:none" />
         </div>
         <div class="tabs" id="main-tabs">
-          <button class="tab is-active" data-t="images"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>Images</button>
+          <button class="tab is-active" data-t="site"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" /></svg>Site</button>
+          <button class="tab" data-t="images"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>Images</button>
           <button class="tab" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>Documents</button>
         </div>
 
-        <section data-tab="images">
+        <style>
+          .site-hint { color: var(--c-muted); font-size: 0.85rem; margin: 0 0 1.1rem; }
+          .site-group { margin-bottom: 1.6rem; }
+          .site-group-t { font-family: var(--font-title); color: var(--c-accent); font-size: 0.9rem; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 0.6rem; }
+          .site-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; }
+          .site-slot .card-img { aspect-ratio: 1; background: var(--c-line); }
+          .card-img img.is-broken { display: none; }
+        </style>
+
+        <section data-tab="site">
+          <div class="tabs tabs-sub" id="site-pages">
+            {sitePages.map((p, i) => (
+              <button type="button" class={i === 0 ? "tab is-active" : "tab"} data-p={p}>{p}</button>
+            ))}
+          </div>
+          <p class="site-hint">Changez les photos du site public. Tant qu'une image n'est pas remplacee, la photo actuelle reste affichee.</p>
+          {sitePages.map((p, i) => (
+            <div class="site-page" data-page={p} style={i === 0 ? "" : "display:none"}>
+              {groupsForPage(p).map(([g, slots]) => (
+                <div class="site-group">
+                  <h3 class="site-group-t">{g}</h3>
+                  <div class="site-slots">
+                    {slots.map((s) => (
+                      <div class="card site-slot" data-key={s.key} data-fallback={s.fallback}>
+                        <div class="card-img"><img src={s.fallback} alt="" loading="lazy" onerror="this.classList.add('is-broken')" /></div>
+                        <div class="card-body">
+                          <div class="card-name">{s.label}</div>
+                          <div class="card-meta"><span class="tag tag-l">{s.page}</span><span class="tag tag-u site-perso" hidden>Personnalisée</span></div>
+                        </div>
+                        <div class="card-actions"><button type="button" class="i-btn site-change" title="Changer l'image">✎</button><span class="spacer"></span><button type="button" class="i-btn site-reset" hidden title="Remettre par défaut">↺</button></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+
+        <section data-tab="images" style="display:none">
         <div class="tabs tabs-sub" id="tabs">
           <button class="tab is-active" data-b="">Toutes<span class="n" id="n-all"></span></button>
           <button class="tab" data-b="menu">Menu<span class="n" id="n-menu"></span></button>
@@ -241,6 +290,7 @@ import { CLIENT } from "../../config/client";
         </section>
       </main>
       <AdminFooter />
+    <ImagePicker />
     </div>
 
     <div class="toast" id="toast"></div>
@@ -861,9 +911,11 @@ import { CLIENT } from "../../config/client";
         const mainTabs = document.getElementById("main-tabs") as HTMLDivElement;
         const secImgs = document.querySelector('section[data-tab="images"]') as HTMLElement;
         const secDocs = document.querySelector('section[data-tab="documents"]') as HTMLElement;
+        const secSite = document.querySelector('section[data-tab="site"]') as HTMLElement;
         function mostraTab(t: string) {
           secImgs.style.display = t === "images" ? "" : "none";
           secDocs.style.display = t === "documents" ? "" : "none";
+          secSite.style.display = t === "site" ? "" : "none";
           addBtn.style.display = t === "images" ? "" : "none";
           addDocBtn.style.display = t === "documents" ? "" : "none";
           mainTabs.querySelectorAll<HTMLElement>(".tab").forEach((el) => el.classList.toggle("is-active", el.dataset.t === t));
@@ -873,7 +925,83 @@ import { CLIENT } from "../../config/client";
           const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
           if (t?.dataset.t) mostraTab(t.dataset.t);
         });
-        mostraTab(sessionStorage.getItem("lm-adm-assets-tab") ?? "images");
+        mostraTab(sessionStorage.getItem("lm-adm-assets-tab") ?? "site");
+
+        // ---------- Tab Site: immagini del sito pubblico ----------
+        function siteAggiorna(slot: HTMLElement, url: string) {
+          const img = slot.querySelector("img") as HTMLImageElement;
+          const badge = slot.querySelector(".site-perso") as HTMLElement;
+          const reset = slot.querySelector(".site-reset") as HTMLElement;
+          const perso = !!url;
+          img.classList.remove("is-broken");
+          img.src = url || (slot.dataset.fallback ?? "");
+          badge.hidden = !perso;
+          reset.hidden = !perso;
+        }
+        async function siteSalva(key: string, url: string): Promise<boolean> {
+          try {
+            const res = await fetch("/api/admin/site-images", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ key, url }),
+            });
+            return res.ok;
+          } catch {
+            return false;
+          }
+        }
+        async function siteCarica() {
+          try {
+            const res = await fetch("/api/admin/site-images", { headers });
+            const data = (await res.json()) as { images?: Record<string, string> };
+            const map = data.images ?? {};
+            secSite.querySelectorAll<HTMLElement>(".site-slot").forEach((slot) => {
+              siteAggiorna(slot, map[slot.dataset.key ?? ""] ?? "");
+            });
+          } catch {
+            /* silenzioso: restano i fallback */
+          }
+        }
+        let siteTarget: HTMLElement | null = null;
+        window.addEventListener("imgpick:pick", (ev) => {
+          if (!siteTarget) return;
+          const slot = siteTarget;
+          siteTarget = null;
+          const url = (ev as CustomEvent<{ url?: string }>).detail?.url ?? "";
+          if (!url) return;
+          siteAggiorna(slot, url);
+          void siteSalva(slot.dataset.key ?? "", url).then((ok) =>
+            toast(ok ? "Image mise a jour" : "Enregistrement impossible", !ok)
+          );
+        });
+        secSite.addEventListener("click", (e) => {
+          const el = e.target as HTMLElement;
+          const slot = el.closest(".site-slot") as HTMLElement | null;
+          if (!slot) return;
+          if (el.closest(".site-change")) {
+            siteTarget = slot;
+            window.dispatchEvent(new CustomEvent("imgpick:open"));
+          } else if (el.closest(".site-reset")) {
+            siteAggiorna(slot, "");
+            void siteSalva(slot.dataset.key ?? "", "").then((ok) =>
+              toast(ok ? "Image reinitialisee" : "Erreur", !ok)
+            );
+          }
+        });
+        void siteCarica();
+
+        // ---------- Filtro per pagina ----------
+        const sitePagesEl = document.getElementById("site-pages");
+        if (sitePagesEl) {
+          sitePagesEl.addEventListener("click", (e) => {
+            const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
+            if (!t?.dataset.p) return;
+            sitePagesEl.querySelectorAll<HTMLElement>(".tab").forEach((el) => el.classList.toggle("is-active", el === t));
+            secSite.querySelectorAll<HTMLElement>(".site-page").forEach((el) => {
+              el.style.display = el.dataset.page === t.dataset.p ? "" : "none";
+            });
+          });
+        }
 
         gridEl.addEventListener("click", async (e) => {
           const t = e.target as HTMLElement;

@@ -17,7 +17,9 @@ const en = lang === "en";
 
 const menu = await getMenu();
 
-const HERO_FOTO = "/la-molisana-home-foto-01.webp";
+import { siteImages, siteImg } from "../lib/siteImages";
+const IMGS = await siteImages();
+const HERO_FOTO = siteImg(IMGS, "site_menu_hero", "/la-molisana-home-foto-01.webp");
 
 // I 14 allergeni UE — stessi numeri usati dall'admin.
 const ALLERGENI: [number, string][] = en

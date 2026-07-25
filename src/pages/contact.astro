@@ -15,7 +15,9 @@ const lang = getLangFromUrl(Astro.url);
 const tr = useTranslations(lang);
 const en = lang === "en";
 
-const HERO_FOTO = "/la-molisana-home-foto-01.webp";
+import { siteImages, siteImg } from "../lib/siteImages";
+const IMGS = await siteImages();
+const HERO_FOTO = siteImg(IMGS, "site_contact_hero", "/la-molisana-home-foto-01.webp");
 const MAP_SRC =
   "https://www.google.com/maps?q=La+Molisana,+Avenue+Adolphe+Demeur+37,+1060+Saint-Gilles&output=embed";
 

@@ -11,7 +11,9 @@ import { linksSocial } from "../lib/links";
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
-const HERO_FOTO = "/la-molisana-ambiance-hero.webp";
+import { siteImages, siteImg } from "../lib/siteImages";
+const IMGS = await siteImages();
+const HERO_FOTO = siteImg(IMGS, "site_ambiance_hero", "/la-molisana-ambiance-hero.webp");
 
 // Social gestiti dall'admin (Réglages -> Liens)
 const social = await linksSocial();
@@ -57,7 +59,7 @@ const L = {
 
   <section class="fam">
     <figure class="fam-big">
-      <img src="/ambiance/la-molisana-famille.webp" alt={en ? "The La Molisana family at the restaurant" : "La famille La Molisana au restaurant"} loading="lazy" decoding="async" />
+      <img src={siteImg(IMGS, "site_ambiance_famille", "/ambiance/la-molisana-famille.webp")} alt={en ? "The La Molisana family at the restaurant" : "La famille La Molisana au restaurant"} loading="lazy" decoding="async" />
     </figure>
 
     <div class="fam-text">
@@ -71,7 +73,7 @@ const L = {
     <div class="fam-thumbs">
       {[1, 2, 3, 4].map((n) => (
         <img
-          src={`/ambiance/la-molisana-famille-0${n}.webp`}
+          src={siteImg(IMGS, `site_ambiance_famille_${n}`, `/ambiance/la-molisana-famille-0${n}.webp`)}
           alt={(en ? "La Molisana — the family at work " : "La Molisana — la famille au travail ") + n}
           loading="lazy"
           decoding="async"
@@ -96,7 +98,7 @@ const L = {
           const n = String(r * 4 + c).padStart(2, "0");
           return (
             <img
-              src={`/ambiance/ambiance-${n}.webp`}
+              src={siteImg(IMGS, `site_ambiance_grid_${n}`, `/ambiance/ambiance-${n}.webp`)}
               alt={(en ? "La Molisana, Italian restaurant in Saint-Gilles — ambiance " : "La Molisana, restaurant italien à Saint-Gilles — ambiance ") + (r * 4 + c)}
               loading="lazy"
               decoding="async"

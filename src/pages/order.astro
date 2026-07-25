@@ -74,7 +74,9 @@ try {
 // Solo piatti ordinabili in take-away (available = true AND orderable = true).
 const menu = ordiniChiusi ? [] : await getMenuOrderable();
 
-const HERO_FOTO = "/slideshow/slide-02.webp";
+import { siteImages, siteImg } from "../lib/siteImages";
+const IMGS = await siteImages();
+const HERO_FOTO = siteImg(IMGS, "site_order_hero", "/slideshow/slide-02.webp");
 
 // Stringhe tradotte passate all'isola React.
 const orderStrings = {

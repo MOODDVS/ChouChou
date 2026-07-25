@@ -14,6 +14,8 @@
   <div class="imgpick-modal">
     <button class="imgpick-close" id="imgpick-close" aria-label="Fermer">×</button>
     <h2>Bibliothèque d'images</h2>
+    <button type="button" class="imgpick-add" id="imgpick-add">+ Ajouter une image</button>
+    <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
     <div class="imgpick-tabs" id="imgpick-tabs">
       <button type="button" class="imgpick-tab is-on" data-b="">Toutes</button>
       <button type="button" class="imgpick-tab" data-b="menu">Menu</button>
@@ -44,6 +46,9 @@
     color: var(--c-muted, var(--c-muted)); font-size: 1.6rem; cursor: pointer; line-height: 1;
   }
   .imgpick-close:hover { color: var(--c-text, #fff); }
+  .imgpick-add { display: inline-block; margin-bottom: 1rem; background: var(--c-accent, var(--c-accent)); color: var(--c-bg); border: 1px solid var(--c-accent, var(--c-accent)); border-radius: 999px; padding: 0.4rem 1.1rem; font-family: var(--font-title, inherit); letter-spacing: 0.03em; font-size: 0.9rem; cursor: pointer; }
+  .imgpick-add:hover:not(:disabled) { background: transparent; color: var(--c-accent, var(--c-accent)); }
+  .imgpick-add:disabled { opacity: 0.5; cursor: not-allowed; }
   .imgpick-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
   .imgpick-tab {
     background: var(--c-card, var(--c-card)); border: 1px solid var(--c-line, var(--c-line)); color: var(--c-muted, var(--c-muted));
@@ -73,6 +78,7 @@
 
 <script>
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
+  import { comprimiFoto } from "../../lib/admin/imageCompress";
 
   type Img = { bucket: string; name: string; url: string; used_by: string[]; tags: string[] };
   type Doc = { name: string; url: string; thumb_url: string | null };
@@ -84,6 +90,8 @@
   const grid = document.getElementById("imgpick-grid") as HTMLDivElement;
   const stateEl = document.getElementById("imgpick-state") as HTMLDivElement;
   const tabsEl = document.getElementById("imgpick-tabs") as HTMLDivElement;
+  const addBtn = document.getElementById("imgpick-add") as HTMLButtonElement;
+  const addFile = document.getElementById("imgpick-file") as HTMLInputElement;
 
   let imgs: Img[] = [];
   let docs: Doc[] = [];
@@ -183,6 +191,43 @@
     if (!cell) return;
     window.dispatchEvent(new CustomEvent("imgpick:pick", { detail: { url: cell.dataset.url ?? "" } }));
     chiudi();
+  });
+
+  addBtn.addEventListener("click", () => addFile.click());
+  addFile.addEventListener("change", async () => {
+    const file = addFile.files?.[0];
+    if (!file) return;
+    const prev = addBtn.textContent;
+    addBtn.disabled = true;
+    addBtn.textContent = "Envoi…";
+    try {
+      const foto = await comprimiFoto(file);
+      if (foto.size > 4 * 1024 * 1024) throw new Error("Fichier trop lourd (max 4 Mo)");
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+        r.onerror = () => reject(new Error("Fichier illisible"));
+        r.readAsDataURL(foto);
+      });
+      const { data } = await supabaseBrowser.auth.getSession();
+      const token = data.session?.access_token ?? "";
+      const res = await fetch("/api/admin/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups" }),
+      });
+      const j = (await res.json()) as { error?: string; url?: string };
+      if (!res.ok || !j.url) throw new Error(j.error ?? "Téléversement impossible");
+      window.dispatchEvent(new CustomEvent("imgpick:pick", { detail: { url: j.url } }));
+      chiudi();
+    } catch (err) {
+      stateEl.style.display = "";
+      stateEl.textContent = err instanceof Error ? err.message : "Téléversement impossible";
+    } finally {
+      addBtn.disabled = false;
+      addBtn.textContent = prev;
+      addFile.value = "";
+    }
   });
 
   (document.getElementById("imgpick-close") as HTMLButtonElement).addEventListener("click", chiudi);

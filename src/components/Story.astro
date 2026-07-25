@@ -6,11 +6,13 @@
 // - mobile: titolo, testo, bottoni impilati a tutta larghezza, poi la foto.
 // L'immagine si cambia QUI: costante FOTO (file in public/).
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { siteImages, siteImg } from "../lib/siteImages";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
-const FOTO = "/la-molisana-home-foto-01.webp";
+const IMGS = await siteImages();
+const FOTO = siteImg(IMGS, "site_story", "/la-molisana-home-foto-01.webp");
 
 const L = {
   title: en ? "Pizzeria La Molisana in Saint-Gilles" : "Pizzeria La Molisana à Saint-Gilles",

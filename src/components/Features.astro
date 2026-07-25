@@ -5,15 +5,17 @@
 // - stessa animazione d'ingresso delle altre sezioni.
 // Le foto: public/la-molisana-thumb-01.webp … 04.
 import { getLangFromUrl } from "../i18n/ui";
+import { siteImages, siteImg } from "../lib/siteImages";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
+const IMGS = await siteImages();
 const THUMBS = [
-  "/la-molisana-thumb-01.webp",
-  "/la-molisana-thumb-02.webp",
-  "/la-molisana-thumb-03.webp",
-  "/la-molisana-thumb-04.webp",
+  siteImg(IMGS, "site_thumb_1", "/la-molisana-thumb-01.webp"),
+  siteImg(IMGS, "site_thumb_2", "/la-molisana-thumb-02.webp"),
+  siteImg(IMGS, "site_thumb_3", "/la-molisana-thumb-03.webp"),
+  siteImg(IMGS, "site_thumb_4", "/la-molisana-thumb-04.webp"),
 ];
 
 const COLS = en

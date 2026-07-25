@@ -3,13 +3,15 @@
 // Ogni scheda: foto, titolo Marcellus, riga di testo, bottone outline.
 // Le foto si cambiano QUI: costanti nelle CARDS (file in public/).
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { siteImages, siteImg } from "../lib/siteImages";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
+const IMGS = await siteImages();
 const CARDS = [
   {
-    img: "/la-molisana-cta-menu.webp",
+    img: siteImg(IMGS, "site_cta_menu", "/la-molisana-cta-menu.webp"),
     href: getLocalizedUrl("/menu", lang),
     title: en ? "The menu" : "Le menu",
     text: en
@@ -18,7 +20,7 @@ const CARDS = [
     btn: en ? "The menu" : "Le menu",
   },
   {
-    img: "/la-molisana-cta-ambiance.webp",
+    img: siteImg(IMGS, "site_cta_ambiance", "/la-molisana-cta-ambiance.webp"),
     href: getLocalizedUrl("/ambiance", lang),
     title: en ? "The ambiance" : "L'Ambiance",
     text: en
@@ -27,7 +29,7 @@ const CARDS = [
     btn: en ? "The ambiance" : "L'Ambiance",
   },
   {
-    img: "/la-molisana-cta-contact.webp",
+    img: siteImg(IMGS, "site_cta_contact", "/la-molisana-cta-contact.webp"),
     href: getLocalizedUrl("/contact", lang),
     title: "Contact",
     text: en

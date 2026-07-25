@@ -1,23 +1,25 @@
 ---
 import { getLangFromUrl, useTranslations } from "../i18n/ui";
 import { linksSocial } from "../lib/links";
+import { siteImages, siteImg } from "../lib/siteImages";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 
 // Ogni slide con le sue dimensioni reali (servono a Safari per calcolare
 // la larghezza del nastro PRIMA che le immagini carichino → niente collasso).
+const IMGS = await siteImages();
 const slides = [
-  { src: "/slideshow/slide-01.webp", w: 2200, h: 1466 },
-  { src: "/slideshow/slide-02.webp", w: 2200, h: 1467 },
-  { src: "/slideshow/slide-03.webp", w: 2200, h: 1467 },
-  { src: "/slideshow/slide-04.webp", w: 784, h: 1000 },
-  { src: "/slideshow/slide-05.webp", w: 1000, h: 667 },
-  { src: "/slideshow/slide-06.webp", w: 667, h: 1000 },
-  { src: "/slideshow/slide-07.webp", w: 1200, h: 800 },
-  { src: "/slideshow/slide-08.webp", w: 1064, h: 1200 },
-  { src: "/slideshow/slide-09.webp", w: 1200, h: 800 },
-  { src: "/slideshow/slide-10.webp", w: 800, h: 1200 },
+  { src: siteImg(IMGS, "site_gallery_1", "/slideshow/slide-01.webp"), w: 2200, h: 1466 },
+  { src: siteImg(IMGS, "site_gallery_2", "/slideshow/slide-02.webp"), w: 2200, h: 1467 },
+  { src: siteImg(IMGS, "site_gallery_3", "/slideshow/slide-03.webp"), w: 2200, h: 1467 },
+  { src: siteImg(IMGS, "site_gallery_4", "/slideshow/slide-04.webp"), w: 784, h: 1000 },
+  { src: siteImg(IMGS, "site_gallery_5", "/slideshow/slide-05.webp"), w: 1000, h: 667 },
+  { src: siteImg(IMGS, "site_gallery_6", "/slideshow/slide-06.webp"), w: 667, h: 1000 },
+  { src: siteImg(IMGS, "site_gallery_7", "/slideshow/slide-07.webp"), w: 1200, h: 800 },
+  { src: siteImg(IMGS, "site_gallery_8", "/slideshow/slide-08.webp"), w: 1064, h: 1200 },
+  { src: siteImg(IMGS, "site_gallery_9", "/slideshow/slide-09.webp"), w: 1200, h: 800 },
+  { src: siteImg(IMGS, "site_gallery_10", "/slideshow/slide-10.webp"), w: 800, h: 1200 },
 ]
 
 const loop = [...slides, ...slides];
