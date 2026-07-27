@@ -146,17 +146,20 @@ import { CLIENT } from "../../config/client";
       .sl-sh.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
 
       /* --- Tab Notifications --- */
-      .nf-row { display: flex; align-items: flex-end; gap: 1.4rem; border: 1px solid var(--c-line); padding: 1.1rem 1.3rem; flex-wrap: wrap; }
+      .section[data-tab="notifications"] { padding: 0; overflow: hidden; }
+      .nf-row { display: flex; align-items: flex-end; gap: 1.4rem; padding: 1.3rem 1.5rem; flex-wrap: wrap; }
+      .nf-row + .nf-row { border-top: 1px solid var(--c-line); }
       .nf-txt { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 260px; margin-bottom: 2px; }
       .nf-txt strong { font-size: 1rem; }
       .nf-txt strong .nf-badge { display: inline-block; background: #2e9e6b; color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
       .nf-txt span { color: var(--c-muted); font-size: 0.84rem; line-height: 1.55; }
       .nf-sw { width: 46px; height: 25px; border-radius: 999px; background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; margin-bottom: 8px; }
       .nf-sw.is-on { border-color: var(--c-accent); }
-      .nf-sw .nf-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+      .nf-sw .nf-knob { position: absolute; top: 50%; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transform: translateY(-50%); transition: left 0.2s; }
       .nf-sw.is-on { background: var(--c-accent); }
-      .nf-sw.is-on .nf-knob { left: 24px; }
-      .nf-msg { margin-top: 0.8rem; font-size: 0.85rem; color: var(--c-muted); min-height: 1.2em; }
+      .nf-sw.is-on .nf-knob { left: 22px; }
+      .nf-msg { margin: 0; padding: 0 1.5rem 1.2rem; font-size: 0.85rem; color: var(--c-muted); }
+      .nf-msg:empty { display: none; }
       .nf-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
       .nf-f-hour { flex: 0 0 140px; }
       .nf-f-email { flex: 0 0 300px; }
@@ -1362,6 +1365,14 @@ import { CLIENT } from "../../config/client";
                 <input type="email" id="nf-email" placeholder="Vide = adresse des réservations" autocomplete="off" />
               </div>
               <button type="button" class="nf-sw" id="nf-daily" aria-label="Activer ou désactiver l'email quotidienne"><span class="nf-knob"></span></button>
+            </div>
+            <div class="nf-row">
+              <div class="nf-txt">
+                <strong>Notifications sur cet appareil <span class="nf-badge" id="nf-push-badge" style="display:none">Activée</span></strong>
+                <span>Une alerte à chaque nouvelle commande, réservation ou annulation. Sur iPhone : ajoutez d'abord l'admin à l'écran d'accueil (Partager → Sur l'écran d'accueil).</span>
+              </div>
+              <button type="button" class="kemail-add" id="nf-push-test" style="display:none">Tester</button>
+              <button type="button" class="nf-sw" id="nf-push" aria-label="Activer les notifications sur cet appareil"><span class="nf-knob"></span></button>
             </div>
             <p class="nf-msg" id="nf-msg"></p>
           </div>
@@ -3174,6 +3185,92 @@ import { CLIENT } from "../../config/client";
         nfEmail?.addEventListener("change", () => {
           nfPatch({ daily_brief_email: nfEmail.value.trim() }, nfEmail.value.trim() ? "Adresse enregistrée." : "Adresse par défaut (réservations) rétablie.");
         });
+
+        // --- Tab Notifications: notifiche push su questo dispositivo ---
+        const nfPush = document.getElementById("nf-push") as HTMLButtonElement | null;
+        const nfPushTest = document.getElementById("nf-push-test") as HTMLButtonElement | null;
+        const VAPID_PUB = (import.meta.env as Record<string, string | undefined>).PUBLIC_VAPID_KEY;
+        function b64ToU8(base64: string): Uint8Array {
+          const pad = "=".repeat((4 - (base64.length % 4)) % 4);
+          const b64 = (base64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        }
+        async function nfToken(): Promise<string> {
+          const { data } = await supabaseBrowser.auth.getSession();
+          return data.session?.access_token ?? "";
+        }
+        const nfPushBadge = document.getElementById("nf-push-badge") as HTMLSpanElement | null;
+        function nfPushStato(on: boolean) {
+          nfPush?.classList.toggle("is-on", on);
+          if (nfPushTest) nfPushTest.style.display = on ? "" : "none";
+          if (nfPushBadge) nfPushBadge.style.display = on ? "" : "none";
+        }
+        async function nfPushCorrente(): Promise<PushSubscription | null> {
+          if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+          try {
+            const reg = await navigator.serviceWorker.ready;
+            return await reg.pushManager.getSubscription();
+          } catch { return null; }
+        }
+        if (nfPush) {
+          if (!("serviceWorker" in navigator) || !("PushManager" in window) || !VAPID_PUB) {
+            nfPush.disabled = true;
+            nfPush.title = "Non disponible sur cet appareil/navigateur";
+          } else {
+            void nfPushCorrente().then((sub) => nfPushStato(!!sub));
+            nfPush.addEventListener("click", async () => {
+              if (nfMsg) nfMsg.textContent = "";
+              const attuale = await nfPushCorrente();
+              if (attuale) {
+                nfPushStato(false);
+                try {
+                  const ep = attuale.endpoint;
+                  await attuale.unsubscribe();
+                  await fetch("/api/admin/push?endpoint=" + encodeURIComponent(ep), {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${await nfToken()}`, "X-Method-Override": "DELETE" },
+                  });
+                } catch { /* ok */ }
+                if (nfMsg) nfMsg.textContent = "Notifications désactivées sur cet appareil.";
+                return;
+              }
+              try {
+                const perm = await Notification.requestPermission();
+                if (perm !== "granted") { if (nfMsg) nfMsg.textContent = "Permission refusée."; return; }
+                const reg = await navigator.serviceWorker.register("/sw.js");
+                await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUB) as BufferSource });
+                const res = await fetch("/api/admin/push", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${await nfToken()}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ subscription: sub.toJSON() }),
+                });
+                if (!res.ok) { let d=""; try { d=(await res.json())?.error ?? ""; } catch {} throw new Error("API " + res.status + (d ? " — "+d : "")); }
+                nfPushStato(true);
+                if (nfMsg) nfMsg.textContent = "Notifications activées sur cet appareil ✓";
+              } catch (e) {
+                nfPushStato(false);
+                console.error("[push] activation:", e);
+                if (nfMsg) nfMsg.textContent = "Activation impossible — " + (e instanceof Error ? e.message : String(e));
+              }
+            });
+            nfPushTest?.addEventListener("click", async () => {
+              if (nfMsg) nfMsg.textContent = "Envoi du test…";
+              try {
+                const res = await fetch("/api/admin/push", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${await nfToken()}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ test: true }),
+                });
+                const j = await res.json();
+                if (nfMsg) nfMsg.textContent = res.ok ? `Test : ${j.sent ?? 0}/${j.found ?? 0} envoyé(s)${j.err ? " — " + j.err : ""}` : "Test impossible.";
+              } catch { if (nfMsg) nfMsg.textContent = "Erreur de connexion."; }
+            });
+          }
+        }
 
         const mappa = new Map(dati.days.map((g) => [g.day_of_week, g]));
         daysEl.innerHTML = ORDINE.map((d) => rigaGiorno(mappa.get(d)!)).join("");

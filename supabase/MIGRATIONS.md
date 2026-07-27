@@ -50,6 +50,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 41 | `orders_refund.sql` | Rimborsi Stripe su orders: totale rimborsato, data, id ultimo refund |
 | 42 | `reservations_client_action.sql` | `client_action_at` su reservations: annullo/modifica dal cliente (toast live admin) |
 | 43 | `reservations_recontact.sql` | Flag `recontact` su reservations: "à recontacter" alla chiusura d'une section |
+| 44 | `push_subscriptions.sql` | Iscrizioni push PWA admin (endpoint + chiavi p256dh/auth) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
