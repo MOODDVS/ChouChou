@@ -60,3 +60,41 @@ export async function inviaPush(msg: PushMsg): Promise<PushEsito> {
   }
   return { sent: inviati, found: subs.length, errors };
 }
+
+// ---- Helper ad alto livello: notifiche pronte per gli eventi dell'admin ----
+
+export interface ResaPushInfo {
+  first_name: string;
+  last_name: string;
+  people: number;
+  date: string; // YYYY-MM-DD
+  heure: string; // HH:MM
+}
+
+// kind: "new" (confermata) | "demande" (in attesa) | "modif" | "annul"
+export function inviaPushResa(kind: "new" | "demande" | "modif" | "annul", r: ResaPushInfo): Promise<PushEsito> {
+  const parti = String(r.date ?? "").split("-");
+  const quando = parti.length === 3 ? `${parti[2]}/${parti[1]}` : String(r.date ?? "");
+  const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "Client";
+  const body = `${nome} · ${r.people} pers. · ${quando} ${r.heure ?? ""}`.trim();
+  const title =
+    kind === "new" ? "Nouvelle réservation" :
+    kind === "demande" ? "Nouvelle demande de réservation" :
+    kind === "modif" ? "Réservation modifiée" :
+    "Réservation annulée";
+  return inviaPush({ title, body, url: "/admin/reservations" });
+}
+
+export interface OrdinePushInfo {
+  numero: string;
+  customer_name: string;
+  total_cents: number;
+}
+
+export function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
+  const nome = String(o.customer_name ?? "").trim() || "Client";
+  const tot = (Number(o.total_cents ?? 0) / 100).toFixed(2).replace(".", ",");
+  const body = `${nome} · ${tot} € · #${o.numero}`;
+  return inviaPush({ title: "Nouvelle commande", body, url: "/admin/orders" });
+}
+

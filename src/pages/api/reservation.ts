@@ -11,6 +11,7 @@ import {
   type ResaEmail,
 } from "../../lib/notifications";
 import { registraCliente } from "../../lib/registraCliente";
+import { inviaPushResa } from "../../lib/push";
 
 export const prerender = false;
 
@@ -745,6 +746,8 @@ export const POST: APIRoute = async ({ request }) => {
   const resa = ins.data as unknown as ResaEmail;
   if (cfg.autoAccept) void inviaNotificheResa(resa);
   else void inviaNotificheDemandeResa(resa);
+  // Push all'admin: nuova prenotazione (o nuova demande)
+  void inviaPushResa(cfg.autoAccept ? "new" : "demande", resa);
   // Registra la persona nella rubrica `clients` (come il webhook per gli ordini)
   void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone });
   if (cfg.autoAccept) {
@@ -838,6 +841,8 @@ export const PUT: APIRoute = async ({ request }) => {
   // Email aggiornata al cliente: conferma, o « demande reçue » se pending
   if (attuale.status === "pending") void inviaNotificheDemandeResa(upd.data as unknown as ResaEmail);
   else void inviaConfermaResa(upd.data as unknown as ResaEmail);
+  // Push all'admin: prenotazione modificata dal cliente
+  void inviaPushResa("modif", upd.data as unknown as ResaEmail);
 
   return json({ ok: true, id: upd.data.id, cancel_token: upd.data.cancel_token });
 };
@@ -884,5 +889,7 @@ export const DELETE: APIRoute = async ({ request }) => {
     void supabaseAdmin.from("reservations").update({ review_email_id: null }).eq("id", upd.data.id);
   }
 
+  // Push all'admin: prenotazione annullata dal cliente
+  void inviaPushResa("annul", upd.data as unknown as ResaEmail);
   return json({ ok: true });
 };

@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { stripe } from "../../lib/stripe";
 import { supabaseAdmin } from "../../lib/db";
 import { inviaNotifiche } from "../../lib/notifications";
+import { inviaPushOrdine } from "../../lib/push";
 
 export const prerender = false;
 
@@ -70,6 +71,12 @@ export const POST: APIRoute = async ({ request }) => {
           items: aggiornato.items,
           total_cents: aggiornato.total_cents,
           lang: aggiornato.lang === "en" ? "en" : "fr",
+        });
+        // Push all'admin: nuova commande payée
+        void inviaPushOrdine({
+          numero: orderId.slice(0, 8),
+          customer_name: aggiornato.customer_name,
+          total_cents: aggiornato.total_cents,
         });
         // Registra (o completa) il cliente nella tabella `clients`.
         // Mai bloccante: un errore qui non deve far fallire il webhook.
