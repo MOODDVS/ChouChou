@@ -756,6 +756,10 @@ interface TxtResa {
   cancTitle: string;
   cancLead: (name: string) => string;
   cancInfo: string;
+  fermSubject: (n: string) => string;
+  fermTitle: string;
+  fermLead: (name: string) => string;
+  fermInfo: string;
   pendSubject: (nome: string) => string;
   pendTitle: string;
   pendLead: (name: string) => string;
@@ -773,6 +777,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Réservation annulée",
     cancLead: (name) => `Bonjour ${name},<br>Votre réservation a été annulée.`,
     cancInfo: "Pour toute question ou pour réserver à nouveau, n'hésitez pas à nous contacter.",
+    fermSubject: (n) => `Votre réservation chez ${n} — fermeture exceptionnelle`,
+    fermTitle: "Réservation annulée — fermeture exceptionnelle",
+    fermLead: (name) => `Bonjour ${name},<br>Notre établissement sera exceptionnellement fermé ce jour-là. Votre réservation a donc dû être annulée, et nous nous en excusons.`,
+    fermInfo: "Nous serions ravis de vous accueillir à une autre date — réservez en un clic ci-dessous.",
     pendSubject: (n) => `Votre demande de réservation chez ${n}`,
     pendTitle: "Demande envoyée",
     pendLead: (name) => `Merci ${name} !<br>Votre demande de réservation a bien été envoyée.`,
@@ -788,6 +796,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Booking cancelled",
     cancLead: (name) => `Hello ${name},<br>Your booking has been cancelled.`,
     cancInfo: "For any question or to book again, please don't hesitate to contact us.",
+    fermSubject: (n) => `Your booking at ${n} — exceptional closure`,
+    fermTitle: "Booking cancelled — exceptional closure",
+    fermLead: (name) => `Hello ${name},<br>Our restaurant will be exceptionally closed on that day. Your booking has therefore been cancelled, and we sincerely apologise.`,
+    fermInfo: "We would be delighted to welcome you on another date — book in one click below.",
     pendSubject: (n) => `Your booking request at ${n}`,
     pendTitle: "Request sent",
     pendLead: (name) => `Thank you ${name}!<br>Your booking request has been sent.`,
@@ -803,6 +815,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Reserva cancelada",
     cancLead: (name) => `Hola ${name},<br>Su reserva ha sido cancelada.`,
     cancInfo: "Para cualquier duda o para reservar de nuevo, no dude en contactarnos.",
+    fermSubject: (n) => `Su reserva en ${n} — cierre excepcional`,
+    fermTitle: "Reserva cancelada — cierre excepcional",
+    fermLead: (name) => `Hola ${name},<br>Nuestro establecimiento estará excepcionalmente cerrado ese día. Por ello su reserva ha sido cancelada, y le pedimos disculpas.`,
+    fermInfo: "Estaríamos encantados de recibirle en otra fecha — reserve con un clic abajo.",
     pendSubject: (n) => `Su solicitud de reserva en ${n}`,
     pendTitle: "Solicitud enviada",
     pendLead: (name) => `¡Gracias ${name}!<br>Su solicitud de reserva ha sido enviada.`,
@@ -818,6 +834,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Prenotazione annullata",
     cancLead: (name) => `Ciao ${name},<br>La tua prenotazione è stata annullata.`,
     cancInfo: "Per qualsiasi domanda o per prenotare di nuovo, non esitare a contattarci.",
+    fermSubject: (n) => `La tua prenotazione da ${n} — chiusura eccezionale`,
+    fermTitle: "Prenotazione annullata — chiusura eccezionale",
+    fermLead: (name) => `Ciao ${name},<br>Il nostro locale sarà eccezionalmente chiuso quel giorno. La tua prenotazione è quindi stata annullata, ce ne scusiamo.`,
+    fermInfo: "Saremo felici di accoglierti in un'altra data — prenota con un clic qui sotto.",
     pendSubject: (n) => `La tua richiesta di prenotazione da ${n}`,
     pendTitle: "Richiesta inviata",
     pendLead: (name) => `Grazie ${name}!<br>La tua richiesta di prenotazione è stata inviata.`,
@@ -833,6 +853,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Reservierung storniert",
     cancLead: (name) => `Hallo ${name},<br>Ihre Reservierung wurde storniert.`,
     cancInfo: "Bei Fragen oder für eine neue Reservierung kontaktieren Sie uns gerne.",
+    fermSubject: (n) => `Ihre Reservierung bei ${n} — außergewöhnliche Schließung`,
+    fermTitle: "Reservierung storniert — außergewöhnliche Schließung",
+    fermLead: (name) => `Hallo ${name},<br>Unser Lokal ist an diesem Tag außergewöhnlich geschlossen. Ihre Reservierung wurde daher storniert, wir bitten um Entschuldigung.`,
+    fermInfo: "Wir würden uns freuen, Sie an einem anderen Tag begrüßen zu dürfen — reservieren Sie mit einem Klick unten.",
     pendSubject: (n) => `Ihre Reservierungsanfrage bei ${n}`,
     pendTitle: "Anfrage gesendet",
     pendLead: (name) => `Danke ${name}!<br>Ihre Reservierungsanfrage wurde gesendet.`,
@@ -848,6 +872,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "Бронирование отменено",
     cancLead: (name) => `Здравствуйте, ${name}!<br>Ваше бронирование отменено.`,
     cancInfo: "По любым вопросам или для нового бронирования, пожалуйста, свяжитесь с нами.",
+    fermSubject: (n) => `Ваше бронирование в ${n} — исключительное закрытие`,
+    fermTitle: "Бронирование отменено — заведение закрыто",
+    fermLead: (name) => `Здравствуйте, ${name}!<br>В этот день наше заведение будет закрыто в порядке исключения. Поэтому ваше бронирование отменено, приносим извинения.`,
+    fermInfo: "Будем рады видеть вас в другой день — забронируйте одним щелчком ниже.",
     pendSubject: (n) => `Ваш запрос на бронирование в ${n}`,
     pendTitle: "Запрос отправлен",
     pendLead: (name) => `Спасибо, ${name}!<br>Ваш запрос на бронирование отправлен.`,
@@ -863,6 +891,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "تم إلغاء الحجز",
     cancLead: (name) => `مرحباً ${name}،<br>تم إلغاء حجزك.`,
     cancInfo: "لأي سؤال أو لإجراء حجز جديد، لا تتردد في الاتصال بنا.",
+    fermSubject: (n) => `حجزك في ${n} — إغلاق استثنائي`,
+    fermTitle: "تم إلغاء الحجز — إغلاق استثنائي",
+    fermLead: (name) => `مرحباً ${name}،<br>سيكون مطعمنا مغلقاً بشكل استثنائي في ذلك اليوم. لذلك تم إلغاء حجزك، ونعتذر عن ذلك.`,
+    fermInfo: "يسعدنا استقبالك في تاريخ آخر — احجز بنقرة واحدة أدناه.",
     pendSubject: (n) => `طلب الحجز الخاص بك في ${n}`,
     pendTitle: "تم إرسال الطلب",
     pendLead: (name) => `شكراً ${name}!<br>تم إرسال طلب الحجز الخاص بك.`,
@@ -878,6 +910,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "预订已取消",
     cancLead: (name) => `您好 ${name}，<br>您的预订已取消。`,
     cancInfo: "如有任何疑问或需要重新预订，请随时与我们联系。",
+    fermSubject: (n) => `您在 ${n} 的预订 — 临时休业`,
+    fermTitle: "预订已取消 — 临时休业",
+    fermLead: (name) => `您好 ${name}，<br>本店当天临时休业，因此您的预订已被取消，我们深表歉意。`,
+    fermInfo: "期待在其他日期为您服务 — 点击下方一键预订。",
     pendSubject: (n) => `您在 ${n} 的订位申请`,
     pendTitle: "申请已发送",
     pendLead: (name) => `谢谢您，${name}！<br>您的订位申请已发送。`,
@@ -893,6 +929,10 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     cancTitle: "ご予約キャンセル",
     cancLead: (name) => `${name} 様<br>ご予約はキャンセルされました。`,
     cancInfo: "ご不明な点や再予約については、お気軽にお問い合わせください。",
+    fermSubject: (n) => `${n} のご予約 — 臨時休業`,
+    fermTitle: "ご予約キャンセル — 臨時休業",
+    fermLead: (name) => `${name} 様<br>当日は臨時休業のため、ご予約をキャンセルさせていただきました。誠に申し訳ございません。`,
+    fermInfo: "別の日にお会いできるのを楽しみにしております — 下のボタンから簡単にご予約いただけます。",
     pendSubject: (n) => `${n} のご予約リクエスト`,
     pendTitle: "リクエスト送信済み",
     pendLead: (name) => `${name} 様、ありがとうございます。<br>ご予約リクエストを承りました。`,
@@ -1197,6 +1237,65 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
     });
   } catch (e) {
     console.error("Errore email annullamento prenotazione:", e);
+  }
+}
+
+/** Email al cliente: prenotazione annullata per CHIUSURA eccezionale del locale. */
+export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
+  const from = await resaFromEmail();
+  if (!resend || !from || !r.email) {
+    console.warn("Resend non configurato: salto email chiusura");
+    return;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const t = TXT_RESA[lang];
+  const dati = await datiRistorante();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const recap =
+    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(w.heure, r.heure) +
+    rigaRecap(w.personnes, `${r.people} ${w.pers}`);
+
+  const bookUrl = `${siteBase()}/reservation`;
+  const ctaHtml = `
+    <tr>
+      <td style="padding:22px 40px 4px;text-align:center;">
+        <a href="${bookUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+      </td>
+    </tr>`;
+
+  const footerHtml = `
+    <tr>
+      <td style="padding:0 40px 30px;text-align:center;">
+        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.fermInfo)}</p>
+      </td>
+    </tr>`;
+
+  const html = guscioResa({
+    nome: dati.nome,
+    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: t.fermTitle,
+    lead: t.fermLead(esc(nome)),
+    recapRows: recap,
+    ctaHtml,
+    footerHtml,
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: t.fermSubject(dati.nome),
+      bcc: BCC,
+      html: avvolgiScuro(html),
+    });
+  } catch (e) {
+    console.error("Errore email chiusura prenotazione:", e);
   }
 }
 
