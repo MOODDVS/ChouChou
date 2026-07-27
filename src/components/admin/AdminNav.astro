@@ -23,6 +23,7 @@ const { current } = Astro.props;
       <path d="M9 10a3 3 0 0 0 6 0" />
     </svg>
     <span>Comm.</span>
+    <span class="nav-badge" data-badge="orders" hidden></span>
   </a>
   <a href="/admin/reservations" data-page="reservations" class={current === "reservations" ? "active" : ""} aria-label="Réservations">
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -33,6 +34,7 @@ const { current } = Astro.props;
       <polyline points="9 15 11 17 15 13" />
     </svg>
     <span>Résa.</span>
+    <span class="nav-badge" data-badge="reservations" hidden></span>
   </a>
   <a href="/admin/clients" data-page="clients" class={current === "clients" ? "active" : ""} aria-label="Clients">
     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -211,6 +213,7 @@ const { current } = Astro.props;
   }
 
   .admin-nav a {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -241,6 +244,28 @@ const { current } = Astro.props;
     background: var(--c-accent, var(--c-accent));
     color: var(--c-bg);
   }
+
+  /* Pallino rosso "non visti" su Commandes / Réservations */
+  .admin-nav a .nav-badge {
+    position: absolute;
+    top: 1px;
+    right: 6px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 4px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: #e2483d;
+    color: #fff;
+    font-size: 0.54rem;
+    font-weight: 800;
+    line-height: 15px;
+    text-align: center;
+    letter-spacing: 0;
+    box-shadow: 0 0 0 2px var(--c-card);
+    pointer-events: none;
+  }
+  .admin-nav a .nav-badge[hidden] { display: none; }
 
   /* --- Isola separata del super admin (ingranaggio, a sinistra) --- */
   .admin-super {
@@ -645,6 +670,104 @@ const { current } = Astro.props;
     window.setInterval(pollOrdini, 20000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") { poll(); pollOrdini(); }
+    });
+  })();
+
+  // --- Pallini "non visti" su Commandes / Réservations (+ badge PWA) ---
+  // Conteggio lato server dei nuovi dall'ultima volta che si è aperta la
+  // sezione (per-dispositivo, in localStorage). Aggiornato dal vivo tramite
+  // gli eventi del poller. setAppBadge aggiorna l'icona dell'app installata.
+  (async () => {
+    const { data } = await supabaseBrowser.auth.getSession();
+    const token = data.session?.access_token ?? "";
+    if (!token) return;
+    const headers = { Authorization: `Bearer ${token}` };
+    const navEl = document.querySelector(".admin-nav[data-current]") as HTMLElement | null;
+    const current = navEl?.dataset.current ?? "";
+    let bResa = 0;
+    let bCmd = 0;
+
+    const setBadge = (page: string, n: number) => {
+      const el = document.querySelector(`.admin-nav a[data-page="${page}"] .nav-badge`) as HTMLElement | null;
+      if (!el) return;
+      if (n > 0) { el.textContent = n > 99 ? "99+" : String(n); el.removeAttribute("hidden"); }
+      else { el.setAttribute("hidden", ""); }
+    };
+    const render = () => {
+      setBadge("reservations", bResa);
+      setBadge("orders", bCmd);
+      const tot = bResa + bCmd;
+      try {
+        const n = navigator as Navigator & { setAppBadge?: (n?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+        if (tot > 0 && typeof n.setAppBadge === "function") void n.setAppBadge(tot);
+        else if (typeof n.clearAppBadge === "function") void n.clearAppBadge();
+      } catch { /* Badging API assente */ }
+    };
+    const ls = {
+      get(k: string): string { try { return localStorage.getItem(k) ?? ""; } catch { return ""; } },
+      set(k: string, v: string) { try { localStorage.setItem(k, v); } catch { /* pieno */ } },
+    };
+    const now0 = new Date().toISOString();
+
+    // Réservations: segnalibro temporale (created_at affidabile alla nascita)
+    if (current === "reservations") {
+      ls.set("mdd_resa_seen_at", now0);
+    } else {
+      const seenAt = ls.get("mdd_resa_seen_at");
+      if (!seenAt) {
+        ls.set("mdd_resa_seen_at", now0); // primo giro: baseline a zero
+      } else {
+        try {
+          const r = await fetch("/api/admin/reservations?new_since=" + encodeURIComponent(seenAt), { headers });
+          if (r.ok) {
+            const j = (await r.json()) as { news?: unknown[]; changes?: unknown[] };
+            bResa = (j.news?.length ?? 0) + (j.changes?.length ?? 0);
+          }
+        } catch { /* rete assente */ }
+      }
+    }
+
+    // Commandes: per-ID (un ordine nasce pending e diventa paid dopo → il
+    // confronto temporale mancherebbe la transizione). Set degli ID già visti.
+    try {
+      const r = await fetch("/api/admin/orders?recent_paid=1", { headers });
+      if (r.ok) {
+        const j = (await r.json()) as { orders?: { id: string }[] };
+        const ids = (j.orders ?? []).map((o) => o.id);
+        const raw = ls.get("mdd_cmd_seen_ids");
+        let seen: Set<string> | null = null;
+        if (raw) { try { seen = new Set(JSON.parse(raw) as string[]); } catch { seen = null; } }
+        if (current === "orders" || seen === null) {
+          ls.set("mdd_cmd_seen_ids", JSON.stringify(ids.slice(-800)));
+          bCmd = 0;
+        } else {
+          bCmd = ids.filter((id) => !seen!.has(id)).length;
+        }
+      }
+    } catch { /* rete assente */ }
+
+    render();
+
+    // Aggiornamento dal vivo (eventi dispatchati dal poller qui sopra)
+    window.addEventListener("moodd:new-resa", () => {
+      if (current === "reservations") { ls.set("mdd_resa_seen_at", new Date().toISOString()); return; }
+      bResa += 1;
+      render();
+    });
+    window.addEventListener("moodd:new-order", (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (current === "orders") {
+        if (id) {
+          try {
+            const s2 = new Set<string>(JSON.parse(ls.get("mdd_cmd_seen_ids") || "[]") as string[]);
+            s2.add(id);
+            ls.set("mdd_cmd_seen_ids", JSON.stringify([...s2].slice(-800)));
+          } catch { /* pieno */ }
+        }
+        return;
+      }
+      bCmd += 1;
+      render();
     });
   })();
 </script>
