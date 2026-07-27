@@ -997,6 +997,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         status: string;
         source?: string | null;
         tables?: string[] | null; // id dei tavoli assegnati (plan de salle, #37)
+        recontact?: boolean; // "à recontacter" (fermeture d'une section, #43)
       }
 
       // Plan de salle (#37): id tavoli -> "T02 + T03" (nomi da planNomi,
@@ -1205,9 +1206,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (r.business && !r.company) tags.push("Business");
         if (r.birthday) tags.push("Anniversaire");
         if (r.special_event) tags.push("Évén. spécial");
-        return tags.length
-          ? `<span class="r-tags">${tags.map((t) => `<span class="r-tag">${t}</span>`).join("")}</span>`
-          : "";
+        const reco = r.recontact ? `<span class="r-tag" style="border-color:var(--c-accent);color:var(--c-accent);">À recontacter</span>` : "";
+        const base = tags.map((t) => `<span class="r-tag">${t}</span>`).join("");
+        return reco || base ? `<span class="r-tags">${reco}${base}</span>` : "";
       }
 
       function riga(r: Resa): string {
@@ -2035,7 +2036,105 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void znCarica();
         }
 
+        type ImpResa = { id: string; heure: string; service_key: string | null; people: number; first_name: string; last_name: string };
+        type ImpSection = { name: string; seats: number; booked: number; free: number };
+        // Chiusura di una section con prenotazioni: modale per spostare/annuler/recontacter.
+        // Ritorna true per procedere con la chiusura, false per annullarla.
+        async function znGestisciImpatto(zona: string): Promise<boolean> {
+          let imp: { reservations?: ImpResa[]; sections?: ImpSection[]; plan_mode?: boolean };
+          try {
+            const res = await fetch(`/api/admin/zone-closure-impact?date=${znData}&zone=${encodeURIComponent(zona)}`, { headers });
+            if (!res.ok) return true;
+            imp = await res.json();
+          } catch { return true; }
+          const resas = imp.reservations ?? [];
+          if (!resas.length) return true;
+          const sections = imp.sections ?? [];
+
+          return new Promise<boolean>((resolve) => {
+            const load = new Map<string, number>(sections.map((s): [string, number] => [s.name, s.booked]));
+            const def = new Map<string, string>();
+            for (const r of resas) {
+              let target = "";
+              for (const s of sections) { if (s.seats - (load.get(s.name) ?? 0) >= r.people) { target = s.name; break; } }
+              if (!target && sections.length) target = sections[0].name;
+              if (target) { def.set(r.id, "move:" + target); load.set(target, (load.get(target) ?? 0) + r.people); }
+              else def.set(r.id, "cancel");
+            }
+            const rows = resas.map((r) => {
+              const nom = (r.first_name + " " + r.last_name).trim();
+              const sel = def.get(r.id) ?? "cancel";
+              const secOpts = sections.map((s) => `<option value="move:${esc(s.name)}"${("move:" + s.name) === sel ? " selected" : ""}>Déplacer → ${esc(s.name)}</option>`).join("");
+              return `<div class="zci-row" style="display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--c-line);">
+                <div style="flex:1;min-width:0;"><div style="font-size:.9rem;">${esc(nom)}</div><div style="color:var(--c-muted);font-size:.75rem;">${esc(String(r.heure).slice(0, 5))} · ${r.people} couv.</div></div>
+                <select class="zci-sel" data-id="${esc(r.id)}" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:8px;padding:.35rem .5rem;font-size:.8rem;">
+                  ${secOpts}
+                  <option value="cancel"${sel === "cancel" ? " selected" : ""}>Annuler + email</option>
+                  <option value="recontact"${sel === "recontact" ? " selected" : ""}>Recontacter</option>
+                </select>
+              </div>`;
+            }).join("");
+            const ov = document.createElement("div");
+            ov.style.cssText = "position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:1rem;";
+            ov.innerHTML = `<div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:14px;max-width:540px;width:100%;padding:1.4rem;color:var(--c-text);max-height:90vh;overflow:auto;">
+              <h3 style="margin:0 0 .2rem;font-family:var(--font-title);letter-spacing:.04em;color:var(--c-accent);font-size:22px;">Fermeture · ${esc(zona)}</h3>
+              <p style="margin:.2rem 0 1rem;color:var(--c-muted);font-size:.88rem;">${resas.length} réservation(s) sur cette section. Choisis quoi faire pour chacune.</p>
+              <div class="zci-meters" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem;"></div>
+              <div class="zci-list">${rows}</div>
+              <div style="display:flex;gap:.5rem;margin-top:1.3rem;">
+                <button type="button" class="zci-ok" style="flex:1;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:.6rem;font-family:var(--font-title);letter-spacing:.03em;cursor:pointer;">Confirmer la fermeture</button>
+                <button type="button" class="zci-no" style="flex:1;background:none;border:1px solid var(--c-line);color:var(--c-muted);border-radius:999px;padding:.6rem;cursor:pointer;">Annuler</button>
+              </div>
+            </div>`;
+            document.body.appendChild(ov);
+            const meters = ov.querySelector(".zci-meters") as HTMLElement;
+            function ricalcola() {
+              const l = new Map<string, number>(sections.map((s): [string, number] => [s.name, s.booked]));
+              ov.querySelectorAll<HTMLSelectElement>(".zci-sel").forEach((sl) => {
+                if (sl.value.startsWith("move:")) {
+                  const zn = sl.value.slice(5);
+                  const r = resas.find((x) => x.id === sl.dataset.id);
+                  if (r) l.set(zn, (l.get(zn) ?? 0) + r.people);
+                }
+              });
+              meters.innerHTML = sections.map((s) => {
+                const car = l.get(s.name) ?? 0;
+                const over = car > s.seats;
+                const col = over ? "var(--err, #ff8a8f)" : "var(--c-line)";
+                const txt = over ? "var(--err, #ff8a8f)" : "var(--c-muted)";
+                return `<span style="font-size:.75rem;padding:.25rem .6rem;border-radius:999px;border:1px solid ${col};color:${txt};">${esc(s.name)} : ${car}/${s.seats}${over ? " ⚠" : ""}</span>`;
+              }).join("") || `<span style="font-size:.75rem;color:var(--c-muted);">Aucune autre section ouverte — seules « Annuler » ou « Recontacter » sont possibles.</span>`;
+            }
+            ricalcola();
+            ov.addEventListener("change", (e) => { if ((e.target as HTMLElement).classList.contains("zci-sel")) ricalcola(); });
+            (ov.querySelector(".zci-no") as HTMLElement).addEventListener("click", () => { ov.remove(); resolve(false); });
+            (ov.querySelector(".zci-ok") as HTMLButtonElement).addEventListener("click", async (): Promise<void> => {
+              const decisions = [...ov.querySelectorAll<HTMLSelectElement>(".zci-sel")].map((sl) => {
+                if (sl.value.startsWith("move:")) return { id: sl.dataset.id, action: "move", toZone: sl.value.slice(5) };
+                return { id: sl.dataset.id, action: sl.value };
+              });
+              const okBtn = ov.querySelector(".zci-ok") as HTMLButtonElement;
+              okBtn.disabled = true;
+              try {
+                const res = await fetch("/api/admin/zone-closure-impact", {
+                  method: "POST",
+                  headers: { ...headers, "Content-Type": "application/json" },
+                  body: JSON.stringify({ date: znData, zone: zona, decisions }),
+                });
+                const j = await res.json();
+                if (res.ok) toast(`${j.moved ?? 0} déplacée(s) · ${j.cancelled ?? 0} annulée(s) · ${j.recontact ?? 0} à recontacter`, "ok");
+                else toast(j.error ?? "Erreur", "err");
+              } catch { toast("Erreur de connexion", "err"); }
+              ov.remove();
+              resolve(true);
+            });
+          });
+        }
         async function znSalva(zona: string, reason: string | null) {
+          if (reason === "closed") {
+            const proceed = await znGestisciImpatto(zona);
+            if (!proceed) { znRender(); return; }
+          }
           try {
             const res = reason
               ? await fetch("/api/admin/zone-closures", {
