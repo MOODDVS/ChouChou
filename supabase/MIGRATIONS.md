@@ -52,6 +52,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 43 | `reservations_recontact.sql` | Flag `recontact` su reservations: "à recontacter" alla chiusura d'une section |
 | 44 | `push_subscriptions.sql` | Iscrizioni push PWA admin (endpoint + chiavi p256dh/auth) |
 | 45 | `gift_cards.sql` | Buoni regalo: valore prepagato con saldo scalabile (uso online + riscatto manuale in sala) + registro riscatti + colonne `gift_card_*` su orders |
+| 46 | `gift_card_orders.sql` | Acquisto di buoni FISICI dal ristoratore presso MOODD (pagamento su Stripe MOODD, come i crediti newsletter) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

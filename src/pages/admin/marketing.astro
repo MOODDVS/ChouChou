@@ -258,6 +258,19 @@ import { CLIENT } from "../../config/client";
       .gc-pay.ok { background: #2e9e6b; }
       .gc-pay.wait { background: #9b9490; }
       .gc-pay.wait svg { fill: #fff; stroke: none; }
+      .gs-packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+      .gs-pack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 0.6rem;
+        cursor: pointer; font-family: inherit; transition: border-color 0.15s, transform 0.15s; }
+      .gs-pack:hover { border-color: var(--c-accent); transform: translateY(-2px); }
+      .gs-pack:disabled { opacity: 0.5; cursor: wait; transform: none; }
+      .gs-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .gs-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
+      .gs-unit { color: var(--c-muted); font-size: 0.72rem; }
+      .gs-badge { position: absolute; top: -9px; background: var(--c-accent); color: var(--c-bg); font-size: 0.6rem;
+        font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.12rem 0.5rem; border-radius: 999px; }
+      .gs-hist-row { display: flex; justify-content: space-between; border-top: 1px solid var(--c-line); padding: 0.5rem 0; font-size: 0.82rem; color: var(--c-muted); }
+      @media (max-width: 520px) { .gs-packs { grid-template-columns: 1fr; } }
       .gc-ship-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.75rem; }
       #gc-ship-box .f-row { margin-top: 0.6rem; }
       #gc-send-picks .pick.is-off, #gc-pay-picks .pick.is-off { opacity: 0.4; cursor: not-allowed; }
@@ -404,6 +417,7 @@ import { CLIENT } from "../../config/client";
         <div id="tab-giftcards" style="display:none">
           <div class="actionsbar">
             <button class="pill" id="gc-add">+ Nouveau bon cadeau</button>
+            <button class="pill" id="gc-shop">Acheter des bons</button>
           </div>
           <div class="state" id="gc-empty" style="display:none">
             Aucun bon cadeau pour le moment. Créez-en un&nbsp;: un code à offrir, utilisable en ligne ou en salle.
@@ -894,6 +908,37 @@ import { CLIENT } from "../../config/client";
         <label class="f-lab" for="gc-use-note">Note (optionnel)</label>
         <input type="text" class="f-input" id="gc-use-note" placeholder="ex. table 5" />
         <div class="m-foot"><button class="m-save" id="gc-use-save" type="button">Encaisser</button><span class="m-err" id="gc-use-err"></span></div>
+      </div>
+    </div>
+
+    <!-- Modale : acheter des bons cadeaux imprimés (MOODD) -->
+    <div class="overlay" id="gs-overlay">
+      <div class="modal" style="max-width:560px">
+        <button class="m-close" id="gs-close" type="button" aria-label="Fermer">×</button>
+        <h2>Acheter des bons cadeaux</h2>
+        <p class="f-hint" style="margin:0 0 1.2rem">Cartes cadeaux physiques personnalisées, imprimées et livrées par MOODD. Adresse de livraison demandée au paiement.</p>
+
+        <div class="gs-packs" id="gs-packs">
+          <button type="button" class="gs-pack" data-pack="25">
+            <span class="gs-qty">25 bons</span>
+            <span class="gs-price">90 €</span>
+            <span class="gs-unit">3,60 € / bon</span>
+          </button>
+          <button type="button" class="gs-pack" data-pack="100">
+            <span class="gs-badge">Populaire</span>
+            <span class="gs-qty">100 bons</span>
+            <span class="gs-price">129 €</span>
+            <span class="gs-unit">1,29 € / bon</span>
+          </button>
+          <button type="button" class="gs-pack" data-pack="250">
+            <span class="gs-qty">250 bons</span>
+            <span class="gs-price">185 €</span>
+            <span class="gs-unit">0,74 € / bon</span>
+          </button>
+        </div>
+
+        <p class="f-hint" id="gs-msg" style="margin-top:1rem"></p>
+        <div id="gs-hist"></div>
       </div>
     </div>
 
@@ -2740,6 +2785,80 @@ import { CLIENT } from "../../config/client";
           gcOverlay.classList.add("is-open");
         }
         gcAdd?.addEventListener("click", () => gcApri(null));
+
+        // ---------- Acheter des bons imprimés (paiement MOODD) ----------
+        const gsOverlay = document.getElementById("gs-overlay") as HTMLDivElement;
+        const gsClose = document.getElementById("gs-close") as HTMLButtonElement;
+        const gsPacks = document.getElementById("gs-packs") as HTMLDivElement;
+        const gsMsg = document.getElementById("gs-msg") as HTMLParagraphElement;
+        const gsHist = document.getElementById("gs-hist") as HTMLDivElement;
+        const gcShop = document.getElementById("gc-shop") as HTMLButtonElement;
+
+        async function gsStorico() {
+          try {
+            const res = await fetch("/api/admin/gift-cards-shop", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { purchases?: { qty: number; amount_cents: number; created_at: string }[] };
+            const list = j.purchases ?? [];
+            gsHist.innerHTML = list.length
+              ? `<p class="f-lab" style="margin-top:1.4rem">Achats précédents</p>` +
+                list.map((a) => {
+                  const d = String(a.created_at ?? "").slice(0, 10).split("-").reverse().join("/");
+                  return `<div class="gs-hist-row"><span>${d}</span><span>${a.qty} bons · ${gcEuro(a.amount_cents)}</span></div>`;
+                }).join("")
+              : "";
+          } catch { /* rete assente */ }
+        }
+
+        gcShop?.addEventListener("click", () => {
+          gsMsg.textContent = "";
+          gsOverlay.classList.add("is-open");
+          void gsStorico();
+        });
+        gsClose?.addEventListener("click", () => gsOverlay.classList.remove("is-open"));
+        gsOverlay?.addEventListener("click", (e) => { if (e.target === gsOverlay) gsOverlay.classList.remove("is-open"); });
+
+        gsPacks?.addEventListener("click", async (e) => {
+          const b = (e.target as HTMLElement).closest(".gs-pack") as HTMLButtonElement | null;
+          if (!b) return;
+          gsMsg.textContent = "Redirection vers le paiement…";
+          gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = true));
+          try {
+            const res = await fetch("/api/admin/gift-cards-shop", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ pack: b.dataset.pack }),
+            });
+            const j = await res.json();
+            if (!res.ok || !j.url) { gsMsg.textContent = j.error ?? "Paiement impossible"; return; }
+            window.location.href = j.url;
+          } catch {
+            gsMsg.textContent = "Erreur de connexion.";
+          } finally {
+            gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = false));
+          }
+        });
+
+        // Ritorno da Stripe: conferma l'acquisto e pulisce l'URL
+        (async () => {
+          const sid = new URLSearchParams(window.location.search).get("cards_session");
+          if (!sid) return;
+          try {
+            const res = await fetch("/api/admin/gift-cards-shop", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ session_id: sid }),
+            });
+            const j = await res.json();
+            if (res.ok) toast(`Commande confirmée : ${j.qty} bons imprimés — livraison sous quelques jours`);
+            else toast(j.error ?? "Paiement non confirmé", true);
+          } catch {
+            toast("Erreur de connexion", true);
+          }
+          const u = new URL(window.location.href);
+          u.searchParams.delete("cards_session");
+          window.history.replaceState({}, "", u.toString());
+        })();
         gcValPicks?.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
           if (!el) return;
