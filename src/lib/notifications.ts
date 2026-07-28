@@ -1370,6 +1370,285 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
   }
 }
 
+/** Email di NOTIFICA al ristorante quando il CLIENTE annulla (FR, tema rosso). */
+export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
+  const dest = await resaNotifyEmail();
+  const from = await resaFromEmail();
+  if (!resend || !from || !dest) {
+    console.warn("Resend/notify prenotazioni non configurati: salto notifica annullo");
+    return;
+  }
+  const servFr = labelService(r.service_key, "fr");
+  const dataFr = fmtDataResa(r.date, "fr");
+  const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
+      <tr>
+        <td style="padding:24px 32px;background:#231f20;">
+          <table role="presentation" width="100%"><tr>
+            <td style="color:#e2483d;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation annulée</td>
+            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 32px;background:#fdecea;border-bottom:2px solid #e2483d;">
+          <p style="margin:0;color:#a5281c;font-size:14px;font-weight:bold;text-align:center;">Annulée par le client</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 32px 18px;text-align:center;background:#f6f5f2;">
+          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
+          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
+          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 32px 26px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
+            ${r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : ""}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
+      bcc: BCC,
+      subject: `Réservation annulée — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email notifica annullo ristorante:", e);
+  }
+}
+
+/** Dati minimi di un buono regalo per le email. */
+export interface BonEmail {
+  code: string;
+  initial_cents: number;
+  expires_at?: string | null;
+  recipient_name?: string | null;
+  sender_name?: string | null;
+  message?: string | null;
+  ship?: boolean;
+  ship_address?: string | null;
+  ship_zip?: string | null;
+  ship_city?: string | null;
+  ship_country?: string | null;
+  shipping_cents?: number | null;
+  pay_url?: string | null;
+  pdf_url?: string | null;
+  paid?: boolean;
+}
+
+function euroCents(c: number): string {
+  return (Math.round(Number(c) || 0) / 100).toFixed(2).replace(".", ",") + " €";
+}
+
+/**
+ * Email di un BUONO REGALO (design dark brand).
+ * `a`: "destinataire" = a chi riceve il regalo · "offrant" = copia a chi l'offre.
+ * Non lancia mai eccezioni.
+ */
+export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant", dest: string): Promise<void> {
+  if (!resend || !RESEND_FROM || !dest) {
+    console.warn("Resend non configurato: salto l'email du bon cadeau");
+    return;
+  }
+  const dati = await datiRistorante();
+  const perDest = a === "destinataire";
+  const nomeDest = String(bon.recipient_name ?? "").trim();
+  const nomeOffr = String(bon.sender_name ?? "").trim();
+  const scadenza = bon.expires_at ? String(bon.expires_at).split("-").reverse().join("/") : "";
+
+  const title = perDest ? "Votre bon cadeau" : "Votre bon cadeau a été créé";
+  const lead = perDest
+    ? (nomeOffr
+        ? `Bonne nouvelle&nbsp;! <strong style="color:#fff;">${esc(nomeOffr)}</strong> vous offre un bon cadeau à utiliser chez ${esc(dati.nome)}.`
+        : `Vous avez reçu un bon cadeau à utiliser chez ${esc(dati.nome)}.`)
+    : (nomeDest
+        ? `Voici le récapitulatif du bon cadeau destiné à <strong style="color:#fff;">${esc(nomeDest)}</strong>.`
+        : "Voici le récapitulatif de votre bon cadeau.");
+
+  const riga = (k: string, v: string) =>
+    `<tr><td style="padding:12px 16px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:14px;">${esc(k)}</td><td style="padding:12px 16px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:14px;text-align:right;font-weight:bold;">${esc(v)}</td></tr>`;
+
+  const righe = [
+    riga("Valeur", euroCents(bon.initial_cents)),
+    scadenza ? riga("À utiliser avant le", scadenza) : "",
+    bon.ship && bon.shipping_cents ? riga("Frais d'envoi", euroCents(bon.shipping_cents)) : "",
+  ].join("");
+
+  const indirizzoSped = bon.ship
+    ? [bon.ship_address, [bon.ship_zip, bon.ship_city].filter(Boolean).join(" "), bon.ship_country].filter(Boolean).join(", ")
+    : "";
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${esc(title)}</h1>
+          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${lead}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:26px 40px 6px;text-align:center;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px dashed #dfab4e;">
+            <tr><td style="padding:22px 16px;text-align:center;">
+              <p style="margin:0;color:#b3aca6;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Votre code</p>
+              <p style="margin:10px 0 0;color:#dfab4e;font-size:28px;letter-spacing:3px;font-weight:bold;">${esc(bon.code)}</p>
+              <p style="margin:12px 0 0;color:#ffffff;font-size:22px;font-weight:bold;">${esc(euroCents(bon.initial_cents))}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      ${bon.message ? `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" style="background:#2b2526;border-left:3px solid #dfab4e;"><tr><td style="padding:14px 18px;color:#e8e2dc;font-size:14px;font-style:italic;line-height:1.6;">« ${esc(bon.message)} »${nomeOffr ? `<br><span style="color:#b3aca6;font-style:normal;font-size:13px;">— ${esc(nomeOffr)}</span>` : ""}</td></tr></table></td></tr>` : ""}
+      <tr>
+        <td style="padding:20px 40px 8px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+            ${righe}
+          </table>
+        </td>
+      </tr>
+      ${indirizzoSped ? `<tr><td style="padding:8px 40px 0;"><p style="margin:0;color:#b3aca6;font-size:13px;line-height:1.7;">Envoi postal&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
+      ${
+        !perDest && bon.pay_url
+          ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
+               <a href="${bon.pay_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Payer maintenant</a>
+               <p style="margin:12px 0 0;color:#8f8781;font-size:12px;">Le bon sera activé dès réception du paiement.</p>
+             </td></tr>`
+          : !perDest && bon.paid === false
+            ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
+                 <p style="margin:0;color:#dfab4e;font-size:14px;font-weight:bold;">Paiement en attente</p>
+                 <p style="margin:8px 0 0;color:#8f8781;font-size:12px;">Le restaurant vous transmettra le lien de paiement&nbsp;; le bon sera activé dès réception.</p>
+               </td></tr>`
+            : ""
+      }
+      ${
+        perDest && bon.pdf_url
+          ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
+               <a href="${bon.pdf_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Télécharger le PDF</a>
+             </td></tr>`
+          : ""
+      }
+      <tr>
+        <td style="padding:20px 40px 26px;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:13px;line-height:1.7;">Présentez ce code sur place ou saisissez-le lors de votre commande en ligne.${scadenza ? ` Valable jusqu'au ${esc(scadenza)}.` : ""}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:22px 40px;border-top:1px solid #3a3335;text-align:center;">
+          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.nome)}<br>${esc(dati.indirizzo ?? "")}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM,
+      to: dest,
+      bcc: BCC,
+      subject: perDest ? `Votre bon cadeau ${dati.nome} — ${euroCents(bon.initial_cents)}` : `Bon cadeau créé — ${bon.code}`,
+      html: avvolgiScuro(html),
+    });
+  } catch (e) {
+    console.error("Errore email bon cadeau:", e);
+  }
+}
+
+/** Email di NOTIFICA al ristorante quando il CLIENTE modifica (FR, tema bleu). */
+export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
+  const dest = await resaNotifyEmail();
+  const from = await resaFromEmail();
+  if (!resend || !from || !dest) {
+    console.warn("Resend/notify prenotazioni non configurati: salto notifica modifica");
+    return;
+  }
+  const servFr = labelService(r.service_key, "fr");
+  const dataFr = fmtDataResa(r.date, "fr");
+  const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+
+  const opzioni: string[] = [];
+  if (r.high_chair) opzioni.push("Chaise bébé");
+  if (r.quiet) opzioni.push("Endroit calme");
+  if (r.business) opzioni.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
+  if (r.birthday) opzioni.push("Anniversaire");
+  if (r.special_event) opzioni.push("Événement spécial");
+  const extra = [
+    r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : "",
+    servFr ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Service</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(servFr)}</td></tr>` : "",
+    opzioni.length ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Options</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(opzioni.join(" · "))}</td></tr>` : "",
+    r.notes ? `<tr><td colspan="2" style="padding:10px 0 0;"><div style="background:#eef4ff;border-left:4px solid #3b82f6;padding:12px 16px;color:#1e40af;font-size:14px;"><strong>Note :</strong> ${esc(r.notes)}</div></td></tr>` : "",
+  ].join("");
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
+      <tr>
+        <td style="padding:24px 32px;background:#231f20;">
+          <table role="presentation" width="100%"><tr>
+            <td style="color:#5b9bff;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation modifiée</td>
+            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 32px;background:#eef4ff;border-bottom:2px solid #3b82f6;">
+          <p style="margin:0;color:#1e40af;font-size:14px;font-weight:bold;text-align:center;">Modifiée par le client · nouvelles informations ci-dessous</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 32px 18px;text-align:center;background:#f6f5f2;">
+          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
+          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
+          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 32px 26px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
+            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
+            ${extra}
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
+      bcc: BCC,
+      subject: `Réservation modifiée — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      html,
+    });
+  } catch (e) {
+    console.error("Errore email notifica modifica ristorante:", e);
+  }
+}
+
 /**
  * Invia le notifiche di una nuova prenotazione dal widget: conferma al
  * cliente + notifica al ristorante. Non lancia mai eccezioni.

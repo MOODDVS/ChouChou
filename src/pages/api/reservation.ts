@@ -8,6 +8,8 @@ import {
   inviaConfermaResa,
   emailReviewResa,
   annullaEmailReview,
+  emailNotificaAnnulloResa,
+  emailNotificaModificaResa,
   type ResaEmail,
 } from "../../lib/notifications";
 import { registraCliente } from "../../lib/registraCliente";
@@ -843,6 +845,8 @@ export const PUT: APIRoute = async ({ request }) => {
   else void inviaConfermaResa(upd.data as unknown as ResaEmail);
   // Push all'admin: prenotazione modificata dal cliente
   void inviaPushResa("modif", upd.data as unknown as ResaEmail);
+  // Email al ristorante: avviso di modifica dal cliente
+  void emailNotificaModificaResa(upd.data as unknown as ResaEmail);
 
   return json({ ok: true, id: upd.data.id, cancel_token: upd.data.cancel_token });
 };
@@ -891,5 +895,7 @@ export const DELETE: APIRoute = async ({ request }) => {
 
   // Push all'admin: prenotazione annullata dal cliente
   void inviaPushResa("annul", upd.data as unknown as ResaEmail);
+  // Email al ristorante: avviso di annullo dal cliente
+  void emailNotificaAnnulloResa(upd.data as unknown as ResaEmail);
   return json({ ok: true });
 };

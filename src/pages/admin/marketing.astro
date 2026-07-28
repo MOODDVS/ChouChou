@@ -221,6 +221,51 @@ import { CLIENT } from "../../config/client";
       #cp-overlay .sched-block { margin-top: 1.2rem; }
       #cp-overlay .f-hint { margin-top: 0.1rem; }
       #cp-overlay .m-foot { margin-top: 2.4rem; }
+      /* Bon cadeau: stessa aria del modale coupon tra le righe */
+      #gc-overlay .modal { padding: 2.25rem; }
+      #gc-overlay .f-lab { margin-top: 1.75rem; }
+      #gc-overlay .f-lab:first-of-type { margin-top: 0; }
+      #gc-overlay .f-row .f-lab { margin-top: 0; }
+      #gc-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
+      #gc-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
+      #gc-overlay .m-foot { margin-top: 2.4rem; }
+      .gc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.6rem; }
+      .gc-step { flex: 1; text-align: center; min-width: 60px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); border-bottom: 2px solid var(--c-line); padding-bottom: 0.45rem; }
+      .gc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
+      .gc-step.done { color: var(--c-text); border-color: var(--c-accent); }
+      .gc-recap { display: flex; flex-direction: column; }
+      .gc-recap .r-row { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--c-line); padding: 0.6rem 0; font-size: 0.9rem; }
+      .gc-recap .r-k { color: var(--c-muted); }
+      .gc-recap .r-v { color: var(--c-text); font-weight: 700; text-align: right; word-break: break-word; }
+      #gc-overlay #gc-prev { color: var(--c-muted); }
+      #gc-overlay .f-lab + .f-row { margin-top: 0; }
+      #gc-overlay .m-foot { flex-wrap: wrap; }
+      #gc-overlay .m-foot .m-err { flex-basis: 100%; order: -1; margin: 0 0 0.2rem; }
+      #gc-overlay .m-err:empty { display: none; }
+      #gc-overlay .m-foot #gc-prev { margin-right: auto; }
+      #gc-overlay .m-foot #gc-next, #gc-overlay .m-foot #gc-save { margin-left: auto; }
+      #gc-overlay .m-save:disabled { opacity: 0.45; cursor: not-allowed; }
+      .gc-val { font-family: var(--font-title); font-size: 1.55rem; letter-spacing: 0.03em; color: var(--c-accent); line-height: 1.1; margin: 0.15rem 0 0.1rem; }
+      .gc-val .gc-val-sur { font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; color: var(--c-muted); margin-left: 0.4rem; }
+      .gc-lines { display: flex; flex-direction: column; gap: 0.18rem; margin-top: 0.55rem; }
+      .gc-lines .gc-line { font-size: 0.82rem; color: var(--c-muted); }
+      .gc-lines .gc-line b { color: var(--c-text); font-weight: 700; }
+      #giftcards .pop-actions .i-edit { margin-left: auto; }
+      #giftcards .pop { position: relative; }
+      #giftcards .pop.is-pending { opacity: 0.62; }
+      .gc-pay { position: absolute; top: 1.1rem; right: 1.1rem; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+      .gc-pay svg { width: 14px; height: 14px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+      .gc-pay.ok { background: #2e9e6b; }
+      .gc-pay.wait { background: #9b9490; }
+      .gc-pay.wait svg { fill: #fff; stroke: none; }
+      .gc-ship-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.75rem; }
+      #gc-ship-box .f-row { margin-top: 0.6rem; }
+      #gc-send-picks .pick.is-off, #gc-pay-picks .pick.is-off { opacity: 0.4; cursor: not-allowed; }
+      #gc-pay-picks .gc-resend { border-color: var(--c-accent); color: var(--c-accent); font-family: inherit; }
+      #gc-pay-picks .gc-resend:disabled { opacity: 0.5; cursor: wait; }
+      .gc-tel { display: flex; gap: 0.4rem; min-width: 0; }
+      .gc-tel .gc-tel-prefix { flex: 0 0 82px; cursor: pointer; padding-left: 0.5rem; padding-right: 0.3rem; }
+      .gc-tel input[type="tel"] { flex: 1 1 auto; min-width: 0; }
 
       /* --- Datepicker custom (brand, come Réglages) --- */
       .dp-panel {
@@ -331,6 +376,7 @@ import { CLIENT } from "../../config/client";
           <button class="mtab is-active" data-tab="popup"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>Pop-up</button>
           <button class="mtab" data-tab="news"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>Newsletter</button>
           <button class="mtab" data-tab="coupons"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><line x1="13" y1="5" x2="13" y2="7" /><line x1="13" y1="11" x2="13" y2="13" /><line x1="13" y1="17" x2="13" y2="19" /></svg>Coupons</button>
+          <button class="mtab" data-tab="giftcards"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>Bons cadeaux</button>
         </div>
 
         <div class="state" id="state">Chargement…</div>
@@ -353,6 +399,16 @@ import { CLIENT } from "../../config/client";
             Aucun coupon pour le moment. Créez-en un&nbsp;: le client pourra le saisir au paiement.
           </div>
           <div class="pops" id="coupons"></div>
+        </div>
+
+        <div id="tab-giftcards" style="display:none">
+          <div class="actionsbar">
+            <button class="pill" id="gc-add">+ Nouveau bon cadeau</button>
+          </div>
+          <div class="state" id="gc-empty" style="display:none">
+            Aucun bon cadeau pour le moment. Créez-en un&nbsp;: un code à offrir, utilisable en ligne ou en salle.
+          </div>
+          <div class="pops" id="giftcards"></div>
         </div>
 
         <div id="tab-news" style="display:none">
@@ -699,6 +755,148 @@ import { CLIENT } from "../../config/client";
       </div>
     </div>
 
+    <!-- Modale bon cadeau : création (multi-étapes) -->
+    <div class="overlay" id="gc-overlay">
+      <div class="modal" style="max-width:560px">
+        <button class="m-close" id="gc-close" type="button" aria-label="Fermer">×</button>
+        <h2 id="gc-title">Nouveau bon cadeau</h2>
+
+        <div class="gc-steps" id="gc-steps">
+          <span class="gc-step is-on" data-s="1">Bon</span>
+          <span class="gc-step" data-s="2">Offert par</span>
+          <span class="gc-step" data-s="3">Destinataire</span>
+          <span class="gc-step" data-s="4">Récap</span>
+        </div>
+
+        <!-- Étape 1 : options du bon -->
+        <div class="gc-pane" data-pane="1">
+          <label class="f-lab">Valeur *</label>
+          <div class="picks" id="gc-val-picks">
+            <span class="pick" data-val="25">25 €</span>
+            <span class="pick" data-val="50">50 €</span>
+            <span class="pick" data-val="75">75 €</span>
+            <span class="pick" data-val="100">100 €</span>
+            <span class="pick" data-val="150">150 €</span>
+            <span class="pick" data-val="200">200 €</span>
+            <span class="pick" data-val="autre">Autre</span>
+          </div>
+          <input type="number" class="f-input" id="gc-value" min="0" step="0.01" placeholder="Montant en €" style="max-width:220px;display:none;margin-top:0.6rem" />
+
+          <label class="f-lab">Expiration (optionnel)</label>
+          <div class="picks" id="gc-exp-picks">
+            <span class="pick is-on" data-exp="none">Aucune</span>
+            <span class="pick" data-exp="1m">1 mois</span>
+            <span class="pick" data-exp="6m">6 mois</span>
+            <span class="pick" data-exp="1y">1 an</span>
+            <span class="pick" data-exp="eoy">Fin d'année</span>
+            <span class="pick" data-exp="autre">Autre</span>
+          </div>
+          <input type="text" class="f-input f-date" id="gc-exp" placeholder="jj/mm/aaaa" readonly style="max-width:220px;display:none;margin-top:0.6rem;cursor:pointer" />
+
+          <label class="f-lab" for="gc-code">Code (vide = généré automatiquement)</label>
+          <input type="text" class="f-input" id="gc-code" placeholder="auto" style="text-transform:uppercase" />
+
+          <label class="f-lab">Paiement *</label>
+          <div class="picks" id="gc-pay-picks">
+            <span class="pick is-on" data-pay="cash">Espèces</span>
+            <span class="pick" data-pay="card">Carte</span>
+            <span class="pick" data-pay="link">Lien de paiement</span>
+            <button type="button" class="pick gc-resend" id="gc-resend" style="display:none">↻ Renvoyer le lien de paiement</button>
+          </div>
+          <p class="f-hint" id="gc-pay-hint" style="margin-top:0.35rem">Encaissé à la caisse : le bon est actif immédiatement.</p>
+        </div>
+
+        <!-- Étape 2 : offert par -->
+        <div class="gc-pane" data-pane="2" style="display:none">
+          <label class="f-lab">Nom (optionnel)</label>
+          <div class="f-row">
+            <input type="text" class="f-input" id="gc-sfname" placeholder="Prénom" />
+            <input type="text" class="f-input" id="gc-slname" placeholder="Nom" />
+          </div>
+          <label class="f-lab">Contact (optionnel)</label>
+          <div class="f-row">
+            <input type="email" class="f-input" id="gc-semail" placeholder="Email" />
+            <div class="gc-tel">
+              <select class="f-input gc-tel-prefix" id="gc-sprefix"></select>
+              <input type="tel" class="f-input" id="gc-sphone" placeholder="Téléphone" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Étape 3 : destinataire -->
+        <div class="gc-pane" data-pane="3" style="display:none">
+          <label class="f-lab">Nom (optionnel)</label>
+          <div class="f-row">
+            <input type="text" class="f-input" id="gc-rfname" placeholder="Prénom" />
+            <input type="text" class="f-input" id="gc-rlname" placeholder="Nom" />
+          </div>
+          <label class="f-lab">Contact (optionnel)</label>
+          <div class="f-row">
+            <input type="email" class="f-input" id="gc-remail" placeholder="Email" />
+            <div class="gc-tel">
+              <select class="f-input gc-tel-prefix" id="gc-rprefix"></select>
+              <input type="tel" class="f-input" id="gc-rphone" placeholder="Téléphone" />
+            </div>
+          </div>
+          <label class="f-lab" for="gc-msg">Message (optionnel)</label>
+          <textarea class="f-area" id="gc-msg" rows="3" placeholder="ex. Joyeux anniversaire !"></textarea>
+
+          <div class="gc-ship-head">
+            <span class="f-lab" style="margin:0">Envoi postal du bon</span>
+            <span class="sw-wrap">
+              <label class="switch"><input type="checkbox" id="gc-ship" /><span class="track"></span></label>
+            </span>
+          </div>
+          <div id="gc-ship-box" style="display:none">
+            <label class="f-lab" for="gc-ship-address">Adresse</label>
+            <input type="text" class="f-input" id="gc-ship-address" placeholder="Rue et numéro" />
+            <div class="f-row">
+              <input type="text" class="f-input" id="gc-ship-zip" placeholder="Code postal" />
+              <input type="text" class="f-input" id="gc-ship-city" placeholder="Ville" />
+            </div>
+            <div class="f-row">
+              <input type="text" class="f-input" id="gc-ship-country" placeholder="Pays" />
+              <input type="number" class="f-input" id="gc-ship-cents" min="0" step="0.01" placeholder="Frais d'envoi (€)" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Étape 4 : récapitulatif -->
+        <div class="gc-pane" data-pane="4" style="display:none">
+          <div class="gc-recap" id="gc-recap"></div>
+          <div id="gc-send-box">
+            <label class="f-lab">Envoyer le bon par email</label>
+            <div class="picks" id="gc-send-picks">
+              <span class="pick" data-send="recipient">✉ Au destinataire</span>
+              <span class="pick" data-send="sender">✉ À l'offrant</span>
+            </div>
+            <p class="f-hint" id="gc-send-hint" style="margin-top:0.4rem"></p>
+          </div>
+        </div>
+
+        <div class="m-foot" style="flex-wrap:wrap;gap:0.8rem">
+          <button class="pick" id="gc-prev" type="button" style="display:none">‹ Précédent</button>
+          <button class="m-save" id="gc-next" type="button">Suivant ›</button>
+          <button class="m-save" id="gc-save" type="button" style="display:none">Générer</button>
+          <span class="m-err" id="gc-err"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale bon cadeau : utilisation manuelle (salle) -->
+    <div class="overlay" id="gc-use-overlay">
+      <div class="modal" style="max-width:420px">
+        <button class="m-close" id="gc-use-close" type="button" aria-label="Fermer">×</button>
+        <h2>Utiliser le bon</h2>
+        <p class="f-hint" id="gc-use-info" style="margin:0 0 0.8rem"></p>
+        <label class="f-lab" for="gc-use-amount">Montant à utiliser (€) *</label>
+        <input type="number" class="f-input" id="gc-use-amount" min="0" step="0.01" placeholder="0,00" style="max-width:200px" />
+        <label class="f-lab" for="gc-use-note">Note (optionnel)</label>
+        <input type="text" class="f-input" id="gc-use-note" placeholder="ex. table 5" />
+        <div class="m-foot"><button class="m-save" id="gc-use-save" type="button">Encaisser</button><span class="m-err" id="gc-use-err"></span></div>
+      </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <ImagePicker />
@@ -709,6 +907,8 @@ import { CLIENT } from "../../config/client";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { isSuper } from "../../lib/admin/superAdmin";
+  import { CLIENT } from "../../config/client";
+  import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
 
       type Popup = {
         id: string;
@@ -854,6 +1054,7 @@ import { CLIENT } from "../../config/client";
         // ---------- Tabs Pop-up / Newsletter ----------
         const tabNews = document.getElementById("tab-news") as HTMLDivElement;
         const tabCoupons = document.getElementById("tab-coupons") as HTMLDivElement;
+        const tabGift = document.getElementById("tab-giftcards") as HTMLDivElement;
         const mtabs = document.getElementById("mtabs") as HTMLDivElement;
         let tabAttivo = "popup";
 
@@ -866,6 +1067,7 @@ import { CLIENT } from "../../config/client";
           tabPopup.style.display = t === "popup" && !vietato(tabPopup) ? "block" : "none";
           tabNews.style.display = t === "news" && !vietato(tabNews) ? "block" : "none";
           tabCoupons.style.display = t === "coupons" && !vietato(tabCoupons) ? "block" : "none";
+          tabGift.style.display = t === "giftcards" && !vietato(tabGift) ? "block" : "none";
         }
         mtabs.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;
@@ -873,6 +1075,7 @@ import { CLIENT } from "../../config/client";
           mostraTab(el.dataset.tab ?? "popup");
           if (el.dataset.tab === "news") caricaNews();
           if (el.dataset.tab === "coupons") caricaCoupons();
+          if (el.dataset.tab === "giftcards") caricaGiftcards();
         });
 
         // Super vede tutti i tab; agli altri nascondi quelli disattivati (super admin).
@@ -919,6 +1122,7 @@ import { CLIENT } from "../../config/client";
             // Tab di default diverso da popup (tab vietati): dati subito
             if (tabAttivo === "news") void caricaNews();
             if (tabAttivo === "coupons") void caricaCoupons();
+            if (tabAttivo === "giftcards") void caricaGiftcards();
           } catch {
             stateEl.textContent = "Erreur de connexion.";
           }
@@ -2309,6 +2513,521 @@ import { CLIENT } from "../../config/client";
             toast("Erreur de connexion", true);
           }
         });
+
+        // ---------- Bons cadeaux ----------
+        const gcAdd = document.getElementById("gc-add") as HTMLButtonElement;
+        const gcList = document.getElementById("giftcards") as HTMLDivElement;
+        const gcEmpty = document.getElementById("gc-empty") as HTMLDivElement;
+        const gcOverlay = document.getElementById("gc-overlay") as HTMLDivElement;
+        const gcClose = document.getElementById("gc-close") as HTMLButtonElement;
+        const gcValue = document.getElementById("gc-value") as HTMLInputElement;
+        const gcValPicks = document.getElementById("gc-val-picks") as HTMLDivElement;
+        const gcExpPicks = document.getElementById("gc-exp-picks") as HTMLDivElement;
+        const gcExp = document.getElementById("gc-exp") as HTMLInputElement;
+        const gcCode = document.getElementById("gc-code") as HTMLInputElement;
+        const gcRfname = document.getElementById("gc-rfname") as HTMLInputElement;
+        const gcRlname = document.getElementById("gc-rlname") as HTMLInputElement;
+        const gcRemail = document.getElementById("gc-remail") as HTMLInputElement;
+        const gcRphone = document.getElementById("gc-rphone") as HTMLInputElement;
+        const gcSprefix = document.getElementById("gc-sprefix") as HTMLSelectElement;
+        const gcRprefix = document.getElementById("gc-rprefix") as HTMLSelectElement;
+        const gcSfname = document.getElementById("gc-sfname") as HTMLInputElement;
+        const gcSlname = document.getElementById("gc-slname") as HTMLInputElement;
+        const gcSemail = document.getElementById("gc-semail") as HTMLInputElement;
+        const gcSphone = document.getElementById("gc-sphone") as HTMLInputElement;
+        const gcMsg = document.getElementById("gc-msg") as HTMLTextAreaElement;
+        const gcSave = document.getElementById("gc-save") as HTMLButtonElement;
+        const gcNext = document.getElementById("gc-next") as HTMLButtonElement;
+        const gcPrev = document.getElementById("gc-prev") as HTMLButtonElement;
+        const gcRecap = document.getElementById("gc-recap") as HTMLDivElement;
+        const gcShip = document.getElementById("gc-ship") as HTMLInputElement;
+        const gcShipBox = document.getElementById("gc-ship-box") as HTMLDivElement;
+        const gcShipAddress = document.getElementById("gc-ship-address") as HTMLInputElement;
+        const gcShipZip = document.getElementById("gc-ship-zip") as HTMLInputElement;
+        const gcShipCity = document.getElementById("gc-ship-city") as HTMLInputElement;
+        const gcShipCountry = document.getElementById("gc-ship-country") as HTMLInputElement;
+        const gcShipCents = document.getElementById("gc-ship-cents") as HTMLInputElement;
+        const gcSendPicks = document.getElementById("gc-send-picks") as HTMLDivElement;
+        const gcSendHint = document.getElementById("gc-send-hint") as HTMLParagraphElement;
+        const gcPayPicks = document.getElementById("gc-pay-picks") as HTMLDivElement;
+        const gcPayHint = document.getElementById("gc-pay-hint") as HTMLParagraphElement;
+        const gcTitle = document.getElementById("gc-title") as HTMLHeadingElement;
+        const gcResend = document.getElementById("gc-resend") as HTMLButtonElement;
+        const gcSendBox = document.getElementById("gc-send-box") as HTMLDivElement;
+        const gcErr = document.getElementById("gc-err") as HTMLSpanElement;
+        const gcUseOverlay = document.getElementById("gc-use-overlay") as HTMLDivElement;
+        const gcUseClose = document.getElementById("gc-use-close") as HTMLButtonElement;
+        const gcUseInfo = document.getElementById("gc-use-info") as HTMLParagraphElement;
+        const gcUseAmount = document.getElementById("gc-use-amount") as HTMLInputElement;
+        const gcUseNote = document.getElementById("gc-use-note") as HTMLInputElement;
+        const gcUseSave = document.getElementById("gc-use-save") as HTMLButtonElement;
+        const gcUseErr = document.getElementById("gc-use-err") as HTMLSpanElement;
+
+        interface GiftCard {
+          id: string; code: string; initial_cents: number; balance_cents: number;
+          active: boolean; expires_at: string | null; recipient_name: string | null;
+          sender_name: string | null; message: string | null; uses?: number;
+          paid?: boolean; payment_method?: string;
+          recipient_email?: string | null; recipient_phone?: string | null;
+          sender_email?: string | null; sender_phone?: string | null;
+          ship?: boolean; ship_address?: string | null; ship_zip?: string | null;
+          ship_city?: string | null; ship_country?: string | null; shipping_cents?: number | null;
+        }
+        let giftCards: GiftCard[] = [];
+        let gcUseId: string | null = null;
+        let gcEditId: string | null = null;
+        let gcDelPending: string | null = null;
+        let gcDelTimer: number | undefined;
+
+        const gcEuro = (cents: number): string => (cents / 100).toFixed(2).replace(".", ",") + " €";
+        const gcDate = (d: string | null): string => (d ? d.split("-").reverse().join("/") : "");
+        const gcOggi = (): string => new Date().toISOString().slice(0, 10);
+        const centsDaEuro = (v: string): number => {
+          const n = parseFloat(String(v).replace(",", "."));
+          return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0;
+        };
+        const gcDialDefault = PREFISSI.find((pr) => pr.code === CLIENT.paese)?.dial ?? "+32";
+        const gcOptsPrefix = PREFISSI.map((pr) => `<option value="${pr.dial}"${pr.dial === gcDialDefault ? " selected" : ""}>${pr.flag} ${pr.dial}</option>`).join("");
+        if (gcSprefix) gcSprefix.innerHTML = gcOptsPrefix;
+        if (gcRprefix) gcRprefix.innerHTML = gcOptsPrefix;
+        function gcTelFull(prefix: HTMLSelectElement, input: HTMLInputElement): string | undefined {
+          const raw = input.value.trim();
+          if (!raw) return undefined;
+          const sep = separaPrefisso(raw);
+          if (sep) return `${sep.dial} ${sep.resto}`.trim();
+          const local = raw.replace(/[\s\-().]/g, "").replace(/^0/, "");
+          return `${prefix.value} ${local}`.trim();
+        }
+
+        function gcRender() {
+          if (giftCards.length === 0) {
+            gcList.innerHTML = "";
+            gcEmpty.style.display = "block";
+            return;
+          }
+          gcEmpty.style.display = "none";
+          const oggi = gcOggi();
+          gcList.innerHTML = giftCards
+            .map((c) => {
+              const esaurito = c.balance_cents <= 0;
+              const scaduto = !!c.expires_at && String(c.expires_at) < oggi;
+              const usabile = c.active && !esaurito && !scaduto && c.paid !== false;
+              // Pillola di stato solo per ciò che lo switch NON dice già
+              const tags: string[] = [];
+              if (esaurito) tags.push(`<span class="m-tag">Épuisé</span>`);
+              else if (scaduto) tags.push(`<span class="m-tag">Expiré</span>`);
+              const righe: string[] = [];
+              if (c.recipient_name) righe.push(`<span class="gc-line">Pour <b>${esc(c.recipient_name)}</b></span>`);
+              if (c.sender_name) righe.push(`<span class="gc-line">De la part de <b>${esc(c.sender_name)}</b></span>`);
+              if (c.expires_at) righe.push(`<span class="gc-line">Expire le <b>${gcDate(c.expires_at)}</b></span>`);
+              const pagato = c.paid !== false;
+              const badgePay = pagato
+                ? `<span class="gc-pay ok" title="Payé"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`
+                : `<span class="gc-pay wait" title="En attente de paiement"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`;
+              const nUsi = Number(c.uses ?? 0);
+              righe.push(`<span class="gc-line">Utilisé <b>${nUsi}</b> fois</span>`);
+              const useBtn = usabile
+                ? `<button data-use="${c.id}" style="border:1px solid var(--c-accent);color:var(--c-accent);background:none;border-radius:999px;padding:0.3rem 0.85rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Utiliser</button>`
+                : "";
+              return `
+                <div class="pop ${usabile ? "" : "is-off"} ${pagato ? "" : "is-pending"}">
+                  ${badgePay}
+                  <div class="pop-top"><div class="pop-title">${esc(c.code)}</div></div>
+                  <div class="gc-val">${gcEuro(c.balance_cents)}<span class="gc-val-sur">/ ${gcEuro(c.initial_cents)}</span></div>
+                  ${righe.length ? `<div class="gc-lines">${righe.join("")}</div>` : ""}
+                  ${tags.length ? `<div class="pop-meta">${tags.join("")}</div>` : ""}
+                  <div class="pop-actions">
+                    ${useBtn}
+                    <span class="sw-wrap">
+                      <label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? "checked" : ""} /><span class="track"></span></label>
+                      <span class="sw-lab">Actif</span>
+                    </span>
+                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="Modifier">${ICO_PEN}</button>
+                    <button class="i-btn i-del" data-del="${c.id}" aria-label="Supprimer">${ICO_TRASH}</button>
+                  </div>
+                </div>`;
+            })
+            .join("");
+        }
+
+        async function caricaGiftcards() {
+          try {
+            const res = await fetch("/api/admin/gift-cards", { headers });
+            if (!res.ok) { toast("Chargement des bons impossible", true); return; }
+            const j = (await res.json()) as { cards: GiftCard[] };
+            giftCards = j.cards ?? [];
+            gcRender();
+          } catch {
+            toast("Erreur de connexion", true);
+          }
+        }
+
+        // Apre il modale multi-step: vuoto (nuovo) o precompilato (modifica)
+        function gcApri(c: GiftCard | null) {
+          gcEditId = c?.id ?? null;
+          gcErr.textContent = "";
+          const nomi = (v: string | null | undefined): [string, string] => {
+            const p2 = String(v ?? "").trim().split(/\s+/).filter(Boolean);
+            return [p2[0] ?? "", p2.slice(1).join(" ")];
+          };
+          const tel = (v: string | null | undefined, pre: HTMLSelectElement, inp: HTMLInputElement) => {
+            const sep = v ? separaPrefisso(String(v)) : null;
+            pre.value = sep?.dial ?? gcDialDefault;
+            inp.value = sep ? sep.resto : String(v ?? "").trim();
+          };
+          const [sf, sl] = nomi(c?.sender_name);
+          const [rf, rl] = nomi(c?.recipient_name);
+          gcSfname.value = sf; gcSlname.value = sl; gcSemail.value = c?.sender_email ?? "";
+          gcRfname.value = rf; gcRlname.value = rl; gcRemail.value = c?.recipient_email ?? "";
+          tel(c?.sender_phone, gcSprefix, gcSphone);
+          tel(c?.recipient_phone, gcRprefix, gcRphone);
+          gcMsg.value = c?.message ?? "";
+          gcCode.value = c?.code ?? "";
+
+          // Valore: preset se combacia, altrimenti « Autre »
+          gcValPicks.querySelectorAll(".pick").forEach((el) => el.classList.remove("is-on"));
+          gcValue.value = ""; gcValue.style.display = "none";
+          if (c) {
+            const euros = String(Math.round(c.initial_cents / 100));
+            const preset = gcValPicks.querySelector(`[data-val="${euros}"]`) as HTMLElement | null;
+            if (preset && c.initial_cents % 100 === 0) preset.classList.add("is-on");
+            else {
+              gcValPicks.querySelector('[data-val="autre"]')?.classList.add("is-on");
+              gcValue.style.display = "";
+              gcValue.value = (c.initial_cents / 100).toFixed(2);
+            }
+          }
+
+          // Scadenza
+          gcExpPicks.querySelectorAll(".pick").forEach((el) => el.classList.remove("is-on"));
+          gcExp.removeAttribute("data-iso"); gcExp.value = ""; gcExp.style.display = "none";
+          if (c?.expires_at) {
+            gcExpPicks.querySelector('[data-exp="autre"]')?.classList.add("is-on");
+            gcExp.dataset.iso = String(c.expires_at);
+            gcExp.value = fmtFr(String(c.expires_at));
+            gcExp.style.display = "";
+          } else {
+            gcExpPicks.querySelector('[data-exp="none"]')?.classList.add("is-on");
+          }
+
+          // Spedizione
+          gcShip.checked = !!c?.ship;
+          gcShipBox.style.display = c?.ship ? "" : "none";
+          gcShipAddress.value = c?.ship_address ?? "";
+          gcShipZip.value = c?.ship_zip ?? "";
+          gcShipCity.value = c?.ship_city ?? "";
+          gcShipCountry.value = c?.ship_country ?? "";
+          gcShipCents.value = c?.shipping_cents ? (Number(c.shipping_cents) / 100).toFixed(2) : "";
+
+          // Pagamento (in modifica non si tocca se già pagato)
+          const pm = c?.payment_method ?? "cash";
+          gcPayPicks.querySelectorAll(".pick").forEach((el) => el.classList.remove("is-on"));
+          (gcPayPicks.querySelector(`[data-pay="${pm}"]`) ?? gcPayPicks.querySelector('[data-pay="cash"]'))?.classList.add("is-on");
+          const bloccato = !!c && c.paid !== false;
+          gcPayPicks.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-off", bloccato));
+          gcPayHint.textContent = bloccato
+            ? "Bon déjà encaissé : le mode de paiement ne change plus."
+            : pm === "link"
+              ? "Un lien de paiement Stripe sera envoyé à l'offrant : le bon s'active une fois payé."
+              : "Encaissé à la caisse : le bon est actif immédiatement.";
+
+          gcSendPicks.querySelectorAll(".pick").forEach((el) => el.classList.remove("is-on"));
+          gcResend.style.display = c && c.paid === false && (c.payment_method ?? "") === "link" ? "" : "none";
+          gcSendBox.style.display = c ? "none" : "";
+          gcTitle.textContent = c ? "Modifier le bon cadeau" : "Nouveau bon cadeau";
+          gcSave.textContent = c ? "Enregistrer" : "Générer";
+          gcStep(1);
+          gcOverlay.classList.add("is-open");
+        }
+        gcAdd?.addEventListener("click", () => gcApri(null));
+        gcValPicks?.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          gcValPicks.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          el.classList.add("is-on");
+          if (el.dataset.val === "autre") { gcValue.style.display = ""; gcValue.value = ""; gcValue.focus(); }
+          else gcValue.style.display = "none";
+          gcNext.disabled = gcStepN === 1 && !gcValoreCents();
+        });
+        gcValue?.addEventListener("input", () => { gcNext.disabled = gcStepN === 1 && !gcValoreCents(); });
+        gcShip?.addEventListener("change", () => { gcShipBox.style.display = gcShip.checked ? "" : "none"; });
+        gcPayPicks?.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el || el.classList.contains("is-off")) return;
+          gcPayPicks.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          el.classList.add("is-on");
+          gcPayHint.textContent = el.dataset.pay === "link"
+            ? "Un lien de paiement Stripe sera envoyé à l'offrant : le bon s'active une fois payé."
+            : "Encaissé à la caisse : le bon est actif immédiatement.";
+        });
+        gcResend?.addEventListener("click", async () => {
+          if (!gcEditId) return;
+          gcErr.textContent = "";
+          gcResend.disabled = true;
+          try {
+            const res = await fetch("/api/admin/gift-cards", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "resend_link", id: gcEditId, sender_email: gcSemail.value.trim() || undefined }),
+            });
+            const j = await res.json();
+            if (!res.ok) { gcErr.textContent = j.error ?? "Envoi impossible"; return; }
+            toast("Lien de paiement renvoyé à " + (j.sent_to ?? ""));
+          } catch {
+            gcErr.textContent = "Erreur de connexion.";
+          } finally {
+            gcResend.disabled = false;
+          }
+        });
+        gcSendPicks?.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el || el.classList.contains("is-off")) return;
+          el.classList.toggle("is-on");
+        });
+        function isoPlus(mesi: number, anni: number): string {
+          const [y, m, d] = isoOggi().split("-").map(Number);
+          const dt = new Date(Date.UTC(y, m - 1, d));
+          dt.setUTCFullYear(dt.getUTCFullYear() + anni);
+          dt.setUTCMonth(dt.getUTCMonth() + mesi);
+          return dt.toISOString().slice(0, 10);
+        }
+        gcExpPicks?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          gcExpPicks.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          el.classList.add("is-on");
+          const mode = el.dataset.exp;
+          if (mode === "none") { gcExp.removeAttribute("data-iso"); gcExp.value = ""; gcExp.style.display = "none"; return; }
+          if (mode === "autre") { gcExp.style.display = ""; dpApri(gcExp); return; }
+          let iso = "";
+          if (mode === "1m") iso = isoPlus(1, 0);
+          else if (mode === "6m") iso = isoPlus(6, 0);
+          else if (mode === "1y") iso = isoPlus(0, 1);
+          else if (mode === "eoy") iso = isoOggi().slice(0, 4) + "-12-31";
+          gcExp.dataset.iso = iso;
+          gcExp.value = fmtFr(iso);
+          gcExp.style.display = "";
+        });
+        gcExp?.addEventListener("click", (e) => {
+          if (gcExpPicks.querySelector(".pick.is-on")?.getAttribute("data-exp") !== "autre") return;
+          e.stopPropagation();
+          dpApri(gcExp);
+        });
+        gcClose?.addEventListener("click", () => gcOverlay.classList.remove("is-open"));
+        gcOverlay?.addEventListener("click", (e) => { if (e.target === gcOverlay) gcOverlay.classList.remove("is-open"); });
+
+        // --- Navigazione multi-step ---
+        let gcStepN = 1;
+        function gcValoreCents(): number {
+          const attivo = gcValPicks.querySelector(".pick.is-on") as HTMLElement | null;
+          if (!attivo) return 0;
+          return attivo.dataset.val === "autre" ? centsDaEuro(gcValue.value) : Math.round(Number(attivo.dataset.val) * 100);
+        }
+        function gcStep(n: number) {
+          gcStepN = n;
+          gcOverlay.querySelectorAll<HTMLElement>(".gc-pane").forEach((pane) => {
+            pane.style.display = pane.dataset.pane === String(n) ? "block" : "none";
+          });
+          gcOverlay.querySelectorAll<HTMLElement>(".gc-step").forEach((st) => {
+            const sn = Number(st.dataset.s);
+            st.classList.toggle("is-on", sn === n);
+            st.classList.toggle("done", sn < n);
+          });
+          gcPrev.style.display = n > 1 ? "" : "none";
+          gcNext.style.display = n < 4 ? "" : "none";
+          gcSave.style.display = n === 4 ? "" : "none";
+          gcNext.disabled = n === 1 && !gcValoreCents();
+          gcErr.textContent = "";
+          if (n === 4) gcBuildRecap();
+        }
+        function gcBuildRecap() {
+          const val = gcValoreCents();
+          const exp = gcExp.dataset.iso ? fmtFr(gcExp.dataset.iso) : "Aucune";
+          const code = gcCode.value.trim() || "Généré automatiquement";
+          const offrant = [`${gcSfname.value.trim()} ${gcSlname.value.trim()}`.trim(), gcSemail.value.trim(), gcTelFull(gcSprefix, gcSphone) ?? ""].filter(Boolean).join(" · ") || "—";
+          const dest = [`${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim(), gcRemail.value.trim(), gcTelFull(gcRprefix, gcRphone) ?? ""].filter(Boolean).join(" · ") || "—";
+          const msg = gcMsg.value.trim() || "—";
+          const row = (k: string, v: string) => `<div class="r-row"><span class="r-k">${k}</span><span class="r-v">${esc(v)}</span></div>`;
+          const spedizione = gcShip.checked
+            ? [gcShipAddress.value.trim(), [gcShipZip.value.trim(), gcShipCity.value.trim()].filter(Boolean).join(" "), gcShipCountry.value.trim()].filter(Boolean).join(", ") || "Oui"
+            : "";
+          const fraisC = gcShip.checked ? centsDaEuro(gcShipCents.value) : 0;
+          gcRecap.innerHTML =
+            row("Valeur", val ? gcEuro(val) : "—") +
+            row("Expiration", exp) +
+            row("Code", code) +
+            row("Paiement", (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.textContent?.trim() || "—") +
+            row("Offert par", offrant) +
+            row("Destinataire", dest) +
+            (spedizione ? row("Envoi postal", spedizione) : "") +
+            (fraisC ? row("Frais d'envoi", gcEuro(fraisC)) : "") +
+            row("Message", msg);
+          // Pulsanti email: attivi solo se c'è l'indirizzo corrispondente
+          const emailDest = gcRemail.value.trim();
+          const emailOffr = gcSemail.value.trim();
+          const pd = gcSendPicks.querySelector('[data-send="recipient"]') as HTMLElement | null;
+          const po = gcSendPicks.querySelector('[data-send="sender"]') as HTMLElement | null;
+          pd?.classList.toggle("is-off", !emailDest);
+          po?.classList.toggle("is-off", !emailOffr);
+          if (!emailDest) pd?.classList.remove("is-on");
+          if (!emailOffr) po?.classList.remove("is-on");
+          // Lien de paiement: l'email all'offrant è selezionata di default
+          // (è lì che si trova il bouton « Payer maintenant »).
+          const metodo = (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.dataset.pay ?? "cash";
+          if (metodo === "link" && emailOffr) po?.classList.add("is-on");
+          gcSendHint.textContent = !emailDest && !emailOffr
+            ? "Ajoute une adresse email à l'étape précédente pour pouvoir envoyer le bon."
+            : metodo === "link"
+              ? "Le lien de paiement part avec l'email à l'offrant."
+              : "Clique pour sélectionner les envois : ils partiront à la génération.";
+        }
+        gcNext?.addEventListener("click", () => {
+          if (gcStepN === 1 && !gcValoreCents()) { gcErr.textContent = "Choisis une valeur."; return; }
+          gcStep(Math.min(4, gcStepN + 1));
+        });
+        gcPrev?.addEventListener("click", () => gcStep(Math.max(1, gcStepN - 1)));
+
+        gcSave?.addEventListener("click", async () => {
+          gcErr.textContent = "";
+          const value_cents = gcValoreCents();
+          if (!value_cents) { gcErr.textContent = "Choisis une valeur."; gcStep(1); return; }
+          gcSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/gift-cards", {
+              method: gcEditId ? "PUT" : "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: gcEditId ?? undefined,
+                value_cents,
+                code: gcCode.value.trim() || undefined,
+                expires_at: gcExp.dataset.iso || undefined,
+                recipient_name: `${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim() || undefined,
+                recipient_email: gcRemail.value.trim() || undefined,
+                recipient_phone: gcTelFull(gcRprefix, gcRphone),
+                sender_name: `${gcSfname.value.trim()} ${gcSlname.value.trim()}`.trim() || undefined,
+                sender_email: gcSemail.value.trim() || undefined,
+                sender_phone: gcTelFull(gcSprefix, gcSphone),
+                message: gcMsg.value.trim() || undefined,
+                payment_method: (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.dataset.pay ?? "cash",
+                ship: gcShip.checked,
+                ship_address: gcShipAddress.value.trim() || undefined,
+                ship_zip: gcShipZip.value.trim() || undefined,
+                ship_city: gcShipCity.value.trim() || undefined,
+                ship_country: gcShipCountry.value.trim() || undefined,
+                shipping_cents: gcShip.checked ? centsDaEuro(gcShipCents.value) : 0,
+                send_recipient: !!gcSendPicks.querySelector('[data-send="recipient"].is-on'),
+                send_sender: !!gcSendPicks.querySelector('[data-send="sender"].is-on'),
+              }),
+            });
+            const j = await res.json();
+            if (!res.ok) { gcErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            gcOverlay.classList.remove("is-open");
+            if (j.pay_error) toast("Bon créé, mais lien de paiement impossible : " + j.pay_error, true);
+            else if (gcEditId) toast("Bon modifié");
+            else toast("Bon créé : " + (j.code ?? ""));
+            await caricaGiftcards();
+          } catch {
+            gcErr.textContent = "Erreur de connexion.";
+          } finally {
+            gcSave.disabled = false;
+          }
+        });
+
+        gcUseClose?.addEventListener("click", () => gcUseOverlay.classList.remove("is-open"));
+        gcUseOverlay?.addEventListener("click", (e) => { if (e.target === gcUseOverlay) gcUseOverlay.classList.remove("is-open"); });
+
+        gcUseSave?.addEventListener("click", async () => {
+          if (!gcUseId) return;
+          gcUseErr.textContent = "";
+          const amount_cents = centsDaEuro(gcUseAmount.value);
+          if (!amount_cents) { gcUseErr.textContent = "Montant invalide."; return; }
+          gcUseSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/gift-cards", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "redeem", id: gcUseId, amount_cents, note: gcUseNote.value.trim() || undefined }),
+            });
+            const j = await res.json();
+            if (!res.ok) { gcUseErr.textContent = j.error ?? "Encaissement impossible"; return; }
+            gcUseOverlay.classList.remove("is-open");
+            toast("Encaissé — solde restant " + gcEuro(j.balance_cents ?? 0));
+            await caricaGiftcards();
+          } catch {
+            gcUseErr.textContent = "Erreur de connexion.";
+          } finally {
+            gcUseSave.disabled = false;
+          }
+        });
+
+        gcList?.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+          const useB = t.closest("[data-use]") as HTMLElement | null;
+          if (useB) {
+            const c = giftCards.find((x) => x.id === useB.dataset.use);
+            if (!c) return;
+            gcUseId = c.id;
+            gcUseErr.textContent = "";
+            gcUseAmount.value = "";
+            gcUseNote.value = "";
+            gcUseInfo.textContent = `${c.code} — solde ${gcEuro(c.balance_cents)}`;
+            gcUseOverlay.classList.add("is-open");
+            return;
+          }
+          const editB = t.closest("[data-edit]") as HTMLElement | null;
+          if (editB) {
+            const c = giftCards.find((x) => x.id === editB.dataset.edit);
+            if (c) gcApri(c);
+            return;
+          }
+          const delB = t.closest("[data-del]") as HTMLElement | null;
+          if (delB) {
+            const id = delB.dataset.del as string;
+            if (gcDelPending === id) {
+              window.clearTimeout(gcDelTimer);
+              gcDelPending = null;
+              try {
+                const res = await fetch(`/api/admin/gift-cards?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                if (!res.ok) { toast("Suppression impossible", true); return; }
+                toast("Bon supprimé");
+                giftCards = giftCards.filter((x) => x.id !== id);
+                gcRender();
+              } catch { toast("Erreur de connexion", true); }
+              return;
+            }
+            gcDelPending = id;
+            delB.classList.add("confirm");
+            delB.textContent = "Confirmer ?";
+            window.clearTimeout(gcDelTimer);
+            gcDelTimer = window.setTimeout(() => {
+              gcDelPending = null;
+              delB.classList.remove("confirm");
+              delB.innerHTML = ICO_TRASH;
+            }, 3000);
+          }
+        });
+
+        gcList?.addEventListener("change", async (e) => {
+          const sw = e.target as HTMLInputElement;
+          if (!sw.dataset.toggle) return;
+          const id = sw.dataset.toggle;
+          try {
+            const res = await fetch("/api/admin/gift-cards", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, active: sw.checked }),
+            });
+            if (!res.ok) { sw.checked = !sw.checked; toast("Enregistrement impossible", true); return; }
+            const c = giftCards.find((x) => x.id === id);
+            if (c) c.active = sw.checked;
+            gcRender();
+          } catch {
+            sw.checked = !sw.checked;
+            toast("Erreur de connexion", true);
+          }
+        });
+
       })();
     </script>
   </body>

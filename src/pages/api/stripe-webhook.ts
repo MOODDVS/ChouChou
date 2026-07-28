@@ -36,6 +36,22 @@ export const POST: APIRoute = async ({ request }) => {
     const session = event.data.object;
     const orderId = session.metadata?.order_id;
 
+    // --- Buono regalo pagato con lien de paiement ---
+    const giftId = session.metadata?.gift_card_id;
+    if (giftId) {
+      const { error: eGift } = await supabaseAdmin
+        .from("gift_cards")
+        .update({ paid: true, paid_at: new Date().toISOString() })
+        .eq("id", giftId)
+        .eq("paid", false);
+      if (eGift) console.error("Errore aggiornamento bon cadeau:", eGift);
+      else console.log(`Bon cadeau ${giftId} payé`);
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (!orderId) {
       console.error("Webhook senza order_id nei metadata");
       return new Response("order_id mancante", { status: 400 });

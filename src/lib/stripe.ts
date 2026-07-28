@@ -95,3 +95,37 @@ export async function creaCheckoutSession({
   }
   return session.url;
 }
+
+/**
+ * Crea una Checkout Session per l'acquisto di un BUONO REGALO.
+ * Il pagamento è a carico di chi offre (lien de paiement inviato per email).
+ * `metadata.gift_card_id` permette al webhook di marcarlo come pagato.
+ */
+export async function creaCheckoutBon(opts: {
+  giftCardId: string;
+  code: string;
+  valueCents: number;
+  shippingCents?: number;
+  siteUrl: string;
+  nomeRistorante: string;
+}): Promise<string> {
+  const voci: { name: string; amount: number }[] = [
+    { name: `Bon cadeau ${opts.nomeRistorante} — ${opts.code}`, amount: opts.valueCents },
+  ];
+  if (opts.shippingCents && opts.shippingCents > 0) {
+    voci.push({ name: "Frais d'envoi", amount: opts.shippingCents });
+  }
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: voci.map((v) => ({
+      price_data: { currency: "eur", product_data: { name: v.name }, unit_amount: v.amount },
+      quantity: 1,
+    })),
+    metadata: { gift_card_id: opts.giftCardId },
+    success_url: `${opts.siteUrl}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${opts.siteUrl}/order-cancel`,
+  });
+  if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
+  return session.url;
+}
