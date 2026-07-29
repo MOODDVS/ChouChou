@@ -471,8 +471,11 @@ import { CLIENT } from "../../config/client";
 
             <p class="itg-niv">Niveau 2 · répondre aux avis, synchroniser les horaires</p>
             <div class="us-frow us-frow-pass">
-              <button type="button" id="g-connect" class="us-add" disabled>Connecter Google</button>
-              <span class="note" id="g-oauth-note">En attente de l'accès API Google (demande à faire par MOODD).</span>
+              <span>
+                <button type="button" id="g-connect" class="us-add" disabled>Connecter Google</button>
+                <button type="button" id="g-disconnect" class="us-ghost" style="display:none;margin-left:0.5rem">Déconnecter</button>
+              </span>
+              <span class="note" id="g-oauth-note">En attente de l'accès API Google (demande envoyée).</span>
             </div>
 
             <div class="us-foot">
@@ -854,6 +857,50 @@ import { CLIENT } from "../../config/client";
           }
         });
 
+        // Collegamento OAuth (livello 2)
+        const gDisconnect = document.getElementById("g-disconnect") as HTMLButtonElement | null;
+        gConnect?.addEventListener("click", async () => {
+          gConnect.disabled = true;
+          try {
+            const res = await fetch("/api/google/connect", { method: "POST", headers });
+            const j = await res.json();
+            if (!res.ok || !j.url) { toast(j.error ?? "Connexion impossible", true); return; }
+            window.location.href = j.url; // schermata di consenso Google
+          } catch {
+            toast("Erreur de connexion", true);
+          } finally {
+            gConnect.disabled = false;
+          }
+        });
+        gDisconnect?.addEventListener("click", async () => {
+          try {
+            const res = await fetch("/api/google/connect", {
+              method: "POST",
+              headers: { ...headers, "X-Method-Override": "DELETE" },
+            });
+            if (!res.ok) { toast("Déconnexion impossible", true); return; }
+            toast("Google déconnecté");
+            void itgCarica();
+          } catch { toast("Erreur de connexion", true); }
+        });
+
+        // Esito del ritorno da Google (?google=ok|refus|etat|echec|erreur)
+        (() => {
+          const q = new URLSearchParams(window.location.search).get("google");
+          if (!q) return;
+          const testi: Record<string, string> = {
+            ok: "Google connecté ✓",
+            refus: "Autorisation refusée par l'utilisateur.",
+            etat: "Lien expiré, relance la connexion.",
+            echec: "Google n'a pas renvoyé de jeton — réessaie.",
+            erreur: "Erreur côté Google.",
+          };
+          toast(testi[q] ?? q, q !== "ok");
+          const u = new URL(window.location.href);
+          u.searchParams.delete("google");
+          window.history.replaceState({}, "", u.toString());
+        })();
+
         gSave?.addEventListener("click", async () => {
           if (!gErr) return;
           gErr.textContent = "";
@@ -906,9 +953,17 @@ import { CLIENT } from "../../config/client";
                 gState.textContent = g.connected ? "Connecté" : g.place_id ? "Avis actifs" : "Non connecté";
                 gState.classList.toggle("ext", g.connected || Boolean(g.place_id));
               }
-              if (gConnect) gConnect.disabled = !g.oauth_ready;
-              if (gOauthNote && g.oauth_ready) {
-                gOauthNote.textContent = "Le client autorise MOODD à gérer sa fiche Google.";
+              if (gConnect) {
+                gConnect.disabled = !g.oauth_ready;
+                gConnect.textContent = g.connected ? "Reconnecter Google" : "Connecter Google";
+              }
+              if (gDisconnect) gDisconnect.style.display = g.connected ? "" : "none";
+              if (gOauthNote) {
+                gOauthNote.textContent = !g.oauth_ready
+                  ? "En attente de l'accès API Google (demande envoyée)."
+                  : g.connected
+                    ? "Fiche Google connectée : réponses aux avis et horaires synchronisables."
+                    : "Le client autorise MOODD à gérer sa fiche Google.";
               }
             }
           } catch { /* rete assente */ }

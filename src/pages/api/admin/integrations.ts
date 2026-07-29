@@ -64,7 +64,10 @@ export const GET: APIRoute = async ({ request }) => {
       place_id: c[K_GPLACE] ?? "",
       connected: Boolean(c[K_GTOKEN]),
       // la connessione OAuth è possibile solo con le credenziali MOODD configurate
-      oauth_ready: Boolean(import.meta.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID),
+      oauth_ready: Boolean(
+        (import.meta.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID) &&
+        (import.meta.env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET)
+      ),
     },
   });
 };
