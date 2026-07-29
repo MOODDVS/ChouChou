@@ -40,6 +40,10 @@ const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 export interface StaffUser {
   id: string;
   email: string | null;
+  /** Ruolo (app_metadata, scrivibile solo con service key): super | admin | user. */
+  role?: string;
+  /** Vecchio flag booleano, tenuto per retrocompatibilità. */
+  is_super?: boolean;
 }
 
 // ============================================================
@@ -141,6 +145,8 @@ async function verificaLocale(token: string): Promise<StaffUser | null> {
   return {
     id: String(payload.sub),
     email: typeof payload.email === "string" ? payload.email : null,
+    role: typeof payload.app_metadata?.role === "string" ? payload.app_metadata.role : undefined,
+    is_super: payload.app_metadata?.is_super === true,
   };
 }
 
@@ -173,7 +179,12 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
   if (!user) {
     const { data, error } = await authClient.auth.getUser(token);
     if (error || !data.user) return null;
-    user = { id: data.user.id, email: data.user.email ?? null };
+    user = {
+      id: data.user.id,
+      email: data.user.email ?? null,
+      role: (data.user.app_metadata as { role?: string } | undefined)?.role,
+      is_super: (data.user.app_metadata as { is_super?: boolean } | undefined)?.is_super === true,
+    };
   }
 
   if (tokenVerificati.size > 200) tokenVerificati.clear();

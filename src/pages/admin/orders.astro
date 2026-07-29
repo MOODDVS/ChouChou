@@ -93,7 +93,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* --- Testata: titolo a sinistra, préparation rapide a destra --- */
       .head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; margin-bottom: 2rem; }
       .prep { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
-      .prep-lab { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .prep .o-search-wrap { margin-right: 1.4rem; }
+      .prep-lab { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--c-muted); }
       .prep-note { text-transform: none; letter-spacing: 0; color: #2e9e6b; font-weight: 700; margin-left: 0.4rem; }
       .prep-note.err { color: #ff6b6b; }
       .prep-btns { display: flex; gap: 0.6rem; }
@@ -101,10 +102,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.45rem 0.75rem;
+        padding: 0.4rem 0.95rem;
+        border-radius: 999px;
         background: var(--c-card);
         border: 1px solid var(--c-line);
-        color: var(--c-accent);
+        color: var(--c-muted);
         font-family: var(--font-body);
         cursor: pointer;
         box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
@@ -113,8 +115,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .prep-btn svg { width: 24px; height: 24px; display: block; }
       .prep-close svg { width: 26px; height: 21px; } /* icône X : garde son ratio */
       .prep-btn .m { font-size: 0.8rem; color: var(--c-muted); }
-      .prep-btn:hover { border-color: var(--c-accent); }
-      .prep-btn.active { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      .prep-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .prep-btn.active { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-accent); }
       .prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
       .prep-btn:disabled { opacity: 0.5; cursor: wait; }
       /* Ricerca ordini (convenzione campo compatto con lente) */
@@ -259,7 +261,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.06em;
-        padding: 0 1.6rem; border-radius: 999px; cursor: pointer;
+        padding: 0 1.1rem; border-radius: 999px; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
@@ -474,7 +476,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     </div>
 
     <!-- Nouvelle commande (manuale con link di pagamento) -->
-    <button class="nc-add" id="nc-add" type="button" style="display:none">+ Commande</button>
+    <button class="nc-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>Commande</button>
     <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
       <div class="nc-modal">
         <button class="nc-close" id="nc-close" aria-label="Fermer">×</button>

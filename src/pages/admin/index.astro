@@ -14,6 +14,7 @@ import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
+import TileGoogle from "../../components/admin/home/TileGoogle.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
@@ -399,6 +400,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           <TileJoursSpeciaux />
           <TileCuisine />
           <TileMenu />
+          <TileGoogle />
           <TileStats />
           <TilePhotos />
         </div>
@@ -1362,10 +1364,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnReset = document.getElementById("organiser-reset") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number };
-        const KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "stats", "assets"];
+        const KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "google", "stats", "assets"];
         const DEFAULT_LAYOUT: Item[] = [
           { key: "notes", w: 1 }, { key: "orders", w: 1 }, { key: "reservations", w: 1 }, { key: "settings", w: 1 },
-          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 }, { key: "stats", w: 2 }, { key: "assets", w: 2 },
+          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 }, { key: "google", w: 1 },
+          { key: "stats", w: 2 }, { key: "assets", w: 2 },
         ];
 
         let editing = false;
@@ -1448,6 +1451,69 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             fetch("/api/admin/home-layout", { method: "PUT", headers, body: JSON.stringify({ layout: layoutCorrente() }) }).catch(() => {});
           }, 400);
         }
+
+        // --- Tile Google : note, nombre d'avis, dernier avis ---
+        (async () => {
+          const tile = document.getElementById("tile-google") as HTMLElement | null;
+          if (!tile) return;
+          try {
+            const res = await fetch("/api/admin/google-info", { headers });
+            if (!res.ok) return;
+            const g = (await res.json()) as {
+              configured: boolean; name?: string; rating?: number | null; reviews?: number;
+              maps_url?: string; avis?: { auteur: string; note: number; texte: string; quand: string }[];
+            };
+            if (!g.configured || g.rating == null) return; // niente Place ID → tile nascosta
+            tile.style.display = "";
+            const maps = document.getElementById("g-maps") as HTMLAnchorElement | null;
+            if (maps) maps.href = g.maps_url || "#";
+            const stelle = (n: number) => "★".repeat(Math.round(n)) + "☆".repeat(Math.max(0, 5 - Math.round(n)));
+            const nota = Number(g.rating);
+            const rEl = document.getElementById("g-rating");
+            if (rEl) rEl.textContent = nota.toFixed(1).replace(".", ",");
+            const sEl = document.getElementById("g-stars");
+            if (sEl) sEl.textContent = stelle(nota);
+            const cEl = document.getElementById("g-count");
+            if (cEl) cEl.textContent = `${g.reviews ?? 0} avis Google`;
+
+            // --- Carrousel des avis ---
+            const avis = (g.avis ?? []).filter((a) => a.texte);
+            if (!avis.length) return;
+            const car = document.getElementById("g-carousel");
+            const qEl = document.getElementById("g-quote");
+            const wEl = document.getElementById("g-who");
+            const asEl = document.getElementById("g-a-stars");
+            const dots = document.getElementById("g-dots");
+            if (car) car.style.display = "";
+            let idx = 0;
+            let auto: number | undefined;
+
+            const mostra = (i: number) => {
+              idx = (i + avis.length) % avis.length;
+              const a = avis[idx];
+              if (asEl) asEl.textContent = stelle(a.note || 0);
+              if (qEl) qEl.textContent = "« " + (a.texte.length > 190 ? a.texte.slice(0, 190) + "…" : a.texte) + " »";
+              if (wEl) wEl.textContent = [a.auteur, a.quand].filter(Boolean).join(" · ");
+              if (dots) {
+                dots.querySelectorAll("i").forEach((d, n) => d.classList.toggle("on", n === idx));
+              }
+            };
+            if (dots) {
+              dots.innerHTML = avis.map(() => "<i></i>").join("");
+              dots.querySelectorAll("i").forEach((d, n) =>
+                d.addEventListener("click", () => { mostra(n); riparti(); })
+              );
+            }
+            const riparti = () => {
+              window.clearInterval(auto);
+              if (avis.length > 1) auto = window.setInterval(() => mostra(idx + 1), 7000);
+            };
+            document.getElementById("g-prev")?.addEventListener("click", () => { mostra(idx - 1); riparti(); });
+            document.getElementById("g-next")?.addEventListener("click", () => { mostra(idx + 1); riparti(); });
+            mostra(0);
+            riparti();
+          } catch { /* rete assente : tile reste cachée */ }
+        })();
 
         // Carica il layout salvato (o default)
         try {

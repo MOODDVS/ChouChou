@@ -58,11 +58,11 @@ const TZ_RISTO = await aggiornaTimezone();
 
 <style>
   html.glass .ah-header {
-    background: rgba(0, 0, 0, 0.25);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--c-header, var(--c-bg)) 85%, transparent);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
   }
-  .ah-header { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); background: var(--c-bg); box-shadow: 0 4px 16px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15))); }
+  .ah-header { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--c-line); background: var(--c-header, var(--c-bg)); box-shadow: 0 4px 16px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15))); }
   .ah-left { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
   .ah-brand { display: flex; align-items: center; }
   .ah-brand img { width: 48px; height: 48px; display: block; border-radius: 10px; border: 1px solid var(--c-line); }

@@ -1,0 +1,60 @@
+---
+// Isola "Google" della Accueil: note globale + carrousel des derniers avis
+// (avec les étoiles de chacun). Alimentata da /api/admin/google-info.
+// Place ID in Réglages → Integrations ; sans Place ID la tuile reste cachée.
+---
+<div class="tile tile-google" data-tile="google" id="tile-google" style="display:none">
+  <div class="g-head">
+    <div class="tile-title">
+      <svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+      Google
+    </div>
+    <a class="g-link" id="g-maps" href="#" target="_blank" rel="noopener">Voir la fiche →</a>
+  </div>
+
+  <div class="g-top">
+    <span class="tile-big" id="g-rating">—</span>
+    <span class="g-stars" id="g-stars" aria-hidden="true"></span>
+  </div>
+  <div class="tile-sub" id="g-count">—</div>
+
+  <div class="g-carousel" id="g-carousel" style="display:none">
+    <div class="g-avis">
+      <span class="g-avis-stars" id="g-a-stars" aria-hidden="true"></span>
+      <p class="g-quote" id="g-quote"></p>
+      <span class="g-who" id="g-who"></span>
+    </div>
+    <div class="g-nav">
+      <button type="button" class="g-arrow" id="g-prev" aria-label="Avis précédent">‹</button>
+      <span class="g-dots" id="g-dots"></span>
+      <button type="button" class="g-arrow" id="g-next" aria-label="Avis suivant">›</button>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .tile-google { display: flex; flex-direction: column; }
+  .g-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+  .g-head .tile-title { margin-bottom: 1rem; }
+  .g-link { font-size: 0.78rem; color: var(--c-accent); text-decoration: none; white-space: nowrap; }
+  .g-link:hover { text-decoration: underline; }
+  .g-top { display: flex; align-items: baseline; gap: 0.6rem; }
+  .g-stars { color: var(--c-accent); font-size: 1rem; letter-spacing: 0.08em; }
+
+  .g-carousel { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
+  .g-avis { min-height: 96px; }
+  .g-avis-stars { color: var(--c-accent); font-size: 0.85rem; letter-spacing: 0.06em; }
+  .tile-google .g-quote { margin: 0.35rem 0 0; font-size: 0.88rem; line-height: 1.5; font-style: italic; color: var(--c-text); }
+  .tile-google .g-who { display: block; margin-top: 0.4rem; font-size: 0.76rem; color: var(--c-muted); }
+
+  .g-nav { display: flex; align-items: center; justify-content: center; gap: 0.7rem; margin-top: 0.7rem; }
+  .g-arrow {
+    width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-line);
+    background: none; color: var(--c-muted); cursor: pointer; line-height: 1; font-size: 1rem;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .g-arrow:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .g-dots { display: flex; gap: 0.3rem; }
+  .g-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-line); display: block; cursor: pointer; transition: background 0.15s; }
+  .g-dots i.on { background: var(--c-accent); }
+</style>

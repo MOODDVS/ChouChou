@@ -351,7 +351,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
+        padding: 0.6rem 1.1rem; border-radius: 999px; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
@@ -819,7 +819,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       <AdminFooter />
     </div>
 
-    <button class="fab" id="fab-add">+ Réservation</button>
+    <button class="fab" id="fab-add"><span class="fab-plus">+</span>Réservation</button>
     <button class="fab-serv" id="fab-serv" title="Services du jour" aria-label="Services du jour">
       <svg viewBox="0 0 1069 1069" fill="currentColor" aria-hidden="true"><path d="m868.658 793.843h-666.667c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h666.667c17.247 0 31.25-14.002 31.25-31.25 0-17.247-14.003-31.25-31.25-31.25zm-696.964-105.706h-53.036c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h833.333c17.248 0 31.25-14.002 31.25-31.25 0-17.247-14.002-31.25-31.25-31.25h-53.035c-6.089-84.36-41.354-166.984-105.785-231.415-142.309-142.31-373.383-142.31-515.693 0-64.431 64.431-99.696 147.055-105.784 231.415zm664.564 0h-601.867c5.955-68.316 35.046-134.986 87.281-187.221 117.918-117.918 309.387-117.918 427.305 0 52.235 52.235 81.327 118.905 87.281 187.221zm-350.932-352.627h99.997c17.248 0 31.25-14.003 31.25-31.25s-14.002-31.25-31.25-31.25h-99.997c-17.247 0-31.25 14.003-31.25 31.25s14.003 31.25 31.25 31.25z" /><path d="m504.075 304.26v76.973c0 17.248 14.002 31.25 31.25 31.25 17.247 0 31.25-14.002 31.25-31.25v-76.973c0-17.247-14.003-31.25-31.25-31.25-17.248 0-31.25 14.003-31.25 31.25z" fill-opacity=".5" /></svg>
     </button>

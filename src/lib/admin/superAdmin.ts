@@ -26,6 +26,7 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "popup", label: "Pop-up" },
     { key: "news", label: "Newsletter" },
     { key: "coupons", label: "Coupons" },
+    { key: "giftcards", label: "Bons cadeaux" },
   ],
   menu: [
     { key: "food", label: "Plats" },
@@ -61,6 +62,7 @@ export const TEMA_DEFAULT: Record<string, string> = {
   accent: "#ff7300", // arancione MOODD: azioni, attivi, titoli
   hover: "#e04f00",  // arancione hover
   bg: "#ffffff",     // fondo pagina (e testo sui bottoni accent)
+  header: "#ffffff", // barra in alto (indipendente dal fondo pagina)
   card: "#ffffff",   // card
   input: "#e6e6e6",  // input / elementi "off"
   line: "#ebebeb",   // linee e bordi
@@ -73,4 +75,46 @@ export const TEMA_CHIAVI = Object.keys(TEMA_DEFAULT);
 
 export function isSuper(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === SUPER_EMAIL;
+}
+
+/**
+ * RUOLI (in `app_metadata.role`, scrivibile solo con la service key):
+ *  - "super" : vede tutto + la pagina Réglages (design, users, permissions)
+ *  - "admin" : eredita esattamente ciò che è attivo in Réglages  [default]
+ *  - "user"  : come admin, MENO les pages Admin (settings) et Statistiques
+ * Gli utenti creati prima dei ruoli non hanno il campo → valgono "admin",
+ * cioè il comportamento storico.
+ */
+export type RuoloAdmin = "super" | "admin" | "user";
+
+/** Pagine riservate: mai visibili al ruolo "user". */
+export const PAGINE_SOLO_ADMIN = ["settings", "stats"];
+
+export function ruoloDi(u: {
+  email?: string | null;
+  app_metadata?: Record<string, unknown> | null;
+  role?: string;
+  is_super?: boolean;
+} | null | undefined): RuoloAdmin {
+  if (!u) return "user";
+  if (isSuper(u.email)) return "super";
+  const am = (u.app_metadata ?? {}) as { role?: string; is_super?: boolean };
+  const r = String(u.role ?? am.role ?? "");
+  if (r === "super" || r === "admin" || r === "user") return r;
+  // Retrocompatibilità col vecchio flag booleano
+  if (u.is_super === true || am.is_super === true) return "super";
+  return "admin";
+}
+
+/**
+ * Super admin "vero": l'accesso MOODD (email fissa) OPPURE un utente
+ * promosso, marcato in `app_metadata` — scrivibile solo con la
+ * service key, quindi nessuno può auto-promuoversi dal browser.
+ */
+export function isSuperUser(u: {
+  email?: string | null;
+  app_metadata?: Record<string, unknown> | null;
+  is_super?: boolean;
+} | null | undefined): boolean {
+  return ruoloDi(u) === "super";
 }

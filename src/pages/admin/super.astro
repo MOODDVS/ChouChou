@@ -44,40 +44,54 @@ import { CLIENT } from "../../config/client";
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; max-width: 620px; margin: 0 auto; }
-      /* Con spazio: 2 colonne — permessi a sinistra, design a destra */
-      @media (min-width: 1080px) {
-        main { max-width: none; }
-        .sup-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
-        .sup-col .tema-titre { margin-top: 0; }
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; margin: 0 auto; }
+      .pane[data-pane="reglages"] .sub { max-width: 780px; }
+
+      /* Barre d'onglets (même style que la page Admin) */
+      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin: 1.2rem 0 1.6rem; border-bottom: 1px solid var(--c-line); }
+      .t-ico {
+        width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
+        fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
       }
+      .tabs button {
+        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
+        padding: 0.5rem 1.2rem; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-muted); border-radius: 10px; cursor: pointer;
+        transition: background 0.2s, color 0.2s, border-color 0.2s;
+      }
+      .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .pane[hidden] { display: none; }
+      .pane .tema-titre { margin-top: 0; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .sub { color: var(--c-muted); font-size: 0.92rem; margin-bottom: 1.5rem; line-height: 1.6; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
-      .rows { display: flex; flex-direction: column; gap: 0.4rem; }
-      .row {
-        display: flex; align-items: center; gap: 1rem;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 1rem 1.3rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      /* Une carte par page de l'admin, en grille : on occupe tout l'écran. */
+      .rows { display: grid; gap: 0.8rem; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); align-items: start; }
+      .rowwrap {
+        display: flex; flex-direction: column;
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
+        padding: 1rem 1.2rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+        transition: border-color 0.2s, opacity 0.2s;
       }
-      .row.is-off { opacity: 0.55; }
+      .rowwrap:has(.row.is-off) { opacity: 0.62; }
+      .row { display: flex; align-items: center; gap: 0.8rem; }
       .row-name { flex: 1; font-weight: 700; font-size: 1.02rem; }
-      .row-state { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .row-state { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
 
-      /* Tab interni a una pagina: scendono (tendina) quando la pagina è attiva,
-         affiancati quando c'è spazio, impilati su mobile. */
-      .rowwrap { display: flex; flex-direction: column; }
-      .subrows { display: flex; flex-direction: row; flex-wrap: wrap; gap: 0.45rem; padding: 0.5rem 0 0.75rem 1.5rem; }
-      .subrow { display: flex; align-items: center; gap: 0.65rem; background: var(--c-input); border: 1px solid var(--c-line); padding: 0.5rem 0.85rem; }
-      .subrow.is-off { opacity: 0.6; }
-      .subrow-name { font-size: 0.9rem; white-space: nowrap; }
-      @media (max-width: 640px) {
-        .subrows { flex-direction: column; }
-        .subrow { justify-content: space-between; }
-        .subrow-name { flex: 1; }
+      /* Onglets d'une page : sous la carte, en pastilles */
+      .subrows { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--c-line); }
+      .subrow {
+        display: flex; align-items: center; gap: 0.5rem; background: var(--c-input);
+        border: 1px solid var(--c-line); border-radius: 999px; padding: 0.3rem 0.35rem 0.3rem 0.8rem;
       }
+      .subrow.is-off { opacity: 0.6; }
+      .subrow-name { font-size: 0.85rem; white-space: nowrap; }
+      .subrow .switch { width: 34px; height: 19px; }
+      .subrow .switch .track::before { width: 13px; height: 13px; left: 3px; }
+      .subrow .switch input:checked + .track::before { transform: translate(15px, -50%); }
 
       .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
       .switch input { opacity: 0; width: 0; height: 0; }
@@ -86,17 +100,196 @@ import { CLIENT } from "../../config/client";
         background: var(--c-line); transition: background 0.2s;
       }
       .switch .track::before {
-        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
-        border-radius: 50%; background: var(--c-bg); transition: transform 0.2s;
+        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 50%;
+        transform: translateY(-50%);
+        border-radius: 50%; background: #fff; transition: transform 0.2s;
       }
       .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(20px); }
+      .switch input:checked + .track::before { transform: translate(20px, -50%); }
 
       .note { color: var(--c-muted); font-size: 0.8rem; margin-top: 1.2rem; line-height: 1.6; }
 
       /* --- Couleurs du brand --- */
       .tema-titre { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; margin: 2.4rem 0 0.35rem; }
-      .tema-rows { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1.1rem; }
+      /* Design : colonne (couleurs à gauche, aperçu à droite) */
+      .design-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; align-items: start; }
+      @media (min-width: 1080px) { .design-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2.5rem; } }
+
+      /* Cartes couleur */
+      .tema-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin-top: 1.1rem; }
+      @media (max-width: 560px) { .tema-rows { grid-template-columns: minmax(0, 1fr); } }
+      .tema-card {
+        display: flex; flex-direction: column; gap: 0.5rem;
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
+        padding: 0.8rem 0.9rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      }
+      .tema-card.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 1rem; }
+      .tema-card.wide .tema-nom { flex: 1; }
+      .tema-card .tema-sw {
+        width: 100%; height: 52px; padding: 0; border: 1px solid var(--c-line);
+        border-radius: 8px; background: none; cursor: pointer; display: block;
+      }
+      .tema-card .tema-sw::-webkit-color-swatch-wrapper { padding: 0; }
+      .tema-card .tema-sw::-webkit-color-swatch { border: none; border-radius: 7px; }
+      .tema-card .tema-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
+
+      /* Aperçu du dashboard : reprend les mêmes variables → change en direct */
+      .prev-wrap { position: sticky; top: 1.5rem; }
+      .prev-lab { font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.05em; color: var(--c-muted); margin-bottom: 0.7rem; }
+      .prev {
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 14px;
+        overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
+      }
+      .prev-top {
+        display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 0.9rem;
+        background: var(--c-header, var(--c-bg)); border-bottom: 1px solid var(--c-line);
+      }
+      .prev-logo { width: 20px; height: 20px; border-radius: 5px; background: var(--c-accent); flex-shrink: 0; }
+      .prev-date { font-family: var(--font-title); font-size: 0.72rem; letter-spacing: 0.05em; color: var(--c-accent); }
+      .prev-mail { margin-left: auto; font-size: 0.62rem; color: var(--c-muted); }
+      .prev-body { padding: 0.9rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+      .prev-tile {
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.7rem 0.8rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      }
+      .prev-tile .k { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); }
+      .prev-tile .v { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.03em; color: var(--c-text); margin-top: 0.15rem; }
+      .prev-tile .v.acc { color: var(--c-accent); }
+      .prev-tile.wide { grid-column: 1 / -1; }
+      .prev-line { height: 7px; border-radius: 999px; background: var(--c-input); margin-top: 0.5rem; }
+      .prev-line.s { width: 62%; }
+      .prev-line.a { background: var(--c-accent); width: 40%; }
+      .prev-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.6rem; }
+      .prev-btn {
+        background: var(--c-accent); color: var(--c-bg); font-family: var(--font-title);
+        font-size: 0.7rem; letter-spacing: 0.05em; padding: 0.35rem 0.9rem; border-radius: 999px;
+      }
+      .prev-btn.ghost { background: none; color: var(--c-muted); border: 1px solid var(--c-line); }
+      .prev-nav {
+        margin: 0.2rem 0.9rem 0.9rem; padding: 0.4rem 0.6rem; display: flex; justify-content: center; gap: 0.5rem;
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 999px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15)));
+      }
+      .prev-nav i { width: 22px; height: 22px; border-radius: 50%; background: var(--c-input); display: block; }
+      .prev-nav i.on { background: var(--c-accent); }
+
+      /* --- Users --- */
+      .us-new { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+      .us-new input {
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.92rem; padding: 0.5rem 0.7rem; border-radius: 8px;
+      }
+      .us-new input:focus { outline: none; border-color: var(--c-accent); }
+      .us-new #us-email { flex: 1 1 240px; }
+      .us-new #us-pass { flex: 1 1 200px; }
+      .us-add, .us-ghost {
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.04em;
+        padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer;
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .us-ghost { background: none; color: var(--c-muted); border-color: var(--c-line); }
+      .us-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .us-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.4rem; }
+      .us-row {
+        display: grid; align-items: center; gap: 1rem; text-align: left;
+        /* minmax(0,…) : le colonne non si allargano col contenuto; l'ultima è
+           FISSA, così le icone restano allineate riga per riga. */
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(0, 0.9fr) minmax(0, 1.1fr) 132px;
+      }
+      .i-slot { width: 34px; height: 34px; flex: none; }
+      .us-row {
+        background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
+        padding: 0.75rem 1.2rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      }
+      .us-cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; }
+      .us-cell.nom { font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+      .us-cell.dim { color: var(--c-muted); font-size: 0.78rem; }
+      .us-tag { font-size: 0.55rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+        background: var(--c-accent); color: var(--c-bg); padding: 0.08rem 0.4rem; border-radius: 999px; flex: none; }
+      .us-acts { display: flex; gap: 0.4rem; justify-content: flex-end; }
+      .us-cell { text-align: left; }
+      @media (max-width: 900px) {
+        .us-row { grid-template-columns: 1fr auto; row-gap: 0.3rem; }
+        .us-row .us-acts { grid-row: 1 / span 3; align-self: center; }
+      }
+      .us-btn {
+        border: 1px solid var(--c-line); background: none; color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.78rem; padding: 0.3rem 0.8rem;
+        border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .us-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .us-btn.danger:hover { border-color: #e2483d; color: #e2483d; }
+      .i-btn {
+        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+        background: transparent; border: 1px solid var(--c-line); border-radius: 50%;
+        color: var(--c-muted); cursor: pointer; font-size: 0.95rem;
+        transition: border-color 0.2s, color 0.2s, background 0.2s;
+      }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
+      .us-overlay {
+        position: fixed; inset: 0; z-index: 300; display: none; padding: 1rem;
+        background: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center;
+      }
+      .us-overlay.is-open { display: flex; }
+      .us-modal {
+        width: 100%; max-width: 460px; background: var(--c-card); border: 1px solid var(--c-line);
+        border-radius: 14px; padding: 1.8rem; position: relative;
+        box-shadow: 0 18px 50px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
+      }
+      .us-close { position: absolute; top: 0.7rem; right: 0.9rem; background: none; border: none;
+        color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+      .us-titre { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; margin: 0 0 0.3rem; }
+      .us-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--c-muted); margin: 1.1rem 0 0.35rem; }
+      .us-frow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+      .us-frow .us-lab { margin-top: 0; }
+      .us-frow-pass { grid-template-columns: 1fr auto; align-items: center; }
+      .us-modal input {
+        width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.92rem;
+        padding: 0.5rem 0.7rem; border-radius: 8px;
+      }
+      .us-modal input:focus { outline: none; border-color: var(--c-accent); }
+      .us-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.8rem; flex-wrap: wrap; }
+      .us-err { color: #e2483d; font-size: 0.82rem; }
+      .us-roles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+      .us-role {
+        background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.82rem; font-weight: 700;
+        padding: 0.4rem 0.95rem; border-radius: 999px; cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      .us-role:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .us-role.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .us-role:disabled { opacity: 0.4; cursor: not-allowed; }
+      .us-tag.role-user { background: var(--c-input); color: var(--c-text); }
+      .us-tag.role-admin { background: var(--c-muted); color: var(--c-bg); }
+
+      /* --- Integrations --- */
+      .itg-card {
+        max-width: 720px; background: var(--c-card); border: 1px solid var(--c-line);
+        border-radius: 14px; padding: 1.5rem 1.6rem;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+      }
+      .itg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+      .itg-titre { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.04em; margin: 0; }
+      .itg-state { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+        background: var(--c-input); color: var(--c-text); padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+      .itg-state.ext { background: var(--c-accent); color: var(--c-bg); }
+      .itg-card input, .itg-card textarea {
+        width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.92rem;
+        padding: 0.5rem 0.7rem; border-radius: 8px;
+      }
+      .itg-card textarea { font-family: ui-monospace, monospace; font-size: 0.8rem; line-height: 1.5; resize: vertical; }
+      .itg-niv { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+        color: var(--c-accent); margin: 1.6rem 0 0.2rem; padding-top: 1rem; border-top: 1px solid var(--c-line); }
+      .itg-card input:focus, .itg-card textarea:focus { outline: none; border-color: var(--c-accent); }
       .tema-row {
         display: flex; align-items: center; gap: 1rem;
         background: var(--c-card); border: 1px solid var(--c-line);
@@ -140,33 +333,211 @@ import { CLIENT } from "../../config/client";
       <AdminHeader />
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>Réglages</h1>
-        <div class="sup-cols">
-          <div class="sup-col">
-            <p class="sub">
-              Choisis les pages visibles pour les autres utilisateurs de l'admin.
-              Une page désactivée disparaît de la barre de navigation et son accès
-              direct est bloqué. Toi, tu vois toujours tout.
-            </p>
-            <div class="state" id="state">Chargement…</div>
-            <div class="rows" id="rows" style="display:none"></div>
-            <p class="note">
-              L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
-              Les modifications sont immédiates pour tous les utilisateurs.
+        <div class="tabs" id="sup-tabs">
+          <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>Design</button>
+          <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Users</button>
+          <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Réglages</button>
+          <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>Integrations</button>
+        </div>
+
+        <section class="pane" data-pane="design">
+          <div class="design-cols">
+            <div>
+              <p class="sub">
+                L'admin prend les couleurs du client. Les couleurs « signal »
+                (vert = succès, rouge = erreur) ne changent pas.
+              </p>
+              <div class="tema-rows" id="tema-rows" style="display:none"></div>
+              <button class="tema-reset" id="tema-reset" style="display:none">Revenir aux couleurs MOODD</button>
+            </div>
+
+            <div class="prev-wrap">
+              <p class="prev-lab">Aperçu</p>
+              <div class="prev" aria-hidden="true">
+                <div class="prev-top">
+                  <span class="prev-logo"></span>
+                  <span class="prev-date">MERCREDI 29 JUILLET</span>
+                  <span class="prev-mail">client@resto.be</span>
+                </div>
+                <div class="prev-body">
+                  <div class="prev-tile"><div class="k">Commandes</div><div class="v acc">12</div></div>
+                  <div class="prev-tile"><div class="k">Réservations</div><div class="v">28</div></div>
+                  <div class="prev-tile wide">
+                    <div class="k">Chiffre du jour</div>
+                    <div class="v acc">1 240,00 €</div>
+                    <div class="prev-line"></div>
+                    <div class="prev-line s"></div>
+                    <div class="prev-line a"></div>
+                    <div class="prev-actions">
+                      <span class="prev-btn">Enregistrer</span>
+                      <span class="prev-btn ghost">Annuler</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="prev-nav">
+                  <i></i><i class="on"></i><i></i><i></i><i></i>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="reglages" hidden>
+          <p class="sub">
+            Choisis les pages visibles pour les autres utilisateurs de l'admin.
+            Une page désactivée disparaît de la barre de navigation et son accès
+            direct est bloqué. Toi, tu vois toujours tout.
+          </p>
+          <div class="state" id="state">Chargement…</div>
+          <div class="rows" id="rows" style="display:none"></div>
+          <p class="note">
+            L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
+            Les modifications sont immédiates pour tous les utilisateurs.
+          </p>
+        </section>
+
+        <section class="pane" data-pane="integrations" hidden>
+          <p class="sub">
+            Services externes branchés sur le site du client. Réservé à MOODD :
+            le code collé ici s'exécute sur le site public.
+          </p>
+
+          <div class="itg-card">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">Réservations</h3>
+                <p class="note" style="margin:0.2rem 0 0">Qui gère les réservations sur le site du client.</p>
+              </div>
+              <span class="itg-state" id="itg-state">—</span>
+            </div>
+
+            <div class="us-roles" id="itg-modes" style="margin-top:1.2rem">
+              <button type="button" class="us-role is-on" data-mode="moodd">MOODD</button>
+              <button type="button" class="us-role" data-mode="link">Lien externe</button>
+              <button type="button" class="us-role" data-mode="embed">Widget externe</button>
+              <button type="button" class="us-role" data-mode="none">Aucune</button>
+            </div>
+            <p class="note" id="itg-hint" style="margin-top:0.5rem"></p>
+
+            <div id="itg-fields" style="display:none">
+              <label class="us-lab" for="itg-provider">Fournisseur</label>
+              <input type="text" id="itg-provider" placeholder="Zenchef, TheFork, Barestho…" autocomplete="off" />
+
+              <div id="itg-url-box" style="display:none">
+                <label class="us-lab" for="itg-url">Lien de réservation</label>
+                <input type="url" id="itg-url" placeholder="https://…" autocomplete="off" />
+              </div>
+
+              <div id="itg-embed-box" style="display:none">
+                <label class="us-lab" for="itg-embed">Code du widget</label>
+                <textarea id="itg-embed" rows="7" placeholder="&lt;script src=&quot;…&quot;&gt;&lt;/script&gt;"></textarea>
+                <p class="note" style="margin-top:0.4rem">
+                  Collé tel quel dans le site public. À charger seulement après acceptation des cookies.
+                </p>
+              </div>
+            </div>
+
+            <div class="us-foot">
+              <button type="button" id="itg-save" class="us-add">Enregistrer</button>
+              <span class="us-err" id="itg-err"></span>
+            </div>
+
+            <p class="note" style="margin-top:1.4rem">
+              Avec un service externe, les réservations n'arrivent plus dans MOODD :
+              page Réservations, plan de salle, statistiques et emails de confirmation
+              sont alors gérés par le fournisseur.
             </p>
           </div>
 
-          <div class="sup-col">
-            <h2 class="tema-titre">Design</h2>
-            <p class="sub">
-              L'admin prend les couleurs du client. Les couleurs « signal »
-              (vert = succès, rouge = erreur) ne changent pas.
+          <div class="itg-card" style="margin-top:1rem">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">Google Business</h3>
+                <p class="note" style="margin:0.2rem 0 0">Avis, note et — plus tard — horaires synchronisés.</p>
+              </div>
+              <span class="itg-state" id="g-state">Non connecté</span>
+            </div>
+
+            <p class="itg-niv">Niveau 1 · lecture seule</p>
+            <label class="us-lab" for="g-place">Place ID de l'établissement</label>
+            <div class="us-frow us-frow-pass">
+              <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
+              <button type="button" id="g-test" class="us-ghost">Vérifier</button>
+            </div>
+            <p class="note" id="g-res" style="margin-top:0.5rem">
+              Trouve le Place ID sur <strong>Google Maps</strong> (fiche de l'établissement) ou via le
+              « Place ID Finder » de Google. Permet d'afficher la note et les avis.
             </p>
-            <div class="tema-rows" id="tema-rows" style="display:none"></div>
-            <button class="tema-reset" id="tema-reset" style="display:none">Revenir aux couleurs MOODD</button>
+
+            <p class="itg-niv">Niveau 2 · répondre aux avis, synchroniser les horaires</p>
+            <div class="us-frow us-frow-pass">
+              <button type="button" id="g-connect" class="us-add" disabled>Connecter Google</button>
+              <span class="note" id="g-oauth-note">En attente de l'accès API Google (demande à faire par MOODD).</span>
+            </div>
+
+            <div class="us-foot">
+              <button type="button" id="g-save" class="us-add">Enregistrer</button>
+              <span class="us-err" id="g-err"></span>
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section class="pane" data-pane="users" hidden>
+          <p class="sub">
+            Les accès à l'admin de cette installation. Ils se connectent sur
+            <strong>/admin/login</strong> avec leur email et leur mot de passe.
+            Rien à voir avec l'onglet « Team » de la page Admin, qui liste le personnel du restaurant.
+          </p>
+
+          <button type="button" id="us-open" class="us-add">Créer un utilisateur</button>
+          <p class="note" id="us-msg" style="margin-top:0.6rem"></p>
+
+          <div class="us-list" id="us-list"></div>
+        </section>
       </main>
       <AdminFooter />
+    </div>
+
+    <!-- Modale : créer un utilisateur -->
+    <div class="us-overlay" id="us-overlay">
+      <div class="us-modal">
+        <button type="button" class="us-close" id="us-close" aria-label="Fermer">×</button>
+        <h2 class="us-titre" id="us-titre">Nouvel utilisateur</h2>
+        <p class="note" id="us-hint" style="margin:0 0 1.2rem">Il pourra se connecter sur /admin/login avec cet email.</p>
+
+        <div class="us-frow">
+          <div>
+            <label class="us-lab" for="us-fname">Prénom</label>
+            <input type="text" id="us-fname" placeholder="Prénom" autocomplete="off" />
+          </div>
+          <div>
+            <label class="us-lab" for="us-lname">Nom</label>
+            <input type="text" id="us-lname" placeholder="Nom" autocomplete="off" />
+          </div>
+        </div>
+
+        <label class="us-lab" for="us-email">Email *</label>
+        <input type="email" id="us-email" placeholder="email@restaurant.be" autocomplete="off" />
+
+        <label class="us-lab" for="us-pass" id="us-pass-lab">Mot de passe *</label>
+        <div class="us-frow us-frow-pass">
+          <input type="text" id="us-pass" placeholder="8 caractères minimum" autocomplete="new-password" />
+          <button type="button" id="us-gen" class="us-ghost">Générer</button>
+        </div>
+
+        <label class="us-lab">Rôle</label>
+        <div class="us-roles" id="us-roles">
+          <button type="button" class="us-role" data-role="super">Super admin</button>
+          <button type="button" class="us-role is-on" data-role="admin">Admin</button>
+          <button type="button" class="us-role" data-role="user">User</button>
+        </div>
+        <p class="note" id="us-role-hint" style="margin-top:0.5rem"></p>
+
+        <div class="us-foot">
+          <button type="button" id="us-add" class="us-add">Créer l'accès</button>
+          <span class="us-err" id="us-err"></span>
+        </div>
+      </div>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -175,7 +546,7 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuper, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
+      import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -190,6 +561,26 @@ import { CLIENT } from "../../config/client";
           window.location.replace("/admin/login");
         });
 
+        // --- Onglets (Design | Réglages) : l'onglet ouvert est mémorisé ---
+        const supTabs = document.getElementById("sup-tabs") as HTMLDivElement | null;
+        function mostraPane(t: string) {
+          supTabs?.querySelectorAll<HTMLElement>("button").forEach((b) =>
+            b.classList.toggle("is-active", b.dataset.t === t)
+          );
+          document.querySelectorAll<HTMLElement>(".pane").forEach((p2) => {
+            p2.hidden = p2.dataset.pane !== t;
+          });
+          try { localStorage.setItem("mdd_super_tab", t); } catch { /* storage plein */ }
+        }
+        supTabs?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("button") as HTMLElement | null;
+          if (b?.dataset.t) mostraPane(b.dataset.t);
+        });
+        try {
+          const salvato = localStorage.getItem("mdd_super_tab");
+          if (salvato && supTabs?.querySelector(`button[data-t="${salvato}"]`)) mostraPane(salvato);
+        } catch { /* niente cache */ }
+
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
@@ -199,7 +590,7 @@ import { CLIENT } from "../../config/client";
           return;
         }
         // Pagina riservata al super admin MOODD
-        if (!isSuper(session.user.email)) {
+        if (!isSuperUser(session.user)) {
           window.location.replace("/admin");
           return;
         }
@@ -291,6 +682,7 @@ import { CLIENT } from "../../config/client";
           accent: "Accent (boutons, actifs)",
           hover: "Accent — survol",
           bg: "Fond",
+          header: "Barre du haut",
           card: "Cartes",
           input: "Champs & éléments sombres",
           line: "Lignes & bordures",
@@ -321,19 +713,21 @@ import { CLIENT } from "../../config/client";
             TEMA_CHIAVI.map((k) => {
               const v = tema[k] ?? TEMA_DEFAULT[k];
               return `
-            <div class="tema-row" data-tk="${k}">
-              <span class="tema-nom">${TEMA_LABEL[k] ?? k}</span>
-              <span class="tema-hex">${v}</span>
-              <input type="color" class="tema-pick" value="${v}" />
+            <div class="tema-card" data-tk="${k}">
+              <input type="color" class="tema-pick tema-sw" value="${v}" />
+              <div class="tema-meta">
+                <span class="tema-nom">${TEMA_LABEL[k] ?? k}</span>
+                <span class="tema-hex">${v}</span>
+              </div>
             </div>`;
             }).join("") +
             `
-            <div class="tema-row">
+            <div class="tema-card wide">
               <span class="tema-nom">Effet verre (transparences)</span>
               <span class="tema-hex">${glassOn ? "oui" : "opaque"}</span>
               <label class="switch"><input type="checkbox" id="tema-glass" ${glassOn ? "checked" : ""} /><span class="track"></span></label>
             </div>
-            <div class="tema-row">
+            <div class="tema-card wide">
               <span class="tema-nom">Ombres</span>
               <span class="tema-hex" id="tema-shadow-v">${tema.shadow ?? "15"}%</span>
               <input type="range" class="tema-range" id="tema-shadow" min="0" max="100" step="5" value="${tema.shadow ?? "15"}" />
@@ -378,13 +772,402 @@ import { CLIENT } from "../../config/client";
         temaRowsEl.addEventListener("input", (e) => {
           const t = e.target as HTMLInputElement;
           if (!t.classList.contains("tema-pick")) return;
-          const k = (t.closest(".tema-row") as HTMLElement).dataset.tk!;
+          const k = (t.closest(".tema-card") as HTMLElement).dataset.tk!;
           tema[k] = t.value.toLowerCase();
-          const hex = (t.closest(".tema-row") as HTMLElement).querySelector(".tema-hex");
+          const hex = (t.closest(".tema-card") as HTMLElement).querySelector(".tema-hex");
           if (hex) hex.textContent = tema[k];
           applicaTema();
           salvaTema();
         });
+
+        // ---------- Integrations ----------
+        const itgModes = document.getElementById("itg-modes") as HTMLDivElement | null;
+        const itgHint = document.getElementById("itg-hint") as HTMLParagraphElement | null;
+        const itgFields = document.getElementById("itg-fields") as HTMLDivElement | null;
+        const itgUrlBox = document.getElementById("itg-url-box") as HTMLDivElement | null;
+        const itgEmbedBox = document.getElementById("itg-embed-box") as HTMLDivElement | null;
+        const itgProvider = document.getElementById("itg-provider") as HTMLInputElement | null;
+        const itgUrl = document.getElementById("itg-url") as HTMLInputElement | null;
+        const itgEmbed = document.getElementById("itg-embed") as HTMLTextAreaElement | null;
+        const itgSave = document.getElementById("itg-save") as HTMLButtonElement | null;
+        const itgErr = document.getElementById("itg-err") as HTMLSpanElement | null;
+        const itgState = document.getElementById("itg-state") as HTMLSpanElement | null;
+
+        const ITG_TESTO: Record<string, string> = {
+          moodd: "Le widget MOODD gère les réservations : agenda, plan de salle, emails, statistiques.",
+          link: "Le bouton « Réserver » du site renvoie vers la page du fournisseur.",
+          embed: "Le widget du fournisseur est intégré dans le site du client.",
+          none: "Aucune réservation en ligne (take-away uniquement).",
+        };
+        function itgModo(): string {
+          return (itgModes?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.mode ?? "moodd";
+        }
+        function itgSetModo(m: string) {
+          itgModes?.querySelectorAll<HTMLElement>(".us-role").forEach((b) =>
+            b.classList.toggle("is-on", b.dataset.mode === m)
+          );
+          if (itgHint) itgHint.textContent = ITG_TESTO[m] ?? "";
+          const esterno = m === "link" || m === "embed";
+          if (itgFields) itgFields.style.display = esterno ? "" : "none";
+          if (itgUrlBox) itgUrlBox.style.display = m === "link" ? "" : "none";
+          if (itgEmbedBox) itgEmbedBox.style.display = m === "embed" ? "" : "none";
+          if (itgState) {
+            itgState.textContent = m === "moodd" ? "MOODD" : m === "none" ? "Désactivé" : "Externe";
+            itgState.classList.toggle("ext", esterno);
+          }
+        }
+        itgModes?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".us-role") as HTMLElement | null;
+          if (b?.dataset.mode) itgSetModo(b.dataset.mode);
+        });
+
+        // --- Google Business ---
+        const gPlace = document.getElementById("g-place") as HTMLInputElement | null;
+        const gTest = document.getElementById("g-test") as HTMLButtonElement | null;
+        const gRes = document.getElementById("g-res") as HTMLParagraphElement | null;
+        const gState = document.getElementById("g-state") as HTMLSpanElement | null;
+        const gSave = document.getElementById("g-save") as HTMLButtonElement | null;
+        const gErr = document.getElementById("g-err") as HTMLSpanElement | null;
+        const gConnect = document.getElementById("g-connect") as HTMLButtonElement | null;
+        const gOauthNote = document.getElementById("g-oauth-note") as HTMLSpanElement | null;
+
+        gTest?.addEventListener("click", async () => {
+          const id = gPlace?.value.trim() ?? "";
+          if (!id) { if (gRes) gRes.textContent = "Colle d'abord un Place ID."; return; }
+          if (/^AIza/.test(id)) {
+            if (gRes) gRes.textContent = "Ça, c'est une clé API Google (elle va dans le .env). Ici on attend le Place ID de l'établissement (ChIJ…).";
+            return;
+          }
+          gTest.disabled = true;
+          if (gRes) gRes.textContent = "Vérification…";
+          try {
+            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
+            const j = await res.json();
+            if (!res.ok) { if (gRes) gRes.textContent = j.error ?? "Vérification impossible"; return; }
+            if (gRes) {
+              gRes.textContent = `${j.name} — ${j.rating ?? "?"}/5 sur ${j.reviews ?? 0} avis`;
+            }
+          } catch {
+            if (gRes) gRes.textContent = "Erreur de connexion.";
+          } finally {
+            gTest.disabled = false;
+          }
+        });
+
+        gSave?.addEventListener("click", async () => {
+          if (!gErr) return;
+          gErr.textContent = "";
+          if (/^AIza/.test(gPlace?.value.trim() ?? "")) {
+            gErr.textContent = "C'est une clé API, pas un Place ID.";
+            return;
+          }
+          gSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode: itgModo(),
+                provider: itgProvider?.value.trim() ?? "",
+                url: itgUrl?.value.trim() ?? "",
+                embed: itgEmbed?.value ?? "",
+                google_place_id: gPlace?.value.trim() ?? "",
+              }),
+            });
+            const j = await res.json();
+            if (!res.ok) { gErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            toast("Google Business enregistré");
+          } catch {
+            gErr.textContent = "Erreur de connexion.";
+          } finally {
+            gSave.disabled = false;
+          }
+        });
+
+        async function itgCarica() {
+          try {
+            const res = await fetch("/api/admin/integrations", { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as {
+              resa?: { mode: string; provider: string; url: string; embed: string };
+              google?: { place_id: string; connected: boolean; oauth_ready: boolean };
+            };
+            const r = j.resa;
+            if (r) {
+              if (itgProvider) itgProvider.value = r.provider ?? "";
+              if (itgUrl) itgUrl.value = r.url ?? "";
+              if (itgEmbed) itgEmbed.value = r.embed ?? "";
+              itgSetModo(r.mode ?? "moodd");
+            }
+            const g = j.google;
+            if (g) {
+              if (gPlace) gPlace.value = g.place_id ?? "";
+              if (gState) {
+                gState.textContent = g.connected ? "Connecté" : g.place_id ? "Avis actifs" : "Non connecté";
+                gState.classList.toggle("ext", g.connected || Boolean(g.place_id));
+              }
+              if (gConnect) gConnect.disabled = !g.oauth_ready;
+              if (gOauthNote && g.oauth_ready) {
+                gOauthNote.textContent = "Le client autorise MOODD à gérer sa fiche Google.";
+              }
+            }
+          } catch { /* rete assente */ }
+        }
+
+        itgSave?.addEventListener("click", async () => {
+          if (!itgErr) return;
+          itgErr.textContent = "";
+          itgSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode: itgModo(),
+                provider: itgProvider?.value.trim() ?? "",
+                url: itgUrl?.value.trim() ?? "",
+                embed: itgEmbed?.value ?? "",
+              }),
+            });
+            const j = await res.json();
+            if (!res.ok) { itgErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            toast("Integration enregistrée");
+          } catch {
+            itgErr.textContent = "Erreur de connexion.";
+          } finally {
+            itgSave.disabled = false;
+          }
+        });
+
+        void itgCarica();
+
+        // ---------- Users (accessi all'admin) ----------
+        const usList = document.getElementById("us-list") as HTMLDivElement | null;
+        const usEmail = document.getElementById("us-email") as HTMLInputElement | null;
+        const usPass = document.getElementById("us-pass") as HTMLInputElement | null;
+        const usAdd = document.getElementById("us-add") as HTMLButtonElement | null;
+        const usFname = document.getElementById("us-fname") as HTMLInputElement | null;
+        const usLname = document.getElementById("us-lname") as HTMLInputElement | null;
+        const usOverlay = document.getElementById("us-overlay") as HTMLDivElement | null;
+        const usOpen = document.getElementById("us-open") as HTMLButtonElement | null;
+        const usClose = document.getElementById("us-close") as HTMLButtonElement | null;
+        const usErr = document.getElementById("us-err") as HTMLSpanElement | null;
+        const usRoles = document.getElementById("us-roles") as HTMLDivElement | null;
+        const usRoleHint = document.getElementById("us-role-hint") as HTMLParagraphElement | null;
+        const RUOLO_TESTO: Record<string, string> = {
+          super: "Voit tout + cette page Réglages (design, users, permissions).",
+          admin: "Voit ce qui est activé dans l'onglet Réglages.",
+          user: "Comme Admin, mais sans les pages Admin et Statistiques.",
+        };
+        function usRuoloSel(): string {
+          return (usRoles?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.role ?? "admin";
+        }
+        function usSetRuolo(r: string) {
+          usRoles?.querySelectorAll<HTMLElement>(".us-role").forEach((b) =>
+            b.classList.toggle("is-on", b.dataset.role === r)
+          );
+          if (usRoleHint) usRoleHint.textContent = RUOLO_TESTO[r] ?? "";
+        }
+        usRoles?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".us-role") as HTMLButtonElement | null;
+          if (!b || b.disabled) return;
+          usSetRuolo(b.dataset.role ?? "admin");
+        });
+        const usGen = document.getElementById("us-gen") as HTMLButtonElement | null;
+        const usMsg = document.getElementById("us-msg") as HTMLParagraphElement | null;
+        const ICO_TRASH =
+          '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
+        const ICO_PEN = "\u270E";
+        const ICO_KEY =
+          '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5" /><line x1="10.7" y1="12.3" x2="21" y2="2" /><line x1="18" y1="5" x2="20.5" y2="7.5" /><line x1="15" y1="8" x2="17.5" y2="10.5" /></svg>';
+        let usDelPending: string | null = null;
+        let usDelTimer: number | undefined;
+        let usEditId: string | null = null;
+        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }[] = [];
+
+        function usData(iso: string | null): string {
+          if (!iso) return "jamais";
+          const d = new Date(iso);
+          return d.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" });
+        }
+        function usPwd(): string {
+          const alf = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          const a = new Uint32Array(14);
+          crypto.getRandomValues(a);
+          return Array.from(a, (n) => alf[n % alf.length]).join("");
+        }
+        async function usCarica() {
+          if (!usList) return;
+          try {
+            const res = await fetch("/api/admin/users", { headers });
+            if (!res.ok) { usList.innerHTML = '<p class="note">Chargement impossible.</p>'; return; }
+            const j = (await res.json()) as {
+              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean }[];
+            };
+            usCache = j.users ?? [];
+            usList.innerHTML = (j.users ?? [])
+              .map((u) => `
+                <div class="us-row" data-uid="${u.id}">
+                  <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : '<span class="us-tag role-admin">ADMIN</span>'}</span>
+                  <span class="us-cell" title="${u.email}">${u.email}</span>
+                  <span class="us-cell dim">${usData(u.created_at)}</span>
+                  <span class="us-cell dim">${usData(u.last_sign_in_at)}</span>
+                  <span class="us-acts">
+                    <button type="button" class="i-btn" data-pass="${u.id}" title="Nouveau mot de passe (copié)">${ICO_KEY}</button>
+                    <button type="button" class="i-btn i-edit" data-edit="${u.id}" title="Modifier">${ICO_PEN}</button>
+                    ${u.is_moodd ? '<span class="i-slot"></span>' : `<button type="button" class="i-btn i-del" data-del="${u.id}" title="Supprimer">${ICO_TRASH}</button>`}
+                  </span>
+                </div>`)
+              .join("");
+          } catch {
+            usList.innerHTML = '<p class="note">Erreur de connexion.</p>';
+          }
+        }
+
+        usGen?.addEventListener("click", () => {
+          if (usPass) usPass.value = usPwd();
+        });
+
+        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }) {
+          usEditId = u?.id ?? null;
+          if (usErr) usErr.textContent = "";
+          if (usFname) usFname.value = u?.first_name ?? "";
+          if (usLname) usLname.value = u?.last_name ?? "";
+          if (usEmail) usEmail.value = u?.email ?? "";
+          if (usPass) usPass.value = u ? "" : usPwd(); // in modifica: vuoto = invariata
+          const titre = document.getElementById("us-titre");
+          const hint = document.getElementById("us-hint");
+          const passLab = document.getElementById("us-pass-lab");
+          if (titre) titre.textContent = u ? "Modifier l'utilisateur" : "Nouvel utilisateur";
+          if (hint) hint.textContent = u
+            ? "Laisse le mot de passe vide pour ne pas le changer."
+            : "Il pourra se connecter sur /admin/login avec cet email.";
+          if (passLab) passLab.textContent = u ? "Nouveau mot de passe (optionnel)" : "Mot de passe *";
+          usSetRuolo(u?.role ?? "admin");
+          usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
+            b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
+          });
+          if (usAdd) usAdd.textContent = u ? "Enregistrer" : "Créer l'accès";
+          usOverlay?.classList.add("is-open");
+          usFname?.focus();
+        }
+        usOpen?.addEventListener("click", () => usApri());
+        usClose?.addEventListener("click", () => usOverlay?.classList.remove("is-open"));
+        usOverlay?.addEventListener("click", (e) => {
+          if (e.target === usOverlay) usOverlay.classList.remove("is-open");
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") usOverlay?.classList.remove("is-open");
+        });
+
+        usAdd?.addEventListener("click", async () => {
+          if (!usEmail || !usPass || !usMsg || !usErr) return;
+          usErr.textContent = "";
+          const email = usEmail.value.trim();
+          const password = usPass.value;
+          if (!email) { usErr.textContent = "Email obligatoire."; return; }
+          if (!usEditId && password.length < 8) {
+            usErr.textContent = "Mot de passe : 8 caractères minimum.";
+            return;
+          }
+          if (usEditId && password && password.length < 8) {
+            usErr.textContent = "Mot de passe : 8 caractères minimum (ou laisse vide).";
+            return;
+          }
+          usAdd.disabled = true;
+          try {
+            const corpo: Record<string, unknown> = {
+              email,
+              first_name: usFname?.value.trim() ?? "",
+              last_name: usLname?.value.trim() ?? "",
+            };
+            corpo.role = usRuoloSel();
+            if (usEditId) corpo.id = usEditId;
+            if (password) corpo.password = password;
+            const res = await fetch("/api/admin/users", {
+              method: usEditId ? "PUT" : "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify(corpo),
+            });
+            const j = await res.json();
+            if (!res.ok) { usErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            usOverlay?.classList.remove("is-open");
+            usMsg.textContent = password
+              ? `${usEditId ? "Modifié" : "Accès créé"} — mot de passe : ${password}`
+              : "Utilisateur modifié.";
+            await usCarica();
+            toast(usEditId ? "Utilisateur modifié" : "Accès créé");
+          } catch {
+            usErr.textContent = "Erreur de connexion.";
+          } finally {
+            usAdd.disabled = false;
+          }
+        });
+
+        usList?.addEventListener("click", async (e) => {
+          const t = e.target as HTMLElement;
+
+          const pass = t.closest("[data-pass]") as HTMLElement | null;
+          if (pass) {
+            const id = pass.dataset.pass as string;
+            const nuova = usPwd();
+            try {
+              const res = await fetch("/api/admin/users", {
+                method: "PUT",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ id, password: nuova }),
+              });
+              const j = await res.json();
+              if (!res.ok) { toast(j.error ?? "Modification impossible", true); return; }
+              try {
+                await navigator.clipboard.writeText(nuova);
+                toast("Nouveau mot de passe copié");
+              } catch {
+                toast("Mot de passe changé");
+              }
+              if (usMsg) usMsg.textContent = `Nouveau mot de passe : ${nuova}`;
+            } catch { toast("Erreur de connexion", true); }
+            return;
+          }
+
+          const edit = t.closest("[data-edit]") as HTMLElement | null;
+          if (edit) {
+            const u = usCache.find((x) => x.id === edit.dataset.edit);
+            if (u) usApri(u);
+            return;
+          }
+
+          const del = t.closest("[data-del]") as HTMLElement | null;
+          if (del) {
+            const id = del.dataset.del as string;
+            if (usDelPending === id) {
+              window.clearTimeout(usDelTimer);
+              usDelPending = null;
+              try {
+                const res = await fetch(`/api/admin/users?id=${id}`, {
+                  method: "POST",
+                  headers: { ...headers, "X-Method-Override": "DELETE" },
+                });
+                const j = await res.json();
+                if (!res.ok) { toast(j.error ?? "Suppression impossible", true); return; }
+                toast("Accès supprimé");
+                await usCarica();
+              } catch { toast("Erreur de connexion", true); }
+              return;
+            }
+            usDelPending = id;
+            del.classList.add("confirm");
+            del.textContent = "Confirmer ?";
+            window.clearTimeout(usDelTimer);
+            usDelTimer = window.setTimeout(() => {
+              usDelPending = null;
+              del.classList.remove("confirm");
+              del.innerHTML = ICO_TRASH;
+            }, 3000);
+          }
+        });
+
+        void usCarica();
 
         temaResetEl.addEventListener("click", () => {
           tema = {};
@@ -405,8 +1188,8 @@ import { CLIENT } from "../../config/client";
           nascosteTab = dati.hiddenTabs ?? [];
           tema = dati.theme ?? {};
           stateEl.style.display = "none";
-          rowsEl.style.display = "flex";
-          temaRowsEl.style.display = "flex";
+          rowsEl.style.display = "grid";
+          temaRowsEl.style.display = "grid";
           temaResetEl.style.display = "inline-block";
           render();
           renderTema();

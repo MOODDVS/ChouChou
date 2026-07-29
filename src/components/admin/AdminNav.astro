@@ -186,9 +186,20 @@ const { current } = Astro.props;
      html.glass (tema glass:"on") riattiva trasparenze e blur. */
   html.glass .admin-nav,
   html.glass .admin-super:not(.active) {
-    background: rgba(255, 255, 255, 0.07);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    background: color-mix(in srgb, var(--c-card) 82%, transparent);
+    backdrop-filter: blur(26px) saturate(150%);
+    -webkit-backdrop-filter: blur(26px) saturate(150%);
+  }
+
+  /* "+" dei bottoni flottanti (Résa, Commande, Client, Plat): più grande
+     del testo, senza allargare il bottone. */
+  .fab-plus {
+    font-size: 1.45em;
+    line-height: 1;
+    margin-right: 0.32rem;
+    font-weight: 400;
+    transform: translateY(0.02em);
+    display: inline-block;
   }
 
   .admin-nav {
@@ -356,7 +367,7 @@ const { current } = Astro.props;
 
 <script>
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
-  import { isSuper, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
+  import { isSuperUser, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
 
   // Visibilità delle pagine admin:
   // - super admin (MOODD): vede tutto + il bottone ingranaggio
@@ -438,7 +449,7 @@ const { current } = Astro.props;
       st.textContent = css;
     };
 
-    if (isSuper(email)) {
+    if (isSuperUser(data.session?.user)) {
       const sup = document.getElementById("admin-nav-super");
       if (sup) {
         sup.style.display = "flex";

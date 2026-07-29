@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuper, PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI } from "../../../lib/admin/superAdmin";
+import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI } from "../../../lib/admin/superAdmin";
 
 export const prerender = false;
 
@@ -92,13 +92,17 @@ export const GET: APIRoute = async ({ request }) => {
     leggiTema(),
     leggiLogo(),
   ]);
-  return json({ hidden, hiddenTabs, theme, logo, super: isSuper(staff.email) });
+  // Ruolo "user": in più delle pagine spente in Réglages, mai Admin né Statistiques.
+  const ruolo = ruoloDi(staff);
+  const hiddenRuolo =
+    ruolo === "user" ? [...new Set([...hidden, ...PAGINE_SOLO_ADMIN])] : hidden;
+  return json({ hidden: hiddenRuolo, hiddenTabs, theme, logo, role: ruolo, super: isSuperUser(staff) });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!isSuper(staff.email)) {
+  if (!isSuperUser(staff)) {
     return json({ error: "Réservé à l'administrateur MOODD" }, 403);
   }
 

@@ -95,7 +95,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .mn-fab {
         display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-size: 1.05rem; padding: 0 1.5rem; border-radius: 999px;
+        font-size: 1.05rem; padding: 0 1.1rem; border-radius: 999px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
@@ -644,7 +644,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         </svg>
         Catégories
       </button>
-      <button class="pill mn-fab" id="add-btn" title="Ajouter un plat">+ Ajou. plat</button>
+      <button class="pill mn-fab" id="add-btn" title="Ajouter un plat"><span class="fab-plus">+</span>Ajou. plat</button>
     </div>
 
     <AdminNav current="menu" />

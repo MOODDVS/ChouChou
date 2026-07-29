@@ -438,13 +438,14 @@ import { CLIENT } from "../../config/client";
 
       /* Selettore Continu/Coupé */
       .mode { display: none; }
-      .day-row.is-open .mode { display: inline-flex; }
+      .day-row.is-open .mode { display: inline-flex; gap: 0.4rem; }
       .mode button {
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
-        padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
+        padding: 0.35rem 0.95rem; cursor: pointer; border-radius: 999px; text-transform: uppercase;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
       }
-      .mode button + button { border-left: none; }
+      .mode button:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .mode button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
 
       /* Fasce orarie */
@@ -466,16 +467,30 @@ import { CLIENT } from "../../config/client";
       .switch input:checked + .track { border-color: var(--c-accent); }
       .switch .track::before {
         content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-        left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s;
+        left: 2px; top: 50%; transform: translateY(-50%);
+        background: var(--c-muted); transition: transform 0.2s, background 0.2s;
       }
       .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(20px); background: var(--c-bg); }
+      .switch input:checked + .track::before { transform: translate(20px, -50%); background: #fff; }
 
       input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; border-radius: 0;
-        color-scheme: dark;
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.35rem 0.6rem; border-radius: 6px;
       }
+      /* Icona nativa di time/date: presa dal colore del testo (mask + currentColor) */
+      input[type="time"]::-webkit-calendar-picker-indicator,
+      input[type="date"]::-webkit-calendar-picker-indicator {
+        background: currentColor;
+        opacity: 0.75;
+        cursor: pointer;
+        -webkit-mask: var(--ico-clock) center / contain no-repeat;
+        mask: var(--ico-clock) center / contain no-repeat;
+        transition: opacity 0.15s;
+      }
+      input[type="time"]:hover::-webkit-calendar-picker-indicator,
+      input[type="date"]:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+      input[type="time"] { --ico-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolyline points='12 7 12 12 15 14'/%3E%3C/svg%3E"); }
+      input[type="date"] { --ico-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E"); }
       input:focus { outline: none; border-color: var(--c-accent); }
       input[type="number"] { width: 90px; }
       input[type="email"] { width: 100%; max-width: 360px; }
@@ -791,13 +806,14 @@ import { CLIENT } from "../../config/client";
       .tm-save { box-shadow: none; font-size: 1rem; padding: 0.6rem 1.6rem; }
 
       /* --- Jours spéciaux --- */
-      .sp-type { display: inline-flex; }
+      .sp-type { display: inline-flex; gap: 0.4rem; }
       .sp-type button {
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
-        padding: 0.35rem 0.8rem; cursor: pointer; border-radius: 0; text-transform: uppercase;
+        padding: 0.35rem 0.95rem; cursor: pointer; border-radius: 999px; text-transform: uppercase;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
       }
-      .sp-type button + button { border-left: none; }
+      .sp-type button:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .sp-type button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .sp-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
       .sp-item { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--c-line); padding: 0.5rem 0.7rem; font-size: 0.9rem; }
@@ -1548,7 +1564,7 @@ import { CLIENT } from "../../config/client";
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuper } from "../../lib/admin/superAdmin";
+      import { isSuperUser } from "../../lib/admin/superAdmin";
       import { SERVIZI_WIDGET, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
@@ -4623,8 +4639,7 @@ import { CLIENT } from "../../config/client";
     // Super vede tutti i tab; agli altri togli quelli disattivati (super admin).
     try {
       const { data: sd } = await supabaseBrowser.auth.getSession();
-      const email = sd.session?.user?.email ?? "";
-      if (sd.session && !isSuper(email)) {
+      if (sd.session && !isSuperUser(sd.session.user)) {
         const rp = await fetch("/api/admin/pages", {
           headers: { Authorization: `Bearer ${sd.session.access_token ?? ""}` },
         });

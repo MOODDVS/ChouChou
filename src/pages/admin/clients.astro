@@ -93,7 +93,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        padding: 0.65rem 1.6rem; border-radius: 999px; cursor: pointer;
+        padding: 0.6rem 1.1rem; border-radius: 999px; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
@@ -213,7 +213,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .cell a:hover { color: var(--c-accent); }
       .c-num { text-align: right; font-variant-numeric: tabular-nums; }
       .c-since { color: var(--c-muted); font-size: 0.82rem; text-align: right; white-space: nowrap; }
-      .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
+      .c-resa, .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .c-total { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .c-act { display: flex; justify-content: flex-end; gap: 0.45rem; overflow: visible; }
       .ed-photo-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
@@ -410,7 +410,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     </div>
 
     <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
-    <button class="cl-add" id="add-btn" type="button">+ Ajouter un client</button>
+    <button class="cl-add" id="add-btn" type="button"><span class="fab-plus">+</span>Ajouter un client</button>
 
     <!-- Modale modifica cliente (matita): dati + foto -->
     <div class="overlay" id="ed-overlay">

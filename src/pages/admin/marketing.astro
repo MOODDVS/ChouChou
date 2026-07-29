@@ -951,7 +951,7 @@ import { CLIENT } from "../../config/client";
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
-      import { isSuper } from "../../lib/admin/superAdmin";
+      import { isSuperUser } from "../../lib/admin/superAdmin";
   import { CLIENT } from "../../config/client";
   import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
 
@@ -1124,7 +1124,7 @@ import { CLIENT } from "../../config/client";
         });
 
         // Super vede tutti i tab; agli altri nascondi quelli disattivati (super admin).
-        if (!isSuper(session.user.email ?? "")) {
+        if (!isSuperUser(session.user)) {
           try {
             const rp = await fetch("/api/admin/pages", { headers });
             if (rp.ok) {
