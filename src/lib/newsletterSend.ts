@@ -233,6 +233,27 @@ export interface ContenutoNews {
   btn2_url?: string;
 }
 
+/**
+ * Accode utm_source=newsletter (+ utm_medium=email) ai link che puntano al
+ * SITO DEL CLIENTE, così le « Sources de trafic » riconoscono la newsletter.
+ * Un clic da email non passa il referrer → senza questo tag finirebbe in
+ * « Direct » (o, da Gmail web, per sbaglio in « Google »). I link ESTERNI
+ * (Google Maps, réseaux…) restano intatti. Gestisce ? vs & e i path relativi.
+ */
+function taggaNewsletter(url: string): string {
+  try {
+    const base = new URL(SITE_URL);
+    const u = new URL(url, SITE_URL); // risolve anche i path relativi (/menu)
+    if (u.protocol !== "http:" && u.protocol !== "https:") return url;
+    if (u.host !== base.host) return url; // link esterno → non si tocca
+    if (!u.searchParams.has("utm_source")) u.searchParams.set("utm_source", "newsletter");
+    if (!u.searchParams.has("utm_medium")) u.searchParams.set("utm_medium", "email");
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 export function htmlNewsletter(
   dati: DatiRistorante,
   input: ContenutoNews & { email: string; logoUrl?: string; social?: LinkSocial[] }
@@ -244,13 +265,13 @@ export function htmlNewsletter(
     : "";
   const btn = input.btn_label && input.btn_url
     ? `<tr><td style="padding:6px 40px 10px;text-align:center;">
-        <a href="${esc(input.btn_url)}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn_label)}</a>
+        <a href="${esc(taggaNewsletter(input.btn_url))}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn_label)}</a>
       </td></tr>`
     : "";
   // Secondo bottone (facoltativo): stile "ghost" oro, sotto il primo
   const btn2 = input.btn2_label && input.btn2_url
     ? `<tr><td style="padding:0 40px 10px;text-align:center;">
-        <a href="${esc(input.btn2_url)}" style="display:inline-block;background:transparent;color:#dfab4e;border:1px solid #dfab4e;text-decoration:none;padding:13px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn2_label)}</a>
+        <a href="${esc(taggaNewsletter(input.btn2_url))}" style="display:inline-block;background:transparent;color:#dfab4e;border:1px solid #dfab4e;text-decoration:none;padding:13px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn2_label)}</a>
       </td></tr>`
     : "";
 
