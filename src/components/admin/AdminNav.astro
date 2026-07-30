@@ -279,6 +279,12 @@ const { current } = Astro.props;
   .admin-nav a .nav-badge[hidden] { display: none; }
 
   /* --- Isola separata del super admin (ingranaggio, a sinistra) --- */
+  /* MOBILE : la page Réglages (super admin) est pensée pour le bureau —
+     on cache son bouton ; l'accès direct par URL reste possible. */
+  @media (max-width: 560px) {
+    .admin-super { display: none !important; }
+  }
+
   .admin-super {
     position: fixed;
     bottom: 1.25rem;
@@ -451,7 +457,7 @@ const { current } = Astro.props;
 
     if (isSuperUser(data.session?.user)) {
       const sup = document.getElementById("admin-nav-super");
-      if (sup) {
+      if (sup && !window.matchMedia("(max-width: 560px)").matches) {
         sup.style.display = "flex";
         posizionaSuper();
       }
@@ -547,17 +553,27 @@ const { current } = Astro.props;
     beepOrder.preload = "auto";
     beepOrder.volume = 0.6;
     let audioPronto = false;
+    // Sblocco audio: iOS NON rispetta `volume` da JavaScript (solo i tasti
+    // fisici), quindi il vecchio trucco "volume 0 + play" faceva suonare le
+    // notifiche a ogni cambio pagina. `muted` invece è rispettato ovunque.
+    // Lo sblocco vale per tutta la sessione: niente ripetizioni ad ogni pagina.
     function sbloccaAudio() {
       if (audioPronto) return;
       audioPronto = true;
+      try { sessionStorage.setItem("mdd_audio_ok", "1"); } catch { /* privato */ }
       for (const a of [bell, beepOrder]) {
-        const v = a.volume;
-        a.volume = 0;
-        a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = v; }).catch(() => { a.volume = v; });
+        a.muted = true;
+        a.play()
+          .then(() => { a.pause(); a.currentTime = 0; a.muted = false; })
+          .catch(() => { a.muted = false; });
       }
       window.removeEventListener("pointerdown", sbloccaAudio);
       window.removeEventListener("keydown", sbloccaAudio);
     }
+    try {
+      // Già sbloccato in questa sessione: non rifare il play muto
+      if (sessionStorage.getItem("mdd_audio_ok") === "1") audioPronto = true;
+    } catch { /* niente sessionStorage */ }
     window.addEventListener("pointerdown", sbloccaAudio);
     window.addEventListener("keydown", sbloccaAudio);
     function suona(a: HTMLAudioElement) {

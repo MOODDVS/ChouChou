@@ -811,7 +811,7 @@ export const PUT: APIRoute = async ({ request }) => {
 
   let upd = await supabaseAdmin
     .from("reservations")
-    .update({ ...riga, client_action_at: new Date().toISOString() })
+    .update({ ...riga, client_action_at: new Date().toISOString(), reminder_sent_at: null })
     .eq("cancel_token", token)
     .in("status", ["confirmed", "pending"])
     .select(CAMPI_EMAIL)
@@ -820,7 +820,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (upd.error && String(upd.error.message ?? "").includes("client_action_at")) {
     upd = await supabaseAdmin
       .from("reservations")
-      .update(riga)
+      .update({ ...riga, reminder_sent_at: null })
       .eq("cancel_token", token)
       .in("status", ["confirmed", "pending"])
       .select(CAMPI_EMAIL)

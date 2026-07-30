@@ -53,6 +53,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 44 | `push_subscriptions.sql` | Iscrizioni push PWA admin (endpoint + chiavi p256dh/auth) |
 | 45 | `gift_cards.sql` | Buoni regalo: valore prepagato con saldo scalabile (uso online + riscatto manuale in sala) + registro riscatti + colonne `gift_card_*` su orders |
 | 46 | `gift_card_orders.sql` | Acquisto di buoni FISICI dal ristoratore presso MOODD (pagamento su Stripe MOODD, come i crediti newsletter) |
+| 47 | `traffic.sql` | Analytics interno cookieless: tabella `page_views` (provenance des visites) + RPC `traffic_sources` (agrégation par source) |
+| 48 | `reservation_reminder.sql` | `reminder_sent_at` su reservations: rappel client ~3h avant (jour futur uniquement, anti-doublon) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
@@ -73,4 +75,5 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `RESEND_FROM` | .env + host | Mittente email (dominio verificato) |
 | `KITCHEN_EMAIL` | .env + host | Fallback email cucina (prio: app_config) |
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
-| `CRON_SECRET` | .env + host | Protegge /api/cron/daily-brief (email quotidiana "Votre journée") |
+| `CRON_SECRET` | .env + host | Protegge i cron: /api/cron/daily-brief, /api/cron/newsletter, /api/cron/reservation-reminders |
+| `GOOGLE_SA_KEY_B64` | opzionale (host) | Base64 del JSON del service account Google (Search Console → onglet Visibilité). Robot da aggiungere come utente nella Search Console di ogni cliente. |

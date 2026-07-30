@@ -25,6 +25,49 @@ interface Avis {
   quand: string;
 }
 
+// Places API (New) restituisce 5 recensioni scelte da Google come "pertinenti"
+// e NON sa ordinarle per data. L'unico endpoint che lo sa fare è Places API
+// (Legacy) con reviews_sort=newest. Lo proviamo per primo; se il progetto
+// Cloud non ha la Legacy attiva torniamo alle recensioni della New API.
+async function avisPlusRecents(placeId: string): Promise<Avis[] | null> {
+  try {
+    const u = new URL("https://maps.googleapis.com/maps/api/place/details/json");
+    u.searchParams.set("place_id", placeId);
+    u.searchParams.set("fields", "reviews");
+    u.searchParams.set("reviews_sort", "newest");
+    u.searchParams.set("language", "fr");
+    u.searchParams.set("key", String(KEY));
+    const res = await fetch(u.toString());
+    if (!res.ok) return null;
+    const j = (await res.json()) as {
+      status?: string;
+      result?: {
+        reviews?: {
+          author_name?: string;
+          rating?: number;
+          text?: string;
+          relative_time_description?: string;
+          time?: number;
+        }[];
+      };
+    };
+    const brut = j.status === "OK" ? j.result?.reviews ?? [] : [];
+    if (!brut.length) return null;
+    return brut
+      .slice()
+      .sort((a2, b2) => Number(b2.time ?? 0) - Number(a2.time ?? 0))
+      .slice(0, 5)
+      .map((r) => ({
+        auteur: r.author_name ?? "",
+        note: Number(r.rating ?? 0),
+        texte: (r.text ?? "").slice(0, 1500),
+        quand: r.relative_time_description ?? "",
+      }));
+  } catch {
+    return null;
+  }
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
@@ -59,16 +102,23 @@ export const GET: APIRoute = async ({ request }) => {
             originalText?: { text?: string };
             authorAttribution?: { displayName?: string };
             relativePublishTimeDescription?: string;
+            publishTime?: string;
           }[];
         };
-        // Places API (New) ne renvoie que 5 avis max ; le niveau 2 (Business
-        // Profile API) permettra de tous les récupérer.
-        const avis: Avis[] = (j.reviews ?? []).slice(0, 10).map((r) => ({
-          auteur: r.authorAttribution?.displayName ?? "",
-          note: Number(r.rating ?? 0),
-          texte: (r.text?.text ?? r.originalText?.text ?? "").slice(0, 300),
-          quand: r.relativePublishTimeDescription ?? "",
-        }));
+        // 5 avis max de toute façon ; le niveau 2 (Business Profile API)
+        // permettra de tous les récupérer, et d'y répondre.
+        const secondi = (v?: string) => (v ? Date.parse(v) || 0 : 0);
+        const avisNew: Avis[] = (j.reviews ?? [])
+          .slice()
+          .sort((a2, b2) => secondi(b2.publishTime) - secondi(a2.publishTime))
+          .slice(0, 5)
+          .map((r) => ({
+            auteur: r.authorAttribution?.displayName ?? "",
+            note: Number(r.rating ?? 0),
+            texte: (r.text?.text ?? r.originalText?.text ?? "").slice(0, 1500),
+            quand: r.relativePublishTimeDescription ?? "",
+          }));
+        const avis = (await avisPlusRecents(placeId)) ?? avisNew;
         return {
           name: j.displayName?.text ?? "",
           rating: j.rating ?? null,

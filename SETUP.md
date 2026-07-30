@@ -28,6 +28,7 @@ Il remote `engine` servirà per gli aggiornamenti (punto 7).
 - `public/` — favicon.svg, favicon.ico, icon-192/512, apple-touch-icon,
   manifest.json (name/short_name), loghi in `public/SVG/` se servono.
 - `astro.config.mjs` — `site: "https://www.dominiocliente.be"`.
+- `public/robots.txt` — riga `Sitemap:` col dominio del cliente (stesso di `site`).
 - Testi legali (`src/pages/privacy.astro`, `cookies.astro` + versioni `en/`)
   quando si attiverà il sito pubblico.
 - **Sito pubblico (solo quando si attiva)**: le pagine vetrina e i testi
@@ -102,6 +103,15 @@ $$);
 select cron.schedule('newsletter-hourly', '10 * * * *', $$
   select net.http_get(
     url := 'https://www.dominiocliente.be/api/cron/newsletter',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')
+  );
+$$);
+
+-- Rappel client ~3 h avant la réservation (toutes les 30 min pour un
+-- timing serré ; la lib n'envoie que ce qui est dû, l'appeler souvent est sûr).
+select cron.schedule('resa-reminders-30min', '20,50 * * * *', $$
+  select net.http_get(
+    url := 'https://www.dominiocliente.be/api/cron/reservation-reminders',
     headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')
   );
 $$);

@@ -1,0 +1,47 @@
+---
+// Isola "Visibilité" della Accueil: clic + impression Google (28 gg) con
+// tendenza, e le principali requêtes che portano al sito. Alimentata da
+// /api/admin/search-console. Senza propriété configurée la tuile reste cachée.
+---
+<div class="tile tile-visi" data-tile="visibilite" id="tile-visi" style="display:none">
+  <div class="tile-title">
+    <svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l3-4 3 3 5-7" /></svg>
+    Visibilité
+  </div>
+
+  <div class="visi-top">
+    <div>
+      <span class="tile-big" id="visi-clicks">—</span>
+      <span class="visi-delta" id="visi-delta"></span>
+      <span class="visi-lab">clics · 28 j</span>
+    </div>
+    <div class="visi-imp">
+      <span class="visi-imp-n" id="visi-imp">—</span>
+      <span class="visi-lab">impressions</span>
+    </div>
+  </div>
+
+  <div class="visi-queries" id="visi-queries">
+    <span class="visi-h">Mots-clés qui mènent au site</span>
+    <ul id="visi-list"></ul>
+  </div>
+</div>
+
+<style is:global>
+  .tile-visi { display: flex; flex-direction: column; }
+  .visi-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 0.4rem; }
+  .visi-top .tile-big { margin-bottom: 0; }
+  .visi-delta { font-size: 0.82rem; font-weight: 800; margin-left: 0.35rem; }
+  .visi-delta.up { color: #1a8f4c; }
+  .visi-delta.down { color: #c0392b; }
+  .visi-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); margin-top: 0.15rem; }
+  .visi-imp { text-align: right; }
+  .visi-imp-n { font-family: var(--font-title); font-size: 1.5rem; line-height: 1; color: var(--c-text); }
+
+  .visi-queries { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }
+  .visi-h { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); margin-bottom: 0.6rem; }
+  .visi-queries ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+  .visi-queries li { display: flex; align-items: baseline; justify-content: space-between; gap: 0.7rem; font-size: 0.92rem; }
+  .visi-queries li .vq-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .visi-queries li .vq-n { flex: 0 0 auto; font-weight: 800; color: var(--c-accent); font-variant-numeric: tabular-nums; }
+</style>

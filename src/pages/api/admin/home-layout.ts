@@ -10,7 +10,7 @@ export const prerender = false;
 // GET → { layout } (null = layout di default)
 // PUT → { layout } salva
 
-const TILE_KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "stats", "assets"];
+const TILE_KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "google", "visibilite", "stats", "assets"];
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -49,16 +49,18 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   if (!Array.isArray(body.layout)) return json({ error: "Layout invalide" }, 400);
 
-  const puliti: { key: string; w: number; minH?: number }[] = [];
+  const puliti: { key: string; w: number; minH?: number; hidden?: boolean }[] = [];
   const visti = new Set<string>();
-  for (const it of body.layout as { key?: unknown; w?: unknown; minH?: unknown }[]) {
+  for (const it of body.layout as { key?: unknown; w?: unknown; minH?: unknown; hidden?: unknown }[]) {
     const key = String(it?.key ?? "");
     if (!TILE_KEYS.includes(key) || visti.has(key)) continue;
     visti.add(key);
     const w = Math.min(4, Math.max(1, Math.floor(Number(it?.w)) || 1));
     const mh = Math.floor(Number(it?.minH));
     const minH = Number.isFinite(mh) && mh > 0 ? Math.min(900, Math.max(120, mh)) : 0;
-    puliti.push(minH ? { key, w, minH } : { key, w });
+    const voce: { key: string; w: number; minH?: number; hidden?: boolean } = minH ? { key, w, minH } : { key, w };
+    if (it?.hidden === true) voce.hidden = true;
+    puliti.push(voce);
   }
 
   const { error } = await supabaseAdmin

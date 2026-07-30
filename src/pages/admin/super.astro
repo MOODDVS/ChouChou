@@ -483,6 +483,40 @@ import { CLIENT } from "../../config/client";
               <span class="us-err" id="g-err"></span>
             </div>
           </div>
+
+          <div class="itg-card" style="margin-top:1rem">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">Search Console</h3>
+                <p class="note" style="margin:0.2rem 0 0">Visibilité sur Google : clics, impressions et mots-clés qui mènent au site.</p>
+              </div>
+              <span class="itg-state" id="sc-state">Non configuré</span>
+            </div>
+
+            <p class="itg-niv" id="sc-robot-wrap" style="display:none">
+              1. Ajoute ce compte comme utilisateur dans la Search Console du client
+              (Réglages → Utilisateurs et autorisations → Ajouter, autorisation « Complète » ou « Restreinte ») :
+            </p>
+            <div class="us-frow us-frow-pass" id="sc-robot-row" style="display:none">
+              <input type="text" id="sc-robot" readonly autocomplete="off" />
+              <button type="button" id="sc-copy" class="us-ghost">Copier</button>
+            </div>
+
+            <label class="us-lab" for="sc-site" style="margin-top:1rem">2. Propriété Search Console du client</label>
+            <div class="us-frow us-frow-pass">
+              <input type="text" id="sc-site" placeholder="sc-domain:exemple.be" autocomplete="off" />
+              <button type="button" id="sc-test" class="us-ghost">Vérifier</button>
+            </div>
+            <p class="note" id="sc-res" style="margin-top:0.5rem">
+              Propriété <strong>domaine</strong> : <code>sc-domain:exemple.be</code>.
+              Propriété <strong>préfixe d'URL</strong> : l'adresse complète, ex. <code>https://www.exemple.be/</code>.
+            </p>
+
+            <div class="us-foot">
+              <button type="button" id="sc-save" class="us-add">Enregistrer</button>
+              <span class="us-err" id="sc-err"></span>
+            </div>
+          </div>
         </section>
 
         <section class="pane" data-pane="users" hidden>
@@ -938,6 +972,7 @@ import { CLIENT } from "../../config/client";
             const j = (await res.json()) as {
               resa?: { mode: string; provider: string; url: string; embed: string };
               google?: { place_id: string; connected: boolean; oauth_ready: boolean };
+              search_console?: { site: string; ready: boolean; robot: string };
             };
             const r = j.resa;
             if (r) {
@@ -966,8 +1001,88 @@ import { CLIENT } from "../../config/client";
                     : "Le client autorise MOODD à gérer sa fiche Google.";
               }
             }
+            const sc = j.search_console;
+            if (sc) {
+              if (scSite) scSite.value = sc.site ?? "";
+              if (scState) {
+                scState.textContent = !sc.ready ? "Clé manquante" : sc.site ? "Actif" : "Non configuré";
+                scState.classList.toggle("ext", sc.ready && Boolean(sc.site));
+              }
+              // email del robot: mostrata solo se il super admin la riceve
+              if (sc.robot && scRobot && scRobotRow && scRobotWrap) {
+                scRobot.value = sc.robot;
+                scRobotRow.style.display = "";
+                scRobotWrap.style.display = "";
+              }
+              if (!sc.ready && scRes) {
+                scRes.textContent = "La clé du service account n'est pas encore configurée sur le serveur (variable GOOGLE_SA_KEY_B64).";
+              }
+            }
           } catch { /* rete assente */ }
         }
+
+        // --- Search Console ---
+        const scSite = document.getElementById("sc-site") as HTMLInputElement | null;
+        const scRobot = document.getElementById("sc-robot") as HTMLInputElement | null;
+        const scRobotRow = document.getElementById("sc-robot-row") as HTMLElement | null;
+        const scRobotWrap = document.getElementById("sc-robot-wrap") as HTMLElement | null;
+        const scState = document.getElementById("sc-state") as HTMLSpanElement | null;
+        const scRes = document.getElementById("sc-res") as HTMLParagraphElement | null;
+        const scSave = document.getElementById("sc-save") as HTMLButtonElement | null;
+        const scErr = document.getElementById("sc-err") as HTMLSpanElement | null;
+        const scTest = document.getElementById("sc-test") as HTMLButtonElement | null;
+        const scCopy = document.getElementById("sc-copy") as HTMLButtonElement | null;
+
+        scCopy?.addEventListener("click", async () => {
+          if (!scRobot?.value) return;
+          try { await navigator.clipboard.writeText(scRobot.value); toast("Email copiée"); }
+          catch { scRobot.select(); }
+        });
+
+        scSave?.addEventListener("click", async () => {
+          if (!scErr) return;
+          scErr.textContent = "";
+          scSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ gsc_site: scSite?.value.trim() ?? "" }),
+            });
+            const j = await res.json();
+            if (!res.ok) { scErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            toast("Search Console enregistré");
+          } catch {
+            scErr.textContent = "Erreur de connexion.";
+          } finally {
+            scSave.disabled = false;
+          }
+        });
+
+        scTest?.addEventListener("click", async () => {
+          const site = scSite?.value.trim() ?? "";
+          if (!site) { if (scRes) scRes.textContent = "Indique d'abord la propriété (sc-domain:… ou https://…)."; return; }
+          scTest.disabled = true;
+          if (scRes) scRes.textContent = "Vérification…";
+          try {
+            // salva prima, poi interroga (l'API legge il sito da app_config)
+            await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ gsc_site: site }),
+            });
+            const res = await fetch("/api/admin/search-console", { headers });
+            const j = await res.json();
+            if (j.error) { if (scRes) scRes.textContent = j.error; return; }
+            if (!j.configured) { if (scRes) scRes.textContent = "Propriété non trouvée — vérifie le format et que le robot a bien été ajouté."; return; }
+            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} clics · ${j.impressions} impressions (28 derniers jours).`;
+            void itgCarica();
+          } catch {
+            if (scRes) scRes.textContent = "Erreur de connexion.";
+          } finally {
+            scTest.disabled = false;
+          }
+        });
 
         itgSave?.addEventListener("click", async () => {
           if (!itgErr) return;

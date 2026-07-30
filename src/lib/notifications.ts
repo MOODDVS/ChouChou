@@ -1114,6 +1114,67 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   }
 }
 
+// ---- RAPPEL client (~3 h avant), simple : aucun bouton ----
+const TXT_RAPPEL: Record<LinguaWidget, { subject: (n: string) => string; title: string; lead: (name: string) => string }> = {
+  fr: { subject: (n) => `Rappel : votre réservation chez ${n}`, title: "Rappel de réservation", lead: (name) => `Bonjour ${name},<br>Petit rappel de votre réservation d'aujourd'hui. Nous avons hâte de vous accueillir !` },
+  en: { subject: (n) => `Reminder: your booking at ${n}`, title: "Booking reminder", lead: (name) => `Hello ${name},<br>A quick reminder of your reservation today. We look forward to welcoming you!` },
+  es: { subject: (n) => `Recordatorio: su reserva en ${n}`, title: "Recordatorio de reserva", lead: (name) => `Hola ${name},<br>Un recordatorio de su reserva de hoy. ¡Le esperamos!` },
+  it: { subject: (n) => `Promemoria: la tua prenotazione da ${n}`, title: "Promemoria prenotazione", lead: (name) => `Ciao ${name},<br>Un promemoria della tua prenotazione di oggi. Ti aspettiamo!` },
+  de: { subject: (n) => `Erinnerung: Ihre Reservierung bei ${n}`, title: "Reservierungserinnerung", lead: (name) => `Hallo ${name},<br>eine kurze Erinnerung an Ihre heutige Reservierung. Wir freuen uns auf Sie!` },
+  ru: { subject: (n) => `Напоминание: ваша бронь в ${n}`, title: "Напоминание о брони", lead: (name) => `Здравствуйте, ${name}!<br>Напоминаем о вашей сегодняшней брони. Будем рады вас видеть!` },
+  ar: { subject: (n) => `تذكير: حجزك في ${n}`, title: "تذكير بالحجز", lead: (name) => `مرحباً ${name}،<br>تذكير بحجزك اليوم. نتطلع إلى استقبالك!` },
+  zh: { subject: (n) => `提醒：您在 ${n} 的预订`, title: "预订提醒", lead: (name) => `您好 ${name}，<br>提醒您今天的预订。期待您的光临！` },
+  ja: { subject: (n) => `リマインダー：${n} のご予約`, title: "ご予約のリマインダー", lead: (name) => `${name} 様、<br>本日のご予約のリマインダーです。お越しをお待ちしております！` },
+};
+
+/** Email de RAPPEL au client (~3 h avant). Aucun bouton modifier/annuler. */
+export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
+  const from = await resaFromEmail();
+  if (!resend || !from) {
+    console.warn("Resend non configurato: salto rappel prenotazione");
+    return false;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const tr = TXT_RAPPEL[lang];
+  const dati = await datiRistorante();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
+  const recap =
+    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(w.heure, heureVal) +
+    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(w.section, r.zone) : "");
+
+  const html = guscioResa({
+    nome: dati.nome,
+    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: tr.title,
+    lead: tr.lead(esc(nome)),
+    recapRows: recap,
+    ctaHtml: "",   // aucun bouton — rappel simple
+    footerHtml: "",
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: tr.subject(dati.nome),
+      bcc: BCC,
+      html: avvolgiScuro(html),
+    });
+    return true;
+  } catch (e) {
+    console.error("Errore email rappel prenotazione:", e);
+    return false;
+  }
+}
+
 /** Email al CLIENTE quando la richiesta è INVIATA ma non ancora confermata
  *  (reservation_auto_accept = "0" → statut pending). Stessi CTA modifica/
  *  annulla della conferma; la vera email di conferma parte quando il

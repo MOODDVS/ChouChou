@@ -116,6 +116,57 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       }
 
       .loading { opacity: 0.45; pointer-events: none; }
+
+      /* Onglets Finances / Google — mêmes pastilles que la page Assets */
+      .tabs2 { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .tab2 {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
+        padding: 0.5rem 1.2rem; cursor: pointer; border-radius: 10px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+      .tab2 .t-ico { width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .tab2:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .tab2.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+
+      .grid.grid4 { grid-template-columns: repeat(4, 1fr); }
+      @media (max-width: 900px) { .grid.grid4 { grid-template-columns: repeat(2, 1fr); } }
+      .stat-sub .delta { font-weight: 800; }
+      .stat-sub .delta.up { color: #1a8f4c; }
+      .stat-sub .delta.down { color: #c0392b; }
+
+      /* Grafico a linee (SVG) */
+      .lchart { position: relative; width: 100%; }
+      .lchart svg { display: block; width: 100%; height: auto; }
+      .lchart .gl { stroke: var(--c-line); stroke-width: 1; }
+      .lchart .axlab { fill: var(--c-muted); font-size: 11px; font-family: var(--font-body); }
+      .lchart .cross { stroke: var(--c-muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0; }
+      .lchart .cdot { opacity: 0; }
+
+      /* Deux colonnes (requêtes / pages) */
+      .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+      @media (max-width: 900px) { .two-cols { grid-template-columns: 1fr; } }
+      .gtab-row, .gtab-head { display: flex; align-items: baseline; gap: 0.8rem; }
+      .gtab-row { padding: 0.5rem 0; border-bottom: 1px solid var(--c-line); font-size: 0.9rem; }
+      .gtab-row:last-child { border-bottom: none; }
+      .gt-key, .h-key { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .gt-key { font-weight: 700; color: var(--c-text); }
+      /* Colonnes chiffres : largeur fixe + alignées à droite → tout s'aligne */
+      .gt-sub, .h-sub { flex: 0 0 4.5rem; width: 4.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+      .gt-n, .h-n { flex: 0 0 3.2rem; width: 3.2rem; text-align: right; font-variant-numeric: tabular-nums; }
+      .gt-sub { color: var(--c-muted); font-size: 0.8rem; }
+      .gt-n { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; color: var(--c-accent); }
+      .gtab-head { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); padding-bottom: 0.3rem; }
+
+      /* Sources de trafic (barres) */
+      .src-row { display: flex; align-items: center; gap: 0.8rem; padding: 0.55rem 0; border-bottom: 1px solid var(--c-line); }
+      .src-row:last-child { border-bottom: none; }
+      .src-nom { flex: 0 0 8rem; font-weight: 700; color: var(--c-text); }
+      .src-bar { flex: 1; height: 8px; background: var(--c-line); border-radius: 999px; overflow: hidden; min-width: 40px; }
+      .src-bar > span { display: block; height: 100%; background: var(--c-accent); border-radius: 999px; }
+      .src-n { flex: 0 0 3rem; text-align: right; font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; color: var(--c-accent); }
+      .src-pct { flex: 0 0 2.8rem; text-align: right; color: var(--c-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+      @media (max-width: 560px) { .src-nom { flex-basis: 6rem; font-size: 0.9rem; } }
     </style>
   </head>
   <body>
@@ -123,6 +174,13 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       <AdminHeader />
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>Statistiques</h1>
+
+        <div class="tabs2" id="tabs2">
+          <button type="button" class="tab2 is-on" data-tab="fin"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M15 9.5a3.5 3.5 0 1 0 0 5" /><line x1="7.5" y1="11" x2="12.5" y2="11" /><line x1="7.5" y1="13" x2="11.5" y2="13" /></svg>Finances</button>
+          <button type="button" class="tab2" data-tab="ggl"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>Google</button>
+        </div>
+
+        <section class="pane2" data-pane="fin">
         <div class="periods" id="periods">
           <button class="period is-active" data-p="day">Jour</button>
           <button class="period" data-p="week">Semaine</button>
@@ -163,6 +221,59 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             <div id="s-top"></div>
           </div>
         </div>
+        </section>
+
+        <section class="pane2" data-pane="ggl" hidden>
+          <div class="periods" id="g-periods">
+            <button class="period" data-d="7">7 jours</button>
+            <button class="period is-active" data-d="28">28 jours</button>
+            <button class="period" data-d="90">3 mois</button>
+            <button class="period" data-d="180">6 mois</button>
+            <button class="period" data-d="365">12 mois</button>
+          </div>
+          <div class="state" id="g-state">Chargement…</div>
+          <div class="state" id="g-empty" style="display:none">
+            Search Console n'est pas encore configuré. Va dans Réglages → Integrations pour l'activer.
+          </div>
+          <div id="g-content" style="display:none">
+            <div class="grid grid4">
+              <div class="stat"><div class="stat-lab">Clics</div><div class="stat-big" id="k-clicks">—</div><div class="stat-sub" id="k-clicks-d"></div></div>
+              <div class="stat"><div class="stat-lab">Impressions</div><div class="stat-big" id="k-impr">—</div><div class="stat-sub" id="k-impr-d"></div></div>
+              <div class="stat"><div class="stat-lab">CTR</div><div class="stat-big" id="k-ctr">—</div><div class="stat-sub" id="k-ctr-d"></div></div>
+              <div class="stat"><div class="stat-lab">Position</div><div class="stat-big" id="k-pos">—</div><div class="stat-sub" id="k-pos-d"></div></div>
+            </div>
+            <div class="chart">
+              <div class="chart-title">Clics</div>
+              <div class="lchart" id="g-chart-clicks"></div>
+              <div class="chart-tip" id="tip-clicks"></div>
+            </div>
+            <div class="chart">
+              <div class="chart-title">Impressions</div>
+              <div class="lchart" id="g-chart-impr"></div>
+              <div class="chart-tip" id="tip-impr"></div>
+            </div>
+            <div class="two-cols">
+              <div class="top">
+                <div class="top-title">Requêtes</div>
+                <div class="gtab-head"><span class="h-key">Mot-clé</span><span class="h-sub">Impr.</span><span class="h-n">Clics</span></div>
+                <div id="g-queries"></div>
+              </div>
+              <div class="top">
+                <div class="top-title">Pages</div>
+                <div class="gtab-head"><span class="h-key">Page</span><span class="h-sub">Impr.</span><span class="h-n">Clics</span></div>
+                <div id="g-pages"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="top" id="g-sources-card" style="display:none; margin-top:1.25rem">
+            <div class="top-title">Sources de trafic</div>
+            <p style="margin:-0.4rem 0 1rem; color:var(--c-muted); font-size:0.8rem">
+              D'où arrivent vos visiteurs. Sans cookie — les données se cumulent depuis l'activation.
+            </p>
+            <div id="g-sources"></div>
+          </div>
+        </section>
       </main>
       <AdminFooter />
     </div>
@@ -363,6 +474,239 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           periodo = t.dataset.p!;
           periodsEl.querySelectorAll(".period").forEach((b) => b.classList.toggle("is-active", b === t));
           carica();
+        });
+
+        // ===================== Onglet Google (Search Console) =====================
+        type GLigne = { key: string; clicks: number; impressions: number; ctr: number; position: number };
+        type GDetail = {
+          configured: boolean; error?: string; days: number;
+          kpi: { clicks: number; impressions: number; ctr: number; position: number;
+                 prev: { clicks: number; impressions: number; ctr: number; position: number } };
+          serie: { date: string; clicks: number; impressions: number }[];
+          topQueries: GLigne[]; topPages: GLigne[];
+        };
+
+        const tabs2 = document.getElementById("tabs2") as HTMLElement;
+        const paneGgl = document.querySelector('.pane2[data-pane="ggl"]') as HTMLElement;
+        const paneFin = document.querySelector('.pane2[data-pane="fin"]') as HTMLElement;
+        const gPeriods = document.getElementById("g-periods") as HTMLElement;
+        const gState = document.getElementById("g-state") as HTMLElement;
+        const gEmpty = document.getElementById("g-empty") as HTMLElement;
+        const gContent = document.getElementById("g-content") as HTMLElement;
+        let gDays = 28;
+        let gLoaded = false;
+        let gSerie: { date: string; clicks: number; impressions: number }[] = [];
+        const nfInt = new Intl.NumberFormat("fr-FR");
+
+        const SRC_NOMI: Record<string, string> = {
+          google: "Google", facebook: "Facebook", instagram: "Instagram",
+          direct: "Direct / inconnu", tiktok: "TikTok", x: "X (Twitter)",
+          bing: "Bing", yahoo: "Yahoo", duckduckgo: "DuckDuckGo",
+          linkedin: "LinkedIn", youtube: "YouTube", whatsapp: "WhatsApp",
+          newsletter: "Newsletter", autre: "Autre",
+        };
+
+        // Sources de trafic (analytics interne) — indépendant de Search Console.
+        async function caricaSources() {
+          const card = document.getElementById("g-sources-card") as HTMLElement | null;
+          const box = document.getElementById("g-sources") as HTMLElement | null;
+          if (!card || !box) return;
+          try {
+            const res = await fetch("/api/admin/traffic?days=" + gDays, { headers });
+            const j = (await res.json()) as { sources: { source: string; count: number }[]; total: number };
+            card.style.display = "";
+            if (!j.sources || !j.sources.length) {
+              box.innerHTML = '<p class="state" style="padding:0.8rem 0">Aucune visite enregistrée pour le moment.</p>';
+              return;
+            }
+            const max = Math.max(...j.sources.map((x) => x.count));
+            box.innerHTML = j.sources.map((x) => {
+              const nom = SRC_NOMI[x.source] ?? (x.source.charAt(0).toUpperCase() + x.source.slice(1));
+              const pct = j.total ? Math.round((x.count / j.total) * 100) : 0;
+              const w = Math.round((x.count / max) * 100);
+              return `<div class="src-row"><span class="src-nom">${esc(nom)}</span>` +
+                `<span class="src-bar"><span style="width:${w}%"></span></span>` +
+                `<span class="src-n">${nfInt.format(x.count)}</span><span class="src-pct">${pct}%</span></div>`;
+            }).join("");
+          } catch {
+            card.style.display = "none";
+          }
+        }
+
+        function deltaPct(cur: number, prev: number): { txt: string; cls: string } {
+          if (prev <= 0) return { txt: cur > 0 ? "▲ nouveau" : "", cls: cur > 0 ? "up" : "" };
+          const d = Math.round(((cur - prev) / prev) * 100);
+          if (d === 0) return { txt: "— stable", cls: "" };
+          return { txt: (d > 0 ? "▲ " : "▼ ") + Math.abs(d) + "%", cls: d > 0 ? "up" : "down" };
+        }
+        function setDelta(id: string, r: { txt: string; cls: string }) {
+          const el = document.getElementById(id);
+          if (el) el.innerHTML = r.txt ? `<span class="delta ${r.cls}">${r.txt}</span> vs période précéd.` : "";
+        }
+        function fmtJour(iso: string): string {
+          const d = new Date(iso + "T00:00:00");
+          return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+        }
+
+        // Grafico a linee SVG con crosshair + tooltip (una sola serie per grafico).
+        function drawLine(boxId: string, tipId: string, pts: { date: string; val: number }[], color: string) {
+          const box = document.getElementById(boxId) as HTMLElement | null;
+          const tip = document.getElementById(tipId) as HTMLElement | null;
+          if (!box) return;
+          const W = Math.max(320, Math.round(box.clientWidth || 600));
+          const H = 230, padL = 46, padR = 12, padT = 12, padB = 26;
+          const iw = W - padL - padR, ih = H - padT - padB;
+          const n = pts.length;
+          if (!n) { box.innerHTML = '<p class="state" style="padding:1.5rem 0">Aucune donnée.</p>'; return; }
+          const maxV = Math.max(1, ...pts.map((p) => p.val));
+          const X = (i: number) => padL + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+          const Y = (v: number) => padT + ih - (v / maxV) * ih;
+
+          const pathD = pts.map((p, i) => `${i ? "L" : "M"} ${X(i).toFixed(1)} ${Y(p.val).toFixed(1)}`).join(" ");
+          const areaD = `${pathD} L ${X(n - 1).toFixed(1)} ${padT + ih} L ${X(0).toFixed(1)} ${padT + ih} Z`;
+
+          // 3 linee guida orizzontali + etichette valore
+          let grid = "";
+          for (let k = 0; k <= 2; k++) {
+            const val = (maxV / 2) * k;
+            const yy = Y(val);
+            grid += `<line class="gl" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" />`;
+            grid += `<text class="axlab" x="${padL - 6}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${nfInt.format(Math.round(val))}</text>`;
+          }
+          // ~6 etichette data sull'asse x
+          let xlab = "";
+          const passo = Math.max(1, Math.ceil(n / 6));
+          for (let i = 0; i < n; i += passo) {
+            xlab += `<text class="axlab" x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${fmtJour(pts[i].date)}</text>`;
+          }
+
+          box.innerHTML =
+            `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Évolution">` +
+            grid + xlab +
+            `<path d="${areaD}" fill="${color}" fill-opacity="0.10" stroke="none" />` +
+            `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` +
+            `<line class="cross" x1="0" y1="${padT}" x2="0" y2="${padT + ih}" />` +
+            `<circle class="cdot" r="4" fill="${color}" stroke="#fff" stroke-width="1.5" />` +
+            `</svg>`;
+
+          const svg = box.querySelector("svg") as SVGSVGElement;
+          const cross = box.querySelector(".cross") as SVGLineElement;
+          const dot = box.querySelector(".cdot") as SVGCircleElement;
+          const chart = box.closest(".chart") as HTMLElement;
+
+          const move = (ev: PointerEvent) => {
+            const rect = svg.getBoundingClientRect();
+            const vx = ((ev.clientX - rect.left) / rect.width) * W;
+            let i = n <= 1 ? 0 : Math.round(((vx - padL) / iw) * (n - 1));
+            i = Math.max(0, Math.min(n - 1, i));
+            const px = X(i), py = Y(pts[i].val);
+            cross.setAttribute("x1", String(px)); cross.setAttribute("x2", String(px));
+            cross.style.opacity = "1";
+            dot.setAttribute("cx", String(px)); dot.setAttribute("cy", String(py));
+            dot.style.opacity = "1";
+            if (tip && chart) {
+              const cr = chart.getBoundingClientRect();
+              tip.style.display = "block";
+              tip.style.left = ((px / W) * rect.width + (rect.left - cr.left)) + "px";
+              tip.style.top = ((py / H) * rect.height + (rect.top - cr.top) - 10) + "px";
+              tip.style.transform = "translate(-50%, -100%)";
+              tip.textContent = `${fmtJour(pts[i].date)} · ${nfInt.format(pts[i].val)}`;
+            }
+          };
+          const leave = () => {
+            cross.style.opacity = "0"; dot.style.opacity = "0";
+            if (tip) tip.style.display = "none";
+          };
+          svg.addEventListener("pointermove", move);
+          svg.addEventListener("pointerleave", leave);
+        }
+
+        function renderGTable(id: string, rows: GLigne[], isPage: boolean) {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (!rows.length) { el.innerHTML = '<p class="state" style="padding:1rem 0">Aucune donnée.</p>'; return; }
+          el.innerHTML = rows.slice(0, 10).map((r) => {
+            let label = r.key;
+            if (isPage) { try { const u = new URL(r.key); label = u.pathname === "/" ? "Accueil" : u.pathname; } catch { /* garde brut */ } }
+            return `<div class="gtab-row"><span class="gt-key" title="${esc(r.key)}">${esc(label)}</span>` +
+              `<span class="gt-sub">${nfInt.format(r.impressions)}</span><span class="gt-n">${nfInt.format(r.clicks)}</span></div>`;
+          }).join("");
+        }
+
+        function renderG(v: GDetail) {
+          (document.getElementById("k-clicks") as HTMLElement).textContent = nfInt.format(v.kpi.clicks);
+          (document.getElementById("k-impr") as HTMLElement).textContent = nfInt.format(v.kpi.impressions);
+          (document.getElementById("k-ctr") as HTMLElement).textContent = (v.kpi.ctr * 100).toFixed(1).replace(".", ",") + " %";
+          (document.getElementById("k-pos") as HTMLElement).textContent = v.kpi.position ? v.kpi.position.toFixed(1).replace(".", ",") : "—";
+          setDelta("k-clicks-d", deltaPct(v.kpi.clicks, v.kpi.prev.clicks));
+          setDelta("k-impr-d", deltaPct(v.kpi.impressions, v.kpi.prev.impressions));
+          // CTR : variation en points de %
+          const dctr = (v.kpi.ctr - v.kpi.prev.ctr) * 100;
+          setDelta("k-ctr-d", Math.abs(dctr) < 0.05
+            ? { txt: "— stable", cls: "" }
+            : { txt: (dctr > 0 ? "▲ " : "▼ ") + Math.abs(dctr).toFixed(1).replace(".", ",") + " pt", cls: dctr > 0 ? "up" : "down" });
+          // Position : plus bas = meilleur (donc baisse = vert)
+          const dpos = v.kpi.position - v.kpi.prev.position;
+          setDelta("k-pos-d", (!v.kpi.position || !v.kpi.prev.position || Math.abs(dpos) < 0.05)
+            ? { txt: "", cls: "" }
+            : { txt: (dpos < 0 ? "▲ " : "▼ ") + Math.abs(dpos).toFixed(1).replace(".", ","), cls: dpos < 0 ? "up" : "down" });
+
+          gSerie = v.serie;
+          drawLine("g-chart-clicks", "tip-clicks", v.serie.map((p) => ({ date: p.date, val: p.clicks })), "var(--c-accent)");
+          drawLine("g-chart-impr", "tip-impr", v.serie.map((p) => ({ date: p.date, val: p.impressions })), "#5c6b7a");
+          renderGTable("g-queries", v.topQueries, false);
+          renderGTable("g-pages", v.topPages, true);
+        }
+
+        async function caricaG() {
+          gState.style.display = "";
+          gState.textContent = "Chargement…";
+          gEmpty.style.display = "none";
+          gContent.classList.add("loading");
+          void caricaSources(); // provenance : charge en parallèle, indépendant
+          try {
+            const res = await fetch("/api/admin/search-console?detail=1&days=" + gDays, { headers });
+            const v = (await res.json()) as GDetail;
+            if (!v.configured) { gState.style.display = "none"; gContent.style.display = "none"; gEmpty.style.display = ""; return; }
+            if (v.error) { gState.textContent = "Google : " + v.error; gContent.style.display = "none"; return; }
+            gState.style.display = "none";
+            gContent.style.display = "";
+            renderG(v);
+          } catch {
+            gState.textContent = "Erreur de connexion.";
+          } finally {
+            gContent.classList.remove("loading");
+            gLoaded = true;
+          }
+        }
+
+        gPeriods.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".period") as HTMLElement | null;
+          if (!t || Number(t.dataset.d) === gDays) return;
+          gDays = Number(t.dataset.d);
+          gPeriods.querySelectorAll(".period").forEach((b) => b.classList.toggle("is-active", b === t));
+          void caricaG();
+        });
+
+        tabs2.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".tab2") as HTMLElement | null;
+          if (!t) return;
+          const ggl = t.dataset.tab === "ggl";
+          tabs2.querySelectorAll(".tab2").forEach((b) => b.classList.toggle("is-on", b === t));
+          paneFin.hidden = ggl;
+          paneGgl.hidden = !ggl;
+          if (ggl && !gLoaded) void caricaG();
+        });
+
+        // Ridisegna i grafici quando la finestra cambia (SVG rifitta la larghezza)
+        let rzT: number | undefined;
+        window.addEventListener("resize", () => {
+          if (paneGgl.hidden || !gSerie.length) return;
+          window.clearTimeout(rzT);
+          rzT = window.setTimeout(() => {
+            drawLine("g-chart-clicks", "tip-clicks", gSerie.map((p) => ({ date: p.date, val: p.clicks })), "var(--c-accent)");
+            drawLine("g-chart-impr", "tip-impr", gSerie.map((p) => ({ date: p.date, val: p.impressions })), "#5c6b7a");
+          }, 180);
         });
 
         // Primo caricamento: usa le stats SSR (Fase 2) se presenti e il periodo

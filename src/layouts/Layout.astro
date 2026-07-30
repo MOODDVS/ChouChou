@@ -393,5 +393,26 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     <ReservationModal />
     <SitePopup />
     <CookieBanner />
+
+    <!-- Analytics interne : provenance des arrivées (sans cookie ni donnée
+         perso). Ne beacon QUE les entrées externes/directes, pas les
+         navigations internes. Voir /api/track et supabase/traffic.sql. -->
+    <script is:inline>
+      (function () {
+        try {
+          var ref = document.referrer || "";
+          var rh = "";
+          try { rh = ref ? new URL(ref).host : ""; } catch (e) {}
+          if (rh && rh === location.host) return; // navigation interne : on ignore
+          var utm = new URLSearchParams(location.search).get("utm_source") || "";
+          var body = JSON.stringify({ p: location.pathname, r: ref, u: utm });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon("/api/track", body);
+          } else {
+            fetch("/api/track", { method: "POST", body: body, keepalive: true });
+          }
+        } catch (e) { /* jamais bloquer la page pour des stats */ }
+      })();
+    </script>
   </body>
 </html>

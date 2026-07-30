@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
+import { serviceAccountEmail, searchConsolePronto } from "../../../lib/searchConsole";
 
 export const prerender = false;
 
@@ -26,6 +27,7 @@ const K_MODE = "resa_mode";
 const K_PROVIDER = "resa_provider";
 const K_URL = "resa_url";
 const K_EMBED = "resa_embed";
+const K_GSC_SITE = "gsc_site"; // Search Console : sc-domain:… ou https://…/
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -49,7 +51,7 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN]);
+  const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE]);
   const mode = MODI.includes(c[K_MODE]) ? c[K_MODE] : "moodd";
   return json({
     resa: {
@@ -69,6 +71,13 @@ export const GET: APIRoute = async ({ request }) => {
         (import.meta.env.GOOGLE_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET)
       ),
     },
+    search_console: {
+      site: c[K_GSC_SITE] ?? "",
+      // la chiave del service account è pronta lato server ?
+      ready: searchConsolePronto(),
+      // email del robot da aggiungere in Search Console (solo super admin)
+      robot: isSuperUser(staff) ? serviceAccountEmail() : "",
+    },
   });
 };
 
@@ -77,35 +86,56 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
 
-  let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string };
+  let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
   }
 
-  const mode = MODI.includes(String(body.mode)) ? String(body.mode) : "moodd";
-  const url = String(body.url ?? "").trim().slice(0, 500);
-  if (mode === "link" && url && !/^https:\/\//i.test(url)) {
-    return json({ error: "Le lien doit commencer par https://" }, 400);
-  }
-  if (mode === "link" && !url) return json({ error: "Ajoute le lien de réservation." }, 400);
-  if (mode === "embed" && !String(body.embed ?? "").trim()) {
-    return json({ error: "Colle le code du widget." }, 400);
+  // Salvataggio PARZIALE: ogni bottone "Enregistrer" tocca solo i suoi campi.
+  // Scriviamo una chiave solo se il campo è presente nel body, così salvare
+  // la Search Console non azzera le prenotazioni, e viceversa.
+  const upserts: { key: string; value: string }[] = [];
+
+  // --- Prenotazioni (invia sempre mode) ---
+  if (body.mode !== undefined) {
+    const mode = MODI.includes(String(body.mode)) ? String(body.mode) : "moodd";
+    const url = String(body.url ?? "").trim().slice(0, 500);
+    if (mode === "link" && url && !/^https:\/\//i.test(url)) {
+      return json({ error: "Le lien doit commencer par https://" }, 400);
+    }
+    if (mode === "link" && !url) return json({ error: "Ajoute le lien de réservation." }, 400);
+    if (mode === "embed" && !String(body.embed ?? "").trim()) {
+      return json({ error: "Colle le code du widget." }, 400);
+    }
+    upserts.push(
+      { key: K_MODE, value: mode },
+      { key: K_PROVIDER, value: String(body.provider ?? "").trim().slice(0, 60) },
+      { key: K_URL, value: url },
+      { key: K_EMBED, value: String(body.embed ?? "").slice(0, 20000) },
+    );
   }
 
-  const placeId = String(body.google_place_id ?? "").trim().slice(0, 200);
-  if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
-    return json({ error: "Place ID invalide." }, 400);
+  // --- Google Business : Place ID ---
+  if (body.google_place_id !== undefined) {
+    const placeId = String(body.google_place_id).trim().slice(0, 200);
+    if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
+      return json({ error: "Place ID invalide." }, 400);
+    }
+    upserts.push({ key: K_GPLACE, value: placeId });
   }
 
-  const upserts = [
-    { key: K_GPLACE, value: placeId },
-    { key: K_MODE, value: mode },
-    { key: K_PROVIDER, value: String(body.provider ?? "").trim().slice(0, 60) },
-    { key: K_URL, value: url },
-    { key: K_EMBED, value: String(body.embed ?? "").slice(0, 20000) },
-  ];
+  // --- Search Console : "sc-domain:exemple.be" ou une URL https ---
+  if (body.gsc_site !== undefined) {
+    const gscSite = String(body.gsc_site).trim().slice(0, 300);
+    if (gscSite && !/^sc-domain:[a-z0-9.-]+$/i.test(gscSite) && !/^https:\/\//i.test(gscSite)) {
+      return json({ error: "Site Search Console invalide : sc-domain:exemple.be ou https://…" }, 400);
+    }
+    upserts.push({ key: K_GSC_SITE, value: gscSite });
+  }
+
+  if (!upserts.length) return json({ error: "Rien à enregistrer" }, 400);
   const { error } = await supabaseAdmin.from("app_config").upsert(upserts, { onConflict: "key" });
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true });
