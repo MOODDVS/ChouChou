@@ -888,7 +888,7 @@ import { CLIENT } from "../../config/client";
       }
       .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
       .dp-vuota { cursor: default; }
-      .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-off { color: var(--c-muted); opacity: 0.38; cursor: not-allowed; }
       .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
       .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       @media (pointer: coarse) {
@@ -3094,7 +3094,14 @@ import { CLIENT } from "../../config/client";
             rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
           }
         });
-        rwImpostaData(rwIsoPiuGiorni(0));
+        // Data iniziale: primo giorno aperto (salta chiusures et vacances),
+        // sinon aujourd'hui. Évite de partir sur un jour fermé.
+        let rwIni = "";
+        for (let g = 0; g <= 120 && !rwIni; g++) {
+          const iso = rwIsoPiuGiorni(g);
+          if (rwGiornoAperto(iso) && rwHaOrari(iso)) rwIni = iso;
+        }
+        rwImpostaData(rwIni || rwIsoPiuGiorni(0));
         applicaLingua();
 
         // --- Link social / recensioni (tab Liens) ---

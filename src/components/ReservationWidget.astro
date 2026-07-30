@@ -77,7 +77,7 @@ const { telWidget, inPage = false } = Astro.props;
       }
       .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: #3a3335; }
       .dp-vuota { cursor: default; }
-      .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-off { color: #6f645f; cursor: not-allowed; opacity: 0.85; }
       .dp-today { box-shadow: inset 0 0 0 1px #dfab4e; }
       .dp-complet { border: 1px solid #ed1c24 !important; background: rgba(237, 28, 36, 0.3); color: #fff; }
       .dp-sel { background: #dfab4e; color: #231f20; font-weight: 700; }
@@ -799,10 +799,15 @@ const { telWidget, inPage = false } = Astro.props;
         auj.addEventListener("click", () => { if (!auj.disabled) { impostaData(isoPiu(0)); prossima("date"); } });
         dem.addEventListener("click", () => { if (!dem.disabled) { impostaData(isoPiu(1)); prossima("date"); } });
 
-        // Data iniziale: primo giorno prenotabile fra oggi e +14
+        // Data iniziale: primo giorno prenotabile a partire da oggi. Cerca
+        // fino a ~120 giorni avanti (caricando i mesi necessari), così una
+        // lunga chiusura (vacances) NON fa ripiegare su un giorno fermé.
         let iniz = "";
-        for (let g = 0; g <= 14; g++) { const iso = isoPiu(g); if (!closedSet.has(iso) && !fullSet.has(iso) && haOrari(iso)) { iniz = iso; break; } }
-        if (!iniz) iniz = isoPiu(0);
+        for (let g = 0; g <= 120 && !iniz; g++) {
+          const iso = isoPiu(g);
+          await assicuraMese(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1);
+          if (!closedSet.has(iso) && !fullSet.has(iso) && haOrari(iso)) iniz = iso;
+        }
 
         // Interazioni
         $("rw-pgrid").addEventListener("click", (e) => {
@@ -996,6 +1001,6 @@ const { telWidget, inPage = false } = Astro.props;
         $("rw-loading").style.display = "none";
         $("rw-step1").style.display = "";
         if (resaMod) await prefillModifica(resaMod);
-        else await impostaData(iniz);
+        else if (iniz) await impostaData(iniz);  // iniz vuoto = aucune dispo dans ~120 j
       })();
 </script>

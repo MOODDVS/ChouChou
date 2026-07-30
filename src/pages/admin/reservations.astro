@@ -637,7 +637,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
       .dp-vuota { cursor: default; }
-      .dp-off { color: #5d5555; cursor: not-allowed; }
+      .dp-off { color: var(--c-muted); opacity: 0.45; cursor: not-allowed; }
       .dp-cell.dp-off:not(:disabled) { cursor: pointer; }
       .dp-cell { position: relative; }
       .dp-dot {
