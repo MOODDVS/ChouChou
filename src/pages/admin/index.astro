@@ -172,9 +172,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .cui-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
       .cui-sw { width: 44px; height: 24px; border-radius: 999px; background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; }
       .cui-sw.is-on { border-color: var(--c-accent); }
-      .cui-sw .cui-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left 0.2s; }
+      .cui-sw .cui-knob { position: absolute; top: 50%; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transform: translateY(-50%); transition: transform 0.2s; }
       .cui-sw.is-on { background: var(--c-accent); }
-      .cui-sw.is-on .cui-knob { left: 23px; }
+      .cui-sw.is-on .cui-knob { transform: translate(18px, -50%); }
 
       /* --- Tile Jours spéciaux --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -199,12 +199,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .spx-add {
         position: absolute; top: 1.15rem; right: 1.25rem; z-index: 2;
         width: 34px; height: 34px; border-radius: 50%;
-        background: transparent; border: 1px solid var(--c-line); color: var(--c-accent);
-        font-size: 1.35rem; line-height: 1; cursor: pointer;
+        background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
+        font-size: 1.5rem; line-height: 1; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
-        transition: border-color 0.15s, background 0.15s;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, calc(0.3 * var(--sh, 0.15)));
+        transition: border-color 0.15s, background 0.15s, transform 0.15s;
       }
-      .spx-add:hover { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
+      .spx-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
+      /* Jours spéciaux : stacca la linea "Événements à venir" dalle chiusure */
+      .tile[data-tile="special"] .tile-next { margin-top: 0.75rem; }
       .ev-nome.ev-loc { color: var(--c-accent); }
 
       #evt-overlay .evm-modal {

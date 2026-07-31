@@ -1,44 +1,150 @@
 ---
-// Homepage "coming soon" del TEMPLATE: il cliente parte SOLO con l'admin.
-// Quando si attiva il sito pubblico, questa pagina si sostituisce con la
-// vera home (le pagine pubbliche esistono già, non sono linkate).
-import { CLIENT } from "../config/client";
+// Home publique de ChouChou. L'ancienne page « coming soon » est remplacée
+// par la vraie home : header flottant (Header.astro) au-dessus du hero.
+// Les autres pages publiques (menu, ambiance, contact) existent déjà.
+import Layout from "../layouts/Layout.astro";
 export const prerender = false;
 ---
 
-<html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{CLIENT.nome}</title>
-    <meta name="robots" content="noindex, nofollow" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;700&display=swap"
-    />
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        min-height: 100vh; display: flex; align-items: center; justify-content: center;
-        background: #231f20; color: #ffffff; font-family: "Nunito Sans", system-ui, sans-serif;
-        text-align: center; padding: 2rem;
-      }
-      .box { max-width: 480px; }
-      .logo { width: 84px; height: 84px; border-radius: 18px; margin: 0 auto 1.6rem; display: block; }
-      h1 { font-family: "Bebas Neue", system-ui, sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; }
-      .riga { width: 64px; height: 3px; background: #dfab4e; margin: 1.1rem auto 1.3rem; }
-      p { color: #b3aca6; font-size: 0.95rem; line-height: 1.7; }
-    </style>
-  </head>
-  <body>
-    <div class="box">
-      <img class="logo" src="/icon-192.png" alt={CLIENT.nome} />
-      <h1>{CLIENT.nome}</h1>
-      <div class="riga"></div>
-      <p>Bientôt en ligne.</p>
+<Layout transparentHeader={true} title="Comptoir ChouChou — Restaurant">
+  <section class="home-hero">
+    <div class="hh-bg"></div>
+    <div class="hh-glow"></div>
+    <div class="hh-inner">
+      <p class="hh-kicker">Bienvenue au</p>
+      <h1 class="hh-title">Comptoir&nbsp;ChouChou</h1>
+      <p class="hh-sub">Cuisine de comptoir, produits frais et ambiance chaleureuse.</p>
+      <div class="hh-cta">
+        <button type="button" class="hh-btn hh-btn-mag" data-reserver>Réserver une table</button>
+        <a href="/menu" class="hh-btn hh-btn-ghost">Voir la carte</a>
+      </div>
     </div>
-  </body>
-</html>
+    <div class="hh-scroll" aria-hidden="true">
+      <span></span>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .home-hero {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    position: relative;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-align: center;
+  }
+  .hh-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 45%, #23283a 100%);
+    z-index: 0;
+  }
+  /* Halo magenta discret, signature de la marque */
+  .hh-glow {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    width: 720px;
+    height: 720px;
+    max-width: 120vw;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.22) 0%, rgba(237, 34, 137, 0) 62%);
+    z-index: 0;
+    pointer-events: none;
+  }
+  .hh-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 780px;
+    padding: 7rem 1.5rem 2rem;
+  }
+  .hh-kicker {
+    font-family: var(--font-body);
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--mag);
+    margin: 0 0 1rem;
+  }
+  .hh-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    color: #fff;
+    font-size: clamp(2.8rem, 8vw, 5.4rem);
+    line-height: 1.02;
+    margin: 0;
+  }
+  .hh-sub {
+    font-family: var(--font-body);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: clamp(1rem, 2.4vw, 1.2rem);
+    line-height: 1.6;
+    margin: 1.4rem auto 0;
+    max-width: 30em;
+  }
+  .hh-cta {
+    display: flex;
+    gap: 0.9rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 2.4rem;
+  }
+  .hh-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 34px;
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+  }
+  .hh-btn-mag { background: var(--mag); color: #fff; }
+  .hh-btn-mag:hover { background: #c8176f; transform: translateY(-2px); }
+  .hh-btn-ghost {
+    background: transparent;
+    color: #fff;
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+  }
+  .hh-btn-ghost:hover { background: #fff; color: var(--navy); transform: translateY(-2px); }
+
+  .hh-scroll {
+    position: absolute;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 38px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 14px;
+    z-index: 2;
+  }
+  .hh-scroll span {
+    position: absolute;
+    left: 50%;
+    top: 8px;
+    width: 3px;
+    height: 7px;
+    margin-left: -1.5px;
+    border-radius: 2px;
+    background: #fff;
+    animation: hhScroll 1.7s ease-in-out infinite;
+  }
+  @keyframes hhScroll {
+    0% { opacity: 0; transform: translateY(0); }
+    35% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(12px); }
+  }
+  @media (prefers-reduced-motion: reduce) { .hh-scroll span { animation: none; } }
+</style>
