@@ -5,6 +5,7 @@
 //   alla chiusura): logo, link (pagina attiva in bianco), Réserver,
 //   telefono, FR/EN, Fermer ⬇.
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { datiRistorante } from "../lib/ristorante";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -14,7 +15,7 @@ const current = rawPath.replace(/^\/en/, "") || "/";
 
 // Etichette nella lingua della pagina (Benvenuti resta italiano: è brand)
 const nav = [
-  { label: "Benvenuti", path: "/" },
+  { label: en ? "Home" : "Accueil", path: "/" },
   { label: en ? "Our Menu" : "Notre carte", path: "/menu" },
   { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
   { label: "Contact", path: "/contact" },
@@ -30,15 +31,16 @@ function isActive(path: string): boolean {
 // bottoni Commander/Réserver è occupato dall'isola carrello di OrderApp.
 const isOrder = current === "/order";
 
-const PHONE_DISPLAY = "+32 455 13 14 65";
-const PHONE_TEL = "+32455131465";
+const dati = await datiRistorante();
+const PHONE_DISPLAY = dati.tel;
+const PHONE_TEL = dati.telLink;
 const BOOK = en ? "Book" : "Réserver";
 const CLOSE = en ? "Close" : "Fermer";
 ---
 
 <!-- Pannello oro: slitta dal basso all'apertura, riscende alla chiusura -->
 <div class="mnav-panel" id="mnav-panel">
-  <img class="mnav-logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana — Pizza & Pasta" />
+  <img class="mnav-logo" src="/SVG/chouchou-navy-v.svg" alt="Comptoir Chouchou" />
   <hr class="mnav-sep" />
 
   <nav class="mnav-links">
@@ -53,7 +55,7 @@ const CLOSE = en ? "Close" : "Fermer";
   </nav>
 
   <div class="mnav-cta">
-    <button class="mnav-book" id="mnav-reserver-panel" type="button" data-reserver>{BOOK}</button>
+    <button class="mnav-book mnav-book--res" id="mnav-reserver-panel" type="button" data-reserver>{BOOK}</button>
     <a href={getLocalizedUrl("/order", lang)} class="mnav-book">{en ? "Order" : "Commander"}</a>
   </div>
 
@@ -81,10 +83,7 @@ const CLOSE = en ? "Close" : "Fermer";
 <!-- Bottom bar fissa -->
 <div class={"mnav-bar" + (isOrder ? " mnav-bar--order" : "")} id="mnav-bar">
   {!isOrder && (
-    <a href={getLocalizedUrl("/order", lang)} class="mnav-act mnav-act-solid">{en ? "Order" : "Commander"}</a>
-  )}
-  {!isOrder && (
-    <button class="mnav-act mnav-act-solid" id="mnav-reserver" type="button" data-reserver>{BOOK}</button>
+    <button class="mnav-reserve" id="mnav-reserver" type="button" data-reserver>{BOOK}</button>
   )}
   <button class="mnav-burger" id="mnav-burger" aria-label="Menu" aria-expanded="false">
     <span class="mnav-burger-icon" id="mnav-burger-icon">
@@ -105,7 +104,7 @@ const CLOSE = en ? "Close" : "Fermer";
       right: 0;
       bottom: 0;
       height: 180px;
-      background: linear-gradient(to top, rgba(35, 31, 32, 0.75), rgba(35, 31, 32, 0));
+      background: linear-gradient(to top, rgba(26, 30, 40, 0.55), rgba(26, 30, 40, 0));
       mix-blend-mode: multiply;
       pointer-events: none;
       z-index: 50;
@@ -115,23 +114,22 @@ const CLOSE = en ? "Close" : "Fermer";
     .mnav-bar {
       display: flex;
       position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: 14px;
-      height: 64px;
-      padding: 8px;
+      left: 14px;
+      right: 14px;
+      bottom: 16px;
+      height: 62px;
+      padding: 7px 7px 7px 8px;
       gap: 8px;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 16px;
+      background: #fff;
+      border: none;
+      border-radius: 999px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
       z-index: 100;
-      align-items: stretch;
+      align-items: center;
       transition: transform 0.35s ease, opacity 0.35s ease;
     }
     /* Pagina Commander: resta solo il burger, la barra si stringe a destra */
-    .mnav-bar--order { left: auto; }
+    .mnav-bar--order { left: auto; background: transparent; box-shadow: none; padding: 0; }
 
     /* Con il pannello aperto la barra scende fuori schermo */
     .mnav-bar.is-hidden {
@@ -139,34 +137,37 @@ const CLOSE = en ? "Close" : "Fermer";
       opacity: 0;
       pointer-events: none;
     }
-    .mnav-act {
+    .mnav-reserve {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: var(--font-display);
-      font-weight: 400;
-      font-size: 0.95rem;
-      letter-spacing: 0.08em;
+      height: 100%;
+      font-family: var(--font-title);
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
       border: none;
-      border-radius: 10px;
       background: none;
+      color: #353c4e;
       cursor: pointer;
     }
-    .mnav-act-solid { background: var(--c-accent); color: var(--c-bg); font-weight: 400; }
     .mnav-burger {
-      width: 54px;
+      width: 48px;
+      height: 48px;
       flex-shrink: 0;
-      background: var(--c-accent);
+      background: #ed2289;
       border: none;
-      border-radius: 10px;
-      color: var(--c-bg);
+      border-radius: 50%;
+      color: #fff;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: background 0.2s ease;
     }
+    .mnav-burger:active { background: #c8176f; }
     .mnav-burger-icon {
       position: relative;
       width: 22px;
@@ -178,7 +179,7 @@ const CLOSE = en ? "Close" : "Fermer";
       left: 0;
       width: 100%;
       height: 2px;
-      background: var(--c-bg);
+      background: #fff;
       transition: transform 0.3s ease, opacity 0.2s ease;
     }
     .mnav-burger-icon span:nth-child(1) { top: 0; }
@@ -200,9 +201,9 @@ const CLOSE = en ? "Close" : "Fermer";
       bottom: 12px;
       max-height: calc(100dvh - 24px);
       overflow-y: auto;
-      background: var(--c-accent);
-      color: var(--c-bg);
-      border-radius: 20px;
+      background: #fff;
+      color: #353c4e;
+      border-radius: 22px;
       padding: 2.2rem 1.5rem 1rem;
       box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.35);
       z-index: 110;
@@ -211,11 +212,11 @@ const CLOSE = en ? "Close" : "Fermer";
     }
     .mnav-panel.is-open { transform: translateY(0); }
 
-    .mnav-logo { width: 190px; height: auto; display: block; }
+    .mnav-logo { width: 132px; height: auto; display: block; }
     .mnav-sep {
       width: 100%;
       border: none;
-      border-top: 1px solid rgba(35, 31, 32, 0.25);
+      border-top: 1px solid rgba(53, 60, 78, 0.16);
       margin: 0;
     }
 
@@ -226,13 +227,13 @@ const CLOSE = en ? "Close" : "Fermer";
       gap: 1.15rem;
     }
     .mnav-link {
-      font-family: var(--font-display);
-      font-size: 1.55rem;
+      font-family: var(--font-title);
+      font-size: 1.5rem;
       letter-spacing: 0.02em;
-      color: var(--c-bg);
+      color: #353c4e;
       text-decoration: none;
     }
-    .mnav-link.is-active { color: #fff; }
+    .mnav-link.is-active { color: #ed2289; }
 
     .mnav-cta {
       width: 100%;
@@ -245,24 +246,25 @@ const CLOSE = en ? "Close" : "Fermer";
       align-items: center;
       justify-content: center;
       width: 100%;
-      background: var(--c-bg);
+      background: #353c4e;
       color: #fff;
-      font-family: var(--font-display);
-      font-weight: 400;
+      font-family: var(--font-title);
+      font-weight: 600;
       font-size: 1rem;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 0.95rem;
       cursor: pointer;
       text-decoration: none;
     }
+    .mnav-book--res { background: #ed2289; }
 
     .mnav-phone {
-      font-family: var(--font-display);
-      font-size: 1.5rem;
-      color: var(--c-bg);
+      font-family: var(--font-title);
+      font-size: 1.4rem;
+      color: #353c4e;
       text-decoration: none;
     }
 
@@ -274,8 +276,8 @@ const CLOSE = en ? "Close" : "Fermer";
       font-weight: 700;
       font-size: 0.9rem;
     }
-    .mnav-lang-opt { color: var(--c-bg); opacity: 0.5; text-decoration: none; }
-    .mnav-lang-opt.is-active { opacity: 1; }
+    .mnav-lang-opt { color: #353c4e; opacity: 0.5; text-decoration: none; }
+    .mnav-lang-opt.is-active { opacity: 1; color: #ed2289; }
     .mnav-lang-sep { opacity: 0.4; }
 
     .mnav-close {
@@ -285,7 +287,7 @@ const CLOSE = en ? "Close" : "Fermer";
       gap: 0.4rem;
       background: none;
       border: none;
-      color: var(--c-bg);
+      color: #353c4e;
       font-family: var(--font-body);
       font-weight: 800;
       font-size: 0.85rem;
@@ -298,7 +300,7 @@ const CLOSE = en ? "Close" : "Fermer";
     .mnav-close svg { width: 20px; height: 20px; display: block; }
   }
   @media (max-width: 390px) {
-    .mnav-act { font-size: 0.82rem; letter-spacing: 0.05em; }
+    .mnav-reserve { font-size: 0.9rem; letter-spacing: 0.1em; }
   }
 </style>
 

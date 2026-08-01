@@ -123,9 +123,9 @@ const primaryUrl =
     transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
   }
   .chdr.is-transparent.scrolled {
-    background: rgba(35, 31, 32, 0.78);
-    backdrop-filter: blur(9px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+    background: transparent;
+    backdrop-filter: none;
+    box-shadow: none;
   }
 
   .chdr-in {
@@ -157,7 +157,7 @@ const primaryUrl =
      en haut à gauche, sans décaler le centrage. */
   .clogo .chou {
     display: block;
-    font-family: "Quicksand", var(--font-body);
+    font-family: var(--font-title);
     font-weight: 500;
     font-size: 1.85rem;
     letter-spacing: 0.01em;
@@ -171,8 +171,8 @@ const primaryUrl =
     left: -6px;
     transform: rotate(-4deg);
     transform-origin: left center;
-    font-family: "Kaushan Script", cursive;
-    font-size: 0.72rem;
+    font-family: var(--font-script);
+    font-size: 1.15rem;
     line-height: 1;
     white-space: nowrap;
     color: var(--mag);
@@ -189,7 +189,7 @@ const primaryUrl =
   .cnav-a {
     color: var(--navy);
     text-decoration: none;
-    font-family: var(--font-body);
+    font-family: var(--font-title);
     font-weight: 600;
     font-size: 0.95rem;
     letter-spacing: 0.01em;
@@ -218,7 +218,7 @@ const primaryUrl =
     text-decoration: none;
     border: none;
     cursor: pointer;
-    font-family: var(--font-body);
+    font-family: var(--font-title);
     font-weight: 600;
     font-size: 0.98rem;
     letter-spacing: 0.02em;
@@ -246,7 +246,7 @@ const primaryUrl =
     padding: 0 14px;
     cursor: pointer;
     border: none;
-    font-family: var(--font-body);
+    font-family: var(--font-title);
     font-weight: 600;
     font-size: 0.82rem;
   }
@@ -270,7 +270,7 @@ const primaryUrl =
     padding: 8px 12px;
     color: var(--navy);
     text-decoration: none;
-    font-family: var(--font-body);
+    font-family: var(--font-title);
     font-weight: 600;
     font-size: 0.88rem;
   }
@@ -298,7 +298,7 @@ const primaryUrl =
   }
   .csoc-ring text {
     fill: #fff;
-    font-family: var(--font-body);
+    font-family: var(--font-title);
     font-weight: 700;
     text-transform: uppercase;
     font-size: 9px;
@@ -347,7 +347,7 @@ const primaryUrl =
     .cnav, .cbtn, .clang { display: none; }
     .clogo-blk { padding: 8px 26px; }
     .clogo .chou { font-size: 1.5rem; }
-    .clogo .comptoir { font-size: 0.68rem; }
+    .clogo .comptoir { font-size: 1.05rem; }
     /* Aucun fond au scroll sur mobile. */
     .chdr.is-transparent.scrolled {
       background: transparent;

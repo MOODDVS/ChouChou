@@ -59,14 +59,14 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Kaushan+Script&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&family=Quicksand:wght@500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@300;400;700;900&family=Quicksand:wght@400;500;600;700&display=swap"
       media="print"
       onload="this.media='all'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Kaushan+Script&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&family=Quicksand:wght@500;600&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@300;400;700;900&family=Quicksand:wght@400;500;600;700&display=swap"
       />
     </noscript>
 
@@ -77,9 +77,10 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
         --c-accent: #dfab4e;
         --c-muted: #b3aca6;
         --c-line: #3a3335;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
-        --font-display: "Marcellus", "Nunito Sans", serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
+        --font-body: "Lato", system-ui, sans-serif;
+        --font-display: "Quicksand", system-ui, sans-serif;
+        --font-script: "Birthstone", cursive;
         --maxw: 1440px;
       }
       * { box-sizing: border-box; }
@@ -91,14 +92,20 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
         font-family: var(--font-body);
         -webkit-font-smoothing: antialiased;
       }
+      /* Riserva sempre lo spazio della scrollbar: header (fixed) e footer
+         (flusso) restano centrati sullo stesso 1440px, niente scostamenti. */
+      html { scrollbar-gutter: stable; }
       h1, h2, h3, h4 {
         font-family: var(--font-title);
-        font-weight: 400;
+        font-weight: 600;
         letter-spacing: 0.02em;
         line-height: 1.05;
         margin: 0 0 0.5em;
       }
       a { color: inherit; text-decoration: none; }
+      /* Enfasi corsiva manoscritta ChouChou (Birthstone) */
+      em, i, .script { font-family: var(--font-script); font-style: normal; font-weight: 400; }
+      .script { font-size: 1.35em; line-height: 1; }
       .container {
         max-width: var(--maxw);
         margin: 0 auto;

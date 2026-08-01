@@ -1,238 +1,516 @@
 ---
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
-import { supabaseAdmin } from "../lib/db";
 import { linksSocial } from "../lib/links";
-import { cacheOr } from "../lib/cache";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
-
-
-const EMAIL = "pizzeria@lamolisana.be";
-const PHONE_DISPLAY = "+32 455 13 14 65";
-const PHONE_TEL = "+32455131465";
-
 const YEAR = new Date().getFullYear();
 
 // Social gestiti dall'admin (Réglages -> Liens)
 const social = await linksSocial();
 
-// --- Orari settimanali dal DB (settings) — sempre allineati con l'admin ---
-const DAYS = en
-  ? ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-  : ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
-const ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun..Dim
-const CLOSED = en ? "Closed" : "Fermé";
+// Pagina corrente, per evidenziare la voce attiva (come l'header)
+const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+const current = rawPath.replace(/^\/en/, "") || "/";
+const isActive = (path: string): boolean => (path.replace(/\/$/, "") || "/") === current;
 
-function hhmm(t: string | null): string {
-  return t ? String(t).slice(0, 5) : "";
-}
-function bande(row: any): string {
-  const b: string[] = [];
-  if (row?.lunch_active && row.lunch_open && row.lunch_close) b.push(`${hhmm(row.lunch_open)} – ${hhmm(row.lunch_close)}`);
-  if (row?.dinner_active && row.dinner_open && row.dinner_close) b.push(`${hhmm(row.dinner_open)} – ${hhmm(row.dinner_close)}`);
-  return b.length ? b.join(" · ") : CLOSED;
-}
-
-let horaires: { days: string; val: string }[] = [];
-let fermetures: string[] = [];
-try {
-  // Cache 60s: il footer è su tutte le pagine, una query basta
-  const data = await cacheOr("footer:settings", async () => {
-    const { data: righe, error } = await supabaseAdmin
-      .from("settings")
-      .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close");
-    if (error || !righe) throw new Error("settings illeggibili");
-    return righe;
-  });
-  if (data && data.length) {
-    const byDay: Record<number, any> = {};
-    for (const r of data) byDay[r.day_of_week] = r;
-    const seq = ORDER.map((d) => ({ label: DAYS[d], val: bande(byDay[d]) }));
-
-    // Giorni di chiusura: righe a parte ("Mardi fermé"), consecutivi raggruppati
-    const runs: string[][] = [];
-    for (let i = 0; i < seq.length; i++) {
-      if (seq[i].val !== CLOSED) continue;
-      if (i > 0 && seq[i - 1].val === CLOSED) runs[runs.length - 1].push(seq[i].label);
-      else runs.push([seq[i].label]);
-    }
-    fermetures = runs.map((r) => (r.length === 1 ? r[0] : `${r[0]} – ${r[r.length - 1]}`));
-
-    // Giorni APERTI raggruppati per orario identico: una chiusura in mezzo
-    // non spezza il gruppo (Lun + Mer..Dim stesso orario -> "Lundi – Dimanche")
-    const aperti = seq.filter((x) => x.val !== CLOSED);
-    const groups: { val: string; days: string[] }[] = [];
-    for (const it of aperti) {
-      const last = groups[groups.length - 1];
-      if (last && last.val === it.val) last.days.push(it.label);
-      else groups.push({ val: it.val, days: [it.label] });
-    }
-    horaires = groups.map((g) => ({
-      days: g.days.length === 1 ? g.days[0] : `${g.days[0]} – ${g.days[g.days.length - 1]}`,
-      val: g.val,
-    }));
-  }
-} catch {
-  horaires = [];
-}
-// Fallback statico se il DB non risponde
-if (!horaires.length) {
-  horaires = en ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }] : [{ days: "Lun – Dim", val: "11:00 – 23:30" }];
-  fermetures = en ? ["Tuesday"] : ["Mardi"];
-}
-const CLOSED_LINE = en ? "closed" : "fermé";
+const nav = [
+  { label: en ? "Home" : "Accueil", path: "/" },
+  { label: en ? "Our menu" : "Notre carte", path: "/menu" },
+  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
+  { label: "Contact", path: "/contact" },
+];
 
 const L = {
-  address: en ? "Address" : "Adresse",
-  hours: en ? "Opening hours" : "Horaires",
-  contact: "Contact",
-  follow: en ? "Follow us" : "Nous Suivre",
-  rights: en ? "All rights reserved" : "Tous droits réservés",
+  order: en ? "Order" : "Commander",
+  book: en ? "Book" : "Réserver",
+  emailL: "Email",
+  firstL: en ? "First name" : "Prénom",
+  lastL: en ? "Last name" : "Nom",
+  subscribe: en ? "Subscribe" : "S'inscrire",
+  legal: en ? "Legal notice" : "Mentions légales",
   privacy: en ? "Privacy" : "Confidentialité",
   cookies: "Cookies",
 };
 ---
 
-<footer class="ftr">
-  <div class="ftr-strip"></div>
+<footer class="foot">
 
-  <div class="ftr-cols">
-    <div class="ftr-col">
-      <h2 class="ftr-title">{L.address}</h2>
-      <div class="ftr-body">
-        Av. Adolphe Demeur 37<br />
-        1060 · Saint-Gilles
+  <div class="foot-inner">
+
+  <!-- riga alta : about | nav | newsletter -->
+  <div class="foot-top">
+
+    <!-- About -->
+    <div class="about">
+      <img class="about-photo" src="/yasmina-koeune-chouchou.webp" alt="Yasmina Koeune — Comptoir Chouchou" width="168" height="230" loading="lazy" decoding="async" />
+      <div class="about-body">
+        <p class="about-txt">
+          {en ? (
+            <Fragment>Counter cuisine, fresh produce and a <span class="em">warm</span> atmosphere. A friendly address where you feel right at home, in the heart of the neighbourhood.</Fragment>
+          ) : (
+            <Fragment>Cuisine de comptoir, produits frais et ambiance <span class="em">chaleureuse</span>. Une adresse conviviale où l'on se sent comme à la maison, au cœur du quartier.</Fragment>
+          )}
+        </p>
+        <a class="brand-link" href={getLocalizedUrl("/", lang)}>
+          Comptoir Chouchou
+          <span class="circ" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+          </span>
+        </a>
       </div>
     </div>
 
-    <div class="ftr-col">
-      <h2 class="ftr-title">{L.hours}</h2>
-      <div class="ftr-body">
-        {horaires.map((h) => (
-          <p class="ftr-hr">{h.days}<br />{h.val}</p>
-        ))}
-        {fermetures.map((f) => (
-          <p class="ftr-hr ftr-closed">{f} {CLOSED_LINE}</p>
-        ))}
+    <!-- Nav -->
+    <nav class="nav">
+      {nav.map((item) => (
+        <a class={"nav-a" + (isActive(item.path) ? " on" : "")} href={getLocalizedUrl(item.path, lang)}>{item.label}</a>
+      ))}
+      <div class="sep"></div>
+      <a class={"nav-a" + (isActive("/order") ? " on" : "")} href={getLocalizedUrl("/order", lang)}>{L.order}</a>
+      <button class="nav-a" type="button" data-reserver>{L.book}</button>
+      {social.length > 0 && <div class="sep"></div>}
+      {social.map((s) => (
+        <a class="nav-a ext" href={s.url} target="_blank" rel="noopener noreferrer">
+          {s.label}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+        </a>
+      ))}
+    </nav>
+
+    <!-- Newsletter -->
+    <div class="news" data-newsletter data-lang={lang}>
+      <div class="field">
+        <label for="ftr-email">{L.emailL}</label>
+        <input id="ftr-email" name="email" type="email" autocomplete="email" />
       </div>
+      <div class="field">
+        <label for="ftr-first">{L.firstL}</label>
+        <input id="ftr-first" name="first_name" type="text" autocomplete="given-name" />
+      </div>
+      <div class="field">
+        <label for="ftr-last">{L.lastL}</label>
+        <input id="ftr-last" name="last_name" type="text" autocomplete="family-name" />
+      </div>
+      <label class="news-consent">
+        <input type="checkbox" id="ftr-consent" />
+        <span>
+          {en
+            ? (<Fragment>I agree to receive the newsletter and the restaurant's <a href={getLocalizedUrl("/privacy", lang)}>terms</a>.</Fragment>)
+            : (<Fragment>J'accepte de recevoir la newsletter et les <a href={getLocalizedUrl("/privacy", lang)}>conditions</a> du restaurant.</Fragment>)}
+        </span>
+      </label>
+      <button class="subscribe" type="button">
+        {L.subscribe}
+        <span class="circ" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+        </span>
+      </button>
+      <p class="news-msg" role="status" aria-live="polite"></p>
     </div>
 
-    <div class="ftr-col">
-      <h2 class="ftr-title">{L.contact}</h2>
-      <div class="ftr-body">
-        <a href={`tel:${PHONE_TEL}`}>{PHONE_DISPLAY}</a><br />
-        <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
-      </div>
-    </div>
-
-    <div class="ftr-col">
-      <h2 class="ftr-title">{L.follow}</h2>
-      <div class="ftr-social">
-        {social.map((s) => (
-          <a href={s.url} target="_blank" rel="noopener noreferrer" aria-label={s.label} set:html={s.icon} />
-        ))}
-      </div>
-    </div>
   </div>
 
-  <div class="ftr-legal">
-    <p class="lg">
-      <span>© {YEAR}</span><span class="lg-sep">&nbsp;</span>
-      <span>{L.rights}</span><span class="lg-sep">&nbsp;•&nbsp;</span>
-      <span>Migraf SRL / La Molisana</span><span class="lg-sep">&nbsp;/&nbsp;</span>
-      <span>BE 0899 648 967</span><span class="lg-sep">&nbsp;-&nbsp;</span>
-      <span><a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a> · <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a></span>
-    </p>
-    <p>
+  <hr class="foot-rule" />
+
+  </div><!-- /foot-inner -->
+
+  <!-- wordmark gigante — full width, ajusté à la largeur (jamais coupé) -->
+  <div class="wordmark">
+    <span class="big" id="ch-wordmark">ChouChou</span>
+  </div>
+
+  <!-- barre légale -->
+  <div class="foot-inner">
+  <div class="foot-legal">
+    <span>Comptoir ChouChou © {YEAR}</span>
+    <span class="legal-links">
+      <a href={getLocalizedUrl("/privacy", lang)}>{L.privacy}</a>
+      <span class="dot">·</span>
+      <a href={getLocalizedUrl("/cookies", lang)}>{L.cookies}</a>
+      <span class="dot">·</span>
       <a href="https://www.moodd.online" target="_blank" rel="noopener noreferrer">Powered by MOODD</a>
-    </p>
+    </span>
   </div>
+  </div><!-- /foot-inner -->
+
+  <script is:inline>
+    (function () {
+      var el = document.getElementById('ch-wordmark');
+      if (!el) return;
+      function fit() {
+        var p = el.parentElement;
+        var cs = getComputedStyle(p);
+        var avail = p.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        if (avail <= 0) return;
+        el.style.fontSize = '100px';
+        var w = el.scrollWidth;
+        if (!w) return;
+        el.style.fontSize = (100 * avail / w * 0.99) + 'px';
+      }
+      fit();
+      window.addEventListener('resize', fit, { passive: true });
+      window.addEventListener('load', fit);
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    })();
+  </script>
+
+  <script is:inline>
+    (function () {
+      var box = document.querySelector('[data-newsletter]');
+      if (!box) return;
+      var lang = box.getAttribute('data-lang') === 'en' ? 'en' : 'fr';
+      var btn = box.querySelector('.subscribe');
+      var msg = box.querySelector('.news-msg');
+      var fEmail = box.querySelector('#ftr-email');
+      var fFirst = box.querySelector('#ftr-first');
+      var fLast = box.querySelector('#ftr-last');
+      var fConsent = box.querySelector('#ftr-consent');
+      if (!btn || !msg || !fEmail) return;
+      var RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      var T = {
+        fr: {
+          invalid: "Merci d'indiquer une adresse email valide.",
+          ok: "Merci ! Votre inscription est bien enregistrée.",
+          err: "Oups, une erreur est survenue. Réessayez dans un instant.",
+          consent: "Merci d'accepter les conditions pour vous inscrire."
+        },
+        en: {
+          invalid: "Please enter a valid email address.",
+          ok: "Thank you! You're now subscribed.",
+          err: "Oops, something went wrong. Please try again.",
+          consent: "Please accept the terms to subscribe."
+        }
+      };
+      var t = T[lang];
+      var busy = false;
+
+      function setMsg(text, kind) {
+        msg.textContent = text;
+        msg.className = 'news-msg' + (kind ? ' ' + kind : '');
+      }
+
+      function submit() {
+        if (busy) return;
+        var email = (fEmail.value || '').trim();
+        if (!RE.test(email)) { setMsg(t.invalid, 'err'); fEmail.focus(); return; }
+        if (fConsent && !fConsent.checked) { setMsg(t.consent, 'err'); return; }
+        busy = true;
+        setMsg('', '');
+        btn.setAttribute('disabled', 'disabled');
+        fetch('/api/newsletter-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email,
+            first_name: (fFirst && fFirst.value || '').trim(),
+            last_name: (fLast && fLast.value || '').trim(),
+            lang: lang
+          })
+        }).then(function (res) {
+          if (!res.ok) throw new Error('bad');
+          setMsg(t.ok, 'ok');
+          fEmail.value = '';
+          if (fFirst) fFirst.value = '';
+          if (fLast) fLast.value = '';
+        }).catch(function () {
+          setMsg(t.err, 'err');
+        }).then(function () {
+          busy = false;
+          btn.removeAttribute('disabled');
+        });
+      }
+
+      btn.addEventListener('click', submit);
+      [fEmail, fFirst, fLast].forEach(function (el) {
+        if (!el) return;
+        el.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') { ev.preventDefault(); submit(); }
+        });
+      });
+    })();
+  </script>
+
 </footer>
 
 <style>
-  .ftr { width: 100%; background: var(--c-bg); }
-  .ftr-strip {
-    height: 3px;
-    background: linear-gradient(90deg, transparent 0%, rgba(223, 171, 78, 0.55) 50%, transparent 100%);
+  .foot {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    --ivory: #f7f4ee;
+    --line: rgba(247, 244, 238, 0.16);
+    --muted: rgba(247, 244, 238, 0.62);
+    position: relative;
+    width: 100%;
+    background: var(--navy);
+    color: var(--ivory);
+    padding: 64px 0 30px;
+    overflow: hidden;
+  }
+  .foot-inner { max-width: 1440px; margin: 0 auto; padding: 0 28px; }
+
+  /* halo magenta discret, signature de la marque */
+  .foot::before {
+    content: "";
+    position: absolute;
+    left: 8%;
+    bottom: -10%;
+    width: 640px;
+    height: 640px;
+    max-width: 70vw;
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.16) 0%, rgba(237, 34, 137, 0) 62%);
+    pointer-events: none;
   }
 
-  .ftr-cols {
-    max-width: var(--maxw);
-    margin: 0 auto;
+  /* ---- riga alta ---- */
+  .foot-top {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    padding: 3.5rem 2rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.8fr) minmax(0, 1fr);
+    gap: 0;
+    padding-bottom: 56px;
   }
-  .ftr-col { padding: 0 2rem; text-align: center; }
-  .ftr-col + .ftr-col { border-left: 1px solid var(--c-line); }
 
-  .ftr-title {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 2rem;
-    letter-spacing: 0.02em;
-    margin: 0 0 1.3rem;
+  /* About */
+  .about { display: flex; gap: 26px; padding-right: 48px; }
+  .about-photo {
+    flex: 0 0 168px;
+    width: 168px;
+    height: 230px;
+    border-radius: 4px;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
   }
-  .ftr-body {
+  .about-body { padding-top: 6px; }
+  .about-txt {
     font-family: var(--font-body);
-    font-size: 1.05rem;
-    line-height: 1.9;
-    color: var(--c-text);
+    font-weight: 400;
+    font-size: 1.02rem;
+    line-height: 1.62;
+    color: var(--ivory);
+    margin: 0 0 26px;
+    max-width: 24em;
   }
-  .ftr-body a { color: var(--c-text); text-decoration: none; transition: color 0.15s; }
-  .ftr-body a:hover { color: var(--c-accent); }
-  .ftr-hr { margin: 0 0 0.6rem; }
-  .ftr-hr:last-child { margin-bottom: 0; }
-  .ftr-closed { opacity: 0.55; }
+  .about-txt .em { font-family: var(--font-script); font-style: normal; color: var(--mag); font-size: 1.5em; line-height: 0; }
 
-  .ftr-social { display: flex; justify-content: center; gap: 1.3rem; margin-top: 0.4rem; }
-  .ftr-social a { color: var(--c-text); display: inline-flex; transition: color 0.15s; }
-  .ftr-social a:hover { color: var(--c-accent); }
-  .ftr-social a :global(svg) { width: 22px; height: 22px; display: block; }
+  .brand-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ivory);
+    text-decoration: none;
+  }
+  .circ {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ivory);
+    color: var(--navy);
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+    flex: 0 0 auto;
+  }
+  .circ svg { width: 15px; height: 15px; }
+  .brand-link:hover .circ { background: var(--mag); color: #fff; transform: translate(2px, -2px); }
 
-  .ftr-legal {
-    border-top: 1px solid var(--c-line);
-    padding: 1.1rem 2rem 1.3rem;
+  /* Nav */
+  .nav { padding-left: 52px; border-left: 1px solid var(--line); }
+  .nav-a {
+    display: block;
+    font-family: var(--font-title);
+    font-weight: 500;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ivory);
+    text-decoration: none;
+    padding: 7px 0;
+    width: max-content;
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: color 0.18s ease;
+  }
+  .nav-a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 2px;
+    height: 1.5px;
+    width: 0;
+    background: var(--mag);
+    transition: width 0.22s ease;
+  }
+  .nav-a:hover { color: var(--mag); }
+  .nav-a:hover::after { width: 100%; }
+  .nav-a.on { color: var(--mag); }
+  .nav-a.on::after { width: 100%; }
+  .nav .sep { height: 22px; }
+  .nav .ext { display: inline-flex; align-items: center; gap: 8px; }
+  .nav .ext svg { width: 12px; height: 12px; color: var(--mag); }
+
+  /* Newsletter */
+  .news { padding-left: 40px; }
+  .field { position: relative; margin-bottom: 26px; }
+  .field label {
+    display: block;
+    font-family: var(--font-title);
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 9px;
+  }
+  .field input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--ivory);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    padding: 0 0 9px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .field input:focus { border-color: var(--mag); }
+  .subscribe {
+    margin-top: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ivory);
+  }
+  .subscribe .circ { background: var(--mag); color: #fff; }
+  .subscribe:hover .circ { transform: translateX(3px); background: var(--ivory); color: var(--navy); }
+  .subscribe[disabled] { opacity: 0.55; cursor: default; }
+
+  .news-msg {
+    margin: 16px 0 0;
+    min-height: 1.2em;
+    font-family: var(--font-body);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .news-msg.ok { color: var(--ivory); }
+  .news-msg.err { color: #ff9db6; }
+
+  .news-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 4px 0 20px;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .news-consent input {
+    margin-top: 2px;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--mag);
+    flex: 0 0 auto;
+    cursor: pointer;
+  }
+  .news-consent a { color: var(--ivory); text-decoration: underline; text-underline-offset: 2px; }
+  .news-consent a:hover { color: var(--mag); }
+
+  /* ---- divisoria ---- */
+  .foot-rule { border: none; border-top: 1px solid var(--line); margin: 0; }
+
+  /* ---- wordmark gigante ---- */
+  .wordmark {
+    position: relative;
+    padding: 30px 24px 8px;
+    text-align: center;
+    overflow: hidden;
+  }
+  .wordmark .big {
+    display: inline-block;
+    max-width: 100%;
+    font-family: var(--font-title);
+    font-weight: 500;
+    font-size: 20vw;
+    letter-spacing: 0.005em;
+    white-space: nowrap;
+    line-height: 0.82;
+    background: linear-gradient(100deg,
+      var(--ivory) 0%, var(--ivory) 40%,
+      var(--mag) 50%,
+      var(--ivory) 60%, var(--ivory) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: chshine 7s linear infinite;
+  }
+  @keyframes chshine {
+    0% { background-position: 160% 0; }
+    100% { background-position: -60% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wordmark .big { animation: none; -webkit-text-fill-color: var(--ivory); color: var(--ivory); }
+  }
+
+  /* ---- barra legale ---- */
+  .foot-legal {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem 1.5rem;
+    gap: 16px;
     flex-wrap: wrap;
+    padding-top: 14px;
   }
-  .ftr-legal p {
-    font-family: var(--font-body);
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
+  .foot-legal span, .foot-legal a {
+    font-family: var(--font-title);
+    font-weight: 500;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--c-muted);
-    margin: 0;
+    color: var(--muted);
+    text-decoration: none;
   }
-  .ftr-legal a { color: var(--c-muted); text-decoration: none; }
-  .ftr-legal a:hover { color: var(--c-text); }
+  .foot-legal .legal-links { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .foot-legal .legal-links a:hover { color: var(--ivory); }
+  .foot-legal .dot { opacity: 0.5; }
 
-  @media (max-width: 860px) {
-    .ftr-cols { grid-template-columns: 1fr 1fr; gap: 2.5rem 0; padding: 2.75rem 1rem; }
-    .ftr-col { padding: 0 1rem; }
-    .ftr-col + .ftr-col { border-left: none; }
-    .ftr-col:nth-child(even) { border-left: 1px solid var(--c-line); }
-    .ftr-title { font-size: 1.7rem; }
+  @media (max-width: 1024px) {
+    .foot { padding: 48px 0 24px; }
+    .foot-inner { padding: 0 18px; }
+    .foot-top { grid-template-columns: 1fr; gap: 44px; padding-bottom: 44px; }
+    .nav { border-left: none; padding-left: 0; }
+    .news { padding-left: 0; }
+    .about { padding-right: 0; }
+    .wordmark { padding: 22px 16px 6px; }
   }
-  @media (max-width: 640px) {
-    .ftr-legal {
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      gap: 1rem;
-      padding: 1.4rem 1.5rem 1.6rem;
-    }
-    .lg span { display: block; line-height: 1.9; }
-    .lg .lg-sep { display: none; }
-  }
-
-  @media (max-width: 520px) {
-    .ftr-cols { grid-template-columns: 1fr; gap: 0; }
-    .ftr-col { border-left: none !important; border-top: 1px solid var(--c-line); padding: 1.6rem 1rem; }
-    .ftr-col:first-child { border-top: none; padding-top: 0; }
+  @media (max-width: 560px) {
+    .foot-legal { flex-direction: column; align-items: flex-start; gap: 10px; }
+    /* Poco spazio: foto sopra, testo sotto */
+    .about { flex-direction: column; align-items: flex-start; gap: 22px; }
+    .about-photo { flex: none; }
   }
 </style>

@@ -17,22 +17,22 @@ import { CLIENT } from "../../config/client";
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@300;400;700;900&family=Quicksand:wght@400;500;600;700&display=swap"
     />
     <style is:global>
-      :root { --font-body: "Nunito Sans", system-ui, sans-serif; }
+      :root { --font-title: "Quicksand", system-ui, sans-serif; --font-body: "Lato", system-ui, sans-serif; --font-script: "Birthstone", cursive; }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
       .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; }
       .rw { background: #231f20; border: 1px solid #3a3335; border-radius: 14px; padding: 2rem 1.6rem; width: 100%; max-width: 440px; text-align: center; }
       .rw-claim { color: #dfab4e; font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; margin: 0 0 0.35rem; }
-      .rw-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
+      .rw-title { font-family: var(--font-title); font-weight: 400; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
       .rw-loading { color: #b3aca6; font-size: 0.9rem; padding: 1.5rem 0; }
       .rw-recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: #1c1819; border: 1px solid #3a3335; border-radius: 8px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
       .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
       .rw-rc-lab { color: #b3aca6; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
       .rw-rc-val { color: #dfab4e; font-size: 0.95rem; font-weight: 700; }
-      .rw-btn { width: 100%; background: #dfab4e; color: #231f20; border: 1px solid #dfab4e; font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.8rem 0; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; }
+      .rw-btn { width: 100%; background: #dfab4e; color: #231f20; border: 1px solid #dfab4e; font-family: var(--font-title); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.8rem 0; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; }
       .rw-btn:hover { background: transparent; color: #dfab4e; }
       .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
       .rw-btn-danger { background: #b3352f; border-color: #b3352f; color: #fff; }
