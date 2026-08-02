@@ -17,8 +17,9 @@ const current = rawPath.replace(/^\/en/, "") || "/";
 
 const nav = [
   { label: en ? "Home" : "Accueil", path: "/" },
-  { label: en ? "Our menu" : "Notre carte", path: "/menu" },
-  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
+  { label: en ? "Menu" : "Carte", path: "/menu" },
+  { label: en ? "Grocery" : "Épicerie", path: "/epicerie" },
+  { label: en ? "Events" : "Agenda", path: "/agenda" },
   { label: "Contact", path: "/contact" },
 ];
 
@@ -61,10 +62,7 @@ const primaryUrl =
       ))}
     </nav>
 
-    <!-- CTA -->
-    <a href={getLocalizedUrl("/order", lang)} class="cbtn cbtn-cmd">
-      {en ? "Order" : "Commander"} <span class="arw">→</span>
-    </a>
+    <!-- CTA (Commander masqué pour le moment) -->
     <button type="button" class="cbtn cbtn-res" data-reserver>
       {en ? "Book" : "Réserver"} <span class="arw">→</span>
     </button>

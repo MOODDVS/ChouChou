@@ -21,7 +21,7 @@ try {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Réservation — {CLIENT.nome}</title>
+    <title>Réservation, {CLIENT.nome}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -36,7 +36,10 @@ try {
         --c-muted: #b3aca6;
       }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
+      html, body { margin: 0; padding: 0; background: #353c4e; color: #fff; font-family: var(--font-body); }
+      /* Dans le modale : le widget occupe tout, sans cadre ni marge autour. */
+      .page { padding: 0 !important; min-height: auto !important; }
+      .rw { max-width: none !important; border: none !important; border-radius: 0 !important; background: #353c4e !important; }
     </style>
   </head>
   <body>

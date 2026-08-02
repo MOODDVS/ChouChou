@@ -1,8 +1,8 @@
 ---
 // Pagina Contact:
-// - hero come le altre pagine (foto + overlay + tricolore)
+// - hero ChouChou: gradiente navy + halo magenta + script "Comptoir"
 // - colonna sinistra: informazioni (indirizzo, contatti, orari LIVE
-//   dall'admin — stessa logica del footer — e servizi)
+//   dall'admin, stessa logica del footer, e servizi). Dati da datiRistorante().
 // - colonna destra: form messaggio (NIENTE prenotazioni: nota con
 //   invito a chiamare) -> POST /api/contact
 // - sotto: Google Map edge-to-edge in bianco e nero col pin.
@@ -16,14 +16,17 @@ const tr = useTranslations(lang);
 const en = lang === "en";
 
 import { siteImages, siteImg } from "../lib/siteImages";
+import { datiRistorante } from "../lib/ristorante";
 const IMGS = await siteImages();
-const HERO_FOTO = siteImg(IMGS, "site_contact_hero", "/la-molisana-home-foto-01.webp");
-const MAP_SRC =
-  "https://www.google.com/maps?q=La+Molisana,+Avenue+Adolphe+Demeur+37,+1060+Saint-Gilles&output=embed";
+const HERO_FOTO = siteImg(IMGS, "site_contact_hero", "/slideshow/slide-01.webp");
 
-const PHONE_DISPLAY = "+32 455 13 14 65";
-const PHONE_TEL = "+32455131465";
-const EMAIL = "info@lamolisana.be";
+// Coordonnées lues depuis l'admin (Réglages → Général), comme le footer.
+const dati = await datiRistorante();
+const PHONE_DISPLAY = dati.tel;
+const PHONE_TEL = dati.telLink;
+const EMAIL = dati.email;
+const ADRESSE = dati.indirizzo;
+const MAP_SRC = `https://www.google.com/maps?q=${encodeURIComponent("Comptoir ChouChou, " + ADRESSE)}&output=embed`;
 
 // --- Orari settimanali dal DB (settings) — sempre allineati con l'admin ---
 const DAYS = en
@@ -111,35 +114,38 @@ const ICO: Record<string, string> = {
 
 const L = {
   sub: en
-    ? "Italian restaurant in Saint-Gilles — Av. Adolphe Demeur 37, 1060 Brussels. Call us or send us a message."
-    : "Restaurant italien à Saint-Gilles — Av. Adolphe Demeur 37, 1060 Bruxelles. Appelez-nous ou écrivez-nous.",
+    ? "Restaurant & grocery in Mont-Saint-Guibert. Call us or send us a message."
+    : "Restaurant & épicerie à Mont-Saint-Guibert. Appelez-nous ou écrivez-nous.",
   payments: en ? "Cash, Visa, Mastercard, debit cards" : "Cash, Visa, Mastercard, carte de débit",
   servicesTxt: en ? "Wi-Fi, terrace, take-away" : "Wi-Fi, terrasse, take-away",
   parking: en ? "Parking nearby" : "Parking à proximité",
   formTitle: en ? "Send us a message" : "Envoyez-nous un message",
   formNote: en
-    ? `This form is not for reservations — to book a table, call us on ${PHONE_DISPLAY}.`
-    : `Ce formulaire n'est pas destiné aux réservations — pour réserver une table, appelez-nous au ${PHONE_DISPLAY}.`,
-  mapTitle: en ? "Map — La Molisana, Saint-Gilles" : "Carte — La Molisana, Saint-Gilles",
+    ? `This form is not for reservations. To book a table, call us on ${PHONE_DISPLAY}.`
+    : `Ce formulaire n'est pas destiné aux réservations. Pour réserver une table, appelez-nous au ${PHONE_DISPLAY}.`,
+  mapTitle: en ? "Map, Comptoir ChouChou" : "Carte, Comptoir ChouChou",
 };
 ---
 
-<Layout title={en ? "Contact — La Molisana, Italian Restaurant in Saint-Gilles, Brussels" : "Contact — La Molisana, Restaurant Italien à Saint-Gilles, Bruxelles"}>
+<Layout title="Contact, Comptoir ChouChou">
+  <div class="chou">
   <section class="ct-hero">
-    <img class="ct-hero__bg" src={HERO_FOTO} alt="" loading="eager" decoding="async" />
+    <div class="ct-hero__bg" aria-hidden="true"></div>
+    <img class="ct-hero__photo" src={HERO_FOTO} alt="" loading="eager" decoding="async" onerror="this.remove()" />
     <div class="ct-hero__overlay" aria-hidden="true"></div>
+    <div class="ct-hero__glow" aria-hidden="true"></div>
     <div class="ct-hero__inner">
+      <p class="ct-hero__script">Comptoir</p>
       <h1 class="ct-hero__title">Contact</h1>
       <p class="ct-hero__sub">{L.sub}</p>
     </div>
-    <div class="ct-hero__flag" aria-hidden="true"></div>
   </section>
 
   <div class="ct">
     <div class="ct-info">
       <div class="ct-row">
         <span class="ct-ico" set:html={ICO.pin} />
-        <p>Av. Adolphe Demeur 37<br />1060 Bruxelles</p>
+        <p>{ADRESSE}</p>
       </div>
 
       <div class="ct-row">
@@ -192,71 +198,95 @@ const L = {
       {en ? "Display the map (loads Google Maps)" : "Afficher la carte (charge Google Maps)"}
     </button>
   </section>
+  </div>
 </Layout>
 
 <style>
-  /* ---------- HERO (stesso pattern delle altre pagine) ---------- */
+  /* ---------- Wrapper ChouChou : fond navy + accent magenta ---------- */
+  .chou {
+    --c-bg: #353c4e;
+    --c-accent: #ed2289;
+    background: #2b3040;
+    position: relative;
+  }
+
+  /* ---------- HERO ---------- */
   .ct-hero {
     position: relative;
-    min-height: clamp(280px, 36vh, 420px);
+    min-height: clamp(300px, 40vh, 440px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 3.5rem 1.5rem 4rem;
+    padding: 6rem 1.5rem 4rem;
     overflow: hidden;
   }
   .ct-hero__bg {
     position: absolute;
     inset: 0;
+    z-index: 0;
+    background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%);
+  }
+  .ct-hero__photo {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    z-index: 0;
   }
   .ct-hero__overlay {
     position: absolute;
     inset: 0;
-    z-index: 1;
-    background: rgba(0, 0, 0, 0.55);
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(23, 27, 40, 0.4) 0%, rgba(23, 27, 40, 0.62) 100%);
   }
-  .ct-hero__inner { position: relative; z-index: 2; }
-  .ct-hero__title {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: clamp(2.4rem, 5vw, 3.4rem);
-    letter-spacing: 0.02em;
-    line-height: 1.1;
-    margin: 0 0 0.9rem;
-    color: var(--c-text);
+  .ct-hero__glow {
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    z-index: 2;
+    width: 600px;
+    height: 600px;
+    max-width: 120vw;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.22) 0%, rgba(237, 34, 137, 0) 62%);
+    pointer-events: none;
+  }
+  .ct-hero__inner { position: relative; z-index: 3; }
+  .ct-hero__script {
+    font-family: var(--font-script);
+    color: var(--c-accent);
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    line-height: 0.9;
+    margin: 0 0 0.05em;
     opacity: 0;
     transform: translateY(18px);
-    animation: ct-in 0.8s ease-out 0.15s forwards;
+    animation: ct-in 0.8s ease-out 0.1s forwards;
+  }
+  .ct-hero__title {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(2.6rem, 6vw, 4rem);
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    margin: 0 0 0.9rem;
+    color: #fff;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ct-in 0.8s ease-out 0.2s forwards;
   }
   .ct-hero__sub {
     max-width: 620px;
     margin: 0 auto;
     font-family: var(--font-body);
-    font-size: 0.95rem;
+    font-weight: 700;
+    font-size: 1rem;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.85);
+    color: rgba(255, 255, 255, 0.86);
     opacity: 0;
     transform: translateY(18px);
-    animation: ct-in 0.8s ease-out 0.3s forwards;
-  }
-  .ct-hero__flag {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 12px;
-    z-index: 2;
-    background: linear-gradient(
-      90deg,
-      #007153 0%, #007153 33.333%,
-      #ffffff 33.333%, #ffffff 66.666%,
-      #ed1c24 66.666%, #ed1c24 100%
-    );
+    animation: ct-in 0.8s ease-out 0.32s forwards;
   }
   @keyframes ct-in {
     to { opacity: 1; transform: translateY(0); }
@@ -350,7 +380,7 @@ const L = {
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ct-hero__title, .ct-hero__sub { opacity: 1; transform: none; animation: none; }
+    .ct-hero__script, .ct-hero__title, .ct-hero__sub { opacity: 1; transform: none; animation: none; }
   }
 </style>
 

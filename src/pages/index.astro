@@ -1,34 +1,93 @@
 ---
-// Home publique de ChouChou. L'ancienne page « coming soon » est remplacée
-// par la vraie home : header flottant (Header.astro) au-dessus du hero.
-// Les autres pages publiques (menu, ambiance, contact) existent déjà.
+// Home publique de Comptoir ChouChou.
+// Hero plein écran : carrousel d'images (géré depuis l'admin — Assets > Site,
+// slots site_hero_1/2/3) en fondu croisé + léger zoom (Ken Burns), au-dessus
+// d'un dégradé navy qui sert de base : tant qu'aucune photo n'est chargée,
+// le hero reste élégant (dégradé + halo magenta), jamais « cassé ».
+// Les images introuvables (404) sont retirées du carrousel automatiquement.
 import Layout from "../layouts/Layout.astro";
+import Intro from "../components/Intro.astro";
+import Decouvrir from "../components/Decouvrir.astro";
+import PhotoResto from "../components/PhotoResto.astro";
+import { siteImages, siteImg } from "../lib/siteImages";
 export const prerender = false;
+
+const IMGS = await siteImages();
+// Slots gérés par l'admin ; les fallbacks n'existent pas encore → retirés au
+// chargement (onerror), donc on retombe proprement sur le dégradé.
+const SLIDES = [
+  siteImg(IMGS, "site_hero_1", "/slideshow/slide-01.webp"),
+  siteImg(IMGS, "site_hero_2", "/slideshow/slide-02.webp"),
+  siteImg(IMGS, "site_hero_3", "/slideshow/slide-03.webp"),
+];
+
+// Particularités mises en avant dès le hero (objectif : les rendre visibles).
+const ATOUTS = ["L'épicerie", "Un soir, un Chef", "Le brunch du dimanche"];
 ---
 
-<Layout transparentHeader={true} title="Comptoir ChouChou — Restaurant">
-  <section class="home-hero">
+<Layout
+  transparentHeader={true}
+  title="Comptoir ChouChou, restaurant & épicerie à Mont-Saint-Guibert"
+>
+  <section class="home-hero" id="home-hero">
+    <!-- Base toujours présente : dégradé navy (état sans photo) -->
     <div class="hh-bg"></div>
+
+    <!-- Carrousel (au-dessus du dégradé) -->
+    <div class="hh-slides" id="hh-slides">
+      {SLIDES.map((src, i) => (
+        <div class={"hh-slide" + (i === 0 ? " is-on" : "")}>
+          <img
+            src={src}
+            alt=""
+            loading={i === 0 ? "eager" : "lazy"}
+            decoding="async"
+            fetchpriority={i === 0 ? "high" : "auto"}
+          />
+        </div>
+      ))}
+    </div>
+
+    <!-- Voile de lisibilité + halo magenta signature -->
+    <div class="hh-veil"></div>
     <div class="hh-glow"></div>
+
     <div class="hh-inner">
-      <p class="hh-kicker">Bienvenue au</p>
-      <h1 class="hh-title">Comptoir&nbsp;ChouChou</h1>
-      <p class="hh-sub">Cuisine de comptoir, produits frais et ambiance chaleureuse.</p>
+      <p class="hh-kicker">Restaurant &amp; épicerie à Mont-Saint-Guibert</p>
+      <h1 class="hh-title">
+        <span class="hh-script">Comptoir</span>
+        <span class="hh-word">ChouChou</span>
+      </h1>
+      <p class="hh-sub">
+        Une cuisine créative et faite maison, portée par les producteurs d'ici,
+        à la campagne, en Brabant wallon.
+      </p>
+
+      <ul class="hh-atouts" aria-label="Nos particularités">
+        {ATOUTS.map((a) => <li class="hh-chip">{a}</li>)}
+      </ul>
+
       <div class="hh-cta">
-        <button type="button" class="hh-btn hh-btn-mag" data-reserver>Réserver une table</button>
-        <a href="/menu" class="hh-btn hh-btn-ghost">Voir la carte</a>
+        <button type="button" class="hh-btn hh-btn-mag" data-reserver>
+          Réserver une table
+        </button>
+        <a href="/menu" class="hh-btn hh-btn-ghost">Découvrir la carte</a>
       </div>
     </div>
-    <div class="hh-scroll" aria-hidden="true">
-      <span></span>
-    </div>
+
+    <div class="hh-scroll" aria-hidden="true"><span></span></div>
   </section>
+
+  <Intro />
+  <Decouvrir />
+  <PhotoResto />
 </Layout>
 
 <style>
   .home-hero {
     --navy: #353c4e;
     --mag: #ed2289;
+    --ivory: #f7f4ee;
     position: relative;
     min-height: 100vh;
     min-height: 100svh;
@@ -38,63 +97,174 @@ export const prerender = false;
     overflow: hidden;
     text-align: center;
   }
+
+  /* --- Base : dégradé navy (visible tant qu'il n'y a pas de photo) --- */
   .hh-bg {
     position: absolute;
     inset: 0;
-    background:
-      radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 45%, #23283a 100%);
     z-index: 0;
+    background: radial-gradient(
+      120% 100% at 50% 0%,
+      #3d4458 0%,
+      #2b3040 45%,
+      #23283a 100%
+    );
   }
-  /* Halo magenta discret, signature de la marque */
+
+  /* --- Carrousel --- */
+  .hh-slides {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+  .hh-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.6s ease-in-out;
+  }
+  .hh-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .hh-slide.is-on {
+    opacity: 1;
+  }
+  /* Léger zoom (Ken Burns) sur la diapo active : donne du dynamisme */
+  .hh-slide.is-on img {
+    animation: hhZoom 7s ease-out forwards;
+  }
+  @keyframes hhZoom {
+    from { transform: scale(1.06); }
+    to { transform: scale(1); }
+  }
+
+  /* --- Voile pour la lisibilité du texte (utile dès qu'il y a une photo) --- */
+  .hh-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(
+      180deg,
+      rgba(23, 27, 40, 0.35) 0%,
+      rgba(23, 27, 40, 0.45) 55%,
+      rgba(23, 27, 40, 0.68) 100%
+    );
+  }
   .hh-glow {
     position: absolute;
     left: 50%;
-    top: 42%;
-    width: 720px;
-    height: 720px;
-    max-width: 120vw;
+    top: 40%;
+    width: 760px;
+    height: 760px;
+    max-width: 130vw;
     transform: translate(-50%, -50%);
-    background: radial-gradient(circle, rgba(237, 34, 137, 0.22) 0%, rgba(237, 34, 137, 0) 62%);
-    z-index: 0;
+    background: radial-gradient(
+      circle,
+      rgba(237, 34, 137, 0.24) 0%,
+      rgba(237, 34, 137, 0) 62%
+    );
+    z-index: 2;
     pointer-events: none;
   }
+
+  /* --- Contenu --- */
   .hh-inner {
     position: relative;
-    z-index: 2;
-    max-width: 780px;
+    z-index: 3;
+    max-width: 820px;
     padding: 7rem 1.5rem 2rem;
   }
+  .hh-inner > * {
+    opacity: 0;
+    transform: translateY(16px);
+    animation: hhIn 0.9s ease-out forwards;
+  }
+  .hh-kicker { animation-delay: 0.1s; }
+  .hh-title { animation-delay: 0.25s; }
+  .hh-sub { animation-delay: 0.45s; }
+  .hh-atouts { animation-delay: 0.6s; }
+  .hh-cta { animation-delay: 0.78s; }
+  @keyframes hhIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .hh-kicker {
     font-family: var(--font-body);
     text-transform: uppercase;
-    letter-spacing: 0.32em;
-    font-size: 0.78rem;
+    letter-spacing: 0.28em;
+    font-size: 0.76rem;
     font-weight: 700;
-    color: var(--mag);
-    margin: 0 0 1rem;
-  }
-  .hh-title {
-    font-family: var(--font-display);
-    font-weight: 400;
     color: #fff;
-    font-size: clamp(2.8rem, 8vw, 5.4rem);
-    line-height: 1.02;
-    margin: 0;
+    opacity: 0.92;
+    margin: 0 0 0.6rem;
   }
+
+  .hh-title {
+    margin: 0;
+    line-height: 1;
+    color: #fff;
+  }
+  /* « Comptoir » en Birthstone (signature manuscrite ChouChou), en magenta */
+  .hh-script {
+    display: block;
+    font-family: var(--font-script);
+    font-weight: 400;
+    color: var(--mag);
+    font-size: clamp(2.6rem, 7vw, 4.6rem);
+    line-height: 0.9;
+    margin-bottom: 0.1em;
+  }
+  .hh-word {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(3.4rem, 10.5vw, 7rem);
+    letter-spacing: 0.01em;
+  }
+
   .hh-sub {
     font-family: var(--font-body);
-    color: rgba(255, 255, 255, 0.78);
-    font-size: clamp(1rem, 2.4vw, 1.2rem);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: clamp(1rem, 2.2vw, 1.22rem);
     line-height: 1.6;
-    margin: 1.4rem auto 0;
-    max-width: 30em;
+    margin: 1.5rem auto 0;
+    max-width: 34em;
   }
+
+  /* --- Puces « particularités » --- */
+  .hh-atouts {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0;
+    margin: 1.8rem 0 0;
+  }
+  .hh-chip {
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    padding: 0.4rem 0.95rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
   .hh-cta {
     display: flex;
     gap: 0.9rem;
     justify-content: center;
     flex-wrap: wrap;
-    margin-top: 2.4rem;
+    margin-top: 2.3rem;
   }
   .hh-btn {
     display: inline-flex;
@@ -115,7 +285,7 @@ export const prerender = false;
   .hh-btn-ghost {
     background: transparent;
     color: #fff;
-    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
   }
   .hh-btn-ghost:hover { background: #fff; color: var(--navy); transform: translateY(-2px); }
 
@@ -128,7 +298,7 @@ export const prerender = false;
     height: 38px;
     border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 14px;
-    z-index: 2;
+    z-index: 3;
   }
   .hh-scroll span {
     position: absolute;
@@ -146,5 +316,74 @@ export const prerender = false;
     35% { opacity: 1; }
     100% { opacity: 0; transform: translateY(12px); }
   }
-  @media (prefers-reduced-motion: reduce) { .hh-scroll span { animation: none; } }
+
+  /* Sur mobile, « Réserver » est déjà dans la barre fixe du bas */
+  @media (max-width: 640px) {
+    .hh-cta {
+      flex-direction: column;
+      align-items: stretch;
+      width: min(320px, 100%);
+      margin-left: auto;
+      margin-right: auto;
+      gap: 0.75rem;
+    }
+    .hh-btn-mag { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hh-inner > * { animation: none; opacity: 1; transform: none; }
+    .hh-slide { transition: none; }
+    .hh-slide.is-on img { animation: none; }
+    .hh-scroll span { animation: none; }
+  }
 </style>
+
+<script>
+  // Carrousel : fondu croisé toutes les 6 s. Les images en erreur (404) sont
+  // retirées de la rotation (on retombe alors sur le dégradé de base).
+  const wrap = document.getElementById("hh-slides");
+  const slides = Array.from(
+    wrap?.querySelectorAll<HTMLDivElement>(".hh-slide") ?? []
+  );
+  const dead = new Array(slides.length).fill(false);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let current = 0;
+  let timer = 0;
+
+  const liveCount = () => dead.filter((d) => !d).length;
+
+  function show(idx: number) {
+    slides.forEach((s, i) => s.classList.toggle("is-on", i === idx));
+    current = idx;
+  }
+
+  function next() {
+    if (liveCount() < 2) return;
+    let i = current;
+    do {
+      i = (i + 1) % slides.length;
+    } while (dead[i] && i !== current);
+    if (i !== current) show(i);
+  }
+
+  function restart() {
+    if (timer) window.clearInterval(timer);
+    if (!reduce && liveCount() > 1) timer = window.setInterval(next, 6000);
+  }
+
+  slides.forEach((slide, i) => {
+    const img = slide.querySelector("img");
+    img?.addEventListener("error", () => {
+      dead[i] = true;
+      slide.classList.remove("is-on");
+      if (i === current) {
+        const firstLive = dead.findIndex((d) => !d);
+        if (firstLive !== -1) show(firstLive);
+      }
+      restart();
+    });
+    img?.addEventListener("load", restart);
+  });
+
+  restart();
+</script>

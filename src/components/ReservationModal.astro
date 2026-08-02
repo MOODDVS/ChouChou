@@ -1,7 +1,7 @@
 ---
 // Modale prenotazioni (RestoHub), disponibile su TUTTO il sito.
 // Si apre cliccando qualsiasi elemento con l'attributo data-reserver.
-// Contenuto: fondo marrone brand, logo La Molisana in piccolo e il
+// Contenuto: fondo navy brand ChouChou, logo ChouChou in piccolo e il
 // widget caricato via iframe dalla pagina isolata /reservation
 // (solo alla prima apertura: zero peso finché non serve).
 ---
@@ -9,14 +9,14 @@
 <div class="resmod" id="resmod" aria-hidden="true">
   <div class="resmod__overlay" data-resmod-close></div>
   <div class="resmod__box" role="dialog" aria-modal="true" aria-label="Réservation">
-    <button class="resmod__close" type="button" data-resmod-close aria-label="Fermer">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M6 6l12 12M18 6 6 18" />
-      </svg>
-    </button>
-    <img class="resmod__logo" src="/SVG/logoLa-Molisana-.svg" alt="La Molisana" />
-    <iframe id="resmod-frame" title="Réservation — La Molisana" data-src="/reservation-embed"></iframe>
+    <iframe id="resmod-frame" title="Réservation, Comptoir ChouChou" data-src="/reservation-embed"></iframe>
   </div>
+  <button class="resmod__close" type="button" data-resmod-close>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+    <span>Fermer</span>
+  </button>
 </div>
 
 <style>
@@ -25,8 +25,10 @@
     inset: 0;
     z-index: 200;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 14px;
     padding: 16px;
     visibility: hidden;
     opacity: 0;
@@ -49,59 +51,59 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    width: min(560px, 100%);
-    max-height: 100%;
-    background: var(--c-bg);
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    width: min(468px, 100%);
+    max-height: calc(100% - 76px);
+    background: #353c4e;
+    border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 16px;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
     transform: translateY(16px);
     transition: transform 0.3s ease;
   }
   .resmod.open .resmod__box { transform: none; }
 
-  .resmod__logo {
-    width: 140px;
-    height: auto;
-    margin: 1.3rem auto 0.7rem;
-    display: block;
-    filter: brightness(0) invert(1); /* logo scuro -> bianco sul marrone */
-  }
-
+  /* Bouton fermer : pilule magenta sous le modale, avec « Fermer ».
+     position/z-index : au-dessus du voile flou (sinon le bouton paraît flou). */
   .resmod__close {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 38px;
-    height: 38px;
-    display: flex;
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    background: transparent;
+    gap: 0.5rem;
+    background: #ed2289;
     border: none;
-    border-radius: 10px;
-    color: var(--c-text);
+    border-radius: 999px;
+    padding: 0.65rem 1.4rem;
+    color: #fff;
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
     cursor: pointer;
-    transition: background 0.2s;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s ease, transform 0.15s ease;
   }
-  .resmod__close:hover { background: rgba(255, 255, 255, 0.1); }
+  .resmod__close:hover { background: #c8176f; transform: translateY(-1px); }
   .resmod__close svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     stroke: currentColor;
-    stroke-width: 2;
+    stroke-width: 2.4;
     stroke-linecap: round;
     fill: none;
   }
 
   #resmod-frame {
-    width: calc(100% - 32px);
+    width: 100%;
     height: 480px; /* provvisoria: lo script la adatta al contenuto */
-    margin: 0 auto 16px;
+    margin: 0;
     border: 0;
-    border-radius: 10px;
-    background: var(--c-bg);
+    border-radius: 0;
+    background: #353c4e;
+    display: block;
   }
 
   @media (max-width: 640px) {
@@ -130,10 +132,17 @@
     try {
       const doc = frame?.contentDocument;
       if (!doc || !doc.body) return;
-      const contenuto = doc.body.scrollHeight;
-      const massimo = Math.round(window.innerHeight * 0.92) - 130; // logo + margini
-      const h = Math.max(240, Math.min(contenuto, massimo));
-      frame!.style.height = h + "px";
+      let need = doc.body.scrollHeight;
+      // Le datepicker est en position: fixed : il ne compte pas dans le
+      // scrollHeight. Quand il est ouvert, on agrandit l'iframe pour qu'il
+      // tienne en entier (sinon l'iframe le rognerait). Le cadre (max-height +
+      // overflow auto) gère le débordement sur les petits écrans.
+      const dp = doc.querySelector(".dp-panel") as HTMLElement | null;
+      if (dp && getComputedStyle(dp).display !== "none") {
+        need = Math.max(need, Math.ceil(dp.getBoundingClientRect().bottom) + 16);
+      }
+      const hpx = Math.max(240, need) + "px";
+      if (frame!.style.height !== hpx) frame!.style.height = hpx;
     } catch {
       /* in caso di sorprese l'altezza resta quella di base */
     }
@@ -145,6 +154,19 @@
       if (doc?.body && "ResizeObserver" in window) {
         new ResizeObserver(ridimensiona).observe(doc.body);
       }
+      // Ouverture/fermeture du datepicker et des accordéons : le widget stoppe
+      // parfois la propagation du clic, donc on surveille les mutations du DOM
+      // (le datepicker bascule son style display) pour réajuster l'iframe.
+      if (doc?.body && "MutationObserver" in window) {
+        const mo = new MutationObserver(() => ridimensiona());
+        mo.observe(doc.body, {
+          attributes: true,
+          attributeFilter: ["style", "class"],
+          childList: true,
+          subtree: true,
+        });
+      }
+      doc?.addEventListener("click", () => setTimeout(ridimensiona, 30));
     } catch {
       /* niente observer: va bene comunque */
     }

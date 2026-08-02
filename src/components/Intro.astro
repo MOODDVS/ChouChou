@@ -1,0 +1,235 @@
+---
+// Section « Introduction » sous le hero (Piste A — Définition).
+// Fond avorio, texte navy, accent magenta. Jeu sur le nom : ChouChou = Chéri.
+// Conteneur aligné sur les 1440px du site (var(--maxw)). Bouton vers la carte.
+import { getLangFromUrl } from "../i18n/ui";
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const L = {
+  word: "ChouChou",
+  mean: en ? "Darling" : "Chéri",
+  sub: en ? "a little name for the ones we love" : "un petit nom qu'on donne à ce qu'on aime",
+  titoletto: en ? "Welcome" : "Bienvenue",
+  p1: en
+    ? "In Mont-Saint-Guibert, out in the <strong>Walloon Brabant</strong> countryside, Comptoir ChouChou grows a <strong>creative</strong> and <strong>homemade</strong> cuisine, in step with the seasons and <strong>local producers</strong>."
+    : "À Mont-Saint-Guibert, en pleine campagne du <strong>Brabant wallon</strong>, le Comptoir ChouChou cultive une <strong>cuisine créative</strong> et <strong>faite maison</strong>, au fil des saisons et des <strong>producteurs d'ici</strong>.",
+  p2: en
+    ? "A table, a <strong>gourmet grocery</strong> and gatherings that bring people together. Here, we care for you <strong>like a chouchou</strong>."
+    : "Une table, une <strong>épicerie gourmande</strong> et des rendez-vous qui rassemblent. Ici, on prend soin de vous <strong>comme d'un chouchou</strong>.",
+  btn: en ? "See the menu" : "Découvrir la carte",
+};
+---
+
+<section class="intro">
+  <div class="intro-in">
+    <div class="intro-left">
+      <h2 class="intro-def">{L.word} <span class="eq">=</span> {L.mean}</h2>
+      <p class="intro-sub">{L.sub}</p>
+      <div class="intro-veg" aria-hidden="true">
+        <span class="veg veg-herb"></span>
+        <span class="veg veg-cabbage"></span>
+        <span class="veg veg-onion"></span>
+      </div>
+    </div>
+
+    <div class="intro-right">
+      <p class="intro-titoletto">{L.titoletto}</p>
+      <p class="intro-p" set:html={L.p1} />
+      <p class="intro-p" set:html={L.p2} />
+    </div>
+  </div>
+</section>
+
+<style>
+  .intro {
+    --avorio: #f7f4ee;
+    --navy: #353c4e;
+    --mag: #ed2289;
+    --veg: #565f7a; /* navy un peu plus clair pour les dessins */
+    background: var(--avorio);
+    color: var(--navy);
+  }
+  .intro-in {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: clamp(3.5rem, 8vw, 7rem) 2rem;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: clamp(2rem, 6vw, 5rem);
+    align-items: start;
+  }
+
+  /* --- Colonne gauche : la « définition » + le dessin --- */
+  .intro-def {
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: clamp(2.6rem, 6vw, 4.6rem);
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--navy);
+    margin: 0;
+  }
+  .intro-def .eq { color: var(--mag); }
+  .intro-sub {
+    font-family: var(--font-script);
+    font-weight: 400;
+    font-size: clamp(2rem, 4.5vw, 3.2rem);
+    line-height: 0.9;
+    color: var(--navy);
+    margin: 0.2rem 0 0;
+  }
+  /* --- Composition « gravure » : chou (centre), oignon (bas gauche),
+     herbes (droite). Recolorés en navy clair via un masque : l'encre devient
+     navy, les creux laissent voir l'avorio. Léger balancement « au vent ». --- */
+  .intro-veg {
+    position: relative;
+    width: clamp(340px, 50vw, 660px);
+    aspect-ratio: 1.46;
+    margin-top: clamp(2rem, 4vw, 3rem);
+  }
+  .intro-veg .veg {
+    position: absolute;
+    background-color: var(--veg);
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    will-change: transform;
+  }
+  /* chou : pièce centrale */
+  .veg-cabbage {
+    width: 44%;
+    aspect-ratio: 2008 / 2114;
+    left: 16%;
+    top: 8%;
+    z-index: 2;
+    transform-origin: 50% 86%;
+    animation: sway-cabbage 8s ease-in-out -2s infinite;
+    -webkit-mask-image: url("/SVG/veg-1chouchou-.png");
+    mask-image: url("/SVG/veg-1chouchou-.png");
+  }
+  /* oignon : devant, en bas à gauche */
+  .veg-onion {
+    width: 18%;
+    aspect-ratio: 1005 / 518;
+    left: 3%;
+    bottom: 8%;
+    z-index: 3;
+    transform: rotate(-6deg);
+    transform-origin: 45% 50%;
+    animation: sway-onion 5.5s ease-in-out -1s infinite;
+    -webkit-mask-image: url("/SVG/veg-3chouchou-.png");
+    mask-image: url("/SVG/veg-3chouchou-.png");
+  }
+  /* herbes : à droite, à mi-hauteur */
+  .veg-herb {
+    width: 48%;
+    aspect-ratio: 2388 / 1657;
+    left: 46%;
+    top: 34%;
+    z-index: 1;
+    transform: rotate(-4deg);
+    transform-origin: 22% 82%;
+    animation: sway-herb 6.5s ease-in-out infinite;
+    -webkit-mask-image: url("/SVG/veg-2chouchou-.png");
+    mask-image: url("/SVG/veg-2chouchou-.png");
+  }
+  /* Balancement léger, comme une brise (amplitude ~2°, autour de l'angle de base) */
+  @keyframes sway-cabbage {
+    0%, 100% { transform: rotate(-1.4deg); }
+    50% { transform: rotate(1.4deg); }
+  }
+  @keyframes sway-onion {
+    0%, 100% { transform: rotate(-7.5deg); }
+    50% { transform: rotate(-4deg); }
+  }
+  @keyframes sway-herb {
+    0%, 100% { transform: rotate(-6deg); }
+    50% { transform: rotate(-1.5deg); }
+  }
+
+  /* --- Colonne droite : titre + texte + bouton (alignés à droite,
+     démarrent en haut, à la hauteur du grand titre) --- */
+  .intro-right {
+    text-align: right;
+    padding-top: 0;
+  }
+  .intro-titoletto {
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--mag);
+    margin: 0 0 1.4rem;
+  }
+  .intro-p {
+    font-family: var(--font-body);
+    font-size: clamp(1.12rem, 1.5vw, 1.28rem);
+    line-height: 1.75;
+    color: var(--navy);
+    margin: 0 0 1.3rem;
+    max-width: 40ch;
+    margin-left: auto;
+  }
+  .intro-p:last-of-type { margin-bottom: 0; }
+  .intro-p strong { font-weight: 700; color: var(--navy); }
+  /* --- Révélation à l'entrée en vue --- */
+  .intro-left > *,
+  .intro-right > * {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .intro-left > :nth-child(1) { transition-delay: 0.05s; }
+  .intro-left > :nth-child(2) { transition-delay: 0.15s; }
+  .intro-left > :nth-child(3) { transition-delay: 0.28s; }
+  .intro-right > :nth-child(1) { transition-delay: 0.12s; }
+  .intro-right > :nth-child(2) { transition-delay: 0.22s; }
+  .intro-right > :nth-child(3) { transition-delay: 0.3s; }
+  .intro-right > :nth-child(4) { transition-delay: 0.4s; }
+  .intro.in-view .intro-left > *,
+  .intro.in-view .intro-right > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (max-width: 760px) {
+    .intro-in {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+    .intro-right {
+      text-align: left;
+      padding-top: 0;
+    }
+    .intro-p { margin-left: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .intro-left > *, .intro-right > * { opacity: 1; transform: none; transition: none; }
+    .veg-cabbage, .veg-onion, .veg-herb { animation: none; }
+  }
+</style>
+
+<script>
+  // Révèle la section quand elle entre dans la vue (une seule fois).
+  const sezione = document.querySelector(".intro");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.2 }
+    );
+    oss.observe(sezione);
+  }
+</script>

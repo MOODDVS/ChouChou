@@ -1,0 +1,288 @@
+---
+// Section « Découvrir » sous l'Intro : grille éditoriale de 4 CTA
+// (La Carte, L'Épicerie, L'Agenda, Contact), inspirée de la référence.
+// Fond avorio, blocs navy + cartes bordées, accents magenta.
+// Photos gérées depuis l'admin (Assets > Site, groupe « Section Découvrir ») ;
+// tant qu'aucune image n'est chargée, un aplat navy propre s'affiche.
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { siteImages } from "../lib/siteImages";
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const IMGS = await siteImages();
+const carte = [
+  IMGS["site_disc_1"] || null,
+  IMGS["site_disc_2"] || null,
+  IMGS["site_disc_3"] || null,
+];
+const epicerieImg = IMGS["site_disc_epicerie"] || null;
+
+const L = {
+  carteT: en ? "The Menu" : "La Carte",
+  carteP: en
+    ? "At Comptoir ChouChou, a restaurant in Mont-Saint-Guibert, the cuisine is creative and homemade, in step with the seasons and Walloon Brabant producers. Our dishes of the moment can be enjoyed in or taken away, on a menu that evolves with the market and the mood of the day."
+    : "Au Comptoir ChouChou, restaurant à Mont-Saint-Guibert, la cuisine est créative et faite maison, au fil des saisons et des producteurs du Brabant wallon. Nos plats du moment se savourent sur place ou à emporter, sur une carte qui évolue avec le marché et l'envie du jour.",
+  carteGo: en ? "See the menu" : "Découvrir la carte",
+
+  epiT: en ? "The Grocery" : "L'Épicerie",
+  epiP: en
+    ? "Our grocery brings together a selection of artisan and local Walloon Brabant producer goods: preserves, treats, drinks and little finds to take away home, to keep the ChouChou spirit going in your own kitchen."
+    : "Notre épicerie réunit une sélection de produits d'artisans et de producteurs locaux du Brabant wallon : conserves, douceurs, boissons et petits trésors à emporter chez vous, pour prolonger l'esprit ChouChou à la maison.",
+  epiGo: en ? "Visit the grocery" : "Visiter l'épicerie",
+
+  agdT: en ? "Events" : "L'Agenda",
+  agdP: en
+    ? "More than a restaurant, Comptoir ChouChou is a gathering place in Mont-Saint-Guibert: « Un soir, un Chef », Sunday brunches and our events punctuate the season. Find all the dates not to miss right here."
+    : "Bien plus qu'un restaurant, le Comptoir ChouChou est un lieu de rendez-vous à Mont-Saint-Guibert : « Un soir, un Chef », les brunchs du dimanche et nos événements rythment la saison. Retrouvez ici toutes les dates à ne pas manquer.",
+  agdGo: en ? "See the agenda" : "Voir l'agenda",
+
+  ctcT: "Contact",
+  ctcP: en
+    ? "Opening hours, address and reservations: find Comptoir ChouChou in Mont-Saint-Guibert, in the heart of the Walloon Brabant countryside, a stone's throw from Louvain-la-Neuve. A question or a craving, write to us."
+    : "Horaires, adresse et réservations : retrouvez le Comptoir ChouChou à Mont-Saint-Guibert, en pleine campagne du Brabant wallon, à deux pas de Louvain-la-Neuve. Une question ou une envie, écrivez-nous.",
+  ctcGo: en ? "Find us" : "Nous trouver",
+};
+---
+
+<section class="dec">
+  <div class="dec-in">
+    <div class="dec-left">
+      <!-- La Carte (bloc navy avec bandeau photos) -->
+      <a class="feat" href={getLocalizedUrl("/menu", lang)}>
+        <div class="feat-grid">
+          <div class="strip">
+            {carte.map((src) =>
+              src ? (
+                <img class="strip-img" src={src} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <span class="ph" aria-hidden="true"></span>
+              )
+            )}
+          </div>
+          <div class="feat-txt">
+            <h2 class="h-cta">{L.carteT}</h2>
+            <p class="p-cta">{L.carteP}</p>
+            <span class="go">{L.carteGo} <span class="arw">→</span></span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Agenda + Contact (cartes bordées) -->
+      <div class="mini">
+        <a class="box" href={getLocalizedUrl("/agenda", lang)}>
+          <h3 class="h-cta">{L.agdT}</h3>
+          <p class="p-cta">{L.agdP}</p>
+          <span class="go">{L.agdGo} <span class="arw">→</span></span>
+        </a>
+        <a class="box" href={getLocalizedUrl("/contact", lang)}>
+          <h3 class="h-cta">{L.ctcT}</h3>
+          <p class="p-cta">{L.ctcP}</p>
+          <span class="go">{L.ctcGo} <span class="arw">→</span></span>
+        </a>
+      </div>
+    </div>
+
+    <!-- L'Épicerie (photo + carte) -->
+    <div class="dec-right">
+      <a class="epic-block" href={getLocalizedUrl("/epicerie", lang)}>
+        <div class="epic-media">
+          {epicerieImg ? (
+            <img src={epicerieImg} alt="" loading="lazy" decoding="async" />
+          ) : (
+            <span class="ph" aria-hidden="true"></span>
+          )}
+        </div>
+        <div class="epic-body">
+          <h3 class="h-cta">{L.epiT}</h3>
+          <p class="p-cta">{L.epiP}</p>
+          <span class="go">{L.epiGo} <span class="arw">→</span></span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .dec {
+    --avorio: #f7f4ee;
+    --navy: #353c4e;
+    --mag: #ed2289;
+    --line: #ddd7ca;
+    --muted: #6f7488;
+    background: var(--avorio);
+    color: var(--navy);
+  }
+  .dec-in {
+    max-width: var(--maxw);
+    margin: 0 auto;
+    padding: clamp(1rem, 3vw, 2rem) 2rem clamp(1.5rem, 3vw, 2.5rem);
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: clamp(1rem, 1.6vw, 1.4rem);
+    align-items: stretch;
+  }
+  .dec-left {
+    display: grid;
+    grid-template-rows: auto auto;
+    gap: clamp(1rem, 1.6vw, 1.4rem);
+  }
+  .dec-right {
+    display: grid;
+    grid-template-rows: 1fr;
+  }
+
+  .h-cta { font-family: var(--font-title); font-weight: 700; line-height: 1; margin: 0; }
+  .p-cta { font-family: var(--font-body); line-height: 1.65; margin: 0.9rem 0 0; }
+  .go {
+    display: inline-block;
+    margin-top: 1.1rem;
+    font-family: var(--font-title);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .arw { display: inline-block; transition: transform 0.2s ease; }
+  a:hover .arw { transform: translateX(5px); }
+
+  /* Placeholder (aplat navy) tant qu'il n'y a pas de photo */
+  .ph {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    background: linear-gradient(150deg, #3d4458, #2b3040);
+  }
+
+  /* --- Bloc navy « La Carte » --- */
+  .feat {
+    background: rgba(53, 60, 78, 0.25);
+    border-radius: 0;
+    padding: clamp(1.4rem, 2.2vw, 2.2rem);
+    color: var(--navy);
+    text-decoration: none;
+    display: block;
+    transition: transform 0.2s ease;
+  }
+  .feat:hover { transform: translateY(-3px); }
+  /* Photos à gauche, texte à droite ; texte aligné sur le bas des images */
+  .feat-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: clamp(1.4rem, 2.5vw, 2.4rem);
+    align-items: end;
+  }
+  .feat .strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .feat .strip-img,
+  .feat .strip .ph {
+    width: 100%;
+    aspect-ratio: 1 / 2;
+    object-fit: cover;
+    border-radius: 0;
+    display: block;
+  }
+  .feat .feat-txt { padding-bottom: 0.2rem; }
+  .feat .h-cta { color: var(--navy); font-size: clamp(2rem, 3.6vw, 2.8rem); }
+  .feat .p-cta { color: #414862; max-width: 48ch; font-size: 1.02rem; }
+  .feat .go { color: var(--navy); }
+  .feat .go .arw { color: var(--mag); }
+
+  /* --- Cartes bordées --- */
+  .mini {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1rem, 1.6vw, 1.4rem);
+  }
+  .box {
+    background: var(--avorio);
+    border: 1px solid var(--line);
+    border-radius: 0;
+    padding: clamp(1.2rem, 2vw, 1.8rem);
+    text-decoration: none;
+    color: var(--navy);
+    display: block;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .box:hover { border-color: var(--mag); transform: translateY(-3px); }
+  .box .h-cta { color: var(--navy); font-size: clamp(1.5rem, 2.4vw, 2rem); }
+  .box .p-cta { color: var(--muted); font-size: 0.96rem; }
+  .box .go { color: var(--mag); font-size: 0.95rem; }
+
+  /* --- Colonne droite : bloc unique « L'Épicerie », fond magenta 25% --- */
+  .epic-block {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: rgba(237, 34, 137, 0.25);
+    padding: clamp(1.4rem, 2vw, 2rem);
+    text-decoration: none;
+    color: var(--navy);
+    transition: transform 0.2s ease;
+  }
+  .epic-block:hover { transform: translateY(-3px); }
+  .epic-media { flex: 1 1 auto; min-height: 240px; }
+  .epic-media img,
+  .epic-media .ph {
+    width: 100%;
+    height: 100%;
+    min-height: 240px;
+    object-fit: cover;
+    border-radius: 0;
+    display: block;
+  }
+  .epic-body { flex: 0 0 auto; padding: clamp(1.2rem, 1.8vw, 1.6rem) 0 0; }
+  .epic-body .h-cta { color: var(--navy); font-size: clamp(1.6rem, 2.4vw, 2.1rem); }
+  .epic-body .p-cta { color: #414862; font-size: 0.98rem; }
+  .epic-body .go { color: var(--navy); font-size: 0.98rem; }
+  .epic-body .go .arw { color: var(--mag); }
+
+  /* --- Révélation à l'entrée en vue --- */
+  .feat, .mini > .box, .dec-right > * {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .feat { transition-delay: 0.05s; }
+  .mini > .box:nth-child(1) { transition-delay: 0.18s; }
+  .mini > .box:nth-child(2) { transition-delay: 0.28s; }
+  .dec-right > :nth-child(1) { transition-delay: 0.12s; }
+  .dec-right > :nth-child(2) { transition-delay: 0.24s; }
+  .dec.in-view .feat,
+  .dec.in-view .mini > .box,
+  .dec.in-view .dec-right > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (max-width: 860px) {
+    .dec-in { grid-template-columns: 1fr; }
+    .feat-grid { grid-template-columns: 1fr; gap: 1.4rem; }
+  }
+  @media (max-width: 520px) {
+    .mini { grid-template-columns: 1fr; }
+    .feat .strip { gap: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .feat, .mini > .box, .dec-right > * { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<script>
+  const sezione = document.querySelector(".dec");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.15 }
+    );
+    oss.observe(sezione);
+  }
+</script>

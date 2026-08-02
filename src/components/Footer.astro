@@ -16,8 +16,9 @@ const isActive = (path: string): boolean => (path.replace(/\/$/, "") || "/") ===
 
 const nav = [
   { label: en ? "Home" : "Accueil", path: "/" },
-  { label: en ? "Our menu" : "Notre carte", path: "/menu" },
-  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
+  { label: en ? "Menu" : "Carte", path: "/menu" },
+  { label: en ? "Grocery" : "Épicerie", path: "/epicerie" },
+  { label: en ? "Events" : "Agenda", path: "/agenda" },
   { label: "Contact", path: "/contact" },
 ];
 
@@ -67,7 +68,7 @@ const L = {
         <a class={"nav-a" + (isActive(item.path) ? " on" : "")} href={getLocalizedUrl(item.path, lang)}>{item.label}</a>
       ))}
       <div class="sep"></div>
-      <a class={"nav-a" + (isActive("/order") ? " on" : "")} href={getLocalizedUrl("/order", lang)}>{L.order}</a>
+      {/* Commander masqué pour le moment */}
       <button class="nav-a" type="button" data-reserver>{L.book}</button>
       {social.length > 0 && <div class="sep"></div>}
       {social.map((s) => (

@@ -10,7 +10,7 @@
  */
 export const CLIENT = {
   /** Nome commerciale: title delle pagine admin, email, prodotti Stripe. */
-  nome: "Nouveau Restaurant",
+  nome: "Comptoir ChouChou",
   /** Claim mostrato sotto il logo nelle email ("NOME — CLAIM"). */
   claim: "Restaurant",
   /** Logo quadrato (header admin). */

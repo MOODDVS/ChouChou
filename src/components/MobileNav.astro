@@ -16,10 +16,11 @@ const current = rawPath.replace(/^\/en/, "") || "/";
 // Etichette nella lingua della pagina (Benvenuti resta italiano: è brand)
 const nav = [
   { label: en ? "Home" : "Accueil", path: "/" },
-  { label: en ? "Our Menu" : "Notre carte", path: "/menu" },
-  { label: en ? "The Ambiance" : "L'Ambiance", path: "/ambiance" },
+  { label: en ? "Menu" : "Carte", path: "/menu" },
+  { label: en ? "Grocery" : "Épicerie", path: "/epicerie" },
+  { label: en ? "Events" : "Agenda", path: "/agenda" },
   { label: "Contact", path: "/contact" },
-  // { label: "Jobs", path: "/jobs" }, // nascosto per ora — riattivare togliendo il commento
+  // { label: "Jobs", path: "/jobs" }, // nascosto per ora, riattivare togliendo il commento
 ];
 
 function isActive(path: string): boolean {
@@ -56,7 +57,7 @@ const CLOSE = en ? "Close" : "Fermer";
 
   <div class="mnav-cta">
     <button class="mnav-book mnav-book--res" id="mnav-reserver-panel" type="button" data-reserver>{BOOK}</button>
-    <a href={getLocalizedUrl("/order", lang)} class="mnav-book">{en ? "Order" : "Commander"}</a>
+    {/* Commander masqué pour le moment */}
   </div>
 
   <a href={`tel:${PHONE_TEL}`} class="mnav-phone">{PHONE_DISPLAY}</a>
