@@ -1,0 +1,83 @@
+---
+// Section « baseline » centrée, fond blanc, sous l'Agenda.
+// Grand claim en 3 lignes : Quicksand (gras, navy) + Birthstone (script,
+// magenta). Jeu de mots restaurant : « faim de bons moments ».
+import { getLangFromUrl } from "../i18n/ui";
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const L = en
+  ? { l1: "For all those", l2: "who hunger", l3: "for good moments" }
+  : { l1: "Pour tous ceux", l2: "qui ont faim", l3: "de bons moments" };
+---
+
+<section class="tagline">
+  <p class="tl">
+    <span class="tl-line tl-strong">{L.l1}</span>
+    <span class="tl-line tl-script">{L.l2}</span>
+    <span class="tl-line tl-strong">{L.l3}</span>
+  </p>
+</section>
+
+<style>
+  .tagline {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    background: #ffffff;
+    text-align: center;
+    padding: clamp(5rem, 12vw, 9rem) 2rem;
+  }
+  .tl {
+    max-width: 1000px;
+    margin: 0 auto;
+    line-height: 1.02;
+  }
+  .tl-line { display: block; }
+  .tl-strong {
+    font-family: var(--font-title);
+    font-weight: 700;
+    color: var(--navy);
+    font-size: clamp(2.4rem, 6vw, 5rem);
+    letter-spacing: 0.01em;
+  }
+  .tl-script {
+    font-family: var(--font-script);
+    color: var(--mag);
+    font-size: clamp(3rem, 8.5vw, 6.5rem);
+    line-height: 0.9;
+    margin: 0.08em 0;
+  }
+
+  /* Révélation à l'entrée en vue */
+  .tl-line {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .tl-line:nth-child(1) { transition-delay: 0.05s; }
+  .tl-line:nth-child(2) { transition-delay: 0.2s; }
+  .tl-line:nth-child(3) { transition-delay: 0.35s; }
+  .tagline.in-view .tl-line { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tl-line { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<script>
+  const sez = document.querySelector(".tagline");
+  if (sez) {
+    const oss = new IntersectionObserver(
+      (voci) => {
+        for (const v of voci) {
+          if (v.isIntersecting) {
+            sez.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.3 }
+    );
+    oss.observe(sez);
+  }
+</script>

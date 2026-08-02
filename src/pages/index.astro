@@ -9,6 +9,10 @@ import Layout from "../layouts/Layout.astro";
 import Intro from "../components/Intro.astro";
 import Decouvrir from "../components/Decouvrir.astro";
 import PhotoResto from "../components/PhotoResto.astro";
+import AgendaHome from "../components/AgendaHome.astro";
+import Tagline from "../components/Tagline.astro";
+import GalerieScroll from "../components/GalerieScroll.astro";
+import SuivezNous from "../components/SuivezNous.astro";
 import { siteImages, siteImg } from "../lib/siteImages";
 export const prerender = false;
 
@@ -81,6 +85,10 @@ const ATOUTS = ["L'épicerie", "Un soir, un Chef", "Le brunch du dimanche"];
   <Intro />
   <Decouvrir />
   <PhotoResto />
+  <AgendaHome />
+  <Tagline />
+  <GalerieScroll />
+  <SuivezNous />
 </Layout>
 
 <style>

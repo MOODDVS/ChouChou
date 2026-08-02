@@ -1,0 +1,163 @@
+---
+// Dernière section de la home : invite à suivre le Comptoir sur les réseaux.
+// Les réseaux (URL + icône) viennent de l'admin via linksSocial() : mêmes
+// liens que le header et le footer, seuls ceux qui sont renseignés s'affichent.
+import { linksSocial } from "../lib/links";
+const social = await linksSocial();
+---
+
+<section class="suiv" data-reveal>
+  <div class="suiv-in">
+    <p class="suiv-script">Restons en contact,</p>
+    <h2 class="suiv-title">suivez ChouChou</h2>
+    <p class="suiv-sub">
+      Les plats du jour, les rendez-vous « Un soir, un Chef », le brunch du
+      dimanche et les coulisses de l'épicerie, retrouvez tout ça au quotidien
+      sur nos réseaux.
+    </p>
+
+    {social.length > 0 && (
+      <ul class="suiv-list">
+        {social.map((s) => (
+          <li>
+            <a
+              class="suiv-link"
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={"Suivre ChouChou sur " + s.label}
+            >
+              <span class="suiv-ico" set:html={s.icon}></span>
+              <span class="suiv-lbl">{s.label}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+</section>
+
+<style>
+  .suiv {
+    --navy: #353c4e;
+    --navd: #2a303e;
+    --mag: #ed2289;
+    --magd: #c8176f;
+    background: #ffffff;
+    color: var(--navy);
+    text-align: center;
+    padding: clamp(3.5rem, 8vw, 7rem) 1.5rem clamp(4rem, 9vw, 8rem);
+  }
+  .suiv-in {
+    max-width: var(--maxw, 1440px);
+    margin: 0 auto;
+  }
+
+  .suiv-script {
+    font-family: var(--font-script);
+    color: var(--mag);
+    font-size: clamp(2.1rem, 5vw, 3.4rem);
+    line-height: 1;
+    margin: 0;
+  }
+  .suiv-title {
+    font-family: var(--font-title);
+    font-weight: 600;
+    color: var(--navy);
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    line-height: 1.02;
+    letter-spacing: 0.01em;
+    margin: 0.1em 0 0;
+  }
+  .suiv-sub {
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 1.6vw, 1.15rem);
+    line-height: 1.65;
+    color: #4a5064;
+    max-width: 46ch;
+    margin: 1.3rem auto 0;
+  }
+
+  /* Icônes seules, en magenta, centrées sous le texte */
+  .suiv-list {
+    list-style: none;
+    padding: 0;
+    margin: clamp(1.8rem, 3vw, 2.6rem) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: clamp(1.1rem, 2.4vw, 1.8rem);
+  }
+  .suiv-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mag);
+    text-decoration: none;
+    transition: color 0.2s ease, transform 0.15s ease;
+  }
+  .suiv-link:hover {
+    color: var(--magd);
+    transform: translateY(-3px);
+  }
+  .suiv-ico {
+    display: inline-flex;
+    width: clamp(30px, 4vw, 38px);
+    height: clamp(30px, 4vw, 38px);
+  }
+  .suiv-ico :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  /* Étiquette lue par les lecteurs d'écran mais masquée visuellement */
+  .suiv-lbl {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Révélation à l'entrée : on n'anime QUE le contenu, pas le fond.
+     Ainsi le fond blanc reste toujours opaque (pas de flash du fond sombre
+     du body derrière la section pendant le fondu). */
+  .suiv-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .suiv.in .suiv-in {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .suiv-in { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<script>
+  const el = document.querySelector<HTMLElement>(".suiv[data-reveal]");
+  if (el) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.classList.add("in");
+    } else {
+      const io = new IntersectionObserver(
+        (entries, obs) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              obs.unobserve(e.target);
+            }
+          }
+        },
+        { threshold: 0.2 }
+      );
+      io.observe(el);
+    }
+  }
+</script>

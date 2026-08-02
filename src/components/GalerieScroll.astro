@@ -1,0 +1,132 @@
+---
+// Section galerie 3 colonnes avec parallaxe au scroll :
+// colonne 1 monte, colonne 2 descend, colonne 3 monte.
+// 3 photos par colonne, entières (hauteur naturelle, jamais rognées).
+// Colonnes décalées (marges différentes) : pas de ligne nette en haut ni en bas.
+// La hauteur suit le contenu ; un padding interne laisse la place au parallaxe
+// (amplitude < padding), donc aucune photo n'est coupée pendant le défilement.
+// Photos gérées depuis l'admin (groupe « Galerie », slots site_gallery_1..9) ;
+// repli : aplat clair. Le mouvement se désactive si reduced-motion.
+import { siteImages } from "../lib/siteImages";
+const IMGS = await siteImages();
+const img = (k: string) => IMGS[k] || null;
+
+// 3 slots par colonne.
+const COLS = [
+  { speed: -1, keys: ["site_gallery_1", "site_gallery_4", "site_gallery_7"] },
+  { speed: 1, keys: ["site_gallery_2", "site_gallery_5", "site_gallery_8"] },
+  { speed: -1, keys: ["site_gallery_3", "site_gallery_6", "site_gallery_9"] },
+];
+---
+
+<section class="gal" aria-hidden="true">
+  <div class="gal-track">
+    {COLS.map((c) => (
+      <div class="gal-col" data-speed={c.speed}>
+        {c.keys.map((k) => {
+          const src = img(k);
+          return (
+            <div class="gal-cell">
+              {src ? (
+                <img src={src} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <span class="ph"></span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .gal {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    /* Le padding vertical laisse respirer la parallaxe sans jamais couper */
+    padding: clamp(70px, 9vh, 120px) 0;
+  }
+  .gal-track {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(0.4rem, 0.8vw, 0.9rem);
+    align-items: start;
+  }
+  .gal-col {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.4rem, 0.8vw, 0.9rem);
+    will-change: transform;
+  }
+  /* Chaque colonne démarre à une hauteur différente : pas de ligne en haut,
+     et comme les contenus ont des hauteurs proches, les bas sont eux aussi
+     décalés (pas de ligne en bas). */
+  .gal-col:nth-child(1) { margin-top: 0; }
+  .gal-col:nth-child(2) { margin-top: clamp(60px, 9vh, 120px); }
+  .gal-col:nth-child(3) { margin-top: clamp(28px, 5vh, 64px); }
+
+  .gal-cell {
+    width: 100%;
+  }
+  /* Photos entières : hauteur naturelle, jamais rognées */
+  .gal-cell img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  /* Le repli (aucune photo) a besoin d'une hauteur : formats variés */
+  .gal-cell .ph {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    display: block;
+    background: linear-gradient(150deg, #ded8ca, #cfc8b8);
+  }
+  .gal-cell:nth-child(3n + 1) .ph { aspect-ratio: 3 / 2; }
+  .gal-cell:nth-child(3n + 2) .ph { aspect-ratio: 4 / 5; }
+  .gal-cell:nth-child(3n + 3) .ph { aspect-ratio: 1 / 1; }
+
+  @media (max-width: 640px) {
+    .gal { padding: clamp(40px, 7vh, 80px) 0; }
+    .gal-track { gap: 0.6rem; }
+    .gal-col:nth-child(2) { margin-top: clamp(36px, 6vh, 70px); }
+    .gal-col:nth-child(3) { margin-top: clamp(18px, 3vh, 40px); }
+  }
+</style>
+
+<script>
+  const section = document.querySelector<HTMLElement>(".gal");
+  const cols = Array.from(section?.querySelectorAll<HTMLElement>(".gal-col") ?? []);
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (section && cols.length && !reduce) {
+    const AMP = 50; // amplitude du parallaxe (px) — < padding, donc jamais de coupe
+    let ticking = false;
+
+    function update() {
+      const rect = section!.getBoundingClientRect();
+      const vh = window.innerHeight;
+      // progress ~ -1 (section en bas) -> 0 (centrée) -> 1 (sortie en haut)
+      const center = rect.top + rect.height / 2;
+      let progress = (vh / 2 - center) / (vh / 2 + rect.height / 2);
+      progress = Math.max(-1, Math.min(1, progress));
+      for (const col of cols) {
+        const speed = Number(col.dataset.speed) || 0;
+        col.style.transform = `translate3d(0, ${progress * speed * AMP}px, 0)`;
+      }
+      ticking = false;
+    }
+
+    function onScroll() {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+    }
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    update();
+  }
+</script>
