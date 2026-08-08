@@ -1,6 +1,6 @@
 ---
 // Pagina Contact:
-// - hero ChouChou: gradiente navy + halo magenta + script "Comptoir"
+// - hero Chouchou: gradiente navy + halo magenta + script "Comptoir"
 // - colonna sinistra: informazioni (indirizzo, contatti, orari LIVE
 //   dall'admin, stessa logica del footer, e servizi). Dati da datiRistorante().
 // - colonna destra: form messaggio (NIENTE prenotazioni: nota con
@@ -26,7 +26,11 @@ const PHONE_DISPLAY = dati.tel;
 const PHONE_TEL = dati.telLink;
 const EMAIL = dati.email;
 const ADRESSE = dati.indirizzo;
-const MAP_SRC = `https://www.google.com/maps?q=${encodeURIComponent("Comptoir ChouChou, " + ADRESSE)}&output=embed`;
+// Rue sur une ligne, code postal + ville a la ligne suivante.
+const _adrIdx = ADRESSE.indexOf(",");
+const ADRESSE_RUE = _adrIdx >= 0 ? ADRESSE.slice(0, _adrIdx).trim() : ADRESSE;
+const ADRESSE_VILLE = _adrIdx >= 0 ? ADRESSE.slice(_adrIdx + 1).trim() : "";
+const MAP_SRC = `https://www.google.com/maps?q=${encodeURIComponent("Comptoir Chouchou, " + ADRESSE)}&output=embed`;
 
 // --- Orari settimanali dal DB (settings) — sempre allineati con l'admin ---
 const DAYS = en
@@ -48,6 +52,7 @@ function bande(row: any): string {
 
 let horaires: { days: string; val: string }[] = [];
 let fermetures: string[] = [];
+let fermeturesJours: string[] = [];
 try {
   const { data } = await supabaseAdmin
     .from("settings")
@@ -64,6 +69,7 @@ try {
       else runs.push([seq[i].label]);
     }
     fermetures = runs.map((r) => (r.length === 1 ? r[0] : `${r[0]} – ${r[r.length - 1]}`));
+    fermeturesJours = seq.filter((x) => x.val === CLOSED).map((x) => x.label);
 
     const aperti = seq.filter((x) => x.val !== CLOSED);
     const groups: { val: string; days: string[] }[] = [];
@@ -83,7 +89,18 @@ try {
 if (!horaires.length) {
   horaires = en ? [{ days: "Mon – Sun", val: "11:00 – 23:30" }] : [{ days: "Lun – Dim", val: "11:00 – 23:30" }];
   fermetures = en ? ["Tuesday"] : ["Mardi"];
+  fermeturesJours = en ? ["Tuesday"] : ["Mardi"];
 }
+
+// Une seule ligne : "fermé le lundi, samedi et dimanche".
+function joinJours(list: string[]): string {
+  const l = list.map((x) => x.toLowerCase());
+  if (l.length <= 1) return l[0] ?? "";
+  return l.slice(0, -1).join(", ") + (en ? " and " : " et ") + l[l.length - 1];
+}
+const FERMETURE_LIGNE = fermeturesJours.length
+  ? (en ? "closed on " : "fermé le ") + joinJours(fermeturesJours)
+  : "";
 
 // Label del form per l'isola React (già tradotte lato server).
 const formLabels = {
@@ -123,11 +140,11 @@ const L = {
   formNote: en
     ? `This form is not for reservations. To book a table, call us on ${PHONE_DISPLAY}.`
     : `Ce formulaire n'est pas destiné aux réservations. Pour réserver une table, appelez-nous au ${PHONE_DISPLAY}.`,
-  mapTitle: en ? "Map, Comptoir ChouChou" : "Carte, Comptoir ChouChou",
+  mapTitle: en ? "Map, Comptoir Chouchou" : "Carte, Comptoir Chouchou",
 };
 ---
 
-<Layout title="Contact, Comptoir ChouChou">
+<Layout title="Contact, Comptoir Chouchou">
   <div class="chou">
   <section class="ct-hero">
     <div class="ct-hero__bg" aria-hidden="true"></div>
@@ -135,17 +152,17 @@ const L = {
     <div class="ct-hero__overlay" aria-hidden="true"></div>
     <div class="ct-hero__glow" aria-hidden="true"></div>
     <div class="ct-hero__inner">
-      <p class="ct-hero__script">Comptoir</p>
       <h1 class="ct-hero__title">Contact</h1>
       <p class="ct-hero__sub">{L.sub}</p>
     </div>
   </section>
 
+  <section class="ct-body">
   <div class="ct">
     <div class="ct-info">
       <div class="ct-row">
         <span class="ct-ico" set:html={ICO.pin} />
-        <p>{ADRESSE}</p>
+        <p>{ADRESSE_RUE}{ADRESSE_VILLE && <Fragment><br />{ADRESSE_VILLE}</Fragment>}</p>
       </div>
 
       <div class="ct-row">
@@ -159,9 +176,7 @@ const L = {
           {horaires.map((h) => (
             <span>{horaires.length > 1 ? `${h.days} : ${h.val}` : h.val}<br /></span>
           ))}
-          {fermetures.map((f) => (
-            <span class="ct-closed">{(en ? "closed on " : "fermé le ") + f.toLowerCase()}<br /></span>
-          ))}
+          {FERMETURE_LIGNE && <span class="ct-closed">{FERMETURE_LIGNE}<br /></span>}
         </p>
       </div>
 
@@ -188,10 +203,11 @@ const L = {
 
     <div class="ct-form">
       <h2 class="ct-form__title">{L.formTitle}</h2>
-      <p class="ct-form__note">{L.formNote}</p>
+      <p class="ct-form__note">{L.formNote} {en ? "You can also " : "Vous pouvez aussi "}<button type="button" class="ct-form__book" data-reserver>{en ? "book online" : "réserver en ligne"}</button>.</p>
       <ContactForm t={formLabels} lang={lang} client:load />
     </div>
   </div>
+  </section>
 
   <section class="ct-map" id="ct-map" data-map-src={MAP_SRC} data-map-title={L.mapTitle}>
     <button class="ct-map__load" id="ct-map-load" type="button">
@@ -202,7 +218,7 @@ const L = {
 </Layout>
 
 <style>
-  /* ---------- Wrapper ChouChou : fond navy + accent magenta ---------- */
+  /* ---------- Wrapper Chouchou : fond navy + accent magenta ---------- */
   .chou {
     --c-bg: #353c4e;
     --c-accent: #ed2289;
@@ -213,12 +229,12 @@ const L = {
   /* ---------- HERO ---------- */
   .ct-hero {
     position: relative;
-    min-height: clamp(300px, 40vh, 440px);
+    min-height: clamp(400px, 56vh, 600px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 6rem 1.5rem 4rem;
+    padding: clamp(9rem, 15vh, 12.5rem) 1.5rem 4.5rem;
     overflow: hidden;
   }
   .ct-hero__bg {
@@ -293,6 +309,14 @@ const L = {
   }
 
   /* ---------- INFO + FORM ---------- */
+  .ct-body {
+    background: #ffffff;
+    --c-text: #353c4e;
+    --c-muted: #6b7183;
+    color: var(--c-text);
+    position: relative;
+    z-index: 1;
+  }
   .ct {
     display: grid;
     grid-template-columns: 38% 1fr;
@@ -348,6 +372,17 @@ const L = {
     color: var(--c-muted);
     margin: 0 0 1.8rem;
   }
+  .ct-form__book {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--c-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+  .ct-form__book:hover { color: #c8176f; }
 
   /* ---------- MAPPA B/N edge-to-edge ---------- */
   .ct-map {
@@ -452,6 +487,23 @@ const L = {
     transform: scale(0.96);
   }
   .cf-btn:disabled { opacity: 0.5; cursor: wait; }
+
+  /* fond blanc (page Contact) : champs et bouton en navy */
+  .ct-body .cf-input,
+  .ct-body .cf-textarea {
+    background: #ffffff;
+    border-color: rgba(53, 60, 78, 0.25);
+  }
+  .ct-body .cf-btn {
+    color: #ffffff;
+    background: #ed2289;
+    border-color: #ed2289;
+  }
+  .ct-body .cf-btn:hover:not(:disabled) {
+    background: #c8176f;
+    border-color: #c8176f;
+    color: #ffffff;
+  }
 
   .cf-success {
     border: 2px solid var(--c-accent);

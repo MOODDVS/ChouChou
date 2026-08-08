@@ -9,7 +9,7 @@ const social = await linksSocial();
 <section class="suiv" data-reveal>
   <div class="suiv-in">
     <p class="suiv-script">Restons en contact,</p>
-    <h2 class="suiv-title">suivez ChouChou</h2>
+    <h2 class="suiv-title">suivez Chouchou</h2>
     <p class="suiv-sub">
       Les plats du jour, les rendez-vous « Un soir, un Chef », le brunch du
       dimanche et les coulisses de l'épicerie, retrouvez tout ça au quotidien
@@ -25,7 +25,7 @@ const social = await linksSocial();
               href={s.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={"Suivre ChouChou sur " + s.label}
+              aria-label={"Suivre Chouchou sur " + s.label}
             >
               <span class="suiv-ico" set:html={s.icon}></span>
               <span class="suiv-lbl">{s.label}</span>
@@ -46,6 +46,9 @@ const social = await linksSocial();
     background: #ffffff;
     color: var(--navy);
     text-align: center;
+    /* Sovrappone 1px alla sezione sopra: elimina la linea del fondo scuro
+       che trapela dal gap sub-pixel tra le due sezioni bianche (visibile su mobile). */
+    margin-top: -1px;
     padding: clamp(3.5rem, 8vw, 7rem) 1.5rem clamp(4rem, 9vw, 8rem);
   }
   .suiv-in {

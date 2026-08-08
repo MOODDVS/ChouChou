@@ -12,7 +12,7 @@ interface Props {
   title?: string;
   transparentHeader?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -103,7 +103,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
         margin: 0 0 0.5em;
       }
       a { color: inherit; text-decoration: none; }
-      /* Enfasi corsiva manoscritta ChouChou (Birthstone) */
+      /* Enfasi corsiva manoscritta Chouchou (Birthstone) */
       em, i, .script { font-family: var(--font-script); font-style: normal; font-weight: 400; }
       .script { font-size: 1.35em; line-height: 1; }
       .container {

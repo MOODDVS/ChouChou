@@ -111,13 +111,14 @@ const primaryUrl =
     position: sticky;
     top: 0;
     z-index: 50;
-    background: transparent;
+    background: var(--navd);
   }
   /* Home : flotte au-dessus du hero, prend un fond discret au scroll */
   .chdr.is-transparent {
     position: fixed;
     left: 0;
     right: 0;
+    background: transparent;
     transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
   }
   .chdr.is-transparent.scrolled {

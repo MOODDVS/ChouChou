@@ -2,15 +2,21 @@
 // Section photo plein écran du restaurant, sous la section « Découvrir ».
 // Un dégradé avorio (100% en haut vers 0% au milieu) fond le bord haut de
 // la photo dans la section avorio au-dessus : aucune ligne visible.
+// Photo gérée depuis l'admin (Assets > Site > Accueil > Photo restaurant,
+// slot site_resto_photo) ; repli sur la photo actuelle si non définie.
+import { siteImages, siteImg } from "../lib/siteImages";
+const IMGS = await siteImages();
+const RESTO_FOTO = siteImg(IMGS, "site_resto_photo", "/chouchou-restaurant.webp");
 ---
 
 <section class="resto-photo">
   <img
     class="resto-img"
-    src="/chouchou-restaurant.webp"
-    alt="Le Comptoir ChouChou, restaurant à Mont-Saint-Guibert, et sa terrasse au coucher du soleil"
+    src={RESTO_FOTO}
+    alt="Le Comptoir Chouchou, restaurant à Mont-Saint-Guibert, et sa terrasse au coucher du soleil"
     loading="lazy"
     decoding="async"
+    onerror="this.remove()"
   />
   <div class="resto-fade" aria-hidden="true"></div>
 </section>
@@ -47,5 +53,14 @@
       rgba(255, 255, 255, 0) 100%
     );
     pointer-events: none;
+  }
+
+  /* Mobile: sezione meno alta -> si vede di piu la foto */
+  @media (max-width: 768px) {
+    .resto-photo {
+      height: 60svh;
+      min-height: 340px;
+    }
+    .resto-fade { height: 34%; }
   }
 </style>

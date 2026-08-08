@@ -1,6 +1,6 @@
 ---
 // Pagina "Carte" (vetrina, non ordinabile).
-// Hero ChouChou: gradiente navy (+ foto admin opzionale), halo magenta,
+// Hero Chouchou: gradiente navy (+ foto admin opzionale), halo magenta,
 // script "Comptoir" + titolo, bottone Commander magenta. Corpo: una sezione
 // per OGNI categoria del DB (ordine dell'admin), titolo magenta a sinistra,
 // piatti su 2 colonne a destra con puntini fino al prezzo e descrizione sotto.
@@ -9,6 +9,7 @@
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
 import { getMenu } from "../lib/db";
+import { getLunchAttivo } from "../lib/lunch";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
@@ -17,9 +18,30 @@ const en = lang === "en";
 
 const menu = await getMenu();
 
+// Lunch del giorno (tab Lunch dell'admin), risolto sui piatti del menù.
+const lunch = await getLunchAttivo();
+const lunchHaPiatti = !!lunch && lunch.courses.some((c) => (lunch.piatti[c] ?? []).length > 0);
+const COURSE_LABEL: Record<string, string> = en
+  ? { entree: "Starter", plat: "Main", dessert: "Dessert" }
+  : { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+const comboLabel = (parts: string[]) => parts.map((x) => COURSE_LABEL[x] ?? x).join(" + ");
+function fmtLunchRange(from: string, to: string): string {
+  const loc = en ? "en-GB" : "fr-FR";
+  const d1 = new Date(from + "T12:00:00");
+  const d2 = new Date(to + "T12:00:00");
+  const sameMY = d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  const jour = (d: Date) => d.toLocaleDateString(loc, { day: "numeric" });
+  const moisAn = (d: Date) => d.toLocaleDateString(loc, { month: "long", year: "numeric" });
+  const complet = (d: Date) => d.toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+  if (sameMY) return en ? `${jour(d1)}–${jour(d2)} ${moisAn(d2)}` : `Du ${jour(d1)} au ${jour(d2)} ${moisAn(d2)}`;
+  return en ? `${complet(d1)} – ${complet(d2)}` : `Du ${complet(d1)} au ${complet(d2)}`;
+}
+const lunchPeriodo = lunch && lunch.date_from && lunch.date_to ? fmtLunchRange(lunch.date_from, lunch.date_to) : null;
+
 import { siteImages, siteImg } from "../lib/siteImages";
 const IMGS = await siteImages();
-const HERO_FOTO = siteImg(IMGS, "site_menu_hero", "/slideshow/slide-01.webp");
+const HERO_FOTO = siteImg(IMGS, "site_menu_hero", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
+const BRUNCH_FOTO = siteImg(IMGS, "site_brunch", IMGS["site_hero_1"] || "/chouchou-restaurant.webp");
 
 // I 14 allergeni UE — stessi numeri usati dall'admin.
 const ALLERGENI: [number, string][] = en
@@ -51,11 +73,9 @@ function descDi(item: { description_fr: string | null; description_en: string | 
 // Bières = pression/bouteilles (14..15)
 // Vins = du patron/rouges/blancs/rosé (16..19)
 // Le altre categorie restano sezioni singole.
-const RAGGRUPPAMENTI = [
-  { title: "Pizza", min: 4, max: 7 },
-  { title: en ? "Beers" : "Bières", min: 14, max: 15 },
-  { title: en ? "Wines" : "Vins", min: 16, max: 19 },
-];
+// Nessun raggruppamento fisso: ogni categoria dell'admin resta una sezione
+// col suo titolo. (Struttura ChouChou, non più La Molisana.)
+const RAGGRUPPAMENTI: { title: string; min: number; max: number }[] = [];
 const gruppi: { title: string; subcats: typeof menu }[] = [];
 for (const cat of menu) {
   const r = RAGGRUPPAMENTI.find((x) => cat.category_order >= x.min && cat.category_order <= x.max);
@@ -72,16 +92,8 @@ for (const cat of menu) {
 // Bières, Vins, il resto (Long drinks, Alcools) e Boissons chaudes
 // in fondo. Basato sul category_order della prima sottocategoria.
 function rango(g: { subcats: typeof menu }): number {
-  const o = g.subcats[0].category_order;
-  if (o <= 8) return o; // Antipasti..Desserts
-  if (o === 11) return 9; // Apéritifs
-  if (o === 10) return 10; // Softs
-  if (o >= 14 && o <= 15) return 11; // Bières
-  if (o >= 16) return 12; // Vins
-  if (o === 12) return 13; // Long drinks
-  if (o === 13) return 14; // Alcools
-  if (o === 9) return 15; // Boissons chaudes
-  return 99;
+  // Ordine di visualizzazione = quello impostato nell'admin (category_order).
+  return g.subcats[0].category_order;
 }
 gruppi.sort((a, b) => rango(a) - rango(b));
 
@@ -139,7 +151,7 @@ gruppi.forEach((g, i) => {
 });
 ---
 
-<Layout title={en ? "Menu, Comptoir ChouChou" : "Carte, Comptoir ChouChou"}>
+<Layout title={en ? "Menu, Comptoir Chouchou" : "Carte, Comptoir Chouchou"}>
   <div class="chou">
   <section class="menu-hero">
     <div class="menu-hero__bg" aria-hidden="true"></div>
@@ -148,30 +160,71 @@ gruppi.forEach((g, i) => {
     <div class="menu-hero__glow" aria-hidden="true"></div>
 
     <div class="menu-hero__inner">
-      <p class="menu-hero__script">Comptoir</p>
       <h1 class="menu-hero__title">{t("menu.title")}</h1>
       <p class="menu-hero__sub">
         {en
-          ? "Creative, homemade cuisine, driven by local producers, in Mont-Saint-Guibert."
-          : "Une cuisine créative et faite maison, portée par les producteurs d'ici, à Mont-Saint-Guibert."}
+          ? "Creative, homemade plates, in tune with the seasons and local producers."
+          : "Des assiettes créatives et faites maison, au rythme des saisons et des producteurs d'ici."}
       </p>
-      <button type="button" class="menu-hero__btn" data-reserver>{en ? "Book a table" : "Réserver une table"}</button>
     </div>
   </section>
 
-  <nav class="secnav" id="secnav" aria-label={en ? "Menu sections" : "Sections du menu"}>
-    {vociNav.map((v) => (
-      <a href={v.href} class="secnav__item" data-secs={v.secs.join(",")}>
-        <span class="secnav__label">{v.title}</span>
-        <span class="secnav__box" set:html={v.icona} />
-      </a>
-    ))}
-  </nav>
+  <section class="lunch-band" aria-label="le lunch">
+    <span class="lunch-txt">le lunch</span>
+    <span class="lunch-sub">{en ? "New menu every week" : "nouveau menu chaque semaine"}</span>
+    {lunch && (lunchHaPiatti || lunch.combos.length > 0) && (
+      <div class="lunch-in">
+        {lunchPeriodo && <p class="lunch-kicker">{lunchPeriodo}</p>}
+        {lunchHaPiatti && (
+          <div class="lunch-cols">
+            {lunch.courses.filter((c) => (lunch.piatti[c] ?? []).length > 0).map((c) => (
+              <div class="lunch-col">
+                <h3 class="lunch-col__t">{COURSE_LABEL[c]}</h3>
+                <ul class="lunch-dishes">
+                  {(lunch.piatti[c] ?? []).map((pt) => (
+                    <li class="lunch-dish">
+                      <span class="lunch-dish__n">{pt.name}</span>
+                      {descDi(pt) && <span class="lunch-dish__d">{descDi(pt)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+        {lunch.combos.length > 0 && (
+          <p class="lunch-prices">
+            {lunch.combos.map((cb) => (
+              <span class="lunch-price">
+                <span class="lunch-price__l">{comboLabel(cb.parts)}</span>
+                <span class="lunch-price__v">{prezzo(cb.price_cents)}</span>
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+    )}
+  </section>
+
+  <section class="carte-band">
+    <div class="carte-band__in">
+      <div class="carte-veg" aria-hidden="true">
+        <span class="cv cv-6"></span>
+        <span class="cv cv-7"></span>
+        <span class="cv cv-5"></span>
+        <span class="cv cv-4"></span>
+      </div>
+      <h2 class="carte-title">à la carte</h2>
+    </div>
+  </section>
 
   <div class="carte">
+    <div class="carte__cols">
     {gruppi.map((g, i) => (
       <section class="cat" id={"sec-" + i}>
-        <h2 class="cat__title">{g.title}</h2>
+        <div class="cat__head">
+          <h2 class="cat__title">{g.title}</h2>
+        </div>
         <div class="cat__body">
           {g.subcats.map((sub) => (
             <div class="subcat">
@@ -207,22 +260,33 @@ gruppi.forEach((g, i) => {
         </div>
       </section>
     ))}
+    </div>
 
     <section class="alg-legend">
       <h2 class="alg-legend__title">{en ? "Allergens" : "Allergènes"}</h2>
       <p class="alg-legend__list">
         {ALLERGENI.map(([n, label]) => `${n}. ${label}`).join(" · ")}
       </p>
-      <p class="alg-legend__badges">
-        <span class="b-star">★</span> Best-seller · 🌱 {en ? "Vegan" : "Végan"} · 🌶️ {en ? "Spicy" : "Épicé"} · <span class="b-sugg">Suggestion</span>
-      </p>
     </section>
   </div>
+
+  <section class="brunch" aria-label="Brunch Chouchou">
+    <img class="brunch__img" src={BRUNCH_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
+    <div class="brunch__scrim" aria-hidden="true"></div>
+    <div class="brunch__fade" aria-hidden="true"></div>
+    <div class="brunch__content">
+      <span class="brunch__script">le brunch</span>
+      <p class="brunch__text">{en
+        ? "Every first Sunday of the month, treat yourself to the Chouchou Brunch."
+        : "Le premier dimanche de chaque mois, savourez le Brunch Chouchou."}</p>
+      <button type="button" class="brunch__btn" data-reserver>{en ? "Book a table" : "Réserver"}</button>
+    </div>
+  </section>
   </div>
 </Layout>
 
 <style>
-  /* ---------- Wrapper ChouChou : fond navy + accent magenta ---------- */
+  /* ---------- Wrapper Chouchou : fond navy + accent magenta ---------- */
   .chou {
     --c-bg: #353c4e;
     --c-accent: #ed2289;
@@ -233,12 +297,12 @@ gruppi.forEach((g, i) => {
   /* ---------- HERO ---------- */
   .menu-hero {
     position: relative;
-    min-height: clamp(300px, 42vh, 460px);
+    min-height: clamp(400px, 56vh, 600px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 6rem 1.5rem 4rem;
+    padding: clamp(9rem, 15vh, 12.5rem) 1.5rem 4.5rem;
     overflow: hidden;
   }
   .menu-hero__bg {
@@ -413,74 +477,279 @@ gruppi.forEach((g, i) => {
   }
 
   /* ---------- CARTE ---------- */
-  .carte {
-    max-width: var(--maxw);
+  /* Titolo gigante statico "Le Lunch" tra hero e carte (stile home, niente scroll) */
+  /* flow-root: il margine negativo del testo NON collassa, cosi 'Le Lunch'
+     sale sopra la foto dell'hero mentre il fondo bianco resta sotto. */
+  .lunch-band { background: #ffffff; display: flow-root; position: relative; z-index: 4; --c-text: #353c4e; --c-muted: #6b7183; }
+  .lunch-in {
+    max-width: 1440px;
     margin: 0 auto;
-    padding: 2rem 2rem 5rem;
+    padding: clamp(2.2rem, 4.5vw, 3.5rem) 28px clamp(2.5rem, 5vw, 4.5rem);
+  }
+  .lunch-kicker {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+    margin: 0 0 clamp(1.5rem, 3vw, 2.4rem);
+  }
+  .lunch-cols {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(1.6rem, 4vw, 3.2rem);
+  }
+  .lunch-col__t {
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--c-text);
+    margin: 0 0 1rem;
+  }
+  .lunch-dishes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+  .lunch-dish__n { display: block; font-family: var(--font-title); font-weight: 600; font-size: 1.02rem; color: var(--c-text); }
+  .lunch-dish__d { display: block; font-family: var(--font-body); font-size: 0.9rem; line-height: 1.45; color: var(--c-muted); margin-top: 0.2rem; }
+  .lunch-prices {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.9rem 1.1rem;
+    margin: clamp(2.4rem, 5vw, 3.4rem) 0 0;
+    border-top: 1px solid rgba(53, 60, 78, 0.15);
+  }
+  .lunch-price {
+    margin-top: -1.15rem; /* pillola a cavallo della linea */
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.55rem;
+    width: clamp(260px, 24vw, 320px); /* meme largeur pour les 3 */
+    background: #ffffff;
+    border: 1px solid rgba(53, 60, 78, 0.2);
+    border-radius: 999px;
+    padding: 0.6rem 1.3rem;
+    font-family: var(--font-title);
+    white-space: nowrap;
+  }
+  .lunch-price__l { font-weight: 600; font-size: 0.92rem; color: var(--c-text); }
+  .lunch-price__v { font-weight: 700; font-size: 1rem; color: var(--c-accent); }
+  @media (max-width: 760px) {
+    .lunch-cols { grid-template-columns: 1fr; gap: 1.8rem; }
+    /* pillules empilees : meme largeur + espace entre elles */
+    .lunch-prices { flex-direction: column; align-items: center; gap: 0.9rem; margin-top: clamp(2rem, 6vw, 3rem); border-top: none; }
+    .lunch-price { margin-top: 0; width: 100%; max-width: 300px; }
+  }
+  .lunch-txt {
+    display: block;
+    max-width: 1440px;
+    margin: clamp(-8rem, -11vw, -4rem) auto 0;
+    padding: 0 28px clamp(0.6rem, 1.6vw, 1.4rem);
+    font-family: var(--font-script);
+    color: #ed2289;
+    font-size: clamp(4rem, 14vw, 12rem);
+    line-height: 1.1;
+    white-space: nowrap;
+    text-align: left;
+  }
+  .lunch-sub {
+    display: block;
+    max-width: 1440px;
+    margin: clamp(-4rem, -5vw, -1.6rem) auto 0;
+    padding: 0 28px;
+    font-family: var(--font-body);
+    font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+    font-style: italic;
+    color: #6b7183;
+  }
+  /* Mobile : titre « le lunch » plus grand, a moitie sur l'image du hero */
+  @media (max-width: 620px) {
+    .lunch-txt {
+      font-size: 25vw;
+      margin-top: -0.66em;          /* la moitie du titre chevauche l'image */
+      padding-bottom: 0.12em;
+    }
+    .lunch-sub {
+      font-size: 1.05rem;
+      margin-top: -1.8rem;   /* rapproche de « le lunch » */
+    }
+    .carte-band__in .carte-title { font-size: 25vw; }   /* aussi grand que « le lunch » (specificite > regle de base) */
+  }
+
+  .carte-band { background: #ffffff; position: relative; z-index: 1; margin-top: -1px; }
+  .carte-band__in {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: clamp(1.5rem, 4vw, 3rem) 28px clamp(0.5rem, 2vw, 1rem);
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;                 /* legumes colles au titre a droite */
+    gap: clamp(1rem, 3.5vw, 2.6rem);
+  }
+  .carte-veg {
+    --veg: #565f7a; /* meme navy clair que la page Accueil */
+    display: flex;
+    align-items: flex-end;
+    gap: clamp(0.6rem, 2.2vw, 1.8rem);
+    flex: 0 1 auto;
+    min-width: 0;
+    /* remonte les legumes au niveau visuel du titre (descentes du script) */
+    margin-bottom: clamp(0.6rem, 2vw, 1.8rem);
+  }
+  .cv {
+    display: block;
+    flex: none;
+    position: relative;
+    transform-origin: 50% 92%;
+    background-color: var(--veg);
+    -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+    -webkit-mask-position: center bottom; mask-position: center bottom;
+    -webkit-mask-size: contain; mask-size: contain;
+  }
+  /* ordre : aubergine, bouteille, chou-fleur, herbe */
+  .cv-6 {
+    height: clamp(38px, 5vw, 82px); aspect-ratio: 1268.68 / 535.23;
+    -webkit-mask-image: url("/SVG/veg-6.svg"); mask-image: url("/SVG/veg-6.svg");
+    animation: cveg-a 7.5s ease-in-out -0.5s infinite;
+  }
+  .cv-7 {
+    height: clamp(74px, 9.6vw, 158px); aspect-ratio: 520.06 / 1065.39;
+    -webkit-mask-image: url("/SVG/veg-7.svg"); mask-image: url("/SVG/veg-7.svg");
+    top: clamp(-1.6rem, -2.4vw, -0.6rem);         /* remonte un peu la bouteille */
+    margin-left: clamp(-4.5rem, -6.5vw, -1.8rem); /* colle a l'aubergine */
+    animation: cveg-b 6s ease-in-out -1.5s infinite;
+  }
+  .cv-5 {
+    height: clamp(78px, 10vw, 164px); aspect-ratio: 1082.1 / 1032.36;
+    -webkit-mask-image: url("/SVG/veg-5.svg"); mask-image: url("/SVG/veg-5.svg");
+    top: clamp(0.6rem, 1.6vw, 1.6rem);            /* descend la salade */
+    margin-left: clamp(-1.3rem, -1.7vw, -0.4rem); /* decale la salade a gauche */
+    animation: cveg-a 8.5s ease-in-out -2.5s infinite;
+  }
+  .cv-4 {
+    height: clamp(26px, 3.4vw, 56px); aspect-ratio: 617.9 / 332.88;
+    -webkit-mask-image: url("/SVG/veg-4.svg"); mask-image: url("/SVG/veg-4.svg");
+    margin-left: clamp(-2rem, -2.6vw, -0.7rem); /* rapproche l'herbe a gauche */
+    top: clamp(-0.7rem, -1vw, -0.25rem);        /* remonte un peu l'herbe */
+    animation: cveg-b 5.5s ease-in-out -1s infinite;
+  }
+  .carte-title {
+    flex: 0 0 auto;
+    margin: 0;
+    font-family: var(--font-script);
+    font-weight: 400;
+    color: #353c4e;
+    font-size: clamp(4rem, 14vw, 12rem);   /* meme taille que « le lunch » */
+    line-height: 1.1;
+    white-space: nowrap;
+    text-align: right;
+  }
+  @media (max-width: 760px) {
+    /* mobile : bloc de legumes centre AU-DESSUS du titre */
+    .carte-band__in { flex-direction: column; align-items: stretch; gap: 0; }
+    .carte-veg { display: flex; justify-content: center; margin-bottom: 0; margin-top: 0.6rem; }
+    .carte-title { margin-top: -1.2rem; }   /* rapproche le titre du bloc */
+  }
+  /* balancement leger « au vent », comme sur la page Accueil */
+  @keyframes cveg-a {
+    0%, 100% { transform: rotate(-1.5deg); }
+    50% { transform: rotate(1.5deg); }
+  }
+  @keyframes cveg-b {
+    0%, 100% { transform: rotate(1.5deg); }
+    50% { transform: rotate(-1.5deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cv { animation: none !important; }
+  }
+
+  .carte {
+    --c-text: #353c4e;
+    --c-muted: #6b7183;
+    background: #ffffff;
+    position: relative;
+    z-index: 2;
+    margin-top: -1px;   /* couvre la ligne de couture au-dessus du menu */
+    padding: clamp(2.5rem, 5vw, 4rem) 0 clamp(4rem, 8vw, 7rem);
+  }
+
+  /* Grille editoriale : les categories coulent sur 3 colonnes */
+  .carte__cols {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 28px;   /* aligne avec le logo (gauche) et l'icone sociale (droite) */
+    columns: 3;
+    column-gap: clamp(2.5rem, 5vw, 5.5rem);
   }
 
   .cat {
     scroll-margin-top: 95px;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 0 clamp(2rem, 3.5vw, 3rem);
+    padding: 0;
   }
 
-  .cat {
-    display: grid;
-    grid-template-columns: minmax(180px, 24%) 1fr;
-    gap: 2rem 3.5rem;
-    align-items: start;
-    padding: 3.5rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.55);
-  }
-
+  .cat__head { text-align: left; margin: 0; }
   .cat__title {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: clamp(2.1rem, 3.4vw, 2.9rem);
-    line-height: 1.1;
-    color: var(--c-accent);
+    font-family: var(--font-title);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: clamp(0.95rem, 1.3vw, 1.1rem);
+    line-height: 1.2;
+    color: var(--c-text);
     margin: 0;
-    position: sticky;
-    top: 96px;
+    padding-bottom: 0.7rem;
+    border-bottom: 1.5px solid var(--c-accent);
   }
 
   .cat__body {
     display: flex;
     flex-direction: column;
-    gap: 3rem;
+    gap: 1.4rem;
+    margin-top: 1rem;
   }
 
   .cat__subtitle {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 0.95rem;
-    letter-spacing: 0.35em;
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--c-accent);
-    margin: 0 0 1.6rem;
+    text-align: left;
+    margin: 0 0 0.8rem;
   }
 
   .cat__items {
     list-style: none;
     margin: 0;
     padding: 0;
-    columns: 2;
-    column-gap: 3.5rem;
   }
 
   .dish {
-    break-inside: avoid;
-    margin-bottom: 1.9rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid rgba(53, 60, 78, 0.1);
   }
+  .dish:last-child { border-bottom: none; }
 
   .dish__head {
     display: flex;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: 1rem;
     margin: 0;
   }
   .dish__name {
-    font-family: var(--font-body);
-    font-size: 1.12rem;
+    flex: 1;
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.98rem;
+    line-height: 1.3;
     color: var(--c-text);
   }
   .b { font-size: 0.85rem; margin-left: 0.3rem; }
@@ -506,35 +775,31 @@ gruppi.forEach((g, i) => {
     margin-left: 0.3rem;
     letter-spacing: 0.05em;
   }
-  .dish__dots {
-    flex: 1;
-    min-width: 24px;
-    border-bottom: 1px dotted rgba(255, 255, 255, 0.45);
-    transform: translateY(-4px);
-  }
+  .dish__dots { display: none; }
   .dish__price {
-    font-family: var(--font-body);
-    font-size: 1.05rem;
-    color: var(--c-text);
+    font-family: var(--font-title);
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: var(--c-accent);
     white-space: nowrap;
   }
   .dish__old {
-    color: rgba(255, 255, 255, 0.55);
+    color: rgba(53, 60, 78, 0.45);
     margin-right: 0.45rem;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
 
   .dish__desc {
-    margin: 0.35rem 0 0;
-    padding-right: 2rem;
-    font-size: 0.88rem;
+    margin: 0.3rem 0 0;
+    font-family: var(--font-body);
+    font-size: 0.86rem;
     line-height: 1.5;
     color: var(--c-muted);
   }
 
   /* ---------- LEGENDA ---------- */
   .alg-legend {
-    padding: 3rem 0 0;
+    padding: 3rem 28px 0;
     text-align: center;
   }
   .alg-legend__title {
@@ -557,9 +822,94 @@ gruppi.forEach((g, i) => {
     margin: 0;
   }
 
+  /* ---------- BRUNCH (image plein largeur + degrade blanc) ---------- */
+  .brunch {
+    position: relative;
+    width: 100%;
+    min-height: clamp(420px, 68vh, 660px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #ffffff;
+    text-align: center;
+  }
+  .brunch__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  /* voile sombre pour la lisibilite du texte blanc */
+  .brunch__scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(43, 48, 64, 0.6) 0%, rgba(43, 48, 64, 0.32) 55%, rgba(43, 48, 64, 0.18) 100%);
+    pointer-events: none;
+  }
+  /* degrade blanc en haut : fond l'image dans la section blanche au-dessus */
+  .brunch__fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 42%;
+    background: linear-gradient(to bottom, #fff 0%, rgba(255, 255, 255, 0.82) 22%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+  }
+  .brunch__content {
+    position: relative;
+    z-index: 2;
+    max-width: 680px;
+    padding: 3rem 1.5rem;
+  }
+  .brunch__script {
+    display: block;
+    font-family: var(--font-script);
+    color: #ffffff;
+    font-size: clamp(3rem, 9vw, 6rem);
+    line-height: 1;
+    text-shadow: 0 2px 22px rgba(0, 0, 0, 0.35);
+  }
+  .brunch__text {
+    font-family: var(--font-body);
+    color: #ffffff;
+    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+    line-height: 1.6;
+    margin: 1rem auto 1.9rem;
+    max-width: 32ch;
+    text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
+  }
+  .brunch__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 15px 36px;
+    background: #ed2289;
+    color: #ffffff;
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+    border: none;
+    border-radius: 0;   /* bouton a angles droits, pas une pilule */
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+  }
+  .brunch__btn:hover { background: #c8176f; transform: translateY(-2px); }
+  @media (max-width: 768px) {
+    .brunch { min-height: clamp(360px, 60svh, 520px); }
+    .brunch__fade { height: 30%; }
+  }
+
   /* ---------- RESPONSIVE ---------- */
-  @media (max-width: 1100px) {
-    .cat__items { column-gap: 2.5rem; }
+  @media (max-width: 1024px) {
+    .carte__cols { columns: 2; max-width: 760px; }
+  }
+  @media (max-width: 620px) {
+    .carte__cols { columns: 1; max-width: 460px; }
   }
   @media (max-width: 900px) {
     /* Barra sezioni: striscia orizzontale sopra i bottoni Commander/Réserver */
@@ -582,15 +932,8 @@ gruppi.forEach((g, i) => {
     .secnav__item:last-child { margin-right: auto; }
     .cat { scroll-margin-top: 84px; }
 
-    .carte { padding: 1rem 1.5rem 8rem; }
-    .cat {
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-      padding: 2.5rem 0;
-    }
-    .cat__title { position: static; }
-    .cat__items { columns: 1; }
-    .dish { margin-bottom: 1.5rem; }
+    .carte { padding: 2rem 0 8rem; }
+    .dish { padding: 0.7rem 0; }
     .dish__desc { padding-right: 0; }
   }
 

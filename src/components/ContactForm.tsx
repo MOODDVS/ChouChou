@@ -123,7 +123,7 @@ export default function ContactForm({ t, lang = "fr" }: { t: Labels; lang?: "fr"
       <button
         className="cf-btn"
         type="submit"
-        disabled={stato === "invio" || !accettato}
+        disabled={stato === "invio"}
       >
         {stato === "invio" ? t.sending : t.send}
       </button>
