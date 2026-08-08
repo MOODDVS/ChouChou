@@ -67,6 +67,17 @@ function descDi(item: { description_fr: string | null; description_en: string | 
   return en ? (item.description_en || item.description_fr) : item.description_fr;
 }
 
+// Convention admin : une voce dont le Nom commence par "-" devient un
+// sous-titre de section (pas de prix, pas de description-plat). Etiquette
+// FR = Nom sans le "-", EN = Description EN (sinon FR).
+function sottotitoloDi(item: { name: string; description_en: string | null }): string | null {
+  const nome = (item.name ?? "").trim();
+  if (!nome.startsWith("-")) return null;
+  const fr = nome.replace(/^-+\s*/, "").trim();
+  const enTxt = (item.description_en ?? "").replace(/^-+\s*/, "").trim();
+  return en ? (enTxt || fr) : fr;
+}
+
 // --- Raggruppamenti: più categorie consecutive sotto un unico titolo
 // grande, ciascuna col suo titoletto (per range di category_order):
 // Pizza = rouges/blanches/calzone/suppléments (4..7)
@@ -96,6 +107,35 @@ function rango(g: { subcats: typeof menu }): number {
   return g.subcats[0].category_order;
 }
 gruppi.sort((a, b) => rango(a) - rango(b));
+
+// Detection des BOISSONS par nom de categorie (robuste a l'ordre admin).
+const BEVANDA_WORDS = new Set([
+  "aperitif", "aperitifs", "apero", "aperos", "boisson", "boissons", "boire",
+  "bulle", "bulles", "champagne", "cremant", "mousseux", "petillant", "petillants", "prosecco",
+  "vin", "vins", "cocktail", "cocktails", "mocktail", "mocktails",
+  "soft", "softs", "soda", "sodas", "limonade", "limonades", "sirop", "sirops", "jus",
+  "biere", "bieres", "eau", "eaux",
+  "cafe", "cafes", "the", "thes", "infusion", "infusions", "chaud", "chaude", "chaudes",
+  "digestif", "digestifs", "spiritueux", "gin", "whisky", "rhum", "vodka", "liqueur", "liqueurs",
+  "alcool",
+]);
+function isBevandaCat(name: string): boolean {
+  const norm = (name ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return norm.split(/[^a-z0-9]+/).filter(Boolean).some((t) => BEVANDA_WORDS.has(t));
+}
+function isBevandaG(g: { subcats: typeof menu }): boolean {
+  return g.subcats.some((sc) => isBevandaCat(sc.category));
+}
+
+// À la carte = uniquement la nourriture (les boissons, category_order >= 9,
+// iront dans une section « boissons » dédiée plus bas).
+const gruppiCibo = gruppi
+  .map((g, i) => ({ g, i }))
+  .filter(({ g }) => !isBevandaG(g));
+// Boissons = categorie reconnue par son nom (Apéritifs, Softs, Vins, …).
+const gruppiBibite = gruppi
+  .map((g, i) => ({ g, i }))
+  .filter(({ g }) => isBevandaG(g));
 
 // --- Icone della barra sezioni. Quelle "piene" (fornite da Enzo) hanno
 // class="ico-fill"; le altre sono a linea (stroke). Scelta per parola
@@ -132,7 +172,7 @@ function iconaDi(titolo: string): string {
 // Apéritifs — e resta attivo su qualsiasi sezione bevande).
 const vociNav: { href: string; title: string; icona: string; secs: string[] }[] = [];
 gruppi.forEach((g, i) => {
-  const bevanda = g.subcats[0].category_order >= 9;
+  const bevanda = isBevandaG(g);
   if (!bevanda) {
     vociNav.push({ href: "#sec-" + i, title: g.title, icona: iconaDi(g.title), secs: ["sec-" + i] });
   } else {
@@ -220,7 +260,7 @@ gruppi.forEach((g, i) => {
 
   <div class="carte">
     <div class="carte__cols">
-    {gruppi.map((g, i) => (
+    {gruppiCibo.map(({ g, i }) => (
       <section class="cat" id={"sec-" + i}>
         <div class="cat__head">
           <h2 class="cat__title">{g.title}</h2>
@@ -230,12 +270,16 @@ gruppi.forEach((g, i) => {
             <div class="subcat">
               {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
               <ul class="cat__items">
-                {sub.items.map((item) => (
+                {sub.items.map((item) => {
+                  const _st = sottotitoloDi(item);
+                  return _st ? (
+                    <li class="dish dish--sub"><h4 class="cat__subhead">{_st}</h4></li>
+                  ) : (
                   <li class="dish">
                     <p class="dish__head">
                       <span class="dish__name">
                         {item.name}
-                        {item.is_bestseller && <span class="b b-star" title="Best-seller">★</span>}
+                        {item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                         {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
@@ -244,16 +288,19 @@ gruppi.forEach((g, i) => {
                         )}
                       </span>
                       <span class="dish__dots" aria-hidden="true"></span>
-                      <span class="dish__price">
-                        {item.original_price_cents && (
-                          <s class="dish__old">{prezzo(item.original_price_cents)}</s>
-                        )}
-                        {prezzo(item.price_cents)}
-                      </span>
+                      {item.price_cents > 0 && (
+                        <span class="dish__price">
+                          {item.original_price_cents && (
+                            <s class="dish__old">{prezzo(item.original_price_cents)}</s>
+                          )}
+                          {prezzo(item.price_cents)}
+                        </span>
+                      )}
                     </p>
                     {descDi(item) && <p class="dish__desc">{descDi(item)}</p>}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -276,12 +323,71 @@ gruppi.forEach((g, i) => {
     <div class="brunch__fade" aria-hidden="true"></div>
     <div class="brunch__content">
       <span class="brunch__script">le brunch</span>
-      <p class="brunch__text">{en
-        ? "Every first Sunday of the month, treat yourself to the Chouchou Brunch."
-        : "Le premier dimanche de chaque mois, savourez le Brunch Chouchou."}</p>
+      <p class="brunch__text">
+        <span class="brunch__lead">{en ? "A Chouchou Sunday" : "Un dimanche Chouchou"}</span>
+        {en
+          ? <Fragment> : a local-produce breakfast is served every 1<sup>st</sup> Sunday of the month, from 11:00 to 14:00, at 30,00€ excluding drinks. By reservation only.</Fragment>
+          : <Fragment> : une offre de produits locaux pour le petit-déjeuner vous est proposée chaque 1<sup>er</sup> dimanche du mois, de 11h00 à 14h00, au prix de 30,00€ hors boissons. Sur réservation uniquement.</Fragment>}
+      </p>
       <button type="button" class="brunch__btn" data-reserver>{en ? "Book a table" : "Réserver"}</button>
     </div>
   </section>
+
+  <section class="boissons-band" aria-label="les boissons">
+    <span class="boissons-txt">les boissons</span>
+  </section>
+
+  <div class="carte carte--boissons">
+    <div class="carte__cols">
+    {gruppiBibite.map(({ g, i }) => (
+      <section class="cat" id={"sec-" + i}>
+        <div class="cat__head">
+          <h2 class="cat__title">{g.title}</h2>
+        </div>
+        <div class="cat__body">
+          {g.subcats.map((sub) => (
+            <div class="subcat">
+              {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
+              <ul class="cat__items">
+                {sub.items.map((item) => {
+                  const _st = sottotitoloDi(item);
+                  return _st ? (
+                    <li class="dish dish--sub"><h4 class="cat__subhead">{_st}</h4></li>
+                  ) : (
+                  <li class="dish">
+                    <p class="dish__head">
+                      <span class="dish__name">
+                        {item.name}
+                        {item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
+                        {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
+                        {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
+                        {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                        {item.allergens.length > 0 && (
+                          <sup class="dish__alg">{item.allergens.join("·")}</sup>
+                        )}
+                      </span>
+                      <span class="dish__dots" aria-hidden="true"></span>
+                      {item.price_cents > 0 && (
+                        <span class="dish__price">
+                          {item.original_price_cents && (
+                            <s class="dish__old">{prezzo(item.original_price_cents)}</s>
+                          )}
+                          {prezzo(item.price_cents)}
+                        </span>
+                      )}
+                    </p>
+                    {descDi(item) && <p class="dish__desc">{descDi(item)}</p>}
+                  </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+    ))}
+    </div>
+  </div>
   </div>
 </Layout>
 
@@ -715,6 +821,18 @@ gruppi.forEach((g, i) => {
     margin-top: 1rem;
   }
 
+  .cat__subhead {
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--c-accent);
+    margin: 0;
+  }
+  .dish.dish--sub { border-bottom: none; padding: 1.4rem 0 0.3rem; }
+  .dish.dish--sub:first-child { padding-top: 0; }
+
   .cat__subtitle {
     font-family: var(--font-title);
     font-weight: 600;
@@ -810,11 +928,12 @@ gruppi.forEach((g, i) => {
     margin: 0 0 0.9rem;
   }
   .alg-legend__list {
-    max-width: 860px;
+    max-width: none;
     margin: 0 auto 0.9rem;
     font-size: 0.85rem;
     line-height: 1.8;
     color: var(--c-muted);
+    white-space: nowrap;   /* tout sur une seule ligne */
   }
   .alg-legend__badges {
     font-size: 0.85rem;
@@ -846,7 +965,7 @@ gruppi.forEach((g, i) => {
   .brunch__scrim {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(43, 48, 64, 0.6) 0%, rgba(43, 48, 64, 0.32) 55%, rgba(43, 48, 64, 0.18) 100%);
+    background: linear-gradient(to top, rgba(43, 48, 64, 0.74) 0%, rgba(43, 48, 64, 0.52) 55%, rgba(43, 48, 64, 0.42) 100%);
     pointer-events: none;
   }
   /* degrade blanc en haut : fond l'image dans la section blanche au-dessus */
@@ -876,12 +995,17 @@ gruppi.forEach((g, i) => {
   .brunch__text {
     font-family: var(--font-body);
     color: #ffffff;
-    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
-    line-height: 1.6;
+    font-size: clamp(1.02rem, 2vw, 1.22rem);
+    line-height: 1.65;
     margin: 1rem auto 1.9rem;
-    max-width: 32ch;
+    max-width: 46ch;
     text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
   }
+  .brunch__lead {
+    font-weight: 700;
+    color: #ffffff;
+  }
+  .brunch__text sup { font-size: 0.62em; }
   .brunch__btn {
     display: inline-flex;
     align-items: center;
@@ -904,9 +1028,35 @@ gruppi.forEach((g, i) => {
     .brunch__fade { height: 30%; }
   }
 
+  /* ---------- Titre « les boissons » (comme « le lunch ») ---------- */
+  .boissons-band {
+    background: #ffffff;
+    display: flow-root;
+    position: relative;
+    z-index: 4;
+    --c-text: #353c4e;
+    --c-muted: #6b7183;
+  }
+  .boissons-txt {
+    display: block;
+    max-width: 1440px;
+    margin: clamp(-8rem, -11vw, -4rem) auto 0;
+    padding: 0 28px clamp(0.6rem, 1.6vw, 1.4rem);
+    font-family: var(--font-script);
+    color: #ed2289;
+    font-size: clamp(4rem, 14vw, 12rem);
+    line-height: 1.1;
+    white-space: nowrap;
+    text-align: left;
+  }
+  @media (max-width: 620px) {
+    .boissons-txt { font-size: 25vw; margin-top: -0.66em; padding-bottom: 0.12em; }
+  }
+
   /* ---------- RESPONSIVE ---------- */
   @media (max-width: 1024px) {
     .carte__cols { columns: 2; max-width: 760px; }
+    .alg-legend__list { white-space: normal; }
   }
   @media (max-width: 620px) {
     .carte__cols { columns: 1; max-width: 460px; }

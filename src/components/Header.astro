@@ -112,6 +112,8 @@ const primaryUrl =
     top: 0;
     z-index: 50;
     background: var(--navd);
+    transition: transform 0.35s ease;
+    will-change: transform;
   }
   /* Home : flotte au-dessus du hero, prend un fond discret au scroll */
   .chdr.is-transparent {
@@ -119,12 +121,18 @@ const primaryUrl =
     left: 0;
     right: 0;
     background: transparent;
-    transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+    transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease, transform 0.35s ease;
   }
   .chdr.is-transparent.scrolled {
     background: transparent;
     backdrop-filter: none;
     box-shadow: none;
+  }
+  /* Auto-hide : glisse vers le haut au scroll descendant */
+  .chdr.chdr--hidden { transform: translateY(-100%); }
+  @media (prefers-reduced-motion: reduce) {
+    .chdr { transition: none; }
+    .chdr.chdr--hidden { transform: none; }
   }
 
   .chdr-in {
@@ -379,5 +387,28 @@ const primaryUrl =
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
+  }
+
+  // Auto-hide : cache l'header au scroll vers le bas, le montre au scroll vers le haut
+  const bar = document.querySelector(".chdr");
+  if (bar) {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const TOP = 80; // toujours visible pres du haut
+    const update = () => {
+      const y = window.scrollY;
+      if (y <= TOP) {
+        bar.classList.remove("chdr--hidden");
+      } else if (y > lastY + 4) {
+        bar.classList.add("chdr--hidden");      // vers le bas -> cache
+      } else if (y < lastY - 4) {
+        bar.classList.remove("chdr--hidden");   // vers le haut -> montre
+      }
+      lastY = y;
+      ticking = false;
+    };
+    window.addEventListener("scroll", () => {
+      if (!ticking) { window.requestAnimationFrame(update); ticking = true; }
+    }, { passive: true });
   }
 </script>
