@@ -38,6 +38,16 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Contact**: hero alto come la Carte + tolto script "Comptoir"; sezione info+form ora bianca con testi navy (wrapper `.ct-body`, input e bottone adattati); indirizzo su due righe (via / CP+ville); chiusure su una sola riga ("fermé le lundi, samedi et dimanche"); nota form con link "réserver en ligne" (data-reserver); bottone ENVOYER magenta e sempre cliccabile (validazione nativa; era disabilitato senza consenso).
 - **Mappa immagini admin** (siteImageSlots.ts): riscritti gli slot di Accueil e Menu per rispecchiare le sezioni reali (tolti i residui La Molisana: Story, Molise, Cartes finales, Atouts, gallery 10-15). PhotoResto ora collegata allo slot `site_resto_photo`; aggiunto `site_brunch`. Ambiance/Contact/Commander invariati.
 
+### Sessione Boissons + événements (Carte)
+- **Boissons riconosciute per NOME di categoria** (isBevandaCat) e non più per category_order: apéritifs, boissons, vins, cocktails, softs, bières, eaux, cafés, sans alcool… → l'à la carte resta solo cibo.
+- **Sezione « les vins »** (titolo script magenta): SOLO le categorie « vin » (Vin rouge/rosé/blanc). L'elenco vini scorre su 3 colonne (sono gli ITEMS a fluire, non le categorie), con i sotto-titoli allineati in cima colonna (margin-top troncato) e `break-after: avoid` per non lasciare titoli orfani. Sopra il titolo, credito « Merci à *Eric Boschman*… » (nome in font script magenta) dentro la banda bianca.
+- **Sezione « les boissons »** (titolo script navy, come à la carte): tutte le altre bevande (apéritifs, bières, softs, boissons chaudes…) in 3 colonne, blocchi-categoria come l'à la carte del cibo.
+- **Convenzione sotto-titoli**: Nom che inizia con « - » → sotto-titolo (FR dal Nom, EN dal campo Description EN). Prezzo 0 = prezzo nascosto. ♥ « coup de cœur » al posto della ★.
+- **Événement « Un soir, un chef »**: sezione full-width (stile brunch) messa DOPO l'à la carte cibo (dove prima c'era il brunch), con testo sui chef invitati e bottone « Voir l'agenda » (→ /agenda). Immagine da nuovo slot admin `site_soir_chef`; inquadratura più alta (object-position 20%).
+- **Brunch spostato in fondo** (dopo « les boissons »), col suo testo « Un dimanche Chouchou… » (chapeau bianco bold) e bottone Réserver. Velo un po' più scuro.
+- **Barra mobile d'accesso rapido**: 4 cerchi bianchi (icona + label DENTRO il cerchio) sopra l'isola Réserver — Lunch, Carte, Vins, Boissons — che ancorano alle sezioni (#lunch/#carte/#vins/#boissons, scroll-margin 90px). z-index 101 (sopra l'ombra dell'isola, sotto il pannello burger). Icone SVG piene fornite dal cliente. Solo ≤900px.
+- **Slot immagini**: aggiunto `site_soir_chef` (Menu) in siteImageSlots.ts, oltre a `site_brunch`.
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.
