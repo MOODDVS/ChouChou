@@ -1,0 +1,211 @@
+# MOODD Admin — Motore multi-cliente · Avanzamento & decisioni
+
+Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
+
+## 📌 30/07/2026 — sessione Cowork
+
+### 🏠 Accueil — semplificazione & drag fluido su touch
+- **Modale « Tuiles »** (nuovo FAB a strati, visibile anche su mobile a differenza di Organiser): switch per mostrare/nascondere ogni isola. Flag `hidden` DENTRO il layout personale già salvato (`home_layout:<userId>`) → **nessuna migrazione**. Isole non disponibili (es. Google senza Place ID) non compaiono nella lista.
+- **Drag riscritto con Pointer Events** (prima HTML5 drag&drop = morto su iPad/iPhone). Regola d'oro trovata a caro prezzo: **spostare nel DOM la tile trascinata annulla il pointer capture** → `pointercancel` e drag rotto dopo il primo scambio. Soluzione: la tile esce dal flusso (`position:fixed`, segue il dito), nella griglia si muove un **segnaposto tratteggiato**; alla fine la tile prende il posto del segnaposto. Animazione **FLIP** sulle altre isole + **auto-scroll** ai bordi + hit-test geometrico (niente `elementFromPoint`, la tile fixed coprirebbe le altre).
+- **Spaziatura masonry**: righe da 10px + gap 12px lasciavano fino a 21px di vuoto sotto (arrotondamento a righe intere). Ora righe da **2px**, gap verticale 0, spazio dal `margin-bottom` della tile → verticale = orizzontale = 12px.
+- Bug: `home-layout.ts` non aveva `google` tra le TILE_KEYS → la posizione della tile Google non si salvava mai. Aggiunte `google` e `visibilite`.
+
+### ⭐ Recensioni Google — più recenti e per intero
+- Places API **(New) NON ordina le recensioni** e ne dà max 5 « pertinenti ». Fallback su Places API **(Legacy)** con `reviews_sort=newest` in `google-info.ts` (prova Legacy → se il progetto non l'ha, ordina per data quelle della New API). **Serve attivare « Places API » legacy + aggiungerla nelle restrizioni della chiave.**
+- Testo recensione: da 300 a **1500** caratteri (intero); tolto il taglio a 190 nella UI. Carosello: **12s** (era 7) e font citazione 1rem.
+
+### 🔎 Search Console — livello « Visibilité » (service account, NO OAuth)
+- Scelto **service account** (non OAuth) per non disturbare la verifica di Google Business in corso e per accendere subito senza schermata di consenso. `src/lib/searchConsole.ts`: **JWT RS256 firmato con `node:crypto`** → access token (cache 55 min, i fallimenti NON in cache). Chiave = **una env MOODD** `GOOGLE_SA_KEY_B64` (base64 del JSON del service account; email robot `moodd-search@moodd-admin.iam.gserviceaccount.com` da aggiungere come utente nella Search Console di OGNI cliente). Sito per-cliente in `app_config.gsc_site` (`sc-domain:…` o URL).
+- **Endpoint** `/api/admin/search-console` (semplice per la tile; `?detail=1&days=N` per la pagina). Cache 3h, errori mai in cache.
+- **Tile « Visibilité »** in Accueil (clic/impression 28g + tendenza + top requêtes). **Tab Google** in Statistiques: 4 KPI con variazione (posizione invertita: scendere = verde), selettore 7/28/90/180/365, **2 grafici SVG a linea SEPARATI** (clic + impressioni; dataviz vieta il doppio asse → small multiples) con crosshair+tooltip, tabelle top requêtes/pages a colonne fisse. Scheda Search Console nel tab Integrations (mostra l'email robot + campo propriété + Vérifier).
+
+### 📊 Sources de trafic — analytics interno cookieless
+- « Da dove arrivano » NON è Search Console (solo ricerca Google). Costruito analytics **first-party**: beacon `sendBeacon` nel Layout pubblico (solo sugli **ingressi**: se `referrer.host === location.host` → navigazione interna, ignora), `/api/track` classifica lato server (Google/Facebook/Instagram/TikTok/X/Direct/Newsletter/Altro da referrer o `utm_source`), filtra i bot. **Nessun cookie, nessuna IP → nessun banner**. `/api/admin/traffic?days=N` aggrega via RPC `traffic_sources` (evita il tetto 1000 righe). Sezione « Sources de trafic » a barre nel tab Google.
+
+### 🔔 Prenotazioni — rappel cliente ~3h prima
+- Email di **solo promemoria al CLIENTE** (niente bottoni modifica/annulla), 9 lingue, `emailRappelResa` (riusa `guscioResa` con ctaHtml vuoto). Inviata **solo se prenotata per un giorno FUTURO** (giorno résa > giorno di creazione), non il giorno stesso.
+- Approccio **cron** (non Resend `scheduledAt`): `src/lib/rappelReservations.ts` legge sempre lo stato AGGIORNATO → una résa annullata/modificata non manda nulla di falso, e copre oltre i 30gg di Resend. Endpoint `/api/cron/reservation-reminders` (CRON_SECRET, `?force=1` per test). PUT di `reservation.ts` azzera `reminder_sent_at` → modifica ri-arma il promemoria. Attivazione via **pg_cron nel Supabase del CLIENTE** (`resa-reminders-30min`, minuti 20,50), come daily-brief/newsletter — MAI cron-job.org. SETUP.md aggiornato.
+
+### Lezioni
+- **Pointer capture**: mutare il DOM dell'elemento catturato rompe il drag → usare un segnaposto, tenere fisso l'elemento trascinato.
+- **Dual-axis vietato** (dataviz): due misure di scala diversa → grafici separati (small multiples), non due assi Y.
+- **Analytics cookieless**: beacon solo sugli ingressi esterni/diretti; classificazione lato server; `utm_source` è l'unica fonte precisa (Instagram spesso non passa il referrer).
+- **Cron = roba del CLIENTE**: il progetto motore (dev) non ha pg_cron né sito pubblico → `schema "cron" does not exist` è normale lì; i cron vanno nel Supabase del cliente dopo il deploy.
+- **Cache**: non mettere MAI in cache errori o token vuoti (bloccherebbero i retry per ore).
+- **Filtro UI**: lo stato iniziale `.is-active` deve combaciare con la variabile JS di default, altrimenti il guard « già attivo » blocca il primo clic (bug filtro 28j).
+- Places API **New** non ordina/pagina le recensioni: per « le più recenti » serve la Legacy.
+
+## 📌 28/07/2026 — sessione Cowork
+
+### 🎁 BONS CADEAUX — tab Marketing completo (commit `461f593`, migrazione #45)
+
+Buoni regalo = **valore PREPAGATO con saldo scalabile** (≠ coupons, che sono sconti). Nuovo tab **Marketing → Bons cadeaux**, stessa impalcatura dei Coupons.
+
+- **Creazione = form MULTI-STEP a 4 tappe** (stepper in alto, Précédent a sinistra / Suivant a destra, Suivant disabilitato finché manca la valeur): 1) **Bon** — valeur a pillole preset 25/50/75/100/150/200 + « Autre » · expiration a preset Aucune/1 mois/6 mois/1 an/Fin d'année/« Autre » col **datepicker custom** del brand (z-index 320 > overlay 300) · code (vuoto = auto) · **Paiement** Espèces/Carte/Lien de paiement · 2) **Offert par** prénom, nom, email, tél · 3) **Destinataire** stessi campi + **message (textarea)** + **switch « Envoi postal »** che apre adresse/CP/ville/pays + **frais d'envoi** · 4) **Récap** con tutti i dati + 2 pulsanti **« ✉ Au destinataire » / « ✉ À l'offrant »** (spenti se manca l'email; con *lien de paiement* l'offrant è **selezionato di default**, è lì che sta il bottone Payer).
+- **Telefoni**: select prefisso (riusa `src/lib/prefissi.ts` + `CLIENT.paese`, default BE +32) → salvati in formato internazionale (`separaPrefisso` riconosce i numeri già prefissati; lo 0 iniziale cade).
+- **Codice auto** = **5 iniziali del nome ristorante** (da Réglages → Général, fallback client.ts) + 2 blocchi random senza caratteri ambigui: « La Molisana » → `LAMOL-U65B-8JT5`.
+- **Pagamento**: Espèces/Carte → `paid=true` subito. **Lien de paiement** → `paid=false` + **Stripe Checkout** (`creaCheckoutBon` in stripe.ts, metadata `gift_card_id`, riga extra per i frais d'envoi) e bottone **« Payer maintenant »** nell'email all'offrant. Il **webhook Stripe** intercetta `metadata.gift_card_id` → `paid=true`. Se Stripe non è configurato: toast rosso con l'errore vero + fallback « Paiement en attente » nell'email (niente fallimenti silenziosi).
+- **Card**: codice · **valore restante/totale in grande arancione** (non più pillola) · righe « Pour X » / « De la part de Y » / « Expire le » / « Utilisé N fois » (conteggio dal ledger) · pastiglia rotonda in alto a destra **✓ verde = payé** / **⏸ grigia = en attente** (card attenuata e « Utiliser » nascosto finché non è pagata) · azioni: Utiliser · switch Actif · **matita** (edit) e **cestino** appaiati a destra, cancellazione **a 2 tap** (« Confirmer ? », 3s).
+- **Modifica** (matita): riapre il multi-step **precompilato** (valore→preset o Autre, scadenza, telefoni splittati col prefisso, spedizione…). Regole: la **valeur si cambia solo se il buono è intatto** (nessun riscatto → 409); il **metodo di pagamento solo se non pagato** (caso reale: « avevo mandato il link, ha pagato in cassa » → passi a Espèces e si attiva); codice modificabile con check di unicità. In edit compare **« ↻ Renvoyer le lien de paiement »** (solo se lien + non pagato): **crea una sessione Stripe NUOVA** (le vecchie scadono) e rispedisce subito l'email all'offrant.
+- **Riscatto**: « Utiliser » in sala (importo → scala `balance_cents` con **optimistic lock** su `.eq("balance_cents", letto)`, riga nel ledger `gift_card_redemptions` kind=manual). Uso ONLINE al checkout = **Step B, non ancora fatto** (colonne `gift_card_*` su orders già pronte).
+- **Email del buono** (`emailBonCadeau` in notifications.ts, template scuro): codice in riquadro tratteggiato oro + valore, messaggio in citazione firmato dall'offrant, scadenza, indirizzo/frais se spedizione. Al **destinataire** → bottone **« Télécharger le PDF »**; all'**offrant** → « Payer maintenant » (o « Paiement en attente »).
+- **PDF pubblico**: `src/pages/api/bon-pdf.ts` con **`pdf-lib`** (nuova dipendenza), A4, protetto dal `pay_token` (uuid) e **rifiutato se il buono non è pagato** (402). Font standard → helper `pulisci()` per i caratteri fuori WinAnsi.
+- **Migrazione #45** `gift_cards.sql`: `gift_cards` (code/code_norm, initial/balance_cents, active, expires_at, source admin|purchase, recipient_*, sender_*, message, ship_* + shipping_cents, payment_method, paid, paid_at, **pay_token**, buyer_email/stripe_session_id per la fase acquisto online) + `gift_card_redemptions` (ledger) + colonne `gift_card_*` su orders. Tutta idempotente: durante la sessione è stata **estesa 4 volte** e rilanciata senza danni.
+
+### ✉️ Prenotazioni — buchi email chiusi
+
+Quando è il CLIENTE ad agire dal suo link, il ristorante riceveva solo la push. Aggiunte due email (stesso indirizzo `reservation_notify_email`): **`emailNotificaAnnulloResa`** (tema rosso, « Annulée par le client ») nel DELETE e **`emailNotificaModificaResa`** (tema blu, coi dati aggiornati) nel PUT di `reservation.ts`. Ora il ristoratore è avvisato per email in tutti i casi: nuova (oro) · modifica (blu) · annullo (rosso).
+
+**Da fare sui buoni**: Step B (uso online al checkout) · acquisto del buono dal cliente sul sito (fase C, schema già pronto) · eventuale rinvio email del bon dalla card.
+
+## 📌 27/07/2026 — sessione Cowork
+
+Due migliorie alle PRENOTAZIONI, costruite e pushate nel motore.
+
+- **Allerta chiusura GIORNO (Jours spéciaux "Fermé")**: creando un giorno chiuso (Réglages → Horaire → Jours spéciaux), se ci sono prenotazioni confermate su quelle date si apre un modale **Garder / Annuler + prévenir**. "Annuler" → status `cancelled` + email "locale fermé" al cliente (9 lingue) + stop dell'email-recensione. File: nuova `emailChiusuraResa` + testi `ferm*` in `notifications.ts`; endpoint `/api/admin/special-days-impact` (GET impatto · POST annulla+email); modale in `settings.astro` (handler `spAddBtn`). Solo giorni `closed` (non `open`), solo prenotazioni `confirmed`.
+- **Gestione chiusura SEZIONE (Fermeture exceptionnelle)**: chiudendo una section per un giorno (modale Sections in Réservations, funzione `znSalva` con reason='closed'), se ci sono prenotazioni si apre un modale per gestirle una per una: **Déplacer** in un'altra section (auto-riassegnazione tavolo via `assegnaTavoli` se plan mode, altrimenti "à placer") · **Annuler + email** (riusa `emailChiusuraResa`) · **Recontacter** (flag `recontact`). Contatori di capienza per section, rossi in overflow ma **NON bloccanti** (caso pioggia: far entrare tutti). File: migrazione **#43** `reservations_recontact.sql` + colonna `recontact`, pillola accent "À recontacter" in lista; endpoint `/api/admin/zone-closure-impact` (GET impatto+capienza · POST move/cancel/recontact); `znGestisciImpatto` in `reservations.astro`. Filosofia: il sistema aiuta e avvisa, l'umano decide, mai annullo automatico.
+
+Note: l'email di chiusura parte solo se Resend è configurato (sul motore/dev è no-op loggato; invio vero sui clienti). La migrazione **#43** va lanciata sul Supabase di ogni cliente al momento del merge (additiva/idempotente).
+
+### 🔔 PUSH ADMIN — Fasi 1-3 COSTRUITE e in PRODUZIONE su La Molisana
+
+Il progetto «PUSH ADMIN» (sezione dedicata più sotto) è realizzato nel motore e già LIVE su La Molisana. Tre fasi:
+
+- **Fase 1 — infrastruttura + attivazione per-dispositivo** (commit `c13f599`): `src/lib/push.ts` (VAPID lazy da env `import.meta.env ?? process.env`; `inviaPush` invia a TUTTE le subscription, ripulisce le morte 404/410, ritorna `{sent,found,errors}`) · `api/admin/push.ts` (POST {subscription} upsert `onConflict:endpoint` · POST {test} · DELETE ?endpoint) · migrazione **#44** `push_subscriptions` · `public/sw.js` (+handler `push` e `notificationclick`, icona/badge `/icon-192.png`) · Réglages → Notifications: riga «Notifications sur cet appareil» con toggle + badge «Activée» + pulsante **Tester**. Chiave: `applicationServerKey` vuole `BufferSource` su ArrayBuffer → `b64ToU8(...) as BufferSource`.
+- **Fase 2 — trigger reali** (commit `315351d`): helper centralizzati in push.ts `inviaPushResa("new"|"demande"|"modif"|"annul")` e `inviaPushOrdine` (testi FR). Agganci `void` (non bloccanti): `reservation.ts` POST (nuova/demande) · PUT (modifica cliente) · DELETE (annullo cliente) · `stripe-webhook.ts` (commande payée). Tap → `/admin/reservations` o `/admin/orders`.
+- **Fase 3 — pallini "non visti" + badge PWA** (commit `17716c3`), **SENZA migrazione** (riusa il poller globale di AdminNav): pallino rosso col numero su **Comm.** e **Résa.** (span `.nav-badge`); conteggio dal server al load (`reservations?new_since` / `orders?recent_paid`); "già visto" per-dispositivo in localStorage (`mdd_resa_seen_at` a tempo, `mdd_cmd_seen_ids` per-ID perché un ordine nasce pending→paid); incremento live sugli eventi `moodd:new-resa`/`moodd:new-order` del poller; azzerato aprendo la sezione. `navigator.setAppBadge(tot)` per l'icona della **PWA installata**.
+
+**La Molisana LIVE**: merge del solo blocco push — dry-run con `git merge-tree` = **0 conflitti, 12 file toccati, nessun file vetrina** (La Molisana non aveva divergenze su quei file) → nessun checkout protettivo → `npm install` (web-push) → astro check 0 → push/deploy Hostinger. Migrazione **#44** sul suo Supabase; chiavi **VAPID nel pannello Hostinger**.
+
+**Decisione VAPID**: **una sola coppia condivisa MOODD** per tutti i clienti (non è legata a Supabase/Stripe, è l'identità push presso i browser); dove si riusa la stessa coppia, **stesso `VAPID_SUBJECT=mailto:admin@moodd.online`** (NON per-cliente). Privata mai in chat (Enzo la genera con `npx web-push generate-vapid-keys`).
+
+**Lezioni push**: Brave blocca FCM di default → errore «Registration failed - push service error» finché non attivi «Use Google services for push messaging» + riavvio. `setAppBadge` funziona SOLO dalla PWA installata, non in scheda browser (fallback = pallino in-app). Su Mac la notifica può non comparire come banner se il permesso di sistema per il browser è off / Non disturbare (guardare il Centro Notifiche). Merge di feature del **MOTORE** (non vetrina) = pulito, nessun merge selettivo; il pericolo del checkout protettivo resta solo quando il motore tocca file vetrina/brand.
+
+Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in Réglages super.
+
+## 📌 25/07/2026 — sessione Cowork
+
+- **La Molisana: merge al motore COMPLETATO.** Portata a `engine/main` a2b6611 (tema per cliente, eventi locali, Stripe pigro, #41-42). Merge SELETTIVO: dopo `merge engine/main` (conflitto solo su astro.config), `git checkout HEAD -- public/ src/config/ src/pages/{index,en/index,links}.astro src/layouts/Layout.astro astro.config.mjs` → il de-brand del template NON ha toccato il sito live (avrebbe cancellato foto/loghi e messo «coming soon»). Migrazioni #41-42 lanciate, tema scuro ri-pinnato in Réglages→Design, cron daily-brief+newsletter attivi. Ora ha remote `engine` e branch `backup-pre-merge`. È indietro di 1 commit (la #4 qui sotto). **Lezione: git NON avvisa per i file toccati solo dal motore → per i clienti serve il merge selettivo.**
+- **FEATURE #4 — Immagini sito pubblico → Asset admin: FATTA e pushata** (motore `54a2c71`). Il ristoratore cambia le foto del sito dall'admin. MECCANISMO generico nel motore: `src/lib/siteImages.ts` (legge `app_config` chiavi `site_*`, cache 60s) + `api/admin/site-images.ts` (GET/PUT) + tab **Assets → Site** (`assets.astro`, filtro per pagina, card identiche a Images, **upload diretto nel modale ImagePicker** via «+ Ajouter»). MAPPA per-cliente: `src/config/siteImageSlots.ts` (43 slot La Molisana su 5 pagine: Accueil 22, Ambiance 18, Menu/Contact/Commander). Le vetrina usano `siteImg(IMGS,"chiave",fallback)` → finché non carichi niente, nulla cambia. La mappa è per-cliente (in src/config/, protetta al merge).
+- **Obiettivi vicini (decisi oggi)**: 1) immagini→asset ✅ · 2) fondazione WhatsApp (Twilio: avvisi ristoratore + conferme cliente + campagne #6) — l'agente AI ordini #7 NON serve subito · 3) EN v2. Ordine: prima le feature nel motore, poi si (ri)costruiscono i clienti → nascono avanzati e gli update futuri sono merge puliti.
+- **EducazioneNapoletana (EN)**: analizzato. Fork troppo vecchio/divergente (niente client.ts/middleware/lib-admin; DB fatto a mano, 4 tabelle; LIVE con dati) → **NIENTE merge**. Piano: **EN v2 = rebuild da zero sul motore**, in parallelo, Supabase nuovo (#1-42), si re-inseriscono solo menu+orari (storico ordini → CSV archivio). Salvare: GA4, SEO, cookie consent. Lasciare: BizPrint (→ futura stampa termica nativa, obiettivo #3). Nota: EN sviluppato su 2 macchine (Mac Mini + MacBook) → `git pull` prima di lavorare, `git push` dopo.
+
+## 🔻 DA RIPRENDERE (priorità)
+
+- **Primo cliente vero con SETUP.md** («presto il nuovo cliente»): repo clone + Supabase nuovo (#1-42 in ordine, o file all-in-one) + bucket + env con CRON_SECRET nuovo + deploy + 2 job pg_cron + Général/permessi/tema.
+- **🔔 PUSH ADMIN — ✅ Fasi 1-3 FATTE (27/07), live su La Molisana.** Resta la **Fase 4**: composer messaggi MOODD ai ristoratori (Réglages super).
+- **🎁 BONS CADEAUX — Step B**: uso del buono ONLINE al checkout (scala il saldo, Stripe incassa il resto; colonne `gift_card_*` su orders già pronte). Poi **Step C**: acquisto del buono dal cliente sul sito pubblico.
+- **🤝 RESTOTEAM — modello deciso** (sezione dedicata): prima la piattaforma col suo sito/API, poi la pagina Recrutement nel motore.
+- **🍽️ SERVICE EN SALLE — spec approvate** (sezione dedicata) — `table_sessions` con `location_id` dal giorno uno.
+- **🏢 MULTI-SEDE — scenario studiato** (sezione dedicata): strada B subito quando serve, nativo dopo Service en salle.
+- **⬆️ ASTRO 7** su branch dedicato (compiler severo sui tag, `compressHTML: true` esplicito, Node ≥ 22.12).
+- **🏗️ Brand step 2**: restano sito pubblico ed email transazionali (admin header/favicon ✅ 24/07).
+- **🧹 REFACTOR**: datepicker `.dp-*` in 5 copie (menu, résa, settings, marketing, accueil/eventi) → componente condiviso.
+- **⚡ SSR fase 2**: Clients, Menu, Statistiques. · **PLAN fase 3**: mini-piantina, occupazione live, advisory lock. · 404 · tab Menus («bientôt») · lunch sul sito pubblico · istogramma tile Résa con En attente · **CLIENTS.md** (chi è a quale versione) · promemoria contratti in scadenza nel daily brief (meta #40 pronti) · stampante termica (analisi fatta: CloudPRNT/SDP, print_jobs, si aggancia ai round).
+
+## 🏗️ MODELLO MULTI-CLIENTE
+
+- **Fonte della verità = `MOODDVS/MOODD-Admin`** (privato), storia git CONDIVISA coi clienti (MAI «Use this template» di GitHub: storia sganciata = merge impossibili).
+- **Nuovo cliente = clone** (mai copia di cartella: si porterebbe .env/node_modules/remote sbagliati) + `remote set-url origin` sul suo repo + `remote add engine` verso il template → **stella**: ogni cliente indipendente che «chiama casa» con `git fetch engine && git merge engine/main` quando Enzo decide. La parentela git non è un legame attivo: permette a git di calcolare le differenze; ogni cliente la eredita dal clone.
+- **Aggiornare un cliente**: fetch+merge (conflitti rari, quasi solo client.ts → si tiene la versione cliente) → astro check → test → push → deploy → **lanciare le migrazioni mancanti** di MIGRATIONS.md. Taggare le versioni (`git tag v2.2`), mergiare tag precisi.
+- **Nel cliente si toccano SOLO**: `src/config/client.ts`, asset in `public/`, `site` in astro.config, testi legali/vetrina. Tutto il resto dall'admin (app_config).
+- **STRATO VETRINA (esempio La Molisana)** — regole in SETUP.md: nel template è **CONGELATO** (mai più toccarlo: una cancellazione si propagherebbe ai clienti col merge); nei repo cliente **cancellabile il giorno uno**. Vetrina = pages menu/ambiance/jobs/contact (+en), components Hero/Story/Molise/Features/PhotoStrip/CtaFinal, i18n. Motore pubblico da tenere: order*, reservation*, links, unsubscribe, privacy/cookies (struttura), Layout, Header/Footer/MobileNav/CookieBanner/ReservationModal/SitePopup.
+- **De-brand**: zero «Molisana/Migraf» nei file attivi (Layout da CLIENT, titoli, placeholder, /links, middleware). Residui solo nella vetrina congelata.
+- Super admin `admin@moodd.online` hardcoded → Enzo vede tutto su ogni installazione.
+- Docs nel repo: **SETUP.md** (checklist nuovo cliente + merge + regole vetrina) · ENGINE.md · supabase/**MIGRATIONS.md** (#1-42, tutte idempotenti).
+
+## 🧪 AMBIENTE DEV
+
+- **Supabase «MOODD-Admin»** (org MOODD-Resto, Frankfurt): SOLO sviluppo motore, mai dati veri. Auto-expose OFF; **niente integrazione GitHub↔Supabase** (migrazioni sempre manuali; un repo serve N database). #1-42 ✅ in un colpo con `moodd_admin_setup_all.sql` (possibile perché idempotenti); 4 bucket (menu/popups/documents/brand); utente `admin@moodd.online` (password dedicata). Piano free: si pausa dopo 1 settimana, si riattiva con un click.
+- `.env` dev: Supabase dev, Stripe/Resend VUOTI (il motore parte lo stesso: Stripe pigro), `PUBLIC_SITE_URL=http://localhost:4322`, CRON_SECRET fittizio.
+- Dev server: `npm run dev -- --port 4322` (4321 = La Molisana). Riavvio per lib/API/.env/middleware; rebuild per astro.config; 504 → `rm -rf node_modules/.vite`.
+
+## 🎨 TEMA PER-CLIENTE (Réglages → Design) — 24/07
+
+- **8 colori** (accent, hover, fond, cartes, champs/off, lignes, texte secondaire, texte principal) + **effet verre** (switch, default OPACO; `glass:"on"` → trasparenze+blur via `html.glass`; lo stato attivo accent vince con `:not(.active)`) + **ombres** (slider 0-100%, default 15%: tutte le ombre nere → `calc(A * var(--sh, 0.15))`; veli dei modali esclusi). Semantici (verde ok, rossi) FISSI. Anteprima live, salvataggio auto (debounce 500ms), «Revenir aux couleurs MOODD». Réglages a 2 colonne full-width sopra 1080px (Permessi | Design).
+- **Storage**: `app_config.admin_theme` JSON — per-cliente, via `/api/admin/pages` (GET a tutti, PUT solo super). Assente/parziale = default.
+- **Anti-flash**: AdminNav inline legge cache `mdd_theme` e setta `--c-*` inline su `<html>` (vince sui `:root`) PRIMA del paint + meta theme-color + classe glass + `--sh`; il fetch aggiorna. Login: solo cache (pre-auth). Super: fetch dedicato in background.
+- **DEFAULT = brand MOODD**: accent `#ff7300` · hover `#e04f00` · fond/cartes `#ffffff` · champs `#e6e6e6` · lignes `#ebebeb` · secondaire `#a6a6a6` · principal `#666666` · verre opaco · ombre 15%. In TEMA_DEFAULT (superAdmin.ts) + `:root` delle 11 pagine + fallback JS + manifest.
+- **Favicon brand nell'header**: `brand_favicon` (Admin → Général) sostituisce logo header (`#ah-logo`, `data-default`) e favicon del tab, ovunque + login; cache `mdd_logo`; API pages GET → `logo`.
+- **Icone default del template**: chevron MOODD ricostruito in vettoriale (poligoni, `#ef7622`+`#3f3e42`) → favicon.svg, favicon.ico 16/32/48, icon-192/512 (quadrato bianco arrotondato), apple-touch-180; manifest bianco.
+
+## 🔔 PROGETTO — PUSH ADMIN (PWA) — ✅ FASI 1-3 FATTE 27/07 (live su La Molisana) · resta Fase 4
+
+**Solo lato RISTORATORE e MOODD. Niente push web ai clienti finali (scelta deliberata)** — per loro: WhatsApp via Twilio col numero del ristorante (roadmap).
+- Canale: PWA admin installata (iPhone: Safari → Condividi → Aggiungi a Home, iOS ≥ 16.4; Android nativo). Niente App Store (nativa/Capacitor scartate: doppia manutenzione / rischio rifiuto).
+- Trigger: nuova prenotazione dal sito · nuovo ordine dal sito · annullo/modifica del cliente. Tap → pagina giusta.
+- **Messaggi MOODD**: composer in Réglages (super) per upgrade/manutenzioni/novità ai ristoratori.
+- **Badge** col contatore sull'icona (Badging API, `setAppBadge`) = non visti; azzerato alla visualizzazione.
+- Tecnica: service worker + VAPID per installazione + tabella `push_subscriptions` (migrazione nuova) + endpoint subscribe/send + lib invio. Test iOS = parte delicata.
+- **✅ STATO (27/07)**: Fasi 1-3 realizzate e LIVE su La Molisana (dettaglio nell'entry 27/07, commit `c13f599`/`315351d`/`17716c3`, migrazione #44). Resta solo la **Fase 4** (composer messaggi MOODD ai ristoratori).
+
+## 🤝 PROGETTO — RESTOTEAM (annunci HORECA + candidature) — modello deciso 24/07
+
+- **RestoTeam = HUB con il SUO Supabase** (piattaforma di Enzo, sito in creazione). **MAI condividere il DB** con le installazioni admin (credenziali sparse = rischio; schemi incatenati).
+- **Integrazione via API con chiave PER-RISTORANTE**: endpoint tipo `POST /api/offers`, `GET /api/offers/mie`, `GET /api/applications?offer=…`; la chiave identifica il ristorante → ognuno vede solo il suo.
+- **Nel motore: pagina «Recrutement»** — pubblica annunci e mostra candidature senza uscire dall'admin.
+- **Team → RestoTeam SOLO SU INVITO (GDPR)**: bottone «Inviter sur RestoTeam» → email → è la persona che crea/reclama il profilo. Mai copiare dati dei dipendenti d'ufficio.
+- **Flusso inverso**: candidato assunto → un click → membro Team precompilato dal profilo RestoTeam.
+- **Ordine**: 1) RestoTeam sito + API machine-first; 2) Recrutement nel motore (integrazione sottile).
+
+## 🏢 MULTI-SEDE (più punti, sito unico) — scenario studiato 24/07
+
+- **A — nativo (futuro, dopo Service en salle)**: un Supabase, `location_id` ovunque, selettore sede nell'header, permessi per sede, UN CRM/newsletter. Refactor profondo (settimane).
+- **B — N motori + sito vetrina (CONSIGLIATA per il primo caso)**: un'installazione per punto su sottodomini; la vetrina fa scegliere il punto (widget embeddabile). Zero modifiche = N× SETUP.md. Contro: CRM/stats separati, login multipli (mitigabile: stesso utente nei N Supabase).
+- **Percorso**: B subito → migrazione ad A (import taggando location_id). **Disciplina**: ogni tabella nuova si disegna chiedendosi «del ristorante o della sede?».
+
+## 📋 PROGETTO — Service en salle (V1 cameriere + V2 QR cliente) — spec approvate 23/07
+
+**SESSIONE TAVOLO** (`table_sessions`, con `location_id` dal giorno uno); i round si mischiano sulla stessa card.
+- **V1**: PIN in Réglages → Team → `/service` (token scope service, NON login admin; cambio-cameriere rapido) · tavolo dalla griglia del plan · articoli → card TABLE in Commandes · round con orario · «Demander l'addition» → Terminée·Non payée (bordeaux) → «Encaissé» → Payée. Annullo articolo ~2 min poi solo admin; tavolo extra a testo libero; note per articolo.
+- **V2**: QR generico → tavolo + PIN GENERATO (privacy) → menu → dati+GDPR+Stripe a ogni round (`source:"qr"` → CRM) → card già pagata → auto-FATTO 1h dall'ultimo round · switch in Réglages.
+- Dati: `team.pin` · `table_sessions` (table_name, zone, covers, waiter, client_pin, reservation_id→spent_cents, status, orari, total) · round su orders. `/api/staff/login {pin}` · tab «Tables» · print_jobs per round. V3+: conto aperto, divisione, mance, fire.
+
+## ⚙️ IL MOTORE — funzionalità (stato al 24/07)
+
+- **Pagine admin**: Accueil (tile masonry, note taggate, daily brief, **eventi locali** ✅) · Commandes (+ manuali con link di pagamento, rimborsi) · Réservations (motore V1, plan de salle 2 fasi, viste Jour/Semaine/Mois, pallino occupazione, Demandes, chiusure anche permanenti) · Clients (CRM v2, blocco, foto) · Menu (Plats/Boissons/Lunch ✅/Menus ⬜, permessi per tab, FAB contestuali) · Statistiques · Marketing (pop-up, **Newsletter 2.0**: segmenti lingua×gruppo, programmate/ricorrenti #39, brouillons, 2 bottoni, card con rilancio; coupons; **Bons cadeaux** ✅ 28/07) · Assets · **Admin** (8 tab: Général, Horaire, Réservations, Cuisine, Liens, Team, **Documents+disdetta** #40, Notifications) · **Réglages** (permessi pagine+tab, **Design**).
+- **Eventi locali** (Accueil): + sulla tile Jours spéciaux → modale (nom, datepicker, «chaque année», elimina 2 tap); mescolati alle feste belghe, nome in accent, tag Ouvert/Fermé; `app_config.custom_events` via `/api/admin/events` (niente migrazione).
+- **Stripe PIGRO** via Proxy: il motore parte senza chiave; errore solo all'uso reale. Chiavi cliente per-cliente (webhook legata ad account+endpoint, MAI riusabile); `MOODD_STRIPE_SECRET_KEY` unica (crediti newsletter, meglio test-mode nel dev).
+- **Email**: Resend v6 (`replyTo`), batch 100; template = documento HTML completo con body bgcolor; immagini con URL pubblici; lettera résiliation bianca serif.
+- **Auth**: JWT ES256 + SSR cookie; super admin hardcoded; permessi per pagina E tab con anti-flash.
+- **Middleware**: method-override (WAF Hostinger blocca DELETE mobili) + 301 www. `checkOrigin: false` (Bearer = sicuro).
+- **PWA**: manifest standalone, installabile (iPhone: Aggiungi a Home) — push in progetto.
+
+## 🗃️ SCHEMA DB (migrazioni #1-48, tutte idempotenti)
+
+`menu_items` · `settings` · `orders` (+source, cancel_token, refund #41) · `app_config` (timezone, admin_pages/tabs_hidden, **admin_theme**, **custom_events**, home_layout, daily_brief_*, restaurant_name, company_*, brand_*, reservation_*, closures_permanent, link_*) · `special_days` (+services #33) · `admin_notes` (+tags #34) · `restaurant_tables` (#36) · `lunch_menus` (#38) · `newsletter_schedule` (#39) · `admin_docs_meta` (#40) · `newsletter_log/optout/credits` · `menu_categories` (+kind) · `coupons` · `team` · `clients` (+hidden/photo/blocked) · `popups` · `reservations` (source, review, options, seated, table_time, spent, tables #37, client_action_at #42, recontact #43) · `service_closures` · `zone_closures` · **`push_subscriptions`** (#44) · **`gift_cards`** + **`gift_card_redemptions`** (#45: buoni regalo, saldo scalabile, pay_token, ship_*, payment_method/paid; colonne `gift_card_*` su orders). **`gift_card_orders`** (#46: acquisto buoni fisici da MOODD). **`page_views`** + RPC `traffic_sources` (#47: analytics interno cookieless, sources de trafic). `reservations.reminder_sent_at` (#48: rappel cliente 3h prima). RLS ovunque; GRANT in ogni migrazione (auto-expose OFF). pg_cron per cliente: `daily-brief-hourly` + `newsletter-hourly` + `resa-reminders-30min` (x-cron-key). Future: team.pin, table_sessions (+location_id).
+
+## 🎨 Design system
+
+**Default MOODD**: sopra. **Semantici fissi**: ok `#2e9e6b` · blu `#3b82f6` · err `#ff8a8f` · bordeaux `#d24d55` · rosso `#ed1c24` · mattone `#a3320f`. Font: Bebas Neue (icone -1.5px) + Nunito Sans. Convenzioni UI: bin conferma 2 tap · elementi off scuri/soft · FAB shrink · filtri a pillole accent coi contatori · card non righe · datepicker brand (z 420 negli overlay).
+
+## ⚠️ Lezioni tecniche
+
+- GRANT ogni tabella. Mai `.remove()` prima dei binding. Anti-flash = cache sincrona + CSS pre-paint.
+- **Env valutate all'import**: un throw a livello modulo per una chiave OPZIONALE uccide il motore all'avvio → lazy (Proxy/guard); obbligatoria solo Supabase.
+- **File .sql nel repo ≠ indicizzati**: la riga in MIGRATIONS.md fa parte della migrazione (caso #41-42).
+- **Conversioni CSS di massa**: `box-shadow` multi-riga sfuggono alle regex per-riga; l'ordine delle replace conta (il testo nuovo può contenere l'ancora → assert prima); i fallback JS (meta theme-color) NON si convertono in var(); gli **attributi SVG non supportano var()** → passare da `style=`.
+- **Tema chiaro su motore nato scuro**: serviva il token texte principal; i bianchi su sfondi SEMANTICI restano fissi; le tinte di sfondo del vetro non scalano con lo slider ombre.
+- Secret in 2 posti si disallinea (job «succeeded» ma 401) → rotazione. checkOrigin ≠ WAF (rebuild per astro.config).
+- Storage senza metadati → tabella sidecar path-keyed best-effort. Log estesi = insert ricco + retry basico, retrocompatibili.
+- Ancore python: substring/indentazioni → includere la riga precedente; marker univoci; assert fallito = niente scritto.
+- **Stripe pigro = errori silenziosi**: senza `STRIPE_SECRET_KEY` (dev) la creazione di un lien de paiement fallisce e l'email parte senza bottone → far sempre RISALIRE l'errore all'UI (toast) invece del solo `console.error`. Stesso ragionamento per Resend.
+- **pdf-lib**: font standard = solo WinAnsi → ripulire il testo (apostrofi tipografici, trattini lunghi, NBSP) prima di `drawText`, altrimenti lancia.
+- **Saldi**: scalare con optimistic lock (`.eq("balance_cents", valoreLetto)`) + ledger a parte; il saldo è una cache, la verità sono le righe dei riscatti.
+- **Migrazione viva**: durante una sessione lo schema può crescere più volte — tenere il file idempotente (`add column if not exists`) e ridare a Enzo l'SQL COMPLETO ogni volta, invece di frammenti.
+- Datepicker: z-index 420 sopra gli overlay (300). Fix «fatti» verificati col grep nel repo. Fuso device ≠ ristorante.
+- `<style is:global>`; ES256 ieee-p1363; SSR cookie con `<` escapato; narrowing TS; live binding ESM.
+
+## 🔧 Metodo di lavoro (Cowork + Enzo)
+
+- **MAI secret/chiavi in chat** (se succede → rotazione immediata). Git SOLO dal terminale di Enzo (Mac o Cursor, è lo stesso), comandi senza `cd`: generico `git -C <repo> add -A && git -C <repo> commit -m "..." && git -C <repo> push`. `npx astro check` SOLO dal Mac (VM = binari macOS → Exec format error).
+- Cowork: device_bash sul mount `/sessions/<id>/mnt/MOODD-Admin`; stage/commit files coi path REALI `/Users/moodd/Developer/...`; niente DELETE sul device (`mv` in `_to_delete/`, svuota Enzo). Bridge: 502 → aspettare; uno stage può perdere un file (ricontare, ristagliare); staged stantia → `rm` prima di ristagliare.
+- Patch: python heredoc con ancore esatte + `assert count==1` (fallito = nulla scritto). File nuovi: `cat > file <<'EOF'` via device_bash, o Write→SendUserFile→device_commit_files. Verifica sintassi: stage fresco → estrazione `<script>` → esbuild nel container.
+- Enzo: non-expert dev, rispondere in ITALIANO, comandi passo-passo espliciti. Conferma prima di toccare file. Admin UI in FRANCESE.
+- Diario aggiornato a ogni sessione; push a fine giro; migrazioni le lancia Enzo dal SQL Editor.
+
+## Infrastruttura
+
+- **GitHub**: `MOODDVS/MOODD-Admin` (template) · repo per cliente. Mac: `/Users/moodd/Developer/MOODD-Admin` (in Cowork).
+- **Supabase dev**: progetto «MOODD-Admin» (Frankfurt). · **Hosting clienti**: Hostinger Node ≥ 22 (WAF: override; checkOrigin false già nel motore).
+- Clienti attuali: **La Molisana** (LIVE — 27/07 allineata col blocco PUSH: merge pulito 0 conflitti, migrazione **#44** lanciata, chiavi **VAPID** su Hostinger, notifiche push attive. In precedenza già a `engine/main` 5dab4a9 con #41-43, tema scuro pinnato, cron ok). · **EducazioneNapoletana** (LIVE su admin vecchio → da ricostruire come EN v2 sul motore, vedi 25/07).
