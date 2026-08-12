@@ -1,6 +1,6 @@
-# MOODD Admin — engine multi-cliente
+# RestoHub — engine multi-cliente
 
-L'admin di questo repo (`/admin`) è **MOODD Admin**, il pannello multi-cliente
+L'admin di questo repo (`/admin`) è **RestoHub**, il pannello multi-cliente
 di MOODD per i siti ristorante. Il sito pubblico è per-cliente; l'admin è
 il motore riutilizzabile. **Nessun brand è hardcodato nel motore**: tutto
 passa da `src/config/client.ts` e da Réglages → Général (app_config).

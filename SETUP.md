@@ -1,4 +1,4 @@
-# MOODD Admin — Setup nuovo cliente
+# RestoHub — Setup nuovo cliente
 
 Questo repo è il **TEMPLATE del motore** (fonte della verità). Ogni cliente è un
 repo separato, creato da questo **conservando la storia git** — è ciò che rende

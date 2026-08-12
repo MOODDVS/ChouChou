@@ -1,4 +1,4 @@
-# MOODD Admin — Template
+# RestoHub — Template
 
 Motore admin per ristoranti (Astro SSR + Supabase + Stripe + Resend):
 commandes, réservations con plan de salle, clients CRM, menu + lunch,
