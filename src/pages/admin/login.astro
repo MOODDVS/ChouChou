@@ -3,9 +3,13 @@
 // Standalone: NON usa Layout.astro (niente header/footer/nav del sito pubblico).
 // La logica di autenticazione gira nel browser tramite supabaseBrowser.
 import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -127,16 +131,16 @@ import { CLIENT } from "../../config/client";
   <body>
     <div class="box">
       <img class="logo" src={CLIENT.logoLogin} alt={CLIENT.nome} />
-      <h1>Espace Staff</h1>
-      <p class="subtitle">{CLIENT.nome + " — Administration"}</p>
+      <h1>{t("login.title")}</h1>
+      <p class="subtitle">{CLIENT.nome + " — " + t("login.admin")}</p>
 
       <div class="error" id="error"></div>
 
       <form id="login-form">
-        <label for="email">Email</label>
+        <label for="email">{t("login.email")}</label>
         <input type="email" id="email" name="email" autocomplete="username" required />
 
-        <label for="password">Mot de passe</label>
+        <label for="password">{t("login.password")}</label>
         <input
           type="password"
           id="password"
@@ -145,7 +149,7 @@ import { CLIENT } from "../../config/client";
           required
         />
 
-        <button type="submit" id="submit-btn">Se connecter</button>
+        <button type="submit" id="submit-btn">{t("login.submit")}</button>
       </form>
     </div>
 
@@ -181,6 +185,8 @@ import { CLIENT } from "../../config/client";
     </script>
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+      const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
 
       // Registra il service worker anche dal login: è la prima pagina
       // che si visita da un dispositivo nuovo, e senza service worker
@@ -206,7 +212,7 @@ import { CLIENT } from "../../config/client";
         e.preventDefault();
         errorEl.textContent = "";
         btn.disabled = true;
-        btn.textContent = "Connexion...";
+        btn.textContent = tr("login.connecting");
 
         const email = (document.getElementById("email") as HTMLInputElement).value.trim();
         const password = (document.getElementById("password") as HTMLInputElement).value;
@@ -217,9 +223,9 @@ import { CLIENT } from "../../config/client";
         });
 
         if (error) {
-          errorEl.textContent = "Email ou mot de passe incorrect.";
+          errorEl.textContent = tr("login.error");
           btn.disabled = false;
-          btn.textContent = "Se connecter";
+          btn.textContent = tr("login.submit");
           return;
         }
 

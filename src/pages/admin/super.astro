@@ -7,13 +7,39 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT, LINGUE_ADMIN } from "../../i18n/admin";
+import { PAGINE_ADMIN, TABS_ADMIN } from "../../lib/admin/superAdmin";
+const lang = await adminLang();
+const t = adminT(lang);
+// Testi usati dallo script client (renderizzati via JS), passati in pagina come JSON.
+const supI18n = {
+  temaLabels: {
+    accent: t("tema.accent"), hover: t("tema.hover"), bg: t("tema.bg"),
+    header: t("tema.header"), card: t("tema.card"), input: t("tema.input"),
+    line: t("tema.line"), muted: t("tema.muted"), text: t("tema.text"),
+  } as Record<string, string>,
+  glassTitle: t("tema.glass.title"),
+  glassOn: t("tema.glass.on"),
+  glassOff: t("tema.glass.off"),
+  shadowTitle: t("tema.shadow.title"),
+  visible: t("sup.visible"),
+  hidden: t("sup.hidden"),
+  loadError: t("sup.load.error"),
+  pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
+  tabLabels: Object.fromEntries(
+    Object.entries(TABS_ADMIN).flatMap(([pk, tabs]) =>
+      tabs.map((tb) => [pk + ":" + tb.key, t("tab." + pk + "." + tb.key)])
+    )
+  ) as Record<string, string>,
+};
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Réglages — " + CLIENT.nome}</title>
+    <title>{t("sup.title") + " — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -45,7 +71,7 @@ import { CLIENT } from "../../config/client";
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
       main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; margin: 0 auto; }
-      .pane[data-pane="reglages"] .sub { max-width: 780px; }
+      .pane[data-pane="reglages"] .sub { max-width: none; }
 
       /* Barre d'onglets (même style que la page Admin) */
       .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin: 1.2rem 0 1.6rem; border-bottom: 1px solid var(--c-line); }
@@ -312,6 +338,22 @@ import { CLIENT } from "../../config/client";
         transition: color 0.15s, border-color 0.15s;
       }
       .tema-reset:hover { color: var(--c-text); border-color: var(--c-accent); }
+      /* Selettore lingua dell'admin */
+      .lang-box { margin-bottom: 2.2rem; }
+      .lang-sel {
+        margin-top: 0.9rem;
+        width: 100%;
+        max-width: 320px;
+        padding: 0.6rem 0.8rem;
+        font-family: var(--font-body);
+        font-size: 0.95rem;
+        color: var(--c-text);
+        background: var(--c-card);
+        border: 1px solid var(--c-line);
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .lang-sel:focus { outline: none; border-color: var(--c-accent); }
 
       .toast {
         position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
@@ -330,29 +372,37 @@ import { CLIENT } from "../../config/client";
   </head>
   <body>
     <div id="app">
+      <script type="application/json" id="sup-i18n" set:html={JSON.stringify(supI18n)}></script>
       <AdminHeader />
       <main>
-        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>Réglages</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>{t("sup.title")}</h1>
         <div class="tabs" id="sup-tabs">
-          <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>Design</button>
-          <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Users</button>
-          <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Réglages</button>
-          <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>Integrations</button>
+          <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>{t("sup.tab.design")}</button>
+          <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("sup.tab.users")}</button>
+          <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("sup.tab.reglages")}</button>
+          <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("sup.tab.integrations")}</button>
         </div>
 
         <section class="pane" data-pane="design">
           <div class="design-cols">
             <div>
-              <p class="sub">
-                L'admin prend les couleurs du client. Les couleurs « signal »
-                (vert = succès, rouge = erreur) ne changent pas.
-              </p>
+              <div class="lang-box">
+                <p class="tema-titre" style="margin-top:0">{t("sup.lang.title")}</p>
+                <p class="sub">{t("sup.lang.hint")}</p>
+                <select id="admin-lang-sel" class="lang-sel" aria-label={t("sup.lang.title")}>
+                  {LINGUE_ADMIN.map((l) => (
+                    <option value={l.code} selected={l.code === lang}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
+              <p class="tema-titre">{t("sup.tema.title")}</p>
+              <p class="sub">{t("sup.design.intro")}</p>
               <div class="tema-rows" id="tema-rows" style="display:none"></div>
-              <button class="tema-reset" id="tema-reset" style="display:none">Revenir aux couleurs MOODD</button>
+              <button class="tema-reset" id="tema-reset" style="display:none">{t("sup.tema.reset")}</button>
             </div>
 
             <div class="prev-wrap">
-              <p class="prev-lab">Aperçu</p>
+              <p class="prev-lab">{t("sup.preview")}</p>
               <div class="prev" aria-hidden="true">
                 <div class="prev-top">
                   <span class="prev-logo"></span>
@@ -360,17 +410,17 @@ import { CLIENT } from "../../config/client";
                   <span class="prev-mail">client@resto.be</span>
                 </div>
                 <div class="prev-body">
-                  <div class="prev-tile"><div class="k">Commandes</div><div class="v acc">12</div></div>
-                  <div class="prev-tile"><div class="k">Réservations</div><div class="v">28</div></div>
+                  <div class="prev-tile"><div class="k">{t("prev.orders")}</div><div class="v acc">12</div></div>
+                  <div class="prev-tile"><div class="k">{t("prev.reservations")}</div><div class="v">28</div></div>
                   <div class="prev-tile wide">
-                    <div class="k">Chiffre du jour</div>
+                    <div class="k">{t("prev.revenue")}</div>
                     <div class="v acc">1 240,00 €</div>
                     <div class="prev-line"></div>
                     <div class="prev-line s"></div>
                     <div class="prev-line a"></div>
                     <div class="prev-actions">
-                      <span class="prev-btn">Enregistrer</span>
-                      <span class="prev-btn ghost">Annuler</span>
+                      <span class="prev-btn">{t("prev.save")}</span>
+                      <span class="prev-btn ghost">{t("prev.cancel")}</span>
                     </div>
                   </div>
                 </div>
@@ -383,103 +433,84 @@ import { CLIENT } from "../../config/client";
         </section>
 
         <section class="pane" data-pane="reglages" hidden>
-          <p class="sub">
-            Choisis les pages visibles pour les autres utilisateurs de l'admin.
-            Une page désactivée disparaît de la barre de navigation et son accès
-            direct est bloqué. Toi, tu vois toujours tout.
-          </p>
-          <div class="state" id="state">Chargement…</div>
+          <p class="sub">{t("sup.reglages.intro")}</p>
+          <div class="state" id="state">{t("sup.loading")}</div>
           <div class="rows" id="rows" style="display:none"></div>
-          <p class="note">
-            L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion.
-            Les modifications sont immédiates pour tous les utilisateurs.
-          </p>
+          <p class="note">{t("sup.reglages.note")}</p>
         </section>
 
         <section class="pane" data-pane="integrations" hidden>
-          <p class="sub">
-            Services externes branchés sur le site du client. Réservé à MOODD :
-            le code collé ici s'exécute sur le site public.
-          </p>
+          <p class="sub">{t("itg.intro")}</p>
 
           <div class="itg-card">
             <div class="itg-head">
               <div>
-                <h3 class="itg-titre">Réservations</h3>
-                <p class="note" style="margin:0.2rem 0 0">Qui gère les réservations sur le site du client.</p>
+                <h3 class="itg-titre">{t("nav.reservations")}</h3>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.resa.who")}</p>
               </div>
               <span class="itg-state" id="itg-state">—</span>
             </div>
 
             <div class="us-roles" id="itg-modes" style="margin-top:1.2rem">
               <button type="button" class="us-role is-on" data-mode="moodd">MOODD</button>
-              <button type="button" class="us-role" data-mode="link">Lien externe</button>
-              <button type="button" class="us-role" data-mode="embed">Widget externe</button>
-              <button type="button" class="us-role" data-mode="none">Aucune</button>
+              <button type="button" class="us-role" data-mode="link">{t("itg.mode.link")}</button>
+              <button type="button" class="us-role" data-mode="embed">{t("itg.mode.embed")}</button>
+              <button type="button" class="us-role" data-mode="none">{t("itg.mode.none")}</button>
             </div>
             <p class="note" id="itg-hint" style="margin-top:0.5rem"></p>
 
             <div id="itg-fields" style="display:none">
-              <label class="us-lab" for="itg-provider">Fournisseur</label>
+              <label class="us-lab" for="itg-provider">{t("itg.provider")}</label>
               <input type="text" id="itg-provider" placeholder="Zenchef, TheFork, Barestho…" autocomplete="off" />
 
               <div id="itg-url-box" style="display:none">
-                <label class="us-lab" for="itg-url">Lien de réservation</label>
+                <label class="us-lab" for="itg-url">{t("itg.resa.urlLabel")}</label>
                 <input type="url" id="itg-url" placeholder="https://…" autocomplete="off" />
               </div>
 
               <div id="itg-embed-box" style="display:none">
-                <label class="us-lab" for="itg-embed">Code du widget</label>
+                <label class="us-lab" for="itg-embed">{t("itg.embed.label")}</label>
                 <textarea id="itg-embed" rows="7" placeholder="&lt;script src=&quot;…&quot;&gt;&lt;/script&gt;"></textarea>
-                <p class="note" style="margin-top:0.4rem">
-                  Collé tel quel dans le site public. À charger seulement après acceptation des cookies.
-                </p>
+                <p class="note" style="margin-top:0.4rem">{t("itg.embed.note")}</p>
               </div>
             </div>
 
             <div class="us-foot">
-              <button type="button" id="itg-save" class="us-add">Enregistrer</button>
+              <button type="button" id="itg-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="itg-err"></span>
             </div>
 
-            <p class="note" style="margin-top:1.4rem">
-              Avec un service externe, les réservations n'arrivent plus dans MOODD :
-              page Réservations, plan de salle, statistiques et emails de confirmation
-              sont alors gérés par le fournisseur.
-            </p>
+            <p class="note" style="margin-top:1.4rem">{t("itg.resa.warn")}</p>
           </div>
 
           <div class="itg-card" style="margin-top:1rem">
             <div class="itg-head">
               <div>
                 <h3 class="itg-titre">Google Business</h3>
-                <p class="note" style="margin:0.2rem 0 0">Avis, note et — plus tard — horaires synchronisés.</p>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.g.who")}</p>
               </div>
-              <span class="itg-state" id="g-state">Non connecté</span>
+              <span class="itg-state" id="g-state">{t("itg.g.off")}</span>
             </div>
 
-            <p class="itg-niv">Niveau 1 · lecture seule</p>
-            <label class="us-lab" for="g-place">Place ID de l'établissement</label>
+            <p class="itg-niv">{t("itg.g.lvl1")}</p>
+            <label class="us-lab" for="g-place">{t("itg.g.placeLabel")}</label>
             <div class="us-frow us-frow-pass">
               <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
-              <button type="button" id="g-test" class="us-ghost">Vérifier</button>
+              <button type="button" id="g-test" class="us-ghost">{t("common.verify")}</button>
             </div>
-            <p class="note" id="g-res" style="margin-top:0.5rem">
-              Trouve le Place ID sur <strong>Google Maps</strong> (fiche de l'établissement) ou via le
-              « Place ID Finder » de Google. Permet d'afficher la note et les avis.
-            </p>
+            <p class="note" id="g-res" style="margin-top:0.5rem">{t("itg.g.placeNote")}</p>
 
-            <p class="itg-niv">Niveau 2 · répondre aux avis, synchroniser les horaires</p>
+            <p class="itg-niv">{t("itg.g.lvl2")}</p>
             <div class="us-frow us-frow-pass">
               <span>
-                <button type="button" id="g-connect" class="us-add" disabled>Connecter Google</button>
-                <button type="button" id="g-disconnect" class="us-ghost" style="display:none;margin-left:0.5rem">Déconnecter</button>
+                <button type="button" id="g-connect" class="us-add" disabled>{t("itg.g.connect")}</button>
+                <button type="button" id="g-disconnect" class="us-ghost" style="display:none;margin-left:0.5rem">{t("itg.g.disconnect")}</button>
               </span>
-              <span class="note" id="g-oauth-note">En attente de l'accès API Google (demande envoyée).</span>
+              <span class="note" id="g-oauth-note">{t("itg.g.pending")}</span>
             </div>
 
             <div class="us-foot">
-              <button type="button" id="g-save" class="us-add">Enregistrer</button>
+              <button type="button" id="g-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="g-err"></span>
             </div>
           </div>
@@ -488,45 +519,35 @@ import { CLIENT } from "../../config/client";
             <div class="itg-head">
               <div>
                 <h3 class="itg-titre">Search Console</h3>
-                <p class="note" style="margin:0.2rem 0 0">Visibilité sur Google : clics, impressions et mots-clés qui mènent au site.</p>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.sc.who")}</p>
               </div>
-              <span class="itg-state" id="sc-state">Non configuré</span>
+              <span class="itg-state" id="sc-state">{t("itg.sc.off")}</span>
             </div>
 
-            <p class="itg-niv" id="sc-robot-wrap" style="display:none">
-              1. Ajoute ce compte comme utilisateur dans la Search Console du client
-              (Réglages → Utilisateurs et autorisations → Ajouter, autorisation « Complète » ou « Restreinte ») :
-            </p>
+            <p class="itg-niv" id="sc-robot-wrap" style="display:none">{t("itg.sc.step1")}</p>
             <div class="us-frow us-frow-pass" id="sc-robot-row" style="display:none">
               <input type="text" id="sc-robot" readonly autocomplete="off" />
-              <button type="button" id="sc-copy" class="us-ghost">Copier</button>
+              <button type="button" id="sc-copy" class="us-ghost">{t("common.copy")}</button>
             </div>
 
-            <label class="us-lab" for="sc-site" style="margin-top:1rem">2. Propriété Search Console du client</label>
+            <label class="us-lab" for="sc-site" style="margin-top:1rem">{t("itg.sc.step2")}</label>
             <div class="us-frow us-frow-pass">
               <input type="text" id="sc-site" placeholder="sc-domain:exemple.be" autocomplete="off" />
-              <button type="button" id="sc-test" class="us-ghost">Vérifier</button>
+              <button type="button" id="sc-test" class="us-ghost">{t("common.verify")}</button>
             </div>
-            <p class="note" id="sc-res" style="margin-top:0.5rem">
-              Propriété <strong>domaine</strong> : <code>sc-domain:exemple.be</code>.
-              Propriété <strong>préfixe d'URL</strong> : l'adresse complète, ex. <code>https://www.exemple.be/</code>.
-            </p>
+            <p class="note" id="sc-res" style="margin-top:0.5rem">{t("itg.sc.note")}</p>
 
             <div class="us-foot">
-              <button type="button" id="sc-save" class="us-add">Enregistrer</button>
+              <button type="button" id="sc-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="sc-err"></span>
             </div>
           </div>
         </section>
 
         <section class="pane" data-pane="users" hidden>
-          <p class="sub">
-            Les accès à l'admin de cette installation. Ils se connectent sur
-            <strong>/admin/login</strong> avec leur email et leur mot de passe.
-            Rien à voir avec l'onglet « Team » de la page Admin, qui liste le personnel du restaurant.
-          </p>
+          <p class="sub">{t("us.intro")}</p>
 
-          <button type="button" id="us-open" class="us-add">Créer un utilisateur</button>
+          <button type="button" id="us-open" class="us-add">{t("us.create")}</button>
           <p class="note" id="us-msg" style="margin-top:0.6rem"></p>
 
           <div class="us-list" id="us-list"></div>
@@ -538,40 +559,40 @@ import { CLIENT } from "../../config/client";
     <!-- Modale : créer un utilisateur -->
     <div class="us-overlay" id="us-overlay">
       <div class="us-modal">
-        <button type="button" class="us-close" id="us-close" aria-label="Fermer">×</button>
-        <h2 class="us-titre" id="us-titre">Nouvel utilisateur</h2>
-        <p class="note" id="us-hint" style="margin:0 0 1.2rem">Il pourra se connecter sur /admin/login avec cet email.</p>
+        <button type="button" class="us-close" id="us-close" aria-label={t("common.close")}>×</button>
+        <h2 class="us-titre" id="us-titre">{t("us.new")}</h2>
+        <p class="note" id="us-hint" style="margin:0 0 1.2rem">{t("us.newHint")}</p>
 
         <div class="us-frow">
           <div>
-            <label class="us-lab" for="us-fname">Prénom</label>
-            <input type="text" id="us-fname" placeholder="Prénom" autocomplete="off" />
+            <label class="us-lab" for="us-fname">{t("us.fname")}</label>
+            <input type="text" id="us-fname" placeholder={t("us.fname")} autocomplete="off" />
           </div>
           <div>
-            <label class="us-lab" for="us-lname">Nom</label>
-            <input type="text" id="us-lname" placeholder="Nom" autocomplete="off" />
+            <label class="us-lab" for="us-lname">{t("us.lname")}</label>
+            <input type="text" id="us-lname" placeholder={t("us.lname")} autocomplete="off" />
           </div>
         </div>
 
-        <label class="us-lab" for="us-email">Email *</label>
+        <label class="us-lab" for="us-email">{t("us.email")}</label>
         <input type="email" id="us-email" placeholder="email@restaurant.be" autocomplete="off" />
 
-        <label class="us-lab" for="us-pass" id="us-pass-lab">Mot de passe *</label>
+        <label class="us-lab" for="us-pass" id="us-pass-lab">{t("us.pass")}</label>
         <div class="us-frow us-frow-pass">
-          <input type="text" id="us-pass" placeholder="8 caractères minimum" autocomplete="new-password" />
-          <button type="button" id="us-gen" class="us-ghost">Générer</button>
+          <input type="text" id="us-pass" placeholder={t("us.passPh")} autocomplete="new-password" />
+          <button type="button" id="us-gen" class="us-ghost">{t("us.gen")}</button>
         </div>
 
-        <label class="us-lab">Rôle</label>
+        <label class="us-lab">{t("us.role")}</label>
         <div class="us-roles" id="us-roles">
-          <button type="button" class="us-role" data-role="super">Super admin</button>
-          <button type="button" class="us-role is-on" data-role="admin">Admin</button>
-          <button type="button" class="us-role" data-role="user">User</button>
+          <button type="button" class="us-role" data-role="super">{t("role.super")}</button>
+          <button type="button" class="us-role is-on" data-role="admin">{t("role.admin")}</button>
+          <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
         </div>
         <p class="note" id="us-role-hint" style="margin-top:0.5rem"></p>
 
         <div class="us-foot">
-          <button type="button" id="us-add" class="us-add">Créer l'accès</button>
+          <button type="button" id="us-add" class="us-add">{t("us.createBtn")}</button>
           <span class="us-err" id="us-err"></span>
         </div>
       </div>
@@ -584,8 +605,11 @@ import { CLIENT } from "../../config/client";
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
+      import { adminT, type AdminLang } from "../../i18n/admin";
 
       (async () => {
+        // Traduttore lato client: la lingua è già in <html lang>.
+        const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
         const app = document.getElementById("app") as HTMLDivElement;
         const userEmail = document.getElementById("user-email") as HTMLSpanElement;
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
@@ -651,6 +675,17 @@ import { CLIENT } from "../../config/client";
           toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2200);
         }
 
+        // Testi tradotti passati dal server (JSON in pagina).
+        const SUP = (() => {
+          try { return JSON.parse(document.getElementById("sup-i18n")?.textContent || "{}"); }
+          catch { return {}; }
+        })() as {
+          temaLabels?: Record<string, string>;
+          glassTitle?: string; glassOn?: string; glassOff?: string; shadowTitle?: string;
+          visible?: string; hidden?: string; loadError?: string;
+          pageLabels?: Record<string, string>; tabLabels?: Record<string, string>;
+        };
+
         let nascoste: string[] = [];
         let nascosteTab: string[] = [];
 
@@ -665,7 +700,7 @@ import { CLIENT } from "../../config/client";
                     const vis = !nascosteTab.includes(tk);
                     return `
               <div class="subrow${vis ? "" : " is-off"}" data-tk="${tk}">
-                <span class="subrow-name">${tb.label}</span>
+                <span class="subrow-name">${SUP.tabLabels?.[tk] ?? tb.label}</span>
                 <label class="switch"><input type="checkbox" class="t-tab" ${vis ? "checked" : ""} /><span class="track"></span></label>
               </div>`;
                   })
@@ -674,8 +709,8 @@ import { CLIENT } from "../../config/client";
             return `
             <div class="rowwrap" data-k="${p.key}">
               <div class="row${visibile ? "" : " is-off"}">
-                <span class="row-name">${p.label}</span>
-                <span class="row-state">${visibile ? "Visible" : "Masquée"}</span>
+                <span class="row-name">${SUP.pageLabels?.[p.key] ?? p.label}</span>
+                <span class="row-state">${visibile ? (SUP.visible ?? "Visible") : (SUP.hidden ?? "Masquée")}</span>
                 <label class="switch"><input type="checkbox" class="t-vis" ${visibile ? "checked" : ""} /><span class="track"></span></label>
               </div>
               ${sub}
@@ -691,10 +726,31 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ hidden: nascoste, hiddenTabs: nascosteTab }),
             });
             if (!res.ok) throw new Error();
-            toast("Enregistré ✓");
+            toast(tr("common.saved"));
           } catch {
-            toast("Enregistrement impossible", true);
+            toast(tr("common.saveErr"), true);
           }
+        }
+
+        // ---- Langue de l'admin ----
+        // Salva la lingua globale e ricarica: i testi sono resi lato server.
+        const langSel = document.getElementById("admin-lang-sel") as HTMLSelectElement | null;
+        if (langSel) {
+          langSel.addEventListener("change", async () => {
+            langSel.disabled = true;
+            try {
+              const res = await fetch("/api/admin/pages", {
+                method: "PUT",
+                headers,
+                body: JSON.stringify({ lang: langSel.value }),
+              });
+              if (!res.ok) throw new Error();
+              location.reload();
+            } catch {
+              langSel.disabled = false;
+              toast(tr("common.saveErr"), true);
+            }
+          });
         }
 
         rowsEl.addEventListener("change", async (e) => {
@@ -715,17 +771,7 @@ import { CLIENT } from "../../config/client";
         // ---- Couleurs du brand ----
         const temaRowsEl = document.getElementById("tema-rows") as HTMLDivElement;
         const temaResetEl = document.getElementById("tema-reset") as HTMLButtonElement;
-        const TEMA_LABEL: Record<string, string> = {
-          accent: "Accent (boutons, actifs)",
-          hover: "Accent — survol",
-          bg: "Fond",
-          header: "Barre du haut",
-          card: "Cartes",
-          input: "Champs & éléments sombres",
-          line: "Lignes & bordures",
-          muted: "Texte secondaire",
-          text: "Texte principal",
-        };
+        const TEMA_LABEL: Record<string, string> = SUP.temaLabels || {};
         let tema: Record<string, string> = {};
 
         // Applica SUBITO i colori a questa pagina (anteprima live) + cache
@@ -760,12 +806,12 @@ import { CLIENT } from "../../config/client";
             }).join("") +
             `
             <div class="tema-card wide">
-              <span class="tema-nom">Effet verre (transparences)</span>
-              <span class="tema-hex">${glassOn ? "oui" : "opaque"}</span>
+              <span class="tema-nom">${SUP.glassTitle ?? "Effet verre (transparences)"}</span>
+              <span class="tema-hex">${glassOn ? (SUP.glassOn ?? "oui") : (SUP.glassOff ?? "opaque")}</span>
               <label class="switch"><input type="checkbox" id="tema-glass" ${glassOn ? "checked" : ""} /><span class="track"></span></label>
             </div>
             <div class="tema-card wide">
-              <span class="tema-nom">Ombres</span>
+              <span class="tema-nom">${SUP.shadowTitle ?? "Ombres"}</span>
               <span class="tema-hex" id="tema-shadow-v">${tema.shadow ?? "15"}%</span>
               <input type="range" class="tema-range" id="tema-shadow" min="0" max="100" step="5" value="${tema.shadow ?? "15"}" />
             </div>`;
@@ -799,9 +845,9 @@ import { CLIENT } from "../../config/client";
                 body: JSON.stringify({ hidden: nascoste, hiddenTabs: nascosteTab, theme: tema }),
               });
               if (!res.ok) throw new Error();
-              toast("Couleurs enregistrées ✓");
+              toast(tr("sup.tema.saved"));
             } catch {
-              toast("Enregistrement impossible", true);
+              toast(tr("common.saveErr"), true);
             }
           }, 500);
         }
@@ -831,10 +877,10 @@ import { CLIENT } from "../../config/client";
         const itgState = document.getElementById("itg-state") as HTMLSpanElement | null;
 
         const ITG_TESTO: Record<string, string> = {
-          moodd: "Le widget MOODD gère les réservations : agenda, plan de salle, emails, statistiques.",
-          link: "Le bouton « Réserver » du site renvoie vers la page du fournisseur.",
-          embed: "Le widget du fournisseur est intégré dans le site du client.",
-          none: "Aucune réservation en ligne (take-away uniquement).",
+          moodd: tr("itg.mode.moodd.desc"),
+          link: tr("itg.mode.link.desc"),
+          embed: tr("itg.mode.embed.desc"),
+          none: tr("itg.mode.none.desc"),
         };
         function itgModo(): string {
           return (itgModes?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.mode ?? "moodd";
@@ -849,7 +895,7 @@ import { CLIENT } from "../../config/client";
           if (itgUrlBox) itgUrlBox.style.display = m === "link" ? "" : "none";
           if (itgEmbedBox) itgEmbedBox.style.display = m === "embed" ? "" : "none";
           if (itgState) {
-            itgState.textContent = m === "moodd" ? "MOODD" : m === "none" ? "Désactivé" : "Externe";
+            itgState.textContent = m === "moodd" ? "MOODD" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
             itgState.classList.toggle("ext", esterno);
           }
         }
@@ -870,22 +916,22 @@ import { CLIENT } from "../../config/client";
 
         gTest?.addEventListener("click", async () => {
           const id = gPlace?.value.trim() ?? "";
-          if (!id) { if (gRes) gRes.textContent = "Colle d'abord un Place ID."; return; }
+          if (!id) { if (gRes) gRes.textContent = tr("itg.g.needPlace"); return; }
           if (/^AIza/.test(id)) {
-            if (gRes) gRes.textContent = "Ça, c'est une clé API Google (elle va dans le .env). Ici on attend le Place ID de l'établissement (ChIJ…).";
+            if (gRes) gRes.textContent = tr("itg.g.isKey");
             return;
           }
           gTest.disabled = true;
-          if (gRes) gRes.textContent = "Vérification…";
+          if (gRes) gRes.textContent = tr("common.verifying");
           try {
             const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
             const j = await res.json();
-            if (!res.ok) { if (gRes) gRes.textContent = j.error ?? "Vérification impossible"; return; }
+            if (!res.ok) { if (gRes) gRes.textContent = j.error ?? tr("itg.g.verifyErr"); return; }
             if (gRes) {
-              gRes.textContent = `${j.name} — ${j.rating ?? "?"}/5 sur ${j.reviews ?? 0} avis`;
+              gRes.textContent = `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0} ${tr("itg.g.reviews")}`;
             }
           } catch {
-            if (gRes) gRes.textContent = "Erreur de connexion.";
+            if (gRes) gRes.textContent = tr("common.netErr");
           } finally {
             gTest.disabled = false;
           }
@@ -898,10 +944,10 @@ import { CLIENT } from "../../config/client";
           try {
             const res = await fetch("/api/google/connect", { method: "POST", headers });
             const j = await res.json();
-            if (!res.ok || !j.url) { toast(j.error ?? "Connexion impossible", true); return; }
+            if (!res.ok || !j.url) { toast(j.error ?? tr("itg.g.connErr"), true); return; }
             window.location.href = j.url; // schermata di consenso Google
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("common.netErr"), true);
           } finally {
             gConnect.disabled = false;
           }
@@ -912,10 +958,10 @@ import { CLIENT } from "../../config/client";
               method: "POST",
               headers: { ...headers, "X-Method-Override": "DELETE" },
             });
-            if (!res.ok) { toast("Déconnexion impossible", true); return; }
-            toast("Google déconnecté");
+            if (!res.ok) { toast(tr("itg.g.disErr"), true); return; }
+            toast(tr("itg.g.disconnected"));
             void itgCarica();
-          } catch { toast("Erreur de connexion", true); }
+          } catch { toast(tr("common.netErr"), true); }
         });
 
         // Esito del ritorno da Google (?google=ok|refus|etat|echec|erreur)
@@ -923,11 +969,11 @@ import { CLIENT } from "../../config/client";
           const q = new URLSearchParams(window.location.search).get("google");
           if (!q) return;
           const testi: Record<string, string> = {
-            ok: "Google connecté ✓",
-            refus: "Autorisation refusée par l'utilisateur.",
-            etat: "Lien expiré, relance la connexion.",
-            echec: "Google n'a pas renvoyé de jeton — réessaie.",
-            erreur: "Erreur côté Google.",
+            ok: tr("itg.g.ret.ok"),
+            refus: tr("itg.g.ret.refus"),
+            etat: tr("itg.g.ret.etat"),
+            echec: tr("itg.g.ret.echec"),
+            erreur: tr("itg.g.ret.erreur"),
           };
           toast(testi[q] ?? q, q !== "ok");
           const u = new URL(window.location.href);
@@ -939,7 +985,7 @@ import { CLIENT } from "../../config/client";
           if (!gErr) return;
           gErr.textContent = "";
           if (/^AIza/.test(gPlace?.value.trim() ?? "")) {
-            gErr.textContent = "C'est une clé API, pas un Place ID.";
+            gErr.textContent = tr("itg.g.isKeyShort");
             return;
           }
           gSave.disabled = true;
@@ -956,10 +1002,10 @@ import { CLIENT } from "../../config/client";
               }),
             });
             const j = await res.json();
-            if (!res.ok) { gErr.textContent = j.error ?? "Enregistrement impossible"; return; }
-            toast("Google Business enregistré");
+            if (!res.ok) { gErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            toast(tr("itg.g.saved"));
           } catch {
-            gErr.textContent = "Erreur de connexion.";
+            gErr.textContent = tr("common.netErr");
           } finally {
             gSave.disabled = false;
           }
@@ -985,27 +1031,27 @@ import { CLIENT } from "../../config/client";
             if (g) {
               if (gPlace) gPlace.value = g.place_id ?? "";
               if (gState) {
-                gState.textContent = g.connected ? "Connecté" : g.place_id ? "Avis actifs" : "Non connecté";
+                gState.textContent = g.connected ? tr("itg.g.connected") : g.place_id ? tr("itg.g.reviewsActive") : tr("itg.g.off");
                 gState.classList.toggle("ext", g.connected || Boolean(g.place_id));
               }
               if (gConnect) {
                 gConnect.disabled = !g.oauth_ready;
-                gConnect.textContent = g.connected ? "Reconnecter Google" : "Connecter Google";
+                gConnect.textContent = g.connected ? tr("itg.g.reconnect") : tr("itg.g.connect");
               }
               if (gDisconnect) gDisconnect.style.display = g.connected ? "" : "none";
               if (gOauthNote) {
                 gOauthNote.textContent = !g.oauth_ready
-                  ? "En attente de l'accès API Google (demande envoyée)."
+                  ? tr("itg.g.pending")
                   : g.connected
-                    ? "Fiche Google connectée : réponses aux avis et horaires synchronisables."
-                    : "Le client autorise MOODD à gérer sa fiche Google.";
+                    ? tr("itg.g.connectedNote")
+                    : tr("itg.g.authNote");
               }
             }
             const sc = j.search_console;
             if (sc) {
               if (scSite) scSite.value = sc.site ?? "";
               if (scState) {
-                scState.textContent = !sc.ready ? "Clé manquante" : sc.site ? "Actif" : "Non configuré";
+                scState.textContent = !sc.ready ? tr("itg.sc.noKey") : sc.site ? tr("itg.sc.active") : tr("itg.sc.off");
                 scState.classList.toggle("ext", sc.ready && Boolean(sc.site));
               }
               // email del robot: mostrata solo se il super admin la riceve
@@ -1015,7 +1061,7 @@ import { CLIENT } from "../../config/client";
                 scRobotWrap.style.display = "";
               }
               if (!sc.ready && scRes) {
-                scRes.textContent = "La clé du service account n'est pas encore configurée sur le serveur (variable GOOGLE_SA_KEY_B64).";
+                scRes.textContent = tr("itg.sc.noServerKey");
               }
             }
           } catch { /* rete assente */ }
@@ -1035,7 +1081,7 @@ import { CLIENT } from "../../config/client";
 
         scCopy?.addEventListener("click", async () => {
           if (!scRobot?.value) return;
-          try { await navigator.clipboard.writeText(scRobot.value); toast("Email copiée"); }
+          try { await navigator.clipboard.writeText(scRobot.value); toast(tr("itg.sc.emailCopied")); }
           catch { scRobot.select(); }
         });
 
@@ -1050,10 +1096,10 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ gsc_site: scSite?.value.trim() ?? "" }),
             });
             const j = await res.json();
-            if (!res.ok) { scErr.textContent = j.error ?? "Enregistrement impossible"; return; }
-            toast("Search Console enregistré");
+            if (!res.ok) { scErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            toast(tr("itg.sc.saved"));
           } catch {
-            scErr.textContent = "Erreur de connexion.";
+            scErr.textContent = tr("common.netErr");
           } finally {
             scSave.disabled = false;
           }
@@ -1061,9 +1107,9 @@ import { CLIENT } from "../../config/client";
 
         scTest?.addEventListener("click", async () => {
           const site = scSite?.value.trim() ?? "";
-          if (!site) { if (scRes) scRes.textContent = "Indique d'abord la propriété (sc-domain:… ou https://…)."; return; }
+          if (!site) { if (scRes) scRes.textContent = tr("itg.sc.needSite"); return; }
           scTest.disabled = true;
-          if (scRes) scRes.textContent = "Vérification…";
+          if (scRes) scRes.textContent = tr("common.verifying");
           try {
             // salva prima, poi interroga (l'API legge il sito da app_config)
             await fetch("/api/admin/integrations", {
@@ -1074,11 +1120,11 @@ import { CLIENT } from "../../config/client";
             const res = await fetch("/api/admin/search-console", { headers });
             const j = await res.json();
             if (j.error) { if (scRes) scRes.textContent = j.error; return; }
-            if (!j.configured) { if (scRes) scRes.textContent = "Propriété non trouvée — vérifie le format et que le robot a bien été ajouté."; return; }
-            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} clics · ${j.impressions} impressions (28 derniers jours).`;
+            if (!j.configured) { if (scRes) scRes.textContent = tr("itg.sc.notFound"); return; }
+            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))}`;
             void itgCarica();
           } catch {
-            if (scRes) scRes.textContent = "Erreur de connexion.";
+            if (scRes) scRes.textContent = tr("common.netErr");
           } finally {
             scTest.disabled = false;
           }
@@ -1100,10 +1146,10 @@ import { CLIENT } from "../../config/client";
               }),
             });
             const j = await res.json();
-            if (!res.ok) { itgErr.textContent = j.error ?? "Enregistrement impossible"; return; }
-            toast("Integration enregistrée");
+            if (!res.ok) { itgErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            toast(tr("itg.saved"));
           } catch {
-            itgErr.textContent = "Erreur de connexion.";
+            itgErr.textContent = tr("common.netErr");
           } finally {
             itgSave.disabled = false;
           }
@@ -1125,9 +1171,9 @@ import { CLIENT } from "../../config/client";
         const usRoles = document.getElementById("us-roles") as HTMLDivElement | null;
         const usRoleHint = document.getElementById("us-role-hint") as HTMLParagraphElement | null;
         const RUOLO_TESTO: Record<string, string> = {
-          super: "Voit tout + cette page Réglages (design, users, permissions).",
-          admin: "Voit ce qui est activé dans l'onglet Réglages.",
-          user: "Comme Admin, mais sans les pages Admin et Statistiques.",
+          super: tr("role.super.desc"),
+          admin: tr("role.admin.desc"),
+          user: tr("role.user.desc"),
         };
         function usRuoloSel(): string {
           return (usRoles?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.role ?? "admin";
@@ -1156,7 +1202,7 @@ import { CLIENT } from "../../config/client";
         let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }[] = [];
 
         function usData(iso: string | null): string {
-          if (!iso) return "jamais";
+          if (!iso) return tr("us.never");
           const d = new Date(iso);
           return d.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" });
         }
@@ -1170,7 +1216,7 @@ import { CLIENT } from "../../config/client";
           if (!usList) return;
           try {
             const res = await fetch("/api/admin/users", { headers });
-            if (!res.ok) { usList.innerHTML = '<p class="note">Chargement impossible.</p>'; return; }
+            if (!res.ok) { usList.innerHTML = `<p class="note">${tr("us.loadErr")}</p>`; return; }
             const j = (await res.json()) as {
               users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean }[];
             };
@@ -1183,14 +1229,14 @@ import { CLIENT } from "../../config/client";
                   <span class="us-cell dim">${usData(u.created_at)}</span>
                   <span class="us-cell dim">${usData(u.last_sign_in_at)}</span>
                   <span class="us-acts">
-                    <button type="button" class="i-btn" data-pass="${u.id}" title="Nouveau mot de passe (copié)">${ICO_KEY}</button>
-                    <button type="button" class="i-btn i-edit" data-edit="${u.id}" title="Modifier">${ICO_PEN}</button>
-                    ${u.is_moodd ? '<span class="i-slot"></span>' : `<button type="button" class="i-btn i-del" data-del="${u.id}" title="Supprimer">${ICO_TRASH}</button>`}
+                    <button type="button" class="i-btn" data-pass="${u.id}" title="${tr("us.newPassTitle")}">${ICO_KEY}</button>
+                    <button type="button" class="i-btn i-edit" data-edit="${u.id}" title="${tr("common.edit")}">${ICO_PEN}</button>
+                    ${u.is_moodd ? '<span class="i-slot"></span>' : `<button type="button" class="i-btn i-del" data-del="${u.id}" title="${tr("common.delete")}">${ICO_TRASH}</button>`}
                   </span>
                 </div>`)
               .join("");
           } catch {
-            usList.innerHTML = '<p class="note">Erreur de connexion.</p>';
+            usList.innerHTML = `<p class="note">${tr("common.netErr")}</p>`;
           }
         }
 
@@ -1208,16 +1254,14 @@ import { CLIENT } from "../../config/client";
           const titre = document.getElementById("us-titre");
           const hint = document.getElementById("us-hint");
           const passLab = document.getElementById("us-pass-lab");
-          if (titre) titre.textContent = u ? "Modifier l'utilisateur" : "Nouvel utilisateur";
-          if (hint) hint.textContent = u
-            ? "Laisse le mot de passe vide pour ne pas le changer."
-            : "Il pourra se connecter sur /admin/login avec cet email.";
-          if (passLab) passLab.textContent = u ? "Nouveau mot de passe (optionnel)" : "Mot de passe *";
+          if (titre) titre.textContent = u ? tr("us.editTitle") : tr("us.new");
+          if (hint) hint.textContent = u ? tr("us.editHint") : tr("us.newHint");
+          if (passLab) passLab.textContent = u ? tr("us.passOpt") : tr("us.pass");
           usSetRuolo(u?.role ?? "admin");
           usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
           });
-          if (usAdd) usAdd.textContent = u ? "Enregistrer" : "Créer l'accès";
+          if (usAdd) usAdd.textContent = u ? tr("common.save") : tr("us.createBtn");
           usOverlay?.classList.add("is-open");
           usFname?.focus();
         }
@@ -1235,13 +1279,13 @@ import { CLIENT } from "../../config/client";
           usErr.textContent = "";
           const email = usEmail.value.trim();
           const password = usPass.value;
-          if (!email) { usErr.textContent = "Email obligatoire."; return; }
+          if (!email) { usErr.textContent = tr("us.emailReq"); return; }
           if (!usEditId && password.length < 8) {
-            usErr.textContent = "Mot de passe : 8 caractères minimum.";
+            usErr.textContent = tr("us.pass8");
             return;
           }
           if (usEditId && password && password.length < 8) {
-            usErr.textContent = "Mot de passe : 8 caractères minimum (ou laisse vide).";
+            usErr.textContent = tr("us.pass8opt");
             return;
           }
           usAdd.disabled = true;
@@ -1260,15 +1304,15 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify(corpo),
             });
             const j = await res.json();
-            if (!res.ok) { usErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            if (!res.ok) { usErr.textContent = j.error ?? tr("common.saveErr"); return; }
             usOverlay?.classList.remove("is-open");
             usMsg.textContent = password
-              ? `${usEditId ? "Modifié" : "Accès créé"} — mot de passe : ${password}`
-              : "Utilisateur modifié.";
+              ? `${usEditId ? tr("us.modified") : tr("us.created")} — ${tr("us.passLabel")} : ${password}`
+              : tr("us.userModifiedDot");
             await usCarica();
-            toast(usEditId ? "Utilisateur modifié" : "Accès créé");
+            toast(usEditId ? tr("us.userModified") : tr("us.created"));
           } catch {
-            usErr.textContent = "Erreur de connexion.";
+            usErr.textContent = tr("common.netErr");
           } finally {
             usAdd.disabled = false;
           }
@@ -1288,15 +1332,15 @@ import { CLIENT } from "../../config/client";
                 body: JSON.stringify({ id, password: nuova }),
               });
               const j = await res.json();
-              if (!res.ok) { toast(j.error ?? "Modification impossible", true); return; }
+              if (!res.ok) { toast(j.error ?? tr("us.editErr"), true); return; }
               try {
                 await navigator.clipboard.writeText(nuova);
-                toast("Nouveau mot de passe copié");
+                toast(tr("us.newPassCopied"));
               } catch {
-                toast("Mot de passe changé");
+                toast(tr("us.passChanged"));
               }
-              if (usMsg) usMsg.textContent = `Nouveau mot de passe : ${nuova}`;
-            } catch { toast("Erreur de connexion", true); }
+              if (usMsg) usMsg.textContent = `${tr("us.newPassLabel")} : ${nuova}`;
+            } catch { toast(tr("common.netErr"), true); }
             return;
           }
 
@@ -1319,15 +1363,15 @@ import { CLIENT } from "../../config/client";
                   headers: { ...headers, "X-Method-Override": "DELETE" },
                 });
                 const j = await res.json();
-                if (!res.ok) { toast(j.error ?? "Suppression impossible", true); return; }
-                toast("Accès supprimé");
+                if (!res.ok) { toast(j.error ?? tr("us.delErr"), true); return; }
+                toast(tr("us.deleted"));
                 await usCarica();
-              } catch { toast("Erreur de connexion", true); }
+              } catch { toast(tr("common.netErr"), true); }
               return;
             }
             usDelPending = id;
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             window.clearTimeout(usDelTimer);
             usDelTimer = window.setTimeout(() => {
               usDelPending = null;
@@ -1365,7 +1409,7 @@ import { CLIENT } from "../../config/client";
           renderTema();
           applicaTema();
         } catch {
-          stateEl.textContent = "Erreur de chargement.";
+          stateEl.textContent = SUP.loadError ?? "Erreur de chargement.";
         }
       })();
     </script>

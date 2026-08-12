@@ -1,5 +1,5 @@
 /**
- * i18n del WIDGET di prenotazione (MOODD Admin engine).
+ * i18n del WIDGET di prenotazione (RestoHub engine).
  * Volutamente SEPARATO dall'i18n del sito pubblico: il widget è un
  * componente dell'engine e viaggia con le sue traduzioni, uguali per
  * tutti i clienti. I servizi si salvano per CHIAVE (reservation_services:

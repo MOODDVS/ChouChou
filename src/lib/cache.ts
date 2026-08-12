@@ -25,6 +25,12 @@ export function cacheGet<T>(chiave: string): T | undefined {
   return v.valore as T;
 }
 
+/** Rimuove subito una voce dalla cache (es. dopo un salvataggio, per far
+ *  vedere il nuovo valore senza aspettare la scadenza del TTL). */
+export function cacheDel(chiave: string): void {
+  memoria.delete(chiave);
+}
+
 export function cacheSet(chiave: string, valore: unknown, ttlMs = TTL_STANDARD): void {
   // Tetto di sicurezza: mai far crescere la mappa all'infinito
   if (memoria.size > 500) {

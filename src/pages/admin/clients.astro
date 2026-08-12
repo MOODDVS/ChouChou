@@ -8,6 +8,11 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaClienti } from "../../lib/admin/caricaClienti";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -27,11 +32,11 @@ try {
 const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Clients — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.clients") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -360,33 +365,33 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       <AdminHeader />
       <main>
         <div class="titlebar">
-          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Clients</h1>
+          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("nav.clients")}</h1>
           <div class="t-stats" id="t-stats"></div>
         </div>
         <div class="actionsbar">
           <div class="fl-filtri" id="fl-filtri">
-            <button type="button" class="fl-pill is-on" data-f="all" title="Tous">
+            <button type="button" class="fl-pill is-on" data-f="all" title={t("cli.all")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
             </button>
-            <button type="button" class="fl-pill" data-f="new">New</button>
-            <button type="button" class="fl-pill" data-f="noshow">No-show</button>
-            <button type="button" class="fl-pill" data-f="optin">Opted-in</button>
-            <button type="button" class="fl-pill" data-f="optout">Opted-out</button>
+            <button type="button" class="fl-pill" data-f="new">{t("cli.new")}</button>
+            <button type="button" class="fl-pill" data-f="noshow">{t("cli.noshow")}</button>
+            <button type="button" class="fl-pill" data-f="optin">{t("cli.optin")}</button>
+            <button type="button" class="fl-pill" data-f="optout">{t("cli.optout")}</button>
           </div>
-          <input id="search" class="search" type="search" placeholder="Rechercher (nom, email, téléphone)…" />
+          <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
           <div class="count" id="count" style="display:none"></div>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
           <div class="table">
             <div class="thead">
-              <button class="th" data-sort="name">Nom <span class="arrow"></span></button>
-              <button class="th" data-sort="email">Email <span class="arrow"></span></button>
-              <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
-              <button class="th num" data-sort="since" title="Client depuis">Depuis <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="reservations" title="Réservations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>Résa <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="orders" title="Commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>Comm. <span class="arrow"></span></button>
-              <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
+              <button class="th" data-sort="name">{t("us.lname")} <span class="arrow"></span></button>
+              <button class="th" data-sort="email">{t("ord.emailLabel")} <span class="arrow"></span></button>
+              <button class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
+              <button class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("cli.resaCol")} <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>{t("nav.s.orders")} <span class="arrow"></span></button>
+              <button class="th num sorted" data-sort="total">{t("ord.total")} <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
             <div id="rows"></div>
@@ -401,75 +406,75 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <!-- Modale attività cliente: storico ordini + prenotazioni -->
     <div class="overlay" id="act-overlay">
       <div class="modal">
-        <button class="m-close" id="act-close" aria-label="Fermer">×</button>
-        <h2 id="act-name">Client</h2>
+        <button class="m-close" id="act-close" aria-label={t("common.close")}>×</button>
+        <h2 id="act-name">{t("ord.client")}</h2>
         <p class="act-contacts" id="act-contacts"></p>
-        <div class="act-state" id="act-state">Chargement…</div>
+        <div class="act-state" id="act-state">{t("sup.loading")}</div>
         <div id="act-list"></div>
       </div>
     </div>
 
     <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
-    <button class="cl-add" id="add-btn" type="button"><span class="fab-plus">+</span>Ajouter un client</button>
+    <button class="cl-add" id="add-btn" type="button"><span class="fab-plus">+</span>{t("cli.addClient")}</button>
 
     <!-- Modale modifica cliente (matita): dati + foto -->
     <div class="overlay" id="ed-overlay">
       <div class="modal">
-        <button class="m-close" id="ed-close" aria-label="Fermer">×</button>
-        <h2 id="ed-title">Modifier le client</h2>
+        <button class="m-close" id="ed-close" aria-label={t("common.close")}>×</button>
+        <h2 id="ed-title">{t("cli.editClient")}</h2>
         <div class="ed-photo-row">
           <span class="c-avatar ed-avatar" id="ed-avatar">?</span>
           <div>
-            <button type="button" class="ed-upl" id="ed-upload">Téléverser une photo</button>
-            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">Retirer</button>
+            <button type="button" class="ed-upl" id="ed-upload">{t("cli.uploadPhoto")}</button>
+            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">{t("ord.remove")}</button>
             <input type="file" id="ed-file" accept="image/*" style="display:none" />
             <p class="ed-upl-state" id="ed-upl-state"></p>
           </div>
         </div>
         <div style="display:flex; gap:0.8rem;">
-          <div class="f-field" style="flex:1"><span class="f-label">Prénom</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
-          <div class="f-field" style="flex:1"><span class="f-label">Nom *</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
+          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.firstName")}</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
+          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.lastNameReq")}</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
         </div>
-        <div class="f-field"><span class="f-label">Email</span><input type="email" id="ed-email" autocomplete="off" /></div>
-        <div class="f-field"><span class="f-label">Téléphone</span>
+        <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
+        <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
           <span class="ed-telrow">
-            <select id="ed-prefix" class="ed-prefix" aria-label="Indicatif"></select>
+            <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
             <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
           </span>
         </div>
         <div class="ed-row2">
-          <div><span class="f-label">Newsletter</span><p class="ed-hint" id="ed-news-state"></p></div>
+          <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
           <button type="button" class="ed-upl" id="ed-news-btn"></button>
         </div>
         <div class="ed-row2" id="ed-block-row">
-          <div><span class="f-label">Réservations</span><p class="ed-hint" id="ed-block-state"></p></div>
+          <div><span class="f-label">{t("nav.reservations")}</span><p class="ed-hint" id="ed-block-state"></p></div>
           <button type="button" class="ed-upl" id="ed-block-btn"></button>
         </div>
         <p class="ed-err" id="ed-err"></p>
-        <button type="button" class="ed-save" id="ed-save">Enregistrer</button>
+        <button type="button" class="ed-save" id="ed-save">{t("common.save")}</button>
       </div>
     </div>
 
     <div class="overlay" id="overlay">
       <div class="modal">
-        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
-        <h2>Ajouter un client</h2>
+        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("cli.addClient")}</h2>
         <div style="display:flex; gap:0.8rem;">
           <div class="f-field" style="flex:1">
-            <span class="f-label">Prénom</span>
+            <span class="f-label">{t("ord.firstName")}</span>
             <input type="text" id="f-fname" maxlength="60" autocomplete="off" />
           </div>
           <div class="f-field" style="flex:1">
-            <span class="f-label">Nom *</span>
+            <span class="f-label">{t("ord.lastNameReq")}</span>
             <input type="text" id="f-lname" maxlength="60" autocomplete="off" />
           </div>
         </div>
         <div class="f-field">
-          <span class="f-label">Email</span>
+          <span class="f-label">{t("ord.emailLabel")}</span>
           <input type="text" id="f-email" maxlength="160" autocomplete="off" inputmode="email" />
         </div>
         <div class="f-field">
-          <span class="f-label">Téléphone</span>
+          <span class="f-label">{t("ord.phone")}</span>
           <div style="display:flex; gap:0.5rem;">
             <select id="f-prefix" class="tel-prefix"></select>
             <input type="text" id="f-phone" maxlength="20" autocomplete="off" inputmode="tel" style="flex:1" />
@@ -477,8 +482,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">Annuler</button>
-          <button class="m-save" id="m-save">Ajouter</button>
+          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save">{t("common.add")}</button>
         </div>
       </div>
     </div>
@@ -494,6 +499,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Client = {
         id: string | null;
@@ -519,7 +529,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
       const ICO_ORD =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>';
@@ -647,7 +657,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           else if (sortKey === "orders") r = a.orders - b.orders;
           else if (sortKey === "reservations") r = a.reservations - b.reservations;
           else if (sortKey === "total") r = a.total_cents - b.total_cents;
-          else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "fr", { sensitivity: "base" });
+          else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), LOC, { sensitivity: "base" });
           return sortAsc ? r : -r;
         }
 
@@ -671,7 +681,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (filtroLista === "optout") lista = lista.filter((c) => Boolean(c.newsletter_optout));
 
           countEl.textContent =
-            `${lista.length} client${lista.length > 1 ? "s" : ""}` +
+            `${lista.length} ${lista.length > 1 ? tr("cli.clientsWord") : tr("cli.clientWord")}` +
             (q && lista.length !== tutti.length ? ` / ${tutti.length}` : "");
           countEl.style.display = q ? "" : "none"; // conteggio filtrato: solo in ricerca
 
@@ -683,21 +693,21 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const nOptout = tutti.filter((c) => Boolean(c.newsletter_optout)).length;
           const nNoshow = tutti.filter((c) => (c.noshows ?? 0) > 0).length;
           (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
-            `<span class="t-pill gold"><b>${tutti.length}</b> client${tutti.length > 1 ? "s" : ""}</span>`;
+            `<span class="t-pill gold"><b>${tutti.length}</b> ${tutti.length > 1 ? tr("cli.clientsWord") : tr("cli.clientWord")}</span>`;
           const setFl = (f: string, label: string, n: number) => {
             const b = document.querySelector(`#fl-filtri .fl-pill[data-f="${f}"]`) as HTMLElement | null;
             if (b) b.innerHTML = `${label} <b>${n}</b>`;
           };
-          setFl("new", "New", nNuovi);
-          setFl("noshow", "No-show", nNoshow);
-          setFl("optin", "Opted-in", nOptin);
-          setFl("optout", "Opted-out", nOptout);
+          setFl("new", tr("cli.new"), nNuovi);
+          setFl("noshow", tr("cli.noshow"), nNoshow);
+          setFl("optin", tr("cli.optin"), nOptin);
+          setFl("optout", tr("cli.optout"), nOptout);
 
           if (!lista.length) {
             rowsEl.innerHTML = "";
             emptyEl.textContent = tutti.length
-              ? "Aucun client ne correspond."
-              : "Aucun client pour le moment. Ajoutez-en un ou attendez la première commande.";
+              ? tr("cli.noneMatch")
+              : tr("cli.noneYet");
             emptyEl.style.display = "block";
             return;
           }
@@ -717,22 +727,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
                 : `<span class="c-avatar">${esc(iniz)}</span>`;
               const attivita =
                 (c.noshows ?? 0) > 0
-                  ? `<span class="tag-ns" title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}${c.noshows}</span>`
+                  ? `<span class="tag-ns" title="${c.noshows} ${tr("cli.noshow")}">${ICO_NOSHOW}${c.noshows}</span>`
                   : "";
               return `
               <div class="row" data-key="${esc(c.key ?? "")}">
-                <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita}</div>
-                <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
-                <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
-                <div class="cell c-since" data-label="Depuis">${
+                <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? `<span class="tag-new">${tr("cli.new")}</span>` : ""}${attivita}</div>
+                <div class="cell c-email" data-label="${tr("ord.emailLabel")}">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
+                <div class="cell c-phone" data-label="${tr("ord.telLabel")}">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
+                <div class="cell c-since" data-label="${tr("cli.since")}">${
                   c.first_activity
-                    ? new Date(c.first_activity).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                    ? new Date(c.first_activity).toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "2-digit" })
                     : "—"
                 }</div>
-                <div class="cell c-num c-resa" data-label="Résas">${c.reservations}</div>
-                <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
-                <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
-                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="Modifier">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
+                <div class="cell c-num c-resa" data-label="${tr("cli.resasLabel")}">${c.reservations}</div>
+                <div class="cell c-num c-orders" data-label="${tr("nav.orders")}">${c.orders}</div>
+                <div class="cell c-num c-total" data-label="${tr("ord.total")}">${euro(c.total_cents)}</div>
+                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="${tr("common.edit")}">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="${tr("common.delete")}">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
@@ -797,12 +807,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           return `${gg} · ${hh}`;
         }
         const STATO_ACT: Record<string, string> = {
-          cancelled: "Annulée",
-          noshow: "No-show",
-          done: "Fini",
-          confirmed: "Confirmée",
-          seated: "En cours",
-          paid: "Payée",
+          cancelled: tr("res.stCancelled"),
+          noshow: tr("res.stNoshow"),
+          done: tr("res.stDone"),
+          confirmed: tr("res.stConfirmed"),
+          seated: tr("res.stSeated"),
+          paid: tr("cli.stPaid"),
         };
         async function apriAttivita(c: Client) {
           (document.getElementById("act-name") as HTMLElement).textContent = c.name || "—";
@@ -810,7 +820,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             [c.email, c.phone].filter(Boolean).join(" · ") || "";
           actList.innerHTML = "";
           actState.style.display = "";
-          actState.textContent = "Chargement…";
+          actState.textContent = tr("sup.loading");
           actOverlay.classList.add("is-open");
           try {
             const res = await fetch("/api/admin/clients?activity=" + encodeURIComponent(c.key ?? ""), { headers });
@@ -820,7 +830,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             };
             const atti = j.activity ?? [];
             if (!atti.length) {
-              actState.textContent = "Aucune activité.";
+              actState.textContent = tr("cli.noActivity");
               return;
             }
             actState.style.display = "none";
@@ -841,7 +851,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               })
               .join("");
           } catch {
-            actState.textContent = "Erreur de chargement.";
+            actState.textContent = tr("sup.load.error");
           }
         }
 
@@ -865,7 +875,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           }
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
@@ -878,11 +888,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           });
           try {
             const res = await fetch("/api/admin/clients?" + params.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast("Suppression impossible", true); return; }
-            toast("Client supprimé");
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("cli.clientDeleted"));
             await carica();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         });
 
@@ -902,23 +912,23 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const newsState = document.getElementById("ed-news-state") as HTMLElement;
           const newsBtn = document.getElementById("ed-news-btn") as HTMLButtonElement;
           if (!haEmail) {
-            newsState.textContent = "Sans email — pas de newsletter";
+            newsState.textContent = tr("cli.noEmailNoNews");
             newsState.className = "ed-hint";
             newsBtn.style.display = "none";
           } else {
             newsBtn.style.display = "";
-            newsState.textContent = edOptout ? "Désinscrit (opt-out)" : "Inscrit (opt-in) ✓";
+            newsState.textContent = edOptout ? tr("cli.optedOut") : tr("cli.optedIn");
             newsState.className = "ed-hint" + (edOptout ? " warn" : " ok");
-            newsBtn.textContent = edOptout ? "Réinscrire" : "Désinscrire";
+            newsBtn.textContent = edOptout ? tr("cli.resubscribe") : tr("cli.unsubscribe");
             newsBtn.classList.toggle("ed-danger", !edOptout);
           }
           const blockState = document.getElementById("ed-block-state") as HTMLElement;
           const blockBtn = document.getElementById("ed-block-btn") as HTMLButtonElement;
           blockState.textContent = edBlocked
-            ? "Bloquées — le widget refusera cet email/téléphone"
-            : "Autorisées (les commandes le restent toujours)";
+            ? tr("cli.blocked")
+            : tr("cli.allowed");
           blockState.className = "ed-hint" + (edBlocked ? " warn" : "");
-          blockBtn.textContent = edBlocked ? "Débloquer" : "Bloquer les réservations";
+          blockBtn.textContent = edBlocked ? tr("cli.unblock") : tr("cli.blockResa");
           blockBtn.classList.toggle("ed-danger", !edBlocked);
         }
 
@@ -937,13 +947,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edPhotoUrl = "";
           edOptout = false;
           edBlocked = false;
-          (document.getElementById("ed-title") as HTMLElement).textContent = "Ajouter un client";
+          (document.getElementById("ed-title") as HTMLElement).textContent = tr("cli.addClient");
           (document.getElementById("ed-block-row") as HTMLElement).style.display = "none";
           for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"])
             (document.getElementById(idc) as HTMLInputElement).value = "";
           edPrefixEl().value = PREFISSO_DEFAULT;
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
-          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Ajouter";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.add");
           edUplState.textContent = "";
           edRenderAvatar();
           edRenderFlags();
@@ -952,9 +962,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         function apriEdit(c: Client) {
           edCliente = c;
           edPhotoUrl = c.photo_url ?? "";
-          (document.getElementById("ed-title") as HTMLElement).textContent = "Modifier le client";
+          (document.getElementById("ed-title") as HTMLElement).textContent = tr("cli.editClient");
           (document.getElementById("ed-block-row") as HTMLElement).style.display = "";
-          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Enregistrer";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.save");
           edOptout = Boolean(c.newsletter_optout);
           edBlocked = Boolean(c.blocked);
           const parti = (c.name ?? "").trim().split(/\s+/).filter(Boolean);
@@ -998,10 +1008,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const file = edFile.files?.[0];
           if (!file) return;
           if (file.size > 4 * 1024 * 1024) {
-            edUplState.textContent = "Fichier trop lourd (max 4 Mo).";
+            edUplState.textContent = tr("cli.fileTooBig");
             return;
           }
-          edUplState.textContent = "Téléversement…";
+          edUplState.textContent = tr("cli.uploading");
           try {
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
@@ -1016,14 +1026,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const j = (await resp.json()) as { url?: string; error?: string };
             if (!resp.ok || !j.url) {
-              edUplState.textContent = j.error ?? "Erreur de téléversement";
+              edUplState.textContent = j.error ?? tr("cli.uploadError");
               return;
             }
             edPhotoUrl = j.url;
             edRenderAvatar();
-            edUplState.textContent = "Photo téléversée ✓";
+            edUplState.textContent = tr("cli.photoUploaded");
           } catch {
-            edUplState.textContent = "Erreur de connexion";
+            edUplState.textContent = tr("res.connErr");
           } finally {
             edFile.value = "";
           }
@@ -1042,11 +1052,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               : `${edPrefixEl().value} ${telGrezzo.replace(/^0/, "")}`
             : "";
           if (!cognomeV && !prenomV) {
-            errEl.textContent = "Le nom est obligatoire.";
+            errEl.textContent = tr("res.nameRequired");
             return;
           }
           if (!edCliente && !emailV && !telV) {
-            errEl.textContent = "Renseignez au moins un email ou un téléphone.";
+            errEl.textContent = tr("cli.emailOrPhone");
             return;
           }
           const btn = document.getElementById("ed-save") as HTMLButtonElement;
@@ -1070,14 +1080,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const j = (await res.json()) as { error?: string };
             if (!res.ok) {
-              errEl.textContent = j.error ?? "Enregistrement impossible";
+              errEl.textContent = j.error ?? tr("common.saveErr");
               return;
             }
             edOverlay.classList.remove("is-open");
-            toast(edCliente ? "Client modifié" : "Client ajouté");
+            toast(edCliente ? tr("cli.clientModified") : tr("cli.clientAdded"));
             await carica();
           } catch {
-            errEl.textContent = "Erreur de connexion";
+            errEl.textContent = tr("res.connErr");
           } finally {
             btn.disabled = false;
           }
@@ -1092,7 +1102,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             } else {
               const res = await fetch("/api/admin/clients", { headers });
               if (!res.ok) {
-                stateEl.textContent = "Erreur de chargement.";
+                stateEl.textContent = tr("sup.load.error");
                 stateEl.style.display = "block";
                 return;
               }
@@ -1104,7 +1114,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             updateHeader();
             render();
           } catch {
-            stateEl.textContent = "Erreur de connexion.";
+            stateEl.textContent = tr("common.netErr");
             stateEl.style.display = "block";
           } finally {
             contentEl.classList.remove("loading");
@@ -1142,8 +1152,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             : grezzo.startsWith("+")
               ? grezzo
               : `${fPrefix.value} ${grezzo.replace(/^0/, "")}`;
-          if (!fLname.value.trim()) { mMsg.textContent = "Le nom est obligatoire."; fLname.focus(); return; }
-          if (!email && !phone) { mMsg.textContent = "Email ou téléphone requis."; fEmail.focus(); return; }
+          if (!fLname.value.trim()) { mMsg.textContent = tr("res.nameRequired"); fLname.focus(); return; }
+          if (!email && !phone) { mMsg.textContent = tr("cli.emailOrPhoneReq"); fEmail.focus(); return; }
 
           mMsg.textContent = "";
           mSave.disabled = true;
@@ -1156,14 +1166,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const out = await res.json().catch(() => ({}));
             if (!res.ok) {
-              mMsg.textContent = out.error || "Erreur d'enregistrement.";
+              mMsg.textContent = out.error || tr("res.saveError");
               return;
             }
             chiudiModale();
-            toast("Client ajouté ✓");
+            toast(`${tr("cli.clientAdded")} ✓`);
             await carica();
           } catch {
-            mMsg.textContent = "Erreur de connexion.";
+            mMsg.textContent = tr("common.netErr");
           } finally {
             mSave.disabled = false;
             mSave.classList.remove("is-loading");

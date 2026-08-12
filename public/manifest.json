@@ -1,6 +1,6 @@
 {
   "id": "/admin",
-  "name": "MOODD Admin",
+  "name": "RestoHub",
   "short_name": "MOODD",
   "start_url": "/admin",
   "scope": "/",

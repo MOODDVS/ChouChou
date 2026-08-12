@@ -14,6 +14,11 @@ import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { aggiornaTimezone } from "../../lib/slots";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -47,11 +52,11 @@ try {
 const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Commandes — " + CLIENT.nome}</title>
+    <title>{t("nav.orders") + " — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -415,42 +420,42 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       <main>
         <div class="head-row">
           <div>
-            <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>Commandes</h1>
+            <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>{t("nav.orders")}</h1>
             <p class="today-label" id="today-label"></p>
             <p class="count" id="count"></p>
           </div>
           <div class="prep">
             <span class="o-search-wrap">
-              <input type="text" id="o-search" class="o-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
-              <button type="button" class="o-search-x" id="o-search-x" aria-label="Effacer la recherche" style="display:none">×</button>
+              <input type="text" id="o-search" class="o-search" placeholder={t("ord.searchPh")} autocomplete="off" />
+              <button type="button" class="o-search-x" id="o-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
             </span>
-            <p class="prep-lab">Préparation<span class="prep-note" id="prep-note"></span></p>
-            <div class="prep-btns" role="group" aria-label="Temps de préparation">
-              <button class="prep-btn" type="button" data-min="15" title="Rapide — 15 minutes">
+            <p class="prep-lab">{t("home.prep")}<span class="prep-note" id="prep-note"></span></p>
+            <div class="prep-btns" role="group" aria-label={t("ord.prepTime")}>
+              <button class="prep-btn" type="button" data-min="15" title={t("ord.prepFast")}>
                 <svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><path d="m58.982 46.321c.006-.145.018-.289.018-.436 0-8.567-5.834-16.111-13.57-17.547-5.452-1.011-11.985.293-17.476 3.49a22.546 22.546 0 0 0 -2.954 2.006 13.213 13.213 0 0 0 -.28-2.848 24.743 24.743 0 0 0 10.68-3.715c7.111-4.216 11.028-9.833 9.111-13.067-1.3-2.187-4.836-2.549-9.188-1.255 1.2-4.05.8-7.121-1.169-8.39-1.615-1.041-3.953-.616-6.576 1.2a26.723 26.723 0 0 0 -6.814 7.422c-2.589 4.024-4.1 8.259-4.133 11.392a18.094 18.094 0 0 0 -5.718 1.636c-3.031 1.329-6.4 3.027-8.03 6.372a9.658 9.658 0 0 0 .288 8.637c2.261 4.1 6.449 4.791 9.32 4.791a23.373 23.373 0 0 0 2.353-.134l.484-.052c.322-.036.639-.088.951-.15.681 2.185 2.826 7.315 8.388 9.266 1.752.615 2.263 1.465 2.389 2.057h-1.056a4 4 0 0 0 -4 4 1 1 0 0 0 1 1h26.786a2.372 2.372 0 0 0 2.214-2.496 2.607 2.607 0 0 0 -.941-2.045 15.182 15.182 0 0 0 3.187-2 5.045 5.045 0 0 0 2.546.691 5.153 5.153 0 0 0 2.19-9.823zm-53.275-6.614-.689.689c-.029-.049-.065-.089-.093-.139a7.453 7.453 0 0 1 -.711-1.885l.079-.079a1 1 0 0 1 1.414 1.414zm8.175-5.825a1 1 0 0 1 -1.414 0 .978.978 0 0 0 -.842-.274.8.8 0 0 0 -.6.41c-.031.074-.029.065-.029-.013a1 1 0 0 1 -1.997-.005 2.011 2.011 0 0 1 .26-.914 2.777 2.777 0 0 1 2.066-1.455 2.988 2.988 0 0 1 2.556.837 1 1 0 0 1 0 1.414zm9.469-6.134c-1.821-.393-.679-1.913-.051-2.711a22.629 22.629 0 0 1 14.508-8.316c3.919-.721 3.681 2.123 2.2 3.651a24.945 24.945 0 0 1 -6.063 4.414c-3.964 2.125-7.958 3.172-10.594 2.962zm10.984 29.466a8.894 8.894 0 0 1 -5.335-8.006c0-.069 0-.138 0-.208 0-6.085 3.366-8.189 6.374-8.857a9.969 9.969 0 0 0 -1.039 17.071z"/></svg>
                 <span class="m">15 min</span>
               </button>
-              <button class="prep-btn" type="button" data-min="30" title="Normal — 30 minutes">
+              <button class="prep-btn" type="button" data-min="30" title={t("ord.prepNormal")}>
                 <svg viewBox="0 0 441.23 441.23" fill="currentColor" aria-hidden="true"><path d="M440.651,132.739c-0.888-2.354-2.721-4.229-5.054-5.171L396.39,111.75c-2.435-12.666-12.056-22.81-24.436-26.008l-2.115-24.363c-0.309-3.565-2.701-6.608-6.093-7.751c-3.391-1.142-7.137-0.167-9.541,2.484l-10.062,11.099l-6.22-21.766c-1.072-3.752-4.44-6.386-8.341-6.521c-3.924-0.139-7.444,2.258-8.773,5.928L274.34,173.047c0,0-172.127,8.035-172.199,8.039c-35.296,2.121-68.735-16.765-85.167-48.119c-2.309-4.402-7.748-6.102-12.149-3.794c-4.403,2.308-6.101,7.747-3.794,12.149c14.69,28.03,40.708,47.75,70.541,54.93c-3.097,3.609-9.751,12.554-13.642,26.617c-4.231,15.291-5.756,39.667,9.801,70.619L42.499,327.76c-1.474,2.001-2.054,4.523-1.603,6.968l11.105,60.218c0.787,4.268,4.51,7.367,8.851,7.367h11.312c2.669,0,5.2-1.185,6.911-3.233c1.71-2.05,2.422-4.753,1.944-7.378l-7.032-38.627l74.401-55.853c0.131-0.099-0.126,0.107,0,0c7.114-5.975,12.278-12.556,15.972-19.322c38.777,6.808,91.844,16.02,125.857,21.498l14.986,95.314c0.689,4.377,4.46,7.602,8.891,7.602h9.308c4.971,0,9-4.029,9-9V296.56c8.449-5.77,11.469-15.42,13.472-24.871c0.063-0.297,20.022-92.416,20.022-92.416c3.762,0.627,7.561,0.956,11.388,0.956c26.356,0,50.492-15.431,62.987-40.271C441.401,137.712,441.539,135.094,440.651,132.739z"/></svg>
                 <span class="m">30 min</span>
               </button>
-              <button class="prep-btn" type="button" data-min="45" title="Chargé — 45 minutes">
+              <button class="prep-btn" type="button" data-min="45" title={t("ord.prepBusy")}>
                 <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="m83.9 23.3h-3.9c-5.5 0-10 4.5-10 10v10c0 11-17.9 20-40 20h-17.6c-1.3 0-2.4 1.1-2.4 2.4v1.9c0 1.3 1.1 2.4 2.4 2.4 1.7 0 2.8 1.7 2.3 3.2 0 .1-.1.2-.1.2-.6 1.6.6 3.2 2.2 3.2h2c1 0 1.9-.6 2.3-1.6.4-1.1.8-2.3 1.1-3.4.3-1 1.2-1.7 2.3-1.7h8.9c10.1 0 19.3-1.7 26.7-4.6 1.4-.5 2.9.2 3.2 1.7.7 2.7 1.4 5.4 2.3 8 .3 1 1.3 1.6 2.3 1.6h2c1.7 0 2.8-1.6 2.2-3.2-1.3-3.5-2.3-7.1-3.1-10.8-.2-.9.2-1.9.9-2.4 4.8-3.4 8-7.6 9.4-12.2.3-.9 1-1.5 1.9-1.7 5.1-.9 8.8-3.4 8.8-6.3v-10.5c0-3.4-2.7-6.2-6.1-6.2zm-3.3 12.5c-1.9.4-3.5-1.2-3-3 .2-.9.9-1.6 1.8-1.8 1.9-.5 3.5 1.2 3.1 3.1-.3.7-1 1.5-1.9 1.7z"/><path d="m10.2 53.3c-.2 1.8 1.2 3.3 3 3.3h16.8c20.3 0 33.3-7.9 33.3-13.3v-11.7c0-1-.5-1.9-1.4-2.5-5.3-3.6-11.7-5.7-18.6-5.7-17.2-.1-31.5 13.1-33.1 29.9z"/></svg>
                 <span class="m">45 min</span>
               </button>
-              <button class="prep-btn prep-close" type="button" id="btn-close-orders" title="Fermer les commandes en ligne">
+              <button class="prep-btn prep-close" type="button" id="btn-close-orders" title={t("ord.closeOnline")}>
                 <svg viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
                   <circle cx="15" cy="12" r="8.5" />
                   <path d="M9 6 L21 18" />
                 </svg>
-                <span class="m" id="close-orders-label">Fermer</span>
+                <span class="m" id="close-orders-label">{t("common.close")}</span>
               </button>
             </div>
           </div>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div class="grid" id="grid"></div>
-        <h2 class="done-title" id="done-title" style="display:none">Terminées &amp; annulées</h2>
+        <h2 class="done-title" id="done-title" style="display:none">{t("ord.doneCancelled")}</h2>
         <div class="grid" id="grid-done"></div>
       </main>
       <AdminFooter />
@@ -459,55 +464,55 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <!-- Modale Remboursement -->
     <div class="rf-overlay" id="rf-overlay" role="dialog" aria-modal="true" aria-labelledby="rf-title">
       <div class="rf-modal">
-        <h2 class="rf-title" id="rf-title">Rembourser la commande</h2>
+        <h2 class="rf-title" id="rf-title">{t("ord.refundTitle")}</h2>
         <p class="rf-sub" id="rf-sub"></p>
-        <label class="rf-label" for="rf-amount">Montant à rembourser</label>
+        <label class="rf-label" for="rf-amount">{t("ord.refundAmount")}</label>
         <div class="rf-inputrow">
           <span class="rf-euro">€</span>
           <input class="rf-amount" id="rf-amount" type="number" inputmode="decimal" min="0" step="0.01" />
-          <button class="rf-all" type="button" id="rf-all">Tout</button>
+          <button class="rf-all" type="button" id="rf-all">{t("ord.all")}</button>
         </div>
         <p class="rf-msg" id="rf-msg"></p>
         <div class="rf-actions">
-          <button class="rf-cancel" type="button" id="rf-cancel">Annuler</button>
-          <button class="rf-confirm" type="button" id="rf-confirm">Rembourser</button>
+          <button class="rf-cancel" type="button" id="rf-cancel">{t("common.cancel")}</button>
+          <button class="rf-confirm" type="button" id="rf-confirm">{t("ord.refund")}</button>
         </div>
       </div>
     </div>
 
     <!-- Nouvelle commande (manuale con link di pagamento) -->
-    <button class="nc-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>Commande</button>
+    <button class="nc-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
     <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
       <div class="nc-modal">
-        <button class="nc-close" id="nc-close" aria-label="Fermer">×</button>
-        <h2>Nouvelle commande</h2>
+        <button class="nc-close" id="nc-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("ord.newOrder")}</h2>
         <div class="nc-grid">
           <div class="nc-left">
-            <span class="nc-lab">Client</span>
+            <span class="nc-lab">{t("ord.client")}</span>
             <div class="nc-row">
-              <input type="text" class="nc-in" id="nc-prenom" placeholder="Prénom" autocomplete="off" />
-              <input type="text" class="nc-in" id="nc-nom" placeholder="Nom *" autocomplete="off" />
+              <input type="text" class="nc-in" id="nc-prenom" placeholder={t("ord.firstName")} autocomplete="off" />
+              <input type="text" class="nc-in" id="nc-nom" placeholder={t("ord.lastNameReq")} autocomplete="off" />
             </div>
-            <input type="email" class="nc-in" id="nc-email" placeholder="Email *" autocomplete="off" />
-            <input type="tel" class="nc-in" id="nc-tel" placeholder="Téléphone" autocomplete="off" />
-            <span class="nc-lab">Langue de l'email</span>
+            <input type="email" class="nc-in" id="nc-email" placeholder={t("ord.emailReq")} autocomplete="off" />
+            <input type="tel" class="nc-in" id="nc-tel" placeholder={t("ord.phone")} autocomplete="off" />
+            <span class="nc-lab">{t("ord.emailLang")}</span>
             <div class="nc-pills" id="nc-langs">
               <button type="button" class="nc-pill is-on" data-lang="fr">Français</button>
               <button type="button" class="nc-pill" data-lang="en">English</button>
             </div>
-            <span class="nc-lab">Retrait aujourd'hui</span>
-            <div class="nc-slots" id="nc-slots"><span class="nc-slots-empty">Chargement…</span></div>
-            <span class="nc-lab">Note</span>
+            <span class="nc-lab">{t("ord.pickupToday")}</span>
+            <div class="nc-slots" id="nc-slots"><span class="nc-slots-empty">{t("sup.loading")}</span></div>
+            <span class="nc-lab">{t("ord.note")}</span>
             <textarea class="nc-in" id="nc-note" rows="2"></textarea>
           </div>
           <div class="nc-right">
-            <span class="nc-lab">Menu</span>
+            <span class="nc-lab">{t("nav.menu")}</span>
             <div class="nc-cats" id="nc-cats"></div>
             <div class="nc-items" id="nc-items"></div>
-            <span class="nc-lab">Panier</span>
-            <div class="nc-cart" id="nc-cart"><div class="nc-cart-empty">Panier vide</div></div>
-            <div class="nc-total"><span>Total</span><b id="nc-total">0,00 €</b></div>
-            <button type="button" class="nc-send" id="nc-send">Créer &amp; envoyer le lien de paiement</button>
+            <span class="nc-lab">{t("ord.cart")}</span>
+            <div class="nc-cart" id="nc-cart"><div class="nc-cart-empty">{t("ord.cartEmpty")}</div></div>
+            <div class="nc-total"><span>{t("ord.total")}</span><b id="nc-total">0,00 €</b></div>
+            <button type="button" class="nc-send" id="nc-send">{t("ord.createSend")}</button>
           </div>
         </div>
       </div>
@@ -521,6 +526,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
       type Order = {
@@ -542,7 +552,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
@@ -552,7 +562,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       // Ora HH:MM di un istante ISO, nel fuso di Bruxelles.
       function oraBrussels(iso: string): string {
-        return new Date(iso).toLocaleTimeString("fr-BE", {
+        return new Date(iso).toLocaleTimeString(LOC, {
           timeZone: TZ_LOCALE,
           hour: "2-digit",
           minute: "2-digit",
@@ -568,14 +578,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
       let ricerca = "";
       const dataBrussels = (iso: string): string =>
-        new Date(iso).toLocaleDateString("fr-BE", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
+        new Date(iso).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
 
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");
         const piatti = o.items.filter((i) => i.id !== "note");
 
         const phone = o.customer_phone
-          ? `<p class="row">Tél : <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></p>`
+          ? `<p class="row">${tr("ord.telLabel")} : <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></p>`
           : "";
         const langBadge = o.lang ? `<span class="badge">${esc(o.lang)}</span>` : "";
 
@@ -594,9 +604,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         // Etichetta di stato (solo per le card spente)
         let tag = "";
-        if (o.status === "done") tag = `<span class="tag tag-done">Terminée</span>`;
-        if (o.status === "pending") tag = `<span class="tag tag-pending" title="En attente de paiement">Att. de paie.</span>`;
-        if (o.status === "paid") tag = `<span class="tag tag-paid">Payé</span>`;
+        if (o.status === "done") tag = `<span class="tag tag-done">${tr("ord.terminee")}</span>`;
+        if (o.status === "pending") tag = `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
+        if (o.status === "paid") tag = `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
 
 
         // Ordini attivi: Terminée + Annuler.
@@ -605,25 +615,25 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const actions =
           o.status === "paid"
             ? `<div class="actions">
-                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ Terminée</button>
-                 <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">Annuler</button>
+                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ ${tr("ord.terminee")}</button>
+                 <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">${tr("common.cancel")}</button>
                </div>`
             : o.status === "pending"
               ? `<div class="actions">
-                   <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="Renvoyer l'email de paiement">Ren. email</button>
-                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">Annuler</button>
+                   <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}">${tr("ord.resendShort")}</button>
+                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">${tr("common.cancel")}</button>
                  </div>`
               : "";
 
-        const badgeOk = o.status === "done" ? `<span class="badge-ok" title="Terminée">✓</span>` : "";
-        const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="Annulée">✕</span>` : "";
+        const badgeOk = o.status === "done" ? `<span class="badge-ok" title="${tr("ord.terminee")}">✓</span>` : "";
+        const badgeKo = o.status === "cancelled" ? `<span class="badge-ko" title="${tr("ord.annulee")}">✕</span>` : "";
         // Bottone stampante (ristampa ticket): reso solo se STAMPA_TICKET = true.
         const stampaBtn = STAMPA_TICKET
-          ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="Ré-imprimer le ticket" aria-label="Ré-imprimer le ticket">${ICON_PRINT}</button>`
+          ? `<button class="btn-print" type="button" data-id="${o.id}" data-act="print" title="${tr("ord.reprint")}" aria-label="${tr("ord.reprint")}">${ICON_PRINT}</button>`
           : "";
         const rollback =
           o.status === "done"
-            ? `<button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="Remettre en cours" aria-label="Remettre en cours">↩</button>`
+            ? `<button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="${tr("ord.putBack")}" aria-label="${tr("ord.putBack")}">↩</button>`
             : "";
         // Ordini ANNULÉS pagati con Stripe: rimborso (totale o parziale).
         // Stato rimborso = tag in alto; bottone "Rembourser" = assoluto in basso
@@ -635,12 +645,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const isStripe = o.status === "cancelled" && /^cs_/.test(String(o.stripe_session_id ?? ""));
         if (isStripe && refunded > 0) {
           tag += residuo > 0
-            ? `<span class="tag tag-refund">Remboursé ${euro(refunded)}</span>`
-            : `<span class="tag tag-refund">Remboursé ✓</span>`;
+            ? `<span class="tag tag-refund">${tr("ord.refunded")} ${euro(refunded)}</span>`
+            : `<span class="tag tag-refund">${tr("ord.refunded")} ✓</span>`;
         }
         const refundBtn =
           isStripe && residuo > 0
-            ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">Rembourser</button>`
+            ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
             : "";
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
@@ -656,7 +666,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <span class="ct-right">${stampaBtn}${badgeOk}${badgeKo}<span class="total">${euro(o.total_cents)}</span></span>
             </div>
             <p class="name">${esc(o.customer_name)}${langBadge}</p>
-            <p class="row">Email : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
+            <p class="row">${tr("ord.emailLabel")} : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
             ${phone}
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
@@ -742,7 +752,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 prepNote.textContent = "";
               }, 2000);
             } catch {
-              prepNote.textContent = "Erreur";
+              prepNote.textContent = tr("ord.errShort");
               prepNote.classList.add("err");
             } finally {
               prepBtns.forEach((b) => (b.disabled = false));
@@ -758,10 +768,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         function segnaChiusura() {
           btnClose.classList.toggle("closed", ordiniChiusi);
-          lblClose.textContent = ordiniChiusi ? "Fermé" : "Fermer";
+          lblClose.textContent = ordiniChiusi ? tr("ord.closed") : tr("common.close");
           btnClose.title = ordiniChiusi
-            ? "Rouvrir les commandes en ligne"
-            : "Fermer les commandes en ligne";
+            ? tr("ord.reopenOnline")
+            : tr("ord.closeOnline");
         }
 
         btnClose.addEventListener("click", async () => {
@@ -782,7 +792,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               prepNote.textContent = "";
             }, 2000);
           } catch {
-            prepNote.textContent = "Erreur";
+            prepNote.textContent = tr("ord.errShort");
             prepNote.classList.add("err");
           } finally {
             btnClose.disabled = false;
@@ -801,7 +811,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (confirmTimer) clearTimeout(confirmTimer);
           document.querySelectorAll<HTMLButtonElement>(".btn-cancel.confirm").forEach((b) => {
             b.classList.remove("confirm");
-            b.textContent = "Annuler";
+            b.textContent = tr("common.cancel");
           });
         }
 
@@ -815,10 +825,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             const trovati = ordini
               .filter((o) => `${o.customer_name ?? ""} ${o.customer_email ?? ""} ${o.customer_phone ?? ""}`.toLowerCase().includes(q))
               .sort((a, b) => (a.pickup_time > b.pickup_time ? -1 : 1));
-            labelEl.textContent = `Recherche — ${trovati.length} résultat${trovati.length === 1 ? "" : "s"}`;
+            labelEl.textContent = `${tr("ord.search")} — ${trovati.length} ${trovati.length === 1 ? tr("ord.result") : tr("ord.results")}`;
             countEl.textContent = "";
             if (trovati.length === 0) {
-              stateEl.textContent = "Aucune commande trouvée.";
+              stateEl.textContent = tr("ord.noneFound");
               stateEl.style.display = "block";
             } else {
               stateEl.style.display = "none";
@@ -830,8 +840,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
 
           labelEl.textContent =
-            "Aujourd'hui — " +
-            oggi.toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
+            tr("ord.today") + " — " +
+            oggi.toLocaleDateString(LOC, { weekday: "long", day: "numeric", month: "long" });
 
           // Solo oggi, dal ritiro più vicino al più lontano
           const ordOggi = ordini
@@ -849,15 +859,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const tot = incassati.reduce((s, o) => s + o.total_cents, 0);
           const parti: string[] = [];
           if (incassati.length)
-            parti.push((incassati.length === 1 ? "1 commande" : `${incassati.length} commandes`) + ` · ${euro(tot)}`);
-          if (pendenti) parti.push(`${pendenti} en attente`);
+            parti.push(`${incassati.length} ${incassati.length === 1 ? tr("ord.commandeSg") : tr("home.ordersWord")}` + ` · ${euro(tot)}`);
+          if (pendenti) parti.push(`${pendenti} ${tr("ord.pending")}`);
           countEl.textContent = parti.join(" · ");
 
           if (ordOggi.length === 0) {
-            stateEl.textContent = "Aucune commande payée aujourd'hui.";
+            stateEl.textContent = tr("ord.nonePaidToday");
             stateEl.style.display = "block";
           } else if (attivi.length === 0) {
-            stateEl.textContent = "Aucune commande en cours.";
+            stateEl.textContent = tr("ord.noneInProgress");
             stateEl.style.display = "block";
           } else {
             stateEl.style.display = "none";
@@ -898,7 +908,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             resetConfirm();
             render();
           } catch {
-            btn.textContent = "Erreur";
+            btn.textContent = tr("ord.errShort");
             setTimeout(() => {
               resetConfirm();
               render();
@@ -936,10 +946,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             })
               .then(async (r) => {
                 const j = (await r.json()) as { error?: string };
-                if (!r.ok) throw new Error(j.error || "Envoi impossible");
-                ncToast("Email de paiement renvoyé");
+                if (!r.ok) throw new Error(j.error || tr("ord.sendFailed"));
+                ncToast(tr("ord.paymentResent"));
               })
-              .catch((e2) => ncToast(e2 instanceof Error ? e2.message : "Envoi impossible", true))
+              .catch((e2) => ncToast(e2 instanceof Error ? e2.message : tr("ord.sendFailed"), true))
               .finally(() => {
                 btn.disabled = false;
               });
@@ -952,7 +962,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             resetConfirm();
             confirmId = id;
             btn.classList.add("confirm");
-            btn.textContent = "Confirmer ?";
+            btn.textContent = tr("common.confirm");
             confirmTimer = window.setTimeout(resetConfirm, 4000);
           }
         });
@@ -990,7 +1000,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           rfResiduo = Math.max(0, Math.round(Number(btn.dataset.residuo ?? "0")));
           rfMsg.textContent = "";
           rfMsg.classList.remove("ok");
-          rfSub.textContent = `Montant remboursable : ${euro(rfResiduo)}`;
+          rfSub.textContent = `${tr("ord.refundable")} : ${euro(rfResiduo)}`;
           rfAmount.value = (rfResiduo / 100).toFixed(2);
           rfAmount.max = (rfResiduo / 100).toFixed(2);
           rfConfirm.disabled = false;
@@ -1014,17 +1024,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const cents = Math.round(euros * 100);
           if (!Number.isFinite(cents) || cents <= 0) {
             rfMsg.classList.remove("ok");
-            rfMsg.textContent = "Montant invalide.";
+            rfMsg.textContent = tr("ord.invalidAmount");
             return;
           }
           if (cents > rfResiduo) {
             rfMsg.classList.remove("ok");
-            rfMsg.textContent = `Maximum : ${euro(rfResiduo)}.`;
+            rfMsg.textContent = `${tr("ord.maximum")} : ${euro(rfResiduo)}.`;
             return;
           }
           rfConfirm.disabled = true;
           rfMsg.classList.remove("ok");
-          rfMsg.textContent = "Remboursement en cours…";
+          rfMsg.textContent = tr("ord.refunding");
           try {
             const r = await fetch("/api/admin/refund", {
               method: "POST",
@@ -1034,19 +1044,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             const j = await r.json().catch(() => ({}) as any);
             if (!r.ok) {
               rfMsg.classList.remove("ok");
-              rfMsg.textContent = j.error || "Remboursement impossible.";
+              rfMsg.textContent = j.error || tr("ord.refundFailed");
               rfConfirm.disabled = false;
               return;
             }
             const ord = ordini.find((o) => o.id === rfId);
             if (ord) ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + cents);
             rfMsg.classList.add("ok");
-            rfMsg.textContent = `Remboursé : ${euro(Number(j.amount ?? cents))} ✓`;
+            rfMsg.textContent = `${tr("ord.refunded")} : ${euro(Number(j.amount ?? cents))} ✓`;
             render();
             setTimeout(chiudiRimborso, 1200);
           } catch {
             rfMsg.classList.remove("ok");
-            rfMsg.textContent = "Erreur de connexion.";
+            rfMsg.textContent = tr("common.netErr");
             rfConfirm.disabled = false;
           }
         });
@@ -1067,7 +1077,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           try {
             const res = await fetch("/api/admin/orders", { headers });
             if (!res.ok) {
-              if (!silenzioso) stateEl.textContent = "Erreur de chargement.";
+              if (!silenzioso) stateEl.textContent = tr("sup.load.error");
               return;
             }
             const json = await res.json();
@@ -1078,7 +1088,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ordini = list;
             render();
           } catch {
-            if (!silenzioso) stateEl.textContent = "Erreur de connexion.";
+            if (!silenzioso) stateEl.textContent = tr("common.netErr");
           }
         }
 
@@ -1146,7 +1156,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         function ncRenderSlots() {
           const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
           if (!ncSlotsTutti.length) {
-            slotsBox.innerHTML = '<span class="nc-slots-empty">Aucun créneau disponible aujourd&#39;hui</span>';
+            slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("ord.noSlotsToday")}</span>`;
             return;
           }
           const LIM = 17; // ~3 righe; l'ultima cella è la pillola "+N"
@@ -1156,7 +1166,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               .map((sl) => `<button type="button" class="nc-pill${sl === ncSlot ? " is-on" : ""}" data-slot="${sl}">${sl}</button>`)
               .join("") +
             (ncSlotsTutti.length > LIM
-              ? `<button type="button" class="nc-pill nc-more" data-more="1">${ncSlotsEstesi ? "Moins" : `+${ncSlotsTutti.length - LIM}`}</button>`
+              ? `<button type="button" class="nc-pill nc-more" data-more="1">${ncSlotsEstesi ? tr("ord.less") : `+${ncSlotsTutti.length - LIM}`}</button>`
               : "");
         }
         // Stesso calcolo di lib/pricing.ts (il server ricalcola comunque dal DB)
@@ -1197,15 +1207,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                     `<div class="nc-cline">
                        <div class="nc-cline-top"><span>${esc(voce.name)}</span><span>${euro(ncPrezzo(voce) * qty)}</span></div>
                        <div class="nc-cline-controls">
-                         <button type="button" data-meno="${voce.id}" aria-label="Moins">−</button>
+                         <button type="button" data-meno="${voce.id}" aria-label="${tr("ord.less")}">−</button>
                          <span class="nc-cline-qty">${qty}</span>
-                         <button type="button" data-piu="${voce.id}" aria-label="Plus">+</button>
-                         <button type="button" class="nc-cline-remove" data-del="${voce.id}" aria-label="Retirer">${ICO_BIN}</button>
+                         <button type="button" data-piu="${voce.id}" aria-label="${tr("ord.more")}">+</button>
+                         <button type="button" class="nc-cline-remove" data-del="${voce.id}" aria-label="${tr("ord.remove")}">${ICO_BIN}</button>
                        </div>
                      </div>`
                 )
                 .join("")
-            : '<div class="nc-cart-empty">Panier vide</div>';
+            : `<div class="nc-cart-empty">${tr("ord.cartEmpty")}</div>`;
           const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
           (document.getElementById("nc-total") as HTMLElement).textContent = euro(tot);
         }
@@ -1222,7 +1232,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           ncOverlay.classList.add("is-open");
           // Créneaux di OGGI (stessa fonte del sito)
           const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
-          slotsBox.innerHTML = '<span class="nc-slots-empty">Chargement…</span>';
+          slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("sup.loading")}</span>`;
           ncSlotsTutti = [];
           ncSlotsEstesi = false;
           fetch("/api/slots")
@@ -1233,7 +1243,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               ncRenderSlots();
             })
             .catch(() => {
-              slotsBox.innerHTML = '<span class="nc-slots-empty">Créneaux indisponibles</span>';
+              slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("ord.slotsUnavailable")}</span>`;
             });
           // Menu (caricato una volta, solo piatti ordinabili)
           if (!ncMenu.length) {
@@ -1310,15 +1320,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
           const emailCl = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
           if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl)) {
-            ncToast("Nom et email valides requis", true);
+            ncToast(tr("ord.nameEmailReq"), true);
             return;
           }
           if (!ncSlot) {
-            ncToast("Choisir un créneau de retrait", true);
+            ncToast(tr("ord.chooseSlot"), true);
             return;
           }
           if (!ncCart.size) {
-            ncToast("Le panier est vide", true);
+            ncToast(tr("ord.cartIsEmpty"), true);
             return;
           }
           const btn = document.getElementById("nc-send") as HTMLButtonElement;
@@ -1339,12 +1349,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               }),
             });
             const j = (await res.json()) as { error?: string };
-            if (!res.ok) throw new Error(j.error || "Création impossible");
+            if (!res.ok) throw new Error(j.error || tr("ord.createFailed"));
             ncOverlay.classList.remove("is-open");
-            ncToast("Commande créée — lien de paiement envoyé");
+            ncToast(tr("ord.orderCreated"));
             void carica(true);
           } catch (e2) {
-            ncToast(e2 instanceof Error ? e2.message : "Création impossible", true);
+            ncToast(e2 instanceof Error ? e2.message : tr("ord.createFailed"), true);
           } finally {
             btn.disabled = false;
           }

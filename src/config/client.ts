@@ -1,5 +1,5 @@
 /**
- * CONFIG CLIENTE — MOODD Admin engine.
+ * CONFIG CLIENTE — RestoHub engine.
  * Questo è l’UNICO file da modificare per rebrandizzare l’admin su un
  * nuovo cliente (insieme agli asset in /public: loghi, icone, manifest.json).
  * Vedi SETUP.md per la checklist completa del nuovo cliente.
@@ -37,7 +37,7 @@ export const CLIENT = {
 
 /** Identità del prodotto (footer admin). NON cambia da cliente a cliente. */
 export const PRODOTTO = {
-  nome: "MOODD Admin",
-  versione: "v2.1",
+  nome: "RestoHub",
+  versione: "v3.0",
   copyright: "©2026 - All rights reserved MOODD",
 };

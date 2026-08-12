@@ -2,6 +2,10 @@
 // Isola "Google" della Accueil: note globale + carrousel des derniers avis
 // (avec les étoiles de chacun). Alimentata da /api/admin/google-info.
 // Place ID in Réglages → Integrations ; sans Place ID la tuile reste cachée.
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <div class="tile tile-google" data-tile="google" id="tile-google" style="display:none">
   <div class="g-head">
@@ -9,7 +13,7 @@
       <svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
       Google
     </div>
-    <a class="g-link" id="g-maps" href="#" target="_blank" rel="noopener">Voir la fiche →</a>
+    <a class="g-link" id="g-maps" href="#" target="_blank" rel="noopener">{t("home.viewListing")}</a>
   </div>
 
   <div class="g-top">
@@ -25,9 +29,9 @@
       <span class="g-who" id="g-who"></span>
     </div>
     <div class="g-nav">
-      <button type="button" class="g-arrow" id="g-prev" aria-label="Avis précédent">‹</button>
+      <button type="button" class="g-arrow" id="g-prev" aria-label={t("home.prevReview")}>‹</button>
       <span class="g-dots" id="g-dots"></span>
-      <button type="button" class="g-arrow" id="g-next" aria-label="Avis suivant">›</button>
+      <button type="button" class="g-arrow" id="g-next" aria-label={t("home.nextReview")}>›</button>
     </div>
   </div>
 </div>

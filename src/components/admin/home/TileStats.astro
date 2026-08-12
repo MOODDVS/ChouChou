@@ -1,25 +1,29 @@
 ---
 // Isola "Statistiques" della Accueil (larga 2 colonne) → pagina Statistiques.
 // data-admin-page="stats".
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <div class="tile tile-stats" data-admin-page="stats" data-tile="stats">
   <div class="st-head">
-    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Statistiques</div>
-    <a class="st-link" href="/admin/stats">Voir tout →</a>
+    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>{t("nav.stats")}</div>
+    <a class="st-link" href="/admin/stats">{t("home.viewAll")}</a>
   </div>
   <div class="st-grid">
     <div class="st-left">
       <div class="st-two">
-        <div><span class="st-lab">C.A. ajd.</span><span class="st-big" id="st-ca-day">—</span></div>
-        <div><span class="st-lab">C.A. mois</span><span class="st-big" id="st-ca-month">—</span></div>
+        <div><span class="st-lab">{t("home.caDay")}</span><span class="st-big" id="st-ca-day">—</span></div>
+        <div><span class="st-lab">{t("home.caMonth")}</span><span class="st-big" id="st-ca-month">—</span></div>
       </div>
       <div class="st-facts">
-        <div><span class="st-lab">Plat le plus commandé (mois)</span><span class="val" id="st-top">—</span></div>
-        <div><span class="st-lab">Heure de pointe (mois)</span><span class="val" id="st-peak">—</span></div>
+        <div><span class="st-lab">{t("home.topDish")}</span><span class="val" id="st-top">—</span></div>
+        <div><span class="st-lab">{t("home.peakHour")}</span><span class="val" id="st-peak">—</span></div>
       </div>
     </div>
     <div class="st-chart">
-      <span class="st-lab">Commandes cette semaine</span>
+      <span class="st-lab">{t("home.ordersWeek")}</span>
       <div class="st-bars" id="st-bars"></div>
       <div class="st-labs" id="st-labs"></div>
     </div>

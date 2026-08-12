@@ -9,6 +9,11 @@ import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -26,11 +31,11 @@ try {
 const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Menu — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.menu") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -444,15 +449,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       <AdminHeader />
       <main>
         <div class="topbar">
-          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menu</h1>
+          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>{t("nav.menu")}</h1>
           <div class="t-stats" id="t-stats"></div>
         </div>
         <div class="k-filtri" id="k-filtri"></div>
         <div class="actionsbar">
           <div class="tabs" id="tabs"></div>
-          <input type="text" class="search" id="search" placeholder="Rechercher un plat…" />
+          <input type="text" class="search" id="search" placeholder={t("menu.searchPh")} />
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="list"></div>
       </main>
       <AdminFooter />
@@ -461,32 +466,32 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <!-- Modale piatto -->
     <div class="overlay" id="overlay">
       <div class="modal">
-        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
-        <h2 id="m-title">Ajouter un plat</h2>
+        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        <h2 id="m-title">{t("menu.addDish")}</h2>
         <div class="f-row">
           <div class="f-field" style="flex: 2">
-            <span class="f-label">Nom *</span>
+            <span class="f-label">{t("menu.nameReq")}</span>
             <input type="text" id="f-name" maxlength="120" />
           </div>
           <div class="f-field">
-            <span class="f-label">Prix (€) *</span>
+            <span class="f-label">{t("menu.priceReq")}</span>
             <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
           </div>
         </div>
         <div class="f-row">
           <div class="f-field" style="flex: 2">
-            <span class="f-label">Section *</span>
+            <span class="f-label">{t("menu.sectionReq")}</span>
             <select id="f-cat"></select>
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Photo (optionnelle)</span>
+            <span class="f-label">{t("menu.photoOpt")}</span>
             <div class="f-img-row">
               <span class="f-img-prev" id="f-img-prev"></span>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">Téléverser une photo</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">Bibliothèque</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">Retirer</button>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">{t("cli.uploadPhoto")}</button>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">{t("menu.library")}</button>
+              <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">{t("ord.remove")}</button>
               <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
               <span class="f-label" id="f-img-state"></span>
             </div>
@@ -494,76 +499,76 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Réduction</span>
+            <span class="f-label">{t("menu.discount")}</span>
             <select id="f-dtype">
-              <option value="">Aucune</option>
-              <option value="fixed">Prix promo fixe (€)</option>
-              <option value="percent">Pourcentage (%)</option>
+              <option value="">{t("itg.mode.none")}</option>
+              <option value="fixed">{t("menu.discFixed")}</option>
+              <option value="percent">{t("menu.discPercent")}</option>
             </select>
           </div>
           <div class="f-field">
-            <span class="f-label">Valeur</span>
+            <span class="f-label">{t("menu.value")}</span>
             <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
           </div>
           <div class="f-field">
-            <span class="f-label">Application</span>
+            <span class="f-label">{t("menu.application")}</span>
             <select id="f-dscope" disabled>
-              <option value="all">Partout</option>
-              <option value="online">Commandes en ligne uniquement</option>
+              <option value="all">{t("menu.everywhere")}</option>
+              <option value="online">{t("menu.onlineOnly")}</option>
             </select>
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Description (FR)</span>
+            <span class="f-label">{t("menu.descFr")}</span>
             <textarea id="f-dfr" maxlength="500"></textarea>
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Description (EN)</span>
+            <span class="f-label">{t("menu.descEn")}</span>
             <textarea id="f-den" maxlength="500"></textarea>
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Allergènes (UE)</span>
+            <span class="f-label">{t("menu.allergensEu")}</span>
             <div class="alg-grid" id="f-alg"></div>
           </div>
         </div>
-        <span class="f-label m-sublabel">Badges</span>
+        <span class="f-label m-sublabel">{t("menu.badges")}</span>
         <div class="m-toggles m-badges">
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-best" /><span class="track"></span></span>
-            ★ Best-seller
+            ★ {t("menu.bestseller")}
           </label>
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-vegan" /><span class="track"></span></span>
-            🌱 Végan
+            🌱 {t("menu.vegan")}
           </label>
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-spicy" /><span class="track"></span></span>
-            🌶️ Épicé
+            🌶️ {t("menu.spicy")}
           </label>
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-suggestion" /><span class="track"></span></span>
-            👨‍🍳 Suggestion
+            👨‍🍳 {t("menu.suggestion")}
           </label>
         </div>
         <div class="m-toggles">
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
-            Visible sur le site
+            {t("menu.visibleSite")}
           </label>
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
-            Commandable
+            {t("menu.orderable")}
           </label>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">Annuler</button>
-          <button class="m-save" id="m-save">Enregistrer</button>
+          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -571,14 +576,14 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <!-- Modale sezioni -->
     <div class="overlay" id="sec-overlay">
       <div class="modal">
-        <button class="m-close" id="sec-close" aria-label="Fermer">×</button>
-        <h2>Gérer les sections</h2>
-        <p class="f-label" style="margin-bottom: 0.8rem">Glisse ⠿ pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide</p>
+        <button class="m-close" id="sec-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("menu.manageSections")}</h2>
+        <p class="f-label" style="margin-bottom: 0.8rem">{t("menu.sectionsHint")}</p>
         <div id="sec-list"></div>
         <div class="sec-add">
           <span class="sec-kind" id="sec-kind"></span>
-          <input type="text" id="sec-new" placeholder="Nouvelle section (ex. Pizzas colorées)" maxlength="60" />
-          <button class="sec-addbtn" id="sec-addbtn">Ajouter</button>
+          <input type="text" id="sec-new" placeholder={t("menu.newSectionPh")} maxlength="60" />
+          <button class="sec-addbtn" id="sec-addbtn">{t("common.add")}</button>
         </div>
         <span class="m-msg" id="sec-msg"></span>
       </div>
@@ -587,46 +592,46 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <!-- Modale lunch -->
     <div class="overlay" id="lu-overlay">
       <div class="modal">
-        <button class="m-close" id="lu-close" aria-label="Fermer">×</button>
-        <h2 id="lu-title">Ajouter un lunch</h2>
+        <button class="m-close" id="lu-close" aria-label={t("common.close")}>×</button>
+        <h2 id="lu-title">{t("menu.addLunch")}</h2>
         <div class="f-row">
           <div class="f-field" style="flex: 2">
-            <span class="f-label">Nom</span>
-            <input type="text" id="lu-name" maxlength="60" placeholder="Lunch" />
+            <span class="f-label">{t("home.name")}</span>
+            <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Composition (1 seul plat = « Plat du jour »)</span>
+            <span class="f-label">{t("menu.composition")}</span>
             <div class="luf-courses" id="lu-courses"></div>
           </div>
         </div>
         <div class="f-row">
           <div class="f-field">
-            <span class="f-label">Du (vide = sans limite)</span>
-            <input type="text" id="lu-from" placeholder="Sans limite" readonly />
+            <span class="f-label">{t("menu.dateFrom")}</span>
+            <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
           </div>
           <div class="f-field">
-            <span class="f-label">Au (vide = sans limite)</span>
-            <input type="text" id="lu-to" placeholder="Sans limite" readonly />
+            <span class="f-label">{t("menu.dateTo")}</span>
+            <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
           </div>
         </div>
         <div id="lu-items"></div>
         <div class="lu-block">
-          <div class="lu-block-tit">Prix par combinaison</div>
-          <p class="f-label" style="margin-bottom: 0.55rem">Laisse vide les combinaisons non proposées.</p>
+          <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
+          <p class="f-label" style="margin-bottom: 0.55rem">{t("menu.comboEmptyHint")}</p>
           <div id="lu-combos"></div>
         </div>
         <div class="m-toggles">
           <label class="m-toggle">
             <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
-            Actif
+            {t("menu.active")}
           </label>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="lu-msg"></span>
-          <button class="m-cancel" id="lu-cancel">Annuler</button>
-          <button class="m-save" id="lu-save">Enregistrer</button>
+          <button class="m-cancel" id="lu-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="lu-save">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -637,14 +642,14 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
     <!-- Bottoni flottanti (come Résa/Commandes/Clients) -->
     <div class="mn-float" id="mn-float">
-      <button class="pill mn-fab mn-fab-sec" id="sec-btn" title="Gérer les sections">
+      <button class="pill mn-fab mn-fab-sec" id="sec-btn" title={t("menu.manageSections")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
-        Catégories
+        {t("menu.categories")}
       </button>
-      <button class="pill mn-fab" id="add-btn" title="Ajouter un plat"><span class="fab-plus">+</span>Ajou. plat</button>
+      <button class="pill mn-fab" id="add-btn" title={t("menu.addDish")}><span class="fab-plus">+</span>{t("menu.addDishShort")}</button>
     </div>
 
     <AdminNav current="menu" />
@@ -655,6 +660,11 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Item = {
         id: string; category: string; category_order: number; sort_order: number;
@@ -667,10 +677,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
 
       const ALLERGENI: [number, string][] = [
-        [1, "Gluten"], [2, "Lait"], [3, "Arachides"], [4, "Œufs"],
-        [5, "Poisson"], [6, "Crustacés"], [7, "Soja"], [8, "Fruits à coque"],
-        [9, "Céleri"], [10, "Moutarde"], [11, "Sulfites"], [12, "Sésame"],
-        [13, "Lupin"], [14, "Mollusques"],
+        [1, tr("menu.algGluten")], [2, tr("menu.algLait")], [3, tr("menu.algArachides")], [4, tr("menu.algOeufs")],
+        [5, tr("menu.algPoisson")], [6, tr("menu.algCrustaces")], [7, tr("menu.algSoja")], [8, tr("menu.algFruitsCoque")],
+        [9, tr("menu.algCeleri")], [10, tr("menu.algMoutarde")], [11, tr("menu.algSulfites")], [12, tr("menu.algSesame")],
+        [13, tr("menu.algLupin")], [14, tr("menu.algMollusques")],
       ];
 
       // Icone cibo (forchetta) e bevanda (bicchiere)
@@ -703,7 +713,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         return Math.max(0, Math.round(it.price_cents * (1 - Math.min(it.discount_value, 100) / 100)));
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
@@ -726,7 +736,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         if (eff >= it.price_cents) return `<span class="i-price">${euro(it.price_cents)}</span>`;
         if (it.discount_scope === "online") {
           return `<span class="i-price i-promo">` +
-            `<span class="i-col"><span class="i-full">${euro(it.price_cents)}</span><span class="i-table-lab">à table</span></span>` +
+            `<span class="i-col"><span class="i-full">${euro(it.price_cents)}</span><span class="i-table-lab">${tr("menu.atTable")}</span></span>` +
             `<span class="i-col"><span>${euro(eff)}</span><span class="i-table-lab">online</span></span>` +
             `</span>`;
         }
@@ -737,31 +747,31 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function badgesHTML(it: Item): string {
         let b = "";
-        if (it.is_bestseller) b += `<span class="i-badge b-best" title="Best-seller">★</span>`;
-        if (it.is_vegan) b += `<span class="i-badge" title="Végan">🌱</span>`;
-        if (it.is_spicy) b += `<span class="i-badge" title="Épicé">🌶️</span>`;
-        if (it.is_suggestion) b += `<span class="i-badge" title="Suggestion">👨‍🍳</span>`;
+        if (it.is_bestseller) b += `<span class="i-badge b-best" title="${tr("menu.bestseller")}">★</span>`;
+        if (it.is_vegan) b += `<span class="i-badge" title="${tr("menu.vegan")}">🌱</span>`;
+        if (it.is_spicy) b += `<span class="i-badge" title="${tr("menu.spicy")}">🌶️</span>`;
+        if (it.is_suggestion) b += `<span class="i-badge" title="${tr("menu.suggestion")}">👨‍🍳</span>`;
         return b ? `<span class="i-badges">${b}</span>` : "";
       }
       function itemHTML(it: Item): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
         // Colonna allergeni: sempre presente (anche vuota) così le righe restano allineate
-        const alg = `<span class="i-alg">${it.allergens?.length ? `Alg. ${it.allergens.join(",")}` : ""}</span>`;
+        const alg = `<span class="i-alg">${it.allergens?.length ? `${tr("menu.algShort")} ${it.allergens.join(",")}` : ""}</span>`;
         const dim = !it.available ? " is-hidden-item" : "";
         const thumb = it.image_url
           ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
-          : `<span class="i-thumb i-thumb--ph" title="Pas de photo">${ICO_IMG}</span>`;
+          : `<span class="i-thumb i-thumb--ph" title="${tr("menu.noPhoto")}">${ICO_IMG}</span>`;
         return `
           <div class="item${dim}" data-id="${it.id}">
-            <span class="i-btn i-drag" title="Glisser pour réordonner">⠿</span>
+            <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
             <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Menu</span></span>
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Cmd</span></span>
-            <button class="i-btn i-edit" title="Modifier">✎</button>
-            <button class="i-btn i-del" title="Supprimer">${ICO_TRASH}</button>
+            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
+            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
+            <button class="i-btn i-edit" title="${tr("common.edit")}">✎</button>
+            <button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
           </div>`;
       }
 
@@ -786,8 +796,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         const nCibo = cats.filter((c) => c.kind === "food").reduce((t, c) => t + c.count, 0);
         const nBev = cats.filter((c) => c.kind === "drink").reduce((t, c) => t + c.count, 0);
         (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
-          `<span class="t-pill gold"><b>${nCibo}</b> plat${nCibo > 1 ? "s" : ""}</span>` +
-          `<span class="t-pill"><b>${nBev}</b> boisson${nBev > 1 ? "s" : ""}</span>`;
+          `<span class="t-pill gold"><b>${nCibo}</b> ${nCibo > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>` +
+          `<span class="t-pill"><b>${nBev}</b> ${nBev > 1 ? tr("home.drinks") : tr("menu.drinkWord")}</span>`;
       }
       function renderTabs() {
         renderStatsTitolo();
@@ -798,10 +808,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
         const visibili = cats.filter((c) => c.kind === kindFiltro);
         (document.getElementById("k-filtri") as HTMLDivElement).innerHTML =
-          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}Plats</button>` +
-          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}Boissons</button>` +
-          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>Lunch</button>` +
-          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menus</button>`;
+          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}${tr("tab.menu.food")}</button>` +
+          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}${tr("tab.menu.drink")}</button>` +
+          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>${tr("tab.menu.lunch")}</button>` +
+          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>${tr("tab.menu.menus")}</button>`;
         // Tab vietati dal super: la pillola sparisce anche a ogni re-render
         for (const tv of tabVietati) {
           (document.getElementById("k-filtri") as HTMLDivElement).querySelector(`.kf-pill[data-kind="${tv}"]`)?.remove();
@@ -824,7 +834,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         }
         // Tab in costruzione: per ora vuoto
         if (!filtro && kindFiltro === "menus") {
-          listEl.innerHTML = `<p class="state">Section « Menus » — bientôt.</p>`;
+          listEl.innerHTML = `<p class="state">${tr("menu.menusSoon")}</p>`;
           return;
         }
         if (filtro) {
@@ -837,7 +847,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             gruppi.get(it.category)!.push(it);
           }
           if (gruppi.size === 0) {
-            listEl.innerHTML = '<p class="state">Aucun plat trouvé.</p>';
+            listEl.innerHTML = `<p class="state">${tr("menu.noDishFound")}</p>`;
             return;
           }
           const ordinati = [...gruppi.entries()].sort(
@@ -856,7 +866,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         const arr = items.filter((i) => i.category === attiva);
         listEl.innerHTML = arr.length
           ? arr.map(itemHTML).join("")
-          : '<p class="state">Section vide — ajoute un plat ou supprime la section.</p>';
+          : `<p class="state">${tr("menu.sectionEmpty")}</p>`;
       }
 
       async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
@@ -870,7 +880,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             fetch("/api/admin/menu", { headers }),
           ]);
           if (!rc.ok || !ri.ok) {
-            stateEl.textContent = "Erreur de chargement.";
+            stateEl.textContent = tr("sup.load.error");
             return false;
           }
           cats = ((await rc.json()).categories as Cat[]) ?? [];
@@ -931,16 +941,16 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       fImgFile.addEventListener("change", async () => {
         const file = fImgFile.files?.[0];
         if (!file) return;
-        fImgState.textContent = "Compression…";
+        fImgState.textContent = tr("menu.compressing");
         fImgUp.disabled = true;
         try {
           const foto = await comprimiFoto(file);
-          if (foto.size > 4 * 1024 * 1024) throw new Error("Photo trop lourde (max 4 Mo)");
-          fImgState.textContent = "Téléversement…";
+          if (foto.size > 4 * 1024 * 1024) throw new Error(tr("menu.photoTooBig"));
+          fImgState.textContent = tr("cli.uploading");
           const b64 = await new Promise<string>((resolve, reject) => {
             const r = new FileReader();
             r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-            r.onerror = () => reject(new Error("Fichier illisible"));
+            r.onerror = () => reject(new Error(tr("menu.fileUnreadable")));
             r.readAsDataURL(foto);
           });
           const res = await fetch("/api/admin/upload", {
@@ -949,12 +959,12 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             body: JSON.stringify({ filename: foto.name, data: b64, bucket: "menu" }),
           });
           const j = await res.json();
-          if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+          if (!res.ok) throw new Error(j.error ?? tr("menu.uploadFailed"));
           imgUrl = j.url as string;
           renderFotoPrev();
           fImgState.textContent = "";
         } catch (err) {
-          fImgState.textContent = err instanceof Error ? err.message : "Téléversement impossible.";
+          fImgState.textContent = err instanceof Error ? err.message : tr("menu.uploadFailedDot");
         } finally {
           fImgUp.disabled = false;
           fImgFile.value = "";
@@ -971,7 +981,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       function apriModale(it: Item | null) {
         editId = it?.id ?? null;
-        mTitle.textContent = it ? "Modifier le plat" : "Ajouter un plat";
+        mTitle.textContent = it ? tr("menu.editDish") : tr("menu.addDish");
         mMsg.textContent = "";
         fCat.innerHTML = cats.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
         fName.value = it?.name ?? "";
@@ -1016,10 +1026,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       async function salvaModale() {
         mMsg.textContent = "";
-        if (!fName.value.trim()) { mMsg.textContent = "Nom requis."; return; }
-        if (!fCat.value) { mMsg.textContent = "Section requise."; return; }
+        if (!fName.value.trim()) { mMsg.textContent = tr("menu.nameRequired"); return; }
+        if (!fCat.value) { mMsg.textContent = tr("menu.sectionRequired"); return; }
         const prezzo = Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
-        if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = "Prix invalide."; return; }
+        if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = tr("menu.priceInvalid"); return; }
 
         const orig = editId ? items.find((x) => x.id === editId) : null;
         const body: Record<string, unknown> = {
@@ -1043,7 +1053,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           discount_scope: (fDscope.value as "all" | "online") || "all",
         };
         if (fDtype.value && !(Number(body.discount_value) > 0)) {
-          mMsg.textContent = "Valeur de réduction requise.";
+          mMsg.textContent = tr("menu.discValueRequired");
           return;
         }
         if (editId) body.id = editId;
@@ -1062,15 +1072,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           });
           const j = await res.json();
           if (!res.ok) {
-            mMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            mMsg.textContent = j.error ?? tr("res.saveError");
           } else {
             attiva = fCat.value;
             chiudiModale();
-            toast(editId ? "Plat modifié ✓" : "Plat ajouté ✓");
+            toast(editId ? tr("menu.dishModified") : tr("menu.dishAdded"));
             await caricaTutto();
           }
         } catch {
-          mMsg.textContent = "Erreur de connexion.";
+          mMsg.textContent = tr("common.netErr");
         } finally {
           mSave.disabled = false;
           mSave.classList.remove("is-loading");
@@ -1089,12 +1099,12 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           .map(
             (c, i) => `
           <div class="sec-row" data-id="${c.id}" data-name="${esc(c.name)}">
-            <span class="i-btn s-drag" title="Glisser pour réordonner">⠿</span>
-            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="Nourriture">${ICO_FOOD}</button>
-            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="Boisson">${ICO_DRINK}</button>
+            <span class="i-btn s-drag" title="${tr("menu.dragReorder")}">⠿</span>
+            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
+            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
             <input type="text" class="s-name" value="${esc(c.name)}" maxlength="60" />
-            <span class="sec-count">${c.count} plat${c.count > 1 ? "s" : ""}</span>
-            <button class="i-btn i-del s-del" ${c.count > 0 ? "disabled" : ""} title="Supprimer (si vide)">${ICO_TRASH}</button>
+            <span class="sec-count">${c.count} ${c.count > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>
+            <button class="i-btn i-del s-del" ${c.count > 0 ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
           </div>`
           )
           .join("");
@@ -1103,8 +1113,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       // Selettore tipo per la NUOVA sezione
       function renderNuovaKind() {
         secKind.innerHTML =
-          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="Nourriture">${ICO_FOOD}</button>` +
-          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="Boisson">${ICO_DRINK}</button>`;
+          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>` +
+          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>`;
       }
       secKind.addEventListener("click", (e) => {
         const t = (e.target as HTMLElement).closest("button");
@@ -1121,7 +1131,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         });
         if (!res.ok) {
           const j = await res.json();
-          secMsg.textContent = j.error ?? "Erreur.";
+          secMsg.textContent = j.error ?? tr("menu.errorDot");
           return false;
         }
         return true;
@@ -1146,9 +1156,9 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
           if (!res.ok) {
             const j = await res.json();
-            secMsg.textContent = j.error ?? "Suppression impossible.";
+            secMsg.textContent = j.error ?? tr("home.deleteFailed");
           } else {
-            toast("Section supprimée");
+            toast(tr("menu.sectionDeleted"));
             await caricaTutto();
           }
         }
@@ -1170,7 +1180,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         secMsg.textContent = "";
         if (await putCategoria(row.dataset.id!, { name: nuovo })) {
           if (attiva === vecchio) attiva = nuovo;
-          toast("Section renommée ✓");
+          toast(tr("menu.sectionRenamed"));
           await caricaTutto();
         } else {
           t.value = vecchio;
@@ -1210,10 +1220,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         });
         if (!res.ok) {
           const j = await res.json();
-          secMsg.textContent = j.error ?? "Réordonnancement impossible.";
+          secMsg.textContent = j.error ?? tr("menu.reorderFailed");
           renderSezioni();
         } else {
-          toast("Ordre enregistré ✓");
+          toast(tr("menu.orderSaved"));
           await caricaTutto();
         }
       });
@@ -1221,7 +1231,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       (document.getElementById("sec-addbtn") as HTMLButtonElement).addEventListener("click", async () => {
         secMsg.textContent = "";
         const name = secNew.value.trim();
-        if (!name) { secMsg.textContent = "Nom requis."; return; }
+        if (!name) { secMsg.textContent = tr("menu.nameRequired"); return; }
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
@@ -1229,12 +1239,12 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         });
         const j = await res.json();
         if (!res.ok) {
-          secMsg.textContent = j.error ?? "Erreur.";
+          secMsg.textContent = j.error ?? tr("menu.errorDot");
         } else {
           secNew.value = "";
           nuovaKind = "food";
           renderNuovaKind();
-          toast("Section ajoutée ✓");
+          toast(tr("menu.sectionAdded"));
           await caricaTutto();
         }
       });
@@ -1248,7 +1258,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         active: boolean;
       };
       const PORTATE: string[] = ["entree", "plat", "dessert"]; // ordine canonico
-      const PORTATA_LAB: Record<string, string> = { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+      const PORTATA_LAB: Record<string, string> = { entree: tr("menu.courseEntree"), plat: tr("menu.coursePlat"), dessert: tr("menu.courseDessert") };
       let lunches: Lunch[] = [];
       let lunchPronto = false; // primo GET già fatto
       let lunchFetching = false;
@@ -1275,10 +1285,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function lunchDatesLabel(l: Lunch): string {
         const f = (s: string | null) => (s ? s.split("-").reverse().join("/") : "");
-        if (l.date_from && l.date_to) return `Du ${f(l.date_from)} au ${f(l.date_to)}`;
-        if (l.date_from) return `À partir du ${f(l.date_from)}`;
-        if (l.date_to) return `Jusqu'au ${f(l.date_to)}`;
-        return "Sans limite de dates";
+        if (l.date_from && l.date_to) return `${tr("menu.luFrom")} ${f(l.date_from)} ${tr("menu.luTo2")} ${f(l.date_to)}`;
+        if (l.date_from) return `${tr("menu.luFromOnly")} ${f(l.date_from)}`;
+        if (l.date_to) return `${tr("menu.luUntil")} ${f(l.date_to)}`;
+        return tr("menu.luNoDateLimit");
       }
       function lunchHTML(l: Lunch): string {
         const combos = (l.combos ?? [])
@@ -1302,22 +1312,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
             <div class="lu-combos">${combos}</div>
             <div class="lu-actions">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Actif</span></span>
-              <button class="i-btn lu-edit" title="Modifier">✎</button>
-              <button class="i-btn i-del lu-del" title="Supprimer">${ICO_TRASH}</button>
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+              <button class="i-btn lu-edit" title="${tr("common.edit")}">✎</button>
+              <button class="i-btn i-del lu-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
           </div>`;
       }
       function renderLunchList(filtro: string) {
         if (!lunchPronto) {
-          listEl.innerHTML = '<p class="state">Chargement…</p>';
+          listEl.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
           void caricaLunches();
           return;
         }
         const arr = lunches.filter((l) => !filtro || l.name.toLowerCase().includes(filtro));
         listEl.innerHTML = arr.length
           ? `<div class="lu-grid">${arr.map(lunchHTML).join("")}</div>`
-          : '<p class="state">Aucun lunch — ajoute une formule avec « + Ajou. lunch ».</p>';
+          : `<p class="state">${tr("menu.noLunch")}</p>`;
       }
 
       // Bottone flottante: etichetta secondo il tab attivo
@@ -1331,9 +1341,9 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         // Il FAB Categories riguarda solo le sezioni di Plats/Boissons
         const sec = document.getElementById("sec-btn") as HTMLButtonElement | null;
         if (sec) sec.style.display = kindFiltro === "lunch" || kindFiltro === "menus" ? "none" : "";
-        if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ Ajou. lunch"; }
+        if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ " + tr("menu.addLunchShort"); }
         else if (kindFiltro === "menus") { add.style.display = "none"; }
-        else { add.style.display = ""; add.textContent = "+ Ajou. plat"; }
+        else { add.style.display = ""; add.textContent = "+ " + tr("menu.addDishShort"); }
       }
 
       // ---------- Modale lunch ----------
@@ -1353,7 +1363,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       let luPrezzi: Record<string, string> = {}; // "entree+plat" -> testo input prezzo
 
       function aggiornaLuNome() {
-        luName.placeholder = luCourses.length === 1 ? "Plat du jour" : "Lunch";
+        luName.placeholder = luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch");
       }
       function renderLuCourses() {
         luCoursesEl.innerHTML = PORTATE.map((p) => {
@@ -1379,16 +1389,16 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             const chips = scelti
               .map((id) => {
                 const it = items.find((x) => x.id === id);
-                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-p="${p}" data-id="${id}" title="Retirer">×</button></span>`;
+                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-p="${p}" data-id="${id}" title="${tr("ord.remove")}">×</button></span>`;
               })
               .join("");
             return `
             <div class="lu-block">
-              <div class="lu-block-tit">${PORTATA_LAB[p]} — plats au choix</div>
+              <div class="lu-block-tit">${PORTATA_LAB[p]} — ${tr("menu.dishesChoice")}</div>
               <select class="lu-sel" data-p="${p}">
-                <option value="">Ajouter un plat du menu…</option>${opzioni}
+                <option value="">${tr("menu.addMenuDish")}</option>${opzioni}
               </select>
-              <div class="lu-chips">${chips || '<span class="f-label">Aucun plat sélectionné.</span>'}</div>
+              <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
             </div>`;
           })
           .join("");
@@ -1414,7 +1424,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         luCombosEl.innerHTML = comboPossibili()
           .map((parts) => {
             const k = parts.join("+");
-            const solo = parts.length === 1 && luCourses.length === 1 ? " (plat du jour)" : "";
+            const solo = parts.length === 1 && luCourses.length === 1 ? ` ${tr("menu.dailyDishParen")}` : "";
             return `
             <div class="lu-combo-row">
               <span class="lu-combo-lab">${comboLabel(parts)}${solo}</span>
@@ -1426,7 +1436,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       function apriLunchModale(l: Lunch | null) {
         lunchEditId = l?.id ?? null;
-        luTitle.textContent = l ? "Modifier le lunch" : "Ajouter un lunch";
+        luTitle.textContent = l ? tr("menu.editLunch") : tr("menu.addLunch");
         luMsg.textContent = "";
         luName.value = l?.name ?? "";
         impostaData(luFrom, l?.date_from ?? "");
@@ -1450,8 +1460,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
 
       // ---- Datepicker brand (come Réglages/Résa) per le date del lunch ----
-      const MESI_DP = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-      const DOW_DP = ["L", "M", "M", "J", "V", "S", "D"];
+      const MESI_DP = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString(LOC, { month: "long" }));
+      const DOW_DP = tr("res.dowInitials").split(",");
       let dpTarget: HTMLInputElement | null = null;
       let dpAnno = 0;
       let dpMese = 0; // 0-11
@@ -1501,7 +1511,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           </div>
           <div class="dp-dow">${DOW_DP.map((g) => `<span>${g}</span>`).join("")}</div>
           <div class="dp-grid">${celle}</div>
-          <button type="button" class="dp-clear">Effacer — sans limite</button>`;
+          <button type="button" class="dp-clear">${tr("menu.clearNoLimit")}</button>`;
       }
       function dpApri(target: HTMLInputElement) {
         dpTarget = target;
@@ -1591,20 +1601,20 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           if (!raw) continue; // combinazione non proposta
           const cents = Math.round(parseFloat(raw.replace(",", ".")) * 100);
           if (!Number.isFinite(cents) || cents <= 0) {
-            luMsg.textContent = `Prix invalide (${comboLabel(parts)}).`;
+            luMsg.textContent = `${tr("menu.priceInvalidCombo")} (${comboLabel(parts)}).`;
             return;
           }
           combos.push({ parts, price_cents: cents });
         }
-        if (!combos.length) { luMsg.textContent = "Indique au moins un prix de combinaison."; return; }
+        if (!combos.length) { luMsg.textContent = tr("menu.comboPriceRequired"); return; }
         const dFrom = luFrom.dataset.iso ?? "";
         const dTo = luTo.dataset.iso ?? "";
         if (dFrom && dTo && dFrom > dTo) {
-          luMsg.textContent = "La date de fin précède le début.";
+          luMsg.textContent = tr("menu.endBeforeStart");
           return;
         }
         const body: Record<string, unknown> = {
-          name: luName.value.trim() || (luCourses.length === 1 ? "Plat du jour" : "Lunch"),
+          name: luName.value.trim() || (luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch")),
           courses: luCourses,
           date_from: dFrom,
           date_to: dTo,
@@ -1623,14 +1633,14 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           });
           const j = await res.json();
           if (!res.ok) {
-            luMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            luMsg.textContent = j.error ?? tr("res.saveError");
           } else {
-            toast(lunchEditId ? "Lunch modifié ✓" : "Lunch ajouté ✓");
+            toast(lunchEditId ? tr("menu.lunchModified") : tr("menu.lunchAdded"));
             chiudiLunchModale();
             await caricaLunches();
           }
         } catch {
-          luMsg.textContent = "Erreur de connexion.";
+          luMsg.textContent = tr("common.netErr");
         } finally {
           luSave.disabled = false;
           luSave.classList.remove("is-loading");
@@ -1654,17 +1664,17 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         if (del) {
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
           try {
             const res = await fetch("/api/admin/lunch?id=" + l.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast("Suppression impossible", true); return; }
-            toast("Lunch supprimé");
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("menu.lunchDeleted"));
             await caricaLunches();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         }
       });
@@ -1684,7 +1694,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           card.classList.toggle("is-hidden-item", !t.checked);
         } catch {
           t.checked = !t.checked;
-          toast("Modification impossible", true);
+          toast(tr("us.editErr"), true);
         }
       });
 
@@ -1787,17 +1797,17 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
               return;
             }
             try {
               const res = await fetch("/api/admin/menu?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              if (!res.ok) { toast("Suppression impossible", true); return; }
-              toast("Plat supprimé");
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("menu.dishDeleted"));
               await caricaTutto();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
           }
         });
@@ -1836,10 +1846,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             body: JSON.stringify({ category: attiva, order: ordine }),
           });
           if (!res.ok) {
-            toast("Réordonnancement impossible", true);
+            toast(tr("menu.reorderFailedShort"), true);
             renderList();
           } else {
-            toast("Ordre enregistré ✓");
+            toast(tr("menu.orderSaved"));
             await caricaTutto();
           }
         });
@@ -1862,7 +1872,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
           } catch {
             t.checked = !t.checked;
-            toast("Modification impossible", true);
+            toast(tr("us.editErr"), true);
           }
         });
 

@@ -1,4 +1,4 @@
-# MOODD Admin — Motore multi-cliente · Avanzamento & decisioni
+# RestoHub — Motore multi-cliente · Avanzamento & decisioni
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 

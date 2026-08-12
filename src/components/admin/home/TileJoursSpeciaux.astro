@@ -2,13 +2,17 @@
 // Isola "Jours spéciaux" della Accueil → Réglages, tab Horaires.
 // data-admin-page="settings": AdminNav la rimuove se il super disattiva Réglages.
 // La lista è popolata dallo script di index.astro (GET /api/admin/special-days).
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <a class="tile" href="/admin/settings?tab=horaire" data-admin-page="settings" data-tile="special">
-  <button type="button" class="spx-add" id="spx-add" aria-label="Ajouter un événement local" title="Ajouter un événement local">+</button>
-  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="13" x2="12" y2="18"/><line x1="9.5" y1="15.5" x2="14.5" y2="15.5"/></svg>Jours spéciaux</div>
-  <div id="spx-list" class="spx-list"><div class="state">Chargement…</div></div>
+  <button type="button" class="spx-add" id="spx-add" aria-label={t("home.addEvent")} title={t("home.addEvent")}>+</button>
+  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="13" x2="12" y2="18"/><line x1="9.5" y1="15.5" x2="14.5" y2="15.5"/></svg>{t("home.specialDays")}</div>
+  <div id="spx-list" class="spx-list"><div class="state">{t("sup.loading")}</div></div>
   <div class="tile-next">
-    <span class="lab">Événements à venir</span>
+    <span class="lab">{t("home.upcomingEvents")}</span>
     <div class="spx-evts" id="spx-evts"></div>
   </div>
 </a>

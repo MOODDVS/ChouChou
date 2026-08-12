@@ -19,6 +19,11 @@ import TileSearchConsole from "../../components/admin/home/TileSearchConsole.ast
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -37,7 +42,7 @@ try {
 const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -439,7 +444,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <div id="app">
       <AdminHeader />
       <main>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div class="cards" id="cards" style="display:none">
           <TileNotes />
           <TileCommandes />
@@ -456,13 +461,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       </main>
 
       <!-- FAB Organiser (disposizione delle isole) -->
-      <button class="org-fab" id="organiser-btn" type="button" title="Organiser mes tuiles" aria-label="Organiser" style="display:none">
+      <button class="org-fab" id="organiser-btn" type="button" title={t("home.organizeTiles")} aria-label={t("home.organize")} style="display:none">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       </button>
-      <button class="org-fab org-fab-reset" id="organiser-reset" type="button" title="Réinitialiser la disposition" aria-label="Réinitialiser" style="display:none">
+      <button class="org-fab org-fab-reset" id="organiser-reset" type="button" title={t("home.resetLayout")} aria-label={t("home.reset")} style="display:none">
         <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>
       </button>
-      <button class="org-fab org-fab-tiles" id="organiser-tuiles" type="button" title="Afficher / masquer les tuiles" aria-label="Tuiles" style="display:none">
+      <button class="org-fab org-fab-tiles" id="organiser-tuiles" type="button" title={t("home.toggleTiles")} aria-label={t("home.tiles")} style="display:none">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="M3 12l9 5 9-5"/><path d="M3 16.5l9 5 9-5"/></svg>
       </button>
 
@@ -472,9 +477,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <!-- Modale Tuiles : afficher / masquer les tuiles de l'accueil -->
     <div class="overlay" id="tuiles-overlay">
       <div class="tm-modal">
-        <button type="button" class="evm-x" id="tuiles-close" aria-label="Fermer">✕</button>
-        <h2 class="evm-titre">Tuiles</h2>
-        <p class="evm-sub">Choisis les tuiles à afficher sur l'accueil.</p>
+        <button type="button" class="evm-x" id="tuiles-close" aria-label={t("common.close")}>✕</button>
+        <h2 class="evm-titre">{t("home.tiles")}</h2>
+        <p class="evm-sub">{t("home.tilesIntro")}</p>
         <div class="tm-list" id="tuiles-list"></div>
       </div>
     </div>
@@ -482,35 +487,32 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <!-- Modale Notes -->
     <div class="overlay" id="evt-overlay">
       <div class="evm-modal">
-        <button type="button" class="evm-x" id="evt-close" aria-label="Fermer">✕</button>
-        <h2 class="evm-titre">Événements locaux</h2>
-        <p class="evm-sub">
-          Des rappels pour le resto : fête du quartier, brocante, anniversaire…
-          Ils apparaissent dans « Événements à venir », rien d'autre ne change.
-        </p>
-        <label class="evm-lab" for="evt-nom">Nom</label>
-        <input id="evt-nom" class="evm-in" maxlength="80" placeholder="Brocante du Parvis" autocomplete="off" />
-        <label class="evm-lab" for="evt-date">Date</label>
-        <input id="evt-date" class="evm-in" readonly placeholder="Choisir une date" />
-        <label class="evm-check"><input type="checkbox" id="evt-yearly" />Chaque année à la même date</label>
-        <button type="button" class="evm-add" id="evt-add">Ajouter</button>
+        <button type="button" class="evm-x" id="evt-close" aria-label={t("common.close")}>✕</button>
+        <h2 class="evm-titre">{t("home.localEvents")}</h2>
+        <p class="evm-sub">{t("home.localEventsIntro")}</p>
+        <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
+        <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
+        <label class="evm-lab" for="evt-date">{t("home.date")}</label>
+        <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
+        <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
+        <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
         <div class="evm-list" id="evt-list"></div>
       </div>
     </div>
 
     <div class="overlay" id="notes-overlay">
       <div class="modal">
-        <button class="m-close" id="notes-close" type="button" aria-label="Fermer">×</button>
-        <h2>Notes</h2>
+        <button class="m-close" id="notes-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2>{t("home.notes")}</h2>
         <div class="notes-compose">
-          <textarea id="notes-input" maxlength="1000" placeholder="Un rappel pour l'équipe… (ex. « livraison farine à 10h », « rappeler le fournisseur »)"></textarea>
+          <textarea id="notes-input" maxlength="1000" placeholder={t("home.notesPlaceholder")}></textarea>
           <div class="notes-compose-actions">
             <div class="nc-tags" id="nc-tags">
-              <button type="button" class="nc-tag" data-tag="important">Important</button>
-              <button type="button" class="nc-tag" data-tag="recurrent">Récurrent</button>
-              <button type="button" class="nc-tag" data-tag="fournisseur">Fournisseur</button>
+              <button type="button" class="nc-tag" data-tag="important">{t("tag.important")}</button>
+              <button type="button" class="nc-tag" data-tag="recurrent">{t("tag.recurrent")}</button>
+              <button type="button" class="nc-tag" data-tag="fournisseur">{t("tag.fournisseur")}</button>
             </div>
-            <button class="nc-save" id="nc-save" type="button">Ajouter</button>
+            <button class="nc-save" id="nc-save" type="button">{t("common.add")}</button>
           </div>
         </div>
         <div class="notes-msg" id="notes-msg"></div>
@@ -526,6 +528,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
       type Order = { pickup_time: string; customer_name: string; items: Item[]; total_cents: number; status: string };
@@ -559,12 +566,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         return `${y}-${m}-${g}`;
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
       // Fuso del ristorante, esposto dall'header (data-tz)
       const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
       function oraDa(iso: string): string {
-        return new Date(iso).toLocaleTimeString("fr-BE", { timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit" });
+        return new Date(iso).toLocaleTimeString(LOC, { timeZone: TZ_LOCALE, hour: "2-digit", minute: "2-digit" });
       }
       function dayKeyBrussels(iso: string): string {
         return new Date(iso).toLocaleDateString("en-CA", { timeZone: TZ_LOCALE });
@@ -573,7 +580,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
       function noteDate(iso: string): string {
-        return new Date(iso).toLocaleString("fr-BE", {
+        return new Date(iso).toLocaleString(LOC, {
           timeZone: TZ_LOCALE, day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
         });
       }
@@ -603,15 +610,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           try { return ((await res.json()) as { error?: string }).error || fallback; } catch { return `${fallback} (HTTP ${res.status})`; }
         }
 
-        const TAG_FR: Record<string, string> = { important: "Important", recurrent: "Récurrent", fournisseur: "Fournisseur" };
+        const TAG_LABEL: Record<string, string> = { important: tr("tag.important"), recurrent: tr("tag.recurrent"), fournisseur: tr("tag.fournisseur") };
         const tagPills = (n: Note): string => {
-          const t = Array.isArray(n.tags) ? n.tags.filter((x) => TAG_FR[x]) : [];
-          return t.length ? `<div class="note-tags">${t.map((x) => `<span class="note-tag t-${x}">${TAG_FR[x]}</span>`).join("")}</div>` : "";
+          const t = Array.isArray(n.tags) ? n.tags.filter((x) => TAG_LABEL[x]) : [];
+          return t.length ? `<div class="note-tags">${t.map((x) => `<span class="note-tag t-${x}">${TAG_LABEL[x]}</span>`).join("")}</div>` : "";
         };
 
         function renderPreview() {
           if (notes.length === 0) {
-            preview.innerHTML = '<p class="np-empty">Aucune note. Appuie sur + pour en ajouter.</p>';
+            preview.innerHTML = `<p class="np-empty">${tr("home.noNotesShort")}</p>`;
             return;
           }
           const primi = notes.slice(0, 3);
@@ -625,23 +632,23 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               </div>`
               )
               .join("") +
-            (resto > 0 ? `<div class="np-more">+${resto} autre${resto > 1 ? "s" : ""}…</div>` : "");
+            (resto > 0 ? `<div class="np-more">+${resto} ${tr("home.more")}…</div>` : "");
         }
         function renderList() {
           if (notes.length === 0) {
-            listEl.innerHTML = '<p class="notes-empty">Aucune note. Ajoute un rappel pour l\'équipe.</p>';
+            listEl.innerHTML = `<p class="notes-empty">${tr("home.noNotesLong")}</p>`;
             return;
           }
           listEl.innerHTML = notes
             .map(
               (n) => `
             <div class="note${n.done ? " done" : ""}" data-id="${n.id}">
-              <button class="note-check" type="button" title="${n.done ? "Rouvrir" : "Marquer comme fait"}">${n.done ? CHECK_ICON : ""}</button>
+              <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
               <div class="note-body">
                 <div class="note-text">${escHtml(n.content)}</div>${tagPills(n)}
                 <div class="note-meta">${n.author ? escHtml(n.author) + " · " : ""}${noteDate(n.created_at)}</div>
               </div>
-              <button class="note-del" type="button" title="Supprimer">${TRASH_ICON}</button>
+              <button class="note-del" type="button" title="${tr("common.delete")}">${TRASH_ICON}</button>
             </div>`
             )
             .join("");
@@ -693,10 +700,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               azzeraTag();
               render();
             } else {
-              msgEl.textContent = await erroreDa(res, "Ajout impossible.");
+              msgEl.textContent = await erroreDa(res, tr("home.addFailed"));
             }
           } catch {
-            msgEl.textContent = "Erreur de connexion.";
+            msgEl.textContent = tr("common.netErr");
           } finally {
             saveBtn.disabled = false;
           }
@@ -720,8 +727,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 body: JSON.stringify({ id, done: nuovo }),
               });
               if (res.ok) { n.done = nuovo; render(); }
-              else { msgEl.textContent = await erroreDa(res, "Modification impossible."); }
-            } catch { msgEl.textContent = "Erreur de connexion."; }
+              else { msgEl.textContent = await erroreDa(res, tr("home.editFailed")); }
+            } catch { msgEl.textContent = tr("common.netErr"); }
             return;
           }
 
@@ -729,7 +736,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Supprimer ?";
+              del.textContent = tr("home.deleteQ");
               setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = TRASH_ICON; }, 4000);
               return;
             }
@@ -741,18 +748,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 body: JSON.stringify({ delete_id: id }),
               });
               if (res.ok) { notes = notes.filter((x) => x.id !== id); render(); }
-              else { msgEl.textContent = await erroreDa(res, "Suppression impossible."); }
-            } catch { msgEl.textContent = "Erreur de connexion."; }
+              else { msgEl.textContent = await erroreDa(res, tr("home.deleteFailed")); }
+            } catch { msgEl.textContent = tr("common.netErr"); }
           }
         });
 
         try {
           const res = await fetch("/api/admin/notes", { headers });
-          if (!res.ok) { preview.innerHTML = '<p class="np-empty">Notes indisponibles.</p>'; return; }
+          if (!res.ok) { preview.innerHTML = `<p class="np-empty">${tr("home.notesUnavailable")}</p>`; return; }
           notes = ((await res.json()).notes as Note[]) ?? [];
           render();
         } catch {
-          preview.innerHTML = '<p class="np-empty">Erreur de connexion.</p>';
+          preview.innerHTML = `<p class="np-empty">${tr("common.netErr")}</p>`;
         }
       }
 
@@ -824,7 +831,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!res.ok) throw new Error();
             const images = (((await res.json()) as { images: { url: string; name: string }[] }).images) ?? [];
             if (!images.length) {
-              phGrid.innerHTML = '<div class="ph-empty">Aucune image pour le moment — téléverse une photo depuis Menu ou Marketing.</div>';
+              phGrid.innerHTML = `<div class="ph-empty">${tr("home.noImages")}</div>`;
               return;
             }
             phGrid.innerHTML = images
@@ -835,7 +842,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               )
               .join("");
           } catch {
-            phGrid.innerHTML = '<div class="ph-empty">Images indisponibles.</div>';
+            phGrid.innerHTML = `<div class="ph-empty">${tr("home.imagesUnavailable")}</div>`;
           }
         })();
 
@@ -872,26 +879,26 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const eventiAnno = (anno: number): [string, string][] => {
             const P = pasqua(anno);
             const ev: [Date, string][] = [
-              [new Date(anno, 0, 1), "Nouvel An"],
-              [new Date(anno, 1, 14), "Saint-Valentin"],
-              [somma(P, -47), "Mardi Gras"],
-              [P, "Pâques"],
-              [somma(P, 1), "Lundi de Pâques"],
-              [new Date(anno, 4, 1), "Fête du Travail"],
-              [nDomenica(anno, 4, 2), "Fête des Mères"],
-              [somma(P, 39), "Ascension"],
-              [somma(P, 49), "Pentecôte"],
-              [somma(P, 50), "Lundi de Pentecôte"],
-              [nDomenica(anno, 5, 2), "Fête des Pères"],
-              [new Date(anno, 6, 21), "Fête nationale belge"],
-              [new Date(anno, 7, 15), "Assomption"],
-              [new Date(anno, 9, 31), "Halloween"],
-              [new Date(anno, 10, 1), "Toussaint"],
-              [new Date(anno, 10, 11), "Armistice"],
-              [new Date(anno, 11, 6), "Saint-Nicolas"],
-              [new Date(anno, 11, 24), "Réveillon de Noël"],
-              [new Date(anno, 11, 25), "Noël"],
-              [new Date(anno, 11, 31), "Réveillon du Nouvel An"],
+              [new Date(anno, 0, 1), tr("hol.newyear")],
+              [new Date(anno, 1, 14), tr("hol.valentine")],
+              [somma(P, -47), tr("hol.mardigras")],
+              [P, tr("hol.easter")],
+              [somma(P, 1), tr("hol.eastermon")],
+              [new Date(anno, 4, 1), tr("hol.labour")],
+              [nDomenica(anno, 4, 2), tr("hol.mothers")],
+              [somma(P, 39), tr("hol.ascension")],
+              [somma(P, 49), tr("hol.pentecost")],
+              [somma(P, 50), tr("hol.pentecostmon")],
+              [nDomenica(anno, 5, 2), tr("hol.fathers")],
+              [new Date(anno, 6, 21), tr("hol.belgiannat")],
+              [new Date(anno, 7, 15), tr("hol.assumption")],
+              [new Date(anno, 9, 31), tr("hol.halloween")],
+              [new Date(anno, 10, 1), tr("hol.toussaint")],
+              [new Date(anno, 10, 11), tr("hol.armistice")],
+              [new Date(anno, 11, 6), tr("hol.stnicolas")],
+              [new Date(anno, 11, 24), tr("hol.xmaseve")],
+              [new Date(anno, 11, 25), tr("hol.xmas")],
+              [new Date(anno, 11, 31), tr("hol.nyeve")],
             ];
             return ev.map(([d, n]) => [iso(d), n]);
           };
@@ -929,10 +936,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           box.innerHTML = futuri
             .map(([d, nome, loc]) => {
               const dt = new Date(d + "T12:00:00");
-              const mese = dt.toLocaleDateString("fr-BE", { month: "short" }).replace(".", "");
-              const gg = dt.toLocaleDateString("fr-BE", { weekday: "long" });
+              const mese = dt.toLocaleDateString(LOC, { month: "short" }).replace(".", "");
+              const gg = dt.toLocaleDateString(LOC, { weekday: "long" });
               const tag = tagOk
-                ? (chiusi.has(d) ? '<span class="spx-b closed">Fermé</span>' : '<span class="spx-b open">Ouvert</span>')
+                ? (chiusi.has(d) ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`)
                 : "";
               return `<div class="spx-ev"><span class="ev-cal"><b>${Number(d.slice(8, 10))}</b><i>${mese}</i></span><span class="ev-txt"><span class="ev-nome${loc ? " ev-loc" : ""}">${escEv(nome)}${tag ? " " + tag : ""}</span><span class="ev-gg">${gg}</span></span></div>`;
             })
@@ -960,10 +967,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             evtList.innerHTML = eventiLocali.length
               ? eventiLocali
                   .map((ev, i) =>
-                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? '<span class="y">chaque année</span>' : ""}<button type="button" class="evm-del" data-i="${i}" aria-label="Supprimer">✕</button></div>`
+                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="evm-del" data-i="${i}" aria-label="${tr("common.delete")}">✕</button></div>`
                   )
                   .join("")
-              : '<div class="evm-vide">Aucun événement local pour le moment.</div>';
+              : `<div class="evm-vide">${tr("home.noLocalEvents")}</div>`;
           }
           async function salvaEvt(): Promise<boolean> {
             try {
@@ -1007,7 +1014,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!b) return;
             if (!b.classList.contains("confirm")) {
               b.classList.add("confirm");
-              b.textContent = "Supprimer ?";
+              b.textContent = tr("home.deleteQ");
               window.setTimeout(() => { b.classList.remove("confirm"); b.textContent = "✕"; }, 2500);
               return;
             }
@@ -1022,8 +1029,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           });
 
           // ----- Datepicker brand (copia locale, un solo campo) -----
-          const MESI_DP = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-          const DOW_DP = ["L", "M", "M", "J", "V", "S", "D"];
+          // Mesi e iniziali dei giorni calcolati dalla lingua admin (lunedì → domenica).
+          const MESI_DP = Array.from({ length: 12 }, (_, i) => new Date(2021, i, 1).toLocaleDateString(LOC, { month: "long" }));
+          const DOW_DP = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, 1 + i).toLocaleDateString(LOC, { weekday: "narrow" }));
           let dpAnno = 0;
           let dpMese = 0;
           const dpPanel = document.createElement("div");
@@ -1112,7 +1120,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!res.ok) throw new Error();
             const days = (((await res.json()) as { days: { type: string; date_from: string; date_to: string; note?: string | null }[] }).days) ?? [];
             if (!days.length) {
-              wrap.innerHTML = '<div class="spx-empty">Aucun jour spécial à venir</div>';
+              wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
               return;
             }
             const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
@@ -1121,13 +1129,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             wrap.innerHTML =
               days.slice(0, MAX).map((sp) => {
                 const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
-                const b = sp.type === "closed" ? '<span class="spx-b closed">Fermé</span>' : '<span class="spx-b open">Ouvert</span>';
+                const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
                 const nota = sp.note ? `<span class="spx-note">${esc(String(sp.note))}</span>` : "";
                 return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
               }).join("") +
-              (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} autres…</div>` : "");
+              (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} ${tr("home.more")}…</div>` : "");
           } catch {
-            wrap.innerHTML = '<div class="spx-empty">Indisponible</div>';
+            wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
           }
         })();
 
@@ -1197,7 +1205,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const ordNextList = document.getElementById("ord-next-list") as HTMLElement;
             ordNextList.innerHTML = prossimi.length
               ? prossimi.map((o) => `<div class="ord-nx"><span class="nx-h">${oraDa(o.pickup_time)}</span><span class="nx-n">${esc(String(o.customer_name ?? ""))}</span></div>`).join("")
-              : '<span class="val none">Aucun à venir</span>';
+              : `<span class="val none">${tr("home.noneUpcomingM")}</span>`;
           }
 
           // ---------- Réservations (aujourd'hui) ----------
@@ -1208,15 +1216,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const couv = Number(jr.couverts ?? 0);
             (document.getElementById("resa-count") as HTMLElement).textContent = String(rese.length);
             (document.getElementById("resa-sub") as HTMLElement).textContent =
-              rese.length > 0 ? `aujourd'hui · ${couv} couv.` : "aujourd'hui";
+              rese.length > 0 ? `${tr("home.today")} · ${couv} ${tr("home.covers")}` : tr("home.today");
 
             // Mini-grafica: conteggio per stato (stessi colori della pagina Résa)
             const STATI: [string, string, string][] = [
-              ["confirmed", "Conf.", "#2e9e6b"],
-              ["seated", "En cours", "#3b82f6"],
-              ["done", "Fini", "var(--c-muted)"],
-              ["noshow", "No-show", "var(--c-accent)"],
-              ["cancelled", "Annul.", "#ed1c24"],
+              ["confirmed", tr("home.stConf"), "#2e9e6b"],
+              ["seated", tr("home.stSeated"), "#3b82f6"],
+              ["done", tr("home.stDone"), "var(--c-muted)"],
+              ["noshow", tr("home.stNoshow"), "var(--c-accent)"],
+              ["cancelled", tr("home.stCancelled"), "#ed1c24"],
             ];
             const miniEl = document.getElementById("resa-mini") as HTMLElement | null;
             if (miniEl) {
@@ -1241,7 +1249,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 .map((c) => c.zone);
               const nomi = [...svPerm, ...znPerm];
               permEl.innerHTML = nomi
-                .map((n) => `<span class="rp-pill">${escP(n)} — fermé jusqu\u2019à réouverture</span>`)
+                .map((n) => `<span class="rp-pill">${escP(n)} — ${tr("home.closedUntilReopen")}</span>`)
                 .join("");
               permEl.style.display = nomi.length ? "" : "none";
             }
@@ -1261,7 +1269,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                   const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim();
                   return `<div class="ord-nx"><span class="nx-h">${String(r.heure).slice(0, 5)}</span><span class="nx-n">${escR(nome)} (${r.people})</span></div>`;
                 }).join("")
-              : '<span class="val none">Aucune à venir</span>';
+              : `<span class="val none">${tr("home.noneUpcomingF")}</span>`;
           }
 
           // ---------- Horaires (aujourd'hui) ----------
@@ -1271,16 +1279,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const jt: Today | null = resToday.ok ? ((await resToday.json()) as Today) : null;
           const cfg = jt?.config ?? null;
           if (!cfg) {
-            statusEl.textContent = "Indisponible";
+            statusEl.textContent = tr("home.unavail");
             statusEl.classList.add("closed");
           } else {
             const b = fasce(cfg);
             if (b.length === 0) {
-              statusEl.textContent = "Fermé aujourd'hui";
+              statusEl.textContent = tr("home.closedToday");
               statusEl.classList.add("closed");
               bandsWrap.innerHTML = "";
             } else {
-              statusEl.textContent = "Ouvert aujourd'hui";
+              statusEl.textContent = tr("home.openToday");
               statusEl.classList.add("open");
               bandsWrap.innerHTML =
                 `<div class="sched-bands">` +
@@ -1294,20 +1302,20 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const reVal = document.getElementById("sched-reopen") as HTMLElement | null;
           if (reLab && reVal) {
             if (jt?.closes_at) {
-              reLab.textContent = "Fermeture";
-              reVal.textContent = `à ${jt.closes_at}`;
+              reLab.textContent = tr("home.closing");
+              reVal.textContent = `${tr("home.at")} ${jt.closes_at}`;
             } else if (jt?.reopen) {
               const g = jt.reopen.in_days;
               let quando: string;
-              if (g === 0) quando = "aujourd'hui";
-              else if (g === 1) quando = "demain";
+              if (g === 0) quando = tr("home.today");
+              else if (g === 1) quando = tr("home.tomorrow");
               else {
                 const dt = new Date(Date.now() + g * 86400000);
-                quando = dt.toLocaleDateString("fr-BE", { weekday: "long", timeZone: TZ_LOCALE });
-                if (g > 6) quando += " " + dt.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
+                quando = dt.toLocaleDateString(LOC, { weekday: "long", timeZone: TZ_LOCALE });
+                if (g > 6) quando += " " + dt.toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
               }
-              reLab.textContent = "Réouverture";
-              reVal.textContent = `${quando} à ${jt.reopen.heure}`;
+              reLab.textContent = tr("home.reopen");
+              reVal.textContent = `${quando} ${tr("home.at")} ${jt.reopen.heure}`;
             } else {
               reVal.textContent = "—";
               reVal.classList.add("none");
@@ -1325,7 +1333,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const aggiornaCucina = () => {
             const chiusa = cucinaChiusaManuale || giornoSenzaServizio;
             if (cuiStatus) {
-              cuiStatus.textContent = chiusa ? "Fermée" : "Ouverte";
+              cuiStatus.textContent = chiusa ? tr("home.closed") : tr("home.open");
               cuiStatus.classList.toggle("closed", chiusa);
               cuiStatus.classList.toggle("open", !chiusa);
             }
@@ -1372,10 +1380,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             (document.getElementById("menu-drink") as HTMLElement).textContent = String(drink);
             const indispoEl = document.getElementById("menu-indispo") as HTMLElement;
             if (indispo > 0) {
-              indispoEl.textContent = `${indispo} plat${indispo > 1 ? "s" : ""}`;
+              indispoEl.textContent = `${indispo} ${tr(indispo > 1 ? "home.dishesWord" : "home.dishWord")}`;
               indispoEl.classList.add("warn");
             } else {
-              indispoEl.textContent = "Aucun — tout est visible";
+              indispoEl.textContent = tr("home.allVisible");
               indispoEl.classList.add("none");
             }
           }
@@ -1409,7 +1417,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               .map((b, i) => {
                 const hPct = Math.round((b.count / max) * 100);
                 const val = i === peakIdx && b.count > 0 ? `<span class="cval">${b.count}</span>` : "";
-                return `<div class="st-bar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${b.label} : ${b.count} commandes">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
+                return `<div class="st-bar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${b.label} : ${b.count} ${tr("home.ordersWord")}">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
               })
               .join("");
             labsEl.innerHTML = sw.series.map((b) => `<span>${b.label}</span>`).join("");
@@ -1423,6 +1431,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <!-- Organiser : ordine + dimensione delle isole (per utente, salvato in DB) -->
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       (async () => {
         const cards = document.getElementById("cards") as HTMLElement;
@@ -1559,7 +1572,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const sEl = document.getElementById("g-stars");
             if (sEl) sEl.textContent = stelle(nota);
             const cEl = document.getElementById("g-count");
-            if (cEl) cEl.textContent = `${g.reviews ?? 0} avis Google`;
+            if (cEl) cEl.textContent = `${g.reviews ?? 0} ${tr("home.avisGoogle")}`;
 
             // --- Carrousel des avis ---
             const avis = (g.avis ?? []).filter((a) => a.texte);
@@ -1614,7 +1627,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             };
             if (!v.configured) return; // niente propriété → tile nascosta
             tile.style.display = "";
-            const nf = new Intl.NumberFormat("fr-FR");
+            const nf = new Intl.NumberFormat(LOC);
             const cEl = document.getElementById("visi-clicks");
             if (cEl) cEl.textContent = nf.format(v.clicks);
             const iEl = document.getElementById("visi-imp");
@@ -1661,11 +1674,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => {
           const mv = document.createElement("div");
           mv.className = "tile-move";
-          mv.title = "Déplacer";
+          mv.title = tr("home.move");
           mv.innerHTML = GRIP;
           const rz = document.createElement("div");
           rz.className = "tile-resize";
-          rz.title = "Redimensionner";
+          rz.title = tr("home.resize");
           t.appendChild(mv);
           t.appendChild(rz);
 
@@ -1856,7 +1869,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           editing = on;
           cards.classList.toggle("editing", on);
           btn?.classList.toggle("is-on", on);
-          if (btn) btn.title = on ? "Terminé" : "Organiser mes tuiles";
+          if (btn) btn.title = on ? tr("home.done") : tr("home.organizeTiles");
           if (btnReset) btnReset.style.display = on ? "flex" : "none";
           if (btnTuiles && !isMobile()) btnTuiles.style.display = on ? "flex" : "none";
         }
@@ -1865,9 +1878,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
         // ---- Modale « Tuiles » : ogni isola ha un interruttore ----
         const NOMI: Record<string, string> = {
-          notes: "Notes", orders: "Commandes", reservations: "Réservations", settings: "Horaires",
-          special: "Jours spéciaux", cuisine: "Cuisine", menu: "Menu", google: "Google",
-          visibilite: "Visibilité", stats: "Statistiques", assets: "Photos",
+          notes: tr("home.notes"), orders: tr("nav.orders"), reservations: tr("nav.reservations"), settings: tr("home.horaires"),
+          special: tr("home.specialDays"), cuisine: tr("tab.settings.cuisine"), menu: tr("nav.menu"), google: "Google",
+          visibilite: tr("home.visibility"), stats: tr("nav.stats"), assets: tr("home.photos"),
         };
         const ovTuiles = document.getElementById("tuiles-overlay") as HTMLElement | null;
         const listaTuiles = document.getElementById("tuiles-list") as HTMLElement | null;

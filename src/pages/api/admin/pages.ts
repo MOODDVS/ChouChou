@@ -2,6 +2,9 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI } from "../../../lib/admin/superAdmin";
+import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../../i18n/admin";
+import { CHIAVE_ADMIN_LANG, CACHE_ADMIN_LANG } from "../../../lib/admin/adminLang";
+import { cacheDel } from "../../../lib/cache";
 
 export const prerender = false;
 
@@ -59,6 +62,21 @@ async function leggiTema(): Promise<Record<string, string>> {
     return {};
   }
 }
+/** Lingua globale dell'admin (app_config "admin_lang"), default francese. */
+async function leggiLang(): Promise<AdminLang> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", CHIAVE_ADMIN_LANG)
+      .maybeSingle();
+    const v = String(data?.value ?? "").trim();
+    return isAdminLang(v) ? v : ADMIN_LANG_DEFAULT;
+  } catch {
+    return ADMIN_LANG_DEFAULT;
+  }
+}
+
 const VALIDE = PAGINE_ADMIN.map((p) => p.key);
 
 function json(body: unknown, status = 200): Response {
@@ -86,17 +104,18 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const [hidden, hiddenTabs, theme, logo] = await Promise.all([
+  const [hidden, hiddenTabs, theme, logo, lang] = await Promise.all([
     leggiLista(CHIAVE, VALIDE),
     leggiLista(CHIAVE_TABS, TABS_VALIDI),
     leggiTema(),
     leggiLogo(),
+    leggiLang(),
   ]);
   // Ruolo "user": in più delle pagine spente in Réglages, mai Admin né Statistiques.
   const ruolo = ruoloDi(staff);
   const hiddenRuolo =
     ruolo === "user" ? [...new Set([...hidden, ...PAGINE_SOLO_ADMIN])] : hidden;
-  return json({ hidden: hiddenRuolo, hiddenTabs, theme, logo, role: ruolo, super: isSuperUser(staff) });
+  return json({ hidden: hiddenRuolo, hiddenTabs, theme, logo, lang, role: ruolo, super: isSuperUser(staff) });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
@@ -106,17 +125,20 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ error: "Réservé à l'administrateur MOODD" }, 403);
   }
 
-  let body: { hidden?: string[]; hiddenTabs?: string[]; theme?: Record<string, string> };
+  let body: { hidden?: string[]; hiddenTabs?: string[]; theme?: Record<string, string>; lang?: string };
   try {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
   }
 
-  const hidden = Array.isArray(body.hidden)
-    ? [...new Set(body.hidden.filter((k) => VALIDE.includes(k)))]
-    : null;
-  if (hidden === null) return json({ error: "Liste invalide" }, 400);
+  // hidden è opzionale: aggiornato solo se presente (come theme, hiddenTabs, lang).
+  // Così un salvataggio della sola lingua non tocca la visibilità delle pagine.
+  let hidden: string[] | null = null;
+  if (body.hidden !== undefined) {
+    if (!Array.isArray(body.hidden)) return json({ error: "Liste invalide" }, 400);
+    hidden = [...new Set(body.hidden.filter((k) => VALIDE.includes(k)))];
+  }
 
   // hiddenTabs è opzionale: se assente, non lo tocca.
   const hiddenTabs = Array.isArray(body.hiddenTabs)
@@ -139,16 +161,28 @@ export const PUT: APIRoute = async ({ request }) => {
     if (typeof sh === "string" && /^\d{1,3}$/.test(sh) && Number(sh) <= 100) theme.shadow = sh;
   }
 
-  const upserts: { key: string; value: string }[] = [
-    { key: CHIAVE, value: JSON.stringify(hidden) },
-  ];
+  // lang opzionale: se presente e valida, aggiorna la lingua globale dell'admin.
+  let lang: AdminLang | null = null;
+  if (body.lang !== undefined) {
+    if (!isAdminLang(body.lang)) return json({ error: "Langue invalide" }, 400);
+    lang = body.lang;
+  }
+
+  const upserts: { key: string; value: string }[] = [];
+  if (hidden !== null) upserts.push({ key: CHIAVE, value: JSON.stringify(hidden) });
   if (hiddenTabs !== null) upserts.push({ key: CHIAVE_TABS, value: JSON.stringify(hiddenTabs) });
   if (theme !== null) upserts.push({ key: CHIAVE_TEMA, value: JSON.stringify(theme) });
+  if (lang !== null) upserts.push({ key: CHIAVE_ADMIN_LANG, value: lang });
 
-  const { error } = await supabaseAdmin
-    .from("app_config")
-    .upsert(upserts, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (upserts.length > 0) {
+    const { error } = await supabaseAdmin
+      .from("app_config")
+      .upsert(upserts, { onConflict: "key" });
+    if (error) return json({ error: "Enregistrement impossible" }, 500);
+  }
 
-  return json({ ok: true, hidden, hiddenTabs: hiddenTabs ?? undefined, theme: theme ?? undefined });
+  // Invalida subito la cache della lingua: il reload mostra già la nuova lingua.
+  if (lang !== null) cacheDel(CACHE_ADMIN_LANG);
+
+  return json({ ok: true, hidden: hidden ?? undefined, hiddenTabs: hiddenTabs ?? undefined, theme: theme ?? undefined, lang: lang ?? undefined });
 };

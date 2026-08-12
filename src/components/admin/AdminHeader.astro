@@ -4,10 +4,15 @@
 // orologio, data e formattazioni delle pagine admin lo leggono da qui.
 import { CLIENT } from "../../config/client";
 import { aggiornaTimezone } from "../../lib/slots";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 const TZ_RISTO = await aggiornaTimezone();
+const lang = await adminLang();
+const t = adminT(lang);
+const dateLocale = ADMIN_LOCALE[lang];
 ---
 
-<header class="ah-header" data-tz={TZ_RISTO}>
+<header class="ah-header" data-tz={TZ_RISTO} data-locale={dateLocale}>
   <div class="ah-left">
     <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
       <img id="ah-logo" src={CLIENT.logoAdmin} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
@@ -23,7 +28,7 @@ const TZ_RISTO = await aggiornaTimezone();
       <span class="ah-date-rest" id="ah-date-rest"></span>
     </div>
   </div>
-  <div class="ah-clock" id="ah-clock" aria-label="Heure actuelle">
+  <div class="ah-clock" id="ah-clock" aria-label={t("hdr.time")}>
     <svg class="ah-clock-ico" viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="12" cy="12" r="9" />
       <polyline points="12 7 12 12 15 14" />
@@ -32,7 +37,7 @@ const TZ_RISTO = await aggiornaTimezone();
   </div>
   <div class="ah-user">
     <span id="user-email" class="ah-email"></span>
-    <button id="fs-btn" type="button" class="ah-logout" aria-label="Plein écran" title="Plein écran">
+    <button id="fs-btn" type="button" class="ah-logout" aria-label={t("hdr.fullscreen")} title={t("hdr.fullscreen")}>
       <svg id="fs-ico-in" viewBox="0 0 24 24" aria-hidden="true">
         <polyline points="15 3 21 3 21 9" />
         <polyline points="9 21 3 21 3 15" />
@@ -46,7 +51,7 @@ const TZ_RISTO = await aggiornaTimezone();
         <line x1="3" y1="21" x2="10" y2="14" />
       </svg>
     </button>
-    <button id="logout-btn" type="button" class="ah-logout" aria-label="Déconnexion" title="Déconnexion">
+    <button id="logout-btn" type="button" class="ah-logout" aria-label={t("hdr.logout")} title={t("hdr.logout")}>
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
         <polyline points="16 17 21 12 16 7" />
@@ -147,6 +152,8 @@ const TZ_RISTO = await aggiornaTimezone();
   // Fuso del RISTORANTE (Réglages → Général, esposto in data-tz): l'ora è
   // quella del locale anche se il tablet è impostato su un altro fuso.
   const TZ = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
+  // Locale delle date/ore = lingua scelta per l'admin (data-locale).
+  const LOC = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.locale || "fr-BE";
   const dateDay = document.getElementById("ah-date-day");
   const dateRest = document.getElementById("ah-date-rest");
   const clockEl = document.getElementById("ah-clock-time");
@@ -155,8 +162,8 @@ const TZ_RISTO = await aggiornaTimezone();
   function aggiornaData(now: Date) {
     if (!dateDay || !dateRest) return;
     // Giorno in ORO, resto della data in bianco (MAIUSCOLO via CSS).
-    const wd = now.toLocaleDateString("fr-BE", { timeZone: TZ, weekday: "long" });
-    const resto = now.toLocaleDateString("fr-BE", {
+    const wd = now.toLocaleDateString(LOC, { timeZone: TZ, weekday: "long" });
+    const resto = now.toLocaleDateString(LOC, {
       timeZone: TZ,
       day: "numeric",
       month: "long",
@@ -169,7 +176,7 @@ const TZ_RISTO = await aggiornaTimezone();
   function aggiornaOrologio() {
     const now = new Date();
     if (clockEl) {
-      clockEl.textContent = now.toLocaleTimeString("fr-BE", {
+      clockEl.textContent = now.toLocaleTimeString(LOC, {
         timeZone: TZ,
         hour: "2-digit",
         minute: "2-digit",

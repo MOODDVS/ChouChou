@@ -1,11 +1,15 @@
 ---
 // Isola "Photos récentes" della Accueil (larga 2 colonne) → pagina Assets.
 // data-admin-page="assets".
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <div class="tile tile-photos" data-admin-page="assets" data-tile="assets">
   <div class="st-head">
-    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Photos récentes</div>
-    <a class="st-link" href="/admin/assets">Voir tout →</a>
+    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>{t("home.recentPhotos")}</div>
+    <a class="st-link" href="/admin/assets">{t("home.viewAll")}</a>
   </div>
   <div class="ph-grid" id="ph-grid"></div>
 </div>
