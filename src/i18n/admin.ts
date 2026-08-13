@@ -1322,6 +1322,10 @@ const DIZIONARIO: Dizionario = {
   "set.tm.catConsultants": { fr: "Consultants", en: "Consultants", it: "Consulenti", nl: "Consultants", es: "Consultores" },
   "set.tm.catPartenaires": { fr: "Partenaires", en: "Partners", it: "Partner", nl: "Partners", es: "Socios" },
 
+  // ===== Sito pubblico (coming-soon) =====
+  "pub.newSite":    { fr: "Nouveau site internet", en: "New website", it: "Nuovo sito internet", nl: "Nieuwe website", es: "Nuevo sitio web" },
+  "pub.comingSoon": { fr: "Bientôt en ligne.", en: "Coming soon.", it: "Presto online.", nl: "Binnenkort online.", es: "Próximamente en línea." },
+
   // ===== Pagina di login =====
   "login.title":      { fr: "Espace Staff", en: "Staff area", it: "Area staff", nl: "Personeelsruimte", es: "Área del personal" },
   "login.admin":      { fr: "Administration", en: "Administration", it: "Amministrazione", nl: "Beheer", es: "Administración" },

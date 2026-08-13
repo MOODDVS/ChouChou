@@ -5,15 +5,41 @@
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import { supabaseAdmin } from "../../lib/db";
+import { cacheOr } from "../../lib/cache";
 const lang = await adminLang();
 const t = adminT(lang);
+
+// Brand dai Réglages (app_config): nome pubblico + logo. Fallback ai default
+// se il DB non risponde: la login non deve mai rompersi.
+const brand = await (async () => {
+  try {
+    return await cacheOr("pub:login-brand", async () => {
+      const { data } = await supabaseAdmin
+        .from("app_config")
+        .select("key, value")
+        .in("key", ["restaurant_name", "brand_logo"]);
+      const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
+      return {
+        nome: (m.get("restaurant_name") ?? "").trim(),
+        logo: (m.get("brand_logo") ?? "").trim() || CLIENT.logoLogin,
+      };
+    }, 60);
+  } catch {
+    return { nome: "", logo: CLIENT.logoLogin };
+  }
+})();
+// Sottotitolo: "Nome — Administration" se il nome è impostato, altrimenti
+// solo "Administration" (niente placeholder in francese).
+const subtitle = brand.nome ? `${brand.nome} — ${t("login.admin")}` : t("login.admin");
+const tabTitle = brand.nome || t("login.title");
 ---
 
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Admin — " + CLIENT.nome}</title>
+    <title>{tabTitle}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -62,10 +88,9 @@ const t = adminT(lang);
       }
       .logo {
         display: block;
-        width: 210px;
+        width: 150px;
         height: auto;
         margin: 0 auto 1.5rem;
-        filter: invert(1);
       }
       h1 {
         font-family: var(--font-title);
@@ -130,9 +155,9 @@ const t = adminT(lang);
   </head>
   <body>
     <div class="box">
-      <img class="logo" src={CLIENT.logoLogin} alt={CLIENT.nome} />
+      <img class="logo" src={brand.logo} alt={brand.nome || t("login.title")} />
       <h1>{t("login.title")}</h1>
-      <p class="subtitle">{CLIENT.nome + " — " + t("login.admin")}</p>
+      <p class="subtitle">{subtitle}</p>
 
       <div class="error" id="error"></div>
 
