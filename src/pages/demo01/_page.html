@@ -245,7 +245,7 @@
     <div class="reveal">
       <div class="rw-cap"><span class="badge" data-k="resa.livebadge">Widget réel · en direct</span></div>
       <div class="rw-embed">
-        <iframe title="Réservation" src="/reservation-embed-demo?lang=it" loading="lazy" data-rhframe></iframe>
+        <iframe title="Réservation" src="/demo01/reservation-embed?lang=it" loading="lazy" data-rhframe></iframe>
       </div>
     </div>
   </div>
@@ -556,7 +556,7 @@ document.addEventListener("click",e=>{
  // open modals
  const op=t.closest("[data-open]");
  if(op){const w=op.getAttribute("data-open");
-   if(w==="resa"){const f=document.querySelector("[data-resaframe]");if(f&&!f.getAttribute("src"))f.setAttribute("src","/reservation-embed-demo?lang=it");openM("resa");}
+   if(w==="resa"){const f=document.querySelector("[data-resaframe]");if(f&&!f.getAttribute("src"))f.setAttribute("src","/demo01/reservation-embed?lang=it");openM("resa");}
    else if(w==="cart"){renderCart();openM("cart");}return;}
  if(t.closest("[data-close]")){closeM(t);return;}
  if(t.classList.contains("ov")){t.classList.remove("open");return;}

@@ -1,12 +1,11 @@
 ---
-// Variante DEMO del widget di prenotazione, usata SOLO nell'iframe della
-// pagina /demo. È lo STESSO ReservationWidget reale, ma con la palette del
-// sito demo (nero / rosso / verde) applicata tramite le variabili CSS --rw-*
-// (i cui default restano l'oro/scuro originale per tutti gli altri usi).
-// NON tocca /reservation-embed, che i clienti reali continuano a usare.
-import ReservationWidget from "../components/ReservationWidget.astro";
-import { CLIENT } from "../config/client";
-import { datiRistorante } from "../lib/ristorante";
+// Widget di prenotazione del TEMPLATE demo01, caricato nell'iframe di /demo01.
+// È lo STESSO ReservationWidget reale, con la palette del template (nero/rosso)
+// applicata via le variabili CSS --rw-* (i cui default restano oro/scuro per
+// tutti gli altri usi). NON tocca /reservation-embed dei clienti reali.
+import ReservationWidget from "../../components/ReservationWidget.astro";
+import { CLIENT } from "../../config/client";
+import { datiRistorante } from "../../lib/ristorante";
 
 export const prerender = false;
 
@@ -23,7 +22,7 @@ try {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Réservation — démo</title>
+    <title>Réservation — demo01</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,7 +32,7 @@ try {
     <style is:global>
       :root {
         --font-body: "Nunito Sans", system-ui, sans-serif;
-        /* Palette DEMO — coerente col sito pizzeria (nero / rosso / verde). */
+        /* Palette del template demo01 (nero / rosso / verde). */
         --rw-bg: #161616;
         --rw-bg2: #0e0e0e;
         --rw-line: rgba(247, 241, 230, 0.14);
@@ -44,18 +43,14 @@ try {
       }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; background: transparent; color: #fff; font-family: var(--font-body); }
-      /* Niente 100vh né padding: l'iframe si adatta all'altezza reale del widget. */
       .page { min-height: 0 !important; padding: 0 !important; }
       .rw { border: none !important; }
-      /* Nasconde il claim col nome ristorante (in demo = "Nouveau Restaurant"). */
       .rw-claim { display: none !important; }
     </style>
   </head>
   <body>
     <ReservationWidget telWidget={telWidget} />
     <script is:inline>
-      // Comunica l'altezza reale alla pagina /demo così l'iframe si ridimensiona
-      // e non resta spazio vuoto. Stessa origine → nessun problema di sicurezza.
       function rhPost() {
         try { parent.postMessage({ rhDemoHeight: document.body.scrollHeight }, "*"); } catch (e) {}
       }

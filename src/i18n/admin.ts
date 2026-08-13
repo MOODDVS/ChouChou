@@ -1327,13 +1327,29 @@ const DIZIONARIO: Dizionario = {
   "pub.comingSoon": { fr: "Bientôt en ligne.", en: "Coming soon.", it: "Presto online.", nl: "Binnenkort online.", es: "Próximamente en línea." },
 
   // ===== Pagina di login =====
-  "login.title":      { fr: "Espace Staff", en: "Staff area", it: "Area staff", nl: "Personeelsruimte", es: "Área del personal" },
+  "login.title":      { fr: "Espace Staff", en: "Staff area", it: "Area Staff", nl: "Personeelsruimte", es: "Área del personal" },
   "login.admin":      { fr: "Administration", en: "Administration", it: "Amministrazione", nl: "Beheer", es: "Administración" },
   "login.email":      { fr: "Email", en: "Email", it: "Email", nl: "E-mail", es: "Correo" },
   "login.password":   { fr: "Mot de passe", en: "Password", it: "Password", nl: "Wachtwoord", es: "Contraseña" },
   "login.submit":     { fr: "Se connecter", en: "Log in", it: "Accedi", nl: "Inloggen", es: "Iniciar sesión" },
   "login.connecting": { fr: "Connexion...", en: "Logging in...", it: "Accesso...", nl: "Inloggen...", es: "Conectando..." },
   "login.error":      { fr: "Email ou mot de passe incorrect.", en: "Wrong email or password.", it: "Email o password non corretti.", nl: "Onjuiste e-mail of wachtwoord.", es: "Correo o contraseña incorrectos." },
+  "login.forgot":     { fr: "Mot de passe oublié ?", en: "Forgot password?", it: "Password dimenticata?", nl: "Wachtwoord vergeten?", es: "¿Olvidaste tu contraseña?" },
+  "login.back":       { fr: "Retour à la connexion", en: "Back to sign in", it: "Torna al login", nl: "Terug naar inloggen", es: "Volver al inicio de sesión" },
+  "login.resetIntro": { fr: "Saisissez votre email : vous recevrez un lien pour choisir un nouveau mot de passe.", en: "Enter your email: you'll receive a link to choose a new password.", it: "Inserisci la tua email: riceverai un link per scegliere una nuova password.", nl: "Voer je e-mail in: je ontvangt een link om een nieuw wachtwoord te kiezen.", es: "Introduce tu correo: recibirás un enlace para elegir una nueva contraseña." },
+  "login.resetSend":  { fr: "Envoyer le lien", en: "Send link", it: "Invia il link", nl: "Stuur link", es: "Enviar enlace" },
+  "login.sending":    { fr: "Envoi...", en: "Sending...", it: "Invio...", nl: "Versturen...", es: "Enviando..." },
+  "login.resetSent":  { fr: "Si un compte existe pour cet email, un lien vient d'être envoyé. Vérifiez votre boîte de réception.", en: "If an account exists for this email, a link has been sent. Check your inbox.", it: "Se esiste un account per questa email, il link è stato inviato. Controlla la posta.", nl: "Als er een account bestaat voor dit e-mailadres, is er een link verstuurd. Controleer je inbox.", es: "Si existe una cuenta para este correo, se ha enviado un enlace. Revisa tu bandeja de entrada." },
+  "login.resetErr":   { fr: "Impossible d'envoyer l'email. Réessayez.", en: "Could not send the email. Please try again.", it: "Impossibile inviare l'email. Riprova.", nl: "Kon de e-mail niet versturen. Probeer opnieuw.", es: "No se pudo enviar el correo. Inténtalo de nuevo." },
+  "reset.title":      { fr: "Nouveau mot de passe", en: "New password", it: "Nuova password", nl: "Nieuw wachtwoord", es: "Nueva contraseña" },
+  "reset.intro":      { fr: "Choisissez un nouveau mot de passe pour votre compte.", en: "Choose a new password for your account.", it: "Scegli una nuova password per il tuo account.", nl: "Kies een nieuw wachtwoord voor je account.", es: "Elige una nueva contraseña para tu cuenta." },
+  "reset.confirm":    { fr: "Confirmez le mot de passe", en: "Confirm password", it: "Conferma password", nl: "Bevestig wachtwoord", es: "Confirmar contraseña" },
+  "reset.save":       { fr: "Enregistrer", en: "Save", it: "Salva", nl: "Opslaan", es: "Guardar" },
+  "reset.saving":     { fr: "Enregistrement...", en: "Saving...", it: "Salvataggio...", nl: "Opslaan...", es: "Guardando..." },
+  "reset.ok":         { fr: "Mot de passe mis à jour. Redirection...", en: "Password updated. Redirecting...", it: "Password aggiornata. Reindirizzamento...", nl: "Wachtwoord bijgewerkt. Doorsturen...", es: "Contraseña actualizada. Redirigiendo..." },
+  "reset.mismatch":   { fr: "Les mots de passe ne correspondent pas.", en: "Passwords do not match.", it: "Le password non coincidono.", nl: "Wachtwoorden komen niet overeen.", es: "Las contraseñas no coinciden." },
+  "reset.short":      { fr: "Au moins 8 caractères.", en: "At least 8 characters.", it: "Almeno 8 caratteri.", nl: "Minstens 8 tekens.", es: "Al menos 8 caracteres." },
+  "reset.err":        { fr: "Lien invalide ou expiré. Redemandez un email de réinitialisation.", en: "Invalid or expired link. Request a new reset email.", it: "Link non valido o scaduto. Richiedi una nuova email di reset.", nl: "Ongeldige of verlopen link. Vraag een nieuwe reset-e-mail aan.", es: "Enlace no válido o caducado. Solicita un nuevo correo de restablecimiento." },
 };
 
 /**
