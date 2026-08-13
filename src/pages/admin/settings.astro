@@ -16,9 +16,14 @@ const LNK = [
   { k: "google_review", label: "Google — avis", ph: "https://g.page/r/.../review", icon: '<svg viewBox="0 0 24 24"><path d="M23.5 12.27c0-.85-.08-1.66-.22-2.45H12v4.64h6.44a5.5 5.5 0 0 1-2.39 3.61v3h3.87c2.26-2.09 3.58-5.16 3.58-8.8z"/><path d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3c-1.08.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09A12 12 0 0 0 12 24z"/><path d="M5.27 14.28A7.2 7.2 0 0 1 4.89 12c0-.79.14-1.56.38-2.28V6.63H1.29a12 12 0 0 0 0 10.74z"/><path d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.98 11.98 0 0 0 12 0 12 12 0 0 0 1.29 6.63l3.98 3.09C6.22 6.87 8.87 4.75 12 4.75z"/></svg>' },
 ];
 import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -930,47 +935,47 @@ import { CLIENT } from "../../config/client";
     <div id="app">
       <AdminHeader />
       <main>
-        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Admin</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("nav.settings")}</h1>
 
         <div class="tabs" id="tabs" role="tablist">
-          <button type="button" data-t="general" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>Général</button>
-          <button type="button" data-t="horaire"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>Horaire</button>
-          <button type="button" data-t="reservations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><polyline points="9 15 11 17 15 13" /></svg>Réservations</button>
-          <button type="button" data-t="cuisine"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>Cuisine</button>
-          <button type="button" data-t="liens"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>Liens</button>
-          <button type="button" data-t="team"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Team</button>
-          <button type="button" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>Documents</button>
-          <button type="button" data-t="notifications"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>Notifications</button>
+          <button type="button" data-t="general" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("tab.settings.general")}</button>
+          <button type="button" data-t="horaire"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>{t("tab.settings.horaire")}</button>
+          <button type="button" data-t="reservations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><polyline points="9 15 11 17 15 13" /></svg>{t("tab.settings.reservations")}</button>
+          <button type="button" data-t="cuisine"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>{t("tab.settings.cuisine")}</button>
+          <button type="button" data-t="liens"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>{t("tab.settings.liens")}</button>
+          <button type="button" data-t="team"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("tab.settings.team")}</button>
+          <button type="button" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>{t("tab.settings.documents")}</button>
+          <button type="button" data-t="notifications"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>{t("tab.settings.notifications")}</button>
         </div>
 
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
 
         <div id="content" style="display:none" data-tab="general">
           <div class="section" data-tab="general">
-            <h2>Informations générales</h2>
+            <h2>{t("set.gen.title")}</h2>
             <div class="field">
-              <label for="g-name">Nom de la société</label>
-              <input type="text" id="g-name" placeholder="Ma Société SRL" />
+              <label for="g-name">{t("res.companyName")}</label>
+              <input type="text" id="g-name" placeholder={t("set.gen.companyNamePh")} />
             </div>
             <div class="field">
-              <label for="g-rname">Nom du restaurant</label>
-              <input type="text" id="g-rname" placeholder="Mon Restaurant" />
+              <label for="g-rname">{t("set.gen.restaurantName")}</label>
+              <input type="text" id="g-rname" placeholder={t("set.gen.restaurantNamePh")} />
             </div>
             <div class="field">
-              <label for="g-street">Adresse (rue et numéro)</label>
-              <input type="text" id="g-street" placeholder="Rue de l'Exemple 1" />
+              <label for="g-street">{t("set.gen.address")}</label>
+              <input type="text" id="g-street" placeholder={t("set.gen.streetPh")} />
             </div>
             <div class="field">
-              <label for="g-zip">Code postal &amp; ville</label>
+              <label for="g-zip">{t("set.gen.zipCity")}</label>
               <input type="text" id="g-zip" class="g-zip" placeholder="1060" autocomplete="off" />
               <input type="text" id="g-city" placeholder="Bruxelles" />
             </div>
             <div class="field">
-              <label for="g-country">Pays</label>
-              <input type="text" id="g-country" placeholder="Belgique" />
+              <label for="g-country">{t("set.gen.country")}</label>
+              <input type="text" id="g-country" placeholder={t("set.gen.countryPh")} />
             </div>
             <div class="field">
-              <label for="g-tz">Fuseau horaire<span class="lab-hint">Utilisé pour calculer les heures réservables en temps réel.</span></label>
+              <label for="g-tz">{t("set.gen.timezone")}<span class="lab-hint">{t("set.gen.timezoneHint")}</span></label>
               <select id="g-tz" class="tz-select">
                 <option value="Europe/Brussels">Europe/Brussels</option>
                 <option value="Europe/Paris">Europe/Paris</option>
@@ -995,7 +1000,7 @@ import { CLIENT } from "../../config/client";
               </select>
             </div>
             <div class="field">
-              <label for="g-vat">Numéro de TVA</label>
+              <label for="g-vat">{t("set.gen.vat")}</label>
               <input type="text" id="g-vat" placeholder="BE 0899.648.967" autocomplete="off" />
             </div>
             <div class="field">
@@ -1003,230 +1008,230 @@ import { CLIENT } from "../../config/client";
               <input type="text" id="g-iban" placeholder="BE12 3456 7890 1234" autocomplete="off" />
             </div>
             <div class="field">
-              <label for="g-phone">Téléphone public</label>
+              <label for="g-phone">{t("set.gen.publicPhone")}</label>
               <input type="text" id="g-phone" placeholder="+32 455 13 14 65" autocomplete="tel" inputmode="tel" readonly data-noauto="1" />
             </div>
             <div class="field">
-              <label for="g-email">Email publique</label>
+              <label for="g-email">{t("set.gen.publicEmail")}</label>
               <input type="email" id="g-email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field field-emails">
-              <label>Emails du formulaire de contact<span class="lab-hint">Chaque adresse reçoit les messages envoyés depuis la page Contact.</span></label>
+              <label>{t("set.gen.contactEmails")}<span class="lab-hint">{t("set.gen.contactEmailsHint")}</span></label>
               <div class="dyn-col">
                 <div class="kemails" id="cemails"></div>
-                <button type="button" class="kemail-add" id="cemail-add">+ Ajouter un email</button>
+                <button type="button" class="kemail-add" id="cemail-add">{t("set.gen.addEmail")}</button>
               </div>
             </div>
             <div class="field" style="margin-top:1.2rem">
-              <label for="g-nlfrom">Email expéditeur newsletter<span class="lab-hint">Doit appartenir au domaine vérifié sur Resend.</span></label>
+              <label for="g-nlfrom">{t("set.gen.nlFrom")}<span class="lab-hint">{t("set.gen.nlFromHint")}</span></label>
               <input type="email" id="g-nlfrom" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field">
-              <label for="g-wa">Numéro WhatsApp<span class="lab-hint">Réservé à la future intégration WhatsApp.</span></label>
+              <label for="g-wa">{t("set.gen.whatsapp")}<span class="lab-hint">{t("set.gen.whatsappHint")}</span></label>
               <input type="text" id="g-wa" placeholder="+32 4xx xx xx xx" autocomplete="tel" inputmode="tel" readonly data-noauto="1" />
             </div>
 
-            <h2 class="brand-title">Logos &amp; favicon</h2>
+            <h2 class="brand-title">{t("set.gen.brandTitle")}</h2>
             <div class="brand-grid">
               <div class="brand-card" data-bk="brand_logo">
-                <p class="brand-lab">Logo</p>
-                <div class="brand-prev"><span class="brand-empty">—</span><img alt="Logo" style="display:none" /></div>
+                <p class="brand-lab">{t("set.gen.logo")}</p>
+                <div class="brand-prev"><span class="brand-empty">—</span><img alt={t("set.gen.logo")} style="display:none" /></div>
                 <div class="brand-btns">
-                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
-                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  <label class="brand-up">{t("mk.upload")}<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
               <div class="brand-card" data-bk="brand_logo_negative">
-                <p class="brand-lab">Logo négatif</p>
-                <div class="brand-prev light"><span class="brand-empty">—</span><img alt="Logo négatif" style="display:none" /></div>
+                <p class="brand-lab">{t("set.gen.logoNeg")}</p>
+                <div class="brand-prev light"><span class="brand-empty">—</span><img alt={t("set.gen.logoNeg")} style="display:none" /></div>
                 <div class="brand-btns">
-                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
-                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  <label class="brand-up">{t("mk.upload")}<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
               <div class="brand-card" data-bk="brand_logo_mono">
-                <p class="brand-lab">Logo 1 couleur</p>
-                <div class="brand-prev"><span class="brand-empty">—</span><img alt="Logo 1 couleur" style="display:none" /></div>
+                <p class="brand-lab">{t("set.gen.logoMono")}</p>
+                <div class="brand-prev"><span class="brand-empty">—</span><img alt={t("set.gen.logoMono")} style="display:none" /></div>
                 <div class="brand-btns">
-                  <label class="brand-up">Téléverser<input type="file" accept=".svg,.png,.webp" hidden /></label>
-                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  <label class="brand-up">{t("mk.upload")}<input type="file" accept=".svg,.png,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
               <div class="brand-card" data-bk="brand_favicon">
                 <p class="brand-lab">Favicon</p>
                 <div class="brand-prev fav"><span class="brand-empty">—</span><img alt="Favicon" style="display:none" /></div>
                 <div class="brand-btns">
-                  <label class="brand-up">Téléverser<input type="file" accept=".ico,.svg,.png" hidden /></label>
-                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  <label class="brand-up">{t("mk.upload")}<input type="file" accept=".ico,.svg,.png" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
             </div>
-            <p class="brand-hint">SVG ou PNG conseillés (favicon : .ico, .svg ou .png). Enregistrer pour appliquer.</p>
+            <p class="brand-hint">{t("set.gen.brandHint")}</p>
           </div>
 
           <div class="section" data-tab="horaire" style="display:none">
-            <h2>Horaires d'ouverture (take-away)</h2>
+            <h2>{t("set.hor.title")}</h2>
             <div id="days"></div>
           </div>
 
           <div class="section" data-tab="horaire" style="display:none">
-            <h2>Jours spéciaux</h2>
+            <h2>{t("home.specialDays")}</h2>
             <div class="sp-list" id="sp-list"></div>
             <div class="sp-add">
               <div class="sp-row">
                 <span class="sp-type">
-                  <button type="button" id="sp-t-closed" class="is-active">Fermé</button>
-                  <button type="button" id="sp-t-open">Ouvert</button>
+                  <button type="button" id="sp-t-closed" class="is-active">{t("home.tagClosed")}</button>
+                  <button type="button" id="sp-t-open">{t("home.tagOpen")}</button>
                 </span>
               </div>
               <div class="sp-row sp-dates">
-                <input type="text" id="sp-from" placeholder="jj/mm/aaaa" readonly />
+                <input type="text" id="sp-from" placeholder={t("mk.datePh")} readonly />
                 <span class="hint">→</span>
-                <input type="text" id="sp-to" placeholder="jj/mm/aaaa" readonly />
+                <input type="text" id="sp-to" placeholder={t("mk.datePh")} readonly />
               </div>
               <div id="sp-hours" style="display:none">
                 <div class="sp-row">
                   <span class="sp-type">
-                    <button type="button" id="sp-m-continu" class="is-active">Continu</button>
-                    <button type="button" id="sp-m-coupe">Coupé</button>
+                    <button type="button" id="sp-m-continu" class="is-active">{t("set.hor.continuous")}</button>
+                    <button type="button" id="sp-m-coupe">{t("set.hor.split")}</button>
                   </span>
                 </div>
                 <div class="sp-row">
-                  <span class="band-label" id="sp-lab-midi">Midi</span>
+                  <span class="band-label" id="sp-lab-midi">{t("set.hor.midi")}</span>
                   <input type="time" id="sp-lo" value="11:00" />
                   <span class="hint">→</span>
                   <input type="time" id="sp-lc" value="23:30" />
                 </div>
                 <div class="sp-row" id="sp-soir" style="display:none">
-                  <span class="band-label">Soir</span>
+                  <span class="band-label">{t("set.hor.evening")}</span>
                   <input type="time" id="sp-do" value="18:00" />
                   <span class="hint">→</span>
                   <input type="time" id="sp-dc" value="23:00" />
                 </div>
                 <div class="sp-servs-wrap">
-                  <span class="band-label">Services actifs ce jour</span>
+                  <span class="band-label">{t("set.hor.activeServices")}</span>
                   <div class="sp-servs" id="sp-servs"></div>
-                  <span class="hint">Aucun service activé = jour ouvert seulement pour commander (pas de réservations).</span>
+                  <span class="hint">{t("set.hor.noServiceHint")}</span>
                 </div>
               </div>
               <div class="sp-row">
-                <input type="text" id="sp-note" placeholder="Note (ex. Vacances d'été)" maxlength="200" />
-                <button type="button" class="sp-addbtn" id="sp-add">Ajouter</button>
+                <input type="text" id="sp-note" placeholder={t("set.hor.notePh")} maxlength="200" />
+                <button type="button" class="sp-addbtn" id="sp-add">{t("common.add")}</button>
               </div>
               <span class="msg" id="sp-msg"></span>
             </div>
           </div>
 
           <div class="section" data-tab="reservations" style="display:none">
-            <h2>Réservations</h2>
+            <h2>{t("tab.settings.reservations")}</h2>
             <!-- 1. Design -->
             <div class="field">
-              <label>Style des angles du widget<span class="lab-hint">Assorti au design du site : angles droits ou arrondis.</span></label>
+              <label>{t("set.res.cornerStyle")}<span class="lab-hint">{t("set.res.cornerHint")}</span></label>
               <div class="rcorners" id="r-corners">
-                <button type="button" class="rc-btn" data-c="square">Droits</button>
-                <button type="button" class="rc-btn is-on" data-c="rounded">Arrondis</button>
+                <button type="button" class="rc-btn" data-c="square">{t("set.res.cornerSquare")}</button>
+                <button type="button" class="rc-btn is-on" data-c="rounded">{t("set.res.cornerRounded")}</button>
               </div>
             </div>
             <hr class="rgroup-sep" />
             <!-- 2. Sections + plan de salle -->
             <div class="field">
-              <label>Accepter tout de suite<span class="lab-hint">ACTIVÉ : les réservations sont confirmées automatiquement s'il y a de la place. DÉSACTIVÉ : le widget envoie une demande (statut « En attente ») et c'est vous qui confirmez — le client reçoit l'email de confirmation à ce moment-là.</span></label>
+              <label>{t("set.res.autoAccept")}<span class="lab-hint">{t("set.res.autoAcceptHint")}</span></label>
               <div class="dyn-col sl-col">
                 <label class="switch"><input type="checkbox" id="r-autoaccept" /><span class="track"></span></label>
               </div>
             </div>
             <div class="field field-zones">
-              <label>Sections &amp; couverts<span class="lab-hint">Ex. Intérieur 40, Terrasse 60. Le total est la somme des sections.</span></label>
+              <label>{t("set.res.zones")}<span class="lab-hint">{t("set.res.zonesHint")}</span></label>
               <div class="dyn-col">
                 <div class="rzones" id="r-zones"></div>
-                <button type="button" class="kemail-add" id="r-zone-add">+ Ajouter une section</button>
+                <button type="button" class="kemail-add" id="r-zone-add">{t("set.res.addZone")}</button>
               </div>
             </div>
             <div class="field sl-filter-field">
-              <label>Plan de salle<span class="lab-hint">Choisis une section pour dessiner ses tables (s'ouvre dans une fenêtre). Interrupteur ACTIVÉ : les places réelles sont celles des tables dessinées — les couverts des sections sont ignorés.</span></label>
+              <label>{t("set.res.floorPlan")}<span class="lab-hint">{t("set.res.floorPlanHint")}</span></label>
               <div class="dyn-col sl-col">
                 <label class="switch"><input type="checkbox" id="r-planmode" /><span class="track"></span></label>
                 <div class="sl-filtri" id="sl-filtri"></div>
               </div>
             </div>
             <div class="field">
-              <label>Attribuer les tables automatiquement<span class="lab-hint">ACTIVÉ : le moteur choisit les tables (la plus petite combinaison qui suffit, sections prioritaires d'abord). DÉSACTIVÉ : seuls les couverts comptent — vous attribuez les tables à la main dans la fenêtre de réservation.</span></label>
+              <label>{t("set.res.autoTables")}<span class="lab-hint">{t("set.res.autoTablesHint")}</span></label>
               <div class="dyn-col sl-col">
                 <label class="switch"><input type="checkbox" id="r-autotables" /><span class="track"></span></label>
               </div>
             </div>
             <div class="overlay" id="sl-overlay">
               <div class="modal sl-modal">
-                <button class="m-close" id="sl-close" type="button" aria-label="Fermer">×</button>
-                <h2 id="sl-title">Plan de salle</h2>
+                <button class="m-close" id="sl-close" type="button" aria-label={t("common.close")}>×</button>
+                <h2 id="sl-title">{t("set.res.floorPlan")}</h2>
                 <div class="sl-wrap" id="sl-wrap">
               <div class="sl-tools">
-                <button type="button" class="sl-add" data-sh="round">+ Ronde</button>
-                <button type="button" class="sl-add" data-sh="square">+ Carrée</button>
-                <button type="button" class="sl-add" data-sh="rect">+ Rect.</button>
-                <button type="button" class="sl-area-btn" id="sl-area-btn">✎ Dessiner la salle</button>
-                <button type="button" class="sl-area-btn" id="sl-link-btn">🔗 Lier des tables</button>
-                <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label="Effacer la salle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                <button type="button" class="sl-add" data-sh="round">{t("set.res.addRound")}</button>
+                <button type="button" class="sl-add" data-sh="square">{t("set.res.addSquare")}</button>
+                <button type="button" class="sl-add" data-sh="rect">{t("set.res.addRect")}</button>
+                <button type="button" class="sl-area-btn" id="sl-area-btn">{"✎ " + t("set.res.drawRoom")}</button>
+                <button type="button" class="sl-area-btn" id="sl-link-btn">{"🔗 " + t("set.res.linkTables")}</button>
+                <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 <span class="sl-tot" id="sl-tot"></span>
                 <span class="sl-msg" id="sl-msg"></span>
               </div>
               <div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div>
               <div class="sl-links" id="sl-links"></div>
               <div class="sl-edit" id="sl-edit" style="display:none">
-                <input type="text" id="sl-nome" placeholder="Nom (T1)" maxlength="12" autocomplete="off" />
-                <input type="number" id="sl-posti" min="1" max="30" title="Places" />
+                <input type="text" id="sl-nome" placeholder={t("set.res.tableNamePh")} maxlength="12" autocomplete="off" />
+                <input type="number" id="sl-posti" min="1" max="30" title={t("set.res.seatsTitle")} />
                 <div class="sl-shapes">
-                  <button type="button" class="sl-sh" data-sh="round">Ronde</button>
-                  <button type="button" class="sl-sh" data-sh="square">Carrée</button>
-                  <button type="button" class="sl-sh" data-sh="rect">Rect.</button>
+                  <button type="button" class="sl-sh" data-sh="round">{t("set.res.shapeRound")}</button>
+                  <button type="button" class="sl-sh" data-sh="square">{t("set.res.shapeSquare")}</button>
+                  <button type="button" class="sl-sh" data-sh="rect">{t("set.res.shapeRect")}</button>
                 </div>
-                <button type="button" class="tm-ibtn del" id="sl-del" aria-label="Supprimer la table"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
               </div>
                 </div>
               </div>
             </div>
             <div class="field">
-              <label for="r-zonechoice">Choix de la section par le client<span class="lab-hint">Activé : le client choisit sa section (Intérieur, Terrasse…). Désactivé : il réserve simplement, vous placez.</span></label>
+              <label for="r-zonechoice">{t("set.res.zoneChoice")}<span class="lab-hint">{t("set.res.zoneChoiceHint")}</span></label>
               <label class="switch"><input type="checkbox" id="r-zonechoice" checked /><span class="track"></span></label>
             </div>
             <hr class="rgroup-sep" />
             <!-- 3. Services -->
             <div class="field field-services">
-              <label>Services de réservation<span class="lab-hint">Jusqu'à 5 plages : nom, horaires, jours d'application, durée d'occupation d'une table (min) et créneau (min). Ex. Midi 12:00–15:00 (Lun–Ven), table 60, créneau 15.</span></label>
+              <label>{t("set.res.services")}<span class="lab-hint">{t("set.res.servicesHint")}</span></label>
               <div class="dyn-col">
                 <div class="rservices" id="r-services"></div>
-                <button type="button" class="kemail-add" id="r-service-add">+ Ajouter un service</button>
+                <button type="button" class="kemail-add" id="r-service-add">{t("set.res.addService")}</button>
               </div>
             </div>
             <div class="field">
-              <label for="r-maxp">Personnes maximum par réservation<span class="lab-hint">Au-delà de ce nombre, le widget invite à appeler le restaurant.</span></label>
+              <label for="r-maxp">{t("set.res.maxPeople")}<span class="lab-hint">{t("set.res.maxPeopleHint")}</span></label>
               <input type="number" id="r-maxp" min="1" max="100" step="1" placeholder="8" />
             </div>
             <div class="field">
-              <label for="r-notice">Délai minimum avant réservation (min)<span class="lab-hint">Ex. 240 : à 18:00, le premier créneau proposé est 22:00. 0 = réservable jusqu'à la dernière minute.</span></label>
+              <label for="r-notice">{t("set.res.minNotice")}<span class="lab-hint">{t("set.res.minNoticeHint")}</span></label>
               <input type="number" id="r-notice" min="0" max="4320" step="15" placeholder="0" />
             </div>
             <hr class="rgroup-sep" />
             <!-- 4. Langues -->
             <div class="field">
-              <label>Langues du widget<span class="lab-hint">Le français est toujours actif. Le client change de langue via le globe en haut du widget.</span></label>
+              <label>{t("set.res.widgetLangs")}<span class="lab-hint">{t("set.res.widgetLangsHint")}</span></label>
               <div class="rlangs" id="r-langs"></div>
             </div>
             <hr class="rgroup-sep" />
             <!-- 5. Emails -->
             <div class="field">
-              <label for="r-from">Email expéditeur (confirmations clients)</label>
+              <label for="r-from">{t("set.res.fromEmail")}</label>
               <input type="email" id="r-from" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
             <div class="field">
-              <label for="r-notify">Email de réception des demandes</label>
+              <label for="r-notify">{t("set.res.notifyEmail")}</label>
               <input type="email" id="r-notify" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
           </div>
 
           <div class="section" data-tab="reservations" style="display:none">
-            <h2>Aperçu du widget</h2>
-            <p class="rw-note">Aperçu indicatif du module de réservation qui apparaîtra sur le site (V1 à venir). Il reflète les sections et le créneau choisis à gauche.</p>
+            <h2>{t("set.res.preview")}</h2>
+            <p class="rw-note">{t("set.res.previewNote")}</p>
             <div class="rw">
               <div class="rw-lang" id="rw-lang">
                 <button type="button" class="rw-lang-btn" id="rw-lang-btn">
@@ -1348,20 +1353,20 @@ import { CLIENT } from "../../config/client";
           </div>
 
           <div class="section" data-tab="cuisine" style="display:none">
-            <h2>Cuisine</h2>
+            <h2>{t("tab.settings.cuisine")}</h2>
             <div class="field">
-              <label for="prep">Temps de préparation (min)</label>
+              <label for="prep">{t("set.cui.prepTime")}</label>
               <input type="number" id="prep" min="0" max="240" step="5" />
             </div>
             <div class="field">
-              <label for="slot">Durée d'un créneau (min)</label>
+              <label for="slot">{t("set.cui.slotDuration")}</label>
               <input type="number" id="slot" min="5" max="120" step="5" />
             </div>
             <div class="field field-emails">
-              <label>Emails cuisine (commandes)<span class="lab-hint">Chaque adresse reçoit une notification à chaque commande payée.</span></label>
+              <label>{t("set.cui.kitchenEmails")}<span class="lab-hint">{t("set.cui.kitchenEmailsHint")}</span></label>
               <div class="dyn-col">
                 <div class="kemails" id="kemails"></div>
-                <button type="button" class="kemail-add" id="kemail-add">+ Ajouter un email</button>
+                <button type="button" class="kemail-add" id="kemail-add">{t("set.gen.addEmail")}</button>
               </div>
             </div>
           </div>
@@ -1369,32 +1374,32 @@ import { CLIENT } from "../../config/client";
           <div class="section" data-tab="notifications" style="display:none">
             <div class="nf-row">
               <div class="nf-txt">
-                <strong>Email « Votre journée » <span class="nf-badge" id="nf-badge" style="display:none">Activée</span></strong>
-                <span>Le récap d'hier et le programme du jour, envoyé chaque jour à l'heure choisie.</span>
+                <strong>{t("set.nf.dailyTitle")} <span class="nf-badge" id="nf-badge" style="display:none">{t("set.nf.enabled")}</span></strong>
+                <span>{t("set.nf.dailyDesc")}</span>
               </div>
               <div class="nf-field nf-f-hour">
-                <label for="nf-hour">Heure d'envoi</label>
+                <label for="nf-hour">{t("set.nf.sendHour")}</label>
                 <input type="time" id="nf-hour" value="09:00" />
               </div>
               <div class="nf-field nf-f-email">
-                <label for="nf-email">Email de réception</label>
-                <input type="email" id="nf-email" placeholder="Vide = adresse des réservations" autocomplete="off" />
+                <label for="nf-email">{t("set.nf.receiveEmail")}</label>
+                <input type="email" id="nf-email" placeholder={t("set.nf.emailPh")} autocomplete="off" />
               </div>
-              <button type="button" class="nf-sw" id="nf-daily" aria-label="Activer ou désactiver l'email quotidienne"><span class="nf-knob"></span></button>
+              <button type="button" class="nf-sw" id="nf-daily" aria-label={t("set.nf.dailyAria")}><span class="nf-knob"></span></button>
             </div>
             <div class="nf-row">
               <div class="nf-txt">
-                <strong>Notifications sur cet appareil <span class="nf-badge" id="nf-push-badge" style="display:none">Activée</span></strong>
-                <span>Une alerte à chaque nouvelle commande, réservation ou annulation. Sur iPhone : ajoutez d'abord l'admin à l'écran d'accueil (Partager → Sur l'écran d'accueil).</span>
+                <strong>{t("set.nf.pushTitle")} <span class="nf-badge" id="nf-push-badge" style="display:none">{t("set.nf.enabled")}</span></strong>
+                <span>{t("set.nf.pushDesc")}</span>
               </div>
-              <button type="button" class="kemail-add" id="nf-push-test" style="display:none">Tester</button>
-              <button type="button" class="nf-sw" id="nf-push" aria-label="Activer les notifications sur cet appareil"><span class="nf-knob"></span></button>
+              <button type="button" class="kemail-add" id="nf-push-test" style="display:none">{t("set.nf.test")}</button>
+              <button type="button" class="nf-sw" id="nf-push" aria-label={t("set.nf.pushAria")}><span class="nf-knob"></span></button>
             </div>
             <p class="nf-msg" id="nf-msg"></p>
           </div>
 
           <div class="section" data-tab="liens" style="display:none">
-            <h2>Liens</h2>
+            <h2>{t("tab.settings.liens")}</h2>
             {LNK.map((l) => (
               <div class="lnk-field">
                 <label class="lnk-lab" for={"lnk-" + l.k}>
@@ -1404,38 +1409,38 @@ import { CLIENT } from "../../config/client";
                 <input type="url" id={"lnk-" + l.k} placeholder={l.ph} />
               </div>
             ))}
-            <p class="hint">Le lien Google est le lien « Laisser un avis » de la fiche Google Business du restaurant.</p>
+            <p class="hint">{t("set.lnk.googleHint")}</p>
           </div>
 
           <div class="section" data-tab="team" style="display:none">
             <div class="tm-head">
               <div class="tm-head-txt">
-                <h2>Team</h2>
-                <p class="hint">Répertoire des personnes liées au restaurant : personnel, fournisseurs, techniciens, comptable, partenaires… (contacts uniquement pour l'instant).</p>
+                <h2>{t("tab.settings.team")}</h2>
+                <p class="hint">{t("set.tm.intro")}</p>
               </div>
-              <button type="button" class="kemail-add tm-add" id="tm-add">+ Ajouter un contact</button>
+              <button type="button" class="kemail-add tm-add" id="tm-add">{t("set.tm.addContact")}</button>
             </div>
             <div class="tm-filters" id="tm-filters"></div>
             <div class="tm-list" id="tm-list"></div>
-            <p class="hint tm-empty" id="tm-empty" style="display:none">Aucun contact pour le moment.</p>
+            <p class="hint tm-empty" id="tm-empty" style="display:none">{t("set.tm.empty")}</p>
           </div>
 
           <div class="section" data-tab="documents" style="display:none">
             <div class="tm-head">
               <div class="tm-head-txt">
-                <h2>Documents</h2>
-                <p class="hint">Contrats, factures, reçus, documents légaux… (PDF, max 10 Mo). Chaque document est classé par catégorie au téléversement.</p>
+                <h2>{t("tab.settings.documents")}</h2>
+                <p class="hint">{t("set.doc.intro")}</p>
               </div>
-              <button type="button" class="kemail-add tm-add" id="dc-add">+ Ajouter un document</button>
+              <button type="button" class="kemail-add tm-add" id="dc-add">{"+ " + t("as.addDoc")}</button>
               <input type="file" id="dc-file" accept=".pdf" style="display:none" />
             </div>
             <div class="tm-filters" id="dc-filtri"></div>
-            <p class="hint" id="dc-state">Chargement…</p>
+            <p class="hint" id="dc-state">{t("sup.loading")}</p>
             <div class="dc-grid" id="dc-grid" style="display:none"></div>
           </div>
 
           <div class="save-bar">
-            <button class="save" id="save-btn">Enregistrer</button>
+            <button class="save" id="save-btn">{t("common.save")}</button>
             <span class="msg" id="msg"></span>
           </div>
         </div>
@@ -1446,41 +1451,41 @@ import { CLIENT } from "../../config/client";
     <!-- Modale catégorie document (Admin → Documents) -->
     <div class="overlay" id="dc-overlay">
       <div class="modal" style="max-width: 520px">
-        <button class="m-close" id="dc-close" type="button" aria-label="Fermer">×</button>
-        <h2 id="dc-title">Nouveau document</h2>
+        <button class="m-close" id="dc-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2 id="dc-title">{t("set.doc.newDoc")}</h2>
         <p class="hint" id="dc-fname" style="margin-bottom: 0.4rem"></p>
-        <span class="f-lab" id="dc-nom-lab" style="display:none">Nom du fichier</span>
+        <span class="f-lab" id="dc-nom-lab" style="display:none">{t("as.fileName")}</span>
         <input type="text" class="f-input" id="dc-nom" maxlength="80" style="display:none" />
-        <span class="f-lab">Catégorie</span>
+        <span class="f-lab">{t("set.doc.category")}</span>
         <div class="tm-filters" id="dc-cats" style="margin: 0.5rem 0 0.4rem"></div>
         <div id="dc-contrat" style="display:none">
-          <span class="f-lab">Email de référence du contrat</span>
+          <span class="f-lab">{t("set.doc.contractEmail")}</span>
           <input type="text" class="f-input" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
           <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
             <div style="flex:1; min-width:170px">
-              <span class="f-lab">Date d'échéance</span>
+              <span class="f-lab">{t("set.doc.dueDate")}</span>
               <div style="display:flex; gap:0.4rem; align-items:center">
-                <input type="text" class="f-input" id="dc-exp" placeholder="Sans échéance" readonly style="cursor:pointer" />
-                <button type="button" class="dc-btn" id="dc-exp-x" title="Effacer la date">×</button>
+                <input type="text" class="f-input" id="dc-exp" placeholder={t("set.doc.noDueDate")} readonly style="cursor:pointer" />
+                <button type="button" class="dc-btn" id="dc-exp-x" title={t("set.doc.clearDate")}>×</button>
               </div>
             </div>
             <div style="flex:1; min-width:170px">
-              <span class="f-lab">Préavis (résilier avant)</span>
+              <span class="f-lab">{t("set.doc.notice")}</span>
               <div style="display:flex; gap:0.5rem">
                 <input type="number" class="f-input" id="dc-nval" min="0" max="365" placeholder="3" style="max-width:90px" />
                 <select class="f-input" id="dc-nunit" style="max-width:120px">
-                  <option value="mois">mois</option>
-                  <option value="jours">jours</option>
+                  <option value="mois">{t("set.doc.months")}</option>
+                  <option value="jours">{t("set.doc.days")}</option>
                 </select>
               </div>
             </div>
           </div>
-          <button type="button" class="dc-resil" id="dc-resil" style="display:none; margin-top:1.4rem">Demander la résiliation</button>
+          <button type="button" class="dc-resil" id="dc-resil" style="display:none; margin-top:1.4rem">{t("set.doc.requestTermination")}</button>
           <p class="hint dc-resil-ok" id="dc-resil-info" style="display:none; margin-top:1rem"></p>
         </div>
         <div class="dc-foot">
           <span class="dc-err" id="dc-err"></span>
-          <button type="button" class="kemail-add tm-add" id="dc-up">Téléverser</button>
+          <button type="button" class="kemail-add tm-add" id="dc-up">{t("mk.upload")}</button>
         </div>
       </div>
     </div>
@@ -1488,73 +1493,73 @@ import { CLIENT } from "../../config/client";
     <!-- Modale contact Team -->
     <div class="overlay" id="tm-overlay">
       <div class="modal">
-        <button class="m-close" id="tm-close" type="button" aria-label="Fermer">×</button>
-        <h2 id="tm-title">Nouveau contact</h2>
+        <button class="m-close" id="tm-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2 id="tm-title">{t("set.tm.newContact")}</h2>
 
         <div class="tm-avatar-edit">
           <span class="tm-avatar tm-avatar-lg" id="tm-avatar-prev"></span>
           <div class="tm-avatar-side">
-            <button type="button" class="tm-upl" id="tm-upload">Téléverser une photo</button>
-            <button type="button" class="tm-upl tm-upl-rm" id="tm-photo-rm" style="display:none">Retirer la photo</button>
+            <button type="button" class="tm-upl" id="tm-upload">{t("cli.uploadPhoto")}</button>
+            <button type="button" class="tm-upl tm-upl-rm" id="tm-photo-rm" style="display:none">{t("set.tm.removePhoto")}</button>
             <input type="file" id="tm-file" accept="image/*" style="display:none" />
             <p class="tm-upl-state" id="tm-upload-state"></p>
           </div>
         </div>
 
-        <label class="f-lab" for="tm-name">Nom *</label>
-        <input type="text" class="f-input" id="tm-name" placeholder="Nom et prénom / société" />
+        <label class="f-lab" for="tm-name">{t("menu.nameReq")}</label>
+        <input type="text" class="f-input" id="tm-name" placeholder={t("set.tm.namePh")} />
 
         <div class="f-row2">
           <div>
-            <label class="f-lab" for="tm-cat">Catégorie</label>
+            <label class="f-lab" for="tm-cat">{t("set.doc.category")}</label>
             <select class="f-input" id="tm-cat"></select>
           </div>
           <div>
-            <label class="f-lab" for="tm-role">Fonction / rôle</label>
-            <input type="text" class="f-input" id="tm-role" placeholder="ex. Pizzaiolo, Comptable…" />
+            <label class="f-lab" for="tm-role">{t("set.tm.role")}</label>
+            <input type="text" class="f-input" id="tm-role" placeholder={t("set.tm.rolePh")} />
           </div>
         </div>
 
         <div class="f-row2">
           <div>
-            <label class="f-lab" for="tm-phone">Téléphone</label>
+            <label class="f-lab" for="tm-phone">{t("ord.phone")}</label>
             <input type="text" class="f-input" id="tm-phone" placeholder="+32…" />
           </div>
           <div>
-            <label class="f-lab" for="tm-email">Email</label>
+            <label class="f-lab" for="tm-email">{t("ord.emailLabel")}</label>
             <input type="text" class="f-input" id="tm-email" placeholder="email@…" />
           </div>
         </div>
 
         <div class="f-row2">
           <div>
-            <label class="f-lab" for="tm-phone2">Téléphone 2</label>
-            <input type="text" class="f-input" id="tm-phone2" placeholder="(optionnel)" />
+            <label class="f-lab" for="tm-phone2">{t("set.tm.phone2")}</label>
+            <input type="text" class="f-input" id="tm-phone2" placeholder={t("set.tm.optional")} />
           </div>
           <div>
-            <label class="f-lab" for="tm-email2">Email 2</label>
-            <input type="text" class="f-input" id="tm-email2" placeholder="(optionnel)" />
+            <label class="f-lab" for="tm-email2">{t("set.tm.email2")}</label>
+            <input type="text" class="f-input" id="tm-email2" placeholder={t("set.tm.optional")} />
           </div>
         </div>
 
         <div class="f-row2">
           <div>
-            <label class="f-lab" for="tm-company">Société / entreprise</label>
-            <input type="text" class="f-input" id="tm-company" placeholder="(fournisseurs, externes…)" />
+            <label class="f-lab" for="tm-company">{t("set.tm.company")}</label>
+            <input type="text" class="f-input" id="tm-company" placeholder={t("set.tm.companyPh")} />
           </div>
           <div>
-            <label class="f-lab" for="tm-website">Site / lien</label>
+            <label class="f-lab" for="tm-website">{t("set.tm.website")}</label>
             <input type="text" class="f-input" id="tm-website" placeholder="https://…" />
           </div>
         </div>
 
-        <label class="f-lab" for="tm-notes">Notes</label>
-        <textarea class="f-input" id="tm-notes" rows="3" placeholder="Notes internes…"></textarea>
+        <label class="f-lab" for="tm-notes">{t("home.notes")}</label>
+        <textarea class="f-input" id="tm-notes" rows="3" placeholder={t("set.tm.notesPh")}></textarea>
 
         <div class="tm-foot">
-          <button class="save tm-save" id="tm-save" type="button">Enregistrer</button>
-          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-emp" /><span class="track"></span></label><span class="sw-lab">Employé</span></span>
-          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-active" checked /><span class="track"></span></label><span class="sw-lab">Actif</span></span>
+          <button class="save tm-save" id="tm-save" type="button">{t("common.save")}</button>
+          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-emp" /><span class="track"></span></label><span class="sw-lab">{t("set.tm.employee")}</span></span>
+          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-active" checked /><span class="track"></span></label><span class="sw-lab">{t("menu.active")}</span></span>
           <span class="msg err" id="tm-err"></span>
         </div>
       </div>
@@ -1568,6 +1573,12 @@ import { CLIENT } from "../../config/client";
       import { SERVIZI_WIDGET, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+      const capFirst = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
       type Giorno = {
         day_of_week: number;
@@ -1579,7 +1590,10 @@ import { CLIENT } from "../../config/client";
         dinner_close: string | null;
       };
 
-      const NOMI = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+      // Nomi dei giorni nella lingua admin (indice 0 = domenica, come day_of_week)
+      const NOMI = Array.from({ length: 7 }, (_, i) =>
+        capFirst(new Date(Date.UTC(2024, 0, 7 + i)).toLocaleDateString(LOC, { weekday: "long", timeZone: "UTC" }))
+      );
       // Ordine di visualizzazione: lunedì -> domenica
       const ORDINE = [1, 2, 3, 4, 5, 6, 0];
 
@@ -1601,8 +1615,8 @@ import { CLIENT } from "../../config/client";
             <div class="day-head">
               <span class="day-name">${NOMI[g.day_of_week]}</span>
               <span class="mode">
-                <button type="button" class="m-continu ${mode !== "coupe" ? "is-active" : ""}">Continu</button>
-                <button type="button" class="m-coupe ${mode === "coupe" ? "is-active" : ""}">Coupé</button>
+                <button type="button" class="m-continu ${mode !== "coupe" ? "is-active" : ""}">${tr("set.hor.continuous")}</button>
+                <button type="button" class="m-coupe ${mode === "coupe" ? "is-active" : ""}">${tr("set.hor.split")}</button>
               </span>
               <label class="switch">
                 <input type="checkbox" class="d-active" ${aperto ? "checked" : ""} />
@@ -1611,13 +1625,13 @@ import { CLIENT } from "../../config/client";
             </div>
             <div class="bands">
               <div class="band band-midi">
-                <span class="band-label">Midi</span>
+                <span class="band-label">${tr("set.hor.midi")}</span>
                 <input type="time" class="t-lunch-open" value="${hhmm(g.lunch_open)}" />
                 <span class="hint">→</span>
                 <input type="time" class="t-lunch-close" value="${hhmm(g.lunch_close)}" />
               </div>
               <div class="band band-soir">
-                <span class="band-label">Soir</span>
+                <span class="band-label">${tr("set.hor.evening")}</span>
                 <input type="time" class="t-dinner-open" value="${hhmm(g.dinner_open)}" />
                 <span class="hint">→</span>
                 <input type="time" class="t-dinner-close" value="${hhmm(g.dinner_close)}" />
@@ -1643,7 +1657,7 @@ import { CLIENT } from "../../config/client";
           riga.className = "kemail-row";
           riga.innerHTML =
             '<input type="email" placeholder="cuisine@restaurant.be" autocomplete="off" readonly data-noauto="1" />' +
-            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+            '<button type="button" class="kemail-del" aria-label="' + tr("common.delete") + '">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
           inp.addEventListener("input", dirty);
@@ -1707,8 +1721,8 @@ import { CLIENT } from "../../config/client";
             const f = fileInp.files?.[0];
             fileInp.value = "";
             if (!f) return;
-            if (f.size > 4 * 1024 * 1024) { stateEl.textContent = "Fichier trop lourd (max 4 Mo)."; return; }
-            stateEl.textContent = "Téléversement…";
+            if (f.size > 4 * 1024 * 1024) { stateEl.textContent = tr("cli.fileTooBig"); return; }
+            stateEl.textContent = tr("cli.uploading");
             try {
               const b64 = await new Promise<string>((ok, ko) => {
                 const r = new FileReader();
@@ -1723,13 +1737,13 @@ import { CLIENT } from "../../config/client";
                 body: JSON.stringify({ bucket: "brand", filename: f.name, data: b64 }),
               });
               const j = await res.json();
-              if (!res.ok || !j.url) { stateEl.textContent = j.error ?? "Téléversement impossible."; return; }
+              if (!res.ok || !j.url) { stateEl.textContent = j.error ?? tr("menu.uploadFailedDot"); return; }
               brandVal[k] = j.url as string;
               brandPrev(card);
               stateEl.textContent = "";
               dirty();
             } catch {
-              stateEl.textContent = "Erreur de connexion.";
+              stateEl.textContent = tr("common.netErr");
             }
           });
           const rmBtn = card.querySelector(".brand-rm") as HTMLButtonElement;
@@ -1737,7 +1751,7 @@ import { CLIENT } from "../../config/client";
           rmBtn.addEventListener("click", () => {
             if (!rmBtn.classList.contains("confirm")) {
               rmBtn.classList.add("confirm");
-              rmBtn.textContent = "Supprimer ?";
+              rmBtn.textContent = tr("home.deleteQ");
               setTimeout(() => { rmBtn.classList.remove("confirm"); rmBtn.innerHTML = BRAND_TRASH; }, 4000);
               return;
             }
@@ -1757,7 +1771,7 @@ import { CLIENT } from "../../config/client";
           riga.className = "kemail-row";
           riga.innerHTML =
             '<input type="email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />' +
-            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+            '<button type="button" class="kemail-del" aria-label="' + tr("common.delete") + '">×</button>';
           const inp = riga.querySelector("input") as HTMLInputElement;
           inp.value = valore;
           inp.addEventListener("input", dirty);
@@ -1817,7 +1831,7 @@ import { CLIENT } from "../../config/client";
           rZonesBox.querySelectorAll<HTMLInputElement>(".rz-seats").forEach((i) => {
             i.disabled = rPlanMode.checked;
             i.style.opacity = rPlanMode.checked ? "0.35" : "";
-            i.title = rPlanMode.checked ? "Places gérées par le plan de salle" : "";
+            i.title = rPlanMode.checked ? tr("set.res.seatsByPlan") : "";
           });
         };
         rPlanMode.addEventListener("change", () => { dirty(); slDimSeats(); renderAnteprima(); });
@@ -1887,14 +1901,14 @@ import { CLIENT } from "../../config/client";
           slFiltri.innerHTML = zone.length
             ? zone.map((z) => {
                 const posti = slTotali.get(z);
-                const extra = posti ? ` <span class="sl-pn">${posti} pl.</span>` : "";
+                const extra = posti ? ` <span class="sl-pn">${posti} ${tr("res.placesShort")}</span>` : "";
                 return `<button type="button" class="sl-pill" data-z="${z.replace(/"/g, "&quot;")}">${z}${extra}</button>`;
               }).join("")
-            : '<span class="lab-hint">Ajoute d\'abord une section.</span>';
+            : `<span class="lab-hint">${tr("set.res.addZoneFirst")}</span>`;
         }
         function slApri(zona: string) {
           slZona = zona;
-          slTitle.textContent = "Plan de salle — " + zona;
+          slTitle.textContent = tr("set.res.floorPlan") + " — " + zona;
           slOverlay.classList.add("is-open");
           void slCarica(zona);
         }
@@ -1974,7 +1988,7 @@ import { CLIENT } from "../../config/client";
               }
               const liste = [...combi].sort((x, y) => x - y);
               const nomi = fila.map((t) => t.name.replace(/</g, "&lt;")).join(" + ");
-              return `<span class="sl-link-chip" title="Combinaisons contiguës possibles">🔗 ${nomi} · combi ${liste.join(" / ")} pl.<button type="button" data-i="${i}" aria-label="Ôter la liaison">×</button></span>`;
+              return `<span class="sl-link-chip" title="${tr("set.res.comboTitle")}">🔗 ${nomi} · ${tr("set.res.combi")} ${liste.join(" / ")} ${tr("res.placesShort")}<button type="button" data-i="${i}" aria-label="${tr("set.res.removeLink")}">×</button></span>`;
             })
             .join("");
         }
@@ -1982,8 +1996,8 @@ import { CLIENT } from "../../config/client";
         async function slSalvaLinks() {
           try {
             const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, links: slLinks }) });
-            if (!res.ok) slMsg.textContent = "Enregistrement des liaisons impossible.";
-          } catch { slMsg.textContent = "Erreur de connexion."; }
+            if (!res.ok) slMsg.textContent = tr("set.res.linksSaveErr");
+          } catch { slMsg.textContent = tr("common.netErr"); }
           slRenderLinks();
           slRenderArea();
         }
@@ -1991,8 +2005,8 @@ import { CLIENT } from "../../config/client";
         function slAggiornaLinkBtn() {
           slLinkBtn.classList.toggle("attivo", slLinkMode);
           slLinkBtn.textContent = slLinkMode
-            ? slLinkSel.size >= 2 ? `✓ Lier (${slLinkSel.size})` : `Clique les tables… (${slLinkSel.size})`
-            : "🔗 Lier des tables";
+            ? slLinkSel.size >= 2 ? `✓ ${tr("set.res.linkConfirm")} (${slLinkSel.size})` : `${tr("set.res.linkPrompt")} (${slLinkSel.size})`
+            : "🔗 " + tr("set.res.linkTables");
         }
 
         slLinkBtn.addEventListener("click", () => {
@@ -2017,7 +2031,7 @@ import { CLIENT } from "../../config/client";
           if (!b) return;
           if (!b.classList.contains("armato")) {
             b.classList.add("armato");
-            b.textContent = "Ôter ?";
+            b.textContent = tr("set.res.removeQ");
             setTimeout(() => { b.classList.remove("armato"); b.textContent = "×"; }, 4000);
             return;
           }
@@ -2064,7 +2078,7 @@ import { CLIENT } from "../../config/client";
 
         function slAggiornaAreaBtn() {
           slAreaBtn.classList.toggle("attivo", !!slRect);
-          slAreaBtn.textContent = slRect ? "✓ Terminer" : slArea ? "✎ Modifier la salle" : "✎ Dessiner la salle";
+          slAreaBtn.textContent = slRect ? "✓ " + tr("set.res.finish") : slArea ? "✎ " + tr("set.res.editRoom") : "✎ " + tr("set.res.drawRoom");
           slAreaDel.style.display = slArea && !slRect ? "" : "none";
           slCanvas.classList.toggle("disegno", !!slRect);
         }
@@ -2072,9 +2086,9 @@ import { CLIENT } from "../../config/client";
         async function slSalvaArea(area: number[][] | null) {
           try {
             const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, area }) });
-            if (!res.ok) { slMsg.textContent = "Enregistrement de la salle impossible."; return; }
+            if (!res.ok) { slMsg.textContent = tr("set.res.roomSaveErr"); return; }
             slArea = area;
-          } catch { slMsg.textContent = "Erreur de connexion."; }
+          } catch { slMsg.textContent = tr("common.netErr"); }
           slRenderArea();
           slAggiornaAreaBtn();
         }
@@ -2119,7 +2133,7 @@ import { CLIENT } from "../../config/client";
         slAreaDel.addEventListener("click", () => {
           if (!slAreaDel.classList.contains("confirm")) {
             slAreaDel.classList.add("confirm");
-            slAreaDel.textContent = "Effacer ?";
+            slAreaDel.textContent = tr("set.res.clearRoomQ");
             setTimeout(() => {
               if (slAreaDel.classList.contains("confirm")) {
                 slAreaDel.classList.remove("confirm");
@@ -2135,7 +2149,7 @@ import { CLIENT } from "../../config/client";
         function slAggiornaTot() {
           if (!slZona) { slTot.textContent = ""; return; }
           const posti = slTavoli.reduce((t, x) => t + (x.seats || 0), 0);
-          slTot.textContent = `${slTavoli.length} table${slTavoli.length === 1 ? "" : "s"} · ${posti} place${posti === 1 ? "" : "s"}`;
+          slTot.textContent = `${slTavoli.length} ${slTavoli.length === 1 ? tr("set.res.tableSg") : tr("set.res.tablePl")} · ${posti} ${posti === 1 ? tr("set.res.placeSg") : tr("set.res.placePl")}`;
         }
 
         function slRenderCanvas() {
@@ -2145,7 +2159,7 @@ import { CLIENT } from "../../config/client";
           slTavoliBox.innerHTML = slTavoli
             .map((t) => {
               const sel = (slSel && slSel.id === t.id) || slLinkSel.has(t.id) ? " sel" : "";
-              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} pl.</i></div>`;
+              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} ${tr("res.placesShort")}</i></div>`;
             })
             .join("");
         }
@@ -2162,7 +2176,7 @@ import { CLIENT } from "../../config/client";
         }
 
         async function slCarica(zona: string) {
-          slMsg.textContent = "Chargement…";
+          slMsg.textContent = tr("sup.loading");
           try {
             const res = await slFetch("/api/admin/tables?zone=" + encodeURIComponent(zona));
             const j = await res.json();
@@ -2177,10 +2191,10 @@ import { CLIENT } from "../../config/client";
             slRect = null;
             slAggiornaAreaBtn();
             slRenderArea();
-            slMsg.textContent = slTavoli.length ? "" : "Aucune table — ajoute-en une.";
+            slMsg.textContent = slTavoli.length ? "" : tr("set.res.noTable");
           } catch {
             slTavoli = [];
-            slMsg.textContent = "Erreur de chargement (migration #36 lancée ?).";
+            slMsg.textContent = tr("set.res.loadErrMigration");
           }
           slSeleziona(null);
         }
@@ -2212,11 +2226,11 @@ import { CLIENT } from "../../config/client";
             try {
               const res = await slFetch("/api/admin/tables", { method: "POST", body: JSON.stringify(riga) });
               const j = await res.json();
-              if (!res.ok) { slMsg.textContent = j.error ?? "Création impossible."; return; }
+              if (!res.ok) { slMsg.textContent = j.error ?? tr("set.gen.createErr"); return; }
               slTavoli.push(j.table as Tavolo);
               slMsg.textContent = "";
               slSeleziona(j.table as Tavolo);
-            } catch { slMsg.textContent = "Erreur de connexion."; }
+            } catch { slMsg.textContent = tr("common.netErr"); }
           });
         });
 
@@ -2225,8 +2239,8 @@ import { CLIENT } from "../../config/client";
           slRenderCanvas();
           try {
             const res = await slFetch("/api/admin/tables", { method: "PATCH", body: JSON.stringify({ id: t.id, ...campi }) });
-            if (!res.ok) slMsg.textContent = "Enregistrement impossible.";
-          } catch { slMsg.textContent = "Erreur de connexion."; }
+            if (!res.ok) slMsg.textContent = tr("set.gen.saveErrDot");
+          } catch { slMsg.textContent = tr("common.netErr"); }
         }
 
         // Drag con snap (20 unità) + click per selezionare
@@ -2292,7 +2306,7 @@ import { CLIENT } from "../../config/client";
           if (!slSel) return;
           if (!slDel.classList.contains("confirm")) {
             slDel.classList.add("confirm");
-            slDel.textContent = "Supprimer ?";
+            slDel.textContent = tr("home.deleteQ");
             setTimeout(() => { slDel.classList.remove("confirm"); slDel.innerHTML = SL_TRASH; }, 4000);
             return;
           }
@@ -2301,13 +2315,13 @@ import { CLIENT } from "../../config/client";
           const t = slSel;
           try {
             const res = await slFetch("/api/admin/tables?id=" + t.id, { method: "POST", headers: { "X-Method-Override": "DELETE" } });
-            if (!res.ok) { slMsg.textContent = "Suppression impossible."; return; }
+            if (!res.ok) { slMsg.textContent = tr("set.gen.deleteErrDot"); return; }
             slTavoli = slTavoli.filter((x) => x.id !== t.id);
             const prima = slLinks.length;
             slLinks = slLinks.map((g) => g.filter((id) => id !== t.id)).filter((g) => g.length >= 2);
             if (slLinks.length !== prima) void slSalvaLinks();
             slSeleziona(null);
-          } catch { slMsg.textContent = "Erreur de connexion."; }
+          } catch { slMsg.textContent = tr("common.netErr"); }
         });
 
         // Le pillole seguono le section (aggiunta/rinomina/cancellazione)
@@ -2322,9 +2336,9 @@ import { CLIENT } from "../../config/client";
           const riga = document.createElement("div");
           riga.className = "rz-row";
           riga.innerHTML =
-            '<input type="text" class="rz-name" placeholder="Ex. Intérieur" />' +
+            '<input type="text" class="rz-name" placeholder="' + tr("set.res.zoneNamePh") + '" />' +
             '<input type="number" class="rz-seats" min="1" max="500" step="1" placeholder="40" />' +
-            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>';
+            '<button type="button" class="kemail-del" aria-label="' + tr("common.delete") + '">×</button>';
           const iNome = riga.querySelector(".rz-name") as HTMLInputElement;
           const iPosti = riga.querySelector(".rz-seats") as HTMLInputElement;
           iNome.value = nome;
@@ -2357,10 +2371,10 @@ import { CLIENT } from "../../config/client";
         const rServicesBox = document.getElementById("r-services") as HTMLDivElement;
         const rServiceAdd = document.getElementById("r-service-add") as HTMLButtonElement;
         // Giorni della settimana (0 = dimanche, come settings.day_of_week)
+        const RS_DAY_LABELS = tr("set.res.dayLabels").split(",");
         const RS_DAYS = [
-          { v: 1, l: "Lu" }, { v: 2, l: "Ma" }, { v: 3, l: "Me" }, { v: 4, l: "Je" },
-          { v: 5, l: "Ve" }, { v: 6, l: "Sa" }, { v: 0, l: "Di" },
-        ];
+          { v: 1 }, { v: 2 }, { v: 3 }, { v: 4 }, { v: 5 }, { v: 6 }, { v: 0 },
+        ].map((d, i) => ({ v: d.v, l: RS_DAY_LABELS[i] ?? "" }));
         function aggiornaAddServizio() {
           rServiceAdd.style.display = rServicesBox.querySelectorAll(".rs-row").length >= 5 ? "none" : "";
         }
@@ -2375,14 +2389,14 @@ import { CLIENT } from "../../config/client";
             "</select>" +
             '<input type="time" class="rs-from" />' +
             '<input type="time" class="rs-to" />' +
-            '<button type="button" class="kemail-del" aria-label="Supprimer">×</button>' +
+            '<button type="button" class="kemail-del" aria-label="' + tr("common.delete") + '">×</button>' +
             "</div>" +
             '<div class="rs-line2">' +
-            '<label class="rs-mini">Table (min)<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" /></label>' +
-            '<label class="rs-mini">Créneau (min)<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" /></label>' +
+            '<label class="rs-mini">' + tr("set.res.tableMin") + '<input type="number" class="rs-hold" min="15" max="360" step="15" placeholder="90" /></label>' +
+            '<label class="rs-mini">' + tr("set.res.slotMin") + '<input type="number" class="rs-slot" min="10" max="120" step="5" placeholder="30" /></label>' +
             "</div>" +
             '<div class="rs-line3">' +
-            '<span class="rs-days-lab">Jours</span>' +
+            '<span class="rs-days-lab">' + tr("set.res.daysLabel") + '</span>' +
             '<div class="rs-days">' +
             RS_DAYS.map((d) => `<button type="button" class="rs-day" data-d="${d.v}">${d.l}</button>`).join("") +
             "</div>" +
@@ -2467,7 +2481,7 @@ import { CLIENT } from "../../config/client";
         function costruisciLingue(attive: string[]) {
           rLangsBox.innerHTML = LINGUE_WIDGET.map((l) => {
             const on = l.code === "fr" || attive.includes(l.code);
-            return `<button type="button" class="rl-btn${on ? " is-on" : ""}${l.code === "fr" ? " is-locked" : ""}" data-l="${l.code}"${l.code === "fr" ? ' title="Toujours actif"' : ""}>${l.flag} ${l.label}</button>`;
+            return `<button type="button" class="rl-btn${on ? " is-on" : ""}${l.code === "fr" ? " is-locked" : ""}" data-l="${l.code}"${l.code === "fr" ? ` title="${tr("set.res.alwaysActive")}"` : ""}>${l.flag} ${l.label}</button>`;
           }).join("");
         }
         function rwLingueAttive(): LinguaWidget[] {
@@ -2657,8 +2671,8 @@ import { CLIENT } from "../../config/client";
           dem.classList.toggle("is-on", iso === rwIsoPiuGiorni(1));
           auj.disabled = !rwGiornoAperto(rwIsoPiuGiorni(0)) || !rwHaOrari(rwIsoPiuGiorni(0));
           dem.disabled = !rwGiornoAperto(rwIsoPiuGiorni(1)) || !rwHaOrari(rwIsoPiuGiorni(1));
-          auj.title = auj.disabled ? "Fermé" : "";
-          dem.title = dem.disabled ? "Fermé" : "";
+          auj.title = auj.disabled ? tr("home.tagClosed") : "";
+          dem.title = dem.disabled ? tr("home.tagClosed") : "";
         }
         function rwMaxPersone(): number {
           const el = document.getElementById("r-maxp") as HTMLInputElement;
@@ -3140,10 +3154,10 @@ import { CLIENT } from "../../config/client";
         let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
         try {
           const res = await fetch("/api/admin/settings", { headers });
-          if (!res.ok) { stateEl.textContent = "Erreur de chargement."; return; }
+          if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
           dati = await res.json();
         } catch {
-          stateEl.textContent = "Erreur de connexion.";
+          stateEl.textContent = tr("common.netErr");
           return;
         }
 
@@ -3179,7 +3193,7 @@ import { CLIENT } from "../../config/client";
           } catch {
             nfOn = !nuovo;
             nfAggiorna();
-            if (nfMsg) nfMsg.textContent = "Enregistrement impossible — réessaie.";
+            if (nfMsg) nfMsg.textContent = tr("set.nf.saveRetry");
           }
         });
         const nfPatch = async (body: Record<string, string>, okMsg: string) => {
@@ -3194,19 +3208,19 @@ import { CLIENT } from "../../config/client";
             });
             if (!res.ok) {
               const j = await res.json().catch(() => null);
-              if (nfMsg) nfMsg.textContent = (j as { error?: string } | null)?.error ?? "Enregistrement impossible — réessaie.";
+              if (nfMsg) nfMsg.textContent = (j as { error?: string } | null)?.error ?? tr("set.nf.saveRetry");
               return;
             }
             if (nfMsg) nfMsg.textContent = okMsg;
           } catch {
-            if (nfMsg) nfMsg.textContent = "Erreur de connexion.";
+            if (nfMsg) nfMsg.textContent = tr("common.netErr");
           }
         };
         nfHour?.addEventListener("change", () => {
-          if (nfHour.value) nfPatch({ daily_brief_hour: nfHour.value }, `Heure d'envoi enregistrée (${nfHour.value}).`);
+          if (nfHour.value) nfPatch({ daily_brief_hour: nfHour.value }, `${tr("set.nf.hourSaved")} (${nfHour.value}).`);
         });
         nfEmail?.addEventListener("change", () => {
-          nfPatch({ daily_brief_email: nfEmail.value.trim() }, nfEmail.value.trim() ? "Adresse enregistrée." : "Adresse par défaut (réservations) rétablie.");
+          nfPatch({ daily_brief_email: nfEmail.value.trim() }, nfEmail.value.trim() ? tr("set.nf.addrSaved") : tr("set.nf.addrDefault"));
         });
 
         // --- Tab Notifications: notifiche push su questo dispositivo ---
@@ -3241,7 +3255,7 @@ import { CLIENT } from "../../config/client";
         if (nfPush) {
           if (!("serviceWorker" in navigator) || !("PushManager" in window) || !VAPID_PUB) {
             nfPush.disabled = true;
-            nfPush.title = "Non disponible sur cet appareil/navigateur";
+            nfPush.title = tr("set.nf.unavailable");
           } else {
             void nfPushCorrente().then((sub) => nfPushStato(!!sub));
             nfPush.addEventListener("click", async () => {
@@ -3257,12 +3271,12 @@ import { CLIENT } from "../../config/client";
                     headers: { Authorization: `Bearer ${await nfToken()}`, "X-Method-Override": "DELETE" },
                   });
                 } catch { /* ok */ }
-                if (nfMsg) nfMsg.textContent = "Notifications désactivées sur cet appareil.";
+                if (nfMsg) nfMsg.textContent = tr("set.nf.pushOff");
                 return;
               }
               try {
                 const perm = await Notification.requestPermission();
-                if (perm !== "granted") { if (nfMsg) nfMsg.textContent = "Permission refusée."; return; }
+                if (perm !== "granted") { if (nfMsg) nfMsg.textContent = tr("set.nf.permDenied"); return; }
                 const reg = await navigator.serviceWorker.register("/sw.js");
                 await navigator.serviceWorker.ready;
                 const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUB) as BufferSource });
@@ -3273,15 +3287,15 @@ import { CLIENT } from "../../config/client";
                 });
                 if (!res.ok) { let d=""; try { d=(await res.json())?.error ?? ""; } catch {} throw new Error("API " + res.status + (d ? " — "+d : "")); }
                 nfPushStato(true);
-                if (nfMsg) nfMsg.textContent = "Notifications activées sur cet appareil ✓";
+                if (nfMsg) nfMsg.textContent = tr("set.nf.pushOn");
               } catch (e) {
                 nfPushStato(false);
                 console.error("[push] activation:", e);
-                if (nfMsg) nfMsg.textContent = "Activation impossible — " + (e instanceof Error ? e.message : String(e));
+                if (nfMsg) nfMsg.textContent = tr("set.nf.activateErr") + (e instanceof Error ? e.message : String(e));
               }
             });
             nfPushTest?.addEventListener("click", async () => {
-              if (nfMsg) nfMsg.textContent = "Envoi du test…";
+              if (nfMsg) nfMsg.textContent = tr("set.nf.sendingTest");
               try {
                 const res = await fetch("/api/admin/push", {
                   method: "POST",
@@ -3289,8 +3303,8 @@ import { CLIENT } from "../../config/client";
                   body: JSON.stringify({ test: true }),
                 });
                 const j = await res.json();
-                if (nfMsg) nfMsg.textContent = res.ok ? `Test : ${j.sent ?? 0}/${j.found ?? 0} envoyé(s)${j.err ? " — " + j.err : ""}` : "Test impossible.";
-              } catch { if (nfMsg) nfMsg.textContent = "Erreur de connexion."; }
+                if (nfMsg) nfMsg.textContent = res.ok ? `${tr("set.nf.testPrefix")} ${j.sent ?? 0}/${j.found ?? 0} ${tr("set.nf.sentPl")}${j.err ? " — " + j.err : ""}` : tr("set.nf.testFail");
+              } catch { if (nfMsg) nfMsg.textContent = tr("common.netErr"); }
             });
           }
         }
@@ -3446,13 +3460,13 @@ import { CLIENT } from "../../config/client";
                   const orario = h ? ` <small>${h.replace("-", "–")}</small>` : "";
                   return `<span class="sp-sv-pill">${nome}${orario}</span>`;
                 }).join("")
-              : '<span class="sp-sv-pill is-cmd">Commandes seules</span>';
+              : `<span class="sp-sv-pill is-cmd">${tr("set.hor.ordersOnly")}</span>`;
           }
           const nota = s.note ? `<span class="sp-note">${s.note}</span>` : "";
           const badge = s.type === "closed"
-            ? '<span class="sp-badge sp-b-closed">Fermé</span>'
-            : '<span class="sp-badge sp-b-open">Ouvert</span>';
-          return `<div class="sp-item">${badge}<span class="sp-txt"><span class="sp-date">${dates}</span>${ore}${servTxt}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="Supprimer">×</button></div>`;
+            ? `<span class="sp-badge sp-b-closed">${tr("home.tagClosed")}</span>`
+            : `<span class="sp-badge sp-b-open">${tr("home.tagOpen")}</span>`;
+          return `<div class="sp-item">${badge}<span class="sp-txt"><span class="sp-date">${dates}</span>${ore}${servTxt}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="${tr("common.delete")}">×</button></div>`;
         }
         async function caricaSpecial() {
           try {
@@ -3463,7 +3477,7 @@ import { CLIENT } from "../../config/client";
             spCache = items;
             spList.innerHTML = items.length
               ? items.map(spItemHTML).join("")
-              : '<p class="hint">Aucun jour spécial programmé.</p>';
+              : `<p class="hint">${tr("set.hor.noSpecialDays")}</p>`;
             rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
           } catch { /* silenzioso: la lista resta com'era */ }
         }
@@ -3487,7 +3501,7 @@ import { CLIENT } from "../../config/client";
                   return `<span class="sp-sv${spServSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="sp-sw"></span>${lab} · ${ore}</span>`;
                 })
                 .join("")
-            : '<span class="hint">Aucun service configuré (onglet Réservations).</span>';
+            : `<span class="hint">${tr("set.hor.noServiceConfig")}</span>`;
         }
         spServsEl.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".sp-sv") as HTMLElement | null;
@@ -3541,18 +3555,18 @@ import { CLIENT } from "../../config/client";
               .map((r) => {
                 const p = r.date.split("-");
                 const nom = (r.first_name + " " + r.last_name).trim();
-                return `<li>${p[2]}/${p[1]} &middot; ${r.heure} &middot; ${r.people} pers. &middot; ${nom}</li>`;
+                return `<li>${p[2]}/${p[1]} &middot; ${r.heure} &middot; ${r.people} ${tr("res.pers")} &middot; ${nom}</li>`;
               })
               .join("");
             ov.innerHTML = `
               <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:14px;max-width:440px;width:92%;padding:1.5rem;color:var(--c-text);">
-                <h3 style="margin:0 0 0.5rem;font-family:var(--font-title);color:var(--c-accent);">${resas.length} r&eacute;servation(s) sur ces dates</h3>
-                <p style="margin:0 0 0.8rem;color:var(--c-muted);font-size:0.9rem;">Le jour sera ferm&eacute;. Que faire des r&eacute;servations d&eacute;j&agrave; prises ?</p>
+                <h3 style="margin:0 0 0.5rem;font-family:var(--font-title);color:var(--c-accent);">${resas.length} ${tr("set.hor.impactTitle")}</h3>
+                <p style="margin:0 0 0.8rem;color:var(--c-muted);font-size:0.9rem;">${tr("set.hor.impactMsg")}</p>
                 <ul style="margin:0 0 1.1rem;padding-left:1.1rem;max-height:180px;overflow:auto;font-size:0.85rem;line-height:1.6;">${righe}</ul>
                 <div style="display:flex;flex-direction:column;gap:0.5rem;">
-                  <button type="button" data-r="cancel" style="background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:0.6rem;font-family:var(--font-title);letter-spacing:0.03em;cursor:pointer;">Annuler et pr&eacute;venir les clients par email</button>
-                  <button type="button" data-r="keep" style="background:transparent;color:var(--c-text);border:1px solid var(--c-line);border-radius:999px;padding:0.6rem;cursor:pointer;">Garder les r&eacute;servations</button>
-                  <button type="button" data-r="abort" style="background:none;border:none;color:var(--c-muted);cursor:pointer;font-size:0.8rem;padding:0.3rem;">Annuler</button>
+                  <button type="button" data-r="cancel" style="background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:0.6rem;font-family:var(--font-title);letter-spacing:0.03em;cursor:pointer;">${tr("set.hor.impactCancel")}</button>
+                  <button type="button" data-r="keep" style="background:transparent;color:var(--c-text);border:1px solid var(--c-line);border-radius:999px;padding:0.6rem;cursor:pointer;">${tr("set.hor.impactKeep")}</button>
+                  <button type="button" data-r="abort" style="background:none;border:none;color:var(--c-muted);cursor:pointer;font-size:0.8rem;padding:0.3rem;">${tr("common.cancel")}</button>
                 </div>
               </div>`;
             document.body.appendChild(ov);
@@ -3569,7 +3583,7 @@ import { CLIENT } from "../../config/client";
           spMsg.textContent = "";
           spMsg.className = "msg";
           if (!spFrom.dataset.iso) {
-            spMsg.textContent = "Choisis une date.";
+            spMsg.textContent = tr("set.hor.chooseDate");
             spMsg.classList.add("err");
             return;
           }
@@ -3605,7 +3619,7 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              spMsg.textContent = j.error ?? "Erreur.";
+              spMsg.textContent = j.error ?? tr("menu.errorDot");
               spMsg.classList.add("err");
             } else {
               if (cancelResa) {
@@ -3619,11 +3633,11 @@ import { CLIENT } from "../../config/client";
                   });
                   const cJ = (await cRes.json()) as { cancelled?: number };
                   spMsg.textContent = cRes.ok
-                    ? `${cJ.cancelled ?? 0} réservation(s) annulée(s), clients prévenus par email.`
-                    : "Jour créé, mais annulation des réservations impossible.";
+                    ? `${cJ.cancelled ?? 0} ${tr("set.hor.cancelledEmailed")}`
+                    : tr("set.hor.dayCreatedCancelErr");
                   if (!cRes.ok) spMsg.classList.add("err");
                 } catch {
-                  spMsg.textContent = "Jour créé, mais annulation des réservations impossible.";
+                  spMsg.textContent = tr("set.hor.dayCreatedCancelErr");
                   spMsg.classList.add("err");
                 }
               }
@@ -3632,7 +3646,7 @@ import { CLIENT } from "../../config/client";
               await caricaSpecial();
             }
           } catch {
-            spMsg.textContent = "Erreur de connexion.";
+            spMsg.textContent = tr("common.netErr");
             spMsg.classList.add("err");
           } finally {
             spAddBtn.disabled = false;
@@ -3661,8 +3675,10 @@ import { CLIENT } from "../../config/client";
         });
 
         // --- Datepicker custom (brand) per i campi data ---
-        const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-        const DOW = ["L", "M", "M", "J", "V", "S", "D"];
+        const MESI = Array.from({ length: 12 }, (_, m) =>
+          new Date(Date.UTC(2024, m, 1)).toLocaleDateString(LOC, { month: "long", timeZone: "UTC" })
+        );
+        const DOW = tr("res.dowInitials").split(",");
         let dpTarget: HTMLInputElement | null = null;
         let dpAnno = 0;
         let dpMese = 0; // 0-11
@@ -3702,7 +3718,7 @@ import { CLIENT } from "../../config/client";
             if (off) cls.push("dp-off");
             if (iso === oggi) cls.push("dp-today");
             if (iso === sel) cls.push("dp-sel");
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off ? "disabled" : ""}${chiuso ? ' title="Fermé"' : ""}>${g}</button>`;
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off ? "disabled" : ""}${chiuso ? ` title="${tr("home.tagClosed")}"` : ""}>${g}</button>`;
           }
           dpPanel.innerHTML = `
             <div class="dp-head">
@@ -3873,22 +3889,22 @@ import { CLIENT } from "../../config/client";
             });
             const json = await res.json();
             if (!res.ok) {
-              msgEl.textContent = json.error ?? "Erreur d'enregistrement.";
+              msgEl.textContent = json.error ?? tr("res.saveError");
               msgEl.classList.add("err");
             } else {
               saveBtn.classList.add("is-saved");
-              saveBtn.textContent = "Sauvegardé ✓";
+              saveBtn.textContent = tr("set.gen.saved");
               setTimeout(() => {
                 saveBar.classList.remove("is-visible");
                 // reset del bottone dopo la dissolvenza
                 setTimeout(() => {
                   saveBtn.classList.remove("is-saved");
-                  saveBtn.textContent = "Enregistrer";
+                  saveBtn.textContent = tr("common.save");
                 }, 300);
               }, 1800);
             }
           } catch {
-            msgEl.textContent = "Erreur de connexion.";
+            msgEl.textContent = tr("common.netErr");
             msgEl.classList.add("err");
           } finally {
             saveBtn.disabled = false;
@@ -3900,15 +3916,15 @@ import { CLIENT } from "../../config/client";
         // ----- Team (rubrica contatti) -----
         // ============================================================
         const TM_CATS: { k: string; label: string }[] = [
-          { k: "direction", label: "Direction" },
-          { k: "cuisine", label: "Cuisine" },
-          { k: "salle", label: "Salle & Bar" },
-          { k: "admin", label: "Administration" },
-          { k: "fournisseurs", label: "Fournisseurs" },
-          { k: "technique", label: "Technique & Maintenance" },
-          { k: "marketing", label: "Marketing & Digital" },
-          { k: "consultants", label: "Consultants" },
-          { k: "partenaires", label: "Partenaires" },
+          { k: "direction", label: tr("set.tm.catDirection") },
+          { k: "cuisine", label: tr("set.tm.catCuisine") },
+          { k: "salle", label: tr("set.tm.catSalle") },
+          { k: "admin", label: tr("set.tm.catAdmin") },
+          { k: "fournisseurs", label: tr("set.tm.catFournisseurs") },
+          { k: "technique", label: tr("set.tm.catTechnique") },
+          { k: "marketing", label: tr("set.tm.catMarketing") },
+          { k: "consultants", label: tr("set.tm.catConsultants") },
+          { k: "partenaires", label: tr("set.tm.catPartenaires") },
         ];
 
         interface TeamMember {
@@ -3920,11 +3936,11 @@ import { CLIENT } from "../../config/client";
 
         // ---------- Documents (tab Documents): PDF per categoria ----------
         const DOC_CATS: { k: string; lab: string }[] = [
-          { k: "contrat", lab: "Contrats" },
-          { k: "facture", lab: "Factures" },
-          { k: "recu", lab: "Reçus" },
-          { k: "legal", lab: "Légal" },
-          { k: "autre", lab: "Autre" },
+          { k: "contrat", lab: tr("set.doc.catContrat") },
+          { k: "facture", lab: tr("set.doc.catFacture") },
+          { k: "recu", lab: tr("set.doc.catRecu") },
+          { k: "legal", lab: tr("set.doc.catLegal") },
+          { k: "autre", lab: tr("set.doc.catAutre") },
         ];
         interface DocAmm {
           cat: string; name: string; url: string; thumb_url: string | null; size: number; created_at: string;
@@ -3953,7 +3969,7 @@ import { CLIENT } from "../../config/client";
           return b + " o";
         }
         function dcData(iso: string): string {
-          return iso ? new Date(iso).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+          return iso ? new Date(iso).toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
         }
         // Riga scadenza dei contratti: oro < 30 giorni dal limite di recesso,
         // rossa quando il limite è raggiunto/superato
@@ -3962,16 +3978,16 @@ import { CLIENT } from "../../config/client";
           const giorni = (d.notice_value ?? 0) * (d.notice_unit === "jours" ? 1 : 30);
           const exp = new Date(d.expires + "T12:00:00");
           const limite = new Date(exp.getTime() - giorni * 86400000);
-          const fmt = (x: Date) => x.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" });
+          const fmt = (x: Date) => x.toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "numeric" });
           const oggi = Date.now();
           const cls = oggi >= limite.getTime() ? " dc-warn2" : limite.getTime() - oggi < 30 * 86400000 ? " dc-warn1" : "";
-          const preavviso = d.notice_value ? ` · résilier avant ${fmt(limite)}` : "";
-          return `<p class="dc-date${cls}">Échéance ${fmt(exp)}${preavviso}</p>`;
+          const preavviso = d.notice_value ? ` · ${tr("set.doc.terminateBefore")} ${fmt(limite)}` : "";
+          return `<p class="dc-date${cls}">${tr("set.doc.dueOn")} ${fmt(exp)}${preavviso}</p>`;
         }
         function dcRenderFiltri() {
           const conta = (k: string) => dcDocs.filter((d) => d.cat === k).length;
           dcFiltriEl.innerHTML =
-            `<button type="button" class="tm-fil${dcFiltro === "all" ? " is-on" : ""}" data-f="all">Tous (${dcDocs.length})</button>` +
+            `<button type="button" class="tm-fil${dcFiltro === "all" ? " is-on" : ""}" data-f="all">${tr("cli.all")} (${dcDocs.length})</button>` +
             DOC_CATS.map((c) => `<button type="button" class="tm-fil${dcFiltro === c.k ? " is-on" : ""}" data-f="${c.k}">${c.lab} (${conta(c.k)})</button>`).join("");
         }
         function dcRender() {
@@ -3980,7 +3996,7 @@ import { CLIENT } from "../../config/client";
           if (!lista.length) {
             dcGrid.style.display = "none";
             dcStateEl.style.display = "";
-            dcStateEl.textContent = dcDocs.length ? "Aucun document dans cette catégorie." : "Aucun document — ajoute un PDF avec le bouton en haut.";
+            dcStateEl.textContent = dcDocs.length ? tr("set.doc.emptyCat") : tr("set.doc.empty");
             return;
           }
           dcStateEl.style.display = "none";
@@ -3988,19 +4004,19 @@ import { CLIENT } from "../../config/client";
           dcGrid.innerHTML = lista
             .map((d) => `
             <div class="dc-card" data-cat="${d.cat}" data-name="${tmEsc(d.name)}">
-              <a class="dc-img" href="${tmEsc(d.url)}" target="_blank" rel="noopener" title="Ouvrir le PDF">
+              <a class="dc-img" href="${tmEsc(d.url)}" target="_blank" rel="noopener" title="${tr("as.openPdf")}">
                 ${d.thumb_url ? `<img src="${tmEsc(d.thumb_url)}" alt="" loading="lazy" />` : `<span class="dc-ph">${DC_PDF}</span>`}
               </a>
               <div class="dc-body">
                 <div class="dc-name">${tmEsc(d.name)}</div>
                 <div class="dc-meta"><span class="dc-tag">${dcLab(d.cat)}</span><span class="dc-txt">${dcPeso(d.size)}</span></div>
                 <p class="dc-date">${dcData(d.created_at)}</p>${dcEcheance(d)}
-                ${d.resiliation_at ? `<p class="dc-date dc-resil-ok">Résiliation demandée le ${dcData(d.resiliation_at)}</p>` : ""}
+                ${d.resiliation_at ? `<p class="dc-date dc-resil-ok">${tr("set.doc.terminationRequested")} ${dcData(d.resiliation_at)}</p>` : ""}
               </div>
               <div class="dc-actions">
-                <button type="button" class="dc-btn dc-ren" title="Renommer">✎</button>
+                <button type="button" class="dc-btn dc-ren" title="${tr("as.rename")}">✎</button>
                 <span class="dc-spacer"></span>
-                <button type="button" class="dc-btn dc-del" title="Supprimer">×</button>
+                <button type="button" class="dc-btn dc-del" title="${tr("common.delete")}">×</button>
               </div>
             </div>`)
             .join("");
@@ -4012,7 +4028,7 @@ import { CLIENT } from "../../config/client";
             dcDocs = ((await res.json()) as { documents: DocAmm[] }).documents ?? [];
             dcRender();
           } catch {
-            dcStateEl.textContent = "Erreur de chargement.";
+            dcStateEl.textContent = tr("sup.load.error");
           }
         }
         dcFiltriEl.addEventListener("click", (e) => {
@@ -4071,10 +4087,10 @@ import { CLIENT } from "../../config/client";
           btn.style.display = attivo ? "" : "none";
           btn.disabled = false;
           btn.classList.remove("confirm");
-          btn.textContent = "Demander la résiliation";
+          btn.textContent = tr("set.doc.requestTermination");
           if (d?.resiliation_at) {
             info.style.display = "";
-            info.textContent = `Résiliation demandée le ${dcData(d.resiliation_at)}`;
+            info.textContent = `${tr("set.doc.terminationRequested")} ${dcData(d.resiliation_at)}`;
           } else {
             info.style.display = "none";
           }
@@ -4085,15 +4101,15 @@ import { CLIENT } from "../../config/client";
           if (!d) return;
           if (!btn.classList.contains("confirm")) {
             btn.classList.add("confirm");
-            btn.textContent = "Envoyer la demande ?";
+            btn.textContent = tr("set.doc.sendRequestQ");
             setTimeout(() => {
               btn.classList.remove("confirm");
-              btn.textContent = "Demander la résiliation";
+              btn.textContent = tr("set.doc.requestTermination");
             }, 4000);
             return;
           }
           btn.disabled = true;
-          btn.textContent = "Envoi…";
+          btn.textContent = tr("mk.sending");
           try {
             const res = await fetch("/api/admin/docs", {
               method: "POST",
@@ -4102,7 +4118,7 @@ import { CLIENT } from "../../config/client";
             });
             const j = (await res.json().catch(() => ({}))) as { error?: string };
             if (!res.ok) {
-              dcErr.textContent = j.error ?? "Envoi impossible.";
+              dcErr.textContent = j.error ?? tr("set.doc.sendFail");
               dcAggiornaResil();
               return;
             }
@@ -4110,7 +4126,7 @@ import { CLIENT } from "../../config/client";
             dcOverlay.classList.remove("is-open");
             await dcCarica();
           } catch {
-            dcErr.textContent = "Erreur de connexion.";
+            dcErr.textContent = tr("common.netErr");
             dcAggiornaResil();
           }
         });
@@ -4126,19 +4142,19 @@ import { CLIENT } from "../../config/client";
           if (!f) return;
           if (!f.name.toLowerCase().endsWith(".pdf")) {
             dcStateEl.style.display = "";
-            dcStateEl.textContent = "Seuls les PDF sont acceptés.";
+            dcStateEl.textContent = tr("set.doc.onlyPdf");
             return;
           }
           if (f.size > 10 * 1024 * 1024) {
             dcStateEl.style.display = "";
-            dcStateEl.textContent = "Fichier trop lourd (max 10 Mo).";
+            dcStateEl.textContent = tr("set.doc.tooBig10");
             return;
           }
           dcFilePronto = f;
           dcEditDoc = null;
           dcErr.textContent = "";
-          dcTitle.textContent = "Nouveau document";
-          dcUp.textContent = "Téléverser";
+          dcTitle.textContent = tr("set.doc.newDoc");
+          dcUp.textContent = tr("mk.upload");
           dcFnameEl.textContent = f.name;
           dcFnameEl.style.display = "";
           dcNomLab.style.display = "none";
@@ -4203,7 +4219,7 @@ import { CLIENT } from "../../config/client";
           if (dcEditDoc) {
             dcErr.textContent = "";
             const nuovo = dcNom.value.trim();
-            if (!nuovo) { dcErr.textContent = "Nom requis."; return; }
+            if (!nuovo) { dcErr.textContent = tr("as.nameRequired"); return; }
             dcUp.disabled = true;
             try {
               const res = await fetch("/api/admin/docs", {
@@ -4218,12 +4234,12 @@ import { CLIENT } from "../../config/client";
                 }),
               });
               const j = await res.json();
-              if (!res.ok) throw new Error(j.error ?? "Modification impossible");
+              if (!res.ok) throw new Error(j.error ?? tr("us.editErr"));
               dcEditDoc = null;
               dcOverlay.classList.remove("is-open");
               await dcCarica();
             } catch (err) {
-              dcErr.textContent = err instanceof Error ? err.message : "Modification impossible";
+              dcErr.textContent = err instanceof Error ? err.message : tr("us.editErr");
             } finally {
               dcUp.disabled = false;
             }
@@ -4237,7 +4253,7 @@ import { CLIENT } from "../../config/client";
             const b64 = await new Promise<string>((resolve, reject) => {
               const r = new FileReader();
               r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.onerror = () => reject(new Error(tr("as.fileUnreadable")));
               r.readAsDataURL(f);
             });
             const res = await fetch("/api/admin/docs", {
@@ -4246,7 +4262,7 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ cat: dcCatScelta, filename: f.name, data: b64, ...dcMetaPayload() }),
             });
             const j = await res.json();
-            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+            if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
             const thumb = await dcAnteprima(f);
             if (thumb && j.name) {
               await fetch("/api/admin/docs", {
@@ -4260,7 +4276,7 @@ import { CLIENT } from "../../config/client";
             dcFiltro = dcCatScelta; // si atterra sulla categoria appena usata
             await dcCarica();
           } catch (err) {
-            dcErr.textContent = err instanceof Error ? err.message : "Téléversement impossible";
+            dcErr.textContent = err instanceof Error ? err.message : tr("as.uploadFailed");
           } finally {
             dcUp.disabled = false;
           }
@@ -4280,8 +4296,8 @@ import { CLIENT } from "../../config/client";
             dcEditDoc = d;
             dcFilePronto = null;
             dcErr.textContent = "";
-            dcTitle.textContent = "Modifier le document";
-            dcUp.textContent = "Enregistrer";
+            dcTitle.textContent = tr("set.doc.editDoc");
+            dcUp.textContent = tr("common.save");
             dcFnameEl.style.display = "none";
             dcNomLab.style.display = "";
             dcNom.style.display = "";
@@ -4298,7 +4314,7 @@ import { CLIENT } from "../../config/client";
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => {
                 del.classList.remove("confirm");
                 del.textContent = "×";
@@ -4311,7 +4327,7 @@ import { CLIENT } from "../../config/client";
             });
             if (!res.ok) {
               dcStateEl.style.display = "";
-              dcStateEl.textContent = "Suppression impossible.";
+              dcStateEl.textContent = tr("set.gen.deleteErrDot");
               return;
             }
             await dcCarica();
@@ -4387,7 +4403,7 @@ import { CLIENT } from "../../config/client";
 
         function tmRenderFiltri() {
           const usate = new Set(team.map((m) => m.category));
-          const chips = [`<button type="button" class="tm-fil${tmFiltro === "all" ? " is-on" : ""}" data-f="all">Tous</button>`];
+          const chips = [`<button type="button" class="tm-fil${tmFiltro === "all" ? " is-on" : ""}" data-f="all">${tr("cli.all")}</button>`];
           for (const c of TM_CATS) {
             if (!usate.has(c.k)) continue;
             chips.push(`<button type="button" class="tm-fil${tmFiltro === c.k ? " is-on" : ""}" data-f="${c.k}">${c.label}</button>`);
@@ -4426,15 +4442,15 @@ import { CLIENT } from "../../config/client";
                 <div class="tm-card-id">
                   <div class="tm-card-nameline">
                     <span class="tm-card-name">${tmEsc(m.name)}</span>
-                    ${m.is_employee ? `<span class="tm-badge emp">Employé</span>` : ""}
+                    ${m.is_employee ? `<span class="tm-badge emp">${tr("set.tm.employee")}</span>` : ""}
                   </div>
                   ${m.role ? `<span class="tm-card-role">${tmEsc(m.role)}</span>` : ""}
                   ${dettagli}
                 </div>
               </div>
               <div class="tm-card-actions">
-                <button type="button" class="tm-ibtn edit" data-edit="${m.id}" aria-label="Modifier">✎</button>
-                <button type="button" class="tm-ibtn del" data-del="${m.id}" aria-label="Supprimer">✕</button>
+                <button type="button" class="tm-ibtn edit" data-edit="${m.id}" aria-label="${tr("common.edit")}">✎</button>
+                <button type="button" class="tm-ibtn del" data-del="${m.id}" aria-label="${tr("common.delete")}">✕</button>
               </div>
             </div>`;
         }
@@ -4467,14 +4483,14 @@ import { CLIENT } from "../../config/client";
             tmRender();
           } catch {
             tmListEl.innerHTML = "";
-            tmEmptyEl.textContent = "Erreur de chargement.";
+            tmEmptyEl.textContent = tr("sup.load.error");
             tmEmptyEl.style.display = "block";
           }
         }
 
         function tmApri(m: TeamMember | null) {
           tmEditId = m?.id ?? null;
-          tmTitle.textContent = m ? "Modifier le contact" : "Nouveau contact";
+          tmTitle.textContent = m ? tr("set.tm.editContact") : tr("set.tm.newContact");
           tmErr.textContent = "";
           tmName.value = m?.name ?? "";
           tmCat.value = m?.category ?? "direction";
@@ -4514,11 +4530,11 @@ import { CLIENT } from "../../config/client";
           const file = tmFile.files?.[0];
           if (!file) return;
           if (file.size > 4 * 1024 * 1024) {
-            tmUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+            tmUploadState.textContent = tr("cli.fileTooBig");
             return;
           }
           tmUpload.disabled = true;
-          tmUploadState.textContent = "Téléversement…";
+          tmUploadState.textContent = tr("cli.uploading");
           try {
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
@@ -4533,14 +4549,14 @@ import { CLIENT } from "../../config/client";
             });
             const j = await resp.json();
             if (!resp.ok) {
-              tmUploadState.textContent = j.error ?? "Erreur de téléversement";
+              tmUploadState.textContent = j.error ?? tr("cli.uploadError");
               return;
             }
             tmPhotoUrl = j.url;
             tmRenderAvatarPreview();
-            tmUploadState.textContent = "Photo téléversée ✓";
+            tmUploadState.textContent = tr("cli.photoUploaded");
           } catch {
-            tmUploadState.textContent = "Erreur de connexion";
+            tmUploadState.textContent = tr("res.connErr");
           } finally {
             tmUpload.disabled = false;
             tmFile.value = "";
@@ -4577,7 +4593,7 @@ import { CLIENT } from "../../config/client";
             active: tmActive.checked,
           };
           if (!payload.name) {
-            tmErr.textContent = "Le nom est obligatoire.";
+            tmErr.textContent = tr("res.nameRequired");
             return;
           }
           tmErr.textContent = "";
@@ -4590,13 +4606,13 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              tmErr.textContent = j.error ?? "Enregistrement impossible";
+              tmErr.textContent = j.error ?? tr("common.saveErr");
               return;
             }
             tmChiudi();
             await tmCarica();
           } catch {
-            tmErr.textContent = "Erreur de connexion";
+            tmErr.textContent = tr("res.connErr");
           } finally {
             tmSave.disabled = false;
           }
@@ -4628,7 +4644,7 @@ import { CLIENT } from "../../config/client";
             }
             tmDelPending = id;
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             window.clearTimeout(tmDelTimer);
             tmDelTimer = window.setTimeout(() => {
               tmDelPending = null;
