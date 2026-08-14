@@ -166,7 +166,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .c-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .c-email, .c-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; }
-      .act-contacts { color: var(--c-muted); font-size: 0.88rem; margin: -0.4rem 0 1rem; }
+      .act-contacts { display: flex; flex-wrap: wrap; gap: 0.4rem 1.3rem; margin: -0.1rem 0 1.35rem; font-size: 0.9rem; }
+      .act-contacts:empty { display: none; }
+      .act-contacts .r-c { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+      .act-contacts .r-c svg { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .act-contacts a { color: var(--c-text); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s, color 0.15s; }
+      .act-contacts a:hover { color: var(--c-accent); border-bottom-color: var(--c-accent); }
       .act-state { color: var(--c-muted); font-style: italic; padding: 0.6rem 0; }
       .act-row {
         display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
@@ -179,6 +184,25 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-label { flex: 1; color: var(--c-muted); font-size: 0.88rem; min-width: 140px; }
       .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; }
       .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .act-new { display: inline-block; margin-left: 0.6rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; background: var(--c-accent); color: var(--c-bg); border-radius: 999px; padding: 0.15rem 0.55rem; font-weight: 700; }
+      .act-stats { display: flex; flex-direction: column; gap: 0.9rem; margin: 0 0 1.4rem; }
+      .act-stats:empty { display: none; }
+      .act-flags { margin-top: 0.1rem; }
+      .afl-sw { position: relative; width: 44px; height: 25px; border-radius: 999px; border: none; cursor: pointer; padding: 0; flex-shrink: 0; background: color-mix(in srgb, var(--c-muted) 45%, transparent); transition: background 0.18s; }
+      .afl-sw[aria-checked="true"] { background: var(--c-accent); }
+      .afl-sw:disabled { opacity: 0.5; cursor: default; }
+      .afl-sw-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); transition: transform 0.18s; }
+      .afl-sw[aria-checked="true"] .afl-sw-knob { transform: translateX(19px); }
+      .st-sec { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 0.8rem 1.1rem 0.9rem; }
+      .st-sec-h { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+      .st-sec-h svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .st-sec-h .t { font-family: var(--font-title); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--c-text); }
+      .st-sec-h .cnt { margin-left: auto; font-family: var(--font-title); font-weight: 700; font-size: 1.18rem; letter-spacing: 0.03em; color: var(--c-accent); line-height: 1; }
+      .st-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.34rem 0; border-bottom: 1px solid color-mix(in srgb, var(--c-line) 55%, transparent); }
+      .st-row:last-child { border-bottom: none; padding-bottom: 0; }
+      .st-row .k { color: var(--c-muted); font-size: 0.85rem; }
+      .st-row .v { font-family: var(--font-title); font-weight: 700; font-size: 1.02rem; letter-spacing: 0.02em; color: var(--c-text); }
+      .st-row.hl .v { color: var(--c-accent); font-size: 1.14rem; }
       .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
@@ -288,6 +312,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
+      /* Modale attività cliente: largo, due colonne, scroll interno */
+      .modal-act { max-width: 900px; max-height: 88vh; padding: 2rem 1.6rem 1.4rem; display: flex; flex-direction: column; overflow: hidden; }
+      .modal-act h2 { margin-bottom: 0.9rem; }
+      .act-cols { display: flex; gap: 1.5rem; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+      .act-left { flex: 0 0 44%; max-width: 44%; overflow-y: auto; padding-right: 0.4rem; }
+      .act-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; border-left: 1px solid var(--c-line); padding-left: 1.5rem; }
+      .act-left::-webkit-scrollbar, .act-right::-webkit-scrollbar { width: 8px; }
+      .act-left::-webkit-scrollbar-thumb, .act-right::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 8px; }
+      @media (max-width: 720px) {
+        .modal-act { max-width: 480px; padding: 2rem 1.4rem 1.3rem; }
+        .act-cols { flex-direction: column; overflow-y: auto; gap: 1.1rem; }
+        .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
+        .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
+      }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       .modal input {
@@ -405,12 +443,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <!-- Modale ajout client -->
     <!-- Modale attività cliente: storico ordini + prenotazioni -->
     <div class="overlay" id="act-overlay">
-      <div class="modal">
+      <div class="modal modal-act">
         <button class="m-close" id="act-close" aria-label={t("common.close")}>×</button>
-        <h2 id="act-name">{t("ord.client")}</h2>
-        <p class="act-contacts" id="act-contacts"></p>
-        <div class="act-state" id="act-state">{t("sup.loading")}</div>
-        <div id="act-list"></div>
+        <div class="act-cols">
+          <div class="act-left">
+            <h2 id="act-name">{t("ord.client")}</h2>
+            <p class="act-contacts" id="act-contacts"></p>
+            <div class="act-flags" id="act-flags"></div>
+            <div class="act-stats" id="act-stats"></div>
+          </div>
+          <div class="act-right">
+            <div class="act-state" id="act-state">{t("sup.loading")}</div>
+            <div id="act-list"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -444,11 +490,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         </div>
         <div class="ed-row2">
           <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
-          <button type="button" class="ed-upl" id="ed-news-btn"></button>
+          <button type="button" class="afl-sw" role="switch" id="ed-news-btn"><span class="afl-sw-knob"></span></button>
         </div>
         <div class="ed-row2" id="ed-block-row">
           <div><span class="f-label">{t("nav.reservations")}</span><p class="ed-hint" id="ed-block-state"></p></div>
-          <button type="button" class="ed-upl" id="ed-block-btn"></button>
+          <button type="button" class="afl-sw" role="switch" id="ed-block-btn"><span class="afl-sw-knob"></span></button>
         </div>
         <p class="ed-err" id="ed-err"></p>
         <button type="button" class="ed-save" id="ed-save">{t("common.save")}</button>
@@ -531,6 +577,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       function euro(cents: number): string {
         return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
+      const ICO_TEL =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></svg>';
+      const ICO_MAIL =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>';
       const ICO_ORD =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>';
       const ICO_NOSHOW =
@@ -814,10 +864,127 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           seated: tr("res.stSeated"),
           paid: tr("cli.stPaid"),
         };
+        let actKeyCorrente = "";
+        function fmtMinAct(m: number): string {
+          return m < 90 ? `${Math.max(1, Math.round(m))} min` : `${Math.floor(m / 60)} h ${String(Math.round(m) % 60).padStart(2, "0")}`;
+        }
+        const actFlags = document.getElementById("act-flags") as HTMLDivElement;
+        let actFlagCliente: Client | null = null;
+        function renderActFlags(c: Client) {
+          actFlagCliente = c;
+          const parti: string[] = [];
+          if (c.email) {
+            const optout = Boolean(c.newsletter_optout);
+            parti.push(
+              `<div class="ed-row2"><div><span class="f-label">${tr("tab.marketing.news")}</span><p class="ed-hint ${optout ? "warn" : "ok"}">${optout ? tr("cli.optedOut") : tr("cli.optedIn")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${optout ? "false" : "true"}" aria-label="${tr("tab.marketing.news")}" data-aflag="news"><span class="afl-sw-knob"></span></button></div>`
+            );
+          }
+          const bl = Boolean(c.blocked);
+          parti.push(
+            `<div class="ed-row2"><div><span class="f-label">${tr("nav.reservations")}</span><p class="ed-hint ${bl ? "warn" : "ok"}">${bl ? tr("cli.blockedShort") : tr("cli.allowedShort")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${bl ? "false" : "true"}" aria-label="${tr("nav.reservations")}" data-aflag="block"><span class="afl-sw-knob"></span></button></div>`
+          );
+          actFlags.innerHTML = parti.join("");
+        }
+        actFlags.addEventListener("click", async (e) => {
+          const btn = (e.target as HTMLElement).closest("button[data-aflag]") as HTMLButtonElement | null;
+          if (!btn || !actFlagCliente) return;
+          const c = actFlagCliente;
+          const which = btn.dataset.aflag;
+          const nuovoOptout = which === "news" ? !Boolean(c.newsletter_optout) : Boolean(c.newsletter_optout);
+          const nuovoBlocked = which === "block" ? !Boolean(c.blocked) : Boolean(c.blocked);
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/clients", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: c.id ?? null,
+                match_email: c.email,
+                match_phone: c.phone,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                photo_url: c.photo_url ?? null,
+                newsletter_optout: nuovoOptout,
+                blocked: nuovoBlocked,
+              }),
+            });
+            if (!res.ok) { toast(tr("common.saveErr"), true); return; }
+            c.newsletter_optout = nuovoOptout;
+            c.blocked = nuovoBlocked;
+            renderActFlags(c);
+            render();
+            toast(tr("cli.clientModified"));
+          } catch {
+            toast(tr("res.connErr"), true);
+          } finally {
+            btn.disabled = false;
+          }
+        });
         async function apriAttivita(c: Client) {
-          (document.getElementById("act-name") as HTMLElement).textContent = c.name || "—";
-          (document.getElementById("act-contacts") as HTMLElement).textContent =
-            [c.email, c.phone].filter(Boolean).join(" · ") || "";
+          const mioKey = c.key ?? "";
+          actKeyCorrente = mioKey;
+          const titleEl = document.getElementById("act-name") as HTMLElement;
+          titleEl.textContent = c.name || "—";
+          if (c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000)
+            titleEl.insertAdjacentHTML("beforeend", `<span class="act-new">${tr("cli.new")}</span>`);
+          const cont: string[] = [];
+          if (c.phone) cont.push(`<span class="r-c">${ICO_TEL}<a href="tel:${c.phone.replace(/\s/g, "")}">${esc(c.phone)}</a></span>`);
+          if (c.email) cont.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(c.email)}">${esc(c.email)}</a></span>`);
+          (document.getElementById("act-contacts") as HTMLElement).innerHTML = cont.join("");
+
+          const statsBox = document.getElementById("act-stats") as HTMLDivElement;
+          const ordCount = c.orders ?? 0;
+          const resaBase = c.reservations ?? 0;
+          const noshowBase = c.noshows ?? 0;
+          const rigaSt = (k: string, v: string, hl = false) => `<div class="st-row${hl ? " hl" : ""}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+          const sezione = (ico: string, titolo: string, cnt: string, rows: string[]) =>
+            rows.length ? `<div class="st-sec"><div class="st-sec-h">${ico}<span class="t">${titolo}</span><span class="cnt">${cnt}</span></div>${rows.join("")}</div>` : "";
+          const renderStats = (ex: { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null } | null) => {
+            const secs: string[] = [];
+            if (ordCount > 0) {
+              const rows = [
+                rigaSt(tr("cli.stSpent"), euro(c.total_cents ?? 0), true),
+                rigaSt(tr("cli.avgBasket"), euro(Math.round((c.total_cents ?? 0) / ordCount))),
+              ];
+              secs.push(sezione(ICO_ORD, tr("cli.stOrders"), String(ordCount), rows));
+            }
+            const resaTot = ex ? ex.total : resaBase;
+            const nsTot = ex ? ex.noshows : noshowBase;
+            if (resaTot > 0 || nsTot > 0) {
+              const rows: string[] = [];
+              if (ex) rows.push(rigaSt(tr("res.cancellations"), String(ex.cancelled)));
+              rows.push(rigaSt(tr("res.stNoshow"), nsTot > 0 ? `<span style="color:#ff8a8f">${nsTot}</span>` : "0"));
+              if (ex && ex.avg_people != null) rows.push(rigaSt(tr("res.peopleAvg"), String(Math.round(ex.avg_people * 10) / 10).replace(".", ",")));
+              if (ex && ex.avg_table_min != null) rows.push(rigaSt(tr("res.tableTimeAvg"), `~${fmtMinAct(ex.avg_table_min)}`));
+              if (ex && ex.avg_lead_min != null) {
+                const m = ex.avg_lead_min;
+                const lbl = m < 90 ? `${Math.max(1, Math.round(m))} min` : m < 2880 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} j`;
+                rows.push(rigaSt(tr("res.bookInAdvance"), `~${lbl}`));
+              }
+              if (ex && ex.avg_spent_cents != null) {
+                const eur = (ex.avg_spent_cents / 100).toFixed(ex.avg_spent_cents % 100 ? 2 : 0).replace(".", ",");
+                rows.push(rigaSt(tr("res.spendAvg"), `~${eur} €`, true));
+              }
+              secs.push(sezione(ICO_RESA, tr("nav.reservations"), String(resaTot), rows));
+            }
+            statsBox.innerHTML = secs.join("");
+          };
+          renderStats(null);
+          renderActFlags(c);
+          if (c.email || c.phone) {
+            const qs = new URLSearchParams({ client_stats: "1" });
+            if (c.email) qs.set("client_email", c.email);
+            if (c.phone) qs.set("client_phone", c.phone);
+            fetch(`/api/admin/reservations?${qs.toString()}`, { headers })
+              .then(async (res) => {
+                if (!res.ok || actKeyCorrente !== mioKey) return;
+                const j = (await res.json()) as { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null };
+                renderStats(j);
+              })
+              .catch(() => { /* niente stats ricche: restano quelle base */ });
+          }
+
           actList.innerHTML = "";
           actState.style.display = "";
           actState.textContent = tr("sup.loading");
@@ -919,8 +1086,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             newsBtn.style.display = "";
             newsState.textContent = edOptout ? tr("cli.optedOut") : tr("cli.optedIn");
             newsState.className = "ed-hint" + (edOptout ? " warn" : " ok");
-            newsBtn.textContent = edOptout ? tr("cli.resubscribe") : tr("cli.unsubscribe");
-            newsBtn.classList.toggle("ed-danger", !edOptout);
+            newsBtn.setAttribute("aria-checked", edOptout ? "false" : "true");
           }
           const blockState = document.getElementById("ed-block-state") as HTMLElement;
           const blockBtn = document.getElementById("ed-block-btn") as HTMLButtonElement;
@@ -928,8 +1094,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             ? tr("cli.blocked")
             : tr("cli.allowed");
           blockState.className = "ed-hint" + (edBlocked ? " warn" : "");
-          blockBtn.textContent = edBlocked ? tr("cli.unblock") : tr("cli.blockResa");
-          blockBtn.classList.toggle("ed-danger", !edBlocked);
+          blockBtn.setAttribute("aria-checked", edBlocked ? "false" : "true");
         }
 
         function edRenderAvatar() {
