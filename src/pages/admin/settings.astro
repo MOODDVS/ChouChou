@@ -39,7 +39,7 @@ const t = adminT(lang);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -51,7 +51,7 @@ const t = adminT(lang);
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1404,7 +1404,7 @@ const t = adminT(lang);
               <div class="lnk-field">
                 <label class="lnk-lab" for={"lnk-" + l.k}>
                   <span class="lnk-ico" set:html={l.icon} />
-                  {l.label}
+                  {l.k === "google_review" ? `Google — ${t("itg.g.reviews")}` : l.label}
                 </label>
                 <input type="url" id={"lnk-" + l.k} placeholder={l.ph} />
               </div>
@@ -1570,7 +1570,7 @@ const t = adminT(lang);
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { isSuperUser } from "../../lib/admin/superAdmin";
-      import { SERVIZI_WIDGET, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
+      import { SERVIZI_WIDGET, nomeServizio, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -2385,7 +2385,7 @@ const t = adminT(lang);
           riga.innerHTML =
             '<div class="rs-line1">' +
             '<select class="rs-key">' +
-            Object.entries(SERVIZI_WIDGET).map(([k, v]) => `<option value="${k}">${v.fr}</option>`).join("") +
+            Object.entries(SERVIZI_WIDGET).map(([k]) => `<option value="${k}">${nomeServizio(k, LANG)}</option>`).join("") +
             "</select>" +
             '<input type="time" class="rs-from" />' +
             '<input type="time" class="rs-to" />' +
@@ -3456,7 +3456,7 @@ const t = adminT(lang);
             servTxt = s.services.length
               ? s.services.map((t) => {
                   const [k, h] = t.split("|");
-                  const nome = SERVIZI_WIDGET[k]?.fr ?? k;
+                  const nome = nomeServizio(k, LANG);
                   const orario = h ? ` <small>${h.replace("-", "–")}</small>` : "";
                   return `<span class="sp-sv-pill">${nome}${orario}</span>`;
                 }).join("")
@@ -3496,7 +3496,7 @@ const t = adminT(lang);
             ? servizi
                 .map((sv) => {
                   const tok = spToken(sv);
-                  const lab = `${SERVIZI_WIDGET[sv.key]?.fr ?? sv.key}`;
+                  const lab = nomeServizio(sv.key, LANG);
                   const ore = tok.split("|")[1].replace("-", "–");
                   return `<span class="sp-sv${spServSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="sp-sw"></span>${lab} · ${ore}</span>`;
                 })

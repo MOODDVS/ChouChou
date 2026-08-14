@@ -58,7 +58,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -71,7 +71,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         --c-line: #ebebeb;
         --c-card: #ffffff;
         --c-brown: var(--c-bg);
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -97,7 +97,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       a.tile:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
-      .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: translateY(-1.5px); }
+      .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .tile-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
       .ord-two { display: flex; gap: 1.5rem; }
       .ord-two > div { flex: 1; min-width: 0; }
@@ -527,7 +527,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
+      import { SERVIZI_WIDGET, nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -1243,7 +1243,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (permEl) {
               const svPerm = ((jr.closures ?? []) as { service_key: string; reason: string }[])
                 .filter((c) => c.reason === "permanent")
-                .map((c) => SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key);
+                .map((c) => nomeServizio(c.service_key, LANG));
               const znPerm = ((jr.zone_closures ?? []) as { zone: string; reason: string }[])
                 .filter((c) => c.reason === "permanent")
                 .map((c) => c.zone);

@@ -69,8 +69,20 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function minOra(s: string): number {
+  const [h, m] = s.split(":").map((n) => parseInt(n, 10));
+  return h * 60 + (m || 0);
+}
+
+// Una fascia è valida se open/close sono orari "HH:mm" corretti e la durata è
+// positiva. Se close ≤ open la fascia SCAVALCA LA MEZZANOTTE (es. 18:00 → 00:00
+// oppure 18:00 → 01:00): la chiusura si intende il giorno dopo.
 function fasciaValida(open: string | null, close: string | null): boolean {
-  return !!open && !!close && RE_ORA.test(open) && RE_ORA.test(close) && open < close;
+  if (!open || !close || !RE_ORA.test(open) || !RE_ORA.test(close)) return false;
+  const o = minOra(open);
+  let c = minOra(close);
+  if (c <= o) c += 1440; // chiusura il giorno seguente
+  return c > o && c - o <= 1440;
 }
 
 // GET /api/admin/settings — orari dei 7 giorni + prep/slot + email cucina

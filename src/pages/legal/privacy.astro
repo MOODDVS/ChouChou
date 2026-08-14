@@ -1,0 +1,18 @@
+---
+// /legal/privacy — Privacy Policy RestoHub (5 lingue, GDPR).
+import LegalDoc from "../../components/LegalDoc.astro";
+import { PRIVACY, LEGAL_LANGS, type LegalLang } from "../../lib/legal/legalContent";
+import { adminLang } from "../../lib/admin/adminLang";
+
+export const prerender = false;
+
+const codes = LEGAL_LANGS.map((l) => l.code);
+const qlang = Astro.url.searchParams.get("lang") ?? "";
+let current: LegalLang = "fr";
+if (codes.includes(qlang as LegalLang)) current = qlang as LegalLang;
+else {
+  const al = await adminLang();
+  if (codes.includes(al as LegalLang)) current = al as LegalLang;
+}
+---
+<LegalDoc doc={PRIVACY} current={current} />

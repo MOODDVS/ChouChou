@@ -54,7 +54,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -66,7 +66,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -408,7 +408,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .zn-grip svg { width: 18px; height: 18px; }
       .zn-prio {
         font-family: var(--font-title); color: var(--c-accent); font-size: 1.1rem;
-        width: 20px; text-align: center; flex: 0 0 auto; transform: translateY(-1.5px);
+        width: 20px; text-align: center; flex: 0 0 auto;
       }
       .sv-row.is-past { opacity: 0.45; }
       .sv-nom { font-weight: 700; font-size: 1rem; }
@@ -973,7 +973,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
+      import { SERVIZI_WIDGET, nomeServizio } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -1119,7 +1119,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         box.innerHTML =
           chiusureOggi
             .map((c) => {
-              const nome = SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key;
+              const nome = nomeServizio(c.service_key, LANG);
               return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
             })
             .join("") +
@@ -1315,7 +1315,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           servizi
             .map(
               (sv) =>
-                `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}">${esc(SERVIZI_WIDGET[sv.key]?.fr ?? sv.key)}</button>`
+                `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}">${esc(nomeServizio(sv.key, LANG))}</button>`
             )
             .join("");
       }
@@ -1751,7 +1751,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   .map(
                     (c) => `<div class="sv-fut-row">
                         <span class="sv-fut-date">${fmtFr(c.date)}</span>
-                        <span class="sv-fut-info"><b>${esc(SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key)}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
+                        <span class="sv-fut-info"><b>${esc(nomeServizio(c.service_key, LANG))}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
                         <button type="button" class="i-btn b-annule" data-date="${c.date}" data-k="${c.service_key}" title="${tr("home.reopenNote")}">${ICO_TRASH}</button>
                       </div>`
                   )
@@ -2392,7 +2392,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const conBlocco = r.status === "confirmed" || r.status === "seated" || r.status === "done";
 
           // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
-          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""]?.fr;
+          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""] ? nomeServizio(r.service_key ?? "", LANG) : "";
           const righe: string[] = [];
           const dett = (k: string, v: string) => righe.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
           if (!conBlocco) {
@@ -3061,7 +3061,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const daCfg = (nmCfg.services ?? [])
             .map((sv) => ({
               key: sv.key,
-              label: SERVIZI_WIDGET[sv.key]?.fr ?? sv.key,
+              label: nomeServizio(sv.key, LANG),
               da: minutiDa(sv.from),
               a: minutiDa(sv.to),
               hold: holdDi(sv.key),

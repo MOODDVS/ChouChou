@@ -51,7 +51,7 @@ const supI18n = {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -63,7 +63,7 @@ const supI18n = {
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -582,6 +582,7 @@ const supI18n = {
           <input type="text" id="us-pass" placeholder={t("us.passPh")} autocomplete="new-password" />
           <button type="button" id="us-gen" class="us-ghost">{t("us.gen")}</button>
         </div>
+        <p class="note" id="us-pass-hint" style="margin-top:0.4rem">{t("us.passHint")}</p>
 
         <label class="us-lab">{t("us.role")}</label>
         <div class="us-roles" id="us-roles">
@@ -1280,12 +1281,8 @@ const supI18n = {
           const email = usEmail.value.trim();
           const password = usPass.value;
           if (!email) { usErr.textContent = tr("us.emailReq"); return; }
-          if (!usEditId && password.length < 8) {
-            usErr.textContent = tr("us.pass8");
-            return;
-          }
-          if (usEditId && password && password.length < 8) {
-            usErr.textContent = tr("us.pass8opt");
+          if (password && password.length < 8) {
+            usErr.textContent = tr(usEditId ? "us.pass8opt" : "us.pass8");
             return;
           }
           usAdd.disabled = true;
@@ -1308,7 +1305,7 @@ const supI18n = {
             usOverlay?.classList.remove("is-open");
             usMsg.textContent = password
               ? `${usEditId ? tr("us.modified") : tr("us.created")} — ${tr("us.passLabel")} : ${password}`
-              : tr("us.userModifiedDot");
+              : (usEditId ? tr("us.userModifiedDot") : tr("us.invited"));
             await usCarica();
             toast(usEditId ? tr("us.userModified") : tr("us.created"));
           } catch {

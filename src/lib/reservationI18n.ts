@@ -38,6 +38,17 @@ export const SERVIZI_WIDGET: Record<string, Record<LinguaWidget, string>> = {
   troisieme_service: { fr: "3ème service", en: "3rd seating", es: "3er turno", it: "3° servizio", de: "3. Service", ru: "3-я посадка", ar: "الخدمة الثالثة", zh: "第三轮", ja: "第3部" },
 };
 
+/**
+ * Nome di un servizio nella lingua ADMIN (fr|en|it|nl|es). Il widget conosce
+ * più lingue di SERVIZI_WIDGET (che non ha "nl"): fallback su fr, poi sulla
+ * chiave. Da usare per MOSTRARE i servizi nell'admin, mai per il MATCHING.
+ */
+export function nomeServizio(key: string, lang: string): string {
+  const row = SERVIZI_WIDGET[key];
+  if (!row) return key;
+  return (row as Record<string, string>)[lang] ?? row.fr ?? key;
+}
+
 export interface TestiWidget {
   titre: string;
   date: string;

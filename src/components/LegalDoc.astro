@@ -1,0 +1,104 @@
+---
+// Pagina legale RestoHub (Termini, Privacy, ...) — standalone, brand RestoHub,
+// con selettore lingua (5 lingue). Il contenuto arriva da src/lib/legal.
+import { AZIENDA, LEGAL_LANGS, type LegalDoc, type LegalLang } from "../lib/legal/legalContent";
+interface Props { doc: LegalDoc; current: LegalLang; }
+const { doc, current } = Astro.props;
+const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
+---
+<html lang={current}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{tabTitle}</title>
+    <link rel="icon" type="image/svg+xml" href="/restohub/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Quicksand:wght@500;600;700&display=swap" />
+    <style>
+      :root {
+        --petrol: #002d34; --coral: #dd5851; --bg: #f4f6f6; --card: #ffffff;
+        --text: #223a3e; --muted: #6b7c7e; --line: #e3e7e7;
+        --brand: "Quicksand", system-ui, sans-serif; --body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.7; }
+      header {
+        background: var(--petrol); padding: 1.4rem 1.5rem; display: flex; align-items: center;
+        justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+      }
+      header img { height: 26px; width: auto; display: block; }
+      .langs { display: flex; gap: .25rem; }
+      .langs button {
+        background: transparent; border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.72);
+        font-family: var(--brand); font-weight: 600; font-size: .72rem; letter-spacing: .04em;
+        padding: .35rem .55rem; border-radius: 6px; cursor: pointer; transition: .15s;
+      }
+      .langs button:hover { color: #fff; border-color: rgba(255,255,255,.5); }
+      .langs button.on { background: var(--coral); border-color: var(--coral); color: #fff; }
+      main { max-width: 760px; margin: 0 auto; padding: 2.6rem 1.5rem 4rem; }
+      .doc h1 { font-family: var(--brand); font-weight: 700; color: var(--petrol); font-size: clamp(1.7rem, 4vw, 2.2rem); letter-spacing: .01em; }
+      .updated { color: var(--muted); font-size: .82rem; margin: .4rem 0 1.6rem; }
+      .intro { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--coral); border-radius: 10px; padding: 1.1rem 1.2rem; color: #37484b; font-size: .95rem; margin-bottom: 2rem; }
+      .doc section { margin-bottom: 1.5rem; }
+      .doc h2 { font-family: var(--brand); font-weight: 600; color: var(--petrol); font-size: 1.05rem; margin-bottom: .35rem; }
+      .doc section p { color: #3a4b4e; font-size: .95rem; }
+      footer { border-top: 1px solid var(--line); background: #fff; text-align: center; padding: 1.8rem 1.5rem; color: var(--muted); font-size: .8rem; line-height: 1.8; }
+      footer b { color: var(--petrol); }
+      footer a { color: var(--coral); text-decoration: none; }
+      footer a:hover { text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <a href="/"><img src="/restohub/wordmark-negative.svg" alt="RestoHub" /></a>
+      <div class="langs" id="langs">
+        {LEGAL_LANGS.map((l) => (
+          <button type="button" data-l={l.code} class={l.code === current ? "on" : ""}>{l.label}</button>
+        ))}
+      </div>
+    </header>
+
+    <main>
+      {LEGAL_LANGS.map((l) => (
+        <article class="doc" data-lang={l.code} style={l.code === current ? "" : "display:none"}>
+          <h1>{doc[l.code].title}</h1>
+          <p class="updated">{doc[l.code].updated}</p>
+          <p class="intro">{doc[l.code].intro}</p>
+          {doc[l.code].sections.map((s) => (
+            <section>
+              <h2>{s.h}</h2>
+              <p>{s.p}</p>
+            </section>
+          ))}
+        </article>
+      ))}
+    </main>
+
+    <footer>
+      <b>{AZIENDA.nome}</b> — {AZIENDA.licenza}<br />
+      {AZIENDA.sede} · <a href={`mailto:${AZIENDA.email}`}>{AZIENDA.email}</a><br />
+      © 2026 {AZIENDA.nome}
+    </footer>
+
+    <script is:inline>
+      (function () {
+        var langs = document.getElementById("langs");
+        if (!langs) return;
+        langs.addEventListener("click", function (e) {
+          var b = e.target.closest("button[data-l]");
+          if (!b) return;
+          var code = b.getAttribute("data-l");
+          document.querySelectorAll(".doc").forEach(function (d) {
+            d.style.display = d.getAttribute("data-lang") === code ? "" : "none";
+          });
+          langs.querySelectorAll("button").forEach(function (x) {
+            x.classList.toggle("on", x === b);
+          });
+          document.documentElement.lang = code;
+          try { history.replaceState(null, "", "?lang=" + code); } catch (err) {}
+        });
+      })();
+    </script>
+  </body>
+</html>
