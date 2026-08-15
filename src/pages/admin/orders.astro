@@ -7,6 +7,7 @@
 // In testata: bottoni rapidi tempo di preparazione
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
@@ -14,11 +15,21 @@ import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { aggiornaTimezone } from "../../lib/slots";
-import { adminLang } from "../../lib/admin/adminLang";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
+import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+import { opzioniPrefisso } from "../../lib/prefissi";
 import { adminT } from "../../i18n/admin";
+import "../../styles/datepicker.css";
+import "../../styles/select.css";
 
-const lang = await adminLang();
+// Boot admin (cache 60s): lingua admin + lingue pubbliche della regola super.
+const boot = await caricaBootAdmin();
+const lang = boot.lang;
 const t = adminT(lang);
+// Pillole "Lingua dell'email" del modale ordine = lingue pubbliche ATTIVE,
+// nell'ordine canonico, con etichetta+bandiera da LINGUE_PUBBLICHE.
+const linguePillole = LINGUE_PUBBLICHE.filter((l) => boot.publicLangs.includes(l.code));
+const linguaDefault = boot.publicLangDefault;
 
 export const prerender = false;
 
@@ -152,6 +163,22 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
       .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      /* --- Aura « ritardo ritiro »: alone pulsante DIETRO la card ---
+         Comincia 5 min dopo l'ora di ritiro (bianco), 10 min → arancione,
+         15 min → rosso. L'alone è uno pseudo-elemento z-index:-1 col box-shadow
+         animato (da soft a forte e ritorno): più tardi = più intenso e più rapido. */
+      @keyframes ncAura1 { 0%, 100% { box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.22); } 50% { box-shadow: 0 0 15px 3px rgba(255, 255, 255, 0.58); } }
+      @keyframes ncAura2 { 0%, 100% { box-shadow: 0 0 7px 1px rgba(255, 146, 38, 0.28); } 50% { box-shadow: 0 0 19px 4px rgba(255, 146, 38, 0.68); } }
+      @keyframes ncAura3 { 0%, 100% { box-shadow: 0 0 9px 2px rgba(237, 28, 36, 0.32); } 50% { box-shadow: 0 0 23px 6px rgba(237, 28, 36, 0.78); } }
+      .card.nc-late::after { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: 3px; pointer-events: none; }
+      .card.nc-late-1::after { animation: ncAura1 1.8s ease-in-out infinite; }
+      .card.nc-late-2::after { animation: ncAura2 1.5s ease-in-out infinite; }
+      .card.nc-late-3::after { animation: ncAura3 1.1s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .card.nc-late-1::after { animation: none; box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45); }
+        .card.nc-late-2::after { animation: none; box-shadow: 0 0 15px 4px rgba(255, 146, 38, 0.55); }
+        .card.nc-late-3::after { animation: none; box-shadow: 0 0 18px 5px rgba(237, 28, 36, 0.62); }
+      }
       /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
          bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
       .card.off > *:not(.btn-refund):not(.btn-rollback):not(.card-top) { opacity: 0.45; }
@@ -189,7 +216,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* --- Azioni sulla card attiva --- */
       .actions { display: flex; gap: 0.6rem; border-top: 1px solid var(--c-line); margin-top: 1rem; padding-top: 1rem; }
       .actions button {
-        flex: 1;
         background: transparent;
         font-family: var(--font-title);
         font-size: 1.05rem;
@@ -199,11 +225,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
       .actions button:disabled { opacity: 0.5; cursor: wait; }
-      .btn-done { border: 1px solid var(--c-accent); color: var(--c-accent); }
-      .btn-done:hover { background: var(--c-accent); color: var(--c-bg); }
-      .btn-cancel { border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; }
-      .btn-cancel:hover { border-color: var(--c-red); }
-      .btn-cancel.confirm { background: rgba(237, 28, 36, 0.25); border-color: var(--c-red); color: #fff; }
+      /* .actions .btn-done: specificita' > `.actions button` per non farsi azzerare il background */
+      .actions .btn-done { flex: 1; border: 1px solid var(--c-accent); background: var(--c-accent); color: var(--c-bg); font-weight: 700; border-radius: 8px; }
+      .btn-done:hover { filter: brightness(1.08); }
+      .btn-done:active { transform: scale(0.98); }
+      /* Annuler : cestino compatto; al primo tocco si allarga in "Annuler ?" rosso */
+      .btn-cancel { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; border-radius: 8px; }
+      .btn-cancel svg { width: 20px; height: 20px; }
+      .btn-cancel:hover { border-color: var(--c-red); background: rgba(237, 28, 36, 0.12); }
+      .btn-cancel.confirm { flex: 1; gap: 0.4rem; background: rgba(237, 28, 36, 0.25); border-color: var(--c-red); color: #fff; }
+      /* Matita: modifica ordine (apre il modale precompilato). Icona compatta. */
+      .btn-edit { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid var(--c-line); color: var(--c-muted); border-radius: 8px; }
+      .btn-edit svg { width: 19px; height: 19px; }
+      .btn-edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
       /* Card terminée : ✓ blanc rond sur fond vert, à côté du prix */
       .ct-right { display: inline-flex; align-items: center; gap: 0.5rem; }
       .badge-ok {
@@ -255,11 +289,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .btn-refund:hover { filter: brightness(1.08); }
       .btn-refund:active { transform: scale(0.96); }
       .btn-refund:disabled { opacity: 0.6; cursor: wait; }
+      /* Bottone "rimborsa differenza" (modifica al ribasso su ordine pagato online) */
+      .btn-diffrefund { display: block; width: 100%; margin-top: 0.7rem; padding: 0.7rem 0.6rem; border: 1px solid #d98a2b; background: #f0a24b; color: #3a2708; font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.02em; border-radius: 8px; cursor: pointer; }
+      .btn-diffrefund:hover { filter: brightness(1.05); }
+      .btn-diffrefund:active { transform: scale(0.99); }
+      .btn-diffrefund:disabled { opacity: 0.6; cursor: wait; }
+      .btn-diffrefund.confirm { background: #ed6a1c; border-color: #ed6a1c; color: #ffffff; }
+      /* Tag differenza dopo modifica: da pagare (ambra) / pagata (verde) */
+      .tag-suppdue { background: #7a4a12; color: #ffcf8f; }
+      .tag-supppaid { background: #1f5c3a; color: #9fe6c0; }
       /* Modale remboursement */
       /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
       .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
       .tag-paid { background: #2e9e6b; color: #fff; border-radius: 999px; white-space: nowrap; }
-      .btn-resend { border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
+      .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
       .nc-add {
         position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
@@ -290,11 +333,29 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          della grid): senza questo le pillole categorie sfondano il layout */
       .nc-grid > * { min-width: 0; }
       @media (max-width: 760px) { .nc-grid { grid-template-columns: 1fr; } }
+      /* Wizard multi-step del modale ordine */
+      .nc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; }
+      .nc-step { flex: 1; text-align: center; min-width: 56px; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); border-bottom: 2px solid var(--c-line); padding: 0.3rem 0 0.7rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+      .nc-step:hover { color: var(--c-text); }
+      .nc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
+      .nc-step.done { color: var(--c-text); border-color: var(--c-accent); }
+      .nc-panel { min-height: 300px; }
+      .nc-nav { display: flex; justify-content: space-between; gap: 0.8rem; margin-top: 1.5rem; }
+      .nc-nav-btn { padding: 0.7rem 1.7rem; border-radius: 10px; cursor: pointer; font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text); transition: border-color 0.15s, color 0.15s; }
+      .nc-nav-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .nc-nav-next { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .nc-nav-next:hover { background: transparent; color: var(--c-accent); }
+      .nc-recap { display: flex; flex-direction: column; margin-bottom: 0.6rem; }
+      .nc-recap-row { display: flex; justify-content: space-between; gap: 1rem; color: var(--c-text); font-size: 0.95rem; padding: 0.4rem 0; border-bottom: 1px solid color-mix(in srgb, var(--c-line) 55%, transparent); }
       .nc-lab { display: block; font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; margin: 0.9rem 0 0.4rem; }
       .nc-lab:first-child { margin-top: 0; }
       .nc-row { display: flex; gap: 0.5rem; }
+      .nc-tel { display: flex; gap: 0.5rem; }
+      .nc-tel .nc-in { margin-bottom: 0.55rem; }
+      .nc-tel-prefix { flex: 0 0 104px; cursor: pointer; }
+      .nc-tel input.nc-in { flex: 1; min-width: 0; }
       .nc-in {
-        width: 100%; min-width: 0; box-sizing: border-box; background: var(--c-input); border: 1px solid var(--c-line);
+        width: 100%; min-width: 0; box-sizing: border-box; background-color: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
         font-family: var(--font-body); margin-bottom: 0.55rem;
       }
@@ -303,14 +364,33 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-pills { display: flex; gap: 0.4rem; flex-wrap: wrap; }
       .nc-pill {
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 0.9rem;
+        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 1.25rem;
         border-radius: 999px; cursor: pointer;
       }
       .nc-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .nc-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nc-slots { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+      .nc-svcs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+      .nc-dates { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+      .nc-pay { display: flex; gap: 0.5rem; margin: 0.2rem 0 0.5rem; }
+      .nc-pay button {
+        flex: 1; padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .nc-pay button:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .nc-pay button:disabled { opacity: 0.6; cursor: wait; }
+      .nc-pay-link { width: 100%; margin-bottom: 0.5rem; padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        transition: border-color 0.15s, color 0.15s; }
+      .nc-pay-link:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      /* Metodo di pagamento SELEZIONATO */
+      .nc-pay-btn.is-on { border-color: var(--c-accent); color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
+      #nc-lang-block { margin-top: 0.3rem; }
       .nc-more { border-color: var(--c-accent); color: var(--c-accent); }
-      .nc-slots .nc-pill { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+      .nc-slots .nc-pill { padding: 0.5rem 1rem; font-size: 0.9rem; }
       .nc-slots-empty { color: var(--c-muted); font-size: 0.85rem; }
       .nc-cats {
         display: flex; gap: 0.35rem; overflow-x: auto; flex-wrap: nowrap;
@@ -320,8 +400,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-cats::-webkit-scrollbar { height: 5px; }
       .nc-cats::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 999px; }
       .nc-cats .nc-pill { flex: 0 0 auto; white-space: nowrap; }
-      .nc-items { max-height: 250px; overflow-y: auto; border: 1px solid var(--c-line); border-radius: 8px; }
-      .nc-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.45rem 0.7rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
+      .nc-items { max-height: 320px; overflow-y: auto; border: 1px solid var(--c-line); border-radius: 8px; }
+      .nc-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 0.8rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
       .nc-item:last-child { border-bottom: none; }
       .nc-item .n { flex: 1; min-width: 0; }
       .nc-item .p { color: var(--c-muted); white-space: nowrap; }
@@ -413,6 +493,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         .head-row { margin-bottom: 1.5rem; }
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
@@ -485,35 +566,94 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
       <div class="nc-modal">
         <button class="nc-close" id="nc-close" aria-label={t("common.close")}>×</button>
-        <h2>{t("ord.newOrder")}</h2>
-        <div class="nc-grid">
-          <div class="nc-left">
-            <span class="nc-lab">{t("ord.client")}</span>
-            <div class="nc-row">
-              <input type="text" class="nc-in" id="nc-prenom" placeholder={t("ord.firstName")} autocomplete="off" />
-              <input type="text" class="nc-in" id="nc-nom" placeholder={t("ord.lastNameReq")} autocomplete="off" />
+        <h2 id="nc-title">{t("ord.newOrder")}</h2>
+
+        {/* Stepper: Prodotti → Ritiro → Cliente → Pagamento */}
+        <div class="nc-steps" id="nc-steps">
+          <span class="nc-step is-on" data-s="1">{t("ord.step1")}</span>
+          <span class="nc-step" data-s="2">{t("ord.step2")}</span>
+          <span class="nc-step" data-s="3">{t("ord.step3")}</span>
+        </div>
+
+        {/* STEP 1 — Prodotti (menu + carrello) */}
+        <div class="nc-panel" data-panel="1">
+          <div class="nc-grid">
+            <div>
+              <span class="nc-lab">{t("nav.menu")}</span>
+              <div class="nc-cats" id="nc-cats"></div>
+              <div class="nc-items" id="nc-items"></div>
             </div>
-            <input type="email" class="nc-in" id="nc-email" placeholder={t("ord.emailReq")} autocomplete="off" />
-            <input type="tel" class="nc-in" id="nc-tel" placeholder={t("ord.phone")} autocomplete="off" />
-            <span class="nc-lab">{t("ord.emailLang")}</span>
-            <div class="nc-pills" id="nc-langs">
-              <button type="button" class="nc-pill is-on" data-lang="fr">Français</button>
-              <button type="button" class="nc-pill" data-lang="en">English</button>
+            <div>
+              <span class="nc-lab">{t("ord.cart")}</span>
+              <div class="nc-cart" id="nc-cart"><div class="nc-cart-empty">{t("ord.cartEmpty")}</div></div>
+              <div class="nc-total"><span>{t("ord.total")}</span><b id="nc-total">0,00 €</b></div>
             </div>
-            <span class="nc-lab">{t("ord.pickupToday")}</span>
-            <div class="nc-slots" id="nc-slots"><span class="nc-slots-empty">{t("sup.loading")}</span></div>
-            <span class="nc-lab">{t("ord.note")}</span>
-            <textarea class="nc-in" id="nc-note" rows="2"></textarea>
           </div>
-          <div class="nc-right">
-            <span class="nc-lab">{t("nav.menu")}</span>
-            <div class="nc-cats" id="nc-cats"></div>
-            <div class="nc-items" id="nc-items"></div>
-            <span class="nc-lab">{t("ord.cart")}</span>
-            <div class="nc-cart" id="nc-cart"><div class="nc-cart-empty">{t("ord.cartEmpty")}</div></div>
-            <div class="nc-total"><span>{t("ord.total")}</span><b id="nc-total">0,00 €</b></div>
-            <button type="button" class="nc-send" id="nc-send">{t("ord.createSend")}</button>
+        </div>
+
+        {/* STEP 2 — Ritiro (servizio + orario + nota) */}
+        <div class="nc-panel" data-panel="2" hidden>
+          <span class="nc-lab">{t("ord.date")}</span>
+          <div class="nc-dates" id="nc-dates">
+            <button type="button" class="nc-pill is-on" data-date="today">{t("ord.today")}</button>
+            <button type="button" class="nc-pill" data-date="tomorrow">{t("ord.tomorrow")}</button>
+            <button type="button" class="nc-pill nc-date-pick" id="nc-date-pick" data-date="pick">{t("ord.otherDate")}</button>
           </div>
+          <span class="nc-lab">{t("ord.pickupTime")}</span>
+          <div class="nc-svcs" id="nc-svcs"></div>
+          <div class="nc-slots" id="nc-slots"><span class="nc-slots-empty">{t("sup.loading")}</span></div>
+          <span class="nc-lab">{t("ord.note")}</span>
+          <textarea class="nc-in" id="nc-note" rows="3"></textarea>
+        </div>
+
+        {/* STEP 3 — Cliente + Pagamento (due colonne) */}
+        <div class="nc-panel" data-panel="3" hidden>
+          <div class="nc-grid">
+            <div>
+              <span class="nc-lab">{t("ord.client")}</span>
+              {/* Form dedicato: l'autofill del browser (nome→email/tel) riempie
+                  QUESTI campi, non la ricerca dietro il modale. */}
+              <form id="nc-cli-form" autocomplete="on" novalidate>
+                <div class="nc-row">
+                  <input type="text" class="nc-in" id="nc-prenom" autocomplete="given-name" placeholder={t("ord.firstName")} />
+                  <input type="text" class="nc-in" id="nc-nom" autocomplete="family-name" placeholder={t("ord.lastNameReq")} />
+                </div>
+                <input type="email" class="nc-in" id="nc-email" autocomplete="email" placeholder={t("ord.emailReq")} />
+                <div class="nc-tel">
+                  <select class="nc-in nc-tel-prefix brand-select" id="nc-tel-prefix" aria-label="Prefisso" set:html={opzioniPrefisso(CLIENT.paese)}></select>
+                  <input type="tel" class="nc-in" id="nc-tel" autocomplete="tel" placeholder={t("ord.phone")} />
+                </div>
+              </form>
+            </div>
+            <div>
+              <span class="nc-lab">{t("ord.cart")}</span>
+              <div class="nc-recap" id="nc-recap"></div>
+              <div class="nc-total"><span>{t("ord.total")}</span><b id="nc-total-2">0,00 €</b></div>
+              <span class="nc-lab" id="nc-pay-lab">{t("ord.payLabel")}</span>
+              <div class="nc-pay">
+                <button type="button" class="nc-pay-btn" id="nc-cash" data-pay="cash">{t("ord.payCash")}</button>
+                <button type="button" class="nc-pay-btn" id="nc-card" data-pay="card">{t("ord.payCard")}</button>
+              </div>
+              <button type="button" class="nc-pay-btn nc-pay-link" id="nc-link" data-pay="link">{t("ord.payLinkShort")}</button>
+              {/* Scelta lingua: compare SOLO dopo aver scelto il metodo di pagamento */}
+              <div id="nc-lang-block" style="display:none">
+                <span class="nc-lab">{t("ord.emailLang")}</span>
+                <div class="nc-pills" id="nc-langs" data-default={linguaDefault}>
+                  {linguePillole.map((l) => (
+                    <button type="button" class={"nc-pill" + (l.code === linguaDefault ? " is-on" : "")} data-lang={l.code}>{l.label}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Conferma: compare dopo la scelta del metodo; l'etichetta cambia */}
+              <button type="button" class="nc-send" id="nc-send" style="display:none">{t("ord.createSend")}</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigazione */}
+        <div class="nc-nav">
+          <button type="button" class="nc-nav-btn" id="nc-prev">{t("mk.prev")}</button>
+          <button type="button" class="nc-nav-btn nc-nav-next" id="nc-next">{t("mk.next")}</button>
         </div>
       </div>
     </div>
@@ -526,6 +666,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -546,6 +687,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         created_at: string;
         refunded_cents?: number;
         stripe_session_id?: string | null;
+        supplement_due_cents?: number;
+        refund_due_cents?: number;
+        supplement_paid_at?: string | null;
       };
 
       function esc(s: string): string {
@@ -575,11 +719,27 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       const STAMPA_TICKET = false;
       const ICON_PRINT = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></svg>`;
 
+      // Cestino (annulla ordine) — coerente con lo stile di ICON_PRINT.
+      const ICON_BIN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
+
+      // Matita (modifica ordine).
+      const ICON_PENCIL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+
       // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
       let ricerca = "";
       const dataBrussels = (iso: string): string =>
         new Date(iso).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
 
+      // Livello di ritardo sull'ora di ritiro, SOLO per ordini attivi:
+      // 0 = in tempo · 1 = ≥5 min (bianco) · 2 = ≥10 min (arancio) · 3 = ≥15 min (rosso).
+      function ncLivelloRitardo(pickupIso: string, status: string): number {
+        if (status !== "paid" && status !== "pending") return 0;
+        const diffMin = (Date.now() - new Date(pickupIso).getTime()) / 60000;
+        if (diffMin >= 15) return 3;
+        if (diffMin >= 10) return 2;
+        if (diffMin >= 5) return 1;
+        return 0;
+      }
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");
         const piatti = o.items.filter((i) => i.id !== "note");
@@ -607,6 +767,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         if (o.status === "done") tag = `<span class="tag tag-done">${tr("ord.terminee")}</span>`;
         if (o.status === "pending") tag = `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
         if (o.status === "paid") tag = `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
+        // Differenza dopo una modifica: da incassare (supplemento) o gia' saldata.
+        if (o.status === "paid" && (o.supplement_due_cents ?? 0) > 0) {
+          tag += `<span class="tag tag-suppdue" title="${tr("ord.diffDueTitle")}">${tr("ord.diffDue")} ${euro(o.supplement_due_cents ?? 0)}</span>`;
+        } else if (o.status === "paid" && o.supplement_paid_at) {
+          tag += `<span class="tag tag-supppaid" title="${tr("ord.diffPaidTitle")}">${tr("ord.diffPaid")} ✓</span>`;
+        }
 
 
         // Ordini attivi: Terminée + Annuler.
@@ -616,12 +782,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           o.status === "paid"
             ? `<div class="actions">
                  <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ ${tr("ord.terminee")}</button>
-                 <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">${tr("common.cancel")}</button>
+                 <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                 <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`
             : o.status === "pending"
               ? `<div class="actions">
                    <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}">${tr("ord.resendShort")}</button>
-                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel">${tr("common.cancel")}</button>
+                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
               : "";
 
@@ -652,12 +820,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           isStripe && residuo > 0
             ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
             : "";
+        // Modifica al ribasso su ordine pagato online: bottone "rimborsa differenza"
+        // (1 clic + conferma). Importo esatto = refund_due_cents (tracciato lato server).
+        const diffRefundBtn =
+          o.status === "paid" && (o.refund_due_cents ?? 0) > 0
+            ? `<button class="btn-diffrefund" type="button" data-id="${o.id}" data-act="diffrefund" data-diff="${o.refund_due_cents ?? 0}">${tr("ord.refundDiff")} · ${euro(o.refund_due_cents ?? 0)}</button>`
+            : "";
+        const lr = ncLivelloRitardo(o.pickup_time, o.status);
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
-          (refundBtn ? " refundable" : "");
+          (refundBtn ? " refundable" : "") +
+          (lr ? ` nc-late nc-late-${lr}` : "");
 
         return `
-          <div class="card${cardCls}">
+          <div class="card${cardCls}" data-id="${o.id}">
             <div class="card-top">
               <div class="ct-left">
                 <span class="time">${esc(oraBrussels(o.pickup_time))}${ricerca ? `<span class="o-date"> · ${esc(dataBrussels(o.pickup_time))}</span>` : ""}</span>
@@ -671,6 +847,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
             ${actions}
+            ${diffRefundBtn}
             ${refundBtn}
             ${rollback}
           </div>`;
@@ -804,14 +981,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         let ordini: Order[] = [];
         // Conferma "Annuler" in 2 tocchi
         let confirmId: string | null = null;
+        let diffConfirmId: string | null = null;
         let confirmTimer: number | undefined;
 
         function resetConfirm() {
           confirmId = null;
+          diffConfirmId = null;
           if (confirmTimer) clearTimeout(confirmTimer);
           document.querySelectorAll<HTMLButtonElement>(".btn-cancel.confirm").forEach((b) => {
             b.classList.remove("confirm");
-            b.textContent = tr("common.cancel");
+            b.innerHTML = ICON_BIN;
+          });
+          document.querySelectorAll<HTMLButtonElement>(".btn-diffrefund.confirm").forEach((b) => {
+            b.classList.remove("confirm");
+            const d = Math.max(0, Math.round(Number(b.dataset.diff ?? "0")));
+            b.textContent = `${tr("ord.refundDiff")} · ${euro(d)}`;
           });
         }
 
@@ -916,6 +1100,35 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
         }
 
+        // Rimborso "differenza" (1 clic dopo conferma): rimborsa esattamente la
+        // parte tolta con la modifica, sul pagamento Stripe originale.
+        async function rimborsaDifferenza(id: string, diff: number, btn: HTMLButtonElement) {
+          const card = btn.closest(".card");
+          card?.querySelectorAll("button").forEach((b) => (b.disabled = true));
+          btn.textContent = tr("ord.refunding");
+          try {
+            const r = await fetch("/api/admin/refund", {
+              method: "POST",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, amount_cents: diff, difference: true }),
+            });
+            const j = (await r.json().catch(() => ({}))) as { error?: string; amount?: number; refunded_cents?: number };
+            if (!r.ok) throw new Error(j.error || tr("ord.refundFailed"));
+            const ord = ordini.find((o) => o.id === id);
+            if (ord) {
+              ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + diff);
+              ord.refund_due_cents = 0;
+            }
+            resetConfirm();
+            render();
+            ncToast(`${tr("ord.refunded")} : ${euro(Number(j.amount ?? diff))} ✓`);
+          } catch (e2) {
+            resetConfirm();
+            render();
+            ncToast(e2 instanceof Error ? e2.message : tr("ord.refundFailed"), true);
+          }
+        }
+
         // Ristampa ticket — PREDISPOSTO ma inattivo finché non c'è la stampa
         // automatica. Domani: implementare qui la POST verso /api/admin/print.
         function ristampaTicket(id: string) {
@@ -937,6 +1150,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             cambiaStato(id, "done", btn);
             return;
           }
+          if (btn.dataset.act === "edit") {
+            const ord = ordini.find((o) => o.id === id);
+            if (ord) void apriNcEdit(ord);
+            return;
+          }
           if (btn.dataset.act === "resend") {
             btn.disabled = true;
             fetch("/api/admin/orders", {
@@ -955,6 +1173,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               });
             return;
           }
+          if (btn.dataset.act === "diffrefund") {
+            const diff = Math.max(0, Math.round(Number(btn.dataset.diff ?? "0")));
+            if (diffConfirmId === id && btn.classList.contains("confirm")) {
+              void rimborsaDifferenza(id, diff, btn);
+            } else {
+              resetConfirm();
+              diffConfirmId = id;
+              btn.classList.add("confirm");
+              btn.textContent = tr("ord.confirmRefundDiff");
+              confirmTimer = window.setTimeout(resetConfirm, 4000);
+            }
+            return;
+          }
           // Annuler: primo tocco arma la conferma, secondo tocco conferma
           if (confirmId === id && btn.classList.contains("confirm")) {
             cambiaStato(id, "cancelled", btn);
@@ -962,7 +1193,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             resetConfirm();
             confirmId = id;
             btn.classList.add("confirm");
-            btn.textContent = tr("common.confirm");
+            btn.innerHTML = tr("ord.cancelQ");
             confirmTimer = window.setTimeout(resetConfirm, 4000);
           }
         });
@@ -1131,6 +1362,22 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         //    è cambiato (es. stato modificato da un altro dispositivo).
         setInterval(refreshLive, 25_000);
 
+        // Aura « ritardo »: aggiorna le classi sulle card già a schermo ogni 30s,
+        // così l'alone sale di livello (bianco→arancio→rosso) senza ridisegnare
+        // tutto (niente fetch, niente perdita dello stato "Annuler ?").
+        function aggiornaAure() {
+          document.querySelectorAll<HTMLElement>(".card[data-id]").forEach((el) => {
+            const o = ordini.find((x) => x.id === el.dataset.id);
+            if (!o) return;
+            const lr = ncLivelloRitardo(o.pickup_time, o.status);
+            el.classList.toggle("nc-late", lr > 0);
+            el.classList.toggle("nc-late-1", lr === 1);
+            el.classList.toggle("nc-late-2", lr === 2);
+            el.classList.toggle("nc-late-3", lr === 3);
+          });
+        }
+        setInterval(aggiornaAure, 30_000);
+
         // ---- Nouvelle commande MANUALE (link di pagamento Stripe via email) ----
         const ncOverlay = document.getElementById("nc-overlay") as HTMLDivElement;
         const ncToastEl = document.getElementById("nc-toast") as HTMLDivElement;
@@ -1149,24 +1396,48 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         };
         let ncMenu: VoceMenu[] = [];
         const ncCart = new Map<string, { voce: VoceMenu; qty: number }>();
-        let ncLang: "fr" | "en" = "fr";
+        // Lingua email dell'ordine: parte dalla predefinita della regola (data-default),
+// e può cambiare solo tra le lingue pubbliche ATTIVE (pillole renderizzate SSR).
+const NC_LANG_DEFAULT = (document.getElementById("nc-langs") as HTMLElement | null)?.dataset.default || "fr";
+let ncLang: string = NC_LANG_DEFAULT;
+        // Metodo di pagamento scelto (vuoto finché non si clicca un pulsante).
+        let ncPayment: "" | "cash" | "card" | "link" = "";
+        // Modifica: id dell'ordine in corso di modifica ("" = creazione nuova) e suo stato.
+        let ncEditId = "";
+        let ncEditStatus = "";
         let ncSlot = "";
-        let ncSlotsTutti: string[] = [];
+        // Slot separati per servizio (Midi/Soir): si sceglie il servizio, poi l'ora.
+        let ncLunch: string[] = [];
+        let ncDinner: string[] = [];
+        let ncSvc: "lunch" | "dinner" = "lunch";
         let ncSlotsEstesi = false;
+        // Data del ritiro (ISO YYYY-MM-DD, fuso del ristorante). Default: oggi.
+        let ncDate = "";
+        function ncSlotsCorrente(): string[] {
+          return ncSvc === "dinner" ? ncDinner : ncLunch;
+        }
+        function ncRenderSvcs() {
+          const box = document.getElementById("nc-svcs") as HTMLDivElement;
+          const tabs: string[] = [];
+          if (ncLunch.length) tabs.push(`<button type="button" class="nc-pill${ncSvc === "lunch" ? " is-on" : ""}" data-svc="lunch">${tr("ord.svcLunch")}</button>`);
+          if (ncDinner.length) tabs.push(`<button type="button" class="nc-pill${ncSvc === "dinner" ? " is-on" : ""}" data-svc="dinner">${tr("ord.svcDinner")}</button>`);
+          box.innerHTML = tabs.join("");
+        }
         function ncRenderSlots() {
           const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
-          if (!ncSlotsTutti.length) {
+          const slots = ncSlotsCorrente();
+          if (!slots.length) {
             slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("ord.noSlotsToday")}</span>`;
             return;
           }
           const LIM = 17; // ~3 righe; l'ultima cella è la pillola "+N"
-          const visibili = ncSlotsEstesi ? ncSlotsTutti : ncSlotsTutti.slice(0, LIM);
+          const visibili = ncSlotsEstesi ? slots : slots.slice(0, LIM);
           slotsBox.innerHTML =
             visibili
               .map((sl) => `<button type="button" class="nc-pill${sl === ncSlot ? " is-on" : ""}" data-slot="${sl}">${sl}</button>`)
               .join("") +
-            (ncSlotsTutti.length > LIM
-              ? `<button type="button" class="nc-pill nc-more" data-more="1">${ncSlotsEstesi ? tr("ord.less") : `+${ncSlotsTutti.length - LIM}`}</button>`
+            (slots.length > LIM
+              ? `<button type="button" class="nc-pill nc-more" data-more="1">${ncSlotsEstesi ? tr("ord.less") : `+${slots.length - LIM}`}</button>`
               : "");
         }
         // Stesso calcolo di lib/pricing.ts (il server ricalcola comunque dal DB)
@@ -1222,43 +1493,177 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         async function apriNc() {
           ncCart.clear();
           ncSlot = "";
-          ncLang = "fr";
+          ncLang = NC_LANG_DEFAULT;
+          // Torna in modalità CREAZIONE: titolo, pagamento visibile, niente edit.
+          ncEditId = "";
+          ncEditStatus = "";
+          (document.getElementById("nc-title") as HTMLElement).textContent = tr("ord.newOrder");
+          (document.getElementById("nc-pay-lab") as HTMLElement).style.display = "";
+          (document.querySelector(".nc-pay") as HTMLElement).style.display = "";
+          (document.getElementById("nc-link") as HTMLElement).style.display = "";
+          mostraStep(1);
           for (const id of ["nc-prenom", "nc-nom", "nc-email", "nc-tel", "nc-note"])
             (document.getElementById(id) as HTMLInputElement).value = "";
           document
             .querySelectorAll("#nc-langs .nc-pill")
-            .forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.lang === "fr"));
+            .forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.lang === NC_LANG_DEFAULT));
+          // Prefisso telefono: torna al default del ristorante a ogni apertura.
+          const ncTp = document.getElementById("nc-tel-prefix") as HTMLSelectElement | null;
+          const ncTpDef = ncTp?.querySelector("option[selected]") as HTMLOptionElement | null;
+          if (ncTp && ncTpDef) ncTp.value = ncTpDef.value;
+          // Reset pagamento: nessun metodo scelto, lingua + conferma nascoste.
+          ncPayment = "";
+          ["nc-cash", "nc-card", "nc-link"].forEach((id) => document.getElementById(id)?.classList.remove("is-on"));
+          (document.getElementById("nc-lang-block") as HTMLElement).style.display = "none";
+          (document.getElementById("nc-send") as HTMLElement).style.display = "none";
+          (document.getElementById("nc-email") as HTMLInputElement).placeholder = tr("ord.emailReq");
           ncRenderCart();
           ncOverlay.classList.add("is-open");
-          // Créneaux di OGGI (stessa fonte del sito)
-          const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
-          slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("sup.loading")}</span>`;
-          ncSlotsTutti = [];
-          ncSlotsEstesi = false;
-          fetch("/api/slots")
-            .then(async (r) => {
-              if (!r.ok) throw new Error();
-              const j = (await r.json()) as { lunch: string[]; dinner: string[] };
-              ncSlotsTutti = [...(j.lunch ?? []), ...(j.dinner ?? [])];
-              ncRenderSlots();
-            })
-            .catch(() => {
-              slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("ord.slotsUnavailable")}</span>`;
-            });
-          // Menu (caricato una volta, solo piatti ordinabili)
+          // Data = oggi, pillole resettate, poi carico gli slot di quella data.
+          ncDate = isoOggi();
+          document.querySelectorAll<HTMLElement>("#nc-dates [data-date]").forEach((b) => b.classList.toggle("is-on", b.dataset.date === "today"));
+          resetPickLabel();
+          void caricaSlot();
+          await ncCaricaMenu();
+        }
+        // Carica il menu una sola volta (solo piatti ordinabili) e disegna
+        // categorie + articoli. Estratto perché serve anche in modifica.
+        async function ncCaricaMenu() {
           if (!ncMenu.length) {
             try {
               const r = await fetch("/api/admin/menu", { headers });
               if (r.ok) {
                 const j = (await r.json()) as { items: VoceMenu[] };
                 ncMenu = (j.items ?? []).filter((v) => v.available && v.orderable !== false);
-                ncRenderCats();
               }
             } catch { /* menu assente: lista vuota */ }
-          } else {
-            ncRenderCats();
           }
+          ncRenderCats();
           ncRenderItems();
+        }
+        // Apre il modale in modalità MODIFICA, precompilato dall'ordine scelto.
+        async function apriNcEdit(o: Order) {
+          ncEditId = o.id;
+          ncEditStatus = o.status;
+          await ncCaricaMenu();               // serve per ricostruire il carrello
+          ncCart.clear();
+          ncSlot = "";
+          ncLang = o.lang && ["fr", "en", "it", "nl", "es"].includes(o.lang) ? o.lang : NC_LANG_DEFAULT;
+          mostraStep(1);
+          (document.getElementById("nc-title") as HTMLElement).textContent = tr("ord.editOrder");
+          // Carrello dai piatti dell'ordine (esclude la riga "note")
+          for (const it of o.items) {
+            if (it.id === "note") continue;
+            const voce = ncMenu.find((v) => v.id === it.id);
+            if (voce) ncCart.set(voce.id, { voce, qty: Math.max(1, Math.floor(Number(it.qty) || 1)) });
+          }
+          ncRenderCart();
+          // Cliente: ultima parola = cognome (campo obbligatorio), resto = nome
+          const parti = (o.customer_name || "").trim().split(/\s+/).filter(Boolean);
+          const cognome = parti.length ? parti[parti.length - 1] : "";
+          const nome = parti.slice(0, -1).join(" ");
+          (document.getElementById("nc-prenom") as HTMLInputElement).value = nome;
+          (document.getElementById("nc-nom") as HTMLInputElement).value = cognome;
+          (document.getElementById("nc-email") as HTMLInputElement).value = o.customer_email || "";
+          const nota = o.items.find((i) => i.id === "note");
+          (document.getElementById("nc-note") as HTMLTextAreaElement).value = nota?.notes || "";
+          // Telefono: separa prefisso + resto se il prefisso è tra le opzioni
+          const tp = document.getElementById("nc-tel-prefix") as HTMLSelectElement;
+          const tel = document.getElementById("nc-tel") as HTMLInputElement;
+          const tpDef = tp.querySelector("option[selected]") as HTMLOptionElement | null;
+          if (tpDef) tp.value = tpDef.value;
+          const sep = separaPrefisso(o.customer_phone || "");
+          if (sep && Array.from(tp.options).some((op) => op.value === sep.dial)) {
+            tp.value = sep.dial;
+            tel.value = sep.resto;
+          } else {
+            tel.value = o.customer_phone || "";
+          }
+          // Lingua email
+          document.querySelectorAll("#nc-langs .nc-pill").forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.lang === ncLang));
+          // Pagamento BLOCCATO in modifica: nascondo la scelta, mostro lingua + "Salva"
+          ncPayment = "";
+          (document.getElementById("nc-pay-lab") as HTMLElement).style.display = "none";
+          (document.querySelector(".nc-pay") as HTMLElement).style.display = "none";
+          (document.getElementById("nc-link") as HTMLElement).style.display = "none";
+          (document.getElementById("nc-lang-block") as HTMLElement).style.display = "block";
+          const send = document.getElementById("nc-send") as HTMLButtonElement;
+          send.style.display = "block";
+          send.textContent = tr("ord.saveChanges");
+          (document.getElementById("nc-email") as HTMLInputElement).placeholder = ncEditStatus === "pending" ? tr("ord.emailReq") : tr("ord.emailOpt");
+          ncOverlay.classList.add("is-open");
+          // Data + orario dal pickup_time
+          const dayKey = dayKeyBrussels(o.pickup_time);
+          const hhmm = oraBrussels(o.pickup_time);
+          ncDate = dayKey;
+          const btnToday = document.querySelector('#nc-dates [data-date="today"]') as HTMLElement;
+          const btnTom = document.querySelector('#nc-dates [data-date="tomorrow"]') as HTMLElement;
+          const btnPick = document.getElementById("nc-date-pick") as HTMLElement;
+          resetPickLabel();
+          if (dayKey === isoOggi()) attivaData(btnToday);
+          else if (dayKey === isoDomani()) attivaData(btnTom);
+          else { btnPick.textContent = fmtDataPick(dayKey); attivaData(btnPick); }
+          await caricaSlot();
+          // Orario originale dell'ordine: resta SELEZIONATO anche se ormai e'
+          // passato (non piu' tra gli slot disponibili). Lo reinserisco nel
+          // servizio giusto e lo pre-seleziono, sempre modificabile.
+          const minutiSlot = (sl: string): number => {
+            const [H, M] = sl.split(":").map((n) => parseInt(n, 10));
+            return (H < 5 ? H + 24 : H) * 60 + M; // dopo mezzanotte (cena) in coda
+          };
+          if (ncLunch.includes(hhmm)) {
+            ncSvc = "lunch"; ncSlot = hhmm;
+          } else if (ncDinner.includes(hhmm)) {
+            ncSvc = "dinner"; ncSlot = hhmm;
+          } else if (/^\d{2}:\d{2}$/.test(hhmm)) {
+            const h = parseInt(hhmm.slice(0, 2), 10);
+            const svc: "lunch" | "dinner" = h >= 17 || h < 5 ? "dinner" : "lunch";
+            const arr = svc === "dinner" ? ncDinner : ncLunch;
+            if (!arr.includes(hhmm)) { arr.push(hhmm); arr.sort((a, b) => minutiSlot(a) - minutiSlot(b)); }
+            ncSvc = svc; ncSlot = hhmm;
+          }
+          ncRenderSvcs();
+          ncRenderSlots();
+        }
+        // Salva le modifiche (PUT) invece di creare un nuovo ordine.
+        async function salvaModifiche() {
+          const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
+          const emailCl = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
+          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl);
+          if (!nom) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          if (ncEditStatus === "pending" && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          if (emailCl && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          if (!ncSlot) { ncToast(tr("ord.chooseSlot"), true); return; }
+          if (!ncCart.size) { ncToast(tr("ord.cartIsEmpty"), true); return; }
+          const send = document.getElementById("nc-send") as HTMLButtonElement;
+          send.disabled = true;
+          try {
+            const res = await fetch("/api/admin/orders", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: ncEditId,
+                first_name: (document.getElementById("nc-prenom") as HTMLInputElement).value,
+                last_name: nom,
+                email: emailCl,
+                phone: telefonoCompleto((document.getElementById("nc-tel-prefix") as HTMLSelectElement).value, (document.getElementById("nc-tel") as HTMLInputElement).value) ?? "",
+                lang: ncLang,
+                date: ncDate,
+                slot: ncSlot,
+                note: (document.getElementById("nc-note") as HTMLTextAreaElement).value,
+                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty })),
+              }),
+            });
+            const j = (await res.json()) as { error?: string };
+            if (!res.ok) throw new Error(j.error || tr("ord.createFailed"));
+            ncOverlay.classList.remove("is-open");
+            ncToast(tr("ord.orderUpdated"));
+            void carica(true);
+          } catch (e2) {
+            ncToast(e2 instanceof Error ? e2.message : tr("ord.createFailed"), true);
+          } finally {
+            send.disabled = false;
+          }
         }
         (document.getElementById("nc-add") as HTMLButtonElement).addEventListener("click", () => void apriNc());
         (document.getElementById("nc-close") as HTMLButtonElement).addEventListener("click", () => ncOverlay.classList.remove("is-open"));
@@ -1275,9 +1680,163 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         (document.getElementById("nc-langs") as HTMLDivElement).addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
           if (!b) return;
-          ncLang = b.dataset.lang === "en" ? "en" : "fr";
+          if (!b.dataset.lang) return;
+          ncLang = b.dataset.lang;
           document.querySelectorAll("#nc-langs .nc-pill").forEach((x) => x.classList.toggle("is-on", x === b));
         });
+        (document.getElementById("nc-svcs") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
+          if (!b || !b.dataset.svc) return;
+          ncSvc = b.dataset.svc === "dinner" ? "dinner" : "lunch";
+          ncSlot = "";
+          ncSlotsEstesi = false;
+          ncRenderSvcs();
+          ncRenderSlots();
+        });
+
+        // ---- Data del ritiro: Oggi / Domani / datepicker ----
+        const isoOf = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+        // "oggi" nel fuso del RISTORANTE (non del browser dell'admin).
+        const isoOggi = (): string => dayKeyBrussels(new Date().toISOString());
+        const isoDomani = (): string => {
+          const [y, m, d] = isoOggi().split("-").map(Number);
+          const dt = new Date(y, m - 1, d);
+          dt.setDate(dt.getDate() + 1);
+          return isoOf(dt);
+        };
+        const fmtDataPick = (iso: string): string => {
+          const [y, m, d] = iso.split("-").map(Number);
+          return new Date(y, m - 1, d).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit" });
+        };
+        function resetPickLabel() {
+          (document.getElementById("nc-date-pick") as HTMLElement).textContent = tr("ord.otherDate");
+        }
+        function attivaData(el: HTMLElement) {
+          document.querySelectorAll<HTMLElement>("#nc-dates [data-date]").forEach((b) => b.classList.toggle("is-on", b === el));
+        }
+        // Carica gli slot della data scelta (stessa fonte del sito, con ?date=).
+        async function caricaSlot() {
+          const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
+          slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("sup.loading")}</span>`;
+          (document.getElementById("nc-svcs") as HTMLDivElement).innerHTML = "";
+          ncLunch = [];
+          ncDinner = [];
+          ncSlot = "";
+          ncSlotsEstesi = false;
+          try {
+            const r = await fetch("/api/slots?date=" + encodeURIComponent(ncDate));
+            if (!r.ok) throw new Error();
+            const j = (await r.json()) as { lunch: string[]; dinner: string[] };
+            ncLunch = j.lunch ?? [];
+            ncDinner = j.dinner ?? [];
+            ncSvc = ncLunch.length ? "lunch" : "dinner";
+            ncRenderSvcs();
+            ncRenderSlots();
+          } catch {
+            slotsBox.innerHTML = `<span class="nc-slots-empty">${tr("ord.slotsUnavailable")}</span>`;
+          }
+        }
+        (document.getElementById("nc-dates") as HTMLDivElement).addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("[data-date]") as HTMLElement | null;
+          if (!b) return;
+          if (b.dataset.date === "pick") { dpApri(); return; }
+          ncDate = b.dataset.date === "tomorrow" ? isoDomani() : isoOggi();
+          attivaData(b);
+          resetPickLabel();
+          void caricaSlot();
+        });
+
+        // ---- Datepicker brand (copia locale, sopra il modale) ----
+        const MESI_DP = Array.from({ length: 12 }, (_, i) => new Date(2021, i, 1).toLocaleDateString(LOC, { month: "long" }));
+        const DOW_DP = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, 1 + i).toLocaleDateString(LOC, { weekday: "narrow" }));
+        let dpAnno = 0;
+        let dpMese = 0;
+        const ncClosedSet = new Set<string>();   // giorni chiusi al take-away (grigi nel datepicker)
+        const ncMesiFetch = new Set<string>();    // mesi già interrogati (evita fetch doppi)
+        async function caricaChiusi(anno: number, mese: number) {
+          const key = `${anno}-${String(mese + 1).padStart(2, "0")}`;
+          if (ncMesiFetch.has(key)) return;
+          ncMesiFetch.add(key);
+          try {
+            const r = await fetch("/api/slots?month=" + key);
+            if (!r.ok) return;
+            const j = (await r.json()) as { closed?: string[] };
+            (j.closed ?? []).forEach((d) => ncClosedSet.add(d));
+            dpRender();
+          } catch { /* rete assente: nessun giorno chiuso segnato */ }
+        }
+        const dpPanel = document.createElement("div");
+        dpPanel.className = "dp-panel";
+        dpPanel.style.display = "none";
+        document.body.appendChild(dpPanel);
+        const isoDiDp = (y: number, m: number, g: number): string => `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
+        function dpRender() {
+          const oggi = isoOggi();
+          const sel = ncDate;
+          const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7;
+          const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
+          const oy = Number(oggi.slice(0, 4));
+          const om = Number(oggi.slice(5, 7)) - 1;
+          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
+          let celle = "";
+          for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
+          for (let g = 1; g <= nGiorni; g++) {
+            const iso = isoDiDp(dpAnno, dpMese, g);
+            const off = iso < oggi || ncClosedSet.has(iso); // passato o chiuso
+            const cls = ["dp-cell"];
+            if (off) cls.push("dp-off");
+            if (iso === oggi) cls.push("dp-today");
+            if (iso === sel && !off) cls.push("dp-sel");
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off ? "disabled" : ""}>${g}</button>`;
+          }
+          dpPanel.innerHTML = `
+            <div class="dp-head">
+              <button type="button" class="dp-nav" data-nav="-1" ${prevOff ? "disabled" : ""}>‹</button>
+              <span class="dp-title">${MESI_DP[dpMese]} ${dpAnno}</span>
+              <button type="button" class="dp-nav" data-nav="1">›</button>
+            </div>
+            <div class="dp-dow">${DOW_DP.map((g) => `<span>${g}</span>`).join("")}</div>
+            <div class="dp-grid">${celle}</div>`;
+        }
+        function dpApri() {
+          const base = ncDate || isoOggi();
+          dpAnno = Number(base.slice(0, 4));
+          dpMese = Number(base.slice(5, 7)) - 1;
+          dpRender();
+          void caricaChiusi(dpAnno, dpMese);
+          dpPanel.style.display = "block";
+          const r = (document.getElementById("nc-date-pick") as HTMLElement).getBoundingClientRect();
+          const pw = dpPanel.offsetWidth || 308;
+          const ph = dpPanel.offsetHeight || 360;
+          dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
+          dpPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+        }
+        function dpChiudi() { dpPanel.style.display = "none"; }
+        dpPanel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("dp-nav")) {
+            dpMese += Number(t.dataset.nav);
+            if (dpMese < 0) { dpMese = 11; dpAnno--; }
+            if (dpMese > 11) { dpMese = 0; dpAnno++; }
+            dpRender();
+            void caricaChiusi(dpAnno, dpMese);
+            return;
+          }
+          if (t.classList.contains("dp-cell") && t.dataset.iso) {
+            ncDate = t.dataset.iso;
+            const pick = document.getElementById("nc-date-pick") as HTMLElement;
+            pick.textContent = fmtDataPick(ncDate);
+            attivaData(pick);
+            dpChiudi();
+            void caricaSlot();
+          }
+        });
+        document.addEventListener("click", (e) => {
+          const pick = document.getElementById("nc-date-pick");
+          if (dpPanel.style.display !== "none" && !dpPanel.contains(e.target as Node) && e.target !== pick && !(pick && pick.contains(e.target as Node))) dpChiudi();
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") dpChiudi(); });
         (document.getElementById("nc-slots") as HTMLDivElement).addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
           if (!b) return;
@@ -1316,23 +1875,22 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (riga.qty <= 0) ncCart.delete(idv);
           ncRenderCart();
         });
-        (document.getElementById("nc-send") as HTMLButtonElement).addEventListener("click", async () => {
+        // payment: "cash"/"card" = pagato in cassa (ordine subito confermato) ·
+        // "link" = invio del link di pagamento Stripe via email.
+        async function inviaOrdine(payment: "cash" | "card" | "link") {
+          if (!payment) { ncToast(tr("ord.payLabel"), true); return; }
           const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
           const emailCl = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
-          if (!nom || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl)) {
-            ncToast(tr("ord.nameEmailReq"), true);
-            return;
-          }
-          if (!ncSlot) {
-            ncToast(tr("ord.chooseSlot"), true);
-            return;
-          }
-          if (!ncCart.size) {
-            ncToast(tr("ord.cartIsEmpty"), true);
-            return;
-          }
-          const btn = document.getElementById("nc-send") as HTMLButtonElement;
-          btn.disabled = true;
+          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl);
+          if (!nom) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          // Email obbligatoria solo per il link; per cash/card facoltativa ma, se
+          // scritta, dev'essere valida.
+          if (payment === "link" && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          if (emailCl && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          if (!ncSlot) { ncToast(tr("ord.chooseSlot"), true); return; }
+          if (!ncCart.size) { ncToast(tr("ord.cartIsEmpty"), true); return; }
+          const btns = ["nc-cash", "nc-card", "nc-link", "nc-send"].map((id) => document.getElementById(id) as HTMLButtonElement);
+          btns.forEach((b) => (b.disabled = true));
           try {
             const res = await fetch("/api/admin/orders", {
               method: "POST",
@@ -1341,8 +1899,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 first_name: (document.getElementById("nc-prenom") as HTMLInputElement).value,
                 last_name: nom,
                 email: emailCl,
-                phone: (document.getElementById("nc-tel") as HTMLInputElement).value,
+                phone: telefonoCompleto((document.getElementById("nc-tel-prefix") as HTMLSelectElement).value, (document.getElementById("nc-tel") as HTMLInputElement).value) ?? "",
                 lang: ncLang,
+                payment,
+                date: ncDate,
                 slot: ncSlot,
                 note: (document.getElementById("nc-note") as HTMLTextAreaElement).value,
                 items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty })),
@@ -1351,14 +1911,93 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             const j = (await res.json()) as { error?: string };
             if (!res.ok) throw new Error(j.error || tr("ord.createFailed"));
             ncOverlay.classList.remove("is-open");
-            ncToast(tr("ord.orderCreated"));
+            ncToast(payment === "link" ? tr("ord.orderCreated") : tr("ord.orderPaid"));
             void carica(true);
           } catch (e2) {
             ncToast(e2 instanceof Error ? e2.message : tr("ord.createFailed"), true);
           } finally {
-            btn.disabled = false;
+            btns.forEach((b) => (b.disabled = false));
           }
+        }
+        // Scelta del metodo: NON invia, ma rivela la scelta della lingua email e
+        // il pulsante di conferma. Email obbligatoria solo per il link.
+        function selezionaPagamento(method: "cash" | "card" | "link") {
+          ncPayment = method;
+          ["nc-cash", "nc-card", "nc-link"].forEach((id) => {
+            const b = document.getElementById(id) as HTMLElement;
+            b.classList.toggle("is-on", b.dataset.pay === method);
+          });
+          (document.getElementById("nc-lang-block") as HTMLElement).style.display = "block";
+          const send = document.getElementById("nc-send") as HTMLButtonElement;
+          send.style.display = "block";
+          send.textContent = method === "link" ? tr("ord.createSend") : tr("ord.confirmOrder");
+          const email = document.getElementById("nc-email") as HTMLInputElement;
+          email.placeholder = method === "link" ? tr("ord.emailReq") : tr("ord.emailOpt");
+        }
+        (document.getElementById("nc-cash") as HTMLButtonElement).addEventListener("click", () => selezionaPagamento("cash"));
+        (document.getElementById("nc-card") as HTMLButtonElement).addEventListener("click", () => selezionaPagamento("card"));
+        (document.getElementById("nc-link") as HTMLButtonElement).addEventListener("click", () => selezionaPagamento("link"));
+        (document.getElementById("nc-send") as HTMLButtonElement).addEventListener("click", () => {
+          if (ncEditId) { void salvaModifiche(); return; }
+          if (ncPayment) void inviaOrdine(ncPayment);
         });
+
+        // ---- Wizard multi-step: Prodotti → Ritiro → Cliente → Pagamento ----
+        let ncStep = 1;
+        function ncRenderRecap() {
+          const box = document.getElementById("nc-recap") as HTMLDivElement;
+          const righe = [...ncCart.values()];
+          box.innerHTML = righe.length
+            ? righe.map((r) => `<div class="nc-recap-row"><span>${r.qty}× ${esc(r.voce.name)}</span><span>${euro(ncPrezzo(r.voce) * r.qty)}</span></div>`).join("")
+            : `<div class="nc-cart-empty">${tr("ord.cartEmpty")}</div>`;
+          const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
+          (document.getElementById("nc-total-2") as HTMLElement).textContent = euro(tot);
+        }
+        function mostraStep(n: number) {
+          ncStep = n;
+          document.querySelectorAll<HTMLElement>(".nc-panel").forEach((p2) => { p2.hidden = Number(p2.dataset.panel) !== n; });
+          document.querySelectorAll<HTMLElement>(".nc-step").forEach((st) => {
+            const sN = Number(st.dataset.s);
+            st.classList.toggle("is-on", sN === n);
+            st.classList.toggle("done", sN < n);
+          });
+          const prev = document.getElementById("nc-prev") as HTMLButtonElement;
+          const next = document.getElementById("nc-next") as HTMLButtonElement;
+          prev.style.visibility = n === 1 ? "hidden" : "visible";
+          next.style.display = n === 3 ? "none" : "inline-block";
+          if (n === 3) ncRenderRecap();
+        }
+        // Validazione minima per avanzare (l'email è richiesta solo al pagamento link)
+        function validaStep(n: number): boolean {
+          if (n === 1 && !ncCart.size) { ncToast(tr("ord.cartIsEmpty"), true); return false; }
+          if (n === 2 && !ncSlot) { ncToast(tr("ord.chooseSlot"), true); return false; }
+          if (n === 3) {
+            const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
+            const email = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
+            if (!nom) { ncToast(tr("ord.nameEmailReq"), true); return false; }
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { ncToast(tr("ord.nameEmailReq"), true); return false; }
+          }
+          return true;
+        }
+        (document.getElementById("nc-next") as HTMLButtonElement).addEventListener("click", () => {
+          if (ncStep < 3 && validaStep(ncStep)) mostraStep(ncStep + 1);
+        });
+        (document.getElementById("nc-prev") as HTMLButtonElement).addEventListener("click", () => {
+          if (ncStep > 1) mostraStep(ncStep - 1);
+        });
+        // Titoli dello stepper cliccabili: salto diretto alla sezione.
+        (document.getElementById("nc-steps") as HTMLDivElement).addEventListener("click", (e) => {
+          const st = (e.target as HTMLElement).closest(".nc-step") as HTMLElement | null;
+          if (st?.dataset.s) mostraStep(Number(st.dataset.s));
+        });
+        // Il form cliente serve solo a raggruppare i campi per l'autofill: mai inviarlo.
+        document.getElementById("nc-cli-form")?.addEventListener("submit", (e) => e.preventDefault());
+        // Riconoscimento automatico del prefisso digitato nel campo numero.
+        {
+          const tp = document.getElementById("nc-tel-prefix") as HTMLSelectElement | null;
+          const ti = document.getElementById("nc-tel") as HTMLInputElement | null;
+          if (tp && ti) collegaPrefissoTel(tp, ti);
+        }
         function posizionaNcAdd() {
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
           const btn = document.getElementById("nc-add") as HTMLElement | null;

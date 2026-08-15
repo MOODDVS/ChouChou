@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
+import { cacheDel } from "../../../lib/cache";
+import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 
 export const prerender = false;
 
@@ -487,6 +489,9 @@ export const PUT: APIRoute = async ({ request }) => {
       return json({ error: "Informations générales non enregistrées" }, 500);
     }
   }
+  // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
+  // svuotare la cache di boot così il logo nuovo si vede al primo reload.
+  if (generalPulito.length > 0) cacheDel(CACHE_ADMIN_BOOT);
 
   for (const [key, value] of resaPulito) {
     const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });

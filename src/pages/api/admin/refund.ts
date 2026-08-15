@@ -19,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { id?: string; amount_cents?: number };
+  let body: { id?: string; amount_cents?: number; difference?: boolean };
   try {
     body = await request.json();
   } catch {
@@ -50,7 +50,24 @@ export const POST: APIRoute = async ({ request }) => {
   const residuo = (ord.total_cents ?? 0) - giaRimborsato;
   if (residuo <= 0) return json({ error: "Commande déjà entièrement remboursée" }, 400);
 
-  const daRimborsare = amount === null ? residuo : Math.min(amount, residuo);
+  // Modalità "differenza" (bottone dopo una modifica al ribasso): l'importo da
+  // rendere è quello tracciato in refund_due_cents, che può superare il totale
+  // corrente (l'ordine è stato ridotto), quindi NON usa il tetto `residuo`.
+  const isDiff = body.difference === true;
+  let refundDue = 0;
+  if (isDiff) {
+    const { data: d50, error: e50 } = await supabaseAdmin
+      .from("orders")
+      .select("refund_due_cents")
+      .eq("id", id)
+      .maybeSingle();
+    if (e50) return json({ error: "Migration orders_modifica_diff.sql (#50) à lancer sur Supabase" }, 500);
+    refundDue = Number((d50 as { refund_due_cents?: number } | null)?.refund_due_cents ?? 0);
+    if (refundDue <= 0) return json({ error: "Aucune différence à rembourser" }, 400);
+  }
+
+  const tetto = isDiff ? refundDue : residuo;
+  const daRimborsare = amount === null ? tetto : Math.min(amount, tetto);
   if (daRimborsare <= 0) return json({ error: "Montant invalide" }, 400);
 
   // Recupera il payment_intent dalla sessione di checkout salvata sull'ordine.
@@ -76,14 +93,15 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const nuovoTotale = giaRimborsato + daRimborsare;
-  await supabaseAdmin
-    .from("orders")
-    .update({
-      refunded_cents: nuovoTotale,
-      refunded_at: new Date().toISOString(),
-      last_refund_id: refund.id,
-    })
-    .eq("id", id);
+  const upd: Record<string, unknown> = {
+    refunded_cents: nuovoTotale,
+    refunded_at: new Date().toISOString(),
+    last_refund_id: refund.id,
+  };
+  // Differenza saldata: sgonfio (o azzero) refund_due_cents cosi' il bottone
+  // "Rembourser la difference" sparisce dalla card.
+  if (isDiff) upd.refund_due_cents = Math.max(0, refundDue - daRimborsare);
+  await supabaseAdmin.from("orders").update(upd).eq("id", id);
 
   return json({ ok: true, refunded_cents: nuovoTotale, amount: daRimborsare, refund_id: refund.id });
 };

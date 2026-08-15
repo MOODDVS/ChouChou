@@ -4,18 +4,22 @@
 // orologio, data e formattazioni delle pagine admin lo leggono da qui.
 import { CLIENT } from "../../config/client";
 import { aggiornaTimezone } from "../../lib/slots";
-import { adminLang } from "../../lib/admin/adminLang";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 const TZ_RISTO = await aggiornaTimezone();
-const lang = await adminLang();
+// Stessa lettura in cache di AdminHead: lingua + favicon del brand, 0 query in piu'.
+const boot = await caricaBootAdmin();
+const lang = boot.lang;
 const t = adminT(lang);
 const dateLocale = ADMIN_LOCALE[lang];
+// Logo dell'header deciso dal SERVER: niente lampo del logo di default.
+const logoSrc = boot.logo || CLIENT.logoAdmin;
 ---
 
 <header class="ah-header" data-tz={TZ_RISTO} data-locale={dateLocale}>
   <div class="ah-left">
     <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
-      <img id="ah-logo" src={CLIENT.logoAdmin} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
+      <img id="ah-logo" src={logoSrc} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
     </a>
     <div class="ah-date">
       <svg class="ah-date-ico" viewBox="0 0 24 24" aria-hidden="true">

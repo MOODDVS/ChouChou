@@ -52,6 +52,23 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    // --- Supplemento di un ordine MODIFICATO (aumento) pagato dal cliente ---
+    // La sessione porta metadata.supplement="1": l'ordine e' gia' 'paid', quindi
+    // qui NON si tocca lo stato ne' si rimandano le email di conferma: si azzera
+    // solo la differenza dovuta e si registra il momento del pagamento.
+    if (session.metadata?.supplement === "1" && orderId) {
+      const { error: eSup } = await supabaseAdmin
+        .from("orders")
+        .update({ supplement_due_cents: 0, supplement_paid_at: new Date().toISOString() })
+        .eq("id", orderId);
+      if (eSup) console.error("Errore aggiornamento supplemento:", eSup);
+      else console.log(`Supplemento ordine ${orderId} pagato`);
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (!orderId) {
       console.error("Webhook senza order_id nei metadata");
       return new Response("order_id mancante", { status: 400 });

@@ -15,10 +15,8 @@ const t = adminT(lang);
 export const prerender = false;
 
 // Immagine login: una foto CASUALE dell'hero della home del cliente
-// (app_config site_hero_1/2/3). Se non impostate ma il ristorante è configurato,
-// usa le slide statiche /slideshow. Se non c'è nessun hero -> fallback random
-// tra le slide RestoHub in public/restohub/.
-const SLIDE_FALLBACKS = ["/slideshow/slide-01.webp", "/slideshow/slide-02.webp", "/slideshow/slide-03.webp"];
+// (app_config site_hero_1/2/3). Se non ce n'è nessuna -> fallback random
+// tra le slide RestoHub in public/restohub/ (sempre presenti nel motore).
 const FALLBACK_COVERS = [
   "/restohub/slide01.webp",
   "/restohub/slide02.webp",
@@ -36,7 +34,7 @@ const brand = await (async () => {
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
       const nome = (m.get("restaurant_name") ?? "").trim();
       const heroCfg = [1, 2, 3].map((i) => (m.get("site_hero_" + i) ?? "").trim()).filter(Boolean);
-      const heroImages = heroCfg.length ? heroCfg : (nome ? SLIDE_FALLBACKS : []);
+      const heroImages = heroCfg;
       return {
         nome,
         logo: (m.get("brand_logo") ?? "").trim() || CLIENT.logoLogin,

@@ -4,6 +4,7 @@
 // le pagine spente spariscono dalla barra di navigazione e sono
 // bloccate anche ad accesso diretto (redirect verso l'Accueil).
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
@@ -345,15 +346,55 @@ const supI18n = {
         width: 100%;
         max-width: 320px;
         padding: 0.6rem 0.8rem;
+        padding-right: 2.6rem; /* spazio per la freccia SVG, staccata dal bordo */
         font-family: var(--font-body);
         font-size: 0.95rem;
         color: var(--c-text);
-        background: var(--c-card);
+        background-color: var(--c-card);
+        /* Freccia custom (come gli altri select dell'admin) invece di quella
+           nativa attaccata al bordo, spostata un po' più a sinistra. */
+        -webkit-appearance: none; appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 1rem center; background-size: 13px;
         border: 1px solid var(--c-line);
         border-radius: 10px;
         cursor: pointer;
       }
       .lang-sel:focus { outline: none; border-color: var(--c-accent); }
+
+      /* Lingue pubbliche (lato cliente) */
+      .publang-box { margin: 2.4rem 0; }
+      .publang-list {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 0.6rem; margin-top: 1rem;
+      }
+      .publang-row {
+        display: flex; align-items: center; gap: 0.6rem;
+        padding: 0.6rem 0.7rem 0.6rem 0.9rem; border: 1px solid var(--c-line); border-radius: 10px;
+        background: var(--c-card); transition: border-color 0.15s, opacity 0.15s;
+      }
+      .publang-row.is-off { opacity: 0.5; }
+      .publang-flag { font-size: 1.15rem; line-height: 1; }
+      .publang-name { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; font-size: 0.95rem; color: var(--c-text); min-width: 0; }
+      .publang-name-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      /* Predefinita: stella accent (stesso cerchio del ☆ non-predefinita) */
+      .publang-def {
+        margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; flex-shrink: 0;
+        background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
+        font-size: 0.95rem; line-height: 1; border-radius: 999px;
+      }
+      /* Non predefinita: stellina cliccabile, solo icona */
+      .publang-set {
+        margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; flex-shrink: 0;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
+        font-size: 0.95rem; line-height: 1; border-radius: 999px; cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .publang-set:hover { color: var(--c-accent); border-color: var(--c-accent); }
+      .publang-row.is-off .publang-set { visibility: hidden; }
+      .publang-sep { border: none; border-top: 1px solid var(--c-line); margin: 2.4rem 0 1.6rem; }
 
       .toast {
         position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
@@ -369,6 +410,7 @@ const supI18n = {
         main { padding: 1.5rem 1rem 8rem; }
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
@@ -386,15 +428,6 @@ const supI18n = {
         <section class="pane" data-pane="design">
           <div class="design-cols">
             <div>
-              <div class="lang-box">
-                <p class="tema-titre" style="margin-top:0">{t("sup.lang.title")}</p>
-                <p class="sub">{t("sup.lang.hint")}</p>
-                <select id="admin-lang-sel" class="lang-sel" aria-label={t("sup.lang.title")}>
-                  {LINGUE_ADMIN.map((l) => (
-                    <option value={l.code} selected={l.code === lang}>{l.label}</option>
-                  ))}
-                </select>
-              </div>
               <p class="tema-titre">{t("sup.tema.title")}</p>
               <p class="sub">{t("sup.design.intro")}</p>
               <div class="tema-rows" id="tema-rows" style="display:none"></div>
@@ -433,6 +466,28 @@ const supI18n = {
         </section>
 
         <section class="pane" data-pane="reglages" hidden>
+          {/* Lingua dell'admin (gestore) — spostata qui dal tab Design */}
+          <div class="lang-box">
+            <p class="tema-titre" style="margin-top:0">{t("sup.lang.title")}</p>
+            <p class="sub">{t("sup.lang.hint")}</p>
+            <select id="admin-lang-sel" class="lang-sel" aria-label={t("sup.lang.title")}>
+              {LINGUE_ADMIN.map((l) => (
+                <option value={l.code} selected={l.code === lang}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Lingue pubbliche (cliente): set attivo + predefinita */}
+          <div class="publang-box">
+            <p class="tema-titre">{t("sup.publang.title")}</p>
+            <p class="sub">{t("sup.publang.hint")}</p>
+            <div class="publang-list" id="publang-list" style="display:none"></div>
+          </div>
+
+          <hr class="publang-sep" />
+
+          {/* Visibilità pagine (permessi degli altri utenti) */}
+          <p class="tema-titre" style="margin-top:0">{t("sup.pagesvis.title")}</p>
           <p class="sub">{t("sup.reglages.intro")}</p>
           <div class="state" id="state">{t("sup.loading")}</div>
           <div class="rows" id="rows" style="display:none"></div>
@@ -605,7 +660,7 @@ const supI18n = {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
+      import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
       (async () => {
@@ -753,6 +808,70 @@ const supI18n = {
             }
           });
         }
+
+        // ---- Lingue pubbliche (cliente) ----
+        const publangEl = document.getElementById("publang-list") as HTMLDivElement | null;
+        let publicLangs: string[] = [];
+        let publicDefault = "fr";
+
+        function renderPublang() {
+          if (!publangEl) return;
+          publangEl.innerHTML = LINGUE_PUBBLICHE.map((l) => {
+            const attiva = publicLangs.includes(l.code);
+            const isDef = attiva && l.code === publicDefault;
+            const defBtn = isDef
+              ? `<span class="publang-def" title="${tr("sup.publang.default")}" aria-label="${tr("sup.publang.default")}">★</span>`
+              : `<button type="button" class="publang-set" data-def="${l.code}" aria-label="${tr("sup.publang.setDefault")}" title="${tr("sup.publang.setDefault")}">☆</button>`;
+            return `
+            <div class="publang-row${attiva ? "" : " is-off"}${isDef ? " is-default" : ""}" data-code="${l.code}">
+              <span class="publang-name"><span class="publang-flag">${l.flag}</span><span class="publang-name-txt">${l.label}</span></span>
+              ${defBtn}
+              <label class="switch"><input type="checkbox" class="publang-on" ${attiva ? "checked" : ""} /><span class="track"></span></label>
+            </div>`;
+          }).join("");
+        }
+
+        async function salvaPublang() {
+          try {
+            const res = await fetch("/api/admin/pages", {
+              method: "PUT",
+              headers,
+              body: JSON.stringify({ publicLangs, publicLangDefault: publicDefault }),
+            });
+            if (!res.ok) throw new Error();
+            toast(tr("common.saved"));
+          } catch {
+            toast(tr("common.saveErr"), true);
+          }
+        }
+
+        publangEl?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("button[data-def]") as HTMLElement | null;
+          if (!b) return;
+          const code = b.dataset.def!;
+          // Impostare come predefinita: la attiva se serve, poi la marca.
+          if (!publicLangs.includes(code)) publicLangs = LINGUE_PUBBLICHE.map((l) => l.code).filter((c) => publicLangs.includes(c) || c === code);
+          publicDefault = code;
+          renderPublang();
+          void salvaPublang();
+        });
+
+        publangEl?.addEventListener("change", (e) => {
+          const t = e.target as HTMLInputElement;
+          if (!t.classList.contains("publang-on")) return;
+          const code = (t.closest(".publang-row") as HTMLElement).dataset.code!;
+          if (t.checked) {
+            // attiva, mantenendo l'ordine canonico
+            publicLangs = LINGUE_PUBBLICHE.map((l) => l.code).filter((c) => publicLangs.includes(c) || c === code);
+          } else {
+            // regole: non l'ultima, non la predefinita
+            if (publicLangs.length <= 1) { t.checked = true; toast(tr("sup.publang.minOne"), true); return; }
+            if (code === publicDefault) { t.checked = true; toast(tr("sup.publang.defaultLocked"), true); return; }
+            publicLangs = publicLangs.filter((c) => c !== code);
+          }
+          renderPublang();
+          void salvaPublang();
+        });
 
         rowsEl.addEventListener("change", async (e) => {
           const t = e.target as HTMLInputElement;
@@ -1394,15 +1513,21 @@ const supI18n = {
             hidden: string[];
             hiddenTabs?: string[];
             theme?: Record<string, string>;
+            publicLangs?: string[];
+            publicLangDefault?: string;
           };
           nascoste = dati.hidden ?? [];
           nascosteTab = dati.hiddenTabs ?? [];
           tema = dati.theme ?? {};
+          publicLangs = Array.isArray(dati.publicLangs) && dati.publicLangs.length ? dati.publicLangs : ["fr", "en"];
+          publicDefault = dati.publicLangDefault && publicLangs.includes(dati.publicLangDefault) ? dati.publicLangDefault : publicLangs[0];
           stateEl.style.display = "none";
           rowsEl.style.display = "grid";
           temaRowsEl.style.display = "grid";
           temaResetEl.style.display = "inline-block";
+          if (publangEl) publangEl.style.display = "grid";
           render();
+          renderPublang();
           renderTema();
           applicaTema();
         } catch {

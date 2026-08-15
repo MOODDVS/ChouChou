@@ -1,0 +1,58 @@
+/* ============================================================
+   DATEPICKER BRAND — stile condiviso di TUTTI i datepicker admin.
+   Import GLOBALE (non scoped) in ogni pagina: vale anche per il
+   pannello creato via JS e appeso al <body>. Prima ogni pagina aveva
+   la sua copia (5-6 duplicati, alcune vecchie e disallineate: la riga
+   dei giorni della settimana senza `gap` non combaciava con le date).
+   Ora la fonte è UNA sola.
+   z-index 1100: sopra gli overlay dei modali (1000), così funziona
+   anche quando il datepicker è dentro un modale (es. Nuovo ordine).
+   ============================================================ */
+.dp-panel {
+  position: fixed;
+  z-index: 1100;
+  width: 344px;
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15)));
+  padding: 0.9rem;
+}
+.dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+.dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
+.dp-nav {
+  width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
+  color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
+  transition: border-color 0.15s, color 0.15s;
+}
+.dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+.dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+/* gap: 2px SIA su header che griglia → colonne allineate (era il bug) */
+.dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
+.dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-cell {
+  position: relative;
+  aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
+  font-size: 0.95rem; cursor: pointer; border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+.dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
+.dp-vuota { cursor: default; }
+.dp-off { color: var(--c-muted); opacity: 0.45; cursor: not-allowed; }
+.dp-cell.dp-off:not(:disabled) { cursor: pointer; }
+.dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
+.dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+.dp-full:not(.dp-sel) { box-shadow: inset 0 0 0 2px #e5484d; }
+/* Pallini di occupazione (usati solo dalla pagina Prenotazioni) */
+.dp-dot {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 3px;
+  width: 7px; height: 7px; border-radius: 50%; background: #2e9e6b; /* ≤30% */
+}
+.dp-dot--medio { background: var(--c-accent); } /* 31-80% */
+.dp-dot--alto { background: #ed1c24; } /* 81%+ */
+.dp-sel .dp-dot { background: var(--c-bg); }
+@media (pointer: coarse) {
+  .dp-panel { width: 372px; }
+  .dp-cell { min-height: 44px; font-size: 1.05rem; }
+}

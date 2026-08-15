@@ -3,6 +3,7 @@
 // dagli ordini) UNITI ai clienti aggiunti a mano. Nome, email, téléphone,
 // nombre de commandes, total dépensé. Possibilità di aggiungere un cliente.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
@@ -207,6 +208,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
       .row:hover { background: rgba(255, 255, 255, 0.03); }
+      /* Cliente bloccato: barra rossa a sinistra (inset = nessuno spostamento) */
+      .row.is-blocked { box-shadow: inset 3px 0 0 #ed1c24; }
       .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-name { font-weight: 700; }
       .c-name .c-ico { display: inline-flex; gap: 0.3rem; margin-left: 0.45rem; vertical-align: middle; }
@@ -397,6 +400,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
@@ -780,7 +784,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
                   ? `<span class="tag-ns" title="${c.noshows} ${tr("cli.noshow")}">${ICO_NOSHOW}${c.noshows}</span>`
                   : "";
               return `
-              <div class="row" data-key="${esc(c.key ?? "")}">
+              <div class="row${c.blocked ? " is-blocked" : ""}" data-key="${esc(c.key ?? "")}">
                 <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? `<span class="tag-new">${tr("cli.new")}</span>` : ""}${attivita}</div>
                 <div class="cell c-email" data-label="${tr("ord.emailLabel")}">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
                 <div class="cell c-phone" data-label="${tr("ord.telLabel")}">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>

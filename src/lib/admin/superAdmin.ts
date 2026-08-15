@@ -73,6 +73,51 @@ export const TEMA_DEFAULT: Record<string, string> = {
 // Il verre si accende salvando glass:"on"; le ombre con shadow:"0".."100".
 export const TEMA_CHIAVI = Object.keys(TEMA_DEFAULT);
 
+/**
+ * LINGUE PUBBLICHE (lato cliente): le lingue in cui il ristorante comunica
+ * con i clienti — pillole del modale Nuovo ordine, selettore del widget
+ * prenotazioni, e lingua dei template email. Stesso set delle lingue
+ * dell'interfaccia admin (LINGUE_ADMIN): fr/en/it/nl/es. Endonimi (il nome
+ * della lingua nella lingua stessa) + bandiera, indipendenti dalla lingua
+ * dell'admin. Il super admin sceglie quali attivare e qual è la predefinita
+ * (Réglages → Impostazioni). Storage in app_config:
+ *   - public_languages    : array JSON dei codici attivi, es. ["fr","en","it"]
+ *   - public_lang_default : codice della lingua predefinita, es. "fr"
+ */
+export const LINGUE_PUBBLICHE: { code: string; label: string; flag: string }[] = [
+  { code: "fr", label: "Français",   flag: "🇫🇷" },
+  { code: "en", label: "English",    flag: "🇬🇧" },
+  { code: "it", label: "Italiano",   flag: "🇮🇹" },
+  { code: "nl", label: "Nederlands", flag: "🇳🇱" },
+  { code: "es", label: "Español",    flag: "🇪🇸" },
+];
+export const PUBLIC_LANG_CODES = LINGUE_PUBBLICHE.map((l) => l.code);
+/** Attive di default se app_config è vuoto: FR+EN (comportamento storico). */
+export const PUBLIC_LANGS_DEFAULT = ["fr", "en"];
+/** Lingua predefinita di default: francese. */
+export const PUBLIC_LANG_DEFAULT = "fr";
+
+/**
+ * Normalizza le lingue pubbliche lette da app_config in un set coerente:
+ * solo codici noti, ordine canonico, almeno una attiva, predefinita sempre
+ * dentro il set. Usata sia dall'API (/api/admin/pages) sia dal boot SSR,
+ * cosi' la stessa regola vale ovunque.
+ */
+export function normalizzaLinguePubbliche(rawLangs: string, rawDefault: string): { langs: string[]; def: string } {
+  let langs: string[] = [];
+  try {
+    const arr = JSON.parse(rawLangs || "[]");
+    if (Array.isArray(arr)) {
+      const set = new Set(arr.filter((c) => PUBLIC_LANG_CODES.includes(c)));
+      langs = PUBLIC_LANG_CODES.filter((c) => set.has(c));
+    }
+  } catch { /* JSON rotto: default sotto */ }
+  if (!langs.length) langs = [...PUBLIC_LANGS_DEFAULT];
+  let def = (rawDefault || "").trim();
+  if (!langs.includes(def)) def = langs.includes(PUBLIC_LANG_DEFAULT) ? PUBLIC_LANG_DEFAULT : langs[0];
+  return { langs, def };
+}
+
 export function isSuper(email: string | null | undefined): boolean {
   return (email ?? "").trim().toLowerCase() === SUPER_EMAIL;
 }

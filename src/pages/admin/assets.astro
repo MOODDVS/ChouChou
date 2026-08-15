@@ -4,6 +4,7 @@
 // newsletter). Filtro per origine, copia dell'URL, eliminazione con
 // doppia conferma (bloccata se l'immagine è ancora utilizzata).
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
@@ -213,6 +214,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">

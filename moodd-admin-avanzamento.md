@@ -2,6 +2,70 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 15/08/2026 — sessione Cowork (Mac mini)
+
+Sessione lunga: 2 fix UI, una diagnosi di lentezza, l'anti-flash del tema in SSR e la nuova feature **Lingue pubbliche** (regola super + email tradotte + collegamento modale ordine).
+
+### 🐛 Foto login sparite sotto il velo verde
+- Causa: `login.astro` usava `SLIDE_FALLBACKS = /slideshow/slide-0N.webp` (roba vetrina La Molisana, **inesistente nel motore**) appena il `restaurant_name` era impostato → 404 → solo gradiente + `#14100c`. Il ramo buono (`FALLBACK_COVERS = /restohub/slide01..04.webp`) scattava solo col nome vuoto.
+- Fix: rimosso `SLIDE_FALLBACKS`, `heroImages = heroCfg` → senza `site_hero_*` si usano sempre le slide RestoHub (che esistono). Nota: `siteImageSlots.ts` punta ancora a `/slideshow/` per i fallback (per-cliente, non toccato).
+
+### 🔴 Clienti bloccati — barra rossa
+- `clients.astro`: riga con `box-shadow: inset 3px 0 0 #ed1c24` quando `c.blocked` (classe `.is-blocked`). Scelto **inset** e non `border-left` perché la riga è CSS grid con padding fisso: un bordo vero avrebbe disallineato le colonne solo sulle righe bloccate. Il toggle blocco già chiama `render()`, quindi compare/sparisce subito. Distinto dalla pillola no-show (`tag-ns`).
+
+### 🐌 Lentezza "tutto lento + settings di default prima dei salvati"
+- Misurato con curl: `connect 0.19s` (= ping Dubai↔Francoforte), `ttfb−connect ~0.6-0.8s`. La **2ª/3ª query su connessione riusata** = ~0.6s. `/admin/clients` dev: 1ª richiesta 1.8s, poi 2ms (cache 60s calda). **Il dev server è innocente**: il collo di bottiglia è la **distanza dal Supabase dev di Francoforte** (Enzo lavora da Dubai). Il codice SSR è già a posto (`Promise.all`, cache 60s). In produzione (Hostinger EU, vicino a Francoforte) il problema non si vede. Rimedio se resta a Dubai: Supabase dev su **Mumbai (ap-south-1)**, ~30-40ms invece di 190 (il dev è usa-e-getta, i clienti restano in UE). Supabase non ha regioni Medio Oriente.
+
+### ✨ Anti-flash del tema in SSR (`AdminHead` + `adminBoot`)
+- Problema: lo script che leggeva la cache `mdd_theme` era dentro `AdminNav`, **centinaia di righe dentro il `<body>`** → il browser dipingeva i `:root` di default (arancione MOODD) e poi, tardi, i colori veri. Peggio al primo accesso/incognito (nessuna cache): aspettava `getSession()` + `fetch /api/admin/pages`.
+- Fix: nuovo `src/lib/admin/adminBoot.ts` — legge lingua admin + tema + favicon in **UNA query** su `app_config` (cache 60s, condivisa con `adminLang()`, che ora è una vista su boot). Nuovo componente `src/components/admin/AdminHead.astro` (in fondo al `<head>` di tutte le 10 pagine admin) stampa `<style is:inline>html{--c-*}</style>` + micro-script per glass/theme-color/favicon, **lato server, prima del primo paint**. `AdminHeader` rende il logo brand server-side. Tolto il blocco tema/logo dallo script di `AdminNav` (era anche dannoso: la cache localStorage poteva riscrivere i colori vecchi sopra quelli veri). `is:inline` sul `<style>` è **obbligatorio** (senza, Astro lo estrae e sposta perdendo la cascata); mira `html` non `:root` (stessa specificità ma più in basso → vince).
+- Effetto collaterale: lingua/tema/favicon erano 3 letture separate, ora 1 sola → meno query per pagina.
+
+### 🌍 LINGUE PUBBLICHE — nuova feature (3 step)
+Regola per le lingue con cui il ristorante comunica coi clienti, decisa dal super admin, distinta dalla lingua dell'admin (gestore) e dal widget prenotazioni (che resta **indipendente**, 9 lingue, per scelta di Enzo). Set = stesse 5 dell'admin: **FR/EN/IT/NL/ES**.
+- **Step 1 — regola nel super** (`super.astro`, tab Impostazioni): spostata qui la **lingua admin** (era in Design); sotto, sezione **Lingue pubbliche** in griglia (`repeat(auto-fill,minmax(240px,1fr))`), ogni lingua con switch attiva/inattiva + stella ★ predefinita (☆ per le altre). Regole: ≥1 attiva, la predefinita non si spegne. Storage `app_config`: `public_languages` (array JSON) + `public_lang_default`. **Niente migrazione** (come `custom_events`). Costanti + `normalizzaLinguePubbliche()` in `superAdmin.ts`; API in `pages.ts` (GET/PUT, super-only). Default storico = FR+EN, predefinita FR.
+- **Step 2 — traduzioni** (`notifications.ts` + `reservationI18n.ts`): email **ordine** (conferma, link pagamento, recensione) portate da FR/EN a 5 lingue con `pick5(dict, lang)` (fallback FR); email **prenotazione** + widget: aggiunto **NL** ovunque (mancava del tutto, nemmeno le résa ce l'avevano). Aggiunto `nl` al tipo `LinguaWidget` (→ 10 lingue lato résa/widget: fr/en/es/it/nl/de/ru/ar/zh/ja). `CLIENT.firma` aveva solo fr/en → helper `firma()` con fallback FR + aggiunte IT/NL/ES alla firma default del motore. Email **bons cadeaux** ancora FR-only (fuori scope, segnalata).
+- **Step 3 — collegamento modale ordine** (`orders.astro`): pillole "Lingua dell'email" renderizzate **SSR** dalle lingue attive (solo attive, predefinita pre-selezionata), non più FR/EN fisse. `caricaBootAdmin` esteso per leggere anche le lingue pubbliche (stessa query, 0 round-trip in più). `ncLang` ora `string`, default dalla regola (`data-default`). Il PUT invalida `CACHE_ADMIN_BOOT` anche al cambio lingue pubbliche.
+
+### Lezioni
+- **`astro check` è l'UNICA verifica valida sui cambi di tipo**: esbuild strippa i tipi e non vede una chiave mancante in un `Record<Union>`. Un mio script python andato in **crash a metà** (prima del `write` finale) non ha salvato l'edit del tipo `LinguaWidget` + `LINGUE_WIDGET`, mentre i batch successivi (che rileggevano il file originale) hanno salvato il resto → 28 errori tutti a cascata da "`nl` non esiste in `LinguaWidget`". Regola: dopo ogni edit di tipo, il check di Enzo è d'obbligo; e uno script che tocca più cose deve scrivere presto o essere idempotente.
+- **Distanza DB ≠ problema di codice**: misurare `connect`/`ttfb` con curl su connessione riusata prima di ottimizzare query. 0.6s/query da Dubai è fisica, non un bug.
+- **Anti-flash = SSR nel `<head>`, non script nel `<body>`**: qualunque cosa serva prima del primo paint va renderizzata dal server; la cache localStorage nel body arriva sempre dopo il paint su pagine grandi.
+- **Una sola fonte di verità** per la normalizzazione della regola (`normalizzaLinguePubbliche`), usata da API e boot: evita che UI e backend divergano.
+
+
+## 📌 14/08/2026 — sessione Cowork (Mac → Mac mini)
+
+Sessione su **pagina Clients** + fix orari + i18n servizi. Lavoro iniziato su un Mac e continuato sul **Mac mini** (repo clonato in `~/Developer/restohub`, `.env` copiato dal vecchio Mac, `npm install`).
+
+### 🕛 Orari oltre la mezzanotte (apertura take-away)
+- Bug: fascia serale `18:00 → 00:00` (o `→ 01:00`) rifiutata al salvataggio (« Heures Soir invalides »). Regola adottata: se **chiusura ≤ apertura** la fascia **scavalca la mezzanotte** → chiusura = giorno dopo (`00:00` = mezzanotte fine giornata).
+- Fix in TRE punti coerenti: `src/pages/api/admin/settings.ts` (`fasciaValida`: minuti, `+1440` se close≤open, span 0–24h) · `src/lib/slots.ts` (`calcolaSlot`: `if (chiusura <= apertura) chiusura = chiusura.plus({ days: 1 })`) · `src/pages/api/admin/special-days.ts` (stessa `fasciaValida`).
+- **Scelta**: le **finestre di servizio delle prenotazioni** (widget, `reservation_services` from/to) restano SOLO diurne — overnight NON implementato lì (toccherebbe validazione + disponibilità + attribuzione della data dopo mezzanotte). Rimandato.
+
+### 🌐 Nomi servizi nella lingua admin
+- Erano fissi in FR (`SERVIZI_WIDGET[k].fr`). Nuova funzione **`nomeServizio(key, lang)`** in `src/lib/reservationI18n.ts` (fallback fr → key). Usata in `settings.astro` (dropdown servizi + pillole giorni speciali), `reservations.astro` (filtri, chiusure, dettaglio), `index.astro` (chiusure permanenti). Il **matching legacy resta su `.fr`** (chiave tecnica, non toccato).
+- Manca **`nl`** nel dizionario servizi → fallback FR. `dailyBrief.ts` ha i servizi ancora in FR (non toccato).
+
+### 🔤 Etichetta Google
+- « Google — avis » ora segue la lingua admin (« Google — recensioni » in IT) in `settings.astro` (Liens), riusando la chiave `itg.g.reviews`.
+
+### 👤 Modale cliente (pagina Clients) — statistiche + storico + toggle
+- Click su un cliente → modale a **due colonne** (sx: info + statistiche · dx: storico), largo 900px, `max-height: 88vh` con **scroll interno** per colonna; responsive < 720px impila.
+- **Statistiche** in schede sezionate: **Ordini** (numero, totale speso, scontrino medio) + **Prenotazioni** (totale, annullamenti, no-show, persone media, tempo a tavola, anticipo, spesa media). Base già nell'oggetto Client; le prenotazioni riusano `GET /api/admin/reservations?client_stats=1&client_email=&client_phone=` (stesse metriche del modale prenotazione).
+- **Storico** cronologico ordini+prenotazioni via `GET /api/admin/clients?activity=<key>`.
+- **Contatti** email/telefono **cliccabili** (mailto:/tel:) con icone.
+- **Toggle (switch)** Newsletter (ON = iscritto) e Blocco prenotazioni (ON = consentito), **sopra** le statistiche. Salvataggio **immediato** via `PATCH /api/admin/clients`. Gli **stessi switch** anche nel modale modifica (matita), lì col tasto **Salva**.
+- Chiavi i18n nuove: `cli.stOrders`, `cli.stSpent`, `cli.avgBasket`, `cli.blockedShort`, `cli.allowedShort`.
+- File toccati: `src/pages/admin/clients.astro`, `src/i18n/admin.ts`, `src/lib/reservationI18n.ts`.
+
+### 🧪 Dati demo (script SQL SEPARATO — NON nel repo)
+- 10 clienti demo (profili vari: VIP, no-show, solo asporto, gruppi, nuovo…) + **menù finto** (8 categorie / 35 piatti) + **28 ordini** (articoli reali; `pickup_time` nell'ultima settimana → visibili in pagina Ordini) + **30 prenotazioni**. Indirizzi `@demo.rh`, **idempotente** (pulizia in cima). Da lanciare nel SQL Editor del Supabase demo.
+
+### Lezioni
+- Il modale cliente esisteva già con lo storico; mancavano solo le statistiche → **riusare l'endpoint prenotazioni** invece di scrivere nuovo codice server.
+- Le modifiche di **codice** richiedono **rebuild + redeploy** per vedersi online (i dati SQL sono immediati): un utente che « non vede » una feature nuova quasi sempre non ha ridistribuito / non ha fatto hard refresh.
+
 ## 📌 30/07/2026 — sessione Cowork
 
 ### 🏠 Accueil — semplificazione & drag fluido su touch
@@ -173,7 +237,7 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 
 ## 🗃️ SCHEMA DB (migrazioni #1-48, tutte idempotenti)
 
-`menu_items` · `settings` · `orders` (+source, cancel_token, refund #41) · `app_config` (timezone, admin_pages/tabs_hidden, **admin_theme**, **custom_events**, home_layout, daily_brief_*, restaurant_name, company_*, brand_*, reservation_*, closures_permanent, link_*) · `special_days` (+services #33) · `admin_notes` (+tags #34) · `restaurant_tables` (#36) · `lunch_menus` (#38) · `newsletter_schedule` (#39) · `admin_docs_meta` (#40) · `newsletter_log/optout/credits` · `menu_categories` (+kind) · `coupons` · `team` · `clients` (+hidden/photo/blocked) · `popups` · `reservations` (source, review, options, seated, table_time, spent, tables #37, client_action_at #42, recontact #43) · `service_closures` · `zone_closures` · **`push_subscriptions`** (#44) · **`gift_cards`** + **`gift_card_redemptions`** (#45: buoni regalo, saldo scalabile, pay_token, ship_*, payment_method/paid; colonne `gift_card_*` su orders). **`gift_card_orders`** (#46: acquisto buoni fisici da MOODD). **`page_views`** + RPC `traffic_sources` (#47: analytics interno cookieless, sources de trafic). `reservations.reminder_sent_at` (#48: rappel cliente 3h prima). RLS ovunque; GRANT in ogni migrazione (auto-expose OFF). pg_cron per cliente: `daily-brief-hourly` + `newsletter-hourly` + `resa-reminders-30min` (x-cron-key). Future: team.pin, table_sessions (+location_id).
+`menu_items` · `settings` · `orders` (+source, cancel_token, refund #41) · `app_config` (timezone, admin_pages/tabs_hidden, **admin_theme**, **admin_lang**, **public_languages/public_lang_default** (lingue pubbliche, no migrazione), **custom_events**, home_layout, daily_brief_*, restaurant_name, company_*, brand_*, reservation_*, closures_permanent, link_*) · `special_days` (+services #33) · `admin_notes` (+tags #34) · `restaurant_tables` (#36) · `lunch_menus` (#38) · `newsletter_schedule` (#39) · `admin_docs_meta` (#40) · `newsletter_log/optout/credits` · `menu_categories` (+kind) · `coupons` · `team` · `clients` (+hidden/photo/blocked) · `popups` · `reservations` (source, review, options, seated, table_time, spent, tables #37, client_action_at #42, recontact #43) · `service_closures` · `zone_closures` · **`push_subscriptions`** (#44) · **`gift_cards`** + **`gift_card_redemptions`** (#45: buoni regalo, saldo scalabile, pay_token, ship_*, payment_method/paid; colonne `gift_card_*` su orders). **`gift_card_orders`** (#46: acquisto buoni fisici da MOODD). **`page_views`** + RPC `traffic_sources` (#47: analytics interno cookieless, sources de trafic). `reservations.reminder_sent_at` (#48: rappel cliente 3h prima). RLS ovunque; GRANT in ogni migrazione (auto-expose OFF). pg_cron per cliente: `daily-brief-hourly` + `newsletter-hourly` + `resa-reminders-30min` (x-cron-key). Future: team.pin, table_sessions (+location_id).
 
 ## 🎨 Design system
 

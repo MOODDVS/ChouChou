@@ -30,6 +30,9 @@ export const CLIENT = {
   firma: {
     fr: "À très bientôt,<br>Toute l’équipe",
     en: "See you soon,<br>The whole team",
+    it: "A prestissimo,<br>Tutto lo staff",
+    nl: "Tot heel binnenkort,<br>Het hele team",
+    es: "Hasta muy pronto,<br>Todo el equipo",
   },
   /** Social usati SOLO se il DB non risponde (i veri URL sono link_* in app_config). */
   socialFallback: {} as Record<string, string>,

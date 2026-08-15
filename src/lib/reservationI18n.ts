@@ -7,7 +7,7 @@
  * Le lingue ATTIVE sul widget le sceglie il ristoratore
  * (reservation_languages, array di codici; il francese è sempre attivo).
  */
-export type LinguaWidget = "fr" | "en" | "es" | "it" | "de" | "ru" | "ar" | "zh" | "ja";
+export type LinguaWidget = "fr" | "en" | "es" | "it" | "nl" | "de" | "ru" | "ar" | "zh" | "ja";
 
 /** Lingue disponibili, nell'ordine di visualizzazione (label in lingua nativa). */
 export const LINGUE_WIDGET: { code: LinguaWidget; label: string; flag: string }[] = [
@@ -15,6 +15,7 @@ export const LINGUE_WIDGET: { code: LinguaWidget; label: string; flag: string }[
   { code: "en", label: "English", flag: "🇬🇧" },
   { code: "es", label: "Español", flag: "🇪🇸" },
   { code: "it", label: "Italiano", flag: "🇮🇹" },
+  { code: "nl", label: "Nederlands", flag: "🇳🇱" },
   { code: "de", label: "Deutsch", flag: "🇩🇪" },
   { code: "ru", label: "Русский", flag: "🇷🇺" },
   { code: "ar", label: "العربية", flag: "🇸🇦" },
@@ -23,19 +24,19 @@ export const LINGUE_WIDGET: { code: LinguaWidget; label: string; flag: string }[
 ];
 
 export const SERVIZI_WIDGET: Record<string, Record<LinguaWidget, string>> = {
-  midi: { fr: "Midi", en: "Lunch", es: "Almuerzo", it: "Pranzo", de: "Mittag", ru: "Обед", ar: "الغداء", zh: "午餐", ja: "ランチ" },
-  soir: { fr: "Soir", en: "Dinner", es: "Cena", it: "Cena", de: "Abend", ru: "Ужин", ar: "العشاء", zh: "晚餐", ja: "ディナー" },
-  petit_dejeuner: { fr: "Petit-déjeuner", en: "Breakfast", es: "Desayuno", it: "Colazione", de: "Frühstück", ru: "Завтрак", ar: "الفطور", zh: "早餐", ja: "朝食" },
-  brunch: { fr: "Brunch", en: "Brunch", es: "Brunch", it: "Brunch", de: "Brunch", ru: "Бранч", ar: "برانش", zh: "早午餐", ja: "ブランチ" },
-  dejeuner: { fr: "Déjeuner", en: "Lunch", es: "Almuerzo", it: "Pranzo", de: "Mittagessen", ru: "Обед", ar: "الغداء", zh: "午餐", ja: "昼食" },
-  diner: { fr: "Dîner", en: "Dinner", es: "Cena", it: "Cena", de: "Abendessen", ru: "Ужин", ar: "العشاء", zh: "晚餐", ja: "夕食" },
-  souper: { fr: "Souper", en: "Supper", es: "Cena tardía", it: "Cena tarda", de: "Nachtessen", ru: "Поздний ужин", ar: "عشاء متأخر", zh: "宵夜", ja: "夜食" },
-  aperitif: { fr: "Apéritif", en: "Aperitif", es: "Aperitivo", it: "Aperitivo", de: "Aperitif", ru: "Аперитив", ar: "أبيريتيف", zh: "开胃酒", ja: "食前酒" },
-  gouter: { fr: "Goûter", en: "Afternoon break", es: "Merienda", it: "Merenda", de: "Nachmittag", ru: "Полдник", ar: "وجبة العصر", zh: "下午茶", ja: "ティータイム" },
-  continu: { fr: "Service continu", en: "All day", es: "Todo el día", it: "Orario continuato", de: "Durchgehend", ru: "Весь день", ar: "طوال اليوم", zh: "全天", ja: "終日" },
-  premier_service: { fr: "1er service", en: "1st seating", es: "1er turno", it: "1° servizio", de: "1. Service", ru: "1-я посадка", ar: "الخدمة الأولى", zh: "第一轮", ja: "第1部" },
-  deuxieme_service: { fr: "2ème service", en: "2nd seating", es: "2º turno", it: "2° servizio", de: "2. Service", ru: "2-я посадка", ar: "الخدمة الثانية", zh: "第二轮", ja: "第2部" },
-  troisieme_service: { fr: "3ème service", en: "3rd seating", es: "3er turno", it: "3° servizio", de: "3. Service", ru: "3-я посадка", ar: "الخدمة الثالثة", zh: "第三轮", ja: "第3部" },
+  midi: { fr: "Midi", en: "Lunch", es: "Almuerzo", it: "Pranzo", nl: "Middag", de: "Mittag", ru: "Обед", ar: "الغداء", zh: "午餐", ja: "ランチ" },
+  soir: { fr: "Soir", en: "Dinner", es: "Cena", it: "Cena", nl: "Avond", de: "Abend", ru: "Ужин", ar: "العشاء", zh: "晚餐", ja: "ディナー" },
+  petit_dejeuner: { fr: "Petit-déjeuner", en: "Breakfast", es: "Desayuno", it: "Colazione", nl: "Ontbijt", de: "Frühstück", ru: "Завтрак", ar: "الفطور", zh: "早餐", ja: "朝食" },
+  brunch: { fr: "Brunch", en: "Brunch", es: "Brunch", it: "Brunch", nl: "Brunch", de: "Brunch", ru: "Бранч", ar: "برانش", zh: "早午餐", ja: "ブランチ" },
+  dejeuner: { fr: "Déjeuner", en: "Lunch", es: "Almuerzo", it: "Pranzo", nl: "Lunch", de: "Mittagessen", ru: "Обед", ar: "الغداء", zh: "午餐", ja: "昼食" },
+  diner: { fr: "Dîner", en: "Dinner", es: "Cena", it: "Cena", nl: "Diner", de: "Abendessen", ru: "Ужин", ar: "العشاء", zh: "晚餐", ja: "夕食" },
+  souper: { fr: "Souper", en: "Supper", es: "Cena tardía", it: "Cena tarda", nl: "Avondmaal", de: "Nachtessen", ru: "Поздний ужин", ar: "عشاء متأخر", zh: "宵夜", ja: "夜食" },
+  aperitif: { fr: "Apéritif", en: "Aperitif", es: "Aperitivo", it: "Aperitivo", nl: "Aperitief", de: "Aperitif", ru: "Аперитив", ar: "أبيريتيف", zh: "开胃酒", ja: "食前酒" },
+  gouter: { fr: "Goûter", en: "Afternoon break", es: "Merienda", it: "Merenda", nl: "Namiddag", de: "Nachmittag", ru: "Полдник", ar: "وجبة العصر", zh: "下午茶", ja: "ティータイム" },
+  continu: { fr: "Service continu", en: "All day", es: "Todo el día", it: "Orario continuato", nl: "Doorlopend", de: "Durchgehend", ru: "Весь день", ar: "طوال اليوم", zh: "全天", ja: "終日" },
+  premier_service: { fr: "1er service", en: "1st seating", es: "1er turno", it: "1° servizio", nl: "1e service", de: "1. Service", ru: "1-я посадка", ar: "الخدمة الأولى", zh: "第一轮", ja: "第1部" },
+  deuxieme_service: { fr: "2ème service", en: "2nd seating", es: "2º turno", it: "2° servizio", nl: "2e service", de: "2. Service", ru: "2-я посадка", ar: "الخدمة الثانية", zh: "第二轮", ja: "第2部" },
+  troisieme_service: { fr: "3ème service", en: "3rd seating", es: "3er turno", it: "3° servizio", nl: "3e service", de: "3. Service", ru: "3-я посадка", ar: "الخدمة الثالثة", zh: "第三轮", ja: "第3部" },
 };
 
 /**
@@ -279,6 +280,52 @@ export const TESTI_WIDGET: Record<LinguaWidget, TestiWidget> = {
     confMsg: "La tua richiesta di prenotazione è stata inviata. Riceverai un'email di conferma.",
     nouvelleResa: "Nuova prenotazione",
     accepteConditions: "Accetto le [condizioni di prenotazione e l'informativa privacy] del ristorante.",
+  },
+  nl: {
+    titre: "Een tafel reserveren",
+    date: "Datum",
+    personnes: "Personen",
+    section: "Zaal",
+    heure: "Tijd",
+    aujourdhui: "Vandaag",
+    demain: "Morgen",
+    choisirDate: "Of kies een datum…",
+    aucuneHeure: "Geen tijden beschikbaar op deze dag",
+    completAppelez: "We zijn die dag volgeboekt — maar bel ons gerust, voor het geval er een annulering is.",
+    complet: "Volgeboekt voor dit aantal personen",
+    erreurEnvoi: "Er is een fout opgetreden — probeer het zo dadelijk opnieuw.",
+    creneauPris: "Dit tijdslot is zojuist volgeboekt. Kies een ander tijdstip.",
+    champsInvalides: "Controleer de verplichte velden.",
+    annulerTitre: "Mijn reservering annuleren",
+    annulerConfirme: "Reservering annuleren",
+    annuleeOk: "Je reservering is geannuleerd.",
+    lienInvalide: "Deze link is niet meer geldig — de reservering is niet gevonden of al geannuleerd.",
+    pers: "pers.",
+    voirPlus: "Alle tijden tonen",
+    voirMoins: "Minder tonen",
+    reserver: "Reserveren",
+    telephoner: "Bel ons",
+    tropMonde: (max) =>
+      `We nemen geen online reserveringen aan voor meer dan ${max} personen — bel ons en we vinden een oplossing.`,
+    salle: "Zaal",
+    options: "Opties",
+    prenom: "Voornaam",
+    nom: "Achternaam",
+    telephone: "Telefoon",
+    email: "E-mail",
+    chaiseBebe: "Kinderstoel",
+    endroitCalme: "Rustige plek",
+    business: "Zakenlunch",
+    anniversaire: "Verjaardag",
+    specialEvent: "Speciale gelegenheid",
+    societe: "Bedrijf",
+    notesPh: "Allergieën, speciale gelegenheid…",
+    retour: "Terug",
+    confirmer: "Bevestigen",
+    merci: "Bedankt!",
+    confMsg: "Je reserveringsaanvraag is verzonden. Je ontvangt een bevestigingsmail.",
+    nouvelleResa: "Nieuwe reservering",
+    accepteConditions: "Ik accepteer de [reserveringsvoorwaarden en het privacybeleid] van het restaurant.",
   },
   de: {
     titre: "Tisch reservieren",

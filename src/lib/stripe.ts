@@ -129,3 +129,39 @@ export async function creaCheckoutBon(opts: {
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;
 }
+
+/**
+ * Crea una Checkout Session per il SUPPLEMENTO di un ordine gia' pagato:
+ * la DIFFERENZA da incassare dopo una modifica che ha aumentato il totale.
+ * metadata.supplement="1" + order_id -> il webhook la riconosce, azzera
+ * supplement_due_cents e segna supplement_paid_at, SENZA ritoccare lo stato
+ * ne' rimandare le email di conferma (l'ordine e' gia' 'paid').
+ */
+export async function creaCheckoutSupplemento(opts: {
+  orderId: string;
+  diffCents: number;
+  numero: string;
+  siteUrl: string;
+  lang?: "fr" | "en";
+}): Promise<string> {
+  const prefix = opts.lang === "en" ? "/en" : "";
+  const label =
+    opts.lang === "en"
+      ? `Order #${opts.numero} — extra`
+      : `Commande #${opts.numero} — supplement`;
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price_data: { currency: "eur", product_data: { name: label }, unit_amount: opts.diffCents },
+        quantity: 1,
+      },
+    ],
+    metadata: { order_id: opts.orderId, supplement: "1" },
+    success_url: `${opts.siteUrl}${prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${opts.siteUrl}${prefix}/order-cancel`,
+  });
+  if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
+  return session.url;
+}

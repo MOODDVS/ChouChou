@@ -46,7 +46,7 @@ export interface OrdineNotifica {
   pickup_time: string; // ISO
   items: { name: string; qty: number; price_cents: number; notes?: string }[];
   total_cents: number;
-  lang?: "fr" | "en";
+  lang?: string;
 }
 
 function euro(cents: number): string {
@@ -57,7 +57,19 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Testi dell'email di conferma al cliente, nelle due lingue.
+// Lingue delle email cliente: FR/EN/IT/NL/ES (le "lingue pubbliche").
+// Qualsiasi altra lingua ripiega su FR.
+const EMAIL_LANGS = ["fr", "en", "it", "nl", "es"] as const;
+function pick5<T>(dict: Record<string, T>, lang: string | null | undefined): T {
+  const l = typeof lang === "string" && (EMAIL_LANGS as readonly string[]).includes(lang) ? lang : "fr";
+  return dict[l] ?? dict.fr;
+}
+/** Firma del brand nella lingua richiesta; se il cliente non l'ha, ripiega su FR. */
+function firma(lang: string): string {
+  return (CLIENT.firma as Record<string, string>)[lang] ?? CLIENT.firma.fr;
+}
+
+// Testi dell'email di conferma al cliente (lingue pubbliche).
 const TXT = {
   fr: {
     subject: (num: string, ora: string) => `Commande #${num} confirmée — retrait à ${ora}`,
@@ -76,6 +88,33 @@ const TXT = {
     note: "Note",
     total: "Total",
     callBtn: "Contact us",
+  },
+  it: {
+    subject: (num: string, ora: string) => `Ordine #${num} confermato — ritiro alle ${ora}`,
+    title: "Ordine confermato",
+    intro: (name: string, num: string) => `Grazie ${name}!<br>Il tuo ordine #${num} è confermato.`,
+    pickup: "Ritiro previsto alle",
+    note: "Nota",
+    total: "Totale",
+    callBtn: "Contattaci",
+  },
+  nl: {
+    subject: (num: string, ora: string) => `Bestelling #${num} bevestigd — afhalen om ${ora}`,
+    title: "Bestelling bevestigd",
+    intro: (name: string, num: string) => `Bedankt ${name}!<br>Je bestelling #${num} is bevestigd.`,
+    pickup: "Afhalen om",
+    note: "Opmerking",
+    total: "Totaal",
+    callBtn: "Contact opnemen",
+  },
+  es: {
+    subject: (num: string, ora: string) => `Pedido #${num} confirmado — recogida a las ${ora}`,
+    title: "Pedido confirmado",
+    intro: (name: string, num: string) => `¡Gracias ${name}!<br>Tu pedido #${num} está confirmado.`,
+    pickup: "Recogida prevista a las",
+    note: "Nota",
+    total: "Total",
+    callBtn: "Contáctanos",
   },
 } as const;
 
@@ -112,13 +151,27 @@ export async function inviaNotifiche(o: OrdineNotifica): Promise<void> {
   ]);
 }
 
+/**
+ * Notifiche dopo una MODIFICA di un ordine gia' PAGATO: conferma aggiornata al
+ * cliente + ticket aggiornato in cucina (email + Slack). NIENTE email
+ * recensione: quella e' programmata una volta alla creazione (11:30 del giorno
+ * dopo) e richiamarla a ogni modifica creerebbe doppioni.
+ */
+export async function inviaModificaOrdine(
+  o: OrdineNotifica,
+  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number } = {}
+): Promise<void> {
+  await Promise.allSettled([emailModificaCliente(o, opts), emailCucina(o), slackCucina(o)]);
+}
+
 /** Email di conferma al cliente (design dark brand). */
 async function emailCliente(o: OrdineNotifica): Promise<void> {
   if (!resend || !RESEND_FROM) {
     console.warn("Resend non configurato: salto email cliente");
     return;
   }
-  const t = TXT[o.lang === "en" ? "en" : "fr"];
+  if (!o.customer_email?.trim()) return; // ordine pagato di persona senza email
+  const t = pick5(TXT, o.lang);
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
@@ -127,62 +180,62 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
 
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#b3aca6;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#dfab4e;font-size:42px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${ora}</p>
+          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Georgia,'Times New Roman',serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:#dfab4e;font-size:19px;text-align:right;font-family:Georgia,'Times New Roman',serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${dati.telLink}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -199,6 +252,201 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     });
   } catch (e) {
     console.error("Errore email cliente:", e);
+  }
+}
+
+// Testi dell'email di MODIFICA ordine (distinta dalla conferma). 5 lingue.
+const TXT_MOD = {
+  fr: {
+    subject: (num: string, ora: string) => `Commande #${num} modifiee — retrait a ${ora}`,
+    title: "Commande modifiee",
+    intro: (name: string, num: string) => `Bonjour ${name},<br>votre commande #${num} a ete mise a jour. Voici le nouveau recapitulatif.`,
+    pickup: "Retrait prevu a",
+    note: "Note",
+    total: "Nouveau total",
+    supplTitle: "Supplement a regler",
+    supplText: (eur: string) => `Suite a la modification, un supplement de <strong>${eur}</strong> reste a regler.`,
+    payBtn: "Payer le supplement",
+    refundText: (eur: string) => `La difference de <strong>${eur}</strong> vous sera remboursee sur votre moyen de paiement.`,
+    callBtn: "Nous contacter",
+  },
+  en: {
+    subject: (num: string, ora: string) => `Order #${num} updated — pickup at ${ora}`,
+    title: "Order updated",
+    intro: (name: string, num: string) => `Hello ${name},<br>your order #${num} has been updated. Here is the new summary.`,
+    pickup: "Pickup at",
+    note: "Note",
+    total: "New total",
+    supplTitle: "Extra to pay",
+    supplText: (eur: string) => `Following the change, an extra of <strong>${eur}</strong> is still due.`,
+    payBtn: "Pay the extra",
+    refundText: (eur: string) => `The difference of <strong>${eur}</strong> will be refunded to your payment method.`,
+    callBtn: "Contact us",
+  },
+  it: {
+    subject: (num: string, ora: string) => `Ordine #${num} modificato — ritiro alle ${ora}`,
+    title: "Ordine modificato",
+    intro: (name: string, num: string) => `Ciao ${name},<br>il tuo ordine #${num} e stato aggiornato. Ecco il nuovo riepilogo.`,
+    pickup: "Ritiro previsto alle",
+    note: "Nota",
+    total: "Nuovo totale",
+    supplTitle: "Supplemento da pagare",
+    supplText: (eur: string) => `A seguito della modifica, resta un supplemento di <strong>${eur}</strong> da pagare.`,
+    payBtn: "Paga il supplemento",
+    refundText: (eur: string) => `La differenza di <strong>${eur}</strong> ti sara rimborsata sul tuo metodo di pagamento.`,
+    callBtn: "Contattaci",
+  },
+  nl: {
+    subject: (num: string, ora: string) => `Bestelling #${num} gewijzigd — afhalen om ${ora}`,
+    title: "Bestelling gewijzigd",
+    intro: (name: string, num: string) => `Hallo ${name},<br>je bestelling #${num} is bijgewerkt. Hier is het nieuwe overzicht.`,
+    pickup: "Afhalen om",
+    note: "Opmerking",
+    total: "Nieuw totaal",
+    supplTitle: "Bij te betalen",
+    supplText: (eur: string) => `Na de wijziging moet er nog <strong>${eur}</strong> worden bijbetaald.`,
+    payBtn: "Supplement betalen",
+    refundText: (eur: string) => `Het verschil van <strong>${eur}</strong> wordt teruggestort op je betaalmiddel.`,
+    callBtn: "Contact opnemen",
+  },
+  es: {
+    subject: (num: string, ora: string) => `Pedido #${num} modificado — recogida a las ${ora}`,
+    title: "Pedido modificado",
+    intro: (name: string, num: string) => `Hola ${name},<br>tu pedido #${num} se ha actualizado. Aqui tienes el nuevo resumen.`,
+    pickup: "Recogida prevista a las",
+    note: "Nota",
+    total: "Nuevo total",
+    supplTitle: "Suplemento a pagar",
+    supplText: (eur: string) => `Tras la modificacion, queda un suplemento de <strong>${eur}</strong> por pagar.`,
+    payBtn: "Pagar el suplemento",
+    refundText: (eur: string) => `La diferencia de <strong>${eur}</strong> se te reembolsara en tu metodo de pago.`,
+    callBtn: "Contactanos",
+  },
+} as const;
+
+/**
+ * Email al cliente dopo una MODIFICA dell'ordine (design dark brand).
+ * NON e' la conferma: titolo/testi dedicati. Se opts.supplement_* -> blocco
+ * ambra con link Stripe per pagare la differenza; se opts.refund_cents ->
+ * riga verde che annuncia il rimborso della differenza.
+ */
+async function emailModificaCliente(
+  o: OrdineNotifica,
+  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number }
+): Promise<void> {
+  if (!resend || !RESEND_FROM) {
+    console.warn("Resend non configurato: salto email modifica");
+    return;
+  }
+  if (!o.customer_email?.trim()) return;
+  const t = pick5(TXT_MOD, o.lang);
+  const { piatti, noteCliente } = separaItems(o);
+  const ora = oraRitiro(o.pickup_time);
+  const dati = await datiRistorante();
+
+  const righeHtml = piatti
+    .map(
+      (i) => `
+      <tr>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+      </tr>`
+    )
+    .join("");
+  const noteHtml = noteCliente
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    : "";
+
+  const suppCents = opts.supplement_cents ?? 0;
+  const refCents = opts.refund_cents ?? 0;
+  const blocco =
+    suppCents > 0 && opts.supplement_url
+      ? `
+      <tr>
+        <td style="padding:4px 40px 8px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #7a4a12;background:#3a2708;">
+            <tr>
+              <td style="padding:20px 24px;text-align:center;">
+                <p style="margin:0 0 6px;color:#ffcf8f;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${t.supplTitle}</p>
+                <p style="margin:0 0 16px;color:#ffffff;font-size:15px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.supplText(euro(suppCents))}</p>
+                <a href="${opts.supplement_url}" style="display:inline-block;background:#f0a24b;color:#3a2708;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+      : refCents > 0
+        ? `
+      <tr>
+        <td style="padding:4px 40px 12px;text-align:center;">
+          <p style="margin:0;color:#8fd6b0;font-size:14px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.refundText(euro(refCents))}</p>
+        </td>
+      </tr>`
+        : "";
+
+  const html = `
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+      <tr>
+        <td style="padding:40px 40px 20px;text-align:center;">
+          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px;text-align:center;">
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 40px 8px;text-align:center;">
+          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px 12px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
+            ${righeHtml}
+            ${noteHtml}
+            <tr>
+              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      ${blocco}
+      <tr>
+        <td style="padding:8px 40px 4px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 36px;text-align:center;">
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        </td>
+      </tr>
+    </table>
+  </div>
+  `;
+
+  try {
+    await resend.emails.send({
+      from: RESEND_FROM,
+      to: o.customer_email,
+      subject: t.subject(o.numero, ora),
+      bcc: BCC,
+      html: avvolgiScuro(html),
+    });
+  } catch (e) {
+    console.error("Errore email modifica:", e);
   }
 }
 
@@ -228,6 +476,42 @@ const TXT_PAY = {
     valid: "The payment link is valid for 24 hours.",
     cancelLink: "Cancel my order",
   },
+  it: {
+    subject: (num: string) => `Il tuo ordine #${num} — pagamento online`,
+    title: "Completa il tuo ordine",
+    intro: (name: string, num: string) =>
+      `Ciao ${name},<br>ecco il riepilogo del tuo ordine #${num}. Clicca sul pulsante qui sotto per pagarlo online.`,
+    pickup: "Ritiro previsto alle",
+    note: "Nota",
+    total: "Totale",
+    payBtn: "Paga il mio ordine",
+    valid: "Il link di pagamento è valido 24 ore.",
+    cancelLink: "Annulla il mio ordine",
+  },
+  nl: {
+    subject: (num: string) => `Je bestelling #${num} — online betalen`,
+    title: "Rond je bestelling af",
+    intro: (name: string, num: string) =>
+      `Hallo ${name},<br>hier is het overzicht van je bestelling #${num}. Klik op de knop hieronder om online te betalen.`,
+    pickup: "Afhalen om",
+    note: "Opmerking",
+    total: "Totaal",
+    payBtn: "Mijn bestelling betalen",
+    valid: "De betaallink is 24 uur geldig.",
+    cancelLink: "Mijn bestelling annuleren",
+  },
+  es: {
+    subject: (num: string) => `Tu pedido #${num} — pago en línea`,
+    title: "Completa tu pedido",
+    intro: (name: string, num: string) =>
+      `Hola ${name},<br>aquí tienes el resumen de tu pedido #${num}. Haz clic en el botón de abajo para pagarlo en línea.`,
+    pickup: "Recogida prevista a las",
+    note: "Nota",
+    total: "Total",
+    payBtn: "Pagar mi pedido",
+    valid: "El enlace de pago es válido 24 horas.",
+    cancelLink: "Cancelar mi pedido",
+  },
 } as const;
 
 /** Email al cliente con il LINK DI PAGAMENTO Stripe (ordine manuale staff). */
@@ -236,7 +520,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
     console.warn("Resend non configurato: salto email link di pagamento");
     return;
   }
-  const t = TXT_PAY[o.lang === "en" ? "en" : "fr"];
+  const t = pick5(TXT_PAY, o.lang);
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
@@ -245,63 +529,63 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#b3aca6;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#dfab4e;font-size:42px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${ora}</p>
+          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Georgia,'Times New Roman',serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:#dfab4e;font-size:19px;text-align:right;font-family:Georgia,'Times New Roman',serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 8px;text-align:center;">
-          <a href="${o.pay_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
-          <p style="margin:14px 0 0;color:#8f8781;font-size:12px;">${t.valid}</p>
+          <a href="${o.pay_url}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
+          <p style="margin:14px 0 0;color:#6f9096;font-size:12px;">${t.valid}</p>
           ${o.cancel_url ? `<p style="margin:18px 0 0;"><a href="${o.cancel_url}" style="color:#ff8a8f;font-size:12px;text-decoration:underline;text-underline-offset:2px;">${t.cancelLink}</a></p>` : ""}
         </td>
       </tr>
       <tr>
         <td style="padding:20px 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 24px;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -357,15 +641,15 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
       <tr>
-        <td style="padding:24px 32px;background:#231f20;">
+        <td style="padding:24px 32px;background:#002f35;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:#dfab4e;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
+            <td style="color:#f04b4b;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
             <td style="color:#ffffff;font-size:13px;text-align:right;">#${esc(o.numero)}</td>
           </tr></table>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #231f20;">
+        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #002f35;">
           <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Retrait à</p>
           <p style="margin:6px 0 0;color:#000;font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
           <p style="margin:18px 0 4px;color:#000;font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
@@ -461,6 +745,36 @@ const TXT_REVIEW = {
     btn: "Leave a Google review",
     sign: CLIENT.firma.en,
   },
+  it: {
+    subject: (name: string) => `${name}, la tua opinione conta per noi ⭐`,
+    title: "La tua opinione conta",
+    intro: (name: string) =>
+      `Grazie ${name} per il tuo ordine di ieri!<br>` +
+      `Speriamo che ti sia piaciuto.<br>` +
+      `Una tua breve recensione ci aiuta moltissimo&nbsp;— ci vuole solo un minuto.`,
+    btn: "Lascia una recensione Google",
+    sign: firma("it"),
+  },
+  nl: {
+    subject: (name: string) => `${name}, jouw mening telt voor ons ⭐`,
+    title: "Jouw mening telt",
+    intro: (name: string) =>
+      `Bedankt ${name} voor je bestelling van gisteren!<br>` +
+      `We hopen dat het je gesmaakt heeft.<br>` +
+      `Een korte review helpt ons enorm&nbsp;— het kost maar een minuut.`,
+    btn: "Een Google-review achterlaten",
+    sign: firma("nl"),
+  },
+  es: {
+    subject: (name: string) => `${name}, tu opinión cuenta para nosotros ⭐`,
+    title: "Tu opinión cuenta",
+    intro: (name: string) =>
+      `¡Gracias ${name} por tu pedido de ayer!<br>` +
+      `Esperamos que lo hayas disfrutado.<br>` +
+      `Una breve reseña nos ayuda muchísimo&nbsp;— solo lleva un minuto.`,
+    btn: "Dejar una reseña en Google",
+    sign: firma("es"),
+  },
 } as const;
 
 /**
@@ -471,6 +785,7 @@ const TXT_REVIEW = {
  */
 async function emailReview(o: OrdineNotifica): Promise<void> {
   if (!resend || !RESEND_FROM) return;
+  if (!o.customer_email?.trim()) return; // niente email: niente richiesta recensione
   const dati = await datiRistorante();
 
   // Link recensione dall'admin: senza link, niente email.
@@ -487,7 +802,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   }
   if (!reviewUrl) return;
 
-  const t = TXT_REVIEW[o.lang === "en" ? "en" : "fr"];
+  const t = pick5(TXT_REVIEW, o.lang);
   const nome = esc(o.customer_name.split(" ")[0] || o.customer_name);
 
   // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
@@ -497,39 +812,39 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
-          <p style="margin:18px 0 0;color:#b3aca6;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:18px 0 0;color:#8fb0b5;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:26px 40px 6px;text-align:center;">
-          <p style="margin:0;color:#dfab4e;font-size:26px;letter-spacing:6px;">★★★★★</p>
+          <p style="margin:0;color:#f04b4b;font-size:26px;letter-spacing:6px;">★★★★★</p>
         </td>
       </tr>
       <tr>
         <td style="padding:18px 40px 8px;text-align:center;">
-          <a href="${reviewUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+          <a href="${reviewUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
         </td>
       </tr>
       <tr>
         <td style="padding:22px 40px 8px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
-          <p style="margin:0 0 26px;color:#8f8781;font-size:13px;line-height:1.7;">${t.sign}</p>
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:#f04b4b;"></div>
+          <p style="margin:0 0 26px;color:#6f9096;font-size:13px;line-height:1.7;">${t.sign}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -571,6 +886,36 @@ const TXT_REVIEW_RESA = {
       `A quick review helps us enormously&nbsp;— it only takes a minute.`,
     btn: "Leave a Google review",
     sign: CLIENT.firma.en,
+  },
+  it: {
+    subject: (name: string) => `${name}, la tua opinione conta per noi ⭐`,
+    title: "La tua opinione conta",
+    intro: (name: string) =>
+      `Grazie ${name} per la tua visita di ieri!<br>` +
+      `Speriamo che tu abbia trascorso un bel momento.<br>` +
+      `Una tua breve recensione ci aiuta moltissimo&nbsp;— ci vuole solo un minuto.`,
+    btn: "Lascia una recensione Google",
+    sign: firma("it"),
+  },
+  nl: {
+    subject: (name: string) => `${name}, jouw mening telt voor ons ⭐`,
+    title: "Jouw mening telt",
+    intro: (name: string) =>
+      `Bedankt ${name} voor je bezoek van gisteren!<br>` +
+      `We hopen dat je een fijne tijd hebt gehad.<br>` +
+      `Een korte review helpt ons enorm&nbsp;— het kost maar een minuut.`,
+    btn: "Een Google-review achterlaten",
+    sign: firma("nl"),
+  },
+  es: {
+    subject: (name: string) => `${name}, tu opinión cuenta para nosotros ⭐`,
+    title: "Tu opinión cuenta",
+    intro: (name: string) =>
+      `¡Gracias ${name} por tu visita de ayer!<br>` +
+      `Esperamos que hayas pasado un buen rato.<br>` +
+      `Una breve reseña nos ayuda muchísimo&nbsp;— solo lleva un minuto.`,
+    btn: "Dejar una reseña en Google",
+    sign: firma("es"),
   },
 } as const;
 
@@ -614,43 +959,43 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
   if (quando <= DateTime.now()) return null;
 
-  const t = TXT_REVIEW_RESA[r.lang === "en" ? "en" : "fr"];
+  const t = pick5(TXT_REVIEW_RESA, r.lang);
   const nome = esc(r.first_name.trim() || r.last_name.trim() || "");
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${t.title}</h1>
-          <p style="margin:18px 0 0;color:#b3aca6;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:18px 0 0;color:#8fb0b5;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:26px 40px 6px;text-align:center;">
-          <p style="margin:0;color:#dfab4e;font-size:26px;letter-spacing:6px;">★★★★★</p>
+          <p style="margin:0;color:#f04b4b;font-size:26px;letter-spacing:6px;">★★★★★</p>
         </td>
       </tr>
       <tr>
         <td style="padding:18px 40px 8px;text-align:center;">
-          <a href="${reviewUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+          <a href="${reviewUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
         </td>
       </tr>
       <tr>
         <td style="padding:22px 40px 8px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
-          <p style="margin:0 0 26px;color:#8f8781;font-size:13px;line-height:1.7;">${t.sign}</p>
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:#f04b4b;"></div>
+          <p style="margin:0 0 26px;color:#6f9096;font-size:13px;line-height:1.7;">${t.sign}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -719,7 +1064,7 @@ function lw(lang: string): LinguaWidget {
 }
 
 const LOCALE_RESA: Record<LinguaWidget, string> = {
-  fr: "fr-FR", en: "en-GB", es: "es-ES", it: "it-IT", de: "de-DE",
+  fr: "fr-FR", en: "en-GB", es: "es-ES", it: "it-IT", nl: "nl-NL", de: "de-DE",
   ru: "ru-RU", ar: "ar", zh: "zh-CN", ja: "ja-JP",
 };
 
@@ -842,6 +1187,25 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
     pendTitle: "Richiesta inviata",
     pendLead: (name) => `Grazie ${name}!<br>La tua richiesta di prenotazione è stata inviata.`,
     pendInfo: "Sarà confermata dal ristorante — riceverai allora un'email di conferma.",
+  },
+  nl: {
+    confSubject: (n) => `Je reservering bij ${n} is bevestigd`,
+    confTitle: "Reservering bevestigd",
+    confLead: (name) => `Bedankt ${name}!<br>Je tafel is gereserveerd. We verwelkomen je graag.`,
+    modifier: "Mijn reservering wijzigen",
+    hint: "Iets tussengekomen? Je kunt je reservering hierboven met één klik wijzigen of annuleren.",
+    cancSubject: (n) => `Je reservering bij ${n} is geannuleerd`,
+    cancTitle: "Reservering geannuleerd",
+    cancLead: (name) => `Hallo ${name},<br>Je reservering is geannuleerd.`,
+    cancInfo: "Voor vragen of om opnieuw te reserveren, neem gerust contact met ons op.",
+    fermSubject: (n) => `Je reservering bij ${n} — uitzonderlijke sluiting`,
+    fermTitle: "Reservering geannuleerd — uitzonderlijke sluiting",
+    fermLead: (name) => `Hallo ${name},<br>Ons restaurant is die dag uitzonderlijk gesloten. Je reservering moest daarom geannuleerd worden, onze excuses.`,
+    fermInfo: "We verwelkomen je graag op een andere datum — reserveer met één klik hieronder.",
+    pendSubject: (n) => `Je reserveringsaanvraag bij ${n}`,
+    pendTitle: "Aanvraag verzonden",
+    pendLead: (name) => `Bedankt ${name}!<br>Je reserveringsaanvraag is verzonden.`,
+    pendInfo: "Ze wordt door het restaurant bevestigd — daarna ontvang je een bevestigingsmail.",
   },
   de: {
     confSubject: (n) => `Ihre Reservierung bei ${n} ist bestätigt`,
@@ -974,20 +1338,20 @@ async function resaNotifyEmail(): Promise<string> {
 function rigaRecap(lab: string, val: string): string {
   if (!val) return "";
   return `<tr>
-    <td style="padding:10px 24px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${esc(lab)}</td>
-    <td style="padding:10px 24px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:16px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${esc(val)}</td>
+    <td style="padding:10px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${esc(lab)}</td>
+    <td style="padding:10px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:16px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${esc(val)}</td>
   </tr>`;
 }
 
 // Avvolge l'HTML di una email nel DOCUMENTO SCURO completo (head color-scheme
-// dark + body/table con sfondo #1c1819): elimina il "riquadro bianco" che il
+// dark + body/table con sfondo #00252b): elimina il "riquadro bianco" che il
 // client email mette attorno al contenuto. Stessa tecnica dell'email quotidiana.
 function avvolgiScuro(inner: string, dir = "ltr"): string {
   return `<!doctype html>
   <html dir="${dir}" lang="fr">
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark" /><meta name="supported-color-schemes" content="dark" /></head>
-  <body bgcolor="#1c1819" style="margin:0;padding:0;background:#1c1819;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1c1819" style="background:#1c1819;margin:0;padding:0;"><tr><td>
+  <body bgcolor="#00252b" style="margin:0;padding:0;background:#00252b;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#00252b" style="background:#00252b;margin:0;padding:0;"><tr><td>
   ${inner}
   </td></tr></table>
   </body></html>`;
@@ -1007,23 +1371,23 @@ function guscioResa(opts: {
   contatti: string;
 }): string {
   return `
-  <div dir="${opts.dir}" style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div dir="${opts.dir}" style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(opts.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc(opts.claimUpper)}</p>
+          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc(opts.claimUpper)}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${esc(opts.title)}</h1>
-          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${opts.lead}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${esc(opts.title)}</h1>
+          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${opts.lead}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
             ${opts.recapRows}
           </table>
         </td>
@@ -1031,13 +1395,13 @@ function guscioResa(opts: {
       ${opts.ctaHtml}
       <tr>
         <td style="padding:0 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:8px auto 24px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <div style="height:4px;max-width:180px;margin:8px auto 24px;background:#f04b4b;"></div>
         </td>
       </tr>
       ${opts.footerHtml}
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(opts.indirizzo)}<br>${esc(opts.contatti)}</p>
+        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(opts.indirizzo)}<br>${esc(opts.contatti)}</p>
         </td>
       </tr>
     </table>
@@ -1076,15 +1440,15 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   const ctaHtml = `
     <tr>
       <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${modifyUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
-        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#b3aca6;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #3a3335;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+        <a href="${modifyUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#8fb0b5;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #0f434c;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
+        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
       </td>
     </tr>`;
 
@@ -1120,6 +1484,7 @@ const TXT_RAPPEL: Record<LinguaWidget, { subject: (n: string) => string; title: 
   en: { subject: (n) => `Reminder: your booking at ${n}`, title: "Booking reminder", lead: (name) => `Hello ${name},<br>A quick reminder of your reservation today. We look forward to welcoming you!` },
   es: { subject: (n) => `Recordatorio: su reserva en ${n}`, title: "Recordatorio de reserva", lead: (name) => `Hola ${name},<br>Un recordatorio de su reserva de hoy. ¡Le esperamos!` },
   it: { subject: (n) => `Promemoria: la tua prenotazione da ${n}`, title: "Promemoria prenotazione", lead: (name) => `Ciao ${name},<br>Un promemoria della tua prenotazione di oggi. Ti aspettiamo!` },
+  nl: { subject: (n) => `Herinnering: je reservering bij ${n}`, title: "Herinnering reservering", lead: (name) => `Hallo ${name},<br>Een korte herinnering aan je reservering van vandaag. We verwelkomen je graag!` },
   de: { subject: (n) => `Erinnerung: Ihre Reservierung bei ${n}`, title: "Reservierungserinnerung", lead: (name) => `Hallo ${name},<br>eine kurze Erinnerung an Ihre heutige Reservierung. Wir freuen uns auf Sie!` },
   ru: { subject: (n) => `Напоминание: ваша бронь в ${n}`, title: "Напоминание о брони", lead: (name) => `Здравствуйте, ${name}!<br>Напоминаем о вашей сегодняшней брони. Будем рады вас видеть!` },
   ar: { subject: (n) => `تذكير: حجزك في ${n}`, title: "تذكير بالحجز", lead: (name) => `مرحباً ${name}،<br>تذكير بحجزك اليوم. نتطلع إلى استقبالك!` },
@@ -1204,15 +1569,15 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
   const ctaHtml = `
     <tr>
       <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${modifyUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
-        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#b3aca6;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #3a3335;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+        <a href="${modifyUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#8fb0b5;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #0f434c;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#dfab4e;font-size:13px;line-height:1.7;">${esc(t.pendInfo)}</p>
+        <p style="margin:0;color:#f04b4b;font-size:13px;line-height:1.7;">${esc(t.pendInfo)}</p>
       </td>
     </tr>`;
 
@@ -1264,14 +1629,14 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const ctaHtml = `
     <tr>
       <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${bookUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+        <a href="${bookUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.cancInfo)}</p>
+        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.cancInfo)}</p>
       </td>
     </tr>`;
 
@@ -1323,14 +1688,14 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   const ctaHtml = `
     <tr>
       <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${bookUrl}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+        <a href="${bookUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.7;">${esc(t.fermInfo)}</p>
+        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.fermInfo)}</p>
       </td>
     </tr>`;
 
@@ -1390,15 +1755,15 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
   <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
       <tr>
-        <td style="padding:24px 32px;background:#231f20;">
+        <td style="padding:24px 32px;background:#002f35;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:#dfab4e;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle réservation</td>
+            <td style="color:#f04b4b;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle réservation</td>
             <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
           </tr></table>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #231f20;">
+        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #002f35;">
           <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
           <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
           <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
@@ -1447,7 +1812,7 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
   <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
       <tr>
-        <td style="padding:24px 32px;background:#231f20;">
+        <td style="padding:24px 32px;background:#002f35;">
           <table role="presentation" width="100%"><tr>
             <td style="color:#e2483d;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation annulée</td>
             <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
@@ -1542,7 +1907,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
         : "Voici le récapitulatif de votre bon cadeau.");
 
   const riga = (k: string, v: string) =>
-    `<tr><td style="padding:12px 16px;border-bottom:1px solid #3a3335;color:#b3aca6;font-size:14px;">${esc(k)}</td><td style="padding:12px 16px;border-bottom:1px solid #3a3335;color:#ffffff;font-size:14px;text-align:right;font-weight:bold;">${esc(v)}</td></tr>`;
+    `<tr><td style="padding:12px 16px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:14px;">${esc(k)}</td><td style="padding:12px 16px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:14px;text-align:right;font-weight:bold;">${esc(v)}</td></tr>`;
 
   const righe = [
     riga("Valeur", euroCents(bon.initial_cents)),
@@ -1555,8 +1920,8 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
@@ -1564,58 +1929,58 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${esc(title)}</h1>
-          <p style="margin:16px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">${lead}</p>
+          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${esc(title)}</h1>
+          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${lead}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:26px 40px 6px;text-align:center;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px dashed #dfab4e;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px dashed #f04b4b;">
             <tr><td style="padding:22px 16px;text-align:center;">
-              <p style="margin:0;color:#b3aca6;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Votre code</p>
-              <p style="margin:10px 0 0;color:#dfab4e;font-size:28px;letter-spacing:3px;font-weight:bold;">${esc(bon.code)}</p>
+              <p style="margin:0;color:#8fb0b5;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Votre code</p>
+              <p style="margin:10px 0 0;color:#f04b4b;font-size:28px;letter-spacing:3px;font-weight:bold;">${esc(bon.code)}</p>
               <p style="margin:12px 0 0;color:#ffffff;font-size:22px;font-weight:bold;">${esc(euroCents(bon.initial_cents))}</p>
             </td></tr>
           </table>
         </td>
       </tr>
-      ${bon.message ? `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" style="background:#2b2526;border-left:3px solid #dfab4e;"><tr><td style="padding:14px 18px;color:#e8e2dc;font-size:14px;font-style:italic;line-height:1.6;">« ${esc(bon.message)} »${nomeOffr ? `<br><span style="color:#b3aca6;font-style:normal;font-size:13px;">— ${esc(nomeOffr)}</span>` : ""}</td></tr></table></td></tr>` : ""}
+      ${bon.message ? `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" style="background:#2b2526;border-left:3px solid #f04b4b;"><tr><td style="padding:14px 18px;color:#e8e2dc;font-size:14px;font-style:italic;line-height:1.6;">« ${esc(bon.message)} »${nomeOffr ? `<br><span style="color:#8fb0b5;font-style:normal;font-size:13px;">— ${esc(nomeOffr)}</span>` : ""}</td></tr></table></td></tr>` : ""}
       <tr>
         <td style="padding:20px 40px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
             ${righe}
           </table>
         </td>
       </tr>
-      ${indirizzoSped ? `<tr><td style="padding:8px 40px 0;"><p style="margin:0;color:#b3aca6;font-size:13px;line-height:1.7;">Envoi postal&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
+      ${indirizzoSped ? `<tr><td style="padding:8px 40px 0;"><p style="margin:0;color:#8fb0b5;font-size:13px;line-height:1.7;">Envoi postal&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
       ${
         !perDest && bon.pay_url
           ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
-               <a href="${bon.pay_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Payer maintenant</a>
-               <p style="margin:12px 0 0;color:#8f8781;font-size:12px;">Le bon sera activé dès réception du paiement.</p>
+               <a href="${bon.pay_url}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Payer maintenant</a>
+               <p style="margin:12px 0 0;color:#6f9096;font-size:12px;">Le bon sera activé dès réception du paiement.</p>
              </td></tr>`
           : !perDest && bon.paid === false
             ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
-                 <p style="margin:0;color:#dfab4e;font-size:14px;font-weight:bold;">Paiement en attente</p>
-                 <p style="margin:8px 0 0;color:#8f8781;font-size:12px;">Le restaurant vous transmettra le lien de paiement&nbsp;; le bon sera activé dès réception.</p>
+                 <p style="margin:0;color:#f04b4b;font-size:14px;font-weight:bold;">Paiement en attente</p>
+                 <p style="margin:8px 0 0;color:#6f9096;font-size:12px;">Le restaurant vous transmettra le lien de paiement&nbsp;; le bon sera activé dès réception.</p>
                </td></tr>`
             : ""
       }
       ${
         perDest && bon.pdf_url
           ? `<tr><td style="padding:22px 40px 4px;text-align:center;">
-               <a href="${bon.pdf_url}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Télécharger le PDF</a>
+               <a href="${bon.pdf_url}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Télécharger le PDF</a>
              </td></tr>`
           : ""
       }
       <tr>
         <td style="padding:20px 40px 26px;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:13px;line-height:1.7;">Présentez ce code sur place ou saisissez-le lors de votre commande en ligne.${scadenza ? ` Valable jusqu'au ${esc(scadenza)}.` : ""}</p>
+          <p style="margin:0;color:#6f9096;font-size:13px;line-height:1.7;">Présentez ce code sur place ou saisissez-le lors de votre commande en ligne.${scadenza ? ` Valable jusqu'au ${esc(scadenza)}.` : ""}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:22px 40px;border-top:1px solid #3a3335;text-align:center;">
-          <p style="margin:0;color:#8f8781;font-size:12px;line-height:1.8;">${esc(dati.nome)}<br>${esc(dati.indirizzo ?? "")}</p>
+        <td style="padding:22px 40px;border-top:1px solid #0f434c;text-align:center;">
+          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.nome)}<br>${esc(dati.indirizzo ?? "")}</p>
         </td>
       </tr>
     </table>
@@ -1664,7 +2029,7 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
   <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
       <tr>
-        <td style="padding:24px 32px;background:#231f20;">
+        <td style="padding:24px 32px;background:#002f35;">
           <table role="presentation" width="100%"><tr>
             <td style="color:#5b9bff;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation modifiée</td>
             <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>

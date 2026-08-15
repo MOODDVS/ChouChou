@@ -3,6 +3,7 @@
 // Notes (lavagnetta staff, oro), Commandes, Horaires, Menu.
 // Le Notes hanno un'anteprima nel tile + un modale per la board completa.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import TileNotes from "../../components/admin/home/TileNotes.astro";
@@ -21,6 +22,7 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import "../../styles/datepicker.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -261,39 +263,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .evm-del:hover { border-color: #ed1c24; color: var(--c-text); }
       .evm-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.6rem; border-radius: 999px; font-size: 0.72rem; }
 
-      /* Datepicker brand (copia locale — sopra l'overlay: z 420) */
-      .dp-panel {
-        position: fixed; z-index: 420; width: 308px;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.9rem;
-      }
-      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
-      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
-      .dp-nav {
-        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
-        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
-      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
-      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
-      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-      .dp-cell {
-        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
-        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
-        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
-        transition: background 0.15s, color 0.15s;
-      }
-      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
-      .dp-vuota { cursor: default; }
-      .dp-off { color: var(--c-muted); opacity: 0.45; cursor: not-allowed; }
-      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
-      .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      @media (pointer: coarse) {
-        .dp-panel { width: 340px; }
-        .dp-cell { min-height: 44px; font-size: 1.05rem; }
-      }
 
       /* --- Tile Menu --- */
       .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
@@ -439,6 +408,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         border-bottom-right-radius: 6px;
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
