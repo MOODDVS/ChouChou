@@ -79,3 +79,4 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
 | `CRON_SECRET` | .env + host | Protegge i cron: /api/cron/daily-brief, /api/cron/newsletter, /api/cron/reservation-reminders |
 | `GOOGLE_SA_KEY_B64` | opzionale (host) | Base64 del JSON del service account Google (Search Console → onglet Visibilité). Robot da aggiungere come utente nella Search Console di ogni cliente. |
+| `GOOGLE_PLACES_API_KEY` | opzionale (host) | Google Places API (New) per le recensioni pubbliche (`/api/reviews` del sito). Richiede anche `google_place_id` in `app_config`. |
