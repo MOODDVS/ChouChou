@@ -107,7 +107,9 @@
   .rw-embed iframe{width:100%;height:520px;border:0;display:block;background:transparent;transition:height .25s ease}
   .rw-cap{display:flex;align-items:center;gap:.5rem;color:var(--muted);font-size:.78rem;margin-bottom:.7rem}
   .info-col{display:flex;flex-direction:column;gap:1.9rem}
-  .info-blk .info-h{font-family:var(--body);text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:800;color:var(--accent);margin-bottom:.55rem}
+  .info-blk .info-h{display:flex;align-items:center;gap:.45rem;font-family:var(--body);text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:800;color:var(--accent);margin-bottom:.55rem}
+  .info-ico{width:16px;height:16px;flex:none;stroke-width:2}
+  .info-name{font-weight:800;color:var(--cream)}
   .info-line{color:var(--cream);font-size:.98rem;line-height:1.75}
   .info-line a{color:var(--cream);text-decoration:none;transition:color .15s}
   .info-line a:hover{color:var(--accent)}
@@ -150,26 +152,53 @@
   .menu-card{min-height:360px;border-radius:18px;border:1px solid rgba(247,241,230,.18);background:rgba(18,14,12,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center}
   .menu-ph{opacity:.28;color:var(--cream)}
   .menu-ph svg{width:52px;height:52px}
-  .ir-grid{display:grid;grid-template-columns:1fr 1fr;gap:2.8rem;align-items:start}
+  .ir-grid{display:grid;grid-template-columns:0.45fr 1fr;gap:2.8rem 8.5rem;align-items:start}
   @media(max-width:900px){.ir-grid{grid-template-columns:1fr}}
   .ir-info{display:flex;flex-direction:column;gap:1.5rem}
-  .ir-resa{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--panel2)}
+  .ir-resa{width:min(480px,100%);justify-self:center;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--panel2)}
   .ir-resa iframe{width:100%;min-height:620px;border:0;display:block}
+  .ir-form{border:1px solid var(--line);background:var(--panel2);border-radius:16px;padding:2.1rem 2.3rem}
+  .ir-form .eyebrow{display:block;margin-bottom:1rem}
+  .cform{display:flex;flex-direction:column;gap:1.05rem}
+  .cf-row{display:grid;grid-template-columns:1fr 1fr;gap:1.05rem}
+  @media(max-width:520px){.cf-row{grid-template-columns:1fr}}
+  .cf-in{width:100%;box-sizing:border-box;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:10px;padding:.75rem .85rem;color:var(--cream);font-family:var(--body);font-size:.95rem}
+  .cf-in::placeholder{color:var(--muted)}
+  .cf-in:focus{outline:none;border-color:var(--accent)}
+  .cf-sel{appearance:none;-webkit-appearance:none;cursor:pointer}
+  .cf-ta{resize:vertical;min-height:96px}
+  .cf-btn{align-self:center;justify-content:center;margin-top:.6rem;padding:.8rem 2.8rem}
+  .cf-status{font-size:.85rem;margin:.2rem 0 0;min-height:1.1em}
+  .cf-status.ok{color:var(--green)}
+  .cf-status.err{color:#e0553f}
+  .cf-check{display:flex;align-items:flex-start;gap:.55rem;color:var(--muted);font-size:.82rem;line-height:1.45;cursor:pointer;margin-top:.2rem}
+  .cf-check input{margin-top:.15rem;width:16px;height:16px;flex:none;accent-color:var(--accent);cursor:pointer}
   .reviews-block{margin-top:3.6rem}
   .reviews-block[hidden]{display:none}
   .rv-head{font-family:var(--body);text-transform:uppercase;letter-spacing:.18em;font-size:.72rem;font-weight:800;color:var(--accent);text-align:center;margin-bottom:1.6rem}
-  .reviews{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem}
-  @media(max-width:820px){.reviews{grid-template-columns:1fr}}
-  .rev{background:var(--panel2);border:1px solid var(--line);border-radius:16px;padding:1.5rem;display:flex;flex-direction:column;gap:.6rem}
-  .rev .rv-stars{color:#eec063;letter-spacing:2px;font-size:.95rem}
-  .rev .rv-txt{color:var(--cream);font-size:.94rem;line-height:1.6;flex:1}
-  .rev .rv-who{color:var(--muted);font-size:.85rem}
-  .rev .rv-who b{color:var(--cream);font-weight:700}
+  .rv-carousel{position:relative}
+  .reviews{display:flex;gap:2.5rem;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:.4rem .2rem;scrollbar-width:none;-ms-overflow-style:none}
+  .reviews::-webkit-scrollbar{display:none}
+  .rev{scroll-snap-align:start;flex:0 0 clamp(280px,32%,420px);display:flex;flex-direction:column;gap:.9rem;background:none;border:0;border-radius:0;padding:0}
+  .rev .rv-top{display:flex;align-items:center;gap:.7rem}
+  .rev .rv-av{position:relative;overflow:hidden;width:44px;height:44px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--panel2);color:var(--cream);font-weight:800;font-size:1rem;border:1px solid var(--line)}
+  .rev .rv-av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .rev .rv-name{color:var(--cream);font-weight:700;font-size:.92rem}
+  .rev .rv-when{color:var(--muted);font-size:.82rem}
+  .rev .rv-stars{letter-spacing:2px;font-size:.95rem}
+  .rev .rv-stars .on{color:#eec063}
+  .rev .rv-stars .off{color:#5a534d}
+  .rev .rv-txt{color:var(--cream);font-size:.94rem;line-height:1.65}
+  .rv-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:rgba(20,18,18,.85);color:var(--cream);font-size:1.5rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
+  .rv-nav:hover{background:var(--panel2)}
+  .rv-nav.prev{left:-10px}
+  .rv-nav.next{right:-10px}
+  @media(max-width:820px){.rev{flex:0 0 84%}.rv-nav{display:none}}
   .map-full{margin-top:4.5rem;width:100%;height:clamp(320px,38vw,460px)}
   .map-full iframe{width:100%;height:100%;border:0;display:block}
 
   /* order / menu */
-  .cats{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1.6rem}
+  .cats{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.6rem}
   .menu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 2.6rem}
   @media(max-width:620px){.menu-grid{grid-template-columns:1fr}}
   .dish{display:flex;gap:1rem;align-items:center;padding:1rem 0;border-bottom:1px solid var(--line)}
@@ -226,6 +255,9 @@
   .promo .pt{font-family:var(--disp);font-size:1.5rem;line-height:1.1;margin:.3rem 0 .4rem}
   .promo .code{display:inline-block;font-family:var(--title);letter-spacing:.15em;background:var(--accent);color:#fff;border-radius:8px;padding:.25rem .7rem;font-size:1.05rem;margin:.5rem 0 .8rem;cursor:copy}
   .promo small{color:var(--muted);font-size:.72rem}
+  .promo-body{color:var(--muted);font-size:.82rem;line-height:1.5;margin:.35rem 0 .7rem;white-space:pre-line}
+  .promo-cta{display:inline-block;font-family:var(--title);letter-spacing:.06em;background:var(--accent);color:#fff;border-radius:8px;padding:.5rem .9rem;font-size:.82rem;font-weight:800;text-transform:uppercase;cursor:pointer;text-decoration:none}
+  .promo-cta:hover{filter:brightness(1.08)}
 
   /* modal */
   .ov{position:fixed;inset:0;z-index:80;background:rgba(8,6,3,.72);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:1.2rem}
@@ -236,8 +268,9 @@
   .modal h3{font-family:var(--disp);font-size:1.7rem;font-weight:400;margin-bottom:.2rem;color:#241c13}
   .modal .msub{color:#8a7f6f;font-size:.88rem;margin-bottom:1.2rem}
   /* modal that hosts the REAL reservation widget (dark, iframe fills it) */
-  .modal.resa-modal{background:#0d0d0d;color:#fff;max-width:482px;padding:0;overflow:hidden;border:1px solid var(--line)}
-  .modal.resa-modal .x{color:#b8a894;z-index:3}
+  .resa-wrap{display:flex;flex-direction:column;align-items:center;gap:1.1rem;width:min(482px,100%)}
+  .resa-close{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;background:rgba(255,255,255,.12);color:#fff;border:1px solid var(--line);border-radius:999px;padding:.62rem 1.8rem;font-family:var(--body);font-weight:800;font-size:.9rem;letter-spacing:.02em;cursor:pointer;transition:background .2s}
+  .resa-close:hover{background:rgba(255,255,255,.22)}
   .resa-frame{width:100%;height:520px;max-height:86vh;border:0;display:block;background:transparent;transition:height .25s ease}
   .fld{margin-bottom:1rem}
   .mlabel{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:#8a7f6f;font-weight:800;margin-bottom:.35rem}
@@ -257,10 +290,21 @@
   .disc{display:flex;justify-content:space-between;color:#1c7c3c;font-weight:700;font-size:.9rem;margin-top:.4rem}
   .note{font-size:.72rem;color:#8a7f6f;margin-top:.7rem;text-align:center}
 
-  footer{background:#0a0a0a;border-top:1px solid var(--line);padding:3.5rem 0 2.5rem;text-align:center}
-  .foot-brand{display:inline-flex;align-items:center;gap:.6rem;font-family:var(--title);font-size:1.8rem;letter-spacing:.04em;margin-bottom:.6rem}
-  .fnav{display:flex;gap:1.3rem;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:.88rem;margin:1rem 0}
-  .fnav a:hover{color:var(--accent)}
+  footer{background:#0a0a0a;border-top:1px solid var(--line);padding:4rem 0 2rem}
+  .foot-grid{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:2.5rem;align-items:start}
+  @media(max-width:760px){.foot-grid{grid-template-columns:1fr;gap:2.2rem}}
+  .foot-name{font-family:var(--disp);font-size:1.7rem;color:var(--cream);margin-bottom:.7rem}
+  .foot-tag{color:var(--muted);font-size:.9rem;line-height:1.6;max-width:320px;margin:0 0 1.3rem}
+  .foot-social{display:flex;gap:.6rem;flex-wrap:wrap}
+  .foot-social:empty{display:none}
+  .foot-social a{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);color:var(--muted);transition:color .2s,border-color .2s,background .2s}
+  .foot-social a:hover{color:#fff;border-color:var(--accent);background:var(--accent)}
+  .foot-social svg{width:17px;height:17px}
+  .foot-h{font-family:var(--body);text-transform:uppercase;letter-spacing:.16em;font-size:.7rem;font-weight:800;color:var(--accent);margin-bottom:1rem}
+  .foot-line{display:block;color:var(--muted);font-size:.9rem;line-height:1.55;margin-bottom:.55rem;transition:color .2s}
+  a.foot-line:hover{color:var(--cream)}
+  .foot-bottom{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:3rem;padding-top:1.6rem;border-top:1px solid var(--line);color:var(--muted);font-size:.78rem}
+  .foot-powered b{color:var(--cream)}
   .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s,transform .7s}
   .reveal.in{opacity:1;transform:none}
   .toast{position:fixed;left:50%;top:1rem;transform:translateX(-50%) translateY(-160%);z-index:90;background:var(--green);color:#06341c;font-weight:800;padding:.7rem 1.3rem;border-radius:999px;transition:transform .35s;box-shadow:0 14px 30px rgba(0,0,0,.4)}
@@ -282,10 +326,9 @@
     <nav class="nav-links">
       <a href="#accueil" data-k="nav.home">Accueil</a>
       <a href="#restaurant" data-k="nav.resto">Le restaurant</a>
-      <a href="#carte" data-k="nav.carte">La carte</a>
+      <a href="#commander" data-k="nav.carte">La carte</a>
       <a href="#menus" data-k="nav.menus">Les menus</a>
-      <a href="#ambiance" data-k="nav.ambiance">L'ambiance</a>
-      <a href="#reserver" data-k="nav.book">Réserver</a>
+      <a href="#reserver" data-k="nav.contact">Nous contacter</a>
     </nav>
     <div class="nav-right">
       <span class="powered" data-k="powered">Propulsé par <b>RestoHub</b></span>
@@ -378,7 +421,7 @@
 <!-- ============ COMMANDER + MENU ============ -->
 <section class="blk" id="commander">
   <div class="wrap">
-    <div class="reveal" style="text-align:center;max-width:620px;margin:0 auto 2.5rem">
+    <div class="reveal" style="text-align:center;max-width:1000px;margin:0 auto 2.5rem">
       <div class="eyebrow" data-k="order.eye">Commande en ligne</div>
       <h2 class="sec" data-k="order.h">Ajoutez au panier. Un code promo ? Encore mieux.</h2>
       <p class="sub" style="margin:0 auto" data-k="order.p">Take-away et click &amp; collect intégrés. Paiement sécurisé, coupons, plats indisponibles masqués en un clic — tout est géré depuis un seul endroit.</p>
@@ -416,25 +459,47 @@
 <!-- ============ INFOS & RÉSERVATION ============ -->
 <section class="blk alt" id="reserver">
   <div class="wrap">
-    <div class="reveal" style="text-align:center;max-width:640px;margin:0 auto 2.8rem">
+    <div class="reveal" style="text-align:center;max-width:1000px;margin:0 auto 2.8rem">
       <div class="eyebrow" data-k="info.eye">Infos & réservation</div>
       <h2 class="sec" data-k="info.h">Nous trouver, réserver, nous écrire.</h2>
     </div>
     <div class="ir-grid">
       <div class="ir-info reveal">
-        <div class="info-blk"><div class="info-h" data-k="acc.address">Adresse</div><p class="info-line">__RESTO_ADDRESS__</p></div>
-        <div class="info-blk"><div class="info-h" data-k="acc.contact">Contact</div><p class="info-line"><a href="tel:__RESTO_TEL__">__RESTO_PHONE__</a></p><p class="info-line"><a href="mailto:__RESTO_EMAIL__">__RESTO_EMAIL__</a></p></div>
-        <div class="info-blk"><div class="info-h" data-k="acc.hours">Horaires</div><div class="info-hours" id="infoHours"></div></div>
-        <div class="info-blk"><div class="info-h" data-k="info.pay">Moyens de paiement</div><p class="info-line" data-k="info.payv">Espèces, carte bancaire, sans contact.</p></div>
-        <div class="info-blk"><div class="info-h" data-k="info.amen">Sur place</div><p class="info-line" data-k="info.amenv">Terrasse, Wi-Fi, accès PMR, réservation en ligne.</p></div>
+        <div class="info-blk"><div class="info-h"><svg class="info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.5 7-12a7 7 0 1 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span data-k="acc.address">Adresse</span></div><p class="info-line info-name">__RESTO_NAME__</p><p class="info-line">__RESTO_ADDR_HTML__</p></div>
+        <div class="info-blk"><div class="info-h"><svg class="info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z"/></svg><span data-k="acc.contact">Contact</span></div><p class="info-line"><a href="tel:__RESTO_TEL__">__RESTO_PHONE__</a></p><p class="info-line"><a href="mailto:__RESTO_EMAIL__">__RESTO_EMAIL__</a></p></div>
+        <div class="info-blk"><div class="info-h"><svg class="info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-k="acc.hours">Horaires</span></div><div class="info-hours" id="infoHours"></div></div>
+        <div class="info-blk"><div class="info-h"><svg class="info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span data-k="info.pay">Moyens de paiement</span></div><p class="info-line" data-k="info.payv">Espèces, carte bancaire, sans contact.</p></div>
+        <div class="info-blk"><div class="info-h"><svg class="info-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v6a3 3 0 0 0 6 0V3M6 9v12"/><path d="M17 3c-1.5 0-3 2-3 5s1 4 3 4v9"/></svg><span data-k="info.amen">Sur place</span></div><p class="info-line" data-k="info.amenv">Terrasse, Wi-Fi, accès PMR, réservation en ligne.</p></div>
       </div>
-      <div class="ir-resa reveal">
-        <iframe title="Réservation" src="/demo01/reservation-embed?lang=fr" data-rhframe loading="lazy"></iframe>
+      <div class="ir-form reveal">
+        <div class="eyebrow" data-k="ctf.eye">Écrivez-nous</div>
+        <form id="contactForm" class="cform" novalidate>
+          <div class="cf-row">
+            <input class="cf-in" name="nome" data-k-ph="ctf.name" placeholder="Nom" autocomplete="name" required>
+            <input class="cf-in" name="email" type="email" data-k-ph="ctf.email" placeholder="Email" autocomplete="email" required>
+          </div>
+          <input class="cf-in" name="telefono" data-k-ph="ctf.phone" placeholder="Téléphone (facultatif)" autocomplete="tel">
+          <select class="cf-in cf-sel" name="oggetto">
+            <option value="" data-k="ctf.r0">Motif du message</option>
+            <option data-k="ctf.r1">Réservation de groupe</option>
+            <option data-k="ctf.r2">Événement privé / privatisation</option>
+            <option data-k="ctf.r3">Question sur la carte</option>
+            <option data-k="ctf.r4">Autre demande</option>
+          </select>
+          <textarea class="cf-in cf-ta" name="messaggio" rows="4" data-k-ph="ctf.msg" placeholder="Votre message" required></textarea>
+          <label class="cf-check"><input type="checkbox" name="conditions"> <span data-k="ctf.terms">J'accepte les conditions et la politique de confidentialité.</span></label>
+          <button type="submit" class="btn btn-p cf-btn" data-k="ctf.send">Envoyer</button>
+          <p class="cf-status" id="cfStatus"></p>
+        </form>
       </div>
     </div>
     <div class="reviews-block reveal" id="reviewsBlock" hidden>
       <div class="rv-head" data-k="info.reviews">Avis Google</div>
-      <div class="reviews" id="reviewsGrid"></div>
+      <div class="rv-carousel">
+        <button class="rv-nav prev" id="rvPrev" type="button" aria-label="&#8592;">&#8249;</button>
+        <div class="reviews" id="reviewsGrid"></div>
+        <button class="rv-nav next" id="rvNext" type="button" aria-label="&#8594;">&#8250;</button>
+      </div>
     </div>
   </div>
   <div class="map-full reveal"><iframe title="Google Maps" src="__MAPS_EMBED__" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
@@ -465,36 +530,48 @@
 </section>
 
 <footer>
-  <div class="wrap">
-    <div class="foot-brand"><span class="brand"><span class="logo" style="width:30px;height:30px"><svg viewBox="0 0 24 24"><path d="M12 2 L21.5 20 Q12 24 2.5 20 Z" fill="#f7f1e6"/><circle cx="9.8" cy="12" r="1.35" fill="#e23b2e"/><circle cx="14.2" cy="14.3" r="1.35" fill="#e23b2e"/><circle cx="11.6" cy="16.8" r="1.15" fill="#46a860"/></svg></span></span>RestoHub</div>
-    <div class="fnav">
-      <a href="#reserver" data-k="nav.book">Réserver</a>
-      <a href="#commander" data-k="nav.order">Commander</a>
-      <a href="#menu" data-k="nav.menu">Menu</a>
-      <a href="#gestion" data-k="nav.admin">Gestion</a>
+  <div class="wrap foot-grid">
+    <div class="foot-col">
+      <div class="foot-name">__RESTO_NAME__</div>
+      <p class="foot-tag" data-k="foot.tag">Cuisine généreuse et authentique — réservez, commandez, savourez.</p>
+      <div class="foot-social">__SOCIAL_LINKS__</div>
     </div>
-    <p style="color:var(--muted);font-size:.8rem" data-k="foot.note">Démo interactive · Bella Napoli est une pizzeria fictive propulsée par RestoHub.</p>
+    <div class="foot-col">
+      <div class="foot-h" data-k="acc.contact">Contact</div>
+      <span class="foot-line">__RESTO_ADDR_HTML__</span>
+      <a class="foot-line" href="tel:__RESTO_TEL__">__RESTO_PHONE__</a>
+      <a class="foot-line" href="mailto:__RESTO_EMAIL__">__RESTO_EMAIL__</a>
+    </div>
+    <div class="foot-col">
+      <div class="foot-h" data-k="foot.explore">Explorer</div>
+      <a class="foot-line" href="#reserver" data-k="nav.book">Réserver</a>
+      <a class="foot-line" href="#commander" data-k="nav.order">Commander</a>
+      <a class="foot-line" href="#menu" data-k="nav.menu">Menu</a>
+    </div>
+  </div>
+  <div class="wrap foot-bottom">
+    <span>© __YEAR__ __RESTO_NAME__</span>
+    <span class="foot-powered" data-k="powered">Propulsé par <b>RestoHub</b></span>
   </div>
 </footer>
 
 <!-- cart bar -->
 <div class="cartbar" id="cartbar" data-open="cart"><span data-k="cart.bar">Voir le panier</span> · <span class="cc"><span id="cartCount">0</span> · <span id="cartTotal">0,00 €</span></span></div>
 
-<!-- promo popup -->
+<!-- promo popup : pilote par le moteur (admin Marketing) -->
 <div class="promo" id="promo">
-  <button class="x" onclick="document.getElementById('promo').classList.remove('show')">×</button>
-  <span class="badge" data-k="promo.badge">Pop-up</span>
-  <div class="pt" data-k="promo.t">−10 % sur votre première commande</div>
-  <small data-k="promo.s1">Utilisez le code&nbsp;:</small><br>
-  <span class="code" id="promoCode" title="copier">BIENVENUE10</span><br>
-  <small data-k="promo.s2">Ceci est un pop-up géré depuis l'admin — apparition, pages, durée.</small>
+  <button class="x" data-promo-close aria-label="Fermer">×</button>
+  <span class="badge" data-k="promo.badge">À la une</span>
+  <div class="pt" id="promoTitle"></div>
+  <p class="promo-body" id="promoBody"></p>
+  <a class="promo-cta" id="promoBtn" style="display:none"></a>
 </div>
 
 <!-- RESA modal : le VRAI widget dans un iframe (/reservation-embed) -->
 <div class="ov" id="ov-resa">
-  <div class="modal resa-modal">
-    <button class="x" data-close>×</button>
+  <div class="resa-wrap">
     <iframe class="resa-frame" title="Réservation" data-resaframe data-rhframe></iframe>
+    <button class="resa-close" data-close data-k="resa.close">Fermer</button>
   </div>
 </div>
 
@@ -557,54 +634,54 @@ const ICONS={
 
 const T={
  fr:{
-  "nav.book":"Réserver","nav.home":"Accueil","nav.resto":"Le restaurant","nav.carte":"La carte","nav.menus":"Les menus","nav.ambiance":"L'ambiance","nav.order":"Commander","nav.menu":"Menu","nav.admin":"Gestion","powered":"Propulsé par ",
+  "nav.book":"Réserver","nav.contact":"Nous contacter","nav.home":"Accueil","nav.resto":"Le restaurant","nav.carte":"La carte","nav.menus":"Les menus","nav.ambiance":"L'ambiance","nav.order":"Commander","nav.menu":"Menu","nav.admin":"Gestion","powered":"Propulsé par ",
   "hero.kicker":"Bienvenue","hero.title1":"Le plaisir","hero.title2":"de la table.",
   "hero.lead":"Réservez votre table ou commandez à emporter en quelques secondes.",
   "hero.cta1":"Réserver une table","hero.cta2":"Commander en ligne","hero.m1":"418 avis Google","hero.m2":"pour réserver","hero.m3":"langues","hero.scroll":"Découvrir","hours.open":"Nous sommes ouverts de {from} à {to}","hours.today":"Fermé · ouvre aujourd'hui à {time}","hours.tomorrow":"Aujourd'hui fermé · ouverture demain à {time}","hours.day":"Fermé · ouverture {day} à {time}","hours.closed":"Fermé",
-  "resa.eye":"Réservations","resa.h":"Une table en 30 secondes, sans appel.","resa.p":"Vos clients choisissent le jour, l'heure et le nombre de couverts. Le plan de salle se remplit tout seul, les confirmations partent par email. Vous, vous voyez tout dans un agenda clair.","resa.try":"Ouvrir en plein écran","resa.livebadge":"Widget réel · en direct","acc.eye":"Bienvenue","acc.h":"Le plaisir d'une table bien dressée.","acc.p1":"Une cuisine généreuse et authentique, des produits choisis avec soin, et le partage comme fil conducteur.","acc.p2":"Que ce soit pour un déjeuner, un dîner ou un moment entre amis, chaque instant passé à notre table est une invitation à ralentir et savourer.","acc.cta":"Voir la carte","acc.contact":"Nous contacter","acc.address":"Adresse","acc.hours":"Horaires","acc.closed":"Fermé","acc.pt1t":"Produits frais","acc.pt1p":"Des ingrédients sélectionnés chaque matin auprès de producteurs de confiance, au rythme des saisons pour garantir goût et fraîcheur.","acc.pt2t":"Fait maison","acc.pt2p":"Tout est préparé sur place, avec patience et savoir-faire : des recettes pensées avec passion et travaillées avec soin.","acc.pt3t":"Accueil chaleureux","acc.pt3p":"Une équipe attentive et souriante qui prend le temps de vous recevoir, pour que chaque visite soit simple et agréable.","acc.pt4t":"Sur place ou à emporter","acc.pt4p":"Installez-vous en salle ou emportez vos plats : réservez votre table et commandez en ligne en quelques secondes.","rest.eye":"Le restaurant","rest.h":"Notre maison en images.","rest.p":"Quelques instants de vie, de la salle à la cuisine : l'esprit des lieux et l'attention aux détails qui nous ressemblent.","menus.eye":"Les menus","menus.h":"Nos menus.","menus.p":"Deux formules pensées pour toutes les envies. À découvrir très bientôt.","info.eye":"Infos & réservation","info.h":"Nous trouver, réserver, nous écrire.","info.pay":"Moyens de paiement","info.payv":"Espèces, carte bancaire, sans contact.","info.amen":"Sur place","info.amenv":"Terrasse, Wi-Fi, accès PMR, réservation en ligne.","info.reviews":"Avis Google",
+  "resa.eye":"Réservations","resa.h":"Une table en 30 secondes, sans appel.","resa.p":"Vos clients choisissent le jour, l'heure et le nombre de couverts. Le plan de salle se remplit tout seul, les confirmations partent par email. Vous, vous voyez tout dans un agenda clair.","resa.try":"Ouvrir en plein écran","resa.livebadge":"Widget réel · en direct","resa.close":"Fermer","acc.eye":"Bienvenue","acc.h":"Le plaisir d'une table bien dressée.","acc.p1":"Une cuisine généreuse et authentique, des produits choisis avec soin, et le partage comme fil conducteur.","acc.p2":"Que ce soit pour un déjeuner, un dîner ou un moment entre amis, chaque instant passé à notre table est une invitation à ralentir et savourer.","acc.cta":"Voir la carte","acc.contact":"Nous contacter","acc.address":"Adresse","acc.hours":"Horaires","acc.closed":"Fermé","acc.pt1t":"Produits frais","acc.pt1p":"Des ingrédients sélectionnés chaque matin auprès de producteurs de confiance, au rythme des saisons pour garantir goût et fraîcheur.","acc.pt2t":"Fait maison","acc.pt2p":"Tout est préparé sur place, avec patience et savoir-faire : des recettes pensées avec passion et travaillées avec soin.","acc.pt3t":"Accueil chaleureux","acc.pt3p":"Une équipe attentive et souriante qui prend le temps de vous recevoir, pour que chaque visite soit simple et agréable.","acc.pt4t":"Sur place ou à emporter","acc.pt4p":"Installez-vous en salle ou emportez vos plats : réservez votre table et commandez en ligne en quelques secondes.","rest.eye":"Le restaurant","rest.h":"Notre maison en images.","rest.p":"Quelques instants de vie, de la salle à la cuisine : l'esprit des lieux et l'attention aux détails qui nous ressemblent.","menus.eye":"Les menus","menus.h":"Nos menus.","menus.p":"Deux formules pensées pour toutes les envies. À découvrir très bientôt.","info.eye":"Infos & réservation","info.h":"Nous trouver, réserver, nous écrire.","info.pay":"Moyens de paiement","info.payv":"Espèces, carte bancaire, sans contact.","info.amen":"Sur place","info.amenv":"Terrasse, Wi-Fi, accès PMR, réservation en ligne.","info.reviews":"Avis Google","ctf.eye":"Écrivez-nous","ctf.name":"Nom","ctf.email":"Email","ctf.phone":"Téléphone (facultatif)","ctf.r0":"Motif du message","ctf.r1":"Réservation de groupe","ctf.r2":"Événement privé / privatisation","ctf.r3":"Question sur la carte","ctf.r4":"Autre demande","ctf.msg":"Votre message","ctf.send":"Envoyer","ctf.sending":"Envoi…","ctf.ok":"Merci ! Votre message a bien été envoyé.","ctf.err":"Échec de l'envoi. Réessayez ou appelez-nous.","ctf.req":"Remplissez nom, email et message.","ctf.terms":"J'accepte les conditions et la politique de confidentialité.","ctf.terms_req":"Veuillez accepter les conditions.","foot.tag":"Cuisine généreuse et authentique — réservez, commandez, savourez.","foot.explore":"Explorer",
   "order.eye":"Notre carte","order.h":"Une carte à composer selon vos envies.","order.p":"Des entrées aux desserts, une sélection préparée chaque jour avec des produits choisis. Ajoutez vos plats au panier et commandez en quelques secondes, à emporter ou en click & collect.","order.hint":"↑ Ajoutez des plats, puis ouvrez le panier pour tester un coupon (essayez BIENVENUE10).",
   "cat.all":"Tout","cat.starter":"Antipasti","cat.main":"Pizzas","cat.dessert":"Desserts","cat.drink":"Boissons",
   "adm.eye":"Côté restaurateur","adm.h":"Un seul outil. Toute la maison.","adm.p":"Pendant que vos clients réservent et commandent, vous pilotez tout depuis un tableau de bord clair — sur le téléphone comme sur l'ordinateur.","adm.t1":"Commandes du jour","adm.t1s":"1 248 € encaissés","adm.t2":"Réservations","adm.t2s":"84 couverts ce soir","adm.t3":"Chiffre d'affaires · 7 j","adm.t3s":"+18 % vs semaine précédente","adm.t4":"Avis Google","adm.t4s":"Répondez en 1 clic","adm.t5":"Newsletter","adm.t5s":"abonnés · +52 cette semaine","adm.t6":"Menu en ligne","adm.t6a":"Pizza Margherita","adm.t6b":"Quattro Formaggi","adm.on":"Actif","adm.off":"Épuisé","adm.t6s":"Masquez un plat en un clic","adm.t7":"Notifications push","adm.t7s":"« Nouvelle commande — 24,50 € »",
   "feat.eye":"Tout inclus","feat.h":"Le site vitrine ET la gestion, réunis.",
   "cta.eye":"RestoHub","cta.h":"Prêt à digitaliser votre restaurant ?","cta.p":"Réservations, commandes, marketing, menu multilingue et statistiques — un seul abonnement, mis en ligne en quelques jours.","cta.b1":"Voir une démo live","cta.b2":"Nous contacter",
   "foot.note":"Démo interactive · Bella Napoli est une pizzeria fictive propulsée par RestoHub.",
-  "promo.badge":"Pop-up","promo.t":"−10 % sur votre première commande","promo.s1":"Utilisez le code :","promo.s2":"Ceci est un pop-up géré depuis l'admin — apparition, pages, durée.",
+  "promo.badge":"À la une",
   "cart.bar":"Voir le panier","cart.h":"Votre commande","cart.sub":"Take-away · Bella Napoli","cart.coupon":"Code promo","cart.apply":"Appliquer","cart.total":"Total","cart.pay":"Payer","cart.note":"Paiement sécurisé par Stripe.","cart.empty":"Votre panier est vide.","co.pickup":"Retrait aujourd'hui","co.name":"Prénom","co.surname":"Nom","co.phone":"Téléphone","co.email":"Email","co.fill":"Choisissez le créneau et remplissez nom + email.","co.noslot":"Aucun créneau aujourd'hui",
   "f.resa":["Réservations","Agenda, plan de salle, confirmations automatiques."],"f.order":["Commandes en ligne","Take-away & click and collect, paiement Stripe."],"f.coupon":["Coupons","Codes promo, plafonds, exclusions — en 30 secondes."],"f.popup":["Pop-ups","Promos ciblées par page et par langue."],"f.news":["Newsletter","Campagnes, brouillons, abonnés, statistiques."],"f.lang":["Menu multilingue","Votre site et vos emails en plusieurs langues."],"f.google":["Avis Google","Note, avis récents, réponses en un clic."],"f.stats":["Statistiques","Chiffre d'affaires, plats stars, heures de pointe."],"f.gift":["Bons cadeaux","Vendez des bons imprimés ou en ligne."],"f.assets":["Photos & documents","Bibliothèque d'images, menus PDF, compression."],"f.push":["Notifications push","Chaque commande sonne sur votre téléphone."],"f.menu":["Gestion du menu","Prix, allergènes, disponibilité en un clic."],
   toast_add:"Ajouté au panier ✓",toast_pay:"Commande envoyée ✓",toast_copy:"Code copié ✓",
   coupon_ok:"Code appliqué",coupon_bad:"Code invalide"
  },
  it:{
-  "nav.book":"Prenota","nav.home":"Home","nav.resto":"Il ristorante","nav.carte":"La carta","nav.menus":"I menu","nav.ambiance":"L'atmosfera","nav.order":"Ordina","nav.menu":"Menu","nav.admin":"Gestione","powered":"Con tecnologia ",
+  "nav.book":"Prenota","nav.contact":"Contattaci","nav.home":"Home","nav.resto":"Il ristorante","nav.carte":"La carta","nav.menus":"I menu","nav.ambiance":"L'atmosfera","nav.order":"Ordina","nav.menu":"Menu","nav.admin":"Gestione","powered":"Con tecnologia ",
   "hero.kicker":"Benvenuti","hero.title1":"Il piacere","hero.title2":"della tavola.",
   "hero.lead":"Prenota il tuo tavolo o ordina d'asporto in pochi secondi.",
   "hero.cta1":"Prenota un tavolo","hero.cta2":"Ordina online","hero.m1":"418 recensioni Google","hero.m2":"per prenotare","hero.m3":"lingue","hero.scroll":"Scopri","hours.open":"Siamo aperti dalle {from} alle {to}","hours.today":"Chiuso · riapre oggi alle {time}","hours.tomorrow":"Oggi chiuso · apertura domani alle {time}","hours.day":"Chiuso · apertura {day} alle {time}","hours.closed":"Chiuso",
-  "resa.eye":"Prenotazioni","resa.h":"Un tavolo in 30 secondi, senza telefonate.","resa.p":"I clienti scelgono giorno, ora e numero di coperti. La piantina si riempie da sola, le conferme partono via email. Tu vedi tutto in un'agenda chiara.","resa.try":"Apri a schermo intero","resa.livebadge":"Widget reale · dal vivo","acc.eye":"Benvenuti","acc.h":"Il piacere di una tavola ben apparecchiata.","acc.p1":"Una cucina generosa e autentica, prodotti scelti con cura e la condivisione come filo conduttore.","acc.p2":"Che sia un pranzo, una cena o un momento tra amici, ogni istante alla nostra tavola è un invito a rallentare e assaporare.","acc.cta":"Vedi il menu","acc.contact":"Contatti","acc.address":"Indirizzo","acc.hours":"Orari","acc.closed":"Chiuso","acc.pt1t":"Prodotti freschi","acc.pt1p":"Ingredienti selezionati ogni mattina da produttori di fiducia, seguendo il ritmo delle stagioni per garantire gusto e freschezza.","acc.pt2t":"Fatto in casa","acc.pt2p":"Tutto è preparato sul posto, con pazienza e maestria: ricette pensate con passione e curate nei dettagli.","acc.pt3t":"Accoglienza calorosa","acc.pt3p":"Un team attento e sorridente che si prende il tempo di accogliervi, perché ogni visita sia semplice e piacevole.","acc.pt4t":"In sala o d'asporto","acc.pt4p":"Accomodati ai nostri tavoli o porta via i tuoi piatti: prenota il tavolo e ordina online in pochi secondi.","rest.eye":"Il ristorante","rest.h":"La nostra casa in immagini.","rest.p":"Qualche istante di vita, dalla sala alla cucina: lo spirito del luogo e la cura dei dettagli che ci somigliano.","menus.eye":"I menu","menus.h":"I nostri menu.","menus.p":"Due proposte pensate per ogni occasione. In arrivo molto presto.","info.eye":"Info & prenotazione","info.h":"Dove siamo, prenota, scrivici.","info.pay":"Metodi di pagamento","info.payv":"Contanti, carta, contactless.","info.amen":"In loco","info.amenv":"Terrazza, Wi-Fi, accesso disabili, prenotazione online.","info.reviews":"Recensioni Google",
+  "resa.eye":"Prenotazioni","resa.h":"Un tavolo in 30 secondi, senza telefonate.","resa.p":"I clienti scelgono giorno, ora e numero di coperti. La piantina si riempie da sola, le conferme partono via email. Tu vedi tutto in un'agenda chiara.","resa.try":"Apri a schermo intero","resa.livebadge":"Widget reale · dal vivo","resa.close":"Chiudi","acc.eye":"Benvenuti","acc.h":"Il piacere di una tavola ben apparecchiata.","acc.p1":"Una cucina generosa e autentica, prodotti scelti con cura e la condivisione come filo conduttore.","acc.p2":"Che sia un pranzo, una cena o un momento tra amici, ogni istante alla nostra tavola è un invito a rallentare e assaporare.","acc.cta":"Vedi il menu","acc.contact":"Contatti","acc.address":"Indirizzo","acc.hours":"Orari","acc.closed":"Chiuso","acc.pt1t":"Prodotti freschi","acc.pt1p":"Ingredienti selezionati ogni mattina da produttori di fiducia, seguendo il ritmo delle stagioni per garantire gusto e freschezza.","acc.pt2t":"Fatto in casa","acc.pt2p":"Tutto è preparato sul posto, con pazienza e maestria: ricette pensate con passione e curate nei dettagli.","acc.pt3t":"Accoglienza calorosa","acc.pt3p":"Un team attento e sorridente che si prende il tempo di accogliervi, perché ogni visita sia semplice e piacevole.","acc.pt4t":"In sala o d'asporto","acc.pt4p":"Accomodati ai nostri tavoli o porta via i tuoi piatti: prenota il tavolo e ordina online in pochi secondi.","rest.eye":"Il ristorante","rest.h":"La nostra casa in immagini.","rest.p":"Qualche istante di vita, dalla sala alla cucina: lo spirito del luogo e la cura dei dettagli che ci somigliano.","menus.eye":"I menu","menus.h":"I nostri menu.","menus.p":"Due proposte pensate per ogni occasione. In arrivo molto presto.","info.eye":"Info & prenotazione","info.h":"Dove siamo, prenota, scrivici.","info.pay":"Metodi di pagamento","info.payv":"Contanti, carta, contactless.","info.amen":"In loco","info.amenv":"Terrazza, Wi-Fi, accesso disabili, prenotazione online.","info.reviews":"Recensioni Google","ctf.eye":"Scrivici","ctf.name":"Nome","ctf.email":"Email","ctf.phone":"Telefono (facoltativo)","ctf.r0":"Motivo del messaggio","ctf.r1":"Prenotazione di gruppo","ctf.r2":"Evento privato / privatizzazione","ctf.r3":"Domanda sul menu","ctf.r4":"Altra richiesta","ctf.msg":"Il tuo messaggio","ctf.send":"Invia","ctf.sending":"Invio…","ctf.ok":"Grazie! Il tuo messaggio è stato inviato.","ctf.err":"Invio non riuscito. Riprova o chiamaci.","ctf.req":"Compila nome, email e messaggio.","ctf.terms":"Accetto le condizioni e l'informativa sulla privacy.","ctf.terms_req":"Accetta le condizioni.","foot.tag":"Cucina generosa e autentica — prenota, ordina, assapora.","foot.explore":"Esplora",
   "order.eye":"La nostra carta","order.h":"Una carta da comporre come preferite.","order.p":"Dagli antipasti ai dolci, una selezione preparata ogni giorno con prodotti scelti. Aggiungi i piatti al carrello e ordina in pochi secondi, d'asporto o click & collect.","order.hint":"↑ Aggiungi piatti, poi apri il carrello per provare un coupon (prova BIENVENUE10).",
   "cat.all":"Tutto","cat.starter":"Antipasti","cat.main":"Pizze","cat.dessert":"Dolci","cat.drink":"Bevande",
   "adm.eye":"Lato ristoratore","adm.h":"Un solo strumento. Tutto il locale.","adm.p":"Mentre i clienti prenotano e ordinano, tu gestisci tutto da una dashboard chiara — su telefono e su computer.","adm.t1":"Ordini di oggi","adm.t1s":"1.248 € incassati","adm.t2":"Prenotazioni","adm.t2s":"84 coperti stasera","adm.t3":"Fatturato · 7 gg","adm.t3s":"+18 % vs settimana scorsa","adm.t4":"Recensioni Google","adm.t4s":"Rispondi in 1 clic","adm.t5":"Newsletter","adm.t5s":"iscritti · +52 questa settimana","adm.t6":"Menu online","adm.t6a":"Pizza Margherita","adm.t6b":"Quattro Formaggi","adm.on":"Attivo","adm.off":"Esaurito","adm.t6s":"Nascondi un piatto in un clic","adm.t7":"Notifiche push","adm.t7s":"« Nuovo ordine — 24,50 € »",
   "feat.eye":"Tutto incluso","feat.h":"Il sito vetrina E la gestione, insieme.",
   "cta.eye":"RestoHub","cta.h":"Pronto a digitalizzare il tuo ristorante?","cta.p":"Prenotazioni, ordini, marketing, menu multilingue e statistiche — un solo abbonamento, online in pochi giorni.","cta.b1":"Guarda una demo live","cta.b2":"Contattaci",
   "foot.note":"Demo interattiva · Bella Napoli è una pizzeria fittizia con tecnologia RestoHub.",
-  "promo.badge":"Pop-up","promo.t":"−10 % sul primo ordine","promo.s1":"Usa il codice:","promo.s2":"Questo è un pop-up gestito dall'admin — comparsa, pagine, durata.",
+  "promo.badge":"In evidenza",
   "cart.bar":"Vedi il carrello","cart.h":"Il tuo ordine","cart.sub":"Asporto · Bella Napoli","cart.coupon":"Codice sconto","cart.apply":"Applica","cart.total":"Totale","cart.pay":"Paga","cart.note":"Pagamento sicuro con Stripe.","cart.empty":"Il carrello è vuoto.","co.pickup":"Ritiro oggi","co.name":"Nome","co.surname":"Cognome","co.phone":"Telefono","co.email":"Email","co.fill":"Scegli l'orario e inserisci nome + email.","co.noslot":"Nessun orario disponibile oggi",
   "f.resa":["Prenotazioni","Agenda, piantina, conferme automatiche."],"f.order":["Ordini online","Asporto & click and collect, pagamento Stripe."],"f.coupon":["Coupon","Codici sconto, massimali, esclusioni — in 30 secondi."],"f.popup":["Pop-up","Promo mirate per pagina e per lingua."],"f.news":["Newsletter","Campagne, bozze, iscritti, statistiche."],"f.lang":["Menu multilingue","Sito ed email in più lingue."],"f.google":["Recensioni Google","Voto, recensioni recenti, risposte in un clic."],"f.stats":["Statistiche","Fatturato, piatti top, ore di punta."],"f.gift":["Buoni regalo","Vendi buoni stampati o online."],"f.assets":["Foto & documenti","Libreria immagini, menu PDF, compressione."],"f.push":["Notifiche push","Ogni ordine suona sul tuo telefono."],"f.menu":["Gestione menu","Prezzi, allergeni, disponibilità in un clic."],
   toast_add:"Aggiunto al carrello ✓",toast_pay:"Ordine inviato ✓",toast_copy:"Codice copiato ✓",
   coupon_ok:"Codice applicato",coupon_bad:"Codice non valido"
  },
  en:{
-  "nav.book":"Book","nav.home":"Home","nav.resto":"The restaurant","nav.carte":"A la carte","nav.menus":"Set menus","nav.ambiance":"Ambiance","nav.order":"Order","nav.menu":"Menu","nav.admin":"Management","powered":"Powered by ",
+  "nav.book":"Book","nav.contact":"Contact us","nav.home":"Home","nav.resto":"The restaurant","nav.carte":"A la carte","nav.menus":"Set menus","nav.ambiance":"Ambiance","nav.order":"Order","nav.menu":"Menu","nav.admin":"Management","powered":"Powered by ",
   "hero.kicker":"Welcome","hero.title1":"The pleasure","hero.title2":"of the table.",
   "hero.lead":"Book your table or order takeaway in seconds.",
   "hero.cta1":"Book a table","hero.cta2":"Order online","hero.m1":"418 Google reviews","hero.m2":"to book","hero.m3":"languages","hero.scroll":"Discover","hours.open":"We're open from {from} to {to}","hours.today":"Closed · opens today at {time}","hours.tomorrow":"Closed today · opens tomorrow at {time}","hours.day":"Closed · opens {day} at {time}","hours.closed":"Closed",
-  "resa.eye":"Reservations","resa.h":"A table in 30 seconds, no phone call.","resa.p":"Your guests pick the day, time and party size. The floor plan fills itself, confirmations go out by email. You see everything in one clear calendar.","resa.try":"Open full screen","resa.livebadge":"Real widget · live","acc.eye":"Welcome","acc.h":"The pleasure of a well-set table.","acc.p1":"Generous, authentic cooking, carefully selected produce, and sharing at its heart.","acc.p2":"Whether for lunch, dinner or a moment with friends, every moment at our table is an invitation to slow down and savour.","acc.cta":"See the menu","acc.contact":"Contact us","acc.address":"Address","acc.hours":"Opening hours","acc.closed":"Closed","acc.pt1t":"Fresh produce","acc.pt1p":"Ingredients selected every morning from trusted producers, following the seasons to guarantee taste and freshness.","acc.pt2t":"Homemade","acc.pt2p":"Everything is prepared on site, with patience and skill: recipes crafted with passion and attention to detail.","acc.pt3t":"Warm welcome","acc.pt3p":"An attentive, friendly team that takes the time to welcome you, so every visit feels easy and enjoyable.","acc.pt4t":"Dine in or takeaway","acc.pt4p":"Settle in at our tables or take your dishes to go: book your table and order online in seconds.","rest.eye":"The restaurant","rest.h":"Our place in pictures.","rest.p":"A few glimpses of life, from the dining room to the kitchen: the spirit of the place and the attention to detail that defines us.","menus.eye":"Our menus","menus.h":"Our menus.","menus.p":"Two set menus for every occasion. Coming very soon.","info.eye":"Info & booking","info.h":"Find us, book, get in touch.","info.pay":"Payment methods","info.payv":"Cash, card, contactless.","info.amen":"On site","info.amenv":"Terrace, Wi-Fi, wheelchair access, online booking.","info.reviews":"Google reviews",
+  "resa.eye":"Reservations","resa.h":"A table in 30 seconds, no phone call.","resa.p":"Your guests pick the day, time and party size. The floor plan fills itself, confirmations go out by email. You see everything in one clear calendar.","resa.try":"Open full screen","resa.livebadge":"Real widget · live","resa.close":"Close","acc.eye":"Welcome","acc.h":"The pleasure of a well-set table.","acc.p1":"Generous, authentic cooking, carefully selected produce, and sharing at its heart.","acc.p2":"Whether for lunch, dinner or a moment with friends, every moment at our table is an invitation to slow down and savour.","acc.cta":"See the menu","acc.contact":"Contact us","acc.address":"Address","acc.hours":"Opening hours","acc.closed":"Closed","acc.pt1t":"Fresh produce","acc.pt1p":"Ingredients selected every morning from trusted producers, following the seasons to guarantee taste and freshness.","acc.pt2t":"Homemade","acc.pt2p":"Everything is prepared on site, with patience and skill: recipes crafted with passion and attention to detail.","acc.pt3t":"Warm welcome","acc.pt3p":"An attentive, friendly team that takes the time to welcome you, so every visit feels easy and enjoyable.","acc.pt4t":"Dine in or takeaway","acc.pt4p":"Settle in at our tables or take your dishes to go: book your table and order online in seconds.","rest.eye":"The restaurant","rest.h":"Our place in pictures.","rest.p":"A few glimpses of life, from the dining room to the kitchen: the spirit of the place and the attention to detail that defines us.","menus.eye":"Our menus","menus.h":"Our menus.","menus.p":"Two set menus for every occasion. Coming very soon.","info.eye":"Info & booking","info.h":"Find us, book, get in touch.","info.pay":"Payment methods","info.payv":"Cash, card, contactless.","info.amen":"On site","info.amenv":"Terrace, Wi-Fi, wheelchair access, online booking.","info.reviews":"Google reviews","ctf.eye":"Write to us","ctf.name":"Name","ctf.email":"Email","ctf.phone":"Phone (optional)","ctf.r0":"Reason for your message","ctf.r1":"Group booking","ctf.r2":"Private event / buyout","ctf.r3":"Question about the menu","ctf.r4":"Other request","ctf.msg":"Your message","ctf.send":"Send","ctf.sending":"Sending…","ctf.ok":"Thank you! Your message has been sent.","ctf.err":"Sending failed. Try again or call us.","ctf.req":"Fill in name, email and message.","ctf.terms":"I accept the terms and privacy policy.","ctf.terms_req":"Please accept the terms.","foot.tag":"Generous, authentic cooking — book, order, savour.","foot.explore":"Explore",
   "order.eye":"Our menu","order.h":"A menu to build as you like.","order.p":"From starters to desserts, a selection prepared fresh each day with carefully chosen produce. Add your dishes to the cart and order in seconds, takeaway or click & collect.","order.hint":"↑ Add dishes, then open the cart to try a coupon (try BIENVENUE10).",
   "cat.all":"All","cat.starter":"Antipasti","cat.main":"Pizzas","cat.dessert":"Desserts","cat.drink":"Drinks",
   "adm.eye":"Owner side","adm.h":"One tool. The whole house.","adm.p":"While your guests book and order, you run everything from a clear dashboard — on your phone or your computer.","adm.t1":"Today's orders","adm.t1s":"€1,248 collected","adm.t2":"Reservations","adm.t2s":"84 covers tonight","adm.t3":"Revenue · 7 d","adm.t3s":"+18% vs last week","adm.t4":"Google reviews","adm.t4s":"Reply in 1 click","adm.t5":"Newsletter","adm.t5s":"subscribers · +52 this week","adm.t6":"Online menu","adm.t6a":"Pizza Margherita","adm.t6b":"Quattro Formaggi","adm.on":"Active","adm.off":"Sold out","adm.t6s":"Hide a dish in one click","adm.t7":"Push notifications","adm.t7s":"“New order — €24.50”",
   "feat.eye":"All included","feat.h":"The website AND the management, together.",
   "cta.eye":"RestoHub","cta.h":"Ready to digitise your restaurant?","cta.p":"Reservations, orders, marketing, multilingual menu and analytics — one subscription, live in days.","cta.b1":"See a live demo","cta.b2":"Contact us",
   "foot.note":"Interactive demo · Bella Napoli is a fictional pizzeria powered by RestoHub.",
-  "promo.badge":"Pop-up","promo.t":"−10% on your first order","promo.s1":"Use the code:","promo.s2":"This is a pop-up managed from the admin — timing, pages, duration.",
+  "promo.badge":"Featured",
   "cart.bar":"View cart","cart.h":"Your order","cart.sub":"Takeaway · Bella Napoli","cart.coupon":"Promo code","cart.apply":"Apply","cart.total":"Total","cart.pay":"Pay","cart.note":"Secure payment by Stripe.","cart.empty":"Your cart is empty.","co.pickup":"Pickup today","co.name":"First name","co.surname":"Last name","co.phone":"Phone","co.email":"Email","co.fill":"Pick a time and fill name + email.","co.noslot":"No slots today",
   "f.resa":["Reservations","Calendar, floor plan, automatic confirmations."],"f.order":["Online orders","Takeaway & click and collect, Stripe payment."],"f.coupon":["Coupons","Promo codes, caps, exclusions — in 30 seconds."],"f.popup":["Pop-ups","Targeted promos by page and language."],"f.news":["Newsletter","Campaigns, drafts, subscribers, analytics."],"f.lang":["Multilingual menu","Your site and emails in several languages."],"f.google":["Google reviews","Rating, recent reviews, one-click replies."],"f.stats":["Analytics","Revenue, top dishes, peak hours."],"f.gift":["Gift cards","Sell printed or online vouchers."],"f.assets":["Photos & documents","Image library, PDF menus, compression."],"f.push":["Push notifications","Every order rings on your phone."],"f.menu":["Menu management","Prices, allergens, availability in one click."],
   toast_add:"Added to cart ✓",toast_pay:"Order sent ✓",toast_copy:"Code copied ✓",
@@ -651,11 +728,13 @@ function applyLang(){
    const k=el.getAttribute("data-k");const v=T[LANG][k];
    if(typeof v==="string") el.textContent=v;
  });
+ document.querySelectorAll("[data-k-ph]").forEach(el=>{const v=T[LANG][el.getAttribute("data-k-ph")];if(typeof v==="string")el.setAttribute("placeholder",v);});
  // powered has bold child -> restore
  document.querySelectorAll(".powered").forEach(el=>{el.innerHTML=tr("powered")+"<b>RestoHub</b>";});
  {const ph={coName:"co.name",coSurname:"co.surname",coPhone:"co.phone",coEmail:"co.email"};for(const id in ph){const el=document.getElementById(id);if(el)el.setAttribute("placeholder",tr(ph[id]));}}
  renderMenu(curCat);renderFeat();renderCart();renderOrari();renderSettimana();
  document.querySelectorAll("#lang button").forEach(b=>b.classList.toggle("on",b.dataset.l===LANG));
+ caricaPopup();
 }
 
 /* ---- cart ---- */
@@ -699,7 +778,7 @@ document.addEventListener("click",e=>{
  // open modals
  const op=t.closest("[data-open]");
  if(op){e.preventDefault();const w=op.getAttribute("data-open");
-   if(w==="resa"){const f=document.querySelector("[data-resaframe]");if(f&&!f.getAttribute("src"))f.setAttribute("src","/demo01/reservation-embed?lang=it");openM("resa");}
+   if(w==="resa"){const f=document.querySelector("[data-resaframe]");if(f&&!f.getAttribute("src"))f.setAttribute("src","/demo01/reservation-embed?lang="+LANG);openM("resa");const _pc=document.getElementById("promo");if(_pc)_pc.classList.remove("show");}
    else if(w==="cart"){renderCart();caricaSlotDemo();openM("cart");}return;}
  if(t.closest("[data-close]")){closeM(t);return;}
  if(t.classList.contains("ov")){t.classList.remove("open");return;}
@@ -713,8 +792,8 @@ document.addEventListener("click",e=>{
  // coupon
  if(t.id==="couponBtn"){applyCoupon();return;}
  if(t.id==="payBtn"){void payer();return;}
- // promo code copy
- if(t.id==="promoCode"){navigator.clipboard&&navigator.clipboard.writeText("BIENVENUE10");toast(tr("toast_copy"));return;}
+ // promo card close
+ if(t.closest("[data-promo-close]")){const pc=document.getElementById("promo");if(pc)pc.classList.remove("show");return;}
 });
 async function applyCoupon(){
  const code=document.getElementById("couponInput").value.trim();
@@ -731,6 +810,22 @@ async function applyCoupon(){
  renderCart();
 }
 document.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelectorAll(".ov.open").forEach(o=>o.classList.remove("open"));});
+document.addEventListener("submit",async e=>{
+ if(!e.target||e.target.id!=="contactForm")return;
+ e.preventDefault();
+ const f=e.target,st=document.getElementById("cfStatus");
+ const nome=f.nome.value.trim(),email=f.email.value.trim(),messaggio=f.messaggio.value.trim();
+ if(!nome||!email||!messaggio){st.className="cf-status err";st.textContent=tr("ctf.req");return;}
+ if(!f.conditions.checked){st.className="cf-status err";st.textContent=tr("ctf.terms_req");return;}
+ const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent=tr("ctf.sending");st.className="cf-status";st.textContent="";
+ try{
+  const r=await fetch("/api/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email,telefono:f.telefono.value.trim(),oggetto:f.oggetto.value.trim(),messaggio,lang:LANG==="en"?"en":"fr"})});
+  const j=await r.json().catch(()=>({}));
+  if(r.ok&&j&&j.ok){st.className="cf-status ok";st.textContent=tr("ctf.ok");f.reset();}
+  else{st.className="cf-status err";st.textContent=(j&&j.error)?j.error:tr("ctf.err");}
+ }catch{st.className="cf-status err";st.textContent=tr("ctf.err");}
+ btn.disabled=false;btn.textContent=tr("ctf.send");
+});
 
 /* auto-resize degli iframe del widget reale : altezza inviata dal figlio */
 window.addEventListener("message",e=>{
@@ -742,8 +837,7 @@ window.addEventListener("message",e=>{
 const io=new IntersectionObserver(es=>es.forEach(x=>{if(x.isIntersecting){x.target.classList.add("in");io.unobserve(x.target);}}),{threshold:.12});
 document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
 
-/* popup after delay */
-setTimeout(()=>document.getElementById("promo").classList.add("show"),2600);
+/* popup marketing : voir caricaPopup() */
 
 /* ---- menu reale dal motore ---- */
 async function caricaMenu(){
@@ -881,17 +975,56 @@ async function loadReviews(){
  const block=document.getElementById("reviewsBlock"),grid=document.getElementById("reviewsGrid");
  if(!block||!grid)return;
  try{
-  const r=await fetch("/api/reviews");const j=await r.json();
+  const r=await fetch("/api/reviews?min=4&limit=10");const j=await r.json();
   const avis=(j&&Array.isArray(j.avis))?j.avis:[];
   if(!avis.length){block.hidden=true;return;}
+  const E=s=>String(s==null?"":s).replace(/</g,"&lt;").replace(/"/g,"&quot;");
   grid.innerHTML=avis.map(a=>{
-   const who=a.auteur?`<b>${String(a.auteur).replace(/</g,"&lt;")}</b>`:"";
-   const when=a.quand?` · ${String(a.quand).replace(/</g,"&lt;")}`:"";
-   const txt=String(a.texte||"").replace(/</g,"&lt;");
-   return `<div class="rev"><div class="rv-stars">★★★★★</div><p class="rv-txt">${txt}</p><div class="rv-who">${who}${when}</div></div>`;
+   const n=Math.max(0,Math.min(5,Math.round(Number(a.note)||5)));
+   const stars=`<span class="on">${"★".repeat(n)}</span>`+(n<5?`<span class="off">${"★".repeat(5-n)}</span>`:"");
+   const raw=String(a.auteur||"");const name=E(raw);const ini=(raw.trim()[0]||"?").toUpperCase();
+   const img=a.photo?`<img src="${E(a.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:"";
+   const av=`<span class="rv-av">${ini}${img}</span>`;
+   const when=E(a.quand||"");const txt=E(a.texte||"");
+   return `<div class="rev"><div class="rv-top">${av}<div><div class="rv-name">${name}</div><div class="rv-when">${when}</div></div></div><div class="rv-stars">${stars}</div><p class="rv-txt">${txt}</p></div>`;
   }).join("");
   block.hidden=false;
+  const _p=document.getElementById("rvPrev"),_n=document.getElementById("rvNext");
+  const _step=()=>{const c=grid.querySelector(".rev");return c?c.getBoundingClientRect().width+40:320;};
+  if(_p)_p.onclick=()=>grid.scrollBy({left:-_step(),behavior:"smooth"});
+  if(_n)_n.onclick=()=>grid.scrollBy({left:_step(),behavior:"smooth"});
+  const _upd=()=>{const need=(grid.scrollWidth-grid.clientWidth)>4;if(_p)_p.style.display=need?"":"none";if(_n)_n.style.display=need?"":"none";};
+  _upd();grid.onscroll=_upd;window.addEventListener("resize",_upd);
  }catch(e){block.hidden=true;}
+}
+
+/* ---- pop-up marketing (pilote par le moteur : admin Marketing -> Pop-up) ---- */
+let _popup=null,_popupTimer=null,_popupCounted=false;
+async function caricaPopup(){
+ try{const r=await fetch("/api/popup?page=home&lang="+(LANG==="en"?"en":"fr"));const j=await r.json();_popup=(j&&j.active)?j.popup:null;}
+ catch{_popup=null;}
+ fillPopup();maybeShowPopup();
+}
+function fillPopup(){
+ const box=document.getElementById("promo");if(!box)return;
+ if(!_popup){box.classList.remove("show");return;}
+ const tEl=document.getElementById("promoTitle");if(tEl)tEl.textContent=_popup.title||"";
+ const bEl=document.getElementById("promoBody");if(bEl){bEl.textContent=_popup.body||"";bEl.style.display=_popup.body?"":"none";}
+ const btn=document.getElementById("promoBtn");
+ if(btn){
+  if(_popup.btn1_label&&_popup.btn1_url){
+   btn.style.display="";btn.textContent=_popup.btn1_label;
+   if(_popup.btn1_url==="#reserver"){btn.removeAttribute("href");btn.setAttribute("data-open","resa");}
+   else{btn.removeAttribute("data-open");btn.setAttribute("href",_popup.btn1_url);}
+  }else{btn.style.display="none";}
+ }
+}
+function maybeShowPopup(){
+ const box=document.getElementById("promo");if(!box||!_popup)return;
+ const key="rh-pop-"+_popup.id,max=Number(_popup.max_shows||3)||3;
+ let seen=0;try{seen=Number(localStorage.getItem(key)||"0")||0;}catch{}
+ if(seen>=max||box.classList.contains("show")||_popupTimer)return;
+ _popupTimer=setTimeout(()=>{box.classList.add("show");if(!_popupCounted){_popupCounted=true;try{localStorage.setItem(key,String(seen+1));}catch{}}},2200);
 }
 
 /* init */

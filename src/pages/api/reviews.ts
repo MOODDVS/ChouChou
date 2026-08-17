@@ -13,12 +13,12 @@ function json(body: unknown): Response {
   });
 }
 
-interface Rev { auteur: string; note: number; texte: string; quand: string }
+interface Rev { auteur: string; note: number; texte: string; quand: string; photo: string }
 
 // GET /api/reviews — pubblico. Ultime 3 recensioni Google a 5 stelle del
 // ristorante (per la sezione infos del sito). Cache 30 min (le chiamate Google
 // si pagano). { configured, avis, rating, count, maps_url }.
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
     const { data } = await supabaseAdmin
       .from("app_config")
@@ -44,27 +44,33 @@ export const GET: APIRoute = async () => {
             rating?: number;
             text?: { text?: string };
             originalText?: { text?: string };
-            authorAttribution?: { displayName?: string };
+            authorAttribution?: { displayName?: string; photoUri?: string };
             relativePublishTimeDescription?: string;
             publishTime?: string;
           }[];
         };
         const sec = (v?: string) => (v ? Date.parse(v) || 0 : 0);
-        const avis: Rev[] = (j.reviews ?? [])
-          .filter((r) => Number(r.rating ?? 0) === 5)
-          .sort((a, b) => sec(b.publishTime) - sec(a.publishTime))
-          .slice(0, 3)
-          .map((r) => ({
-            auteur: r.authorAttribution?.displayName ?? "",
-            note: 5,
-            texte: (r.text?.text ?? r.originalText?.text ?? "").slice(0, 320),
-            quand: r.relativePublishTimeDescription ?? "",
-          }));
-        return { rating: j.rating ?? null, count: j.userRatingCount ?? 0, maps_url: j.googleMapsUri ?? "", avis };
+        const all = (j.reviews ?? []).map((r) => ({
+          auteur: r.authorAttribution?.displayName ?? "",
+          note: Number(r.rating ?? 0),
+          texte: (r.text?.text ?? r.originalText?.text ?? "").slice(0, 320),
+          quand: r.relativePublishTimeDescription ?? "",
+          photo: r.authorAttribution?.photoUri ?? "",
+          t: sec(r.publishTime),
+        }));
+        return { rating: j.rating ?? null, count: j.userRatingCount ?? 0, maps_url: j.googleMapsUri ?? "", all };
       },
       30 * 60_000
     );
-    return json({ configured: true, ...info });
+    const url = new URL(request.url);
+    const min = Math.max(1, Math.min(5, Number(url.searchParams.get("min")) || 5));
+    const limit = Math.max(1, Math.min(10, Number(url.searchParams.get("limit")) || 3));
+    const avis: Rev[] = (info.all ?? [])
+      .filter((r) => r.note >= min)
+      .sort((a, b) => b.t - a.t)
+      .slice(0, limit)
+      .map((r) => ({ auteur: r.auteur, note: r.note, texte: r.texte, quand: r.quand, photo: r.photo }));
+    return json({ configured: true, rating: info.rating, count: info.count, maps_url: info.maps_url, avis });
   } catch {
     return json({ configured: true, avis: [], error: "google" });
   }

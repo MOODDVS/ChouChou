@@ -25,8 +25,15 @@ demo01 trasformato da vetrina RestoHub a **sito reale del ristorante**, mantenen
 - **Hero**: carousel di 3 immagini (cambiabili nel motore), centrato, neutro; nel blocco meta **solo l'info Google**; **isoletta orari** al posto di «DÉCOUVRIR» (aperto/chiuso + prossima apertura) con **linea rossa animata** che invita a scrollare.
 - **Sezioni**: padding verticale **doppio**. **Accueil** = testo + foto dal motore + **4 punti forti con icone, senza riquadri**, testi più lunghi. **Le restaurant** = testo rapido + **gallery 10 immagini** (lightbox) + **banner sfumato** sotto (mask-image, cover). **La carte** = testo generale, **niente riquadri** sugli articoli, emoji/immagine piatto nascosta se assente. **Les menus** (al posto del mock dashboard RestoHub) = **immagine di sfondo** + **2 riquadri vuoti** placeholder per i menu futuri. **Infos & réservation** = info pratiche (indirizzo, pagamenti, orari, terrazza), **ultime 3 recensioni Google 5★**, widget prenotazione, e **Google Maps a tutta larghezza** sotto.
 
+### 🔔 Pop-up demo01 → collegato al motore (Marketing → Pop-up)
+Il **pop-up finto** hardcoded (cartellino d'angolo con codice `BIENVENUE10` di prova) sostituito col **vero pop-up** gestito in admin. Grafica del cartellino d'angolo **invariata** (scelta di Enzo), contenuto reale.
+- **Nuovo endpoint pubblico** `/api/popup?page=home&lang=fr|en` → `popupPerPagina(slug,lang)` (stessa logica di `SitePopup.astro`: pop-up attivo ADESSO per la pagina, scheduling always/dates/weekly, più recente vince, appare solo se la lingua esiste). Cache 60s.
+- **`_page.html`**: cartellino riempito da `fillPopup()` (titolo, testo, CTA `btn1`); la CTA `#reserver` apre il modale prenotazioni, altrimenti è un link. `maybeShowPopup()` applica **`max_shows` via localStorage** (`rh-pop-<id>`), come il motore. `caricaPopup()` è richiamato in `applyLang()` → si aggiorna al cambio lingua (FR/IT→fr, EN→en). Tolti il `setTimeout` finto e la copia-codice; badge neutro «À la une / In evidenza / Featured».
+- Aprendo la prenotazione il cartellino si chiude. Nessun pop-up attivo (o lingua non configurata) → resta nascosto.
+- Nota: il cartellino **non mostra l'immagine** del pop-up (spazio ridotto, attivabile); la sezione coupon cita ancora `BIENVENUE10`, ma è il **coupon**, non il pop-up.
+
 ### Da fare / aperti
-- ⚠️ Lanciare **migrazione #50** sul Supabase (SQL Editor) — altrimenti la modifica-con-differenza è bloccata dalla guardia.
+- ✅ **Migrazione #50** lanciata sul Supabase (fatto) → modifica-con-differenza operativa.
 - **Env** consigliata per le recensioni: `GOOGLE_PLACES_API_KEY` + `google_place_id` in `app_config`.
 - Ripulire i residui pubblicitari RestoHub in demo01 (FEATURES, CTA finale, footer «propulsée par RestoHub»); decidere nome brand neutro al posto di «Bella Napoli» (o renderlo editabile nel motore); collegare i 2 placeholder menu quando pronti; rendere editabili metodi di pagamento / servizi «Sur place».
 

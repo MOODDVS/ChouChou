@@ -5,9 +5,13 @@
 import Layout from "../layouts/Layout.astro";
 import { supabaseAdmin } from "../lib/db";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
+import { CLIENT } from "../config/client";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
+
+const { data: cfgBrand } = await supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
+const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
 
 const sessionId = Astro.url.searchParams.get("session_id");
 
@@ -56,7 +60,7 @@ const paidText = ordine
   : "";
 ---
 
-<Layout title={t("confirm.paidTitle") + " — La Molisana"}>
+<Layout title={t("confirm.paidTitle") + " — " + brand}>
   <section class="oc">
     <div class="oc-card">
       {!ordine && (
@@ -68,7 +72,7 @@ const paidText = ordine
 
       {ordine && confermato && (
         <>
-          <p class="oc-claim">La Molisana — Pizza &amp; Pasta</p>
+          <p class="oc-claim">{brand}</p>
           <h1 class="oc-title">{t("confirm.paidTitle")}</h1>
           <p class="oc-sub">{paidText}</p>
 

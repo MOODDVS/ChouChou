@@ -30,7 +30,7 @@ const brand = await (async () => {
       const { data } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", ["restaurant_name", "brand_logo", "brand_logo_negative", "site_hero_1", "site_hero_2", "site_hero_3"]);
+        .in("key", ["restaurant_name", "brand_logo", "brand_logo_negative", "brand_favicon", "site_hero_1", "site_hero_2", "site_hero_3"]);
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
       const nome = (m.get("restaurant_name") ?? "").trim();
       const heroCfg = [1, 2, 3].map((i) => (m.get("site_hero_" + i) ?? "").trim()).filter(Boolean);
@@ -39,11 +39,12 @@ const brand = await (async () => {
         nome,
         logo: (m.get("brand_logo") ?? "").trim() || CLIENT.logoLogin,
         logoNeg: (m.get("brand_logo_negative") ?? "").trim(),
+        favicon: (m.get("brand_favicon") ?? "").trim(),
         heroImages,
       };
     }, 60);
   } catch {
-    return { nome: "", logo: CLIENT.logoLogin, logoNeg: "", heroImages: [] as string[] };
+    return { nome: "", logo: CLIENT.logoLogin, logoNeg: "", favicon: "", heroImages: [] as string[] };
   }
 })();
 
@@ -74,6 +75,7 @@ const coverPool = pool0.filter((u) => COVER_OK.test(u));
 const safePool = coverPool.length ? coverPool : FALLBACK_COVERS;
 const cover = safePool[Math.floor(Math.random() * safePool.length)];
 const topLogo = brand.logoNeg || "/restohub/wordmark-negative.svg";
+const badgeLogo = brand.favicon || "/favicon.svg";
 const showPayoff = !brand.logoNeg;
 const heroTitle = brand.nome || t("login.title");
 const tabTitle = brand.nome || t("login.title");
@@ -144,7 +146,7 @@ const tabTitle = brand.nome || t("login.title");
       .form-inner { width: 100%; max-width: 360px; }
       .form-h { font-family: var(--font-title); font-size: 1.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text); margin-bottom: .2rem; }
       .form-badge { display: flex; align-items: center; gap: .7rem; margin-bottom: 1.7rem; }
-      .form-badge img { width: 46px; height: 46px; object-fit: contain; border-radius: 12px; border: 1px solid var(--c-line); background: #fff; padding: 6px; box-shadow: 0 6px 16px -8px rgba(0,0,0,.25); }
+      .form-badge img { width: 76px; height: 76px; object-fit: cover; border-radius: 16px; border: 1px solid var(--c-line); box-shadow: 0 6px 16px -8px rgba(0,0,0,.25); }
       .form-badge span { font-family: var(--font-brand); font-weight: 600; font-size: 1rem; color: var(--c-text); }
       .form-sub { color: var(--c-muted); font-size: .85rem; margin-bottom: 2rem; }
       .intro { color: var(--c-muted); font-size: .86rem; line-height: 1.55; margin: -.8rem 0 1.6rem; }
@@ -230,11 +232,9 @@ const tabTitle = brand.nome || t("login.title");
       <section class="pane-form">
         <div class="form-inner">
           <div class="form-badge">
-            <img src={brand.logo} alt={heroTitle} />
-            {brand.nome && <span>{brand.nome}</span>}
+            <img src={badgeLogo} alt={heroTitle} />
           </div>
           <h1 class="form-h">{t("login.submit")}</h1>
-          <p class="form-sub">{t("login.admin")}</p>
 
           <!-- VISTA LOGIN -->
           <div id="view-login">
