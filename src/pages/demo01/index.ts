@@ -31,8 +31,9 @@ export const GET: APIRoute = async () => {
   let banner = fallbackOf(BANNER_KEY);
   let menusBg = fallbackOf(MENUS_BG_KEY);
   let restoName = ""; // insegna pubblica (Reglages > General), NON CLIENT.nome
+  let brandFavicon = "";
   try {
-    const { data } = await supabaseAdmin.from("app_config").select("key, value").in("key", [...HERO_KEYS, ACC_KEY, ...GALLERY_KEYS, BANNER_KEY, MENUS_BG_KEY, "restaurant_name"]);
+    const { data } = await supabaseAdmin.from("app_config").select("key, value").in("key", [...HERO_KEYS, ACC_KEY, ...GALLERY_KEYS, BANNER_KEY, MENUS_BG_KEY, "restaurant_name", "brand_favicon"]);
     const map = new Map(
       (data ?? []).map((r) => [String((r as { key: string }).key), String((r as { value?: unknown }).value ?? "")])
     );
@@ -51,6 +52,7 @@ export const GET: APIRoute = async () => {
     const mv = (map.get(MENUS_BG_KEY) ?? "").trim();
     menusBg = mv || fallbackOf(MENUS_BG_KEY);
     restoName = (map.get("restaurant_name") ?? "").trim();
+    brandFavicon = (map.get("brand_favicon") ?? "").trim();
   } catch {
     /* fallback */
   }
@@ -69,6 +71,7 @@ export const GET: APIRoute = async () => {
   const _city = _ci >= 0 ? _addr.slice(_ci + 1).trim() : "";
   const addrHtml = esc(_via) + (_city ? "<br>" + esc(_city) : "");
   const nome = restoName || dati.nome; // insegna admin, fallback al nome commerciale
+  const faviconUrl = brandFavicon || "/favicon.svg";
   let socialHtml = "";
   try {
     const social = await linksSocial();
@@ -84,6 +87,7 @@ export const GET: APIRoute = async () => {
     .replace(/__MENUS_BG__/g, esc(menusBg))
     .replace(/__MAPS_EMBED__/g, esc(dati.indirizzo ? `https://www.google.com/maps?q=${encodeURIComponent(dati.indirizzo)}&output=embed` : ""))
     .replace(/__RESTO_NAME__/g, esc(nome))
+    .replace(/__FAVICON__/g, esc(faviconUrl))
     .replace(/__RESTO_PHONE__/g, esc(dati.tel))
     .replace(/__RESTO_TEL__/g, esc(dati.telLink))
     .replace(/__RESTO_EMAIL__/g, esc(dati.email))

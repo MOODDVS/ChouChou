@@ -1,16 +1,17 @@
 ---
 // Homepage "coming soon" del TEMPLATE: il cliente parte SOLO con l'admin.
 // Quando si attiva il sito pubblico, questa pagina si sostituisce con la
-// vera home (le pagine pubbliche esistono già, non sono linkate).
+// vera home (le pagine pubbliche esistono gia, non sono linkate).
 //
-// Brand-aware: prende NOME, LOGO e COLORI dai Réglages (app_config) e la
-// LINGUA del testo dalla lingua admin. Se il DB non risponde, fallback totale
-// ai default: la pagina non deve MAI rompersi.
+// Brand-aware: prende NOME, LOGO (negativo, per sfondo scuro), COLORI e
+// CONTATTI dai Reglages (app_config) e la LINGUA del testo dalla lingua admin.
+// Se il DB non risponde, fallback totale ai default: la pagina non deve MAI rompersi.
 import { supabaseAdmin } from "../lib/db";
 import { adminLang } from "../lib/admin/adminLang";
 import { adminT } from "../i18n/admin";
 import { TEMA_DEFAULT } from "../lib/admin/superAdmin";
 import { cacheOr } from "../lib/cache";
+import { linksSocial } from "../lib/links";
 
 export const prerender = false;
 
@@ -18,35 +19,65 @@ const lang = await adminLang();
 const t = adminT(lang);
 
 const HEX = /^#[0-9a-f]{6}$/i;
-type Brand = { tema: Record<string, string>; nome: string; logo: string };
+type Brand = {
+  tema: Record<string, string>;
+  nome: string;
+  logo: string;
+  logoNeg: string;
+  indirizzo: string;
+  tel: string;
+  telLink: string;
+  email: string;
+  favicon: string;
+};
 
 const brand: Brand = await (async () => {
   try {
-    return await cacheOr("pub:coming-soon", async () => {
+    return await cacheOr("pub:coming-soon2", async () => {
       const { data } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", ["admin_theme", "restaurant_name", "brand_logo"]);
+        .in("key", [
+          "admin_theme", "restaurant_name", "brand_logo", "brand_logo_negative", "brand_favicon",
+          "company_street", "company_zip", "company_city", "public_phone", "public_email",
+        ]);
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
       let tema: Record<string, string> = {};
       try { tema = JSON.parse(m.get("admin_theme") ?? "{}") ?? {}; } catch { tema = {}; }
+      const via = (m.get("company_street") ?? "").trim();
+      const cap = (m.get("company_zip") ?? "").trim();
+      const citta = (m.get("company_city") ?? "").trim();
+      const indirizzo = via && citta ? (via + ", " + cap + " " + citta).replace(/\s+/g, " ").trim() : "";
+      const tel = (m.get("public_phone") ?? "").trim();
+      const email = (m.get("public_email") ?? "").trim();
       return {
         tema,
         nome: (m.get("restaurant_name") ?? "").trim(),
         logo: (m.get("brand_logo") ?? "").trim() || "/icon-192.png",
+        logoNeg: (m.get("brand_logo_negative") ?? "").trim(),
+        indirizzo,
+        tel,
+        telLink: tel.replace(/[^+\d]/g, ""),
+        email,
+        favicon: (m.get("brand_favicon") ?? "").trim(),
       } as Brand;
     }, 60);
   } catch {
-    return { tema: {}, nome: "", logo: "/icon-192.png" };
+    return { tema: {}, nome: "", logo: "/icon-192.png", logoNeg: "", indirizzo: "", tel: "", telLink: "", email: "", favicon: "" };
   }
 })();
+
+let social: { k: string; label: string; url: string; icon: string }[] = [];
+try { social = await linksSocial(); } catch { social = []; }
 
 // Titolo grande = "Nuovo sito internet" nella lingua admin (frase generica,
 // non il nome ristorante). Il nome, se impostato, va solo nel <title> del tab.
 const titolo = t("pub.newSite");
 const tabTitle = brand.nome || titolo;
+const logoSrc = brand.logoNeg || brand.logo;
+const faviconHref = brand.favicon || "/favicon.svg";
 
-// Colore effettivo: valore dal tema se è un hex valido, altrimenti default MOODD.
+// Colore effettivo: valore dal tema se e un hex valido, altrimenti default MOODD.
 const col = (k: string): string => (HEX.test(brand.tema[k] ?? "") ? brand.tema[k] : TEMA_DEFAULT[k]);
 const cBg = col("bg");
 const cText = col("text");
@@ -61,12 +92,12 @@ const cAccent = col("accent");
     <title>{tabTitle}</title>
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content={cBg} />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href={faviconHref} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito+Sans:wght@400;700&display=swap"
     />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,19 +106,42 @@ const cAccent = col("accent");
         font-family: "Nunito Sans", system-ui, sans-serif;
         text-align: center; padding: 2rem;
       }
-      .box { max-width: 480px; }
-      .logo { width: 84px; height: 84px; border-radius: 18px; margin: 0 auto 1.6rem; display: block; object-fit: contain; }
-      h1 { font-family: "Bebas Neue", system-ui, sans-serif; font-size: 2.6rem; letter-spacing: 0.06em; }
+      .box { max-width: 520px; }
+      .logo { width: auto; height: auto; max-width: 280px; max-height: 120px; margin: 0 auto 1.8rem; display: block; object-fit: contain; }
+      h1 { font-family: "Quicksand", system-ui, sans-serif; font-weight: 700; font-size: 2.4rem; letter-spacing: 0.01em; }
       .riga { width: 64px; height: 3px; margin: 1.1rem auto 1.3rem; }
       p { font-size: 0.95rem; line-height: 1.7; }
+      .contact { margin-top: 2.2rem; }
+      .c-line { font-size: 0.9rem; line-height: 1.8; }
+      .c-line a { color: inherit; text-decoration: none; }
+      .c-line a:hover { opacity: .75; }
+      .socials { display: flex; gap: .6rem; justify-content: center; margin-top: 1.1rem; }
+      .socials a { display: inline-flex; width: 38px; height: 38px; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--fg); color: var(--fg); transition: color .2s, border-color .2s; }
+      .socials a:hover { color: var(--ac); border-color: var(--ac); }
+      .socials svg { width: 17px; height: 17px; fill: currentColor; }
     </style>
   </head>
   <body style={`background:${cBg};color:${cText}`}>
     <div class="box">
-      <img class="logo" src={brand.logo} alt={titolo} />
+      <img class="logo" src={logoSrc} alt={titolo} />
       <h1 style={`color:${cText}`}>{titolo}</h1>
       <div class="riga" style={`background:${cAccent}`}></div>
       <p style={`color:${cMuted}`}>{t("pub.comingSoon")}</p>
+
+      {(brand.indirizzo || brand.tel || brand.email || social.length > 0) && (
+        <div class="contact">
+          {brand.indirizzo && <p class="c-line" style={`color:${cMuted}`}>{brand.indirizzo}</p>}
+          {brand.tel && <p class="c-line" style={`color:${cText}`}><a href={`tel:${brand.telLink}`}>{brand.tel}</a></p>}
+          {brand.email && <p class="c-line" style={`color:${cText}`}><a href={`mailto:${brand.email}`}>{brand.email}</a></p>}
+          {social.length > 0 && (
+            <div class="socials" style={`--fg:${cMuted};--ac:${cAccent}`}>
+              {social.map((s) => (
+                <a href={s.url} target="_blank" rel="noopener" aria-label={s.label} set:html={s.icon}></a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   </body>
 </html>
