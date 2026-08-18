@@ -2,6 +2,36 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 18/08/2026 — sessione Cowork (Mac mini)
+
+Rifinitura delle **email transazionali** e nuova **gestione recensioni con gating**. Tutto in `notifications.ts` + `api/admin/orders.ts`, più una pagina/endpoint nuovi. Commit `39979ea` su `main` (push da fare a mano dal Mac: il ponte Cowork→Mac non ha rete, `git push` va lanciato dal terminale).
+
+### ✉️ Email "Ordine modificato" → blocco «cosa è cambiato»
+Nella mail di modifica cliente (`emailModificaCliente`) ora c'è un riepilogo di **cosa è cambiato** rispetto all'ordine originale: **orario** prima→dopo (con data se cambia il giorno), **piatti aggiunti / tolti** (diff per quantità), **totale** prima→dopo. Il diff è calcolato in `api/admin/orders.ts` (mappa vecchi `ord.items` vs nuovi `itemsOrdine`, netting per nome) e passato a `inviaModificaOrdine(..., { changes })` in entrambi i rami (supplemento/rimborso e cassa). `TXT_MOD` esteso con le etichette (5 lingue).
+
+### 🍽️ Ticket cucina → badge «Pagato» + «Chiama il cliente»
+`emailCucina` (il ticket che arriva in cucina) ora mostra un **badge/pill «Pagato»** quando l'ordine è saldato online e un **bottone «Chiama il cliente»** (`tel:` verso il numero cliente). Etichette nella **lingua dell'admin** (non del cliente), coerente col resto del ticket.
+
+### ⭐ Recensioni → stelle cliccabili con gating (1-3 privato, 4-5 Google)
+La mail recensione (`emailReview`) non manda più a un solo link generico: le **5 stelle sono link** e fanno gating.
+- **1-3 stelle** → pagina **feedback privata** `/feedback` (il messaggio arriva **solo al ristorante**, non a Google).
+- **4-5 stelle** → link **Google** (`reviewUrl`).
+- Se il link Google **non è configurato**, **tutte** le stelle vanno al feedback privato (nessun vicolo cieco).
+- Tolto il bottone grosso, aggiunto testo «tocca le stelle» (`tapToRate`, 5 lingue). La mail ora **parte sempre** (prima usciva solo con `reviewUrl` presente).
+
+### 🆕 Pagina `/feedback` + endpoint `/api/feedback`
+- **`src/pages/feedback.astro`**: pagina pubblica **a tema** (usa `temaEmail()` → CSS vars, logo/dati da `datiRistorante()`), **5 lingue** (fr/en/it/nl/es via `?lang=`). Stelle interattive pre-selezionate dalla mail (`?r=`), textarea messaggio, campo contatto **pre-compilato** (email/telefono passati in query), invio via `fetch` → schermata di ringraziamento. `noindex`.
+- **`src/pages/api/feedback.ts`** (`POST`, `prerender=false`): valida rating 1-5 + messaggio obbligatorio, chiama `inviaFeedbackCliente`.
+- **`inviaFeedbackCliente`** (nuovo, esportato in `notifications.ts`): compone una mail a tema (lingua admin, `FB_TXT` 5 lingue) con stelle, messaggio, contatti (mailto/tel), CTA «Rispondi al cliente» (`replyTo` = email cliente), e la manda alla **lista email ordini** (`kitchenEmail()`), from `ordineFromEmail()`, bcc `BCC`.
+
+### 📱 Email responsive
+`avvolgiTema` ora inietta una **media query** (`max-width:600px`) e classi hook **`em-card` / `em-pad` / `em-big`** applicate alle celle chiave di tutte le mail a tema (cliente, modifica, cucina, recensione, feedback): su mobile la card va full-width, i padding laterali si riducono, i numeri grandi rimpiccioliscono. Aggiunti anche selettori d'attributo di riserva sui padding inline (40px/44px) per le celle senza classe.
+
+### Note / verifica
+- `tsc --noEmit` **pulito** (0 errori) su tutti i file toccati. `astro check` non gira in questo ambiente (i binari nativi di `node_modules`/rollup sono per macOS, non per la VM Linux del ponte) → verificare la pagina in dev locale.
+- Preview locale: `http://localhost:4321/feedback?r=2&o=TEST123&name=Enzo&lang=it` (riavviare il dev server: file nuovi).
+- Env recensioni Google (invariata): `reviewUrl`/link Google configurato lato `app_config`; senza, il gating manda tutto al feedback privato.
+
 ## 📌 17/08/2026 — sessione Cowork (Mac mini)
 
 Due grandi filoni: **modifica ordine con differenza d'importo** (link supplemento / rimborso) e la **trasformazione di demo01 in un vero sito one-page** collegato al motore.
