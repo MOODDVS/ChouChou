@@ -43,7 +43,7 @@ const CATS: { key: string; label: string }[] = [
 <Demo01Layout title={`${t.title} — ${brand}`} lang={lang}>
   <section class="fb">
     <div id="form" class="fb-inner">
-      <p class="eyebrow">{brand}</p>
+      <img class="glogo" src="/restohub/Google_Favicon.webp" alt="Google" width="40" height="40" />
       <h1 class="fb-title">{t.title}</h1>
       <p class="fb-sub">{t.sub}</p>
 
@@ -58,7 +58,7 @@ const CATS: { key: string; label: string }[] = [
           <div class="subrow">
             <span class="sublabel">{c.label}</span>
             <div class="substars" data-cat={c.key}>
-              {[1,2,3,4,5].map((n) => <button type="button" class="sstar" data-n={n} aria-label={`${c.label} ${n}`}>★</button>)}
+              {[1,2,3,4,5].map((n) => <button type="button" class="star star--sm" data-n={n} aria-label={`${c.label} ${n}`}>★</button>)}
             </div>
           </div>
         ))}
@@ -86,7 +86,7 @@ const CATS: { key: string; label: string }[] = [
 <script define:vars={{ rating, order, name, email, phone, STR: t }}>
   (function () {
     let current = rating;
-    const stars = Array.from(document.querySelectorAll(".star"));
+    const stars = Array.from(document.querySelectorAll("#stars .star"));
     const rateTxt = document.getElementById("ratetxt");
     const paint = (v) => {
       stars.forEach((s) => s.classList.toggle("on", Number(s.dataset.n) <= v));
@@ -99,7 +99,7 @@ const CATS: { key: string; label: string }[] = [
     const sub = { food: 0, service: 0, atmosphere: 0 };
     document.querySelectorAll(".substars").forEach((grp) => {
       const cat = grp.dataset.cat;
-      const items = Array.from(grp.querySelectorAll(".sstar"));
+      const items = Array.from(grp.querySelectorAll(".star"));
       const paintSub = (v) => items.forEach((s) => s.classList.toggle("on", Number(s.dataset.n) <= v));
       items.forEach((s) => s.addEventListener("click", () => { sub[cat] = Number(s.dataset.n); paintSub(sub[cat]); }));
     });
@@ -136,7 +136,7 @@ const CATS: { key: string; label: string }[] = [
 <style>
   .fb { max-width: 620px; margin: 0 auto; padding: clamp(3rem, 7vw, 5.5rem) 1.5rem 5.5rem; text-align: center; }
   .fb-inner { display: flex; flex-direction: column; align-items: center; }
-  .eyebrow { font-family: var(--disp); letter-spacing: .3em; text-transform: uppercase; font-size: .72rem; color: var(--accent); }
+  .glogo { width: 40px; height: 40px; display: block; margin: 0 auto; }
   .fb-title { font-family: var(--disp); font-weight: 400; font-size: clamp(2rem, 5.5vw, 3rem); line-height: 1.1; margin: 1rem 0 0; }
   .fb-sub { color: var(--muted); line-height: 1.65; max-width: 480px; margin: 1.1rem auto 0; }
   .stars { display: flex; justify-content: center; gap: .35rem; margin: 2.2rem 0 .5rem; }
@@ -151,8 +151,8 @@ const CATS: { key: string; label: string }[] = [
   .subrow { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .35rem 0; }
   .sublabel { color: var(--cream); font-size: .95rem; }
   .substars { display: flex; gap: .15rem; }
-  .sstar { background: none; border: 0; cursor: pointer; font-size: 1.45rem; line-height: 1; padding: 0 .05rem; color: rgba(247,241,230,.2); transition: color .12s; -webkit-tap-highlight-color: transparent; }
-  .sstar.on { color: var(--accent); }
+  .star--sm { font-size: 1.5rem; padding: 0 .06rem; }
+  .star--sm:hover { transform: none; }
 
   .fields { width: 100%; max-width: 480px; margin: 1.8rem auto 0; }
   textarea, #contact { width: 100%; background: var(--panel); color: var(--cream); border: 1px solid var(--line); border-radius: 12px; padding: .95rem 1.1rem; font-family: var(--body); font-size: 1rem; outline: none; transition: border-color .2s; }
