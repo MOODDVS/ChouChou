@@ -23,7 +23,7 @@ interface GiornoInput {
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
-const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
 
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [
@@ -38,7 +38,13 @@ const CHIAVI_GENERAL = [
   "public_phone",
   "public_email",
   "contact_emails",
+  "newsletter_from_name",
   "newsletter_from_email",
+  "email_from_name",
+  "contact_from_name",
+  "contact_from_email",
+  "order_from_name",
+  "order_from_email",
   "whatsapp_number",
   "timezone",                 // fuso orario del ristorante (IANA, es. Europe/Brussels)
   "brand_logo",               // URL loghi + favicon (bucket Storage "brand")
@@ -60,6 +66,7 @@ const CHIAVI_RESA = [
   "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
   "reservation_corner_style", // angoli del widget: "rounded" | "square"
   "reservation_languages",    // lingue attive sul widget: JSON ["fr","en",…]
+  "reservation_from_name",    // nome mittente delle conferme al cliente
   "reservation_from_email",   // mittente delle conferme al cliente
   "reservation_notify_email", // dove arrivano le richieste
 ];
@@ -289,7 +296,7 @@ export const PUT: APIRoute = async ({ request }) => {
           if (!RE_EMAIL.test(e)) return json({ error: `Email contact invalide : ${e}` }, 400);
         }
       }
-      if ((k === "newsletter_from_email" || k === "public_email") && v && !RE_EMAIL.test(v)) {
+      if ((k === "newsletter_from_email" || k === "public_email" || k === "contact_from_email" || k === "order_from_email") && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
       }
       if (k === "timezone" && v) {
@@ -415,8 +422,13 @@ export const PUT: APIRoute = async ({ request }) => {
         }
         v = JSON.stringify(puliti);
       }
-      if ((k === "reservation_from_email" || k === "reservation_notify_email") && v && !RE_EMAIL.test(v)) {
+      if (k === "reservation_from_email" && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
+      }
+      if (k === "reservation_notify_email" && v) {
+        for (const e of v.split(",").map((x) => x.trim()).filter(Boolean)) {
+          if (!RE_EMAIL.test(e)) return json({ error: `Email invalide : ${e}` }, 400);
+        }
       }
       resaPulito.push([k, v]);
     }

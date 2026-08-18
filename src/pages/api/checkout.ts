@@ -238,6 +238,7 @@ export const POST: APIRoute = async ({ request }) => {
       orderId: ordine.id,
       siteUrl,
       lang,
+      returnBase: (body as { source?: string }).source === "demo01" ? "/demo01" : undefined,
       discount:
         scontoCents > 0
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }

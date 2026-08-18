@@ -359,7 +359,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
   try {
     await resend.emails.send({
       from: RESEND_FROM,
-      to: dest,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: "enquiries@moodd.online",
       subject: `Votre journée — ${dataLunga}`,
       html,

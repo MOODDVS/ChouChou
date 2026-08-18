@@ -1,0 +1,140 @@
+---
+// Layout condiviso per le pagine "satellite" del template demo01 (conferma /
+// annullo ordine): header + footer nello stile demo01, alimentati dal motore.
+import { datiRistorante } from "../lib/ristorante";
+import { linksSocial } from "../lib/links";
+import { supabaseAdmin } from "../lib/db";
+import { CLIENT } from "../config/client";
+
+interface Props { title: string; lang?: string; }
+const { title, lang = "fr" } = Astro.props;
+
+const [{ data: cfgName }, { data: cfgFav }] = await Promise.all([
+  supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle(),
+  supabaseAdmin.from("app_config").select("value").eq("key", "brand_favicon").maybeSingle(),
+]);
+const nome = String(cfgName?.value ?? "").trim() || CLIENT.nome;
+const favicon = String(cfgFav?.value ?? "").trim() || "/favicon.svg";
+
+let dati = { nome, tel: "", telLink: "", email: "", indirizzo: "" };
+try { const d = await datiRistorante(); dati = { ...d, nome }; } catch { /* fallback */ }
+
+let social: { url: string; label: string; icon: string }[] = [];
+try { social = await linksSocial(); } catch { /* nessuno */ }
+
+const addr = dati.indirizzo || "";
+const ci = addr.indexOf(",");
+const via = (ci >= 0 ? addr.slice(0, ci) : addr).trim();
+const city = ci >= 0 ? addr.slice(ci + 1).trim() : "";
+const year = new Date().getFullYear();
+
+const L: Record<string, Record<string, string>> = {
+  fr: { home: "Accueil", resto: "Le restaurant", carte: "La carte", menus: "Les menus", contact: "Nous contacter", order: "Commander", tag: "Cuisine généreuse et authentique — réservez, commandez, savourez.", contactH: "Contact", exploreH: "Explorer", book: "Réserver", menu: "Menu" },
+  en: { home: "Home", resto: "The restaurant", carte: "A la carte", menus: "Set menus", contact: "Contact us", order: "Order", tag: "Generous, authentic cooking — book, order, savour.", contactH: "Contact", exploreH: "Explore", book: "Book", menu: "Menu" },
+  it: { home: "Home", resto: "Il ristorante", carte: "La carta", menus: "I menu", contact: "Contatti", order: "Ordina", tag: "Cucina generosa e autentica — prenota, ordina, assapora.", contactH: "Contatti", exploreH: "Esplora", book: "Prenota", menu: "Menu" },
+};
+const t = L[["fr", "en", "it"].includes(lang) ? lang : "fr"];
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title}</title>
+    <link rel="icon" href={favicon} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root { --bg:#0d0d0d; --panel:#141414; --panel2:#1a1a1a; --cream:#f7f1e6; --muted:#b8a894; --accent:#e23b2e; --green:#46a860; --line:rgba(247,241,230,.12); --title:"Bebas Neue",system-ui,sans-serif; --disp:"Marcellus",Georgia,serif; --body:"Nunito Sans",system-ui,sans-serif; --maxw:1440px; }
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { background:var(--bg); color:var(--cream); font-family:var(--body); line-height:1.6; min-height:100vh; display:flex; flex-direction:column; }
+      a { color:inherit; text-decoration:none; }
+      svg { display:block; }
+      .wrap { max-width:var(--maxw); margin:0 auto; padding:0 1.5rem; width:100%; }
+      header { position:sticky; top:0; z-index:50; background:rgba(13,13,13,.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+      .nav { display:flex; align-items:center; gap:1.2rem; height:84px; }
+      .brand { display:flex; align-items:center; gap:.6rem; font-family:var(--title); font-size:1.5rem; letter-spacing:.04em; }
+      .brand .logo { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#1e1e1e,#0a0a0a); display:grid; place-items:center; flex:0 0 auto; }
+      .brand .logo svg { width:22px; height:22px; }
+      .nav-links { display:flex; gap:1.3rem; margin-left:1rem; font-size:.9rem; color:var(--muted); }
+      .nav-links a:hover { color:var(--cream); }
+      .nav-right { margin-left:auto; display:flex; align-items:center; gap:.7rem; }
+      .btn { display:inline-flex; align-items:center; gap:.5rem; font-family:var(--body); font-weight:800; font-size:.92rem; letter-spacing:.02em; border-radius:999px; padding:.72rem 1.5rem; cursor:pointer; border:1.5px solid transparent; transition:background .2s,color .2s,border-color .2s; white-space:nowrap; }
+      .btn-p { background:var(--accent); color:#fff; border-color:var(--accent); }
+      .btn-p:hover { background:#c02c20; border-color:#c02c20; }
+      main { flex:1 0 auto; }
+      @media (max-width:860px) { .nav-links { display:none; } }
+      footer { background:#0a0a0a; border-top:1px solid var(--line); padding:4rem 0 2rem; }
+      .foot-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:2.5rem; align-items:start; }
+      @media (max-width:760px) { .foot-grid { grid-template-columns:1fr; gap:2.2rem; } }
+      .foot-name { font-family:var(--disp); font-size:1.7rem; color:var(--cream); margin-bottom:.7rem; }
+      .foot-tag { color:var(--muted); font-size:.9rem; line-height:1.6; max-width:320px; margin:0 0 1.3rem; }
+      .foot-social { display:flex; gap:.6rem; flex-wrap:wrap; }
+      .foot-social:empty { display:none; }
+      .foot-social a { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; border:1px solid var(--line); color:var(--muted); transition:color .2s,border-color .2s,background .2s; }
+      .foot-social a:hover { color:#fff; border-color:var(--accent); background:var(--accent); }
+      .foot-social svg { width:17px; height:17px; }
+      .foot-h { font-family:var(--body); text-transform:uppercase; letter-spacing:.16em; font-size:.7rem; font-weight:800; color:var(--accent); margin-bottom:1rem; }
+      .foot-line { display:block; color:var(--muted); font-size:.9rem; line-height:1.55; margin-bottom:.55rem; transition:color .2s; }
+      a.foot-line:hover { color:var(--cream); }
+      .foot-bottom { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:3rem; padding-top:1.6rem; border-top:1px solid var(--line); color:var(--muted); font-size:.78rem; }
+      .foot-powered b { color:var(--cream); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap nav">
+        <a class="brand" href="/demo01">
+          <span class="logo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L21.5 20 Q12 24 2.5 20 Z" fill="#f7f1e6"/><circle cx="9.8" cy="12" r="1.35" fill="#e23b2e"/><circle cx="14.2" cy="14.3" r="1.35" fill="#e23b2e"/><circle cx="11.6" cy="16.8" r="1.15" fill="#46a860"/></svg>
+          </span>
+          <span set:html={nome.replace(/ /g, "&nbsp;")}></span>
+        </a>
+        <nav class="nav-links">
+          <a href="/demo01#accueil">{t.home}</a>
+          <a href="/demo01#restaurant">{t.resto}</a>
+          <a href="/demo01#commander">{t.carte}</a>
+          <a href="/demo01#menus">{t.menus}</a>
+          <a href="/demo01#reserver">{t.contact}</a>
+        </nav>
+        <div class="nav-right">
+          <a class="btn btn-p" href="/demo01#commander">{t.order}</a>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer>
+      <div class="wrap foot-grid">
+        <div class="foot-col">
+          <div class="foot-name">{nome}</div>
+          <p class="foot-tag">{t.tag}</p>
+          <div class="foot-social">
+            {social.map((s) => (<a href={s.url} target="_blank" rel="noopener" aria-label={s.label} set:html={s.icon}></a>))}
+          </div>
+        </div>
+        <div class="foot-col">
+          <div class="foot-h">{t.contactH}</div>
+          {via && <span class="foot-line">{via}{city ? `, ${city}` : ""}</span>}
+          {dati.tel && <a class="foot-line" href={`tel:${dati.telLink}`}>{dati.tel}</a>}
+          {dati.email && <a class="foot-line" href={`mailto:${dati.email}`}>{dati.email}</a>}
+        </div>
+        <div class="foot-col">
+          <div class="foot-h">{t.exploreH}</div>
+          <a class="foot-line" href="/demo01#reserver">{t.book}</a>
+          <a class="foot-line" href="/demo01#commander">{t.order}</a>
+          <a class="foot-line" href="/demo01#menus">{t.menu}</a>
+        </div>
+      </div>
+      <div class="wrap foot-bottom">
+        <span>© {year} {nome}</span>
+        <span class="foot-powered">Propulsé par <b>RestoHub</b></span>
+      </div>
+    </footer>
+  </body>
+</html>

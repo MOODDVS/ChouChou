@@ -170,8 +170,10 @@
   .cf-ta{resize:vertical;min-height:96px}
   .cf-btn{align-self:center;justify-content:center;margin-top:.6rem;padding:.8rem 2.8rem}
   .cf-status{font-size:.85rem;margin:.2rem 0 0;min-height:1.1em}
-  .cf-status.ok{color:var(--green)}
-  .cf-status.err{color:#e0553f}
+  .cf-status.ok,.cf-status.err{display:inline-flex;align-items:center;gap:.5rem;min-height:0;padding:.7rem 1.25rem;border-radius:999px;color:#fff;font-weight:700;font-size:.9rem;line-height:1.25}
+  .cf-status.ok{background:rgba(70,168,96,.18);border:1px solid var(--green)}
+  .cf-status.ok::before{content:"";width:.6rem;height:.6rem;border-radius:50%;background:var(--green);flex:0 0 auto;box-shadow:0 0 0 4px rgba(70,168,96,.22)}
+  .cf-status.err{background:rgba(224,85,63,.16);border:1px solid #e0553f}
   .cf-check{display:flex;align-items:flex-start;gap:.55rem;color:var(--muted);font-size:.82rem;line-height:1.45;cursor:pointer;margin-top:.2rem}
   .cf-check input{margin-top:.15rem;width:16px;height:16px;flex:none;accent-color:var(--accent);cursor:pointer}
   .reviews-block{margin-top:3.6rem}
@@ -820,7 +822,7 @@ document.addEventListener("submit",async e=>{
  if(!f.conditions.checked){st.className="cf-status err";st.textContent=tr("ctf.terms_req");return;}
  const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent=tr("ctf.sending");st.className="cf-status";st.textContent="";
  try{
-  const r=await fetch("/api/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email,telefono:f.telefono.value.trim(),oggetto:f.oggetto.value.trim(),messaggio,lang:LANG==="en"?"en":"fr"})});
+  const r=await fetch("/api/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email,telefono:f.telefono.value.trim(),oggetto:f.oggetto.value.trim(),messaggio,lang:LANG})});
   const j=await r.json().catch(()=>({}));
   if(r.ok&&j&&j.ok){st.className="cf-status ok";st.textContent=tr("ctf.ok");f.reset();}
   else{st.className="cf-status err";st.textContent=(j&&j.error)?j.error:tr("ctf.err");}
@@ -892,6 +894,7 @@ async function payer(){
    slot, note:"",
    coupon: discount ? document.getElementById("couponInput").value.trim() : "",
    customer:{name,surname,phone,email},
+   source:"demo01",
    lang: LANG==="en"?"en":"fr"
   })});
   const j=await r.json().catch(()=>({}));

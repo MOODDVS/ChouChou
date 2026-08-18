@@ -41,6 +41,9 @@ interface CreaSessioneInput {
   orderId: string;
   siteUrl: string;
   lang?: "fr" | "en";
+  // Base URL di ritorno (es. "/demo01") per gli ordini che partono da un
+  // template: vince sul prefisso lingua. Assente = comportamento standard.
+  returnBase?: string;
   // Sconto coupon già calcolato lato server (centesimi). Se presente, viene
   // creato un coupon Stripe "usa e getta" (duration: once) applicato alla
   // sessione: il cliente vede la riduzione e paga il totale scontato.
@@ -56,6 +59,7 @@ export async function creaCheckoutSession({
   orderId,
   siteUrl,
   lang = "fr",
+  returnBase,
   discount,
 }: CreaSessioneInput): Promise<string> {
   // Prefisso lingua per gli URL di ritorno: EN sotto /en/, FR senza prefisso.
@@ -86,8 +90,8 @@ export async function creaCheckoutSession({
     })),
     ...(discounts ? { discounts } : {}),
     metadata: { order_id: orderId },
-    success_url: `${siteUrl}${prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl}${prefix}/order-cancel`,
+    success_url: `${siteUrl}${returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${returnBase ? `&lang=${lang}` : ""}`,
+    cancel_url: `${siteUrl}${returnBase ?? prefix}/order-cancel${returnBase ? `?lang=${lang}` : ""}`,
   });
 
   if (!session.url) {

@@ -2,12 +2,15 @@ import { Resend } from "resend";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
+import { temaEmail, type TemaEmail } from "./temaBrand";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
 import { TIMEZONE } from "./slots";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-const RESEND_FROM = import.meta.env.RESEND_FROM;
+// RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
+// che Resend rifiuta con 422 "Invalid from field".
+const RESEND_FROM = ((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "") || undefined;
 const KITCHEN_EMAIL = import.meta.env.KITCHEN_EMAIL;
 const SLACK_WEBHOOK_URL = import.meta.env.SLACK_WEBHOOK_URL;
 const BCC = "enquiries@moodd.online";
@@ -35,6 +38,23 @@ async function kitchenEmail(): Promise<string> {
     // DB non raggiungibile: si usa il fallback env.
   }
   return KITCHEN_EMAIL ?? "";
+}
+
+/** Mittente delle email cliente per gli ORDINI (order_from_* o fallback generali). */
+async function ordineFromEmail(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["order_from_name", "email_from_name", "restaurant_name", "order_from_email", "public_email", "newsletter_from_email"]);
+    const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
+    const nome = m.get("order_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
+    const email = m.get("order_from_email") || m.get("public_email") || m.get("newsletter_from_email") || "";
+    if (email) return `${nome} <${email}>`;
+  } catch {
+    /* fallback */
+  }
+  return RESEND_FROM ?? "";
 }
 
 /** Dati di un ordine confermato, per comporre le notifiche. */
@@ -166,7 +186,8 @@ export async function inviaModificaOrdine(
 
 /** Email di conferma al cliente (design dark brand). */
 async function emailCliente(o: OrdineNotifica): Promise<void> {
-  if (!resend || !RESEND_FROM) {
+  const from = await ordineFromEmail();
+  if (!resend || !from) {
     console.warn("Resend non configurato: salto email cliente");
     return;
   }
@@ -175,67 +196,68 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
+  const tema = await temaEmail();
 
   const righeHtml = piatti
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
 
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${dati.telLink}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
-          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -244,11 +266,11 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
 
   try {
     await resend.emails.send({
-      from: RESEND_FROM,
+      from,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema),
     });
   } catch (e) {
     console.error("Errore email cliente:", e);
@@ -334,7 +356,8 @@ async function emailModificaCliente(
   o: OrdineNotifica,
   opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number }
 ): Promise<void> {
-  if (!resend || !RESEND_FROM) {
+  const from = await ordineFromEmail();
+  if (!resend || !from) {
     console.warn("Resend non configurato: salto email modifica");
     return;
   }
@@ -343,18 +366,19 @@ async function emailModificaCliente(
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
+  const tema = await temaEmail();
 
   const righeHtml = piatti
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const suppCents = opts.supplement_cents ?? 0;
@@ -368,7 +392,7 @@ async function emailModificaCliente(
             <tr>
               <td style="padding:20px 24px;text-align:center;">
                 <p style="margin:0 0 6px;color:#ffcf8f;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${t.supplTitle}</p>
-                <p style="margin:0 0 16px;color:#ffffff;font-size:15px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.supplText(euro(suppCents))}</p>
+                <p style="margin:0 0 16px;color:${tema.title};font-size:15px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.supplText(euro(suppCents))}</p>
                 <a href="${opts.supplement_url}" style="display:inline-block;background:#f0a24b;color:#3a2708;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
               </td>
             </tr>
@@ -385,34 +409,34 @@ async function emailModificaCliente(
         : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px 12px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
@@ -420,17 +444,17 @@ async function emailModificaCliente(
       ${blocco}
       <tr>
         <td style="padding:8px 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${dati.telLink}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
-          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -439,11 +463,11 @@ async function emailModificaCliente(
 
   try {
     await resend.emails.send({
-      from: RESEND_FROM,
+      from,
       to: o.customer_email,
       subject: t.subject(o.numero, ora),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema),
     });
   } catch (e) {
     console.error("Errore email modifica:", e);
@@ -516,7 +540,8 @@ const TXT_PAY = {
 
 /** Email al cliente con il LINK DI PAGAMENTO Stripe (ordine manuale staff). */
 export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; cancel_url?: string | null }): Promise<void> {
-  if (!resend || !RESEND_FROM) {
+  const from = await ordineFromEmail();
+  if (!resend || !from) {
     console.warn("Resend non configurato: salto email link di pagamento");
     return;
   }
@@ -524,68 +549,69 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
+  const tema = await temaEmail();
 
   const righeHtml = piatti
     .map(
       (i) => `
       <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
+        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
       </tr>`
     )
     .join("");
   const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:#fff;">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
-          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:#8fb0b5;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:#f04b4b;font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
+          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:#ffffff;font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:#f04b4b;font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 8px;text-align:center;">
-          <a href="${o.pay_url}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
-          <p style="margin:14px 0 0;color:#6f9096;font-size:12px;">${t.valid}</p>
+          <a href="${o.pay_url}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
+          <p style="margin:14px 0 0;color:${tema.muted};font-size:12px;">${t.valid}</p>
           ${o.cancel_url ? `<p style="margin:18px 0 0;"><a href="${o.cancel_url}" style="color:#ff8a8f;font-size:12px;text-decoration:underline;text-underline-offset:2px;">${t.cancelLink}</a></p>` : ""}
         </td>
       </tr>
       <tr>
         <td style="padding:20px 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:#f04b4b;"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px 24px;text-align:center;">
-          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -594,11 +620,11 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
   try {
     await resend.emails.send({
-      from: RESEND_FROM,
+      from,
       to: o.customer_email,
       subject: t.subject(o.numero),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema),
     });
   } catch (e) {
     console.error("Errore email link di pagamento:", e);
@@ -608,12 +634,14 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 /** Email di notifica alla cucina (design chiaro operativo). */
 async function emailCucina(o: OrdineNotifica): Promise<void> {
   const dest = await kitchenEmail();
-  if (!resend || !RESEND_FROM || !dest) {
-    console.warn("Resend/email cucina non configurati: salto email cucina");
+  const from = await ordineFromEmail();
+  if (!resend || !from || !dest) {
+    console.warn("Resend/email ordini non configurati: salto notifica ordine");
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
+  const tema = await temaEmail();
 
   // Una riga piatto + (se presente nel name) il supplemento evidenziato.
   // Il supplemento è già dentro name tra parentesi: lo estraggo per mostrarlo sotto.
@@ -623,44 +651,44 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       const nomeBase = match ? match[1] : i.name;
       const suppl = match ? match[2] : "";
       const supplRow = suppl
-        ? `<tr><td colspan="2" style="padding:0 0 10px;color:#a3320f;font-size:15px;font-weight:bold;">↳ ${esc(suppl)}</td></tr>`
+        ? `<tr><td colspan="2" style="padding:0 0 10px;color:${tema.accent};font-size:15px;font-weight:bold;">↳ ${esc(suppl)}</td></tr>`
         : "";
       return `
       <tr>
-        <td style="padding:14px 0;border-bottom:1px solid #e4e2dc;color:#000;font-size:20px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
-        <td style="padding:14px 0;border-bottom:1px solid #e4e2dc;color:#000;font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
+        <td style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
+        <td style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
       </tr>${supplRow}`;
     })
     .join("");
 
   const noteHtml = noteCliente
-    ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:#fff4e0;border-left:4px solid #d8851b;"><tr><td style="padding:14px 18px;color:#7a4a09;font-size:15px;"><strong>Note client :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`
+    ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:4px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:15px;"><strong style="color:${tema.title};">Note client :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:24px 32px;background:#002f35;">
+        <td style="padding:22px 32px 4px;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:#f04b4b;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
-            <td style="color:#ffffff;font-size:13px;text-align:right;">#${esc(o.numero)}</td>
+            <td style="color:${tema.accent};font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
+            <td style="color:${tema.muted};font-size:13px;text-align:right;">#${esc(o.numero)}</td>
           </tr></table>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #002f35;">
-          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">Retrait à</p>
-          <p style="margin:6px 0 0;color:#000;font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
-          <p style="margin:18px 0 4px;color:#000;font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
-          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">
+        <td style="padding:14px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
+          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">Retrait à</p>
+          <p style="margin:6px 0 0;color:${tema.accent};font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
+          <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
+          <p style="margin:0;color:${tema.muted};font-size:14px;line-height:1.7;">
             ${esc(o.customer_phone ?? "—")} · ${esc(o.customer_email)}<br>
-            <span style="color:#1d7a4d;font-weight:bold;">Payé ✓</span>
+            <span style="color:#2e9e6b;font-weight:bold;">Payé ✓</span>
           </p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 32px 8px;">
+        <td style="padding:22px 32px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             ${righeHtml}
           </table>
@@ -668,24 +696,23 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       </tr>
       ${noteHtml}
       <tr>
-        <td style="padding:20px 32px 28px;">
+        <td style="padding:16px 32px 26px;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:#000;font-size:22px;font-weight:bold;">TOTAL</td>
-            <td style="color:#000;font-size:22px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
+            <td style="color:${tema.title};font-size:22px;font-weight:bold;">TOTAL</td>
+            <td style="color:${tema.accent};font-size:22px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
           </tr></table>
         </td>
       </tr>
     </table>
-  </div>
   `;
 
   try {
     await resend.emails.send({
-      from: RESEND_FROM,
+      from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
       subject: `Nouvelle commande #${o.numero} — retrait ${ora}`,
-      html,
+      html: avvolgiTema(html, tema),
     });
   } catch (e) {
     console.error("Errore email cucina:", e);
@@ -784,9 +811,11 @@ const TXT_REVIEW = {
  * (Réglages → Liens). Nessun cron: la consegna è gestita da Resend.
  */
 async function emailReview(o: OrdineNotifica): Promise<void> {
-  if (!resend || !RESEND_FROM) return;
+  const from = await ordineFromEmail();
+  if (!resend || !from) return;
   if (!o.customer_email?.trim()) return; // niente email: niente richiesta recensione
   const dati = await datiRistorante();
+  const tema = await temaEmail();
 
   // Link recensione dall'admin: senza link, niente email.
   let reviewUrl = "";
@@ -812,39 +841,39 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
-          <p style="margin:18px 0 0;color:#8fb0b5;font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+          <p style="margin:18px 0 0;color:${tema.text};font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
         </td>
       </tr>
       <tr>
         <td style="padding:26px 40px 6px;text-align:center;">
-          <p style="margin:0;color:#f04b4b;font-size:26px;letter-spacing:6px;">★★★★★</p>
+          <p style="margin:0;color:${tema.accent};font-size:26px;letter-spacing:6px;">★★★★★</p>
         </td>
       </tr>
       <tr>
         <td style="padding:18px 40px 8px;text-align:center;">
-          <a href="${reviewUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+          <a href="${reviewUrl}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
         </td>
       </tr>
       <tr>
         <td style="padding:22px 40px 8px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:#f04b4b;"></div>
-          <p style="margin:0 0 26px;color:#6f9096;font-size:13px;line-height:1.7;">${t.sign}</p>
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:${tema.accent};"></div>
+          <p style="margin:0 0 26px;color:${tema.muted};font-size:13px;line-height:1.7;">${t.sign}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
-          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
@@ -853,11 +882,11 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
 
   try {
     await resend.emails.send({
-      from: RESEND_FROM,
+      from,
       to: o.customer_email,
       subject: t.subject(nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema),
       scheduledAt: quando.toISO() ?? undefined,
     });
   } catch (e) {
@@ -967,7 +996,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
           <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
@@ -1309,11 +1338,12 @@ async function resaFromEmail(): Promise<string> {
   try {
     const { data } = await supabaseAdmin
       .from("app_config")
-      .select("value")
-      .eq("key", "reservation_from_email")
-      .maybeSingle();
-    const v = String(data?.value ?? "").trim();
-    if (v) return v;
+      .select("key, value")
+      .in("key", ["reservation_from_name", "email_from_name", "restaurant_name", "reservation_from_email", "public_email", "newsletter_from_email"]);
+    const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
+    const nome = m.get("reservation_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
+    const email = m.get("reservation_from_email") || m.get("public_email") || m.get("newsletter_from_email") || "";
+    if (email) return `${nome} <${email}>`;
   } catch {
     /* fallback */
   }
@@ -1357,9 +1387,23 @@ function avvolgiScuro(inner: string, dir = "ltr"): string {
   </body></html>`;
 }
 
+/** Guscio email THEME-DRIVEN (colori da admin_theme): documento completo con
+ *  sfondo pieno del tema. Usato dalle email ordini convertite. */
+function avvolgiTema(inner: string, tema: TemaEmail, dir = "ltr"): string {
+  return `<!doctype html>
+<html dir="${dir}">
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="light dark" /></head>
+<body style="margin:0;padding:0;background:${tema.bg};font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.bg};border-collapse:collapse;margin:0;padding:0;width:100%;"><tr><td align="center" style="padding:8px 14px 24px;">
+  ${inner}
+  </td></tr></table>
+</body></html>`;
+}
+
 /** Header + recap comune (design dark brand) di tutte le email prenotazione. */
 function guscioResa(opts: {
   nome: string;
+  logo: string;
   claimUpper: string;
   dir: string;
   title: string;
@@ -1375,7 +1419,7 @@ function guscioResa(opts: {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(opts.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <img src="${opts.logo || LOGO_URL}" alt="${esc(opts.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
           <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc(opts.claimUpper)}</p>
         </td>
       </tr>
@@ -1454,6 +1498,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
 
   const html = guscioResa({
     nome: dati.nome,
+    logo: dati.logo,
     claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.confTitle,
@@ -1514,6 +1559,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
 
   const html = guscioResa({
     nome: dati.nome,
+    logo: dati.logo,
     claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
     dir: lang === "ar" ? "rtl" : "ltr",
     title: tr.title,
@@ -1583,6 +1629,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
 
   const html = guscioResa({
     nome: dati.nome,
+    logo: dati.logo,
     claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.pendTitle,
@@ -1642,6 +1689,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
 
   const html = guscioResa({
     nome: dati.nome,
+    logo: dati.logo,
     claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.cancTitle,
@@ -1701,6 +1749,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
 
   const html = guscioResa({
     nome: dati.nome,
+    logo: dati.logo,
     claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.fermTitle,
@@ -1924,7 +1973,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
+          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
         </td>
       </tr>
       <tr>

@@ -15,6 +15,9 @@ export interface DatiRistorante {
   telLink: string; // solo cifre e +, per href="tel:"
   email: string;
   indirizzo: string;
+  logo: string;
+  logoNeg: string;
+  logoPos: string;
 }
 
 export async function datiRistorante(): Promise<DatiRistorante> {
@@ -24,13 +27,16 @@ export async function datiRistorante(): Promise<DatiRistorante> {
     telLink: CLIENT.telefono.replace(/[^+\d]/g, ""),
     email: CLIENT.email,
     indirizzo: CLIENT.indirizzo,
+    logo: "",
+    logoNeg: "",
+    logoPos: "",
   };
   try {
     return await cacheOr("ristorante:dati", async () => {
       const { data, error } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", ["public_phone", "public_email", "company_street", "company_zip", "company_city"]);
+        .in("key", ["public_phone", "public_email", "company_street", "company_zip", "company_city", "restaurant_name", "brand_logo_negative", "brand_favicon", "brand_logo"]);
       if (error) throw error;
       const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
       const via = m.get("company_street") ?? "";
@@ -38,11 +44,14 @@ export async function datiRistorante(): Promise<DatiRistorante> {
       const citta = m.get("company_city") ?? "";
       const tel = m.get("public_phone") || fallback.tel;
       return {
-        nome: CLIENT.nome,
+        nome: m.get("restaurant_name") || CLIENT.nome,
         tel,
         telLink: tel.replace(/[^+\d]/g, ""),
         email: m.get("public_email") || fallback.email,
         indirizzo: via && citta ? `${via}, ${cp} ${citta}`.replace(/\s+/g, " ") : fallback.indirizzo,
+        logo: m.get("brand_logo_negative") || m.get("brand_favicon") || m.get("brand_logo") || "",
+        logoNeg: m.get("brand_logo_negative") || "",
+        logoPos: m.get("brand_logo") || "",
       };
     });
   } catch {
