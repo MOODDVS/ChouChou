@@ -917,7 +917,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   // Se il link Google non è configurato, tutte le stelle vanno alla pagina feedback.
   const baseSite = SITE_URL.replace(/\/$/, "");
   const feedbackUrl = (r: number) =>
-    `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
+    `${baseSite}/demo01/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
     `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
     `&phone=${encodeURIComponent(o.customer_phone ?? "")}`;
   const starHref = (r: number) => (reviewUrl && r >= 4 ? reviewUrl : feedbackUrl(r));

@@ -1,0 +1,129 @@
+---
+// Pagina feedback privato per il TEMPLATE demo01 — usa Demo01Layout
+// (header/footer in stile sito). Aperta dalle stelle 1-3 dell'email recensione:
+// raccoglie una nota e la invia SOLO al ristorante via POST /api/feedback.
+import Demo01Layout from "../../layouts/Demo01Layout.astro";
+import { supabaseAdmin } from "../../lib/db";
+import { CLIENT } from "../../config/client";
+
+export const prerender = false;
+
+const url = Astro.url;
+const rParam = Math.round(Number(url.searchParams.get("r")));
+const rating = Number.isFinite(rParam) && rParam >= 1 && rParam <= 5 ? rParam : 3;
+const order = (url.searchParams.get("o") ?? "").slice(0, 40);
+const name = (url.searchParams.get("name") ?? "").slice(0, 200);
+const email = (url.searchParams.get("email") ?? "").slice(0, 200);
+const phone = (url.searchParams.get("phone") ?? "").slice(0, 60);
+const LANGS = ["fr", "en", "it", "nl", "es"];
+const langRaw = (url.searchParams.get("lang") ?? "fr").toLowerCase();
+const lang = LANGS.includes(langRaw) ? langRaw : "fr";
+
+const { data: cfgBrand } = await supabaseAdmin
+  .from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
+const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
+
+type Str = { title: string; sub: string; ph: string; contactPh: string; send: string; sending: string; thanksT: string; thanksS: string; rate: string; needMsg: string; err: string; home: string };
+const T: Record<string, Str> = {
+  fr: { title: "Comment pouvons-nous nous améliorer ?", sub: "Désolés que l'expérience n'ait pas été parfaite. Votre retour arrive uniquement au restaurant et nous aide à faire mieux.", ph: "Dites-nous ce qui n'a pas fonctionné…", contactPh: "Votre email ou téléphone (facultatif)", send: "Envoyer mon avis", sending: "Envoi…", thanksT: "Merci pour votre retour", thanksS: "Nous en tenons compte pour nous améliorer.", rate: "Votre note", needMsg: "Merci d'écrire un petit message.", err: "Envoi impossible, réessayez.", home: "← Retour au site" },
+  en: { title: "How can we do better?", sub: "Sorry your experience wasn't perfect. Your feedback goes only to the restaurant and helps us improve.", ph: "Tell us what went wrong…", contactPh: "Your email or phone (optional)", send: "Send my feedback", sending: "Sending…", thanksT: "Thanks for your feedback", thanksS: "We'll use it to do better.", rate: "Your rating", needMsg: "Please write a short message.", err: "Couldn't send, please retry.", home: "← Back to site" },
+  it: { title: "Come possiamo migliorare?", sub: "Ci dispiace non sia stata un'esperienza perfetta. Il tuo riscontro arriva solo al ristorante e ci aiuta a fare meglio.", ph: "Raccontaci cosa non ha funzionato…", contactPh: "La tua email o telefono (facoltativo)", send: "Invia il feedback", sending: "Invio…", thanksT: "Grazie per il tuo feedback", thanksS: "Ne teniamo conto per migliorare.", rate: "La tua valutazione", needMsg: "Scrivi un breve messaggio.", err: "Invio non riuscito, riprova.", home: "← Torna al sito" },
+  nl: { title: "Hoe kunnen we het beter doen?", sub: "Sorry dat je ervaring niet perfect was. Je feedback gaat alleen naar het restaurant en helpt ons te verbeteren.", ph: "Vertel ons wat er misging…", contactPh: "Je e-mail of telefoon (optioneel)", send: "Feedback versturen", sending: "Versturen…", thanksT: "Bedankt voor je feedback", thanksS: "We gebruiken het om beter te worden.", rate: "Jouw beoordeling", needMsg: "Schrijf een kort bericht.", err: "Versturen mislukt, probeer opnieuw.", home: "← Terug naar de site" },
+  es: { title: "¿Cómo podemos mejorar?", sub: "Sentimos que la experiencia no haya sido perfecta. Tu comentario llega solo al restaurante y nos ayuda a mejorar.", ph: "Cuéntanos qué no funcionó…", contactPh: "Tu email o teléfono (opcional)", send: "Enviar mi opinión", sending: "Enviando…", thanksT: "Gracias por tu comentario", thanksS: "Lo tendremos en cuenta para mejorar.", rate: "Tu valoración", needMsg: "Escribe un breve mensaje.", err: "No se pudo enviar, inténtalo de nuevo.", home: "← Volver al sitio" },
+};
+const t = T[lang];
+const contactPrefill = [email, phone].filter(Boolean).join(" · ");
+---
+<Demo01Layout title={`${t.title} — ${brand}`} lang={lang}>
+  <section class="fb">
+    <div id="form" class="card">
+      <p class="eye">{brand}</p>
+      <h1>{t.title}</h1>
+      <p class="sub">{t.sub}</p>
+
+      <div class="stars" id="stars">
+        {[1,2,3,4,5].map((n) => <button type="button" class="star" data-n={n} aria-label={`${n}`}>★</button>)}
+      </div>
+      <p class="rate" id="ratetxt"></p>
+
+      <textarea id="msg" placeholder={t.ph}></textarea>
+      <input id="contact" type="text" placeholder={t.contactPh} value={contactPrefill} />
+      <button class="btn btn-p send" id="send" type="button">{t.send}</button>
+      <p class="err" id="err"></p>
+      <a class="home" href="/demo01">{t.home}</a>
+    </div>
+
+    <div id="done" class="card done" style="display:none">
+      <span class="check">✓</span>
+      <h1>{t.thanksT}</h1>
+      <p class="sub">{t.thanksS}</p>
+      <a class="home" href="/demo01">{t.home}</a>
+    </div>
+  </section>
+</Demo01Layout>
+
+<script define:vars={{ rating, order, name, email, phone, STR: t }}>
+  (function () {
+    let current = rating;
+    const stars = Array.from(document.querySelectorAll(".star"));
+    const rateTxt = document.getElementById("ratetxt");
+    const paint = (v) => {
+      stars.forEach((s) => s.classList.toggle("on", Number(s.dataset.n) <= v));
+      rateTxt.textContent = STR.rate + ": " + v + " / 5";
+    };
+    stars.forEach((s) => s.addEventListener("click", () => { current = Number(s.dataset.n); paint(current); }));
+    paint(current);
+
+    const btn = document.getElementById("send");
+    const err = document.getElementById("err");
+    btn.addEventListener("click", async () => {
+      const message = document.getElementById("msg").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+      err.textContent = "";
+      if (!message) { err.textContent = STR.needMsg; return; }
+      let em = email, ph = phone;
+      contact.split(/[·,;\n]+/).map((x) => x.trim()).filter(Boolean).forEach((p) => {
+        if (p.indexOf("@") >= 0) em = p; else if (/[0-9]/.test(p)) ph = p;
+      });
+      btn.disabled = true; const label = btn.textContent; btn.textContent = STR.sending;
+      try {
+        const res = await fetch("/api/feedback", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ rating: current, message, name, email: em, phone: ph, order }),
+        });
+        if (!res.ok) throw new Error("http");
+        document.getElementById("form").style.display = "none";
+        document.getElementById("done").style.display = "block";
+      } catch (_e) {
+        err.textContent = STR.err;
+        btn.disabled = false; btn.textContent = label;
+      }
+    });
+  })();
+</script>
+
+<style>
+  .fb { max-width: 560px; margin: 0 auto; padding: 4.5rem 1.2rem 5.5rem; }
+  .card { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 2.6rem 2.1rem; text-align: center; }
+  .eye { font-family: var(--disp); letter-spacing: .3em; text-transform: uppercase; font-size: .72rem; color: var(--accent); margin-bottom: 1rem; }
+  h1 { font-family: var(--disp); font-weight: 400; font-size: clamp(1.7rem, 5vw, 2.35rem); line-height: 1.18; margin-bottom: 1rem; }
+  .sub { color: var(--muted); line-height: 1.6; }
+  .stars { display: flex; justify-content: center; gap: .25rem; margin: 1.8rem 0 .4rem; }
+  .star { background: none; border: 0; cursor: pointer; font-size: 2.5rem; line-height: 1; padding: 0 .15rem; color: rgba(247,241,230,.22); transition: color .12s, transform .12s; -webkit-tap-highlight-color: transparent; }
+  .star:hover { transform: translateY(-2px); }
+  .star.on { color: var(--accent); }
+  .rate { color: var(--muted); font-size: .82rem; min-height: 1em; margin-bottom: .3rem; }
+  textarea, input { width: 100%; background: var(--panel2); color: var(--cream); border: 1px solid var(--line); border-radius: 11px; padding: .85rem 1rem; font-family: var(--body); font-size: 1rem; margin-top: 1rem; outline: none; transition: border-color .2s; }
+  textarea { min-height: 122px; resize: vertical; }
+  textarea:focus, input:focus { border-color: var(--accent); }
+  textarea::placeholder, input::placeholder { color: var(--muted); opacity: .85; }
+  .send { width: 100%; justify-content: center; margin-top: 1.3rem; }
+  .send[disabled] { opacity: .6; cursor: default; }
+  .err { color: #ff6b5e; font-size: .85rem; min-height: 1em; margin-top: .9rem; }
+  .home { display: inline-block; margin-top: 1.7rem; color: var(--muted); border-bottom: 1px solid var(--line); transition: color .2s, border-color .2s; }
+  .home:hover { color: var(--accent); border-color: var(--accent); }
+  .done { text-align: center; }
+  .check { display: inline-flex; align-items: center; justify-content: center; width: 66px; height: 66px; border-radius: 50%; background: rgba(70,168,96,.12); border: 1px solid rgba(70,168,96,.4); color: var(--green); font-size: 2rem; margin-bottom: 1.2rem; }
+  @media (max-width: 480px) { .fb { padding: 3rem 1rem 4rem; } .card { padding: 2rem 1.3rem; } .star { font-size: 2.2rem; } }
+</style>
