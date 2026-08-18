@@ -30,9 +30,18 @@ export const POST: APIRoute = async ({ request }) => {
   const phone = String(body.phone ?? "").trim().slice(0, 60);
   const order = String(body.order ?? "").trim().slice(0, 40);
 
+  // Sotto-valutazioni facoltative (0 = non valutato)
+  const clamp05 = (v: unknown) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 1 && n <= 5 ? n : 0;
+  };
+  const food = clamp05(body.food);
+  const service = clamp05(body.service);
+  const atmosphere = clamp05(body.atmosphere);
+
   if (!message) return json({ error: "Message requis" }, 400);
 
-  const ok = await inviaFeedbackCliente({ rating, message, name, email, phone, order });
+  const ok = await inviaFeedbackCliente({ rating, message, name, email, phone, order, food, service, atmosphere });
   if (!ok) return json({ error: "Envoi impossible" }, 502);
   return json({ ok: true });
 };

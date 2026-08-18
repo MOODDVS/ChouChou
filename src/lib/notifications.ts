@@ -1053,11 +1053,11 @@ export interface ResaReview {
 
 /** Etichette dell'email di FEEDBACK privato al ristoratore (lingua admin). */
 const FB_TXT = {
-  fr: { eyebrow: (n: string) => `Nouveau retour · ${n}`, order: "Commande", message: "Message", email: "Email", phone: "Téléphone", reply: "Répondre au client", subject: (n: string, r: number) => `Nouveau retour ${r}/5 — ${n}`, foot: "Reçu via la page d'avis du site." },
-  en: { eyebrow: (n: string) => `New feedback · ${n}`, order: "Order", message: "Message", email: "Email", phone: "Phone", reply: "Reply to the customer", subject: (n: string, r: number) => `New feedback ${r}/5 — ${n}`, foot: "Received via the site review page." },
-  it: { eyebrow: (n: string) => `Nuovo feedback · ${n}`, order: "Ordine", message: "Messaggio", email: "Email", phone: "Telefono", reply: "Rispondi al cliente", subject: (n: string, r: number) => `Nuovo feedback ${r}/5 — ${n}`, foot: "Ricevuto tramite la pagina recensioni del sito." },
-  nl: { eyebrow: (n: string) => `Nieuwe feedback · ${n}`, order: "Bestelling", message: "Bericht", email: "E-mail", phone: "Telefoon", reply: "Antwoord de klant", subject: (n: string, r: number) => `Nieuwe feedback ${r}/5 — ${n}`, foot: "Ontvangen via de reviewpagina van de site." },
-  es: { eyebrow: (n: string) => `Nuevo comentario · ${n}`, order: "Pedido", message: "Mensaje", email: "Email", phone: "Teléfono", reply: "Responder al cliente", subject: (n: string, r: number) => `Nuevo comentario ${r}/5 — ${n}`, foot: "Recibido a través de la página de reseñas del sitio." },
+  fr: { eyebrow: (n: string) => `Nouveau retour · ${n}`, order: "Commande", message: "Message", email: "Email", phone: "Téléphone", reply: "Répondre au client", subject: (n: string, r: number) => `Nouveau retour ${r}/5 — ${n}`, foot: "Reçu via la page d'avis du site.", details: "Détails", food: "Nourriture", service: "Service", atmosphere: "Ambiance" },
+  en: { eyebrow: (n: string) => `New feedback · ${n}`, order: "Order", message: "Message", email: "Email", phone: "Phone", reply: "Reply to the customer", subject: (n: string, r: number) => `New feedback ${r}/5 — ${n}`, foot: "Received via the site review page.", details: "Details", food: "Food", service: "Service", atmosphere: "Atmosphere" },
+  it: { eyebrow: (n: string) => `Nuovo feedback · ${n}`, order: "Ordine", message: "Messaggio", email: "Email", phone: "Telefono", reply: "Rispondi al cliente", subject: (n: string, r: number) => `Nuovo feedback ${r}/5 — ${n}`, foot: "Ricevuto tramite la pagina recensioni del sito.", details: "Dettaglio", food: "Cibo", service: "Servizio", atmosphere: "Atmosfera" },
+  nl: { eyebrow: (n: string) => `Nieuwe feedback · ${n}`, order: "Bestelling", message: "Bericht", email: "E-mail", phone: "Telefoon", reply: "Antwoord de klant", subject: (n: string, r: number) => `Nieuwe feedback ${r}/5 — ${n}`, foot: "Ontvangen via de reviewpagina van de site.", details: "Details", food: "Eten", service: "Service", atmosphere: "Sfeer" },
+  es: { eyebrow: (n: string) => `Nuevo comentario · ${n}`, order: "Pedido", message: "Mensaje", email: "Email", phone: "Teléfono", reply: "Responder al cliente", subject: (n: string, r: number) => `Nuevo comentario ${r}/5 — ${n}`, foot: "Recibido a través de la página de reseñas del sitio.", details: "Detalle", food: "Comida", service: "Servicio", atmosphere: "Ambiente" },
 } as const;
 
 /**
@@ -1072,6 +1072,9 @@ export async function inviaFeedbackCliente(fb: {
   email?: string;
   phone?: string;
   order?: string;
+  food?: number;
+  service?: number;
+  atmosphere?: number;
 }): Promise<boolean> {
   const dest = await kitchenEmail();
   const from = await ordineFromEmail();
@@ -1092,6 +1095,30 @@ export async function inviaFeedbackCliente(fb: {
       : "";
   const telLink = (fb.phone ?? "").replace(/[^+\d]/g, "");
 
+  // Sotto-valutazioni (Cibo/Servizio/Atmosfera): righe con mini-stelle, solo se valorizzate.
+  const cl = (v?: number) => (Number.isFinite(v) && (v as number) >= 1 && (v as number) <= 5 ? Math.round(v as number) : 0);
+  const miniStars = (v: number) =>
+    `<span style="color:${tema.accent};font-size:16px;letter-spacing:2px;">${"★".repeat(v)}</span>` +
+    (v < 5 ? `<span style="color:${tema.border};font-size:16px;letter-spacing:2px;">${"★".repeat(5 - v)}</span>` : "");
+  const subCats: [string, number][] = [
+    [k.food, cl(fb.food)],
+    [k.service, cl(fb.service)],
+    [k.atmosphere, cl(fb.atmosphere)],
+  ];
+  const subRows = subCats
+    .filter(([, v]) => v > 0)
+    .map(
+      ([lbl, v]) =>
+        `<tr><td style="padding:10px 0;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;">${lbl}</td><td style="padding:10px 0;border-bottom:1px solid ${tema.border};text-align:right;">${miniStars(v)}</td></tr>`
+    )
+    .join("");
+  const subBlock = subRows
+    ? `<tr><td class="em-pad" style="padding:8px 40px 6px;">
+          <p style="margin:0 0 6px;color:${tema.muted};font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${k.details}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${subRows}</table>
+        </td></tr>`
+    : "";
+
   const html = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
       <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
@@ -1108,6 +1135,7 @@ export async function inviaFeedbackCliente(fb: {
           <p style="margin:8px 0 0;color:${tema.text};font-size:14px;">${r} / 5</p>
         </td>
       </tr>
+      ${subBlock}
       <tr>
         <td class="em-pad" style="padding:18px 40px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
