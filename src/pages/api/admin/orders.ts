@@ -511,6 +511,44 @@ export const PUT: APIRoute = async ({ request }) => {
     lang,
   };
 
+  // Diff ordine per l'email "cosa è cambiato".
+  type Voce = { name: string; qty: number };
+  const oldItems = (Array.isArray(ord.items) ? ord.items : []) as { name?: unknown; qty?: unknown }[];
+  const oldPiatti: Voce[] = oldItems
+    .filter((i) => Number(i.qty) > 0)
+    .map((i) => ({ name: String(i.name ?? ""), qty: Number(i.qty) }));
+  const newPiatti: Voce[] = itemsOrdine.filter((i) => i.qty > 0).map((i) => ({ name: i.name, qty: i.qty }));
+  const mapQty = (arr: Voce[]) => {
+    const m = new Map<string, Voce>();
+    for (const i of arr) {
+      const e = m.get(i.name);
+      if (e) e.qty += i.qty;
+      else m.set(i.name, { name: i.name, qty: i.qty });
+    }
+    return m;
+  };
+  const om = mapQty(oldPiatti);
+  const nm = mapQty(newPiatti);
+  const added: Voce[] = [];
+  const removed: Voce[] = [];
+  for (const [k, v] of nm) {
+    const d = v.qty - (om.get(k)?.qty ?? 0);
+    if (d > 0) added.push({ name: v.name, qty: d });
+  }
+  for (const [k, v] of om) {
+    const d = v.qty - (nm.get(k)?.qty ?? 0);
+    if (d > 0) removed.push({ name: v.name, qty: d });
+  }
+  const dateChanged = !!origDate && origDate !== dataScelta;
+  const changes = {
+    timeFrom: origSlot ? (dateChanged ? `${origDate} ${origSlot}` : origSlot) : "",
+    timeTo: dateChanged ? `${dataScelta} ${slot}` : slot,
+    added,
+    removed,
+    totalFrom: oldTotal,
+    totalTo: totale,
+  };
+
   // 1) PENDING (link non pagato): rigenera il link intero e rimanda l'email link.
   if (isLink) {
     const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
@@ -564,12 +602,13 @@ export const PUT: APIRoute = async ({ request }) => {
       supplement_url: payUrl,
       supplement_cents: newSupp,
       refund_cents: newRef,
+      changes,
     });
     return json({ ok: true, id, supplement_cents: newSupp, refund_cents: newRef });
   }
 
   // 3) Pagato di persona (cash/card) o senza incasso Stripe: solo mail di modifica.
   //    La differenza la gestisci in cassa.
-  void inviaModificaOrdine(notif);
+  void inviaModificaOrdine(notif, { changes });
   return json({ ok: true, id });
 };

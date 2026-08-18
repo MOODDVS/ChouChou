@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { temaEmail, type TemaEmail } from "./temaBrand";
+import { adminLang } from "./admin/adminLang";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
 import { TIMEZONE } from "./slots";
@@ -171,6 +172,15 @@ export async function inviaNotifiche(o: OrdineNotifica): Promise<void> {
   ]);
 }
 
+export interface OrdineChanges {
+  timeFrom?: string;
+  timeTo?: string;
+  added?: { name: string; qty: number }[];
+  removed?: { name: string; qty: number }[];
+  totalFrom?: number;
+  totalTo?: number;
+}
+
 /**
  * Notifiche dopo una MODIFICA di un ordine gia' PAGATO: conferma aggiornata al
  * cliente + ticket aggiornato in cucina (email + Slack). NIENTE email
@@ -179,7 +189,7 @@ export async function inviaNotifiche(o: OrdineNotifica): Promise<void> {
  */
 export async function inviaModificaOrdine(
   o: OrdineNotifica,
-  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number } = {}
+  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number; changes?: OrdineChanges | null } = {}
 ): Promise<void> {
   await Promise.allSettled([emailModificaCliente(o, opts), emailCucina(o), slackCucina(o)]);
 }
@@ -213,55 +223,54 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
           <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+        <td class="em-pad" style="padding:28px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:18px 24px;text-align:center;">
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+            </td></tr>
+          </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
+        <td style="padding:20px 20px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
+        <td class="em-pad" style="padding:20px 44px 38px;text-align:center;">
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:15px 42px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
-          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
         </td>
       </tr>
     </table>
-  </div>
   `;
 
   try {
@@ -291,6 +300,11 @@ const TXT_MOD = {
     payBtn: "Payer le supplement",
     refundText: (eur: string) => `La difference de <strong>${eur}</strong> vous sera remboursee sur votre moyen de paiement.`,
     callBtn: "Nous contacter",
+    changesTitle: "Ce qui a changé",
+    timeLbl: "Heure de retrait",
+    addedLbl: "Ajouté",
+    removedLbl: "Retiré",
+    totalLbl: "Total",
   },
   en: {
     subject: (num: string, ora: string) => `Order #${num} updated — pickup at ${ora}`,
@@ -304,6 +318,11 @@ const TXT_MOD = {
     payBtn: "Pay the extra",
     refundText: (eur: string) => `The difference of <strong>${eur}</strong> will be refunded to your payment method.`,
     callBtn: "Contact us",
+    changesTitle: "What changed",
+    timeLbl: "Pickup time",
+    addedLbl: "Added",
+    removedLbl: "Removed",
+    totalLbl: "Total",
   },
   it: {
     subject: (num: string, ora: string) => `Ordine #${num} modificato — ritiro alle ${ora}`,
@@ -317,6 +336,11 @@ const TXT_MOD = {
     payBtn: "Paga il supplemento",
     refundText: (eur: string) => `La differenza di <strong>${eur}</strong> ti sara rimborsata sul tuo metodo di pagamento.`,
     callBtn: "Contattaci",
+    changesTitle: "Cosa è cambiato",
+    timeLbl: "Orario di ritiro",
+    addedLbl: "Aggiunto",
+    removedLbl: "Rimosso",
+    totalLbl: "Totale",
   },
   nl: {
     subject: (num: string, ora: string) => `Bestelling #${num} gewijzigd — afhalen om ${ora}`,
@@ -330,6 +354,11 @@ const TXT_MOD = {
     payBtn: "Supplement betalen",
     refundText: (eur: string) => `Het verschil van <strong>${eur}</strong> wordt teruggestort op je betaalmiddel.`,
     callBtn: "Contact opnemen",
+    changesTitle: "Wat is er gewijzigd",
+    timeLbl: "Afhaaltijd",
+    addedLbl: "Toegevoegd",
+    removedLbl: "Verwijderd",
+    totalLbl: "Totaal",
   },
   es: {
     subject: (num: string, ora: string) => `Pedido #${num} modificado — recogida a las ${ora}`,
@@ -343,6 +372,11 @@ const TXT_MOD = {
     payBtn: "Pagar el suplemento",
     refundText: (eur: string) => `La diferencia de <strong>${eur}</strong> se te reembolsara en tu metodo de pago.`,
     callBtn: "Contactanos",
+    changesTitle: "Qué ha cambiado",
+    timeLbl: "Hora de recogida",
+    addedLbl: "Añadido",
+    removedLbl: "Eliminado",
+    totalLbl: "Total",
   },
 } as const;
 
@@ -354,7 +388,7 @@ const TXT_MOD = {
  */
 async function emailModificaCliente(
   o: OrdineNotifica,
-  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number }
+  opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number; changes?: OrdineChanges | null }
 ): Promise<void> {
   const from = await ordineFromEmail();
   if (!resend || !from) {
@@ -367,6 +401,35 @@ async function emailModificaCliente(
   const ora = oraRitiro(o.pickup_time);
   const dati = await datiRistorante();
   const tema = await temaEmail();
+
+  // "Cosa è cambiato": righe di diff rispetto all'ordine precedente (opts.changes).
+  const ch = opts.changes ?? null;
+  const rigaCambio = (lbl: string, val: string) =>
+    `<tr><td style="padding:12px 18px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${lbl}</td><td style="padding:12px 18px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${val}</td></tr>`;
+  const cambiRows: string[] = [];
+  if (ch?.timeFrom && ch?.timeTo && ch.timeFrom !== ch.timeTo) {
+    cambiRows.push(rigaCambio(t.timeLbl, `<span style="color:${tema.muted};text-decoration:line-through;">${esc(ch.timeFrom)}</span> &rarr; <strong>${esc(ch.timeTo)}</strong>`));
+  }
+  for (const a of ch?.added ?? []) {
+    cambiRows.push(rigaCambio(`<span style="color:#3fae6a;font-weight:bold;">+ ${t.addedLbl}</span>`, `${a.qty}× ${esc(a.name)}`));
+  }
+  for (const r of ch?.removed ?? []) {
+    cambiRows.push(rigaCambio(`<span style="color:#d9776f;font-weight:bold;">&minus; ${t.removedLbl}</span>`, `${r.qty}× ${esc(r.name)}`));
+  }
+  if (ch && typeof ch.totalFrom === "number" && typeof ch.totalTo === "number" && ch.totalFrom !== ch.totalTo) {
+    cambiRows.push(rigaCambio(t.totalLbl, `<span style="color:${tema.muted};text-decoration:line-through;">${euro(ch.totalFrom)}</span> &rarr; <strong style="color:${tema.accent};">${euro(ch.totalTo)}</strong>`));
+  }
+  const cambiHtml = cambiRows.length
+    ? `
+      <tr>
+        <td class="em-pad" style="padding:26px 40px 4px;">
+          <p style="margin:0 0 10px;color:${tema.muted};font-size:11px;letter-spacing:2px;text-transform:uppercase;">${t.changesTitle}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
+            ${cambiRows.join("")}
+          </table>
+        </td>
+      </tr>`
+    : "";
 
   const righeHtml = piatti
     .map(
@@ -423,8 +486,9 @@ async function emailModificaCliente(
           <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
+      ${cambiHtml}
       <tr>
-        <td style="padding:28px 40px 8px;text-align:center;">
+        <td class="em-pad" style="padding:28px 40px 8px;text-align:center;">
           <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
           <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
@@ -566,7 +630,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
   const html = `
   <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
       <tr>
         <td style="padding:40px 40px 20px;text-align:center;">
           <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
@@ -582,7 +646,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
           <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+          <p class="em-big" style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
         </td>
       </tr>
       <tr>
@@ -631,7 +695,16 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   }
 }
 
-/** Email di notifica alla cucina (design chiaro operativo). */
+/** Etichette del ticket ordine (al ristoratore) nella lingua dell'admin. */
+const K_TXT = {
+  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", callClient: "Appeler le client", note: "Note client", total: "TOTAL", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
+  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", callClient: "Call the customer", note: "Customer note", total: "TOTAL", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
+  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
+  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
+  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
+} as const;
+
+/** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
 async function emailCucina(o: OrdineNotifica): Promise<void> {
   const dest = await kitchenEmail();
   const from = await ordineFromEmail();
@@ -642,9 +715,9 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   const { piatti, noteCliente } = separaItems(o);
   const ora = oraRitiro(o.pickup_time);
   const tema = await temaEmail();
+  const k = K_TXT[await adminLang()] ?? K_TXT.fr;
+  const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
 
-  // Una riga piatto + (se presente nel name) il supplemento evidenziato.
-  // Il supplemento è già dentro name tra parentesi: lo estraggo per mostrarlo sotto.
   const righeHtml = piatti
     .map((i) => {
       const match = i.name.match(/^(.*?)\s*\((.+)\)\s*$/);
@@ -655,40 +728,42 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
         : "";
       return `
       <tr>
-        <td style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
-        <td style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
+        <td class="em-pad" style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
+        <td class="em-pad" style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
       </tr>${supplRow}`;
     })
     .join("");
 
   const noteHtml = noteCliente
-    ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:4px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:15px;"><strong style="color:${tema.title};">Note client :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`
+    ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:4px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:15px;"><strong style="color:${tema.title};">${k.note} :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`
+    : "";
+
+  const callHtml = telLink
+    ? `<a href="tel:${telLink}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:12px 30px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${k.callClient}</a>`
     : "";
 
   const html = `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
       <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:22px 32px 4px;">
+        <td class="em-pad" style="padding:22px 32px 4px;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:${tema.accent};font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle commande</td>
-            <td style="color:${tema.muted};font-size:13px;text-align:right;">#${esc(o.numero)}</td>
+            <td style="vertical-align:middle;"><span style="color:${tema.accent};font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${k.newOrder}</span> <span style="color:${tema.muted};font-size:13px;">#${esc(o.numero)}</span></td>
+            <td style="text-align:right;vertical-align:middle;"><span style="display:inline-block;background:#2e9e6b;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">✓ ${k.paid}</span></td>
           </tr></table>
         </td>
       </tr>
       <tr>
-        <td style="padding:14px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
-          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">Retrait à</p>
-          <p style="margin:6px 0 0;color:${tema.accent};font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
+        <td class="em-pad" style="padding:16px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
+          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${k.pickupAt}</p>
+          <p class="em-big" style="margin:6px 0 0;color:${tema.accent};font-size:52px;font-weight:bold;line-height:1;">${ora}</p>
           <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
-          <p style="margin:0;color:${tema.muted};font-size:14px;line-height:1.7;">
-            ${esc(o.customer_phone ?? "—")} · ${esc(o.customer_email)}<br>
-            <span style="color:#2e9e6b;font-weight:bold;">Payé ✓</span>
-          </p>
+          <p style="margin:0 0 ${callHtml ? "16px" : "0"};color:${tema.muted};font-size:14px;line-height:1.7;">${esc(o.customer_phone ?? "—")} · ${esc(o.customer_email)}</p>
+          ${callHtml}
         </td>
       </tr>
       <tr>
-        <td style="padding:22px 32px 6px;">
+        <td class="em-pad" style="padding:22px 32px 6px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             ${righeHtml}
           </table>
@@ -696,9 +771,9 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       </tr>
       ${noteHtml}
       <tr>
-        <td style="padding:16px 32px 26px;">
+        <td class="em-pad" style="padding:16px 32px 26px;">
           <table role="presentation" width="100%"><tr>
-            <td style="color:${tema.title};font-size:22px;font-weight:bold;">TOTAL</td>
+            <td style="color:${tema.title};font-size:22px;font-weight:bold;">${k.total}</td>
             <td style="color:${tema.accent};font-size:22px;font-weight:bold;text-align:right;">${euro(o.total_cents)}</td>
           </tr></table>
         </td>
@@ -711,7 +786,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: `Nouvelle commande #${o.numero} — retrait ${ora}`,
+      subject: k.subject(o.numero, ora),
       html: avvolgiTema(html, tema),
     });
   } catch (e) {
@@ -760,6 +835,7 @@ const TXT_REVIEW = {
       `Nous espérons que vous vous êtes régalé.<br>` +
       `Un petit avis de votre part nous aide énormément&nbsp;— cela ne prend qu'une minute.`,
     btn: "Laisser un avis Google",
+    tapToRate: "Touchez les étoiles ci-dessus pour nous noter — cela prend une seconde.",
     sign: CLIENT.firma.fr,
   },
   en: {
@@ -770,6 +846,7 @@ const TXT_REVIEW = {
       `We hope you enjoyed it.<br>` +
       `A quick review helps us enormously&nbsp;— it only takes a minute.`,
     btn: "Leave a Google review",
+    tapToRate: "Tap the stars above to rate us — it only takes a second.",
     sign: CLIENT.firma.en,
   },
   it: {
@@ -780,6 +857,7 @@ const TXT_REVIEW = {
       `Speriamo che ti sia piaciuto.<br>` +
       `Una tua breve recensione ci aiuta moltissimo&nbsp;— ci vuole solo un minuto.`,
     btn: "Lascia una recensione Google",
+    tapToRate: "Tocca le stelle qui sopra per valutarci — ci vuole un secondo.",
     sign: firma("it"),
   },
   nl: {
@@ -790,6 +868,7 @@ const TXT_REVIEW = {
       `We hopen dat het je gesmaakt heeft.<br>` +
       `Een korte review helpt ons enorm&nbsp;— het kost maar een minuut.`,
     btn: "Een Google-review achterlaten",
+    tapToRate: "Tik op de sterren hierboven om ons te beoordelen — het kost maar een seconde.",
     sign: firma("nl"),
   },
   es: {
@@ -800,6 +879,7 @@ const TXT_REVIEW = {
       `Esperamos que lo hayas disfrutado.<br>` +
       `Una breve reseña nos ayuda muchísimo&nbsp;— solo lleva un minuto.`,
     btn: "Dejar una reseña en Google",
+    tapToRate: "Toca las estrellas de arriba para valorarnos — solo lleva un segundo.",
     sign: firma("es"),
   },
 } as const;
@@ -829,10 +909,24 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   } catch {
     return;
   }
-  if (!reviewUrl) return;
 
   const t = pick5(TXT_REVIEW, o.lang);
   const nome = esc(o.customer_name.split(" ")[0] || o.customer_name);
+
+  // Stelle cliccabili (gating): 1-3 -> pagina feedback privata; 4-5 -> link Google.
+  // Se il link Google non è configurato, tutte le stelle vanno alla pagina feedback.
+  const baseSite = SITE_URL.replace(/\/$/, "");
+  const feedbackUrl = (r: number) =>
+    `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
+    `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
+    `&phone=${encodeURIComponent(o.customer_phone ?? "")}`;
+  const starHref = (r: number) => (reviewUrl && r >= 4 ? reviewUrl : feedbackUrl(r));
+  const stelle = [1, 2, 3, 4, 5]
+    .map(
+      (r) =>
+        `<a href="${starHref(r)}" style="text-decoration:none;color:${tema.accent};font-size:40px;line-height:1;padding:0 4px;display:inline-block;">★</a>`
+    )
+    .join("");
 
   // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
   const quando = DateTime.fromISO(o.pickup_time)
@@ -856,13 +950,13 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
         </td>
       </tr>
       <tr>
-        <td style="padding:26px 40px 6px;text-align:center;">
-          <p style="margin:0;color:${tema.accent};font-size:26px;letter-spacing:6px;">★★★★★</p>
+        <td class="em-pad" style="padding:26px 40px 2px;text-align:center;">
+          ${stelle}
         </td>
       </tr>
       <tr>
-        <td style="padding:18px 40px 8px;text-align:center;">
-          <a href="${reviewUrl}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.btn}</a>
+        <td class="em-pad" style="padding:14px 40px 8px;text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:14px;line-height:1.7;">${t.tapToRate}</p>
         </td>
       </tr>
       <tr>
@@ -955,6 +1049,107 @@ export interface ResaReview {
   last_name: string;
   email: string;
   lang: string;
+}
+
+/** Etichette dell'email di FEEDBACK privato al ristoratore (lingua admin). */
+const FB_TXT = {
+  fr: { eyebrow: (n: string) => `Nouveau retour · ${n}`, order: "Commande", message: "Message", email: "Email", phone: "Téléphone", reply: "Répondre au client", subject: (n: string, r: number) => `Nouveau retour ${r}/5 — ${n}`, foot: "Reçu via la page d'avis du site." },
+  en: { eyebrow: (n: string) => `New feedback · ${n}`, order: "Order", message: "Message", email: "Email", phone: "Phone", reply: "Reply to the customer", subject: (n: string, r: number) => `New feedback ${r}/5 — ${n}`, foot: "Received via the site review page." },
+  it: { eyebrow: (n: string) => `Nuovo feedback · ${n}`, order: "Ordine", message: "Messaggio", email: "Email", phone: "Telefono", reply: "Rispondi al cliente", subject: (n: string, r: number) => `Nuovo feedback ${r}/5 — ${n}`, foot: "Ricevuto tramite la pagina recensioni del sito." },
+  nl: { eyebrow: (n: string) => `Nieuwe feedback · ${n}`, order: "Bestelling", message: "Bericht", email: "E-mail", phone: "Telefoon", reply: "Antwoord de klant", subject: (n: string, r: number) => `Nieuwe feedback ${r}/5 — ${n}`, foot: "Ontvangen via de reviewpagina van de site." },
+  es: { eyebrow: (n: string) => `Nuevo comentario · ${n}`, order: "Pedido", message: "Mensaje", email: "Email", phone: "Teléfono", reply: "Responder al cliente", subject: (n: string, r: number) => `Nuevo comentario ${r}/5 — ${n}`, foot: "Recibido a través de la página de reseñas del sitio." },
+} as const;
+
+/**
+ * Feedback privato (1-3 stelle) inviato dal cliente tramite la pagina /feedback:
+ * arriva SOLO al ristoratore (lista email ordini), nella lingua dell'admin.
+ * Ritorna true se l'email è stata inviata.
+ */
+export async function inviaFeedbackCliente(fb: {
+  rating: number;
+  message: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  order?: string;
+}): Promise<boolean> {
+  const dest = await kitchenEmail();
+  const from = await ordineFromEmail();
+  if (!resend || !from || !dest) return false;
+
+  const tema = await temaEmail();
+  const dati = await datiRistorante();
+  const k = FB_TXT[await adminLang()] ?? FB_TXT.fr;
+  const r = Math.max(1, Math.min(5, Math.round(fb.rating)));
+  const nome = esc(fb.name || "—");
+  const stelle =
+    `<span style="color:${tema.accent};font-size:30px;letter-spacing:4px;">${"★".repeat(r)}</span>` +
+    (r < 5 ? `<span style="color:${tema.border};font-size:30px;letter-spacing:4px;">${"★".repeat(5 - r)}</span>` : "");
+
+  const contactRow = (lbl: string, val: string, href: string) =>
+    val
+      ? `<tr><td style="padding:12px 0;border-bottom:1px solid ${tema.border};color:${tema.muted};font-size:11px;letter-spacing:1px;text-transform:uppercase;">${lbl}</td><td style="padding:12px 0;border-bottom:1px solid ${tema.border};text-align:right;"><a href="${href}" style="color:${tema.accent};text-decoration:none;font-size:15px;">${esc(val)}</a></td></tr>`
+      : "";
+  const telLink = (fb.phone ?? "").replace(/[^+\d]/g, "");
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="em-pad" style="padding:28px 40px 6px;">
+          <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${esc(k.eyebrow(dati.nome))}</p>
+          <h1 style="margin:12px 0 4px;color:${tema.title};font-size:24px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${nome}</h1>
+          ${fb.order ? `<p style="margin:0;color:${tema.muted};font-size:14px;">${k.order} #${esc(fb.order)}</p>` : ""}
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:18px 40px 4px;text-align:center;">
+          ${stelle}
+          <p style="margin:8px 0 0;color:${tema.text};font-size:14px;">${r} / 5</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:18px 40px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:18px 22px;">
+              <p style="margin:0 0 8px;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${k.message}</p>
+              <p style="margin:0;color:${tema.title};font-size:15px;line-height:1.7;font-family:Arial,Helvetica,sans-serif;">${esc(fb.message || "—")}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:20px 40px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${contactRow(k.email, fb.email ?? "", `mailto:${fb.email ?? ""}`)}
+            ${contactRow(k.phone, fb.phone ?? "", `tel:${telLink}`)}
+          </table>
+        </td>
+      </tr>
+      ${fb.email ? `<tr><td class="em-pad" style="padding:22px 40px 34px;text-align:center;"><a href="mailto:${fb.email}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 40px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${k.reply}</a></td></tr>` : ""}
+      <tr>
+        <td class="em-pad" style="padding:18px 40px 26px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;">${k.foot}</p>
+          <img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="96" style="display:inline-block;width:96px;max-width:38%;height:auto;opacity:0.7;border:0;" />
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
+      bcc: BCC,
+      replyTo: fb.email || undefined,
+      subject: k.subject(nome, r),
+      html: avvolgiTema(html, tema),
+    });
+    return true;
+  } catch (e) {
+    console.error("Errore email feedback:", e);
+    return false;
+  }
 }
 
 /**
@@ -1392,9 +1587,23 @@ function avvolgiScuro(inner: string, dir = "ltr"): string {
 function avvolgiTema(inner: string, tema: TemaEmail, dir = "ltr"): string {
   return `<!doctype html>
 <html dir="${dir}">
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="light dark" /></head>
+<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="light dark" />
+<style>
+  @media only screen and (max-width:600px){
+    .em-card{width:100%!important}
+    .em-pad{padding-left:22px!important;padding-right:22px!important}
+    .em-big{font-size:38px!important}
+    .em-wrap{padding-left:8px!important;padding-right:8px!important}
+    td[style*="padding:40px 44px"]{padding-top:32px!important;padding-bottom:18px!important;padding-left:22px!important;padding-right:22px!important}
+    td[style*="padding:40px 40px"]{padding-top:32px!important;padding-bottom:18px!important;padding-left:22px!important;padding-right:22px!important}
+    td[style*=" 40px"]{padding-left:22px!important;padding-right:22px!important}
+    td[style*=" 44px"]{padding-left:22px!important;padding-right:22px!important}
+    img[width="160"]{width:140px!important;max-width:60%!important}
+  }
+</style>
+</head>
 <body style="margin:0;padding:0;background:${tema.bg};font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.bg};border-collapse:collapse;margin:0;padding:0;width:100%;"><tr><td align="center" style="padding:8px 14px 24px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.bg};border-collapse:collapse;margin:0;padding:0;width:100%;"><tr><td class="em-wrap" align="center" style="padding:8px 14px 24px;">
   ${inner}
   </td></tr></table>
 </body></html>`;
