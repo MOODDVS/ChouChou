@@ -33,12 +33,17 @@ export const GET: APIRoute = async ({ request, url }) => {
   const recentPaid = url.searchParams.get("recent_paid");
   if (recentPaid) {
     const now = new Date().toISOString();
+    // Limite ALTO di proposito: il client tiene un set di ID "visti" e avvisa
+    // sui nuovi. Con una finestra piccola (es. 20), annullando un ordine pagato
+    // ne "risaliva" uno più vecchio mai visto, scambiato per nuovo ordine
+    // (toast/beep fantasma). Con la finestra ampia gli ordini pagati ATTIVI
+    // (non 'done'/'cancelled') ci stanno tutti: nessuna risalita, nessun falso.
     const { data, error } = await supabaseAdmin
       .from("orders")
       .select("id, customer_name, total_cents, pickup_time, created_at")
       .eq("status", "paid")
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(200);
     if (error) return json({ orders: [], now });
     return json({ orders: data ?? [], now });
   }
