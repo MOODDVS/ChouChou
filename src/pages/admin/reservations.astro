@@ -605,7 +605,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-opt.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .modal textarea { resize: vertical; min-height: 56px; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
-      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+      .m-msg { display: inline-block; margin-right: auto; background: #d84a3f; color: #ffffff; font-size: 0.82rem; font-weight: 700; padding: 0.42rem 0.9rem; border-radius: 999px; line-height: 1.35; }
+      .m-msg:empty { display: none; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
       .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-save {
@@ -917,6 +918,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <div class="nm-frow">
               <input type="text" class="nm-in" id="m-email" name="email" maxlength="160" autocomplete="email" inputmode="email" placeholder={t("ord.emailLabel")} />
             </div>
+            <span class="f-label nm-gap">{t("res.clientLang")}</span>
+            <div class="nm-frow">
+              <select class="nm-in" id="m-lang"></select>
+            </div>
             <span class="f-label">{t("res.options")}</span>
             <div class="nm-opts">
               <button type="button" class="nm-opt" id="m-opt-chaise">{t("res.optHighchair")}</button>
@@ -989,7 +994,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { SERVIZI_WIDGET, nomeServizio } from "../../lib/reservationI18n";
+      import { SERVIZI_WIDGET, nomeServizio, LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -3053,6 +3058,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         mPrefix.value = PREFISSO_DEFAULT;
+        // Lingua del cliente: opzioni dal widget (flag + nome), default fr.
+        const mLang = document.getElementById("m-lang") as HTMLSelectElement;
+        mLang.innerHTML = LINGUE_WIDGET.map(
+          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
+        ).join("");
+        mLang.value = "fr";
         // "+33 6…" o "0033…" digitato nel numero → prefisso in tendina, numero pulito
         campo("m-tel").addEventListener("input", () => {
           const tel = campo("m-tel");
@@ -3635,6 +3646,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
           }
           campo("m-email").value = resa?.email ?? "";
+          mLang.value = LINGUE_WIDGET.some((l) => l.code === resa?.lang) ? (resa?.lang ?? "fr") : "fr";
           (document.getElementById("m-notes") as HTMLTextAreaElement).value = resa?.notes ?? "";
           mMsg.textContent = "";
           (document.getElementById("m-title") as HTMLElement).textContent = resa
@@ -3900,6 +3912,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 return grezzo.startsWith("+") ? grezzo : `${mPrefix.value} ${grezzo.replace(/^0/, "")}`;
               })(),
               email: campo("m-email").value,
+              lang: mLang.value,
               notes: (document.getElementById("m-notes") as HTMLTextAreaElement).value,
               high_chair: nmChaise,
               quiet: nmCalme,

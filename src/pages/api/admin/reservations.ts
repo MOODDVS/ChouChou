@@ -35,6 +35,12 @@ export const prerender = false;
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const STATI = ["pending", "confirmed", "seated", "cancelled", "noshow", "done"];
+// Lingue supportate dalle email cliente (widget prenotazione). Default fr.
+const LINGUE_RESA = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
+const normLang = (v: unknown): string => {
+  const c = String(v ?? "").trim().toLowerCase();
+  return LINGUE_RESA.has(c) ? c : "fr";
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -406,6 +412,7 @@ export const POST: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    lang?: string;
     tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
@@ -422,6 +429,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Number.isFinite(people) || people < 1 || people > 100) {
     return json({ error: "Personnes invalide (1–100)" }, 400);
   }
+  const langCliente = normLang(body.lang);
 
   const svKey = /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null;
   const zonaSel = String(body.zone ?? "").trim() || null;
@@ -450,7 +458,7 @@ export const POST: APIRoute = async ({ request }) => {
       company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
       birthday: Boolean(body.birthday),
       special_event: Boolean(body.special_event),
-      lang: "fr",
+      lang: langCliente,
       status: "confirmed",
     })
     .select("*")
@@ -479,7 +487,7 @@ export const POST: APIRoute = async ({ request }) => {
           company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
           birthday: Boolean(body.birthday),
           special_event: Boolean(body.special_event),
-          lang: "fr",
+          lang: langCliente,
           status: "confirmed",
         })
         .select("*")
@@ -552,6 +560,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    lang?: string;
     tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
@@ -640,6 +649,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.phone !== undefined) upd.phone = String(body.phone).trim();
   if (body.email !== undefined) upd.email = String(body.email).trim();
   if (body.notes !== undefined) upd.notes = String(body.notes).trim() || null;
+  if (body.lang !== undefined) upd.lang = normLang(body.lang);
   if (body.high_chair !== undefined) upd.high_chair = Boolean(body.high_chair);
   if (body.quiet !== undefined) upd.quiet = Boolean(body.quiet);
   if (body.birthday !== undefined) upd.birthday = Boolean(body.birthday);

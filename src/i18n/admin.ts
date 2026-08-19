@@ -119,6 +119,7 @@ const DIZIONARIO: Dizionario = {
   "res.nsNotify":       { fr: "Prévenir le client", en: "Notify the customer", it: "Avvisa il cliente", nl: "Klant informeren", es: "Avisar al cliente" },
   "res.nsSilent":       { fr: "Sans prévenir", en: "Without notifying", it: "Senza avvisare", nl: "Zonder melding", es: "Sin avisar" },
   "res.nsBlockedOk":    { fr: "Client bloqué", en: "Customer blocked", it: "Cliente bloccato", nl: "Klant geblokkeerd", es: "Cliente bloqueado" },
+  "res.clientLang":     { fr: "Langue du client", en: "Customer's language", it: "Lingua del cliente", nl: "Taal van de klant", es: "Idioma del cliente" },
 
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },
