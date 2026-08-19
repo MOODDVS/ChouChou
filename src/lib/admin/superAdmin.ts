@@ -15,6 +15,7 @@ export const PAGINE_ADMIN: { key: string; label: string }[] = [
   { key: "stats", label: "Statistiques" },
   { key: "marketing", label: "Marketing" },
   { key: "assets", label: "Assets" },
+  { key: "agenda", label: "Agenda" },
   { key: "settings", label: "Admin" },
 ];
 

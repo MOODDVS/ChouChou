@@ -2,6 +2,15 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 19/08/2026 — sessione Cowork (Mac mini)
+
+- ✅ **Google Business Profile API approvata** (progetto "MOODD Admin" su Google Cloud). Sblocca lettura recensioni/rating e — in prospettiva — le risposte, direttamente nell'admin invece del solo link Google. Quota vista: **300 req/min** (adjustable). **Integrazione da fare più avanti** (cache lato motore come `/api/reviews`, alert quota >90%). Enzo: "la facciamo dopo".
+- **Ordini**: rifiniture email/recensioni chiuse (vedi 18/08). Enzo in fase di test; se ok si passa alle **prenotazioni**.
+- **Nuova pagina admin Agenda/Eventi** (fatta, 1ª iterazione): voce di nav dedicata `/admin/agenda`, CRUD completo con modale nello stile delle altre pagine (titolo, immagine principale + bibliothèque, descrizione, **galleria** multi-upload, **data singola o intervallo** col datepicker brand, **link esterni** dinamici, **RSVP** sì/no, toggle pubblicato/bozza).
+  - Nuova tabella **`agenda_events`** (`supabase/agenda_events.sql`) — ⚠️ **da lanciare su Supabase** prima dell'uso. Immagini nel bucket `popups` esistente.
+  - API `src/pages/api/admin/agenda.ts` (GET/POST/PUT/DELETE, verificaStaff, X-Method-Override per il DELETE). Registrata in `PAGINE_ADMIN` (superAdmin.ts), voce in `AdminNav.astro`, chiavi i18n `nav.agenda`/`nav.s.agenda`/`ag.*` (5 lingue) in `i18n/admin.ts`.
+  - **Solo gestione admin**: nessun rendering pubblico lato sito ancora (prossimo step)."
+
 ## 📌 18/08/2026 — sessione Cowork (Mac mini)
 
 Rifinitura delle **email transazionali** e nuova **gestione recensioni con gating**. Tutto in `notifications.ts` + `api/admin/orders.ts`, più una pagina/endpoint nuovi. Commit `39979ea` su `main` (push da fare a mano dal Mac: il ponte Cowork→Mac non ha rete, `git push` va lanciato dal terminale).
