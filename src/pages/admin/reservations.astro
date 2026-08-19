@@ -564,6 +564,22 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal input:focus, .modal textarea:focus { outline: none; border-color: var(--c-accent); }
       /* Form del modale: stesso design dello step 2 del widget */
       .nm-frow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+      .nm-ta-anchor { position: relative; }
+      .nm-ta {
+        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.4); overflow: hidden; max-height: 260px; overflow-y: auto;
+      }
+      .nm-ta-item {
+        display: block; width: 100%; text-align: left; background: transparent; border: none;
+        border-bottom: 1px solid var(--c-line); padding: 0.6rem 0.8rem; cursor: pointer; color: var(--c-text);
+        font-family: var(--font-body);
+      }
+      .nm-ta-item:last-child { border-bottom: none; }
+      .nm-ta-item:hover, .nm-ta-item.is-active { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      .nm-ta-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+      .nm-ta-sub { font-size: 0.76rem; color: var(--c-muted); margin-top: 1px; }
+      .nm-ta-block { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.4); border-radius: 999px; padding: 0.05rem 0.4rem; }
       .modal .nm-in {
         flex: 1; width: 100%; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
@@ -889,16 +905,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           </div>
           <div class="nm-col">
             <span class="f-label">{t("ord.client")}</span>
-            <div class="nm-frow">
+            <div class="nm-frow nm-ta-anchor">
               <input type="text" class="nm-in" id="m-fname" maxlength="60" autocomplete="off" placeholder={t("ord.firstName")} />
               <input type="text" class="nm-in" id="m-lname" maxlength="60" autocomplete="off" placeholder={t("us.lname")} />
+              <div class="nm-ta" id="nm-ta" style="display:none" role="listbox"></div>
             </div>
             <div class="nm-frow">
               <select class="nm-in nm-tel-prefix" id="m-prefix"></select>
               <input type="text" class="nm-in" id="m-tel" maxlength="30" autocomplete="off" inputmode="tel" placeholder={t("ord.phone")} />
             </div>
             <div class="nm-frow">
-              <input type="text" class="nm-in" id="m-email" maxlength="160" autocomplete="off" inputmode="email" placeholder={t("ord.emailLabel")} />
+              <input type="text" class="nm-in" id="m-email" name="email" maxlength="160" autocomplete="email" inputmode="email" placeholder={t("ord.emailLabel")} />
             </div>
             <span class="f-label">{t("res.options")}</span>
             <div class="nm-opts">
@@ -3045,6 +3062,82 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           tel.value = sep.resto;
         });
 
+        // ---- Typeahead clienti: digitando nome o cognome propone i clienti
+        //      già in DB (tabella clients + prenotazioni passate). Al click
+        //      precompila nome, cognome, telefono ed email. ----
+        const nmTa = document.getElementById("nm-ta") as HTMLDivElement;
+        type TaClient = { name: string; first_name: string; last_name: string; email: string; phone: string; blocked?: boolean };
+        let taItems: TaClient[] = [];
+        let taActive = -1;
+        let taTimer = 0;
+        let taSeq = 0;
+        function taHide() { nmTa.style.display = "none"; taItems = []; taActive = -1; }
+        function taRender() {
+          if (!taItems.length) { taHide(); return; }
+          nmTa.innerHTML = taItems.map((c, i) => {
+            const sub = [c.phone, c.email].filter(Boolean).join(" · ");
+            const blk = c.blocked ? `<span class="nm-ta-block">${esc(tr("cli.blockedShort"))}</span>` : "";
+            return `<button type="button" class="nm-ta-item${i === taActive ? " is-active" : ""}" data-i="${i}"><span class="nm-ta-name">${esc(c.name)} ${blk}</span>${sub ? `<span class="nm-ta-sub">${esc(sub)}</span>` : ""}</button>`;
+          }).join("");
+          nmTa.style.display = "block";
+        }
+        function taPick(c: TaClient) {
+          campo("m-fname").value = c.first_name || "";
+          campo("m-lname").value = c.last_name || "";
+          campo("m-email").value = c.email || "";
+          mPrefix.value = PREFISSO_DEFAULT;
+          campo("m-tel").value = "";
+          if (c.phone) {
+            const sep = separaPrefisso(c.phone);
+            if (sep) { mPrefix.value = sep.dial; campo("m-tel").value = sep.resto; }
+            else { campo("m-tel").value = c.phone; }
+          }
+          taHide();
+        }
+        async function taCerca(term: string) {
+          const seq = ++taSeq;
+          try {
+            const res = await fetch("/api/admin/reservations?client_search=" + encodeURIComponent(term), { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { clients?: TaClient[] };
+            if (seq !== taSeq) return; // risposta obsoleta
+            if (!mOverlay.classList.contains("is-open")) return;
+            taItems = j.clients ?? [];
+            taActive = -1;
+            taRender();
+          } catch { /* rete: nessun suggerimento */ }
+        }
+        function taOnInput() {
+          window.clearTimeout(taTimer);
+          const fn = campo("m-fname").value.trim();
+          const ln = campo("m-lname").value.trim();
+          const term = fn.length >= ln.length ? fn : ln;
+          if (term.length < 2) { taHide(); return; }
+          taTimer = window.setTimeout(() => void taCerca(term), 250);
+        }
+        ["m-fname", "m-lname"].forEach((id) => {
+          campo(id).addEventListener("input", taOnInput);
+          campo(id).addEventListener("keydown", (e) => {
+            if (nmTa.style.display === "none") return;
+            if (e.key === "ArrowDown") { e.preventDefault(); taActive = Math.min(taActive + 1, taItems.length - 1); taRender(); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); taActive = Math.max(taActive - 1, 0); taRender(); }
+            else if (e.key === "Enter") { if (taActive >= 0 && taItems[taActive]) { e.preventDefault(); taPick(taItems[taActive]); } }
+            else if (e.key === "Escape") { taHide(); }
+          });
+        });
+        nmTa.addEventListener("mousedown", (e) => {
+          // mousedown (non click): evita il blur del campo prima della scelta
+          const b = (e.target as HTMLElement).closest(".nm-ta-item") as HTMLElement | null;
+          if (!b) return;
+          e.preventDefault();
+          const i = Number(b.dataset.i);
+          if (taItems[i]) taPick(taItems[i]);
+        });
+        document.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest(".nm-ta-anchor")) return;
+          taHide();
+        });
+
         let nmTipo: "walkin" | "phone" = "walkin";
         function nmRenderTipo() {
           (document.getElementById("nm-walkin") as HTMLButtonElement).classList.toggle("is-on", nmTipo === "walkin");
@@ -3552,10 +3645,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmRenderPers();
           nmRenderZone();
           mOverlay.classList.add("is-open");
+          // Autofill del browser: con il modale aperto disabilito la barra di
+          // ricerca dietro, così l'email autocompletata non finisce lì.
+          dSearch.disabled = true;
+          taHide();
         }
         function chiudiModale() {
           dpChiudi();
           mOverlay.classList.remove("is-open");
+          dSearch.disabled = false;
+          taHide();
         }
         (document.getElementById("fab-add") as HTMLButtonElement).addEventListener("click", () => apriModale());
         (document.getElementById("m-close") as HTMLButtonElement).addEventListener("click", chiudiModale);

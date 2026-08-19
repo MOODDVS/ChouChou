@@ -112,6 +112,67 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ reservations: data ?? [] });
   }
 
+  // Typeahead CLIENTI per il modale "Nuova prenotazione": cerca per nome/cognome
+  // nella tabella `clients` (manuali/materializzati) + nelle prenotazioni passate,
+  // deduplica e ritorna max 8 risultati leggeri (nome, email, telefono).
+  const cs = (url.searchParams.get("client_search") ?? "").trim();
+  if (cs.length >= 2) {
+    const pulito = cs.replace(/[%,()*]/g, "").slice(0, 60);
+    if (!pulito) return json({ clients: [] });
+    type Match = { name: string; first_name: string; last_name: string; email: string; phone: string; blocked: boolean };
+    const out = new Map<string, Match>();
+    const keyOf = (m: Match) => (m.email || m.phone || m.name).toLowerCase();
+
+    // 1) tabella clients (campo `name` unico)
+    try {
+      const { data } = await supabaseAdmin
+        .from("clients")
+        .select("name, email, phone, blocked, hidden")
+        .ilike("name", `%${pulito}%`)
+        .limit(12);
+      for (const c of (data ?? []) as { name?: string; email?: string; phone?: string; blocked?: boolean; hidden?: boolean }[]) {
+        if (c.hidden) continue;
+        const name = String(c.name ?? "").trim();
+        if (!name) continue;
+        const parts = name.split(/\s+/);
+        const m: Match = {
+          name,
+          first_name: parts[0] ?? "",
+          last_name: parts.slice(1).join(" "),
+          email: String(c.email ?? "").trim(),
+          phone: String(c.phone ?? "").trim(),
+          blocked: Boolean(c.blocked),
+        };
+        out.set(keyOf(m), m);
+      }
+    } catch {
+      /* colonne blocked/hidden assenti su installazioni non migrate: si ignora */
+    }
+
+    // 2) prenotazioni passate (first_name / last_name)
+    try {
+      const { data } = await supabaseAdmin
+        .from("reservations")
+        .select("first_name, last_name, email, phone")
+        .or(`first_name.ilike.%${pulito}%,last_name.ilike.%${pulito}%`)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      for (const r of (data ?? []) as { first_name?: string; last_name?: string; email?: string; phone?: string }[]) {
+        const fn = String(r.first_name ?? "").trim();
+        const ln = String(r.last_name ?? "").trim();
+        const name = `${fn} ${ln}`.trim();
+        if (!name) continue;
+        const m: Match = { name, first_name: fn, last_name: ln, email: String(r.email ?? "").trim(), phone: String(r.phone ?? "").trim(), blocked: false };
+        const k = keyOf(m);
+        if (!out.has(k)) out.set(k, m);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return json({ clients: [...out.values()].slice(0, 8) });
+  }
+
   // Statistiche CLIENTE per il modale dettagli (match per email e/o telefono)
   if (url.searchParams.get("client_stats") === "1") {
     const email = (url.searchParams.get("client_email") ?? "").trim().toLowerCase();
