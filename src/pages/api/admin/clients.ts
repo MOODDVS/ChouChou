@@ -5,6 +5,13 @@ import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
 export const prerender = false;
 
+// Lingue valide per il cliente (stesse del widget prenotazioni).
+const LINGUE_CLI = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
+const normLangCli = (v: unknown): string | null => {
+  const c = String(v ?? "").trim().toLowerCase();
+  return LINGUE_CLI.has(c) ? c : null;
+};
+
 // GET  → elenco clienti: UNIONE degli ordini reali (paid/done, aggregati
 //        per email) con i clienti aggiunti a mano (tabella `clients`).
 // POST → aggiunge un cliente manuale (name, email, phone).
@@ -27,6 +34,7 @@ interface RigaCliente {
   photo_url?: string | null;
   blocked?: boolean | null;
   created_at?: string | null;
+  lang?: string | null;
 }
 
 interface Cliente {
@@ -44,6 +52,7 @@ interface Cliente {
   photo_url?: string | null;
   blocked?: boolean;
   newsletter_optout?: boolean;
+  lang?: string | null; // lingua del cliente (dalla prenotazione più recente)
   key?: string; // chiave di aggregazione (per il dettaglio attività)
 }
 
@@ -122,6 +131,7 @@ interface RigaResa {
   phone: string | null;
   status: string | null;
   created_at: string | null;
+  lang: string | null;
 }
 
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
@@ -132,7 +142,7 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
   for (let da = 0; ; da += PAGINA) {
     const { data, error } = await supabaseAdmin
       .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at")
+      .select("first_name, last_name, email, phone, status, created_at, lang")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
@@ -146,7 +156,7 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
 async function clientiManuali(): Promise<RigaCliente[] | null> {
   const PAGINA = 1000;
   const tutti: RigaCliente[] = [];
-  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at, lang";
   for (let da = 0; ; da += PAGINA) {
     let { data, error } = await supabaseAdmin
       .from("clients")
@@ -154,7 +164,7 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
-    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
+    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked") || String(error.message ?? "").includes("lang"))) {
       campi = "id, name, email, phone, hidden, created_at";
       ({ data, error } = await supabaseAdmin
         .from("clients")
@@ -257,6 +267,8 @@ export const GET: APIRoute = async ({ request, url }) => {
       c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: false };
       mappa.set(key, c);
     }
+    // Lingua: la prenotazione più recente (lista ascendente → l'ultima vince)
+    if (r.lang) c.lang = r.lang;
     // Annullata: il cliente resta in lista ma non conta come résa
     if (r.status !== "cancelled") c.reservations += 1;
     if (r.status === "noshow") c.noshows += 1;
@@ -289,9 +301,10 @@ export const GET: APIRoute = async ({ request, url }) => {
       if (name) esistente.name = name;
       if (email) esistente.email = email;
       if (phone) esistente.phone = phone;
+      if (m.lang) esistente.lang = m.lang; // il dato curato (modale) prevale
     } else {
       mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
+        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked), lang: m.lang ?? null,
       });
     }
   }
@@ -361,6 +374,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     photo_url?: string | null;
     blocked?: boolean;
     newsletter_optout?: boolean;
+    lang?: string | null;
   };
   try {
     body = await request.json();
@@ -382,6 +396,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     photo_url: typeof body.photo_url === "string" && body.photo_url ? body.photo_url : null,
   };
   if (body.blocked !== undefined) patch.blocked = Boolean(body.blocked);
+  if (body.lang !== undefined) patch.lang = normLangCli(body.lang);
 
   // Record esistente? (id esplicito, poi email, poi telefono)
   let idRiga = (body.id ?? "").trim() || null;
@@ -411,9 +426,10 @@ export const PATCH: APIRoute = async ({ request }) => {
     ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
     : await supabaseAdmin.from("clients").insert(patch).select("id").single();
   // Migrazioni #31/#32 non ancora lanciate: si salva senza le colonne nuove
-  if (esito.error && (String(esito.error.message ?? "").includes("photo_url") || String(esito.error.message ?? "").includes("blocked"))) {
+  if (esito.error && (String(esito.error.message ?? "").includes("photo_url") || String(esito.error.message ?? "").includes("blocked") || String(esito.error.message ?? "").includes("lang"))) {
     delete patch.photo_url;
     delete patch.blocked;
+    delete patch.lang;
     esito = idRiga
       ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
       : await supabaseAdmin.from("clients").insert(patch).select("id").single();

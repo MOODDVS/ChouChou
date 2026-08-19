@@ -772,6 +772,8 @@ const DIZIONARIO: Dizionario = {
   "cli.avgBasket":  { fr: "Panier moyen", en: "Average basket", it: "Scontrino medio", nl: "Gemiddeld mandje", es: "Ticket medio" },
   "cli.sinceTitle": { fr: "Client depuis", en: "Customer since", it: "Cliente da", nl: "Klant sinds", es: "Cliente desde" },
   "cli.resaCol":    { fr: "Résa", en: "Res.", it: "Pren.", nl: "Res.", es: "Res." },
+  "cli.langCol":    { fr: "Langue", en: "Language", it: "Lingua", nl: "Taal", es: "Idioma" },
+  "cli.allLang":    { fr: "Toutes les langues", en: "All languages", it: "Tutte le lingue", nl: "Alle talen", es: "Todos los idiomas" },
   "cli.resasLabel": { fr: "Résas", en: "Res.", it: "Pren.", nl: "Res.", es: "Res." },
   "cli.addClient":  { fr: "Ajouter un client", en: "Add a customer", it: "Aggiungi un cliente", nl: "Klant toevoegen", es: "Añadir un cliente" },
   "cli.editClient": { fr: "Modifier le client", en: "Edit customer", it: "Modifica cliente", nl: "Klant bewerken", es: "Editar cliente" },

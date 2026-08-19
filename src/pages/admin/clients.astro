@@ -80,6 +80,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
       .fl-filtri { display: inline-flex; gap: 0.45rem; }
+      .fl-lingue { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
+      .fl-lingue .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
+      .fl-lingue .fl-pill.is-on .n { color: var(--c-bg); }
       .fl-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem;
@@ -135,12 +138,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .thead, .row {
         display: grid;
-        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 96px 86px 86px 110px 96px;
+        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 92px 96px 86px 86px 110px 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
       }
       .thead { border-bottom: 1px solid var(--c-line); background: var(--c-card); }
+      .c-lang-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 700; color: var(--c-text); white-space: nowrap; }
+      .c-lang-none { color: var(--c-muted); }
       .th {
         background: transparent; border: none; color: var(--c-muted); cursor: pointer;
         font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
@@ -350,6 +355,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         border-radius: 0; color-scheme: dark; cursor: pointer;
       }
       .ed-prefix:focus { outline: none; border-color: var(--c-accent); }
+      .ed-langsel {
+        width: 100%; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 0.7rem;
+        border-radius: 0; color-scheme: dark; cursor: pointer;
+      }
+      .ed-langsel:focus { outline: none; border-color: var(--c-accent); }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -428,6 +439,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
           <div class="count" id="count" style="display:none"></div>
         </div>
+        <div class="fl-lingue" id="fl-lingue" style="display:none"></div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
           <div class="table">
@@ -435,6 +447,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               <button class="th" data-sort="name">{t("us.lname")} <span class="arrow"></span></button>
               <button class="th" data-sort="email">{t("ord.emailLabel")} <span class="arrow"></span></button>
               <button class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
+              <button class="th" data-sort="lang">{t("cli.langCol")} <span class="arrow"></span></button>
               <button class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
               <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("cli.resaCol")} <span class="arrow"></span></button>
               <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>{t("nav.s.orders")} <span class="arrow"></span></button>
@@ -501,6 +514,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
           </span>
         </div>
+        <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><select id="ed-lang" class="ed-langsel"></select></div>
         <div class="ed-row2">
           <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
           <button type="button" class="afl-sw" role="switch" id="ed-news-btn"><span class="afl-sw-knob"></span></button>
@@ -557,12 +571,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+      const LINGUE_MAP = new Map(LINGUE_WIDGET.map((l) => [l.code, l]));
+      function langCell(code?: string | null): string {
+        const c = (code || "").toLowerCase();
+        const l = LINGUE_MAP.get(c);
+        if (!l) return `<span class="c-lang-none">—</span>`;
+        return `<span class="c-lang-pill">${l.flag} ${c.toUpperCase()}</span>`;
+      }
 
       type Client = {
         id: string | null;
@@ -575,6 +597,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         photo_url?: string | null;
         blocked?: boolean;
         newsletter_optout?: boolean;
+        lang?: string | null;
         total_cents: number;
         last_order: string | null;
         first_activity: string | null;
@@ -582,7 +605,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         key?: string;
       };
       type Resp = { count: number; clients: Client[] };
-      type SortKey = "name" | "email" | "phone" | "since" | "orders" | "reservations" | "total";
+      type SortKey = "name" | "email" | "phone" | "lang" | "since" | "orders" | "reservations" | "total";
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -630,6 +653,36 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           document.querySelectorAll("#fl-filtri .fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
           render();
         });
+
+        // Filtro per LINGUA (chips dinamiche costruite dai clienti presenti).
+        let filtroLingua = "";
+        const flLingueEl = document.getElementById("fl-lingue") as HTMLDivElement;
+        function costruisciLingue() {
+          const conta = new Map<string, number>();
+          for (const c of tutti) {
+            const l = (c.lang || "").toLowerCase();
+            if (l && LINGUE_MAP.has(l)) conta.set(l, (conta.get(l) ?? 0) + 1);
+          }
+          if (conta.size < 2) { flLingueEl.style.display = "none"; flLingueEl.innerHTML = ""; filtroLingua = ""; return; }
+          // ordina per numero di clienti (decrescente)
+          const ordinate = [...conta.entries()].sort((a, b) => b[1] - a[1]);
+          const pill = (val: string, label: string, n: string, on: boolean) =>
+            `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${val}">${label}${n ? ` <span class="n">${n}</span>` : ""}</button>`;
+          const chips = [pill("", tr("cli.allLang"), "", filtroLingua === "")]
+            .concat(ordinate.map(([code, n]) => {
+              const li = LINGUE_MAP.get(code);
+              return pill(code, `${li ? li.flag : ""} ${code.toUpperCase()}`, String(n), filtroLingua === code);
+            }));
+          flLingueEl.innerHTML = chips.join("");
+          flLingueEl.style.display = "flex";
+        }
+        flLingueEl.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
+          if (!b) return;
+          filtroLingua = b.dataset.l ?? "";
+          flLingueEl.querySelectorAll(".fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
+          render();
+        });
         // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
         function posizionaAdd() {
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
@@ -658,6 +711,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         edPrefixEl().value = PREFISSO_DEFAULT;
+        // Select lingua del cliente nel modale (prima opzione = non specificata)
+        const edLangEl = () => document.getElementById("ed-lang") as HTMLSelectElement;
+        edLangEl().innerHTML = `<option value="">—</option>` + LINGUE_WIDGET.map(
+          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
+        ).join("");
         const fFname = document.getElementById("f-fname") as HTMLInputElement;
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
         // e spostato nella tendina, numero ripulito.
@@ -742,6 +800,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (filtroLista === "noshow") lista = lista.filter((c) => (c.noshows ?? 0) > 0);
           if (filtroLista === "optin") lista = lista.filter((c) => c.email && !c.newsletter_optout);
           if (filtroLista === "optout") lista = lista.filter((c) => Boolean(c.newsletter_optout));
+          if (filtroLingua) lista = lista.filter((c) => (c.lang || "").toLowerCase() === filtroLingua);
 
           countEl.textContent =
             `${lista.length} ${lista.length > 1 ? tr("cli.clientsWord") : tr("cli.clientWord")}` +
@@ -797,6 +856,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
                 <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? `<span class="tag-new">${tr("cli.new")}</span>` : ""}${attivita}</div>
                 <div class="cell c-email" data-label="${tr("ord.emailLabel")}">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
                 <div class="cell c-phone" data-label="${tr("ord.telLabel")}">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
+                <div class="cell c-lang" data-label="${tr("cli.langCol")}">${langCell(c.lang)}</div>
                 <div class="cell c-since" data-label="${tr("cli.since")}">${
                   c.first_activity
                     ? new Date(c.first_activity).toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "2-digit" })
@@ -1159,6 +1219,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"])
             (document.getElementById(idc) as HTMLInputElement).value = "";
           edPrefixEl().value = PREFISSO_DEFAULT;
+          edLangEl().value = "";
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
           (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.add");
           edUplState.textContent = "";
@@ -1178,6 +1239,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (document.getElementById("ed-fname") as HTMLInputElement).value = parti[0] ?? "";
           (document.getElementById("ed-lname") as HTMLInputElement).value = parti.slice(1).join(" ");
           (document.getElementById("ed-email") as HTMLInputElement).value = c.email ?? "";
+          edLangEl().value = (c.lang || "").toLowerCase();
           {
             const sep = separaPrefisso(c.phone ?? "");
             edPrefixEl().value = sep?.dial ?? PREFISSO_DEFAULT;
@@ -1278,6 +1340,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               phone: telV,
               photo_url: edPhotoUrl || null,
               newsletter_optout: edOptout,
+              lang: edLangEl().value || null,
             };
             if (edCliente) corpo.blocked = edBlocked; // in creazione il blocco non si tocca
             const res = await fetch("/api/admin/clients", {
@@ -1316,6 +1379,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               data = (await res.json()) as Resp;
             }
             tutti = data.clients;
+            costruisciLingue();
             stateEl.style.display = "none";
             contentEl.style.display = "block";
             updateHeader();
