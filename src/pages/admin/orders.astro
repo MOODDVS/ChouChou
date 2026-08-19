@@ -439,6 +439,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .nc-total { display: flex; justify-content: space-between; align-items: center; margin-top: 0.7rem; font-size: 1rem; }
       .nc-total b { color: var(--c-accent); font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; }
+      .nc-mod-recap { margin-top: 0.9rem; border: 1px solid var(--c-line); border-radius: 12px; padding: 0.75rem 0.9rem; background: color-mix(in srgb, var(--c-accent) 5%, transparent); }
+      .nc-mod-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-accent); font-weight: 700; margin-bottom: 0.5rem; }
+      .nc-mod-line { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; color: var(--c-text); padding: 0.22rem 0; }
+      .nc-mod-line .nc-mod-k { color: var(--c-muted); }
+      .nc-mod-line.add { color: #2e9e5b; font-weight: 600; }
+      .nc-mod-line.rem { color: #d9534f; font-weight: 600; }
+      .nc-mod-none { color: var(--c-muted); font-size: 0.9rem; }
       .nc-send {
         width: 100%; margin-top: 0.9rem; background: var(--c-accent); color: var(--c-bg);
         border: 2px solid var(--c-accent); font-family: var(--font-title); font-size: 1rem;
@@ -629,6 +636,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <span class="nc-lab">{t("ord.cart")}</span>
               <div class="nc-recap" id="nc-recap"></div>
               <div class="nc-total"><span>{t("ord.total")}</span><b id="nc-total-2">0,00 €</b></div>
+              <div class="nc-mod-recap" id="nc-mod-recap" hidden></div>
               <span class="nc-lab" id="nc-pay-lab">{t("ord.payLabel")}</span>
               <div class="nc-pay">
                 <button type="button" class="nc-pay-btn" id="nc-cash" data-pay="cash">{t("ord.payCash")}</button>
@@ -1404,6 +1412,7 @@ let ncLang: string = NC_LANG_DEFAULT;
         let ncPayment: "" | "cash" | "card" | "link" = "";
         // Modifica: id dell'ordine in corso di modifica ("" = creazione nuova) e suo stato.
         let ncEditId = "";
+        let ncOrig: { items: Map<string, number>; date: string; slot: string; total: number } | null = null;
         let ncEditStatus = "";
         let ncSlot = "";
         // Slot separati per servizio (Midi/Soir): si sceglie il servizio, poi l'ora.
@@ -1497,6 +1506,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           // Torna in modalità CREAZIONE: titolo, pagamento visibile, niente edit.
           ncEditId = "";
           ncEditStatus = "";
+          ncOrig = null;
           (document.getElementById("nc-title") as HTMLElement).textContent = tr("ord.newOrder");
           (document.getElementById("nc-pay-lab") as HTMLElement).style.display = "";
           (document.querySelector(".nc-pay") as HTMLElement).style.display = "";
@@ -1622,6 +1632,15 @@ let ncLang: string = NC_LANG_DEFAULT;
             if (!arr.includes(hhmm)) { arr.push(hhmm); arr.sort((a, b) => minutiSlot(a) - minutiSlot(b)); }
             ncSvc = svc; ncSlot = hhmm;
           }
+          // Snapshot originale dell'ordine per il recap delle modifiche nel modale.
+          const origItems = new Map<string, number>();
+          for (const it of o.items) {
+            if (it.id === "note") continue;
+            const voce2 = ncMenu.find((v) => v.id === it.id);
+            const nome2 = voce2 ? voce2.name : String((it as { name?: string }).name ?? it.id);
+            origItems.set(nome2, (origItems.get(nome2) ?? 0) + Math.max(1, Math.floor(Number(it.qty) || 1)));
+          }
+          ncOrig = { items: origItems, date: dayKey, slot: hhmm, total: Number(o.total_cents ?? 0) };
           ncRenderSvcs();
           ncRenderSlots();
         }
@@ -1953,6 +1972,39 @@ let ncLang: string = NC_LANG_DEFAULT;
           const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
           (document.getElementById("nc-total-2") as HTMLElement).textContent = euro(tot);
         }
+        // Recap "cosa cambia" (solo in modifica): confronta carrello/orario/totale
+        // attuali con lo snapshot originale dell'ordine.
+        function renderModRecap() {
+          const box = document.getElementById("nc-mod-recap") as HTMLElement;
+          if (!ncEditId || !ncOrig) { box.hidden = true; box.innerHTML = ""; return; }
+          const cur = new Map<string, number>();
+          for (const { voce, qty } of ncCart.values()) cur.set(voce.name, (cur.get(voce.name) ?? 0) + qty);
+          const added: string[] = [];
+          const removed: string[] = [];
+          for (const [name, q] of cur) { const d = q - (ncOrig.items.get(name) ?? 0); if (d > 0) added.push(`${d}× ${esc(name)}`); }
+          for (const [name, q] of ncOrig.items) { const d = q - (cur.get(name) ?? 0); if (d > 0) removed.push(`${d}× ${esc(name)}`); }
+          const curTotal = [...ncCart.values()].reduce((tt, r) => tt + ncPrezzo(r.voce) * r.qty, 0);
+          const timeChanged = ncOrig.date !== ncDate || ncOrig.slot !== ncSlot;
+          const totalChanged = curTotal !== ncOrig.total;
+          box.hidden = false;
+          if (!added.length && !removed.length && !timeChanged && !totalChanged) {
+            box.innerHTML = `<div class="nc-mod-title">${tr("ord.changesTitle")}</div><div class="nc-mod-none">${tr("ord.noChanges")}</div>`;
+            return;
+          }
+          const rows: string[] = [];
+          if (timeChanged) {
+            const showDate = ncOrig.date !== ncDate;
+            const fromT = showDate ? `${fmtDataPick(ncOrig.date)} ${ncOrig.slot}` : ncOrig.slot;
+            const toT = showDate ? `${fmtDataPick(ncDate)} ${ncSlot}` : ncSlot;
+            rows.push(`<div class="nc-mod-line"><span class="nc-mod-k">${tr("ord.chTime")}</span><span>${esc(fromT)} → ${esc(toT)}</span></div>`);
+          }
+          for (const a of added) rows.push(`<div class="nc-mod-line add"><span>+ ${a}</span></div>`);
+          for (const rmv of removed) rows.push(`<div class="nc-mod-line rem"><span>− ${rmv}</span></div>`);
+          if (totalChanged) {
+            rows.push(`<div class="nc-mod-line"><span class="nc-mod-k">${tr("ord.chTotal")}</span><span>${euro(ncOrig.total)} → ${euro(curTotal)}</span></div>`);
+          }
+          box.innerHTML = `<div class="nc-mod-title">${tr("ord.changesTitle")}</div>${rows.join("")}`;
+        }
         function mostraStep(n: number) {
           ncStep = n;
           document.querySelectorAll<HTMLElement>(".nc-panel").forEach((p2) => { p2.hidden = Number(p2.dataset.panel) !== n; });
@@ -1965,7 +2017,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           const next = document.getElementById("nc-next") as HTMLButtonElement;
           prev.style.visibility = n === 1 ? "hidden" : "visible";
           next.style.display = n === 3 ? "none" : "inline-block";
-          if (n === 3) ncRenderRecap();
+          if (n === 3) { ncRenderRecap(); renderModRecap(); }
         }
         // Validazione minima per avanzare (l'email è richiesta solo al pagamento link)
         function validaStep(n: number): boolean {

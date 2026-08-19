@@ -97,6 +97,12 @@ const DIZIONARIO: Dizionario = {
   "ag.updated":     { fr: "Événement mis à jour", en: "Event updated",      it: "Evento aggiornato",    nl: "Evenement bijgewerkt",  es: "Evento actualizado" },
   "ag.deleted":     { fr: "Événement supprimé",  en: "Event deleted",       it: "Evento eliminato",     nl: "Evenement verwijderd",  es: "Evento eliminado" },
 
+  // ===== Recap modifiche nel modale ordine =====
+  "ord.changesTitle": { fr: "Modifications", en: "Changes", it: "Modifiche", nl: "Wijzigingen", es: "Cambios" },
+  "ord.chTime":       { fr: "Retrait", en: "Pickup", it: "Ritiro", nl: "Afhalen", es: "Recogida" },
+  "ord.chTotal":      { fr: "Total", en: "Total", it: "Totale", nl: "Totaal", es: "Total" },
+  "ord.noChanges":    { fr: "Aucune modification", en: "No changes", it: "Nessuna modifica", nl: "Geen wijzigingen", es: "Sin cambios" },
+
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },
   "hdr.logout":     { fr: "Déconnexion",   en: "Log out",     it: "Disconnetti",    nl: "Afmelden",        es: "Cerrar sesión" },
