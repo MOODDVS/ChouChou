@@ -428,9 +428,9 @@ export const PUT: APIRoute = async ({ request }) => {
   // refund) potrebbero non esistere ancora: in tal caso ripiego sui campi base
   // e ricordo che la migrazione manca (migMancante).
   const SEL_FULL =
-    "id, status, cancel_token, pickup_time, total_cents, refunded_cents, stripe_session_id, payment_method, supplement_due_cents, refund_due_cents, supplement_paid_at";
+    "id, status, cancel_token, pickup_time, total_cents, refunded_cents, stripe_session_id, payment_method, supplement_due_cents, refund_due_cents, supplement_paid_at, items";
   const SEL_BASE =
-    "id, status, cancel_token, pickup_time, total_cents, refunded_cents, stripe_session_id, payment_method";
+    "id, status, cancel_token, pickup_time, total_cents, refunded_cents, stripe_session_id, payment_method, items";
   let migMancante = false;
   let sel = await supabaseAdmin.from("orders").select(SEL_FULL).eq("id", id).maybeSingle();
   if (sel.error) {
@@ -557,40 +557,34 @@ export const PUT: APIRoute = async ({ request }) => {
     lang,
   };
 
-  // Diff ordine per l'email "cosa è cambiato".
-  type Voce = { name: string; qty: number };
-  const oldItems = (Array.isArray(ord.items) ? ord.items : []) as { name?: unknown; qty?: unknown }[];
-  const oldPiatti: Voce[] = oldItems
-    .filter((i) => Number(i.qty) > 0)
-    .map((i) => ({ name: String(i.name ?? ""), qty: Number(i.qty) }));
-  const newPiatti: Voce[] = itemsOrdine.filter((i) => i.qty > 0).map((i) => ({ name: i.name, qty: i.qty }));
-  const mapQty = (arr: Voce[]) => {
-    const m = new Map<string, Voce>();
-    for (const i of arr) {
-      const e = m.get(i.name);
-      if (e) e.qty += i.qty;
-      else m.set(i.name, { name: i.name, qty: i.qty });
-    }
-    return m;
-  };
-  const om = mapQty(oldPiatti);
-  const nm = mapQty(newPiatti);
-  const added: Voce[] = [];
-  const removed: Voce[] = [];
-  for (const [k, v] of nm) {
-    const d = v.qty - (om.get(k)?.qty ?? 0);
-    if (d > 0) added.push({ name: v.name, qty: d });
+  // Diff ordine per l'email "cosa è cambiato": lista unione vecchio+nuovo,
+  // per riga oldQty/newQty (0 = tolto / aggiunto). Chiave = nome del piatto.
+  type Line = { name: string; oldQty: number; newQty: number; price_cents: number };
+  const oldRaw = (Array.isArray(ord.items) ? ord.items : []) as {
+    id?: unknown; name?: unknown; qty?: unknown; price_cents?: unknown;
+  }[];
+  const linesMap = new Map<string, Line>();
+  for (const it of oldRaw) {
+    if (String(it.id ?? "") === "note") continue;
+    const q = Number(it.qty) || 0;
+    if (q <= 0) continue;
+    const name = String(it.name ?? "");
+    const e = linesMap.get(name);
+    if (e) e.oldQty += q;
+    else linesMap.set(name, { name, oldQty: q, newQty: 0, price_cents: Number(it.price_cents ?? 0) });
   }
-  for (const [k, v] of om) {
-    const d = v.qty - (nm.get(k)?.qty ?? 0);
-    if (d > 0) removed.push({ name: v.name, qty: d });
+  for (const it of itemsOrdine) {
+    if (it.id === "note" || it.qty <= 0) continue;
+    const e = linesMap.get(it.name);
+    if (e) { e.newQty += it.qty; e.price_cents = it.price_cents; }
+    else linesMap.set(it.name, { name: it.name, oldQty: 0, newQty: it.qty, price_cents: it.price_cents });
   }
+  const lines = [...linesMap.values()];
   const dateChanged = !!origDate && origDate !== dataScelta;
   const changes = {
     timeFrom: origSlot ? (dateChanged ? `${origDate} ${origSlot}` : origSlot) : "",
     timeTo: dateChanged ? `${dataScelta} ${slot}` : slot,
-    added,
-    removed,
+    lines,
     totalFrom: oldTotal,
     totalTo: totale,
   };

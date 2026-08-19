@@ -175,8 +175,9 @@ export async function inviaNotifiche(o: OrdineNotifica): Promise<void> {
 export interface OrdineChanges {
   timeFrom?: string;
   timeTo?: string;
-  added?: { name: string; qty: number }[];
-  removed?: { name: string; qty: number }[];
+  // Righe dell'ordine (unione vecchio+nuovo): oldQty/newQty per riga permettono
+  // di mostrare l'ordine iniziale con gli elementi tolti barrati e gli aggiunti.
+  lines?: { name: string; oldQty: number; newQty: number; price_cents: number }[];
   totalFrom?: number;
   totalTo?: number;
 }
@@ -492,6 +493,7 @@ const TXT_MOD = {
     callBtn: "Nous contacter",
     changesTitle: "Ce qui a changé",
     timeLbl: "Heure de retrait",
+    wasLbl: "auparavant",
     addedLbl: "Ajouté",
     removedLbl: "Retiré",
     totalLbl: "Total",
@@ -510,6 +512,7 @@ const TXT_MOD = {
     callBtn: "Contact us",
     changesTitle: "What changed",
     timeLbl: "Pickup time",
+    wasLbl: "previously",
     addedLbl: "Added",
     removedLbl: "Removed",
     totalLbl: "Total",
@@ -528,6 +531,7 @@ const TXT_MOD = {
     callBtn: "Contattaci",
     changesTitle: "Cosa è cambiato",
     timeLbl: "Orario di ritiro",
+    wasLbl: "prima",
     addedLbl: "Aggiunto",
     removedLbl: "Rimosso",
     totalLbl: "Totale",
@@ -546,6 +550,7 @@ const TXT_MOD = {
     callBtn: "Contact opnemen",
     changesTitle: "Wat is er gewijzigd",
     timeLbl: "Afhaaltijd",
+    wasLbl: "voorheen",
     addedLbl: "Toegevoegd",
     removedLbl: "Verwijderd",
     totalLbl: "Totaal",
@@ -564,6 +569,7 @@ const TXT_MOD = {
     callBtn: "Contactanos",
     changesTitle: "Qué ha cambiado",
     timeLbl: "Hora de recogida",
+    wasLbl: "antes",
     addedLbl: "Añadido",
     removedLbl: "Eliminado",
     totalLbl: "Total",
@@ -592,127 +598,104 @@ async function emailModificaCliente(
   const dati = await datiRistorante();
   const tema = await temaEmail();
 
-  // "Cosa è cambiato": righe di diff rispetto all'ordine precedente (opts.changes).
+  // "Cosa è cambiato": ordine iniziale con elementi tolti (barrati) e aggiunti.
   const ch = opts.changes ?? null;
-  const rigaCambio = (lbl: string, val: string) =>
-    `<tr><td style="padding:12px 18px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${lbl}</td><td style="padding:12px 18px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${val}</td></tr>`;
-  const cambiRows: string[] = [];
-  if (ch?.timeFrom && ch?.timeTo && ch.timeFrom !== ch.timeTo) {
-    cambiRows.push(rigaCambio(t.timeLbl, `<span style="color:${tema.muted};text-decoration:line-through;">${esc(ch.timeFrom)}</span> &rarr; <strong>${esc(ch.timeTo)}</strong>`));
-  }
-  for (const a of ch?.added ?? []) {
-    cambiRows.push(rigaCambio(`<span style="color:#3fae6a;font-weight:bold;">+ ${t.addedLbl}</span>`, `${a.qty}× ${esc(a.name)}`));
-  }
-  for (const r of ch?.removed ?? []) {
-    cambiRows.push(rigaCambio(`<span style="color:#d9776f;font-weight:bold;">&minus; ${t.removedLbl}</span>`, `${r.qty}× ${esc(r.name)}`));
-  }
-  if (ch && typeof ch.totalFrom === "number" && typeof ch.totalTo === "number" && ch.totalFrom !== ch.totalTo) {
-    cambiRows.push(rigaCambio(t.totalLbl, `<span style="color:${tema.muted};text-decoration:line-through;">${euro(ch.totalFrom)}</span> &rarr; <strong style="color:${tema.accent};">${euro(ch.totalTo)}</strong>`));
-  }
-  const cambiHtml = cambiRows.length
-    ? `
-      <tr>
-        <td class="em-pad" style="padding:26px 40px 4px;">
-          <p style="margin:0 0 10px;color:${tema.muted};font-size:11px;letter-spacing:2px;text-transform:uppercase;">${t.changesTitle}</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
-            ${cambiRows.join("")}
-          </table>
-        </td>
-      </tr>`
+  const cellBase = `padding:13px 22px;border-bottom:1px solid ${tema.border};font-size:15px;font-family:Arial,Helvetica,sans-serif;`;
+  const righe = ch?.lines && ch.lines.length
+    ? ch.lines
+    : piatti.map((p) => ({ name: p.name, oldQty: p.qty, newQty: p.qty, price_cents: p.price_cents }));
+  const lineRows = righe
+    .map((l) => {
+      const removed = l.newQty === 0 && l.oldQty > 0;
+      const added = l.oldQty === 0 && l.newQty > 0;
+      const changed = !removed && !added && l.oldQty !== l.newQty;
+      const dispQty = removed ? l.oldQty : l.newQty;
+      const price = euro(l.price_cents * dispQty);
+      if (removed) {
+        return `<tr><td style="${cellBase}color:${tema.muted};text-decoration:line-through;">${l.oldQty}× ${esc(l.name)} <span style="color:#d9776f;text-decoration:none;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">&middot; ${t.removedLbl}</span></td><td style="${cellBase}color:${tema.muted};text-align:right;white-space:nowrap;text-decoration:line-through;">${price}</td></tr>`;
+      }
+      if (added) {
+        return `<tr><td style="${cellBase}color:#3fae6a;font-weight:bold;">+ ${l.newQty}× ${esc(l.name)}</td><td style="${cellBase}color:#3fae6a;text-align:right;white-space:nowrap;font-weight:bold;">${price}</td></tr>`;
+      }
+      if (changed) {
+        return `<tr><td style="${cellBase}color:${tema.title};"><span style="color:${tema.muted};text-decoration:line-through;">${l.oldQty}×</span> &rarr; ${l.newQty}× ${esc(l.name)}</td><td style="${cellBase}color:${tema.title};text-align:right;white-space:nowrap;">${price}</td></tr>`;
+      }
+      return `<tr><td style="${cellBase}color:${tema.title};">${l.newQty}× ${esc(l.name)}</td><td style="${cellBase}color:${tema.title};text-align:right;white-space:nowrap;">${price}</td></tr>`;
+    })
+    .join("");
+
+  const noteHtml = noteCliente
+    ? `<tr><td colspan="2" style="${cellBase}color:${tema.text};font-size:13px;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
 
-  const righeHtml = piatti
-    .map(
-      (i) => `
-      <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
-      </tr>`
-    )
-    .join("");
-  const noteHtml = noteCliente
-    ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
+  const totalChanged = !!(ch && typeof ch.totalFrom === "number" && typeof ch.totalTo === "number" && ch.totalFrom !== ch.totalTo);
+  const totalRow = totalChanged
+    ? `<tr><td style="padding:16px 22px;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.totalLbl}</td><td style="padding:16px 22px;text-align:right;white-space:nowrap;font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;"><span style="color:${tema.muted};text-decoration:line-through;">${euro(ch!.totalFrom as number)}</span> &rarr; <span style="color:${tema.accent};">${euro(ch!.totalTo as number)}</span></td></tr>`
+    : `<tr><td style="padding:16px 22px;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.total}</td><td style="padding:16px 22px;text-align:right;white-space:nowrap;color:${tema.accent};font-size:19px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td></tr>`;
+
+  const timeChanged = !!(ch?.timeFrom && ch?.timeTo && ch.timeFrom !== ch.timeTo);
+  const wasHtml = timeChanged
+    ? `<p style="margin:8px 0 0;color:${tema.muted};font-size:13px;">${t.wasLbl} <span style="text-decoration:line-through;">${esc(ch!.timeFrom as string)}</span></p>`
     : "";
 
   const suppCents = opts.supplement_cents ?? 0;
   const refCents = opts.refund_cents ?? 0;
   const blocco =
     suppCents > 0 && opts.supplement_url
-      ? `
-      <tr>
-        <td style="padding:4px 40px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #7a4a12;background:#3a2708;">
-            <tr>
-              <td style="padding:20px 24px;text-align:center;">
-                <p style="margin:0 0 6px;color:#ffcf8f;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${t.supplTitle}</p>
-                <p style="margin:0 0 16px;color:${tema.title};font-size:15px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.supplText(euro(suppCents))}</p>
-                <a href="${opts.supplement_url}" style="display:inline-block;background:#f0a24b;color:#3a2708;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>`
+      ? `<tr><td class="em-pad" style="padding:8px 44px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #7a4a12;background:#3a2708;border-radius:12px;overflow:hidden;"><tr><td style="padding:20px 24px;text-align:center;"><p style="margin:0 0 6px;color:#ffcf8f;font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.supplTitle}</p><p style="margin:0 0 16px;color:#ffffff;font-size:15px;line-height:1.6;">${t.supplText(euro(suppCents))}</p><a href="${opts.supplement_url}" style="display:inline-block;background:#f0a24b;color:#3a2708;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.payBtn}</a></td></tr></table></td></tr>`
       : refCents > 0
-        ? `
-      <tr>
-        <td style="padding:4px 40px 12px;text-align:center;">
-          <p style="margin:0;color:#8fd6b0;font-size:14px;line-height:1.6;font-family:Arial,Helvetica,sans-serif;">${t.refundText(euro(refCents))}</p>
-        </td>
-      </tr>`
+        ? `<tr><td class="em-pad" style="padding:10px 44px 6px;text-align:center;"><p style="margin:0;color:#8fd6b0;font-size:14px;line-height:1.6;">${t.refundText(euro(refCents))}</p></td></tr>`
         : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
           <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
-      ${cambiHtml}
       <tr>
-        <td class="em-pad" style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+        <td class="em-pad" style="padding:28px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:18px 24px;text-align:center;">
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+              ${wasHtml}
+            </td></tr>
+          </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px 12px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
-            ${righeHtml}
+        <td class="em-pad" style="padding:26px 44px 4px;">
+          <p style="margin:0 0 10px;color:${tema.muted};font-size:11px;letter-spacing:2px;text-transform:uppercase;">${t.changesTitle}</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
+            ${lineRows}
             ${noteHtml}
-            <tr>
-              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
-            </tr>
+            ${totalRow}
           </table>
         </td>
       </tr>
       ${blocco}
       <tr>
-        <td style="padding:8px 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
+        <td class="em-pad" style="padding:22px 44px 38px;text-align:center;">
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:15px 42px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.callBtn}</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px 36px;text-align:center;">
-          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.callBtn}</a>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
-          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
         </td>
       </tr>
     </table>
-  </div>
   `;
 
   try {
