@@ -672,6 +672,9 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   // Annullata dal ristoratore: avvisa il cliente nella sua lingua
   if (upd.status === "cancelled" && (data as { email?: string }).email) {
+    // Motivo facoltativo dal modale admin: mostrato nell'email al cliente.
+    const motivo = String((body as { reason?: unknown }).reason ?? "").trim().slice(0, 500);
+    (data as Record<string, unknown>).cancel_reason = motivo || null;
     void emailAnnullataResa(data as unknown as ResaEmail);
   }
   // Demande CONFERMATA dal ristoratore: ORA parte l'email di conferma al

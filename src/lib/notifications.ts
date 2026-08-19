@@ -1463,6 +1463,7 @@ export async function annullaEmailReview(emailId: string): Promise<void> {
 
 /** Dati di una prenotazione per comporre le email. */
 export interface ResaEmail {
+  cancel_reason?: string | null;
   id: string;
   date: string; // YYYY-MM-DD
   heure: string; // "HH:MM"
@@ -2132,7 +2133,11 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
     logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.cancTitle,
-    lead: t.cancLead(esc(nome)),
+    lead:
+      t.cancLead(esc(nome)) +
+      (r.cancel_reason && String(r.cancel_reason).trim()
+        ? `<br><br><span style="display:inline-block;color:${tema.text};font-style:italic;border-left:3px solid ${tema.accent};padding-left:12px;text-align:left;">« ${esc(String(r.cancel_reason).trim())} »</span>`
+        : ""),
     recapRows: recap,
     ctaHtml,
     footerHtml,

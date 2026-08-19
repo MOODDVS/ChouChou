@@ -931,9 +931,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       <div class="modal" style="max-width:440px;">
         <button class="m-close" id="rm-close" aria-label={t("common.close")}>&times;</button>
         <h2>{t("res.delTitle")}</h2>
-        <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 1.3rem;">{t("res.delHint")}</p>
-        <button type="button" id="rm-cancel-email" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.delCancelEmail")}</button>
-        <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
+        <div id="rm-choices">
+          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 1.3rem;">{t("res.delHint")}</p>
+          <button type="button" id="rm-cancel-email" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.delCancelEmail")}</button>
+          <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
+        </div>
+        <div id="rm-reason-box" style="display:none;">
+          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.8rem;">{t("res.delReasonHint")}</p>
+          <textarea id="rm-reason" rows="3" placeholder={t("res.delReasonPh")} style="width:100%;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:10px;padding:0.7rem 0.9rem;font-family:var(--font-body);font-size:0.95rem;resize:vertical;margin:0 0 0.9rem;"></textarea>
+          <button type="button" id="rm-confirm-cancel" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.6rem;">{t("res.delConfirmCancel")}</button>
+          <button type="button" id="rm-back" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.7rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("common.cancel")}</button>
+        </div>
       </div>
     </div>
 
@@ -1565,12 +1573,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         setInterval(render, 60_000);
 
         // ---- Azioni sulle card: stato, no-show, cestino a due tap, edit ----
-        async function cambiaStato(id: string, status: string) {
+        async function cambiaStato(id: string, status: string, reason?: string) {
           try {
             const res = await fetch("/api/admin/reservations", {
               method: "PATCH",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ id, status }),
+              body: JSON.stringify({ id, status, ...(reason ? { reason } : {}) }),
             });
             if (!res.ok) throw new Error();
             await carica();
@@ -2618,6 +2626,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           rmId = id;
           const r = rese.find((x) => x.id === id);
           const already = !!r && (r.status === "cancelled" || r.status === "noshow");
+          const choices = document.getElementById("rm-choices") as HTMLDivElement;
+          const reasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
+          choices.style.display = "block";
+          reasonBox.style.display = "none";
           (document.getElementById("rm-cancel-email") as HTMLElement).style.display = already ? "none" : "block";
           rmOverlay.classList.add("is-open");
         }
@@ -2625,10 +2637,25 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           rmOverlay.classList.remove("is-open");
           rmId = "";
         }
+        const rmChoices = document.getElementById("rm-choices") as HTMLDivElement;
+        const rmReasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
+        const rmReason = document.getElementById("rm-reason") as HTMLTextAreaElement;
+        function rmMostraScelte() { rmChoices.style.display = "block"; rmReasonBox.style.display = "none"; }
         (document.getElementById("rm-close") as HTMLElement).addEventListener("click", chiudiRm);
         rmOverlay.addEventListener("click", (e) => { if (e.target === rmOverlay) chiudiRm(); });
+        // "Annuler et prévenir": mostra il textarea per la ragione (facoltativa).
         (document.getElementById("rm-cancel-email") as HTMLElement).addEventListener("click", () => {
-          const id = rmId; chiudiRm(); if (id) void cambiaStato(id, "cancelled");
+          rmReason.value = "";
+          rmChoices.style.display = "none";
+          rmReasonBox.style.display = "block";
+          rmReason.focus();
+        });
+        (document.getElementById("rm-back") as HTMLElement).addEventListener("click", rmMostraScelte);
+        (document.getElementById("rm-confirm-cancel") as HTMLElement).addEventListener("click", () => {
+          const id = rmId;
+          const reason = rmReason.value.trim();
+          chiudiRm();
+          if (id) void cambiaStato(id, "cancelled", reason || undefined);
         });
         (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", () => {
           const id = rmId; chiudiRm(); if (id) void eliminaResa(id);
