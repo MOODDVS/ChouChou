@@ -2,6 +2,12 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 20/08/2026 — sessione Cowork (Mac mini)
+
+- **Email transazionali unificate** (design come le conferme ordine): ridisegnate email **link di pagamento** e tutte le **email prenotazione lato cliente** (conferma, promemoria, richiesta, annullata, chiusura). Il guscio condiviso `guscioResa` + `rigaRecap` ora sono **theme-aware** (colori da `admin_theme`), con logo ristorante in alto, box/recap a tema, bottoni a pillola e footer con indirizzo + wordmark RestoHub; inviate via `avvolgiTema`. Le email al ristorante (notifiche interne) restano invariate.
+- **Card ordini**: icona metodo pagamento accanto a PAGATO (contanti/carta/Stripe wordmark bianca 28px); barre stato in fondo (differenza da pagare / rimborso).
+- **Fix link pagamento** post-checkout → sito giusto via `public_site_base` (app_config).
+
 ## 📌 19/08/2026 — sessione Cowork (Mac mini)
 
 - ✅ **Google Business Profile API approvata** (progetto "MOODD Admin" su Google Cloud). Sblocca lettura recensioni/rating e — in prospettiva — le risposte, direttamente nell'admin invece del solo link Google. Quota vista: **300 req/min** (adjustable). **Integrazione da fare più avanti** (cache lato motore come `/api/reviews`, alert quota >90%). Enzo: "la facciamo dopo".

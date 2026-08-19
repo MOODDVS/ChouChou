@@ -1762,11 +1762,11 @@ async function resaNotifyEmail(): Promise<string> {
 }
 
 /** Riga di riepilogo (etichetta / valore) dell'email prenotazione. */
-function rigaRecap(lab: string, val: string): string {
+function rigaRecap(tema: TemaEmail, lab: string, val: string): string {
   if (!val) return "";
   return `<tr>
-    <td style="padding:10px 24px;border-bottom:1px solid #0f434c;color:#8fb0b5;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${esc(lab)}</td>
-    <td style="padding:10px 24px;border-bottom:1px solid #0f434c;color:#ffffff;font-size:16px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${esc(val)}</td>
+    <td style="padding:12px 22px;border-bottom:1px solid ${tema.border};color:${tema.muted};font-size:12px;letter-spacing:1px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">${esc(lab)}</td>
+    <td style="padding:12px 22px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:16px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${esc(val)}</td>
   </tr>`;
 }
 
@@ -1813,9 +1813,9 @@ function avvolgiTema(inner: string, tema: TemaEmail, dir = "ltr"): string {
 
 /** Header + recap comune (design dark brand) di tutte le email prenotazione. */
 function guscioResa(opts: {
+  tema: TemaEmail;
   nome: string;
   logo: string;
-  claimUpper: string;
   dir: string;
   title: string;
   lead: string;
@@ -1825,45 +1825,40 @@ function guscioResa(opts: {
   indirizzo: string;
   contatti: string;
 }): string {
+  const tema = opts.tema;
   return `
-  <div dir="${opts.dir}" style="font-family: Arial, Helvetica, sans-serif; background:#00252b; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#002f35;border:1px solid #0f434c;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${opts.logo || LOGO_URL}" alt="${esc(opts.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#f04b4b;font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc(opts.claimUpper)}</p>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${opts.logo}" alt="${esc(opts.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(opts.nome.toUpperCase())}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${esc(opts.title)}</h1>
-          <p style="margin:16px 0 0;color:#8fb0b5;font-size:15px;line-height:1.6;">${opts.lead}</p>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${esc(opts.title)}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${opts.lead}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px 8px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #0f434c;">
+        <td class="em-pad" style="padding:26px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
             ${opts.recapRows}
           </table>
         </td>
       </tr>
       ${opts.ctaHtml}
-      <tr>
-        <td style="padding:0 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:8px auto 24px;background:#f04b4b;"></div>
-        </td>
-      </tr>
       ${opts.footerHtml}
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid #0f434c;text-align:center;">
-          <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.8;">${esc(opts.indirizzo)}<br>${esc(opts.contatti)}</p>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(opts.indirizzo)}<br>${esc(opts.contatti)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
         </td>
       </tr>
     </table>
-  </div>
   `;
 }
-
 /** URL base pubblico, senza slash finale. */
 function siteBase(): string {
   return SITE_URL.replace(/\/$/, "");
@@ -1881,36 +1876,37 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   const t = TXT_RESA[lang];
   const dati = await datiRistorante();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
+  const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
-    rigaRecap(w.heure, heureVal) +
-    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
-    (r.zone ? rigaRecap(w.section, r.zone) : "");
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, heureVal) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
   const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
   const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
-      <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${modifyUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
-        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#8fb0b5;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #0f434c;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+      <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
+        <a href="${modifyUrl}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:${tema.muted};text-decoration:none;padding:13px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid ${tema.border};border-radius:999px;margin:4px;">${esc(w.annulerTitre)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
+        <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
       </td>
     </tr>`;
 
   const html = guscioResa({
+    tema,
     nome: dati.nome,
-    logo: dati.logo,
-    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.confTitle,
     lead: t.confLead(esc(nome)),
@@ -1927,7 +1923,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
       to: r.email,
       subject: t.confSubject(dati.nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
     });
   } catch (e) {
     console.error("Errore email conferma prenotazione:", e);
@@ -1960,18 +1956,19 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
   const tr = TXT_RAPPEL[lang];
   const dati = await datiRistorante();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
+  const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
-    rigaRecap(w.heure, heureVal) +
-    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
-    (r.zone ? rigaRecap(w.section, r.zone) : "");
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, heureVal) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
   const html = guscioResa({
+    tema,
     nome: dati.nome,
-    logo: dati.logo,
-    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: tr.title,
     lead: tr.lead(esc(nome)),
@@ -1988,7 +1985,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
       to: r.email,
       subject: tr.subject(dati.nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
     });
     return true;
   } catch (e) {
@@ -2012,36 +2009,37 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
   const t = TXT_RESA[lang];
   const dati = await datiRistorante();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
+  const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
-    rigaRecap(w.heure, heureVal) +
-    rigaRecap(w.personnes, `${r.people} ${w.pers}`) +
-    (r.zone ? rigaRecap(w.section, r.zone) : "");
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, heureVal) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
   const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
   const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
-      <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${modifyUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;margin:4px;">${esc(t.modifier)}</a>
-        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:#8fb0b5;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid #0f434c;border-radius:10px;margin:4px;">${esc(w.annulerTitre)}</a>
+      <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
+        <a href="${modifyUrl}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;margin:4px;">${esc(t.modifier)}</a>
+        <a href="${cancelUrl}" style="display:inline-block;background:transparent;color:${tema.muted};text-decoration:none;padding:13px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border:1px solid ${tema.border};border-radius:999px;margin:4px;">${esc(w.annulerTitre)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#f04b4b;font-size:13px;line-height:1.7;">${esc(t.pendInfo)}</p>
+        <p style="margin:0;color:${tema.accent};font-size:13px;line-height:1.7;">${esc(t.pendInfo)}</p>
       </td>
     </tr>`;
 
   const html = guscioResa({
+    tema,
     nome: dati.nome,
-    logo: dati.logo,
-    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.pendTitle,
     lead: t.pendLead(esc(nome)),
@@ -2058,7 +2056,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
       to: r.email,
       subject: t.pendSubject(dati.nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
     });
   } catch (e) {
     console.error("Errore email demande prenotazione:", e);
@@ -2077,31 +2075,32 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const t = TXT_RESA[lang];
   const dati = await datiRistorante();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
+  const tema = await temaEmail();
 
   const recap =
-    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
-    rigaRecap(w.heure, r.heure) +
-    rigaRecap(w.personnes, `${r.people} ${w.pers}`);
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, r.heure) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
   const bookUrl = `${siteBase()}/reservation`;
   const ctaHtml = `
     <tr>
-      <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${bookUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+      <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
+        <a href="${bookUrl}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${esc(w.reserver)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.cancInfo)}</p>
+        <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.7;">${esc(t.cancInfo)}</p>
       </td>
     </tr>`;
 
   const html = guscioResa({
+    tema,
     nome: dati.nome,
-    logo: dati.logo,
-    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.cancTitle,
     lead: t.cancLead(esc(nome)),
@@ -2118,7 +2117,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
       to: r.email,
       subject: t.cancSubject(dati.nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
     });
   } catch (e) {
     console.error("Errore email annullamento prenotazione:", e);
@@ -2137,31 +2136,32 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   const t = TXT_RESA[lang];
   const dati = await datiRistorante();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
+  const tema = await temaEmail();
 
   const recap =
-    rigaRecap(w.date, fmtDataResa(r.date, lang)) +
-    rigaRecap(w.heure, r.heure) +
-    rigaRecap(w.personnes, `${r.people} ${w.pers}`);
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, r.heure) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
   const bookUrl = `${siteBase()}/reservation`;
   const ctaHtml = `
     <tr>
-      <td style="padding:22px 40px 4px;text-align:center;">
-        <a href="${bookUrl}" style="display:inline-block;background:#f04b4b;color:#ffffff;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(w.reserver)}</a>
+      <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
+        <a href="${bookUrl}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${esc(w.reserver)}</a>
       </td>
     </tr>`;
 
   const footerHtml = `
     <tr>
       <td style="padding:0 40px 30px;text-align:center;">
-        <p style="margin:0;color:#6f9096;font-size:12px;line-height:1.7;">${esc(t.fermInfo)}</p>
+        <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.7;">${esc(t.fermInfo)}</p>
       </td>
     </tr>`;
 
   const html = guscioResa({
+    tema,
     nome: dati.nome,
-    logo: dati.logo,
-    claimUpper: (dati.nome + " — " + CLIENT.claim).toUpperCase(),
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
     dir: lang === "ar" ? "rtl" : "ltr",
     title: t.fermTitle,
     lead: t.fermLead(esc(nome)),
@@ -2178,7 +2178,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
       to: r.email,
       subject: t.fermSubject(dati.nome),
       bcc: BCC,
-      html: avvolgiScuro(html),
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
     });
   } catch (e) {
     console.error("Errore email chiusura prenotazione:", e);
