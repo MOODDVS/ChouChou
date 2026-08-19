@@ -1864,6 +1864,33 @@ function siteBase(): string {
   return SITE_URL.replace(/\/$/, "");
 }
 
+/** Blocco MAPPA per l'email di conferma: mappa statica Google (immagine)
+ *  cliccabile che apre Google Maps in NAVIGAZIONE verso il ristorante, più un
+ *  bottone "Itinéraire" (funziona anche senza chiave Static Maps). Ritorna ""
+ *  se manca l'indirizzo. */
+function mapsBlocco(tema: TemaEmail, indirizzo: string, lang: string): string {
+  const addr = (indirizzo ?? "").trim();
+  if (!addr) return "";
+  const enc = encodeURIComponent(addr);
+  const dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${enc}`;
+  const label =
+    ({ fr: "Itinéraire", en: "Directions", it: "Come arrivare", es: "Cómo llegar", nl: "Route", de: "Route", ar: "الاتجاهات", ru: "Маршрут", zh: "路线", ja: "経路" } as Record<string, string>)[lang] ?? "Itinéraire";
+  const key = process.env.GOOGLE_PLACES_API_KEY ?? "";
+  const marker = `0x${(tema.accent || "#e23b2e").replace("#", "")}`;
+  const img = key
+    ? `<a href="${dirUrl}" target="_blank" style="display:block;text-decoration:none;"><img src="https://maps.googleapis.com/maps/api/staticmap?center=${enc}&zoom=15&size=600x240&scale=2&markers=color:${marker}%7C${enc}&key=${key}" alt="${esc(label)}" width="512" style="display:block;width:100%;height:auto;border:0;border-radius:12px;" /></a>`
+    : "";
+  return `
+    <tr>
+      <td class="em-pad" style="padding:10px 44px 6px;">
+        ${img}
+        <p style="margin:${img ? "12px" : "0"} 0 0;text-align:center;">
+          <a href="${dirUrl}" target="_blank" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:12px 30px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${esc(label)}</a>
+        </p>
+      </td>
+    </tr>`;
+}
+
 /** Email di CONFERMA al cliente, con link Modifier / Annuler. */
 async function emailConfermaResa(r: ResaEmail): Promise<void> {
   const from = await resaFromEmail();
@@ -1896,9 +1923,11 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
       </td>
     </tr>`;
 
-  const footerHtml = `
+  const footerHtml =
+    mapsBlocco(tema, dati.indirizzo, lang) +
+    `
     <tr>
-      <td style="padding:0 40px 30px;text-align:center;">
+      <td class="em-pad" style="padding:14px 44px 30px;text-align:center;">
         <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.7;">${esc(t.hint)}</p>
       </td>
     </tr>`;
