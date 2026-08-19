@@ -298,6 +298,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Tag differenza dopo modifica: da pagare (ambra) / pagata (verde) */
       .tag-suppdue { background: #7a4a12; color: #ffcf8f; }
       .tag-supppaid { background: #1f5c3a; color: #9fe6c0; }
+      .diff-bar { margin-top: 0.9rem; border-radius: 12px; padding: 0.62rem 0.9rem; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+      .diff-bar-due { background: color-mix(in srgb, #f0a24b 14%, transparent); color: #f0b46b; border: 1px solid color-mix(in srgb, #f0a24b 40%, transparent); }
+      .diff-bar-paid { background: color-mix(in srgb, #46a860 15%, transparent); color: #7fe0a6; border: 1px solid color-mix(in srgb, #46a860 42%, transparent); }
       /* Modale remboursement */
       /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
       .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
@@ -775,12 +778,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         if (o.status === "done") tag = `<span class="tag tag-done">${tr("ord.terminee")}</span>`;
         if (o.status === "pending") tag = `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
         if (o.status === "paid") tag = `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
-        // Differenza dopo una modifica: da incassare (supplemento) o gia' saldata.
-        if (o.status === "paid" && (o.supplement_due_cents ?? 0) > 0) {
-          tag += `<span class="tag tag-suppdue" title="${tr("ord.diffDueTitle")}">${tr("ord.diffDue")} ${euro(o.supplement_due_cents ?? 0)}</span>`;
-        } else if (o.status === "paid" && o.supplement_paid_at) {
-          tag += `<span class="tag tag-supppaid" title="${tr("ord.diffPaidTitle")}">${tr("ord.diffPaid")} ✓</span>`;
-        }
+        // Differenza dopo una modifica: mostrata come BARRA in fondo alla card
+        // (vedi diffBar più sotto), non più come tag in alto vicino al totale.
 
 
         // Ordini attivi: Terminée + Annuler.
@@ -834,6 +833,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           o.status === "paid" && (o.refund_due_cents ?? 0) > 0
             ? `<button class="btn-diffrefund" type="button" data-id="${o.id}" data-act="diffrefund" data-diff="${o.refund_due_cents ?? 0}">${tr("ord.refundDiff")} · ${euro(o.refund_due_cents ?? 0)}</button>`
             : "";
+
+        // Barra "differenza da pagare" (supplemento dopo una modifica): a tutta
+        // larghezza sotto gli articoli. Ambra = in attesa; verde ✓ = pagata.
+        const diffBar =
+          o.status === "paid" && (o.supplement_due_cents ?? 0) > 0
+            ? `<div class="diff-bar diff-bar-due" title="${tr("ord.diffDueTitle")}">⏳ ${tr("ord.diffDue")} · ${euro(o.supplement_due_cents ?? 0)}</div>`
+            : o.status === "paid" && o.supplement_paid_at
+              ? `<div class="diff-bar diff-bar-paid" title="${tr("ord.diffPaidTitle")}">✓ ${tr("ord.diffPaid")}</div>`
+              : "";
         const lr = ncLivelloRitardo(o.pickup_time, o.status);
         const cardCls =
           (o.status === "paid" || o.status === "pending" ? "" : o.status === "done" ? " done" : " off") +
@@ -854,6 +862,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ${phone}
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
+            ${diffBar}
             ${actions}
             ${diffRefundBtn}
             ${refundBtn}
