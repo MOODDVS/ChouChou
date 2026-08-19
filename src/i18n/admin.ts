@@ -103,6 +103,12 @@ const DIZIONARIO: Dizionario = {
   "ord.chTotal":      { fr: "Total", en: "Total", it: "Totale", nl: "Totaal", es: "Total" },
   "ord.noChanges":    { fr: "Aucune modification", en: "No changes", it: "Nessuna modifica", nl: "Geen wijzigingen", es: "Sin cambios" },
 
+  // ===== Cestino prenotazione: modale annulla/elimina =====
+  "res.delTitle":       { fr: "Que faire de cette réservation ?", en: "What to do with this booking?", it: "Cosa fare con questa prenotazione?", nl: "Wat met deze reservering?", es: "¿Qué hacer con esta reserva?" },
+  "res.delHint":        { fr: "« Annuler » prévient le client par email. « Supprimer » la retire sans rien envoyer.", en: "\"Cancel\" notifies the customer by email. \"Delete\" removes it without sending anything.", it: "«Annulla» avvisa il cliente via email. «Elimina» la rimuove senza inviare nulla.", nl: "\"Annuleren\" waarschuwt de klant per e-mail. \"Verwijderen\" verwijdert ze zonder iets te sturen.", es: "«Cancelar» avisa al cliente por email. «Eliminar» la quita sin enviar nada." },
+  "res.delCancelEmail": { fr: "Annuler et prévenir le client", en: "Cancel and notify the customer", it: "Annulla e avvisa il cliente", nl: "Annuleren en klant informeren", es: "Cancelar y avisar al cliente" },
+  "res.delSilent":      { fr: "Supprimer sans prévenir", en: "Delete without notifying", it: "Elimina senza avvisare", nl: "Verwijderen zonder melding", es: "Eliminar sin avisar" },
+
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },
   "hdr.logout":     { fr: "Déconnexion",   en: "Log out",     it: "Disconnetti",    nl: "Afmelden",        es: "Cerrar sesión" },

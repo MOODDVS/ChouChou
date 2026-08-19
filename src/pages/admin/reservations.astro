@@ -926,6 +926,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <div class="toast" id="toast"></div>
 
+    <!-- Modale: cosa fare del cestino di una prenotazione (annulla+email vs elimina) -->
+    <div class="overlay" id="rm-overlay">
+      <div class="modal" style="max-width:440px;">
+        <button class="m-close" id="rm-close" aria-label={t("common.close")}>&times;</button>
+        <h2>{t("res.delTitle")}</h2>
+        <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 1.3rem;">{t("res.delHint")}</p>
+        <button type="button" id="rm-cancel-email" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.delCancelEmail")}</button>
+        <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
+      </div>
+    </div>
+
     <AdminNav current="reservations" />
 
     <!-- Dati SSR (Fase 2): giorno pre-caricato dal server, letto dal client. -->
@@ -2581,18 +2592,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (!id) return;
           const act = btn.dataset.act;
           if (act === "delete") {
-            e.stopPropagation(); // il testo sostituisce l'icona: senza stop il "click fuori" disarmerebbe subito
-            // Primo tap: chiede conferma; secondo tap: elimina DAVVERO la resa
-            if (cestinoArmato === btn) {
-              disarmaCestino();
-              void eliminaResa(id);
-            } else {
-              disarmaCestino();
-              cestinoArmato = btn;
-              btn.classList.add("confirm");
-              btn.textContent = tr("common.confirm");
-              cestinoTimer = window.setTimeout(disarmaCestino, 4000);
-            }
+            e.stopPropagation();
+            // Modale a due scelte: annullare (con email al cliente) o eliminare (silenzioso).
+            apriRm(id);
             return;
           }
           disarmaCestino();
@@ -2607,6 +2609,29 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         });
         document.addEventListener("click", (e) => {
           if (!(e.target as HTMLElement).closest(".b-annule")) disarmaCestino();
+        });
+
+        // ---- Modale cestino: Annuler (email cliente) / Supprimer (silenzioso) ----
+        const rmOverlay = document.getElementById("rm-overlay") as HTMLDivElement;
+        let rmId = "";
+        function apriRm(id: string) {
+          rmId = id;
+          const r = rese.find((x) => x.id === id);
+          const already = !!r && (r.status === "cancelled" || r.status === "noshow");
+          (document.getElementById("rm-cancel-email") as HTMLElement).style.display = already ? "none" : "block";
+          rmOverlay.classList.add("is-open");
+        }
+        function chiudiRm() {
+          rmOverlay.classList.remove("is-open");
+          rmId = "";
+        }
+        (document.getElementById("rm-close") as HTMLElement).addEventListener("click", chiudiRm);
+        rmOverlay.addEventListener("click", (e) => { if (e.target === rmOverlay) chiudiRm(); });
+        (document.getElementById("rm-cancel-email") as HTMLElement).addEventListener("click", () => {
+          const id = rmId; chiudiRm(); if (id) void cambiaStato(id, "cancelled");
+        });
+        (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", () => {
+          const id = rmId; chiudiRm(); if (id) void eliminaResa(id);
         });
 
         // ---- Viste Semaine (7 jours) / Mois (30 jours, calendrier) ----
