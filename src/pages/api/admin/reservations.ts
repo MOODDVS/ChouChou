@@ -491,6 +491,9 @@ export const POST: APIRoute = async ({ request }) => {
             await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((d2 as { id?: unknown }).id ?? ""));
           } catch { /* #37 assente */ }
         }
+        if (String((d2 as { email?: string }).email ?? "").trim()) {
+          void inviaConfermaResa(d2 as unknown as ResaEmail);
+        }
         void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
         registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
         return json({ reservation: d2 });
@@ -503,6 +506,11 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((data as { id?: unknown }).id ?? ""));
     } catch { /* #37 assente */ }
+  }
+  // Se lo staff ha inserito un'email, parte la conferma al cliente (come per
+  // le prenotazioni web). Senza email (walk-in anonimo) non si invia nulla.
+  if (String((data as { email?: string }).email ?? "").trim()) {
+    void inviaConfermaResa(data as unknown as ResaEmail);
   }
   void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
   registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
