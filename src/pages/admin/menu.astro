@@ -255,6 +255,15 @@ const pubLangsJson = JSON.stringify({
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
 
+      /* Modale piatto a 2 colonne + tab */
+      .modal-dish { max-width: 940px; }
+      .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
+      @media (max-width: 780px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
+      .m-tabs { display: flex; gap: 0.2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--c-line); }
+      .m-tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.85rem; padding: 0.55rem 0.9rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; margin-bottom: -1px; }
+      .m-tab:hover { color: var(--c-text); }
+      .m-tab.is-on { color: var(--c-accent); border-bottom-color: var(--c-accent); }
+
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
@@ -448,95 +457,114 @@ const pubLangsJson = JSON.stringify({
 
     <!-- Modale piatto -->
     <div class="overlay" id="overlay">
-      <div class="modal">
+      <div class="modal modal-dish">
         <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
         <h2 id="m-title">{t("menu.addDish")}</h2>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label" id="f-name-lab">{t("menu.nameReq")}</span>
-            <input type="text" id="f-name" maxlength="120" />
-          </div>
-          <div class="f-field">
-            <span class="f-label">{t("menu.priceReq")}</span>
-            <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
-          </div>
-        </div>
-        <div id="f-names-extra"></div>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label">{t("menu.sectionReq")}</span>
-            <select id="f-cat"></select>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.photoOpt")}</span>
-            <div class="f-img-row">
-              <span class="f-img-prev" id="f-img-prev"></span>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">{t("cli.uploadPhoto")}</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">{t("menu.library")}</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">{t("ord.remove")}</button>
-              <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
-              <span class="f-label" id="f-img-state"></span>
+        <div class="m-cols">
+
+          <!-- COLONNA SINISTRA: foto · categoria · titoli+prezzo · badge -->
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.photoOpt")}</span>
+                <div class="f-img-row">
+                  <span class="f-img-prev" id="f-img-prev"></span>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">{t("menu.library")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">{t("ord.remove")}</button>
+                  <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+                  <span class="f-label" id="f-img-state"></span>
+                </div>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label">{t("menu.sectionReq")}</span>
+                <select id="f-cat"></select>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label" id="f-name-lab">{t("menu.nameReq")}</span>
+                <input type="text" id="f-name" maxlength="120" />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.priceReq")}</span>
+                <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
+              </div>
+            </div>
+            <div id="f-names-extra"></div>
+            <span class="f-label m-sublabel">{t("menu.badges")}</span>
+            <div class="m-toggles m-badges">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-best" /><span class="track"></span></span>
+                ★ {t("menu.bestseller")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-vegan" /><span class="track"></span></span>
+                🌱 {t("menu.vegan")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-spicy" /><span class="track"></span></span>
+                🌶️ {t("menu.spicy")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-suggestion" /><span class="track"></span></span>
+                👨‍🍳 {t("menu.suggestion")}
+              </label>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
+                {t("menu.visibleSite")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
+                {t("menu.orderable")}
+              </label>
             </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.discount")}</span>
-            <select id="f-dtype">
-              <option value="">{t("itg.mode.none")}</option>
-              <option value="fixed">{t("menu.discFixed")}</option>
-              <option value="percent">{t("menu.discPercent")}</option>
-            </select>
+
+          <!-- COLONNA DESTRA: tab descrizioni · allergeni · sconto -->
+          <div class="m-col">
+            <div class="m-tabs" id="m-tabs">
+              <button type="button" class="m-tab is-on" data-tab="desc">{t("menu.tabDesc")}</button>
+              <button type="button" class="m-tab" data-tab="alg">{t("menu.tabAllerg")}</button>
+              <button type="button" class="m-tab" data-tab="disc">{t("menu.tabDisc")}</button>
+            </div>
+            <div class="m-pane" data-pane="desc">
+              <div id="f-descs"></div>
+            </div>
+            <div class="m-pane" data-pane="alg" style="display: none">
+              <div class="alg-grid" id="f-alg"></div>
+            </div>
+            <div class="m-pane" data-pane="disc" style="display: none">
+              <div class="f-row">
+                <div class="f-field">
+                  <span class="f-label">{t("menu.discount")}</span>
+                  <select id="f-dtype">
+                    <option value="">{t("itg.mode.none")}</option>
+                    <option value="fixed">{t("menu.discFixed")}</option>
+                    <option value="percent">{t("menu.discPercent")}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="f-row">
+                <div class="f-field">
+                  <span class="f-label">{t("menu.value")}</span>
+                  <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
+                </div>
+                <div class="f-field">
+                  <span class="f-label">{t("menu.application")}</span>
+                  <select id="f-dscope" disabled>
+                    <option value="all">{t("menu.everywhere")}</option>
+                    <option value="online">{t("menu.onlineOnly")}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="f-field">
-            <span class="f-label">{t("menu.value")}</span>
-            <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
-          </div>
-          <div class="f-field">
-            <span class="f-label">{t("menu.application")}</span>
-            <select id="f-dscope" disabled>
-              <option value="all">{t("menu.everywhere")}</option>
-              <option value="online">{t("menu.onlineOnly")}</option>
-            </select>
-          </div>
-        </div>
-        <div id="f-descs"></div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.allergensEu")}</span>
-            <div class="alg-grid" id="f-alg"></div>
-          </div>
-        </div>
-        <span class="f-label m-sublabel">{t("menu.badges")}</span>
-        <div class="m-toggles m-badges">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-best" /><span class="track"></span></span>
-            ★ {t("menu.bestseller")}
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-vegan" /><span class="track"></span></span>
-            🌱 {t("menu.vegan")}
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-spicy" /><span class="track"></span></span>
-            🌶️ {t("menu.spicy")}
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-suggestion" /><span class="track"></span></span>
-            👨‍🍳 {t("menu.suggestion")}
-          </label>
-        </div>
-        <div class="m-toggles">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
-            {t("menu.visibleSite")}
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
-            {t("menu.orderable")}
-          </label>
+
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
@@ -908,6 +936,18 @@ const pubLangsJson = JSON.stringify({
           .join("");
       }
       costruisciCampiLingua();
+      // ---- Tab del modale (Descrizioni / Allergeni / Sconto) ----
+      const mTabs = document.getElementById("m-tabs") as HTMLDivElement;
+      function mostraTab(tab: string) {
+        mTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((x) => x.classList.toggle("is-on", x.dataset.tab === tab));
+        document.querySelectorAll<HTMLElement>(".modal-dish .m-pane").forEach((pane) => {
+          pane.style.display = pane.dataset.pane === tab ? "" : "none";
+        });
+      }
+      mTabs.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLElement>(".m-tab");
+        if (b?.dataset.tab) mostraTab(b.dataset.tab);
+      });
       const fAlg = document.getElementById("f-alg") as HTMLDivElement;
       const fDtype = document.getElementById("f-dtype") as HTMLSelectElement;
       const fDval = document.getElementById("f-dval") as HTMLInputElement;
@@ -984,6 +1024,7 @@ const pubLangsJson = JSON.stringify({
 
       function apriModale(it: Item | null) {
         editId = it?.id ?? null;
+        mostraTab("desc");
         mTitle.textContent = it ? tr("menu.editDish") : tr("menu.addDish");
         mMsg.textContent = "";
         fCat.innerHTML = cats.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
