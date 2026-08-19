@@ -1865,6 +1865,30 @@ function siteBase(): string {
   return SITE_URL.replace(/\/$/, "");
 }
 
+/** Prefisso del sito pubblico del cliente (es. "/demo01"), letto da
+ *  app_config "public_site_base". Vuoto se assente (sito alla radice).
+ *  Serve perché i link "modifier / annuler" nelle email di prenotazione
+ *  devono puntare al SITO giusto, non alla root del dominio. */
+async function basePubblicaResa(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "public_site_base")
+      .maybeSingle();
+    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
+    if (!v) return "";
+    return (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+/** Base pubblica completa per i link cliente delle prenotazioni. */
+async function siteBaseResa(): Promise<string> {
+  return siteBase() + (await basePubblicaResa());
+}
+
 /** Blocco MAPPA per l'email di conferma: mappa statica Google (immagine)
  *  cliccabile che apre Google Maps in NAVIGAZIONE verso il ristorante, più un
  *  bottone "Itinéraire" (funziona anche senza chiave Static Maps). Ritorna ""
@@ -1913,8 +1937,8 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
-  const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
-  const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
+  const modifyUrl = `${await siteBaseResa()}/reservation?token=${r.cancel_token}`;
+  const cancelUrl = `${await siteBaseResa()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
@@ -2048,8 +2072,8 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
-  const modifyUrl = `${siteBase()}/reservation?token=${r.cancel_token}`;
-  const cancelUrl = `${siteBase()}/reservation/cancel?token=${r.cancel_token}`;
+  const modifyUrl = `${await siteBaseResa()}/reservation?token=${r.cancel_token}`;
+  const cancelUrl = `${await siteBaseResa()}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
@@ -2112,7 +2136,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
-  const bookUrl = `${siteBase()}/reservation`;
+  const bookUrl = `${await siteBaseResa()}/reservation`;
   const ctaHtml = `
     <tr>
       <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
@@ -2177,7 +2201,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
-  const bookUrl = `${siteBase()}/reservation`;
+  const bookUrl = `${await siteBaseResa()}/reservation`;
   const ctaHtml = `
     <tr>
       <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
