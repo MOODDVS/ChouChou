@@ -131,7 +131,6 @@ interface RigaResa {
   phone: string | null;
   status: string | null;
   created_at: string | null;
-  lang: string | null;
 }
 
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
@@ -142,7 +141,7 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
   for (let da = 0; ; da += PAGINA) {
     const { data, error } = await supabaseAdmin
       .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at, lang")
+      .select("first_name, last_name, email, phone, status, created_at")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
@@ -163,8 +162,18 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
       .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Migrazione `lang` (clients_lang.sql) non ancora lanciata: si rilegge
+    // MANTENENDO photo_url/blocked (per non perdere foto e blocchi).
+    if (error && String(error.message ?? "").includes("lang")) {
+      campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("clients")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
-    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked") || String(error.message ?? "").includes("lang"))) {
+    if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
       campi = "id, name, email, phone, hidden, created_at";
       ({ data, error } = await supabaseAdmin
         .from("clients")
@@ -267,8 +276,6 @@ export const GET: APIRoute = async ({ request, url }) => {
       c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: false };
       mappa.set(key, c);
     }
-    // Lingua: la prenotazione più recente (lista ascendente → l'ultima vince)
-    if (r.lang) c.lang = r.lang;
     // Annullata: il cliente resta in lista ma non conta come résa
     if (r.status !== "cancelled") c.reservations += 1;
     if (r.status === "noshow") c.noshows += 1;
