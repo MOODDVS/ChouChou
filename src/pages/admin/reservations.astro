@@ -938,7 +938,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         </div>
         <div id="rm-reason-box" style="display:none;">
           <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.7rem;">{t("res.delReasonHint")}</p>
-          <p id="rm-lang-hint" style="display:none;color:var(--c-accent);font-size:0.82rem;font-weight:700;letter-spacing:0.02em;margin:0 0 0.7rem;"></p>
+          <p id="rm-lang-hint" style="display:none;color:var(--c-muted);font-size:0.85rem;margin:0 0 0.8rem;"></p>
           <textarea id="rm-reason" rows="3" placeholder={t("res.delReasonPh")} style="width:100%;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:10px;padding:0.7rem 0.9rem;font-family:var(--font-body);font-size:0.95rem;resize:vertical;margin:0 0 0.9rem;"></textarea>
           <button type="button" id="rm-confirm-cancel" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.6rem;">{t("res.delConfirmCancel")}</button>
           <button type="button" id="rm-back" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.7rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("common.cancel")}</button>
@@ -2660,7 +2660,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const r = rese.find((x) => x.id === rmId);
           const lh = document.getElementById("rm-lang-hint") as HTMLElement;
           const nome = r?.lang ? nomeLingua(r.lang) : "";
-          if (nome) { lh.textContent = `${tr("res.delReasonLang")} ${nome}`; lh.style.display = "block"; }
+          if (nome) { lh.innerHTML = `${esc(tr("res.delReasonLang"))} <span style="display:inline-block;background:color-mix(in srgb, var(--c-accent) 16%, transparent);color:var(--c-accent);padding:3px 11px;border-radius:999px;font-size:0.82rem;font-weight:700;margin-left:4px;">${esc(nome)}</span>`; lh.style.display = "block"; }
           else { lh.style.display = "none"; }
           rmChoices.style.display = "none";
           rmReasonBox.style.display = "block";
