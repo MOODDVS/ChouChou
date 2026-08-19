@@ -937,7 +937,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
         </div>
         <div id="rm-reason-box" style="display:none;">
-          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.8rem;">{t("res.delReasonHint")}</p>
+          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.7rem;">{t("res.delReasonHint")}</p>
+          <p id="rm-lang-hint" style="display:none;color:var(--c-accent);font-size:0.82rem;font-weight:700;letter-spacing:0.02em;margin:0 0 0.7rem;"></p>
           <textarea id="rm-reason" rows="3" placeholder={t("res.delReasonPh")} style="width:100%;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:10px;padding:0.7rem 0.9rem;font-family:var(--font-body);font-size:0.95rem;resize:vertical;margin:0 0 0.9rem;"></textarea>
           <button type="button" id="rm-confirm-cancel" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.6rem;">{t("res.delConfirmCancel")}</button>
           <button type="button" id="rm-back" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.7rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("common.cancel")}</button>
@@ -2644,8 +2645,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         (document.getElementById("rm-close") as HTMLElement).addEventListener("click", chiudiRm);
         rmOverlay.addEventListener("click", (e) => { if (e.target === rmOverlay) chiudiRm(); });
         // "Annuler et prévenir": mostra il textarea per la ragione (facoltativa).
+        function nomeLingua(code: string): string {
+          const c = (code || "").trim();
+          if (!c) return "";
+          try {
+            const n = new Intl.DisplayNames([LANG], { type: "language" }).of(c);
+            return n ? n.charAt(0).toUpperCase() + n.slice(1) : c.toUpperCase();
+          } catch {
+            return c.toUpperCase();
+          }
+        }
         (document.getElementById("rm-cancel-email") as HTMLElement).addEventListener("click", () => {
           rmReason.value = "";
+          const r = rese.find((x) => x.id === rmId);
+          const lh = document.getElementById("rm-lang-hint") as HTMLElement;
+          const nome = r?.lang ? nomeLingua(r.lang) : "";
+          if (nome) { lh.textContent = `${tr("res.delReasonLang")} ${nome}`; lh.style.display = "block"; }
+          else { lh.style.display = "none"; }
           rmChoices.style.display = "none";
           rmReasonBox.style.display = "block";
           rmReason.focus();

@@ -111,6 +111,7 @@ const DIZIONARIO: Dizionario = {
   "res.delReasonHint":  { fr: "Ajoutez un motif (facultatif) — il sera indiqué au client. Laissez vide pour l'email standard.", en: "Add a reason (optional) — it will be shown to the customer. Leave empty for the standard email.", it: "Aggiungi un motivo (facoltativo) — verrà indicato al cliente. Lascia vuoto per l'email standard.", nl: "Voeg een reden toe (optioneel) — wordt aan de klant getoond. Laat leeg voor de standaard e-mail.", es: "Añade un motivo (opcional) — se mostrará al cliente. Déjalo vacío para el email estándar." },
   "res.delReasonPh":    { fr: "Motif de l'annulation (facultatif)", en: "Cancellation reason (optional)", it: "Motivo dell'annullamento (facoltativo)", nl: "Reden van annulering (optioneel)", es: "Motivo de la cancelación (opcional)" },
   "res.delConfirmCancel": { fr: "Confirmer l'annulation", en: "Confirm cancellation", it: "Conferma annullamento", nl: "Annulering bevestigen", es: "Confirmar cancelación" },
+  "res.delReasonLang":  { fr: "Langue du client :", en: "Customer's language:", it: "Lingua del cliente:", nl: "Taal van de klant:", es: "Idioma del cliente:" },
 
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },
