@@ -12,6 +12,8 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import { supabaseAdmin } from "../../lib/db";
+import { normalizzaLinguePubbliche, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import "../../styles/datepicker.css";
 
 const lang = await adminLang();
@@ -31,6 +33,22 @@ try {
   ssrMenu = null;
 }
 const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") : "";
+
+// Lingue del SITO PUBBLICO (per i campi traduzione dei piatti): { langs, def }.
+let pubLangs: { langs: string[]; def: string } = { langs: ["fr"], def: "fr" };
+try {
+  const { data } = await supabaseAdmin
+    .from("app_config")
+    .select("key, value")
+    .in("key", ["public_languages", "public_lang_default"]);
+  const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")]));
+  pubLangs = normalizzaLinguePubbliche(m.get("public_languages") ?? "", m.get("public_lang_default") ?? "");
+} catch { /* default fr */ }
+const pubLangsJson = JSON.stringify({
+  langs: pubLangs.langs,
+  def: pubLangs.def,
+  labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
+}).replace(/</g, "\\u003c");
 ---
 
 <html lang={lang}>
@@ -435,7 +453,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         <h2 id="m-title">{t("menu.addDish")}</h2>
         <div class="f-row">
           <div class="f-field" style="flex: 2">
-            <span class="f-label">{t("menu.nameReq")}</span>
+            <span class="f-label" id="f-name-lab">{t("menu.nameReq")}</span>
             <input type="text" id="f-name" maxlength="120" />
           </div>
           <div class="f-field">
@@ -443,6 +461,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
           </div>
         </div>
+        <div id="f-names-extra"></div>
         <div class="f-row">
           <div class="f-field" style="flex: 2">
             <span class="f-label">{t("menu.sectionReq")}</span>
@@ -483,18 +502,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             </select>
           </div>
         </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.descFr")}</span>
-            <textarea id="f-dfr" maxlength="500"></textarea>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.descEn")}</span>
-            <textarea id="f-den" maxlength="500"></textarea>
-          </div>
-        </div>
+        <div id="f-descs"></div>
         <div class="f-row">
           <div class="f-field">
             <span class="f-label">{t("menu.allergensEu")}</span>
@@ -621,6 +629,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
     <!-- Dati SSR (Fase 2): categorie + piatti pre-caricati dal server. -->
     <script id="ssr-menu" type="application/json" is:inline set:html={ssrMenuJson}></script>
+    <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -634,6 +643,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       type Item = {
         id: string; category: string; category_order: number; sort_order: number;
         name: string; description_fr: string | null; description_en: string | null;
+        name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null;
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean;
@@ -868,8 +878,36 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       const fName = document.getElementById("f-name") as HTMLInputElement;
       const fPrice = document.getElementById("f-price") as HTMLInputElement;
       const fCat = document.getElementById("f-cat") as HTMLSelectElement;
-      const fDfr = document.getElementById("f-dfr") as HTMLTextAreaElement;
-      const fDen = document.getElementById("f-den") as HTMLTextAreaElement;
+      const fNameLab = document.getElementById("f-name-lab") as HTMLSpanElement;
+      const fNamesExtra = document.getElementById("f-names-extra") as HTMLDivElement;
+      const fDescs = document.getElementById("f-descs") as HTMLDivElement;
+
+      // Lingue del sito pubblico (per i campi traduzione). Fallback: fr.
+      type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
+      let PUB: PubLangs = { langs: ["fr"], def: "fr", labels: { fr: { label: "Français", flag: "\uD83C\uDDEB\uD83C\uDDF7" } } };
+      try {
+        const raw = document.getElementById("pub-langs")?.textContent?.trim();
+        if (raw) PUB = JSON.parse(raw) as PubLangs;
+      } catch { /* fallback */ }
+      const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
+      // Costruisce (una volta) i campi nome-extra e le descrizioni per lingua.
+      function costruisciCampiLingua() {
+        fNameLab.textContent = `${tr("menu.nameReq")} (${langTag(PUB.def)})`;
+        const extra = PUB.langs.filter((l) => l !== PUB.def);
+        fNamesExtra.innerHTML = extra
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.nameCol"))} (${esc(langTag(l))})</span><input type="text" class="f-nx" data-lang="${l}" maxlength="120" /></div></div>`
+          )
+          .join("");
+        fDescs.innerHTML = PUB.langs
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="f-dx" data-lang="${l}" maxlength="500"></textarea></div></div>`
+          )
+          .join("");
+      }
+      costruisciCampiLingua();
       const fAlg = document.getElementById("f-alg") as HTMLDivElement;
       const fDtype = document.getElementById("f-dtype") as HTMLSelectElement;
       const fDval = document.getElementById("f-dval") as HTMLInputElement;
@@ -952,8 +990,18 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         fName.value = it?.name ?? "";
         fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
         fCat.value = it?.category ?? attiva;
-        fDfr.value = it?.description_fr ?? "";
-        fDen.value = it?.description_en ?? "";
+        // Nomi tradotti (lingue extra) + descrizioni per lingua pubblica
+        const nI18n = it?.name_i18n ?? {};
+        fNamesExtra.querySelectorAll<HTMLInputElement>(".f-nx").forEach((inp) => {
+          inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+        });
+        const dI18n = it?.desc_i18n ?? {};
+        fDescs.querySelectorAll<HTMLTextAreaElement>(".f-dx").forEach((ta) => {
+          const l = ta.dataset.lang ?? "";
+          ta.value =
+            dI18n[l] ??
+            (l === "fr" ? it?.description_fr ?? "" : l === "en" ? it?.description_en ?? "" : "");
+        });
         fDtype.value = it?.discount_type ?? "";
         fDscope.value = it?.discount_scope ?? "all";
         if (it?.discount_type === "fixed") fDval.value = (it.discount_value / 100).toFixed(2);
@@ -1001,8 +1049,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           name: fName.value.trim(),
           category: fCat.value,
           price_cents: prezzo,
-          description_fr: fDfr.value,
-          description_en: fDen.value,
+          name_i18n: (() => {
+            const o: Record<string, string> = { [PUB.def]: fName.value.trim() };
+            fNamesExtra.querySelectorAll<HTMLInputElement>(".f-nx").forEach((inp) => {
+              const v = inp.value.trim();
+              if (v) o[inp.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
+          desc_i18n: (() => {
+            const o: Record<string, string> = {};
+            fDescs.querySelectorAll<HTMLTextAreaElement>(".f-dx").forEach((ta) => {
+              const v = ta.value.trim();
+              if (v) o[ta.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
           allergens: [...fAlg.querySelectorAll<HTMLInputElement>("input:checked")].map((cb) => Number(cb.value)),
           available: fAv.checked,
           orderable: fOr.checked,

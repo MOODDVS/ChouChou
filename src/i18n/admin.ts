@@ -823,6 +823,8 @@ const DIZIONARIO: Dizionario = {
   "menu.everywhere":    { fr: "Partout", en: "Everywhere", it: "Ovunque", nl: "Overal", es: "En todas partes" },
   "menu.onlineOnly":    { fr: "Commandes en ligne uniquement", en: "Online orders only", it: "Solo ordini online", nl: "Alleen online bestellingen", es: "Solo pedidos en línea" },
   "menu.descFr":        { fr: "Description (FR)", en: "Description (FR)", it: "Descrizione (FR)", nl: "Beschrijving (FR)", es: "Descripción (FR)" },
+  "menu.nameCol":       { fr: "Nom", en: "Name", it: "Nome", nl: "Naam", es: "Nombre" },
+  "menu.descCol":       { fr: "Description", en: "Description", it: "Descrizione", nl: "Beschrijving", es: "Descripción" },
   "menu.descEn":        { fr: "Description (EN)", en: "Description (EN)", it: "Descrizione (EN)", nl: "Beschrijving (EN)", es: "Descripción (EN)" },
   "menu.allergensEu":   { fr: "Allergènes (UE)", en: "Allergens (EU)", it: "Allergeni (UE)", nl: "Allergenen (EU)", es: "Alérgenos (UE)" },
   "menu.badges":        { fr: "Badges", en: "Badges", it: "Badge", nl: "Badges", es: "Distintivos" },
