@@ -131,6 +131,8 @@ interface RigaResa {
   phone: string | null;
   status: string | null;
   created_at: string | null;
+  lang?: string | null;
+  source?: string | null;
 }
 
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
@@ -138,14 +140,25 @@ interface RigaResa {
 async function prenotazioniAttive(): Promise<RigaResa[]> {
   const PAGINA = 1000;
   const tutti: RigaResa[] = [];
+  let campi = "first_name, last_name, email, phone, status, created_at, lang, source";
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at")
+      .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Colonne lang/source assenti (installazione vecchia): si rilegge senza,
+    // così i conteggi prenotazioni non si azzerano mai.
+    if (error && (String(error.message ?? "").includes("lang") || String(error.message ?? "").includes("source"))) {
+      campi = "first_name, last_name, email, phone, status, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("reservations")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
-    tutti.push(...((data ?? []) as RigaResa[]));
+    tutti.push(...((data ?? []) as unknown as RigaResa[]));
     if (!data || data.length < PAGINA) break;
   }
   return tutti;
@@ -276,6 +289,10 @@ export const GET: APIRoute = async ({ request, url }) => {
       c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: false };
       mappa.set(key, c);
     }
+    // Lingua: solo dalle prenotazioni WEB/GOOGLE (scelta reale del cliente nel
+    // widget). Walk-in/telefono hanno lang='fr' di default → si ignorano.
+    // Ascendente: l'ultima prenotazione web vince. Il modale (clients.lang) prevale poi.
+    if ((r.source === "web" || r.source === "google") && r.lang) c.lang = r.lang;
     // Annullata: il cliente resta in lista ma non conta come résa
     if (r.status !== "cancelled") c.reservations += 1;
     if (r.status === "noshow") c.noshows += 1;
