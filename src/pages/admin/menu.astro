@@ -200,6 +200,7 @@ const pubLangsJson = JSON.stringify({
       .i-main { flex: 1; min-width: 0; }
       .i-name { font-weight: 700; }
       .i-badges { display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; }
+      .i-soldout { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .i-badge { font-size: 0.82rem; line-height: 1; }
       .b-best { color: var(--c-accent); }
       .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -523,6 +524,12 @@ const pubLangsJson = JSON.stringify({
                 {t("menu.orderable")}
               </label>
             </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-soldout" /><span class="track"></span></span>
+                ⛔ {t("menu.soldOut")}
+              </label>
+            </div>
           </div>
 
           <!-- COLONNA DESTRA: tab descrizioni · allergeni · sconto -->
@@ -674,7 +681,7 @@ const pubLangsJson = JSON.stringify({
         name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null;
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
-        is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean;
+        is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; sold_out?: boolean;
         image_url: string | null;
       };
       type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
@@ -768,7 +775,7 @@ const pubLangsJson = JSON.stringify({
           <div class="item${dim}" data-id="${it.id}">
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
-            <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}</span>${desc}</div>
+            <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
             <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
@@ -958,6 +965,7 @@ const pubLangsJson = JSON.stringify({
       const fVegan = document.getElementById("f-vegan") as HTMLInputElement;
       const fSpicy = document.getElementById("f-spicy") as HTMLInputElement;
       const fSuggestion = document.getElementById("f-suggestion") as HTMLInputElement;
+      const fSoldout = document.getElementById("f-soldout") as HTMLInputElement;
       const mSave = document.getElementById("m-save") as HTMLButtonElement;
       const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
       const fImgUp = document.getElementById("f-img-up") as HTMLButtonElement;
@@ -1055,6 +1063,7 @@ const pubLangsJson = JSON.stringify({
         fVegan.checked = it?.is_vegan ?? false;
         fSpicy.checked = it?.is_spicy ?? false;
         fSuggestion.checked = it?.is_suggestion ?? false;
+        fSoldout.checked = it?.sold_out ?? false;
         imgUrl = it?.image_url ?? null;
         fImgState.textContent = "";
         renderFotoPrev();
@@ -1113,6 +1122,7 @@ const pubLangsJson = JSON.stringify({
           is_vegan: fVegan.checked,
           is_spicy: fSpicy.checked,
           is_suggestion: fSuggestion.checked,
+          sold_out: fSoldout.checked,
           image_url: imgUrl,
           discount_type: fDtype.value || null,
           discount_value: fDtype.value === "fixed"

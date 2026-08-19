@@ -837,6 +837,7 @@ const DIZIONARIO: Dizionario = {
   "menu.suggestion":    { fr: "Suggestion", en: "Suggestion", it: "Consigliato", nl: "Suggestie", es: "Sugerencia" },
   "menu.visibleSite":   { fr: "Visible sur le site", en: "Visible on the site", it: "Visibile sul sito", nl: "Zichtbaar op de site", es: "Visible en el sitio" },
   "menu.orderable":     { fr: "Commandable", en: "Orderable", it: "Ordinabile", nl: "Bestelbaar", es: "Se puede pedir" },
+  "menu.soldOut":       { fr: "Épuisé", en: "Sold out", it: "Esaurito", nl: "Uitverkocht", es: "Agotado" },
   "menu.manageSections":{ fr: "Gérer les sections", en: "Manage sections", it: "Gestisci le sezioni", nl: "Secties beheren", es: "Gestionar las secciones" },
   "menu.sectionsHint":  { fr: "Glisse ⠿ pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide", en: "Drag ⠿ to reorder · rename and press Enter · 🍴/🍷 = food or drink · deletion only possible if empty", it: "Trascina ⠿ per riordinare · rinomina e premi Invio · 🍴/🍷 = cibo o bevanda · eliminazione possibile solo se vuota", nl: "Sleep ⠿ om te herschikken · hernoem en druk op Enter · 🍴/🍷 = eten of drank · verwijderen kan enkel als leeg", es: "Arrastra ⠿ para reordenar · renombra y pulsa Enter · 🍴/🍷 = comida o bebida · eliminación posible solo si está vacía" },
   "menu.newSectionPh":  { fr: "Nouvelle section (ex. Pizzas colorées)", en: "New section (e.g. Colorful pizzas)", it: "Nuova sezione (es. Pizze colorate)", nl: "Nieuwe sectie (bijv. Kleurrijke pizza's)", es: "Nueva sección (ej. Pizzas coloridas)" },

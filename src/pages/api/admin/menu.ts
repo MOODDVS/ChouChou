@@ -6,7 +6,7 @@ export const prerender = false;
 
 const SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
-const SELECT = SELECT_BASE + ", name_i18n, desc_i18n";
+const SELECT = SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
 
 // Lingue del sito pubblico supportate (traduzioni piatti). Vedi superAdmin.ts.
 const LANG_CODES = ["fr", "en", "it", "nl", "es"];
@@ -22,9 +22,9 @@ function pulisciI18n(raw: unknown, max: number): Record<string, string> {
   }
   return out;
 }
-/** Errore Postgres dovuto alle colonne i18n non ancora migrate. */
+/** Errore Postgres dovuto alle colonne nuove non ancora migrate. */
 function mancaI18n(msg: string): boolean {
-  return msg.includes("name_i18n") || msg.includes("desc_i18n");
+  return msg.includes("name_i18n") || msg.includes("desc_i18n") || msg.includes("sold_out");
 }
 
 /** Ordine della sezione (menu_categories); null se la sezione non esiste. */
@@ -120,6 +120,7 @@ function validaCampi(
   if ("is_vegan" in body) campi.is_vegan = !!body.is_vegan;
   if ("is_spicy" in body) campi.is_spicy = !!body.is_spicy;
   if ("is_suggestion" in body) campi.is_suggestion = !!body.is_suggestion;
+  if ("sold_out" in body) campi.sold_out = !!body.sold_out;
 
   // --- Sconto ---
   if ("discount_type" in body) {
@@ -206,6 +207,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (res.error && mancaI18n(res.error.message ?? "")) {
     delete campi.name_i18n;
     delete campi.desc_i18n;
+    delete campi.sold_out;
     res = await supabaseAdmin.from("menu_items").insert(campi).select(SELECT_BASE).single();
   }
   if (res.error || !res.data) return json({ error: "Création impossible" }, 500);
@@ -248,6 +250,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (res.error && mancaI18n(res.error.message ?? "")) {
     delete campi.name_i18n;
     delete campi.desc_i18n;
+    delete campi.sold_out;
     res = await supabaseAdmin.from("menu_items").update(campi).eq("id", id).select(SELECT_BASE).single();
   }
   if (res.error || !res.data) return json({ error: "Modification impossible" }, 500);
