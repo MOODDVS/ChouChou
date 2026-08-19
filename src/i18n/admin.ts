@@ -112,6 +112,13 @@ const DIZIONARIO: Dizionario = {
   "res.delReasonPh":    { fr: "Motif de l'annulation (facultatif)", en: "Cancellation reason (optional)", it: "Motivo dell'annullamento (facoltativo)", nl: "Reden van annulering (optioneel)", es: "Motivo de la cancelación (opcional)" },
   "res.delConfirmCancel": { fr: "Confirmer l'annulation", en: "Confirm cancellation", it: "Conferma annullamento", nl: "Annulering bevestigen", es: "Confirmar cancelación" },
   "res.delReasonLang":  { fr: "Langue du client :", en: "Customer's language:", it: "Lingua del cliente:", nl: "Taal van de klant:", es: "Idioma del cliente:" },
+  "res.nsTitle":        { fr: "Marquer comme no-show", en: "Mark as no-show", it: "Segna come no-show", nl: "Als no-show markeren", es: "Marcar como no-show" },
+  "res.nsPrevLabel":    { fr: "No-show précédents", en: "Previous no-shows", it: "No-show precedenti", nl: "Eerdere no-shows", es: "No-shows anteriores" },
+  "res.nsFirst":        { fr: "Premier no-show pour ce client.", en: "First no-show for this customer.", it: "Primo no-show per questo cliente.", nl: "Eerste no-show voor deze klant.", es: "Primer no-show de este cliente." },
+  "res.nsBlock":        { fr: "Bloquer ce client pour les prochaines réservations", en: "Block this customer for future bookings", it: "Blocca questo cliente per le prossime prenotazioni", nl: "Blokkeer deze klant voor toekomstige reserveringen", es: "Bloquear a este cliente para próximas reservas" },
+  "res.nsNotify":       { fr: "Prévenir le client", en: "Notify the customer", it: "Avvisa il cliente", nl: "Klant informeren", es: "Avisar al cliente" },
+  "res.nsSilent":       { fr: "Sans prévenir", en: "Without notifying", it: "Senza avvisare", nl: "Zonder melding", es: "Sin avisar" },
+  "res.nsBlockedOk":    { fr: "Client bloqué", en: "Customer blocked", it: "Cliente bloccato", nl: "Klant geblokkeerd", es: "Cliente bloqueado" },
 
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },

@@ -946,6 +946,25 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       </div>
     </div>
 
+    <!-- Modale: no-show (storico + notifica facoltativa + blocco cliente) -->
+    <div class="overlay" id="ns-overlay">
+      <div class="modal" style="max-width:440px;">
+        <button class="m-close" id="ns-close" aria-label={t("common.close")}>&times;</button>
+        <h2>{t("res.nsTitle")}</h2>
+        <p id="ns-name" style="color:var(--c-text);font-weight:600;margin:0.2rem 0 0.9rem;"></p>
+        <div id="ns-hist" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;background:var(--c-bg);border:1px solid var(--c-line);border-radius:12px;padding:0.85rem 1rem;margin-bottom:1.15rem;">
+          <span id="ns-hist-lab" style="color:var(--c-muted);font-size:0.88rem;line-height:1.4;"></span>
+          <span id="ns-count" style="font-family:var(--font-title);font-size:1.6rem;color:#ed6a5f;line-height:1;"></span>
+        </div>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:0.9rem;margin-bottom:1.25rem;cursor:pointer;">
+          <span style="color:var(--c-text);font-size:0.9rem;line-height:1.45;">{t("res.nsBlock")}</span>
+          <span class="sv-switch"><input type="checkbox" id="ns-block" /><span class="sv-track"></span></span>
+        </label>
+        <button type="button" id="ns-notify" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.nsNotify")}</button>
+        <button type="button" id="ns-silent" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.85rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("res.nsSilent")}</button>
+      </div>
+    </div>
+
     <AdminNav current="reservations" />
 
     <!-- Dati SSR (Fase 2): giorno pre-caricato dal server, letto dal client. -->
@@ -1574,12 +1593,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         setInterval(render, 60_000);
 
         // ---- Azioni sulle card: stato, no-show, cestino a due tap, edit ----
-        async function cambiaStato(id: string, status: string, reason?: string) {
+        async function cambiaStato(id: string, status: string, reason?: string, notify?: boolean) {
           try {
             const res = await fetch("/api/admin/reservations", {
               method: "PATCH",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ id, status, ...(reason ? { reason } : {}) }),
+              body: JSON.stringify({ id, status, ...(reason ? { reason } : {}), ...(notify ? { notify: true } : {}) }),
             });
             if (!res.ok) throw new Error();
             await carica();
@@ -1638,8 +1657,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const b = (e.target as HTMLElement).closest("[data-st]") as HTMLElement | null;
           if (!b || !stMenuId) return;
           const id = stMenuId;
+          const st = b.dataset.st ?? "";
           chiudiStMenu();
-          void cambiaStato(id, b.dataset.st ?? "");
+          const r = rese.find((x) => x.id === id);
+          // No-show: apre il modale dedicato (storico + notifica + blocco),
+          // invece di cambiare stato al volo. Se è già no-show, non riapre.
+          if (st === "noshow" && r?.status !== "noshow") { void apriNs(id); return; }
+          void cambiaStato(id, st);
         });
         document.addEventListener("click", (e) => {
           if (stMenu.style.display !== "none" && !stMenu.contains(e.target as Node)) chiudiStMenu();
@@ -2676,6 +2700,68 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", () => {
           const id = rmId; chiudiRm(); if (id) void eliminaResa(id);
         });
+
+        // ---- Modale No-show: storico cliente + notifica facoltativa + blocco ----
+        const nsOverlay = document.getElementById("ns-overlay") as HTMLDivElement;
+        const nsBlock = document.getElementById("ns-block") as HTMLInputElement;
+        let nsId = "";
+        function chiudiNs() { nsOverlay.classList.remove("is-open"); nsId = ""; }
+        async function apriNs(id: string) {
+          nsId = id;
+          const r = rese.find((x) => x.id === id);
+          nsBlock.checked = false;
+          (document.getElementById("ns-name") as HTMLElement).textContent =
+            r ? (`${r.first_name} ${r.last_name}`.trim() || tr("res.reservation")) : "";
+          const lab = document.getElementById("ns-hist-lab") as HTMLElement;
+          const cnt = document.getElementById("ns-count") as HTMLElement;
+          lab.textContent = "…"; cnt.textContent = "";
+          nsOverlay.classList.add("is-open");
+          // Storico no-show del cliente (per email/telefono), best-effort.
+          try {
+            const qs = new URLSearchParams({ client_stats: "1" });
+            if (r?.email) qs.set("client_email", r.email);
+            if (r?.phone) qs.set("client_phone", r.phone);
+            const res = await fetch("/api/admin/reservations?" + qs.toString(), { headers });
+            const j = await res.json();
+            const n = Number(j?.noshows ?? 0);
+            if (nsId !== id) return; // modale chiuso/cambiato nel frattempo
+            if (n > 0) { lab.textContent = tr("res.nsPrevLabel"); cnt.textContent = String(n); }
+            else { lab.textContent = tr("res.nsFirst"); cnt.textContent = ""; }
+          } catch {
+            lab.textContent = tr("res.nsFirst"); cnt.textContent = "";
+          }
+        }
+        // Blocca il cliente per le prossime prenotazioni (riusa /api/admin/clients).
+        async function bloccaCliente(r: Resa) {
+          try {
+            await fetch("/api/admin/clients", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                match_email: r.email || "",
+                match_phone: r.phone || "",
+                name: `${r.first_name} ${r.last_name}`.trim() || (r.email || r.phone || "—"),
+                email: r.email || "",
+                phone: r.phone || "",
+                blocked: true,
+              }),
+            });
+            toast(tr("res.nsBlockedOk"), "ok");
+          } catch { /* best-effort: il no-show resta comunque salvato */ }
+        }
+        async function confermaNs(notify: boolean) {
+          const id = nsId;
+          const r = rese.find((x) => x.id === id);
+          const blocca = nsBlock.checked;
+          chiudiNs();
+          if (!id) return;
+          if (blocca && r) await bloccaCliente(r);
+          await cambiaStato(id, "noshow", undefined, notify);
+        }
+        (document.getElementById("ns-close") as HTMLElement).addEventListener("click", chiudiNs);
+        nsOverlay.addEventListener("click", (e) => { if (e.target === nsOverlay) chiudiNs(); });
+        (document.getElementById("ns-notify") as HTMLElement).addEventListener("click", () => void confermaNs(true));
+        (document.getElementById("ns-silent") as HTMLElement).addEventListener("click", () => void confermaNs(false));
 
         // ---- Viste Semaine (7 jours) / Mois (30 jours, calendrier) ----
         const semEl = document.getElementById("vista-sem") as HTMLDivElement;

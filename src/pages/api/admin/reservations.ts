@@ -679,7 +679,12 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   // No-show: email formale al cliente (rispettosa ma ferma), nella sua lingua.
   // Solo alla transizione verso no-show, per non reinviare su PATCH ripetute.
-  if (upd.status === "noshow" && statoPrima !== "noshow" && (data as { email?: string }).email) {
+  if (
+    upd.status === "noshow" &&
+    statoPrima !== "noshow" &&
+    (body as { notify?: unknown }).notify === true &&
+    (data as { email?: string }).email
+  ) {
     void emailNoShowResa(data as unknown as ResaEmail);
   }
   // Demande CONFERMATA dal ristoratore: ORA parte l'email di conferma al
