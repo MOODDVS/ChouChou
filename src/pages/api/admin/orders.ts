@@ -6,7 +6,7 @@ import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from 
 import { calcolaSlotGiorno, TIMEZONE } from "../../../lib/slots";
 import { configGiornoEffettiva } from "../../../lib/schedule";
 import { prezzoEffettivo } from "../../../lib/pricing";
-import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine } from "../../../lib/notifications";
+import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
 
 export const prerender = false;
 
@@ -334,6 +334,23 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: "Statut invalide" }, 400);
   }
 
+  // Leggo l'ordine PRIMA di aggiornarlo: serve lo stato/metodo precedenti per
+  // decidere l'email di annullamento (rimborso online / in cassa / non pagato).
+  const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method";
+  let prima: Record<string, unknown> | null = null;
+  {
+    const r = await supabaseAdmin.from("orders").select(SEL_ANN).eq("id", id).maybeSingle();
+    if (!r.error) prima = r.data as Record<string, unknown> | null;
+    else {
+      const r2 = await supabaseAdmin
+        .from("orders")
+        .select("id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang")
+        .eq("id", id)
+        .maybeSingle();
+      prima = r2.data as Record<string, unknown> | null;
+    }
+  }
+
   let q = supabaseAdmin.from("orders").update({ status }).eq("id", id);
   // Annuler è permesso anche su un pending (link di pagamento non pagato);
   // per gli altri passaggi i pending non si toccano (li gestisce il webhook).
@@ -342,6 +359,35 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   if (error) return json({ error: "Modification impossible" }, 500);
   if (!data) return json({ error: "Commande introuvable" }, 404);
+
+  // Email di annullamento al cliente (solo alla transizione verso "cancelled").
+  if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
+    const inPersona = prima.payment_method === "cash" || prima.payment_method === "card";
+    const totale = Number(prima.total_cents ?? 0);
+    const gia = Number(prima.refunded_cents ?? 0);
+    const residuo = Math.max(0, totale - gia);
+    let refundMode: "online" | "in_person" | "unpaid";
+    if (prima.status === "pending") refundMode = "unpaid";
+    else if (inPersona || residuo <= 0) refundMode = "in_person";
+    else refundMode = "online";
+
+    const notif = {
+      numero: String(prima.id).slice(0, 8),
+      customer_name: String(prima.customer_name ?? ""),
+      customer_email: String(prima.customer_email ?? ""),
+      customer_phone: (prima.customer_phone as string | null) ?? null,
+      pickup_time: String(prima.pickup_time ?? new Date().toISOString()),
+      items: [] as { name: string; qty: number; price_cents: number }[],
+      total_cents: totale,
+      lang: String(prima.lang ?? "fr"),
+    };
+    try {
+      await inviaAnnullaOrdine(notif, { refundMode, refund_cents: residuo });
+    } catch {
+      /* l'annullamento resta valido anche se l'email fallisce */
+    }
+  }
+
   return json({ ok: true });
 };
 

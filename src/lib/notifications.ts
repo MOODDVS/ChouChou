@@ -194,6 +194,196 @@ export async function inviaModificaOrdine(
   await Promise.allSettled([emailModificaCliente(o, opts), emailCucina(o), slackCucina(o)]);
 }
 
+// ===== Email di ANNULLAMENTO ordine al cliente =====
+// refundMode: "online" (pagato online / payment link → rimborso in arrivo),
+// "in_person" (pagato in cassa cash/card → rimborso al ristorante),
+// "unpaid" (link non pagato → nessun addebito).
+type AnnullaOpts = { refundMode: "online" | "in_person" | "unpaid"; refund_cents?: number };
+
+const TXT_ANN = {
+  fr: {
+    subject: (num: string) => `Commande #${num} annulée`,
+    title: "Commande annulée",
+    intro: (name: string, num: string) => `Bonjour ${name},<br>votre commande <strong>#${num}</strong> a bien été annulée.`,
+    refundEyebrow: "Remboursement en cours",
+    refundNote: "Le montant sera recrédité sur votre moyen de paiement d'origine sous 5 à 10 jours ouvrés.",
+    refundLabel: "Montant remboursé",
+    orderLabel: "Commande",
+    pickupLabel: "Retrait initialement prévu",
+    inPersonNote: "Un éventuel remboursement se fera directement au restaurant.",
+    unpaidNote: "Aucun montant n'a été prélevé.",
+    question: "Une question sur cette annulation ? Nous sommes là.",
+    callBtn: "Nous contacter",
+  },
+  en: {
+    subject: (num: string) => `Order #${num} cancelled`,
+    title: "Order cancelled",
+    intro: (name: string, num: string) => `Hello ${name},<br>your order <strong>#${num}</strong> has been cancelled.`,
+    refundEyebrow: "Refund on its way",
+    refundNote: "The amount will be credited back to your original payment method within 5 to 10 business days.",
+    refundLabel: "Amount refunded",
+    orderLabel: "Order",
+    pickupLabel: "Pickup originally planned",
+    inPersonNote: "Any refund will be handled directly at the restaurant.",
+    unpaidNote: "No amount was charged.",
+    question: "Any question about this cancellation? We're here.",
+    callBtn: "Contact us",
+  },
+  it: {
+    subject: (num: string) => `Ordine #${num} annullato`,
+    title: "Ordine annullato",
+    intro: (name: string, num: string) => `Ciao ${name},<br>il tuo ordine <strong>#${num}</strong> è stato annullato.`,
+    refundEyebrow: "Rimborso in arrivo",
+    refundNote: "L'importo sarà riaccreditato sul tuo metodo di pagamento originale entro 5-10 giorni lavorativi.",
+    refundLabel: "Importo rimborsato",
+    orderLabel: "Ordine",
+    pickupLabel: "Ritiro inizialmente previsto",
+    inPersonNote: "Un eventuale rimborso avverrà direttamente al ristorante.",
+    unpaidNote: "Nessun importo è stato addebitato.",
+    question: "Hai una domanda su questo annullamento? Siamo qui.",
+    callBtn: "Contattaci",
+  },
+  nl: {
+    subject: (num: string) => `Bestelling #${num} geannuleerd`,
+    title: "Bestelling geannuleerd",
+    intro: (name: string, num: string) => `Hallo ${name},<br>je bestelling <strong>#${num}</strong> is geannuleerd.`,
+    refundEyebrow: "Terugbetaling onderweg",
+    refundNote: "Het bedrag wordt binnen 5 tot 10 werkdagen teruggestort op je oorspronkelijke betaalmethode.",
+    refundLabel: "Terugbetaald bedrag",
+    orderLabel: "Bestelling",
+    pickupLabel: "Afhalen oorspronkelijk gepland",
+    inPersonNote: "Een eventuele terugbetaling gebeurt rechtstreeks in het restaurant.",
+    unpaidNote: "Er is geen bedrag afgeschreven.",
+    question: "Een vraag over deze annulering? We zijn er voor je.",
+    callBtn: "Contact opnemen",
+  },
+  es: {
+    subject: (num: string) => `Pedido #${num} cancelado`,
+    title: "Pedido cancelado",
+    intro: (name: string, num: string) => `Hola ${name},<br>tu pedido <strong>#${num}</strong> ha sido cancelado.`,
+    refundEyebrow: "Reembolso en camino",
+    refundNote: "El importe se abonará en tu método de pago original en un plazo de 5 a 10 días hábiles.",
+    refundLabel: "Importe reembolsado",
+    orderLabel: "Pedido",
+    pickupLabel: "Recogida prevista inicialmente",
+    inPersonNote: "Cualquier reembolso se gestionará directamente en el restaurante.",
+    unpaidNote: "No se ha cobrado ningún importe.",
+    question: "¿Alguna pregunta sobre esta cancelación? Estamos aquí.",
+    callBtn: "Contáctanos",
+  },
+} as const;
+
+async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promise<void> {
+  const from = await ordineFromEmail();
+  if (!resend || !from) return;
+  if (!o.customer_email?.trim()) return; // ordine senza email: niente invio
+
+  const t = pick5(TXT_ANN, o.lang);
+  const dati = await datiRistorante();
+  const tema = await temaEmail();
+
+  const ora = oraRitiro(o.pickup_time);
+  const giorno = new Date(o.pickup_time).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  const pickupVal = `${giorno} · ${ora}`;
+  const importo = euro(opts.refund_cents ?? o.total_cents);
+
+  // Blocco condizionale in base al metodo di pagamento
+  let blocco = "";
+  if (opts.refundMode === "online") {
+    blocco = `
+      <tr>
+        <td class="em-pad" style="padding:28px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:20px 24px;text-align:center;">
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.refundEyebrow}</p>
+              <p class="em-big" style="margin:8px 0 0;color:${tema.title};font-size:40px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${importo}</p>
+              <p style="margin:12px 0 0;color:${tema.text};font-size:14px;line-height:1.6;">${t.refundNote}</p>
+            </td></tr>
+          </table>
+        </td>
+      </tr>`;
+  } else {
+    const nota = opts.refundMode === "in_person" ? t.inPersonNote : t.unpaidNote;
+    blocco = `
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 6px;text-align:center;">
+          <p style="margin:0;color:${tema.text};font-size:15px;line-height:1.6;">${nota}</p>
+        </td>
+      </tr>`;
+  }
+
+  const rigaImporto =
+    opts.refundMode === "online"
+      ? `<tr>
+          <td style="padding:16px 24px 0;color:${tema.title};font-size:16px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.refundLabel}</td>
+          <td style="padding:16px 24px 0;color:${tema.accent};font-size:19px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${importo}</td>
+        </tr>`
+      : "";
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
+          <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
+        </td>
+      </tr>
+      ${blocco}
+      <tr>
+        <td style="padding:20px 20px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${t.orderLabel}</td>
+              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">#${esc(o.numero)}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:14px;font-family:Arial,Helvetica,sans-serif;">${t.pickupLabel}</td>
+              <td style="padding:12px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${pickupVal}</td>
+            </tr>
+            ${rigaImporto}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 38px;text-align:center;">
+          <p style="margin:0 0 18px;color:${tema.muted};font-size:14px;line-height:1.6;">${t.question}</p>
+          <a href="tel:${dati.telLink}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:15px 42px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.callBtn}</a>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: o.customer_email,
+      bcc: BCC,
+      subject: t.subject(o.numero),
+      html: avvolgiTema(html, tema),
+    });
+  } catch (e) {
+    console.error("Errore email annullamento:", e);
+  }
+}
+
+/** Invia l'email di annullamento ordine al cliente. */
+export async function inviaAnnullaOrdine(o: OrdineNotifica, opts: AnnullaOpts): Promise<void> {
+  await emailAnnullaCliente(o, opts);
+}
+
 /** Email di conferma al cliente (design dark brand). */
 async function emailCliente(o: OrdineNotifica): Promise<void> {
   const from = await ordineFromEmail();
