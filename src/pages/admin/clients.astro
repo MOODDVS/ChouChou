@@ -673,7 +673,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             const l = (c.lang || "").toLowerCase();
             if (l && LINGUE_MAP.has(l)) conta.set(l, (conta.get(l) ?? 0) + 1);
           }
-          if (conta.size < 2) { filtroLingua = ""; return; }
+          if (conta.size < 1) { filtroLingua = ""; return; }
           if (filtroLingua && !conta.has(filtroLingua)) filtroLingua = "";
           const html = [...conta.entries()]
             .sort((a, b) => b[1] - a[1])

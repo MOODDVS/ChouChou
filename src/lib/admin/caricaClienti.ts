@@ -25,6 +25,7 @@ interface RigaCliente {
   photo_url?: string | null;
   blocked?: boolean | null;
   created_at?: string | null;
+  lang?: string | null;
 }
 
 interface RigaResa {
@@ -51,6 +52,7 @@ interface Cliente {
   photo_url?: string | null;
   blocked?: boolean;
   newsletter_optout?: boolean;
+  lang?: string | null;
   key?: string;
 }
 
@@ -94,13 +96,22 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
 async function clientiManuali(): Promise<RigaCliente[] | null> {
   const PAGINA = 1000;
   const tutti: RigaCliente[] = [];
-  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at, lang";
   for (let da = 0; ; da += PAGINA) {
     let { data, error } = await supabaseAdmin
       .from("clients")
       .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Migrazione `lang` non lanciata: si rilegge mantenendo photo_url/blocked
+    if (error && String(error.message ?? "").includes("lang")) {
+      campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("clients")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
     if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
       campi = "id, name, email, phone, hidden, created_at";
@@ -201,9 +212,10 @@ export async function caricaClienti(): Promise<{ count: number; clients: Cliente
       if (name) esistente.name = name;
       if (email) esistente.email = email;
       if (phone) esistente.phone = phone;
+      if (m.lang) esistente.lang = m.lang;
     } else {
       mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
+        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked), lang: m.lang ?? null,
       });
     }
   }
