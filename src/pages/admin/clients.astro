@@ -80,6 +80,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
       .fl-filtri { display: inline-flex; flex-wrap: wrap; gap: 0.45rem; }
+      .fl-sep { width: 1px; align-self: stretch; background: var(--c-line); margin: 0.15rem 0.35rem; flex: 0 0 auto; }
       .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
       .fl-pill.is-on .n { color: var(--c-bg); }
       .fl-pill {
@@ -666,7 +667,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         // Chip LINGUA: aggiunte in coda alla riga dei filtri (accanto a Opted-out).
         function costruisciLingue() {
-          flFiltriEl.querySelectorAll(".fl-pill[data-l]").forEach((x) => x.remove());
+          flFiltriEl.querySelectorAll(".fl-pill[data-l], .fl-sep").forEach((x) => x.remove());
           const conta = new Map<string, number>();
           for (const c of tutti) {
             const l = (c.lang || "").toLowerCase();
@@ -682,7 +683,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               return `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
             })
             .join("");
-          flFiltriEl.insertAdjacentHTML("beforeend", html);
+          flFiltriEl.insertAdjacentHTML("beforeend", `<span class="fl-sep" aria-hidden="true"></span>${html}`);
         }
         // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
         function posizionaAdd() {
