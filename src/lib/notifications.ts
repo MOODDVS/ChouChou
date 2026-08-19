@@ -804,57 +804,56 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
     : "";
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        <td class="em-pad" style="padding:40px 44px 20px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
+          <p style="margin:18px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc(dati.nome.toUpperCase())}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+        <td class="em-pad" style="padding:6px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">${t.title}</h1>
           <p style="margin:16px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${t.intro(esc(o.customer_name), esc(o.numero))}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px 40px 8px;text-align:center;">
-          <p style="margin:0;color:${tema.text};font-size:12px;letter-spacing:2px;text-transform:uppercase;">${t.pickup}</p>
-          <p class="em-big" style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+        <td class="em-pad" style="padding:28px 44px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+            <tr><td style="padding:18px 24px;text-align:center;">
+              <p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${t.pickup}</p>
+              <p class="em-big" style="margin:6px 0 0;color:${tema.title};font-size:44px;line-height:1;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${ora}</p>
+            </td></tr>
+          </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};">
+        <td style="padding:20px 20px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
-              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
+              <td style="padding:16px 24px;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px;color:${tema.accent};font-size:19px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px 8px;text-align:center;">
-          <a href="${o.pay_url}" style="display:inline-block;background:${tema.accent};color:${tema.title};text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${t.payBtn}</a>
+        <td class="em-pad" style="padding:22px 44px 6px;text-align:center;">
+          <a href="${o.pay_url}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:16px 44px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.payBtn}</a>
           <p style="margin:14px 0 0;color:${tema.muted};font-size:12px;">${t.valid}</p>
-          ${o.cancel_url ? `<p style="margin:18px 0 0;"><a href="${o.cancel_url}" style="color:#ff8a8f;font-size:12px;text-decoration:underline;text-underline-offset:2px;">${t.cancelLink}</a></p>` : ""}
+          ${o.cancel_url ? `<p style="margin:16px 0 0;"><a href="${o.cancel_url}" style="color:${tema.muted};font-size:12px;text-decoration:underline;text-underline-offset:2px;">${t.cancelLink}</a></p>` : ""}
         </td>
       </tr>
       <tr>
-        <td style="padding:20px 40px 4px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 24px;background:${tema.accent};"></div>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:0 40px 24px;text-align:center;">
-          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
+        <td class="em-pad" style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
+          <p style="margin:16px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
         </td>
       </tr>
     </table>
-  </div>
   `;
 
   try {
