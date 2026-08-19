@@ -24,13 +24,25 @@ async function caricaItems(): Promise<{ data: unknown[] | null }> {
   return { data: res.data };
 }
 
-export async function caricaMenuPagina() {
-  const [catsRes, itemsRes, countRes] = await Promise.all([
-    supabaseAdmin
+async function caricaCategorie(): Promise<{ data: unknown[] | null }> {
+  let res: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
+    .from("menu_categories")
+    .select("id, name, sort_order, kind, parent_id, depth")
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+  if (res.error && (String(res.error.message ?? "").includes("parent_id") || String(res.error.message ?? "").includes("depth"))) {
+    res = await supabaseAdmin
       .from("menu_categories")
       .select("id, name, sort_order, kind")
       .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
+      .order("name", { ascending: true });
+  }
+  return { data: res.data };
+}
+
+export async function caricaMenuPagina() {
+  const [catsRes, itemsRes, countRes] = await Promise.all([
+    caricaCategorie(),
     caricaItems(),
     supabaseAdmin.from("menu_items").select("category"),
   ]);
@@ -39,9 +51,9 @@ export async function caricaMenuPagina() {
   for (const r of countRes.data ?? []) {
     conteggi.set(r.category, (conteggi.get(r.category) ?? 0) + 1);
   }
-  const categories = (catsRes.data ?? []).map((c) => ({
+  const categories = ((catsRes.data ?? []) as { name?: string }[]).map((c) => ({
     ...c,
-    count: conteggi.get(c.name) ?? 0,
+    count: conteggi.get(String(c.name ?? "")) ?? 0,
   }));
 
   return { categories, items: itemsRes.data ?? [] };
