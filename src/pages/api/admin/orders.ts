@@ -17,6 +17,26 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+// Base pubblica del sito per gli URL di ritorno Stripe (es. "/demo01").
+// app_config "public_site_base"; vuoto/assente = sito alla radice ("").
+// Serve perché i link di pagamento generati dall'admin devono riportare
+// il cliente alla conferma del SITO giusto (non alla root sbagliata).
+async function basePubblica(): Promise<string | undefined> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("value")
+      .eq("key", "public_site_base")
+      .maybeSingle();
+    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
+    if (!v) return undefined;
+    const b = (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
+    return b || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // GET /api/admin/orders
 // Restituisce gli ordini con ritiro da 7 giorni fa in poi:
 // paid (attivi), done (terminati), cancelled (annullati).
@@ -155,7 +175,7 @@ export const POST: APIRoute = async ({ request }) => {
     const siteUrlR = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
       const langR: "fr" | "en" = ord.lang === "en" ? "en" : "fr";
-      const payUrl = await creaCheckoutSession({ voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR });
+      const payUrl = await creaCheckoutSession({ voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblica() });
       await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", rid);
       void emailLienPaiement({
         numero: rid.slice(0, 8),
@@ -294,7 +314,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
-    const payUrl = await creaCheckoutSession({ voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr" });
+    const payUrl = await creaCheckoutSession({ voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
     await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", orderId);
     void emailLienPaiement({
       numero: orderId.slice(0, 8),
@@ -598,7 +618,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (isLink) {
     const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
-      const payUrl = await creaCheckoutSession({ voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr" });
+      const payUrl = await creaCheckoutSession({ voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
       await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", id);
       void emailLienPaiement({
         ...notif,
@@ -637,6 +657,7 @@ export const PUT: APIRoute = async ({ request }) => {
           numero,
           siteUrl,
           lang: lang === "en" ? "en" : "fr",
+          returnBase: await basePubblica(),
         });
       } catch (e) {
         console.error("[modifica ordine] supplemento Stripe error:", e);

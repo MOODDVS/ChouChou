@@ -147,6 +147,7 @@ export async function creaCheckoutSupplemento(opts: {
   numero: string;
   siteUrl: string;
   lang?: "fr" | "en";
+  returnBase?: string;
 }): Promise<string> {
   const prefix = opts.lang === "en" ? "/en" : "";
   const label =
@@ -163,8 +164,8 @@ export async function creaCheckoutSupplemento(opts: {
       },
     ],
     metadata: { order_id: opts.orderId, supplement: "1" },
-    success_url: `${opts.siteUrl}${prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${opts.siteUrl}${prefix}/order-cancel`,
+    success_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${opts.returnBase ? `&lang=${opts.lang ?? "fr"}` : ""}`,
+    cancel_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-cancel${opts.returnBase ? `?lang=${opts.lang ?? "fr"}` : ""}`,
   });
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;
