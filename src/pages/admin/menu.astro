@@ -218,6 +218,8 @@ const pubLangsJson = JSON.stringify({
       .i-table-lab { font-size: 0.55rem; color: var(--c-muted); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; }
 
       .sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+      .i-switches { display: inline-flex; align-items: center; gap: 1.15rem; }
+      .switch.sw-sold input:checked + .track { background: #c0453b; }
       .sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
       .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
       .switch input { opacity: 0; width: 0; height: 0; }
@@ -421,8 +423,7 @@ const pubLangsJson = JSON.stringify({
         .i-price .i-col { align-items: flex-start; min-width: 0; }
         .i-price .i-col + .i-col { margin-left: 1rem; }
         .i-alg { grid-column: 3 / 5; grid-row: 2; justify-self: start; }
-        .sw-wrap:has(.t-av) { grid-column: 2; grid-row: 3; justify-self: start; }
-        .sw-wrap:has(.t-or) { grid-column: 3; grid-row: 3; justify-self: start; }
+        .i-switches { grid-column: 2 / 4; grid-row: 3; justify-self: start; gap: 1.15rem; }
         .i-del { grid-column: 4; grid-row: 3; justify-self: end; }
       }
       /* Loader dentro i bottoni di salvataggio */
@@ -778,8 +779,11 @@ const pubLangsJson = JSON.stringify({
             <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
+            <span class="i-switches">
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
+              <span class="sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.soldShort")}</span></span>
+            </span>
             <button class="i-btn i-edit" title="${tr("common.edit")}">✎</button>
             <button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
           </div>`;
@@ -1934,10 +1938,10 @@ const pubLangsJson = JSON.stringify({
 
         listEl.addEventListener("change", async (e) => {
           const t = e.target as HTMLInputElement;
-          if (!t.classList.contains("t-av") && !t.classList.contains("t-or")) return;
+          if (!t.classList.contains("t-av") && !t.classList.contains("t-or") && !t.classList.contains("t-soldout")) return;
           const row = t.closest(".item") as HTMLElement;
           const id = row.dataset.id!;
-          const campo = t.classList.contains("t-av") ? "available" : "orderable";
+          const campo = t.classList.contains("t-av") ? "available" : t.classList.contains("t-or") ? "orderable" : "sold_out";
           try {
             const res = await fetch("/api/admin/menu", {
               method: "PUT",
@@ -1948,6 +1952,15 @@ const pubLangsJson = JSON.stringify({
             const it = items.find((x) => x.id === id);
             if (it) (it as any)[campo] = t.checked;
             if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
+            if (campo === "sold_out") {
+              const nameEl = row.querySelector(".i-name");
+              const pill = nameEl?.querySelector(".i-soldout");
+              if (t.checked && !pill && nameEl) {
+                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
+              } else if (!t.checked && pill) {
+                pill.remove();
+              }
+            }
           } catch {
             t.checked = !t.checked;
             toast(tr("us.editErr"), true);

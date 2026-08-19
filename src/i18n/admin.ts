@@ -858,6 +858,7 @@ const DIZIONARIO: Dizionario = {
   "menu.noPhoto":       { fr: "Pas de photo", en: "No photo", it: "Nessuna foto", nl: "Geen foto", es: "Sin foto" },
   "menu.dragReorder":   { fr: "Glisser pour réordonner", en: "Drag to reorder", it: "Trascina per riordinare", nl: "Sleep om te herschikken", es: "Arrastra para reordenar" },
   "menu.cmdShort":      { fr: "Cmd", en: "Ord.", it: "Ord.", nl: "Best.", es: "Ped." },
+  "menu.soldShort":     { fr: "Épuisé", en: "Sold", it: "Esaur.", nl: "Op", es: "Agot." },
   "menu.drinkWord":     { fr: "boisson", en: "drink", it: "bevanda", nl: "drank", es: "bebida" },
   "menu.menusSoon":     { fr: "Section « Menus » — bientôt.", en: "« Menus » section — coming soon.", it: "Sezione « Menù » — a breve.", nl: "Sectie « Menu's » — binnenkort.", es: "Sección « Menús » — próximamente." },
   "menu.noDishFound":   { fr: "Aucun plat trouvé.", en: "No dish found.", it: "Nessun piatto trovato.", nl: "Geen gerecht gevonden.", es: "No se encontró ningún plato." },
