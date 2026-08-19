@@ -76,7 +76,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   // Colonne #50 (differenza dopo modifica). Se la migrazione non e' ancora
   // stata lanciata, il primo select fallisce e si ripiega sui campi base:
   // la lista continua a funzionare, la feature differenza resta dormiente.
-  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at";
+  const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method";
   const leggi = (campi: string) =>
     Promise.all([
       supabaseAdmin
