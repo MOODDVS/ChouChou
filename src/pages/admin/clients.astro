@@ -321,6 +321,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-cols { display: flex; gap: 1.5rem; min-height: 0; flex: 1 1 auto; overflow: hidden; }
       .act-left { flex: 0 0 44%; max-width: 44%; overflow-y: auto; padding-right: 0.4rem; }
       .act-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; border-left: 1px solid var(--c-line); padding-left: 1.5rem; }
+      .act-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; position: sticky; top: 0; background: var(--c-bg); padding-bottom: 0.2rem; z-index: 2; }
+      .act-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .act-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .act-tab-n { font-size: 0.7rem; background: rgba(255,255,255,0.12); border-radius: 999px; padding: 0.05rem 0.45rem; min-width: 1.2rem; text-align: center; }
+      .act-tab.is-on .act-tab-n { background: rgba(0,0,0,0.18); }
       .act-left::-webkit-scrollbar, .act-right::-webkit-scrollbar { width: 8px; }
       .act-left::-webkit-scrollbar-thumb, .act-right::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 8px; }
       @media (max-width: 720px) {
@@ -457,6 +462,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             <div class="act-stats" id="act-stats"></div>
           </div>
           <div class="act-right">
+            <div class="act-tabs" id="act-tabs">
+              <button type="button" class="act-tab is-on" data-tab="reservation">{t("nav.reservations")} <span class="act-tab-n" id="act-n-resa">0</span></button>
+              <button type="button" class="act-tab" data-tab="order">{t("nav.orders")} <span class="act-tab-n" id="act-n-ord">0</span></button>
+            </div>
             <div class="act-state" id="act-state">{t("sup.loading")}</div>
             <div id="act-list"></div>
           </div>
@@ -847,6 +856,49 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         const actOverlay = document.getElementById("act-overlay") as HTMLDivElement;
         const actList = document.getElementById("act-list") as HTMLDivElement;
         const actState = document.getElementById("act-state") as HTMLDivElement;
+        // Storico cliente diviso in due tab (prenotazioni / ordini) per non
+        // avere una lista unica enorme. Dati caricati una volta, filtrati qui.
+        type Att = { type: string; when: string; label: string; status: string; amount_cents: number | null };
+        let actAtti: Att[] = [];
+        let actTab: "reservation" | "order" = "reservation";
+        const actTabsEl = document.getElementById("act-tabs") as HTMLDivElement;
+        const actNResa = document.getElementById("act-n-resa") as HTMLSpanElement;
+        const actNOrd = document.getElementById("act-n-ord") as HTMLSpanElement;
+        function renderAtti() {
+          actTabsEl.querySelectorAll(".act-tab").forEach((b) =>
+            b.classList.toggle("is-on", (b as HTMLElement).dataset.tab === actTab)
+          );
+          const lista = actAtti.filter((a) => (actTab === "order" ? a.type === "order" : a.type === "reservation"));
+          if (!lista.length) {
+            actList.innerHTML = "";
+            actState.style.display = "";
+            actState.textContent = tr("cli.noActivity");
+            return;
+          }
+          actState.style.display = "none";
+          actList.innerHTML = lista
+            .map((a) => {
+              const ico = a.type === "order" ? ICO_ORD : ICO_RESA;
+              const stato =
+                a.type === "reservation" && a.status !== "confirmed" && a.status !== "done"
+                  ? `<span class="act-status ${a.status === "cancelled" ? "ko" : "ns"}">${STATO_ACT[a.status] ?? a.status}</span>`
+                  : "";
+              const importo = a.amount_cents != null ? `<span class="act-amount">${euro(a.amount_cents)}</span>` : "";
+              return `<div class="act-row">
+                    <span class="act-ico">${ico}</span>
+                    <span class="act-when">${dataOra(a.when)}</span>
+                    <span class="act-label">${esc(a.label)}</span>
+                    ${importo}${stato}
+                  </div>`;
+            })
+            .join("");
+        }
+        actTabsEl.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".act-tab") as HTMLElement | null;
+          if (!b) return;
+          actTab = b.dataset.tab === "order" ? "order" : "reservation";
+          renderAtti();
+        });
         function chiudiAttivita() {
           actOverlay.classList.remove("is-open");
         }
@@ -999,28 +1051,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             const j = (await res.json()) as {
               activity?: { type: string; when: string; label: string; status: string; amount_cents: number | null }[];
             };
-            const atti = j.activity ?? [];
-            if (!atti.length) {
-              actState.textContent = tr("cli.noActivity");
-              return;
-            }
-            actState.style.display = "none";
-            actList.innerHTML = atti
-              .map((a) => {
-                const ico = a.type === "order" ? ICO_ORD : ICO_RESA;
-                const stato =
-                  a.type === "reservation" && a.status !== "confirmed" && a.status !== "done"
-                    ? `<span class="act-status ${a.status === "cancelled" ? "ko" : "ns"}">${STATO_ACT[a.status] ?? a.status}</span>`
-                    : "";
-                const importo = a.amount_cents != null ? `<span class="act-amount">${euro(a.amount_cents)}</span>` : "";
-                return `<div class="act-row">
-                    <span class="act-ico">${ico}</span>
-                    <span class="act-when">${dataOra(a.when)}</span>
-                    <span class="act-label">${esc(a.label)}</span>
-                    ${importo}${stato}
-                  </div>`;
-              })
-              .join("");
+            actAtti = (j.activity ?? []) as Att[];
+            const nResa = actAtti.filter((a) => a.type === "reservation").length;
+            const nOrd = actAtti.filter((a) => a.type === "order").length;
+            actNResa.textContent = String(nResa);
+            actNOrd.textContent = String(nOrd);
+            // Default: Prenotazioni (primo tab); Ordini solo se non ci sono prenotazioni.
+            actTab = nResa > 0 ? "reservation" : "order";
+            renderAtti();
           } catch {
             actState.textContent = tr("sup.load.error");
           }
