@@ -79,10 +79,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
-      .fl-filtri { display: inline-flex; gap: 0.45rem; }
-      .fl-lingue { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.75rem; }
-      .fl-lingue .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
-      .fl-lingue .fl-pill.is-on .n { color: var(--c-bg); }
+      .fl-filtri { display: inline-flex; flex-wrap: wrap; gap: 0.45rem; }
+      .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
+      .fl-pill.is-on .n { color: var(--c-bg); }
       .fl-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem;
@@ -439,7 +438,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
           <div class="count" id="count" style="display:none"></div>
         </div>
-        <div class="fl-lingue" id="fl-lingue" style="display:none"></div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
           <div class="table">
@@ -644,45 +642,48 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         // Modale
         const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
         let filtroLista: "all" | "new" | "noshow" | "optin" | "optout" = "all";
-        (document.getElementById("fl-filtri") as HTMLDivElement).addEventListener("click", (e) => {
+        let filtroLingua = "";
+        const flFiltriEl = document.getElementById("fl-filtri") as HTMLDivElement;
+        flFiltriEl.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
           if (!b) return;
+          // Chip LINGUA (data-l): toggle indipendente; riclic = tutte le lingue.
+          if (b.dataset.l !== undefined) {
+            const val = b.dataset.l;
+            filtroLingua = filtroLingua === val ? "" : val;
+            flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-l]").forEach((x) =>
+              x.classList.toggle("is-on", filtroLingua !== "" && x.dataset.l === filtroLingua)
+            );
+            render();
+            return;
+          }
           const fSel = b.dataset.f ?? "all";
           filtroLista =
             fSel === "new" || fSel === "noshow" || fSel === "optin" || fSel === "optout" ? fSel : "all";
-          document.querySelectorAll("#fl-filtri .fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
+          flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-f]").forEach((x) => x.classList.toggle("is-on", x === b));
           render();
         });
 
-        // Filtro per LINGUA (chips dinamiche costruite dai clienti presenti).
-        let filtroLingua = "";
-        const flLingueEl = document.getElementById("fl-lingue") as HTMLDivElement;
+        // Chip LINGUA: aggiunte in coda alla riga dei filtri (accanto a Opted-out).
         function costruisciLingue() {
+          flFiltriEl.querySelectorAll(".fl-pill[data-l]").forEach((x) => x.remove());
           const conta = new Map<string, number>();
           for (const c of tutti) {
             const l = (c.lang || "").toLowerCase();
             if (l && LINGUE_MAP.has(l)) conta.set(l, (conta.get(l) ?? 0) + 1);
           }
-          if (conta.size < 2) { flLingueEl.style.display = "none"; flLingueEl.innerHTML = ""; filtroLingua = ""; return; }
-          // ordina per numero di clienti (decrescente)
-          const ordinate = [...conta.entries()].sort((a, b) => b[1] - a[1]);
-          const pill = (val: string, label: string, n: string, on: boolean) =>
-            `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${val}">${label}${n ? ` <span class="n">${n}</span>` : ""}</button>`;
-          const chips = [pill("", tr("cli.allLang"), "", filtroLingua === "")]
-            .concat(ordinate.map(([code, n]) => {
+          if (conta.size < 2) { filtroLingua = ""; return; }
+          if (filtroLingua && !conta.has(filtroLingua)) filtroLingua = "";
+          const html = [...conta.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([code, n]) => {
               const li = LINGUE_MAP.get(code);
-              return pill(code, `${li ? li.flag : ""} ${code.toUpperCase()}`, String(n), filtroLingua === code);
-            }));
-          flLingueEl.innerHTML = chips.join("");
-          flLingueEl.style.display = "flex";
+              const on = filtroLingua === code;
+              return `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
+            })
+            .join("");
+          flFiltriEl.insertAdjacentHTML("beforeend", html);
         }
-        flLingueEl.addEventListener("click", (e) => {
-          const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
-          if (!b) return;
-          filtroLingua = b.dataset.l ?? "";
-          flLingueEl.querySelectorAll(".fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
-          render();
-        });
         // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
         function posizionaAdd() {
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
