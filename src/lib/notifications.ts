@@ -192,7 +192,9 @@ export async function inviaModificaOrdine(
   o: OrdineNotifica,
   opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number; changes?: OrdineChanges | null } = {}
 ): Promise<void> {
-  await Promise.allSettled([emailModificaCliente(o, opts), emailCucina(o), slackCucina(o)]);
+  // Solo email al CLIENTE: se è il ristoratore a modificare l'ordine non serve
+  // rimandargli il ticket cucina né la notifica Slack (l'ha fatto lui).
+  await emailModificaCliente(o, opts);
 }
 
 // ===== Email di ANNULLAMENTO ordine al cliente =====
