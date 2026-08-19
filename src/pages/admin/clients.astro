@@ -175,16 +175,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-contacts a:hover { color: var(--c-accent); border-bottom-color: var(--c-accent); }
       .act-state { color: var(--c-muted); font-style: italic; padding: 0.6rem 0; }
       .act-row {
-        display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+        display: flex; align-items: center; gap: 0.9rem; flex-wrap: nowrap;
         padding: 0.7rem 0; border-bottom: 1px solid var(--c-line);
       }
       .act-row:last-child { border-bottom: none; }
       .act-ico { display: inline-flex; flex-shrink: 0; }
       .act-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-      .act-when { font-weight: 700; font-size: 0.9rem; min-width: 128px; }
-      .act-label { flex: 1; color: var(--c-muted); font-size: 0.88rem; min-width: 140px; }
-      .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; }
-      .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .act-when { font-weight: 700; font-size: 0.9rem; min-width: 128px; flex-shrink: 0; white-space: nowrap; }
+      .act-label { flex: 1 1 auto; color: var(--c-muted); font-size: 0.88rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; flex-shrink: 0; white-space: nowrap; }
+      .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); flex-shrink: 0; white-space: nowrap; }
       .act-new { display: inline-block; margin-left: 0.6rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; background: var(--c-accent); color: var(--c-bg); border-radius: 999px; padding: 0.15rem 0.55rem; font-weight: 700; }
       .act-stats { display: flex; flex-direction: column; gap: 0.9rem; margin: 0 0 1.4rem; }
       .act-stats:empty { display: none; }
@@ -316,7 +316,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
       /* Modale attività cliente: largo, due colonne, scroll interno */
-      .modal-act { max-width: 900px; max-height: 88vh; padding: 2rem 1.6rem 1.4rem; display: flex; flex-direction: column; overflow: hidden; }
+      .modal-act { max-width: 1080px; max-height: 88vh; padding: 2rem 1.6rem 1.4rem; display: flex; flex-direction: column; overflow: hidden; }
       .modal-act h2 { margin-bottom: 0.9rem; }
       .act-cols { display: flex; gap: 1.5rem; min-height: 0; flex: 1 1 auto; overflow: hidden; }
       .act-left { flex: 0 0 44%; max-width: 44%; overflow-y: auto; padding-right: 0.4rem; }
