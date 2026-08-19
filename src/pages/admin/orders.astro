@@ -181,14 +181,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
          bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
-      .card.off > *:not(.btn-refund):not(.btn-rollback):not(.card-top) { opacity: 0.45; }
+      .card.off > *:not(.btn-refund):not(.btn-rollback):not(.card-top):not(.diff-bar) { opacity: 0.45; }
       .card.off .card-top .time,
       .card.off .card-top .tag:not(.tag-refund),
       .card.off .card-top .total,
       .card.off .card-top .btn-print { opacity: 0.45; }
       .card.refundable { padding-bottom: 3.6rem; } /* spazio per il bottone assoluto */
       .card.done { padding-bottom: 3.4rem; } /* spazio rollback */
-      .card.done > *:not(.btn-rollback):not(.card-top) { opacity: 0.62; }
+      .card.done > *:not(.btn-rollback):not(.card-top):not(.diff-bar) { opacity: 0.62; }
       .card.done .card-top .time,
       .card.done .card-top .tag,
       .card.done .card-top .total,
@@ -301,6 +301,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .diff-bar { margin-top: 0.9rem; border-radius: 12px; padding: 0.62rem 0.9rem; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
       .diff-bar-due { background: color-mix(in srgb, #f0a24b 14%, transparent); color: #f0b46b; border: 1px solid color-mix(in srgb, #f0a24b 40%, transparent); }
       .diff-bar-paid { background: color-mix(in srgb, #46a860 15%, transparent); color: #7fe0a6; border: 1px solid color-mix(in srgb, #46a860 42%, transparent); }
+      .diff-bar-refunded { background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-accent); border: 1px solid color-mix(in srgb, var(--c-accent) 48%, transparent); }
       /* Modale remboursement */
       /* ---- Nouvelle commande (manuale, link di pagamento) ---- */
       .tag-pending { background: #5d5555; color: #fff; border-radius: 999px; white-space: nowrap; }
@@ -818,14 +819,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // Rimborsabile solo se PAGATO davvero: dopo il webhook stripe_session_id
         // è l'id cs_… ; un pending annullato ha ancora l'URL del link (mai incassato).
         const isStripe = o.status === "cancelled" && /^cs_/.test(String(o.stripe_session_id ?? ""));
-        if (isStripe && refunded > 0) {
-          tag += residuo > 0
-            ? `<span class="tag tag-refund">${tr("ord.refunded")} ${euro(refunded)}</span>`
-            : `<span class="tag tag-refund">${tr("ord.refunded")} ✓</span>`;
-        }
+        // Stato rimborso: mostrato come BARRA in fondo (refundBar), non più tag in alto.
         const refundBtn =
           isStripe && residuo > 0
             ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
+            : "";
+
+        // Barra stato rimborso (ordine annullato pagato con Stripe), a tutta
+        // larghezza e ben visibile: parziale con importo o totale con ✓.
+        const refundBar =
+          isStripe && refunded > 0
+            ? residuo > 0
+              ? `<div class="diff-bar diff-bar-refunded">↩ ${tr("ord.refunded")} · ${euro(refunded)}</div>`
+              : `<div class="diff-bar diff-bar-refunded">✓ ${tr("ord.refunded")}</div>`
             : "";
         // Modifica al ribasso su ordine pagato online: bottone "rimborsa differenza"
         // (1 clic + conferma). Importo esatto = refund_due_cents (tracciato lato server).
@@ -863,6 +869,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
             ${diffBar}
+            ${refundBar}
             ${actions}
             ${diffRefundBtn}
             ${refundBtn}
