@@ -751,7 +751,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Push all'admin: nuova prenotazione (o nuova demande)
   void inviaPushResa(cfg.autoAccept ? "new" : "demande", resa);
   // Registra la persona nella rubrica `clients` (come il webhook per gli ordini)
-  void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone });
+  void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone, lang: resa.lang });
   if (cfg.autoAccept) {
     void programmaReview({
       id: resa.id,

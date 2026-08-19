@@ -15,6 +15,10 @@ function tavoliDalBody(v: unknown): string[] | null {
 
 /** Registra il cliente di una prenotazione manuale nella rubrica `clients`. */
 function registraClienteResa(r: { first_name?: string; last_name?: string; email?: string; phone?: string }): void {
+  // NB: nessuna cattura lingua qui — le prenotazioni manuali (walk-in/telefono)
+  // hanno lang di default 'fr' e non riflettono una scelta del cliente. La
+  // lingua del cliente si cattura solo dal widget web (vedi registraCliente in
+  // api/reservation.ts) o si imposta a mano nel modale cliente.
   void registraCliente({
     name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
     email: r.email ?? null,
