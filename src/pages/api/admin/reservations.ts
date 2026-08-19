@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { emailReviewResa, annullaEmailReview, emailAnnullataResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
+import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
 
@@ -676,6 +676,11 @@ export const PATCH: APIRoute = async ({ request }) => {
     const motivo = String((body as { reason?: unknown }).reason ?? "").trim().slice(0, 500);
     (data as Record<string, unknown>).cancel_reason = motivo || null;
     void emailAnnullataResa(data as unknown as ResaEmail);
+  }
+  // No-show: email formale al cliente (rispettosa ma ferma), nella sua lingua.
+  // Solo alla transizione verso no-show, per non reinviare su PATCH ripetute.
+  if (upd.status === "noshow" && statoPrima !== "noshow" && (data as { email?: string }).email) {
+    void emailNoShowResa(data as unknown as ResaEmail);
   }
   // Demande CONFERMATA dal ristoratore: ORA parte l'email di conferma al
   // cliente + la recensione J+1 (in modalità demande non erano partite)

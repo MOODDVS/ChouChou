@@ -4,6 +4,7 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 
 ## 📌 20/08/2026 — sessione Cowork (Mac mini)
 
+- **Prenotazioni — email NO-SHOW al cliente**: mettendo una prenotazione in stato *no-show* parte ora un'email formale nella lingua del cliente (`emailNoShowResa`, 10 lingue). Tono rispettoso ma fermo: non si è presentato, un avviso avrebbe permesso di offrire il tavolo, il ristorante dà priorità a chi rispetta la prenotazione o avvisa, ci farebbe piacere accogliervi in futuro. Stesso guscio a tema `guscioResa` (nessun bottone «Réserver à nouveau», tolto su richiesta). Wiring nel PATCH `reservations.ts`: invio solo alla transizione verso no-show (`statoPrima !== "noshow"`), come per l'annullo.
 - **Prenotazioni — modale cestino a due scelte**: cliccando il cestino su una prenotazione ora esce un modale che distingue **Annuler et prévenir le client** (PATCH status=cancelled → email `emailAnnullataResa` al cliente) da **Supprimer sans prévenir** (DELETE silenzioso, nessuna email). Prima il cestino faceva solo il delete silenzioso e i ristoratori lo confondevano con l'annullo. Se la prenotazione è già annullata/no-show resta solo "Elimina".
 - **Mappa Google nella conferma cliente**: fix lettura chiave via `import.meta.env` (process.env vuoto a runtime). Richiede Maps Static API abilitata.
 

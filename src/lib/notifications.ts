@@ -2607,6 +2607,158 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
  * Invia le notifiche di una nuova prenotazione dal widget: conferma al
  * cliente + notifica al ristorante. Non lancia mai eccezioni.
  */
+type TxtNoShow = {
+  subject: (n: string) => string;
+  title: string;
+  lead: (name: string) => string;
+  p1: string;
+  p2: string;
+  p3: string;
+};
+const TXT_NOSHOW: Record<string, TxtNoShow> = {
+  fr: {
+    subject: (n) => `Réservation non honorée — ${n}`,
+    title: "Réservation non honorée",
+    lead: (name) => `Bonjour ${name},<br>vous ne vous êtes pas présenté à votre réservation, et nous n'en avons pas été prévenus.`,
+    p1: "Une table vous était réservée et est restée inoccupée. Un imprévu peut toujours arriver : un simple message pour annuler ou décaler votre venue nous aurait permis d'en faire profiter d'autres clients.",
+    p2: "Par respect pour notre équipe et pour les clients en liste d'attente, nous accordons la priorité aux personnes qui honorent leur réservation ou nous préviennent à temps.",
+    p3: "Nous restons bien sûr heureux de vous accueillir à l'avenir, et vous remercions de votre compréhension.",
+  },
+  en: {
+    subject: (n) => `Missed reservation — ${n}`,
+    title: "Reservation not honoured",
+    lead: (name) => `Hello ${name},<br>you did not show up for your reservation, and we were not informed.`,
+    p1: "A table was reserved for you and remained empty. Something unexpected can always happen: a simple message to cancel or postpone would have allowed us to offer the table to other guests.",
+    p2: "Out of respect for our team and for guests on the waiting list, we give priority to those who honour their reservation or let us know in time.",
+    p3: "We will of course be glad to welcome you in the future, and thank you for your understanding.",
+  },
+  it: {
+    subject: (n) => `Prenotazione non rispettata — ${n}`,
+    title: "Prenotazione non rispettata",
+    lead: (name) => `Ciao ${name},<br>non ti sei presentato alla tua prenotazione e non siamo stati avvisati.`,
+    p1: "Un tavolo era riservato per te ed è rimasto vuoto. Un imprevisto può sempre capitare: un semplice messaggio per annullare o spostare la prenotazione ci avrebbe permesso di offrirlo ad altri clienti.",
+    p2: "Per rispetto verso il nostro team e verso i clienti in lista d'attesa, diamo la priorità a chi rispetta la prenotazione o ci avvisa in tempo.",
+    p3: "Restiamo naturalmente felici di accoglierti in futuro e ti ringraziamo per la comprensione.",
+  },
+  es: {
+    subject: (n) => `Reserva no cumplida — ${n}`,
+    title: "Reserva no cumplida",
+    lead: (name) => `Hola ${name},<br>no se presentó a su reserva y no se nos avisó.`,
+    p1: "Le habíamos reservado una mesa y quedó vacía. Siempre puede surgir un imprevisto: un simple mensaje para cancelar o aplazar nos habría permitido ofrecerla a otros clientes.",
+    p2: "Por respeto a nuestro equipo y a los clientes en lista de espera, damos prioridad a quienes cumplen su reserva o nos avisan a tiempo.",
+    p3: "Estaremos encantados de recibirle en el futuro y le agradecemos su comprensión.",
+  },
+  nl: {
+    subject: (n) => `Reservering niet nagekomen — ${n}`,
+    title: "Reservering niet nagekomen",
+    lead: (name) => `Hallo ${name},<br>je bent niet op je reservering verschenen en we zijn niet op de hoogte gebracht.`,
+    p1: "Er was een tafel voor je gereserveerd die leeg is gebleven. Er kan altijd iets tussenkomen: een kort bericht om te annuleren of te verzetten had ons de kans gegeven de tafel aan andere gasten aan te bieden.",
+    p2: "Uit respect voor ons team en voor de gasten op de wachtlijst geven we voorrang aan wie zijn reservering nakomt of ons op tijd verwittigt.",
+    p3: "We verwelkomen je uiteraard graag in de toekomst en danken je voor je begrip.",
+  },
+  de: {
+    subject: (n) => `Nicht wahrgenommene Reservierung — ${n}`,
+    title: "Reservierung nicht wahrgenommen",
+    lead: (name) => `Hallo ${name},<br>Sie sind nicht zu Ihrer Reservierung erschienen und wir wurden nicht informiert.`,
+    p1: "Ein Tisch war für Sie reserviert und blieb leer. Es kann immer etwas dazwischenkommen: Eine kurze Nachricht zum Absagen oder Verschieben hätte uns erlaubt, den Tisch anderen Gästen anzubieten.",
+    p2: "Aus Respekt vor unserem Team und den Gästen auf der Warteliste bevorzugen wir Gäste, die ihre Reservierung einhalten oder uns rechtzeitig Bescheid geben.",
+    p3: "Wir freuen uns natürlich, Sie künftig begrüßen zu dürfen, und danken Ihnen für Ihr Verständnis.",
+  },
+  ru: {
+    subject: (n) => `Несостоявшийся визит — ${n}`,
+    title: "Бронь не была соблюдена",
+    lead: (name) => `Здравствуйте, ${name}!<br>Вы не пришли на бронь, и нас об этом не предупредили.`,
+    p1: "Для вас был зарезервирован столик, который остался свободным. Всякое бывает: короткое сообщение об отмене или переносе позволило бы нам предложить столик другим гостям.",
+    p2: "Из уважения к нашей команде и к гостям в листе ожидания мы отдаём приоритет тем, кто соблюдает бронь или предупреждает заранее.",
+    p3: "Мы, конечно, будем рады видеть вас снова и благодарим за понимание.",
+  },
+  ar: {
+    subject: (n) => `حجز لم يُحترم — ${n}`,
+    title: "حجز لم يُحترم",
+    lead: (name) => `مرحباً ${name}،<br>لم تحضر إلى حجزك ولم يتم إبلاغنا بذلك.`,
+    p1: "كانت هناك طاولة محجوزة لك وبقيت فارغة. قد يطرأ أمر غير متوقع دائماً: رسالة بسيطة للإلغاء أو التأجيل كانت ستتيح لنا تقديمها لضيوف آخرين.",
+    p2: "احتراماً لفريقنا وللضيوف على قائمة الانتظار، نمنح الأولوية لمن يحترمون حجزهم أو يبلغوننا في الوقت المناسب.",
+    p3: "يسعدنا بالطبع الترحيب بك مستقبلاً، ونشكرك على تفهّمك.",
+  },
+  zh: {
+    subject: (n) => `未如约就餐 — ${n}`,
+    title: "预订未如约",
+    lead: (name) => `您好 ${name}，<br>您未按预订前来，也未提前告知我们。`,
+    p1: "我们为您保留了餐桌，但一直空着。突发情况在所难免：一条简单的取消或改期消息，就能让我们把餐桌留给其他客人。",
+    p2: "出于对团队和候补客人的尊重，我们会优先接待遵守预订或及时告知的客人。",
+    p3: "我们当然欢迎您日后再次光临，并感谢您的理解。",
+  },
+  ja: {
+    subject: (n) => `ご予約の不履行について — ${n}`,
+    title: "ご予約の不履行",
+    lead: (name) => `${name} 様、<br>ご予約にお越しにならず、ご連絡もいただけませんでした。`,
+    p1: "お席をご用意しておりましたが、空いたままとなりました。急な事情はどなたにもございます。キャンセルや変更のひとことをいただければ、他のお客様にご案内できました。",
+    p2: "スタッフおよびキャンセル待ちのお客様への配慮から、ご予約を守ってくださる方、また早めにご連絡くださる方を優先しております。",
+    p3: "今後のご来店を心よりお待ちしております。ご理解に感謝申し上げます。",
+  },
+};
+
+/** Email formale al cliente quando la prenotazione è messa in NO-SHOW.
+ *  Tono rispettoso ma fermo. Nessun bottone. Stesso guscio a tema. */
+export async function emailNoShowResa(r: ResaEmail): Promise<void> {
+  const from = await resaFromEmail();
+  if (!resend || !from || !r.email) {
+    console.warn("Resend non configurato: salto email no-show");
+    return;
+  }
+  const lang = lw(r.lang);
+  const w = TESTI_WIDGET[lang];
+  const t = TXT_NOSHOW[lang] ?? TXT_NOSHOW.fr;
+  const dati = await datiRistorante();
+  const tema = await temaEmail();
+  const nome = r.first_name.trim() || r.last_name.trim() || "";
+
+  const recap =
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.heure, r.heure) +
+    rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
+    (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
+
+  const footerHtml = `
+    <tr>
+      <td class="em-pad" style="padding:20px 44px 30px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.tintBorder};border-radius:12px;background:${tema.tint};">
+          <tr><td style="padding:20px 24px;">
+            <p style="margin:0;color:${tema.text};font-size:14.5px;line-height:1.75;">${t.p1}</p>
+            <p style="margin:14px 0 0;color:${tema.text};font-size:14.5px;line-height:1.75;">${t.p2}</p>
+            <p style="margin:14px 0 0;color:${tema.text};font-size:14.5px;line-height:1.75;">${t.p3}</p>
+          </td></tr>
+        </table>
+      </td>
+    </tr>`;
+
+  const html = guscioResa({
+    tema,
+    nome: dati.nome,
+    logo: (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL,
+    dir: lang === "ar" ? "rtl" : "ltr",
+    title: t.title,
+    lead: t.lead(esc(nome)),
+    recapRows: recap,
+    ctaHtml: "",
+    footerHtml,
+    indirizzo: dati.indirizzo,
+    contatti: `${dati.tel} · ${dati.email}`,
+  });
+
+  try {
+    await resend.emails.send({
+      from,
+      to: r.email,
+      subject: t.subject(dati.nome),
+      bcc: BCC,
+      html: avvolgiTema(html, tema, lang === "ar" ? "rtl" : "ltr"),
+    });
+  } catch (e) {
+    console.error("Errore email no-show:", e);
+  }
+}
+
 export async function inviaNotificheResa(r: ResaEmail): Promise<void> {
   await Promise.allSettled([emailConfermaResa(r), emailNotificaResa(r)]);
 }
