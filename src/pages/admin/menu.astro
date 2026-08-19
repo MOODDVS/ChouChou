@@ -315,6 +315,13 @@ const pubLangsJson = JSON.stringify({
 
       /* --- Modale sezioni --- */
       .sec-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
+      .sec-row { position: relative; }
+      .sec-row .s-tree { color: var(--c-muted); font-size: 0.8rem; letter-spacing: -1px; flex-shrink: 0; opacity: 0.7; }
+      .sec-row.is-sub { }
+      .sec-sub-btn { color: var(--c-muted); }
+      .sec-sub-btn:hover { color: var(--c-accent); }
+      .sec-parent-pill { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem; }
+      .sec-parent-pill button { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
       .sec-row input[type="text"] { flex: 1; }
       .sec-count { color: var(--c-muted); font-size: 0.75rem; white-space: nowrap; min-width: 4.5rem; text-align: right; }
       .sec-kind { display: inline-flex; gap: 0.3rem; }
@@ -685,7 +692,7 @@ const pubLangsJson = JSON.stringify({
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; sold_out?: boolean;
         image_url: string | null;
       };
-      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
+      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number; parent_id?: string | null; depth?: number; children?: number };
 
       const ALLERGENI: [number, string][] = [
         [1, tr("menu.algGluten")], [2, tr("menu.algLait")], [3, tr("menu.algArachides")], [4, tr("menu.algOeufs")],
@@ -712,6 +719,8 @@ const pubLangsJson = JSON.stringify({
       let kindFiltro: KindTab = "food"; // filtro tab: cibo, bevande, lunch, menus
       let editId: string | null = null;
       let nuovaKind: "food" | "drink" = "food";
+      let nuovoParent: { id: string; name: string; depth: number } | null = null;
+      const MAX_DEPTH_UI = 3;
       let headers: Record<string, string> = {};
       let tabVietati: string[] = []; // tab del Menu nascosti a questo utente (Réglages MOODD)
 
@@ -1039,7 +1048,13 @@ const pubLangsJson = JSON.stringify({
         mostraTab("desc");
         mTitle.textContent = it ? tr("menu.editDish") : tr("menu.addDish");
         mMsg.textContent = "";
-        fCat.innerHTML = cats.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+        fCat.innerHTML = cats
+          .map((c) => {
+            const d = c.depth ?? 0;
+            const pre = d > 0 ? "\u00A0\u00A0".repeat(d) + "\u21B3 " : "";
+            return `<option value="${esc(c.name)}">${pre}${esc(c.name)}</option>`;
+          })
+          .join("");
         fName.value = it?.name ?? "";
         fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
         fCat.value = it?.category ?? attiva;
@@ -1178,29 +1193,45 @@ const pubLangsJson = JSON.stringify({
 
       function renderSezioni() {
         secList.innerHTML = cats
-          .map(
-            (c, i) => `
-          <div class="sec-row" data-id="${c.id}" data-name="${esc(c.name)}">
+          .map((c) => {
+            const depth = c.depth ?? 0;
+            const tree = depth > 0 ? `<span class="s-tree">${"—".repeat(depth)}</span>` : "";
+            const bloccaDel = (c.count > 0 || (c.children ?? 0) > 0);
+            const puoSub = depth < MAX_DEPTH_UI;
+            const puoOut = depth > 0;
+            return `
+          <div class="sec-row${depth > 0 ? " is-sub" : ""}" data-id="${c.id}" data-name="${esc(c.name)}" data-parent="${c.parent_id ?? ""}" data-depth="${depth}" style="padding-left:${depth * 1.4}rem">
             <span class="i-btn s-drag" title="${tr("menu.dragReorder")}">⠿</span>
+            ${tree}
             <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
             <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
             <input type="text" class="s-name" value="${esc(c.name)}" maxlength="60" />
+            <button class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
+            <button class="i-btn s-in" title="${tr("menu.indentTitle")}">⇥</button>
+            <button class="i-btn sec-sub-btn s-sub" ${puoSub ? "" : "disabled"} title="${tr("menu.addSubTitle")}">＋</button>
             <span class="sec-count">${c.count} ${c.count > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>
-            <button class="i-btn i-del s-del" ${c.count > 0 ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
-          </div>`
-          )
+            <button class="i-btn i-del s-del" ${bloccaDel ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
+          </div>`;
+          })
           .join("");
+        renderNuovaKind();
       }
-
-      // Selettore tipo per la NUOVA sezione
+      // Form "aggiungi": mostra il parent selezionato (sotto-sezione) o normale.
       function renderNuovaKind() {
+        const parentPill = nuovoParent
+          ? `<span class="sec-parent-pill">${esc(tr("menu.subOf"))} ${esc(nuovoParent.name)}<button type="button" id="snk-clear" title="${esc(tr("menu.clearParent"))}">×</button></span>`
+          : "";
         secKind.innerHTML =
+          parentPill +
           `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>` +
           `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>`;
+        secNew.placeholder = nuovoParent ? tr("menu.newSubPh") : tr("menu.newSectionPh");
       }
+
       secKind.addEventListener("click", (e) => {
         const t = (e.target as HTMLElement).closest("button");
         if (!t) return;
+        if (t.id === "snk-clear") { nuovoParent = null; renderNuovaKind(); secNew.focus(); return; }
         nuovaKind = t.id === "snk-drink" ? "drink" : "food";
         renderNuovaKind();
       });
@@ -1243,6 +1274,37 @@ const pubLangsJson = JSON.stringify({
             toast(tr("menu.sectionDeleted"));
             await caricaTutto();
           }
+          return;
+        }
+        // "+ sotto": prepara il form per creare una sotto-sezione sotto questa
+        if (t.closest(".s-sub")) {
+          const c = cats[idx];
+          nuovoParent = { id: c.id, name: c.name, depth: c.depth ?? 0 };
+          renderNuovaKind();
+          secNew.focus();
+          return;
+        }
+        // Rientra (indent): mette la sezione sotto la sorella precedente
+        if (t.closest(".s-in")) {
+          const c = cats[idx];
+          const cd = c.depth ?? 0;
+          let sorella: Cat | null = null;
+          for (let k = idx - 1; k >= 0; k--) {
+            const dk = cats[k].depth ?? 0;
+            if (dk < cd) break;            // risalito oltre: nessuna sorella
+            if (dk === cd) { sorella = cats[k]; break; }
+          }
+          if (!sorella) { secMsg.textContent = tr("menu.indentTitle"); return; }
+          if (await putCategoria(id, { parent_id: sorella.id })) await caricaTutto();
+          return;
+        }
+        // Esci (outdent): risale di un livello (parent = nonno)
+        if (t.closest(".s-out")) {
+          const c = cats[idx];
+          const parent = cats.find((x) => x.id === c.parent_id);
+          const nonno = parent ? (parent.parent_id ?? null) : null;
+          if (await putCategoria(id, { parent_id: nonno })) await caricaTutto();
+          return;
         }
       });
 
@@ -1271,34 +1333,50 @@ const pubLangsJson = JSON.stringify({
 
       // Drag & drop per riordinare le sezioni (mouse + dito)
       let dragRow: HTMLElement | null = null;
+      let dragBlock: HTMLElement[] = []; // il nodo + il suo sotto-albero (righe contigue)
       secList.addEventListener("pointerdown", (e) => {
         const handle = (e.target as HTMLElement).closest(".s-drag");
         if (!handle) return;
         e.preventDefault();
         dragRow = handle.closest(".sec-row") as HTMLElement;
-        dragRow.classList.add("dragging");
+        const d0 = Number(dragRow.dataset.depth ?? "0");
+        const all = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
+        const start = all.indexOf(dragRow);
+        dragBlock = [dragRow];
+        for (let k = start + 1; k < all.length; k++) {
+          if (Number(all[k].dataset.depth ?? "0") > d0) dragBlock.push(all[k]);
+          else break;
+        }
+        dragBlock.forEach((r) => r.classList.add("dragging"));
       });
       document.addEventListener("pointermove", (e) => {
         if (!dragRow) return;
         e.preventDefault();
-        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => r !== dragRow);
+        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => !dragBlock.includes(r));
         const dopo = rows.find((r) => {
           const rect = r.getBoundingClientRect();
           return e.clientY < rect.top + rect.height / 2;
         });
-        if (dopo) secList.insertBefore(dragRow!, dopo);
-        else secList.appendChild(dragRow!);
+        // sposta l'intero blocco (nodo + sotto-albero) mantenendo l'ordine interno
+        for (const r of dragBlock) {
+          if (dopo) secList.insertBefore(r, dopo);
+          else secList.appendChild(r);
+        }
       });
       document.addEventListener("pointerup", async () => {
         if (!dragRow) return;
-        dragRow.classList.remove("dragging");
+        dragBlock.forEach((r) => r.classList.remove("dragging"));
         dragRow = null;
-        const ordine = [...secList.querySelectorAll<HTMLElement>(".sec-row")].map((r) => r.dataset.id!);
+        dragBlock = [];
+        const righe = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
+        const ordine = righe.map((r) => r.dataset.id!);
         if (JSON.stringify(ordine) === JSON.stringify(cats.map((c) => c.id))) return;
+        // manda id + parent (invariato) per non appiattire l'albero
+        const nodes = righe.map((r) => ({ id: r.dataset.id!, parent_id: r.dataset.parent || null }));
         const res = await fetch("/api/admin/categories", {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ order: ordine }),
+          body: JSON.stringify({ nodes }),
         });
         if (!res.ok) {
           const j = await res.json();
@@ -1317,7 +1395,7 @@ const pubLangsJson = JSON.stringify({
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ name, kind: nuovaKind }),
+          body: JSON.stringify({ name, kind: nuovaKind, parent_id: nuovoParent?.id ?? null }),
         });
         const j = await res.json();
         if (!res.ok) {
@@ -1325,6 +1403,7 @@ const pubLangsJson = JSON.stringify({
         } else {
           secNew.value = "";
           nuovaKind = "food";
+          nuovoParent = null;
           renderNuovaKind();
           toast(tr("menu.sectionAdded"));
           await caricaTutto();
