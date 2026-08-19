@@ -2186,6 +2186,98 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
 }
 
 /** Email di NOTIFICA al ristorante (FR, design chiaro operativo). */
+
+// ---- Guscio condiviso delle notifiche PRENOTAZIONE al ristoratore ----
+// Design volutamente DIVERSO dagli ordini (card chiara, centrata sui coperti,
+// niente prezzi) + nastro colorato per tipo: verde=nuova, ambra=modifica,
+// rosso=annullo. Colori fissi (non seguono il tema del cliente).
+function compattaData(iso: string): { dateBig: string; year: string } {
+  const d = new Date(`${iso}T12:00:00`);
+  if (isNaN(d.getTime())) return { dateBig: iso, year: "" };
+  return { dateBig: d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }), year: String(d.getFullYear()) };
+}
+function detRigaResto(lab: string, val: string): string {
+  if (!val) return "";
+  return `<tr><td style="padding:9px 0;border-bottom:1px solid #eee;color:#666;font-size:14px;">${esc(lab)}</td><td style="padding:9px 0;border-bottom:1px solid #eee;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(val)}</td></tr>`;
+}
+function notaResto(note?: string | null): string {
+  return note ? `<div style="margin-top:14px;background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;color:#7a4a09;font-size:14px;border-radius:0 8px 8px 0;"><strong>Note :</strong> ${esc(note)}</div>` : "";
+}
+function opzioniResa(r: ResaEmail): string {
+  const o: string[] = [];
+  if (r.high_chair) o.push("Chaise bébé");
+  if (r.quiet) o.push("Endroit calme");
+  if (r.business) o.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
+  if (r.birthday) o.push("Anniversaire");
+  if (r.special_event) o.push("Événement spécial");
+  return o.join(" · ");
+}
+function guscioResaRisto(o: {
+  accent: string; label: string; dataFr: string;
+  subBanner: string; subBg: string; subText: string;
+  nome: string; people: number; phone: string; email: string; telLink: string;
+  dateBig: string; year: string; heure: string; serviceLabel: string;
+  detailRows: string; noteHtml: string; nomeRisto: string;
+}): string {
+  const callBtn = o.telLink
+    ? `<a href="tel:${o.telLink}" style="display:inline-block;margin-top:2px;background:${o.accent};color:#ffffff;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">Appeler le client</a>`
+    : "";
+  const sub = o.subBanner
+    ? `<tr><td style="padding:13px 30px;background:${o.subBg};border-bottom:2px solid ${o.accent};"><p style="margin:0;color:${o.subText};font-size:14px;font-weight:bold;text-align:center;">${esc(o.subBanner)}</p></td></tr>`
+    : "";
+  const svcTile = o.serviceLabel
+    ? `<td width="4%">&nbsp;</td><td width="28%" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;"><p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Service</p><p style="margin:6px 0 0;color:#111;font-size:16px;font-weight:bold;line-height:1.2;">${esc(o.serviceLabel)}</p></td>`
+    : "";
+  const dateW = o.serviceLabel ? "40%" : "48%";
+  const heureW = o.serviceLabel ? "28%" : "48%";
+  return `
+  <div style="font-family:Arial,Helvetica,sans-serif;background:#e8e6e1;padding:30px 14px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
+      <tr>
+        <td style="padding:18px 30px;background:${o.accent};">
+          <table role="presentation" width="100%"><tr>
+            <td style="color:#ffffff;font-size:14px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${esc(o.label)}</td>
+            <td style="color:rgba(255,255,255,0.8);font-size:13px;text-align:right;">${esc(o.dataFr)}</td>
+          </tr></table>
+        </td>
+      </tr>
+      ${sub}
+      <tr>
+        <td style="padding:26px 30px 16px;text-align:center;background:#f6f7f5;">
+          <p style="margin:0;color:#000;font-size:23px;font-weight:bold;">${esc(o.nome)} <span style="display:inline-block;margin-left:6px;background:${o.accent};color:#fff;font-size:13px;font-weight:bold;padding:4px 12px;border-radius:999px;vertical-align:middle;">${o.people} couverts</span></p>
+          <p style="margin:8px 0 ${callBtn ? "16px" : "0"};color:#555;font-size:14px;">${esc(o.phone)} · ${esc(o.email)}</p>
+          ${callBtn}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:6px 24px 22px;background:#f6f7f5;border-bottom:1px solid #e6e6e2;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td width="${dateW}" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;">
+              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Date</p>
+              <p style="margin:6px 0 0;color:#111;font-size:17px;font-weight:bold;line-height:1.2;">${esc(o.dateBig)}</p>
+              ${o.year ? `<p style="margin:1px 0 0;color:#888;font-size:12px;">${esc(o.year)}</p>` : ""}
+            </td>
+            <td width="4%">&nbsp;</td>
+            <td width="${heureW}" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;">
+              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Heure</p>
+              <p style="margin:6px 0 0;color:#111;font-size:20px;font-weight:bold;line-height:1;">${esc(o.heure)}</p>
+            </td>
+            ${svcTile}
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 30px 24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${o.detailRows}</table>
+          ${o.noteHtml}
+        </td>
+      </tr>
+      <tr><td style="padding:14px 30px 22px;text-align:center;background:#f6f7f5;border-top:1px solid #e6e6e2;color:#9a9a94;font-size:12px;">Réservation · ${esc(o.nomeRisto)}</td></tr>
+    </table>
+  </div>
+  `;
+}
+
 async function emailNotificaResa(r: ResaEmail): Promise<void> {
   const dest = await resaNotifyEmail();
   const from = await resaFromEmail();
@@ -2193,55 +2285,34 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica ristorante");
     return;
   }
+  const dati = await datiRistorante();
   const servFr = labelService(r.service_key, "fr");
   const dataFr = fmtDataResa(r.date, "fr");
+  const { dateBig, year } = compattaData(r.date);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+  const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
+  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
 
-  const opzioni: string[] = [];
-  if (r.high_chair) opzioni.push("Chaise bébé");
-  if (r.quiet) opzioni.push("Endroit calme");
-  if (r.business) opzioni.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
-  if (r.birthday) opzioni.push("Anniversaire");
-  if (r.special_event) opzioni.push("Événement spécial");
-
-  const extra = [
-    r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : "",
-    servFr ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Service</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(servFr)}</td></tr>` : "",
-    opzioni.length ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Options</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(opzioni.join(" · "))}</td></tr>` : "",
-    r.notes ? `<tr><td colspan="2" style="padding:10px 0 0;"><div style="background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;color:#7a4a09;font-size:14px;"><strong>Note :</strong> ${esc(r.notes)}</div></td></tr>` : "",
-  ].join("");
-
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <tr>
-        <td style="padding:24px 32px;background:#002f35;">
-          <table role="presentation" width="100%"><tr>
-            <td style="color:#f04b4b;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Nouvelle réservation</td>
-            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
-          </tr></table>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:28px 32px 22px;text-align:center;background:#f6f5f2;border-bottom:2px solid #002f35;">
-          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
-          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
-          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:18px 32px 26px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
-            ${extra}
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-  `;
+  const html = guscioResaRisto({
+    accent: "#0e7a5f",
+    label: "Nouvelle réservation",
+    dataFr,
+    subBanner: "",
+    subBg: "",
+    subText: "",
+    nome: nomeCompleto,
+    people: r.people,
+    phone: r.phone,
+    email: r.email,
+    telLink,
+    dateBig,
+    year,
+    heure: r.heure,
+    serviceLabel: servFr,
+    detailRows,
+    noteHtml: notaResto(r.notes),
+    nomeRisto: dati.nome,
+  });
 
   try {
     await resend.emails.send({
@@ -2264,46 +2335,34 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica annullo");
     return;
   }
+  const dati = await datiRistorante();
   const servFr = labelService(r.service_key, "fr");
   const dataFr = fmtDataResa(r.date, "fr");
+  const { dateBig, year } = compattaData(r.date);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+  const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
+  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
 
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <tr>
-        <td style="padding:24px 32px;background:#002f35;">
-          <table role="presentation" width="100%"><tr>
-            <td style="color:#e2483d;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation annulée</td>
-            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
-          </tr></table>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:14px 32px;background:#fdecea;border-bottom:2px solid #e2483d;">
-          <p style="margin:0;color:#a5281c;font-size:14px;font-weight:bold;text-align:center;">Annulée par le client</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:24px 32px 18px;text-align:center;background:#f6f5f2;">
-          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
-          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
-          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:18px 32px 26px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
-            ${r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : ""}
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-  `;
+  const html = guscioResaRisto({
+    accent: "#b23b30",
+    label: "Réservation annulée",
+    dataFr,
+    subBanner: "Annulée par le client",
+    subBg: "#fdecea",
+    subText: "#8f2d22",
+    nome: nomeCompleto,
+    people: r.people,
+    phone: r.phone,
+    email: r.email,
+    telLink,
+    dateBig,
+    year,
+    heure: r.heure,
+    serviceLabel: servFr,
+    detailRows,
+    noteHtml: notaResto(r.notes),
+    nomeRisto: dati.nome,
+  });
 
   try {
     await resend.emails.send({
@@ -2468,59 +2527,34 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica modifica");
     return;
   }
+  const dati = await datiRistorante();
   const servFr = labelService(r.service_key, "fr");
   const dataFr = fmtDataResa(r.date, "fr");
+  const { dateBig, year } = compattaData(r.date);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
+  const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
+  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
 
-  const opzioni: string[] = [];
-  if (r.high_chair) opzioni.push("Chaise bébé");
-  if (r.quiet) opzioni.push("Endroit calme");
-  if (r.business) opzioni.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
-  if (r.birthday) opzioni.push("Anniversaire");
-  if (r.special_event) opzioni.push("Événement spécial");
-  const extra = [
-    r.zone ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Section</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.zone)}</td></tr>` : "",
-    servFr ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Service</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(servFr)}</td></tr>` : "",
-    opzioni.length ? `<tr><td style="padding:6px 0;color:#555;font-size:14px;">Options</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(opzioni.join(" · "))}</td></tr>` : "",
-    r.notes ? `<tr><td colspan="2" style="padding:10px 0 0;"><div style="background:#eef4ff;border-left:4px solid #3b82f6;padding:12px 16px;color:#1e40af;font-size:14px;"><strong>Note :</strong> ${esc(r.notes)}</div></td></tr>` : "",
-  ].join("");
-
-  const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#e8e6e1; padding:30px;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;">
-      <tr>
-        <td style="padding:24px 32px;background:#002f35;">
-          <table role="presentation" width="100%"><tr>
-            <td style="color:#5b9bff;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Réservation modifiée</td>
-            <td style="color:#ffffff;font-size:13px;text-align:right;">${esc(dataFr)}</td>
-          </tr></table>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:14px 32px;background:#eef4ff;border-bottom:2px solid #3b82f6;">
-          <p style="margin:0;color:#1e40af;font-size:14px;font-weight:bold;text-align:center;">Modifiée par le client · nouvelles informations ci-dessous</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:24px 32px 18px;text-align:center;background:#f6f5f2;">
-          <p style="margin:0;color:#777;font-size:13px;letter-spacing:2px;text-transform:uppercase;">${esc(r.heure)} · ${r.people} pers.${servFr ? " · " + esc(servFr) : ""}</p>
-          <p style="margin:10px 0 4px;color:#000;font-size:22px;font-weight:bold;">${esc(nomeCompleto)}</p>
-          <p style="margin:0;color:#555;font-size:14px;line-height:1.7;">${esc(r.phone)} · ${esc(r.email)}</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:18px 32px 26px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Date</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(dataFr)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Heure</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(r.heure)}</td></tr>
-            <tr><td style="padding:6px 0;color:#555;font-size:14px;">Personnes</td><td style="padding:6px 0;color:#000;font-size:14px;text-align:right;font-weight:bold;">${r.people}</td></tr>
-            ${extra}
-          </table>
-        </td>
-      </tr>
-    </table>
-  </div>
-  `;
+  const html = guscioResaRisto({
+    accent: "#b5701a",
+    label: "Réservation modifiée",
+    dataFr,
+    subBanner: "Modifiée par le client · nouvelles informations ci-dessous",
+    subBg: "#fdf1df",
+    subText: "#8a5410",
+    nome: nomeCompleto,
+    people: r.people,
+    phone: r.phone,
+    email: r.email,
+    telLink,
+    dateBig,
+    year,
+    heure: r.heure,
+    serviceLabel: servFr,
+    detailRows,
+    noteHtml: notaResto(r.notes),
+    nomeRisto: dati.nome,
+  });
 
   try {
     await resend.emails.send({

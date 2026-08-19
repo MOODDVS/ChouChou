@@ -4,6 +4,7 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 
 ## 📌 20/08/2026 — sessione Cowork (Mac mini)
 
+- **Email prenotazione al RISTORATORE ridisegnate** e rese distinte dagli ordini: guscio condiviso `guscioResaRisto` (card chiara, nome + coperti in alto, bottone "Appeler le client", 3 riquadri **Date · Heure · Service** allineati, dettagli + note, footer). **Codice colore per tipo**: verde=nuova, ambra=modifica, rosso=annullo. Colori fissi (non a tema) per non confonderle con gli ordini. Niente SVG inline (Gmail li rimuove).
 - **Email transazionali unificate** (design come le conferme ordine): ridisegnate email **link di pagamento** e tutte le **email prenotazione lato cliente** (conferma, promemoria, richiesta, annullata, chiusura). Il guscio condiviso `guscioResa` + `rigaRecap` ora sono **theme-aware** (colori da `admin_theme`), con logo ristorante in alto, box/recap a tema, bottoni a pillola e footer con indirizzo + wordmark RestoHub; inviate via `avvolgiTema`. Le email al ristorante (notifiche interne) restano invariate.
 - **Card ordini**: icona metodo pagamento accanto a PAGATO (contanti/carta/Stripe wordmark bianca 28px); barre stato in fondo (differenza da pagare / rimborso).
 - **Fix link pagamento** post-checkout → sito giusto via `public_site_base` (app_config).
