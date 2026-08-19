@@ -1875,7 +1875,7 @@ function mapsBlocco(tema: TemaEmail, indirizzo: string, lang: string): string {
   const dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${enc}`;
   const label =
     ({ fr: "Itinéraire", en: "Directions", it: "Come arrivare", es: "Cómo llegar", nl: "Route", de: "Route", ar: "الاتجاهات", ru: "Маршрут", zh: "路线", ja: "経路" } as Record<string, string>)[lang] ?? "Itinéraire";
-  const key = process.env.GOOGLE_PLACES_API_KEY ?? "";
+  const key = import.meta.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY ?? "";
   const marker = `0x${(tema.accent || "#e23b2e").replace("#", "")}`;
   const img = key
     ? `<a href="${dirUrl}" target="_blank" style="display:block;text-decoration:none;"><img src="https://maps.googleapis.com/maps/api/staticmap?center=${enc}&zoom=15&size=600x240&scale=2&markers=color:${marker}%7C${enc}&key=${key}" alt="${esc(label)}" width="512" style="display:block;width:100%;height:auto;border:0;border-radius:12px;" /></a>`
