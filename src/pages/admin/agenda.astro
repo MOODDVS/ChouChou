@@ -434,10 +434,6 @@ const pubLangsJson = JSON.stringify({
 
         <div class="m-cols">
         <div class="m-col">
-        <label class="f-lab" for="f-title">{t("ag.fTitle")}</label>
-        <input type="text" class="f-input" id="f-title" placeholder={t("ag.fTitlePh")} />
-        <div id="f-title-i18n"></div>
-
         <label class="f-lab" for="f-img">{t("ag.image")}</label>
         <div class="f-row f-row--img">
           <input type="text" class="f-input" id="f-img" placeholder={t("mk.imgUrlPh")} />
@@ -447,9 +443,7 @@ const pubLangsJson = JSON.stringify({
         </div>
         <p class="f-hint" id="f-upload-state"></p>
 
-        <label class="f-lab" for="f-body">{t("ag.text")}</label>
-        <textarea class="f-area" id="f-body" placeholder={t("ag.textPh")}></textarea>
-        <div id="f-body-i18n"></div>
+        <div id="f-langs"></div>
         </div>
         <div class="m-col">
         <label class="f-lab">{t("ag.gallery")}</label>
@@ -645,9 +639,7 @@ const pubLangsJson = JSON.stringify({
         const mTitle = document.getElementById("m-title") as HTMLHeadingElement;
         const mErr = document.getElementById("m-err") as HTMLSpanElement;
         const mSave = document.getElementById("m-save") as HTMLButtonElement;
-        const fTitle = document.getElementById("f-title") as HTMLInputElement;
         const fImg = document.getElementById("f-img") as HTMLInputElement;
-        const fBody = document.getElementById("f-body") as HTMLTextAreaElement;
         const fGallery = document.getElementById("f-gallery") as HTMLDivElement;
         const fGalState = document.getElementById("f-gal-state") as HTMLParagraphElement;
         const fDatemode = document.getElementById("f-datemode") as HTMLDivElement;
@@ -662,21 +654,21 @@ const pubLangsJson = JSON.stringify({
         let PUB: PubLangs = { langs: ["fr"], def: "fr", labels: { fr: { label: "Français", flag: "\uD83C\uDDEB\uD83C\uDDF7" } } };
         try { const raw = document.getElementById("pub-langs")?.textContent?.trim(); if (raw) PUB = JSON.parse(raw) as PubLangs; } catch { /* fallback */ }
         const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
-        const fTitleI18n = document.getElementById("f-title-i18n") as HTMLDivElement;
-        const fBodyI18n = document.getElementById("f-body-i18n") as HTMLDivElement;
+        const fLangs = document.getElementById("f-langs") as HTMLDivElement;
+        const titDef = () => fLangs.querySelector(`.f-tx[data-lang="${PUB.def}"]`) as HTMLInputElement;
+        const bodyDef = () => fLangs.querySelector(`.f-bx[data-lang="${PUB.def}"]`) as HTMLTextAreaElement;
         function costruisciCampiLinguaEvento() {
-          const extra = PUB.langs.filter((l) => l !== PUB.def);
-          fTitleI18n.innerHTML = extra
-            .map((l) => `<label class="f-lab">${esc(tr("ag.fTitle"))} (${esc(langTag(l))})</label><input type="text" class="f-input f-tx" data-lang="${l}" maxlength="160" />`)
+          const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+          fLangs.innerHTML = ordine
+            .map((l) => {
+              const phT = l === PUB.def ? esc(tr("ag.fTitlePh")) : "";
+              const phB = l === PUB.def ? esc(tr("ag.textPh")) : "";
+              return `<label class="f-lab">${esc(tr("ag.fTitle"))} (${esc(langTag(l))})</label>` +
+                `<input type="text" class="f-input f-tx" data-lang="${l}" maxlength="160" placeholder="${phT}" />` +
+                `<label class="f-lab">${esc(tr("ag.text"))} (${esc(langTag(l))})</label>` +
+                `<textarea class="f-area f-bx" data-lang="${l}" placeholder="${phB}"></textarea>`;
+            })
             .join("");
-          fBodyI18n.innerHTML = extra
-            .map((l) => `<label class="f-lab">${esc(tr("ag.text"))} (${esc(langTag(l))})</label><textarea class="f-area f-bx" data-lang="${l}"></textarea>`)
-            .join("");
-          // Etichette della lingua di default sui campi principali
-          const labTit = document.querySelector('label[for="f-title"]');
-          if (labTit) labTit.textContent = `${tr("ag.fTitle")} (${langTag(PUB.def)})`;
-          const labBody = document.querySelector('label[for="f-body"]');
-          if (labBody) labBody.textContent = `${tr("ag.text")} (${langTag(PUB.def)})`;
         }
         costruisciCampiLinguaEvento();
         const fUploadState = document.getElementById("f-upload-state") as HTMLParagraphElement;
@@ -730,11 +722,9 @@ const pubLangsJson = JSON.stringify({
           mErr.textContent = "";
           fUploadState.textContent = "";
           fGalState.textContent = "";
-          fTitle.value = ev?.title ?? "";
           fImg.value = ev?.image_url ?? "";
-          fBody.value = ev?.body ?? "";
-          { const ti = ev?.title_i18n ?? {}; fTitleI18n.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { inp.value = ti[inp.dataset.lang ?? ""] ?? ""; }); }
-          { const bi = ev?.body_i18n ?? {}; fBodyI18n.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { ta.value = bi[ta.dataset.lang ?? ""] ?? ""; }); }
+          { const ti = ev?.title_i18n ?? {}; fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const l = inp.dataset.lang ?? ""; inp.value = ti[l] ?? (l === PUB.def ? (ev?.title ?? "") : ""); }); }
+          { const bi = ev?.body_i18n ?? {}; fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const l = ta.dataset.lang ?? ""; ta.value = bi[l] ?? (l === PUB.def ? (ev?.body ?? "") : ""); }); }
           galleria = Array.isArray(ev?.gallery) ? [...ev!.gallery] : [];
           renderGallery();
           const hasRange = !!ev?.date_end;
@@ -946,15 +936,13 @@ const pubLangsJson = JSON.stringify({
             }))
             .filter((l) => l.url);
           const titleI18n: Record<string, string> = {};
-          if (fTitle.value.trim()) titleI18n[PUB.def] = fTitle.value.trim();
-          fTitleI18n.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const v = inp.value.trim(); if (v) titleI18n[inp.dataset.lang ?? ""] = v; });
+          fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const v = inp.value.trim(); if (v) titleI18n[inp.dataset.lang ?? ""] = v; });
           const bodyI18n: Record<string, string> = {};
-          if (fBody.value.trim()) bodyI18n[PUB.def] = fBody.value.trim();
-          fBodyI18n.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyI18n[ta.dataset.lang ?? ""] = v; });
+          fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyI18n[ta.dataset.lang ?? ""] = v; });
           const payload = {
             id: editId ?? undefined,
-            title: fTitle.value,
-            body: fBody.value,
+            title: titDef()?.value ?? "",
+            body: bodyDef()?.value ?? "",
             title_i18n: titleI18n,
             body_i18n: bodyI18n,
             image_url: fImg.value,
