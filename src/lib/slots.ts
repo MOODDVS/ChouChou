@@ -83,8 +83,11 @@ export function calcolaSlot(input: CalcolaSlotInput): string[] {
   if (!orariApertura.is_open) return [];
 
   const apertura = applicaOrario(ora, orariApertura.open_time);
-  const chiusura = applicaOrario(ora, orariApertura.close_time);
+  let chiusura = applicaOrario(ora, orariApertura.close_time);
   if (!apertura.isValid || !chiusura.isValid) return [];
+  // Fascia che scavalca la mezzanotte (chiusura ≤ apertura): la chiusura è il
+  // giorno dopo. Es. 18:00 → 00:00 (mezzanotte) oppure 18:00 → 01:00.
+  if (chiusura <= apertura) chiusura = chiusura.plus({ days: 1 });
 
   // Due modalità:
   // - TAKE-AWAY (preavvisoDaApertura = true, default): la pizza richiede

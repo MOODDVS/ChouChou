@@ -5,6 +5,13 @@ import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
 export const prerender = false;
 
+// Lingue valide per il cliente (stesse del widget prenotazioni).
+const LINGUE_CLI = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
+const normLangCli = (v: unknown): string | null => {
+  const c = String(v ?? "").trim().toLowerCase();
+  return LINGUE_CLI.has(c) ? c : null;
+};
+
 // GET  → elenco clienti: UNIONE degli ordini reali (paid/done, aggregati
 //        per email) con i clienti aggiunti a mano (tabella `clients`).
 // POST → aggiunge un cliente manuale (name, email, phone).
@@ -27,6 +34,7 @@ interface RigaCliente {
   photo_url?: string | null;
   blocked?: boolean | null;
   created_at?: string | null;
+  lang?: string | null;
 }
 
 interface Cliente {
@@ -44,6 +52,7 @@ interface Cliente {
   photo_url?: string | null;
   blocked?: boolean;
   newsletter_optout?: boolean;
+  lang?: string | null; // lingua del cliente (dalla prenotazione più recente)
   key?: string; // chiave di aggregazione (per il dettaglio attività)
 }
 
@@ -146,13 +155,23 @@ async function prenotazioniAttive(): Promise<RigaResa[]> {
 async function clientiManuali(): Promise<RigaCliente[] | null> {
   const PAGINA = 1000;
   const tutti: RigaCliente[] = [];
-  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+  let campi = "id, name, email, phone, hidden, photo_url, blocked, created_at, lang";
   for (let da = 0; ; da += PAGINA) {
     let { data, error } = await supabaseAdmin
       .from("clients")
       .select(campi)
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
+    // Migrazione `lang` (clients_lang.sql) non ancora lanciata: si rilegge
+    // MANTENENDO photo_url/blocked (per non perdere foto e blocchi).
+    if (error && String(error.message ?? "").includes("lang")) {
+      campi = "id, name, email, phone, hidden, photo_url, blocked, created_at";
+      ({ data, error } = await supabaseAdmin
+        .from("clients")
+        .select(campi)
+        .order("created_at", { ascending: true })
+        .range(da, da + PAGINA - 1));
+    }
     // Migrazioni #31/#32 non ancora lanciate: si rilegge senza le colonne nuove
     if (error && (String(error.message ?? "").includes("photo_url") || String(error.message ?? "").includes("blocked"))) {
       campi = "id, name, email, phone, hidden, created_at";
@@ -289,9 +308,10 @@ export const GET: APIRoute = async ({ request, url }) => {
       if (name) esistente.name = name;
       if (email) esistente.email = email;
       if (phone) esistente.phone = phone;
+      if (m.lang) esistente.lang = m.lang; // il dato curato (modale) prevale
     } else {
       mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked),
+        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked), lang: m.lang ?? null,
       });
     }
   }
@@ -361,6 +381,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     photo_url?: string | null;
     blocked?: boolean;
     newsletter_optout?: boolean;
+    lang?: string | null;
   };
   try {
     body = await request.json();
@@ -382,6 +403,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     photo_url: typeof body.photo_url === "string" && body.photo_url ? body.photo_url : null,
   };
   if (body.blocked !== undefined) patch.blocked = Boolean(body.blocked);
+  if (body.lang !== undefined) patch.lang = normLangCli(body.lang);
 
   // Record esistente? (id esplicito, poi email, poi telefono)
   let idRiga = (body.id ?? "").trim() || null;
@@ -411,9 +433,10 @@ export const PATCH: APIRoute = async ({ request }) => {
     ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
     : await supabaseAdmin.from("clients").insert(patch).select("id").single();
   // Migrazioni #31/#32 non ancora lanciate: si salva senza le colonne nuove
-  if (esito.error && (String(esito.error.message ?? "").includes("photo_url") || String(esito.error.message ?? "").includes("blocked"))) {
+  if (esito.error && (String(esito.error.message ?? "").includes("photo_url") || String(esito.error.message ?? "").includes("blocked") || String(esito.error.message ?? "").includes("lang"))) {
     delete patch.photo_url;
     delete patch.blocked;
+    delete patch.lang;
     esito = idRiga
       ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
       : await supabaseAdmin.from("clients").insert(patch).select("id").single();

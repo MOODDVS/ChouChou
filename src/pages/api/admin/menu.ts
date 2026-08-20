@@ -4,8 +4,28 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
 
-const SELECT =
+const SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+const SELECT = SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
+
+// Lingue del sito pubblico supportate (traduzioni piatti). Vedi superAdmin.ts.
+const LANG_CODES = ["fr", "en", "it", "nl", "es"];
+/** Ripulisce un oggetto { lang: testo } tenendo solo codici noti e testi non vuoti. */
+function pulisciI18n(raw: unknown, max: number): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (raw && typeof raw === "object") {
+    const r = raw as Record<string, unknown>;
+    for (const code of LANG_CODES) {
+      const v = String(r[code] ?? "").trim();
+      if (v) out[code] = v.slice(0, max);
+    }
+  }
+  return out;
+}
+/** Errore Postgres dovuto alle colonne nuove non ancora migrate. */
+function mancaI18n(msg: string): boolean {
+  return msg.includes("name_i18n") || msg.includes("desc_i18n") || msg.includes("sold_out");
+}
 
 /** Ordine della sezione (menu_categories); null se la sezione non esiste. */
 async function ordineCategoria(nome: string): Promise<number | null> {
@@ -68,6 +88,16 @@ function validaCampi(
     const v = String(body.description_en ?? "").trim();
     campi.description_en = v ? v.slice(0, 500) : null;
   }
+  if ("name_i18n" in body) {
+    campi.name_i18n = pulisciI18n(body.name_i18n, 120);
+  }
+  if ("desc_i18n" in body) {
+    const d = pulisciI18n(body.desc_i18n, 500);
+    campi.desc_i18n = d;
+    // Allinea le colonne legacy (menu pubblico attuale FR/EN)
+    campi.description_fr = d.fr ?? null;
+    campi.description_en = d.en ?? null;
+  }
   if ("image_url" in body) {
     const v = String(body.image_url ?? "").trim();
     if (v && !/^https:\/\/\S+$/i.test(v)) return { errore: "Photo invalide" };
@@ -90,6 +120,7 @@ function validaCampi(
   if ("is_vegan" in body) campi.is_vegan = !!body.is_vegan;
   if ("is_spicy" in body) campi.is_spicy = !!body.is_spicy;
   if ("is_suggestion" in body) campi.is_suggestion = !!body.is_suggestion;
+  if ("sold_out" in body) campi.sold_out = !!body.sold_out;
 
   // --- Sconto ---
   if ("discount_type" in body) {
@@ -126,15 +157,19 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
-    .from("menu_items")
-    .select(SELECT)
-    .order("category_order", { ascending: true })
-    .order("sort_order", { ascending: true })
-    .order("name", { ascending: true });
-
-  if (error) return json({ error: "Lecture impossible" }, 500);
-  return json({ items: data ?? [] });
+  const ordina = (sel: string) =>
+    supabaseAdmin
+      .from("menu_items")
+      .select(sel)
+      .order("category_order", { ascending: true })
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+  let res: { data: unknown[] | null; error: { message?: string } | null } = await ordina(SELECT);
+  if (res.error && mancaI18n(res.error.message ?? "")) {
+    res = await ordina(SELECT_BASE);
+  }
+  if (res.error) return json({ error: "Lecture impossible" }, 500);
+  return json({ items: res.data ?? [] });
 };
 
 // POST /api/admin/menu — crea un piatto
@@ -164,14 +199,19 @@ export const POST: APIRoute = async ({ request }) => {
   if (ord === null) return json({ error: "Section inconnue" }, 400);
   campi.category_order = ord;
 
-  const { data, error } = await supabaseAdmin
+  let res: { data: unknown; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_items")
     .insert(campi)
     .select(SELECT)
     .single();
-
-  if (error || !data) return json({ error: "Création impossible" }, 500);
-  return json({ item: data });
+  if (res.error && mancaI18n(res.error.message ?? "")) {
+    delete campi.name_i18n;
+    delete campi.desc_i18n;
+    delete campi.sold_out;
+    res = await supabaseAdmin.from("menu_items").insert(campi).select(SELECT_BASE).single();
+  }
+  if (res.error || !res.data) return json({ error: "Création impossible" }, 500);
+  return json({ item: res.data });
 };
 
 // PUT /api/admin/menu — aggiorna un piatto (campi parziali ammessi)
@@ -201,15 +241,20 @@ export const PUT: APIRoute = async ({ request }) => {
     campi.category_order = ord;
   }
 
-  const { data, error } = await supabaseAdmin
+  let res: { data: unknown; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_items")
     .update(campi)
     .eq("id", id)
     .select(SELECT)
     .single();
-
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
-  return json({ item: data });
+  if (res.error && mancaI18n(res.error.message ?? "")) {
+    delete campi.name_i18n;
+    delete campi.desc_i18n;
+    delete campi.sold_out;
+    res = await supabaseAdmin.from("menu_items").update(campi).eq("id", id).select(SELECT_BASE).single();
+  }
+  if (res.error || !res.data) return json({ error: "Modification impossible" }, 500);
+  return json({ item: res.data });
 };
 
 // PATCH /api/admin/menu — riordina i piatti di UNA sezione (drag & drop).

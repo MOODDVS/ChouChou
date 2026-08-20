@@ -1,0 +1,35 @@
+/* FAB condiviso: pulsante d'azione fisso in basso a destra, uguale su tutte
+   le pagine admin (agenda, clienti, ordini, ...). */
+.fab-add {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  z-index: 90;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  background: var(--c-accent);
+  color: var(--c-bg);
+  border: 1px solid var(--c-accent);
+  font-family: var(--font-title);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  padding: 0.9rem 1.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
+  transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+}
+.fab-add .fab-plus {
+  font-size: 1.2rem;
+  line-height: 1;
+  margin-right: 0.35rem;
+}
+.fab-add:hover {
+  background: var(--c-hover);
+  border-color: var(--c-hover);
+  transform: scale(0.94);
+}
+@media (max-width: 520px) {
+  .fab-add { bottom: calc(1.25rem + 72px); }
+}

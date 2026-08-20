@@ -2,14 +2,18 @@
 // Isola "Notes" della Accueil (lavagnetta staff). Solo markup: gli id sono
 // popolati/gestiti dallo script della pagina index.astro (anteprima + modale).
 // Non è una pagina di navigazione: nessun data-admin-page (resta sempre).
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <div class="tile tile-notes" id="notes-tile" data-tile="notes">
   <div class="ntile-head">
-    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Notes</div>
-    <button class="ntile-btn ntile-expand" id="notes-expand" type="button" title="Agrandir" aria-label="Agrandir">
+    <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>{t("home.notes")}</div>
+    <button class="ntile-btn ntile-expand" id="notes-expand" type="button" title={t("home.enlarge")} aria-label={t("home.enlarge")}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
     </button>
-    <button class="ntile-btn ntile-add" id="notes-add" type="button" title="Ajouter une note" aria-label="Ajouter une note">+</button>
+    <button class="ntile-btn ntile-add" id="notes-add" type="button" title={t("home.addNote")} aria-label={t("home.addNote")}>+</button>
   </div>
   <div class="notes-preview" id="notes-preview"></div>
 </div>

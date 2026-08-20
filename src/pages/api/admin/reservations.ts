@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { emailReviewResa, annullaEmailReview, emailAnnullataResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
+import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
 
@@ -15,6 +15,10 @@ function tavoliDalBody(v: unknown): string[] | null {
 
 /** Registra il cliente di una prenotazione manuale nella rubrica `clients`. */
 function registraClienteResa(r: { first_name?: string; last_name?: string; email?: string; phone?: string }): void {
+  // NB: nessuna cattura lingua qui — le prenotazioni manuali (walk-in/telefono)
+  // hanno lang di default 'fr' e non riflettono una scelta del cliente. La
+  // lingua del cliente si cattura solo dal widget web (vedi registraCliente in
+  // api/reservation.ts) o si imposta a mano nel modale cliente.
   void registraCliente({
     name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim(),
     email: r.email ?? null,
@@ -35,6 +39,12 @@ export const prerender = false;
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const STATI = ["pending", "confirmed", "seated", "cancelled", "noshow", "done"];
+// Lingue supportate dalle email cliente (widget prenotazione). Default fr.
+const LINGUE_RESA = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
+const normLang = (v: unknown): string => {
+  const c = String(v ?? "").trim().toLowerCase();
+  return LINGUE_RESA.has(c) ? c : "fr";
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -110,6 +120,67 @@ export const GET: APIRoute = async ({ request, url }) => {
       .limit(100);
     if (error) return json({ reservations: [] });
     return json({ reservations: data ?? [] });
+  }
+
+  // Typeahead CLIENTI per il modale "Nuova prenotazione": cerca per nome/cognome
+  // nella tabella `clients` (manuali/materializzati) + nelle prenotazioni passate,
+  // deduplica e ritorna max 8 risultati leggeri (nome, email, telefono).
+  const cs = (url.searchParams.get("client_search") ?? "").trim();
+  if (cs.length >= 2) {
+    const pulito = cs.replace(/[%,()*]/g, "").slice(0, 60);
+    if (!pulito) return json({ clients: [] });
+    type Match = { name: string; first_name: string; last_name: string; email: string; phone: string; blocked: boolean };
+    const out = new Map<string, Match>();
+    const keyOf = (m: Match) => (m.email || m.phone || m.name).toLowerCase();
+
+    // 1) tabella clients (campo `name` unico)
+    try {
+      const { data } = await supabaseAdmin
+        .from("clients")
+        .select("name, email, phone, blocked, hidden")
+        .ilike("name", `%${pulito}%`)
+        .limit(12);
+      for (const c of (data ?? []) as { name?: string; email?: string; phone?: string; blocked?: boolean; hidden?: boolean }[]) {
+        if (c.hidden) continue;
+        const name = String(c.name ?? "").trim();
+        if (!name) continue;
+        const parts = name.split(/\s+/);
+        const m: Match = {
+          name,
+          first_name: parts[0] ?? "",
+          last_name: parts.slice(1).join(" "),
+          email: String(c.email ?? "").trim(),
+          phone: String(c.phone ?? "").trim(),
+          blocked: Boolean(c.blocked),
+        };
+        out.set(keyOf(m), m);
+      }
+    } catch {
+      /* colonne blocked/hidden assenti su installazioni non migrate: si ignora */
+    }
+
+    // 2) prenotazioni passate (first_name / last_name)
+    try {
+      const { data } = await supabaseAdmin
+        .from("reservations")
+        .select("first_name, last_name, email, phone")
+        .or(`first_name.ilike.%${pulito}%,last_name.ilike.%${pulito}%`)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      for (const r of (data ?? []) as { first_name?: string; last_name?: string; email?: string; phone?: string }[]) {
+        const fn = String(r.first_name ?? "").trim();
+        const ln = String(r.last_name ?? "").trim();
+        const name = `${fn} ${ln}`.trim();
+        if (!name) continue;
+        const m: Match = { name, first_name: fn, last_name: ln, email: String(r.email ?? "").trim(), phone: String(r.phone ?? "").trim(), blocked: false };
+        const k = keyOf(m);
+        if (!out.has(k)) out.set(k, m);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return json({ clients: [...out.values()].slice(0, 8) });
   }
 
   // Statistiche CLIENTE per il modale dettagli (match per email e/o telefono)
@@ -345,6 +416,7 @@ export const POST: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    lang?: string;
     tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
@@ -361,6 +433,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Number.isFinite(people) || people < 1 || people > 100) {
     return json({ error: "Personnes invalide (1–100)" }, 400);
   }
+  const langCliente = normLang(body.lang);
 
   const svKey = /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null;
   const zonaSel = String(body.zone ?? "").trim() || null;
@@ -389,7 +462,7 @@ export const POST: APIRoute = async ({ request }) => {
       company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
       birthday: Boolean(body.birthday),
       special_event: Boolean(body.special_event),
-      lang: "fr",
+      lang: langCliente,
       status: "confirmed",
     })
     .select("*")
@@ -418,7 +491,7 @@ export const POST: APIRoute = async ({ request }) => {
           company: Boolean(body.business) ? String(body.company ?? "").trim() : "",
           birthday: Boolean(body.birthday),
           special_event: Boolean(body.special_event),
-          lang: "fr",
+          lang: langCliente,
           status: "confirmed",
         })
         .select("*")
@@ -429,6 +502,9 @@ export const POST: APIRoute = async ({ request }) => {
           try {
             await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((d2 as { id?: unknown }).id ?? ""));
           } catch { /* #37 assente */ }
+        }
+        if (String((d2 as { email?: string }).email ?? "").trim()) {
+          void inviaConfermaResa(d2 as unknown as ResaEmail);
         }
         void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
         registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
@@ -442,6 +518,11 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((data as { id?: unknown }).id ?? ""));
     } catch { /* #37 assente */ }
+  }
+  // Se lo staff ha inserito un'email, parte la conferma al cliente (come per
+  // le prenotazioni web). Senza email (walk-in anonimo) non si invia nulla.
+  if (String((data as { email?: string }).email ?? "").trim()) {
+    void inviaConfermaResa(data as unknown as ResaEmail);
   }
   void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
   registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
@@ -483,6 +564,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     special_event?: boolean;
     spent_cents?: number | null;
     source?: string;
+    lang?: string;
     tables?: unknown; // attribuzione MANUALE (auto_tables spento)
   };
   try {
@@ -571,6 +653,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.phone !== undefined) upd.phone = String(body.phone).trim();
   if (body.email !== undefined) upd.email = String(body.email).trim();
   if (body.notes !== undefined) upd.notes = String(body.notes).trim() || null;
+  if (body.lang !== undefined) upd.lang = normLang(body.lang);
   if (body.high_chair !== undefined) upd.high_chair = Boolean(body.high_chair);
   if (body.quiet !== undefined) upd.quiet = Boolean(body.quiet);
   if (body.birthday !== undefined) upd.birthday = Boolean(body.birthday);
@@ -672,7 +755,20 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   // Annullata dal ristoratore: avvisa il cliente nella sua lingua
   if (upd.status === "cancelled" && (data as { email?: string }).email) {
+    // Motivo facoltativo dal modale admin: mostrato nell'email al cliente.
+    const motivo = String((body as { reason?: unknown }).reason ?? "").trim().slice(0, 500);
+    (data as Record<string, unknown>).cancel_reason = motivo || null;
     void emailAnnullataResa(data as unknown as ResaEmail);
+  }
+  // No-show: email formale al cliente (rispettosa ma ferma), nella sua lingua.
+  // Solo alla transizione verso no-show, per non reinviare su PATCH ripetute.
+  if (
+    upd.status === "noshow" &&
+    statoPrima !== "noshow" &&
+    (body as { notify?: unknown }).notify === true &&
+    (data as { email?: string }).email
+  ) {
+    void emailNoShowResa(data as unknown as ResaEmail);
   }
   // Demande CONFERMATA dal ristoratore: ORA parte l'email di conferma al
   // cliente + la recensione J+1 (in modalità demande non erano partite)

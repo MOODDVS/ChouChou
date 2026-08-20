@@ -4,11 +4,17 @@
 // newsletter). Filtro per origine, copia dell'URL, eliminazione con
 // doppia conferma (bloccata se l'immagine è ancora utilizzata).
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 const sitePages = SITE_PAGES.filter((p) => SITE_IMAGE_SLOTS.some((s) => s.page === p));
 function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
@@ -18,11 +24,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
 }
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Assets — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.assets") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -34,7 +40,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -46,7 +52,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -145,6 +151,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       }
       .overlay.is-open { display: flex; }
       .modal { width: 100%; max-width: 460px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal { max-height: 90vh; overflow-y: auto; }
+      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
+      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
+      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -208,6 +218,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
@@ -220,18 +231,18 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               <polyline points="2 17 12 22 22 17" />
               <polyline points="2 12 12 17 22 12" />
             </svg>
-            Assets
+            {t("nav.assets")}
           </h1>
           <span class="spacer"></span>
-          <button class="pill add-btn" id="add-btn">+ Ajouter une image</button>
+          <button class="pill add-btn" id="add-btn">+ {t("as.addImage")}</button>
           <input type="file" id="add-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
-          <button class="pill add-btn" id="add-doc-btn" style="display:none">+ Ajouter un document</button>
+          <button class="pill add-btn" id="add-doc-btn" style="display:none">+ {t("as.addDoc")}</button>
           <input type="file" id="add-doc-file" accept=".pdf" style="display:none" />
         </div>
         <div class="tabs" id="main-tabs">
-          <button class="tab is-active" data-t="site"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" /></svg>Site</button>
-          <button class="tab" data-t="images"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>Images</button>
-          <button class="tab" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>Documents</button>
+          <button class="tab is-active" data-t="site"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" /></svg>{t("as.site")}</button>
+          <button class="tab" data-t="images"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>{t("as.images")}</button>
+          <button class="tab" data-t="documents"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>{t("tab.settings.documents")}</button>
         </div>
 
         <style>
@@ -249,7 +260,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               <button type="button" class={i === 0 ? "tab is-active" : "tab"} data-p={p}>{p}</button>
             ))}
           </div>
-          <p class="site-hint">Changez les photos du site public. Tant qu'une image n'est pas remplacee, la photo actuelle reste affichee.</p>
+          <p class="site-hint">{t("as.siteHint")}</p>
           {sitePages.map((p, i) => (
             <div class="site-page" data-page={p} style={i === 0 ? "" : "display:none"}>
               {groupsForPage(p).map(([g, slots]) => (
@@ -261,9 +272,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
                         <div class="card-img"><img src={s.fallback} alt="" loading="lazy" onerror="this.classList.add('is-broken')" /></div>
                         <div class="card-body">
                           <div class="card-name">{s.label}</div>
-                          <div class="card-meta"><span class="tag tag-l">{s.page}</span><span class="tag tag-u site-perso" hidden>Personnalisée</span></div>
+                          <div class="card-meta"><span class="tag tag-l">{s.page}</span><span class="tag tag-u site-perso" hidden>{t("as.personalized")}</span></div>
                         </div>
-                        <div class="card-actions"><button type="button" class="i-btn site-change" title="Changer l'image">✎</button><span class="spacer"></span><button type="button" class="i-btn site-reset" hidden title="Remettre par défaut">↺</button></div>
+                        <div class="card-actions"><button type="button" class="i-btn site-change" title={t("as.changeImage")}>✎</button><span class="spacer"></span><button type="button" class="i-btn site-reset" hidden title={t("as.resetDefault")}>↺</button></div>
                       </div>
                     ))}
                   </div>
@@ -275,17 +286,17 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
 
         <section data-tab="images" style="display:none">
         <div class="tabs tabs-sub" id="tabs">
-          <button class="tab is-active" data-b="">Toutes<span class="n" id="n-all"></span></button>
-          <button class="tab" data-b="menu">Menu<span class="n" id="n-menu"></span></button>
-          <button class="tab" data-b="marketing">Marketing<span class="n" id="n-pop"></span></button>
-          <button class="tab" data-b="libre">Libres<span class="n" id="n-lib"></span></button>
+          <button class="tab is-active" data-b="">{t("as.all")}<span class="n" id="n-all"></span></button>
+          <button class="tab" data-b="menu">{t("nav.menu")}<span class="n" id="n-menu"></span></button>
+          <button class="tab" data-b="marketing">{t("nav.marketing")}<span class="n" id="n-pop"></span></button>
+          <button class="tab" data-b="libre">{t("as.free")}<span class="n" id="n-lib"></span></button>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div class="grid" id="grid" style="display:none"></div>
         </section>
 
         <section data-tab="documents" style="display:none">
-          <div class="state" id="doc-state">Chargement…</div>
+          <div class="state" id="doc-state">{t("sup.loading")}</div>
           <div class="grid" id="doc-grid" style="display:none"></div>
         </section>
       </main>
@@ -298,21 +309,21 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <!-- Modale édition image -->
     <div class="overlay" id="ed-overlay">
       <div class="modal">
-        <button class="m-close" id="ed-close" aria-label="Fermer">×</button>
-        <h2 id="ed-title">Modifier l’image</h2>
+        <button class="m-close" id="ed-close" aria-label={t("common.close")}>×</button>
+        <h2 id="ed-title">{t("as.editImage")}</h2>
         <div class="ed-prev"><img id="ed-img" alt="" /></div>
         <div class="ed-meta" id="ed-meta"></div>
-        <span class="f-label">Nom du fichier</span>
+        <span class="f-label">{t("as.fileName")}</span>
         <div class="ed-name-row">
           <input type="text" id="ed-name" maxlength="70" />
           <span class="ed-ext" id="ed-ext"></span>
         </div>
-        <button type="button" class="ed-compress" id="ed-compress">Compresser en WebP 60%</button>
+        <button type="button" class="ed-compress" id="ed-compress">{t("as.compressWebp")}</button>
         <p class="ed-state" id="ed-state"></p>
         <div class="m-actions">
           <span class="m-msg" id="ed-msg"></span>
-          <button class="m-cancel" id="ed-cancel">Annuler</button>
-          <button class="m-save" id="ed-save">Enregistrer</button>
+          <button class="m-cancel" id="ed-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="ed-save">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -322,6 +333,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Img = {
         bucket: "menu" | "popups";
@@ -352,13 +368,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       }
       function peso(bytes: number): string {
         if (!bytes) return "";
-        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} Ko`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} ${tr("as.kb")}`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} ${tr("as.mb")}`;
       }
       function dataFr(iso: string): string {
         if (!iso) return "";
         const d = new Date(iso);
-        return isNaN(d.getTime()) ? "" : d.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric" });
+        return isNaN(d.getTime()) ? "" : d.toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "numeric" });
       }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
@@ -377,17 +393,17 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       function cardHTML(i: Img): string {
         const usata = i.used_by.length > 0;
         const tagsB = i.tags.length
-          ? i.tags.map((t) => `<span class="tag tag-b">${t === "menu" ? "Menu" : "Marketing"}</span>`).join("")
-          : '<span class="tag tag-l">Libre</span>';
+          ? i.tags.map((t) => `<span class="tag tag-b">${t === "menu" ? tr("nav.menu") : tr("nav.marketing")}</span>`).join("")
+          : `<span class="tag tag-l">${tr("as.freeSg")}</span>`;
         const tagU = usata
-          ? `<span class="tag tag-u" title="${esc(i.used_by.join(", "))}">Utilisée</span>`
+          ? `<span class="tag tag-u" title="${esc(i.used_by.join(", "))}">${tr("as.used")}</span>`
           : "";
         const del = usata
-          ? `<button class="i-btn i-del a-del" disabled title="Utilisée — impossible à supprimer">${ICO_TRASH}</button>`
-          : `<button class="i-btn i-del a-del" title="Supprimer">${ICO_TRASH}</button>`;
+          ? `<button class="i-btn i-del a-del" disabled title="${tr("as.usedCannotDelete")}">${ICO_TRASH}</button>`
+          : `<button class="i-btn i-del a-del" title="${tr("common.delete")}">${ICO_TRASH}</button>`;
         return `
           <div class="card" data-bucket="${i.bucket}" data-name="${esc(i.name)}" data-url="${esc(i.url)}">
-            <a class="card-img" href="${esc(i.url)}" target="_blank" rel="noopener" title="Ouvrir en grand">
+            <a class="card-img" href="${esc(i.url)}" target="_blank" rel="noopener" title="${tr("as.openLarge")}">
               <img src="${esc(i.url)}" alt="" loading="lazy" />
             </a>
             <div class="card-body">
@@ -400,8 +416,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               <div class="card-date">${dataFr(i.created_at)}</div>
             </div>
             <div class="card-actions">
-              <button class="i-btn a-copy" title="Copier l'URL">${ICO_COPY}</button>
-              <button class="i-btn a-edit" title="Modifier">✎</button>
+              <button class="i-btn a-copy" title="${tr("as.copyUrl")}">${ICO_COPY}</button>
+              <button class="i-btn a-edit" title="${tr("common.edit")}">✎</button>
               <span class="spacer"></span>
               ${del}
             </div>
@@ -427,7 +443,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         if (!vis.length) {
           gridEl.style.display = "none";
           stateEl.style.display = "";
-          stateEl.textContent = "Aucune image pour le moment — téléverse une photo depuis Menu ou Marketing.";
+          stateEl.textContent = tr("home.noImages");
           return;
         }
         stateEl.style.display = "none";
@@ -443,7 +459,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           render();
         } catch {
           stateEl.style.display = "";
-          stateEl.textContent = "Erreur de chargement.";
+          stateEl.textContent = tr("sup.load.error");
         }
       }
 
@@ -454,7 +470,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         if (!docs.length) {
           grid.style.display = "none";
           st.style.display = "";
-          st.textContent = "Aucun document pour le moment — ajoute un PDF avec le bouton en haut.";
+          st.textContent = tr("as.noDocs");
           return;
         }
         st.style.display = "none";
@@ -463,7 +479,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           .map(
             (d) => `
           <div class="card" data-name="${esc(d.name)}">
-            <a class="card-img" href="${esc(d.url)}" target="_blank" rel="noopener" title="Ouvrir le PDF">
+            <a class="card-img" href="${esc(d.url)}" target="_blank" rel="noopener" title="${tr("as.openPdf")}">
               ${d.thumb_url ? `<img class="card-pdf-thumb" src="${esc(d.thumb_url)}" alt="" loading="lazy" />` : `<span class="card-pdf-ph">${ICO_PDF}</span>`}
             </a>
             <div class="card-body">
@@ -475,10 +491,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               <div class="card-date">${dataFr(d.created_at)}</div>
             </div>
             <div class="card-actions">
-              <button class="i-btn d-copy" title="Copier l'URL">${ICO_COPY}</button>
-              <button class="i-btn d-edit" title="Renommer">✎</button>
+              <button class="i-btn d-copy" title="${tr("as.copyUrl")}">${ICO_COPY}</button>
+              <button class="i-btn d-edit" title="${tr("as.rename")}">✎</button>
               <span class="spacer"></span>
-              <button class="i-btn i-del d-del" title="Supprimer">${ICO_TRASH}</button>
+              <button class="i-btn i-del d-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
           </div>`
           )
@@ -541,7 +557,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         } catch {
           const st = document.getElementById("doc-state") as HTMLDivElement;
           st.style.display = "";
-          st.textContent = "Erreur de chargement.";
+          st.textContent = tr("sup.load.error");
         }
       }
 
@@ -570,11 +586,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edTarget = img;
         edDoc = null;
         edCompressa = null;
-        edTitle.textContent = "Modifier l'image";
+        edTitle.textContent = tr("as.editImage");
         (edImg.parentElement as HTMLElement).style.display = "";
         const { base, ext } = spezzaNome(img.name);
         edImg.src = img.url;
-        edMeta.textContent = `Poids : ${peso(img.size)} · ${dataFr(img.created_at)}`;
+        edMeta.textContent = `${tr("as.weight")} : ${peso(img.size)} · ${dataFr(img.created_at)}`;
         edName.value = base;
         edExt.textContent = ext;
         edMsg.textContent = "";
@@ -582,7 +598,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         const giaOttimizzata = ext.toLowerCase() === ".webp" && img.size < 400 * 1024;
         edCompress.style.display = giaOttimizzata ? "none" : "";
         edCompress.disabled = false;
-        if (giaOttimizzata) edState.textContent = "Déjà au format WebP et légère — compression inutile.";
+        if (giaOttimizzata) edState.textContent = tr("as.alreadyWebp");
         edOverlay.classList.add("is-open");
       }
       function chiudiEdit() {
@@ -596,10 +612,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edDoc = d;
         edTarget = null;
         edCompressa = null;
-        edTitle.textContent = "Renommer le document";
+        edTitle.textContent = tr("as.renameDoc");
         (edImg.parentElement as HTMLElement).style.display = "none";
         edCompress.style.display = "none";
-        edMeta.textContent = `Poids : ${peso(d.size)} · ${dataFr(d.created_at)}`;
+        edMeta.textContent = `${tr("as.weight")} : ${peso(d.size)} · ${dataFr(d.created_at)}`;
         edName.value = spezzaNome(d.name).base;
         edExt.textContent = ".pdf";
         edMsg.textContent = "";
@@ -612,7 +628,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edMsg.textContent = "";
         const base = edName.value.trim();
         if (!base) {
-          edMsg.textContent = "Nom requis.";
+          edMsg.textContent = tr("as.nameRequired");
           return;
         }
         const nuovo = base + ".pdf";
@@ -630,14 +646,14 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           });
           const j = await res.json();
           if (!res.ok) {
-            edMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            edMsg.textContent = j.error ?? tr("res.saveError");
             return;
           }
           chiudiEdit();
-          toast("Document modifié ✓");
+          toast(`${tr("as.docModified")} ✓`);
           await caricaDocs();
         } catch {
-          edMsg.textContent = "Erreur de connexion.";
+          edMsg.textContent = tr("common.netErr");
         } finally {
           edSave.disabled = false;
           edSave.classList.remove("is-loading");
@@ -647,13 +663,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       edCompress.addEventListener("click", async () => {
         if (!edTarget) return;
         edCompress.disabled = true;
-        edState.textContent = "Compression…";
+        edState.textContent = tr("as.compressing");
         try {
           const blob = await (await fetch(edTarget.url)).blob();
           const originale = new File([blob], edTarget.name, { type: blob.type });
           const ridotta = await comprimiFoto(originale);
           if (ridotta === originale || ridotta.size >= originale.size) {
-            edState.textContent = "Compression sans gain — l'image est déjà optimisée.";
+            edState.textContent = tr("as.compressNoGain");
             edCompress.disabled = false;
             return;
           }
@@ -661,9 +677,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           edImg.src = URL.createObjectURL(ridotta);
           edExt.textContent = spezzaNome(ridotta.name).ext;
           const pct = Math.round((1 - ridotta.size / originale.size) * 100);
-          edState.textContent = `${peso(originale.size)} → ${peso(ridotta.size)} (−${pct}%) — enregistre pour appliquer.`;
+          edState.textContent = `${peso(originale.size)} → ${peso(ridotta.size)} (−${pct}%) — ${tr("as.compressApply")}`;
         } catch {
-          edState.textContent = "Compression impossible (image illisible).";
+          edState.textContent = tr("as.compressFailed");
           edCompress.disabled = false;
         }
       });
@@ -677,7 +693,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edMsg.textContent = "";
         const base = edName.value.trim();
         if (!base) {
-          edMsg.textContent = "Nom requis.";
+          edMsg.textContent = tr("as.nameRequired");
           return;
         }
         const { ext } = spezzaNome(edTarget.name);
@@ -708,14 +724,14 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           });
           const j = await res.json();
           if (!res.ok) {
-            edMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            edMsg.textContent = j.error ?? tr("res.saveError");
             return;
           }
           chiudiEdit();
-          toast("Image modifiée ✓");
+          toast(`${tr("as.imgModified")} ✓`);
           await carica();
         } catch {
-          edMsg.textContent = "Erreur de connexion.";
+          edMsg.textContent = tr("common.netErr");
         } finally {
           edSave.disabled = false;
           edSave.classList.remove("is-loading");
@@ -778,11 +794,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           addBtn.classList.add("is-loading");
           try {
             const foto = await comprimiFoto(file);
-            if (foto.size > 4 * 1024 * 1024) throw new Error("Fichier trop lourd (max 4 Mo)");
+            if (foto.size > 4 * 1024 * 1024) throw new Error(tr("as.tooBig4"));
             const b64 = await new Promise<string>((resolve, reject) => {
               const r = new FileReader();
               r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.onerror = () => reject(new Error(tr("as.fileUnreadable")));
               r.readAsDataURL(foto);
             });
             const res = await fetch("/api/admin/upload", {
@@ -791,11 +807,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups" }),
             });
             const j = await res.json();
-            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
-            toast("Image ajoutée ✓");
+            if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
+            toast(`${tr("as.imgAdded")} ✓`);
             await carica();
           } catch (err) {
-            toast(err instanceof Error ? err.message : "Téléversement impossible", true);
+            toast(err instanceof Error ? err.message : tr("as.uploadFailed"), true);
           } finally {
             addBtn.disabled = false;
             addBtn.classList.remove("is-loading");
@@ -811,12 +827,12 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           const file = addDocFile.files?.[0];
           if (!file) return;
           if (!file.name.toLowerCase().endsWith(".pdf")) {
-            toast("Seuls les PDF sont acceptés", true);
+            toast(tr("as.onlyPdf"), true);
             addDocFile.value = "";
             return;
           }
           if (file.size > 10 * 1024 * 1024) {
-            toast("Fichier trop lourd (max 10 Mo)", true);
+            toast(tr("as.tooBig10"), true);
             addDocFile.value = "";
             return;
           }
@@ -826,7 +842,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             const b64 = await new Promise<string>((resolve, reject) => {
               const r = new FileReader();
               r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-              r.onerror = () => reject(new Error("Fichier illisible"));
+              r.onerror = () => reject(new Error(tr("as.fileUnreadable")));
               r.readAsDataURL(file);
             });
             const res = await fetch("/api/admin/upload", {
@@ -835,7 +851,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               body: JSON.stringify({ filename: file.name, data: b64, bucket: "documents" }),
             });
             const j = await res.json();
-            if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+            if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
             // Anteprima della prima pagina (best-effort: se fallisce resta l'icona)
             const nomeCaricato = decodeURIComponent(String(j.url ?? "").split("/").pop() ?? "");
             const thumb = await generaAnteprima(file);
@@ -846,10 +862,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
                 body: JSON.stringify({ name: nomeCaricato, thumb }),
               }).catch(() => {});
             }
-            toast("Document ajouté ✓");
+            toast(`${tr("as.docAdded")} ✓`);
             await caricaDocs();
           } catch (err) {
-            toast(err instanceof Error ? err.message : "Téléversement impossible", true);
+            toast(err instanceof Error ? err.message : tr("as.uploadFailed"), true);
           } finally {
             addDocBtn.disabled = false;
             addDocBtn.classList.remove("is-loading");
@@ -868,9 +884,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (t.closest(".d-copy")) {
             try {
               await navigator.clipboard.writeText(doc.url);
-              toast("URL copiée ✓");
+              toast(`${tr("as.urlCopied")} ✓`);
             } catch {
-              toast("Copie impossible", true);
+              toast(tr("as.copyFailed"), true);
             }
             return;
           }
@@ -882,7 +898,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => {
                 del.classList.remove("confirm");
                 del.innerHTML = ICO_TRASH;
@@ -896,13 +912,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               });
               const j = await res.json();
               if (!res.ok) {
-                toast(j.error ?? "Suppression impossible", true);
+                toast(j.error ?? tr("us.delErr"), true);
                 return;
               }
-              toast("Document supprimé");
+              toast(tr("as.docDeleted"));
               await caricaDocs();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
           }
         });
@@ -971,7 +987,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (!url) return;
           siteAggiorna(slot, url);
           void siteSalva(slot.dataset.key ?? "", url).then((ok) =>
-            toast(ok ? "Image mise a jour" : "Enregistrement impossible", !ok)
+            toast(ok ? tr("as.imgUpdated") : tr("common.saveErr"), !ok)
           );
         });
         secSite.addEventListener("click", (e) => {
@@ -984,7 +1000,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           } else if (el.closest(".site-reset")) {
             siteAggiorna(slot, "");
             void siteSalva(slot.dataset.key ?? "", "").then((ok) =>
-              toast(ok ? "Image reinitialisee" : "Erreur", !ok)
+              toast(ok ? tr("as.imgReset") : tr("ord.errShort"), !ok)
             );
           }
         });
@@ -1017,9 +1033,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (t.closest(".a-copy")) {
             try {
               await navigator.clipboard.writeText(card.dataset.url ?? "");
-              toast("URL copiée ✓");
+              toast(`${tr("as.urlCopied")} ✓`);
             } catch {
-              toast("Copie impossible", true);
+              toast(tr("as.copyFailed"), true);
             }
             return;
           }
@@ -1028,7 +1044,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           if (del && !del.disabled) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => {
                 del.classList.remove("confirm");
                 del.innerHTML = ICO_TRASH;
@@ -1040,13 +1056,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               const res = await fetch("/api/admin/images?" + qs.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
               const j = await res.json();
               if (!res.ok) {
-                toast(j.error ?? "Suppression impossible", true);
+                toast(j.error ?? tr("us.delErr"), true);
                 return;
               }
-              toast("Image supprimée");
+              toast(tr("as.imgDeleted"));
               await carica();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
           }
         });

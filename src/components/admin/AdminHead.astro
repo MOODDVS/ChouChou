@@ -1,0 +1,50 @@
+---
+/**
+ * ANTI-FLASH del tema — va messo in fondo al <head> di OGNI pagina admin.
+ *
+ * Stampa lato SERVER i colori del cliente (Réglages → Design), l'effet verre,
+ * l'intensita' delle ombre, la barra colorata del browser e la favicon del
+ * brand. Essendo nel <head>, arrivano PRIMA del primo paint: niente piu'
+ * lampo arancione MOODD in attesa del fetch di /api/admin/pages.
+ *
+ * Costo: zero query in piu' — caricaBootAdmin() e' la stessa lettura, in
+ * cache 60s, che le pagine gia' fanno per la lingua (adminLang()).
+ *
+ * AdminNav continua ad applicare il tema anche lato client dopo il fetch:
+ * serve a recepire un cambio di colori avvenuto DENTRO i 60s di cache.
+ */
+import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
+
+const boot = await caricaBootAdmin();
+// FAB condiviso: pulsante d'azione fisso in basso a destra, identico su ogni
+// pagina admin. Definito qui (fondo <head>) così vince sempre nella cascata.
+const FAB_CSS =
+  ".fab-add{position:fixed;right:1.5rem;bottom:1.25rem;z-index:90;display:inline-flex;align-items:center;box-sizing:border-box;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);font-family:var(--font-title);font-size:1.05rem;letter-spacing:.05em;padding:.9rem 1.5rem;border-radius:999px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,calc(.45*var(--sh,.15)));transition:background .2s,color .2s,transform .15s,border-color .2s}" +
+  ".fab-add .fab-plus{font-size:1.2rem;line-height:1;margin-right:.35rem}" +
+  ".fab-add:hover{background:var(--c-hover);border-color:var(--c-hover);transform:scale(.94)}" +
+  "@media(max-width:520px){.fab-add{bottom:calc(1.25rem + 72px)}}";
+const css = cssTema(boot.theme) + FAB_CSS;
+
+const hex = (v: string | undefined): string =>
+  typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
+
+// I tag <meta name="theme-color"> e <link rel="icon"> sono dichiarati piu' in
+// alto nel <head>, quindi qui esistono gia': un micro script inline (sincrono,
+// pre-paint) li riallinea. Nessun localStorage, nessuna rete: i valori sono
+// gia' scritti dentro lo script dal server.
+const righe: string[] = [];
+if (boot.theme.glass === "on") righe.push('d.documentElement.classList.add("glass")');
+const bg = hex(boot.theme.bg);
+if (bg) {
+  righe.push(`d.querySelector('meta[name="theme-color"]')?.setAttribute("content",${JSON.stringify(bg)})`);
+}
+if (boot.logo) {
+  righe.push(`d.querySelectorAll('link[rel~="icon"]').forEach(function(l){l.setAttribute("href",${JSON.stringify(boot.logo)})})`);
+}
+const script = righe.length ? `(function(){var d=document;${righe.join(";")}})()` : "";
+---
+
+{/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo
+    al <head>, dopo i :root della pagina => vince nella cascata. */}
+{css && <style is:inline set:html={css} />}
+{script && <script is:inline set:html={script} />}

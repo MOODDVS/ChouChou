@@ -41,6 +41,9 @@ interface CreaSessioneInput {
   orderId: string;
   siteUrl: string;
   lang?: "fr" | "en";
+  // Base URL di ritorno (es. "/demo01") per gli ordini che partono da un
+  // template: vince sul prefisso lingua. Assente = comportamento standard.
+  returnBase?: string;
   // Sconto coupon già calcolato lato server (centesimi). Se presente, viene
   // creato un coupon Stripe "usa e getta" (duration: once) applicato alla
   // sessione: il cliente vede la riduzione e paga il totale scontato.
@@ -56,6 +59,7 @@ export async function creaCheckoutSession({
   orderId,
   siteUrl,
   lang = "fr",
+  returnBase,
   discount,
 }: CreaSessioneInput): Promise<string> {
   // Prefisso lingua per gli URL di ritorno: EN sotto /en/, FR senza prefisso.
@@ -86,8 +90,8 @@ export async function creaCheckoutSession({
     })),
     ...(discounts ? { discounts } : {}),
     metadata: { order_id: orderId },
-    success_url: `${siteUrl}${prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${siteUrl}${prefix}/order-cancel`,
+    success_url: `${siteUrl}${returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${returnBase ? `&lang=${lang}` : ""}`,
+    cancel_url: `${siteUrl}${returnBase ?? prefix}/order-cancel${returnBase ? `?lang=${lang}` : ""}`,
   });
 
   if (!session.url) {
@@ -125,6 +129,43 @@ export async function creaCheckoutBon(opts: {
     metadata: { gift_card_id: opts.giftCardId },
     success_url: `${opts.siteUrl}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${opts.siteUrl}/order-cancel`,
+  });
+  if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
+  return session.url;
+}
+
+/**
+ * Crea una Checkout Session per il SUPPLEMENTO di un ordine gia' pagato:
+ * la DIFFERENZA da incassare dopo una modifica che ha aumentato il totale.
+ * metadata.supplement="1" + order_id -> il webhook la riconosce, azzera
+ * supplement_due_cents e segna supplement_paid_at, SENZA ritoccare lo stato
+ * ne' rimandare le email di conferma (l'ordine e' gia' 'paid').
+ */
+export async function creaCheckoutSupplemento(opts: {
+  orderId: string;
+  diffCents: number;
+  numero: string;
+  siteUrl: string;
+  lang?: "fr" | "en";
+  returnBase?: string;
+}): Promise<string> {
+  const prefix = opts.lang === "en" ? "/en" : "";
+  const label =
+    opts.lang === "en"
+      ? `Order #${opts.numero} — extra`
+      : `Commande #${opts.numero} — supplement`;
+  const session = await stripe.checkout.sessions.create({
+    mode: "payment",
+    payment_method_types: ["card"],
+    line_items: [
+      {
+        price_data: { currency: "eur", product_data: { name: label }, unit_amount: opts.diffCents },
+        quantity: 1,
+      },
+    ],
+    metadata: { order_id: opts.orderId, supplement: "1" },
+    success_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${opts.returnBase ? `&lang=${opts.lang ?? "fr"}` : ""}`,
+    cancel_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-cancel${opts.returnBase ? `?lang=${opts.lang ?? "fr"}` : ""}`,
   });
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;

@@ -2,19 +2,23 @@
 // Isola "Réservations" della Accueil → pagina Réservations.
 // data-admin-page="reservations": AdminNav la rimuove se il super la disattiva.
 // Gli id sono popolati dallo script di index.astro (résas + couverts di oggi).
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <a class="tile" href="/admin/reservations" data-admin-page="reservations" data-tile="reservations">
-  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>Réservations</div>
+  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>{t("nav.reservations")}</div>
   <div class="resa-two">
     <div>
       <div class="tile-big" id="resa-count">0</div>
-      <div class="tile-sub" id="resa-sub">aujourd'hui</div>
+      <div class="tile-sub" id="resa-sub">{t("home.today")}</div>
     </div>
     <div class="resa-mini" id="resa-mini"></div>
   </div>
   <div class="resa-perm" id="resa-perm" style="display:none"></div>
   <div class="tile-next">
-    <span class="lab">Prochaines réservations</span>
+    <span class="lab">{t("home.nextReservations")}</span>
     <div class="ord-nexts" id="resa-next-list"></div>
   </div>
 </a>

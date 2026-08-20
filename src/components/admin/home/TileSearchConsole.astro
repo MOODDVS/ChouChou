@@ -2,27 +2,31 @@
 // Isola "Visibilité" della Accueil: clic + impression Google (28 gg) con
 // tendenza, e le principali requêtes che portano al sito. Alimentata da
 // /api/admin/search-console. Senza propriété configurée la tuile reste cachée.
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <div class="tile tile-visi" data-tile="visibilite" id="tile-visi" style="display:none">
   <div class="tile-title">
     <svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18" /><path d="M7 14l3-4 3 3 5-7" /></svg>
-    Visibilité
+    {t("home.visibility")}
   </div>
 
   <div class="visi-top">
     <div>
       <span class="tile-big" id="visi-clicks">—</span>
       <span class="visi-delta" id="visi-delta"></span>
-      <span class="visi-lab">clics · 28 j</span>
+      <span class="visi-lab">{t("home.clicks28")}</span>
     </div>
     <div class="visi-imp">
       <span class="visi-imp-n" id="visi-imp">—</span>
-      <span class="visi-lab">impressions</span>
+      <span class="visi-lab">{t("home.impressions")}</span>
     </div>
   </div>
 
   <div class="visi-queries" id="visi-queries">
-    <span class="visi-h">Mots-clés qui mènent au site</span>
+    <span class="visi-h">{t("home.keywords")}</span>
     <ul id="visi-list"></ul>
   </div>
 </div>

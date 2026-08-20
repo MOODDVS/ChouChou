@@ -70,26 +70,44 @@ export const POST: APIRoute = async ({ request }) => {
   const first_name = String(body.first_name ?? "").trim().slice(0, 60);
   const last_name = String(body.last_name ?? "").trim().slice(0, 60);
   if (!RE_EMAIL.test(email)) return json({ error: "Email invalide." }, 400);
-  if (password.length < 8) return json({ error: "Mot de passe : 8 caractères minimum." }, 400);
+  const role = RUOLI.includes(String(body.role)) ? String(body.role) : "admin";
+  const meta = { first_name, last_name, full_name: `${first_name} ${last_name}`.trim() };
 
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true, // niente email di verifica: l'accesso è immediato
-    user_metadata: {
-      first_name,
-      last_name,
-      full_name: `${first_name} ${last_name}`.trim(),
-    },
-    // Ruolo: in app_metadata → scrivibile SOLO con la service key
-    app_metadata: { role: RUOLI.includes(String(body.role)) ? String(body.role) : "admin" },
+  // Password fornita → creazione diretta (accesso immediato).
+  // Password vuota → INVITO via email: l'utente sceglie la sua password.
+  if (password) {
+    if (password.length < 8) return json({ error: "Mot de passe : 8 caractères minimum." }, 400);
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // niente email di verifica: l'accesso è immediato
+      user_metadata: meta,
+      app_metadata: { role }, // ruolo scrivibile SOLO con la service key
+    });
+    if (error) {
+      const msg = String(error.message ?? "");
+      if (/already/i.test(msg)) return json({ error: "Cet email a déjà un accès." }, 409);
+      return json({ error: "Création impossible" }, 500);
+    }
+    return json({ ok: true, id: data.user?.id, mode: "created" }, 201);
+  }
+
+  // INVITO: crea l'utente e invia l'email d'invito (template Supabase "Invite user").
+  const base = (import.meta.env.PUBLIC_SITE_URL ?? new URL(request.url).origin).replace(/\/+$/, "");
+  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    data: meta,
+    redirectTo: `${base}/admin/reset-password`,
   });
   if (error) {
     const msg = String(error.message ?? "");
-    if (/already/i.test(msg)) return json({ error: "Cet email a déjà un accès." }, 409);
-    return json({ error: "Création impossible" }, 500);
+    if (/already|registered|exist/i.test(msg)) return json({ error: "Cet email a déjà un accès." }, 409);
+    return json({ error: "Invitation impossible" }, 500);
   }
-  return json({ ok: true, id: data.user?.id }, 201);
+  // Il ruolo va in app_metadata dopo l'invito (non impostabile via inviteUserByEmail).
+  if (data.user?.id) {
+    await supabaseAdmin.auth.admin.updateUserById(data.user.id, { app_metadata: { role } });
+  }
+  return json({ ok: true, id: data.user?.id, mode: "invited" }, 201);
 };
 
 export const PUT: APIRoute = async ({ request }) => {

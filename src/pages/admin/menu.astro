@@ -3,12 +3,22 @@
 // (creare/rinominare/riordinare/eliminare, tipo cibo/bevanda)
 // e CRUD dei piatti.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
+import { CATEGORIE_STANDARD } from "../../lib/admin/categorieStandard";
+import "../../styles/datepicker.css";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -24,13 +34,25 @@ try {
   ssrMenu = null;
 }
 const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") : "";
+
+// Lingue del SITO PUBBLICO (per i campi traduzione dei piatti): { langs, def }.
+// Lingue pubbliche: gia' incluse nel boot admin (UNA query in cache 60s
+// condivisa con lang/tema) invece di una seconda query app_config per pagina.
+const boot = await caricaBootAdmin();
+const pubLangs = { langs: boot.publicLangs, def: boot.publicLangDefault };
+const pubLangsJson = JSON.stringify({
+  langs: pubLangs.langs,
+  def: pubLangs.def,
+  labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
+}).replace(/</g, "\\u003c");
+const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Menu — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.menu") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -42,7 +64,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -54,7 +76,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -133,6 +155,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
       .tab .k-ico { width: 13px; height: 13px; margin-right: 0.35rem; vertical-align: -2px; }
+      .tab.is-sub { border-style: dashed; border-color: color-mix(in srgb, var(--c-accent) 45%, var(--c-line)); background: color-mix(in srgb, var(--c-accent) 8%, transparent); font-size: 0.78rem; padding-left: 0.7rem; }
+      .tab.is-sub.is-active { border-style: solid; background: var(--c-accent); }
+      .tab .tab-arrow { color: var(--c-accent); margin-right: 0.3rem; font-weight: 700; letter-spacing: -2px; }
+      .tab.is-active .tab-arrow { color: var(--c-bg); }
       .k-filtri {
         display: flex; gap: 0.45rem; flex-wrap: wrap;
         padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line);
@@ -155,6 +181,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .cat-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1rem 0 0.6rem; }
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
       .cat-count { color: var(--c-muted); font-size: 0.8rem; }
+      .sub-head {
+        display: flex; align-items: center; gap: 0.6rem;
+        margin: 0.55rem 0 0.45rem; padding: 0.55rem 1rem;
+        background: color-mix(in srgb, var(--c-card) 78%, #fff);
+        border: 1px solid color-mix(in srgb, #fff 14%, transparent);
+        border-radius: 12px; color: #fff; user-select: none;
+        transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+      }
+      .sub-head.dragging { opacity: 0.6; }
+      .sub-head.drop-target { background: color-mix(in srgb, var(--c-accent) 48%, var(--c-bg)); border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 45%, transparent); }
+      .sub-head .s-drag { color: rgba(255,255,255,0.75); cursor: grab; font-size: 1.05rem; }
+      .sub-head .s-drag:active { cursor: grabbing; }
+      .sub-head .sub-arrow { color: rgba(255,255,255,0.7); font-weight: 700; letter-spacing: -2px; }
+      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: #fff; }
+      .sub-head .cat-count { color: rgba(255,255,255,0.72); font-size: 0.78rem; margin-left: auto; }
+      #list[data-mode="search"] .sub-head .s-drag { display: none; }
 
       .item {
         display: flex; align-items: center; gap: 0.9rem;
@@ -175,6 +217,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .i-main { flex: 1; min-width: 0; }
       .i-name { font-weight: 700; }
       .i-badges { display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; }
+      .i-soldout { display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .i-badge { font-size: 0.82rem; line-height: 1; }
       .b-best { color: var(--c-accent); }
       .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -192,6 +235,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .i-table-lab { font-size: 0.55rem; color: var(--c-muted); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; }
 
       .sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+      .i-switches { display: inline-flex; align-items: center; gap: 1.15rem; }
+      .switch.sw-sold input:checked + .track { background: #c0453b; }
       .sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
       .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
       .switch input { opacity: 0; width: 0; height: 0; }
@@ -226,9 +271,53 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       .overlay.is-open { display: flex; }
       .modal { width: 100%; max-width: 620px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
+      /* Modali: header (h2) e footer (azioni) fissi, scroll interno al corpo.
+         Nei modali a 2 colonne scorre solo la colonna con contenuto lungo. */
+      .modal { max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+      .modal > h2 { flex: 0 0 auto; }
+      .modal > .m-actions { flex: 0 0 auto; margin-top: auto; background: var(--c-bg); }
+      /* Dish/Lunch: le colonne scrollano da sole */
+      .modal-dish .m-cols, #lu-overlay .m-cols { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow: hidden; }
+      .modal-dish .m-col, #lu-overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
+      @media (max-width: 780px) {
+        .modal-dish .m-cols, #lu-overlay .m-cols { overflow-y: auto; }
+        .modal-dish .m-col, #lu-overlay .m-col { overflow: visible; }
+      }
+      /* Sezioni: la lista scrolla, header (titolo+hint) e footer (aggiungi) restano */
+      #sec-overlay #sec-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+      #sec-overlay .sec-add, #sec-overlay #sec-msg { flex: 0 0 auto; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
+      /* Modale "Gestisci le sezioni": più largo e centrato verticalmente */
+      #sec-overlay .modal { max-width: 860px; margin: auto; }
+      #overlay .modal-dish { margin: auto; }
+      #lu-overlay .modal { max-width: 940px; margin: auto; }
+      #mn-overlay .modal { max-width: 940px; margin: auto; }
+      .mn-corso { margin-bottom: 0.8rem; }
+      .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+      .mn-corso-tipo { flex: 1; min-width: 130px; }
+      .mn-corso-nomi { margin-bottom: 0.3rem; }
+      .mn-custom { border: 1px solid var(--c-line); border-radius: 10px; padding: 0.6rem 0.7rem; margin-top: 0.5rem; }
+      .mn-custom-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+      .mn-corso-nome { flex: 1; }
+      .mn-corso-del { flex-shrink: 0; }
+      .mn-corso-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+      .mn-corso-cat { flex: 1; min-width: 140px; }
+      .mn-mode-group { display: inline-flex; border: 1px solid var(--c-line); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+      .mn-mode { background: transparent; border: none; color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.75rem; padding: 0.4rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+      .mn-mode.is-on { background: var(--c-accent); color: var(--c-bg); }
+      .lu-course-mode { font-size: 0.72rem; font-weight: 700; color: var(--c-muted); text-transform: none; letter-spacing: 0; margin-left: 0.4rem; }
+      .sm-draft { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: 0.1rem 0.5rem; vertical-align: middle; margin-left: 0.4rem; }
+
+      /* Modale piatto a 2 colonne + tab */
+      .modal-dish { max-width: 940px; }
+      .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
+      @media (max-width: 780px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
+      .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+      .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .m-tab:hover { color: var(--c-text); }
+      .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
@@ -262,6 +351,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .m-toggle .switch input:checked + .track::before { transform: translateX(20px); }
       .m-badges { flex-wrap: wrap; gap: 1.1rem 1.6rem; margin-top: 0.2rem; }
       .m-sublabel { display: block; margin-bottom: 0.4rem; }
+      .m-sep { border-top: 1px solid var(--c-line); margin: 0.7rem 0 0.9rem; }
+      .m-states { flex-wrap: wrap; gap: 0.9rem 1.4rem; }
 
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -278,7 +369,19 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       /* --- Modale sezioni --- */
       .sec-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
+      .sec-row { position: relative; }
+      .sec-row .s-tree { color: var(--c-muted); font-size: 0.8rem; letter-spacing: -1px; flex-shrink: 0; opacity: 0.7; }
+      .sec-row.is-sub { }
+      .sec-sub-btn { color: var(--c-muted); }
+      .sec-sub-btn:hover { color: var(--c-accent); }
+      .sec-parent-pill { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem; }
+      .sec-parent-pill button { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
       .sec-row input[type="text"] { flex: 1; }
+      .sec-row .s-trad { flex-shrink: 0; }
+      .sec-row .s-trad.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .sec-auto { flex-shrink: 0; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: var(--c-muted); border: 1px solid var(--c-line); border-radius: 999px; }
+      .sec-trad { margin: 0.1rem 0 0.7rem 1.4rem; padding: 0.7rem 0.9rem; border: 1px solid var(--c-line); border-radius: 10px; background: rgba(255,255,255,0.03); }
+      .sec-trad-act { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.3rem; }
       .sec-count { color: var(--c-muted); font-size: 0.75rem; white-space: nowrap; min-width: 4.5rem; text-align: right; }
       .sec-kind { display: inline-flex; gap: 0.3rem; }
       .s-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; }
@@ -321,6 +424,11 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       .lu-combo b { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-text); font-weight: 400; }
       .lu-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
       .lu-actions .sw-wrap { margin-right: auto; }
+      .sm-card { padding: 0; gap: 0; overflow: hidden; }
+      .sm-photo { width: 100%; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); overflow: hidden; }
+      .sm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .sm-photo svg { width: 40px; height: 40px; }
+      .sm-body { display: flex; flex-direction: column; gap: 0.85rem; padding: 1.1rem 1.2rem; flex: 1; }
 
       /* --- Lunch: modale --- */
       .luf-courses { display: flex; gap: 0.45rem; flex-wrap: wrap; }
@@ -350,44 +458,6 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       /* --- Datepicker custom (brand), come Réglages — z sopra l'overlay (300) --- */
       #lu-from, #lu-to { cursor: pointer; }
-      .dp-panel {
-        position: fixed; z-index: 420; width: 344px;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.9rem;
-      }
-      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
-      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
-      .dp-nav {
-        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
-        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
-      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
-      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
-      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-      .dp-cell {
-        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
-        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
-        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
-        transition: background 0.15s, color 0.15s;
-      }
-      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
-      .dp-vuota { cursor: default; }
-      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
-      .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      .dp-clear {
-        width: 100%; margin-top: 0.6rem; background: transparent;
-        border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.8rem; padding: 0.45rem 0;
-        border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s;
-      }
-      .dp-clear:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      @media (pointer: coarse) {
-        .dp-panel { width: 372px; }
-        .dp-cell { min-height: 44px; font-size: 1.05rem; }
-      }
 
       /* Toast */
       .toast {
@@ -424,8 +494,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         .i-price .i-col { align-items: flex-start; min-width: 0; }
         .i-price .i-col + .i-col { margin-left: 1rem; }
         .i-alg { grid-column: 3 / 5; grid-row: 2; justify-self: start; }
-        .sw-wrap:has(.t-av) { grid-column: 2; grid-row: 3; justify-self: start; }
-        .sw-wrap:has(.t-or) { grid-column: 3; grid-row: 3; justify-self: start; }
+        .i-switches { grid-column: 2 / 4; grid-row: 3; justify-self: start; gap: 1.15rem; }
         .i-del { grid-column: 4; grid-row: 3; justify-self: end; }
       }
       /* Loader dentro i bottoni di salvataggio */
@@ -438,21 +507,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
         <div class="topbar">
-          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menu</h1>
+          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>{t("nav.menu")}</h1>
           <div class="t-stats" id="t-stats"></div>
         </div>
         <div class="k-filtri" id="k-filtri"></div>
         <div class="actionsbar">
           <div class="tabs" id="tabs"></div>
-          <input type="text" class="search" id="search" placeholder="Rechercher un plat…" />
+          <input type="text" class="search" id="search" placeholder={t("menu.searchPh")} />
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="list"></div>
       </main>
       <AdminFooter />
@@ -460,110 +530,124 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
     <!-- Modale piatto -->
     <div class="overlay" id="overlay">
-      <div class="modal">
-        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
-        <h2 id="m-title">Ajouter un plat</h2>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label">Nom *</span>
-            <input type="text" id="f-name" maxlength="120" />
-          </div>
-          <div class="f-field">
-            <span class="f-label">Prix (€) *</span>
-            <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label">Section *</span>
-            <select id="f-cat"></select>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Photo (optionnelle)</span>
-            <div class="f-img-row">
-              <span class="f-img-prev" id="f-img-prev"></span>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">Téléverser une photo</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">Bibliothèque</button>
-              <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">Retirer</button>
-              <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
-              <span class="f-label" id="f-img-state"></span>
+      <div class="modal modal-dish">
+        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        <h2 id="m-title">{t("menu.addDish")}</h2>
+        <div class="m-cols">
+
+          <!-- COLONNA SINISTRA: foto · categoria · titoli+prezzo · badge -->
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.photoOpt")}</span>
+                <div class="f-img-row">
+                  <span class="f-img-prev" id="f-img-prev"></span>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">{t("menu.library")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">{t("ord.remove")}</button>
+                  <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+                  <span class="f-label" id="f-img-state"></span>
+                </div>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label">{t("menu.sectionReq")}</span>
+                <select id="f-cat"></select>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label" id="f-name-lab">{t("menu.nameReq")}</span>
+                <input type="text" id="f-name" maxlength="120" />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.priceReq")}</span>
+                <input type="number" id="f-price" min="0" step="0.01" inputmode="decimal" />
+              </div>
+            </div>
+            <div id="f-names-extra"></div>
+            <span class="f-label m-sublabel">{t("menu.badges")}</span>
+            <div class="m-toggles m-badges">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-best" /><span class="track"></span></span>
+                ★ {t("menu.bestseller")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-vegan" /><span class="track"></span></span>
+                🌱 {t("menu.vegan")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-spicy" /><span class="track"></span></span>
+                🌶️ {t("menu.spicy")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-suggestion" /><span class="track"></span></span>
+                👨‍🍳 {t("menu.suggestion")}
+              </label>
+            </div>
+            <div class="m-sep"></div>
+            <div class="m-toggles m-states">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
+                {t("menu.visibleSite")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
+                {t("menu.orderable")}
+              </label>
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="f-soldout" /><span class="track"></span></span>
+                {t("menu.soldOut")}
+              </label>
             </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Réduction</span>
-            <select id="f-dtype">
-              <option value="">Aucune</option>
-              <option value="fixed">Prix promo fixe (€)</option>
-              <option value="percent">Pourcentage (%)</option>
-            </select>
+
+          <!-- COLONNA DESTRA: tab descrizioni · allergeni · sconto -->
+          <div class="m-col">
+            <div class="m-tabs" id="m-tabs">
+              <button type="button" class="m-tab is-on" data-tab="desc">{t("menu.tabDesc")}</button>
+              <button type="button" class="m-tab" data-tab="alg">{t("menu.tabAllerg")}</button>
+              <button type="button" class="m-tab" data-tab="disc">{t("menu.tabDisc")}</button>
+            </div>
+            <div class="m-pane" data-pane="desc">
+              <div id="f-descs"></div>
+            </div>
+            <div class="m-pane" data-pane="alg" style="display: none">
+              <div class="alg-grid" id="f-alg"></div>
+            </div>
+            <div class="m-pane" data-pane="disc" style="display: none">
+              <div class="f-row">
+                <div class="f-field">
+                  <span class="f-label">{t("menu.discount")}</span>
+                  <select id="f-dtype">
+                    <option value="">{t("itg.mode.none")}</option>
+                    <option value="fixed">{t("menu.discFixed")}</option>
+                    <option value="percent">{t("menu.discPercent")}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="f-row">
+                <div class="f-field">
+                  <span class="f-label">{t("menu.value")}</span>
+                  <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
+                </div>
+                <div class="f-field">
+                  <span class="f-label">{t("menu.application")}</span>
+                  <select id="f-dscope" disabled>
+                    <option value="all">{t("menu.everywhere")}</option>
+                    <option value="online">{t("menu.onlineOnly")}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="f-field">
-            <span class="f-label">Valeur</span>
-            <input type="number" id="f-dval" min="0" step="0.01" inputmode="decimal" disabled />
-          </div>
-          <div class="f-field">
-            <span class="f-label">Application</span>
-            <select id="f-dscope" disabled>
-              <option value="all">Partout</option>
-              <option value="online">Commandes en ligne uniquement</option>
-            </select>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Description (FR)</span>
-            <textarea id="f-dfr" maxlength="500"></textarea>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Description (EN)</span>
-            <textarea id="f-den" maxlength="500"></textarea>
-          </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Allergènes (UE)</span>
-            <div class="alg-grid" id="f-alg"></div>
-          </div>
-        </div>
-        <span class="f-label m-sublabel">Badges</span>
-        <div class="m-toggles m-badges">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-best" /><span class="track"></span></span>
-            ★ Best-seller
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-vegan" /><span class="track"></span></span>
-            🌱 Végan
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-spicy" /><span class="track"></span></span>
-            🌶️ Épicé
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-suggestion" /><span class="track"></span></span>
-            👨‍🍳 Suggestion
-          </label>
-        </div>
-        <div class="m-toggles">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
-            Visible sur le site
-          </label>
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
-            Commandable
-          </label>
+
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">Annuler</button>
-          <button class="m-save" id="m-save">Enregistrer</button>
+          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -571,14 +655,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <!-- Modale sezioni -->
     <div class="overlay" id="sec-overlay">
       <div class="modal">
-        <button class="m-close" id="sec-close" aria-label="Fermer">×</button>
-        <h2>Gérer les sections</h2>
-        <p class="f-label" style="margin-bottom: 0.8rem">Glisse ⠿ pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide</p>
+        <button class="m-close" id="sec-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("menu.manageSections")}</h2>
+        <p class="f-label" style="margin-bottom: 0.8rem">{t("menu.sectionsHint")}</p>
         <div id="sec-list"></div>
+        <datalist id="cat-std-list"></datalist>
         <div class="sec-add">
           <span class="sec-kind" id="sec-kind"></span>
-          <input type="text" id="sec-new" placeholder="Nouvelle section (ex. Pizzas colorées)" maxlength="60" />
-          <button class="sec-addbtn" id="sec-addbtn">Ajouter</button>
+          <input type="text" id="sec-new" list="cat-std-list" placeholder={t("menu.newSectionPh")} maxlength="60" />
+          <button class="sec-addbtn" id="sec-addbtn">{t("common.add")}</button>
         </div>
         <span class="m-msg" id="sec-msg"></span>
       </div>
@@ -587,46 +672,128 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
     <!-- Modale lunch -->
     <div class="overlay" id="lu-overlay">
       <div class="modal">
-        <button class="m-close" id="lu-close" aria-label="Fermer">×</button>
-        <h2 id="lu-title">Ajouter un lunch</h2>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label">Nom</span>
-            <input type="text" id="lu-name" maxlength="60" placeholder="Lunch" />
+        <button class="m-close" id="lu-close" aria-label={t("common.close")}>×</button>
+        <h2 id="lu-title">{t("menu.addLunch")}</h2>
+        <div class="m-cols">
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label" id="lu-name-lab">{t("home.name")}</span>
+                <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
+              </div>
+            </div>
+            <div id="lu-names-extra"></div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.composition")}</span>
+                <div class="luf-courses" id="lu-courses"></div>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateFrom")}</span>
+                <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateTo")}</span>
+                <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
+              </div>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
+                {t("menu.active")}
+              </label>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="lu-hide-items" /><span class="track"></span></span>
+                {t("menu.lunchHideItems")}
+              </label>
+            </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Composition (1 seul plat = « Plat du jour »)</span>
-            <div class="luf-courses" id="lu-courses"></div>
+          <div class="m-col">
+            <div id="lu-items"></div>
+            <div class="lu-block">
+              <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
+              <p class="f-label" style="margin-bottom: 0.55rem">{t("menu.comboEmptyHint")}</p>
+              <div id="lu-combos"></div>
+            </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">Du (vide = sans limite)</span>
-            <input type="text" id="lu-from" placeholder="Sans limite" readonly />
-          </div>
-          <div class="f-field">
-            <span class="f-label">Au (vide = sans limite)</span>
-            <input type="text" id="lu-to" placeholder="Sans limite" readonly />
-          </div>
-        </div>
-        <div id="lu-items"></div>
-        <div class="lu-block">
-          <div class="lu-block-tit">Prix par combinaison</div>
-          <p class="f-label" style="margin-bottom: 0.55rem">Laisse vide les combinaisons non proposées.</p>
-          <div id="lu-combos"></div>
-        </div>
-        <div class="m-toggles">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
-            Actif
-          </label>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="lu-msg"></span>
-          <button class="m-cancel" id="lu-cancel">Annuler</button>
-          <button class="m-save" id="lu-save">Enregistrer</button>
+          <button class="m-cancel" id="lu-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="lu-save">{t("common.save")}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale menù (set menu / prix fixe) -->
+    <div class="overlay" id="mn-overlay">
+      <div class="modal modal-dish">
+        <button class="m-close" id="mn-close" aria-label={t("common.close")}>×</button>
+        <h2 id="mn-title">{t("menu.addMenu")}</h2>
+        <div class="m-cols">
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.photoOpt")}</span>
+                <div class="f-img-row">
+                  <span class="f-img-prev" id="mn-img-prev"></span>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-lib">{t("menu.library")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-del" style="display: none">{t("ord.remove")}</button>
+                  <input type="file" id="mn-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+                  <span class="f-label" id="mn-img-state"></span>
+                </div>
+              </div>
+            </div>
+            <div id="mn-langs"></div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.menuPrice")}</span>
+                <input type="number" id="mn-price" min="0" step="0.01" inputmode="decimal" />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.wineSupp")}</span>
+                <input type="number" id="mn-wine" min="0" step="0.01" inputmode="decimal" />
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateFrom")}</span>
+                <input type="text" id="mn-from" placeholder={t("menu.noLimit")} readonly />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateTo")}</span>
+                <input type="text" id="mn-to" placeholder={t("menu.noLimit")} readonly />
+              </div>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="mn-active" checked /><span class="track"></span></span>
+                {t("menu.active")}
+              </label>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="mn-hide-items" /><span class="track"></span></span>
+                {t("menu.lunchHideItems")}
+              </label>
+            </div>
+          </div>
+          <div class="m-col">
+            <span class="f-label m-sublabel">{t("menu.coursesTitle")}</span>
+            <div id="mn-corsi"></div>
+            <button type="button" class="pill sec-btn" id="mn-add-course" style="margin-top: 0.6rem">+ {t("menu.addCourse")}</button>
+          </div>
+        </div>
+        <div class="m-actions">
+          <span class="m-msg" id="mn-msg"></span>
+          <button class="m-cancel" id="mn-draft">{t("menu.saveDraft")}</button>
+          <button class="m-cancel" id="mn-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="mn-save">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -637,40 +804,48 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
     <!-- Bottoni flottanti (come Résa/Commandes/Clients) -->
     <div class="mn-float" id="mn-float">
-      <button class="pill mn-fab mn-fab-sec" id="sec-btn" title="Gérer les sections">
+      <button class="pill mn-fab mn-fab-sec" id="sec-btn" title={t("menu.manageSections")}>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="3" />
           <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
         </svg>
-        Catégories
+        {t("menu.categories")}
       </button>
-      <button class="pill mn-fab" id="add-btn" title="Ajouter un plat"><span class="fab-plus">+</span>Ajou. plat</button>
+      <button class="pill mn-fab" id="add-btn" title={t("menu.addDish")}><span class="fab-plus">+</span>{t("menu.addDishShort")}</button>
     </div>
 
     <AdminNav current="menu" />
 
     <!-- Dati SSR (Fase 2): categorie + piatti pre-caricati dal server. -->
     <script id="ssr-menu" type="application/json" is:inline set:html={ssrMenuJson}></script>
+    <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
+    <script id="cat-std" type="application/json" is:inline set:html={catStdJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Item = {
         id: string; category: string; category_order: number; sort_order: number;
         name: string; description_fr: string | null; description_en: string | null;
+        name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null;
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
-        is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean;
+        is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; sold_out?: boolean;
         image_url: string | null;
       };
-      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number };
+      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number; parent_id?: string | null; depth?: number; children?: number; name_i18n?: Record<string, string> | null };
 
       const ALLERGENI: [number, string][] = [
-        [1, "Gluten"], [2, "Lait"], [3, "Arachides"], [4, "Œufs"],
-        [5, "Poisson"], [6, "Crustacés"], [7, "Soja"], [8, "Fruits à coque"],
-        [9, "Céleri"], [10, "Moutarde"], [11, "Sulfites"], [12, "Sésame"],
-        [13, "Lupin"], [14, "Mollusques"],
+        [1, tr("menu.algGluten")], [2, tr("menu.algLait")], [3, tr("menu.algArachides")], [4, tr("menu.algOeufs")],
+        [5, tr("menu.algPoisson")], [6, tr("menu.algCrustaces")], [7, tr("menu.algSoja")], [8, tr("menu.algFruitsCoque")],
+        [9, tr("menu.algCeleri")], [10, tr("menu.algMoutarde")], [11, tr("menu.algSulfites")], [12, tr("menu.algSesame")],
+        [13, tr("menu.algLupin")], [14, tr("menu.algMollusques")],
       ];
 
       // Icone cibo (forchetta) e bevanda (bicchiere)
@@ -691,6 +866,9 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       let kindFiltro: KindTab = "food"; // filtro tab: cibo, bevande, lunch, menus
       let editId: string | null = null;
       let nuovaKind: "food" | "drink" = "food";
+      let secTradId: string | null = null;
+      let nuovoParent: { id: string; name: string; depth: number } | null = null;
+      const MAX_DEPTH_UI = 3;
       let headers: Record<string, string> = {};
       let tabVietati: string[] = []; // tab del Menu nascosti a questo utente (Réglages MOODD)
 
@@ -703,7 +881,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         return Math.max(0, Math.round(it.price_cents * (1 - Math.min(it.discount_value, 100) / 100)));
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
 
       const toastEl = document.getElementById("toast") as HTMLDivElement;
@@ -726,7 +904,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         if (eff >= it.price_cents) return `<span class="i-price">${euro(it.price_cents)}</span>`;
         if (it.discount_scope === "online") {
           return `<span class="i-price i-promo">` +
-            `<span class="i-col"><span class="i-full">${euro(it.price_cents)}</span><span class="i-table-lab">à table</span></span>` +
+            `<span class="i-col"><span class="i-full">${euro(it.price_cents)}</span><span class="i-table-lab">${tr("menu.atTable")}</span></span>` +
             `<span class="i-col"><span>${euro(eff)}</span><span class="i-table-lab">online</span></span>` +
             `</span>`;
         }
@@ -737,31 +915,34 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function badgesHTML(it: Item): string {
         let b = "";
-        if (it.is_bestseller) b += `<span class="i-badge b-best" title="Best-seller">★</span>`;
-        if (it.is_vegan) b += `<span class="i-badge" title="Végan">🌱</span>`;
-        if (it.is_spicy) b += `<span class="i-badge" title="Épicé">🌶️</span>`;
-        if (it.is_suggestion) b += `<span class="i-badge" title="Suggestion">👨‍🍳</span>`;
+        if (it.is_bestseller) b += `<span class="i-badge b-best" title="${tr("menu.bestseller")}">★</span>`;
+        if (it.is_vegan) b += `<span class="i-badge" title="${tr("menu.vegan")}">🌱</span>`;
+        if (it.is_spicy) b += `<span class="i-badge" title="${tr("menu.spicy")}">🌶️</span>`;
+        if (it.is_suggestion) b += `<span class="i-badge" title="${tr("menu.suggestion")}">👨‍🍳</span>`;
         return b ? `<span class="i-badges">${b}</span>` : "";
       }
-      function itemHTML(it: Item): string {
+      function itemHTML(it: Item, indent = 0): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
         // Colonna allergeni: sempre presente (anche vuota) così le righe restano allineate
-        const alg = `<span class="i-alg">${it.allergens?.length ? `Alg. ${it.allergens.join(",")}` : ""}</span>`;
+        const alg = `<span class="i-alg">${it.allergens?.length ? `${tr("menu.algShort")} ${it.allergens.join(",")}` : ""}</span>`;
         const dim = !it.available ? " is-hidden-item" : "";
         const thumb = it.image_url
           ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
-          : `<span class="i-thumb i-thumb--ph" title="Pas de photo">${ICO_IMG}</span>`;
+          : `<span class="i-thumb i-thumb--ph" title="${tr("menu.noPhoto")}">${ICO_IMG}</span>`;
         return `
-          <div class="item${dim}" data-id="${it.id}">
-            <span class="i-btn i-drag" title="Glisser pour réordonner">⠿</span>
+          <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}"${indent ? ` style="margin-left:${indent}rem"` : ""}>
+            <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
-            <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}</span>${desc}</div>
+            <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Menu</span></span>
-            <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Cmd</span></span>
-            <button class="i-btn i-edit" title="Modifier">✎</button>
-            <button class="i-btn i-del" title="Supprimer">${ICO_TRASH}</button>
+            <span class="i-switches">
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
+              <span class="sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.soldShort")}</span></span>
+            </span>
+            <button class="i-btn i-edit" title="${tr("common.edit")}">✎</button>
+            <button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
           </div>`;
       }
 
@@ -786,8 +967,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         const nCibo = cats.filter((c) => c.kind === "food").reduce((t, c) => t + c.count, 0);
         const nBev = cats.filter((c) => c.kind === "drink").reduce((t, c) => t + c.count, 0);
         (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
-          `<span class="t-pill gold"><b>${nCibo}</b> plat${nCibo > 1 ? "s" : ""}</span>` +
-          `<span class="t-pill"><b>${nBev}</b> boisson${nBev > 1 ? "s" : ""}</span>`;
+          `<span class="t-pill gold"><b>${nCibo}</b> ${nCibo > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>` +
+          `<span class="t-pill"><b>${nBev}</b> ${nBev > 1 ? tr("home.drinks") : tr("menu.drinkWord")}</span>`;
       }
       function renderTabs() {
         renderStatsTitolo();
@@ -796,25 +977,39 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         const catAttiva = cats.find((c) => c.name === attiva);
         if (catAttiva && catAttiva.kind !== kindFiltro) kindFiltro = catAttiva.kind;
 
-        const visibili = cats.filter((c) => c.kind === kindFiltro);
+        const visibili = cats.filter((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0);
         (document.getElementById("k-filtri") as HTMLDivElement).innerHTML =
-          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}Plats</button>` +
-          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}Boissons</button>` +
-          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>Lunch</button>` +
-          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>Menus</button>`;
+          `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}${tr("tab.menu.food")}</button>` +
+          `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}${tr("tab.menu.drink")}</button>` +
+          `<button class="kf-pill${kindFiltro === "lunch" ? " is-on" : ""}" data-kind="lunch"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></svg>${tr("tab.menu.lunch")}</button>` +
+          `<button class="kf-pill${kindFiltro === "menus" ? " is-on" : ""}" data-kind="menus"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></svg>${tr("tab.menu.menus")}</button>`;
         // Tab vietati dal super: la pillola sparisce anche a ogni re-render
         for (const tv of tabVietati) {
           (document.getElementById("k-filtri") as HTMLDivElement).querySelector(`.kf-pill[data-kind="${tv}"]`)?.remove();
         }
         tabsEl.innerHTML =
           visibili
-            .map(
-              (c) =>
-                `<button class="tab${c.name === attiva ? " is-active" : ""}" data-cat="${esc(c.name)}">${esc(c.name)}<span class="n">${c.count}</span></button>`
-            )
+            .map((c) => {
+              const d = c.depth ?? 0;
+              const sub = d > 0 ? " is-sub" : "";
+              const arrow = d > 0 ? `<span class="tab-arrow">${"\u21B3".repeat(d)}</span>` : "";
+              return `<button class="tab${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${c.count}</span></button>`;
+            })
             .join("");
       }
 
+      // Categoria radice (top-level) di una sezione: risale i parent.
+      function radiceDi(nome: string): string {
+        let c = cats.find((x) => x.name === nome);
+        let guard = 0;
+        while (c && c.parent_id && guard < 10) {
+          const p = cats.find((x) => x.id === c!.parent_id);
+          if (!p) break;
+          c = p;
+          guard++;
+        }
+        return c?.name ?? nome;
+      }
       function renderList() {
         const filtro = searchEl.value.trim().toLowerCase();
         listEl.dataset.mode = filtro ? "search" : "cat";
@@ -822,9 +1017,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           renderLunchList(filtro);
           return;
         }
-        // Tab in costruzione: per ora vuoto
-        if (!filtro && kindFiltro === "menus") {
-          listEl.innerHTML = `<p class="state">Section « Menus » — bientôt.</p>`;
+        if (kindFiltro === "menus") {
+          renderMenusList(filtro);
           return;
         }
         if (filtro) {
@@ -837,7 +1031,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             gruppi.get(it.category)!.push(it);
           }
           if (gruppi.size === 0) {
-            listEl.innerHTML = '<p class="state">Aucun plat trouvé.</p>';
+            listEl.innerHTML = `<p class="state">${tr("menu.noDishFound")}</p>`;
             return;
           }
           const ordinati = [...gruppi.entries()].sort(
@@ -847,22 +1041,57 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             .map(
               ([nome, arr]) => `
             <div class="cat-head"><span class="cat-name">${esc(nome)}</span><span class="cat-count">${arr.length}</span></div>
-            ${arr.map(itemHTML).join("")}`
+            ${arr.map((i) => itemHTML(i)).join("")}`
             )
             .join("");
           return;
         }
-        // Vista normale: solo la sezione attiva
-        const arr = items.filter((i) => i.category === attiva);
-        listEl.innerHTML = arr.length
-          ? arr.map(itemHTML).join("")
-          : '<p class="state">Section vide — ajoute un plat ou supprime la section.</p>';
+        // Vista normale: la sezione attiva + le sue SOTTO-CATEGORIE (albero),
+        // con i piatti raggruppati sotto ciascuna. Ordinabili dentro e tra i gruppi.
+        const activeCat = cats.find((c) => c.name === attiva);
+        if (!activeCat) { listEl.innerHTML = `<p class="state">${tr("menu.sectionEmpty")}</p>`; return; }
+        const figliDi = (id: string) => cats.filter((c) => c.parent_id === id).sort((a, b) => a.sort_order - b.sort_order);
+        const sottoAlbero: Cat[] = [];
+        const visita = (c: Cat) => { sottoAlbero.push(c); for (const f of figliDi(c.id)) visita(f); };
+        visita(activeCat);
+        const dishesDi = (nome: string) =>
+          items.filter((i) => i.category === nome).sort((a, b) => a.sort_order - b.sort_order);
+        let html = "";
+        for (const c of sottoAlbero) {
+          const arr = dishesDi(c.name);
+          if (c.id === activeCat.id) {
+            html += arr.map((i) => itemHTML(i)).join("");
+          } else {
+            const rel = (c.depth ?? 0) - (activeCat.depth ?? 0); // 1..3
+            html += `<div class="sub-head" data-cat="${esc(c.name)}" data-id="${c.id}" data-parent="${c.parent_id ?? ""}" data-depth="${c.depth ?? 0}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="i-btn s-drag" title="${tr("menu.dragReorder")}">\u283F</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
+            html += arr.map((i) => itemHTML(i, rel * 1.3)).join("");
+          }
+        }
+        if (!html) html = `<p class="state">${tr("menu.sectionEmpty")}</p>`;
+        listEl.innerHTML = html;
       }
 
+      // Ordina le sezioni in profondità (depth-first) rispettando sort_order:
+      // robusto sia con i dati SSR (ordine piatto) sia con l'API (già ad albero).
+      function ordinaAlbero(arr: Cat[]): Cat[] {
+        const figli = new Map<string, Cat[]>();
+        for (const c of arr) {
+          const k = c.parent_id ?? "";
+          if (!figli.has(k)) figli.set(k, []);
+          figli.get(k)!.push(c);
+        }
+        for (const v of figli.values()) v.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+        const out: Cat[] = [];
+        const visita = (pid: string) => { for (const c of figli.get(pid) ?? []) { out.push(c); visita(c.id); } };
+        visita("");
+        // eventuali orfani (parent non presente): appendili in coda
+        if (out.length < arr.length) for (const c of arr) if (!out.includes(c)) out.push(c);
+        return out;
+      }
       async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
         if (datiIniziali) {
           // Dati già pronti dal server (SSR): niente fetch.
-          cats = datiIniziali.categories ?? [];
+          cats = ordinaAlbero(datiIniziali.categories ?? []);
           items = datiIniziali.items ?? [];
         } else {
           const [rc, ri] = await Promise.all([
@@ -870,14 +1099,14 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             fetch("/api/admin/menu", { headers }),
           ]);
           if (!rc.ok || !ri.ok) {
-            stateEl.textContent = "Erreur de chargement.";
+            stateEl.textContent = tr("sup.load.error");
             return false;
           }
-          cats = ((await rc.json()).categories as Cat[]) ?? [];
+          cats = ordinaAlbero(((await rc.json()).categories as Cat[]) ?? []);
           items = ((await ri.json()).items as Item[]) ?? [];
         }
         if (!attiva || !cats.some((c) => c.name === attiva)) {
-          attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? cats[0]?.name ?? "";
+          attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? cats.find((c) => (c.depth ?? 0) === 0)?.name ?? "";
         }
         stateEl.style.display = "none";
         renderTabs();
@@ -893,8 +1122,76 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       const fName = document.getElementById("f-name") as HTMLInputElement;
       const fPrice = document.getElementById("f-price") as HTMLInputElement;
       const fCat = document.getElementById("f-cat") as HTMLSelectElement;
-      const fDfr = document.getElementById("f-dfr") as HTMLTextAreaElement;
-      const fDen = document.getElementById("f-den") as HTMLTextAreaElement;
+      const fNameLab = document.getElementById("f-name-lab") as HTMLSpanElement;
+      const fNamesExtra = document.getElementById("f-names-extra") as HTMLDivElement;
+      const fDescs = document.getElementById("f-descs") as HTMLDivElement;
+
+      // Lingue del sito pubblico (per i campi traduzione). Fallback: fr.
+      type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
+      let PUB: PubLangs = { langs: ["fr"], def: "fr", labels: { fr: { label: "Français", flag: "\uD83C\uDDEB\uD83C\uDDF7" } } };
+      try {
+        const raw = document.getElementById("pub-langs")?.textContent?.trim();
+        if (raw) PUB = JSON.parse(raw) as PubLangs;
+      } catch { /* fallback */ }
+      const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
+      // Dizionario categorie standard (nome tradotto per lingua).
+      type CatStd = { key: string; kind: "food" | "drink"; fr: string; it: string; en: string; nl: string; es: string };
+      let CAT_STD: CatStd[] = [];
+      try { const raw = document.getElementById("cat-std")?.textContent?.trim(); if (raw) CAT_STD = JSON.parse(raw) as CatStd[]; } catch { /* vuoto */ }
+      const LINGUE_STD: (keyof CatStd)[] = ["fr", "it", "en", "nl", "es"];
+      function trovaStd(nome: string): CatStd | null {
+        const n = nome.trim().toLowerCase();
+        if (!n) return null;
+        for (const c of CAT_STD) for (const l of LINGUE_STD) if (String(c[l]).toLowerCase() === n) return c;
+        return null;
+      }
+      function i18nStd(c: CatStd): Record<string, string> {
+        const o: Record<string, string> = {};
+        for (const l of PUB.langs) { const v = (c as Record<string, unknown>)[l]; if (typeof v === "string" && v) o[l] = v; }
+        return o;
+      }
+      // Popola la datalist con i nomi standard nella lingua di default del sito.
+      function popolaCatStdList() {
+        const dl = document.getElementById("cat-std-list");
+        if (!dl) return;
+        const vis = new Set<string>();
+        dl.innerHTML = CAT_STD
+          .map((c) => (c as Record<string, string>)[PUB.def] || c.it)
+          .filter((n) => { if (vis.has(n)) return false; vis.add(n); return true; })
+          .map((n) => `<option value="${esc(n)}"></option>`)
+          .join("");
+      }
+      popolaCatStdList();
+      // Costruisce (una volta) i campi nome-extra e le descrizioni per lingua.
+      function costruisciCampiLingua() {
+        fNameLab.textContent = `${tr("menu.nameReq")} (${langTag(PUB.def)})`;
+        const extra = PUB.langs.filter((l) => l !== PUB.def);
+        fNamesExtra.innerHTML = extra
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.nameCol"))} (${esc(langTag(l))})</span><input type="text" class="f-nx" data-lang="${l}" maxlength="120" /></div></div>`
+          )
+          .join("");
+        fDescs.innerHTML = PUB.langs
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="f-dx" data-lang="${l}" maxlength="500"></textarea></div></div>`
+          )
+          .join("");
+      }
+      costruisciCampiLingua();
+      // ---- Tab del modale (Descrizioni / Allergeni / Sconto) ----
+      const mTabs = document.getElementById("m-tabs") as HTMLDivElement;
+      function mostraTab(tab: string) {
+        mTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((x) => x.classList.toggle("is-on", x.dataset.tab === tab));
+        document.querySelectorAll<HTMLElement>(".modal-dish .m-pane").forEach((pane) => {
+          pane.style.display = pane.dataset.pane === tab ? "" : "none";
+        });
+      }
+      mTabs.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLElement>(".m-tab");
+        if (b?.dataset.tab) mostraTab(b.dataset.tab);
+      });
       const fAlg = document.getElementById("f-alg") as HTMLDivElement;
       const fDtype = document.getElementById("f-dtype") as HTMLSelectElement;
       const fDval = document.getElementById("f-dval") as HTMLInputElement;
@@ -905,6 +1202,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       const fVegan = document.getElementById("f-vegan") as HTMLInputElement;
       const fSpicy = document.getElementById("f-spicy") as HTMLInputElement;
       const fSuggestion = document.getElementById("f-suggestion") as HTMLInputElement;
+      const fSoldout = document.getElementById("f-soldout") as HTMLInputElement;
       const mSave = document.getElementById("m-save") as HTMLButtonElement;
       const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
       const fImgUp = document.getElementById("f-img-up") as HTMLButtonElement;
@@ -931,16 +1229,16 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       fImgFile.addEventListener("change", async () => {
         const file = fImgFile.files?.[0];
         if (!file) return;
-        fImgState.textContent = "Compression…";
+        fImgState.textContent = tr("menu.compressing");
         fImgUp.disabled = true;
         try {
           const foto = await comprimiFoto(file);
-          if (foto.size > 4 * 1024 * 1024) throw new Error("Photo trop lourde (max 4 Mo)");
-          fImgState.textContent = "Téléversement…";
+          if (foto.size > 4 * 1024 * 1024) throw new Error(tr("menu.photoTooBig"));
+          fImgState.textContent = tr("cli.uploading");
           const b64 = await new Promise<string>((resolve, reject) => {
             const r = new FileReader();
             r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-            r.onerror = () => reject(new Error("Fichier illisible"));
+            r.onerror = () => reject(new Error(tr("menu.fileUnreadable")));
             r.readAsDataURL(foto);
           });
           const res = await fetch("/api/admin/upload", {
@@ -949,12 +1247,12 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             body: JSON.stringify({ filename: foto.name, data: b64, bucket: "menu" }),
           });
           const j = await res.json();
-          if (!res.ok) throw new Error(j.error ?? "Téléversement impossible");
+          if (!res.ok) throw new Error(j.error ?? tr("menu.uploadFailed"));
           imgUrl = j.url as string;
           renderFotoPrev();
           fImgState.textContent = "";
         } catch (err) {
-          fImgState.textContent = err instanceof Error ? err.message : "Téléversement impossible.";
+          fImgState.textContent = err instanceof Error ? err.message : tr("menu.uploadFailedDot");
         } finally {
           fImgUp.disabled = false;
           fImgFile.value = "";
@@ -971,14 +1269,42 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       function apriModale(it: Item | null) {
         editId = it?.id ?? null;
-        mTitle.textContent = it ? "Modifier le plat" : "Ajouter un plat";
+        mostraTab("desc");
+        mTitle.textContent = it ? tr("menu.editDish") : tr("menu.addDish");
         mMsg.textContent = "";
-        fCat.innerHTML = cats.map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join("");
+        {
+          const catById = new Map(cats.map((c) => [c.id, c] as const));
+          const pathOf = (c: Cat): string[] => {
+            const names: string[] = [];
+            let cur: Cat | undefined = c;
+            const seen = new Set<string>();
+            while (cur && !seen.has(cur.id)) { seen.add(cur.id); names.unshift(cur.name); cur = cur.parent_id ? catById.get(cur.parent_id) : undefined; }
+            return names;
+          };
+          fCat.innerHTML = cats
+            .map((c) => {
+              const d = c.depth ?? 0;
+              const pre = d > 0 ? "\u00A0\u00A0".repeat(d) : "";
+              const label = pathOf(c).join(" \u203A ");
+              return `<option value="${esc(c.name)}">${pre}${esc(label)}</option>`;
+            })
+            .join("");
+        }
         fName.value = it?.name ?? "";
         fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
         fCat.value = it?.category ?? attiva;
-        fDfr.value = it?.description_fr ?? "";
-        fDen.value = it?.description_en ?? "";
+        // Nomi tradotti (lingue extra) + descrizioni per lingua pubblica
+        const nI18n = it?.name_i18n ?? {};
+        fNamesExtra.querySelectorAll<HTMLInputElement>(".f-nx").forEach((inp) => {
+          inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+        });
+        const dI18n = it?.desc_i18n ?? {};
+        fDescs.querySelectorAll<HTMLTextAreaElement>(".f-dx").forEach((ta) => {
+          const l = ta.dataset.lang ?? "";
+          ta.value =
+            dI18n[l] ??
+            (l === "fr" ? it?.description_fr ?? "" : l === "en" ? it?.description_en ?? "" : "");
+        });
         fDtype.value = it?.discount_type ?? "";
         fDscope.value = it?.discount_scope ?? "all";
         if (it?.discount_type === "fixed") fDval.value = (it.discount_value / 100).toFixed(2);
@@ -991,6 +1317,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         fVegan.checked = it?.is_vegan ?? false;
         fSpicy.checked = it?.is_spicy ?? false;
         fSuggestion.checked = it?.is_suggestion ?? false;
+        fSoldout.checked = it?.sold_out ?? false;
         imgUrl = it?.image_url ?? null;
         fImgState.textContent = "";
         renderFotoPrev();
@@ -1016,18 +1343,32 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       async function salvaModale() {
         mMsg.textContent = "";
-        if (!fName.value.trim()) { mMsg.textContent = "Nom requis."; return; }
-        if (!fCat.value) { mMsg.textContent = "Section requise."; return; }
+        if (!fName.value.trim()) { mMsg.textContent = tr("menu.nameRequired"); return; }
+        if (!fCat.value) { mMsg.textContent = tr("menu.sectionRequired"); return; }
         const prezzo = Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
-        if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = "Prix invalide."; return; }
+        if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = tr("menu.priceInvalid"); return; }
 
         const orig = editId ? items.find((x) => x.id === editId) : null;
         const body: Record<string, unknown> = {
           name: fName.value.trim(),
           category: fCat.value,
           price_cents: prezzo,
-          description_fr: fDfr.value,
-          description_en: fDen.value,
+          name_i18n: (() => {
+            const o: Record<string, string> = { [PUB.def]: fName.value.trim() };
+            fNamesExtra.querySelectorAll<HTMLInputElement>(".f-nx").forEach((inp) => {
+              const v = inp.value.trim();
+              if (v) o[inp.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
+          desc_i18n: (() => {
+            const o: Record<string, string> = {};
+            fDescs.querySelectorAll<HTMLTextAreaElement>(".f-dx").forEach((ta) => {
+              const v = ta.value.trim();
+              if (v) o[ta.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
           allergens: [...fAlg.querySelectorAll<HTMLInputElement>("input:checked")].map((cb) => Number(cb.value)),
           available: fAv.checked,
           orderable: fOr.checked,
@@ -1035,6 +1376,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           is_vegan: fVegan.checked,
           is_spicy: fSpicy.checked,
           is_suggestion: fSuggestion.checked,
+          sold_out: fSoldout.checked,
           image_url: imgUrl,
           discount_type: fDtype.value || null,
           discount_value: fDtype.value === "fixed"
@@ -1043,7 +1385,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           discount_scope: (fDscope.value as "all" | "online") || "all",
         };
         if (fDtype.value && !(Number(body.discount_value) > 0)) {
-          mMsg.textContent = "Valeur de réduction requise.";
+          mMsg.textContent = tr("menu.discValueRequired");
           return;
         }
         if (editId) body.id = editId;
@@ -1062,15 +1404,15 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           });
           const j = await res.json();
           if (!res.ok) {
-            mMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            mMsg.textContent = j.error ?? tr("res.saveError");
           } else {
-            attiva = fCat.value;
+            attiva = radiceDi(fCat.value);
             chiudiModale();
-            toast(editId ? "Plat modifié ✓" : "Plat ajouté ✓");
+            toast(editId ? tr("menu.dishModified") : tr("menu.dishAdded"));
             await caricaTutto();
           }
         } catch {
-          mMsg.textContent = "Erreur de connexion.";
+          mMsg.textContent = tr("common.netErr");
         } finally {
           mSave.disabled = false;
           mSave.classList.remove("is-loading");
@@ -1085,30 +1427,56 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       const secKind = document.getElementById("sec-kind") as HTMLSpanElement;
 
       function renderSezioni() {
+        const soloUnaLingua = PUB.langs.length <= 1;
         secList.innerHTML = cats
-          .map(
-            (c, i) => `
-          <div class="sec-row" data-id="${c.id}" data-name="${esc(c.name)}">
-            <span class="i-btn s-drag" title="Glisser pour réordonner">⠿</span>
-            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="Nourriture">${ICO_FOOD}</button>
-            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="Boisson">${ICO_DRINK}</button>
-            <input type="text" class="s-name" value="${esc(c.name)}" maxlength="60" />
-            <span class="sec-count">${c.count} plat${c.count > 1 ? "s" : ""}</span>
-            <button class="i-btn i-del s-del" ${c.count > 0 ? "disabled" : ""} title="Supprimer (si vide)">${ICO_TRASH}</button>
-          </div>`
-          )
+          .map((c) => {
+            const depth = c.depth ?? 0;
+            const tree = depth > 0 ? `<span class="s-tree">${"—".repeat(depth)}</span>` : "";
+            const bloccaDel = (c.count > 0 || (c.children ?? 0) > 0);
+            const puoSub = depth < MAX_DEPTH_UI;
+            const puoOut = depth > 0;
+            const std = trovaStd(c.name);
+            // 🌐 solo per categorie personalizzate e se il sito ha più lingue
+            const tradBtn = (!std && !soloUnaLingua)
+              ? `<button class="i-btn s-trad${secTradId === c.id ? " is-active" : ""}" title="${tr("menu.translations")}">🌐</button>`
+              : (std ? `<span class="sec-auto" title="${tr("menu.autoTranslated")}">A</span>` : "");
+            const editor = (secTradId === c.id && !std && !soloUnaLingua)
+              ? `<div class="sec-trad" data-id="${c.id}">${PUB.langs.filter((l) => l !== PUB.def).map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="sec-tx" data-lang="${l}" maxlength="60" value="${esc(c.name_i18n?.[l] ?? "")}" /></div></div>`).join("")}<div class="sec-trad-act"><button type="button" class="m-cancel sec-trad-cancel">${tr("common.cancel")}</button><button type="button" class="m-save sec-trad-save" data-id="${c.id}">${tr("common.save")}</button></div></div>`
+              : "";
+            return `
+          <div class="sec-row${depth > 0 ? " is-sub" : ""}" data-id="${c.id}" data-name="${esc(c.name)}" data-parent="${c.parent_id ?? ""}" data-depth="${depth}" style="padding-left:${depth * 1.4}rem">
+            <span class="i-btn s-drag" title="${tr("menu.dragReorder")}">⠿</span>
+            ${tree}
+            <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
+            <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
+            <input type="text" class="s-name" list="cat-std-list" value="${esc(c.name)}" maxlength="60" />
+            ${tradBtn}
+            <button class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
+            <button class="i-btn s-in" title="${tr("menu.indentTitle")}">⇥</button>
+            <button class="i-btn sec-sub-btn s-sub" ${puoSub ? "" : "disabled"} title="${tr("menu.addSubTitle")}">＋</button>
+            <span class="sec-count">${c.count} ${c.count > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>
+            <button class="i-btn i-del s-del" ${bloccaDel ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
+          </div>${editor}`;
+          })
           .join("");
+        renderNuovaKind();
+      }
+      // Form "aggiungi": mostra il parent selezionato (sotto-sezione) o normale.
+      function renderNuovaKind() {
+        const parentPill = nuovoParent
+          ? `<span class="sec-parent-pill">${esc(tr("menu.subOf"))} ${esc(nuovoParent.name)}<button type="button" id="snk-clear" title="${esc(tr("menu.clearParent"))}">×</button></span>`
+          : "";
+        secKind.innerHTML =
+          parentPill +
+          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>` +
+          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>`;
+        secNew.placeholder = nuovoParent ? tr("menu.newSubPh") : tr("menu.newSectionPh");
       }
 
-      // Selettore tipo per la NUOVA sezione
-      function renderNuovaKind() {
-        secKind.innerHTML =
-          `<button class="i-btn k-btn${nuovaKind === "food" ? " is-active" : ""}" id="snk-food" title="Nourriture">${ICO_FOOD}</button>` +
-          `<button class="i-btn k-btn${nuovaKind === "drink" ? " is-active" : ""}" id="snk-drink" title="Boisson">${ICO_DRINK}</button>`;
-      }
       secKind.addEventListener("click", (e) => {
         const t = (e.target as HTMLElement).closest("button");
         if (!t) return;
+        if (t.id === "snk-clear") { nuovoParent = null; renderNuovaKind(); secNew.focus(); return; }
         nuovaKind = t.id === "snk-drink" ? "drink" : "food";
         renderNuovaKind();
       });
@@ -1121,7 +1489,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         });
         if (!res.ok) {
           const j = await res.json();
-          secMsg.textContent = j.error ?? "Erreur.";
+          secMsg.textContent = j.error ?? tr("menu.errorDot");
           return false;
         }
         return true;
@@ -1130,6 +1498,20 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       secList.addEventListener("click", async (e) => {
         secMsg.textContent = "";
         const t = e.target as HTMLElement;
+        // Traduzioni categorie personalizzate (il pannello è fuori dalla .sec-row)
+        const tradBtn = t.closest(".s-trad");
+        if (tradBtn) { const rid = (tradBtn.closest(".sec-row") as HTMLElement).dataset.id!; secTradId = secTradId === rid ? null : rid; renderSezioni(); return; }
+        if (t.closest(".sec-trad-cancel")) { secTradId = null; renderSezioni(); return; }
+        const tradSave = t.closest(".sec-trad-save") as HTMLElement | null;
+        if (tradSave) {
+          const rid = tradSave.dataset.id!;
+          const c = cats.find((x) => x.id === rid);
+          const panel = tradSave.closest(".sec-trad") as HTMLElement;
+          const o: Record<string, string> = { [PUB.def]: c?.name ?? "" };
+          panel.querySelectorAll<HTMLInputElement>(".sec-tx").forEach((inp) => { const v = inp.value.trim(); if (v) o[inp.dataset.lang ?? ""] = v; });
+          if (await putCategoria(rid, { name_i18n: o })) { secTradId = null; toast(tr("menu.sectionRenamed")); await caricaTutto(); }
+          return;
+        }
         const row = t.closest(".sec-row") as HTMLElement | null;
         if (!row) return;
         const id = row.dataset.id!;
@@ -1146,11 +1528,42 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
           if (!res.ok) {
             const j = await res.json();
-            secMsg.textContent = j.error ?? "Suppression impossible.";
+            secMsg.textContent = j.error ?? tr("home.deleteFailed");
           } else {
-            toast("Section supprimée");
+            toast(tr("menu.sectionDeleted"));
             await caricaTutto();
           }
+          return;
+        }
+        // "+ sotto": prepara il form per creare una sotto-sezione sotto questa
+        if (t.closest(".s-sub")) {
+          const c = cats[idx];
+          nuovoParent = { id: c.id, name: c.name, depth: c.depth ?? 0 };
+          renderNuovaKind();
+          secNew.focus();
+          return;
+        }
+        // Rientra (indent): mette la sezione sotto la sorella precedente
+        if (t.closest(".s-in")) {
+          const c = cats[idx];
+          const cd = c.depth ?? 0;
+          let sorella: Cat | null = null;
+          for (let k = idx - 1; k >= 0; k--) {
+            const dk = cats[k].depth ?? 0;
+            if (dk < cd) break;            // risalito oltre: nessuna sorella
+            if (dk === cd) { sorella = cats[k]; break; }
+          }
+          if (!sorella) { secMsg.textContent = tr("menu.indentTitle"); return; }
+          if (await putCategoria(id, { parent_id: sorella.id })) await caricaTutto();
+          return;
+        }
+        // Esci (outdent): risale di un livello (parent = nonno)
+        if (t.closest(".s-out")) {
+          const c = cats[idx];
+          const parent = cats.find((x) => x.id === c.parent_id);
+          const nonno = parent ? (parent.parent_id ?? null) : null;
+          if (await putCategoria(id, { parent_id: nonno })) await caricaTutto();
+          return;
         }
       });
 
@@ -1168,9 +1581,12 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         const nuovo = t.value.trim();
         if (!nuovo || nuovo === vecchio) { t.value = vecchio; return; }
         secMsg.textContent = "";
-        if (await putCategoria(row.dataset.id!, { name: nuovo })) {
+        const stdRen = trovaStd(nuovo);
+        const campiRen: Record<string, unknown> = { name: nuovo };
+        if (stdRen) campiRen.name_i18n = i18nStd(stdRen);
+        if (await putCategoria(row.dataset.id!, campiRen)) {
           if (attiva === vecchio) attiva = nuovo;
-          toast("Section renommée ✓");
+          toast(tr("menu.sectionRenamed"));
           await caricaTutto();
         } else {
           t.value = vecchio;
@@ -1179,41 +1595,57 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       // Drag & drop per riordinare le sezioni (mouse + dito)
       let dragRow: HTMLElement | null = null;
+      let dragBlock: HTMLElement[] = []; // il nodo + il suo sotto-albero (righe contigue)
       secList.addEventListener("pointerdown", (e) => {
         const handle = (e.target as HTMLElement).closest(".s-drag");
         if (!handle) return;
         e.preventDefault();
         dragRow = handle.closest(".sec-row") as HTMLElement;
-        dragRow.classList.add("dragging");
+        const d0 = Number(dragRow.dataset.depth ?? "0");
+        const all = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
+        const start = all.indexOf(dragRow);
+        dragBlock = [dragRow];
+        for (let k = start + 1; k < all.length; k++) {
+          if (Number(all[k].dataset.depth ?? "0") > d0) dragBlock.push(all[k]);
+          else break;
+        }
+        dragBlock.forEach((r) => r.classList.add("dragging"));
       });
       document.addEventListener("pointermove", (e) => {
         if (!dragRow) return;
         e.preventDefault();
-        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => r !== dragRow);
+        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => !dragBlock.includes(r));
         const dopo = rows.find((r) => {
           const rect = r.getBoundingClientRect();
           return e.clientY < rect.top + rect.height / 2;
         });
-        if (dopo) secList.insertBefore(dragRow!, dopo);
-        else secList.appendChild(dragRow!);
+        // sposta l'intero blocco (nodo + sotto-albero) mantenendo l'ordine interno
+        for (const r of dragBlock) {
+          if (dopo) secList.insertBefore(r, dopo);
+          else secList.appendChild(r);
+        }
       });
       document.addEventListener("pointerup", async () => {
         if (!dragRow) return;
-        dragRow.classList.remove("dragging");
+        dragBlock.forEach((r) => r.classList.remove("dragging"));
         dragRow = null;
-        const ordine = [...secList.querySelectorAll<HTMLElement>(".sec-row")].map((r) => r.dataset.id!);
+        dragBlock = [];
+        const righe = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
+        const ordine = righe.map((r) => r.dataset.id!);
         if (JSON.stringify(ordine) === JSON.stringify(cats.map((c) => c.id))) return;
+        // manda id + parent (invariato) per non appiattire l'albero
+        const nodes = righe.map((r) => ({ id: r.dataset.id!, parent_id: r.dataset.parent || null }));
         const res = await fetch("/api/admin/categories", {
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ order: ordine }),
+          body: JSON.stringify({ nodes }),
         });
         if (!res.ok) {
           const j = await res.json();
-          secMsg.textContent = j.error ?? "Réordonnancement impossible.";
+          secMsg.textContent = j.error ?? tr("menu.reorderFailed");
           renderSezioni();
         } else {
-          toast("Ordre enregistré ✓");
+          toast(tr("menu.orderSaved"));
           await caricaTutto();
         }
       });
@@ -1221,20 +1653,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       (document.getElementById("sec-addbtn") as HTMLButtonElement).addEventListener("click", async () => {
         secMsg.textContent = "";
         const name = secNew.value.trim();
-        if (!name) { secMsg.textContent = "Nom requis."; return; }
+        if (!name) { secMsg.textContent = tr("menu.nameRequired"); return; }
+        const stdNew = trovaStd(name);
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ name, kind: nuovaKind }),
+          body: JSON.stringify({ name, kind: nuovaKind, parent_id: nuovoParent?.id ?? null, name_i18n: stdNew ? i18nStd(stdNew) : {} }),
         });
         const j = await res.json();
         if (!res.ok) {
-          secMsg.textContent = j.error ?? "Erreur.";
+          secMsg.textContent = j.error ?? tr("menu.errorDot");
         } else {
           secNew.value = "";
           nuovaKind = "food";
+          nuovoParent = null;
           renderNuovaKind();
-          toast("Section ajoutée ✓");
+          toast(tr("menu.sectionAdded"));
           await caricaTutto();
         }
       });
@@ -1246,9 +1680,11 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         items: Record<string, string[]>;
         combos: { parts: string[]; price_cents: number }[];
         active: boolean;
+        name_i18n?: Record<string, string> | null;
+        hide_items?: boolean | null;
       };
       const PORTATE: string[] = ["entree", "plat", "dessert"]; // ordine canonico
-      const PORTATA_LAB: Record<string, string> = { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+      const PORTATA_LAB: Record<string, string> = { entree: tr("menu.courseEntree"), plat: tr("menu.coursePlat"), dessert: tr("menu.courseDessert") };
       let lunches: Lunch[] = [];
       let lunchPronto = false; // primo GET già fatto
       let lunchFetching = false;
@@ -1275,10 +1711,10 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
       function lunchDatesLabel(l: Lunch): string {
         const f = (s: string | null) => (s ? s.split("-").reverse().join("/") : "");
-        if (l.date_from && l.date_to) return `Du ${f(l.date_from)} au ${f(l.date_to)}`;
-        if (l.date_from) return `À partir du ${f(l.date_from)}`;
-        if (l.date_to) return `Jusqu'au ${f(l.date_to)}`;
-        return "Sans limite de dates";
+        if (l.date_from && l.date_to) return `${tr("menu.luFrom")} ${f(l.date_from)} ${tr("menu.luTo2")} ${f(l.date_to)}`;
+        if (l.date_from) return `${tr("menu.luFromOnly")} ${f(l.date_from)}`;
+        if (l.date_to) return `${tr("menu.luUntil")} ${f(l.date_to)}`;
+        return tr("menu.luNoDateLimit");
       }
       function lunchHTML(l: Lunch): string {
         const combos = (l.combos ?? [])
@@ -1302,22 +1738,22 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
             <div class="lu-combos">${combos}</div>
             <div class="lu-actions">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">Actif</span></span>
-              <button class="i-btn lu-edit" title="Modifier">✎</button>
-              <button class="i-btn i-del lu-del" title="Supprimer">${ICO_TRASH}</button>
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+              <button class="i-btn lu-edit" title="${tr("common.edit")}">✎</button>
+              <button class="i-btn i-del lu-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
           </div>`;
       }
       function renderLunchList(filtro: string) {
         if (!lunchPronto) {
-          listEl.innerHTML = '<p class="state">Chargement…</p>';
+          listEl.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
           void caricaLunches();
           return;
         }
         const arr = lunches.filter((l) => !filtro || l.name.toLowerCase().includes(filtro));
         listEl.innerHTML = arr.length
           ? `<div class="lu-grid">${arr.map(lunchHTML).join("")}</div>`
-          : '<p class="state">Aucun lunch — ajoute une formule avec « + Ajou. lunch ».</p>';
+          : `<p class="state">${tr("menu.noLunch")}</p>`;
       }
 
       // Bottone flottante: etichetta secondo il tab attivo
@@ -1331,9 +1767,9 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         // Il FAB Categories riguarda solo le sezioni di Plats/Boissons
         const sec = document.getElementById("sec-btn") as HTMLButtonElement | null;
         if (sec) sec.style.display = kindFiltro === "lunch" || kindFiltro === "menus" ? "none" : "";
-        if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ Ajou. lunch"; }
-        else if (kindFiltro === "menus") { add.style.display = "none"; }
-        else { add.style.display = ""; add.textContent = "+ Ajou. plat"; }
+        if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ " + tr("menu.addLunchShort"); }
+        else if (kindFiltro === "menus") { add.style.display = ""; add.textContent = "+ " + tr("menu.addMenuShort"); }
+        else { add.style.display = ""; add.textContent = "+ " + tr(kindFiltro === "drink" ? "menu.itemDrink" : "menu.itemFood"); }
       }
 
       // ---------- Modale lunch ----------
@@ -1341,19 +1777,34 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       const luTitle = document.getElementById("lu-title") as HTMLHeadingElement;
       const luMsg = document.getElementById("lu-msg") as HTMLSpanElement;
       const luName = document.getElementById("lu-name") as HTMLInputElement;
+      const luNameLab = document.getElementById("lu-name-lab") as HTMLSpanElement;
+      const luNamesExtra = document.getElementById("lu-names-extra") as HTMLDivElement;
+      // Campi nome tradotto per lingua del sito pubblico (come i piatti).
+      function costruisciCampiLinguaLunch() {
+        luNameLab.textContent = `${tr("home.name")} (${langTag(PUB.def)})`;
+        luNamesExtra.innerHTML = PUB.langs
+          .filter((l) => l !== PUB.def)
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="lu-nx" data-lang="${l}" maxlength="60" /></div></div>`
+          )
+          .join("");
+      }
+      costruisciCampiLinguaLunch();
       const luFrom = document.getElementById("lu-from") as HTMLInputElement;
       const luTo = document.getElementById("lu-to") as HTMLInputElement;
       const luCoursesEl = document.getElementById("lu-courses") as HTMLDivElement;
       const luItemsEl = document.getElementById("lu-items") as HTMLDivElement;
       const luCombosEl = document.getElementById("lu-combos") as HTMLDivElement;
       const luActive = document.getElementById("lu-active") as HTMLInputElement;
+      const luHideItems = document.getElementById("lu-hide-items") as HTMLInputElement;
       const luSave = document.getElementById("lu-save") as HTMLButtonElement;
       let luCourses: string[] = ["plat"]; // portate attive
       let luItems: Record<string, string[]> = {}; // piatti scelti per portata
       let luPrezzi: Record<string, string> = {}; // "entree+plat" -> testo input prezzo
 
       function aggiornaLuNome() {
-        luName.placeholder = luCourses.length === 1 ? "Plat du jour" : "Lunch";
+        luName.placeholder = luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch");
       }
       function renderLuCourses() {
         luCoursesEl.innerHTML = PORTATE.map((p) => {
@@ -1379,16 +1830,16 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             const chips = scelti
               .map((id) => {
                 const it = items.find((x) => x.id === id);
-                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-p="${p}" data-id="${id}" title="Retirer">×</button></span>`;
+                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-p="${p}" data-id="${id}" title="${tr("ord.remove")}">×</button></span>`;
               })
               .join("");
             return `
             <div class="lu-block">
-              <div class="lu-block-tit">${PORTATA_LAB[p]} — plats au choix</div>
+              <div class="lu-block-tit">${PORTATA_LAB[p]} — ${tr("menu.dishesChoice")}</div>
               <select class="lu-sel" data-p="${p}">
-                <option value="">Ajouter un plat du menu…</option>${opzioni}
+                <option value="">${tr("menu.addMenuDish")}</option>${opzioni}
               </select>
-              <div class="lu-chips">${chips || '<span class="f-label">Aucun plat sélectionné.</span>'}</div>
+              <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
             </div>`;
           })
           .join("");
@@ -1414,7 +1865,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         luCombosEl.innerHTML = comboPossibili()
           .map((parts) => {
             const k = parts.join("+");
-            const solo = parts.length === 1 && luCourses.length === 1 ? " (plat du jour)" : "";
+            const solo = parts.length === 1 && luCourses.length === 1 ? ` ${tr("menu.dailyDishParen")}` : "";
             return `
             <div class="lu-combo-row">
               <span class="lu-combo-lab">${comboLabel(parts)}${solo}</span>
@@ -1426,12 +1877,19 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
       function apriLunchModale(l: Lunch | null) {
         lunchEditId = l?.id ?? null;
-        luTitle.textContent = l ? "Modifier le lunch" : "Ajouter un lunch";
+        luTitle.textContent = l ? tr("menu.editLunch") : tr("menu.addLunch");
         luMsg.textContent = "";
         luName.value = l?.name ?? "";
+        {
+          const nI18n = l?.name_i18n ?? {};
+          luNamesExtra.querySelectorAll<HTMLInputElement>(".lu-nx").forEach((inp) => {
+            inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+          });
+        }
         impostaData(luFrom, l?.date_from ?? "");
         impostaData(luTo, l?.date_to ?? "");
         luActive.checked = l?.active ?? true;
+        luHideItems.checked = l?.hide_items ?? false;
         luCourses = PORTATE.filter((p) => p === "plat" || (l?.courses ?? []).includes(p));
         luItems = {};
         for (const p of luCourses) luItems[p] = [...(l?.items?.[p] ?? [])];
@@ -1450,8 +1908,8 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
       }
 
       // ---- Datepicker brand (come Réglages/Résa) per le date del lunch ----
-      const MESI_DP = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-      const DOW_DP = ["L", "M", "M", "J", "V", "S", "D"];
+      const MESI_DP = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString(LOC, { month: "long" }));
+      const DOW_DP = tr("res.dowInitials").split(",");
       let dpTarget: HTMLInputElement | null = null;
       let dpAnno = 0;
       let dpMese = 0; // 0-11
@@ -1501,7 +1959,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           </div>
           <div class="dp-dow">${DOW_DP.map((g) => `<span>${g}</span>`).join("")}</div>
           <div class="dp-grid">${celle}</div>
-          <button type="button" class="dp-clear">Effacer — sans limite</button>`;
+          <button type="button" class="dp-clear">${tr("menu.clearNoLimit")}</button>`;
       }
       function dpApri(target: HTMLInputElement) {
         dpTarget = target;
@@ -1591,26 +2049,36 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           if (!raw) continue; // combinazione non proposta
           const cents = Math.round(parseFloat(raw.replace(",", ".")) * 100);
           if (!Number.isFinite(cents) || cents <= 0) {
-            luMsg.textContent = `Prix invalide (${comboLabel(parts)}).`;
+            luMsg.textContent = `${tr("menu.priceInvalidCombo")} (${comboLabel(parts)}).`;
             return;
           }
           combos.push({ parts, price_cents: cents });
         }
-        if (!combos.length) { luMsg.textContent = "Indique au moins un prix de combinaison."; return; }
+        if (!combos.length) { luMsg.textContent = tr("menu.comboPriceRequired"); return; }
         const dFrom = luFrom.dataset.iso ?? "";
         const dTo = luTo.dataset.iso ?? "";
         if (dFrom && dTo && dFrom > dTo) {
-          luMsg.textContent = "La date de fin précède le début.";
+          luMsg.textContent = tr("menu.endBeforeStart");
           return;
         }
         const body: Record<string, unknown> = {
-          name: luName.value.trim() || (luCourses.length === 1 ? "Plat du jour" : "Lunch"),
+          name: luName.value.trim() || (luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch")),
           courses: luCourses,
           date_from: dFrom,
           date_to: dTo,
           items: Object.fromEntries(luCourses.map((p) => [p, luItems[p] ?? []])),
           combos,
           active: luActive.checked,
+          hide_items: luHideItems.checked,
+          name_i18n: (() => {
+            const nome = luName.value.trim() || (luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch"));
+            const o: Record<string, string> = { [PUB.def]: nome };
+            luNamesExtra.querySelectorAll<HTMLInputElement>(".lu-nx").forEach((inp) => {
+              const v = inp.value.trim();
+              if (v) o[inp.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
         };
         if (lunchEditId) body.id = lunchEditId;
         luSave.disabled = true;
@@ -1623,14 +2091,14 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           });
           const j = await res.json();
           if (!res.ok) {
-            luMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+            luMsg.textContent = j.error ?? tr("res.saveError");
           } else {
-            toast(lunchEditId ? "Lunch modifié ✓" : "Lunch ajouté ✓");
+            toast(lunchEditId ? tr("menu.lunchModified") : tr("menu.lunchAdded"));
             chiudiLunchModale();
             await caricaLunches();
           }
         } catch {
-          luMsg.textContent = "Erreur de connexion.";
+          luMsg.textContent = tr("common.netErr");
         } finally {
           luSave.disabled = false;
           luSave.classList.remove("is-loading");
@@ -1654,17 +2122,17 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
         if (del) {
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
           try {
             const res = await fetch("/api/admin/lunch?id=" + l.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast("Suppression impossible", true); return; }
-            toast("Lunch supprimé");
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("menu.lunchDeleted"));
             await caricaLunches();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         }
       });
@@ -1684,7 +2152,483 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           card.classList.toggle("is-hidden-item", !t.checked);
         } catch {
           t.checked = !t.checked;
-          toast("Modification impossible", true);
+          toast(tr("us.editErr"), true);
+        }
+      });
+
+
+      // ---------- Menù (set menu / prix fixe) ----------
+      type SetMenu = {
+        id: string; name: string;
+        name_i18n?: Record<string, string> | null;
+        desc_i18n?: Record<string, string> | null;
+        image_url?: string | null;
+        courses: { category?: string | null; name: string; name_i18n?: Record<string, string> | null; mode?: string; items: string[]; customs?: { name_i18n?: Record<string, string> | null }[] }[];
+        price_cents: number; wine_supplement_cents?: number | null;
+        date_from: string | null; date_to: string | null;
+        active: boolean; hide_items?: boolean | null; is_draft?: boolean | null; sort_order?: number;
+      };
+      let setMenus: SetMenu[] = [];
+      let setMenusPronto = false;
+      let setMenusFetching = false;
+      let menuEditId: string | null = null;
+
+      async function caricaSetMenus() {
+        if (setMenusFetching) return;
+        setMenusFetching = true;
+        try {
+          const res = await fetch("/api/admin/set-menus", { headers });
+          if (!res.ok) throw new Error();
+          setMenus = ((await res.json()).menus as SetMenu[]) ?? [];
+        } catch {
+          setMenus = [];
+        } finally {
+          setMenusPronto = true;
+          setMenusFetching = false;
+        }
+        if (kindFiltro === "menus") renderList();
+      }
+
+      function datesLabelGen(df: string | null, dt: string | null): string {
+        const f = (x: string | null) => (x ? x.split("-").reverse().join("/") : "");
+        if (df && dt) return `${tr("menu.luFrom")} ${f(df)} ${tr("menu.luTo2")} ${f(dt)}`;
+        if (df) return `${tr("menu.luFromOnly")} ${f(df)}`;
+        if (dt) return `${tr("menu.luUntil")} ${f(dt)}`;
+        return tr("menu.luNoDateLimit");
+      }
+
+      function setMenuHTML(m: SetMenu): string {
+        const portate = (m.courses ?? [])
+          .map((c) => {
+            const nomiItems = (c.items ?? []).map((id) => items.find((x) => x.id === id)?.name ?? "").filter(Boolean);
+            const nomiCustom = (c.customs ?? []).map((cu) => cu.name_i18n?.[PUB.def] ?? Object.values(cu.name_i18n ?? {})[0] ?? "").filter(Boolean);
+            const nomi = [...nomiItems, ...nomiCustom];
+            const sep = c.mode === "and" ? " + " : " / ";
+            const dettaglio = nomi.length ? esc(nomi.join(sep)) : `<span class="f-label">${tr("menu.noDishSelected")}</span>`;
+            const modeTag = nomi.length > 1 ? `<span class="lu-course-mode">(${c.mode === "and" ? tr("menu.modeAnd") : tr("menu.modeChoice")})</span>` : "";
+            return `<div class="lu-course"><span class="lu-course-tit">${esc(c.name)}${modeTag}</span><span class="lu-course-plats">${dettaglio}</span></div>`;
+          })
+          .join("");
+        const prezzo = `<div class="lu-combo"><span>${esc(m.name)}</span><b>${euro(m.price_cents)}</b></div>`;
+        const vino = m.wine_supplement_cents != null
+          ? `<div class="lu-combo"><span>${tr("menu.wineSupp")}</span><b>+${euro(m.wine_supplement_cents)}</b></div>`
+          : "";
+        const foto = m.image_url ? `<img src="${esc(m.image_url)}" alt="" loading="lazy" />` : ICO_IMG;
+        return `
+          <div class="lu-card sm-card${m.active ? "" : " is-hidden-item"}" data-id="${m.id}">
+            <div class="sm-photo">${foto}</div>
+            <div class="sm-body">
+              <div class="lu-name">${esc(m.name)}${m.is_draft ? ` <span class="sm-draft">${tr("menu.draftBadge")}</span>` : ""}</div>
+              <div class="lu-dates">${datesLabelGen(m.date_from, m.date_to)}</div>
+              ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
+              <div class="lu-combos">${prezzo}${vino}</div>
+              <div class="lu-actions">
+                <span class="sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+                <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
+                <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function renderMenusList(filtro: string) {
+        if (!setMenusPronto) {
+          listEl.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
+          void caricaSetMenus();
+          return;
+        }
+        const arr = setMenus.filter((m) => !filtro || m.name.toLowerCase().includes(filtro));
+        listEl.innerHTML = arr.length
+          ? `<div class="lu-grid">${arr.map(setMenuHTML).join("")}</div>`
+          : `<p class="state">${tr("menu.noSetMenu")}</p>`;
+      }
+
+      // --- Modale menù ---
+      const mnOverlay = document.getElementById("mn-overlay") as HTMLDivElement;
+      const mnTitle = document.getElementById("mn-title") as HTMLHeadingElement;
+      const mnMsg = document.getElementById("mn-msg") as HTMLSpanElement;
+      const mnLangs = document.getElementById("mn-langs") as HTMLDivElement;
+      function mnNomeDef(): HTMLInputElement {
+        return mnLangs.querySelector(`.mn-nx[data-lang="${PUB.def}"]`) as HTMLInputElement;
+      }
+      const mnPrice = document.getElementById("mn-price") as HTMLInputElement;
+      const mnWine = document.getElementById("mn-wine") as HTMLInputElement;
+      const mnFrom = document.getElementById("mn-from") as HTMLInputElement;
+      const mnTo = document.getElementById("mn-to") as HTMLInputElement;
+      const mnActive = document.getElementById("mn-active") as HTMLInputElement;
+      const mnHide = document.getElementById("mn-hide-items") as HTMLInputElement;
+      const mnCorsiEl = document.getElementById("mn-corsi") as HTMLDivElement;
+      const mnSave = document.getElementById("mn-save") as HTMLButtonElement;
+      const mnDraft = document.getElementById("mn-draft") as HTMLButtonElement;
+      const mnImgPrev = document.getElementById("mn-img-prev") as HTMLSpanElement;
+      const mnImgUp = document.getElementById("mn-img-up") as HTMLButtonElement;
+      const mnImgDel = document.getElementById("mn-img-del") as HTMLButtonElement;
+      const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
+      const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
+      let mnImgUrl: string | null = null;
+      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string> }[] }[] = [];
+
+      function costruisciCampiLinguaMenu() {
+        const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+        mnLangs.innerHTML = ordine
+          .map((l) => {
+            const ph = l === PUB.def ? esc(tr("menu.setMenuNamePh")) : "";
+            return `
+            <div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-nx" data-lang="${l}" maxlength="60" placeholder="${ph}" /></div></div>
+            <div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="mn-dx" data-lang="${l}" maxlength="600"></textarea></div></div>`;
+          })
+          .join("");
+      }
+      costruisciCampiLinguaMenu();
+
+      function renderMnFotoPrev() {
+        mnImgPrev.innerHTML = mnImgUrl ? `<img src="${esc(mnImgUrl)}" alt="" />` : ICO_IMG;
+        mnImgDel.style.display = mnImgUrl ? "" : "none";
+      }
+
+      function renderMnCorsi() {
+        const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+        mnCorsiEl.innerHTML = mnCorsi
+          .map((c, i) => {
+            const isCustom = !c.category;
+            const opzioni = cats
+              .map((cat) => {
+                const dentro = items
+                  .filter((it) => it.category === cat.name && !c.items.includes(it.id))
+                  .map((it) => `<option value="${it.id}">${esc(it.name)}</option>`)
+                  .join("");
+                return dentro ? `<optgroup label="${esc(cat.name)}">${dentro}</optgroup>` : "";
+              })
+              .join("");
+            const chips = c.items
+              .map((id) => {
+                const it = items.find((x) => x.id === id);
+                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-i="${i}" data-id="${id}" title="${tr("ord.remove")}">×</button></span>`;
+              })
+              .join("");
+            const catOpts = cats
+              .map((cat) => `<option value="${esc(cat.name)}"${c.category === cat.name ? " selected" : ""}>${esc(cat.name)}</option>`)
+              .join("");
+            const nomiCustom = isCustom
+              ? `<div class="mn-corso-nomi">${ordine
+                  .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-corso-nx" data-i="${i}" data-lang="${l}" maxlength="60" placeholder="${l === PUB.def ? esc(tr("menu.courseNamePh")) : ""}" value="${esc(c.name_i18n?.[l] ?? (l === PUB.def ? c.name : ""))}" /></div></div>`)
+                  .join("")}</div>`
+              : "";
+            return `
+            <div class="lu-block mn-corso" data-i="${i}">
+              <div class="mn-corso-head">
+                <select class="mn-corso-tipo" data-i="${i}">
+                  <option value="__custom__"${isCustom ? " selected" : ""}>${tr("menu.customCourse")}</option>
+                  ${catOpts}
+                </select>
+                <div class="mn-mode-group">
+                  <button type="button" class="mn-mode${c.mode === "and" ? " is-on" : ""}" data-i="${i}" data-mode="and">${tr("menu.modeAnd")}</button>
+                  <button type="button" class="mn-mode${c.mode !== "and" ? " is-on" : ""}" data-i="${i}" data-mode="choice">${tr("menu.modeChoice")}</button>
+                </div>
+                <button type="button" class="i-btn i-del mn-corso-del" data-i="${i}" title="${tr("menu.removeCourse")}">${ICO_TRASH}</button>
+              </div>
+              ${nomiCustom}
+              <select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>
+              <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
+              ${c.customs
+                .map((cu, ci) => `<div class="mn-custom"><div class="mn-custom-head"><span class="f-label">${tr("menu.customDish")} ${ci + 1}</span><button type="button" class="i-btn i-del mn-custom-del" data-i="${i}" data-ci="${ci}" title="${tr("ord.remove")}">${ICO_TRASH}</button></div>${ordine
+                  .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-custom-nx" data-i="${i}" data-ci="${ci}" data-lang="${l}" value="${esc(cu.name_i18n?.[l] ?? "")}" /></div></div>`)
+                  .join("")}</div>`)
+                .join("")}
+              <button type="button" class="pill sec-btn mn-custom-add" data-i="${i}" style="margin-top: 0.4rem">${tr("menu.otherDish")}</button>
+            </div>`;
+          })
+          .join("");
+      }
+
+      mnCorsiEl.addEventListener("input", (e) => {
+        const inp = e.target as HTMLInputElement;
+        const i = Number(inp.dataset.i);
+        if (inp.classList.contains("mn-corso-nx")) {
+          const l = inp.dataset.lang ?? "";
+          if (mnCorsi[i]) {
+            mnCorsi[i].name_i18n[l] = inp.value;
+            if (l === PUB.def) mnCorsi[i].name = inp.value;
+          }
+          return;
+        }
+        if (inp.classList.contains("mn-custom-nx")) {
+          const ci = Number(inp.dataset.ci);
+          const l = inp.dataset.lang ?? "";
+          if (mnCorsi[i]?.customs[ci]) mnCorsi[i].customs[ci].name_i18n[l] = inp.value;
+        }
+      });
+      mnCorsiEl.addEventListener("change", (e) => {
+        const sel = e.target as HTMLSelectElement;
+        const i = Number(sel.dataset.i);
+        if (sel.classList.contains("mn-sel") && sel.value) {
+          if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; renderMnCorsi(); }
+          return;
+        }
+        if (sel.classList.contains("mn-corso-tipo")) {
+          if (mnCorsi[i]) {
+            mnCorsi[i].category = sel.value === "__custom__" ? "" : sel.value;
+            renderMnCorsi();
+          }
+        }
+      });
+      mnCorsiEl.addEventListener("click", (e) => {
+        const t = e.target as HTMLElement;
+        const cadd = t.closest(".mn-custom-add") as HTMLElement | null;
+        if (cadd) { const i = Number(cadd.dataset.i); mnCorsi[i]?.customs.push({ name_i18n: {} }); renderMnCorsi(); return; }
+        const cdel = t.closest(".mn-custom-del") as HTMLElement | null;
+        if (cdel) { const i = Number(cdel.dataset.i); mnCorsi[i]?.customs.splice(Number(cdel.dataset.ci), 1); renderMnCorsi(); return; }
+        const mode = t.closest(".mn-mode") as HTMLElement | null;
+        if (mode) {
+          const i = Number(mode.dataset.i);
+          if (mnCorsi[i]) { mnCorsi[i].mode = mode.dataset.mode === "and" ? "and" : "choice"; renderMnCorsi(); }
+          return;
+        }
+        const del = t.closest(".mn-corso-del") as HTMLElement | null;
+        if (del) { mnCorsi.splice(Number(del.dataset.i), 1); renderMnCorsi(); return; }
+        const chip = t.closest(".lu-chip button") as HTMLElement | null;
+        if (chip) {
+          const i = Number(chip.dataset.i);
+          if (mnCorsi[i]) mnCorsi[i].items = mnCorsi[i].items.filter((id) => id !== chip.dataset.id);
+          renderMnCorsi();
+        }
+      });
+      (document.getElementById("mn-add-course") as HTMLButtonElement).addEventListener("click", () => {
+        mnCorsi.push({ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [] });
+        renderMnCorsi();
+      });
+
+      // Immagine del menù
+      mnImgUp.addEventListener("click", () => mnImgFile.click());
+      mnImgDel.addEventListener("click", () => { mnImgUrl = null; renderMnFotoPrev(); });
+      (document.getElementById("mn-img-lib") as HTMLButtonElement).addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("imgpick:open"));
+      });
+      window.addEventListener("imgpick:pick", (e) => {
+        if (!mnOverlay.classList.contains("is-open")) return;
+        mnImgUrl = (e as CustomEvent<{ url: string }>).detail.url;
+        renderMnFotoPrev();
+        mnImgState.textContent = "";
+      });
+      mnImgFile.addEventListener("change", async () => {
+        const file = mnImgFile.files?.[0];
+        if (!file) return;
+        mnImgState.textContent = tr("menu.compressing");
+        mnImgUp.disabled = true;
+        try {
+          const foto = await comprimiFoto(file);
+          if (foto.size > 4 * 1024 * 1024) throw new Error(tr("menu.photoTooBig"));
+          mnImgState.textContent = tr("cli.uploading");
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => reject(new Error(tr("menu.fileUnreadable")));
+            r.readAsDataURL(foto);
+          });
+          const res = await fetch("/api/admin/upload", {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: foto.name, data: b64, bucket: "menu" }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? tr("menu.uploadFailed"));
+          mnImgUrl = j.url as string;
+          renderMnFotoPrev();
+          mnImgState.textContent = "";
+        } catch (err) {
+          mnImgState.textContent = err instanceof Error ? err.message : tr("menu.uploadFailedDot");
+        } finally {
+          mnImgUp.disabled = false;
+          mnImgFile.value = "";
+        }
+      });
+
+      // Datepicker per le date del menù (riusa il picker del lunch)
+      [mnFrom, mnTo].forEach((el) => {
+        el.addEventListener("click", (e) => { e.stopPropagation(); dpApri(el); });
+      });
+
+      function apriMenuModale(m: SetMenu | null) {
+        menuEditId = m?.id ?? null;
+        mnTitle.textContent = m ? tr("menu.editMenu") : tr("menu.addMenu");
+        mnMsg.textContent = "";
+        {
+          const nI18n = m?.name_i18n ?? {};
+          mnLangs.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+            const l = inp.dataset.lang ?? "";
+            inp.value = nI18n[l] ?? (l === PUB.def ? (m?.name ?? "") : "");
+          });
+          const dI18n = m?.desc_i18n ?? {};
+          mnLangs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+            ta.value = dI18n[ta.dataset.lang ?? ""] ?? "";
+          });
+        }
+        mnPrice.value = m ? (m.price_cents / 100).toFixed(2) : "";
+        mnWine.value = m?.wine_supplement_cents != null ? (m.wine_supplement_cents / 100).toFixed(2) : "";
+        impostaData(mnFrom, m?.date_from ?? "");
+        impostaData(mnTo, m?.date_to ?? "");
+        mnActive.checked = m?.active ?? true;
+        mnHide.checked = m?.hide_items ?? false;
+        mnImgUrl = m?.image_url ?? null;
+        mnImgState.textContent = "";
+        renderMnFotoPrev();
+        mnCorsi = m?.courses?.length
+          ? m.courses.map((c) => ({ category: c.category ?? "", name: c.name ?? "", name_i18n: { ...(c.name_i18n ?? {}) }, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])], customs: (c.customs ?? []).map((cu) => ({ name_i18n: { ...(cu.name_i18n ?? {}) } })) }))
+          : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [] }];
+        renderMnCorsi();
+        mnOverlay.classList.add("is-open");
+        mnNomeDef().focus();
+      }
+      function chiudiMenuModale() {
+        dpChiudi();
+        mnOverlay.classList.remove("is-open");
+        menuEditId = null;
+      }
+
+      async function salvaSetMenu(draft = false) {
+        mnMsg.textContent = "";
+        const prezzoRaw = (mnPrice.value || "").replace(",", ".").trim();
+        let prezzo = prezzoRaw ? Math.round(parseFloat(prezzoRaw) * 100) : 0;
+        if (!Number.isFinite(prezzo) || prezzo < 0) prezzo = 0;
+        if (!draft && prezzo <= 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
+        let wine: number | null = null;
+        if (mnWine.value.trim()) {
+          wine = Math.round(parseFloat(mnWine.value.replace(",", ".")) * 100);
+          if (!Number.isFinite(wine) || wine < 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
+        }
+        const pulCustoms = (arr: { name_i18n: Record<string, string> }[]) =>
+          arr
+            .map((cu) => {
+              const o: Record<string, string> = {};
+              for (const [k, v] of Object.entries(cu.name_i18n)) { const t = String(v).trim(); if (t) o[k] = t; }
+              return { name_i18n: o };
+            })
+            .filter((cu) => Object.keys(cu.name_i18n).length);
+        const courses = mnCorsi
+          .map((c) => {
+            const customs = pulCustoms(c.customs);
+            if (c.category) {
+              return { category: c.category, name: c.category, name_i18n: {} as Record<string, string>, mode: c.mode, items: c.items, customs };
+            }
+            const nameI18n: Record<string, string> = {};
+            for (const [k, v] of Object.entries(c.name_i18n)) { const t = String(v).trim(); if (t) nameI18n[k] = t; }
+            const nomeC = (c.name_i18n[PUB.def] ?? c.name ?? "").trim();
+            return { category: null as string | null, name: nomeC, name_i18n: nameI18n, mode: c.mode, items: c.items, customs };
+          })
+          .filter((c) => c.category || c.name || c.items.length || c.customs.length);
+        if (!draft && !courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
+        const dFrom = mnFrom.dataset.iso ?? "";
+        const dTo = mnTo.dataset.iso ?? "";
+        if (dFrom && dTo && dFrom > dTo) { mnMsg.textContent = tr("menu.endBeforeStart"); return; }
+        const nomeDef = mnNomeDef().value.trim();
+        const body: Record<string, unknown> = {
+          name: nomeDef || tr("menu.addMenuShort"),
+          courses,
+          price_cents: prezzo,
+          wine_supplement_cents: wine,
+          date_from: dFrom,
+          date_to: dTo,
+          active: draft ? false : mnActive.checked,
+          hide_items: mnHide.checked,
+          is_draft: draft,
+          image_url: mnImgUrl,
+          name_i18n: (() => {
+            const o: Record<string, string> = { [PUB.def]: nomeDef || tr("menu.addMenuShort") };
+            mnLangs.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+              const l = inp.dataset.lang ?? "";
+              if (l === PUB.def) return;
+              const v = inp.value.trim(); if (v) o[l] = v;
+            });
+            return o;
+          })(),
+          desc_i18n: (() => {
+            const o: Record<string, string> = {};
+            mnLangs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+              const v = ta.value.trim(); if (v) o[ta.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
+        };
+        if (menuEditId) body.id = menuEditId;
+        mnSave.disabled = true;
+        mnDraft.disabled = true;
+        (draft ? mnDraft : mnSave).classList.add("is-loading");
+        try {
+          const res = await fetch("/api/admin/set-menus", {
+            method: menuEditId ? "PATCH" : "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok) { mnMsg.textContent = j.error ?? tr("res.saveError"); }
+          else if (draft) {
+            // Bozza: resta aperto e continua a modificare lo STESSO record
+            const nuovo = j.menu as SetMenu | undefined;
+            if (nuovo?.id) { menuEditId = nuovo.id; mnTitle.textContent = tr("menu.editMenu"); }
+            toast(tr("menu.draftSaved"));
+            void caricaSetMenus();
+          } else {
+            toast(menuEditId ? tr("menu.setMenuModified") : tr("menu.setMenuAdded"));
+            chiudiMenuModale();
+            await caricaSetMenus();
+          }
+        } catch {
+          mnMsg.textContent = tr("common.netErr");
+        } finally {
+          mnSave.disabled = false;
+          mnDraft.disabled = false;
+          mnSave.classList.remove("is-loading");
+          mnDraft.classList.remove("is-loading");
+        }
+      }
+
+      (document.getElementById("mn-close") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
+      (document.getElementById("mn-cancel") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
+      mnOverlay.addEventListener("click", (e) => { if (e.target === mnOverlay) chiudiMenuModale(); });
+      mnSave.addEventListener("click", () => salvaSetMenu(false));
+      mnDraft.addEventListener("click", () => salvaSetMenu(true));
+
+      // Azioni sulle card menù (delega)
+      listEl.addEventListener("click", async (e) => {
+        const t = e.target as HTMLElement;
+        const card = t.closest(".sm-card") as HTMLElement | null;
+        if (!card) return;
+        const m = setMenus.find((x) => x.id === card.dataset.id);
+        if (!m) return;
+        if (t.closest(".sm-edit")) { apriMenuModale(m); return; }
+        const del = t.closest(".sm-del") as HTMLButtonElement | null;
+        if (del) {
+          if (!del.classList.contains("confirm")) {
+            del.classList.add("confirm");
+            del.textContent = tr("common.confirm");
+            setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/set-menus?id=" + m.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("menu.setMenuDeleted"));
+            await caricaSetMenus();
+          } catch { toast(tr("res.connErr"), true); }
+        }
+      });
+      listEl.addEventListener("change", async (e) => {
+        const t = e.target as HTMLInputElement;
+        if (!t.classList.contains("sm-act")) return;
+        const card = t.closest(".sm-card") as HTMLElement;
+        try {
+          const res = await fetch("/api/admin/set-menus", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ id: card.dataset.id, active: t.checked }),
+          });
+          if (!res.ok) throw new Error();
+          const m = setMenus.find((x) => x.id === card.dataset.id);
+          if (m) m.active = t.checked;
+          card.classList.toggle("is-hidden-item", !t.checked);
+        } catch {
+          t.checked = !t.checked;
+          toast(tr("us.editErr"), true);
         }
       });
 
@@ -1752,7 +2696,7 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
 
         (document.getElementById("add-btn") as HTMLButtonElement).addEventListener("click", () => {
           if (kindFiltro === "lunch") { apriLunchModale(null); return; }
-          if (kindFiltro === "menus") return;
+          if (kindFiltro === "menus") { apriMenuModale(null); return; }
           apriModale(null);
         });
         (document.getElementById("sec-btn") as HTMLButtonElement).addEventListener("click", () => {
@@ -1787,25 +2731,43 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
               return;
             }
             try {
               const res = await fetch("/api/admin/menu?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              if (!res.ok) { toast("Suppression impossible", true); return; }
-              toast("Plat supprimé");
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("menu.dishDeleted"));
               await caricaTutto();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
           }
         });
 
-        // Drag & drop dei piatti nella sezione attiva (mouse + dito)
+        // Drag & drop: piatti (.i-drag) e pillole sotto-categoria (.s-drag)
         let dragItem: HTMLElement | null = null;
+        let dragSub: HTMLElement | null = null;
+        let dragSubBlock: HTMLElement[] = [];
         listEl.addEventListener("pointerdown", (e) => {
           if (listEl.dataset.mode === "search") return;
+          // Pillola sotto-categoria: trascina l'intero blocco (pillola + suoi piatti/sottolivelli)
+          const sHandle = (e.target as HTMLElement).closest(".s-drag");
+          if (sHandle && sHandle.closest(".sub-head")) {
+            e.preventDefault();
+            dragSub = sHandle.closest(".sub-head") as HTMLElement;
+            const d0 = Number(dragSub.dataset.depth ?? "1");
+            dragSubBlock = [dragSub];
+            let el = dragSub.nextElementSibling as HTMLElement | null;
+            while (el) {
+              if (el.classList.contains("sub-head") && Number(el.dataset.depth ?? "0") <= d0) break;
+              dragSubBlock.push(el);
+              el = el.nextElementSibling as HTMLElement | null;
+            }
+            dragSubBlock.forEach((r) => r.classList.add("dragging"));
+            return;
+          }
           const handle = (e.target as HTMLElement).closest(".i-drag");
           if (!handle) return;
           e.preventDefault();
@@ -1813,43 +2775,114 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
           dragItem.classList.add("dragging");
         });
         document.addEventListener("pointermove", (e) => {
+          // Riordino sotto-categoria: solo tra sorelle (stesso parent + stesso livello)
+          if (dragSub) {
+            e.preventDefault();
+            const d0 = Number(dragSub.dataset.depth ?? "1");
+            const pid = dragSub.dataset.parent ?? "";
+            const heads = [...listEl.querySelectorAll<HTMLElement>(".sub-head")].filter(
+              (h) => !dragSubBlock.includes(h) && Number(h.dataset.depth ?? "0") === d0 && (h.dataset.parent ?? "") === pid
+            );
+            const dopo = heads.find((h) => { const r = h.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+            for (const r of dragSubBlock) { if (dopo) listEl.insertBefore(r, dopo); else listEl.appendChild(r); }
+            return;
+          }
           if (!dragItem) return;
           e.preventDefault();
-          const rows = [...listEl.querySelectorAll<HTMLElement>(".item")].filter((r) => r !== dragItem);
-          const dopo = rows.find((r) => {
-            const rect = r.getBoundingClientRect();
-            return e.clientY < rect.top + rect.height / 2;
-          });
-          if (dopo) listEl.insertBefore(dragItem!, dopo);
-          else listEl.appendChild(dragItem!);
+          const conf = [...listEl.querySelectorAll<HTMLElement>(".item, .sub-head")].filter((r) => r !== dragItem);
+          const dopo = conf.find((r) => { const rect = r.getBoundingClientRect(); return e.clientY < rect.top + rect.height / 2; });
+          if (dopo) listEl.insertBefore(dragItem!, dopo); else listEl.appendChild(dragItem!);
+          // evidenzia la pillola del gruppo di destinazione
+          let target: HTMLElement | null = null;
+          for (const el of [...listEl.children] as HTMLElement[]) {
+            if (el === dragItem) break;
+            if (el.classList.contains("sub-head")) target = el;
+          }
+          listEl.querySelectorAll(".sub-head.drop-target").forEach((x) => x.classList.remove("drop-target"));
+          if (target) target.classList.add("drop-target");
         });
         document.addEventListener("pointerup", async () => {
+          // === Fine drag di una SOTTO-CATEGORIA ===
+          if (dragSub) {
+            dragSubBlock.forEach((r) => r.classList.remove("dragging"));
+            dragSub = null; dragSubBlock = [];
+            const nuoviId = [...listEl.querySelectorAll<HTMLElement>(".sub-head")].map((h) => h.dataset.id!);
+            const activeCat = cats.find((c) => c.name === attiva);
+            if (!activeCat) return;
+            const perId = new Map(cats.map((c) => [c.id, c]));
+            const isDesc = (rootId: string, id: string): boolean => {
+              let c = perId.get(id);
+              let g = 0;
+              while (c && c.parent_id && g < 12) { if (c.parent_id === rootId) return true; c = perId.get(c.parent_id); g++; }
+              return false;
+            };
+            const rootIdx = cats.findIndex((c) => c.id === activeCat.id);
+            let end = rootIdx + 1;
+            while (end < cats.length && isDesc(activeCat.id, cats[end].id)) end++;
+            const descById = new Map(cats.slice(rootIdx + 1, end).map((c) => [c.id, c]));
+            const newDesc = nuoviId.map((id) => descById.get(id)).filter(Boolean) as Cat[];
+            if (newDesc.length !== descById.size) { renderList(); return; }
+            const attualeDesc = cats.slice(rootIdx + 1, end).map((c) => c.id);
+            if (JSON.stringify(attualeDesc) === JSON.stringify(nuoviId)) return; // nessun cambiamento
+            const newOrder = [...cats.slice(0, rootIdx + 1), ...newDesc, ...cats.slice(end)];
+            const nodes = newOrder.map((c) => ({ id: c.id, parent_id: c.parent_id ?? null }));
+            try {
+              const r = await fetch("/api/admin/categories", { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ nodes }) });
+              if (!r.ok) throw new Error();
+              toast(tr("menu.orderSaved"));
+              await caricaTutto();
+            } catch {
+              toast(tr("menu.reorderFailedShort"), true);
+              renderList();
+            }
+            return;
+          }
+          // === Fine drag di un PIATTO ===
           if (!dragItem) return;
           dragItem.classList.remove("dragging");
           dragItem = null;
-          const ordine = [...listEl.querySelectorAll<HTMLElement>(".item")].map((r) => r.dataset.id!);
-          const attuale = items.filter((i) => i.category === attiva).map((i) => i.id);
-          if (JSON.stringify(ordine) === JSON.stringify(attuale)) return;
-          const res = await fetch("/api/admin/menu", {
-            method: "PATCH",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ category: attiva, order: ordine }),
-          });
-          if (!res.ok) {
-            toast("Réordonnancement impossible", true);
-            renderList();
-          } else {
-            toast("Ordre enregistré ✓");
+          listEl.querySelectorAll(".sub-head.drop-target").forEach((x) => x.classList.remove("drop-target"));
+          const groups = new Map<string, string[]>();
+          let cur = attiva;
+          for (const el of [...listEl.children] as HTMLElement[]) {
+            if (el.classList.contains("sub-head")) cur = el.dataset.cat || attiva;
+            else if (el.classList.contains("item")) {
+              if (!groups.has(cur)) groups.set(cur, []);
+              groups.get(cur)!.push(el.dataset.id!);
+            }
+          }
+          const catDi = new Map(items.map((i) => [i.id, i.category]));
+          const moves: { id: string; cat: string }[] = [];
+          let cambiato = false;
+          for (const [cat, ids] of groups) {
+            for (const id of ids) if (catDi.get(id) !== cat) { moves.push({ id, cat }); cambiato = true; }
+            const attualeIds = items.filter((i) => i.category === cat).sort((a, b) => a.sort_order - b.sort_order).map((i) => i.id);
+            if (JSON.stringify(attualeIds) !== JSON.stringify(ids)) cambiato = true;
+          }
+          if (!cambiato) return;
+          try {
+            for (const m of moves) {
+              const r = await fetch("/api/admin/menu", { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ id: m.id, category: m.cat }) });
+              if (!r.ok) throw new Error();
+            }
+            for (const [cat, ids] of groups) {
+              const r = await fetch("/api/admin/menu", { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ category: cat, order: ids }) });
+              if (!r.ok) throw new Error();
+            }
+            toast(tr("menu.orderSaved"));
             await caricaTutto();
+          } catch {
+            toast(tr("menu.reorderFailedShort"), true);
+            renderList();
           }
         });
 
         listEl.addEventListener("change", async (e) => {
           const t = e.target as HTMLInputElement;
-          if (!t.classList.contains("t-av") && !t.classList.contains("t-or")) return;
+          if (!t.classList.contains("t-av") && !t.classList.contains("t-or") && !t.classList.contains("t-soldout")) return;
           const row = t.closest(".item") as HTMLElement;
           const id = row.dataset.id!;
-          const campo = t.classList.contains("t-av") ? "available" : "orderable";
+          const campo = t.classList.contains("t-av") ? "available" : t.classList.contains("t-or") ? "orderable" : "sold_out";
           try {
             const res = await fetch("/api/admin/menu", {
               method: "PUT",
@@ -1860,9 +2893,18 @@ const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") :
             const it = items.find((x) => x.id === id);
             if (it) (it as any)[campo] = t.checked;
             if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
+            if (campo === "sold_out") {
+              const nameEl = row.querySelector(".i-name");
+              const pill = nameEl?.querySelector(".i-soldout");
+              if (t.checked && !pill && nameEl) {
+                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
+              } else if (!t.checked && pill) {
+                pill.remove();
+              }
+            }
           } catch {
             t.checked = !t.checked;
-            toast("Modification impossible", true);
+            toast(tr("us.editErr"), true);
           }
         });
 

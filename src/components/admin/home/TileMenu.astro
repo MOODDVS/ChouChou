@@ -1,15 +1,19 @@
 ---
 // Isola "Menu" della Accueil → pagina Menu.
 // data-admin-page="menu".
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 <a class="tile" href="/admin/menu" data-admin-page="menu" data-tile="menu">
-  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Menu</div>
+  <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>{t("nav.menu")}</div>
   <div class="menu-counts">
-    <div><span class="mc-num" id="menu-food">0</span><span class="mc-lab">🍴 plats</span></div>
-    <div><span class="mc-num" id="menu-drink">0</span><span class="mc-lab">🍷 boissons</span></div>
+    <div><span class="mc-num" id="menu-food">0</span><span class="mc-lab">🍴 {t("home.dishes")}</span></div>
+    <div><span class="mc-num" id="menu-drink">0</span><span class="mc-lab">🍷 {t("home.drinks")}</span></div>
   </div>
   <div class="tile-next">
-    <span class="lab">Indisponibles (masqués du site)</span>
+    <span class="lab">{t("home.unavailable")}</span>
     <span class="val" id="menu-indispo">—</span>
   </div>
 </a>

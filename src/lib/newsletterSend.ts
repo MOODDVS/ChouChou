@@ -12,7 +12,9 @@ import { linksSocial, type LinkSocial } from "./links";
 // Contiene rubrica + SEGMENTI, template HTML e invio a lotti con quota.
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
-const RESEND_FROM = import.meta.env.RESEND_FROM;
+// RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
+// che Resend rifiuta con 422 "Invalid from field".
+const RESEND_FROM = ((import.meta.env.RESEND_FROM ?? "") as string).trim().replace(/^["']|["']$/g, "") || undefined;
 const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
 const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 
@@ -33,11 +35,12 @@ export async function mittenteNewsletter(): Promise<string> {
   try {
     const { data } = await supabaseAdmin
       .from("app_config")
-      .select("value")
-      .eq("key", "newsletter_from_email")
-      .maybeSingle();
-    const v = String(data?.value ?? "").trim();
-    if (v) return `${CLIENT.nome} <${v}>`;
+      .select("key, value")
+      .in("key", ["newsletter_from_email", "newsletter_from_name", "email_from_name", "restaurant_name"]);
+    const m = new Map((data ?? []).map((r) => [r.key as string, String(r.value ?? "").trim()]));
+    const v = m.get("newsletter_from_email") ?? "";
+    const nome = m.get("newsletter_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
+    if (v) return `${nome} <${v}>`;
   } catch {
     // fallback
   }

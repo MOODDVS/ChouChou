@@ -33,7 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { filename?: string; data?: string; bucket?: string };
+  let body: { filename?: string; data?: string; bucket?: string; folder?: string };
   try {
     body = await request.json();
   } catch {
@@ -77,7 +77,9 @@ export const POST: APIRoute = async ({ request }) => {
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .slice(-60);
-  const path = `${Date.now()}-${pulito}`;
+  // Cartella opzionale (slug sicuro) per tenere ordinati i file per sezione.
+  const folder = String(body.folder ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "").slice(0, 32);
+  const path = folder ? `${folder}/${Date.now()}-${pulito}` : `${Date.now()}-${pulito}`;
 
   const { error } = await supabaseAdmin.storage
     .from(bucket)

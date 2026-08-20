@@ -5,12 +5,19 @@
 // telefono/email cliccabili. Annuler (2 tap) / Rétablir / No-show.
 // I dati arrivano dal widget di prenotazione (tabella `reservations`).
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
 import { aggiornaTimezone } from "../../lib/slots";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import "../../styles/datepicker.css";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -33,11 +40,11 @@ try {
 const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Réservations — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.reservations") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -49,7 +56,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -61,7 +68,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -403,7 +410,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .zn-grip svg { width: 18px; height: 18px; }
       .zn-prio {
         font-family: var(--font-title); color: var(--c-accent); font-size: 1.1rem;
-        width: 20px; text-align: center; flex: 0 0 auto; transform: translateY(-1.5px);
+        width: 20px; text-align: center; flex: 0 0 auto;
       }
       .sv-row.is-past { opacity: 0.45; }
       .sv-nom { font-weight: 700; font-size: 1rem; }
@@ -463,6 +470,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .overlay.is-open { display: flex; }
       .modal { width: 100%; max-width: 520px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal { max-height: 90vh; overflow-y: auto; }
+      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
+      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
+      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -557,6 +568,22 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal input:focus, .modal textarea:focus { outline: none; border-color: var(--c-accent); }
       /* Form del modale: stesso design dello step 2 del widget */
       .nm-frow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
+      .nm-ta-anchor { position: relative; }
+      .nm-ta {
+        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
+        box-shadow: 0 12px 30px rgba(0,0,0,0.4); overflow: hidden; max-height: 260px; overflow-y: auto;
+      }
+      .nm-ta-item {
+        display: block; width: 100%; text-align: left; background: transparent; border: none;
+        border-bottom: 1px solid var(--c-line); padding: 0.6rem 0.8rem; cursor: pointer; color: var(--c-text);
+        font-family: var(--font-body);
+      }
+      .nm-ta-item:last-child { border-bottom: none; }
+      .nm-ta-item:hover, .nm-ta-item.is-active { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      .nm-ta-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+      .nm-ta-sub { font-size: 0.76rem; color: var(--c-muted); margin-top: 1px; }
+      .nm-ta-block { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.4); border-radius: 999px; padding: 0.05rem 0.4rem; }
       .modal .nm-in {
         flex: 1; width: 100%; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
@@ -582,7 +609,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-opt.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .modal textarea { resize: vertical; min-height: 56px; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
-      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+      .m-msg { display: inline-block; margin-right: auto; background: #d84a3f; color: #ffffff; font-size: 0.82rem; font-weight: 700; padding: 0.42rem 0.9rem; border-radius: 999px; line-height: 1.35; }
+      .m-msg:empty { display: none; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
       .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-save {
@@ -611,49 +639,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-pill-ico { display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; }
       .nm-pill-ico svg { width: 15px; height: 15px; }
       .nm-datein { cursor: pointer; text-align: center; }
-      /* Datepicker brand (comme le widget) */
-      .dp-panel {
-        position: fixed; z-index: 460; width: 344px;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.9rem;
-      }
-      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
-      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
-      .dp-nav {
-        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
-        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
-      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
-      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
-      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-      .dp-cell {
-        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
-        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
-        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
-        transition: background 0.15s, color 0.15s;
-      }
-      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
-      .dp-vuota { cursor: default; }
-      .dp-off { color: var(--c-muted); opacity: 0.45; cursor: not-allowed; }
-      .dp-cell.dp-off:not(:disabled) { cursor: pointer; }
-      .dp-cell { position: relative; }
-      .dp-dot {
-        position: absolute; left: 50%; transform: translateX(-50%); bottom: 3px;
-        width: 7px; height: 7px; border-radius: 50%; background: #2e9e6b; /* ≤30% */
-      }
-      .dp-dot--medio { background: var(--c-accent); } /* 31-80% */
-      .dp-dot--alto { background: #ed1c24; } /* 81%+ */
-      .dp-sel .dp-dot { background: var(--c-bg); }
-      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
-      .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      .dp-full:not(.dp-sel) { box-shadow: inset 0 0 0 2px #e5484d; }
-      @media (pointer: coarse) {
-        .dp-panel { width: 372px; }
-        .dp-cell { min-height: 44px; font-size: 1.05rem; }
-      }
       .nm-stabs { display: flex; gap: 0.4rem; margin-bottom: 0.5rem; }
       .nm-stabs .nm-pill { flex: 1; }
       .nm-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
@@ -772,6 +757,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         .r-actions { margin-left: auto; }
       }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
@@ -786,23 +772,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               <line x1="3" y1="10" x2="21" y2="10" />
               <polyline points="9 15 11 17 15 13" />
             </svg>
-            Réservations
+            {t("nav.reservations")}
           </h1>
         </div>
         <div class="d-closed" id="d-closed"></div>
         <div class="daybar">
           <div class="d-pill">
-            <button class="d-nav" id="d-prev" aria-label="Jour précédent">‹</button>
+            <button class="d-nav" id="d-prev" aria-label={t("res.prevDay")}>‹</button>
             <div class="d-label" id="d-label">—</div>
-            <button class="d-nav" id="d-next" aria-label="Jour suivant">›</button>
+            <button class="d-nav" id="d-next" aria-label={t("res.nextDay")}>›</button>
           </div>
-          <button class="d-today" id="d-today">Aujourd'hui<span class="n" id="cnt-jour"></span></button>
-          <button class="d-today d-vista" id="d-sem">Semaine<span class="n" id="cnt-sem"></span></button>
-          <button class="d-today d-vista" id="d-mois">Mois<span class="n" id="cnt-mois"></span></button>
+          <button class="d-today" id="d-today">{t("ord.today")}<span class="n" id="cnt-jour"></span></button>
+          <button class="d-today d-vista" id="d-sem">{t("res.week")}<span class="n" id="cnt-sem"></span></button>
+          <button class="d-today d-vista" id="d-mois">{t("res.month")}<span class="n" id="cnt-mois"></span></button>
           <span class="spacer"></span>
           <span class="d-search-wrap">
-            <input type="text" id="d-search" class="d-search" placeholder="Rechercher nom, email, tél…" autocomplete="off" />
-            <button type="button" class="d-search-x" id="d-search-x" aria-label="Effacer la recherche" style="display:none">×</button>
+            <input type="text" id="d-search" class="d-search" placeholder={t("ord.searchPh")} autocomplete="off" />
+            <button type="button" class="d-search-x" id="d-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
           </span>
         </div>
         <div class="subbar">
@@ -810,37 +796,37 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           <span class="spacer"></span>
           <div class="d-stats" id="d-stats"></div>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="rows" style="display:none"></div>
-        <p class="state" id="empty" style="display:none">Aucune réservation ce jour.</p>
+        <p class="state" id="empty" style="display:none">{t("res.noneToday")}</p>
         <div id="vista-sem" style="display:none"></div>
         <div id="vista-mois" style="display:none"></div>
       </main>
       <AdminFooter />
     </div>
 
-    <button class="fab" id="fab-add"><span class="fab-plus">+</span>Réservation</button>
-    <button class="fab-serv" id="fab-serv" title="Services du jour" aria-label="Services du jour">
+    <button class="fab" id="fab-add"><span class="fab-plus">+</span>{t("res.reservation")}</button>
+    <button class="fab-serv" id="fab-serv" title={t("res.servicesDay")} aria-label={t("res.servicesDay")}>
       <svg viewBox="0 0 1069 1069" fill="currentColor" aria-hidden="true"><path d="m868.658 793.843h-666.667c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h666.667c17.247 0 31.25-14.002 31.25-31.25 0-17.247-14.003-31.25-31.25-31.25zm-696.964-105.706h-53.036c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h833.333c17.248 0 31.25-14.002 31.25-31.25 0-17.247-14.002-31.25-31.25-31.25h-53.035c-6.089-84.36-41.354-166.984-105.785-231.415-142.309-142.31-373.383-142.31-515.693 0-64.431 64.431-99.696 147.055-105.784 231.415zm664.564 0h-601.867c5.955-68.316 35.046-134.986 87.281-187.221 117.918-117.918 309.387-117.918 427.305 0 52.235 52.235 81.327 118.905 87.281 187.221zm-350.932-352.627h99.997c17.248 0 31.25-14.003 31.25-31.25s-14.002-31.25-31.25-31.25h-99.997c-17.247 0-31.25 14.003-31.25 31.25s14.003 31.25 31.25 31.25z" /><path d="m504.075 304.26v76.973c0 17.248 14.002 31.25 31.25 31.25 17.247 0 31.25-14.002 31.25-31.25v-76.973c0-17.247-14.003-31.25-31.25-31.25-17.248 0-31.25 14.003-31.25 31.25z" fill-opacity=".5" /></svg>
     </button>
 
-    <button class="fab-serv fab-zone" id="fab-zone" title="Sections" aria-label="Sections">
+    <button class="fab-serv fab-zone" id="fab-zone" title={t("res.sections")} aria-label={t("res.sections")}>
       <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><ellipse cx="50" cy="25" rx="40" ry="15" /><path d="m50 45c-16.01 0-32.115-3.538-40-10.361v5.361c0 8.737 16.139 15.889 36.666 16.595v26.738h-3.333l-2.271-9.082c-6.539 1.367-11.062 4.16-11.062 7.415 0 4.6 8.955 8.333 19.999 8.333 11.042 0 20-3.733 20-8.333 0-4.124-7.215-7.545-16.666-8.209v-16.862c20.526-.706 36.667-7.858 36.667-16.595v-5.361c-7.885 6.823-23.992 10.361-40 10.361z" /></svg>
     </button>
 
     <!-- Modale sections: chiusure par section -->
     <div class="overlay" id="zn-overlay">
       <div class="modal">
-        <button class="m-close" id="zn-close" aria-label="Fermer">×</button>
-        <h2>Sections</h2>
-        <span class="f-label">Date</span>
+        <button class="m-close" id="zn-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("res.sections")}</h2>
+        <span class="f-label">{t("home.date")}</span>
         <div class="nm-days sv-days">
-          <button type="button" class="nm-pill" id="zn-auj">Aujourd'hui</button>
-          <button type="button" class="nm-pill" id="zn-dem">Demain</button>
+          <button type="button" class="nm-pill" id="zn-auj">{t("ord.today")}</button>
+          <button type="button" class="nm-pill" id="zn-dem">{t("res.tomorrow")}</button>
         </div>
         <input type="text" id="zn-datein" class="nm-datein" readonly />
         <div id="zn-list"></div>
-        <span class="f-label sv-fut-lab">Fermetures à venir</span>
+        <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
         <div id="zn-future"></div>
       </div>
     </div>
@@ -848,8 +834,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <!-- Modale dettagli prenotazione (click sulla card) -->
     <div class="overlay" id="dt-overlay">
       <div class="modal">
-        <button class="m-close" id="dt-close" aria-label="Fermer">×</button>
-        <h2 id="dt-title">Réservation</h2>
+        <button class="m-close" id="dt-close" aria-label={t("common.close")}>×</button>
+        <h2 id="dt-title">{t("res.reservation")}</h2>
         <div class="dt-contacts" id="dt-contacts"></div>
         <div id="dt-status"></div>
         <div class="dt-timer" id="dt-timer" style="display:none">
@@ -858,15 +844,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <span id="dt-tstatus"></span>
           </div>
           <div class="dt-opts" id="dt-opts"></div>
-          <span class="f-label" id="dt-tlab">À table depuis</span>
+          <span class="f-label" id="dt-tlab">{t("res.seatedSince")}</span>
           <div class="dt-clock" id="dt-clock">—</div>
           <div class="dt-track" id="dt-track"><span class="dt-fill" id="dt-fill"></span></div>
           <div class="dt-fin" id="dt-fin"></div>
           <div class="dt-spend" id="dt-spend" style="display:none">
-            <span class="f-label">Addition</span>
+            <span class="f-label">{t("res.bill")}</span>
             <div class="dt-spend-row">
               <input type="text" class="nm-in" id="dt-spend-in" inputmode="decimal" autocomplete="off" placeholder="0,00 €" />
-              <button type="button" class="dt-spend-save" id="dt-spend-save">Enregistrer</button>
+              <button type="button" class="dt-spend-save" id="dt-spend-save">{t("common.save")}</button>
             </div>
           </div>
         </div>
@@ -879,16 +865,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <!-- Modale services du jour: chiusure par service -->
     <div class="overlay" id="sv-overlay">
       <div class="modal">
-        <button class="m-close" id="sv-close" aria-label="Fermer">×</button>
-        <h2>Services</h2>
-        <span class="f-label">Date</span>
+        <button class="m-close" id="sv-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("res.services")}</h2>
+        <span class="f-label">{t("home.date")}</span>
         <div class="nm-days sv-days">
-          <button type="button" class="nm-pill" id="sv-auj">Aujourd'hui</button>
-          <button type="button" class="nm-pill" id="sv-dem">Demain</button>
+          <button type="button" class="nm-pill" id="sv-auj">{t("ord.today")}</button>
+          <button type="button" class="nm-pill" id="sv-dem">{t("res.tomorrow")}</button>
         </div>
         <input type="text" id="sv-datein" class="nm-datein" readonly />
         <div id="sv-list"></div>
-        <span class="f-label sv-fut-lab">Fermetures à venir</span>
+        <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
         <div id="sv-future"></div>
       </div>
     </div>
@@ -896,70 +882,114 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <!-- Modale prenotazione manuale (walk-in / telefono), stile widget -->
     <div class="overlay" id="m-overlay">
       <div class="modal modal-resa">
-        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
-        <h2 id="m-title">Nouvelle réservation</h2>
+        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        <h2 id="m-title">{t("res.newReservation")}</h2>
         <div class="nm-grid">
           <div class="nm-col">
-            <span class="f-label" id="nm-type-lab">Type</span>
+            <span class="f-label" id="nm-type-lab">{t("res.type")}</span>
             <div class="nm-days" id="nm-type-row">
-              <button type="button" class="nm-pill nm-pill-ico is-on" id="nm-walkin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m20 15h-6a1 1 0 0 1 -1-.9l-.6-6a4.62 4.62 0 1 1 9.2 0l-.6 6a1 1 0 0 1 -1 .9zm-5.1-2h4.2l.51-5.12a2.59 2.59 0 0 0 -.67-2 2.68 2.68 0 0 0 -3.88 0 2.59 2.59 0 0 0 -.67 2zm2.1 10a4 4 0 0 1 -4-4v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2a4 4 0 0 1 -4 4zm-2-5v1a2 2 0 0 0 4 0v-1zm-5-5h-6a1 1 0 0 1 -1-.9l-.6-6a4.62 4.62 0 1 1 9.2 0l-.6 6a1 1 0 0 1 -1 .9zm-5.1-2h4.2l.51-5.12a2.59 2.59 0 0 0 -.67-2 2.68 2.68 0 0 0 -3.88 0 2.59 2.59 0 0 0 -.67 2zm2.1 10a4 4 0 0 1 -4-4v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2a4 4 0 0 1 -4 4zm-2-5v1a2 2 0 0 0 4 0v-1z"/></svg>Walk-in</button>
-              <button type="button" class="nm-pill nm-pill-ico" id="nm-phone"><svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="m31.9 14.2c-2.8-6.4-7.9-11.5-14.2-14.1-.5-.2-1.1 0-1.3.6-.2.5 0 1.2.6 1.4 5.9 2.5 10.5 7.1 13.1 13 .2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4z"/><path d="m16.4 7.8c3.6 1.5 6.4 4.3 8 7.9.2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4-1.8-4.1-5-7.3-9-9-.5-.2-1.1 0-1.3.6-.3.5 0 1.1.5 1.4z"/><path d="m26.5 20.2c-.6-.6-1.2-.8-1.8-.8s-1.3.3-1.8.8c-.9.9-1.7 1.7-2.6 2.6-.1.1-.3.2-.4.2s-.2 0-.3-.1c-.6-.3-1.2-.6-1.7-.9-2.5-1.6-4.6-3.6-6.4-5.9-.9-1.1-1.7-2.3-2.3-3.7-.3-.2-.2-.4 0-.6.9-.8 1.7-1.7 2.6-2.5 1.2-1.2 1.2-2.6 0-3.8-.7-.7-1.3-1.3-2-2-.8-.8-1.5-1.5-2.2-2.1-.5-.6-1.2-.9-1.8-.9s-1.3.3-1.8.8c-.9.9-1.8 1.8-2.7 2.6-.8.8-1.2 1.8-1.3 2.9-.1 1.8.3 3.5.9 5.2 1.3 3.4 3.2 6.5 5.6 9.3 3.2 3.8 7 6.8 11.4 8.9 2 1 4.1 1.7 6.3 1.8h.4c1.4 0 2.6-.4 3.6-1.5.7-.8 1.6-1.6 2.4-2.4 1.2-1.2 1.2-2.6 0-3.8-1.4-1.3-2.7-2.7-4.1-4.1z"/></svg>Téléphone</button>
+              <button type="button" class="nm-pill nm-pill-ico is-on" id="nm-walkin"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m20 15h-6a1 1 0 0 1 -1-.9l-.6-6a4.62 4.62 0 1 1 9.2 0l-.6 6a1 1 0 0 1 -1 .9zm-5.1-2h4.2l.51-5.12a2.59 2.59 0 0 0 -.67-2 2.68 2.68 0 0 0 -3.88 0 2.59 2.59 0 0 0 -.67 2zm2.1 10a4 4 0 0 1 -4-4v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2a4 4 0 0 1 -4 4zm-2-5v1a2 2 0 0 0 4 0v-1zm-5-5h-6a1 1 0 0 1 -1-.9l-.6-6a4.62 4.62 0 1 1 9.2 0l-.6 6a1 1 0 0 1 -1 .9zm-5.1-2h4.2l.51-5.12a2.59 2.59 0 0 0 -.67-2 2.68 2.68 0 0 0 -3.88 0 2.59 2.59 0 0 0 -.67 2zm2.1 10a4 4 0 0 1 -4-4v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2a4 4 0 0 1 -4 4zm-2-5v1a2 2 0 0 0 4 0v-1z"/></svg>{t("res.walkin")}</button>
+              <button type="button" class="nm-pill nm-pill-ico" id="nm-phone"><svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="m31.9 14.2c-2.8-6.4-7.9-11.5-14.2-14.1-.5-.2-1.1 0-1.3.6-.2.5 0 1.2.6 1.4 5.9 2.5 10.5 7.1 13.1 13 .2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4z"/><path d="m16.4 7.8c3.6 1.5 6.4 4.3 8 7.9.2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4-1.8-4.1-5-7.3-9-9-.5-.2-1.1 0-1.3.6-.3.5 0 1.1.5 1.4z"/><path d="m26.5 20.2c-.6-.6-1.2-.8-1.8-.8s-1.3.3-1.8.8c-.9.9-1.7 1.7-2.6 2.6-.1.1-.3.2-.4.2s-.2 0-.3-.1c-.6-.3-1.2-.6-1.7-.9-2.5-1.6-4.6-3.6-6.4-5.9-.9-1.1-1.7-2.3-2.3-3.7-.3-.2-.2-.4 0-.6.9-.8 1.7-1.7 2.6-2.5 1.2-1.2 1.2-2.6 0-3.8-.7-.7-1.3-1.3-2-2-.8-.8-1.5-1.5-2.2-2.1-.5-.6-1.2-.9-1.8-.9s-1.3.3-1.8.8c-.9.9-1.8 1.8-2.7 2.6-.8.8-1.2 1.8-1.3 2.9-.1 1.8.3 3.5.9 5.2 1.3 3.4 3.2 6.5 5.6 9.3 3.2 3.8 7 6.8 11.4 8.9 2 1 4.1 1.7 6.3 1.8h.4c1.4 0 2.6-.4 3.6-1.5.7-.8 1.6-1.6 2.4-2.4 1.2-1.2 1.2-2.6 0-3.8-1.4-1.3-2.7-2.7-4.1-4.1z"/></svg>{t("ord.phone")}</button>
             </div>
-            <span class="f-label nm-gap">Date</span>
+            <span class="f-label nm-gap">{t("home.date")}</span>
             <div class="nm-days">
-              <button type="button" class="nm-pill" id="nm-auj">Aujourd'hui</button>
-              <button type="button" class="nm-pill" id="nm-dem">Demain</button>
+              <button type="button" class="nm-pill" id="nm-auj">{t("ord.today")}</button>
+              <button type="button" class="nm-pill" id="nm-dem">{t("res.tomorrow")}</button>
             </div>
-            <input type="text" id="m-date" class="nm-datein" readonly placeholder="Choisir une date…" />
-            <span class="f-label nm-gap">Personnes</span>
+            <input type="text" id="m-date" class="nm-datein" readonly placeholder={t("res.chooseDate")} />
+            <span class="f-label nm-gap">{t("res.people")}</span>
             <div class="nm-pers" id="nm-pers"></div>
-            <span class="f-label nm-gap" id="nm-zone-lab">Section</span>
+            <span class="f-label nm-gap" id="nm-zone-lab">{t("res.section")}</span>
             <div class="nm-zones" id="nm-zones"></div>
             <p class="nm-warn" id="nm-warn" style="display:none"></p>
             <p class="nm-tables" id="nm-tables" style="display:none"></p>
-            <span class="f-label nm-gap">Service &amp; heure</span>
+            <span class="f-label nm-gap">{t("res.serviceTime")}</span>
             <div class="nm-stabs" id="nm-stabs"></div>
             <div class="nm-closed-note" id="nm-closed-note" style="display:none"></div>
             <div class="nm-slots" id="nm-slots"></div>
           </div>
           <div class="nm-col">
-            <span class="f-label">Client</span>
-            <div class="nm-frow">
-              <input type="text" class="nm-in" id="m-fname" maxlength="60" autocomplete="off" placeholder="Prénom" />
-              <input type="text" class="nm-in" id="m-lname" maxlength="60" autocomplete="off" placeholder="Nom" />
+            <span class="f-label">{t("ord.client")}</span>
+            <div class="nm-frow nm-ta-anchor">
+              <input type="text" class="nm-in" id="m-fname" maxlength="60" autocomplete="off" placeholder={t("ord.firstName")} />
+              <input type="text" class="nm-in" id="m-lname" maxlength="60" autocomplete="off" placeholder={t("us.lname")} />
+              <div class="nm-ta" id="nm-ta" style="display:none" role="listbox"></div>
             </div>
             <div class="nm-frow">
               <select class="nm-in nm-tel-prefix" id="m-prefix"></select>
-              <input type="text" class="nm-in" id="m-tel" maxlength="30" autocomplete="off" inputmode="tel" placeholder="Téléphone" />
+              <input type="text" class="nm-in" id="m-tel" maxlength="30" autocomplete="off" inputmode="tel" placeholder={t("ord.phone")} />
             </div>
             <div class="nm-frow">
-              <input type="text" class="nm-in" id="m-email" maxlength="160" autocomplete="off" inputmode="email" placeholder="Email" />
+              <input type="text" class="nm-in" id="m-email" name="email" maxlength="160" autocomplete="email" inputmode="email" placeholder={t("ord.emailLabel")} />
             </div>
-            <span class="f-label">Options</span>
+            <span class="f-label nm-gap">{t("res.clientLang")}</span>
+            <div class="nm-frow">
+              <select class="nm-in" id="m-lang"></select>
+            </div>
+            <span class="f-label">{t("res.options")}</span>
             <div class="nm-opts">
-              <button type="button" class="nm-opt" id="m-opt-chaise">Chaise bébé</button>
-              <button type="button" class="nm-opt" id="m-opt-calme">Endroit calme</button>
-              <button type="button" class="nm-opt" id="m-opt-biz">Business</button>
-              <button type="button" class="nm-opt" id="m-opt-anniv">Anniversaire</button>
-              <button type="button" class="nm-opt" id="m-opt-event">Événement spécial</button>
+              <button type="button" class="nm-opt" id="m-opt-chaise">{t("res.optHighchair")}</button>
+              <button type="button" class="nm-opt" id="m-opt-calme">{t("res.optQuiet")}</button>
+              <button type="button" class="nm-opt" id="m-opt-biz">{t("res.optBusiness")}</button>
+              <button type="button" class="nm-opt" id="m-opt-anniv">{t("res.optBirthday")}</button>
+              <button type="button" class="nm-opt" id="m-opt-event">{t("res.optEvent")}</button>
             </div>
             <div class="nm-frow" id="m-soc-row" style="display:none">
-              <input type="text" class="nm-in" id="m-societe" maxlength="120" autocomplete="off" placeholder="Nom de la société" />
+              <input type="text" class="nm-in" id="m-societe" maxlength="120" autocomplete="off" placeholder={t("res.companyName")} />
             </div>
             <div class="nm-frow">
-              <textarea class="nm-in" id="m-notes" maxlength="500" rows="3" placeholder="Notes…"></textarea>
+              <textarea class="nm-in" id="m-notes" maxlength="500" rows="3" placeholder={t("res.notesPh")}></textarea>
             </div>
           </div>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">Annuler</button>
-          <button class="m-save" id="m-save">Ajouter</button>
+          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save">{t("common.add")}</button>
         </div>
       </div>
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <!-- Modale: cosa fare del cestino di una prenotazione (annulla+email vs elimina) -->
+    <div class="overlay" id="rm-overlay">
+      <div class="modal" style="max-width:440px;">
+        <button class="m-close" id="rm-close" aria-label={t("common.close")}>&times;</button>
+        <h2>{t("res.delTitle")}</h2>
+        <div id="rm-choices">
+          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 1.3rem;">{t("res.delHint")}</p>
+          <button type="button" id="rm-cancel-email" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.delCancelEmail")}</button>
+          <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
+        </div>
+        <div id="rm-reason-box" style="display:none;">
+          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.7rem;">{t("res.delReasonHint")}</p>
+          <p id="rm-lang-hint" style="display:none;color:var(--c-muted);font-size:0.85rem;margin:0 0 0.8rem;"></p>
+          <textarea id="rm-reason" rows="3" placeholder={t("res.delReasonPh")} style="width:100%;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:10px;padding:0.7rem 0.9rem;font-family:var(--font-body);font-size:0.95rem;resize:vertical;margin:0 0 0.9rem;"></textarea>
+          <button type="button" id="rm-confirm-cancel" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.6rem;">{t("res.delConfirmCancel")}</button>
+          <button type="button" id="rm-back" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.7rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("common.cancel")}</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale: no-show (storico + notifica facoltativa + blocco cliente) -->
+    <div class="overlay" id="ns-overlay">
+      <div class="modal" style="max-width:440px;">
+        <button class="m-close" id="ns-close" aria-label={t("common.close")}>&times;</button>
+        <h2>{t("res.nsTitle")}</h2>
+        <p id="ns-name" style="color:var(--c-text);font-weight:600;margin:0.2rem 0 0.9rem;"></p>
+        <div id="ns-hist" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;background:var(--c-bg);border:1px solid var(--c-line);border-radius:12px;padding:0.85rem 1rem;margin-bottom:1.15rem;">
+          <span id="ns-hist-lab" style="color:var(--c-muted);font-size:0.88rem;line-height:1.4;"></span>
+          <span id="ns-count" style="font-family:var(--font-title);font-size:1.6rem;color:#ed6a5f;line-height:1;"></span>
+        </div>
+        <label style="display:flex;align-items:center;justify-content:space-between;gap:0.9rem;margin-bottom:1.25rem;cursor:pointer;">
+          <span style="color:var(--c-text);font-size:0.9rem;line-height:1.45;">{t("res.nsBlock")}</span>
+          <span class="sv-switch"><input type="checkbox" id="ns-block" /><span class="sv-track"></span></span>
+        </label>
+        <button type="button" id="ns-notify" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.nsNotify")}</button>
+        <button type="button" id="ns-silent" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.85rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("res.nsSilent")}</button>
+      </div>
+    </div>
 
     <AdminNav current="reservations" />
 
@@ -968,9 +998,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
+      import { SERVIZI_WIDGET, nomeServizio, LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       interface Resa {
         id: string;
@@ -1028,10 +1063,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         google: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 12h-9" /></svg>',
       };
       const SRC_TITRE: Record<string, string> = {
-        walkin: "Walk-in",
-        phone: "Par téléphone",
-        web: "Depuis le site",
-        google: "Via Google",
+        walkin: tr("res.walkin"),
+        phone: tr("res.srcPhone"),
+        web: tr("res.srcWeb"),
+        google: tr("res.srcGoogle"),
       };
 
       const ICO_EDIT =
@@ -1071,7 +1106,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       }
       function labelGiorno(iso: string): string {
-        return new Date(iso + "T12:00:00").toLocaleDateString("fr-BE", {
+        return new Date(iso + "T12:00:00").toLocaleDateString(LOC, {
           weekday: "long",
           day: "numeric",
           month: "long",
@@ -1103,20 +1138,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         return svAttivoSpRaw(sv.key, hh(sv.da), hh(sv.a), lista);
       }
       let chiusureZoneOggi: { zone: string; reason: string }[] = [];
-      const RAGIONE_FR: Record<string, string> = { full: "Complet", closed: "Fermeture exceptionnelle", permanent: "jusqu\u2019à réouverture" };
+      const RAGIONE_FR: Record<string, string> = { full: tr("res.full"), closed: tr("res.closedExcept"), permanent: tr("res.untilReopen") };
       function aggiornaChiusureUI() {
         const box = document.getElementById("d-closed") as HTMLElement;
         box.innerHTML =
           chiusureOggi
             .map((c) => {
-              const nome = SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key;
-              return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="Rouvrir">×</button></span>`;
+              const nome = nomeServizio(c.service_key, LANG);
+              return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
             })
             .join("") +
           chiusureZoneOggi
             .map(
               (c) =>
-                `<span class="d-closed-pill">${esc(c.zone)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="Rouvrir">×</button></span>`
+                `<span class="d-closed-pill">${esc(c.zone)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`
             )
             .join("");
         (document.getElementById("fab-serv") as HTMLElement).classList.toggle("has-closed", chiusureOggi.length > 0);
@@ -1182,31 +1217,31 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       function badge(r: Resa): string {
         // Sempre cliccabile: apre il menu con tutti gli stati
-        if (r.status === "pending") return '<button class="r-badge pd" data-act="status">En attente</button>';
-        if (r.status === "cancelled") return '<button class="r-badge ko" data-act="status">Annulée</button>';
-        if (r.status === "noshow") return '<button class="r-badge ns" data-act="status">No-show</button>';
-        if (r.status === "done") return '<button class="r-badge gr" data-act="status">Fini</button>';
+        if (r.status === "pending") return `<button class="r-badge pd" data-act="status">${tr("res.stPending")}</button>`;
+        if (r.status === "cancelled") return `<button class="r-badge ko" data-act="status">${tr("res.stCancelled")}</button>`;
+        if (r.status === "noshow") return `<button class="r-badge ns" data-act="status">${tr("res.stNoshow")}</button>`;
+        if (r.status === "done") return `<button class="r-badge gr" data-act="status">${tr("res.stDone")}</button>`;
         if (r.status === "seated") {
           // Arrivée (impostata a MANO): resta blu qualunque sia l'ora,
           // l'automatismo non la tocca; a fine durée propone "Fini ?"
-          if (fase(r) === "passe") return '<button class="b-fini" data-act="status">Fini ?</button>';
-          return '<button class="r-badge bl" data-act="status">En cours</button>';
+          if (fase(r) === "passe") return `<button class="b-fini" data-act="status">${tr("res.finiQ")}</button>`;
+          return `<button class="r-badge bl" data-act="status">${tr("res.stSeated")}</button>`;
         }
         // Confermata: lo stato segue l'orologio
         const f = fase(r);
-        if (f === "encours") return '<button class="r-badge bl" data-act="status">En cours</button>';
-        if (f === "passe") return '<button class="b-fini" data-act="status">Fini ?</button>';
-        return '<button class="r-badge ok" data-act="status">Confirmée</button>';
+        if (f === "encours") return `<button class="r-badge bl" data-act="status">${tr("res.stSeated")}</button>`;
+        if (f === "passe") return `<button class="b-fini" data-act="status">${tr("res.finiQ")}</button>`;
+        return `<button class="r-badge ok" data-act="status">${tr("res.stConfirmed")}</button>`;
       }
 
       function tagsOpzioni(r: Resa): string {
         const tags: string[] = [];
-        if (r.high_chair) tags.push("Chaise bébé");
-        if (r.quiet) tags.push("Endroit calme");
-        if (r.business && !r.company) tags.push("Business");
-        if (r.birthday) tags.push("Anniversaire");
-        if (r.special_event) tags.push("Évén. spécial");
-        const reco = r.recontact ? `<span class="r-tag" style="border-color:var(--c-accent);color:var(--c-accent);">À recontacter</span>` : "";
+        if (r.high_chair) tags.push(tr("res.optHighchair"));
+        if (r.quiet) tags.push(tr("res.optQuiet"));
+        if (r.business && !r.company) tags.push(tr("res.optBusiness"));
+        if (r.birthday) tags.push(tr("res.optBirthday"));
+        if (r.special_event) tags.push(tr("res.optEventShort"));
+        const reco = r.recontact ? `<span class="r-tag" style="border-color:var(--c-accent);color:var(--c-accent);">${tr("res.toRecontact")}</span>` : "";
         const base = tags.map((t) => `<span class="r-tag">${t}</span>`).join("");
         return reco || base ? `<span class="r-tags">${reco}${base}</span>` : "";
       }
@@ -1221,11 +1256,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (r.business && r.company) parti.push(`<span class="r-c">${ICO_BIZ}<span>${esc(r.company)}</span></span>`);
         const contatti = parti.join("");
         // Supprimer: disponibile su TUTTI gli stati (anche Fini / No-show).
-        const cestino = `<button class="i-btn b-annule" data-act="delete" title="Supprimer">${ICO_TRASH}</button>`;
+        const cestino = `<button class="i-btn b-annule" data-act="delete" title="${tr("common.delete")}">${ICO_TRASH}</button>`;
         // Modifier: confirmée/seated + pending (une demande peut être ajustée).
         const matita =
           r.status === "confirmed" || r.status === "seated" || r.status === "pending"
-            ? `<button class="i-btn b-edit" data-act="edit" title="Modifier">${ICO_EDIT}</button>`
+            ? `<button class="i-btn b-edit" data-act="edit" title="${tr("common.edit")}">${ICO_EDIT}</button>`
             : "";
         // Ligne dorée "En cours" + timer tavolo (per ora invisibile: data-min).
         // Parte dall'arrivo reale (seated_at) se impostato a mano, altrimenti
@@ -1270,10 +1305,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               tavLbl
                 ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>`
                 : sugg && sugg.names.length
-                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join(" + "))}</b><span class="r-tav-sez">${esc(sugg.zone)} · suggéré</span>`
+                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join(" + "))}</b><span class="r-tav-sez">${esc(sugg.zone)} · ${tr("res.suggested")}</span>`
                   : esc(r.zone ?? "")
             }</div>
-            <div class="r-pers"><b>${r.people}</b><span>pers.</span></div>
+            <div class="r-pers"><b>${r.people}</b><span>${tr("res.pers")}</span></div>
             <span class="r-state-col">${badge(r)}</span>
             <span class="r-del">${matita}${cestino}</span>
             ${barra}
@@ -1301,11 +1336,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         if (filtroServ && !servizi.some((sv) => sv.key === filtroServ)) filtroServ = "";
         box.innerHTML =
-          `<button type="button" class="fs-pill${filtroServ === "" ? " is-on" : ""}" data-k="" title="Tous les services">${ICO_TUTTI}</button>` +
+          `<button type="button" class="fs-pill${filtroServ === "" ? " is-on" : ""}" data-k="" title="${tr("res.allServices")}">${ICO_TUTTI}</button>` +
           servizi
             .map(
               (sv) =>
-                `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}">${esc(SERVIZI_WIDGET[sv.key]?.fr ?? sv.key)}</button>`
+                `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}">${esc(nomeServizio(sv.key, LANG))}</button>`
             )
             .join("");
       }
@@ -1343,7 +1378,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const si = document.getElementById("d-search") as HTMLInputElement | null;
         if (sx && si) sx.style.display = si.value ? "" : "none";
         if (modoRicerca) {
-          labelEl.textContent = `Recherche — ${filtrate.length} résultat${filtrate.length === 1 ? "" : "s"}`;
+          labelEl.textContent = `${tr("ord.search")} — ${filtrate.length} ${filtrate.length === 1 ? tr("ord.result") : tr("ord.results")}`;
           labelEl.classList.remove("is-today");
           (document.getElementById("d-today") as HTMLElement).classList.remove("is-now");
           statsEl.innerHTML = "";
@@ -1355,7 +1390,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const couverts = attive.reduce((s, r) => s + r.people, 0);
           const attesa = filtrate.filter((r) => r.status === "pending").length;
           statsEl.innerHTML = filtrate.length
-            ? `<b>${couverts}</b> couverts · ${attive.length} résa${attive.length > 1 ? "s" : ""}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> en attente` : ""}`
+            ? `<b>${couverts}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}` : ""}`
             : "";
         }
         if (!filtrate.length) {
@@ -1384,7 +1419,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         rowsEl.innerHTML =
           inCorso.map(riga).join("") +
           (chiuse.length
-            ? `<div class="r-closed-head">Terminées &amp; annulées</div><div class="r-closed">${chiuse.map(riga).join("")}</div>`
+            ? `<div class="r-closed-head">${tr("ord.doneCancelled")}</div><div class="r-closed">${chiuse.map(riga).join("")}</div>`
             : "");
       }
 
@@ -1461,14 +1496,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           renderFiltroServ();
           stateEl.style.display = "none";
           if (j.missing) {
-            emptyEl.textContent = "Table `reservations` absente — lancer la migration supabase/reservations.sql.";
+            emptyEl.textContent = tr("res.tableMissing");
           } else {
-            emptyEl.textContent = "Aucune réservation ce jour.";
+            emptyEl.textContent = tr("res.noneToday");
           }
           render();
           void caricaSuggeriti(); // tavoli suggeriti per le demande pending (dry-run)
         } catch {
-          if (!silenzioso) stateEl.textContent = "Erreur de chargement.";
+          if (!silenzioso) stateEl.textContent = tr("sup.load.error");
         }
       }
 
@@ -1584,17 +1619,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         setInterval(render, 60_000);
 
         // ---- Azioni sulle card: stato, no-show, cestino a due tap, edit ----
-        async function cambiaStato(id: string, status: string) {
+        async function cambiaStato(id: string, status: string, reason?: string, notify?: boolean) {
           try {
             const res = await fetch("/api/admin/reservations", {
               method: "PATCH",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ id, status }),
+              body: JSON.stringify({ id, status, ...(reason ? { reason } : {}), ...(notify ? { notify: true } : {}) }),
             });
             if (!res.ok) throw new Error();
             await carica();
           } catch {
-            toast("Modification impossible", "err");
+            toast(tr("us.editErr"), "err");
           }
         }
         // Eliminazione DEFINITIVA della prenotazione (riga rimossa, niente email).
@@ -1606,20 +1641,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               headers: { ...headers, "X-Method-Override": "DELETE" },
             });
             if (!res.ok) throw new Error();
-            toast("Réservation supprimée", "ok");
+            toast(tr("res.resaDeleted"), "ok");
             await carica();
           } catch {
-            toast("Suppression impossible", "err");
+            toast(tr("us.delErr"), "err");
           }
         }
         // ---- Menu degli stati (badge cliccabile) ----
         const STATI_MENU: { st: string; label: string; colore: string }[] = [
-          { st: "pending", label: "En attente", colore: "var(--c-accent)" },
-          { st: "confirmed", label: "Confirmée", colore: "#2e9e6b" },
-          { st: "seated", label: "En cours", colore: "#3b82f6" },
-          { st: "done", label: "Fini", colore: "var(--c-muted)" },
-          { st: "noshow", label: "No-show", colore: "var(--c-accent)" },
-          { st: "cancelled", label: "Annulée", colore: "#ed1c24" },
+          { st: "pending", label: tr("res.stPending"), colore: "var(--c-accent)" },
+          { st: "confirmed", label: tr("res.stConfirmed"), colore: "#2e9e6b" },
+          { st: "seated", label: tr("res.stSeated"), colore: "#3b82f6" },
+          { st: "done", label: tr("res.stDone"), colore: "var(--c-muted)" },
+          { st: "noshow", label: tr("res.stNoshow"), colore: "var(--c-accent)" },
+          { st: "cancelled", label: tr("res.stCancelled"), colore: "#ed1c24" },
         ];
         const stMenu = document.createElement("div");
         stMenu.className = "st-menu";
@@ -1648,8 +1683,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const b = (e.target as HTMLElement).closest("[data-st]") as HTMLElement | null;
           if (!b || !stMenuId) return;
           const id = stMenuId;
+          const st = b.dataset.st ?? "";
           chiudiStMenu();
-          void cambiaStato(id, b.dataset.st ?? "");
+          const r = rese.find((x) => x.id === id);
+          // No-show: apre il modale dedicato (storico + notifica + blocco),
+          // invece di cambiare stato al volo. Se è già no-show, non riapre.
+          if (st === "noshow" && r?.status !== "noshow") { void apriNs(id); return; }
+          void cambiaStato(id, st);
         });
         document.addEventListener("click", (e) => {
           if (stMenu.style.display !== "none" && !stMenu.contains(e.target as Node)) chiudiStMenu();
@@ -1672,7 +1712,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const spServ = svData === giorno ? spServiziOggi : null;
           const servizi = nmServizi().filter((sv) => (spOpen ? svAttivoSp(sv, spServ) : nmServeGiorno(sv, svData)));
           if (!servizi.length) {
-            svList.innerHTML = '<p class="sv-vuoto">Aucun service configuré dans Admin → Réservations.</p>';
+            svList.innerHTML = `<p class="sv-vuoto">${tr("res.noServiceConfig")}</p>`;
             return;
           }
           const oggi = svData === isoOggi();
@@ -1684,23 +1724,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               const passato = oggi && sv.a < adesso;
               const raisons = chiusa && !perm
                 ? `<div class="sv-raisons">
-                     <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-k="${sv.key}" data-r="full">Complet</button>
-                     <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-k="${sv.key}" data-r="closed">Fermeture exceptionnelle</button>
+                     <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-k="${sv.key}" data-r="full">${tr("res.full")}</button>
+                     <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-k="${sv.key}" data-r="closed">${tr("res.closedExcept")}</button>
                    </div>`
                 : "";
               // Fermé «jusqu'à réouverture»: lo switch per data non ha senso
               const stato = perm
-                ? '<span class="sv-state is-perm">Fermé jusqu\u2019à réouverture</span>'
+                ? `<span class="sv-state is-perm">${tr("res.closedUntilReopenM")}</span>`
                 : passato
-                  ? '<span class="sv-past-lab">Service terminé</span>'
-                  : `<span class="sv-state">${chiusa ? "Fermé" : "Ouvert"}</span>`;
+                  ? `<span class="sv-past-lab">${tr("res.serviceEnded")}</span>`
+                  : `<span class="sv-state">${chiusa ? tr("home.tagClosed") : tr("home.tagOpen")}</span>`;
               const switchHtml = perm
                 ? ""
                 : `<label class="sv-switch">
                     <input type="checkbox" data-k="${sv.key}" ${chiusa ? "" : "checked"} ${passato ? "disabled" : ""} />
                     <span class="sv-track"></span>
                   </label>`;
-              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pk="${sv.key}">${perm ? "Rouvrir le service" : "Fermer jusqu\u2019à réouverture"}</button>`;
+              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pk="${sv.key}">${perm ? tr("res.reopenService") : tr("res.closeUntilReopen")}</button>`;
               return `<div class="sv-row${passato ? " is-past" : ""}">
                   <div class="sv-info">
                     <div class="sv-nom">${esc(sv.label)}</div>
@@ -1741,12 +1781,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   .map(
                     (c) => `<div class="sv-fut-row">
                         <span class="sv-fut-date">${fmtFr(c.date)}</span>
-                        <span class="sv-fut-info"><b>${esc(SERVIZI_WIDGET[c.service_key]?.fr ?? c.service_key)}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
-                        <button type="button" class="i-btn b-annule" data-date="${c.date}" data-k="${c.service_key}" title="Rouvrir">${ICO_TRASH}</button>
+                        <span class="sv-fut-info"><b>${esc(nomeServizio(c.service_key, LANG))}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
+                        <button type="button" class="i-btn b-annule" data-date="${c.date}" data-k="${c.service_key}" title="${tr("home.reopenNote")}">${ICO_TRASH}</button>
                       </div>`
                   )
                   .join("")
-              : '<p class="sv-vuoto">Aucune fermeture programmée.</p>';
+              : `<p class="sv-vuoto">${tr("res.noClosureScheduled")}</p>`;
           } catch {
             svFutureBox.innerHTML = "";
           }
@@ -1776,14 +1816,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 });
             const j = await res.json();
             if (!res.ok) {
-              toast(j.error ?? "Enregistrement impossible", "err");
+              toast(j.error ?? tr("common.saveErr"), "err");
             } else if (reason) {
               svLista = svLista.filter((c) => c.service_key !== key).concat([{ service_key: key, reason }]);
             } else {
               svLista = svLista.filter((c) => c.service_key !== key);
             }
           } catch {
-            toast("Erreur de connexion", "err");
+            toast(tr("res.connErr"), "err");
           }
           if (svData === giorno) {
             chiusureOggi = svLista;
@@ -1832,7 +1872,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             svFutDisarma();
             svFutArmato = b;
             b.classList.add("confirm");
-            b.textContent = "Confirmer ?";
+            b.textContent = tr("common.confirm");
             svFutTimer = window.setTimeout(svFutDisarma, 4000);
             return;
           }
@@ -1893,13 +1933,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             });
             const j = await res.json();
             if (!res.ok) {
-              toast(j.error ?? "Enregistrement impossible", "err");
+              toast(j.error ?? tr("common.saveErr"), "err");
               return;
             }
             svPerm = (j.permanent ?? []) as string[];
-            toast(closed ? "Service fermé jusqu\u2019à réouverture" : "Service rouvert ✓", "ok");
+            toast(closed ? tr("res.serviceClosedReopen") : tr("res.serviceReopened"), "ok");
           } catch {
-            toast("Erreur de connexion", "err");
+            toast(tr("res.connErr"), "err");
             return;
           }
           svRender();
@@ -1947,7 +1987,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         function znRender() {
           const zone = nmCfg.zones ?? [];
           if (!zone.length) {
-            znList.innerHTML = '<p class="sv-vuoto">Aucune section configurée dans Admin → Réservations.</p>';
+            znList.innerHTML = `<p class="sv-vuoto">${tr("res.noSectionConfig")}</p>`;
             return;
           }
           const posPrio = (z: string) => { const i = znPrio.indexOf(z); return i === -1 ? 999 : i; };
@@ -1959,26 +1999,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               const posti = nmCfg.zone_seats?.[z] ?? 0;
               const raisons = chiusa && !perm
                 ? `<div class="sv-raisons">
-                     <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-z="${esc(z)}" data-r="full">Complet</button>
-                     <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-z="${esc(z)}" data-r="closed">Fermeture exceptionnelle</button>
+                     <button type="button" class="sv-raison${chiusa.reason === "full" ? " is-on" : ""}" data-z="${esc(z)}" data-r="full">${tr("res.full")}</button>
+                     <button type="button" class="sv-raison${chiusa.reason === "closed" ? " is-on" : ""}" data-z="${esc(z)}" data-r="closed">${tr("res.closedExcept")}</button>
                    </div>`
                 : "";
               const stato = perm
-                ? '<span class="sv-state is-perm">Fermée jusqu\u2019à réouverture</span>'
-                : `<span class="sv-state">${chiusa ? "Fermée" : "Ouverte"}</span>`;
+                ? `<span class="sv-state is-perm">${tr("res.closedUntilReopenF")}</span>`
+                : `<span class="sv-state">${chiusa ? tr("home.closed") : tr("home.open")}</span>`;
               const switchHtml = perm
                 ? ""
                 : `<label class="sv-switch">
                     <input type="checkbox" data-z="${esc(z)}" ${chiusa ? "" : "checked"} />
                     <span class="sv-track"></span>
                   </label>`;
-              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pz="${esc(z)}">${perm ? "Rouvrir la section" : "Fermer jusqu\u2019à réouverture"}</button>`;
+              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pz="${esc(z)}">${perm ? tr("res.reopenSection") : tr("res.closeUntilReopen")}</button>`;
               return `<div class="sv-row" data-zrow="${esc(z)}">
-                  <span class="zn-grip" title="Glisser pour changer la priorité de remplissage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg></span>
+                  <span class="zn-grip" title="${tr("res.dragPriority")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg></span>
                   <span class="zn-prio">${i + 1}</span>
                   <div class="sv-info">
                     <div class="sv-nom">${esc(z)}</div>
-                    <div class="sv-heures">${posti ? `${posti} couverts` : ""}</div>
+                    <div class="sv-heures">${posti ? `${posti} ${tr("res.covers")}` : ""}</div>
                   </div>
                   ${stato}
                   ${switchHtml}
@@ -2016,11 +2056,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                     (c) => `<div class="sv-fut-row">
                         <span class="sv-fut-date">${fmtFr(c.date)}</span>
                         <span class="sv-fut-info"><b>${esc(c.zone)}</b> — ${RAGIONE_FR[c.reason] ?? c.reason}</span>
-                        <button type="button" class="i-btn b-annule" data-date="${c.date}" data-z="${esc(c.zone)}" title="Rouvrir">${ICO_TRASH}</button>
+                        <button type="button" class="i-btn b-annule" data-date="${c.date}" data-z="${esc(c.zone)}" title="${tr("home.reopenNote")}">${ICO_TRASH}</button>
                       </div>`
                   )
                   .join("")
-              : '<p class="sv-vuoto">Aucune fermeture programmée.</p>';
+              : `<p class="sv-vuoto">${tr("res.noClosureScheduled")}</p>`;
           } catch {
             znFutureBox.innerHTML = "";
           }
@@ -2064,26 +2104,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const rows = resas.map((r) => {
               const nom = (r.first_name + " " + r.last_name).trim();
               const sel = def.get(r.id) ?? "cancel";
-              const secOpts = sections.map((s) => `<option value="move:${esc(s.name)}"${("move:" + s.name) === sel ? " selected" : ""}>Déplacer → ${esc(s.name)}</option>`).join("");
+              const secOpts = sections.map((s) => `<option value="move:${esc(s.name)}"${("move:" + s.name) === sel ? " selected" : ""}>${tr("res.moveTo")} ${esc(s.name)}</option>`).join("");
               return `<div class="zci-row" style="display:flex;align-items:center;gap:.6rem;padding:.5rem 0;border-top:1px solid var(--c-line);">
-                <div style="flex:1;min-width:0;"><div style="font-size:.9rem;">${esc(nom)}</div><div style="color:var(--c-muted);font-size:.75rem;">${esc(String(r.heure).slice(0, 5))} · ${r.people} couv.</div></div>
+                <div style="flex:1;min-width:0;"><div style="font-size:.9rem;">${esc(nom)}</div><div style="color:var(--c-muted);font-size:.75rem;">${esc(String(r.heure).slice(0, 5))} · ${r.people} ${tr("home.covers")}</div></div>
                 <select class="zci-sel" data-id="${esc(r.id)}" style="background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:8px;padding:.35rem .5rem;font-size:.8rem;">
                   ${secOpts}
-                  <option value="cancel"${sel === "cancel" ? " selected" : ""}>Annuler + email</option>
-                  <option value="recontact"${sel === "recontact" ? " selected" : ""}>Recontacter</option>
+                  <option value="cancel"${sel === "cancel" ? " selected" : ""}>${tr("res.cancelEmail")}</option>
+                  <option value="recontact"${sel === "recontact" ? " selected" : ""}>${tr("res.recontact")}</option>
                 </select>
               </div>`;
             }).join("");
             const ov = document.createElement("div");
             ov.style.cssText = "position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:1rem;";
             ov.innerHTML = `<div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:14px;max-width:540px;width:100%;padding:1.4rem;color:var(--c-text);max-height:90vh;overflow:auto;">
-              <h3 style="margin:0 0 .2rem;font-family:var(--font-title);letter-spacing:.04em;color:var(--c-accent);font-size:22px;">Fermeture · ${esc(zona)}</h3>
-              <p style="margin:.2rem 0 1rem;color:var(--c-muted);font-size:.88rem;">${resas.length} réservation(s) sur cette section. Choisis quoi faire pour chacune.</p>
+              <h3 style="margin:0 0 .2rem;font-family:var(--font-title);letter-spacing:.04em;color:var(--c-accent);font-size:22px;">${tr("home.closing")} · ${esc(zona)}</h3>
+              <p style="margin:.2rem 0 1rem;color:var(--c-muted);font-size:.88rem;">${resas.length} ${tr("res.closureImpactMsg")}</p>
               <div class="zci-meters" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem;"></div>
               <div class="zci-list">${rows}</div>
               <div style="display:flex;gap:.5rem;margin-top:1.3rem;">
-                <button type="button" class="zci-ok" style="flex:1;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:.6rem;font-family:var(--font-title);letter-spacing:.03em;cursor:pointer;">Confirmer la fermeture</button>
-                <button type="button" class="zci-no" style="flex:1;background:none;border:1px solid var(--c-line);color:var(--c-muted);border-radius:999px;padding:.6rem;cursor:pointer;">Annuler</button>
+                <button type="button" class="zci-ok" style="flex:1;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:.6rem;font-family:var(--font-title);letter-spacing:.03em;cursor:pointer;">${tr("res.confirmClosure")}</button>
+                <button type="button" class="zci-no" style="flex:1;background:none;border:1px solid var(--c-line);color:var(--c-muted);border-radius:999px;padding:.6rem;cursor:pointer;">${tr("common.cancel")}</button>
               </div>
             </div>`;
             document.body.appendChild(ov);
@@ -2103,7 +2143,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 const col = over ? "var(--err, #ff8a8f)" : "var(--c-line)";
                 const txt = over ? "var(--err, #ff8a8f)" : "var(--c-muted)";
                 return `<span style="font-size:.75rem;padding:.25rem .6rem;border-radius:999px;border:1px solid ${col};color:${txt};">${esc(s.name)} : ${car}/${s.seats}${over ? " ⚠" : ""}</span>`;
-              }).join("") || `<span style="font-size:.75rem;color:var(--c-muted);">Aucune autre section ouverte — seules « Annuler » ou « Recontacter » sont possibles.</span>`;
+              }).join("") || `<span style="font-size:.75rem;color:var(--c-muted);">${tr("res.noOtherSection")}</span>`;
             }
             ricalcola();
             ov.addEventListener("change", (e) => { if ((e.target as HTMLElement).classList.contains("zci-sel")) ricalcola(); });
@@ -2122,9 +2162,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   body: JSON.stringify({ date: znData, zone: zona, decisions }),
                 });
                 const j = await res.json();
-                if (res.ok) toast(`${j.moved ?? 0} déplacée(s) · ${j.cancelled ?? 0} annulée(s) · ${j.recontact ?? 0} à recontacter`, "ok");
-                else toast(j.error ?? "Erreur", "err");
-              } catch { toast("Erreur de connexion", "err"); }
+                if (res.ok) toast(`${j.moved ?? 0} ${tr("res.movedN")} · ${j.cancelled ?? 0} ${tr("res.cancelledN")} · ${j.recontact ?? 0} ${tr("res.toRecontactN")}`, "ok");
+                else toast(j.error ?? tr("ord.errShort"), "err");
+              } catch { toast(tr("res.connErr"), "err"); }
               ov.remove();
               resolve(true);
             });
@@ -2148,14 +2188,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 });
             const j = await res.json();
             if (!res.ok) {
-              toast(j.error ?? "Enregistrement impossible", "err");
+              toast(j.error ?? tr("common.saveErr"), "err");
             } else if (reason) {
               znLista = znLista.filter((c) => c.zone !== zona).concat([{ zone: zona, reason }]);
             } else {
               znLista = znLista.filter((c) => c.zone !== zona);
             }
           } catch {
-            toast("Erreur de connexion", "err");
+            toast(tr("res.connErr"), "err");
           }
           if (znData === giorno) {
             chiusureZoneOggi = znLista;
@@ -2182,11 +2222,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               headers: { ...headers, "Content-Type": "application/json" },
               body: JSON.stringify({ priority: ordine }),
             });
-            if (!res.ok) { toast("Enregistrement impossible", "err"); return; }
+            if (!res.ok) { toast(tr("common.saveErr"), "err"); return; }
             znPrio = ordine;
-            toast("Priorité enregistrée ✓", "ok");
+            toast(tr("res.prioritySaved"), "ok");
           } catch {
-            toast("Erreur de connexion", "err");
+            toast(tr("res.connErr"), "err");
           }
         }
         znList.addEventListener("pointerdown", (e) => {
@@ -2280,13 +2320,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             });
             const j = await res.json();
             if (!res.ok) {
-              toast(j.error ?? "Enregistrement impossible", "err");
+              toast(j.error ?? tr("common.saveErr"), "err");
               return;
             }
             znPerm = (j.permanent ?? []) as string[];
-            toast(closed ? "Section fermée jusqu\u2019à réouverture" : "Section rouverte ✓", "ok");
+            toast(closed ? tr("res.sectionClosedReopen") : tr("res.sectionReopened"), "ok");
           } catch {
-            toast("Erreur de connexion", "err");
+            toast(tr("res.connErr"), "err");
             return;
           }
           znRender();
@@ -2312,7 +2352,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             znFutDisarma();
             znFutArmato = b;
             b.classList.add("confirm");
-            b.textContent = "Confirmer ?";
+            b.textContent = tr("common.confirm");
             znFutTimer = window.setTimeout(znFutDisarma, 4000);
             return;
           }
@@ -2370,7 +2410,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (!r) return;
           dtId = r.id;
           (document.getElementById("dt-title") as HTMLElement).textContent =
-            `${r.first_name} ${r.last_name}`.trim() || "Réservation";
+            `${r.first_name} ${r.last_name}`.trim() || tr("res.reservation");
 
           // Badge di stato (stessi colori del menu stati; confirmed passata l'ora = En cours)
           const stKey = r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status;
@@ -2382,19 +2422,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const conBlocco = r.status === "confirmed" || r.status === "seated" || r.status === "done";
 
           // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
-          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""]?.fr;
+          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""] ? nomeServizio(r.service_key ?? "", LANG) : "";
           const righe: string[] = [];
           const dett = (k: string, v: string) => righe.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
           if (!conBlocco) {
-            dett("Date", esc(dataFr(r.date)));
-            dett("Heure", esc(r.heure));
-            if (svLbl) dett("Service", esc(svLbl));
-            dett("Personnes", String(r.people));
+            dett(tr("home.date"), esc(dataFr(r.date)));
+            dett(tr("res.hour"), esc(r.heure));
+            if (svLbl) dett(tr("res.service"), esc(svLbl));
+            dett(tr("res.people"), String(r.people));
           }
-          if (!conBlocco && r.zone) dett("Section", esc(r.zone));
+          if (!conBlocco && r.zone) dett(tr("res.section"), esc(r.zone));
           if (!conBlocco) {
             const tv = etichettaTavoli(r);
-            if (tv) dett("Table(s)", esc(tv));
+            if (tv) dett(tr("res.tables"), esc(tv));
           }
           const contattiDt: string[] = [];
           if (r.phone)
@@ -2402,14 +2442,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (r.email)
             contattiDt.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>`);
           (document.getElementById("dt-contacts") as HTMLElement).innerHTML = contattiDt.join("");
-          if (!conBlocco && r.source && SRC_TITRE[r.source]) dett("Origine", esc(SRC_TITRE[r.source]));
+          if (!conBlocco && r.source && SRC_TITRE[r.source]) dett(tr("res.origin"), esc(SRC_TITRE[r.source]));
           const opz: string[] = [];
-          if (r.high_chair) opz.push("Chaise bébé");
-          if (r.quiet) opz.push("Endroit calme");
-          if (r.business) opz.push("Business" + (r.company ? ` (${r.company})` : ""));
-          if (r.birthday) opz.push("Anniversaire");
-          if (r.special_event) opz.push("Événement spécial");
-          if (!conBlocco && opz.length) dett("Options", esc(opz.join(" · ")));
+          if (r.high_chair) opz.push(tr("res.optHighchair"));
+          if (r.quiet) opz.push(tr("res.optQuiet"));
+          if (r.business) opz.push(tr("res.optBusiness") + (r.company ? ` (${r.company})` : ""));
+          if (r.birthday) opz.push(tr("res.optBirthday"));
+          if (r.special_event) opz.push(tr("res.optEvent"));
+          if (!conBlocco && opz.length) dett(tr("res.options"), esc(opz.join(" · ")));
           (document.getElementById("dt-opts") as HTMLElement).innerHTML = conBlocco
             ? opz.map((o) => `<span class="tag">${esc(o)}</span>`).join("")
             : "";
@@ -2432,7 +2472,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               : "";
           (document.getElementById("dt-meta") as HTMLElement).innerHTML = conBlocco
             ? srcIco +
-              [dataFr(r.date), r.heure, svLbl, `${r.people} pers.`, r.zone]
+              [dataFr(r.date), r.heure, svLbl, `${r.people} ${tr("res.pers")}`, r.zone]
                 .filter(Boolean)
                 .map((v) => esc(String(v)))
                 .join('<span class="sep">·</span>')
@@ -2446,10 +2486,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               : Date.now() - Math.max(0, minutiOra() - inizioMin) * 60000;
             const fineMs = Date.now() + (inizioMin + hold - minutiOra()) * 60000;
             (document.getElementById("dt-fin") as HTMLElement).textContent =
-              `Fin prévue à ${hhmmDa(inizioMin + hold)} · durée ${hold} min`;
+              `${tr("res.endExpected")} ${hhmmDa(inizioMin + hold)} · ${tr("res.duration")} ${hold} min`;
             const labEc = document.getElementById("dt-tlab") as HTMLElement;
             labEc.style.display = "";
-            labEc.textContent = "À table depuis";
+            labEc.textContent = tr("res.seatedSince");
             (document.getElementById("dt-spend") as HTMLElement).style.display = "none";
             (document.getElementById("dt-clock") as HTMLElement).style.display = "";
             (document.getElementById("dt-track") as HTMLElement).style.display = "";
@@ -2479,7 +2519,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 ? Math.round(r.table_minutes)
                 : holdDi(r.service_key) + 15; // vecchie senza dato: durée prevista + 15 (auto-Fini)
             lab.style.display = "";
-            lab.textContent = "Temps à table";
+            lab.textContent = tr("res.tableTime");
             clockEl.style.display = "";
             clockEl.textContent = tm < 90 ? `${tm} min` : `${Math.floor(tm / 60)} h ${String(tm % 60).padStart(2, "0")}`;
             trackEl.style.display = "";
@@ -2492,7 +2532,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             // Confirmée non ancora iniziata: stesso blocco, timer fermo a zero
             const lab = document.getElementById("dt-tlab") as HTMLElement;
             lab.style.display = "";
-            lab.textContent = "À table depuis";
+            lab.textContent = tr("res.seatedSince");
             const clockEl = document.getElementById("dt-clock") as HTMLElement;
             clockEl.style.display = "";
             clockEl.textContent = "0:00";
@@ -2500,7 +2540,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             (document.getElementById("dt-fill") as HTMLElement).style.width = "0%";
             const holdC = holdDi(r.service_key);
             (document.getElementById("dt-fin") as HTMLElement).textContent =
-              `Fin prévue à ${hhmmDa(minutiDa(r.heure) + holdC)} · durée ${holdC} min`;
+              `${tr("res.endExpected")} ${hhmmDa(minutiDa(r.heure) + holdC)} · ${tr("res.duration")} ${holdC} min`;
             (document.getElementById("dt-spend") as HTMLElement).style.display = "none";
             timerBox.style.display = "";
           } else {
@@ -2528,7 +2568,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 if (j.total <= 1 && j.visites <= 1 && !j.noshows && !j.cancelled) {
                   (document.getElementById("dt-title") as HTMLElement).insertAdjacentHTML(
                     "beforeend",
-                    '<span class="dt-new">Nouveau</span>'
+                    `<span class="dt-new">${tr("res.new")}</span>`
                   );
                 }
                 const fmtMin = (m: number): string =>
@@ -2536,13 +2576,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 const righeSt: string[] = [];
                 const rigaSt = (k: string, v: string) =>
                   righeSt.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
-                rigaSt("Réservations", `<b>${j.total}</b>`);
-                rigaSt("Annulations", `<b>${j.cancelled}</b>`);
-                rigaSt("No-show", j.noshows > 0 ? `<b style="color:#ff8a8f">${j.noshows}</b>` : `<b>0</b>`);
-                if (j.avg_table_min != null) rigaSt("Temps à table (moyenne)", `<b>~${fmtMin(j.avg_table_min)}</b>`);
+                rigaSt(tr("nav.reservations"), `<b>${j.total}</b>`);
+                rigaSt(tr("res.cancellations"), `<b>${j.cancelled}</b>`);
+                rigaSt(tr("res.stNoshow"), j.noshows > 0 ? `<b style="color:#ff8a8f">${j.noshows}</b>` : `<b>0</b>`);
+                if (j.avg_table_min != null) rigaSt(tr("res.tableTimeAvg"), `<b>~${fmtMin(j.avg_table_min)}</b>`);
                 if (j.avg_people != null) {
                   const m = Math.round(j.avg_people * 10) / 10;
-                  rigaSt("Personnes (moyenne)", `<b>${String(m).replace(".", ",")}</b>`);
+                  rigaSt(tr("res.peopleAvg"), `<b>${String(m).replace(".", ",")}</b>`);
                 }
                 if (j.avg_lead_min != null) {
                   const min = j.avg_lead_min;
@@ -2552,11 +2592,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                       : min < 2880
                         ? `${Math.round(min / 60)} h`
                         : `${Math.round(min / 1440)} j`;
-                  rigaSt("Réserve à l'avance", `<b>~${lbl}</b>`);
+                  rigaSt(tr("res.bookInAdvance"), `<b>~${lbl}</b>`);
                 }
                 if (j.avg_spent_cents != null) {
                   const eur = (j.avg_spent_cents / 100).toFixed(j.avg_spent_cents % 100 ? 2 : 0).replace(".", ",");
-                  rigaSt("Dépense (moyenne)", `<b>~${eur} €</b>`);
+                  rigaSt(tr("res.spendAvg"), `<b>~${eur} €</b>`);
                 }
                 if (dtId === mioId) statsBox.innerHTML = righeSt.join("");
               })
@@ -2576,7 +2616,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (grezzo !== "") {
             const n = Number(grezzo);
             if (!Number.isFinite(n) || n < 0 || n > 100000) {
-              toast("Montant invalide", "err");
+              toast(tr("res.invalidAmount"), "err");
               return;
             }
             cents = Math.round(n * 100);
@@ -2589,9 +2629,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             });
             if (!res.ok) throw new Error();
             r.spent_cents = cents;
-            toast("Addition enregistrée");
+            toast(tr("res.billSaved"));
           } catch {
-            toast("Enregistrement impossible", "err");
+            toast(tr("common.saveErr"), "err");
           }
         });
         (document.getElementById("dt-close") as HTMLButtonElement).addEventListener("click", chiudiDettagli);
@@ -2611,18 +2651,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (!id) return;
           const act = btn.dataset.act;
           if (act === "delete") {
-            e.stopPropagation(); // il testo sostituisce l'icona: senza stop il "click fuori" disarmerebbe subito
-            // Primo tap: chiede conferma; secondo tap: elimina DAVVERO la resa
-            if (cestinoArmato === btn) {
-              disarmaCestino();
-              void eliminaResa(id);
-            } else {
-              disarmaCestino();
-              cestinoArmato = btn;
-              btn.classList.add("confirm");
-              btn.textContent = "Confirmer ?";
-              cestinoTimer = window.setTimeout(disarmaCestino, 4000);
-            }
+            e.stopPropagation();
+            // Modale a due scelte: annullare (con email al cliente) o eliminare (silenzioso).
+            apriRm(id);
             return;
           }
           disarmaCestino();
@@ -2639,16 +2670,135 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (!(e.target as HTMLElement).closest(".b-annule")) disarmaCestino();
         });
 
+        // ---- Modale cestino: Annuler (email cliente) / Supprimer (silenzioso) ----
+        const rmOverlay = document.getElementById("rm-overlay") as HTMLDivElement;
+        let rmId = "";
+        function apriRm(id: string) {
+          rmId = id;
+          const r = rese.find((x) => x.id === id);
+          const already = !!r && (r.status === "cancelled" || r.status === "noshow");
+          const choices = document.getElementById("rm-choices") as HTMLDivElement;
+          const reasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
+          choices.style.display = "block";
+          reasonBox.style.display = "none";
+          (document.getElementById("rm-cancel-email") as HTMLElement).style.display = already ? "none" : "block";
+          rmOverlay.classList.add("is-open");
+        }
+        function chiudiRm() {
+          rmOverlay.classList.remove("is-open");
+          rmId = "";
+        }
+        const rmChoices = document.getElementById("rm-choices") as HTMLDivElement;
+        const rmReasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
+        const rmReason = document.getElementById("rm-reason") as HTMLTextAreaElement;
+        function rmMostraScelte() { rmChoices.style.display = "block"; rmReasonBox.style.display = "none"; }
+        (document.getElementById("rm-close") as HTMLElement).addEventListener("click", chiudiRm);
+        rmOverlay.addEventListener("click", (e) => { if (e.target === rmOverlay) chiudiRm(); });
+        // "Annuler et prévenir": mostra il textarea per la ragione (facoltativa).
+        function nomeLingua(code: string): string {
+          const c = (code || "").trim();
+          if (!c) return "";
+          try {
+            const n = new Intl.DisplayNames([LANG], { type: "language" }).of(c);
+            return n ? n.charAt(0).toUpperCase() + n.slice(1) : c.toUpperCase();
+          } catch {
+            return c.toUpperCase();
+          }
+        }
+        (document.getElementById("rm-cancel-email") as HTMLElement).addEventListener("click", () => {
+          rmReason.value = "";
+          const r = rese.find((x) => x.id === rmId);
+          const lh = document.getElementById("rm-lang-hint") as HTMLElement;
+          const nome = r?.lang ? nomeLingua(r.lang) : "";
+          if (nome) { lh.innerHTML = `${esc(tr("res.delReasonLang"))} <span style="display:inline-block;background:color-mix(in srgb, var(--c-accent) 16%, transparent);color:var(--c-accent);padding:3px 11px;border-radius:999px;font-size:0.82rem;font-weight:700;margin-left:4px;">${esc(nome)}</span>`; lh.style.display = "block"; }
+          else { lh.style.display = "none"; }
+          rmChoices.style.display = "none";
+          rmReasonBox.style.display = "block";
+          rmReason.focus();
+        });
+        (document.getElementById("rm-back") as HTMLElement).addEventListener("click", rmMostraScelte);
+        (document.getElementById("rm-confirm-cancel") as HTMLElement).addEventListener("click", () => {
+          const id = rmId;
+          const reason = rmReason.value.trim();
+          chiudiRm();
+          if (id) void cambiaStato(id, "cancelled", reason || undefined);
+        });
+        (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", () => {
+          const id = rmId; chiudiRm(); if (id) void eliminaResa(id);
+        });
+
+        // ---- Modale No-show: storico cliente + notifica facoltativa + blocco ----
+        const nsOverlay = document.getElementById("ns-overlay") as HTMLDivElement;
+        const nsBlock = document.getElementById("ns-block") as HTMLInputElement;
+        let nsId = "";
+        function chiudiNs() { nsOverlay.classList.remove("is-open"); nsId = ""; }
+        async function apriNs(id: string) {
+          nsId = id;
+          const r = rese.find((x) => x.id === id);
+          nsBlock.checked = false;
+          (document.getElementById("ns-name") as HTMLElement).textContent =
+            r ? (`${r.first_name} ${r.last_name}`.trim() || tr("res.reservation")) : "";
+          const lab = document.getElementById("ns-hist-lab") as HTMLElement;
+          const cnt = document.getElementById("ns-count") as HTMLElement;
+          lab.textContent = "…"; cnt.textContent = "";
+          nsOverlay.classList.add("is-open");
+          // Storico no-show del cliente (per email/telefono), best-effort.
+          try {
+            const qs = new URLSearchParams({ client_stats: "1" });
+            if (r?.email) qs.set("client_email", r.email);
+            if (r?.phone) qs.set("client_phone", r.phone);
+            const res = await fetch("/api/admin/reservations?" + qs.toString(), { headers });
+            const j = await res.json();
+            const n = Number(j?.noshows ?? 0);
+            if (nsId !== id) return; // modale chiuso/cambiato nel frattempo
+            if (n > 0) { lab.textContent = tr("res.nsPrevLabel"); cnt.textContent = String(n); }
+            else { lab.textContent = tr("res.nsFirst"); cnt.textContent = ""; }
+          } catch {
+            lab.textContent = tr("res.nsFirst"); cnt.textContent = "";
+          }
+        }
+        // Blocca il cliente per le prossime prenotazioni (riusa /api/admin/clients).
+        async function bloccaCliente(r: Resa) {
+          try {
+            await fetch("/api/admin/clients", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                match_email: r.email || "",
+                match_phone: r.phone || "",
+                name: `${r.first_name} ${r.last_name}`.trim() || (r.email || r.phone || "—"),
+                email: r.email || "",
+                phone: r.phone || "",
+                blocked: true,
+              }),
+            });
+            toast(tr("res.nsBlockedOk"), "ok");
+          } catch { /* best-effort: il no-show resta comunque salvato */ }
+        }
+        async function confermaNs(notify: boolean) {
+          const id = nsId;
+          const r = rese.find((x) => x.id === id);
+          const blocca = nsBlock.checked;
+          chiudiNs();
+          if (!id) return;
+          if (blocca && r) await bloccaCliente(r);
+          await cambiaStato(id, "noshow", undefined, notify);
+        }
+        (document.getElementById("ns-close") as HTMLElement).addEventListener("click", chiudiNs);
+        nsOverlay.addEventListener("click", (e) => { if (e.target === nsOverlay) chiudiNs(); });
+        (document.getElementById("ns-notify") as HTMLElement).addEventListener("click", () => void confermaNs(true));
+        (document.getElementById("ns-silent") as HTMLElement).addEventListener("click", () => void confermaNs(false));
+
         // ---- Viste Semaine (7 jours) / Mois (30 jours, calendrier) ----
         const semEl = document.getElementById("vista-sem") as HTMLDivElement;
         const moisEl = document.getElementById("vista-mois") as HTMLDivElement;
         const btnSem = document.getElementById("d-sem") as HTMLButtonElement;
         const btnMois = document.getElementById("d-mois") as HTMLButtonElement;
         const VISTA_ST: Record<string, { lab: string; col: string }> = {
-          pending: { lab: "En attente", col: "var(--c-accent)" },
-          confirmed: { lab: "Confirmée", col: "#2e9e6b" },
-          seated: { lab: "En cours", col: "#3b82f6" },
-          done: { lab: "Fini", col: "var(--c-muted)" },
+          pending: { lab: tr("res.stPending"), col: "var(--c-accent)" },
+          confirmed: { lab: tr("res.stConfirmed"), col: "#2e9e6b" },
+          seated: { lab: tr("res.stSeated"), col: "#3b82f6" },
+          done: { lab: tr("res.stDone"), col: "var(--c-muted)" },
         };
         let vistaSeq = 0;
 
@@ -2667,7 +2817,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             emptyEl.style.display = "none";
             stateEl.style.display = "none";
             const lb = document.getElementById("d-label") as HTMLElement;
-            lb.textContent = v === "semaine" ? "7 prochains jours" : "30 prochains jours";
+            lb.textContent = v === "semaine" ? tr("res.next7Days") : tr("res.next30Days");
             lb.classList.remove("is-today");
             (document.getElementById("d-today") as HTMLElement).classList.remove("is-now");
             void caricaVista();
@@ -2679,7 +2829,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (v === "jour") return;
           const seq = ++vistaSeq;
           const cont = v === "semaine" ? semEl : moisEl;
-          cont.innerHTML = '<p class="state">Chargement…</p>';
+          cont.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
           const da = isoOggi();
           const a = isoPiuGiorni(da, v === "semaine" ? 6 : 29);
           try {
@@ -2694,9 +2844,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const couverts = attive.reduce((t, r) => t + r.people, 0);
             const attesa = lista.filter((r) => r.status === "pending").length;
             (document.getElementById("d-stats") as HTMLElement).innerHTML =
-              `<b>${couverts}</b> couverts · ${attive.length} résa${attive.length > 1 ? "s" : ""}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> en attente` : ""}`;
+              `<b>${couverts}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}` : ""}`;
           } catch {
-            if (seq === vistaSeq) cont.innerHTML = '<p class="state">Erreur de chargement.</p>';
+            if (seq === vistaSeq) cont.innerHTML = `<p class="state">${tr("sup.load.error")}</p>`;
           }
         }
 
@@ -2714,14 +2864,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const cop = attive.reduce((t, r) => t + r.people, 0);
             const att = arr.filter((r) => r.status === "pending").length;
             const conte = arr.length
-              ? `<b>${cop}</b> couverts · ${attive.length} résa${attive.length > 1 ? "s" : ""}${att ? ` · <i>${att} en attente</i>` : ""}`
-              : "aucune réservation";
+              ? `<b>${cop}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${att ? ` · <i>${att} ${tr("res.waiting")}</i>` : ""}`
+              : tr("res.noResaLower");
             html += `<div class="vs-head${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}">${labelGiorno(iso)}<span class="vs-n">${conte}</span></div>`;
             html += arr
               .map((r) => {
                 const st = VISTA_ST[r.status] ?? { lab: r.status, col: "var(--c-muted)" };
                 const tav = etichettaTavoli(r);
-                return `<div class="vs-row" data-date="${iso}"><span class="vs-h">${esc(r.heure.slice(0, 5))}</span><span class="vs-nome">${esc(`${r.first_name} ${r.last_name}`.trim())}</span><span class="vs-p"><b>${r.people}</b> pers.</span><span class="vs-z">${esc(tav || r.zone || "")}</span><span class="vs-st" style="color:${st.col}">${st.lab}</span></div>`;
+                return `<div class="vs-row" data-date="${iso}"><span class="vs-h">${esc(r.heure.slice(0, 5))}</span><span class="vs-nome">${esc(`${r.first_name} ${r.last_name}`.trim())}</span><span class="vs-p"><b>${r.people}</b> ${tr("res.pers")}</span><span class="vs-z">${esc(tav || r.zone || "")}</span><span class="vs-st" style="color:${st.col}">${st.lab}</span></div>`;
               })
               .join("");
           }
@@ -2736,9 +2886,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             else { c.att++; c.cop += r.people; }
             per.set(r.date, c);
           }
-          const fmtMois = new Intl.DateTimeFormat("fr-BE", { month: "short" });
+          const fmtMois = new Intl.DateTimeFormat(LOC, { month: "short" });
           const dowPrimo = (new Date(da + "T12:00:00").getDay() + 6) % 7; // lunedì=0
-          let html = '<div class="vm-dow">' + ["L", "M", "M", "J", "V", "S", "D"].map((g) => `<span>${g}</span>`).join("") + "</div>";
+          let html = '<div class="vm-dow">' + tr("res.dowInitials").split(",").map((g) => `<span>${g}</span>`).join("") + "</div>";
           html += '<div class="vm-grid">';
           for (let i = 0; i < dowPrimo; i++) html += '<span class="vm-cell vm-vuota"></span>';
           for (let i = 0; i < 30; i++) {
@@ -2747,7 +2897,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const mois = i === 0 || d === 1 ? ` <span class="vm-mois">${fmtMois.format(new Date(iso + "T12:00:00"))}</span>` : "";
             const info = per.get(iso);
             const dentro = info
-              ? `<span class="vm-c"><b>${info.cop}</b> couv.</span><span class="vm-r">${info.att} résa${info.pend ? ` · <i>${info.pend} att.</i>` : ""}</span>`
+              ? `<span class="vm-c"><b>${info.cop}</b> ${tr("home.covers")}</span><span class="vm-r">${info.att} ${tr("res.resaOne")}${info.pend ? ` · <i>${info.pend} ${tr("res.waitingShort")}</i>` : ""}</span>`
               : "";
             html += `<div class="vm-cell${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}"><span class="vm-d">${d}${mois}</span>${dentro}</div>`;
           }
@@ -2851,7 +3001,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let searchTimer = 0;
         async function cercaRese(q: string) {
           stateEl.style.display = "";
-          stateEl.textContent = "Recherche…";
+          stateEl.textContent = tr("res.searching");
           rowsEl.style.display = "none";
           emptyEl.style.display = "none";
           try {
@@ -2862,10 +3012,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             modoRicerca = true;
             rese = j.reservations ?? [];
             stateEl.style.display = "none";
-            emptyEl.textContent = "Aucune réservation trouvée.";
+            emptyEl.textContent = tr("res.noneFound");
             render();
           } catch {
-            stateEl.textContent = "Erreur de recherche.";
+            stateEl.textContent = tr("res.searchError");
           }
         }
         const dSearchX = document.getElementById("d-search-x") as HTMLButtonElement;
@@ -2912,6 +3062,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         mPrefix.value = PREFISSO_DEFAULT;
+        // Lingua del cliente: opzioni dal widget (flag + nome), default fr.
+        const mLang = document.getElementById("m-lang") as HTMLSelectElement;
+        mLang.innerHTML = LINGUE_WIDGET.map(
+          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
+        ).join("");
+        mLang.value = "fr";
         // "+33 6…" o "0033…" digitato nel numero → prefisso in tendina, numero pulito
         campo("m-tel").addEventListener("input", () => {
           const tel = campo("m-tel");
@@ -2921,13 +3077,89 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           tel.value = sep.resto;
         });
 
+        // ---- Typeahead clienti: digitando nome o cognome propone i clienti
+        //      già in DB (tabella clients + prenotazioni passate). Al click
+        //      precompila nome, cognome, telefono ed email. ----
+        const nmTa = document.getElementById("nm-ta") as HTMLDivElement;
+        type TaClient = { name: string; first_name: string; last_name: string; email: string; phone: string; blocked?: boolean };
+        let taItems: TaClient[] = [];
+        let taActive = -1;
+        let taTimer = 0;
+        let taSeq = 0;
+        function taHide() { nmTa.style.display = "none"; taItems = []; taActive = -1; }
+        function taRender() {
+          if (!taItems.length) { taHide(); return; }
+          nmTa.innerHTML = taItems.map((c, i) => {
+            const sub = [c.phone, c.email].filter(Boolean).join(" · ");
+            const blk = c.blocked ? `<span class="nm-ta-block">${esc(tr("cli.blockedShort"))}</span>` : "";
+            return `<button type="button" class="nm-ta-item${i === taActive ? " is-active" : ""}" data-i="${i}"><span class="nm-ta-name">${esc(c.name)} ${blk}</span>${sub ? `<span class="nm-ta-sub">${esc(sub)}</span>` : ""}</button>`;
+          }).join("");
+          nmTa.style.display = "block";
+        }
+        function taPick(c: TaClient) {
+          campo("m-fname").value = c.first_name || "";
+          campo("m-lname").value = c.last_name || "";
+          campo("m-email").value = c.email || "";
+          mPrefix.value = PREFISSO_DEFAULT;
+          campo("m-tel").value = "";
+          if (c.phone) {
+            const sep = separaPrefisso(c.phone);
+            if (sep) { mPrefix.value = sep.dial; campo("m-tel").value = sep.resto; }
+            else { campo("m-tel").value = c.phone; }
+          }
+          taHide();
+        }
+        async function taCerca(term: string) {
+          const seq = ++taSeq;
+          try {
+            const res = await fetch("/api/admin/reservations?client_search=" + encodeURIComponent(term), { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { clients?: TaClient[] };
+            if (seq !== taSeq) return; // risposta obsoleta
+            if (!mOverlay.classList.contains("is-open")) return;
+            taItems = j.clients ?? [];
+            taActive = -1;
+            taRender();
+          } catch { /* rete: nessun suggerimento */ }
+        }
+        function taOnInput() {
+          window.clearTimeout(taTimer);
+          const fn = campo("m-fname").value.trim();
+          const ln = campo("m-lname").value.trim();
+          const term = fn.length >= ln.length ? fn : ln;
+          if (term.length < 2) { taHide(); return; }
+          taTimer = window.setTimeout(() => void taCerca(term), 250);
+        }
+        ["m-fname", "m-lname"].forEach((id) => {
+          campo(id).addEventListener("input", taOnInput);
+          campo(id).addEventListener("keydown", (e) => {
+            if (nmTa.style.display === "none") return;
+            if (e.key === "ArrowDown") { e.preventDefault(); taActive = Math.min(taActive + 1, taItems.length - 1); taRender(); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); taActive = Math.max(taActive - 1, 0); taRender(); }
+            else if (e.key === "Enter") { if (taActive >= 0 && taItems[taActive]) { e.preventDefault(); taPick(taItems[taActive]); } }
+            else if (e.key === "Escape") { taHide(); }
+          });
+        });
+        nmTa.addEventListener("mousedown", (e) => {
+          // mousedown (non click): evita il blur del campo prima della scelta
+          const b = (e.target as HTMLElement).closest(".nm-ta-item") as HTMLElement | null;
+          if (!b) return;
+          e.preventDefault();
+          const i = Number(b.dataset.i);
+          if (taItems[i]) taPick(taItems[i]);
+        });
+        document.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest(".nm-ta-anchor")) return;
+          taHide();
+        });
+
         let nmTipo: "walkin" | "phone" = "walkin";
         function nmRenderTipo() {
           (document.getElementById("nm-walkin") as HTMLButtonElement).classList.toggle("is-on", nmTipo === "walkin");
           (document.getElementById("nm-phone") as HTMLButtonElement).classList.toggle("is-on", nmTipo === "phone");
-          campo("m-fname").placeholder = "Prénom";
-          campo("m-lname").placeholder = "Nom *";
-          campo("m-tel").placeholder = nmTipo === "phone" ? "Téléphone *" : "Téléphone";
+          campo("m-fname").placeholder = tr("ord.firstName");
+          campo("m-lname").placeholder = tr("ord.lastNameReq");
+          campo("m-tel").placeholder = nmTipo === "phone" ? tr("res.phoneReq") : tr("ord.phone");
         }
         (document.getElementById("nm-walkin") as HTMLButtonElement).addEventListener("click", () => {
           nmTipo = "walkin";
@@ -3034,7 +3266,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (nmZone) max = planMax.get(nmZone) ?? 0;
             else for (const val of planMax.values()) max = Math.max(max, val);
             if (max > 0 && nmPers > max) {
-              msg.push(`⚠ Aucune combinaison de tables pour ${nmPers} pers.${nmZone ? ` en ${nmZone}` : ""} (max ${max} ensemble) — vous pouvez quand même enregistrer.`);
+              msg.push(`⚠ ${tr("res.noTableCombo")} ${nmPers} ${tr("res.pers")}${nmZone ? ` ${tr("res.inZone")} ${nmZone}` : ""} (max ${max} ${tr("res.together")}) — ${tr("res.canStillSave")}.`);
             }
           }
           if (nmMsgResto) msg.push(nmMsgResto);
@@ -3051,7 +3283,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const daCfg = (nmCfg.services ?? [])
             .map((sv) => ({
               key: sv.key,
-              label: SERVIZI_WIDGET[sv.key]?.fr ?? sv.key,
+              label: nomeServizio(sv.key, LANG),
               da: minutiDa(sv.from),
               a: minutiDa(sv.to),
               hold: holdDi(sv.key),
@@ -3118,7 +3350,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           stabs.innerHTML = servizi
             .map((sv, i) => {
               const chiuso = svChiusiGiorno.includes(sv.key);
-              return `<button type="button" class="nm-pill${i === nmServIdx ? " is-on" : ""}" data-i="${i}"${chiuso ? ' title="Fermé au public ce jour"' : ""}>${esc(sv.label)}${chiuso ? ICO_SV_CHIUSO : ""}</button>`;
+              return `<button type="button" class="nm-pill${i === nmServIdx ? " is-on" : ""}" data-i="${i}"${chiuso ? ` title="${tr("res.closedPublicDay")}"` : ""}>${esc(sv.label)}${chiuso ? ICO_SV_CHIUSO : ""}</button>`;
             })
             .join("");
           // Con un solo service ma chiuso, i tab restano visibili (per l'icona)
@@ -3128,7 +3360,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const noteEl = document.getElementById("nm-closed-note") as HTMLDivElement;
           if (chSv) {
             noteEl.style.display = "";
-            noteEl.textContent = `Service fermé au public ce jour — ${RAGIONE_FR[chSv.reason] ?? chSv.reason}. Le widget n'accepte plus de réservations ; vous pouvez quand même en ajouter.`;
+            noteEl.textContent = `${tr("res.serviceClosedPublic")} — ${RAGIONE_FR[chSv.reason] ?? chSv.reason}. ${tr("res.widgetNoBookings")}`;
           } else {
             noteEl.style.display = "none";
           }
@@ -3194,13 +3426,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           let html = visibili
             .map((hh) => {
               const pieno = slotPieno(hh);
-              return `<button type="button" class="nm-slot${pieno ? " nm-slot-full" : ""}${hh === nmHeure ? " is-on" : ""}" data-h="${hh}"${pieno ? ' title="Complet"' : ""}>${hh}</button>`;
+              return `<button type="button" class="nm-slot${pieno ? " nm-slot-full" : ""}${hh === nmHeure ? " is-on" : ""}" data-h="${hh}"${pieno ? ` title="${tr("res.full")}"` : ""}>${hh}</button>`;
             })
             .join("");
           if (tutti.length > LIMITE) {
-            html += `<button type="button" class="nm-more">${nmEspanso ? "Voir moins d'horaires" : "Afficher tous les horaires"}<svg class="nm-more-ico${nmEspanso ? " is-up" : ""}" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>`;
+            html += `<button type="button" class="nm-more">${nmEspanso ? tr("res.showLess") : tr("res.showAll")}<svg class="nm-more-ico${nmEspanso ? " is-up" : ""}" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg></button>`;
           }
-          if (!att) html = '<p class="nm-noslot">Plus aucune heure disponible ce jour.</p>';
+          if (!att) html = `<p class="nm-noslot">${tr("res.noHourAvail")}</p>`;
           (document.getElementById("nm-slots") as HTMLDivElement).innerHTML = html;
 
           // Posti RESTANTI all'ora scelta: se nessuna section può ospitare
@@ -3215,7 +3447,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               : zoneAperte.some((z) => resto(z) >= nmPers);
             if (!ok && zoneAperte.length > 0) {
               const dett = zoneAperte.map((z) => `${z} : ${resto(z)}`).join(" · ");
-              nmMsgResto = `⚠ Plus assez de places ensemble pour ${nmPers} pers. à ${nmHeure}${nmZone ? ` en ${nmZone}` : ""} (restantes — ${dett}). Vous pouvez quand même enregistrer.`;
+              nmMsgResto = `⚠ ${tr("res.notEnoughPlaces")} ${nmPers} ${tr("res.pers")} ${tr("home.at")} ${nmHeure}${nmZone ? ` ${tr("res.inZone")} ${nmZone}` : ""} (${tr("res.remaining")} — ${dett}). ${tr("res.canStillSaveCap")}.`;
             }
           }
           nmAggiornaAvviso();
@@ -3254,10 +3486,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (p && Array.isArray(p.names) && p.names.length) {
               const nomi = p.names.map((n) => String(n).replace(/&/g, "&amp;").replace(/</g, "&lt;")).join(" + ");
               const z = String(p.zone ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
-              el.innerHTML = `Table(s) attribuée(s) : <b>${nomi}</b>${z ? ` · ${z}` : ""}`;
+              el.innerHTML = `${tr("res.tablesAssigned")} <b>${nomi}</b>${z ? ` · ${z}` : ""}`;
               el.style.display = "";
             } else {
-              el.innerHTML = "Aucune table libre à attribuer pour ce créneau.";
+              el.innerHTML = tr("res.noFreeTable");
               el.style.display = "";
             }
           } catch {
@@ -3296,7 +3528,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (!perZona.has(t.zone)) perZona.set(t.zone, []);
             perZona.get(t.zone)!.push(t);
           }
-          let html = '<span class="nm-tv-lab">Table(s) :</span>';
+          let html = `<span class="nm-tv-lab">${tr("res.tablesLabel")}</span>`;
           for (const [z, lista] of perZona) {
             if (perZona.size > 1) html += `<span class="nm-tv-z">${esc(z)}</span>`;
             html += lista
@@ -3309,7 +3541,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           if (nmTavSel.size) {
             const posti = [...nmTavSel].reduce((tot, idT) => tot + (planTavoli.find((t) => t.id === idT)?.seats ?? 0), 0);
-            html += `<span class="nm-tv-tot">${posti} pl. pour ${nmPers}</span>`;
+            html += `<span class="nm-tv-tot">${posti} ${tr("res.placesShort")} ${tr("res.for")} ${nmPers}</span>`;
           }
           el.classList.add("nm-tables-man");
           el.innerHTML = html;
@@ -3333,9 +3565,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           // Oltre 8: bottone "−", input numero, bottone "+"
           html +=
             `<span class="nm-step${nmPers > 8 ? " is-on" : ""}">` +
-            `<button type="button" class="nm-p-meno" id="nm-p-meno" aria-label="Enlever une personne">−</button>` +
+            `<button type="button" class="nm-p-meno" id="nm-p-meno" aria-label="${tr("res.removePerson")}">−</button>` +
             `<input type="number" min="1" max="100" class="nm-p nm-p-libre" id="nm-p-libre" placeholder="9+" value="${nmPers > 8 ? nmPers : ""}" />` +
-            `<button type="button" class="nm-p-piu" id="nm-p-piu" aria-label="Ajouter une personne">+</button>` +
+            `<button type="button" class="nm-p-piu" id="nm-p-piu" aria-label="${tr("res.addPerson")}">+</button>` +
             `</span>`;
           box.innerHTML = html;
           (document.getElementById("nm-p-libre") as HTMLInputElement).addEventListener("input", (e) => {
@@ -3371,7 +3603,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           lab.style.display = "";
           box.style.display = "";
           box.innerHTML =
-            `<button type="button" class="nm-zone${nmZone === "" ? " is-on" : ""}" data-z="">Indifférent</button>` +
+            `<button type="button" class="nm-zone${nmZone === "" ? " is-on" : ""}" data-z="">${tr("res.any")}</button>` +
             zone
               .map((z) => `<button type="button" class="nm-zone${nmZone === z ? " is-on" : ""}" data-z="${esc(z)}">${esc(z)}</button>`)
               .join("");
@@ -3418,20 +3650,27 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
           }
           campo("m-email").value = resa?.email ?? "";
+          mLang.value = LINGUE_WIDGET.some((l) => l.code === resa?.lang) ? (resa?.lang ?? "fr") : "fr";
           (document.getElementById("m-notes") as HTMLTextAreaElement).value = resa?.notes ?? "";
           mMsg.textContent = "";
           (document.getElementById("m-title") as HTMLElement).textContent = resa
-            ? "Modifier la réservation"
-            : "Nouvelle réservation";
-          mSave.textContent = resa ? "Enregistrer" : "Ajouter";
+            ? tr("res.editReservation")
+            : tr("res.newReservation");
+          mSave.textContent = resa ? tr("common.save") : tr("common.add");
           nmSetData(resa?.date ?? giorno);
           nmRenderPers();
           nmRenderZone();
           mOverlay.classList.add("is-open");
+          // Autofill del browser: con il modale aperto disabilito la barra di
+          // ricerca dietro, così l'email autocompletata non finisce lì.
+          dSearch.disabled = true;
+          taHide();
         }
         function chiudiModale() {
           dpChiudi();
           mOverlay.classList.remove("is-open");
+          dSearch.disabled = false;
+          taHide();
         }
         (document.getElementById("fab-add") as HTMLButtonElement).addEventListener("click", () => apriModale());
         (document.getElementById("m-close") as HTMLButtonElement).addEventListener("click", chiudiModale);
@@ -3458,8 +3697,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         });
 
         // ---- Datepicker brand, identico al widget ----
-        const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-        const DOW = ["L", "M", "M", "J", "V", "S", "D"];
+        const MESI = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString(LOC, { month: "long" }));
+        const DOW = tr("res.dowInitials").split(",");
         let dpAnno = 0;
         let dpMese = 0; // 0-11
         let dpTarget: HTMLInputElement | null = null; // campo data a cui è agganciato
@@ -3547,7 +3786,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (pieno) cls.push("dp-full");
             if (iso === oggi) cls.push("dp-today");
             if (iso === sel) cls.push("dp-sel");
-            const hint = chiuso ? ' title="Fermé"' : pieno ? ' title="Complet"' : "";
+            const hint = chiuso ? ` title="${tr("home.tagClosed")}"` : pieno ? ` title="${tr("res.full")}"` : "";
             celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${off && !dpLibero ? "disabled" : ""}${hint}>${g}${punto ? `<span class="dp-dot${dotCls}"></span>` : ""}</button>`;
           }
           dpPanel.innerHTML = `
@@ -3648,16 +3887,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         mSave.addEventListener("click", async () => {
           mMsg.textContent = "";
           if (!nmHeure) {
-            mMsg.textContent = "Choisissez une heure.";
+            mMsg.textContent = tr("res.chooseHour");
             return;
           }
           if (!campo("m-lname").value.trim()) {
-            mMsg.textContent = "Le nom est obligatoire.";
+            mMsg.textContent = tr("res.nameRequired");
             campo("m-lname").focus();
             return;
           }
           if (nmTipo === "phone" && !campo("m-tel").value.trim()) {
-            mMsg.textContent = "Le téléphone est obligatoire pour une réservation téléphonique.";
+            mMsg.textContent = tr("res.phoneRequired");
             campo("m-tel").focus();
             return;
           }
@@ -3677,6 +3916,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 return grezzo.startsWith("+") ? grezzo : `${mPrefix.value} ${grezzo.replace(/^0/, "")}`;
               })(),
               email: campo("m-email").value,
+              lang: mLang.value,
               notes: (document.getElementById("m-notes") as HTMLTextAreaElement).value,
               high_chair: nmChaise,
               quiet: nmCalme,
@@ -3695,16 +3935,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             });
             const j = await res.json();
             if (!res.ok) {
-              mMsg.textContent = j.error ?? "Erreur d'enregistrement.";
+              mMsg.textContent = j.error ?? tr("res.saveError");
               return;
             }
             chiudiModale();
             nmReseCache.clear();
             nmReseFetching = "";
-            toast(nmEditId ? "Réservation modifiée ✓" : "Réservation enregistrée ✓", "ok");
+            toast(nmEditId ? tr("res.resaModified") : tr("res.resaSaved"), "ok");
             await carica();
           } catch {
-            mMsg.textContent = "Erreur de connexion.";
+            mMsg.textContent = tr("common.netErr");
           } finally {
             mSave.disabled = false;
           }

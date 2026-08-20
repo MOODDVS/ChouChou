@@ -5,17 +5,24 @@
 // titolo), scelta delle pagine, programmazione (sempre / date / giorni+ore)
 // e numero massimo di visualizzazioni per visitatore.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import "../../styles/datepicker.css";
+
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Marketing — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.marketing") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -27,7 +34,7 @@ import { CLIENT } from "../../config/client";
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -39,7 +46,7 @@ import { CLIENT } from "../../config/client";
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -176,6 +183,10 @@ import { CLIENT } from "../../config/client";
       .overlay.is-open { display: flex; }
       /* margin auto = sempre centrato, ma scrollabile se più alto dello schermo */
       .modal { width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal { max-height: 90vh; overflow-y: auto; }
+      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
+      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
+      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -280,39 +291,6 @@ import { CLIENT } from "../../config/client";
       .gc-tel .gc-tel-prefix { flex: 0 0 82px; cursor: pointer; padding-left: 0.5rem; padding-right: 0.3rem; }
       .gc-tel input[type="tel"] { flex: 1 1 auto; min-width: 0; }
 
-      /* --- Datepicker custom (brand, come Réglages) --- */
-      .dp-panel {
-        position: fixed; z-index: 320; width: 308px;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        box-shadow: 0 12px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))); padding: 0.9rem;
-      }
-      .dp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
-      .dp-title { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; text-transform: capitalize; }
-      .dp-nav {
-        width: 40px; height: 40px; background: transparent; border: 1px solid var(--c-line);
-        color: var(--c-text); font-size: 1.3rem; cursor: pointer; border-radius: 50%;
-        transition: border-color 0.15s, color 0.15s;
-      }
-      .dp-nav:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
-      .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
-      .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 0.2rem; }
-      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
-      .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-      .dp-cell {
-        aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
-        background: transparent; border: none; color: var(--c-text); font-family: var(--font-body);
-        font-size: 0.95rem; cursor: pointer; border-radius: 50%;
-        transition: background 0.15s, color 0.15s;
-      }
-      .dp-cell:hover:not(:disabled):not(.dp-vuota):not(.dp-sel) { background: var(--c-line); }
-      .dp-vuota { cursor: default; }
-      .dp-off { color: var(--c-muted); opacity: 0.45; cursor: not-allowed; }
-      .dp-today { box-shadow: inset 0 0 0 1px var(--c-accent); }
-      .dp-sel { background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      @media (pointer: coarse) {
-        .dp-panel { width: 340px; }
-        .dp-cell { min-height: 44px; font-size: 1.05rem; }
-      }
 
       .m-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
       .m-save {
@@ -378,49 +356,50 @@ import { CLIENT } from "../../config/client";
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v3" /><path d="M7 9v7" /><path d="M7 9l10-5v16l-10-5" /><path d="M17 8.5a4 4 0 0 1 0 7" /><path d="M9.5 16.5 11 21" /></svg>Marketing</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11v3" /><path d="M7 9v7" /><path d="M7 9l10-5v16l-10-5" /><path d="M17 8.5a4 4 0 0 1 0 7" /><path d="M9.5 16.5 11 21" /></svg>{t("nav.marketing")}</h1>
 
         <div class="mtabs" id="mtabs">
-          <button class="mtab is-active" data-tab="popup"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>Pop-up</button>
-          <button class="mtab" data-tab="news"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>Newsletter</button>
-          <button class="mtab" data-tab="coupons"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><line x1="13" y1="5" x2="13" y2="7" /><line x1="13" y1="11" x2="13" y2="13" /><line x1="13" y1="17" x2="13" y2="19" /></svg>Coupons</button>
-          <button class="mtab" data-tab="giftcards"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>Bons cadeaux</button>
+          <button class="mtab is-active" data-tab="popup"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" /></svg>{t("tab.marketing.popup")}</button>
+          <button class="mtab" data-tab="news"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>{t("tab.marketing.news")}</button>
+          <button class="mtab" data-tab="coupons"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><line x1="13" y1="5" x2="13" y2="7" /><line x1="13" y1="11" x2="13" y2="13" /><line x1="13" y1="17" x2="13" y2="19" /></svg>{t("tab.marketing.coupons")}</button>
+          <button class="mtab" data-tab="giftcards"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>{t("tab.marketing.giftcards")}</button>
         </div>
 
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
 
         <div id="tab-popup" style="display:none">
           <div class="actionsbar">
-            <button class="pill" id="add-btn">+ Nouveau pop-up</button>
+            <button class="pill" id="add-btn">+ {t("mk.newPopup")}</button>
           </div>
           <div class="state" id="empty" style="display:none">
-            Aucun pop-up pour le moment. Créez-en un&nbsp;: il apparaîtra sur les pages choisies.
+            {t("mk.popupEmpty")}
           </div>
           <div class="pops" id="pops"></div>
         </div>
 
         <div id="tab-coupons" style="display:none">
           <div class="actionsbar">
-            <button class="pill" id="cp-add">+ Nouveau coupon</button>
+            <button class="pill" id="cp-add">+ {t("mk.newCoupon")}</button>
           </div>
           <div class="state" id="cp-empty" style="display:none">
-            Aucun coupon pour le moment. Créez-en un&nbsp;: le client pourra le saisir au paiement.
+            {t("mk.couponEmpty")}
           </div>
           <div class="pops" id="coupons"></div>
         </div>
 
         <div id="tab-giftcards" style="display:none">
           <div class="actionsbar">
-            <button class="pill" id="gc-add">+ Nouveau bon cadeau</button>
-            <button class="pill" id="gc-shop">Acheter des bons</button>
+            <button class="pill" id="gc-add">+ {t("mk.newGift")}</button>
+            <button class="pill" id="gc-shop">{t("mk.buyVouchers")}</button>
           </div>
           <div class="state" id="gc-empty" style="display:none">
-            Aucun bon cadeau pour le moment. Créez-en un&nbsp;: un code à offrir, utilisable en ligne ou en salle.
+            {t("mk.giftEmpty")}
           </div>
           <div class="pops" id="giftcards"></div>
         </div>
@@ -428,36 +407,36 @@ import { CLIENT } from "../../config/client";
         <div id="tab-news" style="display:none">
           <div class="n-stats">
             <div class="n-stat">
-              <div class="n-stat-lab">Envoyées ce mois-ci</div>
+              <div class="n-stat-lab">{t("mk.sentThisMonth")}</div>
               <div class="n-stat-big"><span id="n-sent">—</span><span class="n-stat-sub" id="n-quota">/ —</span></div>
             </div>
             <div class="n-stat">
-              <div class="n-stat-lab">Envois restants</div>
+              <div class="n-stat-lab">{t("mk.sendsRemaining")}</div>
               <div class="n-stat-row">
                 <div class="n-stat-big" id="n-remaining">—</div>
-                <button class="pill" id="c-buy" type="button">+ Ajouter des crédits</button>
+                <button class="pill" id="c-buy" type="button">+ {t("mk.addCredits")}</button>
               </div>
               <span class="n-stat-note" id="n-purchased"></span>
             </div>
             <div class="n-stat">
-              <div class="n-stat-lab">Destinataires</div>
-              <div class="n-stat-big"><span id="n-recipients">—</span><span class="n-stat-sub">opted-in</span></div>
+              <div class="n-stat-lab">{t("mk.recipients")}</div>
+              <div class="n-stat-big"><span id="n-recipients">—</span><span class="n-stat-sub">{t("mk.optedIn")}</span></div>
               <span class="n-stat-note" id="n-optout"></span>
             </div>
           </div>
 
           <div class="actionsbar">
-            <button class="pill" id="n-add">+ Nouvelle newsletter</button>
+            <button class="pill" id="n-add">+ {t("mk.newNewsletter")}</button>
           </div>
 
-          <h2 class="n-htitle" id="nd-tit" style="display:none">Brouillons</h2>
+          <h2 class="n-htitle" id="nd-tit" style="display:none">{t("mk.drafts")}</h2>
           <div class="n-history" id="nd-list"></div>
 
-          <h2 class="n-htitle" id="np-tit" style="display:none">Programmées</h2>
+          <h2 class="n-htitle" id="np-tit" style="display:none">{t("mk.scheduled")}</h2>
           <div class="n-history" id="np-list"></div>
 
-          <h2 class="n-htitle">Derniers envois</h2>
-          <div class="state" id="n-hempty" style="display:none">Aucun envoi pour le moment.</div>
+          <h2 class="n-htitle">{t("mk.lastSends")}</h2>
+          <div class="state" id="n-hempty" style="display:none">{t("mk.noSends")}</div>
           <div class="n-history" id="n-history"></div>
         </div>
       </main>
@@ -467,84 +446,83 @@ import { CLIENT } from "../../config/client";
     <!-- Modale creazione/modifica -->
     <div class="overlay" id="overlay">
       <div class="modal">
-        <button class="m-close" id="m-close" type="button" aria-label="Fermer">×</button>
-        <h2 id="m-title">Nouveau pop-up</h2>
+        <button class="m-close" id="m-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2 id="m-title">{t("mk.newPopup")}</h2>
 
         <div class="picks picks--lang" id="f-lang">
           <span class="pick is-on" data-l="fr">FR</span>
           <span class="pick" data-l="en">EN</span>
         </div>
         <p class="f-hint" style="margin:0.4rem 0 0.9rem">
-          Le pop-up n'apparaît sur une version du site que si le titre de cette
-          langue est rempli.
+          {t("mk.popupLangHint")}
         </p>
 
-        <label class="f-lab" for="f-img">Image</label>
+        <label class="f-lab" for="f-img">{t("mk.image")}</label>
         <div class="f-row f-row--img">
-          <input type="text" class="f-input" id="f-img" placeholder="https://… ou téléversez un fichier →" />
-          <button class="pill" id="f-upload" type="button">Téléverser</button>
-          <button class="pill" id="f-lib" type="button">Bibliothèque</button>
+          <input type="text" class="f-input" id="f-img" placeholder={t("mk.imgUrlPh")} />
+          <button class="pill" id="f-upload" type="button">{t("mk.upload")}</button>
+          <button class="pill" id="f-lib" type="button">{t("menu.library")}</button>
           <input type="file" id="f-file" accept="image/*" style="display:none" />
         </div>
         <p class="f-hint" id="f-upload-state"></p>
 
         <div id="panel-fr">
-          <label class="f-lab" for="f-title">Titre</label>
-          <input type="text" class="f-input" id="f-title" placeholder="Ex. Fermeture exceptionnelle, Menu de Noël…" />
+          <label class="f-lab" for="f-title">{t("mk.title")}</label>
+          <input type="text" class="f-input" id="f-title" placeholder={t("mk.titlePh")} />
 
-          <label class="f-lab" for="f-body">Texte</label>
-          <textarea class="f-area" id="f-body" placeholder="Le message du pop-up (facultatif)"></textarea>
+          <label class="f-lab" for="f-body">{t("mk.text")}</label>
+          <textarea class="f-area" id="f-body" placeholder={t("mk.bodyPh")}></textarea>
 
-          <label class="f-lab">Bouton 1 (facultatif)</label>
+          <label class="f-lab">{t("mk.btn1Opt")}</label>
           <div class="f-row">
-            <input type="text" class="f-input" id="f-b1l" placeholder="Label — ex. Réserver" />
-            <input type="text" class="f-input" id="f-b1u" placeholder="Lien — https://…, /order ou #reserver" />
-            <button class="pill asset-pick" type="button" data-target="f-b1u" title="Choisir un asset (image ou PDF)">Assets</button>
+            <input type="text" class="f-input" id="f-b1l" placeholder={t("mk.btnLabelReservePh")} />
+            <input type="text" class="f-input" id="f-b1u" placeholder={t("mk.btnLinkPh")} />
+            <button class="pill asset-pick" type="button" data-target="f-b1u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
           </div>
 
-          <label class="f-lab">Bouton 2 (facultatif)</label>
+          <label class="f-lab">{t("mk.btn2Opt")}</label>
           <div class="f-row">
-            <input type="text" class="f-input" id="f-b2l" placeholder="Label" />
-            <input type="text" class="f-input" id="f-b2u" placeholder="Lien" />
-            <button class="pill asset-pick" type="button" data-target="f-b2u" title="Choisir un asset (image ou PDF)">Assets</button>
+            <input type="text" class="f-input" id="f-b2l" placeholder={t("mk.labelPh")} />
+            <input type="text" class="f-input" id="f-b2u" placeholder={t("mk.linkPh")} />
+            <button class="pill asset-pick" type="button" data-target="f-b2u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
           </div>
-          <p class="f-hint">Astuce&nbsp;: le lien <strong>#reserver</strong> ouvre le module de réservation.</p>
+          <p class="f-hint">{t("mk.popupTipPre")}<strong>#reserver</strong>{t("mk.popupTipPost")}</p>
         </div>
 
         <div id="panel-en" style="display:none">
-          <label class="f-lab" for="f-title-en">Title</label>
-          <input type="text" class="f-input" id="f-title-en" placeholder="Ex. Exceptional closure, Christmas menu…" />
+          <label class="f-lab" for="f-title-en">{t("mk.enTitle")}</label>
+          <input type="text" class="f-input" id="f-title-en" placeholder={t("mk.titleEnPh")} />
 
-          <label class="f-lab" for="f-body-en">Text</label>
-          <textarea class="f-area" id="f-body-en" placeholder="The pop-up message (optional)"></textarea>
+          <label class="f-lab" for="f-body-en">{t("mk.enText")}</label>
+          <textarea class="f-area" id="f-body-en" placeholder={t("mk.textEnPh")}></textarea>
 
-          <label class="f-lab">Bouton 1 — label EN</label>
-          <input type="text" class="f-input" id="f-b1l-en" placeholder="Label — ex. Book a table" />
+          <label class="f-lab">{t("mk.btn1LabelEn")}</label>
+          <input type="text" class="f-input" id="f-b1l-en" placeholder={t("mk.btnLabelBookPh")} />
 
-          <label class="f-lab">Bouton 2 — label EN</label>
-          <input type="text" class="f-input" id="f-b2l-en" placeholder="Label" />
-          <p class="f-hint">Les liens des boutons sont définis dans l'onglet FR (partagés entre les deux langues).</p>
+          <label class="f-lab">{t("mk.btn2LabelEn")}</label>
+          <input type="text" class="f-input" id="f-b2l-en" placeholder={t("mk.labelPh")} />
+          <p class="f-hint">{t("mk.linksSharedHint")}</p>
         </div>
 
-        <label class="f-lab">Pages où il apparaît *</label>
+        <label class="f-lab">{t("mk.pagesWhere")}</label>
         <div class="picks" id="f-pages"></div>
 
-        <label class="f-lab">Programmation</label>
+        <label class="f-lab">{t("mk.scheduling")}</label>
         <div class="picks" id="f-kind">
-          <span class="pick is-on" data-k="always">Indéfini</span>
-          <span class="pick" data-k="dates">Période (dates)</span>
-          <span class="pick" data-k="weekly">Jours &amp; heures</span>
+          <span class="pick is-on" data-k="always">{t("mk.schedAlways")}</span>
+          <span class="pick" data-k="dates">{t("mk.schedDates")}</span>
+          <span class="pick" data-k="weekly">{t("mk.schedWeekly")}</span>
         </div>
 
         <div class="sched-block" id="sched-dates">
           <div class="f-row">
             <div>
-              <label class="f-lab" for="f-ds">Du</label>
-              <input type="text" class="f-input f-date" id="f-ds" readonly placeholder="jj/mm/aaaa" />
+              <label class="f-lab" for="f-ds">{t("mk.from")}</label>
+              <input type="text" class="f-input f-date" id="f-ds" readonly placeholder={t("mk.datePh")} />
             </div>
             <div>
-              <label class="f-lab" for="f-de">Au</label>
-              <input type="text" class="f-input f-date" id="f-de" readonly placeholder="jj/mm/aaaa" />
+              <label class="f-lab" for="f-de">{t("mk.to")}</label>
+              <input type="text" class="f-input f-date" id="f-de" readonly placeholder={t("mk.datePh")} />
             </div>
           </div>
         </div>
@@ -553,24 +531,24 @@ import { CLIENT } from "../../config/client";
           <div class="picks" id="f-days"></div>
           <div class="f-row" style="margin-top:0.8rem">
             <div>
-              <label class="f-lab" for="f-hs">De</label>
+              <label class="f-lab" for="f-hs">{t("mk.timeFrom")}</label>
               <input type="time" class="f-input" id="f-hs" />
             </div>
             <div>
-              <label class="f-lab" for="f-he">À</label>
+              <label class="f-lab" for="f-he">{t("mk.timeTo")}</label>
               <input type="time" class="f-input" id="f-he" />
             </div>
           </div>
         </div>
 
-        <label class="f-lab" for="f-max">Visualisations max par visiteur</label>
+        <label class="f-lab" for="f-max">{t("mk.maxViews")}</label>
         <input type="number" class="f-input" id="f-max" min="1" max="10" value="3" style="max-width:120px" />
 
         <div class="m-foot">
-          <button class="m-save" id="m-save" type="button">Enregistrer</button>
+          <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
           <span class="sw-wrap">
             <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">Actif</span>
+            <span class="sw-lab">{t("menu.active")}</span>
           </span>
           <span class="m-err" id="m-err"></span>
         </div>
@@ -580,11 +558,10 @@ import { CLIENT } from "../../config/client";
     <!-- Modale acquisto crediti -->
     <div class="overlay" id="c-overlay">
       <div class="modal" style="max-width:520px">
-        <button class="m-close" id="c-close" type="button" aria-label="Fermer">×</button>
-        <h2>Acheter des crédits</h2>
+        <button class="m-close" id="c-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2>{t("mk.buyCredits")}</h2>
         <p class="f-hint" style="margin-bottom:1.1rem">
-          Les crédits n'expirent jamais&nbsp;: ils sont utilisés une fois les
-          1000 envois mensuels inclus épuisés. Paiement sécurisé par Stripe.
+          {t("mk.creditsInfo")}
         </p>
         <div class="c-packs">
           <button class="c-pack" type="button" data-pack="500" data-price="5,99 €"><span class="c-pack-n">+500</span><span class="c-pack-p">5,99&nbsp;€</span></button>
@@ -593,7 +570,7 @@ import { CLIENT } from "../../config/client";
           <button class="c-pack" type="button" data-pack="5000" data-price="29,99 €"><span class="c-pack-n">+5000</span><span class="c-pack-p">29,99&nbsp;€</span></button>
         </div>
         <div class="m-foot" id="c-foot" style="display:none">
-          <button class="m-save" id="c-checkout" type="button">Payer</button>
+          <button class="m-save" id="c-checkout" type="button">{t("mk.pay")}</button>
           <span class="m-err" id="c-err"></span>
         </div>
       </div>
@@ -602,66 +579,65 @@ import { CLIENT } from "../../config/client";
     <!-- Modale nuova newsletter -->
     <div class="overlay" id="n-overlay">
       <div class="modal">
-        <button class="m-close" id="n-close" type="button" aria-label="Fermer">×</button>
-        <h2>Nouvelle newsletter</h2>
+        <button class="m-close" id="n-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2>{t("mk.newNewsletter")}</h2>
 
-        <label class="f-lab">Destinataires — langue</label>
+        <label class="f-lab">{t("mk.newsRecipientsLang")}</label>
         <div class="seg-row" id="n-lang"></div>
-        <label class="f-lab">Destinataires — groupe</label>
+        <label class="f-lab">{t("mk.newsRecipientsGroup")}</label>
         <div class="seg-row" id="n-seg"></div>
 
-        <label class="f-lab" for="n-subject">Objet *</label>
-        <input type="text" class="f-input" id="n-subject" placeholder="Ex. Nouveau menu d'automne 🍂" />
+        <label class="f-lab" for="n-subject">{t("mk.subjectReq")}</label>
+        <input type="text" class="f-input" id="n-subject" placeholder={t("mk.subjectPh")} />
 
-        <label class="f-lab" for="n-msg">Message *</label>
-        <textarea class="f-area" id="n-msg" style="min-height:140px" placeholder="Le contenu de la newsletter…"></textarea>
+        <label class="f-lab" for="n-msg">{t("mk.messageReq")}</label>
+        <textarea class="f-area" id="n-msg" style="min-height:140px" placeholder={t("mk.newsMsgPh")}></textarea>
 
-        <label class="f-lab" for="n-img">Image</label>
+        <label class="f-lab" for="n-img">{t("mk.image")}</label>
         <div class="f-row f-row--img">
-          <input type="text" class="f-input" id="n-img" placeholder="https://… ou téléversez un fichier →" />
-          <button class="pill" id="n-upload" type="button">Téléverser</button>
-          <button class="pill" id="n-lib" type="button">Bibliothèque</button>
+          <input type="text" class="f-input" id="n-img" placeholder={t("mk.imgUrlPh")} />
+          <button class="pill" id="n-upload" type="button">{t("mk.upload")}</button>
+          <button class="pill" id="n-lib" type="button">{t("menu.library")}</button>
           <input type="file" id="n-file" accept="image/*" style="display:none" />
         </div>
         <p class="f-hint" id="n-upload-state"></p>
 
-        <label class="f-lab">Bouton (facultatif)</label>
+        <label class="f-lab">{t("mk.btnOpt")}</label>
         <div class="f-row">
-          <input type="text" class="f-input" id="n-btnl" placeholder="Label — ex. Voir le menu" />
-          <input type="text" class="f-input" id="n-btnu" placeholder="Lien — https://…" />
-          <button class="pill asset-pick" type="button" data-target="n-btnu" title="Choisir un asset (image ou PDF)">Assets</button>
+          <input type="text" class="f-input" id="n-btnl" placeholder={t("mk.btnLabelMenuPh")} />
+          <input type="text" class="f-input" id="n-btnu" placeholder={t("mk.linkHttpsPh")} />
+          <button class="pill asset-pick" type="button" data-target="n-btnu" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
         </div>
 
-        <label class="f-lab">Bouton 2 (facultatif)</label>
+        <label class="f-lab">{t("mk.btn2Opt")}</label>
         <div class="f-row">
-          <input type="text" class="f-input" id="n-btn2l" placeholder="Label — ex. Réserver une table" />
-          <input type="text" class="f-input" id="n-btn2u" placeholder="Lien — https://…" />
-          <button class="pill asset-pick" type="button" data-target="n-btn2u" title="Choisir un asset (image ou PDF)">Assets</button>
+          <input type="text" class="f-input" id="n-btn2l" placeholder={t("mk.btnLabelBookTablePh")} />
+          <input type="text" class="f-input" id="n-btn2u" placeholder={t("mk.linkHttpsPh")} />
+          <button class="pill asset-pick" type="button" data-target="n-btn2u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
         </div>
 
-        <label class="f-lab">Envoi</label>
+        <label class="f-lab">{t("mk.send")}</label>
         <div class="seg-row" id="n-when">
-          <button type="button" class="seg-pill is-on" data-w="now">Maintenant</button>
-          <button type="button" class="seg-pill" data-w="date">Programmer</button>
-          <button type="button" class="seg-pill" data-w="weekly">Chaque semaine</button>
-          <button type="button" class="seg-pill" data-w="monthly">Chaque mois</button>
+          <button type="button" class="seg-pill is-on" data-w="now">{t("mk.now")}</button>
+          <button type="button" class="seg-pill" data-w="date">{t("mk.schedule")}</button>
+          <button type="button" class="seg-pill" data-w="weekly">{t("mk.everyWeek")}</button>
+          <button type="button" class="seg-pill" data-w="monthly">{t("mk.everyMonth")}</button>
         </div>
         <div class="f-row" id="n-prog" style="display:none; align-items:center; gap:0.6rem; flex-wrap:wrap">
-          <input type="text" class="f-input" id="np-date" placeholder="Date" readonly style="max-width:160px; cursor:pointer; display:none" />
+          <input type="text" class="f-input" id="np-date" placeholder={t("home.date")} readonly style="max-width:160px; cursor:pointer; display:none" />
           <span class="seg-row" id="np-dow" style="display:none; margin-bottom:0"></span>
-          <input type="number" class="f-input" id="np-day" min="1" max="28" value="1" title="Jour du mois" style="max-width:90px; display:none" />
+          <input type="number" class="f-input" id="np-day" min="1" max="28" value="1" title={t("mk.dayOfMonthTitle")} style="max-width:90px; display:none" />
           <select class="f-input" id="np-heure" style="max-width:110px"></select>
         </div>
 
         <div class="m-foot">
-          <button class="m-save" id="n-send" type="button">Envoyer à tous</button>
-          <button class="pill" id="n-test" type="button">M'envoyer un test</button>
-          <button class="pill" id="n-draft" type="button">Enregistrer le brouillon</button>
+          <button class="m-save" id="n-send" type="button">{t("mk.sendToAll")}</button>
+          <button class="pill" id="n-test" type="button">{t("mk.sendMeTest")}</button>
+          <button class="pill" id="n-draft" type="button">{t("mk.saveDraft")}</button>
           <span class="m-err" id="n-err"></span>
         </div>
         <p class="f-hint" style="margin-top:0.6rem">
-          Chaque email contient un lien de désinscription (obligatoire). Les clients
-          désinscrits ne sont plus jamais contactés.
+          {t("mk.newsFooterHint")}
         </p>
       </div>
     </div>
@@ -669,50 +645,50 @@ import { CLIENT } from "../../config/client";
     <!-- Modale coupon -->
     <div class="overlay" id="cp-overlay">
       <div class="modal">
-        <button class="m-close" id="cp-close" type="button" aria-label="Fermer">×</button>
-        <h2 id="cp-title">Nouveau coupon</h2>
+        <button class="m-close" id="cp-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2 id="cp-title">{t("mk.newCoupon")}</h2>
 
-        <label class="f-lab" for="cp-code">Code *</label>
-        <input type="text" class="f-input" id="cp-code" placeholder="ex. BIENVENUE10" style="text-transform:uppercase" />
+        <label class="f-lab" for="cp-code">{t("mk.codeReq")}</label>
+        <input type="text" class="f-input" id="cp-code" placeholder={t("mk.couponCodePh")} style="text-transform:uppercase" />
 
-        <label class="f-lab" for="cp-desc">Description (interne, optionnel)</label>
-        <input type="text" class="f-input" id="cp-desc" placeholder="ex. Réduction de bienvenue" />
+        <label class="f-lab" for="cp-desc">{t("mk.descInternalOpt")}</label>
+        <input type="text" class="f-input" id="cp-desc" placeholder={t("mk.descInternalPh")} />
 
-        <label class="f-lab">Type de réduction *</label>
+        <label class="f-lab">{t("mk.discountTypeReq")}</label>
         <div class="picks" id="cp-type">
-          <span class="pick is-on" data-t="percent">Pourcentage</span>
-          <span class="pick" data-t="fixed">Montant fixe</span>
+          <span class="pick is-on" data-t="percent">{t("mk.percentage")}</span>
+          <span class="pick" data-t="fixed">{t("mk.fixedAmount")}</span>
         </div>
 
         <div class="f-row">
           <div>
-            <label class="f-lab" for="cp-value"><span id="cp-value-lab">Valeur (%)</span> *</label>
+            <label class="f-lab" for="cp-value"><span id="cp-value-lab">{t("mk.valuePercent")}</span> *</label>
             <input type="number" class="f-input" id="cp-value" min="0" step="0.01" placeholder="10" />
           </div>
           <div>
-            <label class="f-lab" for="cp-maxcap">Plafond de réduction (€)</label>
-            <input type="number" class="f-input" id="cp-maxcap" min="0" step="0.01" placeholder="illimité" />
+            <label class="f-lab" for="cp-maxcap">{t("mk.discountCap")}</label>
+            <input type="number" class="f-input" id="cp-maxcap" min="0" step="0.01" placeholder={t("mk.unlimited")} />
           </div>
         </div>
 
-        <label class="f-lab" for="cp-minspend">Dépense minimale (€)</label>
-        <input type="number" class="f-input" id="cp-minspend" min="0" step="0.01" placeholder="aucune" style="max-width:200px" />
+        <label class="f-lab" for="cp-minspend">{t("mk.minSpend")}</label>
+        <input type="number" class="f-input" id="cp-minspend" min="0" step="0.01" placeholder={t("mk.none")} style="max-width:200px" />
 
-        <label class="f-lab">Programmation</label>
+        <label class="f-lab">{t("mk.scheduling")}</label>
         <div class="picks" id="cp-kind">
-          <span class="pick is-on" data-k="always">Indéfini</span>
-          <span class="pick" data-k="dates">Période (dates)</span>
-          <span class="pick" data-k="weekly">Jours &amp; heures</span>
+          <span class="pick is-on" data-k="always">{t("mk.schedAlways")}</span>
+          <span class="pick" data-k="dates">{t("mk.schedDates")}</span>
+          <span class="pick" data-k="weekly">{t("mk.schedWeekly")}</span>
         </div>
 
         <div class="sched-block" id="cp-sched-dates">
           <div class="f-row">
             <div>
-              <label class="f-lab" for="cp-ds">Du</label>
+              <label class="f-lab" for="cp-ds">{t("mk.from")}</label>
               <input type="date" class="f-input" id="cp-ds" />
             </div>
             <div>
-              <label class="f-lab" for="cp-de">Au</label>
+              <label class="f-lab" for="cp-de">{t("mk.to")}</label>
               <input type="date" class="f-input" id="cp-de" />
             </div>
           </div>
@@ -722,11 +698,11 @@ import { CLIENT } from "../../config/client";
           <div class="picks" id="cp-days"></div>
           <div class="f-row" style="margin-top:0.8rem">
             <div>
-              <label class="f-lab" for="cp-hs">De</label>
+              <label class="f-lab" for="cp-hs">{t("mk.timeFrom")}</label>
               <input type="time" class="f-input" id="cp-hs" />
             </div>
             <div>
-              <label class="f-lab" for="cp-he">À</label>
+              <label class="f-lab" for="cp-he">{t("mk.timeTo")}</label>
               <input type="time" class="f-input" id="cp-he" />
             </div>
           </div>
@@ -734,35 +710,35 @@ import { CLIENT } from "../../config/client";
 
         <div class="f-row">
           <div>
-            <label class="f-lab" for="cp-perclient">Utilisations par client</label>
-            <input type="number" class="f-input" id="cp-perclient" min="1" step="1" placeholder="illimité" />
+            <label class="f-lab" for="cp-perclient">{t("mk.usesPerClient")}</label>
+            <input type="number" class="f-input" id="cp-perclient" min="1" step="1" placeholder={t("mk.unlimited")} />
           </div>
           <div>
-            <label class="f-lab" for="cp-global">Utilisations totales</label>
-            <input type="number" class="f-input" id="cp-global" min="1" step="1" placeholder="illimité" />
+            <label class="f-lab" for="cp-global">{t("mk.usesTotal")}</label>
+            <input type="number" class="f-input" id="cp-global" min="1" step="1" placeholder={t("mk.unlimited")} />
           </div>
         </div>
 
-        <label class="f-lab">Catégories concernées</label>
-        <p class="f-hint" style="margin:-0.2rem 0 0.5rem">Aucune sélection = toutes les catégories.</p>
+        <label class="f-lab">{t("mk.categoriesConcerned")}</label>
+        <p class="f-hint" style="margin:-0.2rem 0 0.5rem">{t("mk.noSelAllCats")}</p>
         <div class="picks" id="cp-cats"></div>
 
-        <label class="f-lab">Cumul avec les promotions du menu</label>
+        <label class="f-lab">{t("mk.stackTitle")}</label>
         <div class="picks" id="cp-combine">
-          <span class="pick is-on" data-c="stack">Se cumule</span>
-          <span class="pick" data-c="exclude">Exclut les plats en promo</span>
-          <span class="pick" data-c="block">Refusé si promo au panier</span>
+          <span class="pick is-on" data-c="stack">{t("mk.stack")}</span>
+          <span class="pick" data-c="exclude">{t("mk.excludePromo")}</span>
+          <span class="pick" data-c="block">{t("mk.blockPromo")}</span>
         </div>
 
         <div class="m-foot" style="flex-wrap:wrap;gap:1rem">
-          <button class="m-save" id="cp-save" type="button">Enregistrer</button>
+          <button class="m-save" id="cp-save" type="button">{t("common.save")}</button>
           <span class="sw-wrap">
             <label class="switch"><input type="checkbox" id="cp-new" /><span class="track"></span></label>
-            <span class="sw-lab">Nouveaux clients</span>
+            <span class="sw-lab">{t("mk.newCustomers")}</span>
           </span>
           <span class="sw-wrap">
             <label class="switch"><input type="checkbox" id="cp-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">Actif</span>
+            <span class="sw-lab">{t("menu.active")}</span>
           </span>
           <span class="m-err" id="cp-err"></span>
         </div>
@@ -772,19 +748,19 @@ import { CLIENT } from "../../config/client";
     <!-- Modale bon cadeau : création (multi-étapes) -->
     <div class="overlay" id="gc-overlay">
       <div class="modal" style="max-width:560px">
-        <button class="m-close" id="gc-close" type="button" aria-label="Fermer">×</button>
-        <h2 id="gc-title">Nouveau bon cadeau</h2>
+        <button class="m-close" id="gc-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2 id="gc-title">{t("mk.newGift")}</h2>
 
         <div class="gc-steps" id="gc-steps">
-          <span class="gc-step is-on" data-s="1">Bon</span>
-          <span class="gc-step" data-s="2">Offert par</span>
-          <span class="gc-step" data-s="3">Destinataire</span>
-          <span class="gc-step" data-s="4">Récap</span>
+          <span class="gc-step is-on" data-s="1">{t("mk.giftStep1")}</span>
+          <span class="gc-step" data-s="2">{t("mk.givenBy")}</span>
+          <span class="gc-step" data-s="3">{t("mk.giftStep3")}</span>
+          <span class="gc-step" data-s="4">{t("mk.giftStep4")}</span>
         </div>
 
         <!-- Étape 1 : options du bon -->
         <div class="gc-pane" data-pane="1">
-          <label class="f-lab">Valeur *</label>
+          <label class="f-lab">{t("mk.valueReq")}</label>
           <div class="picks" id="gc-val-picks">
             <span class="pick" data-val="25">25 €</span>
             <span class="pick" data-val="50">50 €</span>
@@ -792,85 +768,85 @@ import { CLIENT } from "../../config/client";
             <span class="pick" data-val="100">100 €</span>
             <span class="pick" data-val="150">150 €</span>
             <span class="pick" data-val="200">200 €</span>
-            <span class="pick" data-val="autre">Autre</span>
+            <span class="pick" data-val="autre">{t("st.other")}</span>
           </div>
-          <input type="number" class="f-input" id="gc-value" min="0" step="0.01" placeholder="Montant en €" style="max-width:220px;display:none;margin-top:0.6rem" />
+          <input type="number" class="f-input" id="gc-value" min="0" step="0.01" placeholder={t("mk.amountInEuro")} style="max-width:220px;display:none;margin-top:0.6rem" />
 
-          <label class="f-lab">Expiration (optionnel)</label>
+          <label class="f-lab">{t("mk.expirationOpt")}</label>
           <div class="picks" id="gc-exp-picks">
-            <span class="pick is-on" data-exp="none">Aucune</span>
-            <span class="pick" data-exp="1m">1 mois</span>
-            <span class="pick" data-exp="6m">6 mois</span>
-            <span class="pick" data-exp="1y">1 an</span>
-            <span class="pick" data-exp="eoy">Fin d'année</span>
-            <span class="pick" data-exp="autre">Autre</span>
+            <span class="pick is-on" data-exp="none">{t("itg.mode.none")}</span>
+            <span class="pick" data-exp="1m">{t("mk.exp1m")}</span>
+            <span class="pick" data-exp="6m">{t("st.months6")}</span>
+            <span class="pick" data-exp="1y">{t("mk.exp1y")}</span>
+            <span class="pick" data-exp="eoy">{t("mk.expEoy")}</span>
+            <span class="pick" data-exp="autre">{t("st.other")}</span>
           </div>
-          <input type="text" class="f-input f-date" id="gc-exp" placeholder="jj/mm/aaaa" readonly style="max-width:220px;display:none;margin-top:0.6rem;cursor:pointer" />
+          <input type="text" class="f-input f-date" id="gc-exp" placeholder={t("mk.datePh")} readonly style="max-width:220px;display:none;margin-top:0.6rem;cursor:pointer" />
 
-          <label class="f-lab" for="gc-code">Code (vide = généré automatiquement)</label>
+          <label class="f-lab" for="gc-code">{t("mk.codeAutoLabel")}</label>
           <input type="text" class="f-input" id="gc-code" placeholder="auto" style="text-transform:uppercase" />
 
-          <label class="f-lab">Paiement *</label>
+          <label class="f-lab">{t("mk.paymentReq")}</label>
           <div class="picks" id="gc-pay-picks">
-            <span class="pick is-on" data-pay="cash">Espèces</span>
-            <span class="pick" data-pay="card">Carte</span>
-            <span class="pick" data-pay="link">Lien de paiement</span>
-            <button type="button" class="pick gc-resend" id="gc-resend" style="display:none">↻ Renvoyer le lien de paiement</button>
+            <span class="pick is-on" data-pay="cash">{t("mk.payCash")}</span>
+            <span class="pick" data-pay="card">{t("mk.payCard")}</span>
+            <span class="pick" data-pay="link">{t("mk.payLink")}</span>
+            <button type="button" class="pick gc-resend" id="gc-resend" style="display:none">↻ {t("mk.resendPayLink")}</button>
           </div>
-          <p class="f-hint" id="gc-pay-hint" style="margin-top:0.35rem">Encaissé à la caisse : le bon est actif immédiatement.</p>
+          <p class="f-hint" id="gc-pay-hint" style="margin-top:0.35rem">{t("mk.payHintCash")}</p>
         </div>
 
         <!-- Étape 2 : offert par -->
         <div class="gc-pane" data-pane="2" style="display:none">
-          <label class="f-lab">Nom (optionnel)</label>
+          <label class="f-lab">{t("mk.nameOpt")}</label>
           <div class="f-row">
-            <input type="text" class="f-input" id="gc-sfname" placeholder="Prénom" />
-            <input type="text" class="f-input" id="gc-slname" placeholder="Nom" />
+            <input type="text" class="f-input" id="gc-sfname" placeholder={t("ord.firstName")} />
+            <input type="text" class="f-input" id="gc-slname" placeholder={t("us.lname")} />
           </div>
-          <label class="f-lab">Contact (optionnel)</label>
+          <label class="f-lab">{t("mk.contactOpt")}</label>
           <div class="f-row">
-            <input type="email" class="f-input" id="gc-semail" placeholder="Email" />
+            <input type="email" class="f-input" id="gc-semail" placeholder={t("ord.emailLabel")} />
             <div class="gc-tel">
               <select class="f-input gc-tel-prefix" id="gc-sprefix"></select>
-              <input type="tel" class="f-input" id="gc-sphone" placeholder="Téléphone" />
+              <input type="tel" class="f-input" id="gc-sphone" placeholder={t("ord.phone")} />
             </div>
           </div>
         </div>
 
         <!-- Étape 3 : destinataire -->
         <div class="gc-pane" data-pane="3" style="display:none">
-          <label class="f-lab">Nom (optionnel)</label>
+          <label class="f-lab">{t("mk.nameOpt")}</label>
           <div class="f-row">
-            <input type="text" class="f-input" id="gc-rfname" placeholder="Prénom" />
-            <input type="text" class="f-input" id="gc-rlname" placeholder="Nom" />
+            <input type="text" class="f-input" id="gc-rfname" placeholder={t("ord.firstName")} />
+            <input type="text" class="f-input" id="gc-rlname" placeholder={t("us.lname")} />
           </div>
-          <label class="f-lab">Contact (optionnel)</label>
+          <label class="f-lab">{t("mk.contactOpt")}</label>
           <div class="f-row">
-            <input type="email" class="f-input" id="gc-remail" placeholder="Email" />
+            <input type="email" class="f-input" id="gc-remail" placeholder={t("ord.emailLabel")} />
             <div class="gc-tel">
               <select class="f-input gc-tel-prefix" id="gc-rprefix"></select>
-              <input type="tel" class="f-input" id="gc-rphone" placeholder="Téléphone" />
+              <input type="tel" class="f-input" id="gc-rphone" placeholder={t("ord.phone")} />
             </div>
           </div>
-          <label class="f-lab" for="gc-msg">Message (optionnel)</label>
-          <textarea class="f-area" id="gc-msg" rows="3" placeholder="ex. Joyeux anniversaire !"></textarea>
+          <label class="f-lab" for="gc-msg">{t("mk.messageOpt")}</label>
+          <textarea class="f-area" id="gc-msg" rows="3" placeholder={t("mk.giftMsgPh")}></textarea>
 
           <div class="gc-ship-head">
-            <span class="f-lab" style="margin:0">Envoi postal du bon</span>
+            <span class="f-lab" style="margin:0">{t("mk.giftShipToggle")}</span>
             <span class="sw-wrap">
               <label class="switch"><input type="checkbox" id="gc-ship" /><span class="track"></span></label>
             </span>
           </div>
           <div id="gc-ship-box" style="display:none">
-            <label class="f-lab" for="gc-ship-address">Adresse</label>
-            <input type="text" class="f-input" id="gc-ship-address" placeholder="Rue et numéro" />
+            <label class="f-lab" for="gc-ship-address">{t("mk.address")}</label>
+            <input type="text" class="f-input" id="gc-ship-address" placeholder={t("mk.streetPh")} />
             <div class="f-row">
-              <input type="text" class="f-input" id="gc-ship-zip" placeholder="Code postal" />
-              <input type="text" class="f-input" id="gc-ship-city" placeholder="Ville" />
+              <input type="text" class="f-input" id="gc-ship-zip" placeholder={t("mk.zipPh")} />
+              <input type="text" class="f-input" id="gc-ship-city" placeholder={t("mk.cityPh")} />
             </div>
             <div class="f-row">
-              <input type="text" class="f-input" id="gc-ship-country" placeholder="Pays" />
-              <input type="number" class="f-input" id="gc-ship-cents" min="0" step="0.01" placeholder="Frais d'envoi (€)" />
+              <input type="text" class="f-input" id="gc-ship-country" placeholder={t("mk.countryPh")} />
+              <input type="number" class="f-input" id="gc-ship-cents" min="0" step="0.01" placeholder={t("mk.shippingFeePh")} />
             </div>
           </div>
         </div>
@@ -879,19 +855,19 @@ import { CLIENT } from "../../config/client";
         <div class="gc-pane" data-pane="4" style="display:none">
           <div class="gc-recap" id="gc-recap"></div>
           <div id="gc-send-box">
-            <label class="f-lab">Envoyer le bon par email</label>
+            <label class="f-lab">{t("mk.sendVoucherEmail")}</label>
             <div class="picks" id="gc-send-picks">
-              <span class="pick" data-send="recipient">✉ Au destinataire</span>
-              <span class="pick" data-send="sender">✉ À l'offrant</span>
+              <span class="pick" data-send="recipient">✉ {t("mk.toRecipient")}</span>
+              <span class="pick" data-send="sender">✉ {t("mk.toGiver")}</span>
             </div>
             <p class="f-hint" id="gc-send-hint" style="margin-top:0.4rem"></p>
           </div>
         </div>
 
         <div class="m-foot" style="flex-wrap:wrap;gap:0.8rem">
-          <button class="pick" id="gc-prev" type="button" style="display:none">‹ Précédent</button>
-          <button class="m-save" id="gc-next" type="button">Suivant ›</button>
-          <button class="m-save" id="gc-save" type="button" style="display:none">Générer</button>
+          <button class="pick" id="gc-prev" type="button" style="display:none">‹ {t("mk.prev")}</button>
+          <button class="m-save" id="gc-next" type="button">{t("mk.next")} ›</button>
+          <button class="m-save" id="gc-save" type="button" style="display:none">{t("us.gen")}</button>
           <span class="m-err" id="gc-err"></span>
         </div>
       </div>
@@ -900,40 +876,40 @@ import { CLIENT } from "../../config/client";
     <!-- Modale bon cadeau : utilisation manuelle (salle) -->
     <div class="overlay" id="gc-use-overlay">
       <div class="modal" style="max-width:420px">
-        <button class="m-close" id="gc-use-close" type="button" aria-label="Fermer">×</button>
-        <h2>Utiliser le bon</h2>
+        <button class="m-close" id="gc-use-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2>{t("mk.useVoucher")}</h2>
         <p class="f-hint" id="gc-use-info" style="margin:0 0 0.8rem"></p>
-        <label class="f-lab" for="gc-use-amount">Montant à utiliser (€) *</label>
+        <label class="f-lab" for="gc-use-amount">{t("mk.amountToUseReq")}</label>
         <input type="number" class="f-input" id="gc-use-amount" min="0" step="0.01" placeholder="0,00" style="max-width:200px" />
-        <label class="f-lab" for="gc-use-note">Note (optionnel)</label>
-        <input type="text" class="f-input" id="gc-use-note" placeholder="ex. table 5" />
-        <div class="m-foot"><button class="m-save" id="gc-use-save" type="button">Encaisser</button><span class="m-err" id="gc-use-err"></span></div>
+        <label class="f-lab" for="gc-use-note">{t("mk.noteOpt")}</label>
+        <input type="text" class="f-input" id="gc-use-note" placeholder={t("mk.useNotePh")} />
+        <div class="m-foot"><button class="m-save" id="gc-use-save" type="button">{t("mk.cashIn")}</button><span class="m-err" id="gc-use-err"></span></div>
       </div>
     </div>
 
     <!-- Modale : acheter des bons cadeaux imprimés (MOODD) -->
     <div class="overlay" id="gs-overlay">
       <div class="modal" style="max-width:560px">
-        <button class="m-close" id="gs-close" type="button" aria-label="Fermer">×</button>
-        <h2>Acheter des bons cadeaux</h2>
-        <p class="f-hint" style="margin:0 0 1.2rem">Cartes cadeaux physiques personnalisées, imprimées et livrées par MOODD. Adresse de livraison demandée au paiement.</p>
+        <button class="m-close" id="gs-close" type="button" aria-label={t("common.close")}>×</button>
+        <h2>{t("mk.buyGiftCards")}</h2>
+        <p class="f-hint" style="margin:0 0 1.2rem">{t("mk.giftShopIntro")}</p>
 
         <div class="gs-packs" id="gs-packs">
           <button type="button" class="gs-pack" data-pack="25">
-            <span class="gs-qty">25 bons</span>
+            <span class="gs-qty">25 {t("mk.vouchers")}</span>
             <span class="gs-price">90 €</span>
-            <span class="gs-unit">3,60 € / bon</span>
+            <span class="gs-unit">3,60 € / {t("mk.voucher")}</span>
           </button>
           <button type="button" class="gs-pack" data-pack="100">
-            <span class="gs-badge">Populaire</span>
-            <span class="gs-qty">100 bons</span>
+            <span class="gs-badge">{t("mk.popular")}</span>
+            <span class="gs-qty">100 {t("mk.vouchers")}</span>
             <span class="gs-price">129 €</span>
-            <span class="gs-unit">1,29 € / bon</span>
+            <span class="gs-unit">1,29 € / {t("mk.voucher")}</span>
           </button>
           <button type="button" class="gs-pack" data-pack="250">
-            <span class="gs-qty">250 bons</span>
+            <span class="gs-qty">250 {t("mk.vouchers")}</span>
             <span class="gs-price">185 €</span>
-            <span class="gs-unit">0,74 € / bon</span>
+            <span class="gs-unit">0,74 € / {t("mk.voucher")}</span>
           </button>
         </div>
 
@@ -954,6 +930,11 @@ import { CLIENT } from "../../config/client";
       import { isSuperUser } from "../../lib/admin/superAdmin";
   import { CLIENT } from "../../config/client";
   import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Popup = {
         id: string;
@@ -980,17 +961,17 @@ import { CLIENT } from "../../config/client";
       };
 
       const PAGINE: { k: string; label: string }[] = [
-        { k: "home", label: "Accueil" },
-        { k: "menu", label: "Notre Carte" },
-        { k: "order", label: "Commander" },
-        { k: "ambiance", label: "Ambiance" },
-        { k: "contact", label: "Contact" },
-        { k: "links", label: "Links" },
+        { k: "home", label: tr("nav.home") },
+        { k: "menu", label: tr("mk.pageMenu") },
+        { k: "order", label: tr("mk.pageOrder") },
+        { k: "ambiance", label: tr("mk.pageAmbiance") },
+        { k: "contact", label: tr("mk.pageContact") },
+        { k: "links", label: tr("mk.pageLinks") },
       ];
-      const GIORNI: { n: number; label: string }[] = [
-        { n: 1, label: "Lun" }, { n: 2, label: "Mar" }, { n: 3, label: "Mer" },
-        { n: 4, label: "Jeu" }, { n: 5, label: "Ven" }, { n: 6, label: "Sam" }, { n: 0, label: "Dim" },
-      ];
+      const GIORNI: { n: number; label: string }[] = [1, 2, 3, 4, 5, 6, 0].map((n) => ({
+        n,
+        label: new Date(2021, 2, n === 0 ? 7 : n).toLocaleDateString(LOC, { weekday: "short" }),
+      }));
       const ICO_TRASH =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
       const ICO_PEN = "✎";
@@ -1055,7 +1036,7 @@ import { CLIENT } from "../../config/client";
             const hh = (h: string | null) => String(h ?? "").slice(0, 5);
             return `${nomi} · ${hh(p.hour_start)}–${hh(p.hour_end)}`;
           }
-          return "Indéfini";
+          return tr("mk.schedAlways");
         }
 
         function render() {
@@ -1086,10 +1067,10 @@ import { CLIENT } from "../../config/client";
                 <div class="pop-actions">
                   <span class="sw-wrap">
                     <label class="switch"><input type="checkbox" class="t-active" ${p.active ? "checked" : ""} /><span class="track"></span></label>
-                    <span class="sw-lab">${p.active ? "Actif" : "Inactif"}</span>
+                    <span class="sw-lab">${p.active ? tr("menu.active") : tr("mk.inactive")}</span>
                   </span>
-                  <button class="i-btn i-edit" title="Modifier">${ICO_PEN}</button>
-                  <button class="i-btn i-del" title="Supprimer">${ICO_TRASH}</button>
+                  <button class="i-btn i-edit" title="${tr("common.edit")}">${ICO_PEN}</button>
+                  <button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
                 </div>
               </div>`;
             })
@@ -1157,7 +1138,7 @@ import { CLIENT } from "../../config/client";
           try {
             const res = await fetch("/api/admin/popups", { headers });
             if (!res.ok) {
-              stateEl.textContent = "Erreur de chargement.";
+              stateEl.textContent = tr("sup.load.error");
               return;
             }
             popups = ((await res.json()) as { popups: Popup[] }).popups;
@@ -1169,7 +1150,7 @@ import { CLIENT } from "../../config/client";
             if (tabAttivo === "coupons") void caricaCoupons();
             if (tabAttivo === "giftcards") void caricaGiftcards();
           } catch {
-            stateEl.textContent = "Erreur de connexion.";
+            stateEl.textContent = tr("common.netErr");
           }
         }
 
@@ -1243,7 +1224,7 @@ import { CLIENT } from "../../config/client";
 
         function apriModale(p: Popup | null) {
           editId = p?.id ?? null;
-          mTitle.textContent = p ? "Modifier le pop-up" : "Nouveau pop-up";
+          mTitle.textContent = p ? tr("mk.editPopup") : tr("mk.newPopup");
           mErr.textContent = "";
           fUploadState.textContent = "";
           mostraLingua("fr");
@@ -1289,8 +1270,8 @@ import { CLIENT } from "../../config/client";
         }
 
         // ---------- Datepicker custom (brand, come Réglages) ----------
-        const MESI = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-        const DOW = ["L", "M", "M", "J", "V", "S", "D"];
+        const MESI = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString(LOC, { month: "long" }));
+        const DOW = tr("res.dowInitials").split(",");
         let dpTarget: HTMLInputElement | null = null;
         let dpAnno = 0;
         let dpMese = 0; // 0-11
@@ -1401,14 +1382,14 @@ import { CLIENT } from "../../config/client";
           const file = fFile.files?.[0];
           if (!file) return;
           fUpload.disabled = true;
-          fUploadState.textContent = "Compression…";
+          fUploadState.textContent = tr("menu.compressing");
           try {
             const foto = await comprimiFoto(file);
             if (foto.size > 4 * 1024 * 1024) {
-              fUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+              fUploadState.textContent = tr("cli.fileTooBig");
               return;
             }
-            fUploadState.textContent = "Téléversement…";
+            fUploadState.textContent = tr("cli.uploading");
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
               r.onload = () => res(String(r.result).split(",")[1] ?? "");
@@ -1422,13 +1403,13 @@ import { CLIENT } from "../../config/client";
             });
             const j = await resp.json();
             if (!resp.ok) {
-              fUploadState.textContent = j.error ?? "Erreur de téléversement";
+              fUploadState.textContent = j.error ?? tr("cli.uploadError");
               return;
             }
             fImg.value = j.url;
-            fUploadState.textContent = "Image téléversée ✓";
+            fUploadState.textContent = tr("mk.imgUploaded");
           } catch {
-            fUploadState.textContent = "Erreur de connexion";
+            fUploadState.textContent = tr("res.connErr");
           } finally {
             fUpload.disabled = false;
             fFile.value = "";
@@ -1476,14 +1457,14 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              mErr.textContent = j.error ?? "Erreur";
+              mErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
             chiudiModale();
-            toast(editId ? "Pop-up modifié" : "Pop-up créé");
+            toast(editId ? tr("mk.popupUpdated") : tr("mk.popupCreated"));
             await carica();
           } catch {
-            mErr.textContent = "Erreur de connexion";
+            mErr.textContent = tr("res.connErr");
           } finally {
             mSave.disabled = false;
             mSave.classList.remove("is-loading");
@@ -1508,7 +1489,7 @@ import { CLIENT } from "../../config/client";
           if (del) {
             if (!del.classList.contains("confirm")) {
               del.classList.add("confirm");
-              del.textContent = "Confirmer ?";
+              del.textContent = tr("common.confirm");
               setTimeout(() => {
                 del.classList.remove("confirm");
                 del.innerHTML = ICO_TRASH;
@@ -1521,13 +1502,13 @@ import { CLIENT } from "../../config/client";
                 headers: { ...headers, "X-Method-Override": "DELETE" },
               });
               if (!res.ok) {
-                toast("Suppression impossible", true);
+                toast(tr("us.delErr"), true);
                 return;
               }
-              toast("Pop-up supprimé");
+              toast(tr("mk.popupDeleted"));
               await carica();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
             return;
           }
@@ -1545,7 +1526,7 @@ import { CLIENT } from "../../config/client";
               render();
             } catch {
               sw.checked = !sw.checked;
-              toast("Enregistrement impossible", true);
+              toast(tr("common.saveErr"), true);
             }
           }
         });
@@ -1625,10 +1606,10 @@ import { CLIENT } from "../../config/client";
             if (totale) totale.textContent = `/ ${s.sent_this_month + s.remaining}`;
             nRemaining.textContent = String(s.remaining);
             nPurchased.textContent =
-              s.purchased_balance > 0 ? `dont ${s.purchased_balance} crédits achetés` : "";
+              s.purchased_balance > 0 ? tr("mk.ofWhichCredits").replace("{n}", String(s.purchased_balance)) : "";
             nRecipients.textContent = String(s.recipients);
             const oo = document.getElementById("n-optout");
-            if (oo) oo.textContent = s.opted_out > 0 ? `${s.opted_out} opted-out` : "aucun opted-out";
+            if (oo) oo.textContent = s.opted_out > 0 ? `${s.opted_out} ${tr("mk.optedOut")}` : tr("mk.noOptedOut");
             segCounts = s.segments ?? {};
             renderSeg();
             void caricaProgrammate();
@@ -1640,12 +1621,12 @@ import { CLIENT } from "../../config/client";
               nHempty.style.display = "none";
               nHistory.innerHTML = `<div class="nn-grid">${s.history
                 .map((h, i) => {
-                  const d = new Date(h.created_at).toLocaleDateString("fr-BE", {
+                  const d = new Date(h.created_at).toLocaleDateString(LOC, {
                     day: "2-digit", month: "2-digit", year: "numeric",
                     timeZone: (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels",
                   });
                   const foto = h.image_url ? `<img class="nn-img" src="${esc(h.image_url)}" alt="" loading="lazy" />` : "";
-                  return `<div class="nn-card is-click" data-i="${i}" title="Relancer cette newsletter">${foto}<div class="nn-tit">${esc(h.subject)}</div>${h.message ? `<div class="nn-msg">${esc(h.message)}</div>` : ""}${h.segment ? segPills(h.segment) : ""}<div class="nn-foot"><span class="nn-quando">${d}</span><span>${h.count} emails</span></div></div>`;
+                  return `<div class="nn-card is-click" data-i="${i}" title="${tr("mk.relaunchNews")}">${foto}<div class="nn-tit">${esc(h.subject)}</div>${h.message ? `<div class="nn-msg">${esc(h.message)}</div>` : ""}${h.segment ? segPills(h.segment) : ""}<div class="nn-foot"><span class="nn-quando">${d}</span><span>${h.count} ${tr("mk.emails")}</span></div></div>`;
                 })
                 .join("")}</div>`;
             }
@@ -1676,14 +1657,14 @@ import { CLIENT } from "../../config/client";
           const file = nFile.files?.[0];
           if (!file) return;
           nUpload.disabled = true;
-          nUploadState.textContent = "Compression…";
+          nUploadState.textContent = tr("menu.compressing");
           try {
             const foto = await comprimiFoto(file);
             if (foto.size > 4 * 1024 * 1024) {
-              nUploadState.textContent = "Fichier trop lourd (max 4 Mo).";
+              nUploadState.textContent = tr("cli.fileTooBig");
               return;
             }
-            nUploadState.textContent = "Téléversement…";
+            nUploadState.textContent = tr("cli.uploading");
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
               r.onload = () => res(String(r.result).split(",")[1] ?? "");
@@ -1697,13 +1678,13 @@ import { CLIENT } from "../../config/client";
             });
             const j = await resp.json();
             if (!resp.ok) {
-              nUploadState.textContent = j.error ?? "Erreur de téléversement";
+              nUploadState.textContent = j.error ?? tr("cli.uploadError");
               return;
             }
             nImg.value = j.url;
-            nUploadState.textContent = "Image téléversée ✓";
+            nUploadState.textContent = tr("mk.imgUploaded");
           } catch {
-            nUploadState.textContent = "Erreur de connexion";
+            nUploadState.textContent = tr("res.connErr");
           } finally {
             nUpload.disabled = false;
             nFile.value = "";
@@ -1745,12 +1726,12 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              nErr.textContent = j.error ?? "Erreur";
+              nErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
-            toast(`Test envoyé à ${j.to}`);
+            toast(`${tr("mk.testSentTo")} ${j.to}`);
           } catch {
-            nErr.textContent = "Erreur de connexion";
+            nErr.textContent = tr("res.connErr");
           } finally {
             nTest.disabled = false;
           }
@@ -1763,17 +1744,17 @@ import { CLIENT } from "../../config/client";
           if (quando !== "now") { void programmaNews(); return; }
           if (!nSend.classList.contains("confirm")) {
             nSend.classList.add("confirm");
-            nSend.textContent = `Confirmer l'envoi à ${contaSeg(langScelta, segScelto) ?? destinatariNoti} clients ?`;
+            nSend.textContent = tr("mk.confirmSend").replace("{n}", String(contaSeg(langScelta, segScelto) ?? destinatariNoti));
             window.clearTimeout(nConfermaTimer);
             nConfermaTimer = window.setTimeout(() => {
               nSend.classList.remove("confirm");
-              nSend.textContent = "Envoyer à tous";
+              nSend.textContent = tr("mk.sendToAll");
             }, 4000);
             return;
           }
           window.clearTimeout(nConfermaTimer);
           nSend.classList.remove("confirm");
-          nSend.textContent = "Envoi…";
+          nSend.textContent = tr("mk.sending");
           nSend.disabled = true;
           nSend.classList.add("is-loading");
           try {
@@ -1784,10 +1765,10 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              nErr.textContent = j.error ?? "Erreur";
+              nErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
-            toast(`Newsletter envoyée à ${j.sent} clients`);
+            toast(tr("mk.newsSentTo").replace("{n}", String(j.sent)));
             if (draftId) {
               void fetch("/api/admin/newsletter-schedule?id=" + draftId, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } }).then(() => caricaProgrammate());
               draftId = null;
@@ -1800,20 +1781,20 @@ import { CLIENT } from "../../config/client";
             nOverlay.classList.remove("is-open");
             await caricaNews();
           } catch {
-            nErr.textContent = "Erreur de connexion";
+            nErr.textContent = tr("res.connErr");
           } finally {
             nSend.disabled = false;
             nSend.classList.remove("is-loading");
-            nSend.textContent = "Envoyer à tous";
+            nSend.textContent = tr("mk.sendToAll");
           }
         });
 
         // ---------- Segmenti destinatari + programmazione (#39) ----------
         // La LINGUA è primaria (fr = sito FR o sconosciuta · en = tutte le
         // altre); il gruppo vale DENTRO la lingua. segment = "lingua:gruppo".
-        const LANG_LAB: Record<string, string> = { tous: "Toutes langues", fr: "FR", en: "EN" };
+        const LANG_LAB: Record<string, string> = { tous: tr("mk.allLanguages"), fr: "FR", en: "EN" };
         const SEG_LAB: Record<string, string> = {
-          tous: "Tous", nouveaux: "Nouveaux", top50: "Top 50", resa: "Ont réservé", commande: "Ont commandé",
+          tous: tr("cli.all"), nouveaux: tr("mk.segNew"), top50: "Top 50", resa: tr("mk.segReserved"), commande: tr("mk.segOrdered"),
         };
         let langScelta = "tous";
         let segScelto = "tous";
@@ -1825,7 +1806,7 @@ import { CLIENT } from "../../config/client";
         }
         function segPills(seg: string): string {
           const [sl, sg] = String(seg ?? "").split(":");
-          const pills: string[] = [LANG_LAB[sl] ?? "Toutes langues"];
+          const pills: string[] = [LANG_LAB[sl] ?? tr("mk.allLanguages")];
           if (sg && sg !== "tous") pills.push(SEG_LAB[sg] ?? sg);
           return `<div class="nn-tags">${pills.map((t) => `<span class="nn-tag">${t}</span>`).join("")}</div>`;
         }
@@ -1860,7 +1841,7 @@ import { CLIENT } from "../../config/client";
         const npDay = document.getElementById("np-day") as HTMLInputElement;
         const npHeure = document.getElementById("np-heure") as HTMLSelectElement;
         npHeure.innerHTML = Array.from({ length: 24 }, (_, h) => `<option value="${h}"${h === 10 ? " selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("");
-        const DOW_LAB = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+        const DOW_LAB = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, i + 1).toLocaleDateString(LOC, { weekday: "short" }));
         let dowScelto = 5; // venerdì
         function renderDow() {
           npDow.innerHTML = DOW_LAB.map((l, i) => `<button type="button" class="seg-pill${dowScelto === i + 1 ? " is-on" : ""}" data-d="${i + 1}">${l}</button>`).join("");
@@ -1873,7 +1854,7 @@ import { CLIENT } from "../../config/client";
         });
         function aggiornaTestoInvio() {
           if (nSend.classList.contains("confirm")) return;
-          nSend.textContent = quando === "now" ? (langScelta === "tous" && segScelto === "tous" ? "Envoyer à tous" : "Envoyer au groupe") : "Programmer";
+          nSend.textContent = quando === "now" ? (langScelta === "tous" && segScelto === "tous" ? tr("mk.sendToAll") : tr("mk.sendToGroup")) : tr("mk.schedule");
         }
         function aggiornaProg() {
           nProg.style.display = quando === "now" ? "none" : "flex";
@@ -1899,11 +1880,11 @@ import { CLIENT } from "../../config/client";
 
         async function programmaNews() {
           nErr.textContent = "";
-          if (!nSubject.value.trim()) { nErr.textContent = "L'objet est obligatoire"; return; }
-          if (!nMsg.value.trim()) { nErr.textContent = "Le message est obligatoire"; return; }
+          if (!nSubject.value.trim()) { nErr.textContent = tr("mk.subjectRequired"); return; }
+          if (!nMsg.value.trim()) { nErr.textContent = tr("mk.messageRequired"); return; }
           const body: Record<string, unknown> = { ...payloadNews(), heure: Number(npHeure.value) };
           if (quando === "date") {
-            if (!npDate.dataset.iso) { nErr.textContent = "Choisis la date."; return; }
+            if (!npDate.dataset.iso) { nErr.textContent = tr("mk.chooseDate"); return; }
             body.send_date = npDate.dataset.iso;
           } else {
             body.recur = quando; // weekly | monthly
@@ -1915,8 +1896,8 @@ import { CLIENT } from "../../config/client";
           try {
             const res = await fetch("/api/admin/newsletter-schedule", { method: "POST", headers, body: JSON.stringify(body) });
             const j = await res.json();
-            if (!res.ok) { nErr.textContent = j.error ?? "Erreur"; return; }
-            toast("Newsletter programmée ✓");
+            if (!res.ok) { nErr.textContent = j.error ?? tr("ord.errShort"); return; }
+            toast(tr("mk.newsScheduled"));
             if (draftId) {
               void fetch("/api/admin/newsletter-schedule?id=" + draftId, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
               draftId = null;
@@ -1926,7 +1907,7 @@ import { CLIENT } from "../../config/client";
             aggiornaProg();
             void caricaProgrammate();
           } catch {
-            nErr.textContent = "Erreur de connexion";
+            nErr.textContent = tr("res.connErr");
           } finally {
             nSend.disabled = false;
             nSend.classList.remove("is-loading");
@@ -1966,7 +1947,7 @@ import { CLIENT } from "../../config/client";
         async function salvaBrouillon() {
           nErr.textContent = "";
           if (!nSubject.value.trim() && !nMsg.value.trim()) {
-            nErr.textContent = "Rien à enregistrer";
+            nErr.textContent = tr("mk.nothingToSave");
             return;
           }
           const bd = document.getElementById("n-draft") as HTMLButtonElement;
@@ -1978,13 +1959,13 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ ...payloadNews(), draft: true, id: draftId ?? undefined }),
             });
             const j = await res.json();
-            if (!res.ok) { nErr.textContent = j.error ?? "Erreur"; return; }
+            if (!res.ok) { nErr.textContent = j.error ?? tr("ord.errShort"); return; }
             draftId = j.schedule?.id ?? null;
-            toast("Brouillon enregistré ✓");
+            toast(tr("mk.draftSaved"));
             nOverlay.classList.remove("is-open");
             void caricaProgrammate();
           } catch {
-            nErr.textContent = "Erreur de connexion";
+            nErr.textContent = tr("res.connErr");
           } finally {
             bd.disabled = false;
           }
@@ -2022,12 +2003,12 @@ import { CLIENT } from "../../config/client";
             }
             try {
               const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              if (!res.ok) { toast("Suppression impossible", true); return; }
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
               if (draftId === row.dataset.id) draftId = null;
-              toast("Brouillon supprimé");
+              toast(tr("mk.draftDeleted"));
               void caricaProgrammate();
             } catch {
-              toast("Erreur de connexion", true);
+              toast(tr("res.connErr"), true);
             }
             return;
           }
@@ -2047,26 +2028,26 @@ import { CLIENT } from "../../config/client";
             dtit.style.display = draftsCache.length ? "" : "none";
             dbox.innerHTML = draftsCache.length
               ? `<div class="nn-grid">${draftsCache
-                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="Reprendre ce brouillon"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">brouillon</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`)
+                  .map((r) => `<div class="nn-card is-click" data-id="${r.id}" title="${tr("mk.resumeDraft")}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${tr("mk.draft")}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`)
                   .join("")}</div>`
               : "";
             const tit = document.getElementById("np-tit") as HTMLElement;
             const box = document.getElementById("np-list") as HTMLElement;
             tit.style.display = righe.length ? "" : "none";
             const tz = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
-            const JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+            const JOURS = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, i + 1).toLocaleDateString(LOC, { weekday: "long" }));
             box.innerHTML = righe.length ? '<div class="nn-grid">' + righe
               .map((r) => {
                 const hh = `${String(r.recur_heure ?? 10).padStart(2, "0")}:00`;
                 let quandoTxt = "";
                 if (r.send_at) {
-                  quandoTxt = new Date(r.send_at).toLocaleString("fr-BE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: tz });
+                  quandoTxt = new Date(r.send_at).toLocaleString(LOC, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: tz });
                 } else if (r.recur === "weekly") {
-                  quandoTxt = `chaque ${JOURS[(r.recur_dow ?? 1) - 1]} à ${hh}`;
+                  quandoTxt = `${tr("mk.weeklyDow").replace("{j}", JOURS[(r.recur_dow ?? 1) - 1])} ${tr("home.at")} ${hh}`;
                 } else {
-                  quandoTxt = `le ${r.recur_day} du mois à ${hh}`;
+                  quandoTxt = `${tr("mk.monthlyDay").replace("{d}", String(r.recur_day))} ${tr("home.at")} ${hh}`;
                 }
-                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><button class="np-del" type="button" title="Supprimer">×</button></div></div>`;
+                return `<div class="nn-card" data-id="${r.id}"><div class="nn-tit">${esc(r.subject)}</div>${r.message ? `<div class="nn-msg">${esc(r.message)}</div>` : ""}${segPills(r.segment)}<div class="nn-foot"><span class="nn-quando">${quandoTxt}</span><button class="np-del" type="button" title="${tr("common.delete")}">×</button></div></div>`;
               })
               .join("") + "</div>" : "";
           } catch { /* lista invariata */ }
@@ -2083,11 +2064,11 @@ import { CLIENT } from "../../config/client";
           }
           try {
             const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast("Suppression impossible", true); return; }
-            toast("Programmée supprimée");
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("mk.scheduledDeleted"));
             void caricaProgrammate();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         });
 
@@ -2122,7 +2103,7 @@ import { CLIENT } from "../../config/client";
           cOverlay.querySelectorAll<HTMLElement>(".c-pack").forEach((b) =>
             b.classList.toggle("is-on", b === btn)
           );
-          cCheckout.textContent = `Payer ${btn.dataset.price} →`;
+          cCheckout.textContent = `${tr("mk.pay")} ${btn.dataset.price} →`;
           cFoot.style.display = "flex";
           cErr.textContent = "";
         });
@@ -2141,12 +2122,12 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              cErr.textContent = j.error ?? "Erreur";
+              cErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
             window.location.href = j.url; // → Stripe Checkout
           } catch {
-            cErr.textContent = "Erreur de connexion";
+            cErr.textContent = tr("res.connErr");
           } finally {
             cCheckout.disabled = false;
             cCheckout.classList.remove("is-loading");
@@ -2167,10 +2148,10 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ session_id: creditSession }),
             });
             const j = await res.json();
-            if (res.ok) toast(`+${j.credits} crédits ajoutés ✓`);
-            else toast(j.error ?? "Vérification impossible", true);
+            if (res.ok) toast(tr("mk.creditsAdded").replace("{n}", String(j.credits)));
+            else toast(j.error ?? tr("itg.g.verifyErr"), true);
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
           await caricaNews();
         }
@@ -2265,7 +2246,7 @@ import { CLIENT } from "../../config/client";
             const hh = (h: string | null) => String(h ?? "").slice(0, 5);
             return `${nomi} · ${hh(c.hour_start)}–${hh(c.hour_end)}`;
           }
-          return "Indéfini";
+          return tr("mk.schedAlways");
         }
 
         function cpValoreLabel(c: Coupon): string {
@@ -2286,20 +2267,20 @@ import { CLIENT } from "../../config/client";
               if (c.min_spend_cents) tags.push(`<span class="m-tag">min ${cpEuro(c.min_spend_cents)}</span>`);
               tags.push(`<span class="m-tag">${esc(cpProg(c))}</span>`);
               tags.push(
-                `<span class="m-tag">${c.categories.length ? esc(c.categories.join(", ")) : "Toutes catégories"}</span>`
+                `<span class="m-tag">${c.categories.length ? esc(c.categories.join(", ")) : tr("mk.allCategories")}</span>`
               );
               const combineLbl =
                 c.combine_with_promo === "stack"
-                  ? "Cumulable"
+                  ? tr("mk.combStack")
                   : c.combine_with_promo === "exclude"
-                    ? "Hors promos"
-                    : "Pas si promo";
+                    ? tr("mk.combExcl")
+                    : tr("mk.combBlock");
               tags.push(`<span class="m-tag">${combineLbl}</span>`);
-              if (c.new_customers_only) tags.push(`<span class="m-tag">Nouveaux clients</span>`);
+              if (c.new_customers_only) tags.push(`<span class="m-tag">${tr("mk.newCustomers")}</span>`);
               const usiTxt = c.global_limit
-                ? `${c.uses} / ${c.global_limit} utilisés`
-                : `${c.uses} utilisé${c.uses === 1 ? "" : "s"}`;
-              const perCli = c.per_customer_limit ? ` · ${c.per_customer_limit}/client` : "";
+                ? `${c.uses} / ${c.global_limit} ${tr("mk.usedPl")}`
+                : `${c.uses} ${c.uses === 1 ? tr("mk.usedSg") : tr("mk.usedPl")}`;
+              const perCli = c.per_customer_limit ? ` · ${c.per_customer_limit}/${tr("mk.perClient")}` : "";
               tags.push(`<span class="m-tag">${usiTxt}${perCli}</span>`);
               return `
                 <div class="pop ${c.active ? "" : "is-off"}">
@@ -2311,10 +2292,10 @@ import { CLIENT } from "../../config/client";
                   <div class="pop-actions">
                     <span class="sw-wrap">
                       <label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? "checked" : ""} /><span class="track"></span></label>
-                      <span class="sw-lab">Actif</span>
+                      <span class="sw-lab">${tr("menu.active")}</span>
                     </span>
-                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="Modifier">${ICO_PEN}</button>
-                    <button class="i-btn i-del" data-del="${c.id}" aria-label="Supprimer">${ICO_TRASH}</button>
+                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="${tr("common.edit")}">${ICO_PEN}</button>
+                    <button class="i-btn i-del" data-del="${c.id}" aria-label="${tr("common.delete")}">${ICO_TRASH}</button>
                   </div>
                 </div>`;
             })
@@ -2329,7 +2310,7 @@ import { CLIENT } from "../../config/client";
             coupons = j.coupons ?? [];
             cpRender();
           } catch {
-            toast("Chargement des coupons impossible", true);
+            toast(tr("mk.couponsLoadErr"), true);
           }
         }
 
@@ -2347,7 +2328,7 @@ import { CLIENT } from "../../config/client";
           return (cpCombine.querySelector(".pick.is-on") as HTMLElement)?.dataset.c ?? "stack";
         }
         function cpAggiornaUnita() {
-          cpValueLab.textContent = cpTipoAttivo() === "percent" ? "Valeur (%)" : "Montant (€)";
+          cpValueLab.textContent = cpTipoAttivo() === "percent" ? tr("mk.valuePercent") : tr("mk.amountEuro");
         }
 
         cpType.addEventListener("click", (e) => {
@@ -2387,7 +2368,7 @@ import { CLIENT } from "../../config/client";
 
         function cpApri(c: Coupon | null) {
           cpEditId = c?.id ?? null;
-          cpTitle.textContent = c ? "Modifier le coupon" : "Nouveau coupon";
+          cpTitle.textContent = c ? tr("mk.editCoupon") : tr("mk.newCoupon");
           cpErr.textContent = "";
           cpCode.value = c?.code ?? "";
           cpDesc.value = c?.description ?? "";
@@ -2481,14 +2462,14 @@ import { CLIENT } from "../../config/client";
             });
             const j = await res.json();
             if (!res.ok) {
-              cpErr.textContent = j.error ?? "Enregistrement impossible";
+              cpErr.textContent = j.error ?? tr("common.saveErr");
               return;
             }
             cpChiudi();
-            toast(cpEditId ? "Coupon modifié" : "Coupon créé");
+            toast(cpEditId ? tr("mk.couponUpdated") : tr("mk.couponCreated"));
             await caricaCoupons();
           } catch {
-            cpErr.textContent = "Erreur de connexion";
+            cpErr.textContent = tr("res.connErr");
           } finally {
             cpSave.disabled = false;
           }
@@ -2513,19 +2494,19 @@ import { CLIENT } from "../../config/client";
               try {
                 const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
                 if (!res.ok) {
-                  toast("Suppression impossible", true);
+                  toast(tr("us.delErr"), true);
                   return;
                 }
-                toast("Coupon supprimé");
+                toast(tr("mk.couponDeleted"));
                 await caricaCoupons();
               } catch {
-                toast("Erreur de connexion", true);
+                toast(tr("res.connErr"), true);
               }
               return;
             }
             cpDelPending = id;
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             window.clearTimeout(cpDelTimer);
             cpDelTimer = window.setTimeout(() => {
               cpDelPending = null;
@@ -2546,7 +2527,7 @@ import { CLIENT } from "../../config/client";
             });
             if (!res.ok) {
               sw.checked = !sw.checked;
-              toast("Enregistrement impossible", true);
+              toast(tr("common.saveErr"), true);
               return;
             }
             const c = coupons.find((x) => x.id === id);
@@ -2555,7 +2536,7 @@ import { CLIENT } from "../../config/client";
             if (card) card.classList.toggle("is-off", !sw.checked);
           } catch {
             sw.checked = !sw.checked;
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         });
 
@@ -2659,20 +2640,20 @@ import { CLIENT } from "../../config/client";
               const usabile = c.active && !esaurito && !scaduto && c.paid !== false;
               // Pillola di stato solo per ciò che lo switch NON dice già
               const tags: string[] = [];
-              if (esaurito) tags.push(`<span class="m-tag">Épuisé</span>`);
-              else if (scaduto) tags.push(`<span class="m-tag">Expiré</span>`);
+              if (esaurito) tags.push(`<span class="m-tag">${tr("mk.exhausted")}</span>`);
+              else if (scaduto) tags.push(`<span class="m-tag">${tr("mk.expired")}</span>`);
               const righe: string[] = [];
-              if (c.recipient_name) righe.push(`<span class="gc-line">Pour <b>${esc(c.recipient_name)}</b></span>`);
-              if (c.sender_name) righe.push(`<span class="gc-line">De la part de <b>${esc(c.sender_name)}</b></span>`);
-              if (c.expires_at) righe.push(`<span class="gc-line">Expire le <b>${gcDate(c.expires_at)}</b></span>`);
+              if (c.recipient_name) righe.push(`<span class="gc-line">${tr("mk.gcFor")} <b>${esc(c.recipient_name)}</b></span>`);
+              if (c.sender_name) righe.push(`<span class="gc-line">${tr("mk.gcFrom")} <b>${esc(c.sender_name)}</b></span>`);
+              if (c.expires_at) righe.push(`<span class="gc-line">${tr("mk.gcExpiresOn")} <b>${gcDate(c.expires_at)}</b></span>`);
               const pagato = c.paid !== false;
               const badgePay = pagato
-                ? `<span class="gc-pay ok" title="Payé"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`
-                : `<span class="gc-pay wait" title="En attente de paiement"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`;
+                ? `<span class="gc-pay ok" title="${tr("ord.paid")}"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`
+                : `<span class="gc-pay wait" title="${tr("ord.awaitingPayment")}"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`;
               const nUsi = Number(c.uses ?? 0);
-              righe.push(`<span class="gc-line">Utilisé <b>${nUsi}</b> fois</span>`);
+              righe.push(`<span class="gc-line">${tr("mk.gcUsed")} <b>${nUsi}</b> ${tr("mk.times")}</span>`);
               const useBtn = usabile
-                ? `<button data-use="${c.id}" style="border:1px solid var(--c-accent);color:var(--c-accent);background:none;border-radius:999px;padding:0.3rem 0.85rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">Utiliser</button>`
+                ? `<button data-use="${c.id}" style="border:1px solid var(--c-accent);color:var(--c-accent);background:none;border-radius:999px;padding:0.3rem 0.85rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">${tr("mk.use")}</button>`
                 : "";
               return `
                 <div class="pop ${usabile ? "" : "is-off"} ${pagato ? "" : "is-pending"}">
@@ -2685,10 +2666,10 @@ import { CLIENT } from "../../config/client";
                     ${useBtn}
                     <span class="sw-wrap">
                       <label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? "checked" : ""} /><span class="track"></span></label>
-                      <span class="sw-lab">Actif</span>
+                      <span class="sw-lab">${tr("menu.active")}</span>
                     </span>
-                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="Modifier">${ICO_PEN}</button>
-                    <button class="i-btn i-del" data-del="${c.id}" aria-label="Supprimer">${ICO_TRASH}</button>
+                    <button class="i-btn i-edit" data-edit="${c.id}" aria-label="${tr("common.edit")}">${ICO_PEN}</button>
+                    <button class="i-btn i-del" data-del="${c.id}" aria-label="${tr("common.delete")}">${ICO_TRASH}</button>
                   </div>
                 </div>`;
             })
@@ -2698,12 +2679,12 @@ import { CLIENT } from "../../config/client";
         async function caricaGiftcards() {
           try {
             const res = await fetch("/api/admin/gift-cards", { headers });
-            if (!res.ok) { toast("Chargement des bons impossible", true); return; }
+            if (!res.ok) { toast(tr("mk.giftsLoadErr"), true); return; }
             const j = (await res.json()) as { cards: GiftCard[] };
             giftCards = j.cards ?? [];
             gcRender();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         }
 
@@ -2771,16 +2752,16 @@ import { CLIENT } from "../../config/client";
           const bloccato = !!c && c.paid !== false;
           gcPayPicks.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-off", bloccato));
           gcPayHint.textContent = bloccato
-            ? "Bon déjà encaissé : le mode de paiement ne change plus."
+            ? tr("mk.payHintLocked")
             : pm === "link"
-              ? "Un lien de paiement Stripe sera envoyé à l'offrant : le bon s'active une fois payé."
-              : "Encaissé à la caisse : le bon est actif immédiatement.";
+              ? tr("mk.payHintLink")
+              : tr("mk.payHintCash");
 
           gcSendPicks.querySelectorAll(".pick").forEach((el) => el.classList.remove("is-on"));
           gcResend.style.display = c && c.paid === false && (c.payment_method ?? "") === "link" ? "" : "none";
           gcSendBox.style.display = c ? "none" : "";
-          gcTitle.textContent = c ? "Modifier le bon cadeau" : "Nouveau bon cadeau";
-          gcSave.textContent = c ? "Enregistrer" : "Générer";
+          gcTitle.textContent = c ? tr("mk.editGift") : tr("mk.newGift");
+          gcSave.textContent = c ? tr("common.save") : tr("us.gen");
           gcStep(1);
           gcOverlay.classList.add("is-open");
         }
@@ -2801,10 +2782,10 @@ import { CLIENT } from "../../config/client";
             const j = (await res.json()) as { purchases?: { qty: number; amount_cents: number; created_at: string }[] };
             const list = j.purchases ?? [];
             gsHist.innerHTML = list.length
-              ? `<p class="f-lab" style="margin-top:1.4rem">Achats précédents</p>` +
+              ? `<p class="f-lab" style="margin-top:1.4rem">${tr("mk.previousPurchases")}</p>` +
                 list.map((a) => {
                   const d = String(a.created_at ?? "").slice(0, 10).split("-").reverse().join("/");
-                  return `<div class="gs-hist-row"><span>${d}</span><span>${a.qty} bons · ${gcEuro(a.amount_cents)}</span></div>`;
+                  return `<div class="gs-hist-row"><span>${d}</span><span>${a.qty} ${tr("mk.vouchers")} · ${gcEuro(a.amount_cents)}</span></div>`;
                 }).join("")
               : "";
           } catch { /* rete assente */ }
@@ -2821,7 +2802,7 @@ import { CLIENT } from "../../config/client";
         gsPacks?.addEventListener("click", async (e) => {
           const b = (e.target as HTMLElement).closest(".gs-pack") as HTMLButtonElement | null;
           if (!b) return;
-          gsMsg.textContent = "Redirection vers le paiement…";
+          gsMsg.textContent = tr("mk.redirectPayment");
           gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = true));
           try {
             const res = await fetch("/api/admin/gift-cards-shop", {
@@ -2830,10 +2811,10 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ pack: b.dataset.pack }),
             });
             const j = await res.json();
-            if (!res.ok || !j.url) { gsMsg.textContent = j.error ?? "Paiement impossible"; return; }
+            if (!res.ok || !j.url) { gsMsg.textContent = j.error ?? tr("mk.paymentFailed"); return; }
             window.location.href = j.url;
           } catch {
-            gsMsg.textContent = "Erreur de connexion.";
+            gsMsg.textContent = tr("common.netErr");
           } finally {
             gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = false));
           }
@@ -2850,10 +2831,10 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ session_id: sid }),
             });
             const j = await res.json();
-            if (res.ok) toast(`Commande confirmée : ${j.qty} bons imprimés — livraison sous quelques jours`);
-            else toast(j.error ?? "Paiement non confirmé", true);
+            if (res.ok) toast(tr("mk.orderConfirmed").replace("{n}", String(j.qty)));
+            else toast(j.error ?? tr("mk.paymentNotConfirmed"), true);
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
           const u = new URL(window.location.href);
           u.searchParams.delete("cards_session");
@@ -2876,8 +2857,8 @@ import { CLIENT } from "../../config/client";
           gcPayPicks.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
           el.classList.add("is-on");
           gcPayHint.textContent = el.dataset.pay === "link"
-            ? "Un lien de paiement Stripe sera envoyé à l'offrant : le bon s'active une fois payé."
-            : "Encaissé à la caisse : le bon est actif immédiatement.";
+            ? tr("mk.payHintLink")
+            : tr("mk.payHintCash");
         });
         gcResend?.addEventListener("click", async () => {
           if (!gcEditId) return;
@@ -2890,10 +2871,10 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ action: "resend_link", id: gcEditId, sender_email: gcSemail.value.trim() || undefined }),
             });
             const j = await res.json();
-            if (!res.ok) { gcErr.textContent = j.error ?? "Envoi impossible"; return; }
-            toast("Lien de paiement renvoyé à " + (j.sent_to ?? ""));
+            if (!res.ok) { gcErr.textContent = j.error ?? tr("ord.sendFailed"); return; }
+            toast(tr("mk.payLinkResentTo") + (j.sent_to ?? ""));
           } catch {
-            gcErr.textContent = "Erreur de connexion.";
+            gcErr.textContent = tr("common.netErr");
           } finally {
             gcResend.disabled = false;
           }
@@ -2962,26 +2943,26 @@ import { CLIENT } from "../../config/client";
         }
         function gcBuildRecap() {
           const val = gcValoreCents();
-          const exp = gcExp.dataset.iso ? fmtFr(gcExp.dataset.iso) : "Aucune";
-          const code = gcCode.value.trim() || "Généré automatiquement";
+          const exp = gcExp.dataset.iso ? fmtFr(gcExp.dataset.iso) : tr("itg.mode.none");
+          const code = gcCode.value.trim() || tr("mk.autoGenerated");
           const offrant = [`${gcSfname.value.trim()} ${gcSlname.value.trim()}`.trim(), gcSemail.value.trim(), gcTelFull(gcSprefix, gcSphone) ?? ""].filter(Boolean).join(" · ") || "—";
           const dest = [`${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim(), gcRemail.value.trim(), gcTelFull(gcRprefix, gcRphone) ?? ""].filter(Boolean).join(" · ") || "—";
           const msg = gcMsg.value.trim() || "—";
           const row = (k: string, v: string) => `<div class="r-row"><span class="r-k">${k}</span><span class="r-v">${esc(v)}</span></div>`;
           const spedizione = gcShip.checked
-            ? [gcShipAddress.value.trim(), [gcShipZip.value.trim(), gcShipCity.value.trim()].filter(Boolean).join(" "), gcShipCountry.value.trim()].filter(Boolean).join(", ") || "Oui"
+            ? [gcShipAddress.value.trim(), [gcShipZip.value.trim(), gcShipCity.value.trim()].filter(Boolean).join(" "), gcShipCountry.value.trim()].filter(Boolean).join(", ") || tr("mk.yes")
             : "";
           const fraisC = gcShip.checked ? centsDaEuro(gcShipCents.value) : 0;
           gcRecap.innerHTML =
-            row("Valeur", val ? gcEuro(val) : "—") +
-            row("Expiration", exp) +
-            row("Code", code) +
-            row("Paiement", (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.textContent?.trim() || "—") +
-            row("Offert par", offrant) +
-            row("Destinataire", dest) +
-            (spedizione ? row("Envoi postal", spedizione) : "") +
-            (fraisC ? row("Frais d'envoi", gcEuro(fraisC)) : "") +
-            row("Message", msg);
+            row(tr("menu.value"), val ? gcEuro(val) : "—") +
+            row(tr("mk.expiration"), exp) +
+            row(tr("mk.code"), code) +
+            row(tr("mk.payment"), (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.textContent?.trim() || "—") +
+            row(tr("mk.givenBy"), offrant) +
+            row(tr("mk.giftStep3"), dest) +
+            (spedizione ? row(tr("mk.postalDelivery"), spedizione) : "") +
+            (fraisC ? row(tr("mk.shippingFee"), gcEuro(fraisC)) : "") +
+            row(tr("mk.message"), msg);
           // Pulsanti email: attivi solo se c'è l'indirizzo corrispondente
           const emailDest = gcRemail.value.trim();
           const emailOffr = gcSemail.value.trim();
@@ -2996,13 +2977,13 @@ import { CLIENT } from "../../config/client";
           const metodo = (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.dataset.pay ?? "cash";
           if (metodo === "link" && emailOffr) po?.classList.add("is-on");
           gcSendHint.textContent = !emailDest && !emailOffr
-            ? "Ajoute une adresse email à l'étape précédente pour pouvoir envoyer le bon."
+            ? tr("mk.addEmailToSend")
             : metodo === "link"
-              ? "Le lien de paiement part avec l'email à l'offrant."
-              : "Clique pour sélectionner les envois : ils partiront à la génération.";
+              ? tr("mk.payLinkWithGiver")
+              : tr("mk.clickToSelectSends");
         }
         gcNext?.addEventListener("click", () => {
-          if (gcStepN === 1 && !gcValoreCents()) { gcErr.textContent = "Choisis une valeur."; return; }
+          if (gcStepN === 1 && !gcValoreCents()) { gcErr.textContent = tr("mk.chooseValue");return; }
           gcStep(Math.min(4, gcStepN + 1));
         });
         gcPrev?.addEventListener("click", () => gcStep(Math.max(1, gcStepN - 1)));
@@ -3010,7 +2991,7 @@ import { CLIENT } from "../../config/client";
         gcSave?.addEventListener("click", async () => {
           gcErr.textContent = "";
           const value_cents = gcValoreCents();
-          if (!value_cents) { gcErr.textContent = "Choisis une valeur."; gcStep(1); return; }
+          if (!value_cents) { gcErr.textContent = tr("mk.chooseValue");gcStep(1); return; }
           gcSave.disabled = true;
           try {
             const res = await fetch("/api/admin/gift-cards", {
@@ -3040,14 +3021,14 @@ import { CLIENT } from "../../config/client";
               }),
             });
             const j = await res.json();
-            if (!res.ok) { gcErr.textContent = j.error ?? "Enregistrement impossible"; return; }
+            if (!res.ok) { gcErr.textContent = j.error ?? tr("common.saveErr"); return; }
             gcOverlay.classList.remove("is-open");
-            if (j.pay_error) toast("Bon créé, mais lien de paiement impossible : " + j.pay_error, true);
-            else if (gcEditId) toast("Bon modifié");
-            else toast("Bon créé : " + (j.code ?? ""));
+            if (j.pay_error) toast(tr("mk.giftCreatedNoLink") + j.pay_error, true);
+            else if (gcEditId) toast(tr("mk.giftUpdated"));
+            else toast(tr("mk.giftCreated") + (j.code ?? ""));
             await caricaGiftcards();
           } catch {
-            gcErr.textContent = "Erreur de connexion.";
+            gcErr.textContent = tr("common.netErr");
           } finally {
             gcSave.disabled = false;
           }
@@ -3060,7 +3041,7 @@ import { CLIENT } from "../../config/client";
           if (!gcUseId) return;
           gcUseErr.textContent = "";
           const amount_cents = centsDaEuro(gcUseAmount.value);
-          if (!amount_cents) { gcUseErr.textContent = "Montant invalide."; return; }
+          if (!amount_cents) { gcUseErr.textContent = tr("ord.invalidAmount"); return; }
           gcUseSave.disabled = true;
           try {
             const res = await fetch("/api/admin/gift-cards", {
@@ -3069,12 +3050,12 @@ import { CLIENT } from "../../config/client";
               body: JSON.stringify({ action: "redeem", id: gcUseId, amount_cents, note: gcUseNote.value.trim() || undefined }),
             });
             const j = await res.json();
-            if (!res.ok) { gcUseErr.textContent = j.error ?? "Encaissement impossible"; return; }
+            if (!res.ok) { gcUseErr.textContent = j.error ?? tr("mk.cashInFailed"); return; }
             gcUseOverlay.classList.remove("is-open");
-            toast("Encaissé — solde restant " + gcEuro(j.balance_cents ?? 0));
+            toast(tr("mk.collectedBalance") + gcEuro(j.balance_cents ?? 0));
             await caricaGiftcards();
           } catch {
-            gcUseErr.textContent = "Erreur de connexion.";
+            gcUseErr.textContent = tr("common.netErr");
           } finally {
             gcUseSave.disabled = false;
           }
@@ -3090,7 +3071,7 @@ import { CLIENT } from "../../config/client";
             gcUseErr.textContent = "";
             gcUseAmount.value = "";
             gcUseNote.value = "";
-            gcUseInfo.textContent = `${c.code} — solde ${gcEuro(c.balance_cents)}`;
+            gcUseInfo.textContent = `${c.code} — ${tr("mk.balance")} ${gcEuro(c.balance_cents)}`;
             gcUseOverlay.classList.add("is-open");
             return;
           }
@@ -3108,16 +3089,16 @@ import { CLIENT } from "../../config/client";
               gcDelPending = null;
               try {
                 const res = await fetch(`/api/admin/gift-cards?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-                if (!res.ok) { toast("Suppression impossible", true); return; }
-                toast("Bon supprimé");
+                if (!res.ok) { toast(tr("us.delErr"), true); return; }
+                toast(tr("mk.giftDeleted"));
                 giftCards = giftCards.filter((x) => x.id !== id);
                 gcRender();
-              } catch { toast("Erreur de connexion", true); }
+              } catch { toast(tr("res.connErr"), true); }
               return;
             }
             gcDelPending = id;
             delB.classList.add("confirm");
-            delB.textContent = "Confirmer ?";
+            delB.textContent = tr("common.confirm");
             window.clearTimeout(gcDelTimer);
             gcDelTimer = window.setTimeout(() => {
               gcDelPending = null;
@@ -3137,13 +3118,13 @@ import { CLIENT } from "../../config/client";
               headers: { ...headers, "Content-Type": "application/json" },
               body: JSON.stringify({ id, active: sw.checked }),
             });
-            if (!res.ok) { sw.checked = !sw.checked; toast("Enregistrement impossible", true); return; }
+            if (!res.ok) { sw.checked = !sw.checked; toast(tr("common.saveErr"), true); return; }
             const c = giftCards.find((x) => x.id === id);
             if (c) c.active = sw.checked;
             gcRender();
           } catch {
             sw.checked = !sw.checked;
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         });
 

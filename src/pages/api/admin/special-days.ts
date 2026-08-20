@@ -9,6 +9,19 @@ export const prerender = false;
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+function minOra(s: string): number {
+  const [h, m] = s.split(":").map((n) => parseInt(n, 10));
+  return h * 60 + (m || 0);
+}
+// Fascia valida anche se scavalca la mezzanotte (close ≤ open ⇒ giorno dopo).
+function fasciaValida(open: string, close: string): boolean {
+  if (!RE_ORA.test(open) || !RE_ORA.test(close)) return false;
+  const o = minOra(open);
+  let c = minOra(close);
+  if (c <= o) c += 1440;
+  return c > o && c - o <= 1440;
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -86,13 +99,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (type === "open") {
     lunch_open = body.lunch_open ?? null;
     lunch_close = body.lunch_close ?? null;
-    if (!lunch_open || !lunch_close || !RE_ORA.test(lunch_open) || !RE_ORA.test(lunch_close) || lunch_open >= lunch_close) {
+    if (!lunch_open || !lunch_close || !fasciaValida(lunch_open, lunch_close)) {
       return json({ error: "Heures d'ouverture invalides" }, 400);
     }
     dinner_open = body.dinner_open ?? null;
     dinner_close = body.dinner_close ?? null;
     if (dinner_open || dinner_close) {
-      if (!dinner_open || !dinner_close || !RE_ORA.test(dinner_open) || !RE_ORA.test(dinner_close) || dinner_open >= dinner_close) {
+      if (!dinner_open || !dinner_close || !fasciaValida(dinner_open, dinner_close)) {
         return json({ error: "Heures du soir invalides" }, 400);
       }
       if (lunch_close >= dinner_open) {

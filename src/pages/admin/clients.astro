@@ -3,11 +3,18 @@
 // dagli ordini) UNITI ai clienti aggiunti a mano. Nome, email, téléphone,
 // nombre de commandes, total dépensé. Possibilità di aggiungere un cliente.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaClienti } from "../../lib/admin/caricaClienti";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import "../../styles/fab.css";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -27,11 +34,11 @@ try {
 const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Clients — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.clients") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -43,7 +50,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -55,7 +62,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -73,7 +80,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
-      .fl-filtri { display: inline-flex; gap: 0.45rem; }
+      .fl-filtri { display: inline-flex; flex-wrap: wrap; gap: 0.45rem; }
+      .fl-sep { width: 1px; align-self: stretch; background: var(--c-line); margin: 0.15rem 0.35rem; flex: 0 0 auto; }
+      .fl-pill .n { margin-left: 0.4rem; font-weight: 800; color: var(--c-text); }
+      .fl-pill.is-on .n { color: var(--c-bg); }
       .fl-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem;
@@ -88,17 +98,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .fl-pill.is-on b { color: var(--c-bg); }
       .fl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      .cl-add {
-        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
-        display: inline-flex; align-items: center; box-sizing: border-box;
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        padding: 0.6rem 1.1rem; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
-        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
-      }
-      .cl-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
-      @media (max-width: 520px) { .cl-add { bottom: calc(1.25rem + 72px); } }
       .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.88rem; padding: 0.45rem 1rem;
@@ -129,12 +128,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .thead, .row {
         display: grid;
-        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 96px 86px 86px 110px 96px;
+        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 92px 96px 86px 86px 110px 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
       }
       .thead { border-bottom: 1px solid var(--c-line); background: var(--c-card); }
+      .c-lang-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 700; color: var(--c-text); white-space: nowrap; }
+      .c-lang-none { color: var(--c-muted); }
       .th {
         background: transparent; border: none; color: var(--c-muted); cursor: pointer;
         font-family: var(--font-body); font-size: 0.72rem; font-weight: 700;
@@ -161,23 +162,49 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .c-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .c-email, .c-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
       .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; }
-      .act-contacts { color: var(--c-muted); font-size: 0.88rem; margin: -0.4rem 0 1rem; }
+      .act-contacts { display: flex; flex-wrap: wrap; gap: 0.4rem 1.3rem; margin: -0.1rem 0 1.35rem; font-size: 0.9rem; }
+      .act-contacts:empty { display: none; }
+      .act-contacts .r-c { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
+      .act-contacts .r-c svg { width: 15px; height: 15px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .act-contacts a { color: var(--c-text); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s, color 0.15s; }
+      .act-contacts a:hover { color: var(--c-accent); border-bottom-color: var(--c-accent); }
       .act-state { color: var(--c-muted); font-style: italic; padding: 0.6rem 0; }
       .act-row {
-        display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap;
+        display: flex; align-items: center; gap: 0.9rem; flex-wrap: nowrap;
         padding: 0.7rem 0; border-bottom: 1px solid var(--c-line);
       }
       .act-row:last-child { border-bottom: none; }
       .act-ico { display: inline-flex; flex-shrink: 0; }
       .act-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-      .act-when { font-weight: 700; font-size: 0.9rem; min-width: 128px; }
-      .act-label { flex: 1; color: var(--c-muted); font-size: 0.88rem; min-width: 140px; }
-      .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; }
-      .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); }
+      .act-when { font-weight: 700; font-size: 0.9rem; min-width: 128px; flex-shrink: 0; white-space: nowrap; }
+      .act-label { flex: 1 1 auto; color: var(--c-muted); font-size: 0.88rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; flex-shrink: 0; white-space: nowrap; }
+      .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); flex-shrink: 0; white-space: nowrap; }
+      .act-new { display: inline-block; margin-left: 0.6rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; background: var(--c-accent); color: var(--c-bg); border-radius: 999px; padding: 0.15rem 0.55rem; font-weight: 700; }
+      .act-stats { display: flex; flex-direction: column; gap: 0.9rem; margin: 0 0 1.4rem; }
+      .act-stats:empty { display: none; }
+      .act-flags { margin-top: 0.1rem; }
+      .afl-sw { position: relative; width: 44px; height: 25px; border-radius: 999px; border: none; cursor: pointer; padding: 0; flex-shrink: 0; background: color-mix(in srgb, var(--c-muted) 45%, transparent); transition: background 0.18s; }
+      .afl-sw[aria-checked="true"] { background: var(--c-accent); }
+      .afl-sw:disabled { opacity: 0.5; cursor: default; }
+      .afl-sw-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); transition: transform 0.18s; }
+      .afl-sw[aria-checked="true"] .afl-sw-knob { transform: translateX(19px); }
+      .st-sec { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 0.8rem 1.1rem 0.9rem; }
+      .st-sec-h { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+      .st-sec-h svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .st-sec-h .t { font-family: var(--font-title); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--c-text); }
+      .st-sec-h .cnt { margin-left: auto; font-family: var(--font-title); font-weight: 700; font-size: 1.18rem; letter-spacing: 0.03em; color: var(--c-accent); line-height: 1; }
+      .st-row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding: 0.34rem 0; border-bottom: 1px solid color-mix(in srgb, var(--c-line) 55%, transparent); }
+      .st-row:last-child { border-bottom: none; padding-bottom: 0; }
+      .st-row .k { color: var(--c-muted); font-size: 0.85rem; }
+      .st-row .v { font-family: var(--font-title); font-weight: 700; font-size: 1.02rem; letter-spacing: 0.02em; color: var(--c-text); }
+      .st-row.hl .v { color: var(--c-accent); font-size: 1.14rem; }
       .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
       .row:hover { background: rgba(255, 255, 255, 0.03); }
+      /* Cliente bloccato: barra rossa a sinistra (inset = nessuno spostamento) */
+      .row.is-blocked { box-shadow: inset 3px 0 0 #ed1c24; }
       .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .c-name { font-weight: 700; }
       .c-name .c-ico { display: inline-flex; gap: 0.3rem; margin-left: 0.45rem; vertical-align: middle; }
@@ -280,9 +307,32 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       .overlay.is-open { display: flex; }
       .modal { width: 100%; max-width: 480px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
+      .modal { max-height: 90vh; overflow-y: auto; }
+      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
+      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
+      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
+      /* Modale attività cliente: largo, due colonne, scroll interno */
+      .modal-act { max-width: 1080px; max-height: 88vh; padding: 2rem 1.6rem 1.4rem; display: flex; flex-direction: column; overflow: hidden; }
+      .modal-act h2 { margin-bottom: 0.9rem; }
+      .act-cols { display: flex; gap: 1.5rem; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+      .act-left { flex: 0 0 44%; max-width: 44%; overflow-y: auto; padding-right: 0.4rem; }
+      .act-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; border-left: 1px solid var(--c-line); padding-left: 1.5rem; }
+      .act-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.9rem; position: sticky; top: 0; background: var(--c-bg); padding-bottom: 0.2rem; z-index: 2; }
+      .act-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .act-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .act-tab-n { font-size: 0.7rem; background: rgba(255,255,255,0.12); border-radius: 999px; padding: 0.05rem 0.45rem; min-width: 1.2rem; text-align: center; }
+      .act-tab.is-on .act-tab-n { background: rgba(0,0,0,0.18); }
+      .act-left::-webkit-scrollbar, .act-right::-webkit-scrollbar { width: 8px; }
+      .act-left::-webkit-scrollbar-thumb, .act-right::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 8px; }
+      @media (max-width: 720px) {
+        .modal-act { max-width: 480px; padding: 2rem 1.4rem 1.3rem; }
+        .act-cols { flex-direction: column; overflow-y: auto; gap: 1.1rem; }
+        .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
+        .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
+      }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       .modal input {
@@ -299,6 +349,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         border-radius: 0; color-scheme: dark; cursor: pointer;
       }
       .ed-prefix:focus { outline: none; border-color: var(--c-accent); }
+      .ed-langsel {
+        width: 100%; background: var(--c-card); border: 1px solid var(--c-line);
+        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 0.7rem;
+        border-radius: 0; color-scheme: dark; cursor: pointer;
+      }
+      .ed-langsel:focus { outline: none; border-color: var(--c-accent); }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -354,39 +410,41 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
         <div class="titlebar">
-          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>Clients</h1>
+          <h1><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("nav.clients")}</h1>
           <div class="t-stats" id="t-stats"></div>
         </div>
         <div class="actionsbar">
           <div class="fl-filtri" id="fl-filtri">
-            <button type="button" class="fl-pill is-on" data-f="all" title="Tous">
+            <button type="button" class="fl-pill is-on" data-f="all" title={t("cli.all")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
             </button>
-            <button type="button" class="fl-pill" data-f="new">New</button>
-            <button type="button" class="fl-pill" data-f="noshow">No-show</button>
-            <button type="button" class="fl-pill" data-f="optin">Opted-in</button>
-            <button type="button" class="fl-pill" data-f="optout">Opted-out</button>
+            <button type="button" class="fl-pill" data-f="new">{t("cli.new")}</button>
+            <button type="button" class="fl-pill" data-f="noshow">{t("cli.noshow")}</button>
+            <button type="button" class="fl-pill" data-f="optin">{t("cli.optin")}</button>
+            <button type="button" class="fl-pill" data-f="optout">{t("cli.optout")}</button>
           </div>
-          <input id="search" class="search" type="search" placeholder="Rechercher (nom, email, téléphone)…" />
+          <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
           <div class="count" id="count" style="display:none"></div>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
           <div class="table">
             <div class="thead">
-              <button class="th" data-sort="name">Nom <span class="arrow"></span></button>
-              <button class="th" data-sort="email">Email <span class="arrow"></span></button>
-              <button class="th" data-sort="phone">Téléphone <span class="arrow"></span></button>
-              <button class="th num" data-sort="since" title="Client depuis">Depuis <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="reservations" title="Réservations"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>Résa <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="orders" title="Commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>Comm. <span class="arrow"></span></button>
-              <button class="th num sorted" data-sort="total">Total <span class="arrow">▼</span></button>
+              <button class="th" data-sort="name">{t("us.lname")} <span class="arrow"></span></button>
+              <button class="th" data-sort="email">{t("ord.emailLabel")} <span class="arrow"></span></button>
+              <button class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
+              <button class="th" data-sort="lang">{t("cli.langCol")} <span class="arrow"></span></button>
+              <button class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("cli.resaCol")} <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>{t("nav.s.orders")} <span class="arrow"></span></button>
+              <button class="th num sorted" data-sort="total">{t("ord.total")} <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
             <div id="rows"></div>
@@ -400,76 +458,89 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <!-- Modale ajout client -->
     <!-- Modale attività cliente: storico ordini + prenotazioni -->
     <div class="overlay" id="act-overlay">
-      <div class="modal">
-        <button class="m-close" id="act-close" aria-label="Fermer">×</button>
-        <h2 id="act-name">Client</h2>
-        <p class="act-contacts" id="act-contacts"></p>
-        <div class="act-state" id="act-state">Chargement…</div>
-        <div id="act-list"></div>
+      <div class="modal modal-act">
+        <button class="m-close" id="act-close" aria-label={t("common.close")}>×</button>
+        <div class="act-cols">
+          <div class="act-left">
+            <h2 id="act-name">{t("ord.client")}</h2>
+            <p class="act-contacts" id="act-contacts"></p>
+            <div class="act-flags" id="act-flags"></div>
+            <div class="act-stats" id="act-stats"></div>
+          </div>
+          <div class="act-right">
+            <div class="act-tabs" id="act-tabs">
+              <button type="button" class="act-tab is-on" data-tab="reservation">{t("nav.reservations")} <span class="act-tab-n" id="act-n-resa">0</span></button>
+              <button type="button" class="act-tab" data-tab="order">{t("nav.orders")} <span class="act-tab-n" id="act-n-ord">0</span></button>
+            </div>
+            <div class="act-state" id="act-state">{t("sup.loading")}</div>
+            <div id="act-list"></div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
-    <button class="cl-add" id="add-btn" type="button"><span class="fab-plus">+</span>Ajouter un client</button>
+    <button class="fab-add" id="add-btn" type="button"><span class="fab-plus">+</span>{t("cli.addClient")}</button>
 
     <!-- Modale modifica cliente (matita): dati + foto -->
     <div class="overlay" id="ed-overlay">
       <div class="modal">
-        <button class="m-close" id="ed-close" aria-label="Fermer">×</button>
-        <h2 id="ed-title">Modifier le client</h2>
+        <button class="m-close" id="ed-close" aria-label={t("common.close")}>×</button>
+        <h2 id="ed-title">{t("cli.editClient")}</h2>
         <div class="ed-photo-row">
           <span class="c-avatar ed-avatar" id="ed-avatar">?</span>
           <div>
-            <button type="button" class="ed-upl" id="ed-upload">Téléverser une photo</button>
-            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">Retirer</button>
+            <button type="button" class="ed-upl" id="ed-upload">{t("cli.uploadPhoto")}</button>
+            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">{t("ord.remove")}</button>
             <input type="file" id="ed-file" accept="image/*" style="display:none" />
             <p class="ed-upl-state" id="ed-upl-state"></p>
           </div>
         </div>
         <div style="display:flex; gap:0.8rem;">
-          <div class="f-field" style="flex:1"><span class="f-label">Prénom</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
-          <div class="f-field" style="flex:1"><span class="f-label">Nom *</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
+          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.firstName")}</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
+          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.lastNameReq")}</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
         </div>
-        <div class="f-field"><span class="f-label">Email</span><input type="email" id="ed-email" autocomplete="off" /></div>
-        <div class="f-field"><span class="f-label">Téléphone</span>
+        <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
+        <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
           <span class="ed-telrow">
-            <select id="ed-prefix" class="ed-prefix" aria-label="Indicatif"></select>
+            <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
             <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
           </span>
         </div>
+        <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><select id="ed-lang" class="ed-langsel"></select></div>
         <div class="ed-row2">
-          <div><span class="f-label">Newsletter</span><p class="ed-hint" id="ed-news-state"></p></div>
-          <button type="button" class="ed-upl" id="ed-news-btn"></button>
+          <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
+          <button type="button" class="afl-sw" role="switch" id="ed-news-btn"><span class="afl-sw-knob"></span></button>
         </div>
         <div class="ed-row2" id="ed-block-row">
-          <div><span class="f-label">Réservations</span><p class="ed-hint" id="ed-block-state"></p></div>
-          <button type="button" class="ed-upl" id="ed-block-btn"></button>
+          <div><span class="f-label">{t("nav.reservations")}</span><p class="ed-hint" id="ed-block-state"></p></div>
+          <button type="button" class="afl-sw" role="switch" id="ed-block-btn"><span class="afl-sw-knob"></span></button>
         </div>
         <p class="ed-err" id="ed-err"></p>
-        <button type="button" class="ed-save" id="ed-save">Enregistrer</button>
+        <button type="button" class="ed-save" id="ed-save">{t("common.save")}</button>
       </div>
     </div>
 
     <div class="overlay" id="overlay">
       <div class="modal">
-        <button class="m-close" id="m-close" aria-label="Fermer">×</button>
-        <h2>Ajouter un client</h2>
+        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        <h2>{t("cli.addClient")}</h2>
         <div style="display:flex; gap:0.8rem;">
           <div class="f-field" style="flex:1">
-            <span class="f-label">Prénom</span>
+            <span class="f-label">{t("ord.firstName")}</span>
             <input type="text" id="f-fname" maxlength="60" autocomplete="off" />
           </div>
           <div class="f-field" style="flex:1">
-            <span class="f-label">Nom *</span>
+            <span class="f-label">{t("ord.lastNameReq")}</span>
             <input type="text" id="f-lname" maxlength="60" autocomplete="off" />
           </div>
         </div>
         <div class="f-field">
-          <span class="f-label">Email</span>
+          <span class="f-label">{t("ord.emailLabel")}</span>
           <input type="text" id="f-email" maxlength="160" autocomplete="off" inputmode="email" />
         </div>
         <div class="f-field">
-          <span class="f-label">Téléphone</span>
+          <span class="f-label">{t("ord.phone")}</span>
           <div style="display:flex; gap:0.5rem;">
             <select id="f-prefix" class="tel-prefix"></select>
             <input type="text" id="f-phone" maxlength="20" autocomplete="off" inputmode="tel" style="flex:1" />
@@ -477,8 +548,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         </div>
         <div class="m-actions">
           <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">Annuler</button>
-          <button class="m-save" id="m-save">Ajouter</button>
+          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save">{t("common.add")}</button>
         </div>
       </div>
     </div>
@@ -493,7 +564,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+      const LINGUE_MAP = new Map<string, (typeof LINGUE_WIDGET)[number]>(LINGUE_WIDGET.map((l) => [l.code, l]));
+      function langCell(code?: string | null): string {
+        const c = (code || "").toLowerCase();
+        const l = LINGUE_MAP.get(c);
+        if (!l) return `<span class="c-lang-none">—</span>`;
+        return `<span class="c-lang-pill">${l.flag} ${c.toUpperCase()}</span>`;
+      }
 
       type Client = {
         id: string | null;
@@ -506,6 +590,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         photo_url?: string | null;
         blocked?: boolean;
         newsletter_optout?: boolean;
+        lang?: string | null;
         total_cents: number;
         last_order: string | null;
         first_activity: string | null;
@@ -513,14 +598,18 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         key?: string;
       };
       type Resp = { count: number; clients: Client[] };
-      type SortKey = "name" | "email" | "phone" | "since" | "orders" | "reservations" | "total";
+      type SortKey = "name" | "email" | "phone" | "lang" | "since" | "orders" | "reservations" | "total";
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
+      const ICO_TEL =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" /></svg>';
+      const ICO_MAIL =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>';
       const ICO_ORD =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>';
       const ICO_NOSHOW =
@@ -548,15 +637,48 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         // Modale
         const addBtn = document.getElementById("add-btn") as HTMLButtonElement;
         let filtroLista: "all" | "new" | "noshow" | "optin" | "optout" = "all";
-        (document.getElementById("fl-filtri") as HTMLDivElement).addEventListener("click", (e) => {
+        let filtroLingua = "";
+        const flFiltriEl = document.getElementById("fl-filtri") as HTMLDivElement;
+        flFiltriEl.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
           if (!b) return;
+          // Chip LINGUA (data-l): toggle indipendente; riclic = tutte le lingue.
+          if (b.dataset.l !== undefined) {
+            const val = b.dataset.l;
+            filtroLingua = filtroLingua === val ? "" : val;
+            flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-l]").forEach((x) =>
+              x.classList.toggle("is-on", filtroLingua !== "" && x.dataset.l === filtroLingua)
+            );
+            render();
+            return;
+          }
           const fSel = b.dataset.f ?? "all";
           filtroLista =
             fSel === "new" || fSel === "noshow" || fSel === "optin" || fSel === "optout" ? fSel : "all";
-          document.querySelectorAll("#fl-filtri .fl-pill").forEach((x) => x.classList.toggle("is-on", x === b));
+          flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-f]").forEach((x) => x.classList.toggle("is-on", x === b));
           render();
         });
+
+        // Chip LINGUA: aggiunte in coda alla riga dei filtri (accanto a Opted-out).
+        function costruisciLingue() {
+          flFiltriEl.querySelectorAll(".fl-pill[data-l], .fl-sep").forEach((x) => x.remove());
+          const conta = new Map<string, number>();
+          for (const c of tutti) {
+            const l = (c.lang || "").toLowerCase();
+            if (l && LINGUE_MAP.has(l)) conta.set(l, (conta.get(l) ?? 0) + 1);
+          }
+          if (conta.size < 1) { filtroLingua = ""; return; }
+          if (filtroLingua && !conta.has(filtroLingua)) filtroLingua = "";
+          const html = [...conta.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .map(([code, n]) => {
+              const li = LINGUE_MAP.get(code);
+              const on = filtroLingua === code;
+              return `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
+            })
+            .join("");
+          flFiltriEl.insertAdjacentHTML("beforeend", `<span class="fl-sep" aria-hidden="true"></span>${html}`);
+        }
         // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
         function posizionaAdd() {
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
@@ -585,6 +707,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         edPrefixEl().value = PREFISSO_DEFAULT;
+        // Select lingua del cliente nel modale (prima opzione = non specificata)
+        const edLangEl = () => document.getElementById("ed-lang") as HTMLSelectElement;
+        edLangEl().innerHTML = `<option value="">—</option>` + LINGUE_WIDGET.map(
+          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
+        ).join("");
         const fFname = document.getElementById("f-fname") as HTMLInputElement;
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
         // e spostato nella tendina, numero ripulito.
@@ -647,7 +774,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           else if (sortKey === "orders") r = a.orders - b.orders;
           else if (sortKey === "reservations") r = a.reservations - b.reservations;
           else if (sortKey === "total") r = a.total_cents - b.total_cents;
-          else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), "fr", { sensitivity: "base" });
+          else r = String(a[sortKey] || "").localeCompare(String(b[sortKey] || ""), LOC, { sensitivity: "base" });
           return sortAsc ? r : -r;
         }
 
@@ -669,9 +796,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (filtroLista === "noshow") lista = lista.filter((c) => (c.noshows ?? 0) > 0);
           if (filtroLista === "optin") lista = lista.filter((c) => c.email && !c.newsletter_optout);
           if (filtroLista === "optout") lista = lista.filter((c) => Boolean(c.newsletter_optout));
+          if (filtroLingua) lista = lista.filter((c) => (c.lang || "").toLowerCase() === filtroLingua);
 
           countEl.textContent =
-            `${lista.length} client${lista.length > 1 ? "s" : ""}` +
+            `${lista.length} ${lista.length > 1 ? tr("cli.clientsWord") : tr("cli.clientWord")}` +
             (q && lista.length !== tutti.length ? ` / ${tutti.length}` : "");
           countEl.style.display = q ? "" : "none"; // conteggio filtrato: solo in ricerca
 
@@ -683,21 +811,21 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const nOptout = tutti.filter((c) => Boolean(c.newsletter_optout)).length;
           const nNoshow = tutti.filter((c) => (c.noshows ?? 0) > 0).length;
           (document.getElementById("t-stats") as HTMLDivElement).innerHTML =
-            `<span class="t-pill gold"><b>${tutti.length}</b> client${tutti.length > 1 ? "s" : ""}</span>`;
+            `<span class="t-pill gold"><b>${tutti.length}</b> ${tutti.length > 1 ? tr("cli.clientsWord") : tr("cli.clientWord")}</span>`;
           const setFl = (f: string, label: string, n: number) => {
             const b = document.querySelector(`#fl-filtri .fl-pill[data-f="${f}"]`) as HTMLElement | null;
             if (b) b.innerHTML = `${label} <b>${n}</b>`;
           };
-          setFl("new", "New", nNuovi);
-          setFl("noshow", "No-show", nNoshow);
-          setFl("optin", "Opted-in", nOptin);
-          setFl("optout", "Opted-out", nOptout);
+          setFl("new", tr("cli.new"), nNuovi);
+          setFl("noshow", tr("cli.noshow"), nNoshow);
+          setFl("optin", tr("cli.optin"), nOptin);
+          setFl("optout", tr("cli.optout"), nOptout);
 
           if (!lista.length) {
             rowsEl.innerHTML = "";
             emptyEl.textContent = tutti.length
-              ? "Aucun client ne correspond."
-              : "Aucun client pour le moment. Ajoutez-en un ou attendez la première commande.";
+              ? tr("cli.noneMatch")
+              : tr("cli.noneYet");
             emptyEl.style.display = "block";
             return;
           }
@@ -717,22 +845,23 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
                 : `<span class="c-avatar">${esc(iniz)}</span>`;
               const attivita =
                 (c.noshows ?? 0) > 0
-                  ? `<span class="tag-ns" title="${c.noshows} no-show${c.noshows > 1 ? "s" : ""}">${ICO_NOSHOW}${c.noshows}</span>`
+                  ? `<span class="tag-ns" title="${c.noshows} ${tr("cli.noshow")}">${ICO_NOSHOW}${c.noshows}</span>`
                   : "";
               return `
-              <div class="row" data-key="${esc(c.key ?? "")}">
-                <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? '<span class="tag-new">New</span>' : ""}${attivita}</div>
-                <div class="cell c-email" data-label="Email">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
-                <div class="cell c-phone" data-label="Tél">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
-                <div class="cell c-since" data-label="Depuis">${
+              <div class="row${c.blocked ? " is-blocked" : ""}" data-key="${esc(c.key ?? "")}">
+                <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? `<span class="tag-new">${tr("cli.new")}</span>` : ""}${attivita}</div>
+                <div class="cell c-email" data-label="${tr("ord.emailLabel")}">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
+                <div class="cell c-phone" data-label="${tr("ord.telLabel")}">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
+                <div class="cell c-lang" data-label="${tr("cli.langCol")}">${langCell(c.lang)}</div>
+                <div class="cell c-since" data-label="${tr("cli.since")}">${
                   c.first_activity
-                    ? new Date(c.first_activity).toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" })
+                    ? new Date(c.first_activity).toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "2-digit" })
                     : "—"
                 }</div>
-                <div class="cell c-num c-resa" data-label="Résas">${c.reservations}</div>
-                <div class="cell c-num c-orders" data-label="Commandes">${c.orders}</div>
-                <div class="cell c-num c-total" data-label="Total">${euro(c.total_cents)}</div>
-                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="Modifier">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="Supprimer">${ICO_TRASH}</button></div>
+                <div class="cell c-num c-resa" data-label="${tr("cli.resasLabel")}">${c.reservations}</div>
+                <div class="cell c-num c-orders" data-label="${tr("nav.orders")}">${c.orders}</div>
+                <div class="cell c-num c-total" data-label="${tr("ord.total")}">${euro(c.total_cents)}</div>
+                <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="${tr("common.edit")}">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="${tr("common.delete")}">${ICO_TRASH}</button></div>
               </div>`;
             })
             .join("");
@@ -783,6 +912,49 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         const actOverlay = document.getElementById("act-overlay") as HTMLDivElement;
         const actList = document.getElementById("act-list") as HTMLDivElement;
         const actState = document.getElementById("act-state") as HTMLDivElement;
+        // Storico cliente diviso in due tab (prenotazioni / ordini) per non
+        // avere una lista unica enorme. Dati caricati una volta, filtrati qui.
+        type Att = { type: string; when: string; label: string; status: string; amount_cents: number | null };
+        let actAtti: Att[] = [];
+        let actTab: "reservation" | "order" = "reservation";
+        const actTabsEl = document.getElementById("act-tabs") as HTMLDivElement;
+        const actNResa = document.getElementById("act-n-resa") as HTMLSpanElement;
+        const actNOrd = document.getElementById("act-n-ord") as HTMLSpanElement;
+        function renderAtti() {
+          actTabsEl.querySelectorAll(".act-tab").forEach((b) =>
+            b.classList.toggle("is-on", (b as HTMLElement).dataset.tab === actTab)
+          );
+          const lista = actAtti.filter((a) => (actTab === "order" ? a.type === "order" : a.type === "reservation"));
+          if (!lista.length) {
+            actList.innerHTML = "";
+            actState.style.display = "";
+            actState.textContent = tr("cli.noActivity");
+            return;
+          }
+          actState.style.display = "none";
+          actList.innerHTML = lista
+            .map((a) => {
+              const ico = a.type === "order" ? ICO_ORD : ICO_RESA;
+              const stato =
+                a.type === "reservation" && a.status !== "confirmed" && a.status !== "done"
+                  ? `<span class="act-status ${a.status === "cancelled" ? "ko" : "ns"}">${STATO_ACT[a.status] ?? a.status}</span>`
+                  : "";
+              const importo = a.amount_cents != null ? `<span class="act-amount">${euro(a.amount_cents)}</span>` : "";
+              return `<div class="act-row">
+                    <span class="act-ico">${ico}</span>
+                    <span class="act-when">${dataOra(a.when)}</span>
+                    <span class="act-label">${esc(a.label)}</span>
+                    ${importo}${stato}
+                  </div>`;
+            })
+            .join("");
+        }
+        actTabsEl.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".act-tab") as HTMLElement | null;
+          if (!b) return;
+          actTab = b.dataset.tab === "order" ? "order" : "reservation";
+          renderAtti();
+        });
         function chiudiAttivita() {
           actOverlay.classList.remove("is-open");
         }
@@ -797,20 +969,137 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           return `${gg} · ${hh}`;
         }
         const STATO_ACT: Record<string, string> = {
-          cancelled: "Annulée",
-          noshow: "No-show",
-          done: "Fini",
-          confirmed: "Confirmée",
-          seated: "En cours",
-          paid: "Payée",
+          cancelled: tr("res.stCancelled"),
+          noshow: tr("res.stNoshow"),
+          done: tr("res.stDone"),
+          confirmed: tr("res.stConfirmed"),
+          seated: tr("res.stSeated"),
+          paid: tr("cli.stPaid"),
         };
+        let actKeyCorrente = "";
+        function fmtMinAct(m: number): string {
+          return m < 90 ? `${Math.max(1, Math.round(m))} min` : `${Math.floor(m / 60)} h ${String(Math.round(m) % 60).padStart(2, "0")}`;
+        }
+        const actFlags = document.getElementById("act-flags") as HTMLDivElement;
+        let actFlagCliente: Client | null = null;
+        function renderActFlags(c: Client) {
+          actFlagCliente = c;
+          const parti: string[] = [];
+          if (c.email) {
+            const optout = Boolean(c.newsletter_optout);
+            parti.push(
+              `<div class="ed-row2"><div><span class="f-label">${tr("tab.marketing.news")}</span><p class="ed-hint ${optout ? "warn" : "ok"}">${optout ? tr("cli.optedOut") : tr("cli.optedIn")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${optout ? "false" : "true"}" aria-label="${tr("tab.marketing.news")}" data-aflag="news"><span class="afl-sw-knob"></span></button></div>`
+            );
+          }
+          const bl = Boolean(c.blocked);
+          parti.push(
+            `<div class="ed-row2"><div><span class="f-label">${tr("nav.reservations")}</span><p class="ed-hint ${bl ? "warn" : "ok"}">${bl ? tr("cli.blockedShort") : tr("cli.allowedShort")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${bl ? "false" : "true"}" aria-label="${tr("nav.reservations")}" data-aflag="block"><span class="afl-sw-knob"></span></button></div>`
+          );
+          actFlags.innerHTML = parti.join("");
+        }
+        actFlags.addEventListener("click", async (e) => {
+          const btn = (e.target as HTMLElement).closest("button[data-aflag]") as HTMLButtonElement | null;
+          if (!btn || !actFlagCliente) return;
+          const c = actFlagCliente;
+          const which = btn.dataset.aflag;
+          const nuovoOptout = which === "news" ? !Boolean(c.newsletter_optout) : Boolean(c.newsletter_optout);
+          const nuovoBlocked = which === "block" ? !Boolean(c.blocked) : Boolean(c.blocked);
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/clients", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: c.id ?? null,
+                match_email: c.email,
+                match_phone: c.phone,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                photo_url: c.photo_url ?? null,
+                newsletter_optout: nuovoOptout,
+                blocked: nuovoBlocked,
+              }),
+            });
+            if (!res.ok) { toast(tr("common.saveErr"), true); return; }
+            c.newsletter_optout = nuovoOptout;
+            c.blocked = nuovoBlocked;
+            renderActFlags(c);
+            render();
+            toast(tr("cli.clientModified"));
+          } catch {
+            toast(tr("res.connErr"), true);
+          } finally {
+            btn.disabled = false;
+          }
+        });
         async function apriAttivita(c: Client) {
-          (document.getElementById("act-name") as HTMLElement).textContent = c.name || "—";
-          (document.getElementById("act-contacts") as HTMLElement).textContent =
-            [c.email, c.phone].filter(Boolean).join(" · ") || "";
+          const mioKey = c.key ?? "";
+          actKeyCorrente = mioKey;
+          const titleEl = document.getElementById("act-name") as HTMLElement;
+          titleEl.textContent = c.name || "—";
+          if (c.first_activity && Date.now() - Date.parse(c.first_activity) < 14 * 86400000)
+            titleEl.insertAdjacentHTML("beforeend", `<span class="act-new">${tr("cli.new")}</span>`);
+          const cont: string[] = [];
+          if (c.phone) cont.push(`<span class="r-c">${ICO_TEL}<a href="tel:${c.phone.replace(/\s/g, "")}">${esc(c.phone)}</a></span>`);
+          if (c.email) cont.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(c.email)}">${esc(c.email)}</a></span>`);
+          (document.getElementById("act-contacts") as HTMLElement).innerHTML = cont.join("");
+
+          const statsBox = document.getElementById("act-stats") as HTMLDivElement;
+          const ordCount = c.orders ?? 0;
+          const resaBase = c.reservations ?? 0;
+          const noshowBase = c.noshows ?? 0;
+          const rigaSt = (k: string, v: string, hl = false) => `<div class="st-row${hl ? " hl" : ""}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+          const sezione = (ico: string, titolo: string, cnt: string, rows: string[]) =>
+            rows.length ? `<div class="st-sec"><div class="st-sec-h">${ico}<span class="t">${titolo}</span><span class="cnt">${cnt}</span></div>${rows.join("")}</div>` : "";
+          const renderStats = (ex: { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null } | null) => {
+            const secs: string[] = [];
+            if (ordCount > 0) {
+              const rows = [
+                rigaSt(tr("cli.stSpent"), euro(c.total_cents ?? 0), true),
+                rigaSt(tr("cli.avgBasket"), euro(Math.round((c.total_cents ?? 0) / ordCount))),
+              ];
+              secs.push(sezione(ICO_ORD, tr("cli.stOrders"), String(ordCount), rows));
+            }
+            const resaTot = ex ? ex.total : resaBase;
+            const nsTot = ex ? ex.noshows : noshowBase;
+            if (resaTot > 0 || nsTot > 0) {
+              const rows: string[] = [];
+              if (ex) rows.push(rigaSt(tr("res.cancellations"), String(ex.cancelled)));
+              rows.push(rigaSt(tr("res.stNoshow"), nsTot > 0 ? `<span style="color:#ff8a8f">${nsTot}</span>` : "0"));
+              if (ex && ex.avg_people != null) rows.push(rigaSt(tr("res.peopleAvg"), String(Math.round(ex.avg_people * 10) / 10).replace(".", ",")));
+              if (ex && ex.avg_table_min != null) rows.push(rigaSt(tr("res.tableTimeAvg"), `~${fmtMinAct(ex.avg_table_min)}`));
+              if (ex && ex.avg_lead_min != null) {
+                const m = ex.avg_lead_min;
+                const lbl = m < 90 ? `${Math.max(1, Math.round(m))} min` : m < 2880 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} j`;
+                rows.push(rigaSt(tr("res.bookInAdvance"), `~${lbl}`));
+              }
+              if (ex && ex.avg_spent_cents != null) {
+                const eur = (ex.avg_spent_cents / 100).toFixed(ex.avg_spent_cents % 100 ? 2 : 0).replace(".", ",");
+                rows.push(rigaSt(tr("res.spendAvg"), `~${eur} €`, true));
+              }
+              secs.push(sezione(ICO_RESA, tr("nav.reservations"), String(resaTot), rows));
+            }
+            statsBox.innerHTML = secs.join("");
+          };
+          renderStats(null);
+          renderActFlags(c);
+          if (c.email || c.phone) {
+            const qs = new URLSearchParams({ client_stats: "1" });
+            if (c.email) qs.set("client_email", c.email);
+            if (c.phone) qs.set("client_phone", c.phone);
+            fetch(`/api/admin/reservations?${qs.toString()}`, { headers })
+              .then(async (res) => {
+                if (!res.ok || actKeyCorrente !== mioKey) return;
+                const j = (await res.json()) as { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null };
+                renderStats(j);
+              })
+              .catch(() => { /* niente stats ricche: restano quelle base */ });
+          }
+
           actList.innerHTML = "";
           actState.style.display = "";
-          actState.textContent = "Chargement…";
+          actState.textContent = tr("sup.loading");
           actOverlay.classList.add("is-open");
           try {
             const res = await fetch("/api/admin/clients?activity=" + encodeURIComponent(c.key ?? ""), { headers });
@@ -818,30 +1107,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             const j = (await res.json()) as {
               activity?: { type: string; when: string; label: string; status: string; amount_cents: number | null }[];
             };
-            const atti = j.activity ?? [];
-            if (!atti.length) {
-              actState.textContent = "Aucune activité.";
-              return;
-            }
-            actState.style.display = "none";
-            actList.innerHTML = atti
-              .map((a) => {
-                const ico = a.type === "order" ? ICO_ORD : ICO_RESA;
-                const stato =
-                  a.type === "reservation" && a.status !== "confirmed" && a.status !== "done"
-                    ? `<span class="act-status ${a.status === "cancelled" ? "ko" : "ns"}">${STATO_ACT[a.status] ?? a.status}</span>`
-                    : "";
-                const importo = a.amount_cents != null ? `<span class="act-amount">${euro(a.amount_cents)}</span>` : "";
-                return `<div class="act-row">
-                    <span class="act-ico">${ico}</span>
-                    <span class="act-when">${dataOra(a.when)}</span>
-                    <span class="act-label">${esc(a.label)}</span>
-                    ${importo}${stato}
-                  </div>`;
-              })
-              .join("");
+            actAtti = (j.activity ?? []) as Att[];
+            const nResa = actAtti.filter((a) => a.type === "reservation").length;
+            const nOrd = actAtti.filter((a) => a.type === "order").length;
+            actNResa.textContent = String(nResa);
+            actNOrd.textContent = String(nOrd);
+            // Default: Prenotazioni (primo tab); Ordini solo se non ci sono prenotazioni.
+            actTab = nResa > 0 ? "reservation" : "order";
+            renderAtti();
           } catch {
-            actState.textContent = "Erreur de chargement.";
+            actState.textContent = tr("sup.load.error");
           }
         }
 
@@ -865,7 +1140,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           }
           if (!del.classList.contains("confirm")) {
             del.classList.add("confirm");
-            del.textContent = "Confirmer ?";
+            del.textContent = tr("common.confirm");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
@@ -878,11 +1153,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           });
           try {
             const res = await fetch("/api/admin/clients?" + params.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast("Suppression impossible", true); return; }
-            toast("Client supprimé");
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("cli.clientDeleted"));
             await carica();
           } catch {
-            toast("Erreur de connexion", true);
+            toast(tr("res.connErr"), true);
           }
         });
 
@@ -902,24 +1177,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const newsState = document.getElementById("ed-news-state") as HTMLElement;
           const newsBtn = document.getElementById("ed-news-btn") as HTMLButtonElement;
           if (!haEmail) {
-            newsState.textContent = "Sans email — pas de newsletter";
+            newsState.textContent = tr("cli.noEmailNoNews");
             newsState.className = "ed-hint";
             newsBtn.style.display = "none";
           } else {
             newsBtn.style.display = "";
-            newsState.textContent = edOptout ? "Désinscrit (opt-out)" : "Inscrit (opt-in) ✓";
+            newsState.textContent = edOptout ? tr("cli.optedOut") : tr("cli.optedIn");
             newsState.className = "ed-hint" + (edOptout ? " warn" : " ok");
-            newsBtn.textContent = edOptout ? "Réinscrire" : "Désinscrire";
-            newsBtn.classList.toggle("ed-danger", !edOptout);
+            newsBtn.setAttribute("aria-checked", edOptout ? "false" : "true");
           }
           const blockState = document.getElementById("ed-block-state") as HTMLElement;
           const blockBtn = document.getElementById("ed-block-btn") as HTMLButtonElement;
           blockState.textContent = edBlocked
-            ? "Bloquées — le widget refusera cet email/téléphone"
-            : "Autorisées (les commandes le restent toujours)";
+            ? tr("cli.blocked")
+            : tr("cli.allowed");
           blockState.className = "ed-hint" + (edBlocked ? " warn" : "");
-          blockBtn.textContent = edBlocked ? "Débloquer" : "Bloquer les réservations";
-          blockBtn.classList.toggle("ed-danger", !edBlocked);
+          blockBtn.setAttribute("aria-checked", edBlocked ? "false" : "true");
         }
 
         function edRenderAvatar() {
@@ -937,13 +1210,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edPhotoUrl = "";
           edOptout = false;
           edBlocked = false;
-          (document.getElementById("ed-title") as HTMLElement).textContent = "Ajouter un client";
+          (document.getElementById("ed-title") as HTMLElement).textContent = tr("cli.addClient");
           (document.getElementById("ed-block-row") as HTMLElement).style.display = "none";
           for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"])
             (document.getElementById(idc) as HTMLInputElement).value = "";
           edPrefixEl().value = PREFISSO_DEFAULT;
+          edLangEl().value = "";
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
-          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Ajouter";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.add");
           edUplState.textContent = "";
           edRenderAvatar();
           edRenderFlags();
@@ -952,15 +1226,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         function apriEdit(c: Client) {
           edCliente = c;
           edPhotoUrl = c.photo_url ?? "";
-          (document.getElementById("ed-title") as HTMLElement).textContent = "Modifier le client";
+          (document.getElementById("ed-title") as HTMLElement).textContent = tr("cli.editClient");
           (document.getElementById("ed-block-row") as HTMLElement).style.display = "";
-          (document.getElementById("ed-save") as HTMLButtonElement).textContent = "Enregistrer";
+          (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.save");
           edOptout = Boolean(c.newsletter_optout);
           edBlocked = Boolean(c.blocked);
           const parti = (c.name ?? "").trim().split(/\s+/).filter(Boolean);
           (document.getElementById("ed-fname") as HTMLInputElement).value = parti[0] ?? "";
           (document.getElementById("ed-lname") as HTMLInputElement).value = parti.slice(1).join(" ");
           (document.getElementById("ed-email") as HTMLInputElement).value = c.email ?? "";
+          edLangEl().value = (c.lang || "").toLowerCase();
           {
             const sep = separaPrefisso(c.phone ?? "");
             edPrefixEl().value = sep?.dial ?? PREFISSO_DEFAULT;
@@ -998,10 +1273,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const file = edFile.files?.[0];
           if (!file) return;
           if (file.size > 4 * 1024 * 1024) {
-            edUplState.textContent = "Fichier trop lourd (max 4 Mo).";
+            edUplState.textContent = tr("cli.fileTooBig");
             return;
           }
-          edUplState.textContent = "Téléversement…";
+          edUplState.textContent = tr("cli.uploading");
           try {
             const base64 = await new Promise<string>((res, rej) => {
               const r = new FileReader();
@@ -1016,14 +1291,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const j = (await resp.json()) as { url?: string; error?: string };
             if (!resp.ok || !j.url) {
-              edUplState.textContent = j.error ?? "Erreur de téléversement";
+              edUplState.textContent = j.error ?? tr("cli.uploadError");
               return;
             }
             edPhotoUrl = j.url;
             edRenderAvatar();
-            edUplState.textContent = "Photo téléversée ✓";
+            edUplState.textContent = tr("cli.photoUploaded");
           } catch {
-            edUplState.textContent = "Erreur de connexion";
+            edUplState.textContent = tr("res.connErr");
           } finally {
             edFile.value = "";
           }
@@ -1042,11 +1317,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               : `${edPrefixEl().value} ${telGrezzo.replace(/^0/, "")}`
             : "";
           if (!cognomeV && !prenomV) {
-            errEl.textContent = "Le nom est obligatoire.";
+            errEl.textContent = tr("res.nameRequired");
             return;
           }
           if (!edCliente && !emailV && !telV) {
-            errEl.textContent = "Renseignez au moins un email ou un téléphone.";
+            errEl.textContent = tr("cli.emailOrPhone");
             return;
           }
           const btn = document.getElementById("ed-save") as HTMLButtonElement;
@@ -1061,6 +1336,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               phone: telV,
               photo_url: edPhotoUrl || null,
               newsletter_optout: edOptout,
+              lang: edLangEl().value || null,
             };
             if (edCliente) corpo.blocked = edBlocked; // in creazione il blocco non si tocca
             const res = await fetch("/api/admin/clients", {
@@ -1070,14 +1346,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const j = (await res.json()) as { error?: string };
             if (!res.ok) {
-              errEl.textContent = j.error ?? "Enregistrement impossible";
+              errEl.textContent = j.error ?? tr("common.saveErr");
               return;
             }
             edOverlay.classList.remove("is-open");
-            toast(edCliente ? "Client modifié" : "Client ajouté");
+            toast(edCliente ? tr("cli.clientModified") : tr("cli.clientAdded"));
             await carica();
           } catch {
-            errEl.textContent = "Erreur de connexion";
+            errEl.textContent = tr("res.connErr");
           } finally {
             btn.disabled = false;
           }
@@ -1092,19 +1368,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             } else {
               const res = await fetch("/api/admin/clients", { headers });
               if (!res.ok) {
-                stateEl.textContent = "Erreur de chargement.";
+                stateEl.textContent = tr("sup.load.error");
                 stateEl.style.display = "block";
                 return;
               }
               data = (await res.json()) as Resp;
             }
             tutti = data.clients;
+            costruisciLingue();
             stateEl.style.display = "none";
             contentEl.style.display = "block";
             updateHeader();
             render();
           } catch {
-            stateEl.textContent = "Erreur de connexion.";
+            stateEl.textContent = tr("common.netErr");
             stateEl.style.display = "block";
           } finally {
             contentEl.classList.remove("loading");
@@ -1142,8 +1419,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             : grezzo.startsWith("+")
               ? grezzo
               : `${fPrefix.value} ${grezzo.replace(/^0/, "")}`;
-          if (!fLname.value.trim()) { mMsg.textContent = "Le nom est obligatoire."; fLname.focus(); return; }
-          if (!email && !phone) { mMsg.textContent = "Email ou téléphone requis."; fEmail.focus(); return; }
+          if (!fLname.value.trim()) { mMsg.textContent = tr("res.nameRequired"); fLname.focus(); return; }
+          if (!email && !phone) { mMsg.textContent = tr("cli.emailOrPhoneReq"); fEmail.focus(); return; }
 
           mMsg.textContent = "";
           mSave.disabled = true;
@@ -1156,14 +1433,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             });
             const out = await res.json().catch(() => ({}));
             if (!res.ok) {
-              mMsg.textContent = out.error || "Erreur d'enregistrement.";
+              mMsg.textContent = out.error || tr("res.saveError");
               return;
             }
             chiudiModale();
-            toast("Client ajouté ✓");
+            toast(`${tr("cli.clientAdded")} ✓`);
             await carica();
           } catch {
-            mMsg.textContent = "Erreur de connexion.";
+            mMsg.textContent = tr("common.netErr");
           } finally {
             mSave.disabled = false;
             mSave.classList.remove("is-loading");

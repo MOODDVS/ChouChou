@@ -55,6 +55,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 46 | `gift_card_orders.sql` | Acquisto di buoni FISICI dal ristoratore presso MOODD (pagamento su Stripe MOODD, come i crediti newsletter) |
 | 47 | `traffic.sql` | Analytics interno cookieless: tabella `page_views` (provenance des visites) + RPC `traffic_sources` (agrégation par source) |
 | 48 | `reservation_reminder.sql` | `reminder_sent_at` su reservations: rappel client ~3h avant (jour futur uniquement, anti-doublon) |
+| 49 | `orders_manual_payment.sql` | orders: toglie il check lang fr/en (ora fr/en/it/nl/es come reservations) + colonna `payment_method` (cash/card/link) per ordini pagati di persona in cassa |
+| 50 | `orders_modifica_diff.sql` | orders: `supplement_due_cents`/`supplement_paid_at`/`refund_due_cents` per la differenza d'importo dopo una modifica (link supplemento se aumenta, bottone rimborso se diminuisce) |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
@@ -77,3 +79,4 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
 | `CRON_SECRET` | .env + host | Protegge i cron: /api/cron/daily-brief, /api/cron/newsletter, /api/cron/reservation-reminders |
 | `GOOGLE_SA_KEY_B64` | opzionale (host) | Base64 del JSON del service account Google (Search Console → onglet Visibilité). Robot da aggiungere come utente nella Search Console di ogni cliente. |
+| `GOOGLE_PLACES_API_KEY` | opzionale (host) | Google Places API (New) per le recensioni pubbliche (`/api/reviews` del sito). Richiede anche `google_place_id` in `app_config`. |

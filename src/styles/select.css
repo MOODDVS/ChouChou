@@ -1,0 +1,15 @@
+/* ============================================================
+   .brand-select — freccia SVG custom per i <select>, staccata dal
+   bordo invece della freccia nativa attaccata. Riutilizzabile su
+   qualsiasi select dell'admin: basta aggiungere la classe.
+   Import globale (non scoped) come datepicker.css.
+   ============================================================ */
+.brand-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center; /* un po' più a sinistra del bordo */
+  background-size: 12px;
+  padding-right: 2.1rem;                    /* spazio per la freccia */
+}

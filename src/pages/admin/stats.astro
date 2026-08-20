@@ -2,11 +2,17 @@
 // Pannello admin — STATISTIQUES: incasso, ordini, ora di punta e
 // piatti più ordinati, per periodo (giorno/settimana/mese/anno/totale).
 import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { calcolaStats } from "../../lib/admin/calcolaStats";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 
 export const prerender = false;
 
@@ -24,11 +30,11 @@ try {
 const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c") : "";
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Statistiques — Admin " + CLIENT.nome}</title>
+    <title>{t("nav.stats") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
@@ -40,7 +46,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -52,7 +58,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         --c-muted: #a6a6a6;
         --c-line: #ebebeb;
         --c-card: #ffffff;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -168,47 +174,48 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .src-pct { flex: 0 0 2.8rem; text-align: right; color: var(--c-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
       @media (max-width: 560px) { .src-nom { flex-basis: 6rem; font-size: 0.9rem; } }
     </style>
+    <AdminHead />
   </head>
   <body>
     <div id="app">
       <AdminHeader />
       <main>
-        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>Statistiques</h1>
+        <h1><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>{t("nav.stats")}</h1>
 
         <div class="tabs2" id="tabs2">
-          <button type="button" class="tab2 is-on" data-tab="fin"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M15 9.5a3.5 3.5 0 1 0 0 5" /><line x1="7.5" y1="11" x2="12.5" y2="11" /><line x1="7.5" y1="13" x2="11.5" y2="13" /></svg>Finances</button>
+          <button type="button" class="tab2 is-on" data-tab="fin"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M15 9.5a3.5 3.5 0 1 0 0 5" /><line x1="7.5" y1="11" x2="12.5" y2="11" /><line x1="7.5" y1="13" x2="11.5" y2="13" /></svg>{t("st.finances")}</button>
           <button type="button" class="tab2" data-tab="ggl"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>Google</button>
         </div>
 
         <section class="pane2" data-pane="fin">
         <div class="periods" id="periods">
-          <button class="period is-active" data-p="day">Jour</button>
-          <button class="period" data-p="week">Semaine</button>
-          <button class="period" data-p="month">Mois</button>
-          <button class="period" data-p="ytd">Année</button>
-          <button class="period" data-p="all">Total</button>
+          <button class="period is-active" data-p="day">{t("st.pDay")}</button>
+          <button class="period" data-p="week">{t("res.week")}</button>
+          <button class="period" data-p="month">{t("res.month")}</button>
+          <button class="period" data-p="ytd">{t("st.pYear")}</button>
+          <button class="period" data-p="all">{t("ord.total")}</button>
         </div>
-        <div class="state" id="state">Chargement…</div>
+        <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
           <div class="grid">
             <div class="stat">
-              <div class="stat-lab">Chiffre d'affaires</div>
+              <div class="stat-lab">{t("st.revenue")}</div>
               <div class="stat-big" id="s-rev">—</div>
               <div class="stat-sub" id="s-avg"></div>
             </div>
             <div class="stat">
-              <div class="stat-lab">Commandes</div>
+              <div class="stat-lab">{t("nav.orders")}</div>
               <div class="stat-big" id="s-count">—</div>
               <div class="stat-sub" id="s-count-sub"></div>
             </div>
             <div class="stat">
-              <div class="stat-lab">Heure de pointe</div>
+              <div class="stat-lab">{t("st.peakHour")}</div>
               <div class="stat-big" id="s-peak">—</div>
               <div class="stat-sub" id="s-peak-sub"></div>
             </div>
           </div>
           <div class="chart">
-            <div class="chart-title" id="c-title">Commandes par heure</div>
+            <div class="chart-title" id="c-title">{t("st.byHour")}</div>
             <div class="chart-wrap">
               <div class="chart-bars" id="c-bars"></div>
               <div class="chart-labs" id="c-labs"></div>
@@ -217,7 +224,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           </div>
 
           <div class="top">
-            <div class="top-title">Plats les plus commandés</div>
+            <div class="top-title">{t("st.topDishes")}</div>
             <div id="s-top"></div>
           </div>
         </div>
@@ -225,51 +232,51 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         <section class="pane2" data-pane="ggl" hidden>
           <div class="periods" id="g-periods">
-            <button class="period" data-d="7">7 jours</button>
-            <button class="period is-active" data-d="28">28 jours</button>
-            <button class="period" data-d="90">3 mois</button>
-            <button class="period" data-d="180">6 mois</button>
-            <button class="period" data-d="365">12 mois</button>
+            <button class="period" data-d="7">{t("st.days7")}</button>
+            <button class="period is-active" data-d="28">{t("st.days28")}</button>
+            <button class="period" data-d="90">{t("st.months3")}</button>
+            <button class="period" data-d="180">{t("st.months6")}</button>
+            <button class="period" data-d="365">{t("st.months12")}</button>
           </div>
-          <div class="state" id="g-state">Chargement…</div>
+          <div class="state" id="g-state">{t("sup.loading")}</div>
           <div class="state" id="g-empty" style="display:none">
-            Search Console n'est pas encore configuré. Va dans Réglages → Integrations pour l'activer.
+            {t("st.scNotConfig")}
           </div>
           <div id="g-content" style="display:none">
             <div class="grid grid4">
-              <div class="stat"><div class="stat-lab">Clics</div><div class="stat-big" id="k-clicks">—</div><div class="stat-sub" id="k-clicks-d"></div></div>
-              <div class="stat"><div class="stat-lab">Impressions</div><div class="stat-big" id="k-impr">—</div><div class="stat-sub" id="k-impr-d"></div></div>
+              <div class="stat"><div class="stat-lab">{t("st.clicks")}</div><div class="stat-big" id="k-clicks">—</div><div class="stat-sub" id="k-clicks-d"></div></div>
+              <div class="stat"><div class="stat-lab">{t("st.impressions")}</div><div class="stat-big" id="k-impr">—</div><div class="stat-sub" id="k-impr-d"></div></div>
               <div class="stat"><div class="stat-lab">CTR</div><div class="stat-big" id="k-ctr">—</div><div class="stat-sub" id="k-ctr-d"></div></div>
-              <div class="stat"><div class="stat-lab">Position</div><div class="stat-big" id="k-pos">—</div><div class="stat-sub" id="k-pos-d"></div></div>
+              <div class="stat"><div class="stat-lab">{t("st.position")}</div><div class="stat-big" id="k-pos">—</div><div class="stat-sub" id="k-pos-d"></div></div>
             </div>
             <div class="chart">
-              <div class="chart-title">Clics</div>
+              <div class="chart-title">{t("st.clicks")}</div>
               <div class="lchart" id="g-chart-clicks"></div>
               <div class="chart-tip" id="tip-clicks"></div>
             </div>
             <div class="chart">
-              <div class="chart-title">Impressions</div>
+              <div class="chart-title">{t("st.impressions")}</div>
               <div class="lchart" id="g-chart-impr"></div>
               <div class="chart-tip" id="tip-impr"></div>
             </div>
             <div class="two-cols">
               <div class="top">
-                <div class="top-title">Requêtes</div>
-                <div class="gtab-head"><span class="h-key">Mot-clé</span><span class="h-sub">Impr.</span><span class="h-n">Clics</span></div>
+                <div class="top-title">{t("st.queries")}</div>
+                <div class="gtab-head"><span class="h-key">{t("st.keyword")}</span><span class="h-sub">{t("st.imprShort")}</span><span class="h-n">{t("st.clicks")}</span></div>
                 <div id="g-queries"></div>
               </div>
               <div class="top">
-                <div class="top-title">Pages</div>
-                <div class="gtab-head"><span class="h-key">Page</span><span class="h-sub">Impr.</span><span class="h-n">Clics</span></div>
+                <div class="top-title">{t("st.pages")}</div>
+                <div class="gtab-head"><span class="h-key">{t("st.page")}</span><span class="h-sub">{t("st.imprShort")}</span><span class="h-n">{t("st.clicks")}</span></div>
                 <div id="g-pages"></div>
               </div>
             </div>
           </div>
 
           <div class="top" id="g-sources-card" style="display:none; margin-top:1.25rem">
-            <div class="top-title">Sources de trafic</div>
+            <div class="top-title">{t("st.trafficSources")}</div>
             <p style="margin:-0.4rem 0 1rem; color:var(--c-muted); font-size:0.8rem">
-              D'où arrivent vos visiteurs. Sans cookie — les données se cumulent depuis l'activation.
+              {t("st.trafficIntro")}
             </p>
             <div id="g-sources"></div>
           </div>
@@ -285,6 +292,11 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
       type Stats = {
         period: string;
@@ -299,18 +311,18 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       };
 
       const NOMI_PERIODO: Record<string, string> = {
-        day: "aujourd'hui",
-        week: "cette semaine",
-        month: "ce mois-ci",
-        ytd: "cette année",
-        all: "depuis toujours",
+        day: tr("home.today"),
+        week: tr("st.thisWeek"),
+        month: tr("st.thisMonth"),
+        ytd: tr("st.thisYear"),
+        all: tr("st.allTime"),
       };
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
       function euro(cents: number): string {
-        return (cents / 100).toLocaleString("fr-BE", { style: "currency", currency: "EUR" });
+        return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
       }
 
       (async () => {
@@ -347,10 +359,10 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         function render(s: Stats) {
           (document.getElementById("s-rev") as HTMLElement).textContent = euro(s.revenue_cents);
           (document.getElementById("s-avg") as HTMLElement).textContent =
-            s.orders > 0 ? `Panier moyen : ${euro(s.avg_cents)}` : "";
+            s.orders > 0 ? `${tr("st.avgBasket")} : ${euro(s.avg_cents)}` : "";
           (document.getElementById("s-count") as HTMLElement).textContent = String(s.orders);
           (document.getElementById("s-count-sub") as HTMLElement).textContent =
-            `commandes payées ${NOMI_PERIODO[s.period] ?? ""}`;
+            `${tr("st.paidOrders")} ${NOMI_PERIODO[s.period] ?? ""}`;
 
           const peakEl = document.getElementById("s-peak") as HTMLElement;
           const peakSub = document.getElementById("s-peak-sub") as HTMLElement;
@@ -361,14 +373,14 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             const h = String(s.peak_hour).padStart(2, "0");
             const h2 = String((s.peak_hour + 1) % 24).padStart(2, "0");
             peakEl.textContent = `${h}:00–${h2}:00`;
-            peakSub.textContent = `${s.peak_count} commande${s.peak_count > 1 ? "s" : ""} dans ce créneau`;
+            peakSub.textContent = `${s.peak_count} ${s.peak_count > 1 ? tr("home.ordersWord") : tr("ord.commandeSg")} ${tr("st.inThisSlot")}`;
           }
 
           renderChart(s);
 
           const topEl = document.getElementById("s-top") as HTMLElement;
           if (!s.top.length) {
-            topEl.innerHTML = '<p class="state">Aucune commande sur la période.</p>';
+            topEl.innerHTML = `<p class="state">${tr("st.noOrdersPeriod")}</p>`;
             return;
           }
           const maxQty = s.top[0].qty;
@@ -389,21 +401,21 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         }
 
         const TITOLI: Record<string, string> = {
-          hour: "Commandes par heure",
-          weekday: "Commandes par jour",
-          day: "Commandes par jour du mois",
-          month: "Commandes par mois",
-          quarter: "Commandes par trimestre",
+          hour: tr("st.byHour"),
+          weekday: tr("st.byWeekday"),
+          day: tr("st.byMonthDay"),
+          month: tr("st.byMonth"),
+          quarter: tr("st.byQuarter"),
         };
 
         function renderChart(s: Stats) {
           (document.getElementById("c-title") as HTMLElement).textContent =
-            TITOLI[s.series_kind] ?? "Commandes";
+            TITOLI[s.series_kind] ?? tr("nav.orders");
           const barsEl = document.getElementById("c-bars") as HTMLElement;
           const labsEl = document.getElementById("c-labs") as HTMLElement;
 
           if (!s.series.length) {
-            barsEl.innerHTML = '<p class="state" style="width:100%">Aucune donnée.</p>';
+            barsEl.innerHTML = `<p class="state" style="width:100%">${tr("st.noData")}</p>`;
             labsEl.innerHTML = "";
             return;
           }
@@ -417,7 +429,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             .map((b, i) => {
               const hPct = Math.round((b.count / max) * 100);
               const val = i === peakIdx && b.count > 0 ? `<span class="cval">${b.count}</span>` : "";
-              return `<div class="cbar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${esc(b.label)} : ${b.count} commandes" data-lab="${esc(b.label)}" data-n="${b.count}">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
+              return `<div class="cbar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${esc(b.label)} : ${b.count} ${tr("home.ordersWord")}" data-lab="${esc(b.label)}" data-n="${b.count}">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
             })
             .join("");
           labsEl.innerHTML = s.series
@@ -432,7 +444,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           const bar = (e.target as HTMLElement).closest(".cbar") as HTMLElement | null;
           if (!bar) { tipEl.style.display = "none"; return; }
           const n = Number(bar.dataset.n);
-          tipEl.textContent = `${bar.dataset.lab} · ${n} commande${n === 1 ? "" : "s"}`;
+          tipEl.textContent = `${bar.dataset.lab} · ${n} ${n === 1 ? tr("ord.commandeSg") : tr("home.ordersWord")}`;
           tipEl.style.display = "block";
           const cr = chartEl.getBoundingClientRect();
           const br = bar.getBoundingClientRect();
@@ -451,7 +463,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             } else {
               const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
               if (!res.ok) {
-                stateEl.textContent = "Erreur de chargement.";
+                stateEl.textContent = tr("sup.load.error");
                 stateEl.style.display = "block";
                 return;
               }
@@ -461,7 +473,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             contentEl.style.display = "block";
             render(s);
           } catch {
-            stateEl.textContent = "Erreur de connexion.";
+            stateEl.textContent = tr("common.netErr");
             stateEl.style.display = "block";
           } finally {
             contentEl.classList.remove("loading");
@@ -496,14 +508,14 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         let gDays = 28;
         let gLoaded = false;
         let gSerie: { date: string; clicks: number; impressions: number }[] = [];
-        const nfInt = new Intl.NumberFormat("fr-FR");
+        const nfInt = new Intl.NumberFormat(LOC);
 
         const SRC_NOMI: Record<string, string> = {
           google: "Google", facebook: "Facebook", instagram: "Instagram",
-          direct: "Direct / inconnu", tiktok: "TikTok", x: "X (Twitter)",
+          direct: tr("st.directUnknown"), tiktok: "TikTok", x: "X (Twitter)",
           bing: "Bing", yahoo: "Yahoo", duckduckgo: "DuckDuckGo",
           linkedin: "LinkedIn", youtube: "YouTube", whatsapp: "WhatsApp",
-          newsletter: "Newsletter", autre: "Autre",
+          newsletter: tr("tab.marketing.news"), autre: tr("st.other"),
         };
 
         // Sources de trafic (analytics interne) — indépendant de Search Console.
@@ -516,7 +528,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             const j = (await res.json()) as { sources: { source: string; count: number }[]; total: number };
             card.style.display = "";
             if (!j.sources || !j.sources.length) {
-              box.innerHTML = '<p class="state" style="padding:0.8rem 0">Aucune visite enregistrée pour le moment.</p>';
+              box.innerHTML = `<p class="state" style="padding:0.8rem 0">${tr("st.noVisits")}</p>`;
               return;
             }
             const max = Math.max(...j.sources.map((x) => x.count));
@@ -534,18 +546,18 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         }
 
         function deltaPct(cur: number, prev: number): { txt: string; cls: string } {
-          if (prev <= 0) return { txt: cur > 0 ? "▲ nouveau" : "", cls: cur > 0 ? "up" : "" };
+          if (prev <= 0) return { txt: cur > 0 ? `▲ ${tr("st.newLower")}` : "", cls: cur > 0 ? "up" : "" };
           const d = Math.round(((cur - prev) / prev) * 100);
-          if (d === 0) return { txt: "— stable", cls: "" };
+          if (d === 0) return { txt: `— ${tr("st.stable")}`, cls: "" };
           return { txt: (d > 0 ? "▲ " : "▼ ") + Math.abs(d) + "%", cls: d > 0 ? "up" : "down" };
         }
         function setDelta(id: string, r: { txt: string; cls: string }) {
           const el = document.getElementById(id);
-          if (el) el.innerHTML = r.txt ? `<span class="delta ${r.cls}">${r.txt}</span> vs période précéd.` : "";
+          if (el) el.innerHTML = r.txt ? `<span class="delta ${r.cls}">${r.txt}</span> ${tr("st.vsPrevPeriod")}` : "";
         }
         function fmtJour(iso: string): string {
           const d = new Date(iso + "T00:00:00");
-          return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+          return d.toLocaleDateString(LOC, { day: "numeric", month: "short" });
         }
 
         // Grafico a linee SVG con crosshair + tooltip (una sola serie per grafico).
@@ -557,7 +569,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           const H = 230, padL = 46, padR = 12, padT = 12, padB = 26;
           const iw = W - padL - padR, ih = H - padT - padB;
           const n = pts.length;
-          if (!n) { box.innerHTML = '<p class="state" style="padding:1.5rem 0">Aucune donnée.</p>'; return; }
+          if (!n) { box.innerHTML = `<p class="state" style="padding:1.5rem 0">${tr("st.noData")}</p>`; return; }
           const maxV = Math.max(1, ...pts.map((p) => p.val));
           const X = (i: number) => padL + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
           const Y = (v: number) => padT + ih - (v / maxV) * ih;
@@ -581,7 +593,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           }
 
           box.innerHTML =
-            `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Évolution">` +
+            `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${tr("st.evolution")}">` +
             grid + xlab +
             `<path d="${areaD}" fill="${color}" fill-opacity="0.10" stroke="none" />` +
             `<path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />` +
@@ -624,10 +636,10 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         function renderGTable(id: string, rows: GLigne[], isPage: boolean) {
           const el = document.getElementById(id);
           if (!el) return;
-          if (!rows.length) { el.innerHTML = '<p class="state" style="padding:1rem 0">Aucune donnée.</p>'; return; }
+          if (!rows.length) { el.innerHTML = `<p class="state" style="padding:1rem 0">${tr("st.noData")}</p>`; return; }
           el.innerHTML = rows.slice(0, 10).map((r) => {
             let label = r.key;
-            if (isPage) { try { const u = new URL(r.key); label = u.pathname === "/" ? "Accueil" : u.pathname; } catch { /* garde brut */ } }
+            if (isPage) { try { const u = new URL(r.key); label = u.pathname === "/" ? tr("nav.home") : u.pathname; } catch { /* garde brut */ } }
             return `<div class="gtab-row"><span class="gt-key" title="${esc(r.key)}">${esc(label)}</span>` +
               `<span class="gt-sub">${nfInt.format(r.impressions)}</span><span class="gt-n">${nfInt.format(r.clicks)}</span></div>`;
           }).join("");
@@ -643,7 +655,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           // CTR : variation en points de %
           const dctr = (v.kpi.ctr - v.kpi.prev.ctr) * 100;
           setDelta("k-ctr-d", Math.abs(dctr) < 0.05
-            ? { txt: "— stable", cls: "" }
+            ? { txt: `— ${tr("st.stable")}`, cls: "" }
             : { txt: (dctr > 0 ? "▲ " : "▼ ") + Math.abs(dctr).toFixed(1).replace(".", ",") + " pt", cls: dctr > 0 ? "up" : "down" });
           // Position : plus bas = meilleur (donc baisse = vert)
           const dpos = v.kpi.position - v.kpi.prev.position;
@@ -660,7 +672,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         async function caricaG() {
           gState.style.display = "";
-          gState.textContent = "Chargement…";
+          gState.textContent = tr("sup.loading");
           gEmpty.style.display = "none";
           gContent.classList.add("loading");
           void caricaSources(); // provenance : charge en parallèle, indépendant
@@ -673,7 +685,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             gContent.style.display = "";
             renderG(v);
           } catch {
-            gState.textContent = "Erreur de connexion.";
+            gState.textContent = tr("common.netErr");
           } finally {
             gContent.classList.remove("loading");
             gLoaded = true;

@@ -1,172 +1,294 @@
 ---
-// Pagina di login dello staff.
-// Standalone: NON usa Layout.astro (niente header/footer/nav del sito pubblico).
-// La logica di autenticazione gira nel browser tramite supabaseBrowser.
+// Pagina di login dello staff — layout SPLIT (immagine + form).
+// Standalone: NON usa Layout.astro. L'autenticazione gira nel browser
+// tramite supabaseBrowser. Brand-aware: nome, logo, logo negativo dai Réglages;
+// i colori dal tema salvato in localStorage (mdd_theme) applicato dallo script inline.
 import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import { supabaseAdmin } from "../../lib/db";
+import { cacheOr } from "../../lib/cache";
+const lang = await adminLang();
+const t = adminT(lang);
+
+// SSR: la pagina legge la config e sceglie la cover a ogni richiesta.
+export const prerender = false;
+
+// Immagine login: una foto CASUALE dell'hero della home del cliente
+// (app_config site_hero_1/2/3). Se non ce n'è nessuna -> fallback random
+// tra le slide RestoHub in public/restohub/ (sempre presenti nel motore).
+const FALLBACK_COVERS = [
+  "/restohub/slide01.webp",
+  "/restohub/slide02.webp",
+  "/restohub/slide03.webp",
+  "/restohub/slide04.webp",
+];
+
+const brand = await (async () => {
+  try {
+    return await cacheOr("pub:login-brand2", async () => {
+      const { data } = await supabaseAdmin
+        .from("app_config")
+        .select("key, value")
+        .in("key", ["restaurant_name", "brand_logo", "brand_logo_negative", "brand_favicon", "site_hero_1", "site_hero_2", "site_hero_3"]);
+      const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
+      const nome = (m.get("restaurant_name") ?? "").trim();
+      const heroCfg = [1, 2, 3].map((i) => (m.get("site_hero_" + i) ?? "").trim()).filter(Boolean);
+      const heroImages = heroCfg;
+      return {
+        nome,
+        logo: (m.get("brand_logo") ?? "").trim() || CLIENT.logoLogin,
+        logoNeg: (m.get("brand_logo_negative") ?? "").trim(),
+        favicon: (m.get("brand_favicon") ?? "").trim(),
+        heroImages,
+      };
+    }, 60);
+  } catch {
+    return { nome: "", logo: CLIENT.logoLogin, logoNeg: "", favicon: "", heroImages: [] as string[] };
+  }
+})();
+
+// Payoff RestoHub (mostrato solo quando in alto c'è il logo RestoHub).
+const PAYOFF: Record<string, string> = {
+  fr: "Un hub. Tout le restaurant.",
+  en: "One hub. Whole restaurant.",
+  it: "Un hub. Tutto il ristorante.",
+  nl: "Eén hub. Heel het restaurant.",
+  es: "Un hub. Todo el restaurante.",
+};
+const payoff = PAYOFF[lang] ?? PAYOFF.fr;
+
+// Footer legale RestoHub (le pagine si creano dopo).
+const LEGAL: Record<string, Record<string, string>> = {
+  terms: { fr: "Conditions générales", en: "Terms & Conditions", it: "Termini e condizioni", nl: "Algemene voorwaarden", es: "Términos y condiciones" },
+  privacy: { fr: "Politique de confidentialité", en: "Privacy Policy", it: "Privacy", nl: "Privacybeleid", es: "Privacidad" },
+};
+const legalTerms = LEGAL.terms[lang] ?? LEGAL.terms.fr;
+const legalPrivacy = LEGAL.privacy[lang] ?? LEGAL.privacy.fr;
+
+// Foto casuale dell'hero a ogni caricamento (fuori cache), altrimenti fallback public.
+// Solo https:// o path assoluti "/…", senza caratteri che potrebbero rompere
+// lo style inline (difesa in profondità: Astro escapizza già gli attributi).
+const COVER_OK = /^(https:\/\/[^\s"\x27()]+|\/[^\s"\x27()]*)$/;
+const pool0 = brand.heroImages.length ? brand.heroImages : FALLBACK_COVERS;
+const coverPool = pool0.filter((u) => COVER_OK.test(u));
+const safePool = coverPool.length ? coverPool : FALLBACK_COVERS;
+const cover = safePool[Math.floor(Math.random() * safePool.length)];
+const topLogo = brand.logoNeg || "/restohub/wordmark-negative.svg";
+const badgeLogo = brand.favicon || "/favicon.svg";
+const showPayoff = !brand.logoNeg;
+const heroTitle = brand.nome || t("login.title");
+const tabTitle = brand.nome || t("login.title");
 ---
 
-<html lang="fr">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{"Admin — " + CLIENT.nome}</title>
+    <title>{tabTitle}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;900&family=Quicksand:wght@500;600;700&display=swap" />
     <style>
       :root {
-        --c-hover: #e04f00;
-        --c-card: #ffffff;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-error: #ff6b6b;
-        --font-title: "Bebas Neue", system-ui, sans-serif;
+        --c-hover: #e04f00; --c-card: #ffffff; --c-input: #f1f1f1; --c-bg: #ffffff;
+        --c-text: #333333; --c-accent: #ff7300; --c-muted: #a6a6a6; --c-line: #e7e7e7;
+        --c-error: #e5544b; --c-ok: #2f9e59;
+        --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
+        --font-brand: "Quicksand", system-ui, sans-serif;
       }
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
+      .split { display: flex; min-height: 100vh; }
+
+      /* ---------- Pannello immagine ---------- */
+      .pane-img {
+        flex: 1.1 1 0; position: relative; overflow: hidden;
+        background-size: cover; background-position: center; background-color: #14100c;
+        display: flex; flex-direction: column; justify-content: space-between;
+        padding: 2.8rem 2.6rem; min-height: 100vh;
       }
-      body {
-        background: var(--c-bg);
-        color: var(--c-text);
-        font-family: var(--font-body);
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1.5rem;
+      .pane-img::before {
+        content: ""; position: absolute; inset: 0;
+        background:
+          linear-gradient(180deg, rgba(0, 45, 52, .60) 0%, rgba(0, 45, 52, .90) 100%),
+          radial-gradient(760px 500px at 20% 6%, rgba(0, 45, 52, .30), transparent 62%);
       }
-      .box {
-        width: 100%;
-        max-width: 360px;
+      .pane-img > * { position: relative; z-index: 1; }
+      .img-top { display: block; }
+      .img-logo { height: 30px; width: auto; max-width: 240px; object-fit: contain; display: block; filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
+      .img-payoff { margin-top: .75rem; color: rgba(255, 255, 255, .9); font-family: var(--font-brand); font-weight: 500; font-size: .92rem; letter-spacing: .01em; }
+      .img-hero h2 { font-family: var(--font-brand); font-weight: 600; color: #fff; font-size: clamp(1.9rem, 3.2vw, 2.7rem); line-height: 1.1; letter-spacing: .01em; }
+      .img-hero .line { width: 56px; height: 3px; background: #dd5851; margin: 1.1rem 0 1.1rem; border-radius: 2px; }
+      .img-hero p { color: rgba(255, 255, 255, .82); font-size: 1rem; max-width: 380px; line-height: 1.6; }
+      .img-legal { display: flex; flex-direction: column; gap: .35rem; }
+      .img-copy { color: rgba(255, 255, 255, .6); font-size: .72rem; letter-spacing: .06em; }
+      .img-links { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+      .img-links a { color: rgba(255, 255, 255, .72); font-size: .74rem; text-decoration: none; }
+      .img-links a:hover { color: #fff; text-decoration: underline; }
+      .img-links .sep { color: rgba(255, 255, 255, .35); }
+
+      /* ---------- Pannello form ---------- */
+      .pane-form {
+        /* Pannello form brandizzato RestoHub: ridefinisce le variabili colore
+           solo per questo lato (override del tema cliente). Corallo + petrolio. */
+        --c-accent: #dd5851; --c-hover: #c8443c; --c-text: #002d34; --c-muted: #9aa4a4;
+        --c-input: #f0f1f1; --c-line: #e7e7e7; --c-card: #ffffff; --c-error: #d64545; --c-ok: #2f9e59;
+        flex: .9 1 0; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 2.4rem 1.6rem;
       }
-      .logo {
-        display: block;
-        width: 210px;
-        height: auto;
-        margin: 0 auto 1.5rem;
-        filter: invert(1);
-      }
-      h1 {
-        font-family: var(--font-title);
-        font-size: 2rem;
-        font-weight: 400;
-        letter-spacing: 0.04em;
-        text-align: center;
-        margin-bottom: 0.25rem;
-      }
-      .subtitle {
-        text-align: center;
-        color: var(--c-muted);
-        font-size: 0.85rem;
-        margin-bottom: 2rem;
-      }
-      label {
-        display: block;
-        font-size: 0.8rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        color: var(--c-muted);
-        margin-bottom: 0.4rem;
-      }
+      .form-inner { width: 100%; max-width: 360px; }
+      .form-h { font-family: var(--font-title); font-size: 1.7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text); margin-bottom: .2rem; }
+      .form-badge { display: flex; align-items: center; gap: .7rem; margin-bottom: 1.7rem; }
+      .form-badge img { width: 76px; height: 76px; object-fit: cover; border-radius: 16px; border: 1px solid var(--c-line); box-shadow: 0 6px 16px -8px rgba(0,0,0,.25); }
+      .form-badge span { font-family: var(--font-brand); font-weight: 600; font-size: 1rem; color: var(--c-text); }
+      .form-sub { color: var(--c-muted); font-size: .85rem; margin-bottom: 2rem; }
+      .intro { color: var(--c-muted); font-size: .86rem; line-height: 1.55; margin: -.8rem 0 1.6rem; }
+      label { display: block; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; color: var(--c-muted); margin-bottom: .4rem; font-weight: 700; }
       input {
-        width: 100%;
-        background: var(--c-card);
-        border: 1px solid var(--c-line);
-        color: var(--c-text);
-        font-family: var(--font-body);
-        font-size: 1rem;
-        padding: 0.75rem 0.9rem;
-        margin-bottom: 1.2rem;
+        width: 100%; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 7px;
+        color: var(--c-text); font-family: var(--font-body); font-size: 1rem; padding: .8rem .9rem;
+        margin-bottom: 1.1rem; transition: border-color .15s, background .15s;
       }
-      input:focus {
-        outline: none;
-        border-color: var(--c-text);
+      input:focus { outline: none; border-color: var(--c-accent); background: var(--c-card); }
+      .pw-wrap { position: relative; margin-bottom: 1.1rem; }
+      .pw-wrap input { margin-bottom: 0; padding-right: 2.7rem; }
+      .pw-eye { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); background: none; border: none; padding: .3rem; cursor: pointer; color: var(--c-muted); display: flex; align-items: center; }
+      .pw-eye:hover { color: var(--c-accent); }
+      .pw-eye svg { width: 20px; height: 20px; }
+      button.primary {
+        width: 100%; background: var(--c-accent); color: #fff; border: none; border-radius: 7px;
+        font-family: var(--font-title); font-weight: 700; font-size: 1rem; letter-spacing: .08em; text-transform: uppercase; padding: .85rem;
+        cursor: pointer; transition: background .2s, transform .1s; margin-top: .2rem;
       }
-      button {
-        width: 100%;
-        background: var(--c-accent);
-        color: var(--c-bg);
-        border: none;
-        font-family: var(--font-title);
-        font-size: 1.2rem;
-        letter-spacing: 0.05em;
-        padding: 0.7rem;
-        cursor: pointer;
-        transition: opacity 0.2s;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-      .error {
-        color: var(--c-error);
-        font-size: 0.85rem;
-        text-align: center;
-        margin-bottom: 1rem;
-        min-height: 1.2rem;
+      button.primary:hover { background: var(--c-hover); }
+      button.primary:active { transform: scale(.985); }
+      button.primary:disabled { opacity: .5; cursor: not-allowed; }
+      .link { display: block; width: 100%; background: none; border: none; color: var(--c-accent); font-family: var(--font-body); font-size: .85rem; font-weight: 700; cursor: pointer; text-align: center; margin-top: 1.2rem; padding: .3rem; }
+      .link:hover { text-decoration: underline; }
+      .msg { font-size: .84rem; text-align: center; margin-bottom: 1rem; min-height: 1.1rem; line-height: 1.45; }
+      .msg.err, .msg.ok { text-align: left; padding: .8rem .95rem; border-radius: 9px; border: 1px solid; min-height: 0; }
+      .msg.ok { color: var(--c-ok); background: rgba(47, 158, 89, .10); border-color: rgba(47, 158, 89, .28); }
+      .msg.err { color: var(--c-error); background: rgba(214, 69, 69, .08); border-color: rgba(214, 69, 69, .26); }
+      .error { color: var(--c-error); font-size: .85rem; text-align: center; margin-bottom: 1rem; min-height: 1.2rem; }
+      .form-legal { display: none; margin-top: 2.4rem; text-align: center; color: var(--c-muted); font-size: .72rem; line-height: 1.9; }
+      .form-legal a { color: var(--c-muted); text-decoration: none; }
+      .form-legal a:hover { color: var(--c-text); text-decoration: underline; }
+      .form-legal .sep { opacity: .5; margin: 0 .3rem; }
+
+      /* ---------- Mobile: immagine sopra, form sotto ---------- */
+      @media (max-width: 860px) {
+        .split { flex-direction: column; }
+        .pane-img {
+          min-height: 240px; flex: none; padding: 2.2rem 1.6rem 2.6rem;
+          justify-content: center; align-items: center; text-align: center;
+        }
+        .img-top, .img-hero { width: 100%; }
+        .img-logo { margin: 0 auto; }
+        .img-payoff { text-align: center; }
+        .img-hero { margin-top: 1.6rem; }
+        .img-hero h2 { font-size: 1.9rem; }
+        .img-hero .line { margin: 1.1rem auto; }
+        .img-hero p { display: none; }
+        .img-legal { display: none; }
+        .pane-form { flex: 1 0 auto; align-items: flex-start; padding: 0 1.4rem 2.8rem; position: relative; z-index: 2; margin-top: -16px; }
+        .form-inner { text-align: center; }
+        .form-badge { justify-content: center; position: relative; z-index: 3; margin-top: -34px; margin-bottom: 1.3rem; }
+        .form-badge img { width: 76px; height: 76px; border: 3px solid #fff; box-shadow: 0 10px 26px -8px rgba(0,0,0,.45); }
+        .form-legal { display: block; }
       }
     </style>
   </head>
   <body>
-    <div class="box">
-      <img class="logo" src={CLIENT.logoLogin} alt={CLIENT.nome} />
-      <h1>Espace Staff</h1>
-      <p class="subtitle">{CLIENT.nome + " — Administration"}</p>
+    <div class="split">
+      <!-- IMMAGINE -->
+      <section class="pane-img" style={`background-image:url("${cover}")`}>
+        <div class="img-top">
+          <img class="img-logo" src={topLogo} alt={brand.logoNeg ? heroTitle : "RestoHub"} />
+          {showPayoff && <p class="img-payoff">{payoff}</p>}
+        </div>
+        <div class="img-hero">
+          <h2>{heroTitle}</h2>
+          <div class="line"></div>
+          <p>{t("login.admin")}</p>
+        </div>
+        <div class="img-legal">
+          <span class="img-copy">© 2026 MOODD</span>
+          <nav class="img-links">
+            <a href="/legal/terms">{legalTerms}</a>
+            <span class="sep">·</span>
+            <a href="/legal/privacy">{legalPrivacy}</a>
+          </nav>
+        </div>
+      </section>
 
-      <div class="error" id="error"></div>
+      <!-- FORM -->
+      <section class="pane-form">
+        <div class="form-inner">
+          <div class="form-badge">
+            <img src={badgeLogo} alt={heroTitle} />
+          </div>
+          <h1 class="form-h">{t("login.submit")}</h1>
 
-      <form id="login-form">
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" autocomplete="username" required />
+          <!-- VISTA LOGIN -->
+          <div id="view-login">
+            <div class="error" id="error"></div>
+            <form id="login-form">
+              <label for="email">{t("login.email")}</label>
+              <input type="email" id="email" name="email" autocomplete="username" required />
+              <label for="password">{t("login.password")}</label>
+              <div class="pw-wrap">
+                <input type="password" id="password" name="password" autocomplete="current-password" required />
+                <button type="button" class="pw-eye" id="pw-toggle" aria-label="Mostra/nascondi password">
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="eye-closed" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+              </div>
+              <button type="submit" class="primary" id="submit-btn">{t("login.submit")}</button>
+            </form>
+            <button type="button" class="link" id="to-forgot">{t("login.forgot")}</button>
+          </div>
 
-        <label for="password">Mot de passe</label>
-        <input
-          type="password"
-          id="password"
-          name="password"
-          autocomplete="current-password"
-          required
-        />
+          <!-- VISTA PASSWORD DIMENTICATA -->
+          <div id="view-forgot" style="display:none">
+            <p class="intro">{t("login.resetIntro")}</p>
+            <div class="msg" id="forgot-msg"></div>
+            <form id="forgot-form">
+              <label for="forgot-email">{t("login.email")}</label>
+              <input type="email" id="forgot-email" name="forgot-email" autocomplete="username" required />
+              <button type="submit" class="primary" id="forgot-btn">{t("login.resetSend")}</button>
+            </form>
+            <button type="button" class="link" id="to-login">← {t("login.back")}</button>
+          </div>
 
-        <button type="submit" id="submit-btn">Se connecter</button>
-      </form>
+          <div class="form-legal">
+            © 2026 MOODD
+            <br />
+            <a href="/legal/terms">{legalTerms}</a>
+            <span class="sep">·</span>
+            <a href="/legal/privacy">{legalPrivacy}</a>
+          </div>
+        </div>
+      </section>
     </div>
 
     <script is:inline>
-      // TEMA brand dalla cache (Reglages -> Couleurs): il login non ha ancora
-      // un token per la fetch, quindi usa l'ultimo tema visto su questo
-      // browser. Primo accesso in assoluto = colori MOODD di default.
       try {
-        const t = JSON.parse(localStorage.getItem("mdd_theme") || "null");
-        if (t && typeof t === "object") {
-          for (const k in t) {
-            if (/^[a-z]+$/.test(k) && /^#[0-9a-f]{6}$/i.test(String(t[k]))) {
-              document.documentElement.style.setProperty("--c-" + k, t[k]);
+        const th = JSON.parse(localStorage.getItem("mdd_theme") || "null");
+        if (th && typeof th === "object") {
+          for (const k in th) {
+            if (/^[a-z]+$/.test(k) && /^#[0-9a-f]{6}$/i.test(String(th[k]))) {
+              document.documentElement.style.setProperty("--c-" + k, th[k]);
             }
           }
-          if (/^#[0-9a-f]{6}$/i.test(String(t.bg))) {
-            document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t.bg);
-          }
-          document.documentElement.classList.toggle("glass", t.glass === "on");
-          if (/^\d{1,3}$/.test(String(t.shadow))) {
-            document.documentElement.style.setProperty("--sh", String(Math.min(100, Number(t.shadow)) / 100));
+          if (/^#[0-9a-f]{6}$/i.test(String(th.bg))) {
+            document.querySelector('meta[name="theme-color"]')?.setAttribute("content", th.bg);
           }
         }
       } catch { /* niente tema */ }
@@ -174,57 +296,86 @@ import { CLIENT } from "../../config/client";
         const u = localStorage.getItem("mdd_logo") || "";
         if (/^https:\/\//.test(u) || u.startsWith("/")) {
           document.querySelectorAll('link[rel~="icon"]').forEach((l) => { l.href = u; });
-          const img = document.getElementById("ah-logo");
-          if (img) img.src = u;
         }
       } catch { /* niente logo */ }
     </script>
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, type AdminLang } from "../../i18n/admin";
+      const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
+      const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
-      // Registra il service worker anche dal login: è la prima pagina
-      // che si visita da un dispositivo nuovo, e senza service worker
-      // attivo Chrome (Android) non propone l'installazione come app.
       if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/sw.js").catch(() => {
-          /* registrazione fallita: il sito funziona comunque */
-        });
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
       }
 
-      const form = document.getElementById("login-form") as HTMLFormElement;
-      const errorEl = document.getElementById("error") as HTMLDivElement;
-      const btn = document.getElementById("submit-btn") as HTMLButtonElement;
+      const viewLogin = $("view-login");
+      const viewForgot = $("view-forgot");
+      const errorEl = $<HTMLDivElement>("error");
+      const forgotMsg = $<HTMLDivElement>("forgot-msg");
 
-      // Se l'utente è GIÀ loggato, mandalo direttamente al pannello.
-      supabaseBrowser.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          window.location.href = "/admin";
-        }
+      $("to-forgot").addEventListener("click", () => {
+        errorEl.textContent = "";
+        viewLogin.style.display = "none";
+        viewForgot.style.display = "";
+      });
+      $("to-login").addEventListener("click", () => {
+        forgotMsg.textContent = ""; forgotMsg.className = "msg";
+        viewForgot.style.display = "none";
+        viewLogin.style.display = "";
       });
 
+      supabaseBrowser.auth.getSession().then(({ data }) => {
+        if (data.session) window.location.href = "/admin";
+      });
+
+      // --- LOGIN ---
+      const form = $<HTMLFormElement>("login-form");
+      const btn = $<HTMLButtonElement>("submit-btn");
+
+      // Mostra/nascondi password
+      const pwInput = $<HTMLInputElement>("password");
+      const pwToggle = $("pw-toggle");
+      pwToggle.addEventListener("click", () => {
+        const show = pwInput.type === "password";
+        pwInput.type = show ? "text" : "password";
+        (pwToggle.querySelector(".eye-open") as HTMLElement).style.display = show ? "none" : "";
+        (pwToggle.querySelector(".eye-closed") as HTMLElement).style.display = show ? "" : "none";
+      });
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         errorEl.textContent = "";
-        btn.disabled = true;
-        btn.textContent = "Connexion...";
-
-        const email = (document.getElementById("email") as HTMLInputElement).value.trim();
-        const password = (document.getElementById("password") as HTMLInputElement).value;
-
-        const { error } = await supabaseBrowser.auth.signInWithPassword({
-          email,
-          password,
-        });
-
+        btn.disabled = true; btn.textContent = tr("login.connecting");
+        const email = $<HTMLInputElement>("email").value.trim();
+        const password = $<HTMLInputElement>("password").value;
+        const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
         if (error) {
-          errorEl.textContent = "Email ou mot de passe incorrect.";
-          btn.disabled = false;
-          btn.textContent = "Se connecter";
+          errorEl.textContent = tr("login.error");
+          btn.disabled = false; btn.textContent = tr("login.submit");
           return;
         }
-
-        // Login riuscito → vai al pannello.
         window.location.href = "/admin";
+      });
+
+      // --- PASSWORD DIMENTICATA ---
+      const fform = $<HTMLFormElement>("forgot-form");
+      const fbtn = $<HTMLButtonElement>("forgot-btn");
+      fform.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        forgotMsg.textContent = ""; forgotMsg.className = "msg";
+        const label = fbtn.textContent;
+        fbtn.disabled = true; fbtn.textContent = tr("login.sending");
+        const email = $<HTMLInputElement>("forgot-email").value.trim();
+        const { error } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
+          redirectTo: location.origin + "/admin/reset-password",
+        });
+        fbtn.disabled = false; fbtn.textContent = label;
+        if (error) {
+          forgotMsg.className = "msg err"; forgotMsg.textContent = tr("login.resetErr");
+        } else {
+          forgotMsg.className = "msg ok"; forgotMsg.textContent = tr("login.resetSent");
+          fform.reset();
+        }
       });
     </script>
   </body>

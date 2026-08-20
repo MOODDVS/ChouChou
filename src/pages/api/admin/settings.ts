@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
+import { cacheDel } from "../../../lib/cache";
+import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 
 export const prerender = false;
 
@@ -21,7 +23,7 @@ interface GiornoInput {
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
-const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
 
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [
@@ -36,7 +38,13 @@ const CHIAVI_GENERAL = [
   "public_phone",
   "public_email",
   "contact_emails",
+  "newsletter_from_name",
   "newsletter_from_email",
+  "email_from_name",
+  "contact_from_name",
+  "contact_from_email",
+  "order_from_name",
+  "order_from_email",
   "whatsapp_number",
   "timezone",                 // fuso orario del ristorante (IANA, es. Europe/Brussels)
   "brand_logo",               // URL loghi + favicon (bucket Storage "brand")
@@ -58,6 +66,7 @@ const CHIAVI_RESA = [
   "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
   "reservation_corner_style", // angoli del widget: "rounded" | "square"
   "reservation_languages",    // lingue attive sul widget: JSON ["fr","en",…]
+  "reservation_from_name",    // nome mittente delle conferme al cliente
   "reservation_from_email",   // mittente delle conferme al cliente
   "reservation_notify_email", // dove arrivano le richieste
 ];
@@ -69,8 +78,20 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+function minOra(s: string): number {
+  const [h, m] = s.split(":").map((n) => parseInt(n, 10));
+  return h * 60 + (m || 0);
+}
+
+// Una fascia è valida se open/close sono orari "HH:mm" corretti e la durata è
+// positiva. Se close ≤ open la fascia SCAVALCA LA MEZZANOTTE (es. 18:00 → 00:00
+// oppure 18:00 → 01:00): la chiusura si intende il giorno dopo.
 function fasciaValida(open: string | null, close: string | null): boolean {
-  return !!open && !!close && RE_ORA.test(open) && RE_ORA.test(close) && open < close;
+  if (!open || !close || !RE_ORA.test(open) || !RE_ORA.test(close)) return false;
+  const o = minOra(open);
+  let c = minOra(close);
+  if (c <= o) c += 1440; // chiusura il giorno seguente
+  return c > o && c - o <= 1440;
 }
 
 // GET /api/admin/settings — orari dei 7 giorni + prep/slot + email cucina
@@ -275,7 +296,7 @@ export const PUT: APIRoute = async ({ request }) => {
           if (!RE_EMAIL.test(e)) return json({ error: `Email contact invalide : ${e}` }, 400);
         }
       }
-      if ((k === "newsletter_from_email" || k === "public_email") && v && !RE_EMAIL.test(v)) {
+      if ((k === "newsletter_from_email" || k === "public_email" || k === "contact_from_email" || k === "order_from_email") && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
       }
       if (k === "timezone" && v) {
@@ -401,8 +422,13 @@ export const PUT: APIRoute = async ({ request }) => {
         }
         v = JSON.stringify(puliti);
       }
-      if ((k === "reservation_from_email" || k === "reservation_notify_email") && v && !RE_EMAIL.test(v)) {
+      if (k === "reservation_from_email" && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
+      }
+      if (k === "reservation_notify_email" && v) {
+        for (const e of v.split(",").map((x) => x.trim()).filter(Boolean)) {
+          if (!RE_EMAIL.test(e)) return json({ error: `Email invalide : ${e}` }, 400);
+        }
       }
       resaPulito.push([k, v]);
     }
@@ -475,6 +501,9 @@ export const PUT: APIRoute = async ({ request }) => {
       return json({ error: "Informations générales non enregistrées" }, 500);
     }
   }
+  // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
+  // svuotare la cache di boot così il logo nuovo si vede al primo reload.
+  if (generalPulito.length > 0) cacheDel(CACHE_ADMIN_BOOT);
 
   for (const [key, value] of resaPulito) {
     const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
