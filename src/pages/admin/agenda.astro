@@ -212,6 +212,19 @@ const pubLangsJson = JSON.stringify({
       #overlay .m-cols { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: stretch; overflow: hidden; }
       #overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
       @media (max-width: 780px) { #overlay .m-cols { grid-template-columns: 1fr; overflow-y: auto; } #overlay .m-col { overflow: visible; } }
+      #overlay .m-foot { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; }
+      #overlay .m-foot .m-err { margin-right: auto; color: #ff6b6b; font-size: 0.85rem; }
+      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
+      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
+      .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+      .f-img-prev { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
+      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .f-img-prev svg { width: 22px; height: 22px; }
+      .ev-lang { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }
+      .ev-lang:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+      .ev-lang .f-lab { margin-top: 0.55rem; }
+      .ev-lang .f-lab:first-child { margin-top: 0; }
+      .ev-lang .f-input, .ev-lang .f-area { margin-bottom: 0.15rem; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -434,14 +447,16 @@ const pubLangsJson = JSON.stringify({
 
         <div class="m-cols">
         <div class="m-col">
-        <label class="f-lab" for="f-img">{t("ag.image")}</label>
-        <div class="f-row f-row--img">
-          <input type="text" class="f-input" id="f-img" placeholder={t("mk.imgUrlPh")} />
-          <button class="pill" id="f-upload" type="button">{t("mk.upload")}</button>
+        <label class="f-lab">{t("menu.photoOpt")}</label>
+        <div class="f-img-row">
+          <span class="f-img-prev" id="f-img-prev"></span>
+          <button class="pill" id="f-upload" type="button">{t("cli.uploadPhoto")}</button>
           <button class="pill" id="f-lib" type="button">{t("menu.library")}</button>
+          <button class="pill" id="f-img-del" type="button" style="display:none">{t("ord.remove")}</button>
+          <input type="hidden" id="f-img" />
           <input type="file" id="f-file" accept="image/*" style="display:none" />
+          <span class="f-hint" id="f-upload-state"></span>
         </div>
-        <p class="f-hint" id="f-upload-state"></p>
 
         <div id="f-langs"></div>
         </div>
@@ -482,16 +497,20 @@ const pubLangsJson = JSON.stringify({
           </span>
         </div>
         <p class="f-hint">{t("ag.rsvpHint")}</p>
-        </div>
-        </div>
-
-        <div class="m-foot">
-          <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
+        <div class="f-row" style="align-items:center;margin-top:1.1rem">
           <span class="sw-wrap">
             <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
             <span class="sw-lab">{t("menu.active")}</span>
           </span>
+        </div>
+        </div>
+        </div>
+
+        <div class="m-foot">
           <span class="m-err" id="m-err"></span>
+          <button class="m-cancel" id="m-draft" type="button">{t("menu.saveDraft")}</button>
+          <button class="m-cancel" id="m-cancel-btn" type="button">{t("common.cancel")}</button>
+          <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -640,6 +659,13 @@ const pubLangsJson = JSON.stringify({
         const mErr = document.getElementById("m-err") as HTMLSpanElement;
         const mSave = document.getElementById("m-save") as HTMLButtonElement;
         const fImg = document.getElementById("f-img") as HTMLInputElement;
+        const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
+        const fImgDel = document.getElementById("f-img-del") as HTMLButtonElement;
+        const PH_IMG_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+        function renderFotoPrev() {
+          fImgPrev.innerHTML = fImg.value ? `<img src="${esc(fImg.value)}" alt="" />` : PH_IMG_SVG;
+          fImgDel.style.display = fImg.value ? "" : "none";
+        }
         const fGallery = document.getElementById("f-gallery") as HTMLDivElement;
         const fGalState = document.getElementById("f-gal-state") as HTMLParagraphElement;
         const fDatemode = document.getElementById("f-datemode") as HTMLDivElement;
@@ -663,15 +689,17 @@ const pubLangsJson = JSON.stringify({
             .map((l) => {
               const phT = l === PUB.def ? esc(tr("ag.fTitlePh")) : "";
               const phB = l === PUB.def ? esc(tr("ag.textPh")) : "";
-              return `<label class="f-lab">${esc(tr("ag.fTitle"))} (${esc(langTag(l))})</label>` +
+              return `<div class="ev-lang">` +
+                `<label class="f-lab">${esc(tr("ag.fTitle"))} (${esc(langTag(l))})</label>` +
                 `<input type="text" class="f-input f-tx" data-lang="${l}" maxlength="160" placeholder="${phT}" />` +
                 `<label class="f-lab">${esc(tr("ag.text"))} (${esc(langTag(l))})</label>` +
-                `<textarea class="f-area f-bx" data-lang="${l}" placeholder="${phB}"></textarea>`;
+                `<textarea class="f-area f-bx" data-lang="${l}" placeholder="${phB}"></textarea>` +
+                `</div>`;
             })
             .join("");
         }
         costruisciCampiLinguaEvento();
-        const fUploadState = document.getElementById("f-upload-state") as HTMLParagraphElement;
+        const fUploadState = document.getElementById("f-upload-state") as HTMLElement;
 
         let editId: string | null = null;
         let galleria: string[] = [];
@@ -723,6 +751,7 @@ const pubLangsJson = JSON.stringify({
           fUploadState.textContent = "";
           fGalState.textContent = "";
           fImg.value = ev?.image_url ?? "";
+          renderFotoPrev();
           { const ti = ev?.title_i18n ?? {}; fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const l = inp.dataset.lang ?? ""; inp.value = ti[l] ?? (l === PUB.def ? (ev?.title ?? "") : ""); }); }
           { const bi = ev?.body_i18n ?? {}; fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const l = ta.dataset.lang ?? ""; ta.value = bi[l] ?? (l === PUB.def ? (ev?.body ?? "") : ""); }); }
           galleria = Array.isArray(ev?.gallery) ? [...ev!.gallery] : [];
@@ -873,6 +902,7 @@ const pubLangsJson = JSON.stringify({
           fUploadState.textContent = tr("cli.uploading");
           try {
             fImg.value = await caricaSuStorage(file);
+            renderFotoPrev();
             fUploadState.textContent = tr("mk.imgUploaded");
           } catch (err) {
             fUploadState.textContent = err instanceof Error ? err.message : tr("cli.uploadError");
@@ -911,6 +941,7 @@ const pubLangsJson = JSON.stringify({
           pickTarget = "main";
           window.dispatchEvent(new CustomEvent("imgpick:open"));
         });
+        fImgDel.addEventListener("click", () => { fImg.value = ""; renderFotoPrev(); });
         document.getElementById("f-gal-lib")!.addEventListener("click", () => {
           pickTarget = "gallery";
           window.dispatchEvent(new CustomEvent("imgpick:open"));
@@ -923,11 +954,13 @@ const pubLangsJson = JSON.stringify({
             renderGallery();
           } else {
             fImg.value = url;
+            renderFotoPrev();
           }
         });
 
         // ---------- Salvataggio ----------
-        mSave.addEventListener("click", async () => {
+        const mDraft = document.getElementById("m-draft") as HTMLButtonElement;
+        async function salvaEvento(draft: boolean) {
           mErr.textContent = "";
           const links = Array.from(fLinks.querySelectorAll<HTMLDivElement>(".lk-row"))
             .map((row) => ({
@@ -951,10 +984,11 @@ const pubLangsJson = JSON.stringify({
             date_end: dateMode() === "range" ? fDe.dataset.iso || null : null,
             links,
             rsvp: fRsvp.checked,
-            active: fActive.checked,
+            active: draft ? false : fActive.checked,
           };
           mSave.disabled = true;
-          mSave.classList.add("is-loading");
+          mDraft.disabled = true;
+          (draft ? mDraft : mSave).classList.add("is-loading");
           try {
             const res = await fetch("/api/admin/agenda", {
               method: editId ? "PUT" : "POST",
@@ -966,16 +1000,27 @@ const pubLangsJson = JSON.stringify({
               mErr.textContent = j.error ?? tr("ord.errShort");
               return;
             }
-            chiudiModale();
-            toast(editId ? tr("ag.updated") : tr("ag.created"));
-            await carica();
+            if (draft) {
+              if (!editId && j.id) editId = j.id;
+              toast(tr("menu.draftSaved"));
+              await carica();
+            } else {
+              chiudiModale();
+              toast(editId ? tr("ag.updated") : tr("ag.created"));
+              await carica();
+            }
           } catch {
             mErr.textContent = tr("res.connErr");
           } finally {
             mSave.disabled = false;
+            mDraft.disabled = false;
             mSave.classList.remove("is-loading");
+            mDraft.classList.remove("is-loading");
           }
-        });
+        }
+        mSave.addEventListener("click", () => salvaEvento(false));
+        mDraft.addEventListener("click", () => salvaEvento(true));
+        document.getElementById("m-cancel-btn")!.addEventListener("click", chiudiModale);
 
         document.getElementById("add-btn")!.addEventListener("click", () => apriModale(null));
         document.getElementById("m-close")!.addEventListener("click", chiudiModale);
