@@ -178,9 +178,12 @@ const t = adminT(lang);
       .nf-field input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.6rem 0.85rem; font-family: var(--font-body); font-size: 0.95rem; width: 100%; box-sizing: border-box; color-scheme: dark; }
       .nf-field input:focus { outline: none; border-color: var(--c-accent); }
       .nf-f-emails { flex: 0 0 300px; }
-      .nf-f-form { flex: 0 0 440px; display: flex; flex-direction: column; gap: .8rem; }
+      .nf-f-form { flex: 0 0 600px; max-width: 100%; display: flex; flex-direction: column; gap: .8rem; }
       .cf-sender { display: flex; gap: .7rem; }
       .cf-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
+      /* Label mittente su 5 lingue: riserva 2 righe cosi' i due input
+         restano allineati anche quando un label lungo va a capo. */
+      .cf-col label { min-height: 2.5em; line-height: 1.25; display: flex; align-items: flex-end; }
       .cf-hint { font-size: .72rem; color: var(--c-muted); line-height: 1.4; margin-top: -.3rem; }
       .dyn-lbl { margin-bottom: 0.55rem; }
       @media (max-width: 900px) { .nf-f-form { flex: 1 1 100%; } .cf-sender { flex-wrap: wrap; } .cf-col { flex: 1 1 100%; } }
