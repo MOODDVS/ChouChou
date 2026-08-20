@@ -301,6 +301,7 @@ const pubLangsJson = JSON.stringify({
       .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
       .mn-corso-nome { flex: 1; }
       .mn-corso-del { flex-shrink: 0; }
+      .sm-draft { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: 0.1rem 0.5rem; vertical-align: middle; margin-left: 0.4rem; }
 
       /* Modale piatto a 2 colonne + tab */
       .modal-dish { max-width: 940px; }
@@ -772,6 +773,7 @@ const pubLangsJson = JSON.stringify({
         </div>
         <div class="m-actions">
           <span class="m-msg" id="mn-msg"></span>
+          <button class="m-cancel" id="mn-draft">{t("menu.saveDraft")}</button>
           <button class="m-cancel" id="mn-cancel">{t("common.cancel")}</button>
           <button class="m-save" id="mn-save">{t("common.save")}</button>
         </div>
@@ -2088,7 +2090,7 @@ const pubLangsJson = JSON.stringify({
         courses: { name: string; items: string[] }[];
         price_cents: number; wine_supplement_cents?: number | null;
         date_from: string | null; date_to: string | null;
-        active: boolean; hide_items?: boolean | null; sort_order?: number;
+        active: boolean; hide_items?: boolean | null; is_draft?: boolean | null; sort_order?: number;
       };
       let setMenus: SetMenu[] = [];
       let setMenusPronto = false;
@@ -2137,7 +2139,7 @@ const pubLangsJson = JSON.stringify({
             <div class="lu-main" style="display:flex;align-items:center;gap:0.7rem">
               ${foto}
               <div>
-                <div class="lu-name">${esc(m.name)}</div>
+                <div class="lu-name">${esc(m.name)}${m.is_draft ? ` <span class="sm-draft">${tr("menu.draftBadge")}</span>` : ""}</div>
                 <div class="lu-dates">${datesLabelGen(m.date_from, m.date_to)}</div>
               </div>
             </div>
@@ -2179,6 +2181,7 @@ const pubLangsJson = JSON.stringify({
       const mnHide = document.getElementById("mn-hide-items") as HTMLInputElement;
       const mnCorsiEl = document.getElementById("mn-corsi") as HTMLDivElement;
       const mnSave = document.getElementById("mn-save") as HTMLButtonElement;
+      const mnDraft = document.getElementById("mn-draft") as HTMLButtonElement;
       const mnImgPrev = document.getElementById("mn-img-prev") as HTMLSpanElement;
       const mnImgUp = document.getElementById("mn-img-up") as HTMLButtonElement;
       const mnImgDel = document.getElementById("mn-img-del") as HTMLButtonElement;
@@ -2349,10 +2352,12 @@ const pubLangsJson = JSON.stringify({
         menuEditId = null;
       }
 
-      async function salvaSetMenu() {
+      async function salvaSetMenu(draft = false) {
         mnMsg.textContent = "";
-        const prezzo = Math.round(parseFloat((mnPrice.value || "").replace(",", ".")) * 100);
-        if (!Number.isFinite(prezzo) || prezzo <= 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
+        const prezzoRaw = (mnPrice.value || "").replace(",", ".").trim();
+        let prezzo = prezzoRaw ? Math.round(parseFloat(prezzoRaw) * 100) : 0;
+        if (!Number.isFinite(prezzo) || prezzo < 0) prezzo = 0;
+        if (!draft && prezzo <= 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
         let wine: number | null = null;
         if (mnWine.value.trim()) {
           wine = Math.round(parseFloat(mnWine.value.replace(",", ".")) * 100);
@@ -2361,7 +2366,7 @@ const pubLangsJson = JSON.stringify({
         const courses = mnCorsi
           .map((c) => ({ name: c.name.trim(), items: c.items }))
           .filter((c) => c.name || c.items.length);
-        if (!courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
+        if (!draft && !courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
         const dFrom = mnFrom.dataset.iso ?? "";
         const dTo = mnTo.dataset.iso ?? "";
         if (dFrom && dTo && dFrom > dTo) { mnMsg.textContent = tr("menu.endBeforeStart"); return; }
@@ -2373,8 +2378,9 @@ const pubLangsJson = JSON.stringify({
           wine_supplement_cents: wine,
           date_from: dFrom,
           date_to: dTo,
-          active: mnActive.checked,
+          active: draft ? false : mnActive.checked,
           hide_items: mnHide.checked,
+          is_draft: draft,
           image_url: mnImgUrl,
           name_i18n: (() => {
             const o: Record<string, string> = { [PUB.def]: nomeDef || tr("menu.addMenuShort") };
@@ -2395,7 +2401,8 @@ const pubLangsJson = JSON.stringify({
         };
         if (menuEditId) body.id = menuEditId;
         mnSave.disabled = true;
-        mnSave.classList.add("is-loading");
+        mnDraft.disabled = true;
+        (draft ? mnDraft : mnSave).classList.add("is-loading");
         try {
           const res = await fetch("/api/admin/set-menus", {
             method: menuEditId ? "PATCH" : "POST",
@@ -2404,7 +2411,13 @@ const pubLangsJson = JSON.stringify({
           });
           const j = await res.json();
           if (!res.ok) { mnMsg.textContent = j.error ?? tr("res.saveError"); }
-          else {
+          else if (draft) {
+            // Bozza: resta aperto e continua a modificare lo STESSO record
+            const nuovo = j.menu as SetMenu | undefined;
+            if (nuovo?.id) { menuEditId = nuovo.id; mnTitle.textContent = tr("menu.editMenu"); }
+            toast(tr("menu.draftSaved"));
+            void caricaSetMenus();
+          } else {
             toast(menuEditId ? tr("menu.setMenuModified") : tr("menu.setMenuAdded"));
             chiudiMenuModale();
             await caricaSetMenus();
@@ -2413,14 +2426,17 @@ const pubLangsJson = JSON.stringify({
           mnMsg.textContent = tr("common.netErr");
         } finally {
           mnSave.disabled = false;
+          mnDraft.disabled = false;
           mnSave.classList.remove("is-loading");
+          mnDraft.classList.remove("is-loading");
         }
       }
 
       (document.getElementById("mn-close") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
       (document.getElementById("mn-cancel") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
       mnOverlay.addEventListener("click", (e) => { if (e.target === mnOverlay) chiudiMenuModale(); });
-      mnSave.addEventListener("click", salvaSetMenu);
+      mnSave.addEventListener("click", () => salvaSetMenu(false));
+      mnDraft.addEventListener("click", () => salvaSetMenu(true));
 
       // Azioni sulle card menù (delega)
       listEl.addEventListener("click", async (e) => {

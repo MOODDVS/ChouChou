@@ -16,6 +16,7 @@ create table if not exists set_menus (
   date_to date,
   active boolean not null default true,
   hide_items boolean not null default false,
+  is_draft boolean not null default false,
   sort_order int not null default 0,
   created_at timestamptz not null default now()
 );

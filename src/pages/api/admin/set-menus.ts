@@ -10,8 +10,14 @@ export const prerender = false;
 // PATCH        → aggiorna { id, ...campi presenti }
 // DELETE ?id=  → elimina (il client la invia come POST + X-Method-Override)
 
-const SELECT =
+const SELECT_BASE =
   "id, name, name_i18n, desc_i18n, image_url, courses, price_cents, wine_supplement_cents, date_from, date_to, active, hide_items, sort_order, created_at";
+const SELECT = SELECT_BASE + ", is_draft";
+
+/** true se l'errore Supabase riguarda la colonna is_draft (migrazione non lanciata). */
+function mancaColonna(err: { message?: string } | null): boolean {
+  return !!err?.message && /is_draft/i.test(err.message);
+}
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
 
@@ -68,11 +74,18 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("set_menus")
     .select(SELECT)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
+  if (error && mancaColonna(error)) {
+    ({ data, error } = await supabaseAdmin
+      .from("set_menus")
+      .select(SELECT_BASE)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }));
+  }
   if (error) return json({ menus: [], missing: true });
   return json({ menus: data ?? [] });
 };
@@ -109,9 +122,14 @@ export const POST: APIRoute = async ({ request }) => {
     date_to: dt,
     active: body.active === undefined ? true : Boolean(body.active),
     hide_items: Boolean(body.hide_items),
+    is_draft: Boolean(body.is_draft),
     sort_order: pulisciCents(body.sort_order, 0) ?? 0,
   };
-  const { data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT).single();
+  let { data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT).single();
+  if (error && mancaColonna(error)) {
+    delete riga.is_draft;
+    ({ data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT_BASE).single());
+  }
   if (error || !data) {
     return json({ error: "Création impossible — migration supabase/set_menus.sql à lancer ?" }, 500);
   }
@@ -158,15 +176,26 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   if (body.active !== undefined) campi.active = Boolean(body.active);
   if (body.hide_items !== undefined) campi.hide_items = Boolean(body.hide_items);
+  if (body.is_draft !== undefined) campi.is_draft = Boolean(body.is_draft);
   if (body.sort_order !== undefined) campi.sort_order = pulisciCents(body.sort_order, 0) ?? 0;
   if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("set_menus")
     .update(campi)
     .eq("id", id)
     .select(SELECT)
     .single();
+  if (error && mancaColonna(error)) {
+    const campiSenza = { ...campi };
+    delete campiSenza.is_draft;
+    ({ data, error } = await supabaseAdmin
+      .from("set_menus")
+      .update(campiSenza)
+      .eq("id", id)
+      .select(SELECT_BASE)
+      .single());
+  }
   if (error || !data) return json({ error: "Modification impossible" }, 500);
   return json({ menu: data });
 };
