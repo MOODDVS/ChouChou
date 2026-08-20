@@ -938,7 +938,7 @@ const pubLangsJson = JSON.stringify({
             html += arr.map((i) => itemHTML(i)).join("");
           } else {
             const rel = (c.depth ?? 0) - (activeCat.depth ?? 0); // 1..3
-            html += `<div class="sub-head" data-cat="${esc(c.name)}" data-id="${c.id}" data-parent="${c.parent_id ?? ""}" data-depth="${c.depth ?? 0}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="i-btn s-drag" title="${tr("menu.dragReorder")}">\u283F</span><span class="sub-arrow">${"\u21B3".repeat(rel)}</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
+            html += `<div class="sub-head" data-cat="${esc(c.name)}" data-id="${c.id}" data-parent="${c.parent_id ?? ""}" data-depth="${c.depth ?? 0}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="i-btn s-drag" title="${tr("menu.dragReorder")}">\u283F</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
             html += arr.map((i) => itemHTML(i, rel * 1.3)).join("");
           }
         }
