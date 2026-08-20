@@ -852,6 +852,8 @@ const DIZIONARIO: Dizionario = {
   "menu.active":        { fr: "Actif", en: "Active", it: "Attivo", nl: "Actief", es: "Activo" },
   "menu.categories":    { fr: "Catégories", en: "Categories", it: "Categorie", nl: "Categorieën", es: "Categorías" },
   "menu.addDishShort":  { fr: "Ajou. plat", en: "Add dish", it: "Agg. piatto", nl: "Gerecht toev.", es: "Añ. plato" },
+  "menu.itemFood":      { fr: "Plat", en: "Dish", it: "Piatto", nl: "Gerecht", es: "Plato" },
+  "menu.itemDrink":     { fr: "Boisson", en: "Drink", it: "Bevanda", nl: "Drank", es: "Bebida" },
   "menu.addLunchShort": { fr: "Ajou. lunch", en: "Add lunch", it: "Agg. lunch", nl: "Lunch toev.", es: "Añ. lunch" },
   "menu.algShort":      { fr: "Alg.", en: "Alg.", it: "Alg.", nl: "Alg.", es: "Alg." },
   "menu.atTable":       { fr: "à table", en: "at table", it: "al tavolo", nl: "aan tafel", es: "en mesa" },

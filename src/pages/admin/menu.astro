@@ -1588,7 +1588,7 @@ const pubLangsJson = JSON.stringify({
         if (sec) sec.style.display = kindFiltro === "lunch" || kindFiltro === "menus" ? "none" : "";
         if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ " + tr("menu.addLunchShort"); }
         else if (kindFiltro === "menus") { add.style.display = "none"; }
-        else { add.style.display = ""; add.textContent = "+ " + tr("menu.addDishShort"); }
+        else { add.style.display = ""; add.textContent = "+ " + tr(kindFiltro === "drink" ? "menu.itemDrink" : "menu.itemFood"); }
       }
 
       // ---------- Modale lunch ----------
