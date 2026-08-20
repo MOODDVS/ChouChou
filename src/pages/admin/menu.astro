@@ -185,15 +185,20 @@ const pubLangsJson = JSON.stringify({
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
       .cat-count { color: var(--c-muted); font-size: 0.8rem; }
       .sub-head {
-        display: flex; align-items: center; gap: 0.5rem;
-        margin: 0.7rem 0 0.5rem; padding: 0.35rem 0.7rem;
-        border-left: 3px solid var(--c-accent);
-        background: color-mix(in srgb, var(--c-accent) 9%, transparent);
-        border-radius: 0 8px 8px 0;
+        display: flex; align-items: center; gap: 0.55rem; width: fit-content;
+        margin: 0.7rem 0 0.5rem; padding: 0.4rem 1rem 0.4rem 0.6rem;
+        background: #143d2b; border: 1px solid #2c6f4c; color: #9fe0bb;
+        border-radius: 999px; user-select: none;
+        transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
       }
-      .sub-head .sub-arrow { color: var(--c-accent); font-weight: 700; letter-spacing: -2px; }
-      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-accent); }
-      .sub-head .cat-count { margin-left: auto; }
+      .sub-head.dragging { opacity: 0.6; }
+      .sub-head.drop-target { background: #1c5a3f; border-color: #46a860; box-shadow: 0 0 0 2px rgba(70,168,96,0.35); }
+      .sub-head .s-drag { color: #6bbf90; cursor: grab; font-size: 1.05rem; }
+      .sub-head .s-drag:active { cursor: grabbing; }
+      .sub-head .sub-arrow { color: #6bbf90; font-weight: 700; letter-spacing: -2px; }
+      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: #b6ecce; }
+      .sub-head .cat-count { color: #6bbf90; font-size: 0.78rem; margin-left: 0.15rem; }
+      #list[data-mode="search"] .sub-head .s-drag { display: none; }
 
       .item {
         display: flex; align-items: center; gap: 0.9rem;
@@ -930,7 +935,7 @@ const pubLangsJson = JSON.stringify({
             html += arr.map(itemHTML).join("");
           } else {
             const rel = (c.depth ?? 0) - (activeCat.depth ?? 0); // 1..3
-            html += `<div class="sub-head" data-cat="${esc(c.name)}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="sub-arrow">${"\u21B3".repeat(rel)}</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
+            html += `<div class="sub-head" data-cat="${esc(c.name)}" data-id="${c.id}" data-parent="${c.parent_id ?? ""}" data-depth="${c.depth ?? 0}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="i-btn s-drag" title="${tr("menu.dragReorder")}">\u283F</span><span class="sub-arrow">${"\u21B3".repeat(rel)}</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
             html += arr.map(itemHTML).join("");
           }
         }
@@ -2019,10 +2024,28 @@ const pubLangsJson = JSON.stringify({
           }
         });
 
-        // Drag & drop dei piatti nella sezione attiva (mouse + dito)
+        // Drag & drop: piatti (.i-drag) e pillole sotto-categoria (.s-drag)
         let dragItem: HTMLElement | null = null;
+        let dragSub: HTMLElement | null = null;
+        let dragSubBlock: HTMLElement[] = [];
         listEl.addEventListener("pointerdown", (e) => {
           if (listEl.dataset.mode === "search") return;
+          // Pillola sotto-categoria: trascina l'intero blocco (pillola + suoi piatti/sottolivelli)
+          const sHandle = (e.target as HTMLElement).closest(".s-drag");
+          if (sHandle && sHandle.closest(".sub-head")) {
+            e.preventDefault();
+            dragSub = sHandle.closest(".sub-head") as HTMLElement;
+            const d0 = Number(dragSub.dataset.depth ?? "1");
+            dragSubBlock = [dragSub];
+            let el = dragSub.nextElementSibling as HTMLElement | null;
+            while (el) {
+              if (el.classList.contains("sub-head") && Number(el.dataset.depth ?? "0") <= d0) break;
+              dragSubBlock.push(el);
+              el = el.nextElementSibling as HTMLElement | null;
+            }
+            dragSubBlock.forEach((r) => r.classList.add("dragging"));
+            return;
+          }
           const handle = (e.target as HTMLElement).closest(".i-drag");
           if (!handle) return;
           e.preventDefault();
@@ -2030,21 +2053,73 @@ const pubLangsJson = JSON.stringify({
           dragItem.classList.add("dragging");
         });
         document.addEventListener("pointermove", (e) => {
+          // Riordino sotto-categoria: solo tra sorelle (stesso parent + stesso livello)
+          if (dragSub) {
+            e.preventDefault();
+            const d0 = Number(dragSub.dataset.depth ?? "1");
+            const pid = dragSub.dataset.parent ?? "";
+            const heads = [...listEl.querySelectorAll<HTMLElement>(".sub-head")].filter(
+              (h) => !dragSubBlock.includes(h) && Number(h.dataset.depth ?? "0") === d0 && (h.dataset.parent ?? "") === pid
+            );
+            const dopo = heads.find((h) => { const r = h.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+            for (const r of dragSubBlock) { if (dopo) listEl.insertBefore(r, dopo); else listEl.appendChild(r); }
+            return;
+          }
           if (!dragItem) return;
           e.preventDefault();
-          const rows = [...listEl.querySelectorAll<HTMLElement>(".item")].filter((r) => r !== dragItem);
-          const dopo = rows.find((r) => {
-            const rect = r.getBoundingClientRect();
-            return e.clientY < rect.top + rect.height / 2;
-          });
-          if (dopo) listEl.insertBefore(dragItem!, dopo);
-          else listEl.appendChild(dragItem!);
+          const conf = [...listEl.querySelectorAll<HTMLElement>(".item, .sub-head")].filter((r) => r !== dragItem);
+          const dopo = conf.find((r) => { const rect = r.getBoundingClientRect(); return e.clientY < rect.top + rect.height / 2; });
+          if (dopo) listEl.insertBefore(dragItem!, dopo); else listEl.appendChild(dragItem!);
+          // evidenzia la pillola del gruppo di destinazione
+          let target: HTMLElement | null = null;
+          for (const el of [...listEl.children] as HTMLElement[]) {
+            if (el === dragItem) break;
+            if (el.classList.contains("sub-head")) target = el;
+          }
+          listEl.querySelectorAll(".sub-head.drop-target").forEach((x) => x.classList.remove("drop-target"));
+          if (target) target.classList.add("drop-target");
         });
         document.addEventListener("pointerup", async () => {
+          // === Fine drag di una SOTTO-CATEGORIA ===
+          if (dragSub) {
+            dragSubBlock.forEach((r) => r.classList.remove("dragging"));
+            dragSub = null; dragSubBlock = [];
+            const nuoviId = [...listEl.querySelectorAll<HTMLElement>(".sub-head")].map((h) => h.dataset.id!);
+            const activeCat = cats.find((c) => c.name === attiva);
+            if (!activeCat) return;
+            const perId = new Map(cats.map((c) => [c.id, c]));
+            const isDesc = (rootId: string, id: string): boolean => {
+              let c = perId.get(id);
+              let g = 0;
+              while (c && c.parent_id && g < 12) { if (c.parent_id === rootId) return true; c = perId.get(c.parent_id); g++; }
+              return false;
+            };
+            const rootIdx = cats.findIndex((c) => c.id === activeCat.id);
+            let end = rootIdx + 1;
+            while (end < cats.length && isDesc(activeCat.id, cats[end].id)) end++;
+            const descById = new Map(cats.slice(rootIdx + 1, end).map((c) => [c.id, c]));
+            const newDesc = nuoviId.map((id) => descById.get(id)).filter(Boolean) as Cat[];
+            if (newDesc.length !== descById.size) { renderList(); return; }
+            const attualeDesc = cats.slice(rootIdx + 1, end).map((c) => c.id);
+            if (JSON.stringify(attualeDesc) === JSON.stringify(nuoviId)) return; // nessun cambiamento
+            const newOrder = [...cats.slice(0, rootIdx + 1), ...newDesc, ...cats.slice(end)];
+            const nodes = newOrder.map((c) => ({ id: c.id, parent_id: c.parent_id ?? null }));
+            try {
+              const r = await fetch("/api/admin/categories", { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ nodes }) });
+              if (!r.ok) throw new Error();
+              toast(tr("menu.orderSaved"));
+              await caricaTutto();
+            } catch {
+              toast(tr("menu.reorderFailedShort"), true);
+              renderList();
+            }
+            return;
+          }
+          // === Fine drag di un PIATTO ===
           if (!dragItem) return;
           dragItem.classList.remove("dragging");
           dragItem = null;
-          // Gruppo (categoria) di ogni piatto = sotto-intestazione precedente nel DOM
+          listEl.querySelectorAll(".sub-head.drop-target").forEach((x) => x.classList.remove("drop-target"));
           const groups = new Map<string, string[]>();
           let cur = attiva;
           for (const el of [...listEl.children] as HTMLElement[]) {
@@ -2064,12 +2139,10 @@ const pubLangsJson = JSON.stringify({
           }
           if (!cambiato) return;
           try {
-            // 1) sposta i piatti che hanno cambiato (sotto-)categoria
             for (const m of moves) {
               const r = await fetch("/api/admin/menu", { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ id: m.id, category: m.cat }) });
               if (!r.ok) throw new Error();
             }
-            // 2) riordina ogni gruppo coinvolto
             for (const [cat, ids] of groups) {
               const r = await fetch("/api/admin/menu", { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ category: cat, order: ids }) });
               if (!r.ok) throw new Error();
