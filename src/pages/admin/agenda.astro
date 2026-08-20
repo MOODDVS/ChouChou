@@ -518,17 +518,15 @@ const pubLangsJson = JSON.stringify({
           <label class="f-lab" for="f-rsvp-max">{t("ag.rsvpMax")}</label>
           <input type="number" class="f-input" id="f-rsvp-max" min="1" placeholder={t("ag.rsvpMaxPh")} />
 
-          <div class="f-row" style="align-items:center;margin-top:1.2rem">
-            <span class="sw-wrap">
-              <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
-              <span class="sw-lab">{t("menu.active")}</span>
-            </span>
-          </div>
         </div>
         </div>
         </div>
 
         <div class="m-foot">
+          <span class="sw-wrap">
+            <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
+            <span class="sw-lab">{t("menu.active")}</span>
+          </span>
           <span class="m-err" id="m-err"></span>
           <button class="m-cancel" id="m-draft" type="button">{t("menu.saveDraft")}</button>
           <button class="m-cancel" id="m-cancel-btn" type="button">{t("common.cancel")}</button>
