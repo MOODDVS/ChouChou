@@ -153,6 +153,19 @@
   .menu-card{min-height:360px;border-radius:18px;border:1px solid rgba(247,241,230,.18);background:rgba(18,14,12,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center}
   .menu-ph{opacity:.28;color:var(--cream)}
   .menu-ph svg{width:52px;height:52px}
+  .menu-card.filled{display:block;place-items:initial;min-height:0;padding:0;overflow:hidden;background:rgba(18,14,12,.55);border:1px solid var(--line)}
+  .mc-photo{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:rgba(247,241,230,.06)}
+  .mc-photo-ph{aspect-ratio:16/9}
+  .mc-body{padding:1.5rem 1.6rem}
+  .mc-title{font-family:var(--disp);font-size:1.9rem;color:var(--accent);margin:0 0 .35rem}
+  .mc-dates{color:var(--cream);font-weight:600;font-size:.92rem;margin-bottom:1.1rem}
+  .mc-desc{color:var(--cream);opacity:.85;line-height:1.55;margin:0 0 1.1rem}
+  .mc-course{margin-bottom:.85rem}
+  .mc-course-t{font-family:var(--disp);color:var(--accent);font-size:1.05rem;letter-spacing:.02em;margin-bottom:.1rem}
+  .mc-course-p{color:var(--cream);line-height:1.5}
+  .mc-price{display:flex;align-items:center;justify-content:space-between;gap:1rem;border-top:1px solid var(--line);padding-top:.9rem;margin-top:1.1rem;font-family:var(--disp);color:var(--cream)}
+  .mc-price b{font-size:1.35rem;color:var(--cream)}
+  .mc-wine{display:flex;align-items:center;justify-content:space-between;gap:1rem;color:var(--cream);opacity:.85;margin-top:.4rem}
   .ir-grid{display:grid;grid-template-columns:0.45fr 1fr;gap:2.8rem 8.5rem;align-items:start}
   @media(max-width:900px){.ir-grid{grid-template-columns:1fr}}
   .ir-info{display:flex;flex-direction:column;gap:1.5rem}
@@ -456,7 +469,7 @@
       <h2 class="sec" data-k="menus.h">Nos menus.</h2>
       <p class="sub" style="margin:0 auto" data-k="menus.p">Deux formules pensées pour toutes les envies. À découvrir très bientôt.</p>
     </div>
-    <div class="menus-grid reveal">
+    <div class="menus-grid reveal" id="menusGrid">
       <div class="menu-card"><span class="menu-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6M9 9h2"/></svg></span></div>
       <div class="menu-card"><span class="menu-ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6M9 9h2"/></svg></span></div>
     </div>
@@ -736,6 +749,50 @@ function renderFeat(){
  });
 }
 
+/* ---- menù fissi (set menus) ---- */
+let SETMENUS=[];
+function smDates(df,dt){
+ const f=x=>x.split("-").reverse().join("/");
+ const W={fr:["Du","au","Jusqu'au","Dès le"],it:["Dal","al","Fino al","Dal"],en:["From","to","Until","From"]};
+ const w=W[LANG]||W.fr;
+ if(df&&dt) return `${w[0]} ${f(df)} ${w[1]} ${f(dt)}`;
+ if(dt) return `${w[2]} ${f(dt)}`;
+ if(df) return `${w[3]} ${f(df)}`;
+ return "";
+}
+function renderSetMenus(){
+ const g=document.getElementById("menusGrid"); if(!g) return;
+ if(!SETMENUS.length) return; // nessun menù: resta il placeholder
+ const pick=(i18n,fb)=> (i18n&&i18n[LANG])||fb||"";
+ const wineLbl={fr:"Supplément vins",it:"Supplemento vini",en:"Wine pairing"}[LANG]||"Supplément vins";
+ g.innerHTML=SETMENUS.map(m=>{
+  const nome=pick(m.name_i18n,m.name);
+  const desc=pick(m.desc_i18n,"");
+  const dates=smDates(m.date_from,m.date_to);
+  const photo=m.image_url?`<img class="mc-photo" src="${m.image_url}" alt="">`:`<div class="mc-photo mc-photo-ph"></div>`;
+  const courses=(m.courses||[]).map(c=>{
+   const sep=c.mode==="and"?" + ":" / ";
+   const pieces=(c.pieces||[]).map(p=>pick(p.name_i18n,p.name)).filter(Boolean).join(sep);
+   const titolo=pick(c.title_i18n,c.title);
+   if(!titolo && !pieces) return "";
+   return `<div class="mc-course">${titolo?`<div class="mc-course-t">${titolo}</div>`:""}${pieces?`<div class="mc-course-p">${pieces}</div>`:""}</div>`;
+  }).join("");
+  const vino=(m.wine_supplement_cents!=null)?`<div class="mc-wine"><span>${wineLbl}</span><span>+${money(m.wine_supplement_cents/100)}</span></div>`:"";
+  return `<div class="menu-card filled">${photo}<div class="mc-body">
+   <div class="mc-title">${nome}</div>
+   ${dates?`<div class="mc-dates">${dates}</div>`:""}
+   ${desc?`<p class="mc-desc">${desc}</p>`:""}
+   ${courses}
+   <div class="mc-price"><span>${nome}</span><b>${money(m.price_cents/100)}</b></div>
+   ${vino}
+  </div></div>`;
+ }).join("");
+}
+async function caricaSetMenus(){
+ try{ const r=await fetch("/api/set-menus"); const j=await r.json(); SETMENUS=j.menus||[]; }catch(e){ SETMENUS=[]; }
+ renderSetMenus();
+}
+
 /* ---- i18n apply ---- */
 function applyLang(){
  document.documentElement.lang=LANG;
@@ -747,7 +804,7 @@ function applyLang(){
  // powered has bold child -> restore
  document.querySelectorAll(".powered").forEach(el=>{el.innerHTML=tr("powered")+"<b>RestoHub</b>";});
  {const ph={coName:"co.name",coSurname:"co.surname",coPhone:"co.phone",coEmail:"co.email"};for(const id in ph){const el=document.getElementById(id);if(el)el.setAttribute("placeholder",tr(ph[id]));}}
- renderMenu(curCat);renderFeat();renderCart();renderOrari();renderSettimana();
+ renderMenu(curCat);renderFeat();renderCart();renderOrari();renderSettimana();renderSetMenus();
  document.querySelectorAll("#lang button").forEach(b=>b.classList.toggle("on",b.dataset.l===LANG));
  caricaPopup();
 }
@@ -1048,6 +1105,7 @@ function maybeShowPopup(){
 /* init */
 applyLang();
 caricaMenu();
+caricaSetMenus();
 caricaOrari();
 loadReviews();
 </script>
