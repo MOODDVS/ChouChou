@@ -187,8 +187,8 @@ const pubLangsJson = JSON.stringify({
       .sub-head {
         display: flex; align-items: center; gap: 0.6rem;
         margin: 0.55rem 0 0.45rem; padding: 0.55rem 1rem;
-        background: color-mix(in srgb, var(--c-accent) 30%, var(--c-bg));
-        border: 1px solid color-mix(in srgb, var(--c-accent) 60%, transparent);
+        background: color-mix(in srgb, var(--c-card) 78%, #fff);
+        border: 1px solid color-mix(in srgb, #fff 14%, transparent);
         border-radius: 12px; color: #fff; user-select: none;
         transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
       }
@@ -795,7 +795,7 @@ const pubLangsJson = JSON.stringify({
         if (it.is_suggestion) b += `<span class="i-badge" title="${tr("menu.suggestion")}">👨‍🍳</span>`;
         return b ? `<span class="i-badges">${b}</span>` : "";
       }
-      function itemHTML(it: Item): string {
+      function itemHTML(it: Item, indent = 0): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
         // Colonna allergeni: sempre presente (anche vuota) così le righe restano allineate
         const alg = `<span class="i-alg">${it.allergens?.length ? `${tr("menu.algShort")} ${it.allergens.join(",")}` : ""}</span>`;
@@ -804,7 +804,7 @@ const pubLangsJson = JSON.stringify({
           ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
           : `<span class="i-thumb i-thumb--ph" title="${tr("menu.noPhoto")}">${ICO_IMG}</span>`;
         return `
-          <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}">
+          <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}"${indent ? ` style="margin-left:${indent}rem"` : ""}>
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
             <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
@@ -916,7 +916,7 @@ const pubLangsJson = JSON.stringify({
             .map(
               ([nome, arr]) => `
             <div class="cat-head"><span class="cat-name">${esc(nome)}</span><span class="cat-count">${arr.length}</span></div>
-            ${arr.map(itemHTML).join("")}`
+            ${arr.map((i) => itemHTML(i)).join("")}`
             )
             .join("");
           return;
@@ -935,11 +935,11 @@ const pubLangsJson = JSON.stringify({
         for (const c of sottoAlbero) {
           const arr = dishesDi(c.name);
           if (c.id === activeCat.id) {
-            html += arr.map(itemHTML).join("");
+            html += arr.map((i) => itemHTML(i)).join("");
           } else {
             const rel = (c.depth ?? 0) - (activeCat.depth ?? 0); // 1..3
             html += `<div class="sub-head" data-cat="${esc(c.name)}" data-id="${c.id}" data-parent="${c.parent_id ?? ""}" data-depth="${c.depth ?? 0}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="i-btn s-drag" title="${tr("menu.dragReorder")}">\u283F</span><span class="sub-arrow">${"\u21B3".repeat(rel)}</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
-            html += arr.map(itemHTML).join("");
+            html += arr.map((i) => itemHTML(i, rel * 1.3)).join("");
           }
         }
         if (!html) html = `<p class="state">${tr("menu.sectionEmpty")}</p>`;
