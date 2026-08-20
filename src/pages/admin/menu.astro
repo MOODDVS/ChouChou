@@ -944,10 +944,27 @@ const pubLangsJson = JSON.stringify({
         listEl.innerHTML = html;
       }
 
+      // Ordina le sezioni in profondità (depth-first) rispettando sort_order:
+      // robusto sia con i dati SSR (ordine piatto) sia con l'API (già ad albero).
+      function ordinaAlbero(arr: Cat[]): Cat[] {
+        const figli = new Map<string, Cat[]>();
+        for (const c of arr) {
+          const k = c.parent_id ?? "";
+          if (!figli.has(k)) figli.set(k, []);
+          figli.get(k)!.push(c);
+        }
+        for (const v of figli.values()) v.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+        const out: Cat[] = [];
+        const visita = (pid: string) => { for (const c of figli.get(pid) ?? []) { out.push(c); visita(c.id); } };
+        visita("");
+        // eventuali orfani (parent non presente): appendili in coda
+        if (out.length < arr.length) for (const c of arr) if (!out.includes(c)) out.push(c);
+        return out;
+      }
       async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
         if (datiIniziali) {
           // Dati già pronti dal server (SSR): niente fetch.
-          cats = datiIniziali.categories ?? [];
+          cats = ordinaAlbero(datiIniziali.categories ?? []);
           items = datiIniziali.items ?? [];
         } else {
           const [rc, ri] = await Promise.all([
@@ -958,7 +975,7 @@ const pubLangsJson = JSON.stringify({
             stateEl.textContent = tr("sup.load.error");
             return false;
           }
-          cats = ((await rc.json()).categories as Cat[]) ?? [];
+          cats = ordinaAlbero(((await rc.json()).categories as Cat[]) ?? []);
           items = ((await ri.json()).items as Item[]) ?? [];
         }
         if (!attiva || !cats.some((c) => c.name === attiva)) {
