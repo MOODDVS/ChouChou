@@ -608,10 +608,12 @@ const pubLangsJson = JSON.stringify({
           if (error || !data.user) window.location.replace("/admin/login");
         });
 
-        const headers = {
-          Authorization: `Bearer ${session.access_token ?? ""}`,
-          "Content-Type": "application/json",
-        };
+        // Token fresco (la sessione si auto-rinnova): evita 401 "Non autorisé"
+        // se la pagina resta aperta oltre la scadenza dell'access token.
+        async function authFresh(): Promise<Record<string, string>> {
+          const { data } = await supabaseBrowser.auth.getSession();
+          return { Authorization: `Bearer ${data.session?.access_token ?? session.access_token ?? ""}`, "Content-Type": "application/json" };
+        }
 
         let toastTimer: number | undefined;
         function toast(msg: string, isErr = false) {
@@ -665,7 +667,7 @@ const pubLangsJson = JSON.stringify({
 
         async function carica() {
           try {
-            const res = await fetch("/api/admin/agenda", { headers });
+            const res = await fetch("/api/admin/agenda", { headers: await authFresh() });
             if (!res.ok) throw new Error();
             eventi = ((await res.json()) as { events: Evento[] }).events;
             stateEl.style.display = "none";
@@ -923,7 +925,7 @@ const pubLangsJson = JSON.stringify({
           const base64 = await fileToB64(foto);
           const resp = await fetch("/api/admin/upload", {
             method: "POST",
-            headers,
+            headers: await authFresh(),
             body: JSON.stringify({ filename: foto.name, data: base64, bucket: "popups", folder: "agenda" }),
           });
           const j = await resp.json();
@@ -1036,7 +1038,7 @@ const pubLangsJson = JSON.stringify({
           try {
             const res = await fetch("/api/admin/agenda", {
               method: editId ? "PUT" : "POST",
-              headers,
+              headers: await authFresh(),
               body: JSON.stringify(payload),
             });
             const j = await res.json();
@@ -1099,7 +1101,7 @@ const pubLangsJson = JSON.stringify({
             try {
               const res = await fetch("/api/admin/agenda?id=" + encodeURIComponent(id), {
                 method: "POST",
-                headers: { ...headers, "X-Method-Override": "DELETE" },
+                headers: { ...(await authFresh()), "X-Method-Override": "DELETE" },
               });
               if (!res.ok) { toast(tr("us.delErr"), true); return; }
               toast(tr("ag.deleted"));
@@ -1114,7 +1116,7 @@ const pubLangsJson = JSON.stringify({
             try {
               const res = await fetch("/api/admin/agenda", {
                 method: "PUT",
-                headers,
+                headers: await authFresh(),
                 body: JSON.stringify({ id, active: sw.checked }),
               });
               if (!res.ok) throw new Error();
