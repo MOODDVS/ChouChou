@@ -14,7 +14,7 @@
   font-family: var(--font-title);
   font-size: 1.05rem;
   letter-spacing: 0.05em;
-  padding: 0.7rem 1.4rem;
+  padding: 0.9rem 1.5rem;
   border-radius: 999px;
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
