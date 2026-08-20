@@ -16,7 +16,14 @@
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
 
 const boot = await caricaBootAdmin();
-const css = cssTema(boot.theme);
+// FAB condiviso: pulsante d'azione fisso in basso a destra, identico su ogni
+// pagina admin. Definito qui (fondo <head>) così vince sempre nella cascata.
+const FAB_CSS =
+  ".fab-add{position:fixed;right:1.5rem;bottom:1.25rem;z-index:90;display:inline-flex;align-items:center;box-sizing:border-box;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);font-family:var(--font-title);font-size:1.05rem;letter-spacing:.05em;padding:.7rem 1.4rem;border-radius:999px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,calc(.45*var(--sh,.15)));transition:background .2s,color .2s,transform .15s,border-color .2s}" +
+  ".fab-add .fab-plus{font-size:1.2rem;line-height:1;margin-right:.35rem}" +
+  ".fab-add:hover{background:var(--c-hover);border-color:var(--c-hover);transform:scale(.94)}" +
+  "@media(max-width:520px){.fab-add{bottom:calc(1.25rem + 72px)}}";
+const css = cssTema(boot.theme) + FAB_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
