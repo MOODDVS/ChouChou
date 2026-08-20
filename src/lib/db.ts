@@ -164,6 +164,30 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
       }
     }
   } catch { /* tabella/colonna assente: niente da nascondere */ }
+  // Menù fissi (set_menus): stessa logica, portate = array { items: [] }.
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("set_menus")
+      .select("courses, active, date_from, date_to, hide_items");
+    if (!error && data) {
+      const oggi = new Date().toISOString().slice(0, 10);
+      for (const m of data as {
+        courses?: { items?: unknown }[] | null;
+        active?: boolean | null;
+        date_from?: string | null;
+        date_to?: string | null;
+        hide_items?: boolean | null;
+      }[]) {
+        if (!m.hide_items || m.active === false) continue;
+        if (m.date_from && oggi < m.date_from) continue;
+        if (m.date_to && oggi > m.date_to) continue;
+        for (const corso of m.courses ?? []) {
+          const arr = corso?.items;
+          if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
+        }
+      }
+    }
+  } catch { /* set_menus assente */ }
   return nascosti;
 }
 

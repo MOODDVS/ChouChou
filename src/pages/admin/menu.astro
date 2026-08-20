@@ -296,6 +296,11 @@ const pubLangsJson = JSON.stringify({
       #sec-overlay .modal { max-width: 860px; margin: auto; }
       #overlay .modal-dish { margin: auto; }
       #lu-overlay .modal { max-width: 940px; margin: auto; }
+      #mn-overlay .modal { max-width: 940px; margin: auto; }
+      .mn-corso { margin-bottom: 0.8rem; }
+      .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+      .mn-corso-nome { flex: 1; }
+      .mn-corso-del { flex-shrink: 0; }
 
       /* Modale piatto a 2 colonne + tab */
       .modal-dish { max-width: 940px; }
@@ -705,6 +710,81 @@ const pubLangsJson = JSON.stringify({
       </div>
     </div>
 
+    <!-- Modale menù (set menu / prix fixe) -->
+    <div class="overlay" id="mn-overlay">
+      <div class="modal modal-dish">
+        <button class="m-close" id="mn-close" aria-label={t("common.close")}>×</button>
+        <h2 id="mn-title">{t("menu.addMenu")}</h2>
+        <div class="m-cols">
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.photoOpt")}</span>
+                <div class="f-img-row">
+                  <span class="f-img-prev" id="mn-img-prev"></span>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-lib">{t("menu.library")}</button>
+                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-del" style="display: none">{t("ord.remove")}</button>
+                  <input type="file" id="mn-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+                  <span class="f-label" id="mn-img-state"></span>
+                </div>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label" id="mn-name-lab">{t("home.name")}</span>
+                <input type="text" id="mn-name" maxlength="60" placeholder={t("menu.setMenuNamePh")} />
+              </div>
+            </div>
+            <div id="mn-names-extra"></div>
+            <div id="mn-descs"></div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.menuPrice")}</span>
+                <input type="number" id="mn-price" min="0" step="0.01" inputmode="decimal" />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.wineSupp")}</span>
+                <input type="number" id="mn-wine" min="0" step="0.01" inputmode="decimal" />
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateFrom")}</span>
+                <input type="text" id="mn-from" placeholder={t("menu.noLimit")} readonly />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateTo")}</span>
+                <input type="text" id="mn-to" placeholder={t("menu.noLimit")} readonly />
+              </div>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="mn-active" checked /><span class="track"></span></span>
+                {t("menu.active")}
+              </label>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="mn-hide-items" /><span class="track"></span></span>
+                {t("menu.lunchHideItems")}
+              </label>
+            </div>
+          </div>
+          <div class="m-col">
+            <span class="f-label m-sublabel">{t("menu.coursesTitle")}</span>
+            <div id="mn-corsi"></div>
+            <button type="button" class="pill sec-btn" id="mn-add-course" style="margin-top: 0.6rem">+ {t("menu.addCourse")}</button>
+          </div>
+        </div>
+        <div class="m-actions">
+          <span class="m-msg" id="mn-msg"></span>
+          <button class="m-cancel" id="mn-cancel">{t("common.cancel")}</button>
+          <button class="m-save" id="mn-save">{t("common.save")}</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <ImagePicker />
@@ -922,9 +1002,8 @@ const pubLangsJson = JSON.stringify({
           renderLunchList(filtro);
           return;
         }
-        // Tab in costruzione: per ora vuoto
-        if (!filtro && kindFiltro === "menus") {
-          listEl.innerHTML = `<p class="state">${tr("menu.menusSoon")}</p>`;
+        if (kindFiltro === "menus") {
+          renderMenusList(filtro);
           return;
         }
         if (filtro) {
@@ -1618,7 +1697,7 @@ const pubLangsJson = JSON.stringify({
         const sec = document.getElementById("sec-btn") as HTMLButtonElement | null;
         if (sec) sec.style.display = kindFiltro === "lunch" || kindFiltro === "menus" ? "none" : "";
         if (kindFiltro === "lunch") { add.style.display = ""; add.textContent = "+ " + tr("menu.addLunchShort"); }
-        else if (kindFiltro === "menus") { add.style.display = "none"; }
+        else if (kindFiltro === "menus") { add.style.display = ""; add.textContent = "+ " + tr("menu.addMenuShort"); }
         else { add.style.display = ""; add.textContent = "+ " + tr(kindFiltro === "drink" ? "menu.itemDrink" : "menu.itemFood"); }
       }
 
@@ -2006,6 +2085,391 @@ const pubLangsJson = JSON.stringify({
         }
       });
 
+
+      // ---------- Menù (set menu / prix fixe) ----------
+      type SetMenu = {
+        id: string; name: string;
+        name_i18n?: Record<string, string> | null;
+        desc_i18n?: Record<string, string> | null;
+        image_url?: string | null;
+        courses: { name: string; items: string[] }[];
+        price_cents: number; wine_supplement_cents?: number | null;
+        date_from: string | null; date_to: string | null;
+        active: boolean; hide_items?: boolean | null; sort_order?: number;
+      };
+      let setMenus: SetMenu[] = [];
+      let setMenusPronto = false;
+      let setMenusFetching = false;
+      let menuEditId: string | null = null;
+
+      async function caricaSetMenus() {
+        if (setMenusFetching) return;
+        setMenusFetching = true;
+        try {
+          const res = await fetch("/api/admin/set-menus", { headers });
+          if (!res.ok) throw new Error();
+          setMenus = ((await res.json()).menus as SetMenu[]) ?? [];
+        } catch {
+          setMenus = [];
+        } finally {
+          setMenusPronto = true;
+          setMenusFetching = false;
+        }
+        if (kindFiltro === "menus") renderList();
+      }
+
+      function datesLabelGen(df: string | null, dt: string | null): string {
+        const f = (x: string | null) => (x ? x.split("-").reverse().join("/") : "");
+        if (df && dt) return `${tr("menu.luFrom")} ${f(df)} ${tr("menu.luTo2")} ${f(dt)}`;
+        if (df) return `${tr("menu.luFromOnly")} ${f(df)}`;
+        if (dt) return `${tr("menu.luUntil")} ${f(dt)}`;
+        return tr("menu.luNoDateLimit");
+      }
+
+      function setMenuHTML(m: SetMenu): string {
+        const portate = (m.courses ?? [])
+          .map((c) => {
+            const nomi = (c.items ?? []).map((id) => items.find((x) => x.id === id)?.name ?? "").filter(Boolean);
+            const dettaglio = nomi.length ? esc(nomi.join(" · ")) : `<span class="f-label">${tr("menu.noDishSelected")}</span>`;
+            return `<div class="lu-course"><span class="lu-course-tit">${esc(c.name)}</span><span class="lu-course-plats">${dettaglio}</span></div>`;
+          })
+          .join("");
+        const prezzo = `<div class="lu-combo"><span>${esc(m.name)}</span><b>${euro(m.price_cents)}</b></div>`;
+        const vino = m.wine_supplement_cents != null
+          ? `<div class="lu-combo"><span>${tr("menu.wineSupp")}</span><b>+${euro(m.wine_supplement_cents)}</b></div>`
+          : "";
+        const foto = m.image_url ? `<img class="i-thumb" src="${esc(m.image_url)}" alt="" loading="lazy" style="width:52px;height:52px" />` : "";
+        return `
+          <div class="lu-card sm-card${m.active ? "" : " is-hidden-item"}" data-id="${m.id}">
+            <div class="lu-main" style="display:flex;align-items:center;gap:0.7rem">
+              ${foto}
+              <div>
+                <div class="lu-name">${esc(m.name)}</div>
+                <div class="lu-dates">${datesLabelGen(m.date_from, m.date_to)}</div>
+              </div>
+            </div>
+            ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
+            <div class="lu-combos">${prezzo}${vino}</div>
+            <div class="lu-actions">
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+              <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
+              <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
+            </div>
+          </div>`;
+      }
+
+      function renderMenusList(filtro: string) {
+        if (!setMenusPronto) {
+          listEl.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
+          void caricaSetMenus();
+          return;
+        }
+        const arr = setMenus.filter((m) => !filtro || m.name.toLowerCase().includes(filtro));
+        listEl.innerHTML = arr.length
+          ? `<div class="lu-grid">${arr.map(setMenuHTML).join("")}</div>`
+          : `<p class="state">${tr("menu.noSetMenu")}</p>`;
+      }
+
+      // --- Modale menù ---
+      const mnOverlay = document.getElementById("mn-overlay") as HTMLDivElement;
+      const mnTitle = document.getElementById("mn-title") as HTMLHeadingElement;
+      const mnMsg = document.getElementById("mn-msg") as HTMLSpanElement;
+      const mnName = document.getElementById("mn-name") as HTMLInputElement;
+      const mnNameLab = document.getElementById("mn-name-lab") as HTMLSpanElement;
+      const mnNamesExtra = document.getElementById("mn-names-extra") as HTMLDivElement;
+      const mnDescs = document.getElementById("mn-descs") as HTMLDivElement;
+      const mnPrice = document.getElementById("mn-price") as HTMLInputElement;
+      const mnWine = document.getElementById("mn-wine") as HTMLInputElement;
+      const mnFrom = document.getElementById("mn-from") as HTMLInputElement;
+      const mnTo = document.getElementById("mn-to") as HTMLInputElement;
+      const mnActive = document.getElementById("mn-active") as HTMLInputElement;
+      const mnHide = document.getElementById("mn-hide-items") as HTMLInputElement;
+      const mnCorsiEl = document.getElementById("mn-corsi") as HTMLDivElement;
+      const mnSave = document.getElementById("mn-save") as HTMLButtonElement;
+      const mnImgPrev = document.getElementById("mn-img-prev") as HTMLSpanElement;
+      const mnImgUp = document.getElementById("mn-img-up") as HTMLButtonElement;
+      const mnImgDel = document.getElementById("mn-img-del") as HTMLButtonElement;
+      const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
+      const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
+      let mnImgUrl: string | null = null;
+      let mnCorsi: { name: string; items: string[] }[] = [];
+
+      function costruisciCampiLinguaMenu() {
+        mnNameLab.textContent = `${tr("home.name")} (${langTag(PUB.def)})`;
+        mnNamesExtra.innerHTML = PUB.langs
+          .filter((l) => l !== PUB.def)
+          .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-nx" data-lang="${l}" maxlength="60" /></div></div>`)
+          .join("");
+        mnDescs.innerHTML = PUB.langs
+          .map((l) => `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="mn-dx" data-lang="${l}" maxlength="600"></textarea></div></div>`)
+          .join("");
+      }
+      costruisciCampiLinguaMenu();
+
+      function renderMnFotoPrev() {
+        mnImgPrev.innerHTML = mnImgUrl ? `<img src="${esc(mnImgUrl)}" alt="" />` : ICO_IMG;
+        mnImgDel.style.display = mnImgUrl ? "" : "none";
+      }
+
+      function renderMnCorsi() {
+        mnCorsiEl.innerHTML = mnCorsi
+          .map((c, i) => {
+            const opzioni = cats
+              .map((cat) => {
+                const dentro = items
+                  .filter((it) => it.category === cat.name && !c.items.includes(it.id))
+                  .map((it) => `<option value="${it.id}">${esc(it.name)}</option>`)
+                  .join("");
+                return dentro ? `<optgroup label="${esc(cat.name)}">${dentro}</optgroup>` : "";
+              })
+              .join("");
+            const chips = c.items
+              .map((id) => {
+                const it = items.find((x) => x.id === id);
+                return `<span class="lu-chip">${esc(it?.name ?? "?")}<button type="button" data-i="${i}" data-id="${id}" title="${tr("ord.remove")}">×</button></span>`;
+              })
+              .join("");
+            return `
+            <div class="lu-block mn-corso" data-i="${i}">
+              <div class="mn-corso-head">
+                <input type="text" class="mn-corso-nome" data-i="${i}" maxlength="60" placeholder="${tr("menu.courseNamePh")}" value="${esc(c.name)}" />
+                <button type="button" class="i-btn i-del mn-corso-del" data-i="${i}" title="${tr("menu.removeCourse")}">${ICO_TRASH}</button>
+              </div>
+              <select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>
+              <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
+            </div>`;
+          })
+          .join("");
+      }
+
+      mnCorsiEl.addEventListener("input", (e) => {
+        const inp = e.target as HTMLInputElement;
+        if (!inp.classList.contains("mn-corso-nome")) return;
+        const i = Number(inp.dataset.i);
+        if (mnCorsi[i]) mnCorsi[i].name = inp.value;
+      });
+      mnCorsiEl.addEventListener("change", (e) => {
+        const sel = e.target as HTMLSelectElement;
+        if (!sel.classList.contains("mn-sel") || !sel.value) return;
+        const i = Number(sel.dataset.i);
+        if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; renderMnCorsi(); }
+      });
+      mnCorsiEl.addEventListener("click", (e) => {
+        const t = e.target as HTMLElement;
+        const del = t.closest(".mn-corso-del") as HTMLElement | null;
+        if (del) { mnCorsi.splice(Number(del.dataset.i), 1); renderMnCorsi(); return; }
+        const chip = t.closest(".lu-chip button") as HTMLElement | null;
+        if (chip) {
+          const i = Number(chip.dataset.i);
+          if (mnCorsi[i]) mnCorsi[i].items = mnCorsi[i].items.filter((id) => id !== chip.dataset.id);
+          renderMnCorsi();
+        }
+      });
+      (document.getElementById("mn-add-course") as HTMLButtonElement).addEventListener("click", () => {
+        mnCorsi.push({ name: "", items: [] });
+        renderMnCorsi();
+      });
+
+      // Immagine del menù
+      mnImgUp.addEventListener("click", () => mnImgFile.click());
+      mnImgDel.addEventListener("click", () => { mnImgUrl = null; renderMnFotoPrev(); });
+      (document.getElementById("mn-img-lib") as HTMLButtonElement).addEventListener("click", () => {
+        window.dispatchEvent(new CustomEvent("imgpick:open"));
+      });
+      window.addEventListener("imgpick:pick", (e) => {
+        if (!mnOverlay.classList.contains("is-open")) return;
+        mnImgUrl = (e as CustomEvent<{ url: string }>).detail.url;
+        renderMnFotoPrev();
+        mnImgState.textContent = "";
+      });
+      mnImgFile.addEventListener("change", async () => {
+        const file = mnImgFile.files?.[0];
+        if (!file) return;
+        mnImgState.textContent = tr("menu.compressing");
+        mnImgUp.disabled = true;
+        try {
+          const foto = await comprimiFoto(file);
+          if (foto.size > 4 * 1024 * 1024) throw new Error(tr("menu.photoTooBig"));
+          mnImgState.textContent = tr("cli.uploading");
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+            r.onerror = () => reject(new Error(tr("menu.fileUnreadable")));
+            r.readAsDataURL(foto);
+          });
+          const res = await fetch("/api/admin/upload", {
+            method: "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ filename: foto.name, data: b64, bucket: "menu" }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? tr("menu.uploadFailed"));
+          mnImgUrl = j.url as string;
+          renderMnFotoPrev();
+          mnImgState.textContent = "";
+        } catch (err) {
+          mnImgState.textContent = err instanceof Error ? err.message : tr("menu.uploadFailedDot");
+        } finally {
+          mnImgUp.disabled = false;
+          mnImgFile.value = "";
+        }
+      });
+
+      // Datepicker per le date del menù (riusa il picker del lunch)
+      [mnFrom, mnTo].forEach((el) => {
+        el.addEventListener("click", (e) => { e.stopPropagation(); dpApri(el); });
+      });
+
+      function apriMenuModale(m: SetMenu | null) {
+        menuEditId = m?.id ?? null;
+        mnTitle.textContent = m ? tr("menu.editMenu") : tr("menu.addMenu");
+        mnMsg.textContent = "";
+        mnName.value = m?.name ?? "";
+        {
+          const nI18n = m?.name_i18n ?? {};
+          mnNamesExtra.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+            inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+          });
+          const dI18n = m?.desc_i18n ?? {};
+          mnDescs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+            ta.value = dI18n[ta.dataset.lang ?? ""] ?? "";
+          });
+        }
+        mnPrice.value = m ? (m.price_cents / 100).toFixed(2) : "";
+        mnWine.value = m?.wine_supplement_cents != null ? (m.wine_supplement_cents / 100).toFixed(2) : "";
+        impostaData(mnFrom, m?.date_from ?? "");
+        impostaData(mnTo, m?.date_to ?? "");
+        mnActive.checked = m?.active ?? true;
+        mnHide.checked = m?.hide_items ?? false;
+        mnImgUrl = m?.image_url ?? null;
+        mnImgState.textContent = "";
+        renderMnFotoPrev();
+        mnCorsi = m?.courses?.length ? m.courses.map((c) => ({ name: c.name, items: [...(c.items ?? [])] })) : [{ name: "", items: [] }];
+        renderMnCorsi();
+        mnOverlay.classList.add("is-open");
+        mnName.focus();
+      }
+      function chiudiMenuModale() {
+        dpChiudi();
+        mnOverlay.classList.remove("is-open");
+        menuEditId = null;
+      }
+
+      async function salvaSetMenu() {
+        mnMsg.textContent = "";
+        const prezzo = Math.round(parseFloat((mnPrice.value || "").replace(",", ".")) * 100);
+        if (!Number.isFinite(prezzo) || prezzo <= 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
+        let wine: number | null = null;
+        if (mnWine.value.trim()) {
+          wine = Math.round(parseFloat(mnWine.value.replace(",", ".")) * 100);
+          if (!Number.isFinite(wine) || wine < 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
+        }
+        const courses = mnCorsi
+          .map((c) => ({ name: c.name.trim(), items: c.items }))
+          .filter((c) => c.name || c.items.length);
+        if (!courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
+        const dFrom = mnFrom.dataset.iso ?? "";
+        const dTo = mnTo.dataset.iso ?? "";
+        if (dFrom && dTo && dFrom > dTo) { mnMsg.textContent = tr("menu.endBeforeStart"); return; }
+        const body: Record<string, unknown> = {
+          name: mnName.value.trim() || tr("menu.addMenuShort"),
+          courses,
+          price_cents: prezzo,
+          wine_supplement_cents: wine,
+          date_from: dFrom,
+          date_to: dTo,
+          active: mnActive.checked,
+          hide_items: mnHide.checked,
+          image_url: mnImgUrl,
+          name_i18n: (() => {
+            const nome = mnName.value.trim() || tr("menu.addMenuShort");
+            const o: Record<string, string> = { [PUB.def]: nome };
+            mnNamesExtra.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+              const v = inp.value.trim(); if (v) o[inp.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
+          desc_i18n: (() => {
+            const o: Record<string, string> = {};
+            mnDescs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+              const v = ta.value.trim(); if (v) o[ta.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
+        };
+        if (menuEditId) body.id = menuEditId;
+        mnSave.disabled = true;
+        mnSave.classList.add("is-loading");
+        try {
+          const res = await fetch("/api/admin/set-menus", {
+            method: menuEditId ? "PATCH" : "POST",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await res.json();
+          if (!res.ok) { mnMsg.textContent = j.error ?? tr("res.saveError"); }
+          else {
+            toast(menuEditId ? tr("menu.setMenuModified") : tr("menu.setMenuAdded"));
+            chiudiMenuModale();
+            await caricaSetMenus();
+          }
+        } catch {
+          mnMsg.textContent = tr("common.netErr");
+        } finally {
+          mnSave.disabled = false;
+          mnSave.classList.remove("is-loading");
+        }
+      }
+
+      (document.getElementById("mn-close") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
+      (document.getElementById("mn-cancel") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
+      mnOverlay.addEventListener("click", (e) => { if (e.target === mnOverlay) chiudiMenuModale(); });
+      mnSave.addEventListener("click", salvaSetMenu);
+
+      // Azioni sulle card menù (delega)
+      listEl.addEventListener("click", async (e) => {
+        const t = e.target as HTMLElement;
+        const card = t.closest(".sm-card") as HTMLElement | null;
+        if (!card) return;
+        const m = setMenus.find((x) => x.id === card.dataset.id);
+        if (!m) return;
+        if (t.closest(".sm-edit")) { apriMenuModale(m); return; }
+        const del = t.closest(".sm-del") as HTMLButtonElement | null;
+        if (del) {
+          if (!del.classList.contains("confirm")) {
+            del.classList.add("confirm");
+            del.textContent = tr("common.confirm");
+            setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+            return;
+          }
+          try {
+            const res = await fetch("/api/admin/set-menus?id=" + m.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+            if (!res.ok) { toast(tr("us.delErr"), true); return; }
+            toast(tr("menu.setMenuDeleted"));
+            await caricaSetMenus();
+          } catch { toast(tr("res.connErr"), true); }
+        }
+      });
+      listEl.addEventListener("change", async (e) => {
+        const t = e.target as HTMLInputElement;
+        if (!t.classList.contains("sm-act")) return;
+        const card = t.closest(".sm-card") as HTMLElement;
+        try {
+          const res = await fetch("/api/admin/set-menus", {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({ id: card.dataset.id, active: t.checked }),
+          });
+          if (!res.ok) throw new Error();
+          const m = setMenus.find((x) => x.id === card.dataset.id);
+          if (m) m.active = t.checked;
+          card.classList.toggle("is-hidden-item", !t.checked);
+        } catch {
+          t.checked = !t.checked;
+          toast(tr("us.editErr"), true);
+        }
+      });
+
       // ---------- Avvio ----------
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
@@ -2070,7 +2534,7 @@ const pubLangsJson = JSON.stringify({
 
         (document.getElementById("add-btn") as HTMLButtonElement).addEventListener("click", () => {
           if (kindFiltro === "lunch") { apriLunchModale(null); return; }
-          if (kindFiltro === "menus") return;
+          if (kindFiltro === "menus") { apriMenuModale(null); return; }
           apriModale(null);
         });
         (document.getElementById("sec-btn") as HTMLButtonElement).addEventListener("click", () => {
