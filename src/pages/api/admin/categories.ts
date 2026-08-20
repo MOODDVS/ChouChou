@@ -13,13 +13,18 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-type Cat = { id: string; name: string; sort_order: number; kind: string; parent_id: string | null; depth: number };
+type Cat = { id: string; name: string; sort_order: number; kind: string; parent_id: string | null; depth: number; name_i18n?: Record<string, string> | null };
 
 /** Legge tutte le sezioni. Tollerante se parent_id/depth non sono migrate. */
 async function leggiCategorie(): Promise<Cat[] | null> {
   let res = await supabaseAdmin
     .from("menu_categories")
-    .select("id, name, sort_order, kind, parent_id, depth");
+    .select("id, name, sort_order, kind, parent_id, depth, name_i18n");
+  if (res.error && String(res.error.message ?? "").includes("name_i18n")) {
+    res = await supabaseAdmin
+      .from("menu_categories")
+      .select("id, name, sort_order, kind, parent_id, depth");
+  }
   if (res.error && (String(res.error.message ?? "").includes("parent_id") || String(res.error.message ?? "").includes("depth"))) {
     const base = await supabaseAdmin.from("menu_categories").select("id, name, sort_order, kind");
     if (base.error) return null;
@@ -79,7 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { name?: string; kind?: string; parent_id?: string | null };
+  let body: { name?: string; kind?: string; parent_id?: string | null; name_i18n?: Record<string, string> | null };
   try {
     body = await request.json();
   } catch {
@@ -113,16 +118,27 @@ export const POST: APIRoute = async ({ request }) => {
     .maybeSingle();
   const sort_order = (max?.sort_order ?? 0) + 1;
 
-  const { data, error } = await supabaseAdmin
+  const nameI18n = body.name_i18n && typeof body.name_i18n === "object" ? body.name_i18n : null;
+  const riga: Record<string, unknown> = { name, sort_order, kind, parent_id, depth };
+  if (nameI18n) riga.name_i18n = nameI18n;
+  let ins = await supabaseAdmin
     .from("menu_categories")
-    .insert({ name, sort_order, kind, parent_id, depth })
-    .select("id, name, sort_order, kind, parent_id, depth")
+    .insert(riga)
+    .select("id, name, sort_order, kind, parent_id, depth, name_i18n")
     .single();
-  if (error) {
-    if (error.code === "23505") return json({ error: "Cette section existe déjà" }, 400);
+  if (ins.error && String(ins.error.message ?? "").includes("name_i18n")) {
+    delete riga.name_i18n;
+    ins = await supabaseAdmin
+      .from("menu_categories")
+      .insert(riga)
+      .select("id, name, sort_order, kind, parent_id, depth")
+      .single();
+  }
+  if (ins.error) {
+    if (ins.error.code === "23505") return json({ error: "Cette section existe déjà" }, 400);
     return json({ error: "Création impossible" }, 500);
   }
-  return json({ category: data });
+  return json({ category: ins.data });
 };
 
 // PUT /api/admin/categories — rinomina / cambia tipo / sposta (parent).
@@ -131,7 +147,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let body: { id?: string; name?: string; sort_order?: number; kind?: string; parent_id?: string | null };
+  let body: { id?: string; name?: string; sort_order?: number; kind?: string; parent_id?: string | null; name_i18n?: Record<string, string> | null };
   try {
     body = await request.json();
   } catch {
@@ -159,6 +175,9 @@ export const PUT: APIRoute = async ({ request }) => {
   if ("kind" in body) {
     if (body.kind !== "food" && body.kind !== "drink") return json({ error: "Type invalide" }, 400);
     campi.kind = body.kind;
+  }
+  if ("name_i18n" in body) {
+    campi.name_i18n = body.name_i18n && typeof body.name_i18n === "object" ? body.name_i18n : {};
   }
 
   // Spostamento (cambio parent): ricalcola depth del nodo e del suo sotto-albero
@@ -204,7 +223,12 @@ export const PUT: APIRoute = async ({ request }) => {
 
   if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
 
-  const { error: errUpd } = await supabaseAdmin.from("menu_categories").update(campi).eq("id", id);
+  let errUpd = (await supabaseAdmin.from("menu_categories").update(campi).eq("id", id)).error;
+  if (errUpd && String(errUpd.message ?? "").includes("name_i18n")) {
+    const campiSenza = { ...campi };
+    delete campiSenza.name_i18n;
+    errUpd = (await supabaseAdmin.from("menu_categories").update(campiSenza).eq("id", id)).error;
+  }
   if (errUpd) {
     if (errUpd.code === "23505") return json({ error: "Cette section existe déjà" }, 400);
     return json({ error: "Modification impossible" }, 500);
