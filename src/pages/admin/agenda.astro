@@ -402,17 +402,19 @@ const pubLangsJson = JSON.stringify({
 
     <style is:global>
       /* Card evento */
-      .ev { border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); padding: 0.9rem 1rem; display: flex; gap: 0.9rem; align-items: flex-start; margin-bottom: 0.8rem; }
+      .ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: start; }
+      .ev { border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); overflow: hidden; display: flex; flex-direction: column; }
       .ev.is-off { opacity: 0.55; }
-      .ev-thumb { width: 68px; height: 68px; border-radius: 10px; object-fit: cover; flex: 0 0 auto; background: var(--c-input); }
-      .ev-thumb--empty { display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
-      .ev-thumb--empty svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.6; }
-      .ev-main { flex: 1; min-width: 0; }
-      .ev-title { font-family: var(--font-title); font-size: 1.05rem; color: var(--c-text); letter-spacing: 0.02em; }
-      .ev-date { color: var(--c-accent); font-weight: 700; font-size: 0.85rem; margin-top: 0.15rem; }
-      .ev-text { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.35rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-      .ev-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.55rem; }
-      .ev-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; flex: 0 0 auto; }
+      .ev-photo { width: 100%; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); overflow: hidden; }
+      .ev-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .ev-photo svg { width: 40px; height: 40px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+      .ev-body { display: flex; flex-direction: column; gap: 0.4rem; padding: 1.1rem 1.2rem; flex: 1; }
+      .ev-title { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-text); letter-spacing: 0.02em; }
+      .ev-date { color: var(--c-accent); font-weight: 700; font-size: 0.85rem; }
+      .ev-text { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.15rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .ev-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+      .ev-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
+      .ev-actions .sw-wrap { margin-right: auto; }
       /* Galleria nel modale */
       .g-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0.5rem; margin-top: 0.6rem; }
       .g-thumb { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--c-line); aspect-ratio: 1; }
@@ -634,35 +636,38 @@ const pubLangsJson = JSON.stringify({
             return;
           }
           emptyEl.style.display = "none";
-          listEl.innerHTML = eventi
-            .map((e) => {
-              const thumb = e.image_url
-                ? `<img class="ev-thumb" src="${esc(e.image_url)}" alt="" />`
-                : `<div class="ev-thumb ev-thumb--empty">${ICO_IMG}</div>`;
-              const tags: string[] = [];
-              if (e.gallery?.length) tags.push(`<span class="m-tag">${e.gallery.length} 🖼</span>`);
-              if (e.links?.length) tags.push(`<span class="m-tag">${e.links.length} 🔗</span>`);
-              if (e.rsvp) tags.push(`<span class="m-tag gold">RSVP</span>`);
-              if (!e.active) tags.push(`<span class="m-tag">${esc(tr("mk.inactive"))}</span>`);
-              return `
-              <div class="ev${e.active ? "" : " is-off"}" data-id="${e.id}">
-                ${thumb}
-                <div class="ev-main">
-                  <div class="ev-title">${esc(e.title)}</div>
-                  <div class="ev-date">${esc(dateLabel(e))}</div>
-                  ${e.body ? `<div class="ev-text">${esc(e.body)}</div>` : ""}
-                  <div class="ev-meta">${tags.join("")}</div>
-                </div>
-                <div class="ev-actions">
-                  <span class="sw-wrap">
-                    <label class="switch"><input type="checkbox" class="t-active" ${e.active ? "checked" : ""} /><span class="track"></span></label>
-                  </span>
-                  <button class="i-btn i-edit" title="${esc(tr("common.edit"))}">${ICO_PEN}</button>
-                  <button class="i-btn i-del" title="${esc(tr("common.delete"))}">${ICO_TRASH}</button>
-                </div>
-              </div>`;
-            })
-            .join("");
+          listEl.innerHTML =
+            `<div class="ev-grid">` +
+            eventi
+              .map((e) => {
+                const foto = e.image_url
+                  ? `<img src="${esc(e.image_url)}" alt="" loading="lazy" />`
+                  : ICO_IMG;
+                const tags: string[] = [];
+                if (e.gallery?.length) tags.push(`<span class="m-tag">${e.gallery.length} 🖼</span>`);
+                if (e.links?.length) tags.push(`<span class="m-tag">${e.links.length} 🔗</span>`);
+                if (e.rsvp) tags.push(`<span class="m-tag gold">RSVP</span>`);
+                if (!e.active) tags.push(`<span class="m-tag">${esc(tr("mk.inactive"))}</span>`);
+                return `
+                <div class="ev${e.active ? "" : " is-off"}" data-id="${e.id}">
+                  <div class="ev-photo">${foto}</div>
+                  <div class="ev-body">
+                    <div class="ev-title">${esc(e.title)}</div>
+                    <div class="ev-date">${esc(dateLabel(e))}</div>
+                    ${e.body ? `<div class="ev-text">${esc(e.body)}</div>` : ""}
+                    ${tags.length ? `<div class="ev-meta">${tags.join("")}</div>` : ""}
+                    <div class="ev-actions">
+                      <span class="sw-wrap">
+                        <label class="switch"><input type="checkbox" class="t-active" ${e.active ? "checked" : ""} /><span class="track"></span></label>
+                      </span>
+                      <button class="i-btn i-edit" title="${esc(tr("common.edit"))}">${ICO_PEN}</button>
+                      <button class="i-btn i-del" title="${esc(tr("common.delete"))}">${ICO_TRASH}</button>
+                    </div>
+                  </div>
+                </div>`;
+              })
+              .join("") +
+            `</div>`;
         }
 
         async function carica() {
