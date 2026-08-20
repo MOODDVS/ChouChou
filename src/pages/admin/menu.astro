@@ -730,14 +730,7 @@ const pubLangsJson = JSON.stringify({
                 </div>
               </div>
             </div>
-            <div class="f-row">
-              <div class="f-field" style="flex: 2">
-                <span class="f-label" id="mn-name-lab">{t("home.name")}</span>
-                <input type="text" id="mn-name" maxlength="60" placeholder={t("menu.setMenuNamePh")} />
-              </div>
-            </div>
-            <div id="mn-names-extra"></div>
-            <div id="mn-descs"></div>
+            <div id="mn-langs"></div>
             <div class="f-row">
               <div class="f-field">
                 <span class="f-label">{t("menu.menuPrice")}</span>
@@ -2174,10 +2167,10 @@ const pubLangsJson = JSON.stringify({
       const mnOverlay = document.getElementById("mn-overlay") as HTMLDivElement;
       const mnTitle = document.getElementById("mn-title") as HTMLHeadingElement;
       const mnMsg = document.getElementById("mn-msg") as HTMLSpanElement;
-      const mnName = document.getElementById("mn-name") as HTMLInputElement;
-      const mnNameLab = document.getElementById("mn-name-lab") as HTMLSpanElement;
-      const mnNamesExtra = document.getElementById("mn-names-extra") as HTMLDivElement;
-      const mnDescs = document.getElementById("mn-descs") as HTMLDivElement;
+      const mnLangs = document.getElementById("mn-langs") as HTMLDivElement;
+      function mnNomeDef(): HTMLInputElement {
+        return mnLangs.querySelector(`.mn-nx[data-lang="${PUB.def}"]`) as HTMLInputElement;
+      }
       const mnPrice = document.getElementById("mn-price") as HTMLInputElement;
       const mnWine = document.getElementById("mn-wine") as HTMLInputElement;
       const mnFrom = document.getElementById("mn-from") as HTMLInputElement;
@@ -2195,13 +2188,13 @@ const pubLangsJson = JSON.stringify({
       let mnCorsi: { name: string; items: string[] }[] = [];
 
       function costruisciCampiLinguaMenu() {
-        mnNameLab.textContent = `${tr("home.name")} (${langTag(PUB.def)})`;
-        mnNamesExtra.innerHTML = PUB.langs
-          .filter((l) => l !== PUB.def)
-          .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-nx" data-lang="${l}" maxlength="60" /></div></div>`)
-          .join("");
-        mnDescs.innerHTML = PUB.langs
-          .map((l) => `<div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="mn-dx" data-lang="${l}" maxlength="600"></textarea></div></div>`)
+        mnLangs.innerHTML = PUB.langs
+          .map((l) => {
+            const ph = l === PUB.def ? esc(tr("menu.setMenuNamePh")) : "";
+            return `
+            <div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-nx" data-lang="${l}" maxlength="60" placeholder="${ph}" /></div></div>
+            <div class="f-row"><div class="f-field"><span class="f-label">${esc(tr("menu.descCol"))} (${esc(langTag(l))})</span><textarea class="mn-dx" data-lang="${l}" maxlength="600"></textarea></div></div>`;
+          })
           .join("");
       }
       costruisciCampiLinguaMenu();
@@ -2324,14 +2317,14 @@ const pubLangsJson = JSON.stringify({
         menuEditId = m?.id ?? null;
         mnTitle.textContent = m ? tr("menu.editMenu") : tr("menu.addMenu");
         mnMsg.textContent = "";
-        mnName.value = m?.name ?? "";
         {
           const nI18n = m?.name_i18n ?? {};
-          mnNamesExtra.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
-            inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+          mnLangs.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+            const l = inp.dataset.lang ?? "";
+            inp.value = nI18n[l] ?? (l === PUB.def ? (m?.name ?? "") : "");
           });
           const dI18n = m?.desc_i18n ?? {};
-          mnDescs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+          mnLangs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
             ta.value = dI18n[ta.dataset.lang ?? ""] ?? "";
           });
         }
@@ -2347,7 +2340,7 @@ const pubLangsJson = JSON.stringify({
         mnCorsi = m?.courses?.length ? m.courses.map((c) => ({ name: c.name, items: [...(c.items ?? [])] })) : [{ name: "", items: [] }];
         renderMnCorsi();
         mnOverlay.classList.add("is-open");
-        mnName.focus();
+        mnNomeDef().focus();
       }
       function chiudiMenuModale() {
         dpChiudi();
@@ -2371,8 +2364,9 @@ const pubLangsJson = JSON.stringify({
         const dFrom = mnFrom.dataset.iso ?? "";
         const dTo = mnTo.dataset.iso ?? "";
         if (dFrom && dTo && dFrom > dTo) { mnMsg.textContent = tr("menu.endBeforeStart"); return; }
+        const nomeDef = mnNomeDef().value.trim();
         const body: Record<string, unknown> = {
-          name: mnName.value.trim() || tr("menu.addMenuShort"),
+          name: nomeDef || tr("menu.addMenuShort"),
           courses,
           price_cents: prezzo,
           wine_supplement_cents: wine,
@@ -2382,16 +2376,17 @@ const pubLangsJson = JSON.stringify({
           hide_items: mnHide.checked,
           image_url: mnImgUrl,
           name_i18n: (() => {
-            const nome = mnName.value.trim() || tr("menu.addMenuShort");
-            const o: Record<string, string> = { [PUB.def]: nome };
-            mnNamesExtra.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
-              const v = inp.value.trim(); if (v) o[inp.dataset.lang ?? ""] = v;
+            const o: Record<string, string> = { [PUB.def]: nomeDef || tr("menu.addMenuShort") };
+            mnLangs.querySelectorAll<HTMLInputElement>(".mn-nx").forEach((inp) => {
+              const l = inp.dataset.lang ?? "";
+              if (l === PUB.def) return;
+              const v = inp.value.trim(); if (v) o[l] = v;
             });
             return o;
           })(),
           desc_i18n: (() => {
             const o: Record<string, string> = {};
-            mnDescs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
+            mnLangs.querySelectorAll<HTMLTextAreaElement>(".mn-dx").forEach((ta) => {
               const v = ta.value.trim(); if (v) o[ta.dataset.lang ?? ""] = v;
             });
             return o;
