@@ -21,6 +21,7 @@ import { opzioniPrefisso } from "../../lib/prefissi";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
 import "../../styles/select.css";
+import "../../styles/fab.css";
 
 // Boot admin (cache 60s): lingua admin + lingue pubbliche della regola super.
 const boot = await caricaBootAdmin();
@@ -314,16 +315,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .tag-paid { background: #2e9e6b; color: #fff; border-radius: 999px; white-space: nowrap; }
       .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
-      .nc-add {
-        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
-        display: inline-flex; align-items: center; box-sizing: border-box;
-        background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.06em;
-        padding: 0 1.1rem; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
-        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
-      }
-      .nc-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
       @media (max-width: 520px) { .nc-add { bottom: calc(1.25rem + 72px); } }
       .nc-overlay {
         position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none;
@@ -579,7 +570,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     </div>
 
     <!-- Nouvelle commande (manuale con link di pagamento) -->
-    <button class="nc-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
+    <button class="fab-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
     <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
       <div class="nc-modal">
         <button class="nc-close" id="nc-close" aria-label={t("common.close")}>×</button>
