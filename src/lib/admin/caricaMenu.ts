@@ -27,9 +27,16 @@ async function caricaItems(): Promise<{ data: unknown[] | null }> {
 async function caricaCategorie(): Promise<{ data: unknown[] | null }> {
   let res: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_categories")
-    .select("id, name, sort_order, kind, parent_id, depth")
+    .select("id, name, sort_order, kind, parent_id, depth, name_i18n")
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
+  if (res.error && String(res.error.message ?? "").includes("name_i18n")) {
+    res = await supabaseAdmin
+      .from("menu_categories")
+      .select("id, name, sort_order, kind, parent_id, depth")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+  }
   if (res.error && (String(res.error.message ?? "").includes("parent_id") || String(res.error.message ?? "").includes("depth"))) {
     res = await supabaseAdmin
       .from("menu_categories")

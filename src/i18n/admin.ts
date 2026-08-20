@@ -878,6 +878,8 @@ const DIZIONARIO: Dizionario = {
   "menu.customCourse":  { fr: "Personnalisé", en: "Custom", it: "Personalizzato", nl: "Aangepast", es: "Personalizado" },
   "menu.otherDish":     { fr: "+ Autre (plat personnalisé)", en: "+ Other (custom dish)", it: "+ Altro (piatto personalizzato)", nl: "+ Overig (aangepast gerecht)", es: "+ Otro (plato personalizado)" },
   "menu.customDish":    { fr: "Plat personnalisé", en: "Custom dish", it: "Piatto personalizzato", nl: "Aangepast gerecht", es: "Plato personalizado" },
+  "menu.translations":  { fr: "Traductions", en: "Translations", it: "Traduzioni", nl: "Vertalingen", es: "Traducciones" },
+  "menu.autoTranslated":{ fr: "Traduit automatiquement", en: "Auto-translated", it: "Tradotta automaticamente", nl: "Automatisch vertaald", es: "Traducida automáticamente" },
   "menu.addLunchShort": { fr: "Ajou. lunch", en: "Add lunch", it: "Agg. lunch", nl: "Lunch toev.", es: "Añ. lunch" },
   "menu.algShort":      { fr: "Alg.", en: "Alg.", it: "Alg.", nl: "Alg.", es: "Alg." },
   "menu.atTable":       { fr: "à table", en: "at table", it: "al tavolo", nl: "aan tafel", es: "en mesa" },

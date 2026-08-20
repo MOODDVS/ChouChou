@@ -49,6 +49,7 @@ const pubLangsJson = JSON.stringify({
   def: pubLangs.def,
   labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
 }).replace(/</g, "\\u003c");
+const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
 ---
 
 <html lang={lang}>
@@ -380,6 +381,11 @@ const pubLangsJson = JSON.stringify({
       .sec-parent-pill { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 16%, transparent); color: var(--c-accent); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.8rem; font-weight: 700; margin-right: 0.5rem; }
       .sec-parent-pill button { background: none; border: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0; }
       .sec-row input[type="text"] { flex: 1; }
+      .sec-row .s-trad { flex-shrink: 0; }
+      .sec-row .s-trad.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .sec-auto { flex-shrink: 0; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: var(--c-muted); border: 1px solid var(--c-line); border-radius: 999px; }
+      .sec-trad { margin: 0.1rem 0 0.7rem 1.4rem; padding: 0.7rem 0.9rem; border: 1px solid var(--c-line); border-radius: 10px; background: rgba(255,255,255,0.03); }
+      .sec-trad-act { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.3rem; }
       .sec-count { color: var(--c-muted); font-size: 0.75rem; white-space: nowrap; min-width: 4.5rem; text-align: right; }
       .sec-kind { display: inline-flex; gap: 0.3rem; }
       .s-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; }
@@ -657,9 +663,10 @@ const pubLangsJson = JSON.stringify({
         <h2>{t("menu.manageSections")}</h2>
         <p class="f-label" style="margin-bottom: 0.8rem">{t("menu.sectionsHint")}</p>
         <div id="sec-list"></div>
+        <datalist id="cat-std-list"></datalist>
         <div class="sec-add">
           <span class="sec-kind" id="sec-kind"></span>
-          <input type="text" id="sec-new" placeholder={t("menu.newSectionPh")} maxlength="60" />
+          <input type="text" id="sec-new" list="cat-std-list" placeholder={t("menu.newSectionPh")} maxlength="60" />
           <button class="sec-addbtn" id="sec-addbtn">{t("common.add")}</button>
         </div>
         <span class="m-msg" id="sec-msg"></span>
@@ -816,6 +823,7 @@ const pubLangsJson = JSON.stringify({
     <!-- Dati SSR (Fase 2): categorie + piatti pre-caricati dal server. -->
     <script id="ssr-menu" type="application/json" is:inline set:html={ssrMenuJson}></script>
     <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
+    <script id="cat-std" type="application/json" is:inline set:html={catStdJson}></script>
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
@@ -835,7 +843,7 @@ const pubLangsJson = JSON.stringify({
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; sold_out?: boolean;
         image_url: string | null;
       };
-      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number; parent_id?: string | null; depth?: number; children?: number };
+      type Cat = { id: string; name: string; sort_order: number; kind: "food" | "drink"; count: number; parent_id?: string | null; depth?: number; children?: number; name_i18n?: Record<string, string> | null };
 
       const ALLERGENI: [number, string][] = [
         [1, tr("menu.algGluten")], [2, tr("menu.algLait")], [3, tr("menu.algArachides")], [4, tr("menu.algOeufs")],
@@ -862,6 +870,7 @@ const pubLangsJson = JSON.stringify({
       let kindFiltro: KindTab = "food"; // filtro tab: cibo, bevande, lunch, menus
       let editId: string | null = null;
       let nuovaKind: "food" | "drink" = "food";
+      let secTradId: string | null = null;
       let nuovoParent: { id: string; name: string; depth: number } | null = null;
       const MAX_DEPTH_UI = 3;
       let headers: Record<string, string> = {};
@@ -1129,6 +1138,34 @@ const pubLangsJson = JSON.stringify({
         if (raw) PUB = JSON.parse(raw) as PubLangs;
       } catch { /* fallback */ }
       const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
+      // Dizionario categorie standard (nome tradotto per lingua).
+      type CatStd = { key: string; kind: "food" | "drink"; fr: string; it: string; en: string; nl: string; es: string };
+      let CAT_STD: CatStd[] = [];
+      try { const raw = document.getElementById("cat-std")?.textContent?.trim(); if (raw) CAT_STD = JSON.parse(raw) as CatStd[]; } catch { /* vuoto */ }
+      const LINGUE_STD: (keyof CatStd)[] = ["fr", "it", "en", "nl", "es"];
+      function trovaStd(nome: string): CatStd | null {
+        const n = nome.trim().toLowerCase();
+        if (!n) return null;
+        for (const c of CAT_STD) for (const l of LINGUE_STD) if (String(c[l]).toLowerCase() === n) return c;
+        return null;
+      }
+      function i18nStd(c: CatStd): Record<string, string> {
+        const o: Record<string, string> = {};
+        for (const l of PUB.langs) { const v = (c as Record<string, unknown>)[l]; if (typeof v === "string" && v) o[l] = v; }
+        return o;
+      }
+      // Popola la datalist con i nomi standard nella lingua di default del sito.
+      function popolaCatStdList() {
+        const dl = document.getElementById("cat-std-list");
+        if (!dl) return;
+        const vis = new Set<string>();
+        dl.innerHTML = CAT_STD
+          .map((c) => (c as Record<string, string>)[PUB.def] || c.it)
+          .filter((n) => { if (vis.has(n)) return false; vis.add(n); return true; })
+          .map((n) => `<option value="${esc(n)}"></option>`)
+          .join("");
+      }
+      popolaCatStdList();
       // Costruisce (una volta) i campi nome-extra e le descrizioni per lingua.
       function costruisciCampiLingua() {
         fNameLab.textContent = `${tr("menu.nameReq")} (${langTag(PUB.def)})`;
@@ -1394,6 +1431,7 @@ const pubLangsJson = JSON.stringify({
       const secKind = document.getElementById("sec-kind") as HTMLSpanElement;
 
       function renderSezioni() {
+        const soloUnaLingua = PUB.langs.length <= 1;
         secList.innerHTML = cats
           .map((c) => {
             const depth = c.depth ?? 0;
@@ -1401,19 +1439,28 @@ const pubLangsJson = JSON.stringify({
             const bloccaDel = (c.count > 0 || (c.children ?? 0) > 0);
             const puoSub = depth < MAX_DEPTH_UI;
             const puoOut = depth > 0;
+            const std = trovaStd(c.name);
+            // 🌐 solo per categorie personalizzate e se il sito ha più lingue
+            const tradBtn = (!std && !soloUnaLingua)
+              ? `<button class="i-btn s-trad${secTradId === c.id ? " is-active" : ""}" title="${tr("menu.translations")}">🌐</button>`
+              : (std ? `<span class="sec-auto" title="${tr("menu.autoTranslated")}">A</span>` : "");
+            const editor = (secTradId === c.id && !std && !soloUnaLingua)
+              ? `<div class="sec-trad" data-id="${c.id}">${PUB.langs.filter((l) => l !== PUB.def).map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="sec-tx" data-lang="${l}" maxlength="60" value="${esc(c.name_i18n?.[l] ?? "")}" /></div></div>`).join("")}<div class="sec-trad-act"><button type="button" class="m-cancel sec-trad-cancel">${tr("common.cancel")}</button><button type="button" class="m-save sec-trad-save" data-id="${c.id}">${tr("common.save")}</button></div></div>`
+              : "";
             return `
           <div class="sec-row${depth > 0 ? " is-sub" : ""}" data-id="${c.id}" data-name="${esc(c.name)}" data-parent="${c.parent_id ?? ""}" data-depth="${depth}" style="padding-left:${depth * 1.4}rem">
             <span class="i-btn s-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${tree}
             <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
             <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
-            <input type="text" class="s-name" value="${esc(c.name)}" maxlength="60" />
+            <input type="text" class="s-name" list="cat-std-list" value="${esc(c.name)}" maxlength="60" />
+            ${tradBtn}
             <button class="i-btn s-out" ${puoOut ? "" : "disabled"} title="${tr("menu.outdentTitle")}">⇤</button>
             <button class="i-btn s-in" title="${tr("menu.indentTitle")}">⇥</button>
             <button class="i-btn sec-sub-btn s-sub" ${puoSub ? "" : "disabled"} title="${tr("menu.addSubTitle")}">＋</button>
             <span class="sec-count">${c.count} ${c.count > 1 ? tr("home.dishesWord") : tr("home.dishWord")}</span>
             <button class="i-btn i-del s-del" ${bloccaDel ? "disabled" : ""} title="${tr("menu.deleteIfEmpty")}">${ICO_TRASH}</button>
-          </div>`;
+          </div>${editor}`;
           })
           .join("");
         renderNuovaKind();
@@ -1455,6 +1502,20 @@ const pubLangsJson = JSON.stringify({
       secList.addEventListener("click", async (e) => {
         secMsg.textContent = "";
         const t = e.target as HTMLElement;
+        // Traduzioni categorie personalizzate (il pannello è fuori dalla .sec-row)
+        const tradBtn = t.closest(".s-trad");
+        if (tradBtn) { const rid = (tradBtn.closest(".sec-row") as HTMLElement).dataset.id!; secTradId = secTradId === rid ? null : rid; renderSezioni(); return; }
+        if (t.closest(".sec-trad-cancel")) { secTradId = null; renderSezioni(); return; }
+        const tradSave = t.closest(".sec-trad-save") as HTMLElement | null;
+        if (tradSave) {
+          const rid = tradSave.dataset.id!;
+          const c = cats.find((x) => x.id === rid);
+          const panel = tradSave.closest(".sec-trad") as HTMLElement;
+          const o: Record<string, string> = { [PUB.def]: c?.name ?? "" };
+          panel.querySelectorAll<HTMLInputElement>(".sec-tx").forEach((inp) => { const v = inp.value.trim(); if (v) o[inp.dataset.lang ?? ""] = v; });
+          if (await putCategoria(rid, { name_i18n: o })) { secTradId = null; toast(tr("menu.sectionRenamed")); await caricaTutto(); }
+          return;
+        }
         const row = t.closest(".sec-row") as HTMLElement | null;
         if (!row) return;
         const id = row.dataset.id!;
@@ -1524,7 +1585,10 @@ const pubLangsJson = JSON.stringify({
         const nuovo = t.value.trim();
         if (!nuovo || nuovo === vecchio) { t.value = vecchio; return; }
         secMsg.textContent = "";
-        if (await putCategoria(row.dataset.id!, { name: nuovo })) {
+        const stdRen = trovaStd(nuovo);
+        const campiRen: Record<string, unknown> = { name: nuovo };
+        if (stdRen) campiRen.name_i18n = i18nStd(stdRen);
+        if (await putCategoria(row.dataset.id!, campiRen)) {
           if (attiva === vecchio) attiva = nuovo;
           toast(tr("menu.sectionRenamed"));
           await caricaTutto();
@@ -1594,10 +1658,11 @@ const pubLangsJson = JSON.stringify({
         secMsg.textContent = "";
         const name = secNew.value.trim();
         if (!name) { secMsg.textContent = tr("menu.nameRequired"); return; }
+        const stdNew = trovaStd(name);
         const res = await fetch("/api/admin/categories", {
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ name, kind: nuovaKind, parent_id: nuovoParent?.id ?? null }),
+          body: JSON.stringify({ name, kind: nuovaKind, parent_id: nuovoParent?.id ?? null, name_i18n: stdNew ? i18nStd(stdNew) : {} }),
         });
         const j = await res.json();
         if (!res.ok) {
