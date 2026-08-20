@@ -43,6 +43,9 @@ export interface MenuCategoria {
   category: string;
   category_order: number;
   items: MenuItem[];
+  parent?: string | null; // nome della categoria madre (null = principale)
+  depth?: number; // 0 = principale, 1..3 = sotto-categoria
+  root?: string; // nome della categoria di PRIMO livello (antenato radice)
 }
 
 const MENU_SELECT =
@@ -94,6 +97,47 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
   return gruppi;
 }
 
+/** Mappa nome-categoria -> { parent(nome) , depth } dalla tabella menu_categories.
+ *  Tollerante: se parent_id/depth non sono migrate, ritorna tutto depth 0. */
+async function mappaCategorie(): Promise<Map<string, { parent: string | null; depth: number }>> {
+  const out = new Map<string, { parent: string | null; depth: number }>();
+  try {
+    let res = await supabaseAdmin.from("menu_categories").select("id, name, parent_id, depth");
+    if (res.error && (String(res.error.message ?? "").includes("parent_id") || String(res.error.message ?? "").includes("depth"))) {
+      res = await supabaseAdmin.from("menu_categories").select("id, name");
+    }
+    const righe = (res.data ?? []) as { id: string; name: string; parent_id?: string | null; depth?: number }[];
+    const perId = new Map(righe.map((r) => [r.id, r]));
+    for (const r of righe) {
+      const parent = r.parent_id ? (perId.get(r.parent_id)?.name ?? null) : null;
+      out.set(r.name, { parent, depth: Number(r.depth ?? 0) });
+    }
+  } catch { /* nessuna gerarchia */ }
+  return out;
+}
+
+/** Aggiunge parent/depth/root a ogni categoria del menu. */
+function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: string | null; depth: number }>): MenuCategoria[] {
+  const radiceDi = (nome: string): string => {
+    let cur = nome;
+    let guard = 0;
+    while (guard < 12) {
+      const info = mappa.get(cur);
+      if (!info || !info.parent) return cur;
+      cur = info.parent;
+      guard++;
+    }
+    return cur;
+  };
+  for (const g of gruppi) {
+    const info = mappa.get(g.category);
+    g.parent = info?.parent ?? null;
+    g.depth = info?.depth ?? 0;
+    g.root = radiceDi(g.category);
+  }
+  return gruppi;
+}
+
 /**
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
@@ -109,7 +153,7 @@ export async function getMenu(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
   }
-  return raggruppa(data, false);
+  return arricchisci(raggruppa(data, false), await mappaCategorie());
 }
 
 /**
@@ -128,5 +172,5 @@ export async function getMenuOrderable(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
-  return raggruppa(data, true);
+  return arricchisci(raggruppa(data, true), await mappaCategorie());
 }
