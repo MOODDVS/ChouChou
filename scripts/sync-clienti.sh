@@ -16,7 +16,7 @@ set -uo pipefail
 CLIENTI=(
   "$HOME/Developer/ChouChou"
   "$HOME/Developer/LaMolisana"
-  "$HOME/Developer/EducazioneNapoletana"
+  # "$HOME/Developer/EducazioneNapoletana"   # TODO: rimettere dopo aver ricostruito EN sul motore attuale
 )
 ENGINE_URL="https://github.com/MOODDVS/MOODD-Admin.git"
 BRANCH="main"
