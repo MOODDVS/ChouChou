@@ -131,7 +131,7 @@ export const POST: APIRoute = async ({ request }) => {
     ({ data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
-    return json({ error: "Création impossible — migration supabase/set_menus.sql à lancer ?" }, 500);
+    return json({ error: error?.message ?? "Création impossible — migration supabase/set_menus.sql à lancer ?" }, 500);
   }
   return json({ menu: data }, 201);
 };
@@ -196,7 +196,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       .select(SELECT_BASE)
       .single());
   }
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: error?.message ?? "Modification impossible" }, 500);
   return json({ menu: data });
 };
 
