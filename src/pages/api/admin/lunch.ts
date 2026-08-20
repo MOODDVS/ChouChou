@@ -11,7 +11,7 @@ export const prerender = false;
 // DELETE ?id=  → elimina (il client la invia come POST + X-Method-Override)
 
 const SELECT_BASE = "id, name, courses, date_from, date_to, items, combos, active, created_at";
-const SELECT = SELECT_BASE + ", name_i18n";
+const SELECT = SELECT_BASE + ", name_i18n, hide_items";
 
 /** name_i18n: { code: string } ripulito (trim, max 60), scarta vuoti. */
 function pulisciI18n(v: unknown): Record<string, string> | undefined {
@@ -26,9 +26,9 @@ function pulisciI18n(v: unknown): Record<string, string> | undefined {
   return out;
 }
 
-/** true se l'errore Supabase riguarda la colonna name_i18n (migrazione non lanciata). */
+/** true se l'errore Supabase riguarda una colonna opzionale (migrazione non lanciata). */
 function mancaI18n(err: { message?: string } | null): boolean {
-  return !!err?.message && /name_i18n/i.test(err.message);
+  return !!err?.message && /name_i18n|hide_items/i.test(err.message);
 }
 const PORTATE = ["entree", "plat", "dessert"]; // ordine canonico
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
@@ -146,9 +146,11 @@ export const POST: APIRoute = async ({ request }) => {
     active: body.active === undefined ? true : Boolean(body.active),
   };
   if (nameI18n !== undefined) riga.name_i18n = nameI18n;
+  if (body.hide_items !== undefined) riga.hide_items = Boolean(body.hide_items);
   let { data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT).single();
   if (error && mancaI18n(error)) {
     delete riga.name_i18n;
+    delete riga.hide_items;
     ({ data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
@@ -209,6 +211,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   if (body.active !== undefined) campi.active = Boolean(body.active);
   if (body.name_i18n !== undefined) campi.name_i18n = pulisciI18n(body.name_i18n) ?? {};
+  if (body.hide_items !== undefined) campi.hide_items = Boolean(body.hide_items);
   if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
 
   let { data, error } = await supabaseAdmin
@@ -220,6 +223,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && mancaI18n(error)) {
     const campiSenza = { ...campi };
     delete campiSenza.name_i18n;
+    delete campiSenza.hide_items;
     ({ data, error } = await supabaseAdmin
       .from("lunch_menus")
       .update(campiSenza)

@@ -138,6 +138,35 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
   return gruppi;
 }
 
+/** Id dei piatti da NASCONDERE dal menu pubblico perché inseriti in un
+ *  lunch/formula attivo (con hide_items) e attualmente valido per data.
+ *  Tollerante: se la tabella/colonna manca, ritorna un insieme vuoto. */
+async function piattiNascostiDaLunch(): Promise<Set<string>> {
+  const nascosti = new Set<string>();
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("lunch_menus")
+      .select("items, active, date_from, date_to, hide_items");
+    if (error || !data) return nascosti;
+    const oggi = new Date().toISOString().slice(0, 10);
+    for (const l of data as {
+      items?: Record<string, unknown> | null;
+      active?: boolean | null;
+      date_from?: string | null;
+      date_to?: string | null;
+      hide_items?: boolean | null;
+    }[]) {
+      if (!l.hide_items || l.active === false) continue;
+      if (l.date_from && oggi < l.date_from) continue;
+      if (l.date_to && oggi > l.date_to) continue;
+      for (const arr of Object.values(l.items ?? {})) {
+        if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
+      }
+    }
+  } catch { /* tabella/colonna assente: niente da nascondere */ }
+  return nascosti;
+}
+
 /**
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
@@ -153,7 +182,9 @@ export async function getMenu(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
   }
-  return arricchisci(raggruppa(data, false), await mappaCategorie());
+  const nascosti = await piattiNascostiDaLunch();
+  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
+  return arricchisci(raggruppa(visibili, false), await mappaCategorie());
 }
 
 /**
@@ -172,5 +203,7 @@ export async function getMenuOrderable(): Promise<MenuCategoria[]> {
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
-  return arricchisci(raggruppa(data, true), await mappaCategorie());
+  const nascosti = await piattiNascostiDaLunch();
+  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
+  return arricchisci(raggruppa(visibili, true), await mappaCategorie());
 }

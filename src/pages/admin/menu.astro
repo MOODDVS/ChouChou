@@ -681,6 +681,12 @@ const pubLangsJson = JSON.stringify({
                 {t("menu.active")}
               </label>
             </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="lu-hide-items" /><span class="track"></span></span>
+                {t("menu.lunchHideItems")}
+              </label>
+            </div>
           </div>
           <div class="m-col">
             <div id="lu-items"></div>
@@ -1525,6 +1531,7 @@ const pubLangsJson = JSON.stringify({
         combos: { parts: string[]; price_cents: number }[];
         active: boolean;
         name_i18n?: Record<string, string> | null;
+        hide_items?: boolean | null;
       };
       const PORTATE: string[] = ["entree", "plat", "dessert"]; // ordine canonico
       const PORTATA_LAB: Record<string, string> = { entree: tr("menu.courseEntree"), plat: tr("menu.coursePlat"), dessert: tr("menu.courseDessert") };
@@ -1640,6 +1647,7 @@ const pubLangsJson = JSON.stringify({
       const luItemsEl = document.getElementById("lu-items") as HTMLDivElement;
       const luCombosEl = document.getElementById("lu-combos") as HTMLDivElement;
       const luActive = document.getElementById("lu-active") as HTMLInputElement;
+      const luHideItems = document.getElementById("lu-hide-items") as HTMLInputElement;
       const luSave = document.getElementById("lu-save") as HTMLButtonElement;
       let luCourses: string[] = ["plat"]; // portate attive
       let luItems: Record<string, string[]> = {}; // piatti scelti per portata
@@ -1731,6 +1739,7 @@ const pubLangsJson = JSON.stringify({
         impostaData(luFrom, l?.date_from ?? "");
         impostaData(luTo, l?.date_to ?? "");
         luActive.checked = l?.active ?? true;
+        luHideItems.checked = l?.hide_items ?? false;
         luCourses = PORTATE.filter((p) => p === "plat" || (l?.courses ?? []).includes(p));
         luItems = {};
         for (const p of luCourses) luItems[p] = [...(l?.items?.[p] ?? [])];
@@ -1910,6 +1919,7 @@ const pubLangsJson = JSON.stringify({
           items: Object.fromEntries(luCourses.map((p) => [p, luItems[p] ?? []])),
           combos,
           active: luActive.checked,
+          hide_items: luHideItems.checked,
           name_i18n: (() => {
             const nome = luName.value.trim() || (luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch"));
             const o: Record<string, string> = { [PUB.def]: nome };
