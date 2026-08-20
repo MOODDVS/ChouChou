@@ -296,6 +296,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .overlay { position: fixed; inset: 0; z-index: 300; display: none; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 5vh 1rem; overflow-y: auto; }
       .overlay.is-open { display: flex; }
       .modal { width: 100%; max-width: 620px; margin: auto; background: var(--c-accent); color: var(--c-brown); border: 1px solid var(--c-accent); padding: 1.75rem; position: relative; box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15))); }
+      .modal { max-height: 90vh; overflow-y: auto; }
       .modal h2 { font-family: var(--font-title); font-size: 1.9rem; letter-spacing: 0.04em; margin-bottom: 1.1rem; color: var(--c-brown); }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: color-mix(in srgb, var(--c-bg) 55%, transparent); font-size: 1.7rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-brown); }
