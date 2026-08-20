@@ -185,19 +185,20 @@ const pubLangsJson = JSON.stringify({
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
       .cat-count { color: var(--c-muted); font-size: 0.8rem; }
       .sub-head {
-        display: flex; align-items: center; gap: 0.55rem; width: fit-content;
-        margin: 0.7rem 0 0.5rem; padding: 0.4rem 1rem 0.4rem 0.6rem;
-        background: #143d2b; border: 1px solid #2c6f4c; color: #9fe0bb;
-        border-radius: 999px; user-select: none;
+        display: flex; align-items: center; gap: 0.6rem;
+        margin: 0.55rem 0 0.45rem; padding: 0.55rem 1rem;
+        background: color-mix(in srgb, var(--c-accent) 30%, var(--c-bg));
+        border: 1px solid color-mix(in srgb, var(--c-accent) 60%, transparent);
+        border-radius: 12px; color: #fff; user-select: none;
         transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
       }
       .sub-head.dragging { opacity: 0.6; }
-      .sub-head.drop-target { background: #1c5a3f; border-color: #46a860; box-shadow: 0 0 0 2px rgba(70,168,96,0.35); }
-      .sub-head .s-drag { color: #6bbf90; cursor: grab; font-size: 1.05rem; }
+      .sub-head.drop-target { background: color-mix(in srgb, var(--c-accent) 48%, var(--c-bg)); border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 45%, transparent); }
+      .sub-head .s-drag { color: rgba(255,255,255,0.75); cursor: grab; font-size: 1.05rem; }
       .sub-head .s-drag:active { cursor: grabbing; }
-      .sub-head .sub-arrow { color: #6bbf90; font-weight: 700; letter-spacing: -2px; }
-      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: #b6ecce; }
-      .sub-head .cat-count { color: #6bbf90; font-size: 0.78rem; margin-left: 0.15rem; }
+      .sub-head .sub-arrow { color: rgba(255,255,255,0.7); font-weight: 700; letter-spacing: -2px; }
+      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: #fff; }
+      .sub-head .cat-count { color: rgba(255,255,255,0.72); font-size: 0.78rem; margin-left: auto; }
       #list[data-mode="search"] .sub-head .s-drag { display: none; }
 
       .item {
