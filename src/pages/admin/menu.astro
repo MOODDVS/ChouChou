@@ -301,6 +301,12 @@ const pubLangsJson = JSON.stringify({
       .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
       .mn-corso-nome { flex: 1; }
       .mn-corso-del { flex-shrink: 0; }
+      .mn-corso-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+      .mn-corso-cat { flex: 1; min-width: 140px; }
+      .mn-mode-group { display: inline-flex; border: 1px solid var(--c-line); border-radius: 999px; overflow: hidden; flex-shrink: 0; }
+      .mn-mode { background: transparent; border: none; color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.75rem; padding: 0.4rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
+      .mn-mode.is-on { background: var(--c-accent); color: var(--c-bg); }
+      .lu-course-mode { font-size: 0.72rem; font-weight: 700; color: var(--c-muted); text-transform: none; letter-spacing: 0; margin-left: 0.4rem; }
       .sm-draft { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: 0.1rem 0.5rem; vertical-align: middle; margin-left: 0.4rem; }
 
       /* Modale piatto a 2 colonne + tab */
@@ -2092,7 +2098,7 @@ const pubLangsJson = JSON.stringify({
         name_i18n?: Record<string, string> | null;
         desc_i18n?: Record<string, string> | null;
         image_url?: string | null;
-        courses: { name: string; items: string[] }[];
+        courses: { name: string; mode?: string; items: string[] }[];
         price_cents: number; wine_supplement_cents?: number | null;
         date_from: string | null; date_to: string | null;
         active: boolean; hide_items?: boolean | null; is_draft?: boolean | null; sort_order?: number;
@@ -2130,8 +2136,10 @@ const pubLangsJson = JSON.stringify({
         const portate = (m.courses ?? [])
           .map((c) => {
             const nomi = (c.items ?? []).map((id) => items.find((x) => x.id === id)?.name ?? "").filter(Boolean);
-            const dettaglio = nomi.length ? esc(nomi.join(" · ")) : `<span class="f-label">${tr("menu.noDishSelected")}</span>`;
-            return `<div class="lu-course"><span class="lu-course-tit">${esc(c.name)}</span><span class="lu-course-plats">${dettaglio}</span></div>`;
+            const sep = c.mode === "and" ? " + " : " / ";
+            const dettaglio = nomi.length ? esc(nomi.join(sep)) : `<span class="f-label">${tr("menu.noDishSelected")}</span>`;
+            const modeTag = nomi.length > 1 ? `<span class="lu-course-mode">(${c.mode === "and" ? tr("menu.modeAnd") : tr("menu.modeChoice")})</span>` : "";
+            return `<div class="lu-course"><span class="lu-course-tit">${esc(c.name)}${modeTag}</span><span class="lu-course-plats">${dettaglio}</span></div>`;
           })
           .join("");
         const prezzo = `<div class="lu-combo"><span>${esc(m.name)}</span><b>${euro(m.price_cents)}</b></div>`;
@@ -2191,7 +2199,7 @@ const pubLangsJson = JSON.stringify({
       const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
       const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
       let mnImgUrl: string | null = null;
-      let mnCorsi: { name: string; items: string[] }[] = [];
+      let mnCorsi: { name: string; mode: string; items: string[] }[] = [];
 
       function costruisciCampiLinguaMenu() {
         const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
@@ -2212,6 +2220,7 @@ const pubLangsJson = JSON.stringify({
       }
 
       function renderMnCorsi() {
+        const catOpts = cats.map((cat) => `<option value="${esc(cat.name)}">${esc(cat.name)}</option>`).join("");
         mnCorsiEl.innerHTML = mnCorsi
           .map((c, i) => {
             const opzioni = cats
@@ -2235,6 +2244,13 @@ const pubLangsJson = JSON.stringify({
                 <input type="text" class="mn-corso-nome" data-i="${i}" maxlength="60" placeholder="${tr("menu.courseNamePh")}" value="${esc(c.name)}" />
                 <button type="button" class="i-btn i-del mn-corso-del" data-i="${i}" title="${tr("menu.removeCourse")}">${ICO_TRASH}</button>
               </div>
+              <div class="mn-corso-row">
+                <select class="mn-corso-cat" data-i="${i}"><option value="">${tr("menu.orCategory")}</option>${catOpts}</select>
+                <div class="mn-mode-group">
+                  <button type="button" class="mn-mode${c.mode === "and" ? " is-on" : ""}" data-i="${i}" data-mode="and">${tr("menu.modeAnd")}</button>
+                  <button type="button" class="mn-mode${c.mode !== "and" ? " is-on" : ""}" data-i="${i}" data-mode="choice">${tr("menu.modeChoice")}</button>
+                </div>
+              </div>
               <select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>
               <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
             </div>`;
@@ -2250,12 +2266,29 @@ const pubLangsJson = JSON.stringify({
       });
       mnCorsiEl.addEventListener("change", (e) => {
         const sel = e.target as HTMLSelectElement;
-        if (!sel.classList.contains("mn-sel") || !sel.value) return;
         const i = Number(sel.dataset.i);
-        if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; renderMnCorsi(); }
+        if (sel.classList.contains("mn-sel") && sel.value) {
+          if (mnCorsi[i]) { mnCorsi[i].items = [...mnCorsi[i].items, sel.value]; renderMnCorsi(); }
+          return;
+        }
+        if (sel.classList.contains("mn-corso-cat") && sel.value) {
+          // Scelta di una categoria: usa il nome (se vuoto) e aggiunge i suoi piatti
+          if (mnCorsi[i]) {
+            if (!mnCorsi[i].name.trim()) mnCorsi[i].name = sel.value;
+            const ids = items.filter((it) => it.category === sel.value).map((it) => it.id);
+            mnCorsi[i].items = [...new Set([...mnCorsi[i].items, ...ids])];
+            renderMnCorsi();
+          }
+        }
       });
       mnCorsiEl.addEventListener("click", (e) => {
         const t = e.target as HTMLElement;
+        const mode = t.closest(".mn-mode") as HTMLElement | null;
+        if (mode) {
+          const i = Number(mode.dataset.i);
+          if (mnCorsi[i]) { mnCorsi[i].mode = mode.dataset.mode === "and" ? "and" : "choice"; renderMnCorsi(); }
+          return;
+        }
         const del = t.closest(".mn-corso-del") as HTMLElement | null;
         if (del) { mnCorsi.splice(Number(del.dataset.i), 1); renderMnCorsi(); return; }
         const chip = t.closest(".lu-chip button") as HTMLElement | null;
@@ -2266,7 +2299,7 @@ const pubLangsJson = JSON.stringify({
         }
       });
       (document.getElementById("mn-add-course") as HTMLButtonElement).addEventListener("click", () => {
-        mnCorsi.push({ name: "", items: [] });
+        mnCorsi.push({ name: "", mode: "choice", items: [] });
         renderMnCorsi();
       });
 
@@ -2344,7 +2377,7 @@ const pubLangsJson = JSON.stringify({
         mnImgUrl = m?.image_url ?? null;
         mnImgState.textContent = "";
         renderMnFotoPrev();
-        mnCorsi = m?.courses?.length ? m.courses.map((c) => ({ name: c.name, items: [...(c.items ?? [])] })) : [{ name: "", items: [] }];
+        mnCorsi = m?.courses?.length ? m.courses.map((c) => ({ name: c.name, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])] })) : [{ name: "", mode: "choice", items: [] }];
         renderMnCorsi();
         mnOverlay.classList.add("is-open");
         mnNomeDef().focus();
@@ -2367,7 +2400,7 @@ const pubLangsJson = JSON.stringify({
           if (!Number.isFinite(wine) || wine < 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
         }
         const courses = mnCorsi
-          .map((c) => ({ name: c.name.trim(), items: c.items }))
+          .map((c) => ({ name: c.name.trim(), mode: c.mode, items: c.items }))
           .filter((c) => c.name || c.items.length);
         if (!draft && !courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
         const dFrom = mnFrom.dataset.iso ?? "";

@@ -41,17 +41,18 @@ function pulisciI18n(v: unknown, maxLen: number): Record<string, string> | undef
   return out;
 }
 
-/** courses: array di { name (≤60), items: [uuid] (≤30) }, max 12 portate. */
-function pulisciCourses(v: unknown): { name: string; items: string[] }[] | null {
+/** courses: array di { name (≤60), mode ("and"|"choice"), items: [uuid] (≤30) }, max 12 portate. */
+function pulisciCourses(v: unknown): { name: string; mode: string; items: string[] }[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > 12) return null;
-  const out: { name: string; items: string[] }[] = [];
-  for (const c of v as { name?: unknown; items?: unknown }[]) {
+  const out: { name: string; mode: string; items: string[] }[] = [];
+  for (const c of v as { name?: unknown; mode?: unknown; items?: unknown }[]) {
     const name = String(c?.name ?? "").trim().slice(0, 60);
+    const mode = c?.mode === "and" ? "and" : "choice";
     const arr = Array.isArray(c?.items) ? (c.items as unknown[]) : [];
     const items = [...new Set(arr.map(String).filter((id) => RE_UUID.test(id)))].slice(0, 30);
     if (!name && !items.length) continue; // portata vuota: scarta
-    out.push({ name: name || "—", items });
+    out.push({ name: name || "—", mode, items });
   }
   return out;
 }
