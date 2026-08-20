@@ -28,6 +28,8 @@ interface EventoInput {
   links?: unknown;
   rsvp?: boolean;
   active?: boolean;
+  title_i18n?: Record<string, string> | null;
+  body_i18n?: Record<string, string> | null;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -66,6 +68,21 @@ function pulisciLinks(input: unknown): LinkExt[] {
   return out;
 }
 
+/** name_i18n / body_i18n: { code: string } ripulito (trim, max len), scarta vuoti. */
+function pulisciI18n(v: unknown, maxLen: number): Record<string, string> {
+  if (v === undefined || v === null || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const code = String(k).toLowerCase().slice(0, 5);
+    const testo = String(val ?? "").trim().slice(0, maxLen);
+    if (code && testo) out[code] = testo;
+  }
+  return out;
+}
+function mancaI18n(err: { message?: string } | null): boolean {
+  return !!err?.message && /title_i18n|body_i18n/i.test(err.message);
+}
+
 /** Valida e normalizza i campi di un evento. */
 function valida(b: EventoInput): { errore?: string; valori?: Record<string, unknown> } {
   const title = (b.title ?? "").trim();
@@ -92,6 +109,8 @@ function valida(b: EventoInput): { errore?: string; valori?: Record<string, unkn
       links: pulisciLinks(b.links),
       rsvp: b.rsvp === true,
       active: b.active !== false,
+      title_i18n: pulisciI18n(b.title_i18n, 160),
+      body_i18n: pulisciI18n(b.body_i18n, 2000),
     },
   };
 }
@@ -122,13 +141,15 @@ export const POST: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
-  const { data, error } = await supabaseAdmin
-    .from("agenda_events")
-    .insert(v.valori!)
-    .select("id")
-    .single();
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
-  return json({ ok: true, id: data.id }, 201);
+  let ins = await supabaseAdmin.from("agenda_events").insert(v.valori!).select("id").single();
+  if (ins.error && mancaI18n(ins.error)) {
+    const senza = { ...v.valori! };
+    delete senza.title_i18n;
+    delete senza.body_i18n;
+    ins = await supabaseAdmin.from("agenda_events").insert(senza).select("id").single();
+  }
+  if (ins.error || !ins.data) return json({ error: "Enregistrement impossible" }, 500);
+  return json({ ok: true, id: ins.data.id }, 201);
 };
 
 export const PUT: APIRoute = async ({ request }) => {
@@ -156,11 +177,14 @@ export const PUT: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
-  const { error } = await supabaseAdmin
-    .from("agenda_events")
-    .update(v.valori!)
-    .eq("id", body.id);
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  let upd = (await supabaseAdmin.from("agenda_events").update(v.valori!).eq("id", body.id)).error;
+  if (upd && mancaI18n(upd)) {
+    const senza = { ...v.valori! };
+    delete senza.title_i18n;
+    delete senza.body_i18n;
+    upd = (await supabaseAdmin.from("agenda_events").update(senza).eq("id", body.id)).error;
+  }
+  if (upd) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true });
 };
 

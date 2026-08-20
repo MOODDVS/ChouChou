@@ -11,11 +11,29 @@ import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import { supabaseAdmin } from "../../lib/db";
+import { normalizzaLinguePubbliche, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import "../../styles/datepicker.css";
 import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
+
+// Lingue del SITO PUBBLICO (per le traduzioni di titolo/descrizione evento).
+let pubLangs: { langs: string[]; def: string } = { langs: ["fr"], def: "fr" };
+try {
+  const { data } = await supabaseAdmin
+    .from("app_config")
+    .select("key, value")
+    .in("key", ["public_languages", "public_lang_default"]);
+  const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")]));
+  pubLangs = normalizzaLinguePubbliche(m.get("public_languages") ?? "", m.get("public_lang_default") ?? "");
+} catch { /* default fr */ }
+const pubLangsJson = JSON.stringify({
+  langs: pubLangs.langs,
+  def: pubLangs.def,
+  labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
+}).replace(/</g, "\\u003c");
 ---
 
 <html lang={lang}>
@@ -187,6 +205,13 @@ const t = adminT(lang);
       /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
       .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
       .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
+      /* Modale evento: 2 colonne, header/footer fissi, scroll nelle colonne */
+      #overlay .modal { max-width: 920px; display: flex; flex-direction: column; overflow: hidden; }
+      #overlay .modal > h2 { position: static; flex: 0 0 auto; }
+      #overlay .modal > .m-foot { position: static; flex: 0 0 auto; margin-top: 0.6rem; }
+      #overlay .m-cols { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: stretch; overflow: hidden; }
+      #overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
+      @media (max-width: 780px) { #overlay .m-cols { grid-template-columns: 1fr; overflow-y: auto; } #overlay .m-col { overflow: visible; } }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -407,8 +432,11 @@ const t = adminT(lang);
         <button class="m-close" id="m-close" type="button" aria-label={t("common.close")}>&times;</button>
         <h2 id="m-title">{t("ag.newTitle")}</h2>
 
+        <div class="m-cols">
+        <div class="m-col">
         <label class="f-lab" for="f-title">{t("ag.fTitle")}</label>
         <input type="text" class="f-input" id="f-title" placeholder={t("ag.fTitlePh")} />
+        <div id="f-title-i18n"></div>
 
         <label class="f-lab" for="f-img">{t("ag.image")}</label>
         <div class="f-row f-row--img">
@@ -421,7 +449,9 @@ const t = adminT(lang);
 
         <label class="f-lab" for="f-body">{t("ag.text")}</label>
         <textarea class="f-area" id="f-body" placeholder={t("ag.textPh")}></textarea>
-
+        <div id="f-body-i18n"></div>
+        </div>
+        <div class="m-col">
         <label class="f-lab">{t("ag.gallery")}</label>
         <div class="f-row">
           <button class="pill" id="f-gal-add" type="button">+ {t("ag.galleryAdd")}</button>
@@ -458,6 +488,8 @@ const t = adminT(lang);
           </span>
         </div>
         <p class="f-hint">{t("ag.rsvpHint")}</p>
+        </div>
+        </div>
 
         <div class="m-foot">
           <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
@@ -470,6 +502,7 @@ const t = adminT(lang);
       </div>
     </div>
 
+    <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
     <ImagePicker />
     <AdminNav current="agenda" />
     <script>
@@ -485,6 +518,8 @@ const t = adminT(lang);
       type Evento = {
         id: string;
         title: string;
+        title_i18n?: Record<string, string> | null;
+        body_i18n?: Record<string, string> | null;
         body: string | null;
         image_url: string | null;
         gallery: string[];
@@ -622,6 +657,28 @@ const t = adminT(lang);
         const fLinks = document.getElementById("f-links") as HTMLDivElement;
         const fRsvp = document.getElementById("f-rsvp") as HTMLInputElement;
         const fActive = document.getElementById("f-active") as HTMLInputElement;
+        // Lingue del sito pubblico (per titolo/descrizione tradotti).
+        type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
+        let PUB: PubLangs = { langs: ["fr"], def: "fr", labels: { fr: { label: "Français", flag: "\uD83C\uDDEB\uD83C\uDDF7" } } };
+        try { const raw = document.getElementById("pub-langs")?.textContent?.trim(); if (raw) PUB = JSON.parse(raw) as PubLangs; } catch { /* fallback */ }
+        const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
+        const fTitleI18n = document.getElementById("f-title-i18n") as HTMLDivElement;
+        const fBodyI18n = document.getElementById("f-body-i18n") as HTMLDivElement;
+        function costruisciCampiLinguaEvento() {
+          const extra = PUB.langs.filter((l) => l !== PUB.def);
+          fTitleI18n.innerHTML = extra
+            .map((l) => `<label class="f-lab">${esc(tr("ag.fTitle"))} (${esc(langTag(l))})</label><input type="text" class="f-input f-tx" data-lang="${l}" maxlength="160" />`)
+            .join("");
+          fBodyI18n.innerHTML = extra
+            .map((l) => `<label class="f-lab">${esc(tr("ag.text"))} (${esc(langTag(l))})</label><textarea class="f-area f-bx" data-lang="${l}"></textarea>`)
+            .join("");
+          // Etichette della lingua di default sui campi principali
+          const labTit = document.querySelector('label[for="f-title"]');
+          if (labTit) labTit.textContent = `${tr("ag.fTitle")} (${langTag(PUB.def)})`;
+          const labBody = document.querySelector('label[for="f-body"]');
+          if (labBody) labBody.textContent = `${tr("ag.text")} (${langTag(PUB.def)})`;
+        }
+        costruisciCampiLinguaEvento();
         const fUploadState = document.getElementById("f-upload-state") as HTMLParagraphElement;
 
         let editId: string | null = null;
@@ -676,6 +733,8 @@ const t = adminT(lang);
           fTitle.value = ev?.title ?? "";
           fImg.value = ev?.image_url ?? "";
           fBody.value = ev?.body ?? "";
+          { const ti = ev?.title_i18n ?? {}; fTitleI18n.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { inp.value = ti[inp.dataset.lang ?? ""] ?? ""; }); }
+          { const bi = ev?.body_i18n ?? {}; fBodyI18n.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { ta.value = bi[ta.dataset.lang ?? ""] ?? ""; }); }
           galleria = Array.isArray(ev?.gallery) ? [...ev!.gallery] : [];
           renderGallery();
           const hasRange = !!ev?.date_end;
@@ -886,10 +945,18 @@ const t = adminT(lang);
               url: (row.querySelector(".lk-url") as HTMLInputElement).value.trim(),
             }))
             .filter((l) => l.url);
+          const titleI18n: Record<string, string> = {};
+          if (fTitle.value.trim()) titleI18n[PUB.def] = fTitle.value.trim();
+          fTitleI18n.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const v = inp.value.trim(); if (v) titleI18n[inp.dataset.lang ?? ""] = v; });
+          const bodyI18n: Record<string, string> = {};
+          if (fBody.value.trim()) bodyI18n[PUB.def] = fBody.value.trim();
+          fBodyI18n.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyI18n[ta.dataset.lang ?? ""] = v; });
           const payload = {
             id: editId ?? undefined,
             title: fTitle.value,
             body: fBody.value,
+            title_i18n: titleI18n,
+            body_i18n: bodyI18n,
             image_url: fImg.value,
             gallery: galleria,
             date_start: fDs.dataset.iso || null,
