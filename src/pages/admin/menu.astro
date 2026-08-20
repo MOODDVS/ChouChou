@@ -559,7 +559,7 @@ const pubLangsJson = JSON.stringify({
               </label>
               <label class="m-toggle">
                 <span class="switch"><input type="checkbox" id="f-soldout" /><span class="track"></span></span>
-                ⛔ {t("menu.soldOut")}
+                {t("menu.soldOut")}
               </label>
             </div>
           </div>
@@ -1121,13 +1121,24 @@ const pubLangsJson = JSON.stringify({
         mostraTab("desc");
         mTitle.textContent = it ? tr("menu.editDish") : tr("menu.addDish");
         mMsg.textContent = "";
-        fCat.innerHTML = cats
-          .map((c) => {
-            const d = c.depth ?? 0;
-            const pre = d > 0 ? "\u00A0\u00A0".repeat(d) + "\u21B3 " : "";
-            return `<option value="${esc(c.name)}">${pre}${esc(c.name)}</option>`;
-          })
-          .join("");
+        {
+          const catById = new Map(cats.map((c) => [c.id, c] as const));
+          const pathOf = (c: Cat): string[] => {
+            const names: string[] = [];
+            let cur: Cat | undefined = c;
+            const seen = new Set<string>();
+            while (cur && !seen.has(cur.id)) { seen.add(cur.id); names.unshift(cur.name); cur = cur.parent_id ? catById.get(cur.parent_id) : undefined; }
+            return names;
+          };
+          fCat.innerHTML = cats
+            .map((c) => {
+              const d = c.depth ?? 0;
+              const pre = d > 0 ? "\u00A0\u00A0".repeat(d) : "";
+              const label = pathOf(c).join(" \u203A ");
+              return `<option value="${esc(c.name)}">${pre}${esc(label)}</option>`;
+            })
+            .join("");
+        }
         fName.value = it?.name ?? "";
         fPrice.value = it ? (it.price_cents / 100).toFixed(2) : "";
         fCat.value = it?.category ?? attiva;
