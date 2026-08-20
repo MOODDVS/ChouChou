@@ -73,6 +73,18 @@ const t = adminT(lang);
       .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .actionsbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .ag-add {
+        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
+        display: inline-flex; align-items: center; gap: 0.15rem; box-sizing: border-box;
+        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
+        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
+        padding: 0.6rem 1.3rem; border-radius: 999px; cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
+        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+      }
+      .ag-add .fab-plus { font-size: 1.2rem; margin-right: 0.25rem; }
+      .ag-add:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
+      @media (max-width: 520px) { .ag-add { bottom: calc(1.25rem + 72px); } }
       .pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-weight: 700; font-size: 0.85rem;
@@ -388,9 +400,7 @@ const t = adminT(lang);
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("ag.title")}</h1>
 
-        <div class="actionsbar">
-          <button class="pill" id="add-btn">+ {t("ag.new")}</button>
-        </div>
+        <button class="ag-add" id="add-btn" type="button"><span class="fab-plus">+</span>{t("ag.new")}</button>
 
         <div class="state" id="state">{t("sup.loading")}</div>
         <div class="state" id="empty" style="display:none">{t("ag.empty")}</div>
