@@ -74,9 +74,10 @@ const pool0 = brand.heroImages.length ? brand.heroImages : FALLBACK_COVERS;
 const coverPool = pool0.filter((u) => COVER_OK.test(u));
 const safePool = coverPool.length ? coverPool : FALLBACK_COVERS;
 const cover = safePool[Math.floor(Math.random() * safePool.length)];
-const topLogo = brand.logoNeg || "/restohub/wordmark-negative.svg";
+// Logo in alto: SEMPRE il wordmark RestoHub (pagina del motore, non brand cliente).
+const topLogo = "/restohub/wordmark-negative.svg";
 const badgeLogo = brand.favicon || "/favicon.svg";
-const showPayoff = !brand.logoNeg;
+const showPayoff = true; // il payoff RestoHub accompagna sempre il logo RestoHub
 const heroTitle = brand.nome || t("login.title");
 const tabTitle = brand.nome || t("login.title");
 ---
@@ -210,7 +211,7 @@ const tabTitle = brand.nome || t("login.title");
       <!-- IMMAGINE -->
       <section class="pane-img" style={`background-image:url("${cover}")`}>
         <div class="img-top">
-          <img class="img-logo" src={topLogo} alt={brand.logoNeg ? heroTitle : "RestoHub"} />
+          <img class="img-logo" src={topLogo} alt="RestoHub" />
           {showPayoff && <p class="img-payoff">{payoff}</p>}
         </div>
         <div class="img-hero">

@@ -23,7 +23,13 @@ const FAB_CSS =
   ".fab-add .fab-plus{font-size:1.2rem;line-height:1;margin-right:.35rem}" +
   ".fab-add:hover{background:var(--c-hover);border-color:var(--c-hover);transform:scale(.94)}" +
   "@media(max-width:520px){.fab-add{bottom:calc(1.25rem + 72px)}}";
-const css = cssTema(boot.theme) + FAB_CSS;
+// Placeholder piu' chiari: 40% del colore testo mescolato col fondo, cosi'
+// si distinguono nettamente dai campi compilati (in qualsiasi tema).
+// :where() = specificita' 0 -> le regole ::placeholder specifiche delle
+// singole pagine vincono comunque. opacity:1 annulla il 0.54 di Firefox.
+const PLACEHOLDER_CSS =
+  ":where(input,textarea)::placeholder{color:color-mix(in srgb,var(--c-text) 40%,var(--c-bg));opacity:1}";
+const css = cssTema(boot.theme) + FAB_CSS + PLACEHOLDER_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
