@@ -203,6 +203,7 @@
   /* order / menu */
   .cats{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.6rem}
   .menu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 2.6rem}
+  .menu-subtitle{grid-column:1/-1;font-family:var(--disp);font-size:1.25rem;color:var(--accent);margin:1.4rem 0 .3rem;padding-bottom:.35rem;border-bottom:1px solid var(--line)}
   @media(max-width:620px){.menu-grid{grid-template-columns:1fr}}
   .dish{display:flex;gap:1rem;align-items:center;padding:1rem 0;border-bottom:1px solid var(--line)}
   .dish:hover .dn b{color:var(--accent)}
@@ -704,7 +705,15 @@ const ALG={fr:{gluten:"gluten",lait:"lait","œufs":"œufs",crustacés:"crustacé
  en:{gluten:"gluten",lait:"milk","œufs":"eggs",crustacés:"crustaceans",mollusques:"molluscs",céleri:"celery"}};
 function renderMenu(cat="all"){
  const g=document.getElementById("menuGrid");g.innerHTML="";
- DISHES.filter(d=>cat==="all"||d.c===cat).forEach(d=>{
+ const list=DISHES.filter(d=>cat==="all"||d.root===cat).slice().sort((a,b)=>(a.co||0)-(b.co||0));
+ let lastSub=null;
+ list.forEach(d=>{
+  if((d.depth||0)>0){
+   if(d.sub!==lastSub){
+    const h=document.createElement("div");h.className="menu-subtitle";h.textContent=d.sub;
+    g.appendChild(h); lastSub=d.sub;
+   }
+  } else { lastSub=null; }
   const el=document.createElement("div");el.className="dish"+(d.off?" off":"");
   const alg=d.alg.map(a=>`<span class="alg">${ALG[LANG][a]||a}</span>`).join("");
   el.innerHTML=`${d.e?`<div class="emoji">${d.e}</div>`:""}
@@ -850,6 +859,7 @@ async function caricaMenu(){
   (j.menu||[]).forEach(cat=>{(cat.items||[]).forEach(it=>{
    DISHES.push({
     id:it.id, c:cat.category,
+    root: cat.root||cat.category, sub: cat.category, depth: cat.depth||0, co: cat.category_order||0,
     e: it.image_url ? `<img src="${it.image_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:12px">` : "",
     fr:[it.name, it.description_fr||it.description||""],
     it:[it.name, it.description||""],
@@ -857,10 +867,11 @@ async function caricaMenu(){
     p:(it.price_cents||0)/100, alg:[], off:false
    });
   });});
-  const uniq=[...new Set(DISHES.map(d=>d.c))];
+  // Filtri = solo categorie di PRIMO livello (root), in ordine di comparsa
+  const roots=[]; DISHES.forEach(d=>{ if(!roots.includes(d.root)) roots.push(d.root); });
   document.getElementById("cats").innerHTML=
    `<button class="chip on" data-c="all" data-k="cat.all">${tr("cat.all")}</button>`+
-   uniq.map(c=>`<button class="chip" data-c="${c}">${c}</button>`).join("");
+   roots.map(c=>`<button class="chip" data-c="${c}">${c}</button>`).join("");
   curCat="all";
  }catch(e){}
  renderMenu(curCat);
