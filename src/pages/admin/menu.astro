@@ -301,6 +301,8 @@ const pubLangsJson = JSON.stringify({
       .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
       .mn-corso-tipo { flex: 1; min-width: 130px; }
       .mn-corso-nomi { margin-bottom: 0.3rem; }
+      .mn-custom { border: 1px solid var(--c-line); border-radius: 10px; padding: 0.6rem 0.7rem; margin-top: 0.5rem; }
+      .mn-custom-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
       .mn-corso-nome { flex: 1; }
       .mn-corso-del { flex-shrink: 0; }
       .mn-corso-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
@@ -2100,7 +2102,7 @@ const pubLangsJson = JSON.stringify({
         name_i18n?: Record<string, string> | null;
         desc_i18n?: Record<string, string> | null;
         image_url?: string | null;
-        courses: { category?: string | null; name: string; name_i18n?: Record<string, string> | null; mode?: string; items: string[] }[];
+        courses: { category?: string | null; name: string; name_i18n?: Record<string, string> | null; mode?: string; items: string[]; customs?: { name_i18n?: Record<string, string> | null }[] }[];
         price_cents: number; wine_supplement_cents?: number | null;
         date_from: string | null; date_to: string | null;
         active: boolean; hide_items?: boolean | null; is_draft?: boolean | null; sort_order?: number;
@@ -2137,7 +2139,9 @@ const pubLangsJson = JSON.stringify({
       function setMenuHTML(m: SetMenu): string {
         const portate = (m.courses ?? [])
           .map((c) => {
-            const nomi = (c.items ?? []).map((id) => items.find((x) => x.id === id)?.name ?? "").filter(Boolean);
+            const nomiItems = (c.items ?? []).map((id) => items.find((x) => x.id === id)?.name ?? "").filter(Boolean);
+            const nomiCustom = (c.customs ?? []).map((cu) => cu.name_i18n?.[PUB.def] ?? Object.values(cu.name_i18n ?? {})[0] ?? "").filter(Boolean);
+            const nomi = [...nomiItems, ...nomiCustom];
             const sep = c.mode === "and" ? " + " : " / ";
             const dettaglio = nomi.length ? esc(nomi.join(sep)) : `<span class="f-label">${tr("menu.noDishSelected")}</span>`;
             const modeTag = nomi.length > 1 ? `<span class="lu-course-mode">(${c.mode === "and" ? tr("menu.modeAnd") : tr("menu.modeChoice")})</span>` : "";
@@ -2201,7 +2205,7 @@ const pubLangsJson = JSON.stringify({
       const mnImgFile = document.getElementById("mn-img-file") as HTMLInputElement;
       const mnImgState = document.getElementById("mn-img-state") as HTMLSpanElement;
       let mnImgUrl: string | null = null;
-      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[] }[] = [];
+      let mnCorsi: { category: string; name: string; name_i18n: Record<string, string>; mode: string; items: string[]; customs: { name_i18n: Record<string, string> }[] }[] = [];
 
       function costruisciCampiLinguaMenu() {
         const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
@@ -2265,6 +2269,12 @@ const pubLangsJson = JSON.stringify({
               ${nomiCustom}
               <select class="mn-sel" data-i="${i}"><option value="">${tr("menu.addMenuDish")}</option>${opzioni}</select>
               <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
+              ${c.customs
+                .map((cu, ci) => `<div class="mn-custom"><div class="mn-custom-head"><span class="f-label">${tr("menu.customDish")} ${ci + 1}</span><button type="button" class="i-btn i-del mn-custom-del" data-i="${i}" data-ci="${ci}" title="${tr("ord.remove")}">${ICO_TRASH}</button></div>${ordine
+                  .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-custom-nx" data-i="${i}" data-ci="${ci}" data-lang="${l}" maxlength="60" value="${esc(cu.name_i18n?.[l] ?? "")}" /></div></div>`)
+                  .join("")}</div>`)
+                .join("")}
+              <button type="button" class="pill sec-btn mn-custom-add" data-i="${i}" style="margin-top: 0.4rem">${tr("menu.otherDish")}</button>
             </div>`;
           })
           .join("");
@@ -2272,12 +2282,19 @@ const pubLangsJson = JSON.stringify({
 
       mnCorsiEl.addEventListener("input", (e) => {
         const inp = e.target as HTMLInputElement;
-        if (!inp.classList.contains("mn-corso-nx")) return;
         const i = Number(inp.dataset.i);
-        const l = inp.dataset.lang ?? "";
-        if (mnCorsi[i]) {
-          mnCorsi[i].name_i18n[l] = inp.value;
-          if (l === PUB.def) mnCorsi[i].name = inp.value;
+        if (inp.classList.contains("mn-corso-nx")) {
+          const l = inp.dataset.lang ?? "";
+          if (mnCorsi[i]) {
+            mnCorsi[i].name_i18n[l] = inp.value;
+            if (l === PUB.def) mnCorsi[i].name = inp.value;
+          }
+          return;
+        }
+        if (inp.classList.contains("mn-custom-nx")) {
+          const ci = Number(inp.dataset.ci);
+          const l = inp.dataset.lang ?? "";
+          if (mnCorsi[i]?.customs[ci]) mnCorsi[i].customs[ci].name_i18n[l] = inp.value;
         }
       });
       mnCorsiEl.addEventListener("change", (e) => {
@@ -2296,6 +2313,10 @@ const pubLangsJson = JSON.stringify({
       });
       mnCorsiEl.addEventListener("click", (e) => {
         const t = e.target as HTMLElement;
+        const cadd = t.closest(".mn-custom-add") as HTMLElement | null;
+        if (cadd) { const i = Number(cadd.dataset.i); mnCorsi[i]?.customs.push({ name_i18n: {} }); renderMnCorsi(); return; }
+        const cdel = t.closest(".mn-custom-del") as HTMLElement | null;
+        if (cdel) { const i = Number(cdel.dataset.i); mnCorsi[i]?.customs.splice(Number(cdel.dataset.ci), 1); renderMnCorsi(); return; }
         const mode = t.closest(".mn-mode") as HTMLElement | null;
         if (mode) {
           const i = Number(mode.dataset.i);
@@ -2312,7 +2333,7 @@ const pubLangsJson = JSON.stringify({
         }
       });
       (document.getElementById("mn-add-course") as HTMLButtonElement).addEventListener("click", () => {
-        mnCorsi.push({ category: "", name: "", name_i18n: {}, mode: "choice", items: [] });
+        mnCorsi.push({ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [] });
         renderMnCorsi();
       });
 
@@ -2391,8 +2412,8 @@ const pubLangsJson = JSON.stringify({
         mnImgState.textContent = "";
         renderMnFotoPrev();
         mnCorsi = m?.courses?.length
-          ? m.courses.map((c) => ({ category: c.category ?? "", name: c.name ?? "", name_i18n: { ...(c.name_i18n ?? {}) }, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])] }))
-          : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [] }];
+          ? m.courses.map((c) => ({ category: c.category ?? "", name: c.name ?? "", name_i18n: { ...(c.name_i18n ?? {}) }, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])], customs: (c.customs ?? []).map((cu) => ({ name_i18n: { ...(cu.name_i18n ?? {}) } })) }))
+          : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [] }];
         renderMnCorsi();
         mnOverlay.classList.add("is-open");
         mnNomeDef().focus();
@@ -2414,17 +2435,26 @@ const pubLangsJson = JSON.stringify({
           wine = Math.round(parseFloat(mnWine.value.replace(",", ".")) * 100);
           if (!Number.isFinite(wine) || wine < 0) { mnMsg.textContent = tr("menu.priceInvalid"); return; }
         }
+        const pulCustoms = (arr: { name_i18n: Record<string, string> }[]) =>
+          arr
+            .map((cu) => {
+              const o: Record<string, string> = {};
+              for (const [k, v] of Object.entries(cu.name_i18n)) { const t = String(v).trim(); if (t) o[k] = t; }
+              return { name_i18n: o };
+            })
+            .filter((cu) => Object.keys(cu.name_i18n).length);
         const courses = mnCorsi
           .map((c) => {
+            const customs = pulCustoms(c.customs);
             if (c.category) {
-              return { category: c.category, name: c.category, name_i18n: {} as Record<string, string>, mode: c.mode, items: c.items };
+              return { category: c.category, name: c.category, name_i18n: {} as Record<string, string>, mode: c.mode, items: c.items, customs };
             }
             const nameI18n: Record<string, string> = {};
             for (const [k, v] of Object.entries(c.name_i18n)) { const t = String(v).trim(); if (t) nameI18n[k] = t; }
             const nomeC = (c.name_i18n[PUB.def] ?? c.name ?? "").trim();
-            return { category: null as string | null, name: nomeC, name_i18n: nameI18n, mode: c.mode, items: c.items };
+            return { category: null as string | null, name: nomeC, name_i18n: nameI18n, mode: c.mode, items: c.items, customs };
           })
-          .filter((c) => c.category || c.name || c.items.length);
+          .filter((c) => c.category || c.name || c.items.length || c.customs.length);
         if (!draft && !courses.length) { mnMsg.textContent = tr("menu.noDishSelected"); return; }
         const dFrom = mnFrom.dataset.iso ?? "";
         const dTo = mnTo.dataset.iso ?? "";
