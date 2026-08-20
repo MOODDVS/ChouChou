@@ -1,0 +1,38 @@
+# ============================================================
+# RestoHub — protezione dei file PER-CLIENTE durante il merge del motore.
+#
+# Con `merge=ours`, quando in un repo cliente lanci:
+#     git fetch engine && git merge engine/main
+# git TIENE SEMPRE la versione del cliente per i file elencati qui sotto
+# (brand, pagine pubbliche, loghi, config) e NON prende quella del motore.
+# Tutto il resto (admin, api, lib, migrazioni, stili) si fonde dal motore.
+#
+# Richiede UNA VOLTA per repo cliente:  git config merge.ours.driver true
+# (lo imposta in automatico scripts/sync-clienti.sh)
+# L'ordine conta: la riga piu' specifica in basso vince su quella sopra.
+# ============================================================
+
+# --- Pagine pubbliche: tutto src/pages TRANNE admin e api (= motore) ---
+src/pages/**             merge=ours
+src/pages/admin/**       merge
+src/pages/api/**         merge
+
+# --- Componenti pubblici: tutto TRANNE components/admin (= motore) ---
+src/components/**        merge=ours
+src/components/admin/**  merge
+
+# --- Layout del sito pubblico (design per-cliente) ---
+src/layouts/**           merge=ours
+
+# --- Traduzioni: contenuti pubblici del cliente (ma admin.ts = motore) ---
+src/i18n/**              merge=ours
+src/i18n/admin.ts        merge
+
+# --- Asset pubblici del cliente (loghi, favicon, foto, manifest)...
+#     ...tranne gli asset di PRODOTTO RestoHub, che vengono dal motore ---
+public/**                merge=ours
+public/restohub/**       merge
+
+# --- Brand e dominio ---
+src/config/client.ts     merge=ours
+astro.config.mjs         merge=ours
