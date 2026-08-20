@@ -12,8 +12,8 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
-import { supabaseAdmin } from "../../lib/db";
-import { normalizzaLinguePubbliche, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { CATEGORIE_STANDARD } from "../../lib/admin/categorieStandard";
 import "../../styles/datepicker.css";
 
@@ -36,15 +36,10 @@ try {
 const ssrMenuJson = ssrMenu ? JSON.stringify(ssrMenu).replace(/</g, "\\u003c") : "";
 
 // Lingue del SITO PUBBLICO (per i campi traduzione dei piatti): { langs, def }.
-let pubLangs: { langs: string[]; def: string } = { langs: ["fr"], def: "fr" };
-try {
-  const { data } = await supabaseAdmin
-    .from("app_config")
-    .select("key, value")
-    .in("key", ["public_languages", "public_lang_default"]);
-  const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")]));
-  pubLangs = normalizzaLinguePubbliche(m.get("public_languages") ?? "", m.get("public_lang_default") ?? "");
-} catch { /* default fr */ }
+// Lingue pubbliche: gia' incluse nel boot admin (UNA query in cache 60s
+// condivisa con lang/tema) invece di una seconda query app_config per pagina.
+const boot = await caricaBootAdmin();
+const pubLangs = { langs: boot.publicLangs, def: boot.publicLangDefault };
 const pubLangsJson = JSON.stringify({
   langs: pubLangs.langs,
   def: pubLangs.def,

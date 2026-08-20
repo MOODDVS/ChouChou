@@ -571,7 +571,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
-      const LINGUE_MAP = new Map(LINGUE_WIDGET.map((l) => [l.code, l]));
+      const LINGUE_MAP = new Map<string, (typeof LINGUE_WIDGET)[number]>(LINGUE_WIDGET.map((l) => [l.code, l]));
       function langCell(code?: string | null): string {
         const c = (code || "").toLowerCase();
         const l = LINGUE_MAP.get(c);

@@ -97,20 +97,20 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let { data, error } = await supabaseAdmin
+  let resp: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("lunch_menus")
     .select(SELECT)
     .order("created_at", { ascending: true });
   // Colonna name_i18n non ancora presente: riprova senza
-  if (error && mancaI18n(error)) {
-    ({ data, error } = await supabaseAdmin
+  if (resp.error && mancaI18n(resp.error)) {
+    resp = await supabaseAdmin
       .from("lunch_menus")
       .select(SELECT_BASE)
-      .order("created_at", { ascending: true }));
+      .order("created_at", { ascending: true });
   }
   // Tabella non ancora creata (migrazione #38): tab vuoto, non rotto
-  if (error) return json({ lunches: [], missing: true });
-  return json({ lunches: data ?? [] });
+  if (resp.error) return json({ lunches: [], missing: true });
+  return json({ lunches: resp.data ?? [] });
 };
 
 export const POST: APIRoute = async ({ request }) => {

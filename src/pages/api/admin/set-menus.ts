@@ -90,20 +90,20 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let { data, error } = await supabaseAdmin
+  let resp: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("set_menus")
     .select(SELECT)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
-  if (error && mancaColonna(error)) {
-    ({ data, error } = await supabaseAdmin
+  if (resp.error && mancaColonna(resp.error)) {
+    resp = await supabaseAdmin
       .from("set_menus")
       .select(SELECT_BASE)
       .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }));
+      .order("created_at", { ascending: true });
   }
-  if (error) return json({ menus: [], missing: true });
-  return json({ menus: data ?? [] });
+  if (resp.error) return json({ menus: [], missing: true });
+  return json({ menus: resp.data ?? [] });
 };
 
 export const POST: APIRoute = async ({ request }) => {
