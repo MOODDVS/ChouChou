@@ -285,10 +285,10 @@ const pubLangsJson = JSON.stringify({
       .modal-dish { max-width: 940px; }
       .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
       @media (max-width: 780px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
-      .m-tabs { display: flex; gap: 0.2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--c-line); }
-      .m-tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.85rem; padding: 0.55rem 0.9rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; margin-bottom: -1px; }
+      .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+      .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
       .m-tab:hover { color: var(--c-text); }
-      .m-tab.is-on { color: var(--c-accent); border-bottom-color: var(--c-accent); }
+      .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
