@@ -81,7 +81,7 @@ const DIZIONARIO: Dizionario = {
   "ag.fTitle":      { fr: "Titre",               en: "Title",               it: "Titolo",               nl: "Titel",                 es: "Título" },
   "ag.fTitlePh":    { fr: "Nom de l'événement",  en: "Event name",          it: "Nome dell'evento",     nl: "Naam evenement",        es: "Nombre del evento" },
   "ag.image":       { fr: "Image principale",    en: "Main image",          it: "Immagine principale",  nl: "Hoofdafbeelding",       es: "Imagen principal" },
-  "ag.text":        { fr: "Description",         en: "Description",         it: "Descrizione",          nl: "Beschrijving",          es: "Descripción" },
+  "ag.text":        { fr: "Brève description",   en: "Short description",   it: "Breve descrizione",    nl: "Korte beschrijving",    es: "Descripción breve" },
   "ag.textPh":      { fr: "Décrivez l'événement…", en: "Describe the event…", it: "Descrivi l'evento…", nl: "Beschrijf het evenement…", es: "Describe el evento…" },
   "ag.gallery":     { fr: "Galerie",             en: "Gallery",             it: "Galleria",             nl: "Galerij",               es: "Galería" },
   "ag.galleryAdd":  { fr: "Ajouter des images",  en: "Add images",          it: "Aggiungi immagini",    nl: "Afbeeldingen toevoegen", es: "Añadir imágenes" },
