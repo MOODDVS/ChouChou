@@ -280,6 +280,7 @@ const pubLangsJson = JSON.stringify({
       /* Modale "Gestisci le sezioni": più largo e centrato verticalmente */
       #sec-overlay .modal { max-width: 860px; margin: auto; }
       #overlay .modal-dish { margin: auto; }
+      #lu-overlay .modal { max-width: 940px; margin: auto; }
 
       /* Modale piatto a 2 colonne + tab */
       .modal-dish { max-width: 940px; }
@@ -634,39 +635,46 @@ const pubLangsJson = JSON.stringify({
       <div class="modal">
         <button class="m-close" id="lu-close" aria-label={t("common.close")}>×</button>
         <h2 id="lu-title">{t("menu.addLunch")}</h2>
-        <div class="f-row">
-          <div class="f-field" style="flex: 2">
-            <span class="f-label">{t("home.name")}</span>
-            <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
+        <div class="m-cols">
+          <div class="m-col">
+            <div class="f-row">
+              <div class="f-field" style="flex: 2">
+                <span class="f-label" id="lu-name-lab">{t("home.name")}</span>
+                <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
+              </div>
+            </div>
+            <div id="lu-names-extra"></div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.composition")}</span>
+                <div class="luf-courses" id="lu-courses"></div>
+              </div>
+            </div>
+            <div class="f-row">
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateFrom")}</span>
+                <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
+              </div>
+              <div class="f-field">
+                <span class="f-label">{t("menu.dateTo")}</span>
+                <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
+              </div>
+            </div>
+            <div class="m-toggles">
+              <label class="m-toggle">
+                <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
+                {t("menu.active")}
+              </label>
+            </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.composition")}</span>
-            <div class="luf-courses" id="lu-courses"></div>
+          <div class="m-col">
+            <div id="lu-items"></div>
+            <div class="lu-block">
+              <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
+              <p class="f-label" style="margin-bottom: 0.55rem">{t("menu.comboEmptyHint")}</p>
+              <div id="lu-combos"></div>
+            </div>
           </div>
-        </div>
-        <div class="f-row">
-          <div class="f-field">
-            <span class="f-label">{t("menu.dateFrom")}</span>
-            <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
-          </div>
-          <div class="f-field">
-            <span class="f-label">{t("menu.dateTo")}</span>
-            <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
-          </div>
-        </div>
-        <div id="lu-items"></div>
-        <div class="lu-block">
-          <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
-          <p class="f-label" style="margin-bottom: 0.55rem">{t("menu.comboEmptyHint")}</p>
-          <div id="lu-combos"></div>
-        </div>
-        <div class="m-toggles">
-          <label class="m-toggle">
-            <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
-            {t("menu.active")}
-          </label>
         </div>
         <div class="m-actions">
           <span class="m-msg" id="lu-msg"></span>
@@ -1501,6 +1509,7 @@ const pubLangsJson = JSON.stringify({
         items: Record<string, string[]>;
         combos: { parts: string[]; price_cents: number }[];
         active: boolean;
+        name_i18n?: Record<string, string> | null;
       };
       const PORTATE: string[] = ["entree", "plat", "dessert"]; // ordine canonico
       const PORTATA_LAB: Record<string, string> = { entree: tr("menu.courseEntree"), plat: tr("menu.coursePlat"), dessert: tr("menu.courseDessert") };
@@ -1596,6 +1605,20 @@ const pubLangsJson = JSON.stringify({
       const luTitle = document.getElementById("lu-title") as HTMLHeadingElement;
       const luMsg = document.getElementById("lu-msg") as HTMLSpanElement;
       const luName = document.getElementById("lu-name") as HTMLInputElement;
+      const luNameLab = document.getElementById("lu-name-lab") as HTMLSpanElement;
+      const luNamesExtra = document.getElementById("lu-names-extra") as HTMLDivElement;
+      // Campi nome tradotto per lingua del sito pubblico (come i piatti).
+      function costruisciCampiLinguaLunch() {
+        luNameLab.textContent = `${tr("home.name")} (${langTag(PUB.def)})`;
+        luNamesExtra.innerHTML = PUB.langs
+          .filter((l) => l !== PUB.def)
+          .map(
+            (l) =>
+              `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="lu-nx" data-lang="${l}" maxlength="60" /></div></div>`
+          )
+          .join("");
+      }
+      costruisciCampiLinguaLunch();
       const luFrom = document.getElementById("lu-from") as HTMLInputElement;
       const luTo = document.getElementById("lu-to") as HTMLInputElement;
       const luCoursesEl = document.getElementById("lu-courses") as HTMLDivElement;
@@ -1684,6 +1707,12 @@ const pubLangsJson = JSON.stringify({
         luTitle.textContent = l ? tr("menu.editLunch") : tr("menu.addLunch");
         luMsg.textContent = "";
         luName.value = l?.name ?? "";
+        {
+          const nI18n = l?.name_i18n ?? {};
+          luNamesExtra.querySelectorAll<HTMLInputElement>(".lu-nx").forEach((inp) => {
+            inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
+          });
+        }
         impostaData(luFrom, l?.date_from ?? "");
         impostaData(luTo, l?.date_to ?? "");
         luActive.checked = l?.active ?? true;
@@ -1866,6 +1895,15 @@ const pubLangsJson = JSON.stringify({
           items: Object.fromEntries(luCourses.map((p) => [p, luItems[p] ?? []])),
           combos,
           active: luActive.checked,
+          name_i18n: (() => {
+            const nome = luName.value.trim() || (luCourses.length === 1 ? tr("menu.dailyDish") : tr("tab.menu.lunch"));
+            const o: Record<string, string> = { [PUB.def]: nome };
+            luNamesExtra.querySelectorAll<HTMLInputElement>(".lu-nx").forEach((inp) => {
+              const v = inp.value.trim();
+              if (v) o[inp.dataset.lang ?? ""] = v;
+            });
+            return o;
+          })(),
         };
         if (lunchEditId) body.id = lunchEditId;
         luSave.disabled = true;

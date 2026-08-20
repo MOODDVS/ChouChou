@@ -10,7 +10,26 @@ export const prerender = false;
 // PATCH        → aggiorna { id, ...campi presenti }
 // DELETE ?id=  → elimina (il client la invia come POST + X-Method-Override)
 
-const SELECT = "id, name, courses, date_from, date_to, items, combos, active, created_at";
+const SELECT_BASE = "id, name, courses, date_from, date_to, items, combos, active, created_at";
+const SELECT = SELECT_BASE + ", name_i18n";
+
+/** name_i18n: { code: string } ripulito (trim, max 60), scarta vuoti. */
+function pulisciI18n(v: unknown): Record<string, string> | undefined {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const code = String(k).toLowerCase().slice(0, 5);
+    const testo = String(val ?? "").trim().slice(0, 60);
+    if (code && testo) out[code] = testo;
+  }
+  return out;
+}
+
+/** true se l'errore Supabase riguarda la colonna name_i18n (migrazione non lanciata). */
+function mancaI18n(err: { message?: string } | null): boolean {
+  return !!err?.message && /name_i18n/i.test(err.message);
+}
 const PORTATE = ["entree", "plat", "dessert"]; // ordine canonico
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
@@ -78,10 +97,17 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("lunch_menus")
     .select(SELECT)
     .order("created_at", { ascending: true });
+  // Colonna name_i18n non ancora presente: riprova senza
+  if (error && mancaI18n(error)) {
+    ({ data, error } = await supabaseAdmin
+      .from("lunch_menus")
+      .select(SELECT_BASE)
+      .order("created_at", { ascending: true }));
+  }
   // Tabella non ancora creata (migrazione #38): tab vuoto, non rotto
   if (error) return json({ lunches: [], missing: true });
   return json({ lunches: data ?? [] });
@@ -109,7 +135,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (df === undefined || dt === undefined) return json({ error: "Dates invalides" }, 400);
   if (df && dt && df > dt) return json({ error: "La date de fin précède le début" }, 400);
 
-  const riga = {
+  const nameI18n = pulisciI18n(body.name_i18n);
+  const riga: Record<string, unknown> = {
     name: String(body.name ?? "").trim().slice(0, 60) || (courses.length === 1 ? "Plat du jour" : "Lunch"),
     courses,
     date_from: df,
@@ -118,7 +145,12 @@ export const POST: APIRoute = async ({ request }) => {
     combos,
     active: body.active === undefined ? true : Boolean(body.active),
   };
-  const { data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT).single();
+  if (nameI18n !== undefined) riga.name_i18n = nameI18n;
+  let { data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT).single();
+  if (error && mancaI18n(error)) {
+    delete riga.name_i18n;
+    ({ data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT_BASE).single());
+  }
   if (error || !data) {
     return json({ error: "Création impossible — migration supabase/lunch_menus.sql à lancer ?" }, 500);
   }
@@ -176,14 +208,25 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: "La date de fin précède le début" }, 400);
   }
   if (body.active !== undefined) campi.active = Boolean(body.active);
+  if (body.name_i18n !== undefined) campi.name_i18n = pulisciI18n(body.name_i18n) ?? {};
   if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
 
-  const { data, error } = await supabaseAdmin
+  let { data, error } = await supabaseAdmin
     .from("lunch_menus")
     .update(campi)
     .eq("id", id)
     .select(SELECT)
     .single();
+  if (error && mancaI18n(error)) {
+    const campiSenza = { ...campi };
+    delete campiSenza.name_i18n;
+    ({ data, error } = await supabaseAdmin
+      .from("lunch_menus")
+      .update(campiSenza)
+      .eq("id", id)
+      .select(SELECT_BASE)
+      .single());
+  }
   if (error || !data) return json({ error: "Modification impossible" }, 500);
   return json({ lunch: data });
 };
