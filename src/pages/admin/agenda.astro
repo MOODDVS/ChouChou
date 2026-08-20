@@ -226,6 +226,10 @@ const pubLangsJson = JSON.stringify({
       .ev-lang .f-lab { margin-top: 0.55rem; }
       .ev-lang .f-lab:first-child { margin-top: 0; }
       .ev-lang .f-input, .ev-lang .f-area { margin-bottom: 0.15rem; }
+      #overlay .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+      #overlay .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      #overlay .m-tab:hover { color: var(--c-text); }
+      #overlay .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
       .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
@@ -462,47 +466,64 @@ const pubLangsJson = JSON.stringify({
         <div id="f-langs"></div>
         </div>
         <div class="m-col">
-        <label class="f-lab">{t("ag.gallery")}</label>
-        <div class="f-row">
-          <button class="pill" id="f-gal-add" type="button">+ {t("ag.galleryAdd")}</button>
-          <button class="pill" id="f-gal-lib" type="button">{t("menu.library")}</button>
-          <input type="file" id="f-gal-file" accept="image/*" multiple style="display:none" />
+        <div class="m-tabs" id="ev-tabs">
+          <button type="button" class="m-tab is-on" data-tab="desc">{t("ag.descLong")}</button>
+          <button type="button" class="m-tab" data-tab="gallery">{t("ag.gallery")}</button>
+          <button type="button" class="m-tab" data-tab="settings">{t("ag.settings")}</button>
         </div>
-        <p class="f-hint" id="f-gal-state"></p>
-        <div class="g-grid" id="f-gallery"></div>
 
-        <label class="f-lab">{t("ag.dates")}</label>
-        <div class="picks" id="f-datemode">
-          <span class="pick is-on" data-m="single">{t("ag.single")}</span>
-          <span class="pick" data-m="range">{t("ag.range")}</span>
+        <div class="m-pane" data-pane="desc">
+          <div id="f-long-langs"></div>
         </div>
-        <div class="f-row" style="margin-top:0.7rem">
-          <div>
-            <label class="f-lab" for="f-ds">{t("mk.from")}</label>
-            <input type="text" class="f-input f-date" id="f-ds" readonly placeholder={t("mk.datePh")} />
+
+        <div class="m-pane" data-pane="gallery" style="display:none">
+          <label class="f-lab">{t("ag.gallery")}</label>
+          <div class="f-row">
+            <button class="pill" id="f-gal-add" type="button">+ {t("ag.galleryAdd")}</button>
+            <button class="pill" id="f-gal-lib" type="button">{t("menu.library")}</button>
+            <input type="file" id="f-gal-file" accept="image/*" multiple style="display:none" />
           </div>
-          <div id="de-wrap" style="display:none">
-            <label class="f-lab" for="f-de">{t("mk.to")}</label>
-            <input type="text" class="f-input f-date" id="f-de" readonly placeholder={t("mk.datePh")} />
+          <p class="f-hint" id="f-gal-state"></p>
+          <div class="g-grid" id="f-gallery"></div>
+        </div>
+
+        <div class="m-pane" data-pane="settings" style="display:none">
+          <label class="f-lab">{t("ag.dates")}</label>
+          <div class="picks" id="f-datemode">
+            <span class="pick is-on" data-m="single">{t("ag.single")}</span>
+            <span class="pick" data-m="range">{t("ag.range")}</span>
           </div>
-        </div>
+          <div class="f-row" style="margin-top:0.7rem">
+            <div>
+              <label class="f-lab" for="f-ds">{t("mk.from")}</label>
+              <input type="text" class="f-input f-date" id="f-ds" readonly placeholder={t("mk.datePh")} />
+            </div>
+            <div id="de-wrap" style="display:none">
+              <label class="f-lab" for="f-de">{t("mk.to")}</label>
+              <input type="text" class="f-input f-date" id="f-de" readonly placeholder={t("mk.datePh")} />
+            </div>
+          </div>
 
-        <label class="f-lab">{t("ag.links")}</label>
-        <div id="f-links"></div>
-        <button class="pill" id="f-link-add" type="button" style="margin-top:0.4rem">+ {t("ag.linkAdd")}</button>
+          <label class="f-lab">{t("ag.links")}</label>
+          <div id="f-links"></div>
+          <button class="pill" id="f-link-add" type="button" style="margin-top:0.4rem">+ {t("ag.linkAdd")}</button>
 
-        <div class="f-row" style="align-items:center;margin-top:1.1rem">
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="f-rsvp" /><span class="track"></span></label>
-            <span class="sw-lab">{t("ag.rsvp")}</span>
-          </span>
-        </div>
-        <p class="f-hint">{t("ag.rsvpHint")}</p>
-        <div class="f-row" style="align-items:center;margin-top:1.1rem">
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">{t("menu.active")}</span>
-          </span>
+          <div class="f-row" style="align-items:center;margin-top:1.2rem">
+            <span class="sw-wrap">
+              <label class="switch"><input type="checkbox" id="f-rsvp" /><span class="track"></span></label>
+              <span class="sw-lab">{t("ag.rsvp")}</span>
+            </span>
+          </div>
+          <p class="f-hint">{t("ag.rsvpHint")}</p>
+          <label class="f-lab" for="f-rsvp-max">{t("ag.rsvpMax")}</label>
+          <input type="number" class="f-input" id="f-rsvp-max" min="1" placeholder={t("ag.rsvpMaxPh")} />
+
+          <div class="f-row" style="align-items:center;margin-top:1.2rem">
+            <span class="sw-wrap">
+              <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
+              <span class="sw-lab">{t("menu.active")}</span>
+            </span>
+          </div>
         </div>
         </div>
         </div>
@@ -534,6 +555,8 @@ const pubLangsJson = JSON.stringify({
         title: string;
         title_i18n?: Record<string, string> | null;
         body_i18n?: Record<string, string> | null;
+        body_long_i18n?: Record<string, string> | null;
+        rsvp_max?: number | null;
         body: string | null;
         image_url: string | null;
         gallery: string[];
@@ -682,6 +705,8 @@ const pubLangsJson = JSON.stringify({
         try { const raw = document.getElementById("pub-langs")?.textContent?.trim(); if (raw) PUB = JSON.parse(raw) as PubLangs; } catch { /* fallback */ }
         const langTag = (code: string) => `${PUB.labels[code]?.flag ?? ""} ${code.toUpperCase()}`.trim();
         const fLangs = document.getElementById("f-langs") as HTMLDivElement;
+        const fLongLangs = document.getElementById("f-long-langs") as HTMLDivElement;
+        const fRsvpMax = document.getElementById("f-rsvp-max") as HTMLInputElement;
         const titDef = () => fLangs.querySelector(`.f-tx[data-lang="${PUB.def}"]`) as HTMLInputElement;
         const bodyDef = () => fLangs.querySelector(`.f-bx[data-lang="${PUB.def}"]`) as HTMLTextAreaElement;
         function costruisciCampiLinguaEvento() {
@@ -698,8 +723,20 @@ const pubLangsJson = JSON.stringify({
                 `</div>`;
             })
             .join("");
+          const ordine2 = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+          fLongLangs.innerHTML = ordine2
+            .map((l) => `<label class="f-lab">${esc(tr("ag.descLong"))} (${esc(langTag(l))})</label><textarea class="f-area f-lx" data-lang="${l}" style="min-height:180px"></textarea>`)
+            .join("");
         }
         costruisciCampiLinguaEvento();
+
+        // Tab della colonna destra (Descrizione / Galleria / Impostazioni)
+        const evTabs = document.getElementById("ev-tabs") as HTMLDivElement;
+        function mostraTabEv(tab: string) {
+          evTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((b) => b.classList.toggle("is-on", b.dataset.tab === tab));
+          document.querySelectorAll<HTMLElement>("#overlay .m-pane").forEach((pane) => { pane.style.display = pane.dataset.pane === tab ? "" : "none"; });
+        }
+        evTabs.addEventListener("click", (e) => { const b = (e.target as HTMLElement).closest<HTMLElement>(".m-tab"); if (b?.dataset.tab) mostraTabEv(b.dataset.tab); });
         const fUploadState = document.getElementById("f-upload-state") as HTMLElement;
 
         let editId: string | null = null;
@@ -755,6 +792,9 @@ const pubLangsJson = JSON.stringify({
           renderFotoPrev();
           { const ti = ev?.title_i18n ?? {}; fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const l = inp.dataset.lang ?? ""; inp.value = ti[l] ?? (l === PUB.def ? (ev?.title ?? "") : ""); }); }
           { const bi = ev?.body_i18n ?? {}; fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const l = ta.dataset.lang ?? ""; ta.value = bi[l] ?? (l === PUB.def ? (ev?.body ?? "") : ""); }); }
+          { const bl = ev?.body_long_i18n ?? {}; fLongLangs.querySelectorAll<HTMLTextAreaElement>(".f-lx").forEach((ta) => { ta.value = bl[ta.dataset.lang ?? ""] ?? ""; }); }
+          fRsvpMax.value = ev?.rsvp_max != null ? String(ev.rsvp_max) : "";
+          mostraTabEv("desc");
           galleria = Array.isArray(ev?.gallery) ? [...ev!.gallery] : [];
           renderGallery();
           const hasRange = !!ev?.date_end;
@@ -973,12 +1013,17 @@ const pubLangsJson = JSON.stringify({
           fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const v = inp.value.trim(); if (v) titleI18n[inp.dataset.lang ?? ""] = v; });
           const bodyI18n: Record<string, string> = {};
           fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyI18n[ta.dataset.lang ?? ""] = v; });
+          const bodyLongI18n: Record<string, string> = {};
+          fLongLangs.querySelectorAll<HTMLTextAreaElement>(".f-lx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyLongI18n[ta.dataset.lang ?? ""] = v; });
+          const rsvpMaxN = parseInt(fRsvpMax.value, 10);
           const payload = {
             id: editId ?? undefined,
             title: titDef()?.value ?? "",
             body: bodyDef()?.value ?? "",
             title_i18n: titleI18n,
             body_i18n: bodyI18n,
+            body_long_i18n: bodyLongI18n,
+            rsvp_max: Number.isFinite(rsvpMaxN) && rsvpMaxN > 0 ? rsvpMaxN : null,
             image_url: fImg.value,
             gallery: galleria,
             date_start: fDs.dataset.iso || null,

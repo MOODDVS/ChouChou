@@ -30,6 +30,8 @@ interface EventoInput {
   active?: boolean;
   title_i18n?: Record<string, string> | null;
   body_i18n?: Record<string, string> | null;
+  body_long_i18n?: Record<string, string> | null;
+  rsvp_max?: number | null;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -80,7 +82,7 @@ function pulisciI18n(v: unknown, maxLen: number): Record<string, string> {
   return out;
 }
 function mancaI18n(err: { message?: string } | null): boolean {
-  return !!err?.message && /title_i18n|body_i18n/i.test(err.message);
+  return !!err?.message && /title_i18n|body_i18n|body_long_i18n|rsvp_max/i.test(err.message);
 }
 
 /** Valida e normalizza i campi di un evento. */
@@ -111,6 +113,8 @@ function valida(b: EventoInput): { errore?: string; valori?: Record<string, unkn
       active: b.active !== false,
       title_i18n: pulisciI18n(b.title_i18n, 160),
       body_i18n: pulisciI18n(b.body_i18n, 2000),
+      body_long_i18n: pulisciI18n(b.body_long_i18n, 6000),
+      rsvp_max: typeof b.rsvp_max === "number" && Number.isFinite(b.rsvp_max) && b.rsvp_max > 0 && b.rsvp_max <= 100000 ? Math.floor(b.rsvp_max) : null,
     },
   };
 }
@@ -146,6 +150,8 @@ export const POST: APIRoute = async ({ request }) => {
     const senza = { ...v.valori! };
     delete senza.title_i18n;
     delete senza.body_i18n;
+    delete senza.body_long_i18n;
+    delete senza.rsvp_max;
     ins = await supabaseAdmin.from("agenda_events").insert(senza).select("id").single();
   }
   if (ins.error || !ins.data) return json({ error: "Enregistrement impossible" }, 500);
@@ -182,6 +188,8 @@ export const PUT: APIRoute = async ({ request }) => {
     const senza = { ...v.valori! };
     delete senza.title_i18n;
     delete senza.body_i18n;
+    delete senza.body_long_i18n;
+    delete senza.rsvp_max;
     upd = (await supabaseAdmin.from("agenda_events").update(senza).eq("id", body.id)).error;
   }
   if (upd) return json({ error: "Enregistrement impossible" }, 500);
