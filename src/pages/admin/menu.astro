@@ -2271,7 +2271,7 @@ const pubLangsJson = JSON.stringify({
               <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
               ${c.customs
                 .map((cu, ci) => `<div class="mn-custom"><div class="mn-custom-head"><span class="f-label">${tr("menu.customDish")} ${ci + 1}</span><button type="button" class="i-btn i-del mn-custom-del" data-i="${i}" data-ci="${ci}" title="${tr("ord.remove")}">${ICO_TRASH}</button></div>${ordine
-                  .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-custom-nx" data-i="${i}" data-ci="${ci}" data-lang="${l}" maxlength="60" value="${esc(cu.name_i18n?.[l] ?? "")}" /></div></div>`)
+                  .map((l) => `<div class="f-row"><div class="f-field" style="flex: 2"><span class="f-label">${esc(tr("home.name"))} (${esc(langTag(l))})</span><input type="text" class="mn-custom-nx" data-i="${i}" data-ci="${ci}" data-lang="${l}" value="${esc(cu.name_i18n?.[l] ?? "")}" /></div></div>`)
                   .join("")}</div>`)
                 .join("")}
               <button type="button" class="pill sec-btn mn-custom-add" data-i="${i}" style="margin-top: 0.4rem">${tr("menu.otherDish")}</button>

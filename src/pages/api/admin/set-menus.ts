@@ -63,7 +63,7 @@ function pulisciCourses(v: unknown): Course[] | null {
     const items = [...new Set(arr.map(String).filter((id) => RE_UUID.test(id)))].slice(0, 30);
     const customsRaw = Array.isArray(c?.customs) ? (c.customs as { name_i18n?: unknown }[]) : [];
     const customs = customsRaw
-      .map((cu) => ({ name_i18n: pulisciI18n(cu?.name_i18n, 60) ?? {} }))
+      .map((cu) => ({ name_i18n: pulisciI18n(cu?.name_i18n, 2000) ?? {} }))
       .filter((cu) => Object.keys(cu.name_i18n).length)
       .slice(0, 30);
     if (!category && !name && !items.length && !customs.length) continue; // portata vuota: scarta
