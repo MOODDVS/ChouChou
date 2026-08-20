@@ -412,6 +412,11 @@ const pubLangsJson = JSON.stringify({
       .lu-combo b { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-text); font-weight: 400; }
       .lu-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
       .lu-actions .sw-wrap { margin-right: auto; }
+      .sm-card { padding: 0; gap: 0; overflow: hidden; }
+      .sm-photo { width: 100%; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); overflow: hidden; }
+      .sm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .sm-photo svg { width: 40px; height: 40px; }
+      .sm-body { display: flex; flex-direction: column; gap: 0.85rem; padding: 1.1rem 1.2rem; flex: 1; }
 
       /* --- Lunch: modale --- */
       .luf-courses { display: flex; gap: 0.45rem; flex-wrap: wrap; }
@@ -2133,22 +2138,20 @@ const pubLangsJson = JSON.stringify({
         const vino = m.wine_supplement_cents != null
           ? `<div class="lu-combo"><span>${tr("menu.wineSupp")}</span><b>+${euro(m.wine_supplement_cents)}</b></div>`
           : "";
-        const foto = m.image_url ? `<img class="i-thumb" src="${esc(m.image_url)}" alt="" loading="lazy" style="width:52px;height:52px" />` : "";
+        const foto = m.image_url ? `<img src="${esc(m.image_url)}" alt="" loading="lazy" />` : ICO_IMG;
         return `
           <div class="lu-card sm-card${m.active ? "" : " is-hidden-item"}" data-id="${m.id}">
-            <div class="lu-main" style="display:flex;align-items:center;gap:0.7rem">
-              ${foto}
-              <div>
-                <div class="lu-name">${esc(m.name)}${m.is_draft ? ` <span class="sm-draft">${tr("menu.draftBadge")}</span>` : ""}</div>
-                <div class="lu-dates">${datesLabelGen(m.date_from, m.date_to)}</div>
+            <div class="sm-photo">${foto}</div>
+            <div class="sm-body">
+              <div class="lu-name">${esc(m.name)}${m.is_draft ? ` <span class="sm-draft">${tr("menu.draftBadge")}</span>` : ""}</div>
+              <div class="lu-dates">${datesLabelGen(m.date_from, m.date_to)}</div>
+              ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
+              <div class="lu-combos">${prezzo}${vino}</div>
+              <div class="lu-actions">
+                <span class="sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+                <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
+                <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
               </div>
-            </div>
-            ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
-            <div class="lu-combos">${prezzo}${vino}</div>
-            <div class="lu-actions">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
-              <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
-              <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
           </div>`;
       }
