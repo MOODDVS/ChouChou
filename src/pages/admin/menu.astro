@@ -158,6 +158,10 @@ const pubLangsJson = JSON.stringify({
       .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
       .tab .k-ico { width: 13px; height: 13px; margin-right: 0.35rem; vertical-align: -2px; }
+      .tab.is-sub { border-style: dashed; border-color: color-mix(in srgb, var(--c-accent) 45%, var(--c-line)); background: color-mix(in srgb, var(--c-accent) 8%, transparent); font-size: 0.78rem; padding-left: 0.7rem; }
+      .tab.is-sub.is-active { border-style: solid; background: var(--c-accent); }
+      .tab .tab-arrow { color: var(--c-accent); margin-right: 0.3rem; font-weight: 700; letter-spacing: -2px; }
+      .tab.is-active .tab-arrow { color: var(--c-bg); }
       .k-filtri {
         display: flex; gap: 0.45rem; flex-wrap: wrap;
         padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line);
@@ -180,6 +184,16 @@ const pubLangsJson = JSON.stringify({
       .cat-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1rem 0 0.6rem; }
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
       .cat-count { color: var(--c-muted); font-size: 0.8rem; }
+      .sub-head {
+        display: flex; align-items: center; gap: 0.5rem;
+        margin: 0.7rem 0 0.5rem; padding: 0.35rem 0.7rem;
+        border-left: 3px solid var(--c-accent);
+        background: color-mix(in srgb, var(--c-accent) 9%, transparent);
+        border-radius: 0 8px 8px 0;
+      }
+      .sub-head .sub-arrow { color: var(--c-accent); font-weight: 700; letter-spacing: -2px; }
+      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-accent); }
+      .sub-head .cat-count { margin-left: auto; }
 
       .item {
         display: flex; align-items: center; gap: 0.9rem;
@@ -782,7 +796,7 @@ const pubLangsJson = JSON.stringify({
           ? `<img class="i-thumb" src="${esc(it.image_url)}" alt="" loading="lazy" />`
           : `<span class="i-thumb i-thumb--ph" title="${tr("menu.noPhoto")}">${ICO_IMG}</span>`;
         return `
-          <div class="item${dim}" data-id="${it.id}">
+          <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}">
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
             <div class="i-main"><span class="i-name">${esc(it.name)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
@@ -829,7 +843,7 @@ const pubLangsJson = JSON.stringify({
         const catAttiva = cats.find((c) => c.name === attiva);
         if (catAttiva && catAttiva.kind !== kindFiltro) kindFiltro = catAttiva.kind;
 
-        const visibili = cats.filter((c) => c.kind === kindFiltro);
+        const visibili = cats.filter((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0);
         (document.getElementById("k-filtri") as HTMLDivElement).innerHTML =
           `<button class="kf-pill${kindFiltro === "food" ? " is-on" : ""}" data-kind="food">${ICO_FOOD}${tr("tab.menu.food")}</button>` +
           `<button class="kf-pill${kindFiltro === "drink" ? " is-on" : ""}" data-kind="drink">${ICO_DRINK}${tr("tab.menu.drink")}</button>` +
@@ -841,13 +855,27 @@ const pubLangsJson = JSON.stringify({
         }
         tabsEl.innerHTML =
           visibili
-            .map(
-              (c) =>
-                `<button class="tab${c.name === attiva ? " is-active" : ""}" data-cat="${esc(c.name)}">${esc(c.name)}<span class="n">${c.count}</span></button>`
-            )
+            .map((c) => {
+              const d = c.depth ?? 0;
+              const sub = d > 0 ? " is-sub" : "";
+              const arrow = d > 0 ? `<span class="tab-arrow">${"\u21B3".repeat(d)}</span>` : "";
+              return `<button class="tab${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${c.count}</span></button>`;
+            })
             .join("");
       }
 
+      // Categoria radice (top-level) di una sezione: risale i parent.
+      function radiceDi(nome: string): string {
+        let c = cats.find((x) => x.name === nome);
+        let guard = 0;
+        while (c && c.parent_id && guard < 10) {
+          const p = cats.find((x) => x.id === c!.parent_id);
+          if (!p) break;
+          c = p;
+          guard++;
+        }
+        return c?.name ?? nome;
+      }
       function renderList() {
         const filtro = searchEl.value.trim().toLowerCase();
         listEl.dataset.mode = filtro ? "search" : "cat";
@@ -885,11 +913,29 @@ const pubLangsJson = JSON.stringify({
             .join("");
           return;
         }
-        // Vista normale: solo la sezione attiva
-        const arr = items.filter((i) => i.category === attiva);
-        listEl.innerHTML = arr.length
-          ? arr.map(itemHTML).join("")
-          : `<p class="state">${tr("menu.sectionEmpty")}</p>`;
+        // Vista normale: la sezione attiva + le sue SOTTO-CATEGORIE (albero),
+        // con i piatti raggruppati sotto ciascuna. Ordinabili dentro e tra i gruppi.
+        const activeCat = cats.find((c) => c.name === attiva);
+        if (!activeCat) { listEl.innerHTML = `<p class="state">${tr("menu.sectionEmpty")}</p>`; return; }
+        const figliDi = (id: string) => cats.filter((c) => c.parent_id === id).sort((a, b) => a.sort_order - b.sort_order);
+        const sottoAlbero: Cat[] = [];
+        const visita = (c: Cat) => { sottoAlbero.push(c); for (const f of figliDi(c.id)) visita(f); };
+        visita(activeCat);
+        const dishesDi = (nome: string) =>
+          items.filter((i) => i.category === nome).sort((a, b) => a.sort_order - b.sort_order);
+        let html = "";
+        for (const c of sottoAlbero) {
+          const arr = dishesDi(c.name);
+          if (c.id === activeCat.id) {
+            html += arr.map(itemHTML).join("");
+          } else {
+            const rel = (c.depth ?? 0) - (activeCat.depth ?? 0); // 1..3
+            html += `<div class="sub-head" data-cat="${esc(c.name)}" style="margin-left:${(rel - 1) * 1.3}rem"><span class="sub-arrow">${"\u21B3".repeat(rel)}</span><span class="sub-name">${esc(c.name)}</span><span class="cat-count">${arr.length}</span></div>`;
+            html += arr.map(itemHTML).join("");
+          }
+        }
+        if (!html) html = `<p class="state">${tr("menu.sectionEmpty")}</p>`;
+        listEl.innerHTML = html;
       }
 
       async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
@@ -910,7 +956,7 @@ const pubLangsJson = JSON.stringify({
           items = ((await ri.json()).items as Item[]) ?? [];
         }
         if (!attiva || !cats.some((c) => c.name === attiva)) {
-          attiva = cats.find((c) => c.kind === kindFiltro)?.name ?? cats[0]?.name ?? "";
+          attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? cats.find((c) => (c.depth ?? 0) === 0)?.name ?? "";
         }
         stateEl.style.display = "none";
         renderTabs();
@@ -1171,7 +1217,7 @@ const pubLangsJson = JSON.stringify({
           if (!res.ok) {
             mMsg.textContent = j.error ?? tr("res.saveError");
           } else {
-            attiva = fCat.value;
+            attiva = radiceDi(fCat.value);
             chiudiModale();
             toast(editId ? tr("menu.dishModified") : tr("menu.dishAdded"));
             await caricaTutto();
@@ -1998,20 +2044,41 @@ const pubLangsJson = JSON.stringify({
           if (!dragItem) return;
           dragItem.classList.remove("dragging");
           dragItem = null;
-          const ordine = [...listEl.querySelectorAll<HTMLElement>(".item")].map((r) => r.dataset.id!);
-          const attuale = items.filter((i) => i.category === attiva).map((i) => i.id);
-          if (JSON.stringify(ordine) === JSON.stringify(attuale)) return;
-          const res = await fetch("/api/admin/menu", {
-            method: "PATCH",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({ category: attiva, order: ordine }),
-          });
-          if (!res.ok) {
-            toast(tr("menu.reorderFailedShort"), true);
-            renderList();
-          } else {
+          // Gruppo (categoria) di ogni piatto = sotto-intestazione precedente nel DOM
+          const groups = new Map<string, string[]>();
+          let cur = attiva;
+          for (const el of [...listEl.children] as HTMLElement[]) {
+            if (el.classList.contains("sub-head")) cur = el.dataset.cat || attiva;
+            else if (el.classList.contains("item")) {
+              if (!groups.has(cur)) groups.set(cur, []);
+              groups.get(cur)!.push(el.dataset.id!);
+            }
+          }
+          const catDi = new Map(items.map((i) => [i.id, i.category]));
+          const moves: { id: string; cat: string }[] = [];
+          let cambiato = false;
+          for (const [cat, ids] of groups) {
+            for (const id of ids) if (catDi.get(id) !== cat) { moves.push({ id, cat }); cambiato = true; }
+            const attualeIds = items.filter((i) => i.category === cat).sort((a, b) => a.sort_order - b.sort_order).map((i) => i.id);
+            if (JSON.stringify(attualeIds) !== JSON.stringify(ids)) cambiato = true;
+          }
+          if (!cambiato) return;
+          try {
+            // 1) sposta i piatti che hanno cambiato (sotto-)categoria
+            for (const m of moves) {
+              const r = await fetch("/api/admin/menu", { method: "PUT", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ id: m.id, category: m.cat }) });
+              if (!r.ok) throw new Error();
+            }
+            // 2) riordina ogni gruppo coinvolto
+            for (const [cat, ids] of groups) {
+              const r = await fetch("/api/admin/menu", { method: "PATCH", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ category: cat, order: ids }) });
+              if (!r.ok) throw new Error();
+            }
             toast(tr("menu.orderSaved"));
             await caricaTutto();
+          } catch {
+            toast(tr("menu.reorderFailedShort"), true);
+            renderList();
           }
         });
 
