@@ -279,6 +279,7 @@ const pubLangsJson = JSON.stringify({
       .m-close:hover { color: var(--c-text); }
       /* Modale "Gestisci le sezioni": più largo e centrato verticalmente */
       #sec-overlay .modal { max-width: 860px; margin: auto; }
+      #overlay .modal-dish { margin: auto; }
 
       /* Modale piatto a 2 colonne + tab */
       .modal-dish { max-width: 940px; }
@@ -321,6 +322,8 @@ const pubLangsJson = JSON.stringify({
       .m-toggle .switch input:checked + .track::before { transform: translateX(20px); }
       .m-badges { flex-wrap: wrap; gap: 1.1rem 1.6rem; margin-top: 0.2rem; }
       .m-sublabel { display: block; margin-bottom: 0.4rem; }
+      .m-sep { border-top: 1px solid var(--c-line); margin: 0.7rem 0 0.9rem; }
+      .m-states { flex-wrap: wrap; gap: 0.9rem 1.4rem; }
 
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -544,7 +547,8 @@ const pubLangsJson = JSON.stringify({
                 👨‍🍳 {t("menu.suggestion")}
               </label>
             </div>
-            <div class="m-toggles">
+            <div class="m-sep"></div>
+            <div class="m-toggles m-states">
               <label class="m-toggle">
                 <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
                 {t("menu.visibleSite")}
@@ -553,8 +557,6 @@ const pubLangsJson = JSON.stringify({
                 <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
                 {t("menu.orderable")}
               </label>
-            </div>
-            <div class="m-toggles">
               <label class="m-toggle">
                 <span class="switch"><input type="checkbox" id="f-soldout" /><span class="track"></span></span>
                 ⛔ {t("menu.soldOut")}
