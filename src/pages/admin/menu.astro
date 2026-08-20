@@ -181,21 +181,25 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       .cat-head { display: flex; align-items: baseline; gap: 0.6rem; margin: 1rem 0 0.6rem; }
       .cat-name { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.04em; color: var(--c-accent); }
       .cat-count { color: var(--c-muted); font-size: 0.8rem; }
+      /* Intestazione sotto-categoria: trattata come i bottoni/pill accent
+         (fondo accent + testo var(--c-bg)), cosi' resta leggibile su
+         QUALSIASI tema, anche sfondo bianco (prima: bianco su bianco). */
       .sub-head {
         display: flex; align-items: center; gap: 0.6rem;
         margin: 0.55rem 0 0.45rem; padding: 0.55rem 1rem;
-        background: color-mix(in srgb, var(--c-card) 78%, #fff);
-        border: 1px solid color-mix(in srgb, #fff 14%, transparent);
-        border-radius: 12px; color: #fff; user-select: none;
+        background: var(--c-accent);
+        border: 1px solid var(--c-accent);
+        border-radius: 12px; color: var(--c-bg); user-select: none;
         transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
       }
       .sub-head.dragging { opacity: 0.6; }
-      .sub-head.drop-target { background: color-mix(in srgb, var(--c-accent) 48%, var(--c-bg)); border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 45%, transparent); }
-      .sub-head .s-drag { color: rgba(255,255,255,0.75); cursor: grab; font-size: 1.05rem; }
+      .sub-head.drop-target { background: color-mix(in srgb, var(--c-accent) 82%, #000); border-color: var(--c-bg); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-bg) 55%, transparent); }
+      .sub-head .s-drag { color: color-mix(in srgb, var(--c-bg) 72%, var(--c-accent)); border-color: transparent; cursor: grab; font-size: 1.05rem; }
+      .sub-head .s-drag:hover { color: var(--c-bg); border-color: color-mix(in srgb, var(--c-bg) 45%, transparent); background: transparent; }
       .sub-head .s-drag:active { cursor: grabbing; }
-      .sub-head .sub-arrow { color: rgba(255,255,255,0.7); font-weight: 700; letter-spacing: -2px; }
-      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: #fff; }
-      .sub-head .cat-count { color: rgba(255,255,255,0.72); font-size: 0.78rem; margin-left: auto; }
+      .sub-head .sub-arrow { color: color-mix(in srgb, var(--c-bg) 70%, var(--c-accent)); font-weight: 700; letter-spacing: -2px; }
+      .sub-head .sub-name { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-bg); }
+      .sub-head .cat-count { color: color-mix(in srgb, var(--c-bg) 74%, var(--c-accent)); font-size: 0.78rem; margin-left: auto; }
       #list[data-mode="search"] .sub-head .s-drag { display: none; }
 
       .item {
