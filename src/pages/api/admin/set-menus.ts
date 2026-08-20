@@ -41,18 +41,22 @@ function pulisciI18n(v: unknown, maxLen: number): Record<string, string> | undef
   return out;
 }
 
-/** courses: array di { name (≤60), mode ("and"|"choice"), items: [uuid] (≤30) }, max 12 portate. */
-function pulisciCourses(v: unknown): { name: string; mode: string; items: string[] }[] | null {
+/** courses: array di { category?, name (≤60), name_i18n, mode ("and"|"choice"), items: [uuid] (≤30) }, max 12 portate. */
+function pulisciCourses(
+  v: unknown
+): { category: string | null; name: string; name_i18n: Record<string, string>; mode: string; items: string[] }[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > 12) return null;
-  const out: { name: string; mode: string; items: string[] }[] = [];
-  for (const c of v as { name?: unknown; mode?: unknown; items?: unknown }[]) {
+  const out: { category: string | null; name: string; name_i18n: Record<string, string>; mode: string; items: string[] }[] = [];
+  for (const c of v as { category?: unknown; name?: unknown; name_i18n?: unknown; mode?: unknown; items?: unknown }[]) {
+    const category = String(c?.category ?? "").trim().slice(0, 60);
     const name = String(c?.name ?? "").trim().slice(0, 60);
+    const nameI18n = pulisciI18n(c?.name_i18n, 60) ?? {};
     const mode = c?.mode === "and" ? "and" : "choice";
     const arr = Array.isArray(c?.items) ? (c.items as unknown[]) : [];
     const items = [...new Set(arr.map(String).filter((id) => RE_UUID.test(id)))].slice(0, 30);
-    if (!name && !items.length) continue; // portata vuota: scarta
-    out.push({ name: name || "—", mode, items });
+    if (!category && !name && !items.length) continue; // portata vuota: scarta
+    out.push({ category: category || null, name: name || category || "—", name_i18n: nameI18n, mode, items });
   }
   return out;
 }

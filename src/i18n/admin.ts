@@ -875,6 +875,7 @@ const DIZIONARIO: Dizionario = {
   "menu.orCategory":    { fr: "ou choisir une catégorie…", en: "or pick a category…", it: "oppure scegli una categoria…", nl: "of kies een categorie…", es: "o elige una categoría…" },
   "menu.modeAnd":       { fr: "Et (tous)", en: "And (all)", it: "E (tutti)", nl: "En (alle)", es: "Y (todos)" },
   "menu.modeChoice":    { fr: "Au choix", en: "Choice", it: "A scelta", nl: "Naar keuze", es: "A elegir" },
+  "menu.customCourse":  { fr: "Personnalisé", en: "Custom", it: "Personalizzato", nl: "Aangepast", es: "Personalizado" },
   "menu.addLunchShort": { fr: "Ajou. lunch", en: "Add lunch", it: "Agg. lunch", nl: "Lunch toev.", es: "Añ. lunch" },
   "menu.algShort":      { fr: "Alg.", en: "Alg.", it: "Alg.", nl: "Alg.", es: "Alg." },
   "menu.atTable":       { fr: "à table", en: "at table", it: "al tavolo", nl: "aan tafel", es: "en mesa" },
