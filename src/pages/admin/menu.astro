@@ -2188,7 +2188,8 @@ const pubLangsJson = JSON.stringify({
       let mnCorsi: { name: string; items: string[] }[] = [];
 
       function costruisciCampiLinguaMenu() {
-        mnLangs.innerHTML = PUB.langs
+        const ordine = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+        mnLangs.innerHTML = ordine
           .map((l) => {
             const ph = l === PUB.def ? esc(tr("menu.setMenuNamePh")) : "";
             return `
