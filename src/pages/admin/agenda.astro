@@ -926,7 +926,7 @@ const pubLangsJson = JSON.stringify({
           const resp = await fetch("/api/admin/upload", {
             method: "POST",
             headers,
-            body: JSON.stringify({ filename: foto.name, data: base64, bucket: "popups" }),
+            body: JSON.stringify({ filename: foto.name, data: base64, bucket: "popups", folder: "agenda" }),
           });
           const j = await resp.json();
           if (!resp.ok || !j.url) throw new Error(j.error ?? tr("cli.uploadError"));
