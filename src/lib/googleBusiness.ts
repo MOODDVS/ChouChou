@@ -269,6 +269,78 @@ export async function locationSalvata(): Promise<{ path: string; title: string }
   return p ? { path: p, title: map.get(K_LOCATION_TITLE) ?? "" } : null;
 }
 
+/** Scheda Google (fiche) completa: dati profilo per il pannello a sinistra. */
+export type GScheda = {
+  title: string;
+  address: string;
+  phone: string;
+  website: string;
+  category: string;
+  description: string;
+  logo: string; // URL del logo/foto profilo che Google ha in memoria
+  lat: number | null;
+  lng: number | null;
+  hours: { d: number; ranges: string[] }[]; // d = 0(lun)..6(dom)
+};
+
+const GIORNI = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+
+/** Logo/foto profilo della scheda dalla Media API v4 (LOGO -> PROFILE -> COVER). */
+async function logoScheda(token: string, path: string): Promise<string> {
+  const { data } = await gGetErr<{
+    mediaItems?: { googleUrl?: string; thumbnailUrl?: string; locationAssociation?: { category?: string } }[];
+  }>(token, `https://mybusiness.googleapis.com/v4/${path}/media`);
+  const items = data?.mediaItems ?? [];
+  const pick = (cat: string) =>
+    items.find((m) => m.locationAssociation?.category === cat && (m.googleUrl || m.thumbnailUrl));
+  const chosen = pick("LOGO") || pick("PROFILE") || pick("COVER");
+  return chosen ? String(chosen.googleUrl || chosen.thumbnailUrl || "") : "";
+}
+
+/** Dettagli della scheda dal Business Information API v1 (owner-managed). */
+export async function dettagliScheda(token: string, path: string): Promise<GScheda | null> {
+  // path v4 = accounts/{a}/locations/{l}; v1 vuole solo "locations/{l}"
+  const locName = path.split("/").slice(-2).join("/");
+  const mask = "title,storefrontAddress,phoneNumbers,websiteUri,regularHours,categories,latlng,profile";
+  const { data } = await gGetErr<{
+    title?: string;
+    storefrontAddress?: { addressLines?: string[]; locality?: string; postalCode?: string; administrativeArea?: string };
+    phoneNumbers?: { primaryPhone?: string };
+    websiteUri?: string;
+    regularHours?: { periods?: { openDay?: string; openTime?: { hours?: number; minutes?: number }; closeTime?: { hours?: number; minutes?: number } }[] };
+    categories?: { primaryCategory?: { displayName?: string } };
+    latlng?: { latitude?: number; longitude?: number };
+    profile?: { description?: string };
+  }>(token, `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?readMask=${mask}`);
+  if (!data) return null;
+
+  const a = data.storefrontAddress;
+  const address = a
+    ? [(a.addressLines ?? []).join(" "), a.postalCode, a.locality, a.administrativeArea].filter(Boolean).join(", ")
+    : "";
+  const hm = (t?: { hours?: number; minutes?: number }): string =>
+    `${String(t?.hours ?? 0).padStart(2, "0")}:${String(t?.minutes ?? 0).padStart(2, "0")}`;
+  const byDay: Record<number, string[]> = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+  for (const p of data.regularHours?.periods ?? []) {
+    const di = GIORNI.indexOf(String(p.openDay ?? ""));
+    if (di < 0) continue;
+    byDay[di].push(`${hm(p.openTime)}\u2013${hm(p.closeTime)}`);
+  }
+  const logo = await logoScheda(token, path);
+  return {
+    title: String(data.title ?? ""),
+    address,
+    phone: String(data.phoneNumbers?.primaryPhone ?? ""),
+    website: String(data.websiteUri ?? ""),
+    category: String(data.categories?.primaryCategory?.displayName ?? ""),
+    description: String(data.profile?.description ?? ""),
+    logo,
+    lat: typeof data.latlng?.latitude === "number" ? data.latlng.latitude : null,
+    lng: typeof data.latlng?.longitude === "number" ? data.latlng.longitude : null,
+    hours: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ d, ranges: byDay[d] })),
+  };
+}
+
 /**
  * Scopre la scheda (location) del cliente: primo account + prima location.
  * NB: fase 1 = una sola scheda per cliente (auto-selezione della prima).
@@ -384,6 +456,7 @@ export async function eliminaRisposta(token: string, reviewName: string): Promis
   }
 }
 
+const K_PROFILE = "google_profile";
 const K_RATING = "google_rating";
 const K_COUNT = "google_review_count";
 const K_SYNCED = "google_reviews_synced_at";
@@ -447,6 +520,14 @@ export async function sincronizzaRecensioni(): Promise<{
     ],
     { onConflict: "key" }
   );
+
+  // Dettagli scheda (fiche) per il pannello business — best-effort.
+  const scheda = await dettagliScheda(token, loc.path);
+  if (scheda) {
+    await supabaseAdmin
+      .from("app_config")
+      .upsert([{ key: K_PROFILE, value: JSON.stringify(scheda) }], { onConflict: "key" });
+  }
 
   return {
     stato: "ok",

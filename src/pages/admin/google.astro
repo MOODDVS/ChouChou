@@ -60,7 +60,7 @@ const t = adminT(lang);
       .g-synced-at { flex-basis: 100%; font-size: .74rem; color: var(--c-muted); }
 
       /* Filtri */
-      .g-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+      .g-filters { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
       .g-fil { background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: .85rem; letter-spacing: .03em; padding: .45rem 1.1rem; border-radius: 999px; cursor: pointer; transition: all .15s; }
       .g-fil:hover { border-color: var(--c-accent); color: var(--c-text); }
       .g-fil.active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
@@ -135,6 +135,47 @@ const t = adminT(lang);
       .g-col { flex: 1 1 0; min-width: 0; }
       .g-col .rev { margin-bottom: .9rem; }
 
+      .g-dist { display: flex; gap: .7rem; flex-wrap: wrap; align-items: center; }
+      .g-dist-i { font-size: .85rem; color: var(--c-text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .g-dist-i b { color: #f5b301; font-weight: 400; margin-right: .12rem; }
+
+      /* Tab di sezione (Recensioni, e in futuro Profilo/Foto/Post) */
+      .mtabs { display: flex; gap: .4rem; flex-wrap: wrap; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line); }
+      .mtab { background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: 1rem; letter-spacing: .05em; padding: .5rem 1.2rem; cursor: pointer; border-radius: 10px; transition: background .15s, color .15s, border-color .15s; }
+      .mtab:hover { color: var(--c-text); border-color: var(--c-accent); }
+      .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .g-tab-panel { display: block; }
+
+      /* Layout: fiche business (sinistra) + recensioni (a destra) */
+      .g-split { display: flex; gap: 1.1rem; align-items: flex-start; }
+      .g-reviews { flex: 1 1 0; min-width: 0; }
+      .g-fiche { flex: 0 0 360px; max-width: 360px; position: sticky; top: 96px; }
+      @media (max-width: 1000px) { .g-split { flex-direction: column; } .g-fiche { position: static; flex-basis: auto; max-width: none; width: 100%; } }
+
+      /* Card fiche (replica Google Business) */
+      .fiche { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; overflow: hidden; }
+      .fiche-map { width: 100%; height: 170px; border: 0; display: block; background: var(--c-input); }
+      .fiche-b { padding: 1rem 1.1rem; }
+      .fiche-head { display: flex; align-items: center; gap: .7rem; }
+      .fiche-head-t { min-width: 0; }
+      .fiche-logo { width: 52px; height: 52px; border-radius: 12px; object-fit: cover; flex: 0 0 auto; background: var(--c-input); }
+      .fiche-name { font-family: var(--font-title); font-size: 1.15rem; color: var(--c-text); letter-spacing: .02em; }
+      .fiche-cat { font-size: .8rem; color: var(--c-muted); margin-top: .1rem; }
+      .fiche-rate { display: flex; align-items: center; gap: .4rem; margin: .55rem 0 .3rem; }
+      .fiche-rate .rv { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-text); }
+      .fiche-rate .st { color: #f5b301; letter-spacing: 1px; }
+      .fiche-rate .st .off { color: var(--c-line); }
+      .fiche-rate .ct { font-size: .78rem; color: var(--c-muted); }
+      .fiche-row { display: flex; gap: .55rem; align-items: flex-start; padding: .6rem 0; border-top: 1px solid var(--c-line); font-size: .86rem; color: var(--c-text); }
+      .fiche-row > svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: .12rem; fill: none; stroke: var(--c-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+      .fiche-row a { color: var(--c-text); text-decoration: none; word-break: break-word; }
+      .fiche-row a:hover { text-decoration: underline; color: var(--c-accent); }
+      .fiche-hours { width: 100%; }
+      .fiche-hours .hr { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem; padding: .1rem 0; color: var(--c-muted); }
+      .fiche-hours .hr.today { color: var(--c-text); font-weight: 700; }
+      .fiche-hours .hr .rg { text-align: right; }
+      .fiche-desc { font-size: .84rem; color: var(--c-muted); line-height: 1.5; padding-top: .6rem; border-top: 1px solid var(--c-line); margin-top: .1rem; white-space: pre-wrap; }
+
       /* Toast */
       .toast { position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(1rem); background: var(--c-text); color: var(--c-bg); padding: .7rem 1.2rem; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
       .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -148,9 +189,14 @@ const t = adminT(lang);
       <main>
         <h1>
           <svg viewBox="0 0 210 210" aria-hidden="true" style="fill:var(--c-accent);stroke:none"><path d="M0,105C0,47.103,47.103,0,105,0c23.383,0,45.515,7.523,64.004,21.756l-24.4,31.696C133.172,44.652,119.477,40,105,40c-35.841,0-65,29.159-65,65s29.159,65,65,65c28.867,0,53.398-18.913,61.852-45H105V85h105v20c0,57.897-47.103,105-105,105S0,162.897,0,105z" /></svg>
-          {t("gg.title")}
+          Google
         </h1>
 
+        <div class="mtabs" id="g-tabs">
+          <button class="mtab is-active" data-gtab="reviews">{t("gg.tabReviews")}</button>
+        </div>
+
+        <div class="g-tab-panel" data-gpanel="reviews">
         <!-- Non ancora configurata: il setup e' lato MOODD (super admin) -->
         <div class="g-connect" id="notready" style="display:none">
           <h2>{t("gg.notReadyTitle")}</h2>
@@ -160,28 +206,27 @@ const t = adminT(lang);
         <!-- Collegato -->
         <div id="dash" style="display:none">
           <div id="reviews-area" style="display:none">
-          <div class="g-bar">
-            <div class="g-stat"><span class="k">{t("gg.avg")}</span><span class="v" id="st-avg">—</span></div>
-            <div class="g-stat"><span class="k">{t("gg.total")}</span><span class="v" id="st-total">—</span></div>
-            <div class="g-loc" id="st-loc"></div>
-            <button class="g-sync" id="sync-btn" type="button">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-              <span id="sync-lbl">{t("gg.syncNow")}</span>
-            </button>
-            <span class="g-synced-at" id="st-synced"></span>
-          </div>
-
+          <div class="g-split">
+          <aside class="g-fiche" id="g-fiche"></aside>
+          <div class="g-reviews">
           <div class="g-filters">
             <button class="g-fil active" data-f="all">{t("gg.fAll")} <span class="g-fil-n" data-n="all"></span></button>
             <button class="g-fil" data-f="toreply">{t("gg.fToReply")} <span class="g-fil-n" data-n="toreply"></span></button>
             <button class="g-fil" data-f="replied">{t("gg.fReplied")} <span class="g-fil-n" data-n="replied"></span></button>
             <button class="g-fil" data-f="high">{t("gg.fHigh")} <span class="g-fil-n" data-n="high"></span></button>
             <button class="g-fil" data-f="low">{t("gg.fLow")} <span class="g-fil-n" data-n="low"></span></button>
+            <button class="g-sync" id="sync-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span id="sync-lbl">{t("gg.syncNow")}</span>
+            </button>
           </div>
 
           <div class="state" id="state">{t("sup.loading")}</div>
           <div id="list"></div>
           </div>
+          </div>
+          </div>
+        </div>
         </div>
       </main>
       <AdminFooter />
@@ -232,16 +277,13 @@ const t = adminT(lang);
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement | null;
         const notready = document.getElementById("notready") as HTMLDivElement;
         const dash = document.getElementById("dash") as HTMLDivElement;
-        const stAvg = document.getElementById("st-avg") as HTMLSpanElement;
-        const stTotal = document.getElementById("st-total") as HTMLSpanElement;
-        const stLoc = document.getElementById("st-loc") as HTMLDivElement;
-        const stSynced = document.getElementById("st-synced") as HTMLSpanElement;
         const syncBtn = document.getElementById("sync-btn") as HTMLButtonElement;
         const syncLbl = document.getElementById("sync-lbl") as HTMLSpanElement;
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const listEl = document.getElementById("list") as HTMLDivElement;
         const toastEl = document.getElementById("toast") as HTMLDivElement;
         const reviewsArea = document.getElementById("reviews-area") as HTMLDivElement;
+        const ficheEl = document.getElementById("g-fiche") as HTMLDivElement;
 
         logoutBtn?.addEventListener("click", async () => {
           await supabaseBrowser.auth.signOut();
@@ -328,11 +370,8 @@ const t = adminT(lang);
         }
 
         function colCount(): number {
-          const w = window.innerWidth;
-          if (w <= 620) return 1;
-          if (w <= 1000) return 2;
-          if (w <= 1500) return 3;
-          return 4;
+          const w = listEl.clientWidth || window.innerWidth;
+          return Math.max(1, Math.min(3, Math.floor(w / 300)));
         }
 
         function render() {
@@ -379,6 +418,53 @@ const t = adminT(lang);
           resizeT = window.setTimeout(render, 150);
         });
 
+        type Scheda = {
+          title: string; address: string; phone: string; website: string;
+          category: string; description: string; logo: string; lat: number | null; lng: number | null;
+          hours: { d: number; ranges: string[] }[];
+        };
+
+        function ficheIcon(inner: string): string {
+          return `<svg viewBox="0 0 24 24" aria-hidden="true">${inner}</svg>`;
+        }
+
+        function renderFiche(p: Scheda | null, rating: string, count: string) {
+          if (!p) { ficheEl.style.display = "none"; ficheEl.innerHTML = ""; return; }
+          ficheEl.style.display = "block";
+          const dayNames: string[] = [];
+          for (let i = 0; i < 7; i++) {
+            dayNames.push(new Intl.DateTimeFormat(LOC, { weekday: "short" }).format(new Date(Date.UTC(2024, 0, 1 + i))));
+          }
+          const todayIdx = (new Date().getDay() + 6) % 7;
+          const rNum = Math.round(Number(rating) || 0);
+          const stelleF = [1, 2, 3, 4, 5].map((n) => (n <= rNum ? "★" : `<span class="off">★</span>`)).join("");
+          const mapQ = p.lat != null && p.lng != null ? `${p.lat},${p.lng}` : `${p.title} ${p.address}`;
+          const hoursHTML = p.hours
+            .map((h) => `<div class="hr${h.d === todayIdx ? " today" : ""}"><span>${esc(dayNames[h.d])}</span><span class="rg">${h.ranges.length ? esc(h.ranges.join(", ")) : esc(tr("gg.closed"))}</span></div>`)
+            .join("");
+          const site = p.website.replace("https://", "").replace("http://", "");
+          const rShow = rating ? Number(rating).toFixed(1) : "—";
+          ficheEl.innerHTML = `
+            <div class="fiche">
+              <iframe class="fiche-map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps?q=${encodeURIComponent(mapQ)}&z=15&output=embed"></iframe>
+              <div class="fiche-b">
+                <div class="fiche-head">
+                  ${p.logo ? `<img class="fiche-logo" src="${esc(p.logo)}" alt="" referrerpolicy="no-referrer" />` : ""}
+                  <div class="fiche-head-t">
+                    <div class="fiche-name">${esc(p.title)}</div>
+                    ${p.category ? `<div class="fiche-cat">${esc(p.category)}</div>` : ""}
+                  </div>
+                </div>
+                <div class="fiche-rate"><span class="rv">${esc(rShow)}</span><span class="st">${stelleF}</span><span class="ct">${esc(count)} ${esc(tr("gg.total"))}</span></div>
+                ${p.address ? `<div class="fiche-row">${ficheIcon('<path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>')}<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQ)}" target="_blank" rel="noopener">${esc(p.address)}</a></div>` : ""}
+                ${p.phone ? `<div class="fiche-row">${ficheIcon('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7 12.8 12.8 0 0 0 .6 2.6 2 2 0 0 1-.5 2.1L8 9.5a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5 12.8 12.8 0 0 0 2.6.6A2 2 0 0 1 22 16.9z"/>')}<a href="tel:${esc(p.phone)}">${esc(p.phone)}</a></div>` : ""}
+                ${p.website ? `<div class="fiche-row">${ficheIcon('<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"/>')}<a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(site)}</a></div>` : ""}
+                <div class="fiche-row">${ficheIcon('<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>')}<div class="fiche-hours">${hoursHTML}</div></div>
+                ${p.description ? `<div class="fiche-desc">${esc(p.description)}</div>` : ""}
+              </div>
+            </div>`;
+        }
+
         async function carica() {
           try {
             const res = await fetch("/api/admin/google/reviews", { headers: await authFresh() });
@@ -396,12 +482,7 @@ const t = adminT(lang);
             reviewsArea.style.display = "block";
 
             recensioni = (j.reviews ?? []) as Rec[];
-            stAvg.innerHTML = j.rating ? `${esc(Number(j.rating).toFixed(1))} <small>/ 5</small>` : "—";
-            stTotal.textContent = j.count || String(recensioni.length);
-            stLoc.textContent = j.location ?? "";
-            stSynced.textContent = j.syncedAt
-              ? `${tr("gg.lastSync")}: ${new Date(j.syncedAt).toLocaleString(LOC)}`
-              : `${tr("gg.lastSync")}: ${tr("gg.never")}`;
+            renderFiche((j.profile ?? null) as Scheda | null, j.rating ?? "", j.count ?? "");
             render();
           } catch {
             stateEl.style.display = "block";
@@ -510,6 +591,17 @@ const t = adminT(lang);
             }
             return;
           }
+        });
+
+        document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+          const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+          if (!b) return;
+          document.querySelectorAll("#g-tabs .mtab").forEach((x) => x.classList.remove("is-active"));
+          b.classList.add("is-active");
+          const tab = b.dataset.gtab;
+          document.querySelectorAll<HTMLElement>(".g-tab-panel").forEach((p) => {
+            p.style.display = p.dataset.gpanel === tab ? "block" : "none";
+          });
         });
 
         await carica();

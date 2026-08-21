@@ -21,7 +21,7 @@ export const GET: APIRoute = async ({ request }) => {
   const { data: cfg } = await supabaseAdmin
     .from("app_config")
     .select("key,value")
-    .in("key", ["google_oauth_refresh", "google_location_title", "google_rating", "google_review_count", "google_reviews_synced_at"]);
+    .in("key", ["google_oauth_refresh", "google_location_title", "google_rating", "google_review_count", "google_reviews_synced_at", "google_profile"]);
   const m = new Map((cfg ?? []).map((r: { key: string; value: unknown }) => [r.key, String(r.value ?? "")]));
 
   const { data: rev } = await supabaseAdmin
@@ -35,6 +35,7 @@ export const GET: APIRoute = async ({ request }) => {
     rating: m.get("google_rating") ?? "",
     count: m.get("google_review_count") ?? "",
     syncedAt: m.get("google_reviews_synced_at") ?? "",
+    profile: (() => { try { return JSON.parse(m.get("google_profile") || "null"); } catch { return null; } })(),
     reviews: rev ?? [],
   });
 };
