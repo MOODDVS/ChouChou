@@ -21,6 +21,9 @@ interface MenuCategoria {
   category: string;
   category_order: number;
   items: MenuItem[];
+  parent?: string | null;
+  depth?: number;
+  root?: string;
 }
 
 interface CartLine {
@@ -119,20 +122,40 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
     subcats: MenuCategoria[];
   }
   const gruppiVisibili: Gruppo[] = [];
-  for (const cat of menu) {
-    if (cat.items.length === 0) continue;
-    let slug = "cat-" + cat.category_order;
-    let label = cat.category;
-    if (cat.category_order >= 4 && cat.category_order <= 7) {
-      slug = "pizza";
-      label = "Pizza";
-    } else if (cat.category_order >= 9) {
-      slug = "boissons";
-      label = t.tabBoissons;
+  const haGerarchia = menu.some((c) => (c.depth ?? 0) > 0);
+  if (haGerarchia) {
+    // Filtri = categorie di PRIMO livello (root). Le sotto-categorie diventano
+    // titoli dentro il gruppo della loro categoria radice.
+    const perRoot = new Map<string, Gruppo>();
+    for (const cat of menu) {
+      if (cat.items.length === 0) continue;
+      const root = cat.root ?? cat.category;
+      let g = perRoot.get(root);
+      if (!g) {
+        g = { slug: "g" + gruppiVisibili.length, label: root, subcats: [] };
+        perRoot.set(root, g);
+        gruppiVisibili.push(g);
+      }
+      g.subcats.push(cat);
     }
-    const last = gruppiVisibili[gruppiVisibili.length - 1];
-    if (last && last.slug === slug) last.subcats.push(cat);
-    else gruppiVisibili.push({ slug, label, subcats: [cat] });
+    for (const g of gruppiVisibili) g.subcats.sort((a, b) => a.category_order - b.category_order);
+  } else {
+    // Legacy (senza sotto-categorie): raggruppamento storico per range.
+    for (const cat of menu) {
+      if (cat.items.length === 0) continue;
+      let slug = "cat-" + cat.category_order;
+      let label = cat.category;
+      if (cat.category_order >= 4 && cat.category_order <= 7) {
+        slug = "pizza";
+        label = "Pizza";
+      } else if (cat.category_order >= 9) {
+        slug = "boissons";
+        label = t.tabBoissons;
+      }
+      const last = gruppiVisibili[gruppiVisibili.length - 1];
+      if (last && last.slug === slug) last.subcats.push(cat);
+      else gruppiVisibili.push({ slug, label, subcats: [cat] });
+    }
   }
 
   const salvato = leggiStatoSalvato();
@@ -571,7 +594,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
               <h2 className="order-sec-title">{g.label}</h2>
               {g.subcats.map((sub) => (
                 <div key={sub.category} className="order-subcat">
-                  {g.subcats.length > 1 && (
+                  {(sub.depth ?? 0) > 0 && (
                     <h3 className="order-subcat-title">{sub.category}</h3>
                   )}
                   <div className="order-items">

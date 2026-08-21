@@ -1,0 +1,19 @@
+---
+// /legal/terms — Termini e condizioni RestoHub (5 lingue).
+import LegalDoc from "../../components/LegalDoc.astro";
+import { TERMS, LEGAL_LANGS, type LegalLang } from "../../lib/legal/legalContent";
+import { adminLang } from "../../lib/admin/adminLang";
+
+export const prerender = false;
+
+// Lingua iniziale: ?lang= se valido, altrimenti la lingua admin, altrimenti FR.
+const codes = LEGAL_LANGS.map((l) => l.code);
+const qlang = Astro.url.searchParams.get("lang") ?? "";
+let current: LegalLang = "fr";
+if (codes.includes(qlang as LegalLang)) current = qlang as LegalLang;
+else {
+  const al = await adminLang();
+  if (codes.includes(al as LegalLang)) current = al as LegalLang;
+}
+---
+<LegalDoc doc={TERMS} current={current} />

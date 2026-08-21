@@ -1,0 +1,62 @@
+---
+// Widget di prenotazione del TEMPLATE demo01, caricato nell'iframe di /demo01.
+// È lo STESSO ReservationWidget reale, con la palette del template (nero/rosso)
+// applicata via le variabili CSS --rw-* (i cui default restano oro/scuro per
+// tutti gli altri usi). NON tocca /reservation-embed dei clienti reali.
+import ReservationWidget from "../../components/ReservationWidget.astro";
+import { CLIENT } from "../../config/client";
+import { datiRistorante } from "../../lib/ristorante";
+
+export const prerender = false;
+
+let telWidget = CLIENT.telefono;
+try {
+  const dati = await datiRistorante();
+  if (dati.tel) telWidget = dati.tel;
+} catch { /* fallback config */ }
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Réservation — demo01</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+        /* Palette del template demo01 (nero / rosso / verde). */
+        --rw-bg: #161616;
+        --rw-bg2: #0e0e0e;
+        --rw-line: rgba(247, 241, 230, 0.14);
+        --rw-accent: #e23b2e;
+        --rw-muted: #a49a8e;
+        --rw-panel: #191919;
+        --rw-hover: #211a1a;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: transparent; color: #fff; font-family: var(--font-body); }
+      .page { min-height: 0 !important; padding: 0 !important; }
+      .rw { border: none !important; }
+      .rw-claim { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <ReservationWidget telWidget={telWidget} />
+    <script is:inline>
+      function rhPost() {
+        try { parent.postMessage({ rhDemoHeight: document.body.scrollHeight }, "*"); } catch (e) {}
+      }
+      window.addEventListener("load", rhPost);
+      if (window.ResizeObserver) new ResizeObserver(rhPost).observe(document.body);
+      setInterval(rhPost, 1000);
+    </script>
+  </body>
+</html>

@@ -28,6 +28,10 @@ interface PopupInput {
   body_en?: string;
   btn1_label_en?: string;
   btn2_label_en?: string;
+  title_i18n?: Record<string, string>;
+  body_i18n?: Record<string, string>;
+  btn1_label_i18n?: Record<string, string>;
+  btn2_label_i18n?: Record<string, string>;
   pages?: string[];
   active?: boolean;
   schedule_kind?: string;
@@ -37,6 +41,7 @@ interface PopupInput {
   hour_start?: string | null;
   hour_end?: string | null;
   max_shows?: number;
+  position?: string;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -50,13 +55,25 @@ function json(body: unknown, status = 200): Response {
  * Valida e normalizza i campi di un pop-up.
  * Ritorna { errore } oppure { valori } pronti per insert/update.
  */
+function pulisciI18n(o: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (o && typeof o === "object") {
+    for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+      if (typeof v === "string" && v.trim()) out[k] = v.trim();
+    }
+  }
+  return out;
+}
+
 function valida(b: PopupInput): { errore?: string; valori?: Record<string, unknown> } {
-  // Bilingue: il pop-up appare in una lingua solo se il suo titolo è
-  // compilato. Serve almeno una delle due versioni.
-  const title = (b.title ?? "").trim();
-  const title_en = (b.title_en ?? "").trim();
-  if (!title && !title_en) {
-    return { errore: "Remplissez le titre FR et/ou EN (au moins un)" };
+  // Multilingua: il pop-up appare in una lingua solo se il suo titolo per
+  // quella lingua è compilato. Serve almeno una lingua col titolo.
+  const title_i18n = pulisciI18n(b.title_i18n);
+  const body_i18n = pulisciI18n(b.body_i18n);
+  const btn1_label_i18n = pulisciI18n(b.btn1_label_i18n);
+  const btn2_label_i18n = pulisciI18n(b.btn2_label_i18n);
+  if (!Object.keys(title_i18n).length) {
+    return { errore: "Remplissez le titre dans au moins une langue" };
   }
 
   const pages = Array.isArray(b.pages)
@@ -101,19 +118,25 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
   }
 
   const max_shows = Math.min(10, Math.max(1, Math.floor(Number(b.max_shows ?? 3)) || 3));
+  const POS = ["center", "bottom-left", "bottom-center", "bottom-right"];
+  const position = POS.includes(String(b.position)) ? String(b.position) : "center";
 
   return {
     valori: {
-      title: title || null,
-      title_en: title_en || null,
-      body_en: (b.body_en ?? "").trim() || null,
-      btn1_label_en: (b.btn1_label_en ?? "").trim() || null,
-      btn2_label_en: (b.btn2_label_en ?? "").trim() || null,
-      body: (b.body ?? "").trim() || null,
+      title: title_i18n.fr || null,
+      title_en: title_i18n.en || null,
+      body: body_i18n.fr || null,
+      body_en: body_i18n.en || null,
+      btn1_label: btn1_label_i18n.fr || null,
+      btn1_label_en: btn1_label_i18n.en || null,
+      btn2_label: btn2_label_i18n.fr || null,
+      btn2_label_en: btn2_label_i18n.en || null,
+      title_i18n,
+      body_i18n,
+      btn1_label_i18n,
+      btn2_label_i18n,
       image_url: (b.image_url ?? "").trim() || null,
-      btn1_label: (b.btn1_label ?? "").trim() || null,
       btn1_url: btn1_url || null,
-      btn2_label: (b.btn2_label ?? "").trim() || null,
       btn2_url: btn2_url || null,
       pages,
       active: b.active === true,
@@ -124,6 +147,7 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
       hour_start,
       hour_end,
       max_shows,
+      position,
     },
   };
 }

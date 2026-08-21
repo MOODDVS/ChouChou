@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { statoQuota, QUOTA_MESE } from "../../../lib/admin/newsletterQuota";
+import { statoQuota } from "../../../lib/admin/newsletterQuota";
 import {
   parseSegment,
   contatoriSegmenti,
@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   return json({
     sent_this_month: quota.sent_this_month,
-    quota: QUOTA_MESE,
+    quota: quota.monthly_quota,
     remaining: quota.total_remaining,
     purchased_balance: quota.purchased_balance,
     recipients: seg.counts.tous?.tous ?? 0,

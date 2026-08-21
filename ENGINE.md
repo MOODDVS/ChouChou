@@ -44,11 +44,46 @@ legge Réglages → Général con fallback su `client.ts`.
     `src/lib/admin/superAdmin.ts`) va creato in Supabase Auth; da
     `/admin/super` decide quali pagine vede il cliente.
 
-## Aggiornare un cliente esistente a una nuova versione dell'engine
+## Aggiornare i clienti a una nuova versione dell'engine (via MERGE)
 
-NON fare merge git tra repo con brand diversi. Procedura:
-1. Re-clona l'engine aggiornato → applica i passi 2-4 della checklist
-   (o ricopia i file per-cliente dal vecchio repo).
-2. Punta le env al Supabase del cliente.
-3. Lancia le migrazioni NUOVE (sono tutte idempotenti: rilanciarle è sicuro).
-4. Aggiungi le env nuove richieste dalla versione, quindi deploy.
+Il metodo è il **merge git dal motore**, reso sicuro da `.gitattributes`:
+i file per-cliente (brand, pagine pubbliche, loghi, config) sono marcati
+`merge=ours`, quindi il merge NON li tocca mai; si fondono solo i file del
+motore (admin, api, lib, migrazioni, stili). Niente più copie a mano.
+
+### Come è protetto il brand
+`.gitattributes` (nella radice, propagato dal motore) elenca i path
+per-cliente con `merge=ours`. Perché il driver funzioni serve, una volta
+per repo cliente: `git config merge.ours.driver true` (lo fa lo script).
+
+### Aggiornare TUTTI i clienti in un colpo
+Dal repo motore, con i repo cliente clonati in locale:
+```
+./scripts/sync-clienti.sh --dry   # anteprima: cosa entrerebbe, nessun push
+./scripts/sync-clienti.sh         # fetch + merge + push su ogni cliente
+```
+Lo script salta i clienti già aggiornati o con lavoro non committato, al
+primo giro crea da solo il `.gitattributes`, e a fine merge elenca le
+**migrazioni Supabase nuove** da lanciare per ciascun cliente (quello resta
+manuale: ogni cliente ha il suo Supabase). Aggiungi i nuovi clienti nella
+lista `CLIENTI` in cima allo script.
+
+### Aggiornare UN solo cliente a mano
+```
+cd <repo-cliente>
+git config merge.ours.driver true        # solo la prima volta
+git fetch engine && git merge engine/main
+git push
+```
+
+### Regola d'oro (perché i merge restano puliti)
+Il cliente non tocca MAI i file del motore, e il motore non mette MAI il
+brand nei suoi file. Finché vale questa separazione (la tabella qui sopra),
+i merge non generano conflitti. Se un conflitto appare, vuol dire che un
+file del motore è stato modificato lato cliente: va riportato nel motore o
+ripristinato.
+
+### Nota migrazioni ed env
+Le migrazioni sono idempotenti (rilanciarle è sicuro); lanciale sul Supabase
+di OGNI cliente dopo il merge. Le env nuove richieste da una versione vanno
+aggiunte in `.env` locale + host di produzione (vedi supabase/MIGRATIONS.md).

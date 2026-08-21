@@ -835,22 +835,18 @@ const pubLangsJson = JSON.stringify({
           const sel = dpTarget?.dataset.iso ?? "";
           const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7;
           const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
-          const oy = Number(oggi.slice(0, 4));
-          const om = Number(oggi.slice(5, 7)) - 1;
-          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
           let celle = "";
           for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
           for (let g = 1; g <= nGiorni; g++) {
             const iso = isoDi(dpAnno, dpMese, g);
             const cls = ["dp-cell"];
-            if (iso < oggi) cls.push("dp-off");
             if (iso === oggi) cls.push("dp-today");
             if (iso === sel) cls.push("dp-sel");
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${iso < oggi ? "disabled" : ""}>${g}</button>`;
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}">${g}</button>`;
           }
           dpPanel.innerHTML = `
             <div class="dp-head">
-              <button type="button" class="dp-nav" data-nav="-1" ${prevOff ? "disabled" : ""}>‹</button>
+              <button type="button" class="dp-nav" data-nav="-1">‹</button>
               <span class="dp-title">${MESI[dpMese]} ${dpAnno}</span>
               <button type="button" class="dp-nav" data-nav="1">›</button>
             </div>

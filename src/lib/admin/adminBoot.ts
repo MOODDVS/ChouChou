@@ -95,9 +95,12 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
 }
 
 /**
- * Regola CSS da stampare nel <head>. Mira `html` (stessa specificita' di
- * `:root`, ma piu' in basso nel documento => vince) e dichiara SOLO le
- * variabili davvero salvate: le altre restano quelle di default della pagina.
+ * Regola CSS da stampare nel <head>. Mira `html:root` (specificita' 0-1-1):
+ * BATTE il `:root{}` (0-1-0) dei default MOODD di ogni pagina, a prescindere
+ * dall'ordine nel documento -> i colori del cliente vincono gia' al primo
+ * paint (niente flash arancione). Restano vinti solo dagli stili inline che
+ * AdminNav applica lato client (aggiornamento entro i 60s di cache).
+ * Dichiara SOLO le variabili salvate: le altre restano i default della pagina.
  * Ritorna "" se non c'e' niente da scrivere.
  */
 export function cssTema(theme: Record<string, string>): string {
@@ -109,5 +112,5 @@ export function cssTema(theme: Record<string, string>): string {
   if (/^\d{1,3}$/.test(String(theme.shadow))) {
     decl.push(`--sh:${Math.min(100, Number(theme.shadow)) / 100}`);
   }
-  return decl.length ? `html{${decl.join(";")}}` : "";
+  return decl.length ? `html:root{${decl.join(";")}}` : "";
 }

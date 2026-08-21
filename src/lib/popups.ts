@@ -24,6 +24,7 @@ export interface PopupPubblico {
   btn2_label: string | null;
   btn2_url: string | null;
   max_shows: number;
+  position: string;
 }
 
 interface RigaPopup {
@@ -39,6 +40,11 @@ interface RigaPopup {
   body_en: string | null;
   btn1_label_en: string | null;
   btn2_label_en: string | null;
+  title_i18n: Record<string, string> | null;
+  body_i18n: Record<string, string> | null;
+  btn1_label_i18n: Record<string, string> | null;
+  btn2_label_i18n: Record<string, string> | null;
+  position: string | null;
   max_shows: number;
   pages: string[];
   schedule_kind: string;
@@ -49,14 +55,14 @@ interface RigaPopup {
   hour_end: string | null;
 }
 
-export async function popupPerPagina(slug: string, lang: "fr" | "en" = "fr"): Promise<PopupPubblico | null> {
+export async function popupPerPagina(slug: string, lang: string = "fr"): Promise<PopupPubblico | null> {
   try {
     // Cache 60s: una sola query per TUTTE le pagine del sito
     const data = await cacheOr("popups:attivi", async () => {
       const { data: righe, error } = await supabaseAdmin
         .from("popups")
         .select(
-          "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
+          "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, title_i18n, body_i18n, btn1_label_i18n, btn2_label_i18n, position, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
         )
         .eq("active", true)
         .order("created_at", { ascending: false });
@@ -72,8 +78,9 @@ export async function popupPerPagina(slug: string, lang: "fr" | "en" = "fr"): Pr
     for (const p of data as RigaPopup[]) {
       if (!Array.isArray(p.pages) || !p.pages.includes(slug)) continue;
 
-      // Lingua: il pop-up appare solo se la versione richiesta esiste.
-      const titolo = lang === "en" ? (p.title_en ?? "").trim() : (p.title ?? "").trim();
+      // Lingua: il pop-up appare solo se il titolo per quella lingua esiste.
+      const legacyTitle = lang === "en" ? p.title_en : lang === "fr" ? p.title : null;
+      const titolo = String(p.title_i18n?.[lang] ?? legacyTitle ?? "").trim();
       if (!titolo) continue;
 
       if (p.schedule_kind === "dates") {
@@ -87,17 +94,20 @@ export async function popupPerPagina(slug: string, lang: "fr" | "en" = "fr"): Pr
         if (hhmm < da || hhmm > a) continue;
       }
 
-      const en = lang === "en";
+      const legBody = lang === "en" ? p.body_en : lang === "fr" ? p.body : null;
+      const legB1 = lang === "en" ? p.btn1_label_en : lang === "fr" ? p.btn1_label : null;
+      const legB2 = lang === "en" ? p.btn2_label_en : lang === "fr" ? p.btn2_label : null;
       return {
         id: p.id,
         title: titolo,
-        body: en ? p.body_en : p.body,
+        body: p.body_i18n?.[lang] ?? legBody,
         image_url: p.image_url,
-        btn1_label: en ? p.btn1_label_en : p.btn1_label,
+        btn1_label: p.btn1_label_i18n?.[lang] ?? legB1,
         btn1_url: p.btn1_url,
-        btn2_label: en ? p.btn2_label_en : p.btn2_label,
+        btn2_label: p.btn2_label_i18n?.[lang] ?? legB2,
         btn2_url: p.btn2_url,
         max_shows: p.max_shows ?? 3,
+        position: p.position ?? "center",
       };
     }
     return null;

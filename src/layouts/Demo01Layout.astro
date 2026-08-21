@@ -1,0 +1,91 @@
+---
+// Layout condiviso per le pagine "satellite" del template demo01 (conferma /
+// annullo ordine, feedback): header + footer riusano i COMPONENTI condivisi
+// (stesso markup/CSS della index _page.html), alimentati dal motore.
+import Demo01Header from "../components/demo01/Demo01Header.astro";
+import Demo01Footer from "../components/demo01/Demo01Footer.astro";
+import { datiRistorante } from "../lib/ristorante";
+import { supabaseAdmin } from "../lib/db";
+import { CLIENT } from "../config/client";
+
+interface Props { title: string; lang?: string; }
+const { title, lang = "fr" } = Astro.props;
+
+const [{ data: cfgName }, { data: cfgFav }] = await Promise.all([
+  supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle(),
+  supabaseAdmin.from("app_config").select("value").eq("key", "brand_favicon").maybeSingle(),
+]);
+const nome = String(cfgName?.value ?? "").trim() || CLIENT.nome;
+const favicon = String(cfgFav?.value ?? "").trim() || "/favicon.svg";
+
+let dati = { nome, tel: "", telLink: "", email: "", indirizzo: "" };
+try { const d = await datiRistorante(); dati = { ...d, nome }; } catch { /* fallback */ }
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{title}</title>
+    <link rel="icon" href={favicon} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style is:global>
+      :root { --bg:#0d0d0d; --panel:#141414; --panel2:#1a1a1a; --cream:#f7f1e6; --muted:#b8a894; --accent:#e23b2e; --accent2:#c02c20; --green:#46a860; --line:rgba(247,241,230,.12); --title:"Bebas Neue",system-ui,sans-serif; --disp:"Marcellus",Georgia,serif; --body:"Nunito Sans",system-ui,sans-serif; --maxw:1440px; }
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { background:var(--bg); color:var(--cream); font-family:var(--body); line-height:1.6; min-height:100vh; display:flex; flex-direction:column; }
+      a { color:inherit; text-decoration:none; }
+      svg { display:block; }
+      .wrap { max-width:var(--maxw); margin:0 auto; padding:0 1.5rem; width:100%; }
+      /* ---------- HEADER (identico a _page.html) ---------- */
+      header { position:sticky; top:0; z-index:50; background:rgba(13,13,13,.85); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--line); }
+      .nav { display:flex; align-items:center; gap:1.2rem; height:84px; }
+      .brand { display:flex; align-items:center; gap:.6rem; font-family:var(--title); font-size:1.5rem; letter-spacing:.04em; }
+      .brand .logo { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#1e1e1e,#0a0a0a); display:grid; place-items:center; flex:0 0 auto; }
+      .brand .logo svg { width:22px; height:22px; }
+      .nav-links { display:flex; gap:1.3rem; margin-left:1rem; font-size:.9rem; color:var(--muted); }
+      .nav-links a { position:relative; transition:color .15s; }
+      .nav-links a:hover { color:var(--cream); }
+      .nav-right { margin-left:auto; display:flex; align-items:center; gap:.7rem; }
+      .btn { display:inline-flex; align-items:center; gap:.5rem; font-family:var(--body); font-weight:800; font-size:.92rem; letter-spacing:.02em; border-radius:999px; padding:.72rem 1.5rem; cursor:pointer; border:1.5px solid transparent; transition:transform .12s,background .2s,color .2s,border-color .2s; white-space:nowrap; }
+      .btn:active { transform:scale(.96); }
+      .btn-p { background:var(--accent); color:#fff; border-color:var(--accent); }
+      .btn-p:hover { background:var(--accent2); border-color:var(--accent2); }
+      .btn-cart { position:relative; display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--cream); cursor:pointer; transition:border-color .15s,color .15s; }
+      .btn-cart:hover { border-color:var(--accent); color:var(--accent); }
+      .btn-cart svg { width:22px; height:22px; }
+      .lang { display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; }
+      .lang .lang-b { background:transparent; color:var(--muted); border:0; padding:.35rem .6rem; font-family:var(--body); font-weight:800; font-size:.75rem; cursor:pointer; letter-spacing:.05em; display:inline-flex; align-items:center; text-decoration:none; }
+      .lang .lang-b.on { background:var(--accent); color:#fff; }
+      .powered { font-size:.66rem; color:var(--muted); letter-spacing:.05em; }
+      .powered b { color:var(--cream); }
+      main { flex:1 0 auto; }
+      @media (max-width:860px) { .nav-links { display:none; } .powered { display:none; } }
+      /* ---------- FOOTER (identico a _page.html) ---------- */
+      footer { background:#0a0a0a; border-top:1px solid var(--line); padding:4rem 0 2rem; }
+      .foot-grid { display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:2.5rem; align-items:start; }
+      @media (max-width:760px) { .foot-grid { grid-template-columns:1fr; gap:2.2rem; } }
+      .foot-name { font-family:var(--disp); font-size:1.7rem; color:var(--cream); margin-bottom:.7rem; }
+      .foot-tag { color:var(--muted); font-size:.9rem; line-height:1.6; max-width:320px; margin:0 0 1.3rem; }
+      .foot-social { display:flex; gap:.6rem; flex-wrap:wrap; }
+      .foot-social:empty { display:none; }
+      .foot-social a { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; border:1px solid var(--line); color:var(--muted); transition:color .2s,border-color .2s,background .2s; }
+      .foot-social a:hover { color:#fff; border-color:var(--accent); background:var(--accent); }
+      .foot-social svg { width:17px; height:17px; }
+      .foot-h { font-family:var(--body); text-transform:uppercase; letter-spacing:.16em; font-size:.7rem; font-weight:800; color:var(--accent); margin-bottom:1rem; }
+      .foot-line { display:block; color:var(--muted); font-size:.9rem; line-height:1.55; margin-bottom:.55rem; transition:color .2s; }
+      a.foot-line:hover { color:var(--cream); }
+      .foot-bottom { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-top:3rem; padding-top:1.6rem; border-top:1px solid var(--line); color:var(--muted); font-size:.78rem; }
+      .foot-powered b { color:var(--cream); }
+    </style>
+  </head>
+  <body>
+    <Demo01Header nome={nome} lang={lang} />
+    <main>
+      <slot />
+    </main>
+    <Demo01Footer nome={nome} lang={lang} tel={dati.tel} telLink={dati.telLink} email={dati.email} indirizzo={dati.indirizzo} />
+  </body>
+</html>

@@ -1,0 +1,58 @@
+---
+// Footer del template demo01, estratto come componente riutilizzabile
+// (stesso markup/CSS di _page.html). Alimentato dal motore.
+import { linksSocial } from "../../lib/links";
+interface Props {
+  nome: string;
+  lang?: string;
+  tel?: string;
+  telLink?: string;
+  email?: string;
+  indirizzo?: string;
+}
+const { nome, lang = "fr", tel = "", telLink = "", email = "", indirizzo = "" } = Astro.props;
+const L = ["fr", "en", "it"].includes(lang) ? lang : "fr";
+
+let social: { url: string; label: string; icon: string }[] = [];
+try { social = await linksSocial(); } catch { /* nessuno */ }
+
+const addr = indirizzo || "";
+const ci = addr.indexOf(",");
+const via = (ci >= 0 ? addr.slice(0, ci) : addr).trim();
+const city = ci >= 0 ? addr.slice(ci + 1).trim() : "";
+const year = new Date().getFullYear();
+
+const D: Record<string, Record<string, string>> = {
+  fr: { tag: "Cuisine généreuse et authentique — réservez, commandez, savourez.", contact: "Contact", explore: "Explorer", book: "Réserver", order: "Commander", menu: "Menu" },
+  en: { tag: "Generous, authentic cooking — book, order, savour.", contact: "Contact", explore: "Explore", book: "Book", order: "Order", menu: "Menu" },
+  it: { tag: "Cucina generosa e autentica — prenota, ordina, assapora.", contact: "Contatti", explore: "Esplora", book: "Prenota", order: "Ordina", menu: "Menu" },
+};
+const t = D[L];
+---
+<footer>
+  <div class="wrap foot-grid">
+    <div class="foot-col">
+      <div class="foot-name">{nome}</div>
+      <p class="foot-tag">{t.tag}</p>
+      <div class="foot-social">
+        {social.map((s) => (<a href={s.url} target="_blank" rel="noopener" aria-label={s.label} set:html={s.icon}></a>))}
+      </div>
+    </div>
+    <div class="foot-col">
+      <div class="foot-h">{t.contact}</div>
+      {via && <span class="foot-line">{via}{city ? `, ${city}` : ""}</span>}
+      {tel && <a class="foot-line" href={`tel:${telLink || tel}`}>{tel}</a>}
+      {email && <a class="foot-line" href={`mailto:${email}`}>{email}</a>}
+    </div>
+    <div class="foot-col">
+      <div class="foot-h">{t.explore}</div>
+      <a class="foot-line" href="/demo01#reserver">{t.book}</a>
+      <a class="foot-line" href="/demo01#commander">{t.order}</a>
+      <a class="foot-line" href="/demo01#menus">{t.menu}</a>
+    </div>
+  </div>
+  <div class="wrap foot-bottom">
+    <span>© {year} {nome}</span>
+    <span class="foot-powered">Propulsé par <b>RestoHub</b></span>
+  </div>
+</footer>

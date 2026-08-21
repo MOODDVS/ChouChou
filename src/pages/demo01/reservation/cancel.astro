@@ -1,0 +1,159 @@
+---
+// Annullamento prenotazione per il TEMPLATE demo01 (bottone "Annuler" nelle
+// email cliente → /demo01/reservation/cancel?token=). Stessa logica di
+// /reservation/cancel ma dentro Demo01Layout con la palette demo01. Legge
+// ?token=, mostra il riepilogo, chiede conferma e chiama DELETE /api/reservation.
+import Demo01Layout from "../../../layouts/Demo01Layout.astro";
+import { supabaseAdmin } from "../../../lib/db";
+import { CLIENT } from "../../../config/client";
+
+export const prerender = false;
+
+const url = Astro.url;
+const langParam = (url.searchParams.get("lang") || "fr").toLowerCase();
+const lang = ["fr", "en", "it"].includes(langParam) ? langParam : "fr";
+
+const { data: cfgBrand } = await supabaseAdmin
+  .from("app_config")
+  .select("value")
+  .eq("key", "restaurant_name")
+  .maybeSingle();
+const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
+---
+<Demo01Layout title={`Annulation — ${brand}`} lang={lang}>
+  <section class="rwc">
+    <div class="rw" id="rw" dir="ltr">
+      <h3 class="rw-title" id="rw-title">Annuler ma réservation</h3>
+
+      <div id="rw-loading" class="rw-loading">…</div>
+
+      <div id="rw-confirm-box" style="display:none">
+        <div class="rw-recap">
+          <div><span class="rw-rc-lab" id="rw-l-date"></span><span class="rw-rc-val" id="rw-v-date"></span></div>
+          <div><span class="rw-rc-lab" id="rw-l-heure"></span><span class="rw-rc-val" id="rw-v-heure"></span></div>
+          <div><span class="rw-rc-lab" id="rw-l-pers"></span><span class="rw-rc-val" id="rw-v-pers"></span></div>
+        </div>
+        <button type="button" class="rw-btn rw-btn-danger" id="rw-do-cancel"></button>
+        <p class="rw-err" id="rw-err"></p>
+      </div>
+
+      <div id="rw-done-box" style="display:none">
+        <svg class="rw-done-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="8 12.5 11 15.5 16 9.5" /></svg>
+        <p class="rw-msg" id="rw-done-msg"></p>
+        <a class="rw-book" id="rw-book" href="/demo01/reservation"></a>
+      </div>
+
+      <div id="rw-invalid-box" style="display:none">
+        <p class="rw-msg" id="rw-invalid-msg"></p>
+      </div>
+    </div>
+  </section>
+
+  <style>
+    .rwc { display: flex; align-items: center; justify-content: center; padding: 4vh 1rem 5rem; }
+    .rw { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 2.2rem 1.7rem; width: 100%; max-width: 440px; text-align: center; }
+    .rw-title { font-family: var(--disp); font-weight: 400; color: var(--cream); font-size: 1.5rem; margin: 0 0 1.4rem; }
+    .rw-loading { color: var(--muted); font-size: 0.9rem; padding: 1.5rem 0; }
+    .rw-recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
+    .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+    .rw-rc-lab { color: var(--muted); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+    .rw-rc-val { color: var(--accent); font-size: 0.98rem; font-weight: 700; }
+    .rw-btn { width: 100%; font-family: var(--body); font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.9rem; padding: 0.85rem 0; cursor: pointer; border-radius: 999px; border: 1.5px solid transparent; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .rw-btn-danger { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .rw-btn-danger:hover { background: var(--accent2); border-color: var(--accent2); }
+    .rw-msg { color: var(--muted); font-size: 0.92rem; line-height: 1.6; margin: 0.6rem 0 0; }
+    .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: var(--green); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin: 0 auto 0.6rem; }
+    .rw-err { color: #ff8a8f; font-size: 0.85rem; margin: 0.8rem 0 0; min-height: 1em; }
+    .rw-book { display: inline-block; margin-top: 1.2rem; color: var(--accent); font-size: 0.85rem; text-decoration: underline; text-underline-offset: 2px; }
+    .rw-book:hover { color: var(--cream); }
+  </style>
+</Demo01Layout>
+
+<script>
+    import { TESTI_WIDGET, SERVIZI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../../lib/reservationI18n";
+
+    type Resa = {
+      date: string; heure: string; service_key: string | null; people: number;
+      zone: string | null; lang: string;
+    };
+
+    const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+    const codeValido = (c: string): c is LinguaWidget => LINGUE_WIDGET.some((l) => l.code === c);
+
+    let lingua: LinguaWidget = "fr";
+    const T = () => TESTI_WIDGET[lingua] ?? TESTI_WIDGET.fr;
+
+    function fmtDate(iso: string): string {
+      try {
+        return new Intl.DateTimeFormat(lingua === "fr" ? "fr-FR" : lingua, { timeZone: "Europe/Brussels", weekday: "short", day: "2-digit", month: "long" }).format(new Date(iso + "T12:00:00"));
+      } catch {
+        return iso.split("-").reverse().join("/");
+      }
+    }
+
+    function mostraInvalido() {
+      $("rw-loading").style.display = "none";
+      $("rw-confirm-box").style.display = "none";
+      $("rw-invalid-box").style.display = "";
+      $("rw-invalid-msg").textContent = T().lienInvalide;
+    }
+
+    (async () => {
+      const token = new URLSearchParams(location.search).get("token") ?? "";
+      if (!token) { mostraInvalido(); return; }
+
+      let resa: Resa | null = null;
+      try {
+        const r = await fetch("/api/reservation?token=" + encodeURIComponent(token));
+        const j = await r.json();
+        if (j.reservation) resa = j.reservation as Resa;
+      } catch { /* rete */ }
+      if (!resa) { mostraInvalido(); return; }
+
+      if (resa.lang && codeValido(resa.lang)) lingua = resa.lang as LinguaWidget;
+      const t = T();
+      ($("rw") as HTMLElement).dir = lingua === "ar" ? "rtl" : "ltr";
+      $("rw-title").textContent = t.annulerTitre;
+
+      $("rw-l-date").textContent = t.date;
+      $("rw-l-heure").textContent = t.heure;
+      $("rw-l-pers").textContent = t.personnes;
+      $("rw-v-date").textContent = fmtDate(resa.date);
+      const servLab = resa.service_key ? SERVIZI_WIDGET[resa.service_key]?.[lingua] ?? "" : "";
+      $("rw-v-heure").textContent = resa.heure;
+      $("rw-v-pers").textContent = String(resa.people);
+      void servLab;
+
+      $("rw-do-cancel").textContent = t.annulerConfirme;
+      $("rw-done-msg").textContent = t.annuleeOk;
+      $("rw-book").textContent = t.nouvelleResa;
+
+      $("rw-loading").style.display = "none";
+      $("rw-confirm-box").style.display = "";
+
+      $("rw-do-cancel").addEventListener("click", async () => {
+        const btn = $("rw-do-cancel") as HTMLButtonElement;
+        btn.disabled = true;
+        $("rw-err").textContent = "";
+        try {
+          const res = await fetch("/api/reservation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Method-Override": "DELETE" },
+            body: JSON.stringify({ token }),
+          });
+          const j = await res.json();
+          if (j.ok) {
+            $("rw-confirm-box").style.display = "none";
+            $("rw-done-box").style.display = "";
+          } else {
+            $("rw-err").textContent = j.error === "lienInvalide" ? T().lienInvalide : T().erreurEnvoi;
+            btn.disabled = false;
+          }
+        } catch {
+          $("rw-err").textContent = T().erreurEnvoi;
+          btn.disabled = false;
+        }
+      });
+    })();
+</script>

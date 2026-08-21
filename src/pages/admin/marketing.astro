@@ -13,9 +13,17 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
+import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 
 const lang = await adminLang();
 const t = adminT(lang);
+const boot = await caricaBootAdmin();
+const pubLangsJson = JSON.stringify({
+  langs: boot.publicLangs,
+  def: boot.publicLangDefault,
+  labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
+});
 ---
 
 <html lang={lang}>
@@ -182,13 +190,15 @@ const t = adminT(lang);
       }
       .overlay.is-open { display: flex; }
       /* margin auto = sempre centrato, ma scrollabile se più alto dello schermo */
-      .modal { width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
+      .modal { --pad: 1.75rem; width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 0 var(--pad); position: relative; margin: auto; }
       .modal { max-height: 90vh; overflow-y: auto; }
       /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
+      .modal > h2 { position: sticky; top: 0; z-index: 6; background: var(--c-bg); margin: 0 calc(-1 * var(--pad)) 0.9rem; padding: var(--pad) var(--pad) 0.9rem; border-bottom: 1px solid var(--c-line); }
+      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: var(--c-bg); margin: 1.6rem calc(-1 * var(--pad)) 0; padding: 1rem var(--pad) var(--pad); border-top: 1px solid var(--c-line); }
+      /* Pop-up: Salva sempre a destra nel footer */
+      #overlay .m-foot .m-save { margin-left: auto; order: 3; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close { position: sticky; top: 0.85rem; float: right; z-index: 8; margin: 0 0 -1.9rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
 
       .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.1rem 0 0.4rem; }
@@ -223,7 +233,7 @@ const t = adminT(lang);
       .f-date { cursor: pointer; }
 
       /* Modale coupon: più largo e con più aria fra le sezioni (solo qui) */
-      #cp-overlay .modal { max-width: 780px; padding: 2.25rem; }
+      #cp-overlay .modal { max-width: 780px; --pad: 2.25rem; padding: 0 var(--pad); }
       #cp-overlay .f-lab { margin-top: 1.75rem; }
       #cp-overlay .f-lab:first-of-type { margin-top: 0; }
       #cp-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
@@ -233,7 +243,7 @@ const t = adminT(lang);
       #cp-overlay .f-hint { margin-top: 0.1rem; }
       #cp-overlay .m-foot { margin-top: 2.4rem; }
       /* Bon cadeau: stessa aria del modale coupon tra le righe */
-      #gc-overlay .modal { padding: 2.25rem; }
+      #gc-overlay .modal { --pad: 2.25rem; padding: 0 var(--pad); }
       #gc-overlay .f-lab { margin-top: 1.75rem; }
       #gc-overlay .f-lab:first-of-type { margin-top: 0; }
       #gc-overlay .f-row .f-lab { margin-top: 0; }
@@ -245,9 +255,17 @@ const t = adminT(lang);
       .gc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
       .gc-step.done { color: var(--c-text); border-color: var(--c-accent); }
       .gc-recap { display: flex; flex-direction: column; }
-      .gc-recap .r-row { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--c-line); padding: 0.6rem 0; font-size: 0.9rem; }
+      .gc-recap .r-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; border-bottom: 1px solid var(--c-line); padding: 0.75rem 0; font-size: 0.9rem; }
       .gc-recap .r-k { color: var(--c-muted); }
-      .gc-recap .r-v { color: var(--c-text); font-weight: 700; text-align: right; word-break: break-word; }
+      .gc-recap .r-v { color: var(--c-text); font-weight: 700; text-align: left; word-break: break-word; }
+      .gc-recap .gc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 0.4rem; }
+      .gc-cell { border: 1px solid var(--c-line); border-radius: 12px; padding: 0.85rem 0.95rem; background: var(--c-input); display: flex; flex-direction: column; gap: 0.3rem; }
+      .gc-cell-head { display: flex; align-items: center; gap: 0.45rem; }
+      .gc-cell-ico { color: var(--c-accent); line-height: 0; }
+      .gc-cell-ico svg { width: 20px; height: 20px; }
+      .gc-cell-k { color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      .gc-cell-v { color: var(--c-text); font-weight: 700; font-size: 0.95rem; word-break: break-word; }
+      #gc-send-box { margin-top: 1.6rem; }
       #gc-overlay #gc-prev { color: var(--c-muted); }
       #gc-overlay .f-lab + .f-row { margin-top: 0; }
       #gc-overlay .m-foot { flex-wrap: wrap; }
@@ -293,6 +311,9 @@ const t = adminT(lang);
 
 
       .m-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
+      .m-foot--news { flex-direction: column; align-items: stretch; gap: 0.7rem; }
+      .m-foot--news .m-foot-note { margin: 0; font-size: 0.72rem; line-height: 1.45; color: var(--c-muted); }
+      .m-foot--news .m-foot-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
       .m-save {
         background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
         font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
@@ -302,6 +323,23 @@ const t = adminT(lang);
       .m-save:hover { filter: brightness(1.1); }
       .m-save:disabled { opacity: 0.5; cursor: wait; }
       .m-err { color: #ff6b6b; font-size: 0.85rem; }
+      .f-img-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+      .f-img-prev { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-input); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; color: var(--c-muted); }
+      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .f-img-prev svg { width: 22px; height: 22px; }
+      #f-panels { margin-top: 1.1rem; }
+      #f-panels .f-row-btnu { margin-top: 0.45rem; margin-bottom: 0.2rem; }
+      .pos-picker { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+      .pos-opt { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.45rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; width: 78px; transition: border-color 0.15s; }
+      .pos-opt:hover, .pos-opt.is-on { border-color: var(--c-accent); }
+      .pos-screen { position: relative; width: 52px; height: 38px; border: 1px solid var(--c-line); border-radius: 4px; background: var(--c-input); }
+      .pos-dot { position: absolute; width: 16px; height: 11px; border-radius: 3px; background: var(--c-accent); }
+      .pos-c { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+      .pos-bl { bottom: 3px; left: 3px; }
+      .pos-bc { bottom: 3px; left: 50%; transform: translateX(-50%); }
+      .pos-br { bottom: 3px; right: 3px; }
+      .pos-name { font-size: 0.66rem; color: var(--c-muted); text-align: center; }
+      .pos-opt.is-on .pos-name { color: var(--c-text); }
 
       /* Newsletter */
       .n-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
@@ -369,6 +407,7 @@ const t = adminT(lang);
           <button class="mtab" data-tab="news"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>{t("tab.marketing.news")}</button>
           <button class="mtab" data-tab="coupons"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><line x1="13" y1="5" x2="13" y2="7" /><line x1="13" y1="11" x2="13" y2="13" /><line x1="13" y1="17" x2="13" y2="19" /></svg>{t("tab.marketing.coupons")}</button>
           <button class="mtab" data-tab="giftcards"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>{t("tab.marketing.giftcards")}</button>
+          <button class="mtab" data-tab="promos"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg>{t("tab.marketing.promos")}</button>
         </div>
 
         <div class="state" id="state">{t("sup.loading")}</div>
@@ -402,6 +441,10 @@ const t = adminT(lang);
             {t("mk.giftEmpty")}
           </div>
           <div class="pops" id="giftcards"></div>
+        </div>
+
+        <div id="tab-promos" style="display:none">
+          <div class="state">{t("mk.promoSoon")}</div>
         </div>
 
         <div id="tab-news" style="display:none">
@@ -443,66 +486,40 @@ const t = adminT(lang);
       <AdminFooter />
     </div>
 
+    <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
     <!-- Modale creazione/modifica -->
     <div class="overlay" id="overlay">
       <div class="modal">
         <button class="m-close" id="m-close" type="button" aria-label={t("common.close")}>×</button>
         <h2 id="m-title">{t("mk.newPopup")}</h2>
 
-        <div class="picks picks--lang" id="f-lang">
-          <span class="pick is-on" data-l="fr">FR</span>
-          <span class="pick" data-l="en">EN</span>
-        </div>
+        <div class="picks picks--lang" id="f-lang"></div>
         <p class="f-hint" style="margin:0.4rem 0 0.9rem">
           {t("mk.popupLangHint")}
         </p>
 
-        <label class="f-lab" for="f-img">{t("mk.image")}</label>
-        <div class="f-row f-row--img">
-          <input type="text" class="f-input" id="f-img" placeholder={t("mk.imgUrlPh")} />
-          <button class="pill" id="f-upload" type="button">{t("mk.upload")}</button>
-          <button class="pill" id="f-lib" type="button">{t("menu.library")}</button>
-          <input type="file" id="f-file" accept="image/*" style="display:none" />
-        </div>
-        <p class="f-hint" id="f-upload-state"></p>
-
-        <div id="panel-fr">
-          <label class="f-lab" for="f-title">{t("mk.title")}</label>
-          <input type="text" class="f-input" id="f-title" placeholder={t("mk.titlePh")} />
-
-          <label class="f-lab" for="f-body">{t("mk.text")}</label>
-          <textarea class="f-area" id="f-body" placeholder={t("mk.bodyPh")}></textarea>
-
-          <label class="f-lab">{t("mk.btn1Opt")}</label>
-          <div class="f-row">
-            <input type="text" class="f-input" id="f-b1l" placeholder={t("mk.btnLabelReservePh")} />
-            <input type="text" class="f-input" id="f-b1u" placeholder={t("mk.btnLinkPh")} />
-            <button class="pill asset-pick" type="button" data-target="f-b1u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
-          </div>
-
-          <label class="f-lab">{t("mk.btn2Opt")}</label>
-          <div class="f-row">
-            <input type="text" class="f-input" id="f-b2l" placeholder={t("mk.labelPh")} />
-            <input type="text" class="f-input" id="f-b2u" placeholder={t("mk.linkPh")} />
-            <button class="pill asset-pick" type="button" data-target="f-b2u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
-          </div>
-          <p class="f-hint">{t("mk.popupTipPre")}<strong>#reserver</strong>{t("mk.popupTipPost")}</p>
+        <label class="f-lab">{t("mk.position")}</label>
+        <div class="pos-picker" id="f-pos">
+          <button type="button" class="pos-opt is-on" data-pos="center"><span class="pos-screen"><span class="pos-dot pos-c"></span></span><span class="pos-name">{t("mk.posCenter")}</span></button>
+          <button type="button" class="pos-opt" data-pos="bottom-left"><span class="pos-screen"><span class="pos-dot pos-bl"></span></span><span class="pos-name">{t("mk.posBL")}</span></button>
+          <button type="button" class="pos-opt" data-pos="bottom-center"><span class="pos-screen"><span class="pos-dot pos-bc"></span></span><span class="pos-name">{t("mk.posBC")}</span></button>
+          <button type="button" class="pos-opt" data-pos="bottom-right"><span class="pos-screen"><span class="pos-dot pos-br"></span></span><span class="pos-name">{t("mk.posBR")}</span></button>
         </div>
 
-        <div id="panel-en" style="display:none">
-          <label class="f-lab" for="f-title-en">{t("mk.enTitle")}</label>
-          <input type="text" class="f-input" id="f-title-en" placeholder={t("mk.titleEnPh")} />
-
-          <label class="f-lab" for="f-body-en">{t("mk.enText")}</label>
-          <textarea class="f-area" id="f-body-en" placeholder={t("mk.textEnPh")}></textarea>
-
-          <label class="f-lab">{t("mk.btn1LabelEn")}</label>
-          <input type="text" class="f-input" id="f-b1l-en" placeholder={t("mk.btnLabelBookPh")} />
-
-          <label class="f-lab">{t("mk.btn2LabelEn")}</label>
-          <input type="text" class="f-input" id="f-b2l-en" placeholder={t("mk.labelPh")} />
-          <p class="f-hint">{t("mk.linksSharedHint")}</p>
+        <label class="f-lab">{t("mk.image")}</label>
+        <div class="f-img-row">
+          <span class="f-img-prev" id="f-img-prev"></span>
+          <button type="button" class="pill" id="f-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="pill" id="f-lib">{t("menu.library")}</button>
+          <button type="button" class="pill" id="f-img-del" style="display:none">{t("ord.remove")}</button>
+          <input type="file" id="f-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+          <span class="f-hint" id="f-upload-state"></span>
         </div>
+        <input type="hidden" id="f-img" />
+
+        <div id="f-panels"></div>
+
+        <p class="f-hint">{t("mk.popupTipPre")}<strong>#reserver</strong>{t("mk.popupTipPost")}</p>
 
         <label class="f-lab">{t("mk.pagesWhere")}</label>
         <div class="picks" id="f-pages"></div>
@@ -587,20 +604,22 @@ const t = adminT(lang);
         <label class="f-lab">{t("mk.newsRecipientsGroup")}</label>
         <div class="seg-row" id="n-seg"></div>
 
+        <label class="f-lab">{t("mk.image")}</label>
+        <div class="f-img-row">
+          <span class="f-img-prev" id="n-img-prev"></span>
+          <button type="button" class="pill" id="n-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="pill" id="n-lib">{t("menu.library")}</button>
+          <button type="button" class="pill" id="n-img-del" style="display:none">{t("ord.remove")}</button>
+          <input type="file" id="n-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+          <span class="f-hint" id="n-upload-state"></span>
+        </div>
+        <input type="hidden" id="n-img" />
+
         <label class="f-lab" for="n-subject">{t("mk.subjectReq")}</label>
         <input type="text" class="f-input" id="n-subject" placeholder={t("mk.subjectPh")} />
 
         <label class="f-lab" for="n-msg">{t("mk.messageReq")}</label>
         <textarea class="f-area" id="n-msg" style="min-height:140px" placeholder={t("mk.newsMsgPh")}></textarea>
-
-        <label class="f-lab" for="n-img">{t("mk.image")}</label>
-        <div class="f-row f-row--img">
-          <input type="text" class="f-input" id="n-img" placeholder={t("mk.imgUrlPh")} />
-          <button class="pill" id="n-upload" type="button">{t("mk.upload")}</button>
-          <button class="pill" id="n-lib" type="button">{t("menu.library")}</button>
-          <input type="file" id="n-file" accept="image/*" style="display:none" />
-        </div>
-        <p class="f-hint" id="n-upload-state"></p>
 
         <label class="f-lab">{t("mk.btnOpt")}</label>
         <div class="f-row">
@@ -630,15 +649,15 @@ const t = adminT(lang);
           <select class="f-input" id="np-heure" style="max-width:110px"></select>
         </div>
 
-        <div class="m-foot">
-          <button class="m-save" id="n-send" type="button">{t("mk.sendToAll")}</button>
-          <button class="pill" id="n-test" type="button">{t("mk.sendMeTest")}</button>
-          <button class="pill" id="n-draft" type="button">{t("mk.saveDraft")}</button>
-          <span class="m-err" id="n-err"></span>
+        <div class="m-foot m-foot--news">
+          <p class="m-foot-note">{t("mk.newsFooterHint")}</p>
+          <div class="m-foot-row">
+            <button class="m-save" id="n-send" type="button">{t("mk.sendToAll")}</button>
+            <button class="pill" id="n-test" type="button">{t("mk.sendMeTest")}</button>
+            <button class="pill" id="n-draft" type="button">{t("mk.saveDraft")}</button>
+            <span class="m-err" id="n-err"></span>
+          </div>
         </div>
-        <p class="f-hint" style="margin-top:0.6rem">
-          {t("mk.newsFooterHint")}
-        </p>
       </div>
     </div>
 
@@ -731,7 +750,6 @@ const t = adminT(lang);
         </div>
 
         <div class="m-foot" style="flex-wrap:wrap;gap:1rem">
-          <button class="m-save" id="cp-save" type="button">{t("common.save")}</button>
           <span class="sw-wrap">
             <label class="switch"><input type="checkbox" id="cp-new" /><span class="track"></span></label>
             <span class="sw-lab">{t("mk.newCustomers")}</span>
@@ -741,6 +759,7 @@ const t = adminT(lang);
             <span class="sw-lab">{t("menu.active")}</span>
           </span>
           <span class="m-err" id="cp-err"></span>
+          <button class="m-save" id="cp-save" type="button" style="margin-left:auto">{t("common.save")}</button>
         </div>
       </div>
     </div>
@@ -949,6 +968,11 @@ const t = adminT(lang);
         body_en: string | null;
         btn1_label_en: string | null;
         btn2_label_en: string | null;
+        title_i18n: Record<string, string> | null;
+        body_i18n: Record<string, string> | null;
+        btn1_label_i18n: Record<string, string> | null;
+        btn2_label_i18n: Record<string, string> | null;
+        position: string | null;
         pages: string[];
         active: boolean;
         schedule_kind: "always" | "dates" | "weekly";
@@ -1081,6 +1105,7 @@ const t = adminT(lang);
         const tabNews = document.getElementById("tab-news") as HTMLDivElement;
         const tabCoupons = document.getElementById("tab-coupons") as HTMLDivElement;
         const tabGift = document.getElementById("tab-giftcards") as HTMLDivElement;
+        const tabPromos = document.getElementById("tab-promos") as HTMLDivElement;
         const mtabs = document.getElementById("mtabs") as HTMLDivElement;
         let tabAttivo = "popup";
 
@@ -1094,6 +1119,7 @@ const t = adminT(lang);
           tabNews.style.display = t === "news" && !vietato(tabNews) ? "block" : "none";
           tabCoupons.style.display = t === "coupons" && !vietato(tabCoupons) ? "block" : "none";
           tabGift.style.display = t === "giftcards" && !vietato(tabGift) ? "block" : "none";
+          tabPromos.style.display = t === "promos" && !vietato(tabPromos) ? "block" : "none";
         }
         mtabs.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;
@@ -1159,17 +1185,10 @@ const t = adminT(lang);
         const mTitle = document.getElementById("m-title") as HTMLHeadingElement;
         const mErr = document.getElementById("m-err") as HTMLSpanElement;
         const mSave = document.getElementById("m-save") as HTMLButtonElement;
-        const fTitle = document.getElementById("f-title") as HTMLInputElement;
-        const fBody = document.getElementById("f-body") as HTMLTextAreaElement;
         const fImg = document.getElementById("f-img") as HTMLInputElement;
-        const fB1l = document.getElementById("f-b1l") as HTMLInputElement;
-        const fB1u = document.getElementById("f-b1u") as HTMLInputElement;
-        const fB2l = document.getElementById("f-b2l") as HTMLInputElement;
-        const fB2u = document.getElementById("f-b2u") as HTMLInputElement;
-        const fTitleEn = document.getElementById("f-title-en") as HTMLInputElement;
-        const fBodyEn = document.getElementById("f-body-en") as HTMLTextAreaElement;
-        const fB1lEn = document.getElementById("f-b1l-en") as HTMLInputElement;
-        const fB2lEn = document.getElementById("f-b2l-en") as HTMLInputElement;
+        const setBtnU = (cls: string, v: string) => { fPanels.querySelectorAll<HTMLInputElement>("." + cls).forEach((el) => { el.value = v; }); };
+        const getBtnU = (cls: string): string => (fPanels.querySelector<HTMLInputElement>("." + cls)?.value ?? "").trim();
+        const fPanels = document.getElementById("f-panels") as HTMLDivElement;
         const fPages = document.getElementById("f-pages") as HTMLDivElement;
         const fKind = document.getElementById("f-kind") as HTMLDivElement;
         const fDays = document.getElementById("f-days") as HTMLDivElement;
@@ -1184,20 +1203,54 @@ const t = adminT(lang);
 
         let editId: string | null = null;
 
-        // Tab lingua FR/EN del form
+        // Tab lingua del form: generati dalle LINGUE PUBBLICHE (super admin)
         const fLang = document.getElementById("f-lang") as HTMLDivElement;
-        const panelFr = document.getElementById("panel-fr") as HTMLDivElement;
-        const panelEn = document.getElementById("panel-en") as HTMLDivElement;
+        type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
+        let PUB: PubLangs = { langs: ["fr"], def: "fr", labels: { fr: { label: "Fran\u00e7ais", flag: "" } } };
+        try { const raw = document.getElementById("pub-langs")?.textContent?.trim(); if (raw) PUB = JSON.parse(raw) as PubLangs; } catch { /* fallback */ }
+        const ordineLang = () => [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+        function costruisciLingue() {
+          const ord = ordineLang();
+          fLang.innerHTML = ord
+            .map((l, i) => `<span class="pick${i === 0 ? " is-on" : ""}" data-l="${esc(l)}">${esc(PUB.labels[l]?.flag ?? "")} ${esc(l.toUpperCase())}</span>`)
+            .join("");
+          fPanels.innerHTML = ord
+            .map((l, i) => {
+              const T = esc(l.toUpperCase());
+              return `<div class="pop-lang" data-lang="${esc(l)}" style="display:${i === 0 ? "block" : "none"}">` +
+                `<label class="f-lab">${esc(tr("mk.title"))} (${T})</label>` +
+                `<input type="text" class="f-input f-tx" data-lang="${esc(l)}" placeholder="${i === 0 ? esc(tr("mk.titlePh")) : ""}" />` +
+                `<label class="f-lab">${esc(tr("mk.text"))} (${T})</label>` +
+                `<textarea class="f-area f-bx" data-lang="${esc(l)}"></textarea>` +
+                `<label class="f-lab">${esc(tr("mk.btn1Opt"))} (${T})</label>` +
+                `<input type="text" class="f-input f-b1lx" data-lang="${esc(l)}" placeholder="${i === 0 ? esc(tr("mk.btnLabelReservePh")) : esc(tr("mk.labelPh"))}" />` +
+                `<div class="f-row f-row-btnu">` +
+                  `<input type="text" class="f-input f-b1u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.btnLinkPh"))}" />` +
+                  `<button class="pill asset-pop" type="button" data-cls="f-b1u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
+                `</div>` +
+                `<label class="f-lab">${esc(tr("mk.btn2Opt"))} (${T})</label>` +
+                `<input type="text" class="f-input f-b2lx" data-lang="${esc(l)}" placeholder="${esc(tr("mk.labelPh"))}" />` +
+                `<div class="f-row f-row-btnu">` +
+                  `<input type="text" class="f-input f-b2u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.linkPh"))}" />` +
+                  `<button class="pill asset-pop" type="button" data-cls="f-b2u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
+                `</div>` +
+                `</div>`;
+            })
+            .join("");
+        }
+        costruisciLingue();
         function mostraLingua(l: string) {
-          fLang.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
-            el.classList.toggle("is-on", el.dataset.l === l)
-          );
-          panelFr.style.display = l === "fr" ? "block" : "none";
-          panelEn.style.display = l === "en" ? "block" : "none";
+          fLang.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", el.dataset.l === l));
+          fPanels.querySelectorAll<HTMLElement>(".pop-lang").forEach((p) => { p.style.display = p.dataset.lang === l ? "block" : "none"; });
+        }
+        function raccogliI18n(sel: string): Record<string, string> {
+          const o: Record<string, string> = {};
+          fPanels.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(sel).forEach((el) => { const v = el.value.trim(); if (v) o[el.dataset.lang ?? ""] = v; });
+          return o;
         }
         fLang.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
-          if (el) mostraLingua(el.dataset.l ?? "fr");
+          if (el) mostraLingua(el.dataset.l ?? PUB.def);
         });
 
         // Pillole pagine e giorni
@@ -1227,18 +1280,21 @@ const t = adminT(lang);
           mTitle.textContent = p ? tr("mk.editPopup") : tr("mk.newPopup");
           mErr.textContent = "";
           fUploadState.textContent = "";
-          mostraLingua("fr");
-          fTitle.value = p?.title ?? "";
-          fBody.value = p?.body ?? "";
+          costruisciLingue();
+          mostraLingua(PUB.def);
+          const ti = p?.title_i18n ?? {};
+          const bi = p?.body_i18n ?? {};
+          const b1i = p?.btn1_label_i18n ?? {};
+          const b2i = p?.btn2_label_i18n ?? {};
+          fPanels.querySelectorAll<HTMLInputElement>(".f-tx").forEach((el) => { const l = el.dataset.lang ?? ""; el.value = ti[l] ?? (l === "fr" ? (p?.title ?? "") : l === "en" ? (p?.title_en ?? "") : ""); });
+          fPanels.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((el) => { const l = el.dataset.lang ?? ""; el.value = bi[l] ?? (l === "fr" ? (p?.body ?? "") : l === "en" ? (p?.body_en ?? "") : ""); });
+          fPanels.querySelectorAll<HTMLInputElement>(".f-b1lx").forEach((el) => { const l = el.dataset.lang ?? ""; el.value = b1i[l] ?? (l === "fr" ? (p?.btn1_label ?? "") : l === "en" ? (p?.btn1_label_en ?? "") : ""); });
+          fPanels.querySelectorAll<HTMLInputElement>(".f-b2lx").forEach((el) => { const l = el.dataset.lang ?? ""; el.value = b2i[l] ?? (l === "fr" ? (p?.btn2_label ?? "") : l === "en" ? (p?.btn2_label_en ?? "") : ""); });
           fImg.value = p?.image_url ?? "";
-          fB1l.value = p?.btn1_label ?? "";
-          fB1u.value = p?.btn1_url ?? "";
-          fB2l.value = p?.btn2_label ?? "";
-          fB2u.value = p?.btn2_url ?? "";
-          fTitleEn.value = p?.title_en ?? "";
-          fBodyEn.value = p?.body_en ?? "";
-          fB1lEn.value = p?.btn1_label_en ?? "";
-          fB2lEn.value = p?.btn2_label_en ?? "";
+          renderFotoPop();
+          setPos(p?.position ?? "center");
+          setBtnU("f-b1u", p?.btn1_url ?? "");
+          setBtnU("f-b2u", p?.btn2_url ?? "");
           fMax.value = String(p?.max_shows ?? 3);
           fActive.checked = p ? p.active : true;
           fDs.dataset.iso = p?.date_start ?? "";
@@ -1375,7 +1431,25 @@ const t = adminT(lang);
         // ---------- Upload immagine (Supabase Storage via API) ----------
         const fUpload = document.getElementById("f-upload") as HTMLButtonElement;
         const fFile = document.getElementById("f-file") as HTMLInputElement;
-        const fUploadState = document.getElementById("f-upload-state") as HTMLParagraphElement;
+        const fUploadState = document.getElementById("f-upload-state") as HTMLElement;
+        const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
+        const fImgDel = document.getElementById("f-img-del") as HTMLButtonElement;
+        const ICO_IMG_POP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+        function renderFotoPop() {
+          const u = fImg.value.trim();
+          fImgPrev.innerHTML = u ? `<img src="${esc(u)}" alt="" />` : ICO_IMG_POP;
+          fImgDel.style.display = u ? "" : "none";
+        }
+        fImgDel.addEventListener("click", () => { fImg.value = ""; renderFotoPop(); });
+        const fPos = document.getElementById("f-pos") as HTMLDivElement;
+        function setPos(pos: string) { fPos.querySelectorAll<HTMLElement>(".pos-opt").forEach((x) => x.classList.toggle("is-on", x.dataset.pos === (pos || "center"))); }
+        function posAttiva(): string { return (fPos.querySelector(".pos-opt.is-on") as HTMLElement | null)?.dataset.pos ?? "center"; }
+        fPos.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".pos-opt") as HTMLElement | null;
+          if (!b) return;
+          fPos.querySelectorAll(".pos-opt").forEach((x) => x.classList.remove("is-on"));
+          b.classList.add("is-on");
+        });
 
         fUpload.addEventListener("click", () => fFile.click());
         fFile.addEventListener("change", async () => {
@@ -1407,6 +1481,7 @@ const t = adminT(lang);
               return;
             }
             fImg.value = j.url;
+            renderFotoPop();
             fUploadState.textContent = tr("mk.imgUploaded");
           } catch {
             fUploadState.textContent = tr("res.connErr");
@@ -1426,17 +1501,14 @@ const t = adminT(lang);
           mErr.textContent = "";
           const payload = {
             id: editId ?? undefined,
-            title: fTitle.value,
-            body: fBody.value,
+            title_i18n: raccogliI18n(".f-tx"),
+            body_i18n: raccogliI18n(".f-bx"),
+            btn1_label_i18n: raccogliI18n(".f-b1lx"),
+            btn2_label_i18n: raccogliI18n(".f-b2lx"),
             image_url: fImg.value,
-            btn1_label: fB1l.value,
-            btn1_url: fB1u.value,
-            btn2_label: fB2l.value,
-            btn2_url: fB2u.value,
-            title_en: fTitleEn.value,
-            body_en: fBodyEn.value,
-            btn1_label_en: fB1lEn.value,
-            btn2_label_en: fB2lEn.value,
+            btn1_url: getBtnU("f-b1u"),
+            btn2_url: getBtnU("f-b2u"),
+            position: posAttiva(),
             pages: Array.from(fPages.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => el.dataset.p!),
             active: fActive.checked,
             schedule_kind: kindAttivo(),
@@ -1572,6 +1644,7 @@ const t = adminT(lang);
           nSubject.value = "";
           nMsg.value = "";
           nImg.value = "";
+          renderFotoNews();
           nBtnl.value = "";
           nBtnu.value = "";
           nBtn2l.value = "";
@@ -1651,7 +1724,15 @@ const t = adminT(lang);
         // Upload immagine newsletter (stesso endpoint dei pop-up)
         const nUpload = document.getElementById("n-upload") as HTMLButtonElement;
         const nFile = document.getElementById("n-file") as HTMLInputElement;
-        const nUploadState = document.getElementById("n-upload-state") as HTMLParagraphElement;
+        const nUploadState = document.getElementById("n-upload-state") as HTMLElement;
+        const nImgPrev = document.getElementById("n-img-prev") as HTMLSpanElement;
+        const nImgDel = document.getElementById("n-img-del") as HTMLButtonElement;
+        function renderFotoNews() {
+          const u = nImg.value.trim();
+          nImgPrev.innerHTML = u ? `<img src="${esc(u)}" alt="" />` : ICO_IMG_POP;
+          nImgDel.style.display = u ? "" : "none";
+        }
+        nImgDel.addEventListener("click", () => { nImg.value = ""; renderFotoNews(); });
         nUpload.addEventListener("click", () => nFile.click());
         nFile.addEventListener("change", async () => {
           const file = nFile.files?.[0];
@@ -1682,6 +1763,7 @@ const t = adminT(lang);
               return;
             }
             nImg.value = j.url;
+            renderFotoNews();
             nUploadState.textContent = tr("mk.imgUploaded");
           } catch {
             nUploadState.textContent = tr("res.connErr");
@@ -1703,8 +1785,14 @@ const t = adminT(lang);
         });
         window.addEventListener("imgpick:pick", (e) => {
           if (!pickTarget) return;
+          const eraImg = pickTarget === fImg;
+          const eraImgN = pickTarget === nImg;
           pickTarget.value = (e as CustomEvent<{ url: string }>).detail.url;
+          if (pickTarget.classList.contains("f-b1u")) setBtnU("f-b1u", pickTarget.value);
+          else if (pickTarget.classList.contains("f-b2u")) setBtnU("f-b2u", pickTarget.value);
           pickTarget = null;
+          if (eraImg) renderFotoPop();
+          if (eraImgN) renderFotoNews();
         });
         // Campi "lien": scegli un asset (immagine O documento) e incolla l'URL
         document.querySelectorAll<HTMLButtonElement>(".asset-pick").forEach((b) => {
@@ -1712,6 +1800,19 @@ const t = adminT(lang);
             pickTarget = document.getElementById(b.dataset.target ?? "") as HTMLInputElement;
             window.dispatchEvent(new CustomEvent("imgpick:open", { detail: { mode: "link" } }));
           });
+        });
+        // Link dei pulsanti dentro i pannelli lingua: sync tra lingue + scelta asset
+        fPanels.addEventListener("input", (e) => {
+          const el = e.target as HTMLElement;
+          if (el.classList.contains("f-b1u")) setBtnU("f-b1u", (el as HTMLInputElement).value);
+          else if (el.classList.contains("f-b2u")) setBtnU("f-b2u", (el as HTMLInputElement).value);
+        });
+        fPanels.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".asset-pop") as HTMLButtonElement | null;
+          if (!b) return;
+          const row = b.closest(".f-row");
+          pickTarget = row?.querySelector<HTMLInputElement>("input.f-input") ?? null;
+          window.dispatchEvent(new CustomEvent("imgpick:open", { detail: { mode: "link" } }));
         });
 
         // Test: una sola email al proprio indirizzo
@@ -1776,6 +1877,7 @@ const t = adminT(lang);
             nSubject.value = "";
             nMsg.value = "";
             nImg.value = "";
+            renderFotoNews();
             nBtnl.value = "";
             nBtnu.value = "";
             nOverlay.classList.remove("is-open");
@@ -1930,6 +2032,7 @@ const t = adminT(lang);
           nSubject.value = h.subject ?? "";
           nMsg.value = h.message ?? "";
           nImg.value = h.image_url ?? "";
+          renderFotoNews();
           nBtnl.value = h.btn_label ?? "";
           nBtnu.value = h.btn_url ?? "";
           nBtn2l.value = h.btn2_label ?? "";
@@ -1978,6 +2081,7 @@ const t = adminT(lang);
           nSubject.value = r.subject === "(brouillon)" ? "" : r.subject;
           nMsg.value = r.message ?? "";
           nImg.value = r.image_url ?? "";
+          renderFotoNews();
           nBtnl.value = r.btn_label ?? "";
           nBtnu.value = r.btn_url ?? "";
           nBtn2l.value = r.btn2_label ?? "";
@@ -2949,15 +3053,23 @@ const t = adminT(lang);
           const dest = [`${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim(), gcRemail.value.trim(), gcTelFull(gcRprefix, gcRphone) ?? ""].filter(Boolean).join(" · ") || "—";
           const msg = gcMsg.value.trim() || "—";
           const row = (k: string, v: string) => `<div class="r-row"><span class="r-k">${k}</span><span class="r-v">${esc(v)}</span></div>`;
+          const cell = (ico: string, k: string, v: string) => `<div class="gc-cell"><div class="gc-cell-head"><span class="gc-cell-ico">${ico}</span><span class="gc-cell-k">${esc(k)}</span></div><span class="gc-cell-v">${esc(v)}</span></div>`;
+          const ICO_VAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 7A5.5 5.5 0 1 0 15.5 17"/><path d="M4 10.5h9"/><path d="M4 13.5h8"/></svg>';
+          const ICO_EXP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 3v3"/><path d="M16 3v3"/></svg>';
+          const ICO_COD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4L7.5 20"/><path d="M16.5 4l-2 16"/><path d="M4 9h16"/><path d="M3 15h16"/></svg>';
+          const ICO_PAY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 9.5h19"/><path d="M6 15h4"/></svg>';
           const spedizione = gcShip.checked
             ? [gcShipAddress.value.trim(), [gcShipZip.value.trim(), gcShipCity.value.trim()].filter(Boolean).join(" "), gcShipCountry.value.trim()].filter(Boolean).join(", ") || tr("mk.yes")
             : "";
           const fraisC = gcShip.checked ? centsDaEuro(gcShipCents.value) : 0;
+          const metodoTxt = (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.textContent?.trim() || "—";
           gcRecap.innerHTML =
-            row(tr("menu.value"), val ? gcEuro(val) : "—") +
-            row(tr("mk.expiration"), exp) +
-            row(tr("mk.code"), code) +
-            row(tr("mk.payment"), (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.textContent?.trim() || "—") +
+            `<div class="gc-grid">` +
+              cell(ICO_VAL, tr("menu.value"), val ? gcEuro(val) : "—") +
+              cell(ICO_EXP, tr("mk.expiration"), exp) +
+              cell(ICO_COD, tr("mk.code"), code) +
+              cell(ICO_PAY, tr("mk.payment"), metodoTxt) +
+            `</div>` +
             row(tr("mk.givenBy"), offrant) +
             row(tr("mk.giftStep3"), dest) +
             (spedizione ? row(tr("mk.postalDelivery"), spedizione) : "") +

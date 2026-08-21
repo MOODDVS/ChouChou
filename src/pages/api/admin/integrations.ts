@@ -28,6 +28,8 @@ const K_PROVIDER = "resa_provider";
 const K_URL = "resa_url";
 const K_EMBED = "resa_embed";
 const K_GSC_SITE = "gsc_site"; // Search Console : sc-domain:… ou https://…/
+const K_NL_QUOTA = "newsletter_monthly_quota"; // Newsletter incluse/mese (super admin)
+const NL_QUOTA_DEFAULT = 1000;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -51,7 +53,7 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE]);
+  const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE, K_NL_QUOTA]);
   const mode = MODI.includes(c[K_MODE]) ? c[K_MODE] : "moodd";
   return json({
     resa: {
@@ -78,6 +80,11 @@ export const GET: APIRoute = async ({ request }) => {
       // email del robot da aggiungere in Search Console (solo super admin)
       robot: isSuperUser(staff) ? serviceAccountEmail() : "",
     },
+    newsletter: {
+      monthly_quota: Number.isFinite(Number(c[K_NL_QUOTA])) && c[K_NL_QUOTA] !== ""
+        ? Math.max(0, Math.floor(Number(c[K_NL_QUOTA])))
+        : NL_QUOTA_DEFAULT,
+    },
   });
 };
 
@@ -86,7 +93,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
 
-  let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string };
+  let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string; newsletter_quota?: number };
   try {
     body = await request.json();
   } catch {
@@ -133,6 +140,15 @@ export const PUT: APIRoute = async ({ request }) => {
       return json({ error: "Site Search Console invalide : sc-domain:exemple.be ou https://…" }, 400);
     }
     upserts.push({ key: K_GSC_SITE, value: gscSite });
+  }
+
+  // --- Newsletter : quota mensile incluso (super admin) ---
+  if (body.newsletter_quota !== undefined) {
+    const n = Math.floor(Number(body.newsletter_quota));
+    if (!Number.isFinite(n) || n < 0 || n > 1000000) {
+      return json({ error: "Quota newsletter invalide (0 – 1 000 000)." }, 400);
+    }
+    upserts.push({ key: K_NL_QUOTA, value: String(n) });
   }
 
   if (!upserts.length) return json({ error: "Rien à enregistrer" }, 400);

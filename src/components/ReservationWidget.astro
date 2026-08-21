@@ -17,7 +17,7 @@ const { telWidget, inPage = false } = Astro.props;
       }
       .rw.rw--square { --rw-rpill: 0px; --rw-rbox: 0px; border-radius: 0; }
       .rw-lang { position: absolute; top: 0.8rem; right: 1rem; z-index: 5; }
-      .rw-lang-btn { display: flex; align-items: center; gap: 0.35rem; background: none; border: none; color: #b3aca6; font-size: 0.74rem; letter-spacing: 0.08em; cursor: pointer; font-family: var(--font-body); padding: 0.2rem 0.1rem; }
+      .rw-lang-btn { display: flex; align-items: center; gap: 0.35rem; background: none; border: none; color: var(--rw-muted,#b3aca6); font-size: 0.74rem; letter-spacing: 0.08em; cursor: pointer; font-family: var(--font-body); padding: 0.2rem 0.1rem; }
       .rw-lang-btn:hover { color: #fff; }
       .rw-lang-ico { width: 15px; height: 15px; fill: none; stroke: #ed2289; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
       .rw-lang-chev { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -40,7 +40,7 @@ const { telWidget, inPage = false } = Astro.props;
       .rw-acc.is-open .rw-acc-body { grid-template-rows: 1fr; }
       .rw-acc-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 0.5rem; transition: padding 0.28s ease; }
       .rw-acc.is-open .rw-acc-inner { padding: 0.2rem 0 0.6rem; }
-      .rw-lab { color: #b3aca6; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
+      .rw-lab { color: var(--rw-muted,#b3aca6); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; }
       .rw-days { display: flex; gap: 0.4rem; }
       .rw-day { flex: 1; background: #2b3040; border: 1px solid #454b5e; color: #b3aca6; padding: 0.5rem 0; border-radius: var(--rw-rpill); font-size: 0.85rem; cursor: pointer; font-family: var(--font-body); }
       .rw-day:hover { border-color: #ed2289; color: #fff; }
@@ -67,7 +67,7 @@ const { telWidget, inPage = false } = Astro.props;
       .dp-nav:hover:not(:disabled) { border-color: #ed2289; color: #ed2289; }
       .dp-nav:disabled { opacity: 0.3; cursor: not-allowed; }
       .dp-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 0.2rem; }
-      .dp-dow span { text-align: center; font-size: 0.7rem; color: #b3aca6; text-transform: uppercase; padding: 0.2rem 0; }
+      .dp-dow span { text-align: center; font-size: 0.7rem; color: var(--rw-muted,#b3aca6); text-transform: uppercase; padding: 0.2rem 0; }
       .dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
       .dp-cell {
         aspect-ratio: 1; min-height: 40px; display: flex; align-items: center; justify-content: center;
@@ -103,7 +103,7 @@ const { telWidget, inPage = false } = Astro.props;
       .rw-noslot { grid-column: 1 / -1; text-align: center; color: #b3aca6; font-size: 0.85rem; font-style: italic; margin: 0.4rem 0; }
       .rw-complet { color: #ed2289; font-style: normal; font-weight: 700; }
       .rw-slot-full { position: relative; color: rgba(255, 255, 255, 0.22); pointer-events: none; }
-      .rw-slot-full::after { content: "✕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b3aca6; font-size: 0.85rem; }
+      .rw-slot-full::after { content: "✕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--rw-muted,#b3aca6); font-size: 0.85rem; }
       .rw-more-ico { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
       .rw-more-ico.is-up { transform: rotate(180deg); }
       .rw-slot { background: #2b3040; border: 1px solid #454b5e; color: #fff; padding: 0.45rem 0; border-radius: var(--rw-rbox); font-size: 0.82rem; text-align: center; cursor: pointer; }
@@ -138,7 +138,7 @@ const { telWidget, inPage = false } = Astro.props;
       .rw-frow-btns .rw-btn { width: auto; flex: 1.7; margin-top: 0; }
       .rw-back { flex: 0 0 54px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #454b5e; color: #b3aca6; padding: 0.8rem 0; border-radius: var(--rw-rbox); cursor: pointer; transition: color 0.2s, border-color 0.2s; }
       .rw-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .rw-back:hover { color: #fff; border-color: #b3aca6; }
+      .rw-back:hover { color: #fff; border-color: var(--rw-muted,#b3aca6); }
       .rw-done { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; text-align: center; padding: 0.8rem 0 0.2rem; }
       .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: #ed2289; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
       .rw-done-title { font-family: var(--font-title); font-weight: 400; color: #fff; font-size: 1.35rem; margin: 0; }
@@ -648,6 +648,9 @@ const { telWidget, inPage = false } = Astro.props;
         }
         ($("rw") as HTMLElement).classList.toggle("rw--square", CFG.cornerStyle === "square");
         lingua = lingueAttive()[0] ?? "fr";
+        // DEMO/override: ?lang=xx forza la lingua iniziale del widget (non-breaking).
+        const forcedLang = new URLSearchParams(location.search).get("lang") ?? "";
+        if (forcedLang && codeValido(forcedLang)) lingua = forcedLang as LinguaWidget;
 
         // Modalità modifica: ?token= → precarica la prenotazione esistente
         type ResaMod = {

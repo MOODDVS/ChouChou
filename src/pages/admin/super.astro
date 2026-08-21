@@ -564,6 +564,13 @@ const supI18n = {
               <span class="note" id="g-oauth-note">{t("itg.g.pending")}</span>
             </div>
 
+            <div id="g-sedi-wrap" style="display:none;margin-top:0.8rem">
+              <p class="itg-niv">{t("gg.pickTitle")}</p>
+              <p class="note" id="g-sede-cur" style="margin:0.2rem 0 0.5rem"></p>
+              <button type="button" id="g-sede-pick" class="us-ghost">{t("gg.change")}</button>
+              <div id="g-sede-list" style="margin-top:0.6rem"></div>
+            </div>
+
             <div class="us-foot">
               <button type="button" id="g-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="g-err"></span>
@@ -595,6 +602,24 @@ const supI18n = {
             <div class="us-foot">
               <button type="button" id="sc-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="sc-err"></span>
+            </div>
+          </div>
+
+          <div class="itg-card" style="margin-top:1rem">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">{t("itg.nl.title")}</h3>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.nl.who")}</p>
+              </div>
+            </div>
+
+            <label class="us-lab" for="nl-quota" style="margin-top:1rem">{t("itg.nl.quotaLabel")}</label>
+            <input type="number" id="nl-quota" min="0" step="100" placeholder="1000" autocomplete="off" />
+            <p class="note" style="margin-top:0.4rem">{t("itg.nl.note")}</p>
+
+            <div class="us-foot">
+              <button type="button" id="nl-save" class="us-add">{t("common.save")}</button>
+              <span class="us-err" id="nl-err"></span>
             </div>
           </div>
         </section>
@@ -1072,6 +1097,70 @@ const supI18n = {
             gConnect.disabled = false;
           }
         });
+
+        // --- Scelta scheda recensioni (Business Profile) — solo super admin ---
+        const gSediWrap = document.getElementById("g-sedi-wrap") as HTMLDivElement | null;
+        const gSedeCur = document.getElementById("g-sede-cur") as HTMLParagraphElement | null;
+        const gSedePick = document.getElementById("g-sede-pick") as HTMLButtonElement | null;
+        const gSedeList = document.getElementById("g-sede-list") as HTMLDivElement | null;
+        function escG(x: unknown): string {
+          return String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+        async function gCaricaSedeStato() {
+          try {
+            const res = await fetch("/api/admin/google/locations", { headers });
+            const j = await res.json();
+            if (!j.connected) { if (gSediWrap) gSediWrap.style.display = "none"; return; }
+            if (gSediWrap) gSediWrap.style.display = "block";
+            if (gSedeCur) {
+              gSedeCur.textContent = j.current?.title
+                ? `${tr("gg.pickCurrent")}: ${j.current.title}`
+                : tr("gg.pickHint");
+            }
+          } catch { /* best-effort */ }
+        }
+        gSedePick?.addEventListener("click", async () => {
+          if (!gSedeList) return;
+          gSedeList.textContent = tr("sup.loading");
+          try {
+            const res = await fetch("/api/admin/google/locations", { headers });
+            const j = await res.json();
+            if (j.error) { gSedeList.textContent = `${tr("gg.pickErr")} ${j.error}`; return; }
+            const sedi = (j.sedi ?? []) as { path: string; title: string; address: string }[];
+            const cur = j.current?.path ?? "";
+            if (!sedi.length) { gSedeList.textContent = tr("gg.pickEmpty"); return; }
+            gSedeList.innerHTML = sedi
+              .map(
+                (sd) =>
+                  `<button type="button" class="us-ghost gsede" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`
+              )
+              .join("");
+          } catch {
+            gSedeList.textContent = tr("common.netErr");
+          }
+        });
+        gSedeList?.addEventListener("click", async (ev) => {
+          const b = (ev.target as HTMLElement).closest(".gsede") as HTMLElement | null;
+          if (!b || !gSedeList) return;
+          const path = b.dataset.path ?? "";
+          const title = b.dataset.title ?? "";
+          try {
+            const res = await fetch("/api/admin/google/locations", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ path, title }),
+            });
+            const j = await res.json();
+            if (!res.ok) { toast(j.error ?? tr("common.netErr"), true); return; }
+            if (j.reviewError) toast(`${tr("gg.reviewErr")} ${j.reviewError}`, true);
+            else toast(tr("gg.synced"));
+            gSedeList.innerHTML = "";
+            gCaricaSedeStato();
+          } catch {
+            toast(tr("common.netErr"), true);
+          }
+        });
+        gCaricaSedeStato();
         gDisconnect?.addEventListener("click", async () => {
           try {
             const res = await fetch("/api/google/connect", {
@@ -1139,6 +1228,7 @@ const supI18n = {
               resa?: { mode: string; provider: string; url: string; embed: string };
               google?: { place_id: string; connected: boolean; oauth_ready: boolean };
               search_console?: { site: string; ready: boolean; robot: string };
+              newsletter?: { monthly_quota: number };
             };
             const r = j.resa;
             if (r) {
@@ -1184,6 +1274,8 @@ const supI18n = {
                 scRes.textContent = tr("itg.sc.noServerKey");
               }
             }
+            const nl = j.newsletter;
+            if (nl && nlQuota) nlQuota.value = String(nl.monthly_quota ?? 1000);
           } catch { /* rete assente */ }
         }
 
@@ -1198,6 +1290,33 @@ const supI18n = {
         const scErr = document.getElementById("sc-err") as HTMLSpanElement | null;
         const scTest = document.getElementById("sc-test") as HTMLButtonElement | null;
         const scCopy = document.getElementById("sc-copy") as HTMLButtonElement | null;
+
+        // --- Newsletter : quota mensile incluso ---
+        const nlQuota = document.getElementById("nl-quota") as HTMLInputElement | null;
+        const nlSave = document.getElementById("nl-save") as HTMLButtonElement | null;
+        const nlErr = document.getElementById("nl-err") as HTMLSpanElement | null;
+
+        nlSave?.addEventListener("click", async () => {
+          if (!nlErr) return;
+          nlErr.textContent = "";
+          const n = Math.floor(Number(nlQuota?.value));
+          if (!Number.isFinite(n) || n < 0) { nlErr.textContent = tr("itg.nl.invalid"); return; }
+          nlSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ newsletter_quota: n }),
+            });
+            const j = await res.json();
+            if (!res.ok) { nlErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            toast(tr("itg.nl.saved"));
+          } catch {
+            nlErr.textContent = tr("common.netErr");
+          } finally {
+            nlSave.disabled = false;
+          }
+        });
 
         scCopy?.addEventListener("click", async () => {
           if (!scRobot?.value) return;
