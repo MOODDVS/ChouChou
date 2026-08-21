@@ -1,0 +1,519 @@
+---
+// Pannello admin — GOOGLE (recensioni della scheda Business Profile).
+// Legge dalla cache locale (istantaneo); "Synchroniser" tira da Google.
+// Rispondere / modificare / eliminare la risposta a ogni recensione.
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
+import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
+---
+
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t("gg.title") + " — Admin " + CLIENT.nome}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
+        --font-title: "Quicksand", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
+      h1 svg { width: 20px; height: 20px; fill: var(--c-accent); }
+      @media (max-width: 640px) { main { padding: 1.5rem 1rem 8rem; } }
+
+      /* Barra stato/statistiche */
+      .g-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1rem 1.2rem; margin-bottom: 1.1rem; }
+      .g-stat { display: flex; flex-direction: column; gap: .15rem; }
+      .g-stat .k { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--c-muted); }
+      .g-stat .v { font-family: var(--font-title); font-size: 1.25rem; color: var(--c-text); }
+      .g-stat .v small { font-size: .8rem; color: var(--c-muted); }
+      .g-loc { font-family: var(--font-title); font-size: 1.05rem; color: var(--c-text); }
+      .g-sync { margin-left: auto; display: inline-flex; align-items: center; gap: .5rem; background: var(--c-accent); color: var(--c-bg); border: none; font-family: var(--font-title); font-size: .95rem; letter-spacing: .03em; padding: .6rem 1.2rem; border-radius: 999px; cursor: pointer; transition: background .2s, transform .15s; }
+      .g-sync:hover { background: var(--c-hover); transform: scale(.97); }
+      .g-sync:disabled { opacity: .55; cursor: default; transform: none; }
+      .g-synced-at { flex-basis: 100%; font-size: .74rem; color: var(--c-muted); }
+
+      /* Filtri */
+      .g-filters { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+      .g-fil { background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: .85rem; letter-spacing: .03em; padding: .45rem 1.1rem; border-radius: 999px; cursor: pointer; transition: all .15s; }
+      .g-fil:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .g-fil.active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+
+      .state { text-align: center; color: var(--c-muted); padding: 2.5rem 1rem; }
+
+      /* Card recensione */
+      .rev { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.1rem 1.2rem; margin-bottom: .9rem; }
+      .rev-top { display: flex; align-items: center; gap: .8rem; }
+      .rev-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--c-input); flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: var(--c-muted); font-family: var(--font-title); font-size: 1.1rem; overflow: hidden; }
+      .rev-av img { width: 100%; height: 100%; object-fit: cover; }
+      .rev-who { min-width: 0; }
+      .rev-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); }
+      .rev-date { font-size: .76rem; color: var(--c-muted); margin-top: .1rem; }
+      .rev-stars { margin-left: auto; color: #f5b301; font-size: 1rem; letter-spacing: 1px; white-space: nowrap; }
+      .rev-stars .off { color: var(--c-line); }
+      .rev-body { color: var(--c-text); font-size: .92rem; line-height: 1.5; margin-top: .7rem; white-space: pre-wrap; }
+
+      /* Risposta esistente */
+      .rev-reply { margin-top: .85rem; border-left: 3px solid var(--c-accent); background: color-mix(in srgb, var(--c-accent) 7%, transparent); border-radius: 0 10px 10px 0; padding: .6rem .85rem; }
+      .rev-reply .lab { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--c-accent); font-weight: 700; }
+      .rev-reply .txt { color: var(--c-text); font-size: .88rem; line-height: 1.45; margin-top: .25rem; white-space: pre-wrap; }
+
+      /* Azioni + editor risposta */
+      .rev-actions { display: flex; gap: .5rem; margin-top: .8rem; flex-wrap: wrap; }
+      .rev-btn { background: transparent; border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .82rem; padding: .4rem .9rem; border-radius: 999px; cursor: pointer; transition: all .15s; }
+      .rev-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .rev-btn[data-act="reply"] { border-color: var(--c-accent); }
+      .rev-btn.danger:hover { border-color: #d33; color: #d33; }
+      .rev-btn.armato { border-color: #d33; color: #fff; background: #a3320f; }
+      .rev-edit { margin-top: .8rem; display: none; }
+      .rev-edit.open { display: block; }
+      .rev-edit textarea { width: 100%; min-height: 84px; resize: vertical; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 10px; padding: .6rem .8rem; font-family: var(--font-body); font-size: .9rem; }
+      .rev-edit textarea:focus { outline: none; border-color: var(--c-accent); }
+      .rev-edit .row { display: flex; gap: .5rem; margin-top: .55rem; }
+      .rev-pub { background: var(--c-accent); color: var(--c-bg); border: none; font-family: var(--font-title); font-size: .85rem; padding: .5rem 1.1rem; border-radius: 999px; cursor: pointer; }
+      .rev-pub:disabled { opacity: .55; cursor: default; }
+
+      /* Pannello "non collegato" */
+      .g-connect { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.6rem 1.4rem; text-align: center; }
+      .g-connect h2 { font-family: var(--font-title); font-weight: 400; font-size: 1.2rem; color: var(--c-text); margin-bottom: .5rem; }
+      .g-connect p { color: var(--c-muted); font-size: .9rem; max-width: 460px; margin: 0 auto 1.1rem; line-height: 1.5; }
+      .g-connect button { background: var(--c-accent); color: var(--c-bg); border: none; font-family: var(--font-title); font-size: 1rem; letter-spacing: .03em; padding: .75rem 1.6rem; border-radius: 999px; cursor: pointer; }
+
+      /* Barra sede collegata */
+      .g-locbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: .6rem .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; }
+      .g-locbar-k { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--c-muted); }
+      .g-locbar-t { font-size: .95rem; color: var(--c-text); }
+      .g-locbar-t b { font-family: var(--font-title); color: var(--c-text); }
+      .g-locbar-b { margin-left: auto; background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .8rem; padding: .35rem .85rem; border-radius: 999px; cursor: pointer; transition: all .15s; }
+      .g-locbar-b:hover { border-color: var(--c-accent); color: var(--c-accent); }
+
+      /* Selettore sede */
+      .g-picker { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.3rem 1.3rem; margin-bottom: 1.1rem; }
+      .g-picker h2 { font-family: var(--font-title); font-weight: 400; font-size: 1.15rem; color: var(--c-text); margin-bottom: .35rem; }
+      .g-picker > p { color: var(--c-muted); font-size: .88rem; margin-bottom: 1rem; line-height: 1.45; }
+      .g-picker .state.is-err { color: #d33; text-align: left; padding: .5rem 0; }
+      .pick { display: flex; align-items: center; gap: .9rem; width: 100%; text-align: left; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 12px; padding: .85rem 1rem; margin-bottom: .6rem; cursor: pointer; transition: border-color .15s, background .15s; }
+      .pick:hover { border-color: var(--c-accent); }
+      .pick.is-current { border-color: var(--c-accent); }
+      .pick-body { min-width: 0; flex: 1; }
+      .pick-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); }
+      .pick-addr { font-size: .8rem; color: var(--c-muted); margin-top: .1rem; }
+      .pick-badge { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--c-accent); border: 1px solid var(--c-accent); border-radius: 999px; padding: .1rem .5rem; white-space: nowrap; }
+      .pick-go { font-size: .8rem; font-family: var(--font-title); color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: .35rem .9rem; white-space: nowrap; }
+
+      .g-fil-n { opacity: .65; font-size: .85em; margin-left: .15em; font-variant-numeric: tabular-nums; }
+      .g-fil.active .g-fil-n { opacity: .9; }
+
+      /* Lista recensioni in masonry — colonne bilanciate via JS, in ordine di data */
+      #list { display: flex; gap: .9rem; align-items: flex-start; }
+      .g-col { flex: 1 1 0; min-width: 0; }
+      .g-col .rev { margin-bottom: .9rem; }
+
+      /* Toast */
+      .toast { position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(1rem); background: var(--c-text); color: var(--c-bg); padding: .7rem 1.2rem; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
+      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+      .toast.is-error { background: #d33; color: #fff; }
+    </style>
+    <AdminHead />
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>
+          <svg viewBox="0 0 210 210" aria-hidden="true" style="fill:var(--c-accent);stroke:none"><path d="M0,105C0,47.103,47.103,0,105,0c23.383,0,45.515,7.523,64.004,21.756l-24.4,31.696C133.172,44.652,119.477,40,105,40c-35.841,0-65,29.159-65,65s29.159,65,65,65c28.867,0,53.398-18.913,61.852-45H105V85h105v20c0,57.897-47.103,105-105,105S0,162.897,0,105z" /></svg>
+          {t("gg.title")}
+        </h1>
+
+        <!-- Non ancora configurata: il setup e' lato MOODD (super admin) -->
+        <div class="g-connect" id="notready" style="display:none">
+          <h2>{t("gg.notReadyTitle")}</h2>
+          <p>{t("gg.notReadyHint")}</p>
+        </div>
+
+        <!-- Collegato -->
+        <div id="dash" style="display:none">
+          <div id="reviews-area" style="display:none">
+          <div class="g-bar">
+            <div class="g-stat"><span class="k">{t("gg.avg")}</span><span class="v" id="st-avg">—</span></div>
+            <div class="g-stat"><span class="k">{t("gg.total")}</span><span class="v" id="st-total">—</span></div>
+            <div class="g-loc" id="st-loc"></div>
+            <button class="g-sync" id="sync-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <span id="sync-lbl">{t("gg.syncNow")}</span>
+            </button>
+            <span class="g-synced-at" id="st-synced"></span>
+          </div>
+
+          <div class="g-filters">
+            <button class="g-fil active" data-f="all">{t("gg.fAll")} <span class="g-fil-n" data-n="all"></span></button>
+            <button class="g-fil" data-f="toreply">{t("gg.fToReply")} <span class="g-fil-n" data-n="toreply"></span></button>
+            <button class="g-fil" data-f="replied">{t("gg.fReplied")} <span class="g-fil-n" data-n="replied"></span></button>
+            <button class="g-fil" data-f="high">{t("gg.fHigh")} <span class="g-fil-n" data-n="high"></span></button>
+            <button class="g-fil" data-f="low">{t("gg.fLow")} <span class="g-fil-n" data-n="low"></span></button>
+          </div>
+
+          <div class="state" id="state">{t("sup.loading")}</div>
+          <div id="list"></div>
+          </div>
+        </div>
+      </main>
+      <AdminFooter />
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <AdminNav current="google" />
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+
+      const LANG = (document.documentElement.lang || "fr") as AdminLang;
+      const tr = adminT(LANG);
+      const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+
+      type Rec = {
+        review_id: string;
+        author: string;
+        photo: string;
+        rating: number;
+        comment: string;
+        create_time: string | null;
+        reply_comment: string | null;
+        reply_time: string | null;
+      };
+
+      function esc(s: string): string {
+        return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+      function stelle(n: number): string {
+        let out = "";
+        for (let i = 1; i <= 5; i++) out += i <= n ? "★" : '<span class="off">★</span>';
+        return out;
+      }
+      function dataFmt(iso: string | null): string {
+        if (!iso) return "";
+        try {
+          return new Date(iso).toLocaleDateString(LOC, { day: "2-digit", month: "short", year: "numeric" });
+        } catch {
+          return "";
+        }
+      }
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement | null;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement | null;
+        const notready = document.getElementById("notready") as HTMLDivElement;
+        const dash = document.getElementById("dash") as HTMLDivElement;
+        const stAvg = document.getElementById("st-avg") as HTMLSpanElement;
+        const stTotal = document.getElementById("st-total") as HTMLSpanElement;
+        const stLoc = document.getElementById("st-loc") as HTMLDivElement;
+        const stSynced = document.getElementById("st-synced") as HTMLSpanElement;
+        const syncBtn = document.getElementById("sync-btn") as HTMLButtonElement;
+        const syncLbl = document.getElementById("sync-lbl") as HTMLSpanElement;
+        const stateEl = document.getElementById("state") as HTMLDivElement;
+        const listEl = document.getElementById("list") as HTMLDivElement;
+        const toastEl = document.getElementById("toast") as HTMLDivElement;
+        const reviewsArea = document.getElementById("reviews-area") as HTMLDivElement;
+
+        logoutBtn?.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) {
+          window.location.replace("/admin/login");
+          return;
+        }
+        if (userEmail) userEmail.textContent = session.user.email ?? "";
+        app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
+
+        async function authFresh(): Promise<Record<string, string>> {
+          const { data } = await supabaseBrowser.auth.getSession();
+          return { Authorization: `Bearer ${data.session?.access_token ?? session?.access_token ?? ""}`, "Content-Type": "application/json" };
+        }
+
+        let toastTimer: number | undefined;
+        function toast(msg: string, isErr = false) {
+          toastEl.textContent = msg;
+          toastEl.classList.toggle("is-error", isErr);
+          toastEl.classList.add("is-visible");
+          window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+        }
+
+        let recensioni: Rec[] = [];
+        let filtro: "all" | "toreply" | "replied" | "high" | "low" = "all";
+
+        function cardHTML(r: Rec): string {
+          const av = r.photo
+            ? `<span class="rev-av"><img src="${esc(r.photo)}" alt="" referrerpolicy="no-referrer" /></span>`
+            : `<span class="rev-av">${esc((r.author || "?").slice(0, 1).toUpperCase())}</span>`;
+          const rispostaHTML = r.reply_comment
+            ? `<div class="rev-reply"><div class="lab">${esc(tr("gg.yourReply"))}</div><div class="txt">${esc(r.reply_comment)}</div></div>`
+            : "";
+          const azioni = r.reply_comment
+            ? `<button class="rev-btn" data-act="edit">${esc(tr("gg.replyEdit"))}</button>
+               <button class="rev-btn danger" data-act="del">${esc(tr("gg.replyDelete"))}</button>`
+            : `<button class="rev-btn" data-act="reply">${esc(tr("gg.reply"))}</button>`;
+          return `
+            <div class="rev" data-id="${esc(r.review_id)}">
+              <div class="rev-top">
+                ${av}
+                <div class="rev-who">
+                  <div class="rev-name">${esc(r.author || "—")}</div>
+                  <div class="rev-date">${dataFmt(r.create_time)}</div>
+                </div>
+                <div class="rev-stars">${stelle(r.rating)}</div>
+              </div>
+              ${r.comment ? `<div class="rev-body">${esc(r.comment)}</div>` : ""}
+              ${rispostaHTML}
+              <div class="rev-actions">${azioni}</div>
+              <div class="rev-edit">
+                <textarea placeholder="${esc(tr("gg.replyPh"))}">${esc(r.reply_comment ?? "")}</textarea>
+                <div class="row">
+                  <button class="rev-pub" data-act="publish">${esc(tr("gg.replyPublish"))}</button>
+                  <button class="rev-btn" data-act="cancel">${esc(tr("gg.cancel"))}</button>
+                </div>
+              </div>
+            </div>`;
+        }
+
+        function passa(r: Rec, f: string): boolean {
+          if (f === "toreply") return !r.reply_comment;
+          if (f === "replied") return Boolean(r.reply_comment);
+          if (f === "high") return r.rating >= 4;
+          if (f === "low") return r.rating >= 1 && r.rating <= 3;
+          return true; // all
+        }
+
+        function aggiornaConteggi() {
+          for (const f of ["all", "toreply", "replied", "high", "low"]) {
+            const n = recensioni.filter((r) => passa(r, f)).length;
+            const el = document.querySelector(`.g-fil-n[data-n="${f}"]`);
+            if (el) el.textContent = String(n);
+          }
+        }
+
+        function colCount(): number {
+          const w = window.innerWidth;
+          if (w <= 620) return 1;
+          if (w <= 1000) return 2;
+          if (w <= 1500) return 3;
+          return 4;
+        }
+
+        function render() {
+          if (!recensioni.length) {
+            stateEl.style.display = "block";
+            stateEl.textContent = tr("gg.emptySync");
+            listEl.innerHTML = "";
+            aggiornaConteggi();
+            return;
+          }
+          aggiornaConteggi();
+          const arr = recensioni.filter((r) => passa(r, filtro));
+          stateEl.style.display = arr.length ? "none" : "block";
+          if (!arr.length) { stateEl.textContent = tr("gg.empty"); listEl.innerHTML = ""; return; }
+
+          // Masonry: le recensioni (gia' ordinate dalla piu' recente) vengono
+          // messe in ordine nella colonna piu' bassa -> lettura recente->vecchia
+          // da sinistra a destra, senza buchi.
+          const n = colCount();
+          listEl.innerHTML = "";
+          const cols: HTMLDivElement[] = [];
+          for (let i = 0; i < n; i++) {
+            const c = document.createElement("div");
+            c.className = "g-col";
+            cols.push(c);
+            listEl.appendChild(c);
+          }
+          const h = new Array(n).fill(0);
+          for (const r of arr) {
+            let mi = 0;
+            for (let i = 1; i < n; i++) if (h[i] < h[mi]) mi = i;
+            const wrap = document.createElement("div");
+            wrap.innerHTML = cardHTML(r);
+            const card = wrap.firstElementChild as HTMLElement | null;
+            if (!card) continue;
+            cols[mi].appendChild(card);
+            h[mi] += card.offsetHeight + 14;
+          }
+        }
+
+        let resizeT: number | undefined;
+        window.addEventListener("resize", () => {
+          window.clearTimeout(resizeT);
+          resizeT = window.setTimeout(render, 150);
+        });
+
+        async function carica() {
+          try {
+            const res = await fetch("/api/admin/google/reviews", { headers: await authFresh() });
+            if (!res.ok) throw new Error();
+            const j = await res.json();
+            const bound = Boolean(j.connected && (j.location ?? "").trim());
+            if (!bound) {
+              // Setup (collegamento + scelta scheda) e' lato super admin: qui niente config.
+              notready.style.display = "block";
+              dash.style.display = "none";
+              return;
+            }
+            notready.style.display = "none";
+            dash.style.display = "block";
+            reviewsArea.style.display = "block";
+
+            recensioni = (j.reviews ?? []) as Rec[];
+            stAvg.innerHTML = j.rating ? `${esc(Number(j.rating).toFixed(1))} <small>/ 5</small>` : "—";
+            stTotal.textContent = j.count || String(recensioni.length);
+            stLoc.textContent = j.location ?? "";
+            stSynced.textContent = j.syncedAt
+              ? `${tr("gg.lastSync")}: ${new Date(j.syncedAt).toLocaleString(LOC)}`
+              : `${tr("gg.lastSync")}: ${tr("gg.never")}`;
+            render();
+          } catch {
+            stateEl.style.display = "block";
+            stateEl.textContent = tr("res.connErr");
+          }
+        }
+
+        // Filtri
+        document.querySelectorAll<HTMLButtonElement>(".g-fil").forEach((b) => {
+          b.addEventListener("click", () => {
+            document.querySelectorAll(".g-fil").forEach((x) => x.classList.remove("active"));
+            b.classList.add("active");
+            filtro = (b.dataset.f as typeof filtro) ?? "all";
+            render();
+          });
+        });
+
+        // Sincronizza
+        syncBtn.addEventListener("click", async () => {
+          syncBtn.disabled = true;
+          const old = syncLbl.textContent;
+          syncLbl.textContent = tr("gg.syncing");
+          try {
+            const res = await fetch("/api/admin/google/sync", { method: "POST", headers: await authFresh() });
+            const j = await res.json();
+            if (res.status === 409 && j.needChoice) { notready.style.display = "block"; dash.style.display = "none"; return; }
+            if (!res.ok) throw new Error(j.error || "");
+            if (j.reviewError) toast(`${tr("gg.reviewErr")} ${j.reviewError}`, true);
+            else toast(tr("gg.synced"));
+            await carica();
+          } catch (e) {
+            toast((e as Error).message || tr("res.connErr"), true);
+          } finally {
+            syncBtn.disabled = false;
+            syncLbl.textContent = old;
+          }
+        });
+
+        // Azioni sulle card (delega)
+        listEl.addEventListener("click", async (ev) => {
+          const btn = (ev.target as HTMLElement).closest("button") as HTMLButtonElement | null;
+          if (!btn) return;
+          const card = btn.closest(".rev") as HTMLElement | null;
+          if (!card) return;
+          const id = card.dataset.id!;
+          const act = btn.dataset.act;
+          const editor = card.querySelector(".rev-edit") as HTMLElement;
+          const ta = card.querySelector(".rev-edit textarea") as HTMLTextAreaElement;
+
+          if (act === "reply" || act === "edit") {
+            editor.classList.add("open");
+            ta.focus();
+            return;
+          }
+          if (act === "cancel") {
+            editor.classList.remove("open");
+            return;
+          }
+          if (act === "publish") {
+            const testo = ta.value.trim();
+            if (!testo) { ta.focus(); return; }
+            btn.disabled = true;
+            btn.textContent = tr("gg.replySaving");
+            try {
+              const res = await fetch("/api/admin/google/reply", {
+                method: "POST",
+                headers: await authFresh(),
+                body: JSON.stringify({ reviewId: id, comment: testo }),
+              });
+              const j = await res.json();
+              if (!res.ok) throw new Error(j.error || "");
+              const r = recensioni.find((x) => x.review_id === id);
+              if (r) { r.reply_comment = testo; r.reply_time = new Date().toISOString(); }
+              toast(tr("gg.replySaved"));
+              render();
+            } catch (e) {
+              toast((e as Error).message || tr("res.connErr"), true);
+              btn.disabled = false;
+              btn.textContent = tr("gg.replyPublish");
+            }
+            return;
+          }
+          if (act === "del") {
+            if (!btn.classList.contains("armato")) {
+              btn.classList.add("armato");
+              btn.textContent = tr("gg.replyDeleteQ");
+              window.setTimeout(() => {
+                btn.classList.remove("armato");
+                btn.textContent = tr("gg.replyDelete");
+              }, 4000);
+              return;
+            }
+            try {
+              const res = await fetch(`/api/admin/google/reply?reviewId=${encodeURIComponent(id)}`, {
+                method: "POST",
+                headers: { ...(await authFresh()), "X-Method-Override": "DELETE" },
+              });
+              const j = await res.json();
+              if (!res.ok) throw new Error(j.error || "");
+              const r = recensioni.find((x) => x.review_id === id);
+              if (r) { r.reply_comment = null; r.reply_time = null; }
+              toast(tr("gg.replyDeleted"));
+              render();
+            } catch (e) {
+              toast((e as Error).message || tr("res.connErr"), true);
+            }
+            return;
+          }
+        });
+
+        await carica();
+      })();
+    </script>
+  </body>
+</html>

@@ -1109,43 +1109,41 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
   const html = `
-  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:${tema.accent};font-size:11px;letter-spacing:4px;font-family:Arial,Helvetica,sans-serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        <td class="em-pad" style="padding:40px 44px 8px;text-align:center;">
+          <img src="${(tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL}" alt="${esc(dati.nome)}" width="160" style="display:inline-block;width:160px;max-width:62%;height:auto;border:0;" />
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
+        <td class="em-pad" style="padding:14px 44px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.title}</h1>
           <p style="margin:18px 0 0;color:${tema.text};font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
         </td>
       </tr>
       <tr>
-        <td class="em-pad" style="padding:26px 40px 2px;text-align:center;">
+        <td class="em-pad" style="padding:26px 44px 2px;text-align:center;">
           ${stelle}
         </td>
       </tr>
       <tr>
-        <td class="em-pad" style="padding:14px 40px 8px;text-align:center;">
+        <td class="em-pad" style="padding:14px 44px 8px;text-align:center;">
           <p style="margin:0;color:${tema.muted};font-size:14px;line-height:1.7;">${t.tapToRate}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:22px 40px 8px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:${tema.accent};"></div>
+        <td class="em-pad" style="padding:22px 44px 8px;text-align:center;">
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:${tema.accent};border-radius:999px;"></div>
           <p style="margin:0 0 26px;color:${tema.muted};font-size:13px;line-height:1.7;">${t.sign}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px 40px;border-top:1px solid ${tema.border};text-align:center;">
+        <td class="em-pad" style="padding:24px 44px;border-top:1px solid ${tema.border};text-align:center;">
           <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}</p>
         </td>
       </tr>
     </table>
-  </div>
   `;
 
   try {
