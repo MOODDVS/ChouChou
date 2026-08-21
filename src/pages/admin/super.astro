@@ -604,6 +604,24 @@ const supI18n = {
               <span class="us-err" id="sc-err"></span>
             </div>
           </div>
+
+          <div class="itg-card" style="margin-top:1rem">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">{t("itg.nl.title")}</h3>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.nl.who")}</p>
+              </div>
+            </div>
+
+            <label class="us-lab" for="nl-quota" style="margin-top:1rem">{t("itg.nl.quotaLabel")}</label>
+            <input type="number" id="nl-quota" min="0" step="100" placeholder="1000" autocomplete="off" />
+            <p class="note" style="margin-top:0.4rem">{t("itg.nl.note")}</p>
+
+            <div class="us-foot">
+              <button type="button" id="nl-save" class="us-add">{t("common.save")}</button>
+              <span class="us-err" id="nl-err"></span>
+            </div>
+          </div>
         </section>
 
         <section class="pane" data-pane="users" hidden>
@@ -1210,6 +1228,7 @@ const supI18n = {
               resa?: { mode: string; provider: string; url: string; embed: string };
               google?: { place_id: string; connected: boolean; oauth_ready: boolean };
               search_console?: { site: string; ready: boolean; robot: string };
+              newsletter?: { monthly_quota: number };
             };
             const r = j.resa;
             if (r) {
@@ -1255,6 +1274,8 @@ const supI18n = {
                 scRes.textContent = tr("itg.sc.noServerKey");
               }
             }
+            const nl = j.newsletter;
+            if (nl && nlQuota) nlQuota.value = String(nl.monthly_quota ?? 1000);
           } catch { /* rete assente */ }
         }
 
@@ -1269,6 +1290,33 @@ const supI18n = {
         const scErr = document.getElementById("sc-err") as HTMLSpanElement | null;
         const scTest = document.getElementById("sc-test") as HTMLButtonElement | null;
         const scCopy = document.getElementById("sc-copy") as HTMLButtonElement | null;
+
+        // --- Newsletter : quota mensile incluso ---
+        const nlQuota = document.getElementById("nl-quota") as HTMLInputElement | null;
+        const nlSave = document.getElementById("nl-save") as HTMLButtonElement | null;
+        const nlErr = document.getElementById("nl-err") as HTMLSpanElement | null;
+
+        nlSave?.addEventListener("click", async () => {
+          if (!nlErr) return;
+          nlErr.textContent = "";
+          const n = Math.floor(Number(nlQuota?.value));
+          if (!Number.isFinite(n) || n < 0) { nlErr.textContent = tr("itg.nl.invalid"); return; }
+          nlSave.disabled = true;
+          try {
+            const res = await fetch("/api/admin/integrations", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ newsletter_quota: n }),
+            });
+            const j = await res.json();
+            if (!res.ok) { nlErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            toast(tr("itg.nl.saved"));
+          } catch {
+            nlErr.textContent = tr("common.netErr");
+          } finally {
+            nlSave.disabled = false;
+          }
+        });
 
         scCopy?.addEventListener("click", async () => {
           if (!scRobot?.value) return;

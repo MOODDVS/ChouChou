@@ -8,7 +8,9 @@ import { popupPerPagina } from "../lib/popups";
 
 const raw = Astro.url.pathname.replace(/\/$/, "") || "/";
 const en = raw === "/en" || raw.startsWith("/en/");
-const path = raw.replace(/^\/en(?=\/|$)/, "") || "/";
+const it = raw === "/it" || raw.startsWith("/it/");
+const lingua = it ? "it" : en ? "en" : "fr";
+const path = raw.replace(/^\/(en|it)(?=\/|$)/, "") || "/";
 const MAP: Record<string, string> = {
   "/": "home",
   "/menu": "menu",
@@ -18,18 +20,18 @@ const MAP: Record<string, string> = {
   "/links": "links",
 };
 const slug = MAP[path];
-const pop = slug ? await popupPerPagina(slug, en ? "en" : "fr") : null;
+const pop = slug ? await popupPerPagina(slug, lingua) : null;
 
 // Link interni localizzati sulla versione EN (/order -> /en/order)
 function localizza(url: string): string {
-  return en && url.startsWith("/") && !url.startsWith("/en") ? "/en" + url : url;
+  return lingua !== "fr" && url.startsWith("/") && !url.startsWith("/" + lingua) ? "/" + lingua + url : url;
 }
 const btn1 = pop?.btn1_label && pop?.btn1_url ? { label: pop.btn1_label, url: localizza(pop.btn1_url) } : null;
 const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: localizza(pop.btn2_url) } : null;
 ---
 
 {pop && (
-  <div class="sitepop" id="sitepop" data-pop-id={pop.id} data-max={pop.max_shows} aria-hidden="true">
+  <div class="sitepop" id="sitepop" data-pop-id={pop.id} data-max={pop.max_shows} data-pos={pop.position} aria-hidden="true">
     <div class="sitepop__overlay" data-sitepop-close></div>
     <div class="sitepop__box" role="dialog" aria-modal="true" aria-label={pop.title}>
       <button class="sitepop__close" type="button" data-sitepop-close aria-label="Fermer">
@@ -60,6 +62,8 @@ const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: lo
   .sitepop {
     position: fixed;
     inset: 0;
+    padding: 1.25rem;
+    box-sizing: border-box;
     z-index: 180; /* sotto il modale prenotazioni (200) */
     display: flex;
     align-items: center;
@@ -95,6 +99,9 @@ const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: lo
     transition: transform 0.3s ease;
   }
   .sitepop.open .sitepop__box { transform: none; }
+  .sitepop[data-pos="bottom-left"] { align-items: flex-end; justify-content: flex-start; }
+  .sitepop[data-pos="bottom-center"] { align-items: flex-end; justify-content: center; }
+  .sitepop[data-pos="bottom-right"] { align-items: flex-end; justify-content: flex-end; }
 
   .sitepop__close {
     position: absolute;
