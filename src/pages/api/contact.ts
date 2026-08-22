@@ -216,7 +216,7 @@ export const POST: APIRoute = async ({ request }) => {
         <tr>
           <td style="padding:20px 40px 26px;border-top:1px solid ${tema.border};text-align:center;">
             <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;">${R.footer}</p>
-            <img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" />
+            <img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" />
           </td>
         </tr>
       </table>
@@ -274,7 +274,7 @@ export const POST: APIRoute = async ({ request }) => {
           <tr>
             <td style="padding:24px 44px 30px;border-top:1px solid ${tema.border};text-align:center;">
               <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.9;">${esc(dati.indirizzo)}<br>${esc(dati.tel)} &middot; ${esc(dati.email)}</p>
-              <p style="margin:18px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark-negative.png" alt="RestoHub" width="108" style="display:inline-block;width:108px;max-width:42%;height:auto;opacity:0.72;border:0;" /></p>
+              <p style="margin:18px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="108" style="display:inline-block;width:108px;max-width:42%;height:auto;opacity:0.72;border:0;" /></p>
             </td>
           </tr>
         </table>
