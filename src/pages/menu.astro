@@ -8,7 +8,7 @@
 // Badge piatto: ★ best-seller (magenta) · 🌱 végan · 🌶️ épicé.
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
-import { getMenu } from "../lib/db";
+import { getMenu, type MenuItem } from "../lib/db";
 import { getLunchAttivo } from "../lib/lunch";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
 
@@ -125,7 +125,8 @@ function isBevandaCat(name: string): boolean {
   return norm.split(/[^a-z0-9]+/).filter(Boolean).some((t) => BEVANDA_WORDS.has(t));
 }
 function isBevandaG(g: { subcats: typeof menu }): boolean {
-  return g.subcats.some((sc) => isBevandaCat(sc.category));
+  // Sotto-categoria bevanda per nome OPPURE per categoria radice (Vins, Bières…).
+  return g.subcats.some((sc) => isBevandaCat(sc.category) || isBevandaCat(sc.root ?? ""));
 }
 
 // À la carte = uniquement la nourriture (les boissons, category_order >= 9,
@@ -143,9 +144,84 @@ function isVinCat(name: string): boolean {
   const norm = (name ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   return norm.split(/[^a-z0-9]+/).filter(Boolean).some((t) => VIN_WORDS.has(t));
 }
-const gruppiVini = gruppiBibite.filter(({ g }) => g.subcats.some((sc) => isVinCat(sc.category)));
+const isVinG = (g: { subcats: typeof menu }) =>
+  g.subcats.some((sc) => isVinCat(sc.category) || isVinCat(sc.root ?? ""));
+const gruppiVini = gruppiBibite.filter(({ g }) => isVinG(g));
 // Toutes les autres boissons (apéritifs, bières, softs, boissons chaudes…).
-const gruppiAltreBibite = gruppiBibite.filter(({ g }) => !g.subcats.some((sc) => isVinCat(sc.category)));
+const gruppiAltreBibite = gruppiBibite.filter(({ g }) => !isVinG(g));
+
+// --- Vins : fondus en UN SEUL flux qui coule sur 3 colonnes. Chaque
+// sous-catégorie du moteur (Vin rouge, Vin rosé, Nos suggestions au verre…)
+// devient un sous-titre, suivi de ses vins. On restaure la mise en page 3
+// colonnes malgré la nouvelle hiérarchie de sous-catégories.
+type VinoRiga = { tipo: "head"; label: string } | { tipo: "dish"; item: MenuItem };
+const vinoRighe: VinoRiga[] = [];
+for (const { g } of gruppiVini) {
+  for (const sub of g.subcats) {
+    const label = (en ? (sub.name_i18n?.[lang] ?? sub.category) : sub.category) ?? sub.category;
+    vinoRighe.push({ tipo: "head", label });
+    for (const item of sub.items) {
+      const st = sottotitoloDi(item);
+      vinoRighe.push(st ? { tipo: "head", label: st } : { tipo: "dish", item });
+    }
+  }
+}
+
+// --- Boissons (non vin) regroupées par catégorie RACINE : chaque famille
+// (Apéritifs, Bières, Softs, Boissons chaudes…) devient un TITRE, ses
+// sous-catégories du moteur deviennent des sous-titres, puis les items.
+type BoissonSub = { label: string | null; items: MenuItem[]; note?: string };
+type BoissonFamiglia = { root: string; title: string; ordine: number; subs: BoissonSub[] };
+const boissonMappa = new Map<string, BoissonFamiglia>();
+for (const { g } of gruppiAltreBibite) {
+  for (const sub of g.subcats) {
+    const root = sub.root ?? sub.category;
+    if (!boissonMappa.has(root)) {
+      const titolo = (en ? (sub.root_i18n?.[lang] ?? root) : root) ?? root;
+      boissonMappa.set(root, { root, title: titolo, ordine: sub.category_order, subs: [] });
+    }
+    const fam = boissonMappa.get(root)!;
+    fam.ordine = Math.min(fam.ordine, sub.category_order);
+    const isRoot = sub.category === root;
+    const label = isRoot ? null : ((en ? (sub.name_i18n?.[lang] ?? sub.category) : sub.category) ?? sub.category);
+    const nn = sub.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const note = nn.includes("cocktail")
+      ? (en ? "And the classics: Aperol, Pisang, etc." : "Et les classiques Apérol, Pisang, etc")
+      : undefined;
+    fam.subs.push({ label, items: sub.items, note });
+  }
+}
+// Ordine delle famiglie richiesto da Enzo : Apéritifs, Bières, Softs,
+// Digestifs (à venir), Boissons chaudes. Altre famiglie eventuali : dopo.
+function rangoBoisson(fam: BoissonFamiglia): number {
+  const n = (fam.root ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (n.includes("aperitif") || n.includes("apero")) return 1;
+  if (n.includes("biere")) return 2;
+  if (n.includes("soft")) return 3;
+  if (n.includes("digestif")) return 4;
+  if (n.includes("chaud")) return 5;
+  return 9;
+}
+const gruppiBoissoni = Array.from(boissonMappa.values())
+  .sort((a, b) => rangoBoisson(a) - rangoBoisson(b) || a.ordine - b.ordine);
+
+// Vin orange : répété aussi en tête des apéritifs (au verre) — demande Enzo.
+const vinoArancione: MenuItem[] = [];
+for (const { g } of gruppiVini) {
+  for (const sub of g.subcats) {
+    const n = sub.category.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (n.includes("orange")) {
+      for (const it of sub.items) { if (!sottotitoloDi(it)) vinoArancione.push(it); }
+    }
+  }
+}
+const famApero = gruppiBoissoni.find((f) => {
+  const n = (f.root ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return n.includes("aperitif") || n.includes("apero");
+});
+if (famApero && vinoArancione.length) {
+  famApero.subs.unshift({ label: null, items: vinoArancione });
+}
 
 // --- Icone della barra sezioni. Quelle "piene" (fornite da Enzo) hanno
 // class="ico-fill"; le altre sono a linea (stroke). Scelta per parola
@@ -351,53 +427,40 @@ gruppi.forEach((g, i) => {
 
   <div class="carte carte--vins">
     <div class="carte__cols">
-    {gruppiVini.map(({ g, i }) => (
-      <section class="cat" id={"sec-" + i}>
-        <div class="cat__head">
-          <h2 class="cat__title">{g.title}</h2>
-        </div>
-        <div class="cat__body">
-          {g.subcats.map((sub) => (
-            <div class="subcat">
-              {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
-              <ul class="cat__items">
-                {sub.items.map((item) => {
-                  const _st = sottotitoloDi(item);
-                  return _st ? (
-                    <li class="dish dish--sub"><h4 class="cat__subhead">{_st}</h4></li>
-                  ) : (
-                  <li class="dish">
-                    <p class="dish__head">
-                      <span class="dish__name">
-                        {item.name}
-                        {item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
-                        {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
-                        {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
-                        {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
-                        {item.allergens.length > 0 && (
-                          <sup class="dish__alg">{item.allergens.join("·")}</sup>
-                        )}
-                      </span>
-                      <span class="dish__dots" aria-hidden="true"></span>
-                      {item.price_cents > 0 && (
-                        <span class="dish__price">
-                          {item.original_price_cents && (
-                            <s class="dish__old">{prezzo(item.original_price_cents)}</s>
-                          )}
-                          {prezzo(item.price_cents)}
-                        </span>
+      <section class="cat" id="sec-vins">
+        <ul class="cat__items">
+          {vinoRighe.map((r) => (
+            r.tipo === "head" ? (
+              <li class="dish dish--sub"><h4 class="cat__subhead">{r.label}</h4></li>
+            ) : (
+              <li class="dish">
+                <p class="dish__head">
+                  <span class="dish__name">
+                    {r.item.name}
+                    {r.item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
+                    {r.item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
+                    {r.item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
+                    {r.item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                    {r.item.allergens.length > 0 && (
+                      <sup class="dish__alg">{r.item.allergens.join("·")}</sup>
+                    )}
+                  </span>
+                  <span class="dish__dots" aria-hidden="true"></span>
+                  {r.item.price_cents > 0 && (
+                    <span class="dish__price">
+                      {r.item.original_price_cents && (
+                        <s class="dish__old">{prezzo(r.item.original_price_cents)}</s>
                       )}
-                    </p>
-                    {descDi(item) && <p class="dish__desc">{descDi(item)}</p>}
-                  </li>
-                  );
-                })}
-              </ul>
-            </div>
+                      {prezzo(r.item.price_cents)}
+                    </span>
+                  )}
+                </p>
+                {descDi(r.item) && <p class="dish__desc">{descDi(r.item)}</p>}
+              </li>
+            )
           ))}
-        </div>
+        </ul>
       </section>
-    ))}
     </div>
   </div>
 
@@ -407,15 +470,15 @@ gruppi.forEach((g, i) => {
 
   <div class="carte carte--autres">
     <div class="carte__cols">
-    {gruppiAltreBibite.map(({ g, i }) => (
-      <section class="cat" id={"sec-" + i}>
+    {gruppiBoissoni.map((fam, i) => (
+      <section class="cat" id={"sec-b" + i}>
         <div class="cat__head">
-          <h2 class="cat__title">{g.title}</h2>
+          <h2 class="cat__title">{fam.title}</h2>
         </div>
         <div class="cat__body">
-          {g.subcats.map((sub) => (
+          {fam.subs.map((sub) => (
             <div class="subcat">
-              {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
+              {sub.label && <h3 class="cat__subtitle">{sub.label}</h3>}
               <ul class="cat__items">
                 {sub.items.map((item) => {
                   const _st = sottotitoloDi(item);
@@ -449,6 +512,7 @@ gruppi.forEach((g, i) => {
                   );
                 })}
               </ul>
+              {sub.note && <p class="cat__note">{sub.note}</p>}
             </div>
           ))}
         </div>
@@ -1048,6 +1112,13 @@ gruppi.forEach((g, i) => {
     text-align: left;
     margin: 0 0 0.8rem;
   }
+  .cat__note {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: 0.9rem;
+    color: var(--c-muted);
+    margin: 0.5rem 0 0;
+  }
 
   .cat__items {
     list-style: none;
@@ -1080,7 +1151,7 @@ gruppi.forEach((g, i) => {
   .b-sugg {
     display: inline-block;
     background: var(--c-accent);
-    color: var(--c-bg);
+    color: #ffffff;
     font-family: var(--font-body);
     font-size: 0.58rem;
     font-weight: 800;

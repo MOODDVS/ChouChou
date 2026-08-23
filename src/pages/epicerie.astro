@@ -1,88 +1,332 @@
 ---
-// Page Épicerie — provisoire. Structure et style Chouchou en place ;
-// le contenu réel (sélection de produits, producteurs, horaires) sera ajouté
-// ensuite. Reliée au menu (Header + MobileNav) via /epicerie.
+// Page Épicerie (FR). Hero Chouchou (dégradé navy + halo magenta) puis
+// corps blanc, texte navy : présentation de la sélection de produits en
+// vente, tous proposés au restaurant. Photo optionnelle depuis l'admin
+// (site_disc_epicerie). Version EN à faire plus tard (/en/epicerie).
 import Layout from "../layouts/Layout.astro";
+import { siteImages, siteImg } from "../lib/siteImages";
 export const prerender = false;
+
+const IMGS = await siteImages();
+const EP_FOTO = siteImg(IMGS, "site_disc_epicerie", IMGS["site_resto_photo"] || "");
+
+// Galerie produits (masonry 4 colonnes) : slots admin site_epicerie_1..12.
+// Case vide -> vignette placeholder (hauteur variée) pour montrer la grille.
+const PRODOTTI = Array.from({ length: 12 }, (_, i) => IMGS[`site_epicerie_${i + 1}`] || null);
+// Répétitions du bandeau défilant (comme la home).
+const MARQ = [0, 1, 2, 3];
 ---
 
 <Layout title="L'épicerie, Comptoir Chouchou">
-  <section class="ph">
-    <div class="ph-glow"></div>
-    <div class="ph-in">
-      <p class="ph-script">Comptoir</p>
-      <h1 class="ph-title">L'épicerie</h1>
-      <p class="ph-sub">
-        Une sélection de produits d'artisans et de producteurs d'ici,
-        à emporter. Cette page arrive très bientôt.
-      </p>
-      <a class="ph-btn" href="/">Retour à l'accueil</a>
+  <div class="chou">
+  <section class="ep-hero">
+    <div class="ep-hero__bg" aria-hidden="true"></div>
+    <div class="ep-hero__glow" aria-hidden="true"></div>
+    <div class="ep-hero__inner">
+      <h1 class="ep-hero__title">L'épicerie</h1>
+      <p class="ep-hero__sub">Une sélection de produits gourmands et de qualité, à découvrir sur place et à emporter chez vous.</p>
     </div>
   </section>
+
+  <section class="ep-body">
+    <div class={"ep" + (EP_FOTO ? "" : " ep--solo")}>
+      <div class="ep-text">
+        <p class="ep-lead">Chez Comptoir Chouchou, le plaisir de la table se prolonge au-delà de l'assiette.</p>
+        <p>Nous proposons à la vente une sélection de produits originaux et de qualité, choisis avec la même curiosité et la même exigence que celles qui guident notre cuisine.</p>
+        <p>Tous ces produits sont proposés directement au restaurant. Passez les découvrir, demandez conseil à l'équipe et repartez avec vos coups de cœur.</p>
+        <div class="ep-cta">
+          <button type="button" class="ep-btn ep-btn--mag" data-reserver>Réserver une table</button>
+          <a class="ep-btn ep-btn--out" href="/contact">Nous trouver</a>
+        </div>
+      </div>
+      {EP_FOTO && (
+        <figure class="ep-photo">
+          <img src={EP_FOTO} alt="L'épicerie du Comptoir Chouchou" loading="lazy" decoding="async" onerror="this.closest('.ep-photo').remove()" />
+        </figure>
+      )}
+    </div>
+  </section>
+
+  <section class="ep-disc">
+    <div class="ep-marquee" aria-hidden="true">
+      <div class="ep-mrow">
+        <div class="ep-mseq">
+          {MARQ.map(() => (
+            <span class="ep-munit">
+              <span class="ep-mword">Nos découvertes</span>
+              <span class="ep-mdot ep-mdot--sep">✦</span>
+              <span class="ep-mscript">l'épicerie</span>
+              <span class="ep-mdot">✦</span>
+            </span>
+          ))}
+        </div>
+        <div class="ep-mseq">
+          {MARQ.map(() => (
+            <span class="ep-munit">
+              <span class="ep-mword">Nos découvertes</span>
+              <span class="ep-mdot ep-mdot--sep">✦</span>
+              <span class="ep-mscript">l'épicerie</span>
+              <span class="ep-mdot">✦</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div class="ep-gal">
+      {PRODOTTI.map((src, i) => (
+        <div class={"ep-tile" + (src ? "" : " ep-tile--ph") + " ep-tile--h" + ((i % 3) + 1)}>
+          {src && <img src={src} alt={"Produit " + (i + 1)} loading="lazy" decoding="async" onerror="this.closest('.ep-tile').classList.add('ep-tile--ph'); this.remove();" />}
+        </div>
+      ))}
+    </div>
+  </section>
+  </div>
 </Layout>
 
 <style>
-  .ph {
-    --navy: #353c4e;
-    --mag: #ed2289;
+  /* Wrapper Chouchou (fond navy + accent magenta) */
+  .chou {
+    --c-bg: #353c4e;
+    --c-accent: #ed2289;
+    background: #2b3040;
     position: relative;
-    min-height: 72vh;
+  }
+
+  /* ---------- HERO ---------- */
+  .ep-hero {
+    position: relative;
+    min-height: clamp(400px, 56vh, 600px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+    padding: clamp(9rem, 15vh, 12.5rem) 1.5rem 4.5rem;
     overflow: hidden;
-    background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%);
-    padding: 8rem 1.5rem 6rem;
   }
-  .ph-glow {
+  .ep-hero__bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%);
+  }
+  .ep-hero__glow {
     position: absolute;
     left: 50%;
-    top: 42%;
-    width: 640px;
-    height: 640px;
+    top: 44%;
+    z-index: 1;
+    width: 600px;
+    height: 600px;
     max-width: 120vw;
     transform: translate(-50%, -50%);
-    background: radial-gradient(circle, rgba(237, 34, 137, 0.2) 0%, rgba(237, 34, 137, 0) 62%);
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.22) 0%, rgba(237, 34, 137, 0) 62%);
     pointer-events: none;
   }
-  .ph-in { position: relative; z-index: 1; max-width: 640px; }
-  .ph-script {
+  .ep-hero__inner { position: relative; z-index: 2; }
+  .ep-hero__script {
+    display: block;
     font-family: var(--font-script);
-    color: var(--mag);
-    font-size: clamp(2rem, 6vw, 3.2rem);
+    color: var(--c-accent);
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
     line-height: 0.9;
-    margin: 0 0 0.1em;
+    margin: 0 0 0.05em;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ep-in 0.8s ease-out 0.1s forwards;
   }
-  .ph-title {
+  .ep-hero__title {
     font-family: var(--font-display);
     font-weight: 500;
+    font-size: clamp(2.6rem, 6vw, 4rem);
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    margin: 0 0 0.9rem;
     color: #fff;
-    font-size: clamp(2.4rem, 7vw, 4rem);
-    line-height: 1;
-    margin: 0;
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ep-in 0.8s ease-out 0.2s forwards;
   }
-  .ph-sub {
+  .ep-hero__sub {
+    max-width: 620px;
+    margin: 0 auto;
     font-family: var(--font-body);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.86);
-    font-size: clamp(1rem, 2.2vw, 1.18rem);
+    font-size: 1rem;
     line-height: 1.6;
-    margin: 1.4rem auto 0;
-    max-width: 30em;
+    color: rgba(255, 255, 255, 0.86);
+    opacity: 0;
+    transform: translateY(18px);
+    animation: ep-in 0.8s ease-out 0.32s forwards;
   }
-  .ph-btn {
+  @keyframes ep-in { to { opacity: 1; transform: translateY(0); } }
+
+  /* ---------- CORPS BLANC ---------- */
+  .ep-body {
+    background: #ffffff;
+    --c-text: #353c4e;
+    --c-muted: #6b7183;
+    color: var(--c-text);
+    position: relative;
+    z-index: 1;
+    padding: clamp(3rem, 7vw, 6rem) 0 clamp(4rem, 9vw, 7rem);
+  }
+  .ep {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+  }
+  .ep-text { max-width: 34em; }
+  .ep--solo { grid-template-columns: 1fr; max-width: 720px; }
+  .ep--solo .ep-text { max-width: none; }
+  .ep-lead {
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: clamp(1.35rem, 2.6vw, 1.9rem);
+    line-height: 1.25;
+    color: var(--c-text);
+    margin: 0 0 1.2rem;
+  }
+  .ep-text p:not(.ep-lead) {
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
+    line-height: 1.7;
+    color: var(--c-muted);
+    margin: 0 0 1rem;
+  }
+
+  .ep-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    margin-top: 2rem;
+  }
+  .ep-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin-top: 2.2rem;
-    padding: 14px 32px;
-    font-family: var(--font-body);
+    padding: 14px 30px;
+    font-family: var(--font-title);
     font-weight: 700;
-    color: #fff;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
     text-decoration: none;
-    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
+    border: none;
+    cursor: pointer;
     transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
   }
-  .ph-btn:hover { background: #fff; color: var(--navy); transform: translateY(-2px); }
+  .ep-btn--mag { background: var(--c-accent); color: #fff; }
+  .ep-btn--mag:hover { background: #c8176f; transform: translateY(-2px); }
+  .ep-btn--out {
+    background: transparent;
+    color: var(--c-text);
+    box-shadow: inset 0 0 0 1.5px rgba(53, 60, 78, 0.3);
+  }
+  .ep-btn--out:hover { background: var(--c-text); color: #fff; transform: translateY(-2px); }
+
+  .ep-photo { margin: 0; }
+  .ep-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 460px;
+    object-fit: cover;
+  }
+
+  @media (max-width: 820px) {
+    .ep { grid-template-columns: 1fr; }
+    .ep-text { max-width: none; }
+    .ep-photo { order: -1; }
+    .ep-photo img { max-height: 300px; }
+  }
+
+  /* ---------- DÉCOUVERTES : bandeau animé + galerie masonry ---------- */
+  .ep-disc {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    --avorio: #f7f4ee;
+    background: #ffffff;
+    position: relative;
+    z-index: 1;
+    display: flow-root;
+    padding-bottom: clamp(4rem, 9vw, 7rem);
+  }
+  .ep-marquee {
+    position: relative;
+    overflow: hidden;
+    margin: clamp(1rem, 3vw, 2.5rem) 0 clamp(2.5rem, 5vw, 4rem);
+  }
+  .ep-mrow {
+    display: flex;
+    width: max-content;
+    animation: ep-scroll 90s linear infinite;
+  }
+  .ep-mseq { display: flex; flex: 0 0 auto; align-items: baseline; }
+  .ep-munit { display: inline-flex; align-items: baseline; white-space: nowrap; }
+  .ep-mword {
+    font-family: var(--font-title);
+    font-weight: 700;
+    color: var(--navy);
+    font-size: clamp(3.5rem, 10vw, 9rem);
+    line-height: 1;
+    letter-spacing: 0.01em;
+  }
+  .ep-mscript {
+    font-family: var(--font-script);
+    color: var(--mag);
+    font-size: clamp(4.5rem, 13vw, 11rem);
+    line-height: 1;
+    margin: 0 0.16em;
+  }
+  .ep-mdot {
+    color: var(--mag);
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    line-height: 1;
+    margin: 0 0.35em 0 0.1em;
+    align-self: center;
+  }
+  .ep-mdot--sep { color: var(--navy); margin: 0 0.2em 0 0.55em; }
+  @keyframes ep-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* Galerie produits : masonry 4 colonnes */
+  .ep-gal {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 28px;
+    columns: 4;
+    column-gap: clamp(0.8rem, 1.6vw, 1.4rem);
+  }
+  .ep-tile {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 clamp(0.8rem, 1.6vw, 1.4rem);
+    overflow: hidden;
+    background: var(--avorio);
+  }
+  .ep-tile img { display: block; width: 100%; height: auto; }
+  .ep-tile--ph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ep-tile--ph::after {
+    content: "\2726";
+    color: rgba(237, 34, 137, 0.35);
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+  }
+  .ep-tile--ph.ep-tile--h1 { height: 210px; }
+  .ep-tile--ph.ep-tile--h2 { height: 300px; }
+  .ep-tile--ph.ep-tile--h3 { height: 250px; }
+
+  @media (max-width: 1100px) { .ep-gal { columns: 3; } }
+  @media (max-width: 720px)  { .ep-gal { columns: 2; } }
+  @media (prefers-reduced-motion: reduce) {
+    .ep-mrow { animation: none; }
+  }
 </style>

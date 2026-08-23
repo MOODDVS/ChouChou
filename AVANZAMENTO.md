@@ -48,10 +48,18 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Barra mobile d'accesso rapido**: 4 cerchi bianchi (icona + label DENTRO il cerchio) sopra l'isola Réserver — Lunch, Carte, Vins, Boissons — che ancorano alle sezioni (#lunch/#carte/#vins/#boissons, scroll-margin 90px). z-index 101 (sopra l'ombra dell'isola, sotto il pannello burger). Icone SVG piene fornite dal cliente. Solo ≤900px.
 - **Slot immagini**: aggiunto `site_soir_chef` (Menu) in siteImageSlots.ts, oltre a `site_brunch`.
 
+### Sessione Sotto-categorie moteur + Épicerie (agosto 2026)
+- **Vini per sotto-categorie reali**: il motore ora espone le sotto-categorie (parent/depth/root). Riconoscimento vino/bibita ora per categoria RADICE (isBevandaG/isVinG guardano `sc.root`), così anche « Nos suggestions au verre » (radice Vins, senza la parola "vin") finisce fra i vini e non nel cibo. I vini sono fusi in UN solo flusso a 3 colonne: ogni sotto-categoria (Vin orange/rouge/rosé/blanc, Nos suggestions au verre) diventa un sotto-titolo in linea (`vinoRighe`, `.dish--sub`), niente più sezioni separate a piena larghezza.
+- **Boissons raggruppate per famiglia**: le altre bibite ora sono raggruppate per categoria RADICE (`gruppiBoissoni`) → ogni famiglia = un TITOLO (Apéritifs, Bières…) con le sue sotto-categorie come sotto-titoli. Ordine famiglie FISSO (rangoBoisson): Apéritifs, Bières, Softs, Digestifs, Boissons chaudes; altre in coda.
+- **Vin orange ripetuto negli apéritifs** (in testa, senza sotto-titolo) via codice, oltre che nei vini. **Nota « Et les classiques Apérol, Pisang, etc »** sotto la sotto-categoria Cocktails (in corsivo, `.cat__note`). **Badge « Suggestion »** con testo bianco.
+- **Digestifs**: forniti al cliente comandi SQL per popolare la categoria (16 voci, `menu_items` con category_order dal `sort_order` di `menu_categories`).
+- **Pagina Épicerie (/epicerie, FR)**: sostituito il segnaposto. Hero come Menu/Contact (`clamp(400px,56vh,600px)`, senza script "Comptoir"), corpo bianco con presentazione (max 1440px + 28px INTERNI come `.chdr-in`), bottoni Réserver/Nous trouver, foto opzionale da `site_disc_epicerie` (fallback layout a colonna centrata `.ep--solo`). Poi bandeau animato « Nos découvertes ✦ *l'épicerie* ✦ » (come il marquee dell'agenda) e galleria masonry 12 prodotti / 4 colonne (3 a ≤1100px, 2 a ≤720px). Placeholder ivory con ✦ per gli slot vuoti. EN (/en/epicerie) ancora segnaposto.
+- **Slot immagini**: aggiunti 12 slot `site_epicerie_1..12` (pagina « Épicerie », gruppo « Galerie produits »).
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.
-- Contenuto vero pagine Épicerie e Agenda (ora sono segnaposto "arrive bientôt", fr + en).
+- Contenuto vero pagina Agenda (ancora segnaposto "arrive bientôt", fr + en). Épicerie FR fatta; caricare le foto prodotti dai nuovi slot `site_epicerie_1..12` e rifare la versione EN.
 - Riattivare i link "Commander" quando il flusso ordini sarà pronto (Header, MobileNav, Footer, hero Carte: cercare "Commander masqué pour le moment").
 - Pagina "conditions/CGV" per il link del consenso newsletter (ora punta a /privacy).
 - Versioni EN di Carte e Contact (`src/pages/en/menu.astro`, `src/pages/en/contact.astro`): sono copie separate, ANCORA brandizzate La Molisana → applicare lo stesso rebrand fatto in fr.
