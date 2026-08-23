@@ -7,6 +7,8 @@ import ReservationModal from "../components/ReservationModal.astro";
 import SitePopup from "../components/SitePopup.astro";
 import { getLangFromUrl } from "../i18n/ui";
 import { CLIENT } from "../config/client";
+import { supabaseAdmin } from "../lib/db";
+import { cacheOr } from "../lib/cache";
 
 interface Props {
   title?: string;
@@ -25,6 +27,19 @@ const description =
 const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://example.com").replace(/\/$/, "");
 const ogImage = `${siteUrl}/slideshow/slide-01.webp`;
 const canonical = new URL(Astro.url.pathname, siteUrl).href;
+
+// Favicon del brand (Admin -> Général): usata sul sito pubblico E sull'admin.
+// Se non caricata, si ricade sui file statici in /public.
+const brandFavicon = await cacheOr("public:favicon", async () => {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config").select("value").eq("key", "brand_favicon").maybeSingle();
+    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
+    return v.startsWith("https://") || v.startsWith("/") ? v : "";
+  } catch {
+    return "";
+  }
+});
 const ogLocale = lang === "en" ? "en_US" : "fr_BE";
 ---
 
@@ -36,9 +51,15 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
 
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    {brandFavicon ? (
+      <link rel="icon" href={brandFavicon} />
+    ) : (
+      <>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+      </>
+    )}
+    <link rel="apple-touch-icon" href={brandFavicon || "/apple-touch-icon.png"} />
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn, iMessage) -->
     <meta property="og:type" content="website" />

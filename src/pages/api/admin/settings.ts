@@ -503,7 +503,7 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
   // svuotare la cache di boot così il logo nuovo si vede al primo reload.
-  if (generalPulito.length > 0) cacheDel(CACHE_ADMIN_BOOT);
+  if (generalPulito.length > 0) { cacheDel(CACHE_ADMIN_BOOT); cacheDel("public:favicon"); }
 
   for (const [key, value] of resaPulito) {
     const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
