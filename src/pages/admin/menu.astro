@@ -998,13 +998,27 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         for (const tv of tabVietati) {
           (document.getElementById("k-filtri") as HTMLDivElement).querySelector(`.kf-pill[data-kind="${tv}"]`)?.remove();
         }
+        // Totale item per categoria radice INCLUSE le sottocategorie: risalgo i
+        // parent di ogni categoria e sommo il suo count sulla radice.
+        const totRadice = new Map<string, number>();
+        for (const c of cats) {
+          let cur = c; const visti = new Set<string>();
+          while (cur.parent_id && !visti.has(cur.id)) {
+            visti.add(cur.id);
+            const par = cats.find((x) => x.id === cur.parent_id);
+            if (!par) break;
+            cur = par;
+          }
+          totRadice.set(cur.name, (totRadice.get(cur.name) ?? 0) + c.count);
+        }
         tabsEl.innerHTML =
           visibili
             .map((c) => {
               const d = c.depth ?? 0;
               const sub = d > 0 ? " is-sub" : "";
               const arrow = d > 0 ? `<span class="tab-arrow">${"\u21B3".repeat(d)}</span>` : "";
-              return `<button class="tab${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${c.count}</span></button>`;
+              const n = totRadice.get(c.name) ?? c.count;
+              return `<button class="tab${c.name === attiva ? " is-active" : ""}${sub}" data-cat="${esc(c.name)}" data-depth="${d}">${arrow}${esc(c.name)}<span class="n">${n}</span></button>`;
             })
             .join("");
       }
