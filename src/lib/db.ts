@@ -37,6 +37,7 @@ export interface MenuItem {
   is_vegan: boolean;
   is_spicy: boolean;
   is_suggestion: boolean;
+  is_seasonal: boolean;
 }
 
 export interface MenuCategoria {
@@ -51,7 +52,7 @@ export interface MenuCategoria {
 }
 
 const MENU_SELECT =
-  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+  "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 
 /**
  * Trasforma le righe DB (già ordinate) in categorie raggruppate.
@@ -83,6 +84,7 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
       is_vegan: !!riga.is_vegan,
       is_spicy: !!riga.is_spicy,
       is_suggestion: !!riga.is_suggestion,
+      is_seasonal: !!riga.is_seasonal,
     };
 
     if (!indiceCategoria.has(riga.category)) {

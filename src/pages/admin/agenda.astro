@@ -397,7 +397,7 @@ const pubLangsJson = JSON.stringify({
 
     <style is:global>
       /* Card evento */
-      .ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: start; }
+      .ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: stretch; }
       .ev { border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); overflow: hidden; display: flex; flex-direction: column; }
       .ev.is-off { opacity: 0.55; }
       .ev-photo { width: 100%; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); overflow: hidden; }
@@ -433,7 +433,7 @@ const pubLangsJson = JSON.stringify({
 
         <div class="state" id="state">{t("sup.loading")}</div>
         <div class="state" id="empty" style="display:none">{t("ag.empty")}</div>
-        <div class="pops" id="events"></div>
+        <div id="events"></div>
       </main>
       <AdminFooter />
     </div>

@@ -6,7 +6,7 @@ import { supabaseAdmin } from "../db";
 // endpoint restano la fonte per le mutazioni.
 
 const MENU_SELECT_BASE =
-  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 const MENU_SELECT = MENU_SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
 
 async function caricaItems(): Promise<{ data: unknown[] | null }> {

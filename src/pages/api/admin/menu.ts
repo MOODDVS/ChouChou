@@ -5,7 +5,7 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 export const prerender = false;
 
 const SELECT_BASE =
-  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 const SELECT = SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
 
 // Lingue del sito pubblico supportate (traduzioni piatti). Vedi superAdmin.ts.
@@ -120,6 +120,7 @@ function validaCampi(
   if ("is_vegan" in body) campi.is_vegan = !!body.is_vegan;
   if ("is_spicy" in body) campi.is_spicy = !!body.is_spicy;
   if ("is_suggestion" in body) campi.is_suggestion = !!body.is_suggestion;
+  if ("is_seasonal" in body) campi.is_seasonal = !!body.is_seasonal;
   if ("sold_out" in body) campi.sold_out = !!body.sold_out;
 
   // --- Sconto ---

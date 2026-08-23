@@ -39,13 +39,16 @@ async function mappaUsi(): Promise<Map<string, Uso[]>> {
     arr.push(uso);
     usi.set(url, arr);
   };
-  const [piatti, pops] = await Promise.all([
+  const [piatti, pops, eventi] = await Promise.all([
     supabaseAdmin.from("menu_items").select("name, image_url").not("image_url", "is", null),
     supabaseAdmin.from("popups").select("title, title_en, image_url").not("image_url", "is", null),
+    supabaseAdmin.from("agenda_events").select("title, image_url").not("image_url", "is", null),
   ]);
   for (const p of piatti.data ?? []) aggiungi(p.image_url, { label: `Plat : ${p.name}`, kind: "menu" });
   for (const p of pops.data ?? [])
     aggiungi(p.image_url, { label: `Pop-up : ${p.title || p.title_en || "sans titre"}`, kind: "marketing" });
+  for (const e of eventi.data ?? [])
+    aggiungi((e as { image_url?: string | null }).image_url ?? null, { label: `Événement : ${(e as { title?: string }).title ?? ""}`, kind: "marketing" });
   return usi;
 }
 
@@ -98,6 +101,36 @@ async function fotoTeam(): Promise<Set<string>> {
   return escluse;
 }
 
+/** Elenco RICORSIVO dei file di un bucket: entra anche nelle sottocartelle
+ *  (es. popups/agenda/…). Le voci "cartella" (id null) vengono espanse. */
+async function listaFile(
+  bucket: string,
+  prefix = "",
+  depth = 0
+): Promise<{ path: string; size: number; created_at: string }[]> {
+  if (depth > 3) return [];
+  const { data, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .list(prefix, { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
+  if (error || !data) return [];
+  const out: { path: string; size: number; created_at: string }[] = [];
+  for (const f of data) {
+    if (!f.name || f.name.startsWith(".")) continue;
+    const full = prefix ? `${prefix}/${f.name}` : f.name;
+    const isFolder = f.id === null || f.metadata == null;
+    if (isFolder) {
+      out.push(...(await listaFile(bucket, full, depth + 1)));
+    } else {
+      out.push({
+        path: full,
+        size: Number((f.metadata as Record<string, unknown> | null)?.size ?? 0),
+        created_at: f.created_at ?? "",
+      });
+    }
+  }
+  return out;
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
@@ -114,21 +147,17 @@ export const GET: APIRoute = async ({ request }) => {
   }[] = [];
 
   for (const bucket of BUCKETS) {
-    const { data, error } = await supabaseAdmin.storage
-      .from(bucket)
-      .list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
-    if (error || !data) continue; // bucket non ancora creato: si ignora
-    for (const f of data) {
-      if (!f.name || f.name.startsWith(".")) continue; // placeholder interni di Storage
-      const url = supabaseAdmin.storage.from(bucket).getPublicUrl(f.name).data.publicUrl;
+    const files = await listaFile(bucket, "", 0);
+    for (const f of files) {
+      const url = supabaseAdmin.storage.from(bucket).getPublicUrl(f.path).data.publicUrl;
       if (escluse.has(url)) continue; // foto di un contatto Team: non è nella bibliothèque
       const usiImg = usi.get(url) ?? [];
       images.push({
         bucket,
-        name: f.name,
+        name: f.path,
         url,
-        size: Number((f.metadata as Record<string, unknown> | null)?.size ?? 0),
-        created_at: f.created_at ?? "",
+        size: f.size,
+        created_at: f.created_at,
         used_by: usiImg.map((u) => u.label),
         tags: [...new Set(usiImg.map((u) => u.kind))],
       });
@@ -148,7 +177,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     return json({ error: "Bucket invalide" }, 400);
   }
   const bucket = bucketParam as Bucket;
-  if (!name || name.includes("/") || name.includes("..")) {
+  if (!name || name.includes("..") || name.startsWith("/")) {
     return json({ error: "Nom invalide" }, 400);
   }
 
@@ -187,7 +216,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: "Bucket invalide" }, 400);
   }
   const bucket = bucketParam as Bucket;
-  if (!name || name.includes("/") || name.includes("..")) {
+  if (!name || name.includes("..") || name.startsWith("/")) {
     return json({ error: "Nom invalide" }, 400);
   }
   const nuovoNome = pulisciNome(body.new_name ?? "");

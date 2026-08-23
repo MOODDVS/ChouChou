@@ -14,7 +14,7 @@ import { TIMEZONE } from "../slots";
 // Le statistiche restano lato client (3 chiamate), quindi NON sono qui.
 
 const MENU_SELECT =
-  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion";
+  "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 const ORDERS_SELECT =
   "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at";
 

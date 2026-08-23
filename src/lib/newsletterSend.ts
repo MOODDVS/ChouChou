@@ -5,6 +5,7 @@ import { datiRistorante, type DatiRistorante } from "./ristorante";
 import { CLIENT } from "../config/client";
 import { statoQuota } from "./admin/newsletterQuota";
 import { linksSocial, type LinkSocial } from "./links";
+import { temaEmail, type TemaEmail } from "./temaBrand";
 
 // Motore d'invio della newsletter, condiviso tra:
 // - /api/admin/newsletter        (invio immediato dall'admin)
@@ -49,14 +50,17 @@ export async function mittenteNewsletter(): Promise<string> {
 
 /** Logo per l'email: brand_logo dei Réglages (fallback: versione negativa,
  *  poi l'icona del sito). URL salvati dall'admin nel bucket "brand". */
-async function logoNewsletter(): Promise<string> {
+async function logoNewsletter(isDark: boolean): Promise<string> {
   try {
     const { data } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
       .in("key", ["brand_logo", "brand_logo_negative"]);
     const map = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
-    return map.get("brand_logo") || map.get("brand_logo_negative") || `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
+    const pos = map.get("brand_logo") || "";
+    const neg = map.get("brand_logo_negative") || "";
+    const scelto = isDark ? (neg || pos) : (pos || neg);
+    return scelto || `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
   } catch {
     return `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
   }
@@ -259,7 +263,8 @@ function taggaNewsletter(url: string): string {
 
 export function htmlNewsletter(
   dati: DatiRistorante,
-  input: ContenutoNews & { email: string; logoUrl?: string; social?: LinkSocial[] }
+  input: ContenutoNews & { email: string; logoUrl?: string; social?: LinkSocial[] },
+  tema: TemaEmail
 ): string {
   const logo = input.logoUrl || `${SITE_URL.replace(/\/$/, "")}/icon-512.png`;
   const unsub = `${SITE_URL.replace(/\/$/, "")}/api/newsletter-unsubscribe?e=${encodeURIComponent(input.email)}&t=${tokenDisiscrizione(input.email)}`;
@@ -268,13 +273,13 @@ export function htmlNewsletter(
     : "";
   const btn = input.btn_label && input.btn_url
     ? `<tr><td style="padding:6px 40px 10px;text-align:center;">
-        <a href="${esc(taggaNewsletter(input.btn_url))}" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn_label)}</a>
+        <a href="${esc(taggaNewsletter(input.btn_url))}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn_label)}</a>
       </td></tr>`
     : "";
   // Secondo bottone (facoltativo): stile "ghost" oro, sotto il primo
   const btn2 = input.btn2_label && input.btn2_url
     ? `<tr><td style="padding:0 40px 10px;text-align:center;">
-        <a href="${esc(taggaNewsletter(input.btn2_url))}" style="display:inline-block;background:transparent;color:#dfab4e;border:1px solid #dfab4e;text-decoration:none;padding:13px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn2_label)}</a>
+        <a href="${esc(taggaNewsletter(input.btn2_url))}" style="display:inline-block;background:transparent;color:${tema.accent};border:1px solid ${tema.accent};text-decoration:none;padding:13px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">${esc(input.btn2_label)}</a>
       </td></tr>`
     : "";
 
@@ -283,30 +288,30 @@ export function htmlNewsletter(
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="color-scheme" content="dark" />
-<meta name="supported-color-schemes" content="dark" />
+<meta name="color-scheme" content="light dark" />
 </head>
-<body bgcolor="#1c1819" style="margin:0;padding:0;background:#1c1819;">
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+<body style="margin:0;padding:0;background:${tema.bg};">
+  <div style="font-family: Arial, Helvetica, sans-serif; background:${tema.bg}; padding:30px 0; margin:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
         <td style="padding:36px 40px 18px;text-align:center;">
           <img src="${logo}" alt="${esc(dati.nome)}" height="64" style="display:inline-block;border:0;height:64px;width:auto;max-width:220px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+          <p style="margin:16px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc((dati.nome + " \u2014 " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       ${img}
       <tr>
         <td style="padding:24px 40px 0;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">${esc(input.subject)}</h1>
-          <p style="margin:16px 0 22px;color:#b3aca6;font-size:15px;line-height:1.7;white-space:pre-line;text-align:left;">${esc(input.message)}</p>
+          <h1 style="margin:0;color:${tema.title};font-size:28px;letter-spacing:1px;font-weight:bold;">${esc(input.subject)}</h1>
+          <p style="margin:16px 0 22px;color:${tema.text};font-size:15px;line-height:1.7;white-space:pre-line;text-align:left;">${esc(input.message)}</p>
         </td>
       </tr>
       ${btn}
       ${btn2}
       <tr>
         <td style="padding:16px 40px 8px;text-align:center;">
-          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:linear-gradient(90deg,#007153 0%,#007153 33%,#ffffff 33%,#ffffff 66%,#ed1c24 66%,#ed1c24 100%);"></div>
+          <div style="height:4px;max-width:180px;margin:0 auto 20px;background:${tema.accent};border-radius:999px;"></div>
         </td>
       </tr>
       ${(input.social ?? []).length ? `<tr>
@@ -315,11 +320,11 @@ export function htmlNewsletter(
         </td>
       </tr>` : ""}
       <tr>
-        <td style="padding:0 40px 28px;border-top:1px solid #3a3335;">
-          <p style="margin:20px 0 0;color:#8f8781;font-size:12px;line-height:1.8;text-align:center;">
-            ${esc(dati.indirizzo)}<br>${esc(dati.tel)} · ${esc(dati.email)}<br>
-            Vous recevez cet email car vous êtes client de ${esc(dati.nome)}.
-            <a href="${unsub}" style="color:#b3aca6;">Se désinscrire</a>
+        <td style="padding:0 40px 28px;border-top:1px solid ${tema.border};">
+          <p style="margin:20px 0 0;color:${tema.muted};font-size:12px;line-height:1.8;text-align:center;">
+            ${esc(dati.indirizzo)}<br>${esc(dati.tel)} \u00b7 ${esc(dati.email)}<br>
+            Vous recevez cet email car vous \u00eates client de ${esc(dati.nome)}.
+            <a href="${unsub}" style="color:${tema.muted};">Se d\u00e9sinscrire</a>
           </p>
         </td>
       </tr>
@@ -333,13 +338,14 @@ export function htmlNewsletter(
 export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<boolean> {
   if (!resend || !RESEND_FROM) return false;
   const dati = await datiRistorante();
-  const [logoUrl, social] = await Promise.all([logoNewsletter(), linksSocial()]);
+  const tema = await temaEmail();
+  const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
   try {
     await resend.emails.send({
       from: await mittenteNewsletter(),
       to: dest,
       subject: `[TEST] ${contenuto.subject}`,
-      html: htmlNewsletter(dati, { ...contenuto, email: dest, logoUrl, social }),
+      html: htmlNewsletter(dati, { ...contenuto, email: dest, logoUrl, social }, tema),
     });
     return true;
   } catch {
@@ -366,7 +372,8 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
   }
   const dati = await datiRistorante();
   const quota = await statoQuota();
-  const [logoUrl, social] = await Promise.all([logoNewsletter(), linksSocial()]);
+  const tema = await temaEmail();
+  const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
   const { lista: dest } = await destinatariSegmento(lang, group);
 
   if (dest.length === 0) return { ok: false, error: "Aucun destinataire dans ce groupe", status: 400 };
@@ -386,7 +393,7 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
         from: mittente,
         to: email,
         subject: contenuto.subject,
-        html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }),
+        html: htmlNewsletter(dati, { ...contenuto, email, logoUrl, social }, tema),
       }));
       const { error } = await resend.batch.send(lotto);
       if (error) throw error;
