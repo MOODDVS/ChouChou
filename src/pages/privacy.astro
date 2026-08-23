@@ -3,16 +3,46 @@
 // template; la versione /en/ è la copia con gli import adattati).
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl } from "../i18n/ui";
+import { datiRistorante } from "../lib/ristorante";
+import { supabaseAdmin } from "../lib/db";
 
 const lang = getLangFromUrl(Astro.url);
 const isEn = lang === "en";
 
+const dati = await datiRistorante();
 const updated = "13/07/2026";
+
+// Infos légales de la société (Admin → Réglages → Général : company_*).
+const PAYS: Record<string, string> = { BE: "Belgique", FR: "France", LU: "Luxembourg", NL: "Pays-Bas" };
+async function infosSociete() {
+  try {
+    const { data } = await supabaseAdmin
+      .from("app_config")
+      .select("key, value")
+      .in("key", ["company_name", "company_vat", "company_street", "company_zip", "company_city", "company_country"]);
+    const m = new Map((data ?? []).map((r: any) => [r.key, String(r.value ?? "").trim()]));
+    const street = m.get("company_street") || "";
+    const zip = m.get("company_zip") || "";
+    const city = m.get("company_city") || "";
+    const addr = street && city ? `${street}, ${zip} ${city}`.replace(/\s+/g, " ").trim() : dati.indirizzo;
+    const cc = m.get("company_country") || "BE";
+    return {
+      name: m.get("company_name") || dati.nome,
+      vat: m.get("company_vat") || "",
+      address: addr,
+      pays: PAYS[cc] || cc,
+    };
+  } catch {
+    return { name: dati.nome, vat: "", address: dati.indirizzo, pays: "Belgique" };
+  }
+}
+const soc = await infosSociete();
 ---
 
-<Layout title={(isEn ? "Privacy Policy" : "Politique de confidentialité") + " — La Molisana"}>
+<Layout lightHeader={true} title={(isEn ? "Privacy Policy" : "Politique de confidentialité") + " — " + dati.nome}>
+  <section class="legal-page">
   <article class="legal">
-    <p class="legal-claim">La Molisana — Pizza &amp; Pasta</p>
+    <p class="legal-claim">{dati.nome}</p>
     <h1 class="legal-title">{isEn ? "Privacy Policy" : "Politique de confidentialité"}</h1>
     <p class="legal-updated">{isEn ? "Last updated:" : "Dernière mise à jour :"} {updated}</p>
 
@@ -21,10 +51,10 @@ const updated = "13/07/2026";
         <h2>1. Responsable du traitement</h2>
         <p>
           Le responsable du traitement de vos données personnelles est&nbsp;:<br />
-          <strong>Migraf SRL — La Molisana</strong><br />
-          Av. Adolphe Demeur 37, 1060 Saint-Gilles (Bruxelles), Belgique<br />
-          N° d'entreprise&nbsp;: BE 0899.648.967<br />
-          Email&nbsp;: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>
+          <strong>{soc.name}</strong><br />
+          {soc.address}, {soc.pays}<br />
+          N° d'entreprise&nbsp;: {soc.vat || "—"}<br />
+          Email&nbsp;: <a href={`mailto:${dati.email}`}>{dati.email}</a>
         </p>
 
         <h2>2. Données que nous collectons</h2>
@@ -46,7 +76,7 @@ const updated = "13/07/2026";
         <h2>4. Sous-traitants</h2>
         <p>Pour faire fonctionner le site, nous faisons appel à des prestataires qui traitent certaines données pour notre compte&nbsp;:</p>
         <ul>
-          <li><strong>Hostinger</strong>&nbsp;: hébergement du site web.</li>
+          <li><strong>Hébergeur</strong>&nbsp;: hébergement du site web.</li>
           <li><strong>Supabase</strong> (hébergement de la base de données, UE)&nbsp;: stockage des commandes et des réservations.</li>
           <li><strong>Stripe</strong>&nbsp;: traitement sécurisé des paiements.</li>
           <li><strong>Resend</strong>&nbsp;: envoi des emails de confirmation.</li>
@@ -64,7 +94,7 @@ const updated = "13/07/2026";
         <p>
           Conformément au RGPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation
           et d'opposition concernant vos données, ainsi que d'un droit à la portabilité. Pour exercer ces droits,
-          écrivez-nous à <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>. Vous pouvez également
+          écrivez-nous à <a href={`mailto:${dati.email}`}>{dati.email}</a>. Vous pouvez également
           introduire une réclamation auprès de l'Autorité de protection des données (APD), Rue de la Presse 35,
           1000 Bruxelles.
         </p>
@@ -82,10 +112,10 @@ const updated = "13/07/2026";
         <h2>1. Data controller</h2>
         <p>
           The controller of your personal data is:<br />
-          <strong>Migraf SRL — La Molisana</strong><br />
-          Av. Adolphe Demeur 37, 1060 Saint-Gilles (Brussels), Belgium<br />
-          Company number: BE 0899.648.967<br />
-          Email: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>
+          <strong>{soc.name}</strong><br />
+          {soc.address}, {soc.pays}<br />
+          Company number: {soc.vat || "—"}<br />
+          Email: <a href={`mailto:${dati.email}`}>{dati.email}</a>
         </p>
 
         <h2>2. Data we collect</h2>
@@ -107,7 +137,7 @@ const updated = "13/07/2026";
         <h2>4. Processors</h2>
         <p>To run the site, we rely on providers that process certain data on our behalf:</p>
         <ul>
-          <li><strong>Hostinger</strong>: website hosting.</li>
+          <li><strong>Host</strong>: website hosting.</li>
           <li><strong>Supabase</strong> (database hosting, EU): storage of orders and reservations.</li>
           <li><strong>Stripe</strong>: secure payment processing.</li>
           <li><strong>Resend</strong>: sending confirmation emails.</li>
@@ -124,7 +154,7 @@ const updated = "13/07/2026";
         <p>
           Under the GDPR, you have the right to access, rectify, erase, restrict and object to the processing
           of your data, as well as the right to data portability. To exercise these rights, write to us at
-          <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>. You may also lodge a complaint with the
+          <a href={`mailto:${dati.email}`}>{dati.email}</a>. You may also lodge a complaint with the
           Belgian Data Protection Authority (APD/GBA), Rue de la Presse 35, 1000 Brussels.
         </p>
 
@@ -136,46 +166,51 @@ const updated = "13/07/2026";
       </div>
     )}
   </article>
+  </section>
 </Layout>
 
 <style>
+  .legal-page { background: #ffffff; }
   .legal {
     max-width: 760px;
     margin: 0 auto;
-    padding: 4rem 1.5rem 5rem;
+    padding: clamp(11rem, 22vh, 16rem) 1.5rem 5rem;
   }
   .legal-claim {
-    font-family: var(--font-display);
-    letter-spacing: 0.3em;
+    font-family: var(--font-title);
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     font-size: 0.78rem;
-    color: var(--c-accent);
+    color: #ed2289;
     margin: 0 0 0.8rem;
   }
   .legal-title {
-    font-family: var(--font-display);
-    font-weight: 400;
+    font-family: var(--font-title);
+    font-weight: 700;
     font-size: clamp(2.1rem, 5.5vw, 3.2rem);
     line-height: 1.1;
     margin: 0 0 0.6rem;
-    color: var(--c-text);
+    color: #353c4e;
   }
   .legal-updated {
-    color: var(--c-muted);
+    color: #6b7183;
     font-size: 0.85rem;
     margin: 0 0 2.5rem;
   }
   .legal-body :global(h2) {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 1.35rem;
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 1.2rem;
     letter-spacing: 0.02em;
-    margin: 2.2rem 0 0.8rem;
-    color: var(--c-accent);
+    text-transform: uppercase;
+    margin: 2.4rem 0 0.8rem;
+    color: #ed2289;
   }
   .legal-body :global(p),
   .legal-body :global(li) {
-    color: #d8d8d8;
+    font-family: var(--font-body);
+    color: #4a5064;
     line-height: 1.75;
     font-size: 1rem;
   }
@@ -185,10 +220,10 @@ const updated = "13/07/2026";
   }
   .legal-body :global(li) { margin-bottom: 0.5rem; }
   .legal-body :global(a) {
-    color: var(--c-text);
+    color: #353c4e;
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .legal-body :global(a:hover) { color: var(--c-accent); }
-  .legal-body :global(strong) { color: var(--c-text); }
+  .legal-body :global(a:hover) { color: #ed2289; }
+  .legal-body :global(strong) { color: #353c4e; }
 </style>

@@ -18,18 +18,22 @@ const EVENTS = [
   {
     img: IMGS["site_event_1"] || null,
     meta: en ? "Coming soon · Guest chef" : "Prochainement · Un soir, un Chef",
-    title: en ? "Un soir, un Chef" : "Un soir, un Chef",
+    title: "Un soir, un Chef",
     text: en
-      ? "Each month, a guest chef takes over the Comptoir Chouchou kitchen for a one-off dinner. Book your seat."
-      : "Chaque mois, un chef invité prend les fourneaux du Comptoir Chouchou pour un dîner unique. Réservez votre place.",
+      ? "Every so often, Comptoir Chouchou invites a renowned chef to take over the kitchen for one unique evening. Upcoming dates are always announced on our agenda."
+      : "Régulièrement, le Comptoir Chouchou convie un chef de renom à prendre les fourneaux le temps d'une soirée unique. Les prochaines dates sont toujours annoncées sur notre agenda.",
+    cta: en ? "See the agenda" : "Voir l'agenda",
+    reserve: false,
   },
   {
     img: IMGS["site_event_2"] || null,
-    meta: en ? "Every Sunday · Brunch" : "Tous les dimanches · Brunch",
+    meta: en ? "First Sunday of the month · Brunch" : "Le 1er dimanche du mois · Brunch",
     title: en ? "The Sunday brunch" : "Le brunch du dimanche",
     text: en
-      ? "A generous, homemade brunch to share with family or friends, in the heart of the Walloon Brabant countryside."
-      : "Un brunch généreux et fait maison, à partager en famille ou entre amis, au cœur de la campagne du Brabant wallon.",
+      ? "On the first Sunday of every month, a generous homemade brunch to share with family or friends, in the heart of the Walloon Brabant countryside. By reservation only."
+      : "Le premier dimanche de chaque mois, un brunch généreux et fait maison à partager en famille ou entre amis, au cœur de la campagne du Brabant wallon. Sur réservation uniquement.",
+    cta: en ? "Book a table" : "Réserver",
+    reserve: true,
   },
 ];
 ---
@@ -41,6 +45,7 @@ const EVENTS = [
         {UNITS.map(() => (
           <span class="agd-unit">
             <span class="agd-word">{word}</span>
+            <span class="agd-dot agd-dot--sep">✦</span>
             <span class="agd-script">{script}</span>
             <span class="agd-dot">✦</span>
           </span>
@@ -50,6 +55,7 @@ const EVENTS = [
         {UNITS.map(() => (
           <span class="agd-unit">
             <span class="agd-word">{word}</span>
+            <span class="agd-dot agd-dot--sep">✦</span>
             <span class="agd-script">{script}</span>
             <span class="agd-dot">✦</span>
           </span>
@@ -61,20 +67,39 @@ const EVENTS = [
   <div class="agd-in">
     <div class="agd-grid">
       {EVENTS.map((e) => (
-        <a class="ev" href={getLocalizedUrl("/agenda", lang)}>
-          <div class="ev-media">
-            {e.img ? (
-              <img src={e.img} alt="" loading="lazy" decoding="async" />
-            ) : (
-              <span class="ph" aria-hidden="true"></span>
-            )}
+        e.reserve ? (
+          <div class="ev ev--static">
+            <div class="ev-media">
+              {e.img ? (
+                <img src={e.img} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <span class="ph" aria-hidden="true"></span>
+              )}
+            </div>
+            <div class="ev-body">
+              <p class="ev-meta">{e.meta}</p>
+              <h3 class="ev-title">{e.title}</h3>
+              <p class="ev-text">{e.text}</p>
+              <button type="button" class="ev-cta ev-cta--btn" data-reserver>{e.cta}</button>
+            </div>
           </div>
-          <div class="ev-body">
-            <p class="ev-meta">{e.meta}</p>
-            <h3 class="ev-title">{e.title}</h3>
-            <p class="ev-text">{e.text}</p>
-          </div>
-        </a>
+        ) : (
+          <a class="ev" href={getLocalizedUrl("/agenda", lang)}>
+            <div class="ev-media">
+              {e.img ? (
+                <img src={e.img} alt="" loading="lazy" decoding="async" />
+              ) : (
+                <span class="ph" aria-hidden="true"></span>
+              )}
+            </div>
+            <div class="ev-body">
+              <p class="ev-meta">{e.meta}</p>
+              <h3 class="ev-title">{e.title}</h3>
+              <p class="ev-text">{e.text}</p>
+              {e.cta && <span class="ev-cta">{e.cta}</span>}
+            </div>
+          </a>
+        )
       ))}
     </div>
   </div>
@@ -129,6 +154,7 @@ const EVENTS = [
     margin: 0 0.35em 0 0.1em;
     align-self: center;
   }
+  .agd-dot--sep { color: var(--navy); margin: 0 0.2em 0 0.55em; }
   @keyframes agd-scroll {
     from { transform: translateX(0); }
     to { transform: translateX(-50%); }
@@ -188,6 +214,27 @@ const EVENTS = [
     line-height: 1.6;
     margin: 0;
   }
+  .ev-cta {
+    display: inline-block;
+    margin-top: 1rem;
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.02em;
+    color: var(--mag);
+  }
+  .ev-cta::after { content: " \2192"; }
+  .ev:hover .ev-cta { text-decoration: underline; }
+  .ev--static { cursor: default; }
+  .ev--static:hover { transform: none; }
+  /* meme aspect que le lien "Voir l'agenda" : texte magenta + fleche */
+  .ev-cta--btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .ev-cta--btn:hover { text-decoration: underline; }
 
   @media (max-width: 760px) {
     .agd-grid { grid-template-columns: 1fr; }

@@ -3,16 +3,19 @@
 // la versione /en/ è la copia con gli import adattati).
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl } from "../i18n/ui";
+import { datiRistorante } from "../lib/ristorante";
 
 const lang = getLangFromUrl(Astro.url);
 const isEn = lang === "en";
 
+const dati = await datiRistorante();
 const updated = "13/07/2026";
 ---
 
-<Layout title={(isEn ? "Cookie Policy" : "Politique relative aux cookies") + " — La Molisana"}>
+<Layout lightHeader={true} title={(isEn ? "Cookie Policy" : "Politique relative aux cookies") + " — " + dati.nome}>
+  <section class="legal-page">
   <article class="legal">
-    <p class="legal-claim">La Molisana — Pizza &amp; Pasta</p>
+    <p class="legal-claim">{dati.nome}</p>
     <h1 class="legal-title">{isEn ? "Cookie Policy" : "Politique relative aux cookies"}</h1>
     <p class="legal-updated">{isEn ? "Last updated:" : "Dernière mise à jour :"} {updated}</p>
 
@@ -67,7 +70,7 @@ const updated = "13/07/2026";
 
         <h2>5. Contact</h2>
         <p>
-          Pour toute question&nbsp;: <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>.
+          Pour toute question&nbsp;: <a href={`mailto:${dati.email}`}>{dati.email}</a>.
           Voir aussi notre <a href="/privacy">politique de confidentialité</a>.
         </p>
       </div>
@@ -122,52 +125,57 @@ const updated = "13/07/2026";
 
         <h2>5. Contact</h2>
         <p>
-          Any questions? <a href="mailto:info@lamolisana.be">info@lamolisana.be</a>.
+          Any questions? <a href={`mailto:${dati.email}`}>{dati.email}</a>.
           See also our <a href="/en/privacy">privacy policy</a>.
         </p>
       </div>
     )}
   </article>
+  </section>
 </Layout>
 
 <style>
+  .legal-page { background: #ffffff; }
   .legal {
     max-width: 760px;
     margin: 0 auto;
-    padding: 4rem 1.5rem 5rem;
+    padding: clamp(11rem, 22vh, 16rem) 1.5rem 5rem;
   }
   .legal-claim {
-    font-family: var(--font-display);
-    letter-spacing: 0.3em;
+    font-family: var(--font-title);
+    font-weight: 700;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     font-size: 0.78rem;
-    color: var(--c-accent);
+    color: #ed2289;
     margin: 0 0 0.8rem;
   }
   .legal-title {
-    font-family: var(--font-display);
-    font-weight: 400;
+    font-family: var(--font-title);
+    font-weight: 700;
     font-size: clamp(2.1rem, 5.5vw, 3.2rem);
     line-height: 1.1;
     margin: 0 0 0.6rem;
-    color: var(--c-text);
+    color: #353c4e;
   }
   .legal-updated {
-    color: var(--c-muted);
+    color: #6b7183;
     font-size: 0.85rem;
     margin: 0 0 2.5rem;
   }
   .legal-body :global(h2) {
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: 1.35rem;
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 1.2rem;
     letter-spacing: 0.02em;
-    margin: 2.2rem 0 0.8rem;
-    color: var(--c-accent);
+    text-transform: uppercase;
+    margin: 2.4rem 0 0.8rem;
+    color: #ed2289;
   }
   .legal-body :global(p),
   .legal-body :global(li) {
-    color: #d8d8d8;
+    font-family: var(--font-body);
+    color: #4a5064;
     line-height: 1.75;
     font-size: 1rem;
   }
@@ -177,10 +185,10 @@ const updated = "13/07/2026";
   }
   .legal-body :global(li) { margin-bottom: 0.5rem; }
   .legal-body :global(a) {
-    color: var(--c-text);
+    color: #353c4e;
     text-decoration: underline;
     text-underline-offset: 3px;
   }
-  .legal-body :global(a:hover) { color: var(--c-accent); }
-  .legal-body :global(strong) { color: var(--c-text); }
+  .legal-body :global(a:hover) { color: #ed2289; }
+  .legal-body :global(strong) { color: #353c4e; }
 </style>

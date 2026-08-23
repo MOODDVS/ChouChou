@@ -5,8 +5,10 @@ import { linksSocial } from "../lib/links";
 interface Props {
   /** Home: header flottant transparent en haut, fond au scroll. */
   transparent?: boolean;
+  /** Page à fond clair : logo social + texte tournant en navy (sinon blanc). */
+  onLight?: boolean;
 }
-const { transparent = false } = Astro.props;
+const { transparent = false, onLight = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -43,7 +45,7 @@ const primaryUrl =
   "";
 ---
 
-<header class={"chdr" + (transparent ? " is-transparent" : "")}>
+<header class={"chdr" + (transparent ? " is-transparent" : "") + (onLight ? " is-onlight" : "")}>
   <div class="chdr-in">
     <!-- Logo (bloc navy, logo blanc, petite animation en boucle) -->
     <a href={getLocalizedUrl("/", lang)} class="clogo-blk" aria-label="Comptoir Chouchou — accueil">
@@ -144,6 +146,13 @@ const primaryUrl =
     gap: 14px;
   }
   .chdr-in > * { min-height: 72px; }
+  /* Ombre tres legere sur les blocs de l'header */
+  .clogo-blk,
+  .cnav,
+  .cbtn-res,
+  .clang {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+  }
 
   /* Logo */
   /* Bloc logo « comme le logo » : bloc navy à BORDURE BLANCHE (pas de cadre
@@ -313,6 +322,9 @@ const primaryUrl =
   }
   /* Les deux séparateurs « • » restent magenta et referment l'anneau */
   .csoc-ring .csoc-dot { fill: var(--mag); font-size: 13px; }
+  /* Page à fond clair : badge social en navy (les points restent magenta) */
+  .chdr.is-onlight .csoc-ring text { fill: #353c4e; }
+  .chdr.is-onlight .csoc-cycle .ic { color: #353c4e; }
   @keyframes csoc-spin { to { transform: rotate(360deg); } }
   .csoc-cycle { position: absolute; inset: 0; pointer-events: none; }
   .csoc-cycle .ic {
@@ -387,6 +399,28 @@ const primaryUrl =
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
+  }
+
+  // Badge social : blanc sur le hero sombre, navy dès qu'on passe sur le
+  // contenu clair. (Pages entièrement claires : is-onlight vient du prop,
+  // on n'y touche pas.)
+  const hdrLight = document.querySelector(".chdr");
+  const heroEl =
+    document.querySelector('main [class*="hero"]') ||
+    document.querySelector("main section");
+  if (hdrLight && heroEl && !hdrLight.classList.contains("is-onlight")) {
+    let tickL = false;
+    const majLight = () => {
+      const heroH = heroEl.offsetHeight || window.innerHeight;
+      if (window.scrollY >= heroH - 6) hdrLight.classList.add("is-onlight");
+      else hdrLight.classList.remove("is-onlight");
+      tickL = false;
+    };
+    window.addEventListener("scroll", () => {
+      if (!tickL) { window.requestAnimationFrame(majLight); tickL = true; }
+    }, { passive: true });
+    window.addEventListener("resize", majLight, { passive: true });
+    majLight();
   }
 
   // Auto-hide : cache l'header au scroll vers le bas, le montre au scroll vers le haut

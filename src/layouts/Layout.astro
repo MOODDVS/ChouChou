@@ -11,8 +11,9 @@ import { CLIENT } from "../config/client";
 interface Props {
   title?: string;
   transparentHeader?: boolean;
+  lightHeader?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true, lightHeader = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -391,7 +392,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     </style>
   </head>
   <body>
-    <Header transparent={transparentHeader} />
+    <Header transparent={transparentHeader} onLight={lightHeader} />
     <main>
       <slot />
     </main>

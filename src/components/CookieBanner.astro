@@ -22,6 +22,7 @@ const T = isEn
 ---
 
 <div id="cookie-banner" class="ckb" hidden>
+  <p class="ckb__kicker" aria-hidden="true">cookies</p>
   <p class="ckb__text">
     {T.text} <a href={cookiesHref} class="ckb__link">{T.more}</a>
   </p>
@@ -39,34 +40,41 @@ const T = isEn
     z-index: 300;
     width: 350px;
     max-width: calc(100vw - 2rem);
-    background: var(--c-bg);
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: #353c4e;
+    border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 14px;
     padding: 1.3rem 1.4rem;
     box-sizing: border-box;
     box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
   }
+  .ckb__kicker {
+    margin: 0 0 0.1rem;
+    font-family: var(--font-script);
+    color: #ed2289;
+    font-size: 2rem;
+    line-height: 0.9;
+  }
   .ckb__text {
     margin: 0 0 1.1rem;
-    color: var(--c-text);
+    color: #f7f4ee;
     font-family: var(--font-body);
     font-size: 0.87rem;
     line-height: 1.55;
   }
   .ckb__link {
-    color: var(--c-accent);
+    color: #ed2289;
     text-decoration: underline;
     text-underline-offset: 2px;
     white-space: nowrap;
   }
-  .ckb__link:hover { color: var(--c-text); }
+  .ckb__link:hover { color: #ffffff; }
   .ckb__actions {
     display: flex;
     gap: 0.6rem;
   }
   .ckb__btn {
     flex: 1;
-    font-family: var(--font-display);
+    font-family: var(--font-title);
     font-weight: 700;
     font-size: 0.8rem;
     letter-spacing: 0.12em;
@@ -77,21 +85,21 @@ const T = isEn
     transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   }
   .ckb__btn--accept {
-    background: var(--c-accent);
-    border: 2px solid var(--c-accent);
-    color: var(--c-bg);
+    background: #ed2289;
+    border: 2px solid #ed2289;
+    color: #ffffff;
   }
   .ckb__btn--accept:hover {
-    background: #fff;
-    border-color: #fff;
+    background: #c8176f;
+    border-color: #c8176f;
   }
   .ckb__btn--decline {
     background: transparent;
     border: 2px solid rgba(255, 255, 255, 0.4);
-    color: var(--c-text);
+    color: #f7f4ee;
   }
   .ckb__btn--decline:hover {
-    border-color: var(--c-text);
+    border-color: #ffffff;
   }
 
   /* Su mobile la barra di navigazione in basso occupa spazio: alzo il banner */
