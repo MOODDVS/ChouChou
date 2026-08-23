@@ -55,6 +55,7 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Digestifs**: forniti al cliente comandi SQL per popolare la categoria (16 voci, `menu_items` con category_order dal `sort_order` di `menu_categories`).
 - **Pagina Épicerie (/epicerie, FR)**: sostituito il segnaposto. Hero come Menu/Contact (`clamp(400px,56vh,600px)`, senza script "Comptoir"), corpo bianco con presentazione (max 1440px + 28px INTERNI come `.chdr-in`), bottoni Réserver/Nous trouver, foto opzionale da `site_disc_epicerie` (fallback layout a colonna centrata `.ep--solo`). Poi bandeau animato « Nos découvertes ✦ *l'épicerie* ✦ » (come il marquee dell'agenda) e galleria masonry 12 prodotti / 4 colonne (3 a ≤1100px, 2 a ≤720px). Placeholder ivory con ✦ per gli slot vuoti. EN (/en/epicerie) ancora segnaposto.
 - **Slot immagini**: aggiunti 12 slot `site_epicerie_1..12` (pagina « Épicerie », gruppo « Galerie produits »).
+- **Tab Assets rimappati sul sito reale** (siteImageSlots.ts, config sito pubblico; renderer admin generico non toccato): `SITE_PAGES` = Accueil, Carte, Épicerie, Contact. « Menu » rinominato « Carte »; « Épicerie » aggiunto a SITE_PAGES (i 12 slot prodotti erano invisibili senza); tolti i tab « Ambiance » (legacy La Molisana) e « Commander » (ordini nascosti) con i relativi slot. Le pagine /ambiance e /order restano funzionanti coi fallback.
 
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
