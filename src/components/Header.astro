@@ -406,8 +406,8 @@ const primaryUrl =
   // on n'y touche pas.)
   const hdrLight = document.querySelector(".chdr");
   const heroEl =
-    document.querySelector('main [class*="hero"]') ||
-    document.querySelector("main section");
+    (document.querySelector('main [class*="hero"]') ||
+    document.querySelector("main section")) as HTMLElement | null;
   if (hdrLight && heroEl && !hdrLight.classList.contains("is-onlight")) {
     let tickL = false;
     const majLight = () => {
