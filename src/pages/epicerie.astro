@@ -8,6 +8,7 @@ import { siteImages, siteImg } from "../lib/siteImages";
 export const prerender = false;
 
 const IMGS = await siteImages();
+const HERO_FOTO = siteImg(IMGS, "site_epicerie_hero", IMGS["site_disc_epicerie"] || IMGS["site_resto_photo"] || "");
 const EP_FOTO = siteImg(IMGS, "site_disc_epicerie", IMGS["site_resto_photo"] || "");
 
 // Galerie produits (masonry 4 colonnes) : slots admin site_epicerie_1..12.
@@ -15,12 +16,25 @@ const EP_FOTO = siteImg(IMGS, "site_disc_epicerie", IMGS["site_resto_photo"] || 
 const PRODOTTI = Array.from({ length: 12 }, (_, i) => IMGS[`site_epicerie_${i + 1}`] || null);
 // Répétitions du bandeau défilant (comme la home).
 const MARQ = [0, 1, 2, 3];
+
+// Marques / producteurs de l'épicerie (logos dans public/logos).
+const MARQUES = [
+  { src: "/logos/baru-logo.webp", alt: "Baru" },
+  { src: "/logos/delehaut-logo.webp", alt: "Délehaut" },
+  { src: "/logos/le-creuset-logo.webp", alt: "Le Creuset" },
+  { src: "/logos/dandoy-logo.webp", alt: "Dandoy" },
+  { src: "/logos/manucurist-logo.webp", alt: "Manucurist" },
+  { src: "/logos/autre-the-logo.webp", alt: "Autre Thé" },
+  { src: "/logos/cuberdons-leopold-logo.webp", alt: "Cuberdons Léopold" },
+];
 ---
 
 <Layout title="L'épicerie, Comptoir Chouchou">
   <div class="chou">
   <section class="ep-hero">
     <div class="ep-hero__bg" aria-hidden="true"></div>
+    {HERO_FOTO && <img class="ep-hero__photo" src={HERO_FOTO} alt="" loading="eager" decoding="async" onerror="this.remove()" />}
+    <div class="ep-hero__overlay" aria-hidden="true"></div>
     <div class="ep-hero__glow" aria-hidden="true"></div>
     <div class="ep-hero__inner">
       <h1 class="ep-hero__title">L'épicerie</h1>
@@ -80,9 +94,49 @@ const MARQ = [0, 1, 2, 3];
         </div>
       ))}
     </div>
+
+    <div class="ep-brands">
+      <h2 class="ep-brands__title">Nos marques</h2>
+      <p class="ep-brands__lead">Une sélection de maisons et d'artisans que nous aimons, du sucré au salé, de la table à l'objet, à retrouver sur nos étagères.</p>
+      <div class="ep-logos">
+        {MARQUES.map((m) => (
+          <div class="ep-logo"><img src={m.src} alt={m.alt} loading="lazy" decoding="async" /></div>
+        ))}
+      </div>
+    </div>
   </section>
   </div>
 </Layout>
+
+<script>
+  (() => {
+    const logos = Array.from(document.querySelectorAll(".ep-logo"));
+    if (!logos.length) return;
+    // Ordre aléatoire à chaque chargement (Fisher-Yates)
+    const parent = logos[0].parentElement;
+    const shuffled = logos.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    if (parent) shuffled.forEach((el) => parent.appendChild(el));
+    // Apparition lente et asynchrone au scroll
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      logos.forEach((l) => l.classList.add("is-in"));
+      return;
+    }
+    const io = new IntersectionObserver((entries, obs) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const el = e.target as HTMLElement;
+        el.style.transitionDelay = (Math.random() * 1.4).toFixed(2) + "s";
+        el.classList.add("is-in");
+        obs.unobserve(el);
+      }
+    }, { threshold: 0.2 });
+    logos.forEach((l) => io.observe(l));
+  })();
+</script>
 
 <style>
   /* Wrapper Chouchou (fond navy + accent magenta) */
@@ -110,11 +164,25 @@ const MARQ = [0, 1, 2, 3];
     z-index: 0;
     background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%);
   }
+  .ep-hero__photo {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .ep-hero__overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(23, 27, 40, 0.4) 0%, rgba(23, 27, 40, 0.62) 100%);
+  }
   .ep-hero__glow {
     position: absolute;
     left: 50%;
     top: 44%;
-    z-index: 1;
+    z-index: 2;
     width: 600px;
     height: 600px;
     max-width: 120vw;
@@ -122,7 +190,7 @@ const MARQ = [0, 1, 2, 3];
     background: radial-gradient(circle, rgba(237, 34, 137, 0.22) 0%, rgba(237, 34, 137, 0) 62%);
     pointer-events: none;
   }
-  .ep-hero__inner { position: relative; z-index: 2; }
+  .ep-hero__inner { position: relative; z-index: 3; }
   .ep-hero__script {
     display: block;
     font-family: var(--font-script);
@@ -329,4 +397,49 @@ const MARQ = [0, 1, 2, 3];
   @media (prefers-reduced-motion: reduce) {
     .ep-mrow { animation: none; }
   }
+
+  /* Marques / logos partenaires */
+  .ep-brands {
+    max-width: 1100px;
+    margin: clamp(3rem, 7vw, 5.5rem) auto 0;
+    padding: 0 28px;
+    text-align: center;
+  }
+  .ep-brands__title {
+    font-family: var(--font-title);
+    font-weight: 700;
+    color: #353c4e;
+    font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+    line-height: 1.1;
+    margin: 0 0 0.8rem;
+  }
+  .ep-brands__lead {
+    font-family: var(--font-body);
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
+    line-height: 1.7;
+    color: #6b7183;
+    max-width: 40em;
+    margin: 0 auto clamp(2rem, 4vw, 3rem);
+  }
+  .ep-logos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(1.5rem, 4vw, 4rem);
+  }
+  .ep-logo {
+    flex: 0 0 auto;
+    width: clamp(130px, 17vw, 210px);
+    aspect-ratio: 400 / 260;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 1.1s ease, transform 1.1s ease;
+  }
+  .ep-logo.is-in { opacity: 1; transform: none; }
+  .ep-logo img { display: block; width: 100%; height: 100%; object-fit: cover; }
 </style>

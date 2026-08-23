@@ -27,7 +27,6 @@ export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
   { page: "Accueil", group: "Section Découvrir", key: "site_disc_1", label: "Carte, photo 1", fallback: "" },
   { page: "Accueil", group: "Section Découvrir", key: "site_disc_2", label: "Carte, photo 2", fallback: "" },
   { page: "Accueil", group: "Section Découvrir", key: "site_disc_3", label: "Carte, photo 3", fallback: "" },
-  { page: "Accueil", group: "Section Découvrir", key: "site_disc_epicerie", label: "Épicerie, photo", fallback: "" },
   { page: "Accueil", group: "Photo restaurant", key: "site_resto_photo", label: "Photo plein largeur", fallback: "/chouchou-restaurant.webp" },
   { page: "Accueil", group: "Section Agenda", key: "site_event_1", label: "Événement, photo 1", fallback: "" },
   { page: "Accueil", group: "Section Agenda", key: "site_event_2", label: "Événement, photo 2", fallback: "" },
@@ -41,6 +40,8 @@ export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
   { page: "Accueil", group: "Galerie", key: "site_gallery_8", label: "Photo 8", fallback: "" },
   { page: "Accueil", group: "Galerie", key: "site_gallery_9", label: "Photo 9", fallback: "" },
   // ---------- ÉPICERIE ----------
+  { page: "Épicerie", group: "Hero", key: "site_epicerie_hero", label: "Image hero", fallback: "" },
+  { page: "Épicerie", group: "Présentation", key: "site_disc_epicerie", label: "Photo présentation", fallback: "" },
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_1", label: "Produit 1", fallback: "" },
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_2", label: "Produit 2", fallback: "" },
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_3", label: "Produit 3", fallback: "" },
