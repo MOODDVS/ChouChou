@@ -184,6 +184,7 @@ gruppi.forEach((g, i) => {
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                         {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                        {item.is_seasonal && <span class="b" title={en ? "Seasonal" : "Saisonnier"}>🍂</span>}
                         {item.allergens.length > 0 && (
                           <sup class="dish__alg">{item.allergens.join("·")}</sup>
                         )}

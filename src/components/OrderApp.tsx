@@ -16,6 +16,7 @@ interface MenuItem {
   is_vegan: boolean;
   is_spicy: boolean;
   is_suggestion: boolean;
+  is_seasonal: boolean;
 }
 interface MenuCategoria {
   category: string;
@@ -393,6 +394,9 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           <span className="order-b" title={lang === "en" ? "Spicy" : "Épicé"}>🌶️</span>
         )}
         {item.is_suggestion && <span className="order-sugg">Suggestion</span>}
+        {item.is_seasonal && (
+          <span className="order-b" title={lang === "en" ? "Seasonal" : "Saisonnier"}>🍂</span>
+        )}
       </>
     );
   }

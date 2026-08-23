@@ -58,7 +58,18 @@ function pulisciItems(v: unknown, courses: string[]): Record<string, string[]> |
     const arr = (v as Record<string, unknown>)[c];
     if (arr === undefined) continue;
     if (!Array.isArray(arr)) return null;
-    const ids = (arr as unknown[]).map(String).filter((id) => RE_UUID.test(id)).slice(0, 30);
+    const ids = (arr as unknown[])
+      .map(String)
+      .map((sVal) => {
+        if (RE_UUID.test(sVal)) return sVal;
+        if (sVal.startsWith("free:")) {
+          const nome = sVal.slice(5).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+          return nome ? "free:" + nome : "";
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .slice(0, 30);
     out[c] = [...new Set(ids)];
   }
   return out;
