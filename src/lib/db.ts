@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { trovaCategoriaStandard, i18nStandard } from "./admin/categorieStandard";
 import { prezzoEffettivo } from "./pricing";
 
 const SUPABASE_URL = import.meta.env.SUPABASE_URL;
@@ -136,13 +137,20 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
     }
     return cur;
   };
+  // name_i18n dall'admin; se vuoto e la categoria è "standard", ripiega sul
+  // dizionario predefinito (stesse traduzioni della "A" auto-traduite admin).
+  const i18nDi = (nome: string, dalDb: Record<string, string> | null): Record<string, string> | null => {
+    if (dalDb && Object.keys(dalDb).length > 0) return dalDb;
+    const std = trovaCategoriaStandard(nome);
+    return std ? i18nStandard(std, ["fr", "it", "en", "nl", "es"]) : dalDb;
+  };
   for (const g of gruppi) {
     const info = mappa.get(g.category);
     g.parent = info?.parent ?? null;
     g.depth = info?.depth ?? 0;
-    g.name_i18n = info?.name_i18n ?? null;
+    g.name_i18n = i18nDi(g.category, info?.name_i18n ?? null);
     g.root = radiceDi(g.category);
-    g.root_i18n = mappa.get(g.root)?.name_i18n ?? null;
+    g.root_i18n = i18nDi(g.root, mappa.get(g.root)?.name_i18n ?? null);
   }
   return gruppi;
 }
