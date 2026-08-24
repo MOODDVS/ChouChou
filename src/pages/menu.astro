@@ -309,7 +309,7 @@ gruppi.forEach((g, i) => {
                 <ul class="lunch-dishes">
                   {(lunch.piatti[c] ?? []).map((pt) => (
                     <li class="lunch-dish">
-                      <span class="lunch-dish__n">{pt.name}</span>
+                      <span class="lunch-dish__n">{en ? (pt.name_i18n?.en ?? pt.name) : pt.name}</span>
                       {descDi(pt) && <span class="lunch-dish__d">{descDi(pt)}</span>}
                     </li>
                   ))}

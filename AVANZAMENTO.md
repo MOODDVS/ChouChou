@@ -73,6 +73,11 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Tel + mappa**: pastiglia telefono (icona piena + numero), mappa Google interattiva (embed) con link « Itinéraire » (maps/dir depuis la position de l'utilisateur). Dati da datiRistorante().
 - **Stories eventi (stile Instagram)**: cerchi con bordo magenta e foto evento, sopra il logo, dai prossimi eventi con immagine. Fetch pubblica read-only `src/lib/agenda.ts` (tabella `agenda_events`). Click → viewer fullscreen con titolo + data centrati (nav sinistra/destra, Esc/frecce, ✕).
 
+### Sessione Lunch (piatti hors menu + i18n) (agosto 2026)
+- **`src/lib/lunch.ts`**: ora renderizza i piatti « hors menu » del lunch (voci `free:` in `lunch_menus.items`) che prima venivano scartati. Formato `free:FR` o `free:FR||EN` (traduzione EN facoltativa, fallback FR). NON sono piatti della carte (restano inline nel lunch, non toccano `menu_items`).
+- **i18n nomi lunch**: `getLunchAttivo` legge anche `name_i18n` (con fallback), così i piatti del lunch presi dal menu escono tradotti sul sito EN. `menu.astro`: nome del piatto lunch localizzato (`pt.name_i18n?.en`).
+- **Da portare nel motore MOODD-Admin**: nel modale « Ajouter un lunch », campo EN accanto a « plat hors menu » e salvataggio come `free:FR||EN` (la parte pubblica è già pronta a leggerlo).
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.
