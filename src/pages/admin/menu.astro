@@ -1853,6 +1853,22 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
           return `<button type="button" class="luf-course${on ? " is-on" : ""}${lock}" data-p="${p}">${PORTATA_LAB[p]}</button>`;
         }).join("");
       }
+      // Piatto "fuori menù": salvato come "free:<nome>" (1 lingua, legacy)
+      // oppure "free:{\"fr\":\"...\",\"it\":\"...\"}" (multilingua, JSON).
+      function decodeFree(id: string): Record<string, string> {
+        const raw = id.slice(5);
+        if (raw.startsWith("{")) {
+          try {
+            const o = JSON.parse(raw);
+            if (o && typeof o === "object" && !Array.isArray(o)) return o as Record<string, string>;
+          } catch { /* fallback sotto */ }
+        }
+        return { [PUB.def]: raw };
+      }
+      function labelLibero(id: string): string {
+        const o = decodeFree(id);
+        return o[PUB.def] || Object.values(o)[0] || "?";
+      }
       function renderLuItems() {
         luItemsEl.innerHTML = luCourses
           .map((p) => {
@@ -1870,7 +1886,7 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
             const chips = scelti
               .map((id) => {
                 const libero = id.startsWith("free:");
-                const nome = libero ? id.slice(5) : (items.find((x) => x.id === id)?.name ?? "?");
+                const nome = libero ? labelLibero(id) : (items.find((x) => x.id === id)?.name ?? "?");
                 const idAttr = esc(id).replace(/"/g, "&quot;");
                 return `<span class="lu-chip${libero ? " lu-chip-free" : ""}">${esc(nome)}<button type="button" data-p="${p}" data-id="${idAttr}" title="${tr("ord.remove")}">×</button></span>`;
               })
@@ -1881,10 +1897,18 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
               <select class="lu-sel" data-p="${p}">
                 <option value="">${tr("menu.addMenuDish")}</option>${opzioni}
               </select>
-              <div class="lu-free-row">
-                <input type="text" class="lu-free-in" data-p="${p}" maxlength="80" placeholder="${tr("menu.freeDishPh")}" />
-                <button type="button" class="lu-free-add" data-p="${p}">${tr("menu.freeDishAdd")}</button>
-              </div>
+              ${(() => {
+                const ordLang = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+                const uno = ordLang.length <= 1;
+                return ordLang
+                  .map((l, idx) => {
+                    const ph = uno ? tr("menu.freeDishPh") : `${tr("menu.freeDishPh")} (${langTag(l)})`;
+                    const input = `<input type="text" class="lu-free-in" data-p="${p}" data-lang="${l}" maxlength="80" placeholder="${esc(ph)}" />`;
+                    const btn = idx === 0 ? `<button type="button" class="lu-free-add" data-p="${p}">${tr("menu.freeDishAdd")}</button>` : "";
+                    return `<div class="lu-free-row">${input}${btn}</div>`;
+                  })
+                  .join("");
+              })()}
               <div class="lu-chips">${chips || `<span class="f-label">${tr("menu.noDishSelected")}</span>`}</div>
             </div>`;
           })
@@ -2080,10 +2104,22 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         renderLuItems();
       });
       function aggiungiPiattoLibero(p: string) {
-        const inp = luItemsEl.querySelector<HTMLInputElement>(`.lu-free-in[data-p="${p}"]`);
-        const nome = (inp?.value ?? "").trim().slice(0, 80);
-        if (!nome) { inp?.focus(); return; }
-        const val = "free:" + nome;
+        const inputs = Array.from(
+          luItemsEl.querySelectorAll<HTMLInputElement>(`.lu-free-in[data-p="${p}"]`)
+        );
+        const obj: Record<string, string> = {};
+        for (const inp of inputs) {
+          const l = inp.dataset.lang || PUB.def;
+          const v = inp.value.trim().slice(0, 80);
+          if (v) obj[l] = v;
+        }
+        const def = obj[PUB.def];
+        if (!def) {
+          (inputs.find((i) => (i.dataset.lang || PUB.def) === PUB.def) ?? inputs[0])?.focus();
+          return;
+        }
+        const keys = Object.keys(obj);
+        const val = "free:" + (keys.length > 1 ? JSON.stringify(obj) : def);
         if (!(luItems[p] ?? []).includes(val)) luItems[p] = [...(luItems[p] ?? []), val];
         renderLuItems();
       }
