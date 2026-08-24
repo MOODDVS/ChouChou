@@ -10,8 +10,8 @@ const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 const IMGS = await siteImages();
 
-const word = en ? "L'agenda" : "L'agenda";
-const script = en ? "les rendez-vous" : "les rendez-vous";
+const word = en ? "What's on" : "L'agenda";
+const script = en ? "our events" : "les rendez-vous";
 const UNITS = [0, 1, 2, 3];
 
 const EVENTS = [

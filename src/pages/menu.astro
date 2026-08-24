@@ -296,7 +296,7 @@ gruppi.forEach((g, i) => {
   </section>
 
   <section class="lunch-band" id="lunch" aria-label="le lunch">
-    <span class="lunch-txt">le lunch</span>
+    <span class="lunch-txt">{en ? "the lunch" : "le lunch"}</span>
     <span class="lunch-sub">{en ? "New menu every week" : "nouveau menu chaque semaine"}</span>
     {lunch && (lunchHaPiatti || lunch.combos.length > 0) && (
       <div class="lunch-in">
@@ -349,12 +349,12 @@ gruppi.forEach((g, i) => {
     {gruppiCibo.map(({ g, i }) => (
       <section class="cat" id={"sec-" + i}>
         <div class="cat__head">
-          <h2 class="cat__title">{g.title}</h2>
+          <h2 class="cat__title">{en ? (g.subcats[0].name_i18n?.en ?? g.title) : g.title}</h2>
         </div>
         <div class="cat__body">
           {g.subcats.map((sub) => (
             <div class="subcat">
-              {g.subcats.length > 1 && <h3 class="cat__subtitle">{sub.category}</h3>}
+              {g.subcats.length > 1 && <h3 class="cat__subtitle">{en ? (sub.name_i18n?.en ?? sub.category) : sub.category}</h3>}
               <ul class="cat__items">
                 {sub.items.map((item) => {
                   const _st = sottotitoloDi(item);
@@ -409,7 +409,7 @@ gruppi.forEach((g, i) => {
     <div class="brunch__scrim" aria-hidden="true"></div>
     <div class="brunch__fade" aria-hidden="true"></div>
     <div class="brunch__content">
-      <span class="brunch__script">un soir, un chef</span>
+      <span class="brunch__script">{en ? "one evening, one chef" : "un soir, un chef"}</span>
       <p class="brunch__text">
         <span class="brunch__lead">{en ? "One evening, one chef" : "Un soir, un chef"}</span>
         {en
@@ -421,7 +421,7 @@ gruppi.forEach((g, i) => {
   </section>
 
   <section class="boissons-band" id="vins" aria-label="les vins">
-    <span class="boissons-txt">les vins</span>
+    <span class="boissons-txt">{en ? "the wines" : "les vins"}</span>
     <p class="vins-credit">{en ? <Fragment>Thanks to <span class="vc-name">Eric Boschman</span> for his oh-so-Chouchou wine list</Fragment> : <Fragment>Merci à <span class="vc-name">Eric Boschman</span> pour sa carte de vins très Chouchou</Fragment>}</p>
   </section>
 
@@ -465,7 +465,7 @@ gruppi.forEach((g, i) => {
   </div>
 
   <section class="titre-band" id="boissons" aria-label="les boissons">
-    <span class="titre-band__txt">les boissons</span>
+    <span class="titre-band__txt">{en ? "the drinks" : "les boissons"}</span>
   </section>
 
   <div class="carte carte--autres">
@@ -526,7 +526,7 @@ gruppi.forEach((g, i) => {
     <div class="brunch__scrim" aria-hidden="true"></div>
     <div class="brunch__fade" aria-hidden="true"></div>
     <div class="brunch__content">
-      <span class="brunch__script">le brunch</span>
+      <span class="brunch__script">{en ? "the brunch" : "le brunch"}</span>
       <p class="brunch__text">
         <span class="brunch__lead">{en ? "A Chouchou Sunday" : "Un dimanche Chouchou"}</span>
         {en

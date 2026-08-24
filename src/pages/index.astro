@@ -14,7 +14,10 @@ import Tagline from "../components/Tagline.astro";
 import GalerieScroll from "../components/GalerieScroll.astro";
 import SuivezNous from "../components/SuivezNous.astro";
 import { siteImages, siteImg } from "../lib/siteImages";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 export const prerender = false;
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
 
 const IMGS = await siteImages();
 // Slots gérés par l'admin ; les fallbacks n'existent pas encore → retirés au
@@ -26,12 +29,12 @@ const SLIDES = [
 ];
 
 // Particularités mises en avant dès le hero (objectif : les rendre visibles).
-const ATOUTS = ["L'épicerie", "Un soir, un Chef", "Le brunch du dimanche"];
+const ATOUTS = en ? ["The grocery", "One evening, one chef", "Sunday brunch"] : ["L'épicerie", "Un soir, un Chef", "Le brunch du dimanche"];
 ---
 
 <Layout
   transparentHeader={true}
-  title="Comptoir Chouchou, restaurant & épicerie à Mont-Saint-Guibert"
+  title={en ? "Comptoir Chouchou, restaurant & grocery in Mont-Saint-Guibert" : "Comptoir Chouchou, restaurant & épicerie à Mont-Saint-Guibert"}
 >
   <section class="home-hero" id="home-hero">
     <!-- Base toujours présente : dégradé navy (état sans photo) -->
@@ -57,25 +60,28 @@ const ATOUTS = ["L'épicerie", "Un soir, un Chef", "Le brunch du dimanche"];
     <div class="hh-glow"></div>
 
     <div class="hh-inner">
-      <p class="hh-kicker">Restaurant &amp; épicerie <span class="nowrap">à Mont-Saint-Guibert</span></p>
+      <p class="hh-kicker">{en ? <Fragment>Restaurant &amp; grocery <span class="nowrap">in Mont-Saint-Guibert</span></Fragment> : <Fragment>Restaurant &amp; épicerie <span class="nowrap">à Mont-Saint-Guibert</span></Fragment>}</p>
       <h1 class="hh-title">
         <span class="hh-script">Comptoir</span>
         <span class="hh-word">Chouchou</span>
       </h1>
       <p class="hh-sub">
-        Une cuisine créative et faite maison,<br class="brm" /> portée par les
-        producteurs d'ici,<br class="brm" /> à la campagne, en Brabant wallon.
+        {en
+          ? <Fragment>Creative, homemade cooking,<br class="brm" /> driven by local
+        producers,<br class="brm" /> out in the countryside, in Walloon Brabant.</Fragment>
+          : <Fragment>Une cuisine créative et faite maison,<br class="brm" /> portée par les
+        producteurs d'ici,<br class="brm" /> à la campagne, en Brabant wallon.</Fragment>}
       </p>
 
-      <ul class="hh-atouts" aria-label="Nos particularités">
+      <ul class="hh-atouts" aria-label={en ? "Our highlights" : "Nos particularités"}>
         {ATOUTS.map((a) => <li class="hh-chip">{a}</li>)}
       </ul>
 
       <div class="hh-cta">
         <button type="button" class="hh-btn hh-btn-mag" data-reserver>
-          Réserver une table
+          {en ? "Book a table" : "Réserver une table"}
         </button>
-        <a href="/menu" class="hh-btn hh-btn-ghost">Découvrir la carte</a>
+        <a href={getLocalizedUrl("/menu", lang)} class="hh-btn hh-btn-ghost">{en ? "Discover the menu" : "Découvrir la carte"}</a>
       </div>
     </div>
 

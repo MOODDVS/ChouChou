@@ -11,7 +11,7 @@ const en = getLangFromUrl(Astro.url) === "en";
 <div class="resmod" id="resmod" aria-hidden="true">
   <div class="resmod__overlay" data-resmod-close></div>
   <div class="resmod__box" role="dialog" aria-modal="true" aria-label={en ? "Reservation" : "Réservation"}>
-    <iframe id="resmod-frame" title={en ? "Reservation, Comptoir Chouchou" : "Réservation, Comptoir Chouchou"} data-src="/reservation-embed"></iframe>
+    <iframe id="resmod-frame" title={en ? "Reservation, Comptoir Chouchou" : "Réservation, Comptoir Chouchou"} data-src={en ? "/reservation-embed?lang=en" : "/reservation-embed"}></iframe>
   </div>
   <button class="resmod__close" type="button" data-resmod-close>
     <svg viewBox="0 0 24 24" aria-hidden="true">
