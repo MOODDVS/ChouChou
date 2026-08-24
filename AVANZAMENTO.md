@@ -65,6 +65,14 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Pagine Ambiance e Jobs cancellate del tutto** (fr + en): `src/pages/ambiance.astro`, `src/pages/jobs.astro`, `src/pages/en/ambiance.astro`, `src/pages/en/jobs.astro`. I componenti legacy che le linkavano (CtaFinal/Story/Molise) non sono renderizzati nella home attuale, quindi nessun link rotto. (Restano riferimenti innocui in SitePopup/admin marketing.)
 - **Processi order nascosti ovunque** (« non lo farà adesso »): tolti gli ultimi entry point visibili — bottone « Commander » su `/links` e sul menu EN. Header/MobileNav/Footer/Carte erano già « masqué ». Le pagine /order, /order-confirm, /order-cancel restano ma non sono più raggiungibili da UI.
 
+### Sessione Links (QR) rebrand Chouchou (agosto 2026)
+- **Pagina /links + /en/links** rifatta nel brand Chouchou (fondo bianco, halo magenta tenue), contenuto condiviso in `src/components/LinksBoard.astro`. Prop `bare` su Layout.astro: nasconde header/footer/MobileNav (resta ReservationModal). Sfondo pagina forzato bianco (is:global) per coprire il tema scuro legacy; `min-height: 100dvh`.
+- **Logo app-icon**: `chouchou-navy-v.svg` in una card bianca ~96px, angoli 22px + drop shadow (translate fine per centrare il quadrato).
+- **Bottoni**: Réserver (magenta), Lunch et la carte, L'agenda, Laisser un avis. Avis → notazione a stelle: 1-3 → /feedback, 4-5 → avis Google.
+- **Selettore lingua**: pillola FISSA in basso a destra, sfondo magenta, lingue in bianco (selezionata piena, altra 40%).
+- **Tel + mappa**: pastiglia telefono (icona piena + numero), mappa Google interattiva (embed) con link « Itinéraire » (maps/dir depuis la position de l'utilisateur). Dati da datiRistorante().
+- **Stories eventi (stile Instagram)**: cerchi con bordo magenta e foto evento, sopra il logo, dai prossimi eventi con immagine. Fetch pubblica read-only `src/lib/agenda.ts` (tabella `agenda_events`). Click → viewer fullscreen con titolo + data centrati (nav sinistra/destra, Esc/frecce, ✕).
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.

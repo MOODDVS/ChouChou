@@ -14,8 +14,10 @@ interface Props {
   title?: string;
   transparentHeader?: boolean;
   lightHeader?: boolean;
+  hideMobileNav?: boolean;
+  bare?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true, lightHeader = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true, lightHeader = false, hideMobileNav = false, bare = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -413,12 +415,12 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     </style>
   </head>
   <body>
-    <Header transparent={transparentHeader} onLight={lightHeader} />
+    {!bare && <Header transparent={transparentHeader} onLight={lightHeader} />}
     <main>
       <slot />
     </main>
-    <Footer />
-    <MobileNav />
+    {!bare && <Footer />}
+    {!bare && !hideMobileNav && <MobileNav />}
     <ReservationModal />
     <SitePopup />
     <CookieBanner />

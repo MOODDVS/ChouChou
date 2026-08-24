@@ -1,0 +1,9 @@
+---
+import { CLIENT } from "../../config/client";
+import Layout from "../../layouts/Layout.astro";
+import LinksBoard from "../../components/LinksBoard.astro";
+---
+
+<Layout bare={true} title={`Links — ${CLIENT.nome}`}>
+  <LinksBoard />
+</Layout>

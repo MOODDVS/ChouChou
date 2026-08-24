@@ -1,0 +1,424 @@
+---
+import { CLIENT } from "../config/client";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { linksSocial, linkGoogleReview } from "../lib/links";
+import { datiRistorante } from "../lib/ristorante";
+import { getAgendaProchains } from "../lib/agenda";
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+const rawPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+const current = rawPath.replace(/^\/en/, "") || "/";
+
+const social = await linksSocial();
+const googleReview = await linkGoogleReview();
+const feedbackUrl = getLocalizedUrl("/feedback", lang);
+
+const dati = await datiRistorante();
+const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dati.nome + ", " + dati.indirizzo)}`;
+const mapEmbed = `https://www.google.com/maps?q=${encodeURIComponent(dati.nome + ", " + dati.indirizzo)}&output=embed`;
+
+// Stories = prossimi eventi CON immagine.
+function fmtDate(ds: string, de: string | null): string {
+  const loc = en ? "en-GB" : "fr-FR";
+  const d1 = new Date(ds + "T12:00:00");
+  const full = (d: Date) => d.toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+  if (!de || de === ds) return full(d1);
+  const d2 = new Date(de + "T12:00:00");
+  const sameMY = d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  if (sameMY) {
+    const my = d2.toLocaleDateString(loc, { month: "long", year: "numeric" });
+    return en ? `${d1.getDate()}–${d2.getDate()} ${my}` : `Du ${d1.getDate()} au ${d2.getDate()} ${my}`;
+  }
+  return en ? `${full(d1)} – ${full(d2)}` : `Du ${full(d1)} au ${full(d2)}`;
+}
+const eventi = await getAgendaProchains(12);
+const stories = eventi
+  .filter((e) => e.image_url)
+  .map((e) => ({
+    img: e.image_url as string,
+    title: (en ? e.title_i18n?.en ?? e.title : e.title) ?? e.title,
+    date: fmtDate(e.date_start, e.date_end),
+  }));
+
+const L = {
+  reserve: en ? "Book a table" : "Réserver une table",
+  carte: en ? "Lunch & menu" : "Lunch et la carte",
+  agenda: en ? "Events" : "L'agenda",
+  avis: en ? "Leave a review" : "Laisser un avis",
+  starsQ: en ? "How was your visit?" : "Comment s'est passée votre visite ?",
+};
+const STARS = [1, 2, 3, 4, 5];
+---
+
+<section class="lnk">
+  <div class="lnk-glow" aria-hidden="true"></div>
+  <div class="lnk-in">
+    {stories.length > 0 && (
+      <div class="lnk-stories" aria-label={en ? "Upcoming events" : "Prochains événements"}>
+        {stories.map((s, i) => (
+          <button type="button" class="lnk-story" data-i={i} data-img={s.img} data-title={s.title} data-date={s.date}>
+            <span class="lnk-story__ring"><img src={s.img} alt={s.title} loading="lazy" decoding="async" /></span>
+            <span class="lnk-story__label">{s.title}</span>
+          </button>
+        ))}
+      </div>
+    )}
+
+    <div class="lnk-appicon">
+      <img src="/SVG/chouchou-navy-v.svg" alt={CLIENT.nome} width="220" height="150" />
+    </div>
+
+    <div class="lnk-btns">
+      <button type="button" class="lnk-btn lnk-btn--mag" data-reserver>{L.reserve}</button>
+      <a href={getLocalizedUrl("/menu", lang)} class="lnk-btn lnk-btn--out">{L.carte}</a>
+      <a href={getLocalizedUrl("/agenda", lang)} class="lnk-btn lnk-btn--out">{L.agenda}</a>
+      {googleReview && (
+        <button type="button" class="lnk-btn lnk-btn--out" id="lnk-avis" aria-expanded="false" aria-controls="lnk-stars">{L.avis}</button>
+      )}
+    </div>
+
+    {googleReview && (
+      <div class="lnk-stars" id="lnk-stars" hidden data-google={googleReview} data-feedback={feedbackUrl}>
+        <p class="lnk-stars__q">{L.starsQ}</p>
+        <div class="lnk-stars__row" role="group" aria-label="Note">
+          {STARS.map((n) => (
+            <button type="button" class="lnk-star" data-n={n} aria-label={n + " / 5"}>★</button>
+          ))}
+        </div>
+      </div>
+    )}
+
+    <div class="lnk-map">
+      <iframe class="lnk-map__frame" src={mapEmbed} title={en ? "Map to the restaurant" : "Carte vers le restaurant"} loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+      <a class="lnk-map__dir" href={mapUrl} target="_blank" rel="noopener">{en ? "Get directions" : "Itinéraire"} →</a>
+    </div>
+
+    <a class="lnk-tel" href={`tel:${dati.telLink}`}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .8-.3 1L6.6 10.8z"/></svg>
+      <span>{dati.tel}</span>
+    </a>
+
+    {social.length > 0 && (
+      <div class="lnk-social">
+        {social.map((s) => (
+          <a href={s.url} target="_blank" rel="noopener" aria-label={s.label} set:html={s.icon} />
+        ))}
+      </div>
+    )}
+  </div>
+
+  <div class="lnk-lang" aria-label="Langue">
+    <a href={getLocalizedUrl(current, "fr")} class={"lnk-lang__l" + (lang === "fr" ? " on" : "")}>FR</a>
+    <span class="lnk-lang__sep">|</span>
+    <a href={getLocalizedUrl(current, "en")} class={"lnk-lang__l" + (lang === "en" ? " on" : "")}>EN</a>
+  </div>
+
+  {stories.length > 0 && (
+    <div class="lnk-viewer" id="lnk-viewer" hidden aria-hidden="true">
+      <div class="lnk-viewer__img" id="lnk-viewer-img"></div>
+      <div class="lnk-viewer__scrim" aria-hidden="true"></div>
+      <div class="lnk-viewer__text">
+        <p class="lnk-viewer__title" id="lnk-viewer-title"></p>
+        <p class="lnk-viewer__date" id="lnk-viewer-date"></p>
+      </div>
+      <button class="lnk-viewer__nav lnk-viewer__prev" id="lnk-viewer-prev" type="button" aria-label={en ? "Previous" : "Précédent"}></button>
+      <button class="lnk-viewer__nav lnk-viewer__next" id="lnk-viewer-next" type="button" aria-label={en ? "Next" : "Suivant"}></button>
+      <button class="lnk-viewer__close" id="lnk-viewer-close" type="button" aria-label={en ? "Close" : "Fermer"}>✕</button>
+    </div>
+  )}
+</section>
+
+<style is:global>
+  html, body { background: #ffffff; }
+</style>
+
+<style>
+  .lnk {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: hidden;
+    text-align: center;
+    background: #ffffff;
+    padding: clamp(2.5rem, 7vh, 4.5rem) 1.5rem clamp(3rem, 8vh, 5rem);
+  }
+  .lnk-glow {
+    position: absolute;
+    left: 50%;
+    top: 26%;
+    width: 620px;
+    height: 620px;
+    max-width: 130vw;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.1) 0%, rgba(237, 34, 137, 0) 60%);
+    pointer-events: none;
+  }
+  .lnk-in { position: relative; z-index: 1; width: 100%; max-width: 420px; margin: 0 auto; }
+
+  /* --- Stories (événements à venir) --- */
+  .lnk-stories {
+    display: flex;
+    gap: 0.9rem;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 0.2rem 0.4rem;
+    margin: 0 0 1.6rem;
+    scrollbar-width: none;
+  }
+  .lnk-stories::-webkit-scrollbar { display: none; }
+  .lnk-stories:only-child, .lnk-stories { justify-content: safe center; }
+  .lnk-story {
+    flex: 0 0 auto;
+    width: 76px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .lnk-story__ring {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    padding: 3px;
+    background: var(--mag);
+    display: block;
+  }
+  .lnk-story__ring img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ffffff;
+    box-sizing: border-box;
+    display: block;
+  }
+  .lnk-story__label {
+    max-width: 76px;
+    font-family: var(--font-body);
+    font-size: 0.68rem;
+    color: var(--navy);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lnk-appicon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(84px, 24vw, 104px);
+    height: clamp(84px, 24vw, 104px);
+    padding: 12px;
+    background: #ffffff;
+    border-radius: 22px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
+    margin: 0 auto clamp(1.6rem, 4vw, 2.4rem);
+  }
+  .lnk-appicon img { width: 100%; height: 100%; object-fit: contain; display: block; transform: translate(-2px, -3px); }
+
+  .lnk-lang {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 150;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.5rem 0.95rem;
+    background: var(--mag);
+    border-radius: 999px;
+    box-shadow: 0 6px 20px rgba(237, 34, 137, 0.35);
+    font-family: var(--font-title);
+    font-size: 0.85rem;
+  }
+  .lnk-lang__l { text-decoration: none; color: #ffffff; font-weight: 600; opacity: 0.4; transition: opacity 0.15s ease; }
+  .lnk-lang__l.on { font-weight: 700; opacity: 1; }
+  .lnk-lang__l:not(.on):hover { opacity: 0.75; }
+  .lnk-lang__sep { color: #ffffff; opacity: 0.4; }
+
+  .lnk-btns { display: flex; flex-direction: column; gap: 0.85rem; }
+  .lnk-btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 1.05rem 1.2rem;
+    border: none;
+    border-radius: 12px;
+    font-family: var(--font-title);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .lnk-btn--mag { background: var(--mag); color: #ffffff; }
+  .lnk-btn--mag:hover { background: #c8176f; transform: translateY(-2px); }
+  .lnk-btn--out { background: transparent; color: var(--navy); box-shadow: inset 0 0 0 1.5px rgba(53, 60, 78, 0.28); }
+  .lnk-btn--out:hover { background: var(--navy); color: #ffffff; transform: translateY(-2px); }
+
+  .lnk-stars { margin-top: 1.3rem; }
+  .lnk-stars__q { font-family: var(--font-body); font-size: 0.95rem; color: rgba(53, 60, 78, 0.7); margin: 0 0 0.6rem; }
+  .lnk-stars__row { display: flex; justify-content: center; gap: 0.35rem; }
+  .lnk-star { background: none; border: none; cursor: pointer; padding: 0.2rem; font-size: 2rem; line-height: 1; color: rgba(53, 60, 78, 0.22); transition: color 0.12s ease, transform 0.12s ease; }
+  .lnk-star.hot { color: var(--mag); }
+  .lnk-star:hover { transform: scale(1.12); }
+
+  .lnk-map { margin-top: 2rem; }
+  .lnk-map__frame { display: block; width: 100%; height: 200px; border: 1.5px solid rgba(53, 60, 78, 0.28); border-radius: 14px; }
+  .lnk-map__dir { display: inline-block; margin-top: 0.7rem; font-family: var(--font-title); font-weight: 700; font-size: 0.9rem; color: var(--mag); text-decoration: none; }
+  .lnk-map__dir:hover { text-decoration: underline; }
+
+  .lnk-tel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 1.4rem;
+    padding: 0.7rem 1.3rem;
+    border-radius: 999px;
+    text-decoration: none;
+    color: var(--navy);
+    font-family: var(--font-title);
+    font-weight: 700;
+    font-size: 1rem;
+    box-shadow: inset 0 0 0 1.5px rgba(53, 60, 78, 0.28);
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .lnk-tel svg { width: 20px; height: 20px; color: var(--mag); }
+  .lnk-tel:hover { background: var(--navy); color: #ffffff; box-shadow: none; transform: translateY(-2px); }
+  .lnk-tel:hover svg { color: #ffffff; }
+
+  .lnk-social { display: flex; justify-content: center; gap: 1.4rem; margin-top: 1.8rem; }
+  .lnk-social a { color: var(--navy); transition: color 0.2s ease, transform 0.2s ease; }
+  .lnk-social a:hover { color: var(--mag); transform: scale(1.08); }
+  .lnk-social a :global(svg) { width: 26px; height: 26px; display: block; }
+
+  /* --- Viewer plein écran (stories) --- */
+  .lnk-viewer { position: fixed; inset: 0; z-index: 200; background: #000; }
+  .lnk-viewer[hidden] { display: none; }
+  .lnk-viewer__img { position: absolute; inset: 0; background-size: cover; background-position: center; }
+  .lnk-viewer__scrim { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.15) 40%, rgba(0,0,0,0.6) 100%); }
+  .lnk-viewer__text {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    pointer-events: none;
+  }
+  .lnk-viewer__title {
+    font-family: var(--font-title);
+    font-weight: 700;
+    color: #ffffff;
+    font-size: clamp(1.7rem, 6vw, 2.8rem);
+    line-height: 1.15;
+    margin: 0 0 0.7rem;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.55);
+    max-width: 16em;
+  }
+  .lnk-viewer__date {
+    font-family: var(--font-body);
+    color: rgba(255,255,255,0.92);
+    font-size: clamp(1rem, 3.4vw, 1.25rem);
+    margin: 0;
+    text-shadow: 0 2px 18px rgba(0,0,0,0.55);
+  }
+  .lnk-viewer__nav { position: absolute; top: 0; bottom: 0; width: 35%; z-index: 3; background: none; border: none; cursor: pointer; }
+  .lnk-viewer__prev { left: 0; }
+  .lnk-viewer__next { right: 0; }
+  .lnk-viewer__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 4;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255,255,255,0.18);
+    color: #ffffff;
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .lnk-viewer__close:hover { background: rgba(255,255,255,0.32); }
+</style>
+
+<script>
+  (() => {
+    // Notation étoiles
+    const avis = document.getElementById("lnk-avis");
+    const box = document.getElementById("lnk-stars");
+    if (box) {
+      const stars = Array.from(box.querySelectorAll<HTMLElement>(".lnk-star"));
+      avis?.addEventListener("click", () => {
+        box.hidden = false;
+        avis.setAttribute("aria-expanded", "true");
+        box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+      const paint = (idx: number) => stars.forEach((el, i) => el.classList.toggle("hot", i <= idx));
+      stars.forEach((el, i) => {
+        el.addEventListener("mouseenter", () => paint(i));
+        el.addEventListener("focus", () => paint(i));
+        el.addEventListener("click", () => {
+          const google = box.getAttribute("data-google");
+          const feedback = box.getAttribute("data-feedback") || "/feedback";
+          window.location.href = i + 1 >= 4 && google ? google : feedback;
+        });
+      });
+      box.querySelector(".lnk-stars__row")?.addEventListener("mouseleave", () => paint(-1));
+    }
+
+    // Stories plein écran
+    const btns = Array.from(document.querySelectorAll<HTMLElement>(".lnk-story"));
+    const viewer = document.getElementById("lnk-viewer");
+    if (btns.length && viewer) {
+      const imgEl = document.getElementById("lnk-viewer-img") as HTMLElement;
+      const titleEl = document.getElementById("lnk-viewer-title") as HTMLElement;
+      const dateEl = document.getElementById("lnk-viewer-date") as HTMLElement;
+      const items = btns.map((b) => ({ img: b.dataset.img || "", title: b.dataset.title || "", date: b.dataset.date || "" }));
+      let idx = 0;
+      const show = (i: number) => {
+        if (i >= items.length) { closeV(); return; }
+        idx = Math.max(0, i);
+        const it = items[idx];
+        imgEl.style.backgroundImage = `url("${it.img.replace(/"/g, '%22')}")`;
+        titleEl.textContent = it.title;
+        dateEl.textContent = it.date;
+      };
+      const openV = (i: number) => {
+        show(i);
+        viewer.hidden = false;
+        viewer.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      };
+      const closeV = () => {
+        viewer.hidden = true;
+        viewer.setAttribute("aria-hidden", "true");
+        document.body.style.overflow = "";
+      };
+      btns.forEach((b, i) => b.addEventListener("click", () => openV(i)));
+      document.getElementById("lnk-viewer-close")?.addEventListener("click", closeV);
+      document.getElementById("lnk-viewer-next")?.addEventListener("click", () => show(idx + 1));
+      document.getElementById("lnk-viewer-prev")?.addEventListener("click", () => show(idx - 1));
+      document.addEventListener("keydown", (e) => {
+        if (viewer.hidden) return;
+        if (e.key === "Escape") closeV();
+        else if (e.key === "ArrowRight") show(idx + 1);
+        else if (e.key === "ArrowLeft") show(idx - 1);
+      });
+    }
+  })();
+</script>
