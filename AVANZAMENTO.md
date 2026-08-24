@@ -60,6 +60,11 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **Épicerie, sezione « Nos découvertes »**: dopo la presentazione, bandeau animato « Nos découvertes ✦ *l'épicerie* ✦ » (come il marquee dell'agenda) + galleria masonry 12 prodotti/4 colonne.
 - **Épicerie, « Nos marques »**: titolo + testo centrati e griglia loghi (7 marchi in `public/logos/`: Baru, Délehaut, Le Creuset, Dandoy, Manucurist, Autre Thé, Cuberdons Léopold). Card piene (immagine edge-to-edge, aspect 400/260), radius 10px, ombra 5%. Ordine rimescolato a ogni ricarica (Fisher-Yates lato client) + fade-in lento/asincrono/casuale al scroll (IntersectionObserver, delay random). Rispetta reduced-motion.
 
+### Sessione pulizia pagine + header langue (agosto 2026)
+- **Selettore lingua header ridisegnato** (Header.astro): globo centrato in alto nel blocco navy, sotto « FR | EN » — lingua selezionata bianco grassetto, l'altra bianco 33% (separatore 33%). Tolto il vecchio dropdown (button + menu + JS).
+- **Pagine Ambiance e Jobs cancellate del tutto** (fr + en): `src/pages/ambiance.astro`, `src/pages/jobs.astro`, `src/pages/en/ambiance.astro`, `src/pages/en/jobs.astro`. I componenti legacy che le linkavano (CtaFinal/Story/Molise) non sono renderizzati nella home attuale, quindi nessun link rotto. (Restano riferimenti innocui in SitePopup/admin marketing.)
+- **Processi order nascosti ovunque** (« non lo farà adesso »): tolti gli ultimi entry point visibili — bottone « Commander » su `/links` e sul menu EN. Header/MobileNav/Footer/Carte erano già « masqué ». Le pagine /order, /order-confirm, /order-cancel restano ma non sono più raggiungibili da UI.
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.

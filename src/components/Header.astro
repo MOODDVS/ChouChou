@@ -70,18 +70,16 @@ const primaryUrl =
     </button>
 
     <!-- Langue (bloc navy) -->
-    <div class="clang" id="clang">
-      <button class="clang-btn" id="clang-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Langue">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="9"></circle>
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"></path>
-        </svg>
-        <span>{lang.toUpperCase()}</span><span class="cv">▾</span>
-      </button>
-      <div class="clang-menu">
-        <a href={getLocalizedUrl(current, "fr")} class={lang === "fr" ? "on" : ""}>Français</a>
-        <a href={getLocalizedUrl(current, "en")} class={lang === "en" ? "on" : ""}>English</a>
+    <div class="clang">
+      <svg class="clang-globe" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"></circle>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"></path>
+      </svg>
+      <div class="clang-langs">
+        <a href={getLocalizedUrl(current, "fr")} class={"clang-l" + (lang === "fr" ? " on" : "")}>FR</a>
+        <span class="clang-sep">|</span>
+        <a href={getLocalizedUrl(current, "en")} class={"clang-l" + (lang === "en" ? " on" : "")}>EN</a>
       </div>
     </div>
 
@@ -249,49 +247,28 @@ const primaryUrl =
   .cbtn-res:hover { background: var(--magd); }
 
   /* Langue (bloc navy autonome) */
-  .clang { position: relative; display: flex; }
-  .clang-btn {
-    width: 100%;
-    height: 100%;
+  .clang {
     background: var(--navy);
-    color: #fff;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 5px;
+    padding: 0 16px;
+  }
+  .clang-globe { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; }
+  .clang-langs {
+    display: flex;
+    align-items: center;
     gap: 7px;
-    padding: 0 14px;
-    cursor: pointer;
-    border: none;
     font-family: var(--font-title);
-    font-weight: 600;
-    font-size: 0.82rem;
+    font-size: 0.78rem;
+    line-height: 1;
   }
-  .clang-btn:hover { background: var(--navd); }
-  .clang-btn svg { width: 16px; height: 16px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; }
-  .clang-btn .cv { font-size: 0.62rem; color: var(--mag); }
-  .clang-menu {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    min-width: 140px;
-    background: #fff;
-    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
-    padding: 6px;
-    display: none;
-    z-index: 60;
-  }
-  .clang.open .clang-menu { display: block; }
-  .clang-menu a {
-    display: block;
-    padding: 8px 12px;
-    color: var(--navy);
-    text-decoration: none;
-    font-family: var(--font-title);
-    font-weight: 600;
-    font-size: 0.88rem;
-  }
-  .clang-menu a:hover { background: #f3f0f6; color: var(--mag); }
-  .clang-menu a.on { color: var(--mag); }
+  .clang-l { text-decoration: none; color: #fff; font-weight: 600; opacity: 0.33; transition: opacity 0.15s ease; }
+  .clang-l.on { font-weight: 700; opacity: 1; }
+  .clang-l:not(.on):hover { opacity: 0.7; }
+  .clang-sep { color: #fff; opacity: 0.33; font-size: 0.78rem; }
 
   /* Badge social circulaire : « SUIVEZ-NOUS » tourne autour des icônes IG⇄FB centrées */
   .csoc {
@@ -377,19 +354,6 @@ const primaryUrl =
 </style>
 
 <script>
-  // Dropdown langue (icône globe)
-  const langBox = document.getElementById("clang");
-  const langBtn = document.getElementById("clang-btn");
-  langBtn?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const open = langBox?.classList.toggle("open");
-    langBtn.setAttribute("aria-expanded", open ? "true" : "false");
-  });
-  document.addEventListener("click", () => {
-    langBox?.classList.remove("open");
-    langBtn?.setAttribute("aria-expanded", "false");
-  });
-
   // Fond du header au scroll (uniquement en mode transparent / home)
   const hdr = document.querySelector(".chdr.is-transparent");
   if (hdr) {

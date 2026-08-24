@@ -18,7 +18,7 @@ const googleReview = await linkGoogleReview();
 
     <div class="lnk-btns">
       <button type="button" class="lnk-btn" data-reserver>Réserver</button>
-      <a href="/order" class="lnk-btn">Commander</a>
+      {/* Commander masqué pour le moment */}
       <a href="/menu" class="lnk-btn">Notre Carte</a>
       {googleReview && (
         <a href={googleReview} target="_blank" rel="noopener" class="lnk-btn">
