@@ -20,27 +20,28 @@ import { CLIENT } from "../../config/client";
       href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@300;400;700;900&family=Quicksand:wght@400;500;600;700&display=swap"
     />
     <style is:global>
-      :root { --font-title: "Quicksand", system-ui, sans-serif; --font-body: "Lato", system-ui, sans-serif; --font-script: "Birthstone", cursive; }
+      :root { --font-title: "Quicksand", system-ui, sans-serif; --font-body: "Lato", system-ui, sans-serif; --font-script: "Birthstone", cursive; --navy: #353c4e; --mag: #ed2289; --ivory: #f7f4ee; }
       * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; background: #231f20; color: #fff; font-family: var(--font-body); }
-      .page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; }
-      .rw { background: #231f20; border: 1px solid #3a3335; border-radius: 14px; padding: 2rem 1.6rem; width: 100%; max-width: 440px; text-align: center; }
-      .rw-claim { color: #dfab4e; font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; margin: 0 0 0.35rem; }
-      .rw-title { font-family: var(--font-title); font-weight: 400; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
-      .rw-loading { color: #b3aca6; font-size: 0.9rem; padding: 1.5rem 0; }
-      .rw-recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: #1c1819; border: 1px solid #3a3335; border-radius: 8px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
+      html, body { margin: 0; padding: 0; background: #23283a; color: var(--ivory); font-family: var(--font-body); }
+      .page { position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; overflow: hidden; background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%); }
+      .page::before { content: ""; position: absolute; left: 50%; top: 42%; width: 620px; height: 620px; max-width: 130vw; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(237, 34, 137, 0.18) 0%, rgba(237, 34, 137, 0) 62%); pointer-events: none; }
+      .rw { position: relative; z-index: 1; background: #353c4e; border: 1px solid #454b5e; border-radius: 14px; padding: 2rem 1.6rem; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 22px 60px rgba(20, 23, 33, 0.4); }
+      .rw-claim { color: var(--mag); font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; font-weight: 700; margin: 0 0 0.4rem; }
+      .rw-title { font-family: var(--font-title); font-weight: 500; color: #fff; font-size: 1.4rem; margin: 0 0 1.3rem; }
+      .rw-loading { color: #aeb3c1; font-size: 0.9rem; padding: 1.5rem 0; }
+      .rw-recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; background: #2f3547; border: 1px solid #454b5e; border-radius: 10px; padding: 0.9rem 0.6rem; margin: 0 0 1.4rem; }
       .rw-recap > div { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
-      .rw-rc-lab { color: #b3aca6; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
-      .rw-rc-val { color: #dfab4e; font-size: 0.95rem; font-weight: 700; }
-      .rw-btn { width: 100%; background: #dfab4e; color: #231f20; border: 1px solid #dfab4e; font-family: var(--font-title); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.8rem 0; cursor: pointer; border-radius: 8px; transition: background 0.2s, color 0.2s; }
-      .rw-btn:hover { background: transparent; color: #dfab4e; }
+      .rw-rc-lab { color: #aeb3c1; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; }
+      .rw-rc-val { color: var(--mag); font-size: 0.95rem; font-weight: 700; }
+      .rw-btn { width: 100%; background: var(--mag); color: #fff; border: 1px solid var(--mag); font-family: var(--font-title); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.92rem; padding: 0.85rem 0; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s; }
+      .rw-btn:hover { background: transparent; color: var(--mag); }
       .rw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-      .rw-btn-danger { background: #b3352f; border-color: #b3352f; color: #fff; }
-      .rw-btn-danger:hover { background: transparent; color: #ff8a8f; border-color: #ff8a8f; }
-      .rw-msg { color: #b3aca6; font-size: 0.9rem; line-height: 1.6; margin: 0.6rem 0 0; }
-      .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: #dfab4e; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 0.6rem; }
-      .rw-err { color: #ff8a8f; font-size: 0.85rem; margin: 0.8rem 0 0; min-height: 1em; }
-      .rw-book { display: inline-block; margin-top: 1.1rem; color: #dfab4e; font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; }
+      .rw-btn-danger { background: #c23b52; border-color: #c23b52; color: #fff; }
+      .rw-btn-danger:hover { background: transparent; color: #ff9db6; border-color: #ff9db6; }
+      .rw-msg { color: #c9cdd8; font-size: 0.9rem; line-height: 1.6; margin: 0.6rem 0 0; }
+      .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: var(--mag); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 0.6rem; }
+      .rw-err { color: #ff9db6; font-size: 0.85rem; margin: 0.8rem 0 0; min-height: 1em; }
+      .rw-book { display: inline-block; margin-top: 1.1rem; color: var(--mag); font-size: 0.82rem; text-decoration: underline; text-underline-offset: 2px; }
       .rw-book:hover { color: #fff; }
     </style>
   </head>
@@ -65,7 +66,7 @@ import { CLIENT } from "../../config/client";
         <div id="rw-done-box" style="display:none">
           <svg class="rw-done-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="8 12.5 11 15.5 16 9.5" /></svg>
           <p class="rw-msg" id="rw-done-msg"></p>
-          <a class="rw-book" id="rw-book" href="/reservation-test"></a>
+          <a class="rw-book" id="rw-book" href="/reservation"></a>
         </div>
 
         <div id="rw-invalid-box" style="display:none">
