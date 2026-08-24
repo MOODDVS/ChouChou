@@ -78,6 +78,14 @@ Font: Quicksand (titoli/link), Lato (testi), Birthstone (corsivo d'enfasi).
 - **i18n nomi lunch**: `getLunchAttivo` legge anche `name_i18n` (con fallback), così i piatti del lunch presi dal menu escono tradotti sul sito EN. `menu.astro`: nome del piatto lunch localizzato (`pt.name_i18n?.en`).
 - **Da portare nel motore MOODD-Admin**: nel modale « Ajouter un lunch », campo EN accanto a « plat hors menu » e salvataggio come `free:FR||EN` (la parte pubblica è già pronta a leggerlo).
 
+### Sessione Sito in inglese (agosto 2026)
+- **Architettura EN**: le pagine `/en/*` sono ora dei **wrapper** che renderizzano la pagina FR (bilingue), che rileva `lang=en` dall'URL. Una sola fonte per pagina, niente più copie La Molisana. Wrapper creati: en/index, en/menu, en/contact, en/epicerie, en/agenda, en/privacy, en/cookies, en/feedback. (en/links già faceva da wrapper di LinksBoard.)
+- **Bilingui aggiunti**: `epicerie.astro` (hero, presentazione, bottoni, marquee « Nos découvertes/Our finds », « Nos marques/Our brands »), `agenda.astro` (placeholder), componente `SuivezNous.astro` (home), `menu.astro` (credito vini « Merci à Eric Boschman », label qnav Carte/Vins/Boissons → Menu/Wines/Drinks). `feedback.astro`: rileva l'inglese anche dal path `/en/feedback` (oltre a `?lang=`).
+- **Selettore lingua**: già collegato via `getLocalizedUrl` (header + pillola pagina Links). Ora /en/* mostra davvero l'inglese.
+- I titoli-banda in script (le lunch, à la carte, les vins, les boissons, l'épicerie) restano volutamente in francese come elemento di brand anche sul sito EN.
+- Pagine order/* EN restano legacy (flusso ordini nascosto).
+- **NOTA**: la build non è verificabile in questo ambiente (node_modules per macOS, manca il binario rollup Linux). Il pattern « pagina importata come componente » va provato sul dev server del Mac (/en/menu, /en, ecc.).
+
 ## Da fare
 - Hero: caricare le foto reali dall'admin (Réglages/Assets > Site > gruppo "Hero (diaporama)"). Finché non ci sono, resta lo sfondo navy.
 - Sezioni sotto l'hero: histoire (2021→apertura 15/10/2023), cucina creativa/fait maison, épicerie, "Un soir, un Chef", brunch dominical, nos producteurs (lista fornitori), presse & reconnaissances (Gault&Millau, Collège Culinaire, Eurotoques, Edenred Best Lunch…), carte finali.

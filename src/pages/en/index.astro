@@ -1,6 +1,8 @@
 ---
-// Template: la home EN reindirizza alla coming soon finché il sito
-// pubblico non viene attivato per il cliente.
+// Version EN de /index : rend la page FR (bilingue) avec lang=en (détectée par
+// l'URL /en/...). Source unique par page, pas de duplication.
+import FrPage from "../index.astro";
 export const prerender = false;
-return Astro.redirect("/", 302);
 ---
+
+<FrPage />

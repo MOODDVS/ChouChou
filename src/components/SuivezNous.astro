@@ -3,17 +3,19 @@
 // Les réseaux (URL + icône) viennent de l'admin via linksSocial() : mêmes
 // liens que le header et le footer, seuls ceux qui sont renseignés s'affichent.
 import { linksSocial } from "../lib/links";
+import { getLangFromUrl } from "../i18n/ui";
 const social = await linksSocial();
+const en = getLangFromUrl(Astro.url) === "en";
 ---
 
 <section class="suiv" data-reveal>
   <div class="suiv-in">
-    <p class="suiv-script">Restons en contact,</p>
-    <h2 class="suiv-title">suivez Chouchou</h2>
+    <p class="suiv-script">{en ? "Let's keep in touch," : "Restons en contact,"}</p>
+    <h2 class="suiv-title">{en ? "follow Chouchou" : "suivez Chouchou"}</h2>
     <p class="suiv-sub">
-      Les plats du jour, les rendez-vous « Un soir, un Chef », le brunch du
-      dimanche et les coulisses de l'épicerie, retrouvez tout ça au quotidien
-      sur nos réseaux.
+      {en
+        ? "The daily specials, the \"One evening, one chef\" events, the Sunday brunch and behind the scenes of the grocery — find it all, day to day, on our socials."
+        : "Les plats du jour, les rendez-vous « Un soir, un Chef », le brunch du dimanche et les coulisses de l'épicerie, retrouvez tout ça au quotidien sur nos réseaux."}
     </p>
 
     {social.length > 0 && (
@@ -25,7 +27,7 @@ const social = await linksSocial();
               href={s.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={"Suivre Chouchou sur " + s.label}
+              aria-label={(en ? "Follow Chouchou on " : "Suivre Chouchou sur ") + s.label}
             >
               <span class="suiv-ico" set:html={s.icon}></span>
               <span class="suiv-lbl">{s.label}</span>

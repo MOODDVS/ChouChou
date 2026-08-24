@@ -1,0 +1,8 @@
+---
+// Version EN de /feedback : rend la page FR (bilingue) avec lang=en (détectée par
+// l'URL /en/...). Source unique par page, pas de duplication.
+import FrPage from "../feedback.astro";
+export const prerender = false;
+---
+
+<FrPage />

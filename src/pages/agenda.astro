@@ -3,20 +3,24 @@
 // réel (rendez-vous, «Un soir, un Chef», brunchs du dimanche, événements)
 // sera ajouté ensuite. Reliée au menu (Header + MobileNav) via /agenda.
 import Layout from "../layouts/Layout.astro";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 export const prerender = false;
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
 ---
 
-<Layout title="Agenda, Comptoir Chouchou">
+<Layout title={(en ? "Events" : "Agenda") + ", Comptoir Chouchou"}>
   <section class="ph">
     <div class="ph-glow"></div>
     <div class="ph-in">
       <p class="ph-script">Comptoir</p>
-      <h1 class="ph-title">L'agenda</h1>
+      <h1 class="ph-title">{en ? "Events" : "L'agenda"}</h1>
       <p class="ph-sub">
-        Nos rendez-vous, «&nbsp;Un soir, un Chef&nbsp;», brunchs du dimanche
-        et événements. Cette page arrive très bientôt.
+        {en
+          ? "Our events, \"One evening, one chef\" nights, Sunday brunches and more. This page is coming very soon."
+          : "Nos rendez-vous, « Un soir, un Chef », brunchs du dimanche et événements. Cette page arrive très bientôt."}
       </p>
-      <a class="ph-btn" href="/">Retour à l'accueil</a>
+      <a class="ph-btn" href={getLocalizedUrl("/", lang)}>{en ? "Back to home" : "Retour à l'accueil"}</a>
     </div>
   </section>
 </Layout>

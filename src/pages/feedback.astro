@@ -18,7 +18,9 @@ const email = (url.searchParams.get("email") ?? "").slice(0, 200);
 const phone = (url.searchParams.get("phone") ?? "").slice(0, 60);
 const LANGS = ["fr", "en", "it", "nl", "es"];
 const langRaw = (url.searchParams.get("lang") ?? "fr").toLowerCase();
-const lang = LANGS.includes(langRaw) ? langRaw : "fr";
+// /en/feedback (prefisso path) forza l'inglese; altrimenti ?lang= (fr/it/nl/es).
+const pathEn = url.pathname.split("/")[1] === "en";
+const lang = pathEn ? "en" : (LANGS.includes(langRaw) ? langRaw : "fr");
 
 const { data: cfgBrand } = await supabaseAdmin
   .from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();

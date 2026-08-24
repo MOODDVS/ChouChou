@@ -5,7 +5,25 @@
 // (site_disc_epicerie). Version EN à faire plus tard (/en/epicerie).
 import Layout from "../layouts/Layout.astro";
 import { siteImages, siteImg } from "../lib/siteImages";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 export const prerender = false;
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+const L = {
+  title: en ? "Grocery" : "L'épicerie",
+  heroSub: en ? "A selection of gourmet, quality products to discover on site and take home." : "Une sélection de produits gourmands et de qualité, à découvrir sur place et à emporter chez vous.",
+  lead: en ? "At Comptoir Chouchou, the pleasure of the table goes beyond the plate." : "Chez Comptoir Chouchou, le plaisir de la table se prolonge au-delà de l'assiette.",
+  p1: en ? "We offer for sale a selection of original, quality products, chosen with the same curiosity and care that guide our cooking." : "Nous proposons à la vente une sélection de produits originaux et de qualité, choisis avec la même curiosité et la même exigence que celles qui guident notre cuisine.",
+  p2: en ? "All these products are available directly at the restaurant. Come and discover them, ask the team for advice and leave with your favourites." : "Tous ces produits sont proposés directement au restaurant. Passez les découvrir, demandez conseil à l'équipe et repartez avec vos coups de cœur.",
+  reserve: en ? "Book a table" : "Réserver une table",
+  find: en ? "Find us" : "Nous trouver",
+  discWord: en ? "Our finds" : "Nos découvertes",
+  discScript: en ? "the grocery" : "l'épicerie",
+  brandsTitle: en ? "Our brands" : "Nos marques",
+  brandsLead: en ? "A selection of houses and artisans we love, from sweet to savoury, from the table to the object, to be found on our shelves." : "Une sélection de maisons et d'artisans que nous aimons, du sucré au salé, de la table à l'objet, à retrouver sur nos étagères.",
+  photoAlt: en ? "Comptoir Chouchou grocery" : "L'épicerie du Comptoir Chouchou",
+};
 
 const IMGS = await siteImages();
 const HERO_FOTO = siteImg(IMGS, "site_epicerie_hero", IMGS["site_disc_epicerie"] || IMGS["site_resto_photo"] || "");
@@ -29,7 +47,7 @@ const MARQUES = [
 ];
 ---
 
-<Layout title="L'épicerie, Comptoir Chouchou">
+<Layout title={L.title + ", Comptoir Chouchou"}>
   <div class="chou">
   <section class="ep-hero">
     <div class="ep-hero__bg" aria-hidden="true"></div>
@@ -37,25 +55,25 @@ const MARQUES = [
     <div class="ep-hero__overlay" aria-hidden="true"></div>
     <div class="ep-hero__glow" aria-hidden="true"></div>
     <div class="ep-hero__inner">
-      <h1 class="ep-hero__title">L'épicerie</h1>
-      <p class="ep-hero__sub">Une sélection de produits gourmands et de qualité, à découvrir sur place et à emporter chez vous.</p>
+      <h1 class="ep-hero__title">{L.title}</h1>
+      <p class="ep-hero__sub">{L.heroSub}</p>
     </div>
   </section>
 
   <section class="ep-body">
     <div class={"ep" + (EP_FOTO ? "" : " ep--solo")}>
       <div class="ep-text">
-        <p class="ep-lead">Chez Comptoir Chouchou, le plaisir de la table se prolonge au-delà de l'assiette.</p>
-        <p>Nous proposons à la vente une sélection de produits originaux et de qualité, choisis avec la même curiosité et la même exigence que celles qui guident notre cuisine.</p>
-        <p>Tous ces produits sont proposés directement au restaurant. Passez les découvrir, demandez conseil à l'équipe et repartez avec vos coups de cœur.</p>
+        <p class="ep-lead">{L.lead}</p>
+        <p>{L.p1}</p>
+        <p>{L.p2}</p>
         <div class="ep-cta">
-          <button type="button" class="ep-btn ep-btn--mag" data-reserver>Réserver une table</button>
-          <a class="ep-btn ep-btn--out" href="/contact">Nous trouver</a>
+          <button type="button" class="ep-btn ep-btn--mag" data-reserver>{L.reserve}</button>
+          <a class="ep-btn ep-btn--out" href={getLocalizedUrl("/contact", lang)}>{L.find}</a>
         </div>
       </div>
       {EP_FOTO && (
         <figure class="ep-photo">
-          <img src={EP_FOTO} alt="L'épicerie du Comptoir Chouchou" loading="lazy" decoding="async" onerror="this.closest('.ep-photo').remove()" />
+          <img src={EP_FOTO} alt={L.photoAlt} loading="lazy" decoding="async" onerror="this.closest('.ep-photo').remove()" />
         </figure>
       )}
     </div>
@@ -67,9 +85,9 @@ const MARQUES = [
         <div class="ep-mseq">
           {MARQ.map(() => (
             <span class="ep-munit">
-              <span class="ep-mword">Nos découvertes</span>
+              <span class="ep-mword">{L.discWord}</span>
               <span class="ep-mdot ep-mdot--sep">✦</span>
-              <span class="ep-mscript">l'épicerie</span>
+              <span class="ep-mscript">{L.discScript}</span>
               <span class="ep-mdot">✦</span>
             </span>
           ))}
@@ -77,9 +95,9 @@ const MARQUES = [
         <div class="ep-mseq">
           {MARQ.map(() => (
             <span class="ep-munit">
-              <span class="ep-mword">Nos découvertes</span>
+              <span class="ep-mword">{L.discWord}</span>
               <span class="ep-mdot ep-mdot--sep">✦</span>
-              <span class="ep-mscript">l'épicerie</span>
+              <span class="ep-mscript">{L.discScript}</span>
               <span class="ep-mdot">✦</span>
             </span>
           ))}
@@ -96,8 +114,8 @@ const MARQUES = [
     </div>
 
     <div class="ep-brands">
-      <h2 class="ep-brands__title">Nos marques</h2>
-      <p class="ep-brands__lead">Une sélection de maisons et d'artisans que nous aimons, du sucré au salé, de la table à l'objet, à retrouver sur nos étagères.</p>
+      <h2 class="ep-brands__title">{L.brandsTitle}</h2>
+      <p class="ep-brands__lead">{L.brandsLead}</p>
       <div class="ep-logos">
         {MARQUES.map((m) => (
           <div class="ep-logo"><img src={m.src} alt={m.alt} loading="lazy" decoding="async" /></div>
