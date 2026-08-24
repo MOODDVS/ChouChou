@@ -1,0 +1,7 @@
+---
+// Versione EN della pagina prenotazione. Il widget del motore legge la lingua
+// solo da ?lang=, quindi si reindirizza a /reservation?lang=en: cosi hero E
+// widget si aprono in inglese senza toccare il motore.
+export const prerender = false;
+return Astro.redirect("/reservation?lang=en");
+---
