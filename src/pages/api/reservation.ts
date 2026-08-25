@@ -107,6 +107,8 @@ interface WidgetConfig {
   minNoticeMinutes: number;
   cornerStyle: "square" | "rounded";
   languages: string[];
+  optionsEnabled: boolean;
+  options: string[];
   timezone: string;
 }
 
@@ -129,6 +131,8 @@ async function leggiConfig(): Promise<WidgetConfig> {
       "reservation_slot_minutes",
       "reservation_corner_style",
       "reservation_languages",
+      "reservation_options_enabled",
+      "reservation_options",
       "timezone",
     ]);
   const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
@@ -212,6 +216,17 @@ async function leggiConfig(): Promise<WidgetConfig> {
   }
   if (!languages.includes("fr")) languages = ["fr", ...languages];
 
+  // Opzioni del widget (seggiolone, posto tranquillo, ecc.)
+  // switch mancante o "1" = mostra; lista mancante = tutte (retro-compat).
+  const optionsEnabled = (m.get("reservation_options_enabled") ?? "1") !== "0";
+  let options: string[] = ["high_chair", "quiet", "business", "birthday", "special_event"];
+  try {
+    const arr = JSON.parse(m.get("reservation_options") || "null");
+    if (Array.isArray(arr)) options = arr.map((x) => String(x));
+  } catch {
+    /* default: tutte */
+  }
+
   const zoneChoice = (m.get("reservation_zone_choice") ?? "1") !== "0";
 
   let timezone = "Europe/Brussels";
@@ -230,7 +245,7 @@ async function leggiConfig(): Promise<WidgetConfig> {
   // planMode qui governa i VINCOLI di combinazione (max-insieme ecc.):
   // con l'attribuzione automatica spenta contano solo i posti → false.
   // I POSTI restano comunque quelli del disegno (planPosti sopra).
-  return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti && autoTables, autoAccept, autoTables, minNoticeMinutes: minNotice, cornerStyle, languages, timezone };
+  return { services, zones, zoneChoice, capacity, maxPeople, planMode: !!planPosti && autoTables, autoAccept, autoTables, minNoticeMinutes: minNotice, cornerStyle, languages, optionsEnabled, options, timezone };
 }
 
 /** Service e sections chiusi «jusqu'à réouverture» (app_config).
