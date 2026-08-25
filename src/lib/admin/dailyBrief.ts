@@ -5,6 +5,8 @@ import { CLIENT } from "../../config/client";
 import { SERVIZI_WIDGET } from "../reservationI18n";
 import { caricaToday } from "./caricaToday";
 import { TIMEZONE, aggiornaTimezone } from "../slots";
+import { temaEmail, type TemaEmail } from "../temaBrand";
+import { datiRistorante } from "../ristorante";
 
 // Email quotidiana "Votre journée" (récap di ieri + programma di oggi).
 // Chiamata dall'endpoint /api/cron/daily-brief (protetto da CRON_SECRET),
@@ -76,14 +78,15 @@ async function config(chiavi: string[]): Promise<Map<string, string>> {
   return new Map((data ?? []).map((r) => [r.key, r.value ?? ""]));
 }
 
-function rigaTab(label: string, valore: string, ultima = false, rosso = false): string {
-  const bordo = ultima ? "" : "border-bottom:1px solid #3a3335;";
-  const colore = rosso ? "color:#ff8a8f;font-weight:bold;" : "color:#ffffff;";
-  return `<tr><td style="padding:12px 20px;${bordo}color:#b3aca6;font-size:13px;vertical-align:top;">${label}</td><td style="padding:12px 20px;${bordo}${colore}font-size:14px;text-align:right;line-height:1.8;">${valore}</td></tr>`;
+function rigaTab(tema: TemaEmail, label: string, valore: string, ultima = false, rosso = false): string {
+  const bordo = ultima ? "" : `border-bottom:1px solid ${tema.border};`;
+  const danger = tema.isDark ? "#ff8a8f" : "#c0392b";
+  const colore = rosso ? `color:${danger};font-weight:bold;` : `color:${tema.title};`;
+  return `<tr><td style="padding:12px 20px;${bordo}color:${tema.muted};font-size:12px;letter-spacing:1px;text-transform:uppercase;vertical-align:top;">${label}</td><td style="padding:12px 20px;${bordo}${colore}font-size:14px;text-align:right;line-height:1.8;">${valore}</td></tr>`;
 }
 
-function intestazione(testo: string): string {
-  return `<tr><td style="padding:34px 40px 8px;"><p style="margin:0;color:#ffffff;font-size:12px;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid #3a3335;padding-bottom:10px;text-align:center;">${testo}</p></td></tr>`;
+function intestazione(tema: TemaEmail, testo: string): string {
+  return `<tr><td style="padding:34px 40px 8px;"><p style="margin:0;color:${tema.title};font-size:12px;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid ${tema.border};padding-bottom:10px;text-align:center;">${testo}</p></td></tr>`;
 }
 
 // ---------------------------------------------------------------- invio
@@ -101,6 +104,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     "daily_brief_last_sent",
     "reservation_notify_email",
     "reservation_services",
+    "admin_pages_hidden",
   ]);
 
   if (cfg.get("daily_brief_enabled") !== "1") return { sent: false, reason: "disattivata" };
@@ -202,36 +206,58 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     .filter(([d]) => d >= oggiISO)
     .sort((a, b) => (a[0] < b[0] ? -1 : 1))[0];
 
-  // ---------------- HTML ----------------
+  // ---------------- HTML (tema del cliente) ----------------
+  const tema = await temaEmail();
+  const dati = await datiRistorante();
+  const logo = (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL;
+  const wordmark = `${SITE_URL}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png`;
+  const danger = tema.isDark ? "#ff8a8f" : "#c0392b";
+
+  // Modulo "Commandes" attivo? (super admin -> app_config admin_pages_hidden).
+  // Se disattivato, l'email non mostra nulla che riguardi gli ordini.
+  let ordiniAttivi = true;
+  try {
+    const nasc = JSON.parse(cfg.get("admin_pages_hidden") || "[]");
+    if (Array.isArray(nasc) && nasc.map(String).includes("orders")) ordiniAttivi = false;
+  } catch {
+    /* default: attivi */
+  }
+
   const dataLunga = cap(ora.setLocale("fr-BE").toFormat("cccc d LLLL yyyy"));
   const dataIeriTxt = ieri.setLocale("fr-BE").toFormat("cccc d LLLL");
   const dataOggiTxt = ora.setLocale("fr-BE").toFormat("cccc d LLLL");
 
-  const cardIeri = (label: string, numero: string, sotto: string): string =>
-    `<td width="50%" style="padding:14px 18px;background:#1c1819;border:1px solid #3a3335;"><p style="margin:0;color:#b3aca6;font-size:11px;letter-spacing:2px;text-transform:uppercase;">${label}</p><p style="margin:8px 0 0;color:#dfab4e;font-size:34px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${numero}</p><p style="margin:6px 0 0;color:#ffffff;font-size:14px;">${sotto}</p></td>`;
+  const cardIeri = (label: string, numero: string, sotto: string, width = "50%"): string =>
+    `<td width="${width}" style="padding:16px 18px;background:${tema.tint};border:1px solid ${tema.border};border-radius:12px;"><p style="margin:0;color:${tema.muted};font-size:11px;letter-spacing:2px;text-transform:uppercase;">${label}</p><p style="margin:8px 0 0;color:${tema.accent};font-size:34px;line-height:1;font-weight:bold;">${numero}</p><p style="margin:6px 0 0;color:${tema.text};font-size:14px;">${sotto}</p></td>`;
 
+  // Con ordini attivi: due card (Commandes + Reservations). Senza: solo Reservations, a tutta larghezza.
+  const cardsIeri = ordiniAttivi
+    ? `<tr>${cardIeri("Commandes", String(ordIeri.length), `${euro(incassoIeri)} encaissés`)}<td width="8" style="font-size:0;">&nbsp;</td>${cardIeri("Réservations", String(servite.length), `${couvertsIeri} couverts servis`)}</tr>`
+    : `<tr>${cardIeri("Réservations", String(servite.length), `${couvertsIeri} couverts servis`, "100%")}</tr>`;
+
+  const top3Mostrato = ordiniAttivi && top3.length > 0;
   const righeIeri: string[] = [];
   if (noshowIeri.length) {
     const nomi = noshowIeri
       .slice(0, 3)
       .map((r) => `${esc(`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim())} ${String(r.heure ?? "").slice(0, 5)}`)
       .join(" · ");
-    righeIeri.push(rigaTab("No-show", `${noshowIeri.length}${nomi ? ` (${nomi})` : ""}`, false, true));
+    righeIeri.push(rigaTab(tema, "No-show", `${noshowIeri.length}${nomi ? ` (${nomi})` : ""}`, false, true));
   }
-  if (annullateIeri) righeIeri.push(rigaTab("Annulées", String(annullateIeri)));
-  if (nuoviClienti) righeIeri.push(rigaTab("Nouveaux clients", String(nuoviClienti)));
-  if (top3.length) {
+  if (annullateIeri) righeIeri.push(rigaTab(tema, "Annulées", String(annullateIeri)));
+  if (nuoviClienti) righeIeri.push(rigaTab(tema, "Nouveaux clients", String(nuoviClienti)));
+  if (top3Mostrato) {
     righeIeri.push(
       rigaTab(
+        tema,
         "Top 3 des plats",
-        top3.map(([n, q], i) => `<strong style="color:#dfab4e;">${i + 1}.</strong> ${esc(n)} (${q}×)`).join("<br/>"),
+        top3.map(([n, q], i) => `<strong style="color:${tema.accent};">${i + 1}.</strong> ${esc(n)} (${q}×)`).join("<br/>"),
         true
       )
     );
   }
-  // ultima riga senza bordo
-  if (righeIeri.length && !top3.length) {
-    righeIeri[righeIeri.length - 1] = righeIeri[righeIeri.length - 1].replace(/border-bottom:1px solid #3a3335;/g, "");
+  if (righeIeri.length && !top3Mostrato) {
+    righeIeri[righeIeri.length - 1] = righeIeri[righeIeri.length - 1].replace(/border-bottom:1px solid [^;]+;/g, "");
   }
 
   const righeOggi: string[] = [];
@@ -239,14 +265,16 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     const nome = SERVIZI_WIDGET[sv.key]?.fr ?? sv.key;
     righeOggi.push(
       rigaTab(
-        `${esc(nome)} <span style="color:#5d5555;">·</span> ${sv.from}–${sv.to}`,
-        `<strong style="color:#dfab4e;">${couverts} couvert${couverts > 1 ? "s" : ""}</strong> · ${tavoli} table${tavoli > 1 ? "s" : ""}`
+        tema,
+        `${esc(nome)} <span style="color:${tema.muted};">·</span> ${sv.from}–${sv.to}`,
+        `<strong style="color:${tema.accent};">${couverts} couvert${couverts > 1 ? "s" : ""}</strong> · ${tavoli} table${tavoli > 1 ? "s" : ""}`
       )
     );
   }
   if (grandiTavoli.length) {
     righeOggi.push(
       rigaTab(
+        tema,
         "Grandes tables (≥ 6 pers.)",
         grandiTavoli
           .slice(0, 4)
@@ -257,7 +285,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     );
   }
   if (righeOggi.length && !grandiTavoli.length) {
-    righeOggi[righeOggi.length - 1] = righeOggi[righeOggi.length - 1].replace(/border-bottom:1px solid #3a3335;/g, "");
+    righeOggi[righeOggi.length - 1] = righeOggi[righeOggi.length - 1].replace(/border-bottom:1px solid [^;]+;/g, "");
   }
 
   // Oggi: aperto o chiuso?
@@ -276,17 +304,17 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
   }
 
   const blocOggi = chiusoOggi
-    ? `<tr><td style="padding:20px 40px 4px;text-align:center;"><p style="margin:0;color:#d24d55;font-size:22px;font-family:Georgia,'Times New Roman',serif;">Fermé aujourd'hui</p>${riaperturaTxt ? `<p style="margin:10px 0 0;color:#b3aca6;font-size:14px;">${riaperturaTxt}</p>` : ""}</td></tr>`
-    : `<tr><td style="padding:16px 40px 4px;text-align:center;"><p style="margin:0;color:#b3aca6;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Couverts réservés</p><p style="margin:6px 0 0;color:#dfab4e;font-size:42px;line-height:1;font-family:Georgia,'Times New Roman',serif;">${couvertsOggi}</p><p style="margin:8px 0 0;color:#ffffff;font-size:14px;">${resaOggi.length} réservation${resaOggi.length > 1 ? "s" : ""} confirmée${resaOggi.length > 1 ? "s" : ""}</p></td></tr>`;
+    ? `<tr><td style="padding:20px 40px 4px;text-align:center;"><p style="margin:0;color:${danger};font-size:22px;font-weight:bold;">Fermé aujourd'hui</p>${riaperturaTxt ? `<p style="margin:10px 0 0;color:${tema.muted};font-size:14px;">${riaperturaTxt}</p>` : ""}</td></tr>`
+    : `<tr><td style="padding:16px 40px 4px;text-align:center;"><p style="margin:0;color:${tema.muted};font-size:12px;letter-spacing:2px;text-transform:uppercase;">Couverts réservés</p><p style="margin:6px 0 0;color:${tema.accent};font-size:42px;line-height:1;font-weight:bold;">${couvertsOggi}</p><p style="margin:8px 0 0;color:${tema.text};font-size:14px;">${resaOggi.length} réservation${resaOggi.length > 1 ? "s" : ""} confirmée${resaOggi.length > 1 ? "s" : ""}</p></td></tr>`;
 
   const TAG_FR: Record<string, string> = { important: "IMPORTANT", recurrent: "RÉCURRENT", fournisseur: "FOURNISSEUR" };
   const blocNote = note.length
-    ? `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#dfab4e;"><tr><td style="padding:16px 20px;"><p style="margin:0;color:#2c2013;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">✏️ Notes de l'équipe</p><p style="margin:10px 0 0;color:#2c2013;font-size:14px;line-height:1.8;">${note
+    ? `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.tint};border:1px solid ${tema.tintBorder};border-radius:12px;"><tr><td style="padding:16px 20px;"><p style="margin:0;color:${tema.accent};font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">✏️ Notes de l'équipe</p><p style="margin:10px 0 0;color:${tema.text};font-size:14px;line-height:1.8;">${note
         .map((n) => {
           const tags = (Array.isArray(n.tags) ? (n.tags as unknown[]) : [])
             .map((t) => TAG_FR[String(t)])
             .filter(Boolean)
-            .map((t) => ` <strong style="font-size:10px;letter-spacing:1px;">[${t}]</strong>`)
+            .map((t) => ` <strong style="font-size:10px;letter-spacing:1px;color:${tema.muted};">[${t}]</strong>`)
             .join("");
           return `• ${esc(n.content)}${tags}`;
         })
@@ -300,54 +328,52 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     if (giorni <= 60) {
       const quando =
         giorni === 0 ? "aujourd'hui" : giorni === 1 ? "demain" : `dans ${giorni} jours (${DateTime.fromISO(dEv).setLocale("fr-BE").toFormat("cccc d LLLL")})`;
-      blocEvento = `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(223,171,78,0.10);border:1px solid #dfab4e;"><tr><td style="padding:14px 20px;color:#dfab4e;font-size:13px;line-height:1.6;"><strong style="letter-spacing:1px;">📅 À VENIR</strong><br/><span style="color:#ffffff;">${esc(nomeEv)} ${quando} — pensez au menu spécial et à l'équipe en salle.</span></td></tr></table></td></tr>`;
+      blocEvento = `<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.tint};border:1px solid ${tema.tintBorder};border-radius:12px;"><tr><td style="padding:14px 20px;color:${tema.accent};font-size:13px;line-height:1.6;"><strong style="letter-spacing:1px;">📅 À VENIR</strong><br/><span style="color:${tema.text};">${esc(nomeEv)} ${quando} — pensez au menu spécial et à l'équipe en salle.</span></td></tr></table></td></tr>`;
     }
   }
 
   const html = `<!doctype html>
   <html lang="fr">
-  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark" /><meta name="supported-color-schemes" content="dark" /></head>
-  <body bgcolor="#1c1819" style="margin:0;padding:0;background:#1c1819;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#1c1819" style="background:#1c1819;margin:0;padding:0;"><tr><td>
-  <div style="font-family: Arial, Helvetica, sans-serif; background:#1c1819; padding:30px 0; margin:0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#231f20;border:1px solid #3a3335;">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="light dark" /></head>
+  <body style="margin:0;padding:0;background:${tema.bg};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${tema.bg};border-collapse:collapse;margin:0;padding:0;width:100%;"><tr><td align="center" style="padding:8px 14px 24px;">
+  <div style="font-family: Arial, Helvetica, sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
       <tr>
-        <td style="padding:40px 40px 20px;text-align:center;">
-          <img src="${LOGO_URL}" alt="${esc(CLIENT.nome)}" width="64" height="64" style="display:inline-block;border:0;border-radius:12px;" />
-          <p style="margin:16px 0 0;color:#dfab4e;font-size:11px;letter-spacing:4px;font-family:Georgia,'Times New Roman',serif;">${esc((CLIENT.nome + " — " + CLIENT.claim).toUpperCase())}</p>
+        <td style="padding:38px 40px 6px;text-align:center;">
+          <img src="${logo}" alt="${esc(dati.nome)}" width="150" style="display:inline-block;width:150px;max-width:60%;height:auto;border:0;" />
+          <p style="margin:16px 0 0;color:${tema.muted};font-size:11px;letter-spacing:4px;">${esc((dati.nome + " — " + CLIENT.claim).toUpperCase())}</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:0 40px;text-align:center;">
-          <h1 style="margin:0;color:#ffffff;font-size:30px;letter-spacing:1px;font-weight:normal;font-family:Georgia,'Times New Roman',serif;">Votre journée</h1>
-          <p style="margin:14px 0 0;color:#dfab4e;font-size:21px;letter-spacing:1px;font-family:Georgia,'Times New Roman',serif;">${dataLunga}</p>
-          <p style="margin:12px 0 0;color:#b3aca6;font-size:15px;line-height:1.6;">Bonjour ! Voici le récap d'hier et le programme d'aujourd'hui.</p>
+        <td style="padding:6px 40px 0;text-align:center;">
+          <h1 style="margin:0;color:${tema.title};font-size:30px;letter-spacing:1px;text-transform:uppercase;font-weight:bold;">Votre journée</h1>
+          <p style="margin:14px 0 0;color:${tema.accent};font-size:20px;letter-spacing:1px;">${dataLunga}</p>
+          <p style="margin:12px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">Bonjour ! Voici le récap d'hier et le programme d'aujourd'hui.</p>
         </td>
       </tr>
-      ${intestazione(`Hier — ${dataIeriTxt}`)}
+      ${intestazione(tema, `Hier — ${dataIeriTxt}`)}
       <tr>
         <td style="padding:14px 40px 4px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-            ${cardIeri("Commandes", String(ordIeri.length), `${euro(incassoIeri)} encaissés`)}
-            <td width="8" style="font-size:0;">&nbsp;</td>
-            ${cardIeri("Réservations", String(servite.length), `${couvertsIeri} couverts servis`)}
-          </tr></table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${cardsIeri}</table>
         </td>
       </tr>
-      ${righeIeri.length ? `<tr><td style="padding:10px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">${righeIeri.join("")}</table></td></tr>` : ""}
-      ${intestazione(`Aujourd'hui — ${dataOggiTxt}`)}
+      ${righeIeri.length ? `<tr><td style="padding:12px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">${righeIeri.join("")}</table></td></tr>` : ""}
+      ${intestazione(tema, `Aujourd'hui — ${dataOggiTxt}`)}
       ${blocOggi}
-      ${righeOggi.length ? `<tr><td style="padding:14px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #3a3335;">${righeOggi.join("")}</table></td></tr>` : ""}
+      ${righeOggi.length ? `<tr><td style="padding:14px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:12px;overflow:hidden;">${righeOggi.join("")}</table></td></tr>` : ""}
       ${blocNote}
       ${blocEvento}
       <tr>
         <td style="padding:28px 40px 8px;text-align:center;">
-          <a href="${SITE_URL}/admin" style="display:inline-block;background:#dfab4e;color:#231f20;text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">Ouvrir l'admin</a>
+          <a href="${SITE_URL}/admin" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:16px 40px;font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:10px;">Ouvrir l'admin</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:26px 40px 34px;text-align:center;">
-          <p style="margin:0;color:#5d5555;font-size:11px;line-height:1.7;">${esc(CLIENT.nome)} · Récap automatique quotidien (${oraInvio}) — désactivable dans Admin → Notifications.</p>
+        <td style="padding:24px 40px 30px;text-align:center;border-top:1px solid ${tema.border};">
+          <p style="margin:0;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.nome)} · Récap automatique quotidien (${oraInvio}) — désactivable dans Admin → Notifications.</p>
+          <p style="margin:16px 0 0;"><img src="${wordmark}" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
         </td>
       </tr>
     </table>
