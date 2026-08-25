@@ -243,7 +243,7 @@ const { telWidget, inPage = false } = Astro.props;
             <input type="email" class="rw-in" id="rw-f-email" autocomplete="email" inputmode="email" />
           </div>
           <span class="rw-lab" id="rw-opt-lab"></span>
-          <div class="rw-opts">
+          <div class="rw-opts" id="rw-opts">
             <button type="button" class="rw-opt" id="rw-opt-chaise"></button>
             <button type="button" class="rw-opt" id="rw-opt-calme"></button>
             <button type="button" class="rw-opt" id="rw-opt-biz"></button>
@@ -293,6 +293,8 @@ const { telWidget, inPage = false } = Astro.props;
         minNoticeMinutes: number;
         cornerStyle: "square" | "rounded";
         languages: string[];
+        optionsEnabled?: boolean;
+        options?: string[];
         timezone: string;
       }
       type Resa = { heure: string; people: number; zone: string | null; service_key: string | null };
@@ -636,6 +638,33 @@ const { telWidget, inPage = false } = Astro.props;
         $("rw-step3").style.display = n === 3 ? "" : "none";
       }
 
+      // Opzioni del widget: mostra/nascondi il blocco e le singole opzioni
+      // secondo la config del ristorante (Réglages → Prenotazioni).
+      const OPT_EL: Record<string, string> = {
+        high_chair: "rw-opt-chaise",
+        quiet: "rw-opt-calme",
+        business: "rw-opt-biz",
+        birthday: "rw-opt-anniv",
+        special_event: "rw-opt-event",
+      };
+      function applicaOpzioni() {
+        const tutte = Object.keys(OPT_EL);
+        const enabled = CFG.optionsEnabled !== false;
+        const sel = Array.isArray(CFG.options) ? CFG.options : tutte;
+        const attive = enabled ? tutte.filter((k) => sel.includes(k)) : [];
+        for (const k of tutte) {
+          const on = attive.includes(k);
+          const el = $(OPT_EL[k]);
+          if (!el) continue;
+          el.style.display = on ? "" : "none";
+          if (!on) el.classList.remove("is-on");
+        }
+        const show = attive.length > 0;
+        $("rw-opt-lab").style.display = show ? "" : "none";
+        const box = document.getElementById("rw-opts");
+        if (box) box.style.display = show ? "" : "none";
+      }
+
       // ---------- Init ----------
       (async () => {
         try {
@@ -647,6 +676,7 @@ const { telWidget, inPage = false } = Astro.props;
           return;
         }
         ($("rw") as HTMLElement).classList.toggle("rw--square", CFG.cornerStyle === "square");
+        applicaOpzioni();
         lingua = lingueAttive()[0] ?? "fr";
         // DEMO/override: ?lang=xx forza la lingua iniziale del widget (non-breaking).
         const forcedLang = new URLSearchParams(location.search).get("lang") ?? "";

@@ -5,20 +5,17 @@
 // qui con localStorage. Bottone con link "#reserver" = apre il modale
 // prenotazioni RestoHub.
 import { popupPerPagina } from "../lib/popups";
+import { SITE_PAGES } from "../config/sitePages";
 
 const raw = Astro.url.pathname.replace(/\/$/, "") || "/";
 const en = raw === "/en" || raw.startsWith("/en/");
 const it = raw === "/it" || raw.startsWith("/it/");
 const lingua = it ? "it" : en ? "en" : "fr";
 const path = raw.replace(/^\/(en|it)(?=\/|$)/, "") || "/";
-const MAP: Record<string, string> = {
-  "/": "home",
-  "/menu": "menu",
-  "/order": "order",
-  "/ambiance": "ambiance",
-  "/contact": "contact",
-  "/links": "links",
-};
+// Mappa rotta pubblica -> chiave pagina, dalla config per-cliente.
+const MAP: Record<string, string> = Object.fromEntries(
+  SITE_PAGES.map((pg) => [(pg.path ?? "/").replace(/\/$/, "") || "/", pg.k]),
+);
 const slug = MAP[path];
 const pop = slug ? await popupPerPagina(slug, lingua) : null;
 

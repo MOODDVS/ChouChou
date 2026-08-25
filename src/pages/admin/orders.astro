@@ -921,11 +921,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const headers = { Authorization: `Bearer ${token}` };
 
         // --- Bottoni rapidi tempo di preparazione (15/30/45) ---
-        const prepBtns = Array.from(document.querySelectorAll<HTMLButtonElement>(".prep-btn"));
+        const prepBtns = Array.from(document.querySelectorAll<HTMLButtonElement>(".prep-btn[data-min]"));
         const prepNote = document.getElementById("prep-note") as HTMLSpanElement;
 
+        let prepMin: number | null = null;
         function segnaAttivo(min: number) {
-          prepBtns.forEach((b) => b.classList.toggle("active", Number(b.dataset.min) === min));
+          prepMin = min;
+          aggiornaPrep();
+        }
+        // Evidenzia il tempo scelto solo a servizio APERTO: se è chiuso,
+        // nessun chip tempo resta acceso (stato non contraddittorio).
+        function aggiornaPrep() {
+          prepBtns.forEach((b) =>
+            b.classList.toggle("active", !ordiniChiusi && Number(b.dataset.min) === prepMin),
+          );
         }
 
         // Stato attuale (stesso valore dei Réglages)
@@ -983,6 +992,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           btnClose.title = ordiniChiusi
             ? tr("ord.reopenOnline")
             : tr("ord.closeOnline");
+          aggiornaPrep();
         }
 
         btnClose.addEventListener("click", async () => {

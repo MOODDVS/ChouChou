@@ -63,7 +63,27 @@ function pulisciItems(v: unknown, courses: string[]): Record<string, string[]> |
       .map((sVal) => {
         if (RE_UUID.test(sVal)) return sVal;
         if (sVal.startsWith("free:")) {
-          const nome = sVal.slice(5).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+          const raw = sVal.slice(5);
+          // Formato multilingua: free:{"fr":"...","it":"..."}
+          if (raw.startsWith("{")) {
+            try {
+              const o = JSON.parse(raw);
+              if (o && typeof o === "object" && !Array.isArray(o)) {
+                const clean: Record<string, string> = {};
+                for (const [k, val] of Object.entries(o as Record<string, unknown>)) {
+                  if (!/^[a-z]{2}$/.test(k)) continue;
+                  const t = String(val).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+                  if (t) clean[k] = t;
+                }
+                const keys = Object.keys(clean);
+                if (!keys.length) return "";
+                return keys.length > 1 ? "free:" + JSON.stringify(clean) : "free:" + clean[keys[0]];
+              }
+            } catch { /* invalido -> scarta */ }
+            return "";
+          }
+          // Formato legacy: free:<nome> (una sola lingua)
+          const nome = raw.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
           return nome ? "free:" + nome : "";
         }
         return "";

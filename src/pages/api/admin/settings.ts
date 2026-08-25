@@ -66,6 +66,8 @@ const CHIAVI_RESA = [
   "reservation_services",     // fasce prenotabili: JSON [{key, from, to, hold, slot}] max 3
   "reservation_corner_style", // angoli del widget: "rounded" | "square"
   "reservation_languages",    // lingue attive sul widget: JSON ["fr","en",…]
+  "reservation_options_enabled", // "1" mostra le opzioni nel widget, "0" le nasconde
+  "reservation_options",      // opzioni attive: JSON ["high_chair","quiet",…]
   "reservation_from_name",    // nome mittente delle conferme al cliente
   "reservation_from_email",   // mittente delle conferme al cliente
   "reservation_notify_email", // dove arrivano le richieste
@@ -353,7 +355,7 @@ export const PUT: APIRoute = async ({ request }) => {
       if (k === "reservation_zone_choice" && v && v !== "0" && v !== "1") {
         return json({ error: "Valeur invalide (choix de section)" }, 400);
       }
-      if ((k === "reservation_auto_accept" || k === "reservation_auto_tables") && v && v !== "0" && v !== "1") {
+      if ((k === "reservation_auto_accept" || k === "reservation_auto_tables" || k === "reservation_options_enabled") && v && v !== "0" && v !== "1") {
         return json({ error: "Valeur invalide (interrupteur)" }, 400);
       }
       if (k === "reservation_corner_style" && v && v !== "rounded" && v !== "square") {
@@ -371,6 +373,18 @@ export const PUT: APIRoute = async ({ request }) => {
         const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && validi.has(c)));
         scelte.add("fr"); // il francese resta sempre attivo
         v = JSON.stringify(LINGUE_WIDGET.map((l) => l.code).filter((c) => scelte.has(c)));
+      }
+      if (k === "reservation_options" && v) {
+        let lista: unknown;
+        try {
+          lista = JSON.parse(v);
+        } catch {
+          return json({ error: "Options invalides" }, 400);
+        }
+        if (!Array.isArray(lista)) return json({ error: "Options invalides" }, 400);
+        const OPZIONI_VALIDE = ["high_chair", "quiet", "business", "birthday", "special_event"];
+        const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && OPZIONI_VALIDE.includes(c)));
+        v = JSON.stringify(OPZIONI_VALIDE.filter((c) => scelte.has(c)));
       }
       if (k === "reservation_min_notice_minutes" && v) {
         const n = Math.floor(Number(v));

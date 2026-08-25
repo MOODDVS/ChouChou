@@ -1191,6 +1191,13 @@ const t = adminT(lang);
               <input type="number" id="r-notice" min="0" max="4320" step="15" placeholder="0" />
             </div>
             <hr class="rgroup-sep" />
+            <!-- 3bis. Options du widget -->
+            <div class="field">
+              <label>{t("set.res.widgetOpts")}<span class="lab-hint">{t("set.res.widgetOptsHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="r-opts-on" /><span class="track"></span></label>
+              <div class="rlangs" id="r-opts" style="margin-top:0.6rem"></div>
+            </div>
+            <hr class="rgroup-sep" />
             <!-- 4. Langues -->
             <div class="field">
               <label>{t("set.res.widgetLangs")}<span class="lab-hint">{t("set.res.widgetLangsHint")}</span></label>
@@ -1293,7 +1300,7 @@ const t = adminT(lang);
                   <input type="email" class="rw-in" id="rw-f-email" autocomplete="off" />
                 </div>
                 <span class="rw-lab" id="rw-opt-lab"></span>
-                <div class="rw-opts">
+                <div class="rw-opts" id="rw-opts-prev">
                   <button type="button" class="rw-opt" id="rw-opt-chaise"></button>
                   <button type="button" class="rw-opt" id="rw-opt-calme"></button>
                   <button type="button" class="rw-opt" id="rw-opt-biz"></button>
@@ -2564,6 +2571,70 @@ const t = adminT(lang);
         });
         costruisciLingue(["fr", "en"]);
 
+        // Opzioni del widget (switch mostra/nascondi + selezione)
+        const rOptsOn = document.getElementById("r-opts-on") as HTMLInputElement;
+        const rOptsBox = document.getElementById("r-opts") as HTMLDivElement;
+        const OPT_KEYS = ["high_chair", "quiet", "business", "birthday", "special_event"];
+        const wOpt = TESTI_WIDGET[LANG as LinguaWidget] ?? TESTI_WIDGET.fr;
+        const OPT_LABEL: Record<string, string> = {
+          high_chair: wOpt.chaiseBebe,
+          quiet: wOpt.endroitCalme,
+          business: wOpt.business,
+          birthday: wOpt.anniversaire,
+          special_event: wOpt.specialEvent,
+        };
+        function costruisciOpzioni(scelte: string[]) {
+          rOptsBox.innerHTML = OPT_KEYS.map((k) => {
+            const on = scelte.includes(k);
+            return `<button type="button" class="rl-btn${on ? " is-on" : ""}" data-o="${k}">${OPT_LABEL[k]}</button>`;
+          }).join("");
+        }
+        function opzioniAttive(): string[] {
+          return Array.from(rOptsBox.querySelectorAll<HTMLElement>(".rl-btn.is-on")).map((b) => b.dataset.o!);
+        }
+        function opzioniJSON(): string {
+          return JSON.stringify(opzioniAttive());
+        }
+        // Aggiorna l'ANTEPRIMA a destra: mostra/nasconde le opzioni realmente
+        // presenti nell'aperçu (seggiolone, posto tranquillo, business).
+        function applicaOpzioniAnteprima() {
+          const enabled = rOptsOn.checked;
+          const sel = opzioniAttive();
+          const mapPrev: Record<string, string> = {
+            high_chair: "rw-opt-chaise",
+            quiet: "rw-opt-calme",
+            business: "rw-opt-biz",
+          };
+          let visibili = 0;
+          for (const [k, id] of Object.entries(mapPrev)) {
+            const on = enabled && sel.includes(k);
+            const el = document.getElementById(id);
+            if (el) { el.style.display = on ? "" : "none"; if (!on) el.classList.remove("is-on"); }
+            if (on) visibili++;
+          }
+          const show = visibili > 0;
+          const lab = document.getElementById("rw-opt-lab");
+          if (lab) lab.style.display = show ? "" : "none";
+          const box = document.getElementById("rw-opts-prev");
+          if (box) box.style.display = show ? "" : "none";
+          const soc = document.getElementById("rw-f-societe") as HTMLElement | null;
+          if (soc && !(enabled && sel.includes("business"))) soc.style.display = "none";
+        }
+        function applicaOptOn() {
+          rOptsBox.style.display = rOptsOn.checked ? "" : "none";
+          applicaOpzioniAnteprima();
+        }
+        rOptsBox.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".rl-btn") as HTMLElement | null;
+          if (!b) return;
+          b.classList.toggle("is-on");
+          dirty();
+          applicaOpzioniAnteprima();
+        });
+        rOptsOn.addEventListener("change", () => { applicaOptOn(); dirty(); });
+        costruisciOpzioni(OPT_KEYS);
+        applicaOptOn();
+
         // Lingua del widget — dizionario dedicato dell'engine
         function applicaLingua() {
           const t = T();
@@ -3450,6 +3521,14 @@ const t = adminT(lang);
         } catch {
           costruisciLingue(["fr", "en"]);
         }
+        try {
+          const arr = JSON.parse(dati.reservations?.reservation_options || "null");
+          costruisciOpzioni(Array.isArray(arr) ? (arr as string[]) : OPT_KEYS);
+        } catch {
+          costruisciOpzioni(OPT_KEYS);
+        }
+        rOptsOn.checked = (dati.reservations?.reservation_options_enabled ?? "1") !== "0";
+        applicaOptOn();
         if (!rwLingueAttive().includes(rwLingua)) rwLingua = "fr";
         applicaLingua();
         renderAnteprima();
@@ -3954,6 +4033,8 @@ const t = adminT(lang);
                   reservation_services: servicesJSON(),
                   reservation_corner_style: rwAngoli,
                   reservation_languages: lingueJSON(),
+                  reservation_options_enabled: rOptsOn.checked ? "1" : "0",
+                  reservation_options: opzioniJSON(),
                 },
               }),
             });

@@ -15,6 +15,7 @@ import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+import { SITE_PAGES } from "../../config/sitePages";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -24,6 +25,7 @@ const pubLangsJson = JSON.stringify({
   def: boot.publicLangDefault,
   labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
 });
+const sitePagesJson = JSON.stringify(SITE_PAGES);
 ---
 
 <html lang={lang}>
@@ -487,6 +489,7 @@ const pubLangsJson = JSON.stringify({
     </div>
 
     <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
+    <script id="site-pages" type="application/json" is:inline set:html={sitePagesJson}></script>
     <!-- Modale creazione/modifica -->
     <div class="overlay" id="overlay">
       <div class="modal">
@@ -984,14 +987,19 @@ const pubLangsJson = JSON.stringify({
         max_shows: number;
       };
 
-      const PAGINE: { k: string; label: string }[] = [
-        { k: "home", label: tr("nav.home") },
-        { k: "menu", label: tr("mk.pageMenu") },
-        { k: "order", label: tr("mk.pageOrder") },
-        { k: "ambiance", label: tr("mk.pageAmbiance") },
-        { k: "contact", label: tr("mk.pageContact") },
-        { k: "links", label: tr("mk.pageLinks") },
-      ];
+      // Pagine del sito pubblico: iniettate da src/config/sitePages.ts
+      // (fonte di verità per-cliente). Label standard tradotte via i18n,
+      // pagine custom con label libera.
+      type SitePageCfg = { k: string; path?: string; labelKey?: string; label?: string };
+      let SITE_PAGES_CFG: SitePageCfg[] = [{ k: "home", labelKey: "nav.home" }];
+      try {
+        const raw = document.getElementById("site-pages")?.textContent?.trim();
+        if (raw) SITE_PAGES_CFG = JSON.parse(raw) as SitePageCfg[];
+      } catch { /* fallback */ }
+      const PAGINE: { k: string; label: string }[] = SITE_PAGES_CFG.map((p) => ({
+        k: p.k,
+        label: p.labelKey ? tr(p.labelKey) : (p.label ?? p.k),
+      }));
       const GIORNI: { n: number; label: string }[] = [1, 2, 3, 4, 5, 6, 0].map((n) => ({
         n,
         label: new Date(2021, 2, n === 0 ? 7 : n).toLocaleDateString(LOC, { weekday: "short" }),
