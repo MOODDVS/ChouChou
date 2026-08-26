@@ -40,7 +40,15 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
     <time id="ah-clock-time">--:--:--</time>
   </div>
   <div class="ah-user">
-    <span id="user-email" class="ah-email"></span>
+    <span id="ah-hello" class="ah-hello" style="display:none"></span>
+    <span id="user-email" class="ah-email" style="display:none"></span>
+    <button id="install-btn" type="button" class="ah-logout" style="display:none" aria-label={t("hdr.install")} title={t("hdr.install")}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3v12" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="4" y1="21" x2="20" y2="21" />
+      </svg>
+    </button>
     <button id="fs-btn" type="button" class="ah-logout" aria-label={t("hdr.fullscreen")} title={t("hdr.fullscreen")}>
       <svg id="fs-ico-in" viewBox="0 0 24 24" aria-hidden="true">
         <polyline points="15 3 21 3 21 9" />
@@ -62,6 +70,7 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
         <line x1="21" y1="12" x2="9" y2="12" />
       </svg>
     </button>
+    <div id="install-hint" class="ah-inst-hint" style="display:none" role="status">{t("hdr.installHint")}</div>
   </div>
 </header>
 
@@ -79,11 +88,20 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
   .ah-date-ico { width: 18px; height: 18px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ah-date-day { color: var(--c-accent); }
   .ah-date-rest { color: var(--c-text); }
-  .ah-user { display: flex; align-items: center; gap: 1rem; }
+  .ah-user { display: flex; align-items: center; gap: 1rem; position: relative; }
+  .ah-inst-hint { position: absolute; top: calc(100% + 8px); right: 0; z-index: 100; max-width: 280px; background: var(--c-header, var(--c-bg)); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.7rem 0.9rem; font-size: 0.8rem; line-height: 1.5; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
   /* Orologio centrato nell'header: icona oro, ora bianca */
   .ah-clock { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 0.45rem; font-family: var(--font-title); font-weight: 600; font-size: 1.5rem; letter-spacing: 0.05em; color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .ah-clock-ico { width: 20px; height: 20px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
   .ah-email { font-size: 0.85rem; color: var(--c-muted); }
+  .ah-hello { font-size: 0.92rem; color: var(--c-muted); white-space: nowrap; }
+  .ah-hello strong { color: var(--c-text); font-weight: 700; }
+  /* Tablet portrait: nasconde la data (come su mobile) per non sovrapporsi all'orologio. */
+  @media (min-width: 641px) and (max-width: 1023px) {
+    .ah-date { display: none; }
+    /* Orologio al posto della data: accanto al logo, non più centrato. */
+    .ah-clock { position: static; transform: none; margin: 0 auto 0 0.9rem; }
+  }
   /* Mobile (telefoni): niente data né orologio, header essenziale. */
   @media (max-width: 640px) {
     .ah-header { padding: 0.7rem 1rem; }
@@ -91,13 +109,23 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
     .ah-date { display: none; }
     .ah-clock { display: none; }
     .ah-email { display: none; }
+    .ah-hello { display: none; }
   }
   .ah-logout { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; background: transparent; border: 1px solid var(--c-line); color: var(--c-text); border-radius: 0; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
   .ah-logout:hover { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
   .ah-logout svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 </style>
 
+<style is:global>
+  /* Il saluto è iniettato via JS (innerHTML) quindi senza l'attributo di scope
+     dello style sopra: queste regole devono essere GLOBALI per applicarsi. */
+  .ah-hello .ah-greet { display: inline-block; font-family: "Homemade Apple", cursive; font-weight: 400; font-size: 1.15em; line-height: 1; vertical-align: -0.04em; margin-right: 0.18em; transition: opacity 0.35s ease, transform 0.35s ease; }
+  .ah-hello strong { color: #fff; font-weight: 700; }
+</style>
+
 <script>
+  import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
   // Registra il service worker: richiesto da Chrome (Android) per
   // installare l'admin come vera app (PWA) e non semplice scorciatoia.
   if ("serviceWorker" in navigator) {
@@ -105,6 +133,108 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
       /* registrazione fallita: il sito funziona comunque */
     });
   }
+
+  // ----- Bottone "Installer l'application" (PWA) -----
+  // Chrome/Edge/Android/desktop: prompt nativo via beforeinstallprompt.
+  // iOS Safari: nessuna API di install -> il bottone mostra le istruzioni
+  //             ("Partager" -> "Sur l'écran d'accueil").
+  const installBtn = document.getElementById("install-btn") as HTMLButtonElement | null;
+  const installHint = document.getElementById("install-hint") as HTMLElement | null;
+  let promptInstall: any = null;
+
+  const giaInstallata =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as any).standalone === true;
+  const nav = navigator as any;
+  const isIOS =
+    /iphone|ipad|ipod/i.test(nav.userAgent) ||
+    (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
+  const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(nav.userAgent);
+
+  function mostraHint(v: boolean) {
+    if (installHint) installHint.style.display = v ? "" : "none";
+  }
+
+  if (installBtn && !giaInstallata) {
+    // Sempre visibile finché l'app non è installata: su Chrome/Edge/Android
+    // il click apre il prompt nativo (se disponibile), altrimenti (iOS, o
+    // prompt non ancora pronto) mostra le istruzioni.
+    installBtn.style.display = "";
+    window.addEventListener("beforeinstallprompt", (e: Event) => {
+      e.preventDefault();
+      promptInstall = e; // prompt nativo disponibile al click
+    });
+  }
+
+  window.addEventListener("appinstalled", () => {
+    promptInstall = null;
+    mostraHint(false);
+    if (installBtn) installBtn.style.display = "none";
+  });
+
+  installBtn?.addEventListener("click", async () => {
+    if (promptInstall) {
+      mostraHint(false);
+      promptInstall.prompt();
+      try { await promptInstall.userChoice; } catch { /* ignorato */ }
+      promptInstall = null;
+      installBtn.style.display = "none";
+    } else {
+      // Nessun prompt (iOS o browser senza API): mostra/nasconde le istruzioni.
+      mostraHint(installHint ? installHint.style.display === "none" : false);
+    }
+    installBtn.blur();
+  });
+
+  // Chiudi il popover cliccando altrove.
+  document.addEventListener("click", (e) => {
+    if (!installHint || installHint.style.display === "none") return;
+    const t = e.target as Node;
+    if (t !== installHint && t !== installBtn && !installBtn?.contains(t) && !installHint.contains(t)) {
+      mostraHint(false);
+    }
+  });
+
+  // ----- Saluto con il NOME dell'utente -----
+  // Nome da session.user.user_metadata (full_name/name/...); se manca, si
+  // mostra l'email come prima. Il saluto ruota tra le lingue a ogni caricamento.
+  const helloEl = document.getElementById("ah-hello");
+  const emailEl = document.getElementById("user-email");
+  const escH = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const SALUTI = ["Ciao", "Salut", "Hola", "Hallo", "Olá", "Hej", "Hello", "Hoi", "Ahoj"];
+  function nomeDaUtente(u: any): string {
+    const m = (u && u.user_metadata) || {};
+    const raw = String(m.full_name || m.name || m.first_name || m.given_name || m.nome || "").trim();
+    return raw ? raw.split(/\s+/)[0] : "";
+  }
+  supabaseBrowser.auth.getSession().then(({ data }: any) => {
+    const u = data && data.session && data.session.user;
+    if (!helloEl) return;
+    const nome = nomeDaUtente(u);
+    if (nome) {
+      let gi = Math.floor(Math.random() * SALUTI.length);
+      helloEl.innerHTML = `<span class="ah-greet">${escH(SALUTI[gi])}</span> <strong>${escH(nome)}</strong>`;
+      helloEl.style.display = "";
+      if (emailEl) emailEl.style.display = "none";
+      // Cambia la parola del saluto ogni 5s con dissolvenza.
+      const gwEl = helloEl.querySelector(".ah-greet") as HTMLElement | null;
+      if (gwEl) {
+        setInterval(() => {
+          gi = (gi + 1) % SALUTI.length;
+          gwEl.style.opacity = "0";
+          gwEl.style.transform = "translateY(-5px)";
+          setTimeout(() => {
+            gwEl.textContent = SALUTI[gi];
+            gwEl.style.opacity = "1";
+            gwEl.style.transform = "translateY(0)";
+          }, 350);
+        }, 5000);
+      }
+    } else {
+      helloEl.style.display = "none";
+      if (emailEl) { emailEl.textContent = (u && u.email) || ""; emailEl.style.display = ""; }
+    }
+  });
 
   // Fullscreen del browser (API standard + fallback webkit per iPad).
   // NB: il fullscreen decade cambiando pagina — per il tutto-schermo

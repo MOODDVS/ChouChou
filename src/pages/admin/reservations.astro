@@ -75,7 +75,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -749,7 +748,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .toast.ok { border-color: #2f9e63; color: #7fd7a4; }
 
       @media (max-width: 760px) {
-        main { padding: 1.5rem 1rem 8rem; }
         .d-label { min-width: 0; flex: 1; font-size: 1.1rem; }
         .res { flex-wrap: wrap; gap: 0.6rem 1rem; }
         .r-main { flex-basis: 100%; order: 3; }

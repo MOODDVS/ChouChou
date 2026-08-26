@@ -17,7 +17,7 @@
   padding: 0.9rem 1.5rem;
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
 }
 .fab-add .fab-plus {
@@ -30,6 +30,14 @@
   border-color: var(--c-hover);
   transform: scale(0.94);
 }
+/* Sollevato SOPRA la navbar quando non c'è spazio a lato (telefoni + tablet
+   portrait con isola larga). La classe .fab-lifted è aggiunta via JS (AdminNav)
+   misurando lo spazio reale a destra dell'isola. */
+.fab-add.fab-lifted { bottom: calc(1.25rem + 72px); }
 @media (max-width: 520px) {
+  .fab-add { bottom: calc(1.25rem + 72px); }
+}
+/* Tablet portrait: l'isola nav occupa quasi tutta la larghezza → FAB sopra. */
+@media (min-width: 521px) and (max-width: 1023px) {
   .fab-add { bottom: calc(1.25rem + 72px); }
 }

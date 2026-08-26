@@ -63,7 +63,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.25rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
@@ -383,7 +382,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
       .toast.is-error { border-color: #ed1c24; }
 
       @media (max-width: 640px) {
-        main { padding: 1.5rem 1rem 8rem; }
         .f-row { grid-template-columns: 1fr; }
       }
       /* Loader dentro i bottoni di salvataggio */

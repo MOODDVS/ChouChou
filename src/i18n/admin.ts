@@ -127,6 +127,8 @@ const DIZIONARIO: Dizionario = {
 
   // ===== Header admin =====
   "hdr.fullscreen": { fr: "Plein écran",   en: "Fullscreen",  it: "Schermo intero", nl: "Volledig scherm", es: "Pantalla completa" },
+  "hdr.install":    { fr: "Installer l'application", en: "Install the app", it: "Installa l'app", nl: "App installeren", es: "Instalar la app" },
+  "hdr.installHint":{ fr: "Sur iPhone/iPad : appuyez sur « Partager » puis « Sur l'écran d'accueil ». Sur ordinateur/Android, utilisez le bouton d'installation du navigateur.", en: "On iPhone/iPad: tap « Share » then « Add to Home Screen ». On desktop/Android, use the browser install button.", it: "Su iPhone/iPad: tocca « Condividi » poi « Aggiungi a Home ». Su computer/Android, usa il pulsante d'installazione del browser.", nl: "Op iPhone/iPad: tik op « Deel » en dan « Zet op beginscherm ». Op desktop/Android: gebruik de installatieknop van de browser.", es: "En iPhone/iPad: pulsa « Compartir » y luego « Añadir a pantalla de inicio ». En ordenador/Android, usa el botón de instalación del navegador." },
   "hdr.logout":     { fr: "Déconnexion",   en: "Log out",     it: "Disconnetti",    nl: "Afmelden",        es: "Cerrar sesión" },
   "hdr.time":       { fr: "Heure actuelle", en: "Current time", it: "Ora attuale",   nl: "Huidige tijd",    es: "Hora actual" },
 
@@ -564,6 +566,9 @@ const DIZIONARIO: Dizionario = {
   "ord.emailReq":    { fr: "Email *", en: "Email *", it: "Email *", nl: "E-mail *", es: "Correo *" },
   "ord.phone":       { fr: "Téléphone", en: "Phone", it: "Telefono", nl: "Telefoon", es: "Teléfono" },
   "ord.emailLang":   { fr: "Langue de l'email", en: "Email language", it: "Lingua dell'email", nl: "Taal van de e-mail", es: "Idioma del correo" },
+  "ord.favItems":    { fr: "Ses plats préférés", en: "Their favorite dishes", it: "I suoi piatti preferiti", nl: "Favoriete gerechten", es: "Sus platos favoritos" },
+  "ord.favAdd":      { fr: "Ajouter au panier", en: "Add to cart", it: "Aggiungi al carrello", nl: "Toevoegen aan winkelmand", es: "Añadir al carrito" },
+  "ord.favAdded":    { fr: "Ajouté au panier", en: "Added to cart", it: "Aggiunto al carrello", nl: "Toegevoegd", es: "Añadido al carrito" },
   "ord.pickupToday": { fr: "Retrait aujourd'hui", en: "Pickup today", it: "Ritiro oggi", nl: "Afhalen vandaag", es: "Recogida hoy" },
   "ord.note":        { fr: "Note", en: "Note", it: "Nota", nl: "Notitie", es: "Nota" },
   "ord.cart":        { fr: "Panier", en: "Cart", it: "Carrello", nl: "Winkelmand", es: "Carrito" },
@@ -617,6 +622,8 @@ const DIZIONARIO: Dizionario = {
   "ord.results":     { fr: "résultats", en: "results", it: "risultati", nl: "resultaten", es: "resultados" },
   "ord.noneFound":   { fr: "Aucune commande trouvée.", en: "No order found.", it: "Nessun ordine trovato.", nl: "Geen bestelling gevonden.", es: "No se encontró ningún pedido." },
   "ord.today":       { fr: "Aujourd'hui", en: "Today", it: "Oggi", nl: "Vandaag", es: "Hoy" },
+  "ord.viewDay":     { fr: "Voir un autre jour", en: "View another day", it: "Vedi un altro giorno", nl: "Bekijk een andere dag", es: "Ver otro día" },
+  "ord.noneThisDay":  { fr: "Aucune commande ce jour-là.", en: "No orders on that day.", it: "Nessun ordine in quel giorno.", nl: "Geen bestellingen op die dag.", es: "Ningún pedido ese día." },
   "ord.commandeSg":  { fr: "commande", en: "order", it: "ordine", nl: "bestelling", es: "pedido" },
   "ord.pending":     { fr: "en attente", en: "pending", it: "in attesa", nl: "in afwachting", es: "en espera" },
   "ord.nonePaidToday": { fr: "Aucune commande payée aujourd'hui.", en: "No paid order today.", it: "Nessun ordine pagato oggi.", nl: "Geen betaalde bestelling vandaag.", es: "Ningún pedido pagado hoy." },
@@ -1543,6 +1550,7 @@ const DIZIONARIO: Dizionario = {
   "login.connecting": { fr: "Connexion...", en: "Logging in...", it: "Accesso...", nl: "Inloggen...", es: "Conectando..." },
   "login.error":      { fr: "Email ou mot de passe incorrect.", en: "Wrong email or password.", it: "Email o password non corretti.", nl: "Onjuiste e-mail of wachtwoord.", es: "Correo o contraseña incorrectos." },
   "login.forgot":     { fr: "Mot de passe oublié ?", en: "Forgot password?", it: "Password dimenticata?", nl: "Wachtwoord vergeten?", es: "¿Olvidaste tu contraseña?" },
+  "login.gotoSite":   { fr: "Aller au site", en: "Go to site", it: "Vai al sito", nl: "Naar de site", es: "Ir al sitio" },
   "login.back":       { fr: "Retour à la connexion", en: "Back to sign in", it: "Torna al login", nl: "Terug naar inloggen", es: "Volver al inicio de sesión" },
   "login.resetIntro": { fr: "Saisissez votre email : vous recevrez un lien pour choisir un nouveau mot de passe.", en: "Enter your email: you'll receive a link to choose a new password.", it: "Inserisci la tua email: riceverai un link per scegliere una nuova password.", nl: "Voer je e-mail in: je ontvangt een link om een nieuw wachtwoord te kiezen.", es: "Introduce tu correo: recibirás un enlace para elegir una nueva contraseña." },
   "login.resetSend":  { fr: "Envoyer le lien", en: "Send link", it: "Invia il link", nl: "Stuur link", es: "Enviar enlace" },

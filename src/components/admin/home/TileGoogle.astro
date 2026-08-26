@@ -37,7 +37,10 @@ const t = adminT(lang);
 </div>
 
 <style is:global>
-  .tile-google { display: flex; flex-direction: column; }
+  /* Colonna flex garantita (batte .tile{display:block}); baseline d'altezza di
+     default. Se la tile viene allungata col resize (min-height inline), l'area
+     commento cresce di conseguenza. */
+  .tile.tile-google { display: flex; flex-direction: column; min-height: 320px; }
   .g-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.6rem; }
   .g-head .tile-title { margin-bottom: 1rem; }
   .g-link { font-size: 0.78rem; color: var(--c-accent); text-decoration: none; white-space: nowrap; }
@@ -45,13 +48,16 @@ const t = adminT(lang);
   .g-top { display: flex; align-items: baseline; gap: 0.6rem; }
   .g-stars { color: var(--c-accent); font-size: 1rem; letter-spacing: 0.08em; }
 
-  .g-carousel { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
-  .g-avis { min-height: 96px; }
+  .g-carousel { border-top: 1px solid var(--c-line); padding-top: 0.9rem; flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  /* Area recensione: riempie lo spazio della tile (stelle sopra, autore sotto
+     restano fissi). Il testo lungo NON allunga la tile: scorre internamente. */
+  .g-avis { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .g-avis-stars { flex: 0 0 auto; }
   .g-avis-stars { color: var(--c-accent); font-size: 0.85rem; letter-spacing: 0.06em; }
-  .tile-google .g-quote { margin: 0.35rem 0 0; font-size: 1rem; line-height: 1.6; font-style: italic; color: var(--c-text); }
-  .tile-google .g-who { display: block; margin-top: 0.5rem; font-size: 0.82rem; color: var(--c-muted); }
+  .tile-google .g-quote { margin: 0.35rem 0 0; font-size: 1rem; line-height: 1.6; font-style: italic; color: var(--c-text); flex: 1 1 0; min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
+  .tile-google .g-who { flex: 0 0 auto; display: block; margin-top: 0.5rem; font-size: 0.82rem; color: var(--c-muted); }
 
-  .g-nav { display: flex; align-items: center; justify-content: center; gap: 0.7rem; margin-top: 0.7rem; }
+  .g-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.7rem; margin-top: 0.7rem; }
   .g-arrow {
     width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-line);
     background: none; color: var(--c-muted); cursor: pointer; line-height: 1; font-size: 1rem;
@@ -61,4 +67,14 @@ const t = adminT(lang);
   .g-dots { display: flex; gap: 0.3rem; }
   .g-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-line); display: block; cursor: pointer; transition: background 0.15s; }
   .g-dots i.on { background: var(--c-accent); }
+
+  /* MOBILE: niente resize, tile impilate ad altezza automatica. Il "riempi +
+     flex-basis:0" del desktop qui farebbe collassare il commento → si torna al
+     flusso naturale, con un tetto e scroll per le recensioni molto lunghe. */
+  @media (max-width: 560px) {
+    .tile.tile-google { min-height: 0; }
+    .tile-google .g-carousel { flex: 0 0 auto; }
+    .tile-google .g-avis { flex: 0 0 auto; }
+    .tile-google .g-quote { flex: 0 0 auto; height: 150px; }  /* altezza FISSA: il tile non cambia col commento; i lunghi scrollano */
+  }
 </style>

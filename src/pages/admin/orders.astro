@@ -100,7 +100,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.25rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .today-label { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; text-transform: capitalize; color: var(--c-muted); margin-bottom: 0.5rem; }
@@ -147,6 +146,19 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .o-search::placeholder { color: var(--c-muted); }
       .o-search:focus { outline: none; border-color: var(--c-accent); }
       .o-search-wrap { position: relative; display: inline-flex; }
+      /* Navigazione giorno: bottone Oggi + bottone datepicker (sfondo tile). */
+      .o-daynav { display: inline-flex; align-items: center; gap: 0.5rem; padding-right: 0.9rem; margin-right: 0.9rem; border-right: 1px solid var(--c-line); }
+      .o-daybtn { display: inline-flex; align-items: center; gap: 0.45rem; height: 40px; padding: 0 1rem; border-radius: 999px; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+      .o-daybtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .o-daybtn:hover { border-color: var(--c-accent); }
+      .o-date-lbl { text-transform: capitalize; }
+      .o-date-lbl:empty { display: none; }
+      /* Oggi ATTIVO (vista di oggi) = corallo */
+      .o-today-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* Datepicker ATTIVO (giorno passato scelto) = corallo */
+      .o-date-btn.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* Label sotto il titolo: nascosta quando vuota (la data è nei bottoni) */
+      .today-label:empty { display: none; margin: 0; }
       .o-search-x {
         position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
         width: 22px; height: 22px; border-radius: 50%; border: none; cursor: pointer;
@@ -163,7 +175,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
-      .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 2px; padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       /* --- Aura « ritardo ritiro »: alone pulsante DIETRO la card ---
          Comincia 5 min dopo l'ora di ritiro (bianco), 10 min → arancione,
          15 min → rosso. L'alone è uno pseudo-elemento z-index:-1 col box-shadow
@@ -182,16 +194,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
          bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
-      .card.off > *:not(.btn-refund):not(.btn-rollback):not(.card-top):not(.diff-bar) { opacity: 0.45; }
+      .card.off > *:not(.card-foot):not(.card-top):not(.diff-bar) { opacity: 0.45; }
       .card.off .card-top .time,
       .card.off .card-top .tag:not(.tag-refund),
       .card.off .card-top .total,
       .card.off .card-top .btn-print { opacity: 0.45; }
       .card.refundable { padding-bottom: 3.6rem; } /* spazio per il bottone assoluto */
-      .card.done { padding-bottom: 3.4rem; } /* spazio rollback */
-      .card.done > *:not(.btn-rollback):not(.card-top):not(.diff-bar) { opacity: 0.62; }
+      .card.off { padding-bottom: 3.6rem; } /* spazio per la pillola "Annullato" */
+      .card.done { padding-bottom: 3.6rem; } /* spazio per il footer assoluto (tag + rollback) */
+      .card.done > *:not(.card-foot):not(.card-top):not(.diff-bar) { opacity: 0.62; }
       .card.done .card-top .time,
-      .card.done .card-top .tag,
+      .card.done .card-top .tag:not(.tag-done),
       .card.done .card-top .total,
       .card.done .card-top .btn-print { opacity: 0.62; }
       .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
@@ -199,8 +212,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .time { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .total { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
       .tag { display: inline-block; padding: 0.15rem 0.5rem; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-      .tag-done { border: 1px solid var(--c-line); color: var(--c-muted); }
-      .tag-cancel { background: rgba(237, 28, 36, 0.25); color: #ff6b6b; }
+      .tag-done { border: 1px solid #fff; color: #fff; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
+      .tag-cancel { border: 1px solid #ff6b6b; color: #ff6b6b; background: transparent; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
       .name { font-weight: 700; margin-bottom: 0.4rem; }
       .badge { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.45rem; border: 1px solid var(--c-line); color: var(--c-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .row { font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.2rem; }
@@ -252,16 +265,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         width: 22px; height: 22px; border-radius: 50%;
         background: var(--c-red); color: #fff; font-size: 0.78rem; font-weight: 800; line-height: 1;
       }
-      /* Rollback : rond doré, position absolue en bas à droite de la card */
+      /* Footer «terminée» : tag COMPLETATO à gauche + rollback doré à droite,
+         sur une même ligne en bas de la card (in-flow, comme .actions). */
+      /* Footer card (annullata / terminata): tag a sinistra + bottone a destra,
+         centrati verticalmente sulla stessa riga, ancorati in basso. */
+      .card-foot { position: absolute; left: 0.9rem; right: 0.9rem; bottom: 0.9rem; z-index: 2; height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+      /* Rollback : rond doré, dans le footer «terminée» */
       .btn-rollback {
-        position: absolute; right: 0.9rem; bottom: 0.9rem;
+        flex: 0 0 auto;
         width: 40px; height: 40px; border-radius: 50%; border: none;
         background: var(--c-accent); color: var(--c-bg);
-        font-size: 1.2rem; line-height: 1; display: inline-flex;
-        align-items: center; justify-content: center; cursor: pointer;
-        box-shadow: 0 3px 10px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
+        display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
         transition: transform 0.1s, filter 0.15s;
       }
+      .btn-rollback svg { width: 18px; height: 18px; fill: currentColor; display: block; }
       .btn-rollback:hover { filter: brightness(1.08); }
       .btn-rollback:active { transform: scale(0.94); }
       .btn-rollback:disabled { opacity: 0.5; cursor: wait; }
@@ -280,11 +298,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         font-size: 0.6rem; padding: 0.08rem 0.45rem; border-radius: 999px;
       }
       .btn-refund {
-        position: absolute; right: 0.9rem; bottom: 0.9rem; z-index: 2;
         font-family: var(--font-title); font-size: 0.9rem; letter-spacing: 0.03em;
         padding: 0.5rem 0.95rem; border-radius: 999px; border: none;
         background: var(--c-accent); color: var(--c-bg); font-weight: 700;
-        cursor: pointer; box-shadow: 0 3px 10px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
+        cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
         transition: transform 0.1s, filter 0.15s;
       }
       .btn-refund:hover { filter: brightness(1.08); }
@@ -334,6 +351,23 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          della grid): senza questo le pillole categorie sfondano il layout */
       .nc-grid > * { min-width: 0; }
       @media (max-width: 760px) { .nc-grid { grid-template-columns: 1fr; } }
+      /* Desktop: modale nuovo ordine a dimensione FISSA (80% del viewport in
+         largh. e alt.). Non si ingrandisce col contenuto: scroll interno nel
+         pannello (menu/carrello lunghi scorrono, il modale resta 80x80). */
+      @media (min-width: 761px) {
+        .nc-modal {
+          width: 80vw; max-width: 80vw;
+          height: 80vh; max-height: 80vh;
+          display: flex; flex-direction: column;
+        }
+        .nc-modal h2, .nc-steps, .nc-nav { flex: 0 0 auto; }
+        .nc-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+        .nc-items { max-height: none; }
+        /* Colonna menu (sinistra) sticky: resta in vista mentre il carrello scorre. */
+        .nc-panel[data-panel="1"] .nc-grid > div:first-child {
+          position: sticky; top: 0; align-self: start;
+        }
+      }
       /* Wizard multi-step del modale ordine */
       .nc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; }
       .nc-step { flex: 1; text-align: center; min-width: 56px; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); border-bottom: 2px solid var(--c-line); padding: 0.3rem 0 0.7rem; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
@@ -351,6 +385,35 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-lab { display: block; font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; margin: 0.9rem 0 0.4rem; }
       .nc-lab:first-child { margin-top: 0; }
       .nc-row { display: flex; gap: 0.5rem; }
+      /* Typeahead clienti (dropdown suggerimenti sotto i campi nome/cognome) */
+      .nc-ta-anchor { position: relative; }
+      .nc-ta {
+        position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4); overflow: hidden; max-height: 260px; overflow-y: auto;
+      }
+      .nc-ta-item {
+        display: block; width: 100%; text-align: left; background: transparent; border: none;
+        border-bottom: 1px solid var(--c-line); padding: 0.6rem 0.8rem; cursor: pointer; color: var(--c-text);
+        font-family: var(--font-body);
+      }
+      .nc-ta-item:last-child { border-bottom: none; }
+      .nc-ta-item:hover, .nc-ta-item.is-active { background: color-mix(in srgb, var(--c-accent) 14%, transparent); }
+      .nc-ta-name { font-size: 0.92rem; font-weight: 700; display: block; }
+      .nc-ta-sub { font-size: 0.76rem; color: var(--c-muted); margin-top: 1px; display: block; }
+      /* Piatti preferiti del cliente (i 5 più ordinati) — chip cliccabili */
+      .nc-fav { margin-top: 0.9rem; }
+      .nc-fav-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem; }
+      .nc-fav-chip {
+        display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        border-radius: 999px; padding: 0.35rem 0.7rem; font-family: var(--font-body); font-size: 0.85rem;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      .nc-fav-chip:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .nc-fav-chip.off { opacity: 0.5; cursor: default; }
+      .nc-fav-q { color: var(--c-muted); font-size: 0.75rem; }
+      .nc-fav-chip:hover .nc-fav-q { color: inherit; }
       .nc-tel { display: flex; gap: 0.5rem; }
       .nc-tel .nc-in { margin-bottom: 0.55rem; }
       .nc-tel-prefix { flex: 0 0 104px; cursor: pointer; }
@@ -373,16 +436,18 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-slots { display: flex; gap: 0.35rem; flex-wrap: wrap; }
       .nc-svcs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
       .nc-dates { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
-      .nc-pay { display: flex; gap: 0.5rem; margin: 0.2rem 0 0.5rem; }
+      .nc-pay { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.2rem 0 0.5rem; }
       .nc-pay button {
-        flex: 1; padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
+        flex: 1 1 140px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+        padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
         font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         transition: border-color 0.15s, color 0.15s;
       }
+      .nc-pay button svg { height: 16px; width: auto; flex: none; }
       .nc-pay button:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .nc-pay button:disabled { opacity: 0.6; cursor: wait; }
-      .nc-pay-link { width: 100%; margin-bottom: 0.5rem; padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
+      .nc-pay-link { padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
         font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         transition: border-color 0.15s, color 0.15s; }
@@ -448,9 +513,9 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-mod-line.rem { color: #d9534f; font-weight: 600; }
       .nc-mod-none { color: var(--c-muted); font-size: 0.9rem; }
       .nc-send {
-        width: 100%; margin-top: 0.9rem; background: var(--c-accent); color: var(--c-bg);
+        background: var(--c-accent); color: var(--c-bg);
         border: 2px solid var(--c-accent); font-family: var(--font-title); font-size: 1rem;
-        letter-spacing: 0.05em; padding: 0.7rem; border-radius: 999px; cursor: pointer;
+        letter-spacing: 0.05em; padding: 0.7rem 1.7rem; border-radius: 999px; cursor: pointer;
         transition: background 0.2s, color 0.2s;
       }
       .nc-send:hover { background: transparent; color: var(--c-accent); }
@@ -497,8 +562,51 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
 
       @media (max-width: 640px) {
-        main { padding: 1.5rem 1rem 7rem; }
-        .head-row { margin-bottom: 1.5rem; }
+        .head-row { margin-bottom: 1.5rem; flex-direction: column; align-items: stretch; position: relative; }
+        /* Conteggio ordini in alto a destra */
+        .count { position: absolute; top: 0.4rem; right: 0; margin: 0; text-align: right; font-size: 0.8rem; max-width: 55%; line-height: 1.3; }
+        .prep { width: 100%; align-items: stretch; gap: 0.7rem; }
+        .prep-lab { display: none; }
+        /* Bottoni preparazione: icona + solo il numero (via "min" e "Chiudi", via PREPARATION) */
+        .prep-btn .m { display: none; }
+        .prep-btn[data-min]::after { content: attr(data-min); font-size: 0.85rem; font-weight: 700; }
+        /* Riga 1 sotto il titolo: i bottoni preparazione */
+        .prep-btns { order: 1; width: 100%; margin: 0.25rem 0 0.9rem; }
+        .prep-btns .prep-btn { flex: 1 1 0; justify-content: center; }
+        /* Riga 2: Oggi / data e ricerca sulla STESSA linea */
+        .o-daynav { order: 2; flex: 0 0 auto; margin-right: 0; padding-right: 0.7rem; }
+        .prep .o-search-wrap { order: 3; margin-right: 0 !important; flex: 1 1 0; min-width: 0; }
+        .o-search { width: 100%; box-sizing: border-box; }
+      }
+
+      /* Tablet: nasconde l'etichetta PREPARAZIONE e restringe la ricerca,
+         così i controlli occupano meno spazio. */
+      @media (min-width: 641px) and (max-width: 1366px) {
+        .prep-lab { display: none; }
+        .prep { gap: 0.7rem; }
+        .prep .o-search-wrap { flex: 0 1 220px; min-width: 110px; margin-right: 0.8rem; }
+        .o-search { width: 100%; }
+      }
+      /* Tablet PORTRAIT: ricerca in alto a destra (in linea col titolo "Ordini"),
+         il resto dei controlli (Oggi/data + bottoni preparazione) sulla riga sotto. */
+      @media (min-width: 641px) and (max-width: 1023px) {
+        .head-row { position: relative; align-items: flex-start; }
+        .prep { flex-basis: 100%; margin-top: 0.05rem; }
+        .prep .o-search-wrap {
+          position: absolute; top: -0.1rem; right: 0;
+          flex: none; margin: 0; width: 320px; max-width: 46%; min-width: 0;
+        }
+        .o-search { width: 100%; }
+        /* Bottoni preparazione allineati a destra (con le label "min"/"Chiudi") */
+        .prep .prep-btns { margin-left: auto; }
+      }
+      /* Tablet orizzontale (>=1024px): titolo + controlli sulla STESSA riga,
+         centrati verticalmente col titolo. Bottoni preparazione compatti
+         (solo icona + numero, come su mobile). */
+      @media (min-width: 1024px) and (max-width: 1366px) {
+        .head-row { flex-wrap: nowrap; align-items: center; }
+        .prep-btn .m { display: none; }
+        .prep-btn[data-min]::after { content: attr(data-min); font-size: 0.95rem; font-weight: 700; }
       }
     </style>
     <AdminHead />
@@ -514,6 +622,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             <p class="count" id="count"></p>
           </div>
           <div class="prep">
+            <span class="o-daynav">
+              <button type="button" class="o-daybtn o-today-btn is-active" id="o-today-btn">{t("ord.today")}</button>
+              <button type="button" class="o-daybtn o-date-btn" id="o-date-btn" title={t("ord.viewDay")} aria-label={t("ord.viewDay")}>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <span class="o-date-lbl" id="o-date-lbl"></span>
+              </button>
+            </span>
             <span class="o-search-wrap">
               <input type="text" id="o-search" class="o-search" placeholder={t("ord.searchPh")} autocomplete="off" />
               <button type="button" class="o-search-x" id="o-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
@@ -621,17 +736,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <span class="nc-lab">{t("ord.client")}</span>
               {/* Form dedicato: l'autofill del browser (nome→email/tel) riempie
                   QUESTI campi, non la ricerca dietro il modale. */}
-              <form id="nc-cli-form" autocomplete="on" novalidate>
-                <div class="nc-row">
-                  <input type="text" class="nc-in" id="nc-prenom" autocomplete="given-name" placeholder={t("ord.firstName")} />
-                  <input type="text" class="nc-in" id="nc-nom" autocomplete="family-name" placeholder={t("ord.lastNameReq")} />
+              <form id="nc-cli-form" autocomplete="off" novalidate>
+                <div class="nc-row nc-ta-anchor">
+                  <input type="text" class="nc-in" id="nc-prenom" autocomplete="off" placeholder={t("ord.firstName")} />
+                  <input type="text" class="nc-in" id="nc-nom" autocomplete="off" placeholder={t("ord.lastNameReq")} />
+                  {/* Suggerimenti clienti già esistenti (digitando nome/cognome) */}
+                  <div class="nc-ta" id="nc-ta" style="display:none" role="listbox"></div>
                 </div>
-                <input type="email" class="nc-in" id="nc-email" autocomplete="email" placeholder={t("ord.emailReq")} />
+                <input type="email" class="nc-in" id="nc-email" autocomplete="off" placeholder={t("ord.emailReq")} />
                 <div class="nc-tel">
                   <select class="nc-in nc-tel-prefix brand-select" id="nc-tel-prefix" aria-label="Prefisso" set:html={opzioniPrefisso(CLIENT.paese)}></select>
-                  <input type="tel" class="nc-in" id="nc-tel" autocomplete="tel" placeholder={t("ord.phone")} />
+                  <input type="tel" class="nc-in" id="nc-tel" autocomplete="off" placeholder={t("ord.phone")} />
                 </div>
               </form>
+              {/* 5 piatti più ordinati dal cliente selezionato (da riproporre) */}
+              <div class="nc-fav" id="nc-fav" hidden></div>
             </div>
             <div>
               <span class="nc-lab">{t("ord.cart")}</span>
@@ -642,8 +761,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <div class="nc-pay">
                 <button type="button" class="nc-pay-btn" id="nc-cash" data-pay="cash">{t("ord.payCash")}</button>
                 <button type="button" class="nc-pay-btn" id="nc-card" data-pay="card">{t("ord.payCard")}</button>
+                <button type="button" class="nc-pay-btn nc-pay-link" id="nc-link" data-pay="link">{t("ord.payLinkShort")}</button>
               </div>
-              <button type="button" class="nc-pay-btn nc-pay-link" id="nc-link" data-pay="link">{t("ord.payLinkShort")}</button>
               {/* Scelta lingua: compare SOLO dopo aver scelto il metodo di pagamento */}
               <div id="nc-lang-block" style="display:none">
                 <span class="nc-lab">{t("ord.emailLang")}</span>
@@ -653,8 +772,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                   ))}
                 </div>
               </div>
-              {/* Conferma: compare dopo la scelta del metodo; l'etichetta cambia */}
-              <button type="button" class="nc-send" id="nc-send" style="display:none">{t("ord.createSend")}</button>
             </div>
           </div>
         </div>
@@ -663,6 +780,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <div class="nc-nav">
           <button type="button" class="nc-nav-btn" id="nc-prev">{t("mk.prev")}</button>
           <button type="button" class="nc-nav-btn nc-nav-next" id="nc-next">{t("mk.next")}</button>
+          {/* Conferma: nel footer, a destra; compare al 3° step dopo la scelta del metodo */}
+          <button type="button" class="nc-send" id="nc-send" style="display:none">{t("ord.createSend")}</button>
         </div>
       </div>
     </div>
@@ -734,10 +853,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
       // Matita (modifica ordine).
       const ICON_PENCIL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+      // Rollback : freccia curva «annulla/rimetti in corso» (viewBox 0 0 512 512).
+      const ICON_ROLLBACK = `<svg viewBox="0 0 512 512" aria-hidden="true" fill="currentColor"><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3-163.8-62.5-226.3 0L125.7 160z"/></svg>`;
       // Icone metodo di pagamento (accanto al tag PAGATO)
       const ICON_COINS = `<svg viewBox="0 0 314.965 314.965" fill="currentColor" aria-hidden="true"><path d="M104.982,104.987c60.086,0,104.983-23.753,104.983-44.992c0-21.237-44.898-44.991-104.983-44.991S0,38.758,0,59.995C0,81.234,44.896,104.987,104.982,104.987z"/><path d="M104.982,284.961c8.77,0,17.211-0.51,25.24-1.439c-6.768-8.698-12.365-18.35-16.558-28.716c-2.881,0.097-5.772,0.164-8.683,0.164c-34.333,0-66.847-6.803-91.55-19.155C8.567,233.383,4.091,230.77,0,228.004v11.966C0,261.207,44.896,284.961,104.982,284.961z"/><path d="M104.982,224.97c0.308,0,0.611-0.005,0.918-0.006c-0.615-4.916-0.936-9.923-0.936-15.003c0-5.078,0.32-10.082,0.936-14.994c-0.307,0-0.611,0.011-0.918,0.011c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.432-9.342-5.045-13.433-7.81v11.965C0,201.216,44.896,224.97,104.982,224.97z"/><path d="M104.982,164.977c2.976,0,5.912-0.06,8.811-0.174c4.656-11.423,11.019-21.974,18.777-31.331c-8.982,0.99-18.213,1.515-27.588,1.515c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.433-9.342-5.045-13.433-7.811v11.966C0,141.225,44.896,164.977,104.982,164.977z"/><path d="M149.982,160.244c-6.49,9.757-11.127,20.846-13.408,32.762c-1.053,5.493-1.609,11.16-1.609,16.955c0,4.357,0.318,8.641,0.919,12.834c1.477,10.301,4.704,20.041,9.37,28.914c4.896,9.311,11.373,17.666,19.076,24.701c16.008,14.621,37.298,23.551,60.635,23.551c49.626,0,90-40.374,90-90c0-49.627-40.374-90-90-90c-5.129,0-10.158,0.438-15.056,1.266C184.961,125.446,163.473,139.965,149.982,160.244z"/></svg>`;
       const ICON_CARD = `<svg viewBox="0 0 48 48" fill="currentColor" aria-hidden="true"><path d="m42.24 9.6c0-1.58813-1.29188-2.88-2.88-2.88h-36.48c-1.58812 0-2.88 1.29188-2.88 2.88v2.88h42.24z"/><path d="m42.24 32.64v-11.52h-42.24v11.52c0 1.58813 1.29188 2.88 2.88 2.88h36.48c1.58812 0 2.88-1.29188 2.88-2.88zm-31.81266-4.32h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96zm8.64 0h-4.66734c-.53016 0-.96-.42984-.96-.96s.42984-.96.96-.96h4.66734c.53016 0 .96.42984.96.96s-.42984.96-.96.96z"/><path d="m0 14.4h42.24v4.8h-42.24z"/><path d="m45.12 12.48h-.96v20.16c0 2.64656-2.15344 4.8-4.8 4.8h-33.6v.96c0 1.58813 1.29187 2.88 2.88 2.88h36.48c1.58813 0 2.88-1.29188 2.88-2.88v-23.04c0-1.58813-1.29187-2.88-2.88-2.88z"/></svg>`;
       const ICON_STRIPE = `<svg viewBox="0 145 512 228" aria-hidden="true"><g fill="currentColor"><path d="M512.02,259.566c0-36.41-17.636-65.14-51.344-65.14c-33.85,0-54.331,28.73-54.331,64.856c0,42.811,24.179,64.429,58.882,64.429c16.925,0,29.726-3.84,39.397-9.245V286.02c-9.672,4.836-20.765,7.823-34.846,7.823c-13.796,0-26.028-4.836-27.592-21.619h69.549C511.736,270.375,512.02,262.979,512.02,259.566z M441.76,246.054c0-16.072,9.814-22.757,18.774-22.757c8.676,0,17.921,6.685,17.921,22.757H441.76z"/><path d="M351.445,194.426c-13.938,0-22.899,6.542-27.877,11.094l-1.849-8.818h-31.29v165.838l35.557-7.538l0.142-40.25c5.12,3.698,12.658,8.96,25.174,8.96c25.459,0,48.642-20.481,48.642-65.567C399.803,216.898,376.335,194.426,351.445,194.426z M342.911,292.421c-8.392,0-13.369-2.987-16.783-6.685l-0.142-52.767c3.698-4.125,8.818-6.969,16.925-6.969c12.943,0,21.903,14.507,21.903,33.139C364.815,278.198,355.996,292.421,342.911,292.421z"/><polygon points="241.503,186.034 277.202,178.354 277.202,149.482 241.503,157.02"/><rect x="241.503" y="196.843" width="35.699" height="124.449"/><path d="M203.244,207.368l-2.276-10.525h-30.721v124.449h35.557v-84.341c8.391-10.952,22.614-8.96,27.023-7.396v-32.712C228.276,195.137,211.635,192.008,203.244,207.368z"/><path d="M132.13,165.98l-34.704,7.396L97.284,287.3c0,21.05,15.787,36.553,36.837,36.553c11.663,0,20.196-2.134,24.89-4.694v-28.872c-4.551,1.849-27.023,8.391-27.023-12.658v-50.491h27.023v-30.294h-27.023L132.13,165.98z"/><path d="M35.984,232.969c0-5.547,4.551-7.68,12.089-7.68c10.809,0,24.463,3.271,35.273,9.103v-33.424c-11.805-4.693-23.468-6.542-35.273-6.542C19.201,194.426,0,209.502,0,234.676c0,39.255,54.047,32.997,54.047,49.922c0,6.543-5.689,8.676-13.654,8.676c-11.805,0-26.881-4.836-38.828-11.378v33.85c13.227,5.689,26.597,8.107,38.828,8.107c29.583,0,49.922-14.65,49.922-40.108C90.173,241.361,35.984,248.899,35.984,232.969z"/></g></svg>`;
+
+      // Icone metodo pagamento (step 3): stesse delle card ordini.
+      document.getElementById("nc-cash")?.insertAdjacentHTML("afterbegin", ICON_COINS);
+      document.getElementById("nc-card")?.insertAdjacentHTML("afterbegin", ICON_CARD);
+      document.getElementById("nc-link")?.insertAdjacentHTML("afterbegin", ICON_STRIPE);
 
       // Ricerca: filtra su nome/email/tel in TUTTI gli ordini caricati (7 giorni)
       let ricerca = "";
@@ -778,7 +904,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         // Etichetta di stato (solo per le card spente)
         let tag = "";
-        if (o.status === "done") tag = `<span class="tag tag-done">${tr("ord.terminee")}</span>`;
         if (o.status === "pending") tag = `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
         if (o.status === "paid") {
           const payIco =
@@ -819,7 +944,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           : "";
         const rollback =
           o.status === "done"
-            ? `<button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="${tr("ord.putBack")}" aria-label="${tr("ord.putBack")}">↩</button>`
+            ? `<div class="card-foot"><span class="tag tag-done">${tr("ord.terminee")}</span><button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="${tr("ord.putBack")}" aria-label="${tr("ord.putBack")}">${ICON_ROLLBACK}</button></div>`
             : "";
         // Ordini ANNULÉS pagati con Stripe: rimborso (totale o parziale).
         // Stato rimborso = tag in alto; bottone "Rembourser" = assoluto in basso
@@ -833,6 +958,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const refundBtn =
           isStripe && residuo > 0
             ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
+            : "";
+        // Footer ordine annullato: pillola "Annullato" (rossa) a sinistra +
+        // eventuale bottone Rimborsa a destra, centrati verticalmente (come done-foot).
+        const cancelFoot =
+          o.status === "cancelled"
+            ? `<div class="card-foot"><span class="tag tag-cancel">${tr("ord.annulee")}</span>${refundBtn}</div>`
             : "";
 
         // Barra stato rimborso (ordine annullato pagato con Stripe), a tutta
@@ -882,8 +1013,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ${refundBar}
             ${actions}
             ${diffRefundBtn}
-            ${refundBtn}
             ${rollback}
+            ${cancelFoot}
           </div>`;
       }
 
@@ -1023,6 +1154,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         // --- Ordini di oggi ---
         let ordini: Order[] = [];
+        let ordiniGiorno: Order[] = []; // ordini del giorno passato consultato
+        let giornoView = "";            // "" = oggi (live); altrimenti YYYY-MM-DD
+        const fmtGiornoBtn = (iso: string): string => {
+          const [y, m, d] = iso.split("-").map(Number);
+          return new Date(y, m - 1, d).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit" });
+        };
         // Conferma "Annuler" in 2 tocchi
         let confirmId: string | null = null;
         let diffConfirmId: string | null = null;
@@ -1067,13 +1204,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             return;
           }
 
-          labelEl.textContent =
-            tr("ord.today") + " — " +
-            oggi.toLocaleDateString(LOC, { weekday: "long", day: "numeric", month: "long" });
+          const key = giornoView || oggiKey;
+          const sorgente = giornoView ? ordiniGiorno : ordini;
+          aggiornaGiornoBtn();
+          labelEl.textContent = ""; // la data è nei bottoni (Oggi / datepicker)
 
-          // Solo oggi, dal ritiro più vicino al più lontano
-          const ordOggi = ordini
-            .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey)
+          // Ordini del giorno visualizzato, dal ritiro più vicino al più lontano
+          const ordOggi = sorgente
+            .filter((o) => dayKeyBrussels(o.pickup_time) === key)
             .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
 
           // I pending MANUALI (link di pagamento inviato) stanno tra gli attivi
@@ -1092,7 +1230,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           countEl.textContent = parti.join(" · ");
 
           if (ordOggi.length === 0) {
-            stateEl.textContent = tr("ord.nonePaidToday");
+            stateEl.textContent = tr(giornoView ? "ord.noneThisDay" : "ord.nonePaidToday");
             stateEl.style.display = "block";
           } else if (attivi.length === 0) {
             stateEl.textContent = tr("ord.noneInProgress");
@@ -1120,6 +1258,151 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           aggiornaRicerca();
           oSearch?.focus();
         });
+
+        // --- Navigazione giorno BRANDIZZATA: Oggi + datepicker (consultazione) ---
+        const oggiBtn = document.getElementById("o-today-btn") as HTMLButtonElement | null;
+        const dateBtn = document.getElementById("o-date-btn") as HTMLButtonElement | null;
+        const dateLbl = document.getElementById("o-date-lbl") as HTMLElement | null;
+
+        function aggiornaGiornoBtn() {
+          if (giornoView) {
+            oggiBtn?.classList.remove("is-active"); // spento/neutro, come sempre
+            dateBtn?.classList.add("is-active");    // datepicker corallo
+            if (dateLbl) dateLbl.textContent = fmtGiornoBtn(giornoView);
+          } else {
+            oggiBtn?.classList.add("is-active");     // oggi corallo
+            dateBtn?.classList.remove("is-active");
+            if (dateLbl) dateLbl.textContent = "";
+          }
+        }
+        function tornaOggi() {
+          if (!giornoView) return;
+          giornoView = "";
+          render();
+        }
+        async function caricaGiorno(iso: string) {
+          try {
+            const res = await fetch(`/api/admin/orders?date=${encodeURIComponent(iso)}`, { headers });
+            if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
+            const j = await res.json();
+            ordiniGiorno = (j.orders as Order[]) ?? [];
+            giornoView = iso;
+            render();
+          } catch {
+            stateEl.textContent = tr("common.netErr");
+          }
+        }
+        oggiBtn?.addEventListener("click", tornaOggi);
+
+        // Datepicker brandizzato di CONSULTAZIONE (passato + oggi; futuro off).
+        const MESI_DPV = Array.from({ length: 12 }, (_, i) => new Date(2021, i, 1).toLocaleDateString(LOC, { month: "long" }));
+        const DOW_DPV = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, 1 + i).toLocaleDateString(LOC, { weekday: "narrow" }));
+        let dpvAnno = 0, dpvMese = 0;
+        const dpvClosedSet = new Set<string>();  // giorni di chiusura (grigi, ma consultabili)
+        const dpvMesiFetch = new Set<string>();  // mesi già interrogati (chiusure)
+        const dpvOrderDays = new Set<string>();  // giorni con ordini (pallino verde)
+        const dpvOrdFetch = new Set<string>();   // mesi già interrogati (ordini)
+        async function caricaOrdiniMese(anno: number, mese: number) {
+          const k = `${anno}-${String(mese + 1).padStart(2, "0")}`;
+          if (dpvOrdFetch.has(k)) return;
+          dpvOrdFetch.add(k);
+          try {
+            const r = await fetch(`/api/admin/orders?month=${k}`, { headers });
+            if (!r.ok) return;
+            const j = (await r.json()) as { days?: string[] };
+            (j.days ?? []).forEach((d) => dpvOrderDays.add(d));
+            dpvRender();
+          } catch { /* rete assente */ }
+        }
+        async function caricaChiusiV(anno: number, mese: number) {
+          const k = `${anno}-${String(mese + 1).padStart(2, "0")}`;
+          if (dpvMesiFetch.has(k)) return;
+          dpvMesiFetch.add(k);
+          try {
+            const r = await fetch("/api/slots?month=" + k);
+            if (!r.ok) return;
+            const j = (await r.json()) as { closed?: string[] };
+            (j.closed ?? []).forEach((d) => dpvClosedSet.add(d));
+            dpvRender();
+          } catch { /* rete assente: nessun giorno segnato */ }
+        }
+        const dpvPanel = document.createElement("div");
+        dpvPanel.className = "dp-panel";
+        dpvPanel.style.display = "none";
+        document.body.appendChild(dpvPanel);
+        const isoDpv = (y: number, m: number, g: number): string => `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
+        function dpvRender() {
+          const oggi = dayKeyBrussels(new Date().toISOString());
+          const sel = giornoView || oggi;
+          const offset = (new Date(dpvAnno, dpvMese, 1).getDay() + 6) % 7;
+          const nGiorni = new Date(dpvAnno, dpvMese + 1, 0).getDate();
+          const oy = Number(oggi.slice(0, 4)), om = Number(oggi.slice(5, 7)) - 1;
+          const nextOff = dpvAnno > oy || (dpvAnno === oy && dpvMese >= om); // niente mesi futuri
+          let celle = "";
+          for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
+          for (let g = 1; g <= nGiorni; g++) {
+            const iso = isoDpv(dpvAnno, dpvMese, g);
+            const futuro = iso > oggi;            // futuro: disabilitato
+            const chiuso = dpvClosedSet.has(iso); // chiusura: grigio ma cliccabile
+            const cls = ["dp-cell"];
+            if (futuro || chiuso) cls.push("dp-off");
+            if (iso === oggi) cls.push("dp-today");
+            if (iso === sel && !futuro) cls.push("dp-sel");
+            const punto = dpvOrderDays.has(iso) ? '<span class="dp-dot"></span>' : "";
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${futuro ? "disabled" : ""}>${g}${punto}</button>`;
+          }
+          dpvPanel.innerHTML = `
+            <div class="dp-head">
+              <button type="button" class="dp-nav" data-nav="-1">‹</button>
+              <span class="dp-title">${MESI_DPV[dpvMese]} ${dpvAnno}</span>
+              <button type="button" class="dp-nav" data-nav="1" ${nextOff ? "disabled" : ""}>›</button>
+            </div>
+            <div class="dp-dow">${DOW_DPV.map((g) => `<span>${g}</span>`).join("")}</div>
+            <div class="dp-grid">${celle}</div>`;
+        }
+        function dpvApri() {
+          const base = giornoView || dayKeyBrussels(new Date().toISOString());
+          dpvAnno = Number(base.slice(0, 4));
+          dpvMese = Number(base.slice(5, 7)) - 1;
+          dpvRender();
+          void caricaChiusiV(dpvAnno, dpvMese);
+          void caricaOrdiniMese(dpvAnno, dpvMese);
+          dpvPanel.style.display = "block";
+          const r = (dateBtn as HTMLElement).getBoundingClientRect();
+          const pw = dpvPanel.offsetWidth || 308;
+          const ph = dpvPanel.offsetHeight || 360;
+          dpvPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
+          dpvPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+        }
+        function dpvChiudi() { dpvPanel.style.display = "none"; }
+        dateBtn?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (dpvPanel.style.display === "none") dpvApri(); else dpvChiudi();
+        });
+        dpvPanel.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("dp-nav")) {
+            dpvMese += Number(t.dataset.nav);
+            if (dpvMese < 0) { dpvMese = 11; dpvAnno--; }
+            if (dpvMese > 11) { dpvMese = 0; dpvAnno++; }
+            dpvRender();
+            void caricaChiusiV(dpvAnno, dpvMese);
+            void caricaOrdiniMese(dpvAnno, dpvMese);
+            return;
+          }
+          if (t.classList.contains("dp-cell") && t.dataset.iso) {
+            const iso = t.dataset.iso;
+            dpvChiudi();
+            if (iso === dayKeyBrussels(new Date().toISOString())) tornaOggi();
+            else void caricaGiorno(iso);
+          }
+        });
+        document.addEventListener("click", (e) => {
+          if (dpvPanel.style.display !== "none" && !dpvPanel.contains(e.target as Node) && e.target !== dateBtn && !(dateBtn && dateBtn.contains(e.target as Node))) dpvChiudi();
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") dpvChiudi(); });
+        aggiornaGiornoBtn();
 
         async function cambiaStato(id: string, status: string, btn: HTMLButtonElement) {
           const card = btn.closest(".card");
@@ -1550,6 +1833,11 @@ let ncLang: string = NC_LANG_DEFAULT;
           mostraStep(1);
           for (const id of ["nc-prenom", "nc-nom", "nc-email", "nc-tel", "nc-note"])
             (document.getElementById(id) as HTMLInputElement).value = "";
+          // Reset suggerimenti clienti + piatti preferiti
+          const ncFavEl = document.getElementById("nc-fav");
+          if (ncFavEl) { ncFavEl.hidden = true; ncFavEl.innerHTML = ""; }
+          const ncTaEl = document.getElementById("nc-ta");
+          if (ncTaEl) ncTaEl.style.display = "none";
           document
             .querySelectorAll("#nc-langs .nc-pill")
             .forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.lang === NC_LANG_DEFAULT));
@@ -1930,6 +2218,129 @@ let ncLang: string = NC_LANG_DEFAULT;
           if (riga.qty <= 0) ncCart.delete(idv);
           ncRenderCart();
         });
+        // ---- Typeahead clienti: digitando nome/cognome propone i clienti che
+        //      hanno GIÀ ordinato. Al click precompila i campi, seleziona la
+        //      lingua email e mostra i 5 piatti più ordinati (da riproporre). ----
+        const ncTa = document.getElementById("nc-ta") as HTMLDivElement;
+        const ncFav = document.getElementById("nc-fav") as HTMLDivElement;
+        type TaCli = { name: string; first_name: string; last_name: string; email: string; phone: string; lang: string };
+        let ncTaItems: TaCli[] = [];
+        let ncTaActive = -1;
+        let ncTaTimer = 0;
+        let ncTaSeq = 0;
+        const gcampo = (id: string) => document.getElementById(id) as HTMLInputElement;
+        function ncTaHide() { ncTa.style.display = "none"; ncTaItems = []; ncTaActive = -1; }
+        function ncTaRender() {
+          if (!ncTaItems.length) { ncTaHide(); return; }
+          ncTa.innerHTML = ncTaItems.map((c, i) => {
+            const sub = [c.phone, c.email].filter(Boolean).join(" · ");
+            return `<button type="button" class="nc-ta-item${i === ncTaActive ? " is-active" : ""}" data-i="${i}"><span class="nc-ta-name">${esc(c.name)}</span>${sub ? `<span class="nc-ta-sub">${esc(sub)}</span>` : ""}</button>`;
+          }).join("");
+          ncTa.style.display = "block";
+        }
+        function ncSelLang(code: string) {
+          const pill = document.querySelector(`#nc-langs .nc-pill[data-lang="${code}"]`) as HTMLElement | null;
+          if (!pill) return; // lingua non attiva tra le pubbliche: si tiene la default
+          ncLang = code;
+          document.querySelectorAll("#nc-langs .nc-pill").forEach((x) => x.classList.toggle("is-on", x === pill));
+        }
+        function ncTaPick(c: TaCli) {
+          gcampo("nc-prenom").value = c.first_name || "";
+          gcampo("nc-nom").value = c.last_name || "";
+          gcampo("nc-email").value = c.email || "";
+          const tp = document.getElementById("nc-tel-prefix") as HTMLSelectElement;
+          gcampo("nc-tel").value = "";
+          if (c.phone) {
+            const sep = separaPrefisso(c.phone);
+            if (sep && Array.from(tp.options).some((op) => op.value === sep.dial)) { tp.value = sep.dial; gcampo("nc-tel").value = sep.resto; }
+            else { gcampo("nc-tel").value = c.phone; }
+          }
+          ncSelLang(c.lang);
+          ncTaHide();
+          void ncCaricaPreferiti(c.email, c.phone);
+        }
+        async function ncTaCerca(term: string) {
+          const seq = ++ncTaSeq;
+          try {
+            const res = await fetch("/api/admin/orders?client_search=" + encodeURIComponent(term), { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { clients?: TaCli[] };
+            if (seq !== ncTaSeq) return;
+            ncTaItems = j.clients ?? [];
+            ncTaActive = -1;
+            ncTaRender();
+          } catch { /* rete assente */ }
+        }
+        function ncTaOnInput() {
+          window.clearTimeout(ncTaTimer);
+          const fn = gcampo("nc-prenom").value.trim();
+          const ln = gcampo("nc-nom").value.trim();
+          const term = fn.length >= ln.length ? fn : ln;
+          if (term.length < 2) { ncTaHide(); return; }
+          ncTaTimer = window.setTimeout(() => void ncTaCerca(term), 250);
+        }
+        ["nc-prenom", "nc-nom"].forEach((id) => {
+          gcampo(id).addEventListener("input", ncTaOnInput);
+          gcampo(id).addEventListener("keydown", (e) => {
+            if (ncTa.style.display === "none") return;
+            if (e.key === "ArrowDown") { e.preventDefault(); ncTaActive = Math.min(ncTaActive + 1, ncTaItems.length - 1); ncTaRender(); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); ncTaActive = Math.max(ncTaActive - 1, 0); ncTaRender(); }
+            else if (e.key === "Enter") { if (ncTaActive >= 0 && ncTaItems[ncTaActive]) { e.preventDefault(); ncTaPick(ncTaItems[ncTaActive]); } }
+            else if (e.key === "Escape") { ncTaHide(); }
+          });
+        });
+        ncTa.addEventListener("mousedown", (e) => {
+          const b = (e.target as HTMLElement).closest(".nc-ta-item") as HTMLElement | null;
+          if (!b) return;
+          e.preventDefault(); // evita il blur del campo prima della scelta
+          const i = Number(b.dataset.i);
+          if (ncTaItems[i]) ncTaPick(ncTaItems[i]);
+        });
+        document.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest(".nc-ta-anchor")) return;
+          ncTaHide();
+        });
+
+        // 5 piatti più ordinati dal cliente: chip cliccabili (aggiungono al
+        // carrello). Un piatto non più a menu è mostrato disabilitato.
+        let ncFavSeq = 0;
+        async function ncCaricaPreferiti(email: string, phone: string) {
+          const seq = ++ncFavSeq;
+          ncFav.hidden = true; ncFav.innerHTML = "";
+          if (!email && !phone) return;
+          try {
+            const qs = new URLSearchParams({ client_top: "1" });
+            if (email) qs.set("email", email);
+            if (phone) qs.set("phone", phone);
+            const res = await fetch("/api/admin/orders?" + qs.toString(), { headers });
+            if (!res.ok) return;
+            const j = (await res.json()) as { top_items?: Array<{ id: string; name: string; qty: number }> };
+            if (seq !== ncFavSeq) return;
+            const items = j.top_items ?? [];
+            if (!items.length) return;
+            ncFav.innerHTML =
+              `<span class="nc-lab">${esc(tr("ord.favItems"))}</span>` +
+              `<div class="nc-fav-chips">` +
+              items.map((it) => {
+                const inMenu = ncMenu.some((v) => v.id === it.id);
+                return `<button type="button" class="nc-fav-chip${inMenu ? "" : " off"}" data-fav="${esc(it.id)}"${inMenu ? "" : " disabled"} title="${esc(tr("ord.favAdd"))}"><span class="nc-fav-n">${esc(it.name)}</span><span class="nc-fav-q">×${it.qty}</span></button>`;
+              }).join("") +
+              `</div>`;
+            ncFav.hidden = false;
+          } catch { /* rete assente */ }
+        }
+        ncFav.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("[data-fav]") as HTMLElement | null;
+          if (!b) return;
+          const voce = ncMenu.find((v) => v.id === b.dataset.fav);
+          if (!voce) return;
+          const cur = ncCart.get(voce.id);
+          ncCart.set(voce.id, { voce, qty: (cur?.qty ?? 0) + 1 });
+          ncRenderCart();
+          ncRenderRecap(); // siamo allo step 3: aggiorna anche il riepilogo carrello
+          ncToast(tr("ord.favAdded"));
+        });
+
         // payment: "cash"/"card" = pagato in cassa (ordine subito confermato) ·
         // "link" = invio del link di pagamento Stripe via email.
         async function inviaOrdine(payment: "cash" | "card" | "link") {
@@ -1984,7 +2395,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           });
           (document.getElementById("nc-lang-block") as HTMLElement).style.display = "block";
           const send = document.getElementById("nc-send") as HTMLButtonElement;
-          send.style.display = "block";
+          send.style.display = "inline-block";
           send.textContent = method === "link" ? tr("ord.createSend") : tr("ord.confirmOrder");
           const email = document.getElementById("nc-email") as HTMLInputElement;
           email.placeholder = method === "link" ? tr("ord.emailReq") : tr("ord.emailOpt");
@@ -2053,6 +2464,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           const next = document.getElementById("nc-next") as HTMLButtonElement;
           prev.style.visibility = n === 1 ? "hidden" : "visible";
           next.style.display = n === 3 ? "none" : "inline-block";
+          const sendBtn = document.getElementById("nc-send") as HTMLButtonElement | null;
+          if (sendBtn) sendBtn.style.display = (n === 3 && ncPayment) ? "inline-block" : "none";
           if (n === 3) { ncRenderRecap(); renderModRecap(); }
         }
         // Validazione minima per avanzare (l'email è richiesta solo al pagamento link)

@@ -173,6 +173,10 @@ const tabTitle = brand.nome || t("login.title");
       button.primary:disabled { opacity: .5; cursor: not-allowed; }
       .link { display: block; width: 100%; background: none; border: none; color: var(--c-accent); font-family: var(--font-body); font-size: .85rem; font-weight: 700; cursor: pointer; text-align: center; margin-top: 1.2rem; padding: .3rem; }
       .link:hover { text-decoration: underline; }
+      .site-pill-row { text-align: center; margin-top: .8rem; }
+      .site-pill { display: inline-flex; align-items: center; gap: .4rem; padding: .34rem .9rem; border: 1px solid var(--c-line, #e0e0e0); border-radius: 999px; color: var(--c-muted, #8a8a8a); font-family: var(--font-body); font-size: .76rem; font-weight: 600; text-decoration: none; transition: border-color .2s, color .2s; }
+      .site-pill svg { width: 14px; height: 14px; }
+      .site-pill:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .msg { font-size: .84rem; text-align: center; margin-bottom: 1rem; min-height: 1.1rem; line-height: 1.45; }
       .msg.err, .msg.ok { text-align: left; padding: .8rem .95rem; border-radius: 9px; border: 1px solid; min-height: 0; }
       .msg.ok { color: var(--c-ok); background: rgba(47, 158, 89, .10); border-color: rgba(47, 158, 89, .28); }
@@ -254,6 +258,12 @@ const tabTitle = brand.nome || t("login.title");
               <button type="submit" class="primary" id="submit-btn">{t("login.submit")}</button>
             </form>
             <button type="button" class="link" id="to-forgot">{t("login.forgot")}</button>
+            <div class="site-pill-row">
+              <a class="site-pill" href="/" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                {t("login.gotoSite")}
+              </a>
+            </div>
           </div>
 
           <!-- VISTA PASSWORD DIMENTICATA -->
