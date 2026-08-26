@@ -61,7 +61,15 @@ export const GET: APIRoute = async ({ url }) => {
 
   const { lunch, dinner } = calcolaSlotGiorno(ora, config);
 
-  return new Response(JSON.stringify({ lunch, dinner }), {
+  // Giorno CHIUSO al take-away: né pranzo né cena attivi/configurati.
+  // (diverso da "aperto ma slot già passati", dove closed=false ma le liste
+  // possono essere vuote.)
+  const closed = !(
+    (config.lunch_active && config.lunch_open && config.lunch_close) ||
+    (config.dinner_active && config.dinner_open && config.dinner_close)
+  );
+
+  return new Response(JSON.stringify({ lunch, dinner, closed }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",

@@ -60,7 +60,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Homemade+Apple&family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
       :root {
@@ -79,7 +79,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
-      main { flex: 1; padding: 2rem 2rem 7rem; width: 100%; }
 
       /* minmax(0,1fr): colonne SEMPRE uguali (il contenuto largo non può
          allargare la sua colonna). grid-auto-rows + align-items:start =
@@ -92,8 +91,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       @media (max-width: 560px) {
         .cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
         .cards .tile { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 0 !important; height: auto !important; }
+        .cards .tile-notes { min-height: 180px !important; }
         .org-fab:not(.org-fab-tiles), .cards .tile-move, .cards .tile-resize { display: none !important; }
-        .org-fab-tiles { left: 1.5rem; }
+        .org-fab-tiles { left: 1.5rem; bottom: 4.4rem; }
       }
 
       .tile { display: block; min-width: 0; margin-bottom: 0.75rem; background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; text-decoration: none; color: var(--c-text); transition: border-color 0.2s, transform 0.15s; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
@@ -271,7 +271,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .val.warn { color: var(--c-accent); }
 
       /* --- Tile Notes (colori invertiti: fondo oro, testo marrone) --- */
-      .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); }
+      .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); min-height: 180px; }
       .tile-notes .tile-title { color: var(--c-brown); }
       .tile-notes .tile-title .tt-ico { stroke: var(--c-brown); }
       .ntile-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
@@ -306,7 +306,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       /* Compose */
       .notes-compose { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
-      .notes-compose textarea { background: #fffaf0; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); color: var(--c-brown); font-family: var(--font-body); font-size: 0.95rem; padding: 0.7rem 0.8rem; width: 100%; min-height: 74px; resize: vertical; color-scheme: light; }
+      .notes-compose textarea { background: #fffaf0; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); color: var(--c-brown); font-family: var(--font-body); font-size: 0.95rem; padding: 0.7rem 0.8rem; width: 100%; min-height: 120px; resize: vertical; color-scheme: light; }
       .notes-compose textarea::placeholder { color: color-mix(in srgb, var(--c-bg) 50%, transparent); }
       .notes-compose textarea:focus { outline: none; border-color: var(--c-brown); }
       .notes-compose-actions { display: flex; justify-content: flex-end; }
@@ -314,6 +314,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .nc-tags { display: flex; gap: 0.45rem; flex-wrap: wrap; }
       .nc-tag { border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-bg) 45%, transparent); background: transparent; color: #2c2013; font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; padding: 0.28rem 0.75rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
       .nc-tag.is-on { background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
+      /* MOBILE: modale note un po' più alto, tag in riga, "Aggiungi" sotto i tag. */
+      @media (max-width: 640px) {
+        #notes-overlay .modal { min-height: 62vh; }
+        #notes-overlay .notes-compose-actions { flex-direction: column; align-items: stretch; gap: 0.85rem; }
+        #notes-overlay .nc-tags { justify-content: flex-start; }
+        #notes-overlay .nc-save { width: 100%; text-align: center; }
+      }
       .note-tags { display: flex; gap: 0.35rem; margin-top: 0.3rem; flex-wrap: wrap; }
       .note-tag { border-radius: 999px; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.12rem 0.5rem; }
       .note-tag.t-important { background: #8f2e15; color: #fff; }
@@ -343,6 +350,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .notes-empty { color: color-mix(in srgb, var(--c-bg) 65%, transparent); font-size: 0.9rem; padding: 0.4rem 0; }
 
       /* ---- Organiser : FAB flottante in basso a sinistra (come les chiusure Réservations) ---- */
+      /* Saluto sopra le tile (SOLO mobile): la parola ruota ogni 5s. */
+      .home-hello { display: none; }
+      @media (max-width: 640px) {
+        .home-hello { display: block; text-align: center; margin: 0.15rem 0 1.1rem; font-family: var(--font-title); font-size: 1.25rem; line-height: 1.1; color: var(--c-muted); letter-spacing: 0.02em; }
+        .home-hello strong { color: var(--c-text); font-weight: 700; }
+        .home-hello .hh-word { display: inline-block; font-family: "Homemade Apple", cursive; font-weight: 400; font-size: 0.95em; line-height: 1; vertical-align: -0.04em; margin-right: 0.2em; transition: opacity 0.35s ease, transform 0.35s ease; }
+      }
       .org-fab {
         position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
         width: 52px; height: 52px; border-radius: 50%;
@@ -359,8 +373,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         color: var(--c-bg); transform: scale(0.86);
       }
       .org-fab.is-on:hover { background: color-mix(in srgb, var(--c-accent) 50%, #000); border-color: color-mix(in srgb, var(--c-accent) 50%, #000); transform: scale(0.82); }
-      .org-fab-reset { left: 5.6rem; }
-      .org-fab-tiles { left: 9.7rem; }
+      /* Bottoni azione in VERTICALE (impilati dal JS posizionaIsole via bottom). */
+      .org-fab-reset { left: 1.5rem; }
+      .org-fab-tiles { left: 1.5rem; }
 
       /* ---- Modale « Tuiles » : afficher / masquer les tuiles ---- */
       #tuiles-overlay .tm-modal {
@@ -418,6 +433,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <div id="app">
       <AdminHeader />
       <main>
+        <div class="home-hello" id="home-hello" aria-live="polite"></div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div class="cards" id="cards" style="display:none">
           <TileNotes />
@@ -759,6 +775,30 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         }
         userEmail.textContent = session.user.email ?? "";
         app.style.display = "flex";
+
+        // Saluto sopra le tile (solo mobile): parola che cambia ogni 5 secondi.
+        const homeHello = document.getElementById("home-hello");
+        if (homeHello) {
+          const md = (session.user.user_metadata || {}) as Record<string, unknown>;
+          const rawNome = String(md.full_name || md.name || md.first_name || md.given_name || md.nome || "").trim();
+          const nome = rawNome ? rawNome.split(/\s+/)[0] : "";
+          const SALUTI = ["Ciao", "Salut", "Hola", "Hallo", "Olá", "Hej", "Hello", "Hoi", "Ahoj"];
+          let gi = Math.floor(Math.random() * SALUTI.length);
+          homeHello.innerHTML = `<span class="hh-word">${escHtml(SALUTI[gi])}</span>${nome ? ` <strong>${escHtml(nome)}</strong>` : ""}`;
+          const wEl = homeHello.querySelector(".hh-word") as HTMLElement | null;
+          if (wEl) {
+            setInterval(() => {
+              gi = (gi + 1) % SALUTI.length;
+              wEl.style.opacity = "0";
+              wEl.style.transform = "translateY(-6px)";
+              setTimeout(() => {
+                wEl.textContent = SALUTI[gi];
+                wEl.style.opacity = "1";
+                wEl.style.transform = "translateY(0)";
+              }, 350);
+            }, 5000);
+          }
+        }
         supabaseBrowser.auth.getUser().then(({ data, error }) => {
           if (error || !data.user) window.location.replace("/admin/login");
         });
@@ -788,9 +828,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           if (!nav) return;
           const largo = window.matchMedia("(min-width: 521px)").matches;
           const r = nav.getBoundingClientRect();
+          const base = window.innerHeight - r.bottom + (r.height - 52) / 2;
+          const STEP = 66; // spaziatura verticale tra i FAB impilati
+          const off: Record<string, number> = { "organiser-btn": 0, "organiser-reset": STEP, "organiser-tuiles": STEP * 2 };
           for (const id of ["organiser-btn", "organiser-reset", "organiser-tuiles"]) {
             const el = document.getElementById(id) as HTMLElement | null;
-            if (el) el.style.bottom = largo ? `${window.innerHeight - r.bottom + (r.height - 52) / 2}px` : "";
+            if (el) el.style.bottom = largo ? `${base + (off[id] ?? 0)}px` : "";
           }
         }
         window.addEventListener("resize", posizionaIsole);

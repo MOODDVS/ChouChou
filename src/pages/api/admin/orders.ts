@@ -83,6 +83,111 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ orders: data ?? [], now });
   }
 
+  // ?month=YYYY-MM → elenco dei GIORNI del mese che hanno ordini (per il
+  // pallino verde nel datepicker di consultazione).
+  const monthParam = url.searchParams.get("month");
+  if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
+    const start = DateTime.fromISO(monthParam + "-01", { zone: TIMEZONE });
+    if (!start.isValid) return json({ days: [] });
+    const daM = start.startOf("month").toISO();
+    const aM = start.endOf("month").toISO();
+    const { data } = await supabaseAdmin
+      .from("orders")
+      .select("pickup_time, status, source")
+      .gte("pickup_time", daM as string)
+      .lte("pickup_time", aM as string);
+    const giorni = new Set<string>();
+    for (const r of (data ?? []) as Array<{ pickup_time: string; status: string; source?: string | null }>) {
+      const ok = ["paid", "done", "cancelled"].includes(r.status) || (r.status === "pending" && r.source === "manual");
+      if (!ok) continue;
+      const d = DateTime.fromISO(r.pickup_time).setZone(TIMEZONE).toISODate();
+      if (d) giorni.add(d);
+    }
+    return json({ days: [...giorni] });
+  }
+
+  // ?client_search=<term> → clienti che hanno GIÀ ordinato (da ordini passati +
+  // tabella clients), per l'autocompletamento nel modale "Nuovo ordine".
+  const clientSearch = (url.searchParams.get("client_search") ?? "").trim();
+  if (clientSearch.length >= 2) {
+    const pulito = clientSearch.replace(/[%,()*]/g, "").slice(0, 60);
+    if (!pulito) return json({ clients: [] });
+    type Match = { name: string; first_name: string; last_name: string; email: string; phone: string; lang: string };
+    const out = new Map<string, Match>();
+    const keyOf = (m: Match) => (m.email || m.phone || m.name).toLowerCase();
+    const push = (name: string, email: string, phone: string, lang: string) => {
+      const nm = name.trim();
+      if (!nm) return;
+      const parts = nm.split(/\s+/);
+      const m: Match = { name: nm, first_name: parts[0] ?? "", last_name: parts.slice(1).join(" "), email: email.trim(), phone: phone.trim(), lang: (lang || "").trim() };
+      const k = keyOf(m);
+      if (!out.has(k)) out.set(k, m); // il primo (più recente) vince → lang dell'ultimo ordine
+    };
+    // 1) ordini passati (customer_name), dal più recente
+    try {
+      const { data } = await supabaseAdmin
+        .from("orders")
+        .select("customer_name, customer_email, customer_phone, lang, created_at")
+        .ilike("customer_name", `%${pulito}%`)
+        .order("created_at", { ascending: false })
+        .limit(60);
+      for (const r of (data ?? []) as Array<{ customer_name?: string; customer_email?: string; customer_phone?: string; lang?: string }>)
+        push(String(r.customer_name ?? ""), String(r.customer_email ?? ""), String(r.customer_phone ?? ""), String(r.lang ?? ""));
+    } catch { /* ignore */ }
+    // 2) tabella clients (nome unico) — completa i contatti mancanti
+    try {
+      const { data } = await supabaseAdmin
+        .from("clients")
+        .select("name, email, phone, lang, hidden")
+        .ilike("name", `%${pulito}%`)
+        .limit(12);
+      for (const c of (data ?? []) as Array<{ name?: string; email?: string; phone?: string; lang?: string; hidden?: boolean }>) {
+        if (c.hidden) continue;
+        push(String(c.name ?? ""), String(c.email ?? ""), String(c.phone ?? ""), String(c.lang ?? ""));
+      }
+    } catch { /* colonne assenti: ignore */ }
+    return json({ clients: [...out.values()].slice(0, 8) });
+  }
+
+  // ?client_top=1&email=&phone= → i 5 piatti più ordinati dal cliente + la
+  // lingua dell'ultimo ordine (per riproporli nel modale "Nuovo ordine").
+  if (url.searchParams.get("client_top")) {
+    const email = (url.searchParams.get("email") ?? "").trim();
+    const phone = (url.searchParams.get("phone") ?? "").trim();
+    if (!email && !phone) return json({ top_items: [], lang: "" });
+    type ItemJ = { id?: string; name?: string; qty?: number };
+    const rows = new Map<string, { items: ItemJ[]; lang: string; created_at: string }>();
+    const raccogli = async (mode: "email" | "phone", val: string) => {
+      const base = supabaseAdmin
+        .from("orders")
+        .select("id, items, lang, created_at")
+        .in("status", ["paid", "done"])
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const { data } = mode === "email" ? await base.ilike("customer_email", val) : await base.eq("customer_phone", val);
+      for (const r of (data ?? []) as Array<{ id: string; items?: ItemJ[]; lang?: string; created_at: string }>)
+        rows.set(r.id, { items: (r.items ?? []) as ItemJ[], lang: String(r.lang ?? ""), created_at: r.created_at });
+    };
+    try { if (email) await raccogli("email", email); } catch { /* */ }
+    try { if (phone) await raccogli("phone", phone); } catch { /* */ }
+    const tally = new Map<string, { id: string; name: string; qty: number }>();
+    let lang = "";
+    let ultima = "";
+    for (const r of rows.values()) {
+      if (r.created_at > ultima) { ultima = r.created_at; lang = r.lang; }
+      for (const it of r.items) {
+        if (!it || it.id === "note" || !it.id) continue;
+        const q = Math.max(0, Number(it.qty) || 0);
+        if (!q) continue;
+        const cur = tally.get(it.id) ?? { id: it.id, name: String(it.name ?? ""), qty: 0 };
+        cur.qty += q;
+        tally.set(it.id, cur);
+      }
+    }
+    const top = [...tally.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
+    return json({ top_items: top, lang });
+  }
+
   // Soglia: 7 giorni fa a mezzanotte, fuso Europe/Brussels, in ISO completo
   // (pickup_time è timestamptz, quindi confronto con un istante ISO).
   const soglia = DateTime.now()
@@ -91,30 +196,42 @@ export const GET: APIRoute = async ({ request, url }) => {
     .startOf("day")
     .toISO();
 
+  // ?date=YYYY-MM-DD → ordini di QUEL giorno (per consultare il passato),
+  // altrimenti la finestra standard (ultimi 7 giorni).
+  const dateParam = url.searchParams.get("date");
+  let daISO: string | null = null;
+  let aISO: string | null = null;
+  if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+    const d = DateTime.fromISO(dateParam, { zone: TIMEZONE });
+    if (d.isValid) {
+      daISO = d.startOf("day").toISO();
+      aISO = d.endOf("day").toISO();
+    }
+  }
+
   const CAMPI_BASE =
     "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id";
   // Colonne #50 (differenza dopo modifica). Se la migrazione non e' ancora
   // stata lanciata, il primo select fallisce e si ripiega sui campi base:
   // la lista continua a funzionare, la feature differenza resta dormiente.
   const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method";
-  const leggi = (campi: string) =>
-    Promise.all([
-      supabaseAdmin
-        .from("orders")
-        .select(campi)
-        .in("status", ["paid", "done", "cancelled"])
-        .gte("pickup_time", soglia)
-        .order("pickup_time", { ascending: true }),
-      // Pending MANUALI (link di pagamento inviato): i pending del sito
-      // (checkout abbandonati) restano fuori. Migrazione #29 assente → nessuno.
-      supabaseAdmin
-        .from("orders")
-        .select(campi)
-        .eq("status", "pending")
-        .eq("source", "manual")
-        .gte("pickup_time", soglia)
-        .order("pickup_time", { ascending: true }),
+  const leggi = (campi: string) => {
+    const q1 = supabaseAdmin.from("orders").select(campi).in("status", ["paid", "done", "cancelled"]);
+    // Pending MANUALI (link di pagamento inviato): i pending del sito
+    // (checkout abbandonati) restano fuori. Migrazione #29 assente → nessuno.
+    const q2 = supabaseAdmin.from("orders").select(campi).eq("status", "pending").eq("source", "manual");
+    if (daISO && aISO) {
+      q1.gte("pickup_time", daISO).lte("pickup_time", aISO);
+      q2.gte("pickup_time", daISO).lte("pickup_time", aISO);
+    } else {
+      q1.gte("pickup_time", soglia);
+      q2.gte("pickup_time", soglia);
+    }
+    return Promise.all([
+      q1.order("pickup_time", { ascending: true }),
+      q2.order("pickup_time", { ascending: true }),
     ]);
+  };
   let [princ, pend] = await leggi(CAMPI_BASE + EXTRA_50);
   if (princ.error) [princ, pend] = await leggi(CAMPI_BASE);
 

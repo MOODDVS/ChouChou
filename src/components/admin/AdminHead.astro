@@ -29,7 +29,14 @@ const FAB_CSS =
 // singole pagine vincono comunque. opacity:1 annulla il 0.54 di Firefox.
 const PLACEHOLDER_CSS =
   ":where(input,textarea)::placeholder{color:color-mix(in srgb,var(--c-text) 40%,var(--c-bg));opacity:1}";
-const css = cssTema(boot.theme) + FAB_CSS + PLACEHOLDER_CSS;
+// Layout del contenuto: UNICA definizione per <main>, condivisa da tutte le
+// pagine admin (AdminHead è nel <head> di ognuna). Prima era ripetuta in ogni
+// pagina. Mobile: meno padding laterale (più spazio alle card); il padding in
+// basso resta per la bottom-nav.
+const LAYOUT_CSS =
+  "main{flex:1;width:100%;padding:2rem 1.5rem 8rem}" +
+  "@media(max-width:640px){main{padding:1.25rem 1rem 8rem}}";
+const css = cssTema(boot.theme) + FAB_CSS + PLACEHOLDER_CSS + LAYOUT_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";
@@ -54,3 +61,12 @@ const script = righe.length ? `(function(){var d=document;${righe.join(";")}})()
     al <head>, dopo i :root della pagina => vince nella cascata. */}
 {css && <style is:inline set:html={css} />}
 {script && <script is:inline set:html={script} />}
+{/* Installazione PWA: nome e icona SEMPRE RestoHub, su qualsiasi dispositivo.
+    L'icona iOS (apple-touch-icon) NON è tra i rel="icon" riscritti sopra col
+    favicon del cliente, quindi resta il marchio RestoHub. */}
+<link rel="apple-touch-icon" href="/restohub/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="RestoHub" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+{/* Font handwriting per il saluto header (desktop/tablet). */}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Homemade+Apple&display=swap" />

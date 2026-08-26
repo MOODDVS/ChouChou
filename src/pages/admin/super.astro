@@ -71,7 +71,7 @@ const supI18n = {
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; margin: 0 auto; }
+      main { margin: 0 auto; }  /* padding/flex/width dalla regola condivisa in AdminHead */
       .pane[data-pane="reglages"] .sub { max-width: none; }
 
       /* Barre d'onglets (même style que la page Admin) */
@@ -406,9 +406,6 @@ const supI18n = {
       .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
       .toast.is-error { border-color: #ed1c24; }
 
-      @media (max-width: 640px) {
-        main { padding: 1.5rem 1rem 8rem; }
-      }
     </style>
     <AdminHead />
   </head>

@@ -13,11 +13,13 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
 import { aggiornaTimezone } from "../../lib/slots";
 import { adminLang } from "../../lib/admin/adminLang";
+import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
+const boot = await caricaBootAdmin();
 
 export const prerender = false;
 
@@ -75,8 +77,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
-      .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+      /* Testata: titolo a sinistra, controlli giorno a destra (come Ordini) */
+      .head-row { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.2rem; border-bottom: 1px solid var(--c-line); }
+      .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 0; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
@@ -84,7 +87,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Barra del giorno */
       .daybar {
         display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
-        padding-bottom: 1.5rem; margin-bottom: 0; border-bottom: 1px solid var(--c-line);
+        padding-bottom: 0; margin-bottom: 0; border-bottom: none;
       }
       .subbar { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin: 0.9rem 0 1.2rem; }
       .f-serv { display: inline-flex; align-items: center; gap: 0.6rem; }
@@ -98,35 +101,36 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .fs-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .fs-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .fs-pill svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .fs-short, .stx-short, .dl-short, .dc-short { display: none; }
       .d-pill {
         display: inline-flex; align-items: center; gap: 0.15rem;
         background: var(--c-input); border: 1px solid var(--c-line);
-        border-radius: 999px; padding: 0.25rem 0.35rem;
+        border-radius: 999px; padding: 0.2rem 0.3rem;
       }
       .d-nav {
-        width: 34px; height: 34px; box-sizing: border-box;
+        width: 30px; height: 30px; box-sizing: border-box;
         display: inline-flex; align-items: center; justify-content: center;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        border-radius: 50%; cursor: pointer; font-size: 1.1rem;
+        border-radius: 50%; cursor: pointer; font-size: 1rem;
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .d-nav:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .d-label {
-        font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em;
-        min-width: 260px; text-align: center; cursor: pointer; transition: color 0.15s;
-        padding: 0 0.5rem; line-height: 1;
+        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.04em;
+        min-width: 200px; text-align: center; cursor: pointer; transition: color 0.15s;
+        padding: 0 0.6rem; line-height: 1;
       }
       .d-label:hover { color: var(--c-accent); }
       .d-label.is-today { color: var(--c-accent); }
       .d-today {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        height: 42px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 0.45rem;
-        padding: 0 1.2rem 1px; border-radius: 10px; cursor: pointer;
+        font-family: var(--font-title); font-size: 0.85rem; letter-spacing: 0.05em;
+        height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0 1rem; border-radius: 999px; cursor: pointer;
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
       .d-today:hover { border-color: var(--c-accent); color: var(--c-text); }
-      .d-today .n { font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; opacity: 0.75; }
+      .d-today .n { font-family: var(--font-body); font-size: 0.72rem; font-weight: 700; opacity: 0.75; }
       /* Attivo (= oggi in vista giorno): pieno oro come i filtri delle pagine */
       .d-today.is-now { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .d-today.is-now:hover { background: var(--c-accent); color: var(--c-bg); }
@@ -196,6 +200,71 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .d-search-x:hover { background: var(--c-accent); color: var(--c-bg); }
       .d-search::placeholder { color: var(--c-muted); }
       .d-search:focus { outline: none; border-color: var(--c-accent); }
+      .d-txt-short { display: none; }
+      .d-ico-today, .d-ico-week, .d-ico-month { display: none; align-items: center; }
+      .d-ico-today svg, .d-ico-week svg, .d-ico-month svg { width: 18px; height: 18px; }
+      /* --- Responsive testata (stessa logica di Ordini) --- */
+      /* Tablet landscape: titolo + controlli su UNA riga, ricerca elastica. */
+      @media (min-width: 1024px) and (max-width: 1366px) {
+        .head-row { flex-wrap: nowrap; }
+        .daybar { flex-wrap: nowrap; }
+        .daybar .d-search-wrap { flex: 0 1 220px; min-width: 140px; }
+        .daybar .d-search { width: 100%; }
+        .d-label { min-width: 0; }
+        #d-sem .d-txt-full { display: none; }
+        #d-sem .d-txt-short { display: inline; }
+      }
+      /* Tablet portrait: ricerca in alto a destra allineata col titolo,
+         date-picker + Oggi/Settimana/Mese sulla riga sotto. */
+      @media (min-width: 641px) and (max-width: 1023px) {
+        .head-row { position: relative; align-items: flex-start; }
+        .daybar { flex-basis: 100%; margin-top: 0.3rem; }
+        .daybar .d-search-wrap {
+          position: absolute; top: 0; right: 0; flex: none; width: 320px; max-width: 46%;
+        }
+        .daybar .d-search { width: 100%; }
+      }
+      /* Mobile: ricerca a piena larghezza sotto ai controlli. */
+      @media (max-width: 640px) {
+        .head-row { flex-direction: column; align-items: stretch; gap: 1.25rem; }
+        .daybar { width: 100%; column-gap: 0.4rem; row-gap: 0.8rem; }
+        .daybar .d-search-wrap { order: 5; flex: 1 1 100%; }
+        .daybar .d-search { width: 100%; }
+        /* Data + Oggi/Sett/Mese sulla STESSA linea: numeri nascosti, bottoni compatti */
+        .d-today .n { display: none; }
+        .d-today { flex: 0 0 auto; padding: 0 0.7rem; }
+        .d-pill { flex: 1 1 auto; min-width: 0; }
+        .d-label { min-width: 0; font-size: 0.95rem; }
+        /* Oggi = solo icona */
+        #d-today .d-txt-full { display: none; }
+        #d-today .d-ico-today { display: inline-flex; }
+        /* Settimana = solo icona */
+        #d-sem .d-txt-full, #d-sem .d-txt-short { display: none; }
+        #d-sem .d-ico-week { display: inline-flex; }
+        /* Mese = solo icona */
+        #d-mois .d-txt-full { display: none; }
+        #d-mois .d-ico-month { display: inline-flex; }
+        /* Subbar: filtri + stats sulla stessa linea, compatti */
+        .subbar { flex-wrap: wrap; gap: 0.4rem; }
+        .f-serv { gap: 0.4rem; min-width: 0; flex: 0 1 auto; }
+        /* Pillola chiusura su riga propria a piena larghezza (dopo filtri e stats) */
+        .d-closed { flex-basis: 100%; order: 5; gap: 0.35rem; }
+        .d-closed:not(:empty)::before { display: none; }
+        .d-closed-pill { height: 30px; padding: 0 0.6rem; font-size: 0.72rem; }
+        .dc-full { display: none; }
+        .dc-short { display: inline; }
+        .fs-pill { padding: 0 0.7rem; min-width: 0; font-size: 0.8rem; }
+        .f-serv .fs-pill:first-child { padding: 0 1.1rem; min-width: 52px; }
+        .fs-full { display: none; }
+        .fs-short { display: inline; }
+        .d-stats { padding: 0.3rem 0.6rem; font-size: 0.72rem; flex: 0 0 auto; }
+        .stx-full { display: none; }
+        .stx-short { display: inline; }
+        .stx-wait { display: none; }
+        /* Label date-picker abbreviata in vista settimana/mese */
+        .dl-full { display: none; }
+        .dl-short { display: inline; }
+      }
       .r-date { color: var(--c-text); font-size: 0.72rem; margin-top: 0.2rem; }
       /* Pillola couverts/résas: sotto la linea, a destra */
       .d-stats {
@@ -258,14 +327,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .r-pers { text-align: center; min-width: 56px; }
       .r-pers b { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.03em; display: block; line-height: 1.1; }
-      .r-pers span { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
-      .r-zone { color: var(--c-muted); font-size: 0.78rem; width: 190px; flex: 0 0 190px; text-align: left; }
+      .r-pers span { display: block; color: var(--c-text); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      .r-zone { color: var(--c-muted); font-size: 0.78rem; width: 140px; flex: 0 0 140px; text-align: center; }
       .r-tav-nom { overflow: hidden; text-overflow: ellipsis; }
       .r-tav-nom {
         display: block; font-family: var(--font-title); color: var(--c-accent);
         font-size: 1.4rem; letter-spacing: 0.03em; line-height: 1.1; white-space: nowrap; font-weight: 400;
       }
-      .r-tav-sez { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      .r-tav-sez { display: block; color: var(--c-text); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
       /* Tavolo SUGGERITO (demande pending): tono attenuato, non è ancora attribuito */
       .r-tav-sugg { color: #8f8781; font-size: 1.15rem; }
 
@@ -332,40 +401,46 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .b-ns:hover { border-color: var(--c-accent); color: var(--c-accent); }
 
       /* Schermi medi: commento sotto il nome, No-show sotto Confirmée */
-      @media (max-width: 1250px) and (min-width: 761px) {
+      @media (max-width: 1366px) and (min-width: 761px) {
+        /* Tablet: nome/contatti/nota a tutta larghezza; persone e stato in alto
+           a destra; edit + cancella in basso a destra della card. */
         .res {
           display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
-          align-items: center;
-          align-content: center;
+          grid-template-columns: auto minmax(0, 1fr) auto auto;
+          align-items: start;
           column-gap: 1.1rem;
-          row-gap: 0.45rem;
+          row-gap: 0.4rem;
         }
         .r-time { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
-        .r-main { grid-column: 2; grid-row: 1; align-self: end; }
+        .r-main { grid-column: 2; grid-row: 1; align-self: start; }
+        .r-pers { grid-column: 3; grid-row: 1; align-self: start; }
+        /* Sala/tavolo sotto il numero di persone */
+        .r-zone { grid-column: 3; grid-row: 2; align-self: start; justify-self: center; width: 140px; flex: none; text-align: center; }
+        .r-state-col { grid-column: 4; grid-row: 1; align-self: start; justify-self: end; flex-direction: column; }
+        /* Commento limitato alla colonna del nome (si ferma prima di sala/tavolo) */
         .r-note-col { grid-column: 2; grid-row: 2; align-self: start; padding-top: 0; margin-top: 0.4rem; }
-        .res.no-note .r-main { grid-row: 1 / span 2; align-self: start; }
         .res.no-note .r-note-col { display: none; }
-        .r-zone { grid-column: 3; grid-row: 1 / span 2; }
-        .r-pers { grid-column: 4; grid-row: 1 / span 2; }
-        .r-state-col { grid-column: 5; grid-row: 1 / span 2; align-self: center; justify-self: center; flex-direction: column; }
-        .r-del { grid-column: 6; grid-row: 1 / span 2; align-self: center; flex-direction: column; min-width: 34px; justify-content: center; }
+        .r-del { grid-column: 4; grid-row: 2; align-self: end; justify-self: end; flex-direction: row; min-width: 0; }
       }
-
+      /* iPad mini verticale: numero persone e tavoli leggermente piu piccoli */
+      @media (min-width: 761px) and (max-width: 834px) {
+        .r-pers b { font-size: 1.15rem; }
+        .r-tav-nom { font-size: 1.15rem; }
+      }
       /* Bottone flottante + modale aggiunta manuale */
       .fab {
-        position: fixed; right: 1.5rem; bottom: 4.4rem; z-index: 90;
+        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
         display: inline-flex; align-items: center; box-sizing: border-box;
         background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        padding: 0.6rem 1.1rem; border-radius: 999px; cursor: pointer;
+        height: 44px; padding: 0 1.1rem; border-radius: 999px; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
         transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
       }
       .fab:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
       .fab-serv {
-        position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
-        width: 52px; height: 52px; border-radius: 50%;
+        position: fixed; left: 1.5rem; bottom: 1.25rem; z-index: 90;
+        width: 44px; height: 44px; border-radius: 50%;
         background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
         display: flex; align-items: center; justify-content: center; cursor: pointer;
         box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
@@ -376,13 +451,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Almeno un service del giorno è chiuso */
       .fab-serv.has-closed { background: color-mix(in srgb, var(--c-accent) 30%, transparent); border-color: #ed1c24; color: var(--c-accent); }
       .fab-zone { left: 5.6rem; }
+      /* ≤1023px: l'isola nav è larga → FAB (destra + sinistra) sollevati sopra
+         la barra per non accavallarsi (il ramo ≥1024 lo fa via JS in AdminNav). */
+      @media (max-width: 1023px) {
+        .fab, .fab-serv, .fab-zone { bottom: calc(1.25rem + 72px); }
+      }
+      /* Mobile: icone servizi/sale piu vicine */
+      @media (max-width: 640px) {
+        .fab-zone { left: 5.1rem; }
+      }
       .d-closed {
-        position: absolute; top: 6.4rem; left: 50%; transform: translateX(-50%); z-index: 80;
-        display: flex; justify-content: center; gap: 0.4rem; flex-wrap: wrap;
-        max-width: 90vw; pointer-events: auto;
+        display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; pointer-events: auto;
       }
       .d-closed:empty { display: none; }
-      .d-closed-pill { background: color-mix(in srgb, var(--c-bg) 92%, transparent); box-shadow: 0 6px 18px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15))); }
+      .d-closed:not(:empty)::before {
+        content: ""; width: 1px; height: 22px; background: var(--c-line);
+        margin: 0 0.35rem; flex: 0 0 auto;
+      }
       .d-closed-x {
         background: none; border: none; color: #ff8a8f; cursor: pointer;
         font-size: 1.05rem; line-height: 1; padding: 0 0 0 0.1rem; margin-left: 0.15rem;
@@ -390,10 +475,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .d-closed-x:hover { color: var(--c-text); }
       .d-closed-pill {
         display: inline-flex; align-items: center; gap: 0.35rem;
+        height: 34px; box-sizing: border-box;
         border: 1px solid #ed1c24; color: #ff8a8f; background: rgba(237, 28, 36, 0.12);
-        border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 0.76rem; white-space: nowrap;
+        border-radius: 999px; padding: 0 0.85rem; font-size: 0.8rem; white-space: nowrap;
       }
-      .fab-serv svg { width: 24px; height: 24px; }
+      .fab-serv svg { width: 20px; height: 20px; }
       /* Modale services du jour */
       .sv-row {
         display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
@@ -430,11 +516,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-switch input:checked + .sv-track { background: var(--c-accent); }
       .sv-switch input:checked + .sv-track::before { transform: translateX(20px); background: var(--c-bg); }
       .sv-switch input:disabled + .sv-track { cursor: not-allowed; }
-      .sv-raisons { display: flex; gap: 0.4rem; flex-basis: 100%; }
+      .sv-actions { flex-basis: 100%; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+      .sv-raisons { display: flex; gap: 0.4rem; flex: 0 1 auto; }
       .sv-state.is-perm { color: #d24d55; font-weight: 700; }
       .sv-permbtn {
-        flex-basis: 100%;
-        max-width: max-content;
+        flex: 0 0 auto;
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.78rem;
         font-family: var(--font-body); cursor: pointer; transition: border-color 0.15s, color 0.15s;
@@ -443,8 +529,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-permbtn.is-on { border-color: var(--c-accent); color: var(--c-accent); }
       .sv-permbtn.is-on:hover { border-color: var(--c-accent); color: var(--c-accent); filter: brightness(1.15); }
       .sv-raison {
+        flex: 0 0 auto;
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
-        padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.8rem; cursor: pointer;
+        padding: 0.35rem 0.7rem; border-radius: 999px; font-size: 0.8rem; cursor: pointer;
         font-family: var(--font-body);
       }
       .sv-raison:hover { border-color: var(--c-accent); color: var(--c-text); }
@@ -475,7 +562,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
       .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
       .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
+      .m-close { position: sticky; top: 0; float: right; margin: 0 0 0 0.6rem; z-index: 7; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
       .m-close:hover { color: var(--c-text); }
       /* Modale dettagli prenotazione */
       .dt-badge {
@@ -607,6 +694,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .nm-opt:hover { border-color: var(--c-accent); color: var(--c-text); }
       .nm-opt.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .nm-langs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.35rem 0 0.2rem; }
+      .nm-lang {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
+        padding: 0.4rem 0.8rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
+        font-family: var(--font-body);
+      }
+      .nm-lang:hover { border-color: var(--c-accent); color: var(--c-text); }
+      .nm-lang.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .nm-lang-flag { font-size: 1.05rem; line-height: 1; }
+      .nm-lang-more { font-weight: 700; letter-spacing: 0.02em; }
       .modal textarea { resize: vertical; min-height: 56px; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { display: inline-block; margin-right: auto; background: #d84a3f; color: #ffffff; font-size: 0.82rem; font-weight: 700; padding: 0.42rem 0.9rem; border-radius: 999px; line-height: 1.35; }
@@ -623,7 +721,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
       /* Modale résa in stile widget, due colonne */
-      .modal-resa { max-width: 920px; }
+      /* Modale prenotazione: header e footer FISSI (flex), corpo scrollabile.
+         Su desktop le due colonne scrollano indipendenti; su mobile scrolla
+         tutta la griglia. Header/footer restano opachi, nessuna trasparenza. */
+      .modal-resa { max-width: 920px; display: flex; flex-direction: column; overflow: hidden; }
+      .modal-resa .m-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex: 0 0 auto; background: var(--c-bg); padding-bottom: 1rem; }
+      .modal-resa .m-head h2 { margin: 0; }
+      .modal-resa .m-head .m-close { position: static; float: none; margin: 0; }
+      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; }
+      .modal-resa > .m-actions { flex: 0 0 auto; }
+      @media (min-width: 761px) {
+        .modal-resa .nm-col { overflow-y: auto; min-height: 0; padding-right: 0.5rem; }
+      }
+      @media (max-width: 760px) {
+        .modal-resa .nm-grid { overflow-y: auto; overflow-x: hidden; }
+      }
       .nm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; }
       .nm-col { min-width: 0; }
       .nm-gap { display: block; margin-top: 1.1rem; }
@@ -749,12 +861,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .toast.ok { border-color: #2f9e63; color: #7fd7a4; }
 
       @media (max-width: 760px) {
-        main { padding: 1.5rem 1rem 8rem; }
         .d-label { min-width: 0; flex: 1; font-size: 1.1rem; }
-        .res { flex-wrap: wrap; gap: 0.6rem 1rem; }
-        .r-main { flex-basis: 100%; order: 3; }
-        .r-note-col { flex-basis: 100%; order: 4; }
-        .r-actions { margin-left: auto; }
+        /* Card mobile: (ora + icona metodo) a sinistra e stato a destra sulla
+           prima riga; poi nome, contatti, commento, persone+tavoli, e le
+           icone edit/cancella in basso a destra. */
+        .res { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem 0.8rem; }
+        .r-time { order: 0; flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; text-align: left; min-width: 0; }
+        .r-time-src { margin-top: 0; }
+        .r-state-col { order: 1; margin-left: auto; flex: 0 0 auto; align-self: center; }
+        .r-main { order: 2; flex: 0 0 100%; margin-top: 0.1rem; }
+        .r-note-col { order: 3; flex: 0 0 100%; padding-left: 0; padding-top: 0; }
+        .res.no-note .r-note-col { display: none; }
+        .r-pers { order: 4; flex: 0 0 auto; text-align: center; }
+        .r-zone { order: 5; flex: 0 0 auto; width: auto; text-align: center; }
+        .r-del { order: 6; margin-left: auto; flex: 0 0 auto; align-self: end; }
       }
     </style>
     <AdminHead />
@@ -763,36 +883,37 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <div id="app">
       <AdminHeader />
       <main>
-        <div class="topbar">
-          <h1>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="17" rx="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-              <polyline points="9 15 11 17 15 13" />
-            </svg>
-            {t("nav.reservations")}
-          </h1>
-        </div>
-        <div class="d-closed" id="d-closed"></div>
-        <div class="daybar">
-          <div class="d-pill">
-            <button class="d-nav" id="d-prev" aria-label={t("res.prevDay")}>‹</button>
-            <div class="d-label" id="d-label">—</div>
-            <button class="d-nav" id="d-next" aria-label={t("res.nextDay")}>›</button>
+        <div class="head-row">
+          <div class="topbar">
+            <h1>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="17" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+                <polyline points="9 15 11 17 15 13" />
+              </svg>
+              {t("nav.reservations")}
+            </h1>
           </div>
-          <button class="d-today" id="d-today">{t("ord.today")}<span class="n" id="cnt-jour"></span></button>
-          <button class="d-today d-vista" id="d-sem">{t("res.week")}<span class="n" id="cnt-sem"></span></button>
-          <button class="d-today d-vista" id="d-mois">{t("res.month")}<span class="n" id="cnt-mois"></span></button>
-          <span class="spacer"></span>
-          <span class="d-search-wrap">
-            <input type="text" id="d-search" class="d-search" placeholder={t("ord.searchPh")} autocomplete="off" />
-            <button type="button" class="d-search-x" id="d-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
-          </span>
+          <div class="daybar">
+            <div class="d-pill">
+              <button class="d-nav" id="d-prev" aria-label={t("res.prevDay")}>‹</button>
+              <div class="d-label" id="d-label">—</div>
+              <button class="d-nav" id="d-next" aria-label={t("res.nextDay")}>›</button>
+            </div>
+            <button class="d-today" id="d-today"><span class="d-txt-full">{t("ord.today")}</span><span class="d-ico-today"><svg viewBox="0 0 512 512" fill="currentColor" aria-hidden="true"><path d="M492,352c11.046,0,20-8.954,20-20V120c0-44.112-35.888-80-80-80h-26V20c0-11.046-8.954-20-20-20c-11.046,0-20,8.954-20,20v20h-91V20c0-11.046-8.954-20-20-20s-20,8.954-20,20v20h-90V20c0-11.046-8.954-20-20-20s-20,8.954-20,20v20H80C35.888,40,0,75.888,0,120v312c0,44.112,35.888,80,80,80h352c44.112,0,80-35.888,80-80c0-11.046-8.954-20-20-20c-11.046,0-20,8.954-20,20c0,22.056-17.944,40-40,40H80c-22.056,0-40-17.944-40-40V120c0-22.056,17.944-40,40-40h25v20c0,11.046,8.954,20,20,20s20-8.954,20-20V80h90v20c0,11.046,8.954,20,20,20c11.046,0,20-8.954,20-20V80h91v20c0,11.046,8.954,20,20,20c11.046,0,20-8.954,20-20V80h26c22.056,0,40,17.944,40,40v212C472,343.046,480.954,352,492,352z"/><path d="M344.738,209.358l-98.581,137.7c-2.692,3.122-6.066,3.796-7.874,3.916c-1.862,0.13-5.473-0.115-8.571-3.063l-63.82-61.281c-7.971-7.651-20.631-7.393-28.278,0.574c-7.65,7.967-7.394,20.628,0.573,28.278l63.884,61.341c9.568,9.108,22.34,14.175,35.479,14.175c1.129,0,2.261-0.037,3.393-0.113c14.314-0.954,27.679-7.915,36.666-19.097c0.232-0.29,0.456-0.585,0.673-0.887l98.981-138.26c6.43-8.981,4.361-21.475-4.62-27.904C363.659,198.308,351.166,200.376,344.738,209.358z"/></svg></span><span class="n" id="cnt-jour"></span></button>
+            <button class="d-today d-vista" id="d-sem"><span class="d-txt-full">{t("res.week")}</span><span class="d-txt-short">{t("res.weekShort")}</span><span class="d-ico-week"><svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><path d="m55.34 3.037h-4.568c-.072-1.316-1.152-2.364-2.486-2.364s-2.414 1.048-2.486 2.364h-11.314c-.072-1.316-1.152-2.364-2.486-2.364s-2.414 1.048-2.486 2.364h-4.654c-1.34 0-2.55.99-2.64 2.32-.097 1.434 1.049 2.68 2.49 2.68h4.804c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.486-2.364h11.314c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.486-2.364h4.568c1.45 0 2.62 1.17 2.62 2.62v5.95h-51.92v-5.95c0-1.45 1.17-2.62 2.62-2.62h4.568c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.496-2.364v-.093c0-.015.004-.028.004-.043v-4.728c0-.015-.004-.028-.004-.043 0 0 0-.093-.009-.093-.072-1.316-1.152-2.364-2.486-2.364s-2.415 1.048-2.487 2.364h-4.568c-4.21 0-7.62 3.41-7.62 7.62v45.05c0 4.21 3.41 7.62 7.62 7.62h46.68c4.21 0 7.62-3.41 7.62-7.62v-27.6c0-1.38-1.12-2.5-2.5-2.5-1.373 0-2.5 1.126-2.5 2.5v27.6c0 1.45-1.17 2.62-2.62 2.62h-46.68c-1.45 0-2.62-1.17-2.62-2.62v-34.1h53.48c1.9 0 3.44-1.54 3.44-3.44 0-2.503 0-5.006 0-7.51 0-4.21-3.41-7.62-7.62-7.62z"/><path d="m30.949 52.583c-.318 0-.643-.062-.955-.191-1.275-.527-1.882-1.99-1.354-3.266l7.404-16.887h-9.26c-1.381 0-2.5-1.119-2.5-2.5s1.119-2.5 2.5-2.5h13c.835 0 1.614.417 2.078 1.111s.551 1.574.231 2.345l-8.833 20.343c-.398.962-1.329 1.545-2.311 1.545z"/></svg></span><span class="n" id="cnt-sem"></span></button>
+            <button class="d-today d-vista" id="d-mois"><span class="d-txt-full">{t("res.month")}</span><span class="d-ico-month"><svg viewBox="0 0 64 64" fill="currentColor" aria-hidden="true"><path d="m55.34 3.037h-4.568c-.072-1.316-1.152-2.364-2.486-2.364s-2.414 1.048-2.486 2.364h-11.314c-.072-1.316-1.152-2.364-2.486-2.364s-2.414 1.048-2.486 2.364h-4.654c-1.34 0-2.55.99-2.64 2.32-.097 1.434 1.049 2.68 2.49 2.68h4.804c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.486-2.364h11.314c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.486-2.364h4.568c1.45 0 2.62 1.17 2.62 2.62v5.95h-51.92v-5.95c0-1.45 1.17-2.62 2.62-2.62h4.568c.072 1.316 1.152 2.364 2.486 2.364s2.414-1.048 2.496-2.364v-.093c0-.015.004-.028.004-.043v-4.728c0-.015-.004-.028-.004-.043 0 0 0-.093-.009-.093-.072-1.316-1.152-2.364-2.486-2.364s-2.415 1.048-2.487 2.364h-4.568c-4.21 0-7.62 3.41-7.62 7.62v45.05c0 4.21 3.41 7.62 7.62 7.62h46.68c4.21 0 7.62-3.41 7.62-7.62v-27.6c0-1.38-1.12-2.5-2.5-2.5-1.373 0-2.5 1.126-2.5 2.5v27.6c0 1.45-1.17 2.62-2.62 2.62h-46.68c-1.45 0-2.62-1.17-2.62-2.62v-34.1h53.48c1.9 0 3.44-1.54 3.44-3.44 0-2.503 0-5.006 0-7.51 0-4.21-3.41-7.62-7.62-7.62z"/><path d="m28.503 34.965c0-4.134-3.162-7.498-7.049-7.498-2.654 0-5.052 1.558-6.258 4.067-.598 1.244-.074 2.738 1.17 3.336 1.243.598 2.738.075 3.336-1.17.365-.76 1.037-1.233 1.751-1.233 1.13 0 2.049 1.121 2.049 2.498 0 1.382-.919 2.507-2.049 2.507-1.381 0-2.5 1.119-2.5 2.5s1.119 2.5 2.5 2.5c1.13 0 2.049 1.121 2.049 2.498s-.919 2.498-2.049 2.498c-.715 0-1.386-.473-1.751-1.233-.598-1.244-2.09-1.769-3.336-1.17-1.244.598-1.769 2.091-1.17 3.336 1.206 2.509 3.604 4.067 6.258 4.067 3.887 0 7.049-3.363 7.049-7.498 0-1.922-.689-3.671-1.811-5 1.122-1.33 1.811-3.081 1.811-5.005z"/><path d="m41.195 52.571c-4.332 0-7.856-3.524-7.856-7.857v-9.494c0-4.333 3.524-7.857 7.856-7.857 4.333 0 7.857 3.524 7.857 7.857v9.494c0 4.333-3.524 7.857-7.857 7.857zm0-20.208c-1.575 0-2.856 1.282-2.856 2.857v9.494c0 1.575 1.281 2.857 2.856 2.857s2.857-1.282 2.857-2.857v-9.494c0-1.575-1.282-2.857-2.857-2.857z"/></svg></span><span class="n" id="cnt-mois"></span></button>
+            <span class="d-search-wrap">
+              <input type="text" id="d-search" class="d-search" placeholder={t("ord.searchPh")} autocomplete="off" />
+              <button type="button" class="d-search-x" id="d-search-x" aria-label={t("ord.clearSearch")} style="display:none">×</button>
+            </span>
+          </div>
         </div>
         <div class="subbar">
           <div class="f-serv" id="f-serv"></div>
+          <div class="d-closed" id="d-closed"></div>
           <span class="spacer"></span>
           <div class="d-stats" id="d-stats"></div>
         </div>
@@ -807,7 +928,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <button class="fab" id="fab-add"><span class="fab-plus">+</span>{t("res.reservation")}</button>
     <button class="fab-serv" id="fab-serv" title={t("res.servicesDay")} aria-label={t("res.servicesDay")}>
-      <svg viewBox="0 0 1069 1069" fill="currentColor" aria-hidden="true"><path d="m868.658 793.843h-666.667c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h666.667c17.247 0 31.25-14.002 31.25-31.25 0-17.247-14.003-31.25-31.25-31.25zm-696.964-105.706h-53.036c-17.247 0-31.25 14.003-31.25 31.25 0 17.248 14.003 31.25 31.25 31.25h833.333c17.248 0 31.25-14.002 31.25-31.25 0-17.247-14.002-31.25-31.25-31.25h-53.035c-6.089-84.36-41.354-166.984-105.785-231.415-142.309-142.31-373.383-142.31-515.693 0-64.431 64.431-99.696 147.055-105.784 231.415zm664.564 0h-601.867c5.955-68.316 35.046-134.986 87.281-187.221 117.918-117.918 309.387-117.918 427.305 0 52.235 52.235 81.327 118.905 87.281 187.221zm-350.932-352.627h99.997c17.248 0 31.25-14.003 31.25-31.25s-14.002-31.25-31.25-31.25h-99.997c-17.247 0-31.25 14.003-31.25 31.25s14.003 31.25 31.25 31.25z" /><path d="m504.075 304.26v76.973c0 17.248 14.002 31.25 31.25 31.25 17.247 0 31.25-14.002 31.25-31.25v-76.973c0-17.247-14.003-31.25-31.25-31.25-17.248 0-31.25 14.003-31.25 31.25z" fill-opacity=".5" /></svg>
+      <svg viewBox="0 0 16.933333 16.933334" fill="currentColor" aria-hidden="true"><g transform="translate(0 -280.067)"><path d="m9.5249973 280.59478c-.5813686 0-1.058849.47748-1.058849 1.05885 0 .21384.065662.41324.1762152.58033-1.4264561.16471-2.6377609.73089-3.5294994 1.62264-.7983511.79834-1.336847 1.85266-1.5590785 3.08818h11.9419074c-.222232-1.23552-.760735-2.28984-1.559079-3.08818-.891854-.89185-2.102948-1.458-3.529502-1.62264.110557-.16709.176218-.3665.176218-.58033 0-.58136-.476964-1.05885-1.0583327-1.05885zm-6.6156176 6.87917c-.1461188.00053-.2641071.1195-.2635488.26561 0 .72831.5940689 1.3224 1.3224007 1.3224h11.1130154c.728321 0 1.322401-.59409 1.322401-1.3224.000529-.14612-.11743-.26503-.263552-.26561zm1.820045 2.11666c-.2581408.18824-.478335.40339-.6826462.60772l-.7927155.79271 2.7559027 2.75591.5271002-.52917c.2535-.25349.4740328-.45114 1.1368829-.45113h3.7051982c.616392 0 1.003921-.36726 1.243851-.6072l1.371494-1.36943c.32371-.32371.376759-.81546.167947-1.19941-.616148.00004-1.221753-.00006-1.834512 0l-1.0604 1.05885c-.346443-.00012-.532921.00027-.776698.00053-.218977.6153-.8064597 1.05834-1.495514 1.05834h-1.8515674a.26465001.26465001 0 0 1 0-.52917h1.8515674c.5908783-.00001 1.058849-.46797 1.058849-1.05886a.26460982.26460982 0 0 1 0-.008c-.0031-.1954-.05803-.3693-.1472777-.52141-1.8983401.00017-3.2832513.00026-5.1774616 0zm-2.3461107 1.32344c-.067501-.00027-.1354244.0248-.1875843.077l-1.58801603 1.58802c-.1039786.10345-.1039786.27173 0 .37517l3.43906483 3.43959c.1034415.10398.2717324.10398.3751712 0l1.5859496-1.58802c.1026001-.10321.1026001-.2699 0-.3731l-3.4390674-3.44166c-.0508-.0508-.1179777-.0767-.1855179-.077z"/></g></svg>
     </button>
 
     <button class="fab-serv fab-zone" id="fab-zone" title={t("res.sections")} aria-label={t("res.sections")}>
@@ -882,8 +1003,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <!-- Modale prenotazione manuale (walk-in / telefono), stile widget -->
     <div class="overlay" id="m-overlay">
       <div class="modal modal-resa">
-        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
-        <h2 id="m-title">{t("res.newReservation")}</h2>
+        <div class="m-head">
+          <h2 id="m-title">{t("res.newReservation")}</h2>
+          <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
+        </div>
         <div class="nm-grid">
           <div class="nm-col">
             <span class="f-label" id="nm-type-lab">{t("res.type")}</span>
@@ -923,9 +1046,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               <input type="text" class="nm-in" id="m-email" name="email" maxlength="160" autocomplete="email" inputmode="email" placeholder={t("ord.emailLabel")} />
             </div>
             <span class="f-label nm-gap">{t("res.clientLang")}</span>
-            <div class="nm-frow">
-              <select class="nm-in" id="m-lang"></select>
-            </div>
+            <div class="nm-langs" id="m-lang" data-public={boot.publicLangs.join(",")} data-default={boot.publicLangDefault}></div>
             <span class="f-label">{t("res.options")}</span>
             <div class="nm-opts">
               <button type="button" class="nm-opt" id="m-opt-chaise">{t("res.optHighchair")}</button>
@@ -1045,7 +1166,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (!Array.isArray(r.tables) || r.tables.length === 0 || !planNomi) return "";
         const mappa = planNomi; // il narrowing non entra nella callback del map
         const nomi = r.tables.map((id) => mappa.get(String(id)) ?? "").filter(Boolean);
-        return nomi.join(" + ");
+        if (nomi.length > 3) return nomi.slice(0, 3).join("+") + " \u2026";
+        return nomi.join("+");
       }
       // Section da mostrare sotto il tavolo: quella scelta, o quella del
       // primo tavolo assegnato (prenotazioni "Indifférent").
@@ -1106,8 +1228,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       }
       function labelGiorno(iso: string): string {
+        const w = window.innerWidth;
+        // Mobile (<=640px): data numerica compatta, es. 26/08/2026.
+        if (w <= 640) {
+          return new Date(iso + "T12:00:00").toLocaleDateString(LOC, {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+        }
+        // Tablet/landscape (<=1366px): giorno settimana abbreviato (es. "mer").
+        const corto = w <= 1366;
         return new Date(iso + "T12:00:00").toLocaleDateString(LOC, {
-          weekday: "long",
+          weekday: corto ? "short" : "long",
           day: "numeric",
           month: "long",
           year: "numeric",
@@ -1139,19 +1272,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       let chiusureZoneOggi: { zone: string; reason: string }[] = [];
       const RAGIONE_FR: Record<string, string> = { full: tr("res.full"), closed: tr("res.closedExcept"), permanent: tr("res.untilReopen") };
+      const RAGIONE_SHORT: Record<string, string> = { full: tr("res.full"), closed: tr("res.closedExceptShort"), permanent: tr("res.untilReopen") };
       function aggiornaChiusureUI() {
         const box = document.getElementById("d-closed") as HTMLElement;
         box.innerHTML =
           chiusureOggi
             .map((c) => {
               const nome = nomeServizio(c.service_key, LANG);
-              return `<span class="d-closed-pill">${esc(nome)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
+              return `<span class="d-closed-pill">${esc(nome)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? c.reason}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? c.reason}</span><button type="button" class="d-closed-x" data-tipo="service" data-k="${esc(c.service_key)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`;
             })
             .join("") +
           chiusureZoneOggi
             .map(
               (c) =>
-                `<span class="d-closed-pill">${esc(c.zone)} — ${RAGIONE_FR[c.reason] ?? c.reason}<button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`
+                `<span class="d-closed-pill">${esc(c.zone)} — <span class="dc-full">${RAGIONE_FR[c.reason] ?? c.reason}</span><span class="dc-short">${RAGIONE_SHORT[c.reason] ?? RAGIONE_FR[c.reason] ?? c.reason}</span><button type="button" class="d-closed-x" data-tipo="zone" data-k="${esc(c.zone)}" data-r="${esc(c.reason)}" aria-label="${tr("home.reopenNote")}">×</button></span>`
             )
             .join("");
         (document.getElementById("fab-serv") as HTMLElement).classList.toggle("has-closed", chiusureOggi.length > 0);
@@ -1213,6 +1347,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       const rowsEl = document.getElementById("rows") as HTMLDivElement;
       const emptyEl = document.getElementById("empty") as HTMLParagraphElement;
       const labelEl = document.getElementById("d-label") as HTMLDivElement;
+      // Cambio desktop<->tablet (soglia 1366px): ridisegna così l'etichetta
+      // data passa da "mercoledì" a "mer" (e viceversa).
+      const _fmtBucket = (w: number): string => (w <= 640 ? "m" : w <= 1366 ? "t" : "d");
+      let _fmtSig = _fmtBucket(window.innerWidth);
+      window.addEventListener("resize", () => {
+        const sig = _fmtBucket(window.innerWidth);
+        if (sig !== _fmtSig) { _fmtSig = sig; render(); }
+      });
       const statsEl = document.getElementById("d-stats") as HTMLDivElement;
 
       function badge(r: Resa): string {
@@ -1305,8 +1447,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               tavLbl
                 ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>`
                 : sugg && sugg.names.length
-                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join(" + "))}</b><span class="r-tav-sez">${esc(sugg.zone)} · ${tr("res.suggested")}</span>`
-                  : esc(r.zone ?? "")
+                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join("+"))}</b><span class="r-tav-sez">${esc(sugg.zone)} · ${tr("res.suggested")}</span>`
+                  : (r.zone ? `<span class="r-tav-sez">${esc(r.zone)}</span>` : "")
             }</div>
             <div class="r-pers"><b>${r.people}</b><span>${tr("res.pers")}</span></div>
             <span class="r-state-col">${badge(r)}</span>
@@ -1338,10 +1480,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         box.innerHTML =
           `<button type="button" class="fs-pill${filtroServ === "" ? " is-on" : ""}" data-k="" title="${tr("res.allServices")}">${ICO_TUTTI}</button>` +
           servizi
-            .map(
-              (sv) =>
-                `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}">${esc(nomeServizio(sv.key, LANG))}</button>`
-            )
+            .map((sv) => {
+              const nm = nomeServizio(sv.key, LANG);
+              const nmShort = nm.length > 4 ? nm.slice(0, 4) + "." : nm;
+              return `<button type="button" class="fs-pill${filtroServ === sv.key ? " is-on" : ""}" data-k="${sv.key}"><span class="fs-full">${esc(nm)}</span><span class="fs-short">${esc(nmShort)}</span></button>`;
+            })
             .join("");
       }
 
@@ -1390,7 +1533,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const couverts = attive.reduce((s, r) => s + r.people, 0);
           const attesa = filtrate.filter((r) => r.status === "pending").length;
           statsEl.innerHTML = filtrate.length
-            ? `<b>${couverts}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}` : ""}`
+            ? `<b>${couverts}</b> <span class="stx-full">${tr("res.covers")}</span><span class="stx-short">${tr("res.coversShort")}</span> · ${attive.length} <span class="stx-full">${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}</span><span class="stx-short">${tr("res.resaShort")}</span>${attesa ? `<span class="stx-wait"> · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}</span>` : ""}`
             : "";
         }
         if (!filtrate.length) {
@@ -1748,8 +1891,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   </div>
                   ${stato}
                   ${switchHtml}
-                  ${raisons}
-                  ${permBtn}
+                  <div class="sv-actions">${raisons}${permBtn}</div>
                 </div>`;
             })
             .join("");
@@ -2022,8 +2164,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   </div>
                   ${stato}
                   ${switchHtml}
-                  ${raisons}
-                  ${permBtn}
+                  <div class="sv-actions">${raisons}${permBtn}</div>
                 </div>`;
             })
             .join("");
@@ -2817,7 +2958,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             emptyEl.style.display = "none";
             stateEl.style.display = "none";
             const lb = document.getElementById("d-label") as HTMLElement;
-            lb.textContent = v === "semaine" ? tr("res.next7Days") : tr("res.next30Days");
+            lb.innerHTML =
+              v === "semaine"
+                ? `<span class="dl-full">${tr("res.next7Days")}</span><span class="dl-short">${tr("res.next7DaysShort")}</span>`
+                : `<span class="dl-full">${tr("res.next30Days")}</span><span class="dl-short">${tr("res.next30DaysShort")}</span>`;
             lb.classList.remove("is-today");
             (document.getElementById("d-today") as HTMLElement).classList.remove("is-now");
             void caricaVista();
@@ -2844,7 +2988,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const couverts = attive.reduce((t, r) => t + r.people, 0);
             const attesa = lista.filter((r) => r.status === "pending").length;
             (document.getElementById("d-stats") as HTMLElement).innerHTML =
-              `<b>${couverts}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${attesa ? ` · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}` : ""}`;
+              `<b>${couverts}</b> <span class="stx-full">${tr("res.covers")}</span><span class="stx-short">${tr("res.coversShort")}</span> · ${attive.length} <span class="stx-full">${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}</span><span class="stx-short">${tr("res.resaShort")}</span>${attesa ? `<span class="stx-wait"> · <b style="color:var(--c-accent)">${attesa}</b> ${tr("res.waiting")}</span>` : ""}`;
           } catch {
             if (seq === vistaSeq) cont.innerHTML = `<p class="state">${tr("sup.load.error")}</p>`;
           }
@@ -3062,12 +3206,39 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         mPrefix.value = PREFISSO_DEFAULT;
-        // Lingua del cliente: opzioni dal widget (flag + nome), default fr.
-        const mLang = document.getElementById("m-lang") as HTMLSelectElement;
-        mLang.innerHTML = LINGUE_WIDGET.map(
-          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
-        ).join("");
-        mLang.value = "fr";
+        // Lingua cliente: mostro solo le lingue pubbliche del sito; le altre
+        // dietro un pulsante "+N". Etichetta = sigla (IT, FR...) + bandiera.
+        const mLang = document.getElementById("m-lang") as HTMLDivElement;
+        const mLangPublic = new Set((mLang.dataset.public || "fr").split(",").filter(Boolean));
+        const mLangDefault = LINGUE_WIDGET.some((l) => l.code === (mLang.dataset.default || "")) ? (mLang.dataset.default as string) : "fr";
+        const mLangExtra = LINGUE_WIDGET.filter((l) => !mLangPublic.has(l.code));
+        let mLangCurrent = mLangDefault;
+        let mLangExpanded = false;
+        function mLangBtn(l: { code: string; label: string; flag: string }) {
+          return `<button type="button" class="nm-lang${l.code === mLangCurrent ? " is-on" : ""}" data-lang="${l.code}" title="${l.label}"><span class="nm-lang-flag">${l.flag}</span>${l.code.toUpperCase()}</button>`;
+        }
+        function mLangRender() {
+          const lista = mLangExpanded ? LINGUE_WIDGET : LINGUE_WIDGET.filter((l) => mLangPublic.has(l.code));
+          let html = lista.map(mLangBtn).join("");
+          if (!mLangExpanded && mLangExtra.length) {
+            html += `<button type="button" class="nm-lang nm-lang-more" id="m-lang-more" title="${tr("res.moreLangs")}">+${mLangExtra.length}</button>`;
+          }
+          mLang.innerHTML = html;
+        }
+        function mLangGet(): string { return mLangCurrent; }
+        function mLangSet(code: string) {
+          mLangCurrent = LINGUE_WIDGET.some((l) => l.code === code) ? code : "fr";
+          if (mLangExtra.some((l) => l.code === mLangCurrent)) mLangExpanded = true;
+          mLangRender();
+        }
+        mLangRender();
+        mLang.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest(".nm-lang-more")) { mLangExpanded = true; mLangRender(); return; }
+          const b = (e.target as HTMLElement).closest(".nm-lang") as HTMLElement | null;
+          if (!b || !b.dataset.lang) return;
+          mLangCurrent = b.dataset.lang;
+          mLangRender();
+        });
         // "+33 6…" o "0033…" digitato nel numero → prefisso in tendina, numero pulito
         campo("m-tel").addEventListener("input", () => {
           const tel = campo("m-tel");
@@ -3558,15 +3729,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
         function nmRenderPers() {
           const box = document.getElementById("nm-pers") as HTMLDivElement;
+          const soglia = window.innerWidth <= 640 ? 5 : 8;
           let html = "";
-          for (let n = 1; n <= 8; n++) {
+          for (let n = 1; n <= soglia; n++) {
             html += `<button type="button" class="nm-p${nmPers === n ? " is-on" : ""}" data-n="${n}">${n}</button>`;
           }
           // Oltre 8: bottone "−", input numero, bottone "+"
           html +=
-            `<span class="nm-step${nmPers > 8 ? " is-on" : ""}">` +
+            `<span class="nm-step${nmPers > soglia ? " is-on" : ""}">` +
             `<button type="button" class="nm-p-meno" id="nm-p-meno" aria-label="${tr("res.removePerson")}">−</button>` +
-            `<input type="number" min="1" max="100" class="nm-p nm-p-libre" id="nm-p-libre" placeholder="9+" value="${nmPers > 8 ? nmPers : ""}" />` +
+            `<input type="number" min="1" max="100" class="nm-p nm-p-libre" id="nm-p-libre" placeholder="${soglia + 1}+" value="${nmPers > soglia ? nmPers : ""}" />` +
             `<button type="button" class="nm-p-piu" id="nm-p-piu" aria-label="${tr("res.addPerson")}">+</button>` +
             `</span>`;
           box.innerHTML = html;
@@ -3580,7 +3752,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
           });
           (document.getElementById("nm-p-piu") as HTMLButtonElement).addEventListener("click", () => {
-            nmPers = Math.min(nmPers >= 9 ? nmPers + 1 : 9, 100);
+            nmPers = Math.min(nmPers >= soglia + 1 ? nmPers + 1 : soglia + 1, 100);
             nmRenderPers();
             nmRenderOre();
           });
@@ -3590,6 +3762,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             nmRenderOre();
           });
         }
+        // Ricalcolo la soglia persone (5 su mobile, 8 su desktop) al cambio breakpoint
+        let _persMobile = window.innerWidth <= 640;
+        window.addEventListener("resize", () => {
+          const m = window.innerWidth <= 640;
+          if (m !== _persMobile) { _persMobile = m; nmRenderPers(); }
+        });
 
         function nmRenderZone() {
           const zone = nmCfg.zones ?? [];
@@ -3650,7 +3828,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             }
           }
           campo("m-email").value = resa?.email ?? "";
-          mLang.value = LINGUE_WIDGET.some((l) => l.code === resa?.lang) ? (resa?.lang ?? "fr") : "fr";
+          mLangSet(LINGUE_WIDGET.some((l) => l.code === resa?.lang) ? (resa?.lang as string) : mLangDefault);
           (document.getElementById("m-notes") as HTMLTextAreaElement).value = resa?.notes ?? "";
           mMsg.textContent = "";
           (document.getElementById("m-title") as HTMLElement).textContent = resa
@@ -3916,7 +4094,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 return grezzo.startsWith("+") ? grezzo : `${mPrefix.value} ${grezzo.replace(/^0/, "")}`;
               })(),
               email: campo("m-email").value,
-              lang: mLang.value,
+              lang: mLangGet(),
               notes: (document.getElementById("m-notes") as HTMLTextAreaElement).value,
               high_chair: nmChaise,
               quiet: nmCalme,

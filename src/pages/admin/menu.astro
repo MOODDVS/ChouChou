@@ -83,7 +83,6 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
       #app { display: none; min-height: 100vh; flex-direction: column; }
 
-      main { flex: 1; padding: 2rem 2rem 8rem; width: 100%; }
       .topbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
       .t-stats { display: flex; gap: 0.45rem; flex-wrap: wrap; }
       .t-pill {
@@ -481,7 +480,6 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
       @media (max-width: 640px) {
-        main { padding: 1.5rem 1rem 8rem; }
         .actionsbar .search { flex-basis: 100%; order: 3; margin-left: 0; }
 
         /* Card piatto riorganizzata su griglia:

@@ -13,6 +13,15 @@ const t = adminT(lang);
 ---
 
 <nav class="admin-nav" aria-label="Navigation admin" data-current={current ?? ""}>
+  <!-- SUPER ADMIN (solo admin@moodd.online): primo item a sinistra + separatore -->
+  <a href="/admin/super" class={"admin-super" + (current === "super" ? " active" : "")} id="admin-nav-super" aria-label={t("nav.super")} style="display:none">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+    <span>{t("nav.s.super")}</span>
+  </a>
+  <span class="nav-sep" id="admin-nav-sep" aria-hidden="true" style="display:none"></span>
   <a href="/admin" class={current === "home" ? "active" : ""} aria-label={t("nav.home")}>
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M3 11.5 12 4l9 7.5" />
@@ -121,14 +130,6 @@ const t = adminT(lang);
   </a>
 </nav>
 
-<!-- Bottone SUPER ADMIN (solo admin@moodd.online): isola separata a sinistra -->
-<a href="/admin/super" class={"admin-super" + (current === "super" ? " active" : "")} id="admin-nav-super" aria-label={t("nav.super")} style="display:none">
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-  </svg>
-  <span>{t("nav.s.super")}</span>
-</a>
 
 <!-- ANTI-FLASH permessi: script SINCRONO (gira prima del primo paint).
      Con cache dei permessi dell'ULTIMO utente visto su questo browser:
@@ -187,8 +188,7 @@ const t = adminT(lang);
 <style is:global>
   /* Effet verre (Reglages -> Design): di DEFAULT le superfici sono opache;
      html.glass (tema glass:"on") riattiva trasparenze e blur. */
-  html.glass .admin-nav,
-  html.glass .admin-super:not(.active) {
+  html.glass .admin-nav {
     background: color-mix(in srgb, var(--c-header, var(--c-bg)) 82%, transparent);
     backdrop-filter: blur(26px) saturate(150%);
     -webkit-backdrop-filter: blur(26px) saturate(150%);
@@ -281,48 +281,22 @@ const t = adminT(lang);
   }
   .admin-nav a .nav-badge[hidden] { display: none; }
 
-  /* --- Isola separata del super admin (ingranaggio, a sinistra) --- */
+  /* --- Super admin (ingranaggio): primo item DENTRO l'isola nav, a sinistra,
+     seguito da un separatore verticale. Solo per super admin (JS lo mostra). --- */
   /* MOBILE : la page Réglages (super admin) est pensée pour le bureau —
-     on cache son bouton ; l'accès direct par URL reste possible. */
+     on cache son bouton + separatore ; l'accès direct par URL reste possible. */
   @media (max-width: 560px) {
-    .admin-super { display: none !important; }
+    .admin-super, .nav-sep { display: none !important; }
   }
-
-  .admin-super {
-    position: fixed;
-    bottom: 1.25rem;
-    left: 1rem;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.18rem;
-    font-family: var(--font-body, system-ui, sans-serif);
-    font-size: 0.56rem;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--c-muted, var(--c-muted));
-    text-decoration: none;
-    padding: 0.42rem 0.85rem;
-    border-radius: 999px;
-    background: var(--c-header, var(--c-bg));
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15))),
-      inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    transition: color 0.2s, background 0.2s;
+  /* .admin-super eredita il layout da `.admin-nav a`; niente stile isola. */
+  .nav-sep {
+    align-self: stretch;
+    width: 1px;
+    margin: 0.35rem 0.3rem;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 1px;
+    flex: 0 0 auto;
   }
-  .admin-super svg {
-    width: 19px;
-    height: 19px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .admin-super:hover { color: var(--c-text, #fff); }
-  .admin-super.active { background: var(--c-accent, var(--c-accent)); color: var(--c-bg); }
 
   @media (max-width: 520px) {
     /* Icone a grandezza normale + SCROLL laterale dentro l'isola.
@@ -342,8 +316,6 @@ const t = adminT(lang);
       flex: 0 0 auto;
       padding: 0.42rem 0.85rem;
     }
-    /* su mobile la barra occupa tutta la larghezza: l'ingranaggio sale sopra */
-    .admin-super { bottom: calc(1.25rem + 72px); }
   }
 
   /* --- Toast globale "Nouvelle réservation / commande" (poller) --- */
@@ -462,7 +434,8 @@ const t = adminT(lang);
       const sup = document.getElementById("admin-nav-super");
       if (sup && !window.matchMedia("(max-width: 560px)").matches) {
         sup.style.display = "flex";
-        posizionaSuper();
+        const sep = document.getElementById("admin-nav-sep");
+        if (sep) sep.style.display = "block";
       }
       salvaCache([], []);
       svela();
@@ -510,27 +483,63 @@ const t = adminT(lang);
     }
   })();
 
-  // --- Ingranaggio Admin: accanto all'isola dei link, stessa altezza (ogni pagina) ---
-  function posizionaSuper() {
-    const barra = document.querySelector(".admin-nav") as HTMLElement | null;
-    const sup = document.getElementById("admin-nav-super") as HTMLElement | null;
-    if (!barra || !sup || sup.style.display === "none") return;
-    if (!window.matchMedia("(min-width: 521px)").matches) {
-      // mobile: la barra occupa tutta la larghezza → resta la regola CSS (sopra la barra)
-      sup.style.left = "";
-      sup.style.bottom = "";
-      sup.style.height = "";
-      return;
+  // --- FAB "+ ..." : se manca spazio a lato dell'isola nav, lo solleva SOPRA ---
+  // Misura lo spazio reale a destra dell'isola: se è insufficiente per il FAB
+  // (telefoni, tablet portrait, isola larga da super admin) aggiunge .fab-lifted.
+  (function () {
+    function adattaFab() {
+      const nav = document.querySelector(".admin-nav") as HTMLElement | null;
+      if (!nav) return;
+      // FAB a destra (+ Ordine / + Prenotazione) e a sinistra (campana/zone).
+      const fabs = document.querySelectorAll<HTMLElement>(".fab-add, .fab, .fab-serv, .fab-zone");
+      if (!fabs.length) return;
+      // ≤1023px: l'isola è larga per definizione → i FAB vanno SEMPRE sopra, e
+      // ci pensano le media query (CSS affidabile, nessun timing). Qui azzeriamo
+      // solo l'eventuale inline lasciato dal ramo desktop.
+      if (window.innerWidth <= 1023) {
+        fabs.forEach((f) => { f.style.bottom = ""; });
+        return;
+      }
+      // ≥1024px: solleviamo un LATO se un suo FAB si sovrappone ORIZZONTALMENTE
+      // all'isola. I FAB dello stesso lato salgono INSIEME (restano allineati);
+      // la posizione left/right è stabile anche da sollevato → niente oscillazioni.
+      const nb = nav.getBoundingClientRect();
+      const sopra = `${Math.round(window.innerHeight - nb.top + 12)}px`;
+      const BUF = 12; // piccolo margine di sicurezza
+      const rightFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-add") || f.classList.contains("fab"));
+      const leftFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-serv") || f.classList.contains("fab-zone"));
+      const gruppoTocca = (g: HTMLElement[]): boolean => g.some((f) => {
+        const fr = f.getBoundingClientRect();
+        return fr.width > 0 && fr.right > nb.left - BUF && fr.left < nb.right + BUF;
+      });
+      const liftR = gruppoTocca(rightFabs);
+      const liftL = gruppoTocca(leftFabs);
+      rightFabs.forEach((f) => { f.style.bottom = liftR ? sopra : ""; });
+      leftFabs.forEach((f) => { f.style.bottom = liftL ? sopra : ""; });
     }
-    const r = barra.getBoundingClientRect();
-    sup.style.height = `${r.height}px`;
-    sup.style.boxSizing = "border-box";
-    sup.style.justifyContent = "center";
-    const g = sup.getBoundingClientRect();
-    sup.style.left = `${Math.max(8, r.left - g.width - 12)}px`;
-    sup.style.bottom = `${window.innerHeight - r.bottom}px`;
-  }
-  window.addEventListener("resize", posizionaSuper);
+    // Su resize/rotazione il layout non è ancora assestato quando l'evento
+    // scatta → rimisuriamo subito, al frame dopo e dopo 250ms.
+    function adattaFabSoon() {
+      adattaFab();
+      requestAnimationFrame(adattaFab);
+      setTimeout(adattaFab, 120);
+      setTimeout(adattaFab, 350);
+    }
+    window.addEventListener("resize", adattaFabSoon);
+    window.addEventListener("orientationchange", adattaFabSoon);
+    // L'isola si allarga in modo asincrono (il bottone super admin appare dopo
+    // l'auth): un ResizeObserver ricalcola appena la sua larghezza cambia.
+    const navEl = document.querySelector(".admin-nav");
+    if (navEl && "ResizeObserver" in window) {
+      const ro = new ResizeObserver(() => adattaFab());
+      ro.observe(navEl);
+    }
+    // Ricontrolli anche a tempo: il FAB può comparire in ritardo (mostrato via
+    // JS dalle singole pagine) e su alcuni layout l'osservatore non basta.
+    adattaFab();
+    [150, 400, 900, 1600, 2500].forEach((ms) => setTimeout(adattaFab, ms));
+    document.addEventListener("click", () => setTimeout(adattaFab, 60));
+  })();
 
   // --- Poller globale: toast "Nouvelle réservation" su OGNI pagina admin ---
   // Ogni ~20s chiede le prenotazioni PUBBLICHE (web/google) create dopo l'ultimo
