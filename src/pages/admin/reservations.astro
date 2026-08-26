@@ -327,14 +327,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       .r-pers { text-align: center; min-width: 56px; }
       .r-pers b { font-family: var(--font-title); font-size: 1.4rem; letter-spacing: 0.03em; display: block; line-height: 1.1; }
-      .r-pers span { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
-      .r-zone { color: var(--c-muted); font-size: 0.78rem; width: 190px; flex: 0 0 190px; text-align: left; }
+      .r-pers span { display: block; color: var(--c-text); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      .r-zone { color: var(--c-muted); font-size: 0.78rem; width: 140px; flex: 0 0 140px; text-align: center; }
       .r-tav-nom { overflow: hidden; text-overflow: ellipsis; }
       .r-tav-nom {
         display: block; font-family: var(--font-title); color: var(--c-accent);
         font-size: 1.4rem; letter-spacing: 0.03em; line-height: 1.1; white-space: nowrap; font-weight: 400;
       }
-      .r-tav-sez { display: block; color: var(--c-muted); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
+      .r-tav-sez { display: block; color: var(--c-text); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; margin-top: 2px; }
       /* Tavolo SUGGERITO (demande pending): tono attenuato, non è ancora attribuito */
       .r-tav-sugg { color: #8f8781; font-size: 1.15rem; }
 
@@ -401,26 +401,32 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .b-ns:hover { border-color: var(--c-accent); color: var(--c-accent); }
 
       /* Schermi medi: commento sotto il nome, No-show sotto Confirmée */
-      @media (max-width: 1250px) and (min-width: 761px) {
+      @media (max-width: 1366px) and (min-width: 761px) {
+        /* Tablet: nome/contatti/nota a tutta larghezza; persone e stato in alto
+           a destra; edit + cancella in basso a destra della card. */
         .res {
           display: grid;
-          grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
-          align-items: center;
-          align-content: center;
+          grid-template-columns: auto minmax(0, 1fr) auto auto;
+          align-items: start;
           column-gap: 1.1rem;
-          row-gap: 0.45rem;
+          row-gap: 0.4rem;
         }
         .r-time { grid-column: 1; grid-row: 1 / span 2; align-self: start; }
-        .r-main { grid-column: 2; grid-row: 1; align-self: end; }
+        .r-main { grid-column: 2; grid-row: 1; align-self: start; }
+        .r-pers { grid-column: 3; grid-row: 1; align-self: start; }
+        /* Sala/tavolo sotto il numero di persone */
+        .r-zone { grid-column: 3; grid-row: 2; align-self: start; justify-self: center; width: 140px; flex: none; text-align: center; }
+        .r-state-col { grid-column: 4; grid-row: 1; align-self: start; justify-self: end; flex-direction: column; }
+        /* Commento limitato alla colonna del nome (si ferma prima di sala/tavolo) */
         .r-note-col { grid-column: 2; grid-row: 2; align-self: start; padding-top: 0; margin-top: 0.4rem; }
-        .res.no-note .r-main { grid-row: 1 / span 2; align-self: start; }
         .res.no-note .r-note-col { display: none; }
-        .r-zone { grid-column: 3; grid-row: 1 / span 2; }
-        .r-pers { grid-column: 4; grid-row: 1 / span 2; }
-        .r-state-col { grid-column: 5; grid-row: 1 / span 2; align-self: center; justify-self: center; flex-direction: column; }
-        .r-del { grid-column: 6; grid-row: 1 / span 2; align-self: center; flex-direction: column; min-width: 34px; justify-content: center; }
+        .r-del { grid-column: 4; grid-row: 2; align-self: end; justify-self: end; flex-direction: row; min-width: 0; }
       }
-
+      /* iPad mini verticale: numero persone e tavoli leggermente piu piccoli */
+      @media (min-width: 761px) and (max-width: 834px) {
+        .r-pers b { font-size: 1.15rem; }
+        .r-tav-nom { font-size: 1.15rem; }
+      }
       /* Bottone flottante + modale aggiunta manuale */
       .fab {
         position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
@@ -856,10 +862,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
       @media (max-width: 760px) {
         .d-label { min-width: 0; flex: 1; font-size: 1.1rem; }
-        .res { flex-wrap: wrap; gap: 0.6rem 1rem; }
-        .r-main { flex-basis: 100%; order: 3; }
-        .r-note-col { flex-basis: 100%; order: 4; }
-        .r-actions { margin-left: auto; }
+        /* Card mobile: (ora + icona metodo) a sinistra e stato a destra sulla
+           prima riga; poi nome, contatti, commento, persone+tavoli, e le
+           icone edit/cancella in basso a destra. */
+        .res { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem 0.8rem; }
+        .r-time { order: 0; flex: 0 0 auto; display: flex; align-items: center; gap: 0.5rem; text-align: left; min-width: 0; }
+        .r-time-src { margin-top: 0; }
+        .r-state-col { order: 1; margin-left: auto; flex: 0 0 auto; align-self: center; }
+        .r-main { order: 2; flex: 0 0 100%; margin-top: 0.1rem; }
+        .r-note-col { order: 3; flex: 0 0 100%; padding-left: 0; padding-top: 0; }
+        .res.no-note .r-note-col { display: none; }
+        .r-pers { order: 4; flex: 0 0 auto; text-align: center; }
+        .r-zone { order: 5; flex: 0 0 auto; width: auto; text-align: center; }
+        .r-del { order: 6; margin-left: auto; flex: 0 0 auto; align-self: end; }
       }
     </style>
     <AdminHead />
@@ -1151,7 +1166,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         if (!Array.isArray(r.tables) || r.tables.length === 0 || !planNomi) return "";
         const mappa = planNomi; // il narrowing non entra nella callback del map
         const nomi = r.tables.map((id) => mappa.get(String(id)) ?? "").filter(Boolean);
-        return nomi.join(" + ");
+        if (nomi.length > 3) return nomi.slice(0, 3).join("+") + " \u2026";
+        return nomi.join("+");
       }
       // Section da mostrare sotto il tavolo: quella scelta, o quella del
       // primo tavolo assegnato (prenotazioni "Indifférent").
@@ -1431,8 +1447,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               tavLbl
                 ? `<b class="r-tav-nom">${esc(tavLbl)}</b><span class="r-tav-sez">${esc(sezioneTavoli(r))}</span>`
                 : sugg && sugg.names.length
-                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join(" + "))}</b><span class="r-tav-sez">${esc(sugg.zone)} · ${tr("res.suggested")}</span>`
-                  : esc(r.zone ?? "")
+                  ? `<b class="r-tav-nom r-tav-sugg">${esc(sugg.names.join("+"))}</b><span class="r-tav-sez">${esc(sugg.zone)} · ${tr("res.suggested")}</span>`
+                  : (r.zone ? `<span class="r-tav-sez">${esc(r.zone)}</span>` : "")
             }</div>
             <div class="r-pers"><b>${r.people}</b><span>${tr("res.pers")}</span></div>
             <span class="r-state-col">${badge(r)}</span>
