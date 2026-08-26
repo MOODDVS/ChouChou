@@ -489,28 +489,53 @@ const t = adminT(lang);
   (function () {
     function adattaFab() {
       const nav = document.querySelector(".admin-nav") as HTMLElement | null;
-      const fabs = document.querySelectorAll<HTMLElement>(".fab-add");
-      if (!nav || !fabs.length) return;
-      const r = nav.getBoundingClientRect();
-      const rightGap = window.innerWidth - r.right;
-      const leftGap = r.left;
-      // spazio minimo per ospitare un FAB a lato dell'isola (larghezza + margine)
-      const serve = 170;
-      const lift = Math.max(rightGap, leftGap) < serve;
-      fabs.forEach((f) => {
-        if (lift) {
-          // Solleva il FAB SOPRA l'isola: distanza dal fondo = altezza sotto
-          // la cima dell'isola + 12px. Inline → vince su qualunque CSS, e si
-          // adatta all'altezza reale dell'isola (niente 72px "a naso").
-          f.style.bottom = `${Math.round(window.innerHeight - r.top + 12)}px`;
-        } else {
-          f.style.bottom = "";
-        }
+      if (!nav) return;
+      // FAB a destra (+ Ordine / + Prenotazione) e a sinistra (campana/zone).
+      const fabs = document.querySelectorAll<HTMLElement>(".fab-add, .fab, .fab-serv, .fab-zone");
+      if (!fabs.length) return;
+      // ≤1023px: l'isola è larga per definizione → i FAB vanno SEMPRE sopra, e
+      // ci pensano le media query (CSS affidabile, nessun timing). Qui azzeriamo
+      // solo l'eventuale inline lasciato dal ramo desktop.
+      if (window.innerWidth <= 1023) {
+        fabs.forEach((f) => { f.style.bottom = ""; });
+        return;
+      }
+      // ≥1024px: solleviamo un LATO se un suo FAB si sovrappone ORIZZONTALMENTE
+      // all'isola. I FAB dello stesso lato salgono INSIEME (restano allineati);
+      // la posizione left/right è stabile anche da sollevato → niente oscillazioni.
+      const nb = nav.getBoundingClientRect();
+      const sopra = `${Math.round(window.innerHeight - nb.top + 12)}px`;
+      const BUF = 12; // piccolo margine di sicurezza
+      const rightFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-add") || f.classList.contains("fab"));
+      const leftFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-serv") || f.classList.contains("fab-zone"));
+      const gruppoTocca = (g: HTMLElement[]): boolean => g.some((f) => {
+        const fr = f.getBoundingClientRect();
+        return fr.width > 0 && fr.right > nb.left - BUF && fr.left < nb.right + BUF;
       });
+      const liftR = gruppoTocca(rightFabs);
+      const liftL = gruppoTocca(leftFabs);
+      rightFabs.forEach((f) => { f.style.bottom = liftR ? sopra : ""; });
+      leftFabs.forEach((f) => { f.style.bottom = liftL ? sopra : ""; });
     }
-    window.addEventListener("resize", adattaFab);
-    // Ricontrolla più volte: l'isola si allarga (bottone super admin) e il FAB
-    // può comparire in ritardo (mostrato via JS dalle singole pagine).
+    // Su resize/rotazione il layout non è ancora assestato quando l'evento
+    // scatta → rimisuriamo subito, al frame dopo e dopo 250ms.
+    function adattaFabSoon() {
+      adattaFab();
+      requestAnimationFrame(adattaFab);
+      setTimeout(adattaFab, 120);
+      setTimeout(adattaFab, 350);
+    }
+    window.addEventListener("resize", adattaFabSoon);
+    window.addEventListener("orientationchange", adattaFabSoon);
+    // L'isola si allarga in modo asincrono (il bottone super admin appare dopo
+    // l'auth): un ResizeObserver ricalcola appena la sua larghezza cambia.
+    const navEl = document.querySelector(".admin-nav");
+    if (navEl && "ResizeObserver" in window) {
+      const ro = new ResizeObserver(() => adattaFab());
+      ro.observe(navEl);
+    }
+    // Ricontrolli anche a tempo: il FAB può comparire in ritardo (mostrato via
+    // JS dalle singole pagine) e su alcuni layout l'osservatore non basta.
     adattaFab();
     [150, 400, 900, 1600, 2500].forEach((ms) => setTimeout(adattaFab, ms));
     document.addEventListener("click", () => setTimeout(adattaFab, 60));

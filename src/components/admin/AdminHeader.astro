@@ -96,6 +96,13 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
   .ah-email { font-size: 0.85rem; color: var(--c-muted); }
   .ah-hello { font-size: 0.92rem; color: var(--c-muted); white-space: nowrap; }
   .ah-hello strong { color: var(--c-text); font-weight: 700; }
+  /* Tablet landscape: data e orologio più piccoli per stare comodi. */
+  @media (min-width: 1024px) and (max-width: 1366px) {
+    .ah-date { font-size: 0.95rem; }
+    .ah-date-ico { width: 15px; height: 15px; }
+    .ah-clock { font-size: 1.15rem; }
+    .ah-clock-ico { width: 16px; height: 16px; }
+  }
   /* Tablet portrait: nasconde la data (come su mobile) per non sovrapporsi all'orologio. */
   @media (min-width: 641px) and (max-width: 1023px) {
     .ah-date { display: none; }
