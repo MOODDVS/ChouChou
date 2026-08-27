@@ -106,28 +106,63 @@ const t = adminT(lang);
       .section[data-tab="reservations"] .field-services { margin-bottom: 2.2rem; }
       .section[data-tab="reservations"] .field-services ~ .field { margin-bottom: 2.2rem; }
       .section[data-tab="reservations"] .sl-filter-field { margin-bottom: 2.2rem; }
-      .overlay .modal.sl-modal { max-width: 1200px; width: 92vw; }
-      .sl-modal .sl-wrap { margin: 0.6rem 0 0; }
+      .overlay .modal.sl-modal { width: 90vw; max-width: 90vw; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+      .sl-modal > .sl-head { flex: 0 0 auto; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.2rem; padding-right: 2.5rem; }
+      .sl-modal .sl-head h2 { margin: 0; line-height: 1; }
+      .sl-modal .sl-head .sl-tot { margin-left: 0; margin-top: 0; align-self: center; position: relative; top: -7px; }
+      .sl-modal .sl-wrap { margin: 0.6rem 0 0; flex: 1 1 auto; min-height: 0;
+        display: grid; grid-template-columns: max-content minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr); gap: 0.5rem 0.8rem; }
       .sl-pill { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
       .sl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .sl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .sl-pill .sl-pn { color: var(--c-accent); font-weight: 700; }
       .sl-wrap { margin-bottom: 1.4rem; }
-      .sl-tools { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.6rem; }
+      .sl-tools { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; align-items: stretch;
+        gap: 0.45rem; margin-bottom: 0; overflow-y: auto; }
+      .sl-add, .sl-area-btn { justify-content: flex-start; display: inline-flex; align-items: center; gap: 0.5rem; }
+      .sl-add .sl-ico { width: 18px; height: 18px; flex: none; color: var(--c-accent); }
+      .sl-tools .sl-tot { margin-left: 0; margin-top: auto; text-align: center; }
+      .sl-tools .sl-msg { margin-left: 0; }
       .sl-add { border-radius: 8px; border: 1px solid var(--c-accent); background: none; color: var(--c-accent); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
       .sl-add:hover { background: var(--c-accent); color: var(--c-bg); }
-      .sl-tot { margin-left: auto; background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
+      .sl-tot { margin-left: auto; background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-text); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
       .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: #ff8a8f; }
       .sl-tot:empty { display: none; }
       .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
+      .sl-body { grid-column: 2; grid-row: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: flex-start; overflow: hidden; container-type: size; }
       .sl-canvas {
-        position: relative; width: 100%; aspect-ratio: 1000 / 600; background: #141112;
+        position: relative; aspect-ratio: 1000 / 600; background: var(--c-bg);
+        width: min(100cqw, calc(100cqh * 1000 / 600)); height: auto; margin: 0;
         border: 1px solid var(--c-line); overflow: hidden; touch-action: none;
       }
       #sl-area-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
       #sl-area-svg .sl-handle { pointer-events: all; }
       #sl-tavoli { position: absolute; inset: 0; pointer-events: none; }
       #sl-tavoli .sl-table { pointer-events: auto; }
+      #sl-tavoli .sl-decor { pointer-events: auto; }
+      .sl-decor { position: absolute; box-sizing: border-box; cursor: grab; user-select: none; -webkit-user-select: none; display: flex; align-items: center; justify-content: center; }
+      .sl-decor.plant { background: transparent; border: none; border-radius: 4px; }
+      .sl-plant-img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+      img.sl-ico { object-fit: contain; }
+      .sl-decor.wall { border: 1.5px solid #6b5c50; border-radius: 3px; }
+      .sl-decor.wall.c-white { background: #e8e4de; border-color: #cfc8c0; }
+      .sl-decor.wall.c-black { background: #1c1c1c; border-color: #3a3a3a; }
+      .sl-decor.wall.c-brown { background: #4a4038; border-color: #6b5c50; }
+      .sl-decor.sel { border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 35%, transparent); }
+      .sl-decor-add .sl-ico { color: #2e9e6b; }
+      .sl-decor-add[data-decor="wall"] .sl-ico { color: #b89a86; }
+      .sl-decor-lab { font-weight: 700; color: var(--c-accent); font-size: 0.82rem; }
+      .sl-de-size { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--c-muted); font-size: 0.8rem; }
+      .sl-de-size input { width: 64px; }
+      .sl-decor-edit .sl-de-size { display: none; }
+      .sl-de-colors { display: none; gap: 0.4rem; align-items: center; }
+      .sl-decor-edit.is-wall .sl-de-colors { display: flex; }
+      .sl-de-color { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c-line); cursor: pointer; padding: 0; }
+      .sl-de-color[data-color="white"] { background: #e8e4de; }
+      .sl-de-color[data-color="black"] { background: #1c1c1c; }
+      .sl-de-color[data-color="brown"] { background: #4a4038; }
+      .sl-de-color.is-on { border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 35%, transparent); }
       .sl-canvas.disegno { cursor: crosshair; }
       .sl-canvas.disegno #sl-tavoli .sl-table { pointer-events: none; opacity: 0.45; }
       .sl-area-btn { border-radius: 8px; border: 1px solid var(--c-line); background: var(--c-input); color: var(--c-text); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
@@ -139,21 +174,37 @@ const t = adminT(lang);
       .sl-table.sel { border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 35%, transparent); }
       .sl-table b { font-size: 0.78rem; pointer-events: none; }
       .sl-table i { font-style: normal; color: var(--c-muted); font-size: 0.62rem; pointer-events: none; }
-      .sl-links { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.6rem; }
+      .sl-links { display: none; }
       .sl-links:empty { display: none; }
       .sl-link-chip { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.25rem 0.4rem 0.25rem 0.7rem; border-radius: 999px; }
       .sl-link-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; }
       .sl-link-chip button:hover { color: #ff8a8f; }
       .sl-link-chip button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
       .sl-table.lk { border-color: var(--c-accent); }
-      .sl-edit { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.6rem; flex-wrap: wrap; }
+      .sl-edit { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 0.5rem; align-items: stretch; margin-top: 0;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.55rem 0.65rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); max-width: 92vw; }
+      .sl-edit::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 10px; height: 10px; background: var(--c-bg); border-left: 1px solid var(--c-line); border-top: 1px solid var(--c-line); }
+      .sl-edit-row { display: flex; gap: 0.5rem; align-items: center; }
+      .sl-edit-row .tm-ibtn.del { margin-left: auto; }
+      .sl-edit-row .sl-shapes { flex: 1; }
+      /* Handle di ridimensionamento del tavolo selezionato */
+      .sl-th { position: absolute; width: 14px; height: 14px; background: var(--c-accent); border: 2px solid var(--c-bg); border-radius: 50%; z-index: 4; pointer-events: auto; }
+      .sl-th[data-h="nw"] { left: -8px; top: -8px; cursor: nwse-resize; }
+      .sl-th[data-h="ne"] { right: -8px; top: -8px; cursor: nesw-resize; }
+      .sl-th[data-h="sw"] { left: -8px; bottom: -8px; cursor: nesw-resize; }
+      .sl-th[data-h="se"] { right: -8px; bottom: -8px; cursor: nwse-resize; }
       .sl-edit input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.45rem 0.6rem; font-family: var(--font-body); font-size: 0.9rem; }
       .sl-edit input:focus { outline: none; border-color: var(--c-accent); }
       #sl-nome { width: 120px; }
       #sl-posti { width: 70px; }
       .sl-shapes { display: flex; gap: 0.35rem; }
-      .sl-sh { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.74rem; padding: 0.3rem 0.7rem; border-radius: 999px; cursor: pointer; }
-      .sl-sh.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .sl-sh { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 8px; cursor: pointer; }
+      .sl-sh svg { width: 17px; height: 17px; }
+      .sl-sh.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .sl-dup { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+      .sl-dup:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .sl-dup svg { width: 14px; height: 14px; flex: none; }
 
       /* --- Tab Notifications --- */
       .section[data-tab="notifications"] { padding: 0; overflow: hidden; }
@@ -1140,29 +1191,48 @@ const t = adminT(lang);
             <div class="overlay" id="sl-overlay">
               <div class="modal sl-modal">
                 <button class="m-close" id="sl-close" type="button" aria-label={t("common.close")}>×</button>
-                <h2 id="sl-title">{t("set.res.floorPlan")}</h2>
+                <div class="sl-head">
+                  <h2 id="sl-title">{t("set.res.floorPlan")}</h2>
+                  <span class="sl-tot" id="sl-tot"></span>
+                </div>
                 <div class="sl-wrap" id="sl-wrap">
               <div class="sl-tools">
-                <button type="button" class="sl-add" data-sh="round">{t("set.res.addRound")}</button>
-                <button type="button" class="sl-add" data-sh="square">{t("set.res.addSquare")}</button>
-                <button type="button" class="sl-add" data-sh="rect">{t("set.res.addRect")}</button>
+                <button type="button" class="sl-add" data-sh="round"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg>{t("set.res.addRound")}</button>
+                <button type="button" class="sl-add" data-sh="square"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("set.res.addSquare")}</button>
+                <button type="button" class="sl-add sl-decor-add" data-decor="plant"><img class="sl-ico" src="/restohub/plant.svg" alt="" aria-hidden="true" />{t("set.res.addPlant")}</button>
+                <button type="button" class="sl-add sl-decor-add" data-decor="wall"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="10" width="18" height="4" rx="1" /></svg>{t("set.res.addWall")}</button>
                 <button type="button" class="sl-area-btn" id="sl-area-btn">{"✎ " + t("set.res.drawRoom")}</button>
                 <button type="button" class="sl-area-btn" id="sl-link-btn">{"🔗 " + t("set.res.linkTables")}</button>
                 <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
-                <span class="sl-tot" id="sl-tot"></span>
                 <span class="sl-msg" id="sl-msg"></span>
               </div>
-              <div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div>
+              <div class="sl-body"><div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div></div>
               <div class="sl-links" id="sl-links"></div>
               <div class="sl-edit" id="sl-edit" style="display:none">
-                <input type="text" id="sl-nome" placeholder={t("set.res.tableNamePh")} maxlength="12" autocomplete="off" />
-                <input type="number" id="sl-posti" min="1" max="30" title={t("set.res.seatsTitle")} />
-                <div class="sl-shapes">
-                  <button type="button" class="sl-sh" data-sh="round">{t("set.res.shapeRound")}</button>
-                  <button type="button" class="sl-sh" data-sh="square">{t("set.res.shapeSquare")}</button>
-                  <button type="button" class="sl-sh" data-sh="rect">{t("set.res.shapeRect")}</button>
+                <div class="sl-edit-row">
+                  <input type="text" id="sl-nome" placeholder={t("set.res.tableNamePh")} maxlength="12" autocomplete="off" />
+                  <input type="number" id="sl-posti" min="1" max="30" title={t("set.res.seatsTitle")} />
                 </div>
-                <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                <div class="sl-edit-row">
+                  <div class="sl-shapes">
+                    <button type="button" class="sl-sh" data-sh="round" title={t("set.res.shapeRound")} aria-label={t("set.res.shapeRound")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg></button>
+                    <button type="button" class="sl-sh" data-sh="square" title={t("set.res.shapeSquare")} aria-label={t("set.res.shapeSquare")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
+                  </div>
+                  <button type="button" class="sl-dup" id="sl-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
+                  <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
+              <div class="sl-edit sl-decor-edit" id="sl-decor-edit" style="display:none">
+                <span id="sl-decor-lab" class="sl-decor-lab"></span>
+                <label class="sl-de-size">L <input type="number" id="sl-de-w" min="20" max="1000" step="10" /></label>
+                <label class="sl-de-size">A <input type="number" id="sl-de-h" min="10" max="600" step="10" /></label>
+                <div class="sl-de-colors" id="sl-de-colors">
+                  <button type="button" class="sl-de-color" data-color="white" title={t("set.res.colWhite")} aria-label={t("set.res.colWhite")}></button>
+                  <button type="button" class="sl-de-color" data-color="black" title={t("set.res.colBlack")} aria-label={t("set.res.colBlack")}></button>
+                  <button type="button" class="sl-de-color" data-color="brown" title={t("set.res.colBrown")} aria-label={t("set.res.colBrown")}></button>
+                </div>
+                <button type="button" class="sl-dup" id="sl-decor-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
+                <button type="button" class="tm-ibtn del" id="sl-decor-del" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
               </div>
                 </div>
               </div>
@@ -1886,11 +1956,25 @@ const t = adminT(lang);
         const slNome = document.getElementById("sl-nome") as HTMLInputElement;
         const slPosti = document.getElementById("sl-posti") as HTMLInputElement;
         const slDel = document.getElementById("sl-del") as HTMLButtonElement;
+        const slDup = document.getElementById("sl-dup") as HTMLButtonElement;
         const slMsg = document.getElementById("sl-msg") as HTMLSpanElement;
         const SL_TRASH = slDel.innerHTML;
         let slZona: string | null = null;          // null = "Liste"
         let slTavoli: Tavolo[] = [];
         let slSel: Tavolo | null = null;
+        // Decor (piante / muri) — oggetti non-tavolo salvati per section
+        type Decor = { id: string; type: "plant" | "wall"; color?: string; x: number; y: number; w: number; h: number };
+        let slDecor: Decor[] = [];
+        let slDecorSel: Decor | null = null;
+        const slDecorEdit = document.getElementById("sl-decor-edit") as HTMLDivElement;
+        const slDeW = document.getElementById("sl-de-w") as HTMLInputElement;
+        const slDeH = document.getElementById("sl-de-h") as HTMLInputElement;
+        const slDecorDel = document.getElementById("sl-decor-del") as HTMLButtonElement;
+        const slDecorDup = document.getElementById("sl-decor-dup") as HTMLButtonElement;
+        const slDecorLab = document.getElementById("sl-decor-lab") as HTMLElement;
+        const slDeColors = document.getElementById("sl-de-colors") as HTMLDivElement;
+        const SL_DECOR_TRASH = slDecorDel.innerHTML;
+        const slDecorId = () => "d" + Date.now().toString(36) + Math.floor(Math.random() * 46656).toString(36);
 
         const rPlanMode = document.getElementById("r-planmode") as HTMLInputElement;
         const rAutoAccept = document.getElementById("r-autoaccept") as HTMLInputElement;
@@ -2003,12 +2087,12 @@ const t = adminT(lang);
 
         // La stanza È la superficie quadrettata: fondo + griglia (pattern SVG
         // ritagliato sul rettangolo) + bordo. Fuori resta il fondo scuro.
-        const SL_DEFS = `<defs><pattern id="sl-griglia" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(58,51,53,0.6)" stroke-width="1" /></pattern></defs>`;
+        const SL_DEFS = `<defs><pattern id="sl-griglia" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(150,140,132,0.4)" stroke-width="1" /></pattern></defs>`;
         const slStanza = (r: { x: number; y: number; w: number; h: number }, modifica: boolean): string =>
           SL_DEFS +
-          `<rect class="sl-r-base" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" style="fill:var(--c-input)" />` +
+          `<rect class="sl-r-base" x="0" y="0" width="1000" height="600" style="fill:var(--c-bg)" />` +
           `<rect class="sl-r-grid" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="url(#sl-griglia)" />` +
-          `<rect class="sl-r-bordo" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="${modifica ? "var(--c-accent)" : "#8a7a6b"}" stroke-width="2"${modifica ? ' stroke-dasharray="8 5"' : ""} />`;
+          `<rect class="sl-r-bordo" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="none" stroke="${modifica ? "var(--c-accent)" : "#b3a99e"}" stroke-width="${modifica ? "2" : "3"}"${modifica ? ' stroke-dasharray="8 5"' : ""} />`;
 
         const slRectDaArea = (): { x: number; y: number; w: number; h: number } => {
           if (!slArea || slArea.length === 0) return { x: 0, y: 0, w: 1000, h: 600 };
@@ -2124,7 +2208,7 @@ const t = adminT(lang);
         function slAggiornaEditAttrs() {
           const r = slRect;
           if (!r) return;
-          slAreaSvg.querySelectorAll(".sl-r-base, .sl-r-grid, .sl-r-bordo").forEach((el) => {
+          slAreaSvg.querySelectorAll(".sl-r-grid, .sl-r-bordo").forEach((el) => {
             el.setAttribute("x", String(r.x));
             el.setAttribute("y", String(r.y));
             el.setAttribute("width", String(r.w));
@@ -2226,14 +2310,65 @@ const t = adminT(lang);
           slRenderArea();
           slTavoliBox.innerHTML = slTavoli
             .map((t) => {
-              const sel = (slSel && slSel.id === t.id) || slLinkSel.has(t.id) ? " sel" : "";
-              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} ${tr("res.placesShort")}</i></div>`;
+              const isSel = !!slSel && slSel.id === t.id;
+              const sel = isSel || slLinkSel.has(t.id) ? " sel" : "";
+              const handles = isSel ? `<span class="sl-th" data-h="nw"></span><span class="sl-th" data-h="ne"></span><span class="sl-th" data-h="sw"></span><span class="sl-th" data-h="se"></span>` : "";
+              return `<div class="sl-table ${t.shape}${sel}" data-id="${t.id}" style="left:${t.x / 10}%;top:${t.y / 6}%;width:${t.w / 10}%;height:${t.h / 6}%"><b>${t.name.replace(/</g, "&lt;")}</b><i>${t.seats} ${tr("res.placesShort")}</i>${handles}</div>`;
             })
-            .join("");
+            .join("") +
+            slDecor
+              .map((d) => {
+                const isSelD = !!slDecorSel && slDecorSel.id === d.id;
+                const sel = isSelD ? " sel" : "";
+                const handles = isSelD ? `<span class="sl-th" data-h="nw"></span><span class="sl-th" data-h="ne"></span><span class="sl-th" data-h="sw"></span><span class="sl-th" data-h="se"></span>` : "";
+                const inner = d.type === "plant" ? `<img class="sl-plant-img" src="/restohub/plant.svg" alt="" draggable="false" />` : "";
+                const col = d.type === "wall" ? ` c-${d.color || "brown"}` : "";
+                return `<div class="sl-decor ${d.type}${col}${sel}" data-did="${d.id}" style="left:${d.x / 10}%;top:${d.y / 6}%;width:${d.w / 10}%;height:${d.h / 6}%">${inner}${handles}</div>`;
+              })
+              .join("");
         }
 
+        // Posiziona un popover (edit tavolo / decor) flottante sotto l'elemento cliccato
+        function slFloatEdit(pop: HTMLElement, sel: string) {
+          const el = slTavoliBox.querySelector(sel) as HTMLElement | null;
+          if (!el) return;
+          const r = el.getBoundingClientRect();
+          const pw = pop.offsetWidth || 260, ph = pop.offsetHeight || 48;
+          let left = r.left + r.width / 2 - pw / 2;
+          let top = r.bottom + 10;
+          left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+          if (top + ph > window.innerHeight - 8) top = Math.max(8, r.top - ph - 10);
+          pop.style.left = left + "px";
+          pop.style.top = top + "px";
+        }
+        async function slSalvaDecor() {
+          if (!slZona) return;
+          try {
+            const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, decor: slDecor }) });
+            if (!res.ok) slMsg.textContent = tr("set.gen.saveErrDot");
+          } catch { slMsg.textContent = tr("common.netErr"); }
+        }
+        function slDecorSelezionato(d: Decor | null) {
+          slSel = null; slEdit.style.display = "none";
+          slDecorSel = d;
+          slDecorEdit.style.display = d ? "" : "none";
+          if (d) {
+            slDeW.value = String(d.w); slDeH.value = String(d.h);
+            slDecorLab.textContent = d.type === "wall" ? tr("set.res.wall") : tr("set.res.plant");
+          }
+          slDecorEdit.classList.toggle("is-plant", !!d && d.type === "plant");
+          slDecorEdit.classList.toggle("is-wall", !!d && d.type === "wall");
+          if (d && d.type === "wall") {
+            const cc = d.color || "brown";
+            slDeColors.querySelectorAll<HTMLElement>(".sl-de-color").forEach((b) => b.classList.toggle("is-on", b.dataset.color === cc));
+          }
+          slRenderCanvas();
+          if (d) slFloatEdit(slDecorEdit, `[data-did="${d.id}"]`);
+        }
         function slSeleziona(t: Tavolo | null) {
           slSel = t;
+          slDecorSel = null;
+          slDecorEdit.style.display = "none";
           slEdit.style.display = t ? "" : "none";
           if (t) {
             slNome.value = t.name;
@@ -2241,6 +2376,7 @@ const t = adminT(lang);
             document.querySelectorAll<HTMLElement>(".sl-sh").forEach((b) => b.classList.toggle("is-on", b.dataset.sh === t.shape));
           }
           slRenderCanvas();
+          if (t) slFloatEdit(slEdit, `[data-id="${t.id}"]`);
         }
 
         async function slCarica(zona: string) {
@@ -2252,6 +2388,9 @@ const t = adminT(lang);
             slTavoli = (j.tables as Tavolo[]) ?? [];
             slArea = Array.isArray(j.area) ? (j.area as number[][]) : null;
             slLinks = Array.isArray(j.links) ? (j.links as string[][]) : [];
+            slDecor = Array.isArray(j.decor) ? (j.decor as Decor[]) : [];
+            slDecorSel = null;
+            slDecorEdit.style.display = "none";
             slLinkMode = false;
             slLinkSel.clear();
             slAggiornaLinkBtn();
@@ -2276,7 +2415,7 @@ const t = adminT(lang);
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && slOverlay.classList.contains("is-open")) slChiudi(); });
 
         // Aggiunta tavolo
-        document.querySelectorAll<HTMLButtonElement>(".sl-add").forEach((btn) => {
+        document.querySelectorAll<HTMLButtonElement>(".sl-add:not(.sl-decor-add)").forEach((btn) => {
           btn.addEventListener("click", async () => {
             if (!slZona) return;
             const shape = btn.dataset.sh ?? "square";
@@ -2302,6 +2441,84 @@ const t = adminT(lang);
           });
         });
 
+        // Aggiunta pianta / muro
+        document.querySelectorAll<HTMLButtonElement>(".sl-decor-add").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (!slZona) return;
+            const type = btn.dataset.decor === "wall" ? "wall" : "plant";
+            const n = slDecor.length;
+            const w = type === "wall" ? 200 : 60, h = type === "wall" ? 24 : 60;
+            const d: Decor = { id: slDecorId(), type, color: "brown", x: Math.min(1000 - w, 80 + (n % 6) * 40), y: Math.min(600 - h, 80 + (n % 6) * 30), w, h };
+            slDecor.push(d);
+            slDecorSelezionato(d);
+            void slSalvaDecor();
+          });
+        });
+        slDeColors.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".sl-de-color") as HTMLElement | null;
+          if (!b || !slDecorSel) return;
+          slDecorSel.color = b.dataset.color || "brown";
+          slDeColors.querySelectorAll<HTMLElement>(".sl-de-color").forEach((x) => x.classList.toggle("is-on", x === b));
+          slRenderCanvas();
+          slFloatEdit(slDecorEdit, `[data-did="${slDecorSel.id}"]`);
+          void slSalvaDecor();
+        });
+        slDeW.addEventListener("change", () => {
+          if (!slDecorSel) return;
+          let w = Math.round((Number(slDeW.value) || 40) / 10) * 10;
+          w = Math.min(1000 - slDecorSel.x, Math.max(20, w));
+          slDeW.value = String(w); slDecorSel.w = w; slRenderCanvas(); void slSalvaDecor();
+        });
+        slDeH.addEventListener("change", () => {
+          if (!slDecorSel) return;
+          let h = Math.round((Number(slDeH.value) || 40) / 10) * 10;
+          h = Math.min(600 - slDecorSel.y, Math.max(10, h));
+          slDeH.value = String(h); slDecorSel.h = h; slRenderCanvas(); void slSalvaDecor();
+        });
+        slDecorDel.addEventListener("click", () => {
+          if (!slDecorSel) return;
+          if (!slDecorDel.classList.contains("confirm")) {
+            slDecorDel.classList.add("confirm"); slDecorDel.textContent = tr("home.deleteQ");
+            setTimeout(() => { slDecorDel.classList.remove("confirm"); slDecorDel.innerHTML = SL_DECOR_TRASH; }, 4000);
+            return;
+          }
+          slDecorDel.classList.remove("confirm"); slDecorDel.innerHTML = SL_DECOR_TRASH;
+          slDecor = slDecor.filter((x) => x.id !== slDecorSel!.id);
+          slDecorSelezionato(null);
+          void slSalvaDecor();
+        });
+        function slNomeIncrement(name: string): string {
+          const m = name.match(/^(.*?)(\d+)$/);
+          const prefix = m ? m[1] : name;
+          let n = m ? parseInt(m[2], 10) : 1;
+          const names = new Set(slTavoli.map((t) => t.name));
+          let cand = "";
+          do { n++; cand = (prefix + n).slice(0, 12); } while (names.has(cand) && n < 999);
+          return cand;
+        }
+        slDup.addEventListener("click", async () => {
+          if (!slSel || !slZona) return;
+          const src = slSel;
+          const riga = { zone: slZona, name: slNomeIncrement(src.name), seats: src.seats, shape: src.shape,
+            x: Math.min(1000 - src.w, src.x + 30), y: Math.min(600 - src.h, src.y + 30), w: src.w, h: src.h };
+          try {
+            const res = await slFetch("/api/admin/tables", { method: "POST", body: JSON.stringify(riga) });
+            const j = await res.json();
+            if (!res.ok) { slMsg.textContent = j.error ?? tr("set.gen.createErr"); return; }
+            slTavoli.push(j.table as Tavolo);
+            slMsg.textContent = "";
+            slSeleziona(j.table as Tavolo);
+          } catch { slMsg.textContent = tr("common.netErr"); }
+        });
+        slDecorDup.addEventListener("click", () => {
+          if (!slDecorSel || !slZona) return;
+          const src = slDecorSel;
+          const d: Decor = { id: slDecorId(), type: src.type, color: src.color,
+            x: Math.min(1000 - src.w, src.x + 30), y: Math.min(600 - src.h, src.y + 30), w: src.w, h: src.h };
+          slDecor.push(d);
+          slDecorSelezionato(d);
+          void slSalvaDecor();
+        });
         async function slPatch(t: Tavolo, campi: Partial<Tavolo>) {
           Object.assign(t, campi);
           slRenderCanvas();
@@ -2314,6 +2531,82 @@ const t = adminT(lang);
         // Drag con snap (20 unità) + click per selezionare
         slCanvas.addEventListener("pointerdown", (e) => {
           if (slRect) return; // in modifica salle: si usano solo le maniglie
+          // Handle di ridimensionamento del tavolo selezionato
+          const elH = (e.target as HTMLElement).closest(".sl-th") as HTMLElement | null;
+          if (elH && slSel) {
+            e.preventDefault();
+            const t = slSel;
+            const dir = elH.dataset.h || "se";
+            const elT = elH.closest(".sl-table") as HTMLElement | null;
+            const scala = slCanvas.clientWidth / 1000;
+            const sx = e.clientX, sy = e.clientY, ox = t.x, oy = t.y, ow = t.w, oh = t.h;
+            elH.setPointerCapture(e.pointerId);
+            const onMove = (ev: PointerEvent) => {
+              const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
+              let w = ow, h = oh;
+              if (dir.includes("e")) w = ow + dx;
+              if (dir.includes("s")) h = oh + dy;
+              if (dir.includes("w")) w = ow - dx;
+              if (dir.includes("n")) h = oh - dy;
+              w = Math.max(40, Math.min(600, w));
+              h = Math.max(40, Math.min(500, h));
+              let x = dir.includes("w") ? ox + ow - w : ox;
+              let y = dir.includes("n") ? oy + oh - h : oy;
+              x = Math.max(0, Math.min(x, 1000 - w));
+              y = Math.max(0, Math.min(y, 600 - h));
+              w = Math.min(w, 1000 - x); h = Math.min(h, 600 - y);
+              t.x = Math.round(x); t.y = Math.round(y); t.w = Math.round(w); t.h = Math.round(h);
+              if (elT) { elT.style.left = t.x / 10 + "%"; elT.style.top = t.y / 6 + "%"; elT.style.width = t.w / 10 + "%"; elT.style.height = t.h / 6 + "%"; }
+              slFloatEdit(slEdit, `[data-id="${t.id}"]`);
+            };
+            const onUp = (ev: PointerEvent) => {
+              elH.releasePointerCapture(ev.pointerId);
+              elH.removeEventListener("pointermove", onMove);
+              elH.removeEventListener("pointerup", onUp);
+              void slPatch(t, { x: t.x, y: t.y, w: t.w, h: t.h });
+            };
+            elH.addEventListener("pointermove", onMove);
+            elH.addEventListener("pointerup", onUp);
+            return;
+          }
+          // Handle di resize per un decor (pianta/muro) selezionato
+          if (elH && slDecorSel) {
+            e.preventDefault();
+            const d = slDecorSel;
+            const dir = elH.dataset.h || "se";
+            const elD = elH.closest(".sl-decor") as HTMLElement | null;
+            const scala = slCanvas.clientWidth / 1000;
+            const sx = e.clientX, sy = e.clientY, ox = d.x, oy = d.y, ow = d.w, oh = d.h;
+            elH.setPointerCapture(e.pointerId);
+            const onMove = (ev: PointerEvent) => {
+              const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
+              let w = ow, h = oh;
+              if (dir.includes("e")) w = ow + dx;
+              if (dir.includes("s")) h = oh + dy;
+              if (dir.includes("w")) w = ow - dx;
+              if (dir.includes("n")) h = oh - dy;
+              w = Math.max(20, Math.min(1000, w));
+              h = Math.max(20, Math.min(600, h));
+              let x = dir.includes("w") ? ox + ow - w : ox;
+              let y = dir.includes("n") ? oy + oh - h : oy;
+              x = Math.max(0, Math.min(x, 1000 - w));
+              y = Math.max(0, Math.min(y, 600 - h));
+              w = Math.min(w, 1000 - x); h = Math.min(h, 600 - y);
+              d.x = Math.round(x); d.y = Math.round(y); d.w = Math.round(w); d.h = Math.round(h);
+              if (elD) { elD.style.left = d.x / 10 + "%"; elD.style.top = d.y / 6 + "%"; elD.style.width = d.w / 10 + "%"; elD.style.height = d.h / 6 + "%"; }
+              slDeW.value = String(d.w); slDeH.value = String(d.h);
+              slFloatEdit(slDecorEdit, `[data-did="${d.id}"]`);
+            };
+            const onUp = (ev: PointerEvent) => {
+              elH.releasePointerCapture(ev.pointerId);
+              elH.removeEventListener("pointermove", onMove);
+              elH.removeEventListener("pointerup", onUp);
+              void slSalvaDecor();
+            };
+            elH.addEventListener("pointermove", onMove);
+            elH.addEventListener("pointerup", onUp);
+            return;
+          }
           const el = (e.target as HTMLElement).closest(".sl-table") as HTMLElement | null;
           // Modalità liaison: click = seleziona/deseleziona il tavolo
           if (slLinkMode) {
@@ -2323,6 +2616,35 @@ const t = adminT(lang);
               slRenderCanvas();
               slAggiornaLinkBtn();
             }
+            return;
+          }
+          // Decor (piante/muri): drag + selezione
+          const elDec = (e.target as HTMLElement).closest(".sl-decor") as HTMLElement | null;
+          if (elDec?.dataset.did) {
+            e.preventDefault();
+            const d = slDecor.find((x) => x.id === elDec.dataset.did);
+            if (!d) return;
+            const scala = slCanvas.clientWidth / 1000;
+            const sx = e.clientX, sy = e.clientY, ox = d.x, oy = d.y;
+            let mosso = false;
+            elDec.setPointerCapture(e.pointerId);
+            const onMove = (ev: PointerEvent) => {
+              const dx = (ev.clientX - sx) / scala, dy = (ev.clientY - sy) / scala;
+              if (Math.abs(dx) + Math.abs(dy) > 6) mosso = true;
+              if (!mosso) return;
+              const nx = Math.round(Math.min(1000 - d.w, Math.max(0, ox + dx)) / 20) * 20;
+              const ny = Math.round(Math.min(600 - d.h, Math.max(0, oy + dy)) / 20) * 20;
+              d.x = nx; d.y = ny; elDec.style.left = nx / 10 + "%"; elDec.style.top = ny / 6 + "%";
+              if (slDecorSel && slDecorSel.id === d.id) slFloatEdit(slDecorEdit, `[data-did="${d.id}"]`);
+            };
+            const onUp = (ev: PointerEvent) => {
+              elDec.releasePointerCapture(ev.pointerId);
+              elDec.removeEventListener("pointermove", onMove);
+              elDec.removeEventListener("pointerup", onUp);
+              if (mosso) void slSalvaDecor(); else slDecorSelezionato(d);
+            };
+            elDec.addEventListener("pointermove", onMove);
+            elDec.addEventListener("pointerup", onUp);
             return;
           }
           if (!el) { slSeleziona(null); return; }
@@ -2342,6 +2664,7 @@ const t = adminT(lang);
             t.x = nx; t.y = ny;
             el.style.left = nx / 10 + "%";
             el.style.top = ny / 6 + "%";
+            if (slSel && slSel.id === t.id) slFloatEdit(slEdit, `[data-id="${t.id}"]`);
           };
           const onUp = (ev: PointerEvent) => {
             el.releasePointerCapture(ev.pointerId);
@@ -2360,14 +2683,14 @@ const t = adminT(lang);
           if (!slSel) return;
           const seats = Math.min(30, Math.max(1, Math.floor(Number(slPosti.value)) || 1));
           slPosti.value = String(seats);
-          void slPatch(slSel, { seats, ...slMisura(slSel.shape, seats) });
+          void slPatch(slSel, { seats });
         });
         document.querySelectorAll<HTMLButtonElement>(".sl-sh").forEach((b) => {
           b.addEventListener("click", () => {
             if (!slSel) return;
             const shape = b.dataset.sh ?? "square";
             document.querySelectorAll<HTMLElement>(".sl-sh").forEach((x) => x.classList.toggle("is-on", x === b));
-            void slPatch(slSel, { shape, ...slMisura(shape, slSel.seats) });
+            void slPatch(slSel, { shape });
           });
         });
         slDel.addEventListener("click", async () => {
