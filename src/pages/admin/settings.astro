@@ -111,7 +111,7 @@ const t = adminT(lang);
       .sl-modal .sl-head h2 { margin: 0; line-height: 1; }
       .sl-modal .sl-head .sl-tot { margin-left: 0; margin-top: 0; align-self: center; position: relative; top: -7px; }
       .sl-modal .sl-wrap { margin: 0.6rem 0 0; flex: 1 1 auto; min-height: 0;
-        display: grid; grid-template-columns: max-content minmax(0, 1fr);
+        display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
         grid-template-rows: minmax(0, 1fr); gap: 0.5rem 0.8rem; }
       .sl-pill { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
       .sl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
@@ -174,7 +174,17 @@ const t = adminT(lang);
       .sl-table.sel { border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 35%, transparent); }
       .sl-table b { font-size: 0.78rem; pointer-events: none; }
       .sl-table i { font-style: normal; color: var(--c-muted); font-size: 0.62rem; pointer-events: none; }
-      .sl-links { display: none; }
+      .sl-links { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 0.6rem; overflow-y: auto; max-width: 260px; min-width: 190px; }
+      .sl-link-group { border: 1px solid var(--c-line); border-radius: 10px; padding: 0.5rem 0.55rem 0.55rem; background: color-mix(in srgb, var(--c-accent) 6%, transparent); }
+      .sl-lg-head { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.45rem; }
+      .sl-lg-nomi { flex: 1; font-size: 0.8rem; font-weight: 700; color: var(--c-accent); line-height: 1.2; }
+      .sl-lg-head button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; flex: none; }
+      .sl-lg-head button:hover { color: #ff8a8f; }
+      .sl-lg-head button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
+      .sl-lg-combos { display: flex; flex-direction: column; gap: 0.3rem; }
+      .sl-combo { display: flex; flex-direction: column; gap: 0.1rem; padding: 0.35rem 0.5rem; background: var(--c-input); border: 1px solid var(--c-line); border-radius: 7px; }
+      .sl-c-nomi { font-size: 0.85rem; font-weight: 700; color: var(--c-text); }
+      .sl-c-posti { font-size: 0.72rem; color: var(--c-muted); }
       .sl-links:empty { display: none; }
       .sl-link-chip { display: inline-flex; align-items: center; gap: 0.4rem; background: color-mix(in srgb, var(--c-accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-accent); font-size: 0.78rem; font-weight: 700; padding: 0.25rem 0.4rem 0.25rem 0.7rem; border-radius: 999px; }
       .sl-link-chip button { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.25rem; border-radius: 999px; }
@@ -2120,27 +2130,32 @@ const t = adminT(lang);
         }
 
         function slRenderLinks() {
+          const esc = (v: string) => v.replace(/</g, "&lt;");
           slLinksBox.innerHTML = slLinks
             .map((gruppo, i) => {
               // La liaison è una CATENA (ordine dei click = ordine fisico della
               // fila): le combinazioni valide sono le sotto-catene CONTIGUE di
-              // 2+ tavoli. Un gruppo da 3 persone usa la combi da 4 (2 tavoli),
-              // da 5 quella da 6 (3 tavoli), ecc.
+              // 2+ tavoli. Elenco OGNI combinazione possibile con i suoi posti.
               const fila = gruppo
                 .map((id) => slTavoli.find((x) => x.id === id))
                 .filter(Boolean) as Tavolo[];
               if (fila.length < 2) return "";
-              const combi = new Set<number>();
+              const combos: { nomi: string; posti: number; len: number; start: number }[] = [];
               for (let da = 0; da < fila.length; da++) {
                 let somma = 0;
+                const nomi: string[] = [];
                 for (let a = da; a < fila.length; a++) {
                   somma += fila[a].seats || 0;
-                  if (a > da) combi.add(somma);
+                  nomi.push(esc(fila[a].name));
+                  if (a > da) combos.push({ nomi: nomi.join("+"), posti: somma, len: a - da + 1, start: da });
                 }
               }
-              const liste = [...combi].sort((x, y) => x - y);
-              const nomi = fila.map((t) => t.name.replace(/</g, "&lt;")).join(" + ");
-              return `<span class="sl-link-chip" title="${tr("set.res.comboTitle")}">🔗 ${nomi} · ${tr("set.res.combi")} ${liste.join(" / ")} ${tr("res.placesShort")}<button type="button" data-i="${i}" aria-label="${tr("set.res.removeLink")}">×</button></span>`;
+              combos.sort((x, y) => x.len - y.len || x.start - y.start);
+              const testa = fila.map((t) => esc(t.name)).join(" + ");
+              const righe = combos
+                .map((c) => `<div class="sl-combo"><span class="sl-c-nomi">${c.nomi}</span><span class="sl-c-posti">${c.posti} ${tr("res.placesShort")}</span></div>`)
+                .join("");
+              return `<div class="sl-link-group"><div class="sl-lg-head"><span class="sl-lg-nomi">🔗 ${testa}</span><button type="button" data-i="${i}" aria-label="${tr("set.res.removeLink")}">×</button></div><div class="sl-lg-combos">${righe}</div></div>`;
             })
             .join("");
         }
