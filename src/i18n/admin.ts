@@ -781,6 +781,7 @@ const DIZIONARIO: Dizionario = {
   "res.showAll": { fr: "Afficher tous les horaires", en: "Show all times", it: "Mostra tutti gli orari", nl: "Alle tijden tonen", es: "Ver todos los horarios" },
   "res.noHourAvail": { fr: "Plus aucune heure disponible ce jour.", en: "No time available this day.", it: "Nessun orario disponibile questo giorno.", nl: "Geen tijd meer beschikbaar deze dag.", es: "Ninguna hora disponible este día." },
   "res.tablesAssigned": { fr: "Table(s) attribuée(s) :", en: "Assigned table(s):", it: "Tavolo/i assegnato/i:", nl: "Toegewezen tafel(s):", es: "Mesa(s) asignada(s):" },
+  "res.tablePreview": { fr: "Table prévue :", en: "Expected table(s):", it: "Tavolo previsto:", nl: "Verwachte tafel(s):", es: "Mesa(s) prevista(s):" },
   "res.noFreeTable": { fr: "Aucune table libre à attribuer pour ce créneau.", en: "No free table to assign for this slot.", it: "Nessun tavolo libero da assegnare per questa fascia.", nl: "Geen vrije tafel om toe te wijzen voor dit tijdvak.", es: "Ninguna mesa libre para asignar en esta franja." },
   "res.tablesLabel": { fr: "Table(s) :", en: "Table(s):", it: "Tavolo/i:", nl: "Tafel(s):", es: "Mesa(s):" },
   "res.placesShort": { fr: "pl.", en: "seats", it: "posti", nl: "pl.", es: "plazas" },

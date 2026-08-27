@@ -3388,6 +3388,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // grande o catena di liaison più capiente). null = plan mode spento.
         let planMax: Map<string, number> | null = null;
         let planTavoli: { id: string; zone: string; name: string; seats: number }[] = [];
+        let planLinks: Record<string, string[][]> = {}; // section -> gruppi di tavoli unibili
         let planAuto = true;    // reservation_auto_tables ("0" = attribuzione manuale)
         let planModeOn = false; // reservation_plan_mode
         let nmTavSel = new Set<string>(); // tavoli scelti a mano nel modale
@@ -3412,6 +3413,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               if (z) m.set(z, Math.max(m.get(z) ?? 0, Math.floor(Number(t.seats)) || 0));
             }
             const legami = (j.links ?? {}) as Record<string, string[][]>;
+            planLinks = legami;
             for (const [z, gruppi] of Object.entries(legami)) {
               if (!Array.isArray(gruppi)) continue;
               for (const g of gruppi) {
@@ -3629,6 +3631,38 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // live dal server, stesso algoritmo del salvataggio). Contatore per
         // scartare le risposte arrivate fuori ordine.
         let nmTavSeq = 0;
+        // Migliore combinazione (tavolo singolo o catena contigua) che ospita
+        // `pers` in una sezione, ignorando la disponibilità (anteprima).
+        function nmMigliorComboZona(z: string, pers: number): { names: string[]; posti: number } | null {
+          const tavZ = planTavoli.filter((t) => t.zone === z);
+          if (!tavZ.length) return null;
+          const cand: { names: string[]; posti: number }[] = [];
+          for (const t of tavZ) cand.push({ names: [t.name], posti: t.seats });
+          for (const g of planLinks[z] ?? []) {
+            const fila = g.map((id) => planTavoli.find((t) => t.id === id)).filter(Boolean) as typeof tavZ;
+            for (let da = 0; da < fila.length; da++) {
+              let somma = 0; const nm: string[] = [];
+              for (let a = da; a < fila.length; a++) {
+                somma += fila[a].seats; nm.push(fila[a].name);
+                if (a > da) cand.push({ names: [...nm], posti: somma });
+              }
+            }
+          }
+          const fit = cand.filter((c) => c.posti >= pers).sort((x, y) => x.posti - y.posti || x.names.length - y.names.length);
+          return fit[0] ?? null;
+        }
+        // Anteprima (prima dell'orario): sezione scelta, o migliore fra tutte.
+        function nmAnteprimaCombo(): { nomi: string; zone: string } | null {
+          if (!planTavoli.length) return null;
+          const zone = nmZone ? [nmZone] : [...new Set(planTavoli.map((t) => t.zone).filter(Boolean))];
+          let best: { names: string[]; posti: number; zone: string } | null = null;
+          for (const z of zone) {
+            const c = nmMigliorComboZona(z, nmPers);
+            if (c && (!best || c.posti < best.posti)) best = { names: c.names, posti: c.posti, zone: z };
+          }
+          if (!best) return null;
+          return { nomi: best.names.map((n) => esc(n)).join(" + "), zone: nmZone ? "" : best.zone };
+        }
         async function nmAggiornaTavoli() {
           const el = document.getElementById("nm-tables") as HTMLElement | null;
           if (!el) return;
@@ -3639,6 +3673,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           el.classList.remove("nm-tables-man");
           const date = campo("m-date").dataset.iso ?? "";
+          // Anteprima immediata sotto la sezione (prima di scegliere l'orario):
+          // la combinazione più piccola che ospita la tavolata. Verrà sostituita
+          // dalla proposta reale (che tiene conto della disponibilità) al click sull'ora.
+          if (planModeOn && planAuto && (!nmHeure || !date)) {
+            const prev = nmAnteprimaCombo();
+            if (prev) {
+              el.innerHTML = `${tr("res.tablePreview")} <b>${prev.nomi}</b>${prev.zone ? ` \u00b7 ${esc(prev.zone)}` : ""}`;
+              el.style.display = "";
+            } else {
+              el.style.display = "none";
+            }
+            return;
+          }
           if (!planMax || planMax.size === 0 || !nmHeure || !date) {
             el.style.display = "none";
             return;
