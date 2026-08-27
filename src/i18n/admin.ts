@@ -801,6 +801,7 @@ const DIZIONARIO: Dizionario = {
   // ===== Pagina Clients =====
   "cli.searchPh":   { fr: "Rechercher (nom, email, téléphone)…", en: "Search (name, email, phone)…", it: "Cerca (nome, email, telefono)…", nl: "Zoeken (naam, e-mail, telefoon)…", es: "Buscar (nombre, correo, teléfono)…" },
   "cli.all":        { fr: "Tous", en: "All", it: "Tutti", nl: "Alle", es: "Todos" },
+  "cli.filters":    { fr: "Filtres", en: "Filters", it: "Filtri", nl: "Filters", es: "Filtros" },
   "cli.new":        { fr: "New", en: "New", it: "Nuovo", nl: "Nieuw", es: "Nuevo" },
   "cli.noshow":     { fr: "No-show", en: "No-show", it: "No-show", nl: "No-show", es: "No-show" },
   "cli.optin":      { fr: "Opted-in", en: "Opted-in", it: "Opted-in", nl: "Opted-in", es: "Opted-in" },

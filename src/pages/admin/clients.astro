@@ -97,6 +97,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .fl-pill.is-on b { color: var(--c-bg); }
       .fl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .fl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      /* Filtri estesi: in linea su desktop, a tendina (mobile) sotto la barra */
+      .fl-more { display: inline-flex; flex-wrap: wrap; gap: 0.45rem; align-items: center; }
+      .fl-toggle { display: none; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; align-items: center; gap: 0.45rem; }
+      .fl-toggle.has-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .fl-toggle-n { display: none; align-items: center; justify-content: center; min-width: 1.15rem; height: 1.15rem; padding: 0 0.3rem; border-radius: 999px; background: rgba(0, 0, 0, 0.22); font-size: 0.7rem; font-weight: 800; }
+      .fl-toggle.has-active .fl-toggle-n { display: inline-flex; }
+      .ab-sep { display: none; }
       .search {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.88rem; padding: 0.45rem 1rem;
@@ -124,15 +131,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .t-pill.gold b { color: var(--c-accent); }
 
       /* Tabella (CSS grid) */
-      .table { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; overflow: hidden; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      .table { background: transparent; border: none; border-radius: 0; overflow: visible; box-shadow: none; }
+      #rows { display: flex; flex-direction: column; gap: 0.5rem; }
       .thead, .row {
         display: grid;
-        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 92px 96px 86px 86px 110px 96px;
+        grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 56px 136px 86px 86px 110px 96px;
         gap: 0.75rem;
         align-items: center;
         padding: 0.85rem 1.2rem;
       }
-      .thead { border-bottom: 1px solid var(--c-line); background: var(--c-card); }
+      .thead { display: none; }
       .c-lang-pill { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; font-weight: 700; color: var(--c-text); white-space: nowrap; }
       .c-lang-none { color: var(--c-muted); }
       .th {
@@ -147,8 +155,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .th.sorted { color: var(--c-accent); }
       .th.sorted .arrow { opacity: 1; }
 
-      .row { border-bottom: 1px solid var(--c-line); cursor: pointer; transition: background 0.12s; }
-      .row:hover { background: color-mix(in srgb, var(--c-accent) 5%, transparent); }
+      .row { border: 1px solid var(--c-line); border-radius: 10px; background: var(--c-card); cursor: pointer; transition: background 0.12s; }
+      .row:hover { background: color-mix(in srgb, var(--c-card), var(--c-bg) 20%); }
       .c-name { white-space: nowrap; overflow: hidden; display: flex; align-items: center; }
       .c-avatar {
         width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
@@ -159,8 +167,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         margin-right: 0.65rem; user-select: none;
       }
       .c-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .c-email, .c-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-      .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; }
+      .c-email, .c-phone { display: flex; align-items: center; gap: 0.45rem; overflow: hidden; white-space: nowrap; min-width: 0; }
+      .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      .c-c-ico { display: inline-flex; flex: none; }
+      .c-c-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .act-contacts { display: flex; flex-wrap: wrap; gap: 0.4rem 1.3rem; margin: -0.1rem 0 1.35rem; font-size: 0.9rem; }
       .act-contacts:empty { display: none; }
       .act-contacts .r-c { display: inline-flex; align-items: center; gap: 0.4rem; min-width: 0; }
@@ -201,7 +211,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
-      .row:hover { background: rgba(255, 255, 255, 0.03); }
       /* Cliente bloccato: barra rossa a sinistra (inset = nessuno spostamento) */
       .row.is-blocked { box-shadow: inset 3px 0 0 #ed1c24; }
       .cell { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -238,8 +247,13 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .cell a { color: var(--c-muted); text-decoration: none; }
       .cell a:hover { color: var(--c-accent); }
       .c-num { text-align: right; font-variant-numeric: tabular-nums; }
-      .c-since { color: var(--c-muted); font-size: 0.82rem; text-align: right; white-space: nowrap; }
-      .c-resa, .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; }
+      .c-since { color: var(--c-muted); font-size: 0.82rem; text-align: right; white-space: nowrap; margin-right: 3rem; }
+      .c-nums { display: contents; }
+      .c-cash-ico { display: none; }
+      .c-cash-ico svg { width: 15px; height: 15px; fill: var(--c-accent); }
+      .c-resa, .c-orders { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.03em; display: inline-flex; align-items: center; gap: 0.4rem; justify-content: flex-start; }
+      .c-num-ico { display: inline-flex; flex: none; }
+      .c-num-ico svg { width: 15px; height: 15px; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .c-total { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .c-act { display: flex; justify-content: flex-end; gap: 0.45rem; overflow: visible; }
       .ed-photo-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
@@ -377,26 +391,68 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
       .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
+      /* Modulo ORDINI disattivato dal super admin: via colonna ordini (lista) e tab/statistiche ordini (modale) */
+      .no-orders .c-orders, .no-orders .th[data-sort="orders"], .no-orders .act-tab[data-tab="order"] { display: none; }
+      .no-orders .thead, .no-orders .row { grid-template-columns: var(--col-nome, 220px) minmax(0, 2fr) minmax(0, 1.3fr) 56px 136px 86px 110px 96px; }
+      @media (min-width: 721px) and (max-width: 1024px) {
+        .no-orders .thead, .no-orders .row { grid-template-columns: var(--col-nome, 220px) minmax(0, 1fr) 64px 50px 110px 96px; }
+      }
       /* Mobile: righe → schede impilate con etichette */
       @media (max-width: 720px) {
-        .search { margin-left: 0; }
+        /* Barra compatta: [tutto] [Filtri] [ricerca]; i filtri escono a tendina sotto */
+        .actionsbar { position: relative; align-items: stretch; flex-wrap: nowrap; gap: 0.55rem; }
+        .fl-filtri { flex: 0 0 auto; align-items: stretch; gap: 0.55rem; }
+        .fl-pill, .fl-toggle { align-self: stretch; }
+        .fl-toggle { display: inline-flex; }
+        .ab-sep { display: block; align-self: stretch; width: 1px; flex: 0 0 auto; background: var(--c-line); margin: 0.25rem 0; }
+        .fl-more { display: none; position: absolute; top: calc(100% + 0.45rem); left: 0; right: 0; z-index: 20; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 0.75rem; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
+        .fl-filtri.open .fl-more { display: flex; }
+        .search { margin-left: 0; flex: 1 1 auto; min-width: 0; }
         .thead { display: none; }
         .row {
+          position: relative;
           grid-template-columns: 1fr auto;
           gap: 0.35rem 0.75rem;
           padding: 1rem 1.1rem;
         }
         .cell { white-space: normal; }
         .c-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
+        .c-lang { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; margin: 0 5px 0 0; }
         .c-since { display: none; }
-        .c-act { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
+        .c-act { position: absolute; right: 1.1rem; bottom: 1rem; flex-direction: column; gap: 0.45rem; margin: 0; }
         .cell[data-label]::before {
           content: attr(data-label) " · ";
           color: var(--c-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
         }
-        .c-email, .c-phone { grid-column: 1 / -1; }
+        .c-lang[data-label]::before { content: none; }
+        .c-email, .c-phone { grid-column: 1 / -1; padding-left: calc(34px + 0.65rem); }
+        .c-nums { display: flex; grid-column: 1 / -1; align-items: baseline; gap: 1.35rem; padding-left: calc(34px + 0.65rem); }
+        .c-total { display: inline-flex; align-items: center; gap: 0.4rem; }
+        .c-cash-ico { display: inline-flex; align-items: center; }
         .c-num { text-align: left; }
         .c-orders, .c-resa, .c-total { font-size: 1.1rem; }
+      }
+      /* iPad mini orizzontale (e tablet 721-1024): ricerca in alto a destra
+         all'altezza del titolo, niente colonna email, font piu piccola per
+         totali euro e conteggi ordini/prenotazioni. */
+      @media (min-width: 721px) and (max-width: 1024px) {
+        main { position: relative; }
+        .titlebar { padding-right: 280px; }
+        /* Centrata sulla riga del titolo: main ha padding-top 2rem, h1 ~1.3rem */
+        .search { position: absolute; right: 1.5rem; top: calc(2rem + 0.82rem); transform: translateY(-50%); margin: 0; flex: 0 0 auto; width: 260px; min-width: 0; z-index: 5; }
+        /* name | telefono (largo) | lingua | pren | ord | totale | azioni */
+        .thead, .row { grid-template-columns: var(--col-nome, 220px) minmax(0, 1fr) 64px 50px 50px 110px 96px; gap: 0.6rem; }
+        .thead .th[data-sort="email"], .cell.c-email { display: none; }   /* via email */
+        .thead .th[data-sort="since"], .cell.c-since { display: none; }   /* via DA */
+        .th-ico .th-lbl { display: none; }                                /* pren/ord solo icona */
+        .c-total { font-size: 1rem; }
+        .c-resa, .c-orders { font-size: 1rem; }
+      }
+      /* Tablet in VERTICALE (es. iPad mini 768): nome e totale piu piccoli,
+         cosi i bottoni edit/cancella rientrano meglio. */
+      @media (min-width: 721px) and (max-width: 900px) {
+        .c-name { font-size: 0.9rem; }
+        .c-total { font-size: 0.88rem; }
       }
       /* Loader dentro i bottoni di salvataggio */
       .is-loading { position: relative; color: transparent !important; pointer-events: none; }
@@ -423,11 +479,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             <button type="button" class="fl-pill is-on" data-f="all" title={t("cli.all")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
             </button>
-            <button type="button" class="fl-pill" data-f="new">{t("cli.new")}</button>
-            <button type="button" class="fl-pill" data-f="noshow">{t("cli.noshow")}</button>
-            <button type="button" class="fl-pill" data-f="optin">{t("cli.optin")}</button>
-            <button type="button" class="fl-pill" data-f="optout">{t("cli.optout")}</button>
+            <button type="button" class="fl-toggle" id="fl-toggle" aria-expanded="false">{t("cli.filters")} <span class="fl-toggle-n" id="fl-toggle-n"></span></button>
+            <div class="fl-more" id="fl-more">
+              <button type="button" class="fl-pill" data-f="new">{t("cli.new")}</button>
+              <button type="button" class="fl-pill" data-f="noshow">{t("cli.noshow")}</button>
+              <button type="button" class="fl-pill" data-f="optin">{t("cli.optin")}</button>
+              <button type="button" class="fl-pill" data-f="optout">{t("cli.optout")}</button>
+            </div>
           </div>
+          <span class="ab-sep" aria-hidden="true"></span>
           <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
           <div class="count" id="count" style="display:none"></div>
         </div>
@@ -440,8 +500,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               <button class="th" data-sort="phone">{t("ord.phone")} <span class="arrow"></span></button>
               <button class="th" data-sort="lang">{t("cli.langCol")} <span class="arrow"></span></button>
               <button class="th num" data-sort="since" title={t("cli.sinceTitle")}>{t("cli.since")} <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("cli.resaCol")} <span class="arrow"></span></button>
-              <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg>{t("nav.s.orders")} <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="reservations" title={t("nav.reservations")}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg><span class="th-lbl">{t("cli.resaCol")}</span> <span class="arrow"></span></button>
+              <button class="th num th-ico" data-sort="orders" title={t("nav.orders")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z" /><path d="M4 6h16" /><path d="M9 10a3 3 0 0 0 6 0" /></svg><span class="th-lbl">{t("nav.s.orders")}</span> <span class="arrow"></span></button>
               <button class="th num sorted" data-sort="total">{t("ord.total")} <span class="arrow">▼</span></button>
               <span class="th-act" aria-hidden="true"></span>
             </div>
@@ -478,7 +538,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     </div>
 
     <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
-    <button class="fab-add" id="add-btn" type="button"><span class="fab-plus">+</span>{t("cli.addClient")}</button>
+    <button class="fab-add" id="add-btn" type="button" title={t("cli.addClient")}><span class="fab-plus">+</span>{t("cli.clientWord")}</button>
 
     <!-- Modale modifica cliente (matita): dati + foto -->
     <div class="overlay" id="ed-overlay">
@@ -614,6 +674,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         '<svg class="ico-ns" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="4.9" y1="4.9" x2="19.1" y2="19.1" /></svg>';
       const ICO_RESA =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>';
+      const ICO_CASH =
+        '<svg viewBox="0 0 314.965 314.965" fill="currentColor" aria-hidden="true"><path d="M104.982,104.987c60.086,0,104.983-23.753,104.983-44.992c0-21.237-44.898-44.991-104.983-44.991S0,38.758,0,59.995C0,81.234,44.896,104.987,104.982,104.987z"/><path d="M104.982,284.961c8.77,0,17.211-0.51,25.24-1.439c-6.768-8.698-12.365-18.35-16.558-28.716c-2.881,0.097-5.772,0.164-8.683,0.164c-34.333,0-66.847-6.803-91.55-19.155C8.567,233.383,4.091,230.77,0,228.004v11.966C0,261.207,44.896,284.961,104.982,284.961z"/><path d="M104.982,224.97c0.308,0,0.611-0.005,0.918-0.006c-0.615-4.916-0.936-9.923-0.936-15.003c0-5.078,0.32-10.082,0.936-14.994c-0.307,0-0.611,0.011-0.918,0.011c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.432-9.342-5.045-13.433-7.81v11.965C0,201.216,44.896,224.97,104.982,224.97z"/><path d="M104.982,164.977c2.976,0,5.912-0.06,8.811-0.174c4.656-11.423,11.019-21.974,18.777-31.331c-8.982,0.99-18.213,1.515-27.588,1.515c-34.333,0-66.846-6.803-91.55-19.155c-4.865-2.433-9.342-5.045-13.433-7.811v11.966C0,141.225,44.896,164.977,104.982,164.977z"/><path d="M149.982,160.244c-6.49,9.757-11.127,20.846-13.408,32.762c-1.053,5.493-1.609,11.16-1.609,16.955c0,4.357,0.318,8.641,0.919,12.834c1.477,10.301,4.704,20.041,9.37,28.914c4.896,9.311,11.373,17.666,19.076,24.701c16.008,14.621,37.298,23.551,60.635,23.551c49.626,0,90-40.374,90-90c0-49.627-40.374-90-90-90c-5.129,0-10.158,0.438-15.056,1.266C184.961,125.446,163.473,139.965,149.982,160.244z"/></svg>';
       const ICO_EDIT =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>';
       const ICO_TRASH =
@@ -637,6 +699,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         let filtroLista: "all" | "new" | "noshow" | "optin" | "optout" = "all";
         let filtroLingua = "";
         const flFiltriEl = document.getElementById("fl-filtri") as HTMLDivElement;
+        const flMoreEl = document.getElementById("fl-more") as HTMLDivElement;
+        const flToggleEl = document.getElementById("fl-toggle") as HTMLButtonElement;
+        const flToggleN = document.getElementById("fl-toggle-n") as HTMLSpanElement;
+        // Bottone "Filtri" (mobile): corallo + numero se ci sono filtri attivi.
+        function aggiornaToggle() {
+          const n = (filtroLista !== "all" ? 1 : 0) + (filtroLingua ? 1 : 0);
+          flToggleEl.classList.toggle("has-active", n > 0);
+          flToggleN.textContent = n > 0 ? String(n) : "";
+        }
+        flToggleEl.addEventListener("click", () => {
+          const open = flFiltriEl.classList.toggle("open");
+          flToggleEl.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        document.addEventListener("click", (e) => {
+          if (!flFiltriEl.contains(e.target as Node)) flFiltriEl.classList.remove("open");
+        });
         flFiltriEl.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".fl-pill") as HTMLElement | null;
           if (!b) return;
@@ -644,22 +722,29 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (b.dataset.l !== undefined) {
             const val = b.dataset.l;
             filtroLingua = filtroLingua === val ? "" : val;
-            flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-l]").forEach((x) =>
+            flMoreEl.querySelectorAll<HTMLElement>(".fl-pill[data-l]").forEach((x) =>
               x.classList.toggle("is-on", filtroLingua !== "" && x.dataset.l === filtroLingua)
             );
+            flFiltriEl.classList.remove("open");
             render();
             return;
           }
           const fSel = b.dataset.f ?? "all";
           filtroLista =
             fSel === "new" || fSel === "noshow" || fSel === "optin" || fSel === "optout" ? fSel : "all";
+          // "Tutto" = clear all: azzera anche il filtro lingua
+          if (filtroLista === "all") {
+            filtroLingua = "";
+            flMoreEl.querySelectorAll<HTMLElement>(".fl-pill[data-l]").forEach((x) => x.classList.remove("is-on"));
+          }
           flFiltriEl.querySelectorAll<HTMLElement>(".fl-pill[data-f]").forEach((x) => x.classList.toggle("is-on", x === b));
+          flFiltriEl.classList.remove("open");
           render();
         });
 
         // Chip LINGUA: aggiunte in coda alla riga dei filtri (accanto a Opted-out).
         function costruisciLingue() {
-          flFiltriEl.querySelectorAll(".fl-pill[data-l], .fl-sep").forEach((x) => x.remove());
+          flMoreEl.querySelectorAll(".fl-pill[data-l], .fl-sep").forEach((x) => x.remove());
           const conta = new Map<string, number>();
           for (const c of tutti) {
             const l = (c.lang || "").toLowerCase();
@@ -675,7 +760,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               return `<button type="button" class="fl-pill${on ? " is-on" : ""}" data-l="${code}">${li ? li.flag : ""} ${code.toUpperCase()} <span class="n">${n}</span></button>`;
             })
             .join("");
-          flFiltriEl.insertAdjacentHTML("beforeend", `<span class="fl-sep" aria-hidden="true"></span>${html}`);
+          flMoreEl.insertAdjacentHTML("beforeend", `<span class="fl-sep" aria-hidden="true"></span>${html}`);
         }
         // Bottone flottante allineato con l'isola dei link (come Résa/Commandes)
         function posizionaAdd() {
@@ -752,6 +837,18 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         const token = session.access_token ?? "";
         const headers = { Authorization: `Bearer ${token}` };
 
+        // Modulo "Commandes" disattivato dal super admin (app_config admin_pages_hidden):
+        // nasconde la colonna ordini nella lista e il tab/statistiche ordini nel modale.
+        let ordersHidden = false;
+        void fetch("/api/admin/pages", { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j: { hidden?: unknown } | null) => {
+            const hid = Array.isArray(j?.hidden) ? (j!.hidden as unknown[]).map(String) : [];
+            ordersHidden = hid.includes("orders");
+            app.classList.toggle("no-orders", ordersHidden);
+          })
+          .catch(() => { /* default: modulo attivo */ });
+
         let tutti: Client[] = [];
         let sortKey: SortKey = "total";
         let sortAsc = false;
@@ -818,6 +915,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           setFl("noshow", tr("cli.noshow"), nNoshow);
           setFl("optin", tr("cli.optin"), nOptin);
           setFl("optout", tr("cli.optout"), nOptout);
+          aggiornaToggle();
 
           if (!lista.length) {
             rowsEl.innerHTML = "";
@@ -848,17 +946,17 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               return `
               <div class="row${c.blocked ? " is-blocked" : ""}" data-key="${esc(c.key ?? "")}">
                 <div class="cell c-name">${avatar}<span class="c-nome-txt">${esc(c.name) || "—"}</span>${nuovo ? `<span class="tag-new">${tr("cli.new")}</span>` : ""}${attivita}</div>
-                <div class="cell c-email" data-label="${tr("ord.emailLabel")}">${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
-                <div class="cell c-phone" data-label="${tr("ord.telLabel")}">${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
+                <div class="cell c-email"><span class="c-c-ico">${ICO_MAIL}</span>${email ? `<a href="mailto:${email}">${email}</a>` : "—"}</div>
+                <div class="cell c-phone"><span class="c-c-ico">${ICO_TEL}</span>${phone ? `<a href="tel:${phone.replace(/\s/g, "")}">${phone}</a>` : "—"}</div>
                 <div class="cell c-lang" data-label="${tr("cli.langCol")}">${langCell(c.lang)}</div>
                 <div class="cell c-since" data-label="${tr("cli.since")}">${
                   c.first_activity
                     ? new Date(c.first_activity).toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", year: "2-digit" })
                     : "—"
                 }</div>
-                <div class="cell c-num c-resa" data-label="${tr("cli.resasLabel")}">${c.reservations}</div>
-                <div class="cell c-num c-orders" data-label="${tr("nav.orders")}">${c.orders}</div>
-                <div class="cell c-num c-total" data-label="${tr("ord.total")}">${euro(c.total_cents)}</div>
+                <div class="c-nums"><div class="cell c-num c-resa"><span class="c-num-ico">${ICO_RESA}</span>${c.reservations}</div>
+                <div class="cell c-num c-orders"><span class="c-num-ico">${ICO_ORD}</span>${c.orders}</div>
+                <div class="cell c-num c-total"><span class="c-cash-ico">${ICO_CASH}</span>${euro(c.total_cents)}</div></div>
                 <div class="cell c-act"><button class="i-btn i-edit" data-editkey="${esc(c.key ?? "")}" title="${tr("common.edit")}">${ICO_EDIT}</button><button class="i-btn i-del" data-id="${esc(c.id ?? "")}" data-email="${email}" data-phone="${phone}" data-name="${esc(c.name)}" data-orders="${c.orders}" title="${tr("common.delete")}">${ICO_TRASH}</button></div>
               </div>`;
             })
@@ -1052,7 +1150,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             rows.length ? `<div class="st-sec"><div class="st-sec-h">${ico}<span class="t">${titolo}</span><span class="cnt">${cnt}</span></div>${rows.join("")}</div>` : "";
           const renderStats = (ex: { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null } | null) => {
             const secs: string[] = [];
-            if (ordCount > 0) {
+            if (ordCount > 0 && !ordersHidden) {
               const rows = [
                 rigaSt(tr("cli.stSpent"), euro(c.total_cents ?? 0), true),
                 rigaSt(tr("cli.avgBasket"), euro(Math.round((c.total_cents ?? 0) / ordCount))),
