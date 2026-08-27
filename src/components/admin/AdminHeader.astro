@@ -223,6 +223,18 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
       helloEl.innerHTML = `<span class="ah-greet">${escH(SALUTI[gi])}</span> <strong>${escH(nome)}</strong>`;
       helloEl.style.display = "";
       if (emailEl) emailEl.style.display = "none";
+      // Colore del nome adattato allo sfondo dell'header: bianco su sfondo scuro,
+      // accent su sfondo chiaro (così resta leggibile con header chiari).
+      const strongEl = helloEl.querySelector("strong") as HTMLElement | null;
+      const headerEl = document.querySelector(".ah-header") as HTMLElement | null;
+      if (strongEl && headerEl) {
+        const rgb = getComputedStyle(headerEl).backgroundColor.match(/\d+(?:\.\d+)?/g);
+        if (rgb && rgb.length >= 3) {
+          const r = Number(rgb[0]), g = Number(rgb[1]), b = Number(rgb[2]);
+          const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          strongEl.style.color = lum > 0.6 ? "var(--c-accent)" : "#fff";
+        }
+      }
       // Cambia la parola del saluto ogni 5s con dissolvenza.
       const gwEl = helloEl.querySelector(".ah-greet") as HTMLElement | null;
       if (gwEl) {

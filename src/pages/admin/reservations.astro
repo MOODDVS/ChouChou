@@ -3890,7 +3890,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
         function nmRenderPers() {
           const box = document.getElementById("nm-pers") as HTMLDivElement;
-          const soglia = window.innerWidth <= 640 ? 5 : 8;
+          // mobile: fino a 5 (6+); tablet verticale (es. iPad mini 768): fino a 6 (7+); desktop: fino a 8 (9+)
+          const soglia = window.innerWidth <= 640 ? 5 : window.innerWidth <= 834 ? 6 : 8;
           let html = "";
           for (let n = 1; n <= soglia; n++) {
             html += `<button type="button" class="nm-p${nmPers === n ? " is-on" : ""}" data-n="${n}">${n}</button>`;
