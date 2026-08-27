@@ -67,6 +67,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   let area: number[][] | null = null;
   let links: unknown = [];
+  let decor: unknown[] = [];
   let planMode = false;
   let autoTables = true;
   let priority: string[] = [];
@@ -74,22 +75,24 @@ export const GET: APIRoute = async ({ request, url }) => {
     const { data: cfg } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
-      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
+      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_decor", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
     const m = new Map((cfg ?? []).map((r) => [r.key, r.value ?? ""]));
     planMode = m.get("reservation_plan_mode") === "1";
     autoTables = (m.get("reservation_auto_tables") ?? "1") !== "0";
     const aree = JSON.parse(m.get("reservation_plan_areas") || "{}") as Record<string, unknown>;
     const legami = JSON.parse(m.get("reservation_plan_links") || "{}") as Record<string, unknown>;
+    const decori = JSON.parse(m.get("reservation_plan_decor") || "{}") as Record<string, unknown>;
     if (zone) {
       if (Array.isArray(aree[zone])) area = aree[zone] as number[][];
       links = Array.isArray(legami[zone]) ? (legami[zone] as unknown[]).filter(Array.isArray) : [];
+      if (Array.isArray(decori[zone])) decor = decori[zone] as unknown[];
     } else {
       links = legami; // mappa completa { zone: [[id,…], …] }
     }
     const pr = JSON.parse(m.get("reservation_zone_priority") || "[]");
     if (Array.isArray(pr)) priority = pr.map(String).filter(Boolean);
   } catch { /* nessuna area/liaison/priorità */ }
-  return json({ tables: data ?? [], area, links, plan_mode: planMode, auto_tables: autoTables, priority });
+  return json({ tables: data ?? [], area, links, decor, plan_mode: planMode, auto_tables: autoTables, priority });
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
@@ -151,6 +154,23 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ ok: true, links });
   }
 
+  // Decor (piante / muri): { zone, decor: [{ id, type, x, y, w, h }, …] }
+  if ("decor" in body) {
+    const grezzi = Array.isArray((body as { decor?: unknown }).decor) ? ((body as { decor: unknown[] }).decor) : [];
+    const decor: { id: string; type: string; color: string; x: number; y: number; w: number; h: number }[] = [];
+    for (const d of grezzi.slice(0, 60)) {
+      const o = (d ?? {}) as Record<string, unknown>;
+      const type = o.type === "wall" ? "wall" : o.type === "plant" ? "plant" : "";
+      if (!type) continue;
+      const id = String(o.id ?? "").slice(0, 40) || ("d" + decor.length);
+      const color = ["white", "black", "brown"].includes(String(o.color)) ? String(o.color) : "brown";
+      decor.push({ id, type, color, x: num(o.x, 0, 1000, 0), y: num(o.y, 0, 600, 0), w: num(o.w, 4, 1000, 40), h: num(o.h, 4, 600, 40) });
+    }
+    const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null);
+    if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+    return json({ ok: true, decor });
+  }
+
   let area: number[][] | null = null;
   if (Array.isArray(body.area)) {
     if (body.area.length < 3 || body.area.length > 80) return json({ error: "Zone invalide (3–80 points)" }, 400);
@@ -188,8 +208,8 @@ export const POST: APIRoute = async ({ request }) => {
     shape,
     x: num(body.x, 0, 1000, 40),
     y: num(body.y, 0, 600, 40),
-    w: num(body.w, 20, 400, 100),
-    h: num(body.h, 20, 400, 100),
+    w: num(body.w, 20, 600, 100),
+    h: num(body.h, 20, 500, 100),
   };
   const { data, error } = await supabaseAdmin.from("restaurant_tables").insert(riga).select(SELECT).single();
   if (error || !data) return json({ error: "Création impossible" }, 500);
@@ -223,8 +243,8 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
   if ("x" in body) campi.x = num(body.x, 0, 1000, 0);
   if ("y" in body) campi.y = num(body.y, 0, 600, 0);
-  if ("w" in body) campi.w = num(body.w, 20, 400, 100);
-  if ("h" in body) campi.h = num(body.h, 20, 400, 100);
+  if ("w" in body) campi.w = num(body.w, 20, 600, 100);
+  if ("h" in body) campi.h = num(body.h, 20, 500, 100);
   if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
 
   const { data, error } = await supabaseAdmin

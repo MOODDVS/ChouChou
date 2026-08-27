@@ -830,6 +830,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-tv.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-tv.is-busy { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
       .nm-tv-tot { color: var(--c-accent); font-size: 0.82rem; font-weight: 700; margin-inline-start: 0.3rem; }
+      .nm-tv.is-free { border-color: #2f9e63; color: #7fd7a4; }
+      .nm-tv.is-free:hover:not(:disabled) { border-color: #3fbf7a; }
+      .nm-tv-piu { margin-inline-start: 0.3rem; background: none; border: 1px solid var(--c-line); color: var(--c-muted); border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 0.78rem; font-weight: 700; font-family: var(--font-body); cursor: pointer; }
+      .nm-tv-piu:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .nm-tv-hint { color: var(--c-muted); font-size: 0.82rem; font-style: italic; }
+      .nm-cap { color: var(--c-text); font-weight: 700; font-size: 0.95rem; }
+      .nm-cap.is-ko { color: #e0544f; }
+      .nm-cap.is-closed { color: var(--c-muted); font-weight: 400; text-decoration: line-through; }
       .nm-tables {
         display: flex; align-items: center; gap: 0.6rem;
         color: var(--c-text); background: var(--c-input); border: 1px solid var(--c-line);
@@ -837,6 +845,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         padding: 0.6rem 0.9rem; font-size: 0.88rem; line-height: 1.5; margin-top: 0.6rem;
       }
       .nm-tables b { color: var(--c-accent); font-family: var(--font-title); font-size: 1.25rem; font-weight: 400; letter-spacing: 0.05em; transform: translateY(-1.5px); display: inline-block; }
+      .nm-cambia { margin-left: auto; flex: none; background: var(--c-bg); border: 1px solid var(--c-accent); color: var(--c-accent); border-radius: 999px; padding: 0.3rem 0.85rem; font-size: 0.78rem; font-weight: 700; font-family: var(--font-body); cursor: pointer; transition: background 0.15s, color 0.15s; }
+      .nm-cambia:hover { background: var(--c-accent); color: var(--c-bg); }
+      .nm-tv-auto { margin-inline-start: 0.3rem; background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 0.78rem; font-family: var(--font-body); cursor: pointer; }
+      .nm-tv-auto:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .nm-zone {
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
         padding: 0.4rem 0.9rem; border-radius: 999px; font-size: 0.82rem; cursor: pointer;
@@ -1022,14 +1034,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             <input type="text" id="m-date" class="nm-datein" readonly placeholder={t("res.chooseDate")} />
             <span class="f-label nm-gap">{t("res.people")}</span>
             <div class="nm-pers" id="nm-pers"></div>
-            <span class="f-label nm-gap" id="nm-zone-lab">{t("res.section")}</span>
-            <div class="nm-zones" id="nm-zones"></div>
-            <p class="nm-warn" id="nm-warn" style="display:none"></p>
-            <p class="nm-tables" id="nm-tables" style="display:none"></p>
             <span class="f-label nm-gap">{t("res.serviceTime")}</span>
             <div class="nm-stabs" id="nm-stabs"></div>
             <div class="nm-closed-note" id="nm-closed-note" style="display:none"></div>
             <div class="nm-slots" id="nm-slots"></div>
+            <span class="f-label nm-gap" id="nm-zone-lab">{t("res.section")}</span>
+            <div class="nm-zones" id="nm-zones"></div>
+            <p class="nm-warn" id="nm-warn" style="display:none"></p>
+            <p class="nm-tables" id="nm-tables" style="display:none"></p>
           </div>
           <div class="nm-col">
             <span class="f-label">{t("ord.client")}</span>
@@ -1047,7 +1059,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             </div>
             <span class="f-label nm-gap">{t("res.clientLang")}</span>
             <div class="nm-langs" id="m-lang" data-public={boot.publicLangs.join(",")} data-default={boot.publicLangDefault}></div>
-            <span class="f-label">{t("res.options")}</span>
+            <span class="f-label nm-gap">{t("res.options")}</span>
             <div class="nm-opts">
               <button type="button" class="nm-opt" id="m-opt-chaise">{t("res.optHighchair")}</button>
               <button type="button" class="nm-opt" id="m-opt-calme">{t("res.optQuiet")}</button>
@@ -1426,7 +1438,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         const tavLbl = etichettaTavoli(r);
         // Demande pending: tavolo SUGGERITO (anteprima, non ancora attribuito).
-        const sugg = r.status === "pending" ? suggeriti.get(r.id) : undefined;
+        // planNomi null = piano sala spento: niente tavoli né suggerimenti sulle card
+        const sugg = (planNomi && r.status === "pending") ? suggeriti.get(r.id) : undefined;
         return `
           <div class="res${off}${r.notes ? "" : " no-note"}" data-id="${r.id}">
             <div class="r-time">
@@ -3388,9 +3401,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // grande o catena di liaison più capiente). null = plan mode spento.
         let planMax: Map<string, number> | null = null;
         let planTavoli: { id: string; zone: string; name: string; seats: number }[] = [];
+        let planLinks: Record<string, string[][]> = {}; // section -> gruppi di tavoli unibili
         let planAuto = true;    // reservation_auto_tables ("0" = attribuzione manuale)
         let planModeOn = false; // reservation_plan_mode
         let nmTavSel = new Set<string>(); // tavoli scelti a mano nel modale
+        let nmOverride = false;               // staff ha premuto "Cambia" (override in auto)
+        let nmTavProposti: string[] = [];     // id tavoli dell'ultima proposta/anteprima
         async function caricaPlanMax() {
           try {
             const r = await fetch("/api/admin/tables", { headers });
@@ -3403,7 +3419,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             planAuto = j.auto_tables !== false;
             planModeOn = !!j.plan_mode;
             znPrio = Array.isArray(j.priority) ? (j.priority as unknown[]).map(String) : [];
-            if (!j.plan_mode) { planMax = null; return; }
+            if (!j.plan_mode) {
+              // Piano sala spento: nessun nome tavolo -> le card non mostrano tavoli
+              // (consistente su tutti i viewport). La sezione scelta resta visibile.
+              planMax = null; planNomi = null; planZoneTav = null;
+              try { render(); } catch { /* lista non pronta */ }
+              return;
+            }
             const tavoli = (j.tables ?? []) as { id: string; zone: string; seats: number }[];
             const postiId = new Map(tavoli.map((t) => [t.id, Math.floor(Number(t.seats)) || 0]));
             const m = new Map<string, number>();
@@ -3412,6 +3434,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               if (z) m.set(z, Math.max(m.get(z) ?? 0, Math.floor(Number(t.seats)) || 0));
             }
             const legami = (j.links ?? {}) as Record<string, string[][]>;
+            planLinks = legami;
             for (const [z, gruppi] of Object.entries(legami)) {
               if (!Array.isArray(gruppi)) continue;
               for (const g of gruppi) {
@@ -3629,20 +3652,70 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         // live dal server, stesso algoritmo del salvataggio). Contatore per
         // scartare le risposte arrivate fuori ordine.
         let nmTavSeq = 0;
+        // Piano sala SPENTO: si prenota per capacità.
+        //  Indifferente  -> Posti liberi totali: X / Y  (Y = tutto il ristorante)
+        //  Sezione scelta -> Posti liberi <sezione>: X / Y  (Y = capacità sezione)
+        function nmRenderCapacita() {
+          const el = document.getElementById("nm-tables") as HTMLElement | null;
+          if (!el) return;
+          el.classList.remove("nm-tables-man");
+          const zones = nmCfg.zones ?? [];
+          const selIso = campo("m-date").dataset.iso ?? "";
+          const dati = nmReseDel(selIso);
+          const hasTime = !!nmHeure && !!selIso;
+          const zoneChiuse = (dati?.zoneCh ?? []).map((c) => c.zone);
+          // occupazione (persone) per sala e totale alla fascia scelta
+          const occ = new Map<string, number>();
+          let occTot = 0;
+          if (hasTime) {
+            const T = minutiDa(nmHeure);
+            const holdNew = holdDi(nmServKey || null);
+            for (const rr of dati?.rese ?? []) {
+              if (nmEditId && rr.id === nmEditId) continue;
+              const rMin = minutiDa(rr.heure);
+              if (rMin < T + holdNew && rMin + holdDi(rr.service_key) > T) {
+                occTot += rr.people;
+                const rz = (rr.zone ?? "").trim();
+                if (rz) occ.set(rz, (occ.get(rz) ?? 0) + rr.people);
+              }
+            }
+          }
+          let label: string, tot: number, resto: number, chiusa = false;
+          if (nmZone) {
+            label = `${tr("res.freeSeatsW")} ${esc(nmZone)}:`;
+            tot = nmCfg.zone_seats?.[nmZone] ?? 0;
+            chiusa = zoneChiuse.includes(nmZone);
+            resto = chiusa ? 0 : Math.max(0, tot - (occ.get(nmZone) ?? 0));
+          } else {
+            label = `${tr("res.freeSeatsW")} ${tr("res.totalW")}:`;
+            tot = zones.length
+              ? zones.reduce((sm, z) => sm + (nmCfg.zone_seats?.[z] ?? 0), 0)
+              : (nmCfg.capacity ?? 0);
+            resto = Math.max(0, tot - occTot);
+          }
+          if (tot <= 0) { el.style.display = "none"; return; }
+          const cls = chiusa ? " is-closed" : resto >= nmPers ? "" : " is-ko";
+          const val = chiusa ? tr("res.closedF") : `${resto} / ${tot}`;
+          el.innerHTML = `<span class="nm-tv-lab">${label}</span><span class="nm-cap${cls}">${val}</span>`;
+          el.classList.add("nm-tables-man");
+          el.style.display = "";
+        }
         async function nmAggiornaTavoli() {
           const el = document.getElementById("nm-tables") as HTMLElement | null;
           if (!el) return;
-          // Attribuzione MANUALE: chips dei tavoli al posto dell'anteprima
-          if (planModeOn && !planAuto) {
-            nmRenderTavoliManuali();
-            return;
-          }
-          el.classList.remove("nm-tables-man");
+          if (!planModeOn) { nmRenderCapacita(); return; }
           const date = campo("m-date").dataset.iso ?? "";
-          if (!planMax || planMax.size === 0 || !nmHeure || !date) {
-            el.style.display = "none";
+          // L'ORARIO è obbligatorio prima di poter assegnare un tavolo
+          if (!nmHeure || !date) {
+            el.classList.remove("nm-tables-man");
+            el.innerHTML = `<span class="nm-tv-hint">${tr("res.pickTimeForTable")}</span>`;
+            el.style.display = "";
             return;
           }
+          // Attribuzione MANUALE (o "Cambia" premuto in auto): chips dei tavoli
+          if (!planAuto || nmOverride) { nmRenderTavoliManuali(); return; }
+          el.classList.remove("nm-tables-man");
+          if (!planMax || planMax.size === 0) { el.style.display = "none"; return; }
           const seq = ++nmTavSeq;
           try {
             const par = new URLSearchParams({ assign: "1", date, heure: nmHeure, people: String(nmPers) });
@@ -3654,13 +3727,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (!r.ok) { el.style.display = "none"; return; }
             const j = await r.json();
             const p = j.proposal as { names: string[]; zone: string } | null;
+            const cambia = `<button type="button" class="nm-cambia">${tr("res.change")}</button>`;
             if (p && Array.isArray(p.names) && p.names.length) {
               const nomi = p.names.map((n) => String(n).replace(/&/g, "&amp;").replace(/</g, "&lt;")).join(" + ");
               const z = String(p.zone ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;");
-              el.innerHTML = `${tr("res.tablesAssigned")} <b>${nomi}</b>${z ? ` · ${z}` : ""}`;
+              // id dei tavoli proposti (per pre-selezionarli nel "Cambia")
+              nmTavProposti = p.names
+                .map((n) => planTavoli.find((t) => t.name === String(n) && (!p.zone || t.zone === String(p.zone)))?.id)
+                .filter(Boolean) as string[];
+              el.innerHTML = `${tr("res.tablesAssigned")} <b>${nomi}</b>${z ? ` \u00b7 ${z}` : ""}${cambia}`;
               el.style.display = "";
             } else {
-              el.innerHTML = tr("res.noFreeTable");
+              nmTavProposti = [];
+              el.innerHTML = `${tr("res.noFreeTable")}${cambia}`;
               el.style.display = "";
             }
           } catch {
@@ -3668,68 +3747,158 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
         }
 
-        // ---- Attribuzione MANUALE dei tavoli (reservation_auto_tables = "0") ----
-        // Tavoli occupati nella finestra dell'ora scelta (stesse regole hold)
-        function nmTavoliOccupati(): Set<string> {
-          const occ = new Set<string>();
+        // ---- Attribuzione / cambio MANUALE dei tavoli ----
+        let nmTavTutti = false;     // "+N": mostra anche le opzioni non-esatte
+        let nmTavTuttiKey = "";     // (sezione|persone) per cui l'espansione vale
+        // Chiave stabile per confrontare insiemi di tavoli (ordine indifferente)
+        const nmKeyIds = (ids: string[]) => [...ids].sort().join(",");
+        // Stato disponibilita per tavolo alla fascia scelta:
+        //  busy    = prenotazione ATTIVA all'ora scelta (non selezionabile, come prima)
+        //  partial = libero all'arrivo ma una prenotazione inizia entro la durata (grigio)
+        //  free    = libero per tutta la durata x+ (verde)
+        type NmStato = "busy" | "partial" | "free";
+        function nmStatoTavoli(): Map<string, NmStato> {
+          const m = new Map<string, NmStato>();
           const selIso = campo("m-date").dataset.iso ?? "";
           const dati = nmReseDel(selIso);
-          if (!dati || !nmHeure) return occ;
-          const sMin = minutiDa(nmHeure);
-          const holdNuovo = holdDi(nmServKey || null);
+          if (!dati || !nmHeure) return m; // senza orario: nessuna info (neutro)
+          const T = minutiDa(nmHeure);
+          const holdNew = holdDi(nmServKey || null);
+          const perTav = new Map<string, { ini: number; fin: number }[]>();
           for (const rr of dati.rese) {
             if (nmEditId && rr.id === nmEditId) continue;
-            const rMin = minutiDa(rr.heure);
-            const rHold = holdDi(rr.service_key);
-            if (rMin < sMin + holdNuovo && rMin + rHold > sMin && Array.isArray(rr.tables)) {
-              for (const idT of rr.tables) occ.add(String(idT));
+            if (!Array.isArray(rr.tables)) continue;
+            const ini = minutiDa(rr.heure);
+            const fin = ini + holdDi(rr.service_key);
+            for (const idT of rr.tables) {
+              const k = String(idT);
+              if (!perTav.has(k)) perTav.set(k, []);
+              perTav.get(k)!.push({ ini, fin });
             }
           }
-          return occ;
+          for (const t of planTavoli) {
+            const res = perTav.get(t.id) ?? [];
+            if (res.some((r) => r.ini <= T && r.fin > T)) { m.set(t.id, "busy"); continue; }
+            if (res.some((r) => r.ini > T && r.ini < T + holdNew)) { m.set(t.id, "partial"); continue; }
+            m.set(t.id, "free");
+          }
+          return m;
         }
         function nmRenderTavoliManuali() {
           const el = document.getElementById("nm-tables") as HTMLElement | null;
           if (!el) return;
-          const visibili = planTavoli.filter((t) => !nmZone || t.zone === nmZone);
+          // Solo sezioni ANCORA esistenti (evita zone orfane rinominate) + filtro sezione scelta
+          const sezioni = new Set(nmCfg.zones ?? []);
+          const filtra = sezioni.size > 0;
+          const zoneOk = (z: string) => (nmZone ? z === nmZone : (!filtra || sezioni.has(z)));
+          const visibili = planTavoli.filter((t) => zoneOk(t.zone));
+          // Con "Cambia" le opzioni si mostrano anche prima dell'orario; verde/grigio/occupato
+          // si aggiornano quando l'orario viene scelto.
           if (!visibili.length || !nmHeure) { el.style.display = "none"; return; }
-          const occ = nmTavoliOccupati();
-          for (const idT of [...nmTavSel]) if (occ.has(idT)) nmTavSel.delete(idT);
-          const perZona = new Map<string, typeof visibili>();
-          for (const t of visibili) {
-            if (!perZona.has(t.zone)) perZona.set(t.zone, []);
-            perZona.get(t.zone)!.push(t);
+
+          const statoTav = nmStatoTavoli();
+          const hasInfo = statoTav.size > 0; // orario scelto
+          const statoDi = (ids: string[]): "busy" | "partial" | "free" | "neutro" => {
+            if (!hasInfo) return "free"; // senza orario: liberi (verde) di default
+            const st = ids.map((id) => statoTav.get(id) ?? "free");
+            return st.includes("busy") ? "busy" : st.includes("partial") ? "partial" : "free";
+          };
+          // deseleziona se contiene un tavolo occupato
+          if ([...nmTavSel].some((id) => statoTav.get(id) === "busy")) nmTavSel = new Set();
+          const selKey = nmKeyIds([...nmTavSel]);
+
+          // Opzioni: tavoli singoli + combinazioni contigue (da planLinks)
+          type Opz = { zone: string; ids: string[]; nomi: string; posti: number; stato: string };
+          const opzioni: Opz[] = [];
+          const visti = new Set<string>();
+          const aggiungi = (z: string, ids: string[]) => {
+            const k = z + "#" + nmKeyIds(ids);
+            if (visti.has(k)) return; visti.add(k);
+            const posti = ids.reduce((t, id) => t + (planTavoli.find((x) => x.id === id)?.seats ?? 0), 0);
+            const nomi = ids.map((id) => esc(planTavoli.find((x) => x.id === id)?.name ?? "")).join("+");
+            opzioni.push({ zone: z, ids, nomi, posti, stato: statoDi(ids) });
+          };
+          for (const t of visibili) aggiungi(t.zone, [t.id]);
+          for (const z of new Set(visibili.map((t) => t.zone))) {
+            for (const g of planLinks[z] ?? []) {
+              const fila = g.filter((id) => visibili.some((t) => t.id === id));
+              for (let da = 0; da < fila.length; da++)
+                for (let a = da + 1; a < fila.length; a++) aggiungi(z, fila.slice(da, a + 1));
+            }
           }
+          opzioni.sort((x, y) => x.posti - y.posti || x.ids.length - y.ids.length);
+
+          // Default: SOLO le opzioni col numero esatto di posti; fallback al piu piccolo che basta
+          const key = (nmZone || "*") + "|" + nmPers;
+          const tutti = nmTavTutti && nmTavTuttiKey === key;
+          const esatte = opzioni.filter((o) => o.posti === nmPers);
+          let base: Opz[];
+          if (esatte.length) base = esatte;
+          else {
+            const sopra = opzioni.filter((o) => o.posti > nmPers);
+            if (sopra.length) { const mn = Math.min(...sopra.map((o) => o.posti)); base = opzioni.filter((o) => o.posti === mn); }
+            else base = opzioni.slice();
+          }
+          const baseKeys = new Set(base.map((o) => nmKeyIds(o.ids)));
+          const mostrate = tutti ? opzioni : opzioni.filter((o) => baseKeys.has(nmKeyIds(o.ids)) || nmKeyIds(o.ids) === selKey);
+          const nascoste = opzioni.length - mostrate.length;
+
+          const perZona = new Map<string, Opz[]>();
+          for (const o of mostrate) { if (!perZona.has(o.zone)) perZona.set(o.zone, []); perZona.get(o.zone)!.push(o); }
+
           let html = `<span class="nm-tv-lab">${tr("res.tablesLabel")}</span>`;
+          const multiZ = perZona.size > 1;
           for (const [z, lista] of perZona) {
-            if (perZona.size > 1) html += `<span class="nm-tv-z">${esc(z)}</span>`;
+            if (multiZ) html += `<span class="nm-tv-z">${esc(z)}</span>`;
             html += lista
-              .map((t) => {
-                const busy = occ.has(t.id);
-                const on = nmTavSel.has(t.id);
-                return `<button type="button" class="nm-tv${on ? " is-on" : ""}${busy ? " is-busy" : ""}" data-tv="${t.id}"${busy ? " disabled" : ""}>${esc(t.name)} · ${t.seats}</button>`;
+              .map((o) => {
+                const on = nmKeyIds(o.ids) === selKey;
+                const busy = o.stato === "busy";
+                const cls = on ? " is-on" : busy ? " is-busy" : o.stato === "free" ? " is-free" : "";
+                return `<button type="button" class="nm-tv${cls}" data-ids="${o.ids.join(",")}"${busy ? ` disabled title="${tr("res.tableTaken")}"` : ""}>${o.nomi} · ${o.posti}${busy ? " ✕" : ""}</button>`;
               })
               .join("");
           }
-          if (nmTavSel.size) {
-            const posti = [...nmTavSel].reduce((tot, idT) => tot + (planTavoli.find((t) => t.id === idT)?.seats ?? 0), 0);
-            html += `<span class="nm-tv-tot">${posti} ${tr("res.placesShort")} ${tr("res.for")} ${nmPers}</span>`;
-          }
+          if (tutti && opzioni.length > base.length) html += `<button type="button" class="nm-tv-piu" data-toggle="meno">−</button>`;
+          else if (!tutti && nascoste > 0) html += `<button type="button" class="nm-tv-piu" data-toggle="piu">+${nascoste}</button>`;
+          if (planAuto && nmOverride) html += `<button type="button" class="nm-tv-auto">↺ ${tr("res.autoAssign")}</button>`;
           el.classList.add("nm-tables-man");
           el.innerHTML = html;
           el.style.display = "";
         }
         (document.getElementById("nm-tables") as HTMLElement).addEventListener("click", (e) => {
-          const b = (e.target as HTMLElement).closest(".nm-tv[data-tv]") as HTMLButtonElement | null;
+          const tgt = e.target as HTMLElement;
+          if (tgt.closest(".nm-cambia")) {
+            nmOverride = true;
+            nmTavSel = new Set(nmTavProposti);
+            nmRenderTavoliManuali();
+            return;
+          }
+          if (tgt.closest(".nm-tv-auto")) {
+            nmOverride = false;
+            nmTavSel = new Set();
+            void nmAggiornaTavoli();
+            return;
+          }
+          const piu = tgt.closest(".nm-tv-piu") as HTMLButtonElement | null;
+          if (piu) {
+            nmTavTutti = piu.dataset.toggle === "piu";
+            nmTavTuttiKey = (nmZone || "*") + "|" + nmPers;
+            nmRenderTavoliManuali();
+            return;
+          }
+          const b = tgt.closest(".nm-tv[data-ids]") as HTMLButtonElement | null;
           if (!b || b.disabled) return;
-          const idT = b.dataset.tv ?? "";
-          if (nmTavSel.has(idT)) nmTavSel.delete(idT);
-          else nmTavSel.add(idT);
+          const ids = (b.dataset.ids ?? "").split(",").filter(Boolean);
+          // Selezione a opzione (tavolo o combinazione): click sull'opzione già scelta = deseleziona
+          nmTavSel = nmKeyIds(ids) === nmKeyIds([...nmTavSel]) ? new Set() : new Set(ids);
           nmRenderTavoliManuali();
         });
 
         function nmRenderPers() {
           const box = document.getElementById("nm-pers") as HTMLDivElement;
-          const soglia = window.innerWidth <= 640 ? 5 : 8;
+          // mobile: fino a 5 (6+); tablet verticale (es. iPad mini 768): fino a 6 (7+); desktop: fino a 8 (9+)
+          const soglia = window.innerWidth <= 640 ? 5 : window.innerWidth <= 834 ? 6 : 8;
           let html = "";
           for (let n = 1; n <= soglia; n++) {
             html += `<button type="button" class="nm-p${nmPers === n ? " is-on" : ""}" data-n="${n}">${n}</button>`;
@@ -3804,6 +3973,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmEspanso = false;
           nmPers = resa?.people ?? 2;
           nmTavSel = new Set((resa?.tables ?? []).map(String));
+          nmOverride = planAuto && Array.isArray(resa?.tables) && (resa?.tables?.length ?? 0) > 0;
           nmTipo = resa?.source === "phone" ? "phone" : "walkin";
           nmRenderTipo();
           nmChaise = resa?.high_chair ?? false;
@@ -4104,7 +4274,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               special_event: nmEvent,
             };
             if (nmSrcEditable) corpo.source = nmTipo === "phone" ? "phone" : "walkin";
-            if (planModeOn && !planAuto) corpo.tables = [...nmTavSel];
+            if (planModeOn && (!planAuto || nmOverride)) corpo.tables = [...nmTavSel];
             if (nmEditId) corpo.id = nmEditId;
             const res = await fetch("/api/admin/reservations", {
               method: nmEditId ? "PATCH" : "POST",
