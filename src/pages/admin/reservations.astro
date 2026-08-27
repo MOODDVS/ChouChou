@@ -1438,7 +1438,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         const tavLbl = etichettaTavoli(r);
         // Demande pending: tavolo SUGGERITO (anteprima, non ancora attribuito).
-        const sugg = r.status === "pending" ? suggeriti.get(r.id) : undefined;
+        // planNomi null = piano sala spento: niente tavoli né suggerimenti sulle card
+        const sugg = (planNomi && r.status === "pending") ? suggeriti.get(r.id) : undefined;
         return `
           <div class="res${off}${r.notes ? "" : " no-note"}" data-id="${r.id}">
             <div class="r-time">
@@ -3418,7 +3419,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             planAuto = j.auto_tables !== false;
             planModeOn = !!j.plan_mode;
             znPrio = Array.isArray(j.priority) ? (j.priority as unknown[]).map(String) : [];
-            if (!j.plan_mode) { planMax = null; return; }
+            if (!j.plan_mode) {
+              // Piano sala spento: nessun nome tavolo -> le card non mostrano tavoli
+              // (consistente su tutti i viewport). La sezione scelta resta visibile.
+              planMax = null; planNomi = null; planZoneTav = null;
+              try { render(); } catch { /* lista non pronta */ }
+              return;
+            }
             const tavoli = (j.tables ?? []) as { id: string; zone: string; seats: number }[];
             const postiId = new Map(tavoli.map((t) => [t.id, Math.floor(Number(t.seats)) || 0]));
             const m = new Map<string, number>();
