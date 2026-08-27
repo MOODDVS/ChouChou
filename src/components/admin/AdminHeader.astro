@@ -224,16 +224,32 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
       helloEl.style.display = "";
       if (emailEl) emailEl.style.display = "none";
       // Colore del nome adattato allo sfondo dell'header: bianco su sfondo scuro,
-      // accent su sfondo chiaro (così resta leggibile con header chiari).
+      // accent su sfondo chiaro. Si legge la VARIABILE di tema (--c-header o
+      // --c-bg) invece del background calcolato, che in modalità "glass" diventa
+      // un color-mix (color(srgb ...)) non affidabile da interpretare.
       const strongEl = helloEl.querySelector("strong") as HTMLElement | null;
-      const headerEl = document.querySelector(".ah-header") as HTMLElement | null;
-      if (strongEl && headerEl) {
-        const rgb = getComputedStyle(headerEl).backgroundColor.match(/\d+(?:\.\d+)?/g);
-        if (rgb && rgb.length >= 3) {
-          const r = Number(rgb[0]), g = Number(rgb[1]), b = Number(rgb[2]);
-          const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-          strongEl.style.color = lum > 0.6 ? "var(--c-accent)" : "#fff";
-        }
+      if (strongEl) {
+        const lumColore = (c: string): number | null => {
+          c = c.trim();
+          let r: number, g: number, b: number;
+          if (c[0] === "#") {
+            let h = c.slice(1);
+            if (h.length === 3) h = h.split("").map((x) => x + x).join("");
+            if (h.length < 6) return null;
+            r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+          } else {
+            const m = c.match(/[\d.]+/g);
+            if (!m || m.length < 3) return null;
+            r = parseFloat(m[0]); g = parseFloat(m[1]); b = parseFloat(m[2]);
+            if (/^color\(/i.test(c)) { r *= 255; g *= 255; b *= 255; } // color(srgb ...) è 0-1
+          }
+          if ([r, g, b].some((v) => Number.isNaN(v))) return null;
+          return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        };
+        const rootS = getComputedStyle(document.documentElement);
+        const bgVar = rootS.getPropertyValue("--c-header").trim() || rootS.getPropertyValue("--c-bg").trim();
+        const lum = lumColore(bgVar);
+        if (lum !== null) strongEl.style.color = lum > 0.6 ? "var(--c-accent)" : "#fff";
       }
       // Cambia la parola del saluto ogni 5s con dissolvenza.
       const gwEl = helloEl.querySelector(".ah-greet") as HTMLElement | null;
