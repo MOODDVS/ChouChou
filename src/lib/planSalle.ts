@@ -195,6 +195,14 @@ export async function assegnaTavoli(p: {
         }
       } catch { /* niente zones configurate */ }
     }
+    // Sezioni ATTUALMENTE configurate: i tavoli agganciati a sezioni non piu
+    // esistenti (rinominate) vanno IGNORATI, altrimenti si assegnano a zone
+    // fantasma con posti sbagliati.
+    let sezioniValide = new Set<string>();
+    try {
+      const zsv = JSON.parse(cfg.get("reservation_zones") || "[]");
+      if (Array.isArray(zsv)) sezioniValide = new Set((zsv as { name?: unknown }[]).map((z) => String(z?.name ?? "").trim()).filter(Boolean));
+    } catch { /* niente zones */ }
 
     const [tavQ, chzQ] = await Promise.all([
       supabaseAdmin.from("restaurant_tables").select("id, zone, name, seats"),
@@ -203,7 +211,7 @@ export async function assegnaTavoli(p: {
     if (tavQ.error || !tavQ.data || tavQ.data.length === 0) return null;
     const tavoli = (tavQ.data as { id: string; zone: string; name: string; seats: number }[])
       .map((t) => ({ id: String(t.id), zone: String(t.zone ?? "").trim(), name: String(t.name ?? ""), seats: Math.floor(Number(t.seats)) || 0 }))
-      .filter((t) => t.zone && t.seats > 0);
+      .filter((t) => t.zone && t.seats > 0 && (sezioniValide.size === 0 || sezioniValide.has(t.zone)));
     let zoneChiuse = (chzQ.data ?? []).map((r) => String(r.zone));
     // Sections chiuse «jusqu'à réouverture»: mai tavoli assegnati lì
     try {
