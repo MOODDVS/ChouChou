@@ -16,6 +16,7 @@ import { adminLang } from "../../lib/admin/adminLang";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
+import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -428,16 +429,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         .r-tav-nom { font-size: 1.15rem; }
       }
       /* Bottone flottante + modale aggiunta manuale */
-      .fab {
-        position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90;
-        display: inline-flex; align-items: center; box-sizing: border-box;
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.05em;
-        height: 44px; padding: 0 1.1rem; border-radius: 999px; cursor: pointer;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.45 * var(--sh, 0.15)));
-        transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
-      }
-      .fab:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
+      /* Solo posizionamento: il look arriva dalla classe globale .fab-pill (fab.css). */
+      .fab { position: fixed; right: 1.5rem; bottom: 1.25rem; z-index: 90; }
       .fab-serv {
         position: fixed; left: 1.5rem; bottom: 1.25rem; z-index: 90;
         width: 44px; height: 44px; border-radius: 50%;
@@ -938,7 +931,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       <AdminFooter />
     </div>
 
-    <button class="fab" id="fab-add"><span class="fab-plus">+</span>{t("res.reservation")}</button>
+    <button class="fab fab-pill" id="fab-add"><span class="fab-plus">+</span>{t("res.reservation")}</button>
     <button class="fab-serv" id="fab-serv" title={t("res.servicesDay")} aria-label={t("res.servicesDay")}>
       <svg viewBox="0 0 16.933333 16.933334" fill="currentColor" aria-hidden="true"><g transform="translate(0 -280.067)"><path d="m9.5249973 280.59478c-.5813686 0-1.058849.47748-1.058849 1.05885 0 .21384.065662.41324.1762152.58033-1.4264561.16471-2.6377609.73089-3.5294994 1.62264-.7983511.79834-1.336847 1.85266-1.5590785 3.08818h11.9419074c-.222232-1.23552-.760735-2.28984-1.559079-3.08818-.891854-.89185-2.102948-1.458-3.529502-1.62264.110557-.16709.176218-.3665.176218-.58033 0-.58136-.476964-1.05885-1.0583327-1.05885zm-6.6156176 6.87917c-.1461188.00053-.2641071.1195-.2635488.26561 0 .72831.5940689 1.3224 1.3224007 1.3224h11.1130154c.728321 0 1.322401-.59409 1.322401-1.3224.000529-.14612-.11743-.26503-.263552-.26561zm1.820045 2.11666c-.2581408.18824-.478335.40339-.6826462.60772l-.7927155.79271 2.7559027 2.75591.5271002-.52917c.2535-.25349.4740328-.45114 1.1368829-.45113h3.7051982c.616392 0 1.003921-.36726 1.243851-.6072l1.371494-1.36943c.32371-.32371.376759-.81546.167947-1.19941-.616148.00004-1.221753-.00006-1.834512 0l-1.0604 1.05885c-.346443-.00012-.532921.00027-.776698.00053-.218977.6153-.8064597 1.05834-1.495514 1.05834h-1.8515674a.26465001.26465001 0 0 1 0-.52917h1.8515674c.5908783-.00001 1.058849-.46797 1.058849-1.05886a.26460982.26460982 0 0 1 0-.008c-.0031-.1954-.05803-.3693-.1472777-.52141-1.8983401.00017-3.2832513.00026-5.1774616 0zm-2.3461107 1.32344c-.067501-.00027-.1354244.0248-.1875843.077l-1.58801603 1.58802c-.1039786.10345-.1039786.27173 0 .37517l3.43906483 3.43959c.1034415.10398.2717324.10398.3751712 0l1.5859496-1.58802c.1026001-.10321.1026001-.2699 0-.3731l-3.4390674-3.44166c-.0508-.0508-.1179777-.0767-.1855179-.077z"/></g></svg>
     </button>

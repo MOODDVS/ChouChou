@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
@@ -208,7 +209,7 @@ export const POST: APIRoute = async ({ request }) => {
   const datiOrdine: Record<string, unknown> = {
     status: "pending",
     pickup_time: pickup.toISO(),
-    customer_name: `${body.customer.name} ${body.customer.surname}`.trim(),
+    customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname}`),
     customer_email: body.customer.email,
     customer_phone: body.customer.phone,
     items: itemsOrdine,

@@ -699,7 +699,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     </div>
 
     <!-- Nouvelle commande (manuale con link di pagamento) -->
-    <button class="fab-add" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
+    <button class="fab-add fab-pill" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
     <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
       <div class="nc-modal">
         <button class="nc-close" id="nc-close" aria-label={t("common.close")}>×</button>

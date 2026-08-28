@@ -1,34 +1,11 @@
 /* FAB condiviso: pulsante d'azione fisso in basso a destra, uguale su tutte
    le pagine admin (agenda, clienti, ordini, ...). */
+/* .fab-add: SOLO posizionamento (destra, in basso). Il look è tutto in .fab-pill. */
 .fab-add {
   position: fixed;
   right: 1.5rem;
   bottom: 1.25rem;
   z-index: 90;
-  display: inline-flex;
-  align-items: center;
-  box-sizing: border-box;
-  background: var(--c-accent);
-  color: var(--c-bg);
-  border: 1px solid var(--c-accent);
-  font-family: var(--font-title);
-  font-size: 1.05rem;
-  letter-spacing: 0.05em;
-  padding: 0.9rem 1.5rem;
-  border-radius: 999px;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
-}
-.fab-add .fab-plus {
-  font-size: 1.2rem;
-  line-height: 1;
-  margin-right: 0.35rem;
-}
-.fab-add:hover {
-  background: var(--c-hover);
-  border-color: var(--c-hover);
-  transform: scale(0.94);
 }
 /* Sollevato SOPRA la navbar quando non c'è spazio a lato (telefoni + tablet
    portrait con isola larga). La classe .fab-lifted è aggiunta via JS (AdminNav)
@@ -40,4 +17,42 @@
 /* Tablet portrait: l'isola nav occupa quasi tutta la larghezza → FAB sopra. */
 @media (min-width: 521px) and (max-width: 1023px) {
   .fab-add { bottom: calc(1.25rem + 72px); }
+}
+
+/* ============================================================
+   CLASSE GENERALE per TUTTI i pulsanti-pillola d'azione accanto
+   all'isola nav (+ Cliente, + Ordine, + Prenotazione, Categorie,
+   + Piatto, Nuovo...). Unico look su ogni pagina: dimensioni
+   responsive (desktop → tablet → mobile) e SEMPRE una piccola
+   drop shadow. Le classi per-pagina (.fab-add / .fab / .mn-fab)
+   restano solo per il POSIZIONAMENTO.
+   ============================================================ */
+.fab-pill {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  background: var(--c-accent);
+  color: var(--c-bg);
+  border: 1px solid var(--c-accent);
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+  font-size: 1.05rem;
+  height: 57px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  transition: background 0.2s, color 0.2s, transform 0.15s, border-color 0.2s;
+}
+.fab-pill .fab-plus { font-size: 1.2rem; line-height: 1; margin-right: 0.35rem; }
+.fab-pill:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
+/* Tablet (incluso iPad mini landscape 1024): label e bottone un po' più piccoli. */
+@media (min-width: 521px) and (max-width: 1024px) {
+  .fab-pill { font-size: 0.92rem; height: 44px; padding: 0 0.95rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
+  .fab-pill .fab-plus { font-size: 1.05rem; }
+}
+/* Mobile: label e bottone ancora più piccoli. */
+@media (max-width: 520px) {
+  .fab-pill { font-size: 0.82rem; height: 38px; padding: 0 0.85rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
+  .fab-pill .fab-plus { font-size: 0.95rem; margin-right: 0.3rem; }
 }
