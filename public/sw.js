@@ -12,7 +12,17 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(fetch(event.request));
+  const req = event.request;
+  // Intercetta SOLO le GET same-origin: le altre (POST, cross-origin verso
+  // Supabase/Stripe/font, schemi non http) le gestisce il browser da solo.
+  if (req.method !== "GET") return;
+  let url;
+  try { url = new URL(req.url); } catch (e) { return; }
+  if (url.origin !== self.location.origin) return;
+  // Passthrough alla rete, ma senza far esplodere la promise se la fetch
+  // fallisce (richiesta annullata durante una navigazione, offline, ecc.):
+  // il .catch evita gli "Uncaught (in promise) TypeError: Failed to fetch".
+  event.respondWith(fetch(req).catch(() => Response.error()));
 });
 
 // --- Notifiche push (PWA admin) ---
