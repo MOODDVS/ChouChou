@@ -11,7 +11,7 @@ export const prerender = false;
 // DELETE ?id=  → elimina (il client la invia come POST + X-Method-Override)
 
 const SELECT_BASE = "id, name, courses, date_from, date_to, items, combos, active, created_at";
-const SELECT = SELECT_BASE + ", name_i18n, hide_items";
+const SELECT = SELECT_BASE + ", name_i18n, hide_items, hide_by_course";
 
 /** name_i18n: { code: string } ripulito (trim, max 60), scarta vuoti. */
 function pulisciI18n(v: unknown): Record<string, string> | undefined {
@@ -28,9 +28,17 @@ function pulisciI18n(v: unknown): Record<string, string> | undefined {
 
 /** true se l'errore Supabase riguarda una colonna opzionale (migrazione non lanciata). */
 function mancaI18n(err: { message?: string } | null): boolean {
-  return !!err?.message && /name_i18n|hide_items/i.test(err.message);
+  return !!err?.message && /name_i18n|hide_items|hide_by_course/i.test(err.message);
 }
 const PORTATE = ["entree", "plat", "dessert"]; // ordine canonico
+/** hide_by_course: { portata: boolean } limitato alle portate valide. */
+function pulisciHideByCourse(v: unknown): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    for (const c of PORTATE) out[c] = Boolean((v as Record<string, unknown>)[c]);
+  }
+  return out;
+}
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
 
@@ -178,10 +186,12 @@ export const POST: APIRoute = async ({ request }) => {
   };
   if (nameI18n !== undefined) riga.name_i18n = nameI18n;
   if (body.hide_items !== undefined) riga.hide_items = Boolean(body.hide_items);
+  if (body.hide_by_course !== undefined) riga.hide_by_course = pulisciHideByCourse(body.hide_by_course);
   let { data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT).single();
   if (error && mancaI18n(error)) {
     delete riga.name_i18n;
     delete riga.hide_items;
+    delete riga.hide_by_course;
     ({ data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
@@ -243,6 +253,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.active !== undefined) campi.active = Boolean(body.active);
   if (body.name_i18n !== undefined) campi.name_i18n = pulisciI18n(body.name_i18n) ?? {};
   if (body.hide_items !== undefined) campi.hide_items = Boolean(body.hide_items);
+  if (body.hide_by_course !== undefined) campi.hide_by_course = pulisciHideByCourse(body.hide_by_course);
   if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
 
   let { data, error } = await supabaseAdmin
@@ -255,6 +266,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     const campiSenza = { ...campi };
     delete campiSenza.name_i18n;
     delete campiSenza.hide_items;
+    delete campiSenza.hide_by_course;
     ({ data, error } = await supabaseAdmin
       .from("lunch_menus")
       .update(campiSenza)

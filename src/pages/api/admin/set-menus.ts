@@ -49,12 +49,13 @@ type Course = {
   mode: string;
   items: string[];
   customs: { name_i18n: Record<string, string> }[];
+  hide: boolean;
 };
 function pulisciCourses(v: unknown): Course[] | null {
   if (v === undefined || v === null) return [];
   if (!Array.isArray(v) || v.length > 12) return null;
   const out: Course[] = [];
-  for (const c of v as { category?: unknown; name?: unknown; name_i18n?: unknown; mode?: unknown; items?: unknown; customs?: unknown }[]) {
+  for (const c of v as { category?: unknown; name?: unknown; name_i18n?: unknown; mode?: unknown; items?: unknown; customs?: unknown; hide?: unknown }[]) {
     const category = String(c?.category ?? "").trim().slice(0, 60);
     const name = String(c?.name ?? "").trim().slice(0, 60);
     const nameI18n = pulisciI18n(c?.name_i18n, 60) ?? {};
@@ -67,7 +68,7 @@ function pulisciCourses(v: unknown): Course[] | null {
       .filter((cu) => Object.keys(cu.name_i18n).length)
       .slice(0, 30);
     if (!category && !name && !items.length && !customs.length) continue; // portata vuota: scarta
-    out.push({ category: category || null, name: name || category || "—", name_i18n: nameI18n, mode, items, customs });
+    out.push({ category: category || null, name: name || category || "—", name_i18n: nameI18n, mode, items, customs, hide: Boolean(c?.hide) });
   }
   return out;
 }

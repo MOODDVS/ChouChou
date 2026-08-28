@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { normalizzaNome } from "../../lib/normalizzaNome";
 import { supabaseAdmin } from "../../lib/db";
 import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSalle";
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
@@ -660,8 +661,8 @@ function leggiCampi(body: Record<string, unknown>) {
   const date = String(body.date ?? "");
   const heure = String(body.heure ?? "");
   const people = Math.floor(Number(body.people));
-  const first_name = String(body.first_name ?? "").trim();
-  const last_name = String(body.last_name ?? "").trim();
+  const first_name = normalizzaNome(body.first_name);
+  const last_name = normalizzaNome(body.last_name);
   const phone = String(body.phone ?? "").trim();
   const email = String(body.email ?? "").trim();
   const service_key = /^[a-z_]{1,30}$/.test(String(body.service_key ?? "")) ? String(body.service_key) : null;

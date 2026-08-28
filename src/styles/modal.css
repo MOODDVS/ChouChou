@@ -1,0 +1,35 @@
+/* ============================================================
+   Regole CONDIVISE per TUTTI i modali admin su MOBILE (≤640px).
+   Importato una sola volta da AdminHead → vale su ogni pagina
+   (clienti, piatti, sezioni, ordini, prenotazioni, ...).
+   Rende coerenti: titolo, padding interno e bottoni del footer.
+   `!important` perché deve prevalere sugli stili scoped delle
+   singole pagine (Astro aggiunge un attributo cid → 0,2,0).
+   Il modale info-cliente (.modal-act) è escluso: ha un layout
+   sticky con margini propri.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Padding interno ridotto */
+  .modal:not(.modal-act) { padding: 1.15rem !important; }
+  /* Titolo più piccolo */
+  .modal:not(.modal-act) h2 { font-size: 1.3rem !important; margin-bottom: 0.9rem !important; }
+  /* Bottoni footer piccoli e della STESSA dimensione (Annulla = Salva) */
+  .m-actions .m-cancel,
+  .m-actions .m-save {
+    font-family: var(--font-body) !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0 !important;
+    padding: 0.5rem 1.2rem !important;
+    border-radius: 999px !important;
+  }
+
+  /* Modale "Nuovo ordine" (usa classi nc-*): stesso trattamento. */
+  .nc-modal { padding: 1.15rem !important; }
+  .nc-modal h2 { font-size: 1.3rem !important; margin-bottom: 0.9rem !important; }
+  .nc-nav .nc-nav-btn {
+    font-family: var(--font-body) !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0 !important;
+    padding: 0.5rem 1.1rem !important;
+  }
+}

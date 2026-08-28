@@ -161,9 +161,17 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
 async function piattiNascostiDaLunch(): Promise<Set<string>> {
   const nascosti = new Set<string>();
   try {
-    const { data, error } = await supabaseAdmin
+    // Prova con hide_by_course (nascondi per portata); se la colonna non esiste
+    // ancora, ricade sul vecchio select con solo hide_items (flag globale).
+    let sel = await supabaseAdmin
       .from("lunch_menus")
-      .select("items, active, date_from, date_to, hide_items");
+      .select("items, active, date_from, date_to, hide_items, hide_by_course");
+    if (sel.error) {
+      sel = await supabaseAdmin
+        .from("lunch_menus")
+        .select("items, active, date_from, date_to, hide_items");
+    }
+    const { data, error } = sel;
     if (error || !data) return nascosti;
     const oggi = new Date().toISOString().slice(0, 10);
     for (const l of data as {
@@ -172,12 +180,23 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
       date_from?: string | null;
       date_to?: string | null;
       hide_items?: boolean | null;
+      hide_by_course?: Record<string, boolean> | null;
     }[]) {
-      if (!l.hide_items || l.active === false) continue;
+      if (l.active === false) continue;
       if (l.date_from && oggi < l.date_from) continue;
       if (l.date_to && oggi > l.date_to) continue;
-      for (const arr of Object.values(l.items ?? {})) {
-        if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
+      const hbc = l.hide_by_course;
+      if (hbc && typeof hbc === "object" && !Array.isArray(hbc)) {
+        // Per portata: nascondi solo le portate col flag attivo.
+        for (const [portata, arr] of Object.entries(l.items ?? {})) {
+          if (!hbc[portata]) continue;
+          if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
+        }
+      } else if (l.hide_items) {
+        // Retrocompat: vecchio flag globale → nasconde tutte le portate.
+        for (const arr of Object.values(l.items ?? {})) {
+          if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
+        }
       }
     }
   } catch { /* tabella/colonna assente: niente da nascondere */ }
@@ -189,16 +208,23 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
     if (!error && data) {
       const oggi = new Date().toISOString().slice(0, 10);
       for (const m of data as {
-        courses?: { items?: unknown }[] | null;
+        courses?: { items?: unknown; hide?: boolean | null }[] | null;
         active?: boolean | null;
         date_from?: string | null;
         date_to?: string | null;
         hide_items?: boolean | null;
       }[]) {
-        if (!m.hide_items || m.active === false) continue;
+        if (m.active === false) continue;
         if (m.date_from && oggi < m.date_from) continue;
         if (m.date_to && oggi > m.date_to) continue;
-        for (const corso of m.courses ?? []) {
+        const corsi = m.courses ?? [];
+        // Nuovo modello: flag "hide" per singola portata. Retrocompat: se
+        // nessuna portata ha il flag ma è attivo il vecchio hide_items globale,
+        // nasconde i piatti di tutte le portate.
+        const perCorso = corsi.some((c) => typeof c?.hide === "boolean");
+        for (const corso of corsi) {
+          const nascondi = perCorso ? corso?.hide === true : m.hide_items === true;
+          if (!nascondi) continue;
           const arr = corso?.items;
           if (Array.isArray(arr)) for (const id of arr) nascosti.add(String(id));
         }
