@@ -345,6 +345,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .act-cols { flex-direction: column; overflow-y: auto; gap: 1.1rem; }
         .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
         .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
+        .modal-act h2 { position: sticky; top: 0; z-index: 5; background: var(--c-bg); font-size: 1.35rem; margin: 0 -1.4rem 0.9rem; padding: 0.1rem 1.4rem 0.55rem; }
       }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
@@ -362,12 +363,21 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         border-radius: 0; color-scheme: dark; cursor: pointer;
       }
       .ed-prefix:focus { outline: none; border-color: var(--c-accent); }
-      .ed-langsel {
-        width: 100%; background: var(--c-card); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 0.7rem;
-        border-radius: 0; color-scheme: dark; cursor: pointer;
+      .ed-langs { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+      .ed-lang-pill {
+        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+        font-family: var(--font-body); font-size: 0.9rem; padding: 0.5rem 0.9rem; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
-      .ed-langsel:focus { outline: none; border-color: var(--c-accent); }
+      .ed-lang-pill:hover { border-color: var(--c-accent); }
+      .ed-lang-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .ed-lang-piu {
+        background: transparent; border: 1px dashed var(--c-line); color: var(--c-muted);
+        font-family: var(--font-body); font-size: 0.85rem; padding: 0.5rem 0.9rem; border-radius: 999px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;
+      }
+      .ed-lang-piu:hover { color: var(--c-text); border-color: var(--c-text); }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
       .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
@@ -415,8 +425,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           gap: 0.35rem 0.75rem;
           padding: 1rem 1.1rem;
         }
+        /* Con modulo ordini OFF la regola desktop .no-orders .row (specificita 0,2,0)
+           vincerebbe sul grid mobile: qui la riportiamo al layout a scheda. */
+        .no-orders .thead, .no-orders .row { grid-template-columns: 1fr auto; }
         .cell { white-space: normal; }
-        .c-name { grid-column: 1; grid-row: 1; font-size: 1.05rem; }
+        .c-name { grid-column: 1; grid-row: 1; font-size: 0.97rem; min-width: 0; overflow: hidden; }
+        .c-name .c-nome-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
         .c-lang { grid-column: 2; grid-row: 1; justify-self: end; align-self: center; margin: 0 5px 0 0; }
         .c-since { display: none; }
         .c-act { position: absolute; right: 1.1rem; bottom: 1rem; flex-direction: column; gap: 0.45rem; margin: 0; }
@@ -425,7 +439,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           color: var(--c-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
         }
         .c-lang[data-label]::before { content: none; }
-        .c-email, .c-phone { grid-column: 1 / -1; padding-left: calc(34px + 0.65rem); }
+        .c-email, .c-phone { grid-column: 1 / -1; padding-left: calc(34px + 0.65rem); padding-right: 3.2rem; white-space: nowrap; overflow: hidden; }
+        .c-email a, .c-phone a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
         .c-nums { display: flex; grid-column: 1 / -1; align-items: baseline; gap: 1.35rem; padding-left: calc(34px + 0.65rem); }
         .c-total { display: inline-flex; align-items: center; gap: 0.4rem; }
         .c-cash-ico { display: inline-flex; align-items: center; }
@@ -565,7 +580,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
           </span>
         </div>
-        <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><select id="ed-lang" class="ed-langsel"></select></div>
+        <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><div class="ed-langs" id="ed-langs"></div><input type="hidden" id="ed-lang" /></div>
         <div class="ed-row2">
           <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
           <button type="button" class="afl-sw" role="switch" id="ed-news-btn"><span class="afl-sw-knob"></span></button>
@@ -790,11 +805,45 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
         ).join("");
         edPrefixEl().value = PREFISSO_DEFAULT;
-        // Select lingua del cliente nel modale (prima opzione = non specificata)
-        const edLangEl = () => document.getElementById("ed-lang") as HTMLSelectElement;
-        edLangEl().innerHTML = `<option value="">—</option>` + LINGUE_WIDGET.map(
-          (l) => `<option value="${l.code}">${l.flag} ${l.label}</option>`
-        ).join("");
+        // Lingue pubbliche attive del sito (da /api/admin/pages); default storico FR+EN.
+        let publicLangs: string[] = ["fr", "en"];
+        // Lingua del cliente: pillole (lingue pubbliche attive) + "+N lingue"
+        // per svelare le altre. Valore selezionato tenuto in un input nascosto.
+        const edLangEl = () => document.getElementById("ed-lang") as HTMLInputElement;
+        let edLangExpanded = false;
+        function costruisciEdLingue(): void {
+          const cont = document.getElementById("ed-langs");
+          if (!cont) return;
+          const sel = (edLangEl().value || "").toLowerCase();
+          const pubSet = new Set(publicLangs.filter((c) => LINGUE_MAP.has(c)));
+          const publiche = [...pubSet];
+          const extra = LINGUE_WIDGET.map((l) => l.code).filter((c) => !pubSet.has(c));
+          // se il cliente ha una lingua non pubblica, mostrala comunque
+          const mostraExtra = edLangExpanded || (sel !== "" && !pubSet.has(sel));
+          const pill = (code: string): string => {
+            const l = LINGUE_MAP.get(code);
+            if (!l) return "";
+            const on = sel === code ? " is-on" : "";
+            return `<button type="button" class="ed-lang-pill${on}" data-l="${code}">${l.flag} ${l.label}</button>`;
+          };
+          let html = publiche.map(pill).join("");
+          if (mostraExtra) {
+            html += extra.map(pill).join("");
+          } else if (extra.length) {
+            html += `<button type="button" class="ed-lang-piu" id="ed-lang-piu">+${extra.length} ${tr("cli.langsMore")}</button>`;
+          }
+          cont.innerHTML = html;
+        }
+        document.getElementById("ed-langs")?.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest("button");
+          if (!btn) return;
+          if (btn.id === "ed-lang-piu") { edLangExpanded = true; costruisciEdLingue(); return; }
+          const code = (btn as HTMLElement).dataset.l;
+          if (!code) return;
+          const cur = (edLangEl().value || "").toLowerCase();
+          edLangEl().value = cur === code ? "" : code;  // riclic = deseleziona
+          costruisciEdLingue();
+        });
         const fFname = document.getElementById("f-fname") as HTMLInputElement;
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
         // e spostato nella tendina, numero ripulito.
@@ -842,10 +891,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         let ordersHidden = false;
         void fetch("/api/admin/pages", { headers })
           .then((r) => (r.ok ? r.json() : null))
-          .then((j: { hidden?: unknown } | null) => {
+          .then((j: { hidden?: unknown; publicLangs?: unknown } | null) => {
             const hid = Array.isArray(j?.hidden) ? (j!.hidden as unknown[]).map(String) : [];
             ordersHidden = hid.includes("orders");
             app.classList.toggle("no-orders", ordersHidden);
+            if (Array.isArray(j?.publicLangs) && j!.publicLangs!.length) {
+              publicLangs = (j!.publicLangs as unknown[]).map(String);
+              costruisciEdLingue();  // aggiorna le pillole se il modale è già aperto
+            }
           })
           .catch(() => { /* default: modulo attivo */ });
 
@@ -1312,6 +1365,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             (document.getElementById(idc) as HTMLInputElement).value = "";
           edPrefixEl().value = PREFISSO_DEFAULT;
           edLangEl().value = "";
+          edLangExpanded = false;
+          costruisciEdLingue();
           (document.getElementById("ed-err") as HTMLElement).textContent = "";
           (document.getElementById("ed-save") as HTMLButtonElement).textContent = tr("common.add");
           edUplState.textContent = "";
@@ -1332,6 +1387,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           (document.getElementById("ed-lname") as HTMLInputElement).value = parti.slice(1).join(" ");
           (document.getElementById("ed-email") as HTMLInputElement).value = c.email ?? "";
           edLangEl().value = (c.lang || "").toLowerCase();
+          edLangExpanded = false;
+          costruisciEdLingue();
           {
             const sep = separaPrefisso(c.phone ?? "");
             edPrefixEl().value = sep?.dial ?? PREFISSO_DEFAULT;
