@@ -22,17 +22,27 @@ export interface LunchAttivo {
 
 const PORTATE = ["entree", "plat", "dessert"];
 
-/** Voce "plat hors menu" salvata inline nel lunch come `free:FR` oppure
- *  `free:FR||EN` (traduzione facoltativa). Non è un piatto della carte. */
-function piattoLibero(raw: string): LunchPiatto {
+/** Voce "plat hors menu" salvata inline nel lunch. Due formati (come l'admin):
+ *  - `free:<nom>`                         -> 1 lingua (FR)
+ *  - `free:{"fr":"...","en":"..."}`       -> multilingua (JSON)
+ *  Non è un piatto della carte. */
+function decodeFree(raw: string): Record<string, string> {
   const testo = raw.slice(5); // dopo "free:"
-  const sep = testo.indexOf("||");
-  const fr = (sep >= 0 ? testo.slice(0, sep) : testo).trim();
-  const en = sep >= 0 ? testo.slice(sep + 2).trim() : "";
+  if (testo.startsWith("{")) {
+    try {
+      const o = JSON.parse(testo);
+      if (o && typeof o === "object" && !Array.isArray(o)) return o as Record<string, string>;
+    } catch { /* fallback: testo grezzo in FR */ }
+  }
+  return { fr: testo };
+}
+function piattoLibero(raw: string): LunchPiatto {
+  const o = decodeFree(raw);
+  const name = (o.fr || Object.values(o)[0] || "").trim();
   return {
     id: raw,
-    name: fr,
-    name_i18n: en ? { en } : null,
+    name,
+    name_i18n: o,
     description_fr: null,
     description_en: null,
     is_bestseller: false,

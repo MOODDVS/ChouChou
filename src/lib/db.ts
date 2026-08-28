@@ -39,6 +39,7 @@ export interface MenuItem {
   is_spicy: boolean;
   is_suggestion: boolean;
   is_seasonal: boolean;
+  name_i18n?: Record<string, string> | null; // traduzioni del nome del piatto
 }
 
 export interface MenuCategoria {
@@ -54,6 +55,9 @@ export interface MenuCategoria {
 
 const MENU_SELECT =
   "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
+// Con le traduzioni del nome piatto (name_i18n). Se la colonna manca (DB vecchio)
+// si ripiega su MENU_SELECT.
+const MENU_SELECT_I18N = MENU_SELECT + ", name_i18n";
 
 /**
  * Trasforma le righe DB (già ordinate) in categorie raggruppate.
@@ -86,6 +90,7 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
       is_spicy: !!riga.is_spicy,
       is_suggestion: !!riga.is_suggestion,
       is_seasonal: !!riga.is_seasonal,
+      name_i18n: riga.name_i18n ?? null,
     };
 
     if (!indiceCategoria.has(riga.category)) {
@@ -239,12 +244,21 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
  * Usata in /menu.
  */
 export async function getMenu(): Promise<MenuCategoria[]> {
-  const { data, error } = await supabaseAdmin
+  let res: { data: any[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_items")
-    .select(MENU_SELECT)
+    .select(MENU_SELECT_I18N)
     .eq("available", true)
     .order("category_order", { ascending: true })
     .order("sort_order", { ascending: true });
+  if (res.error && /name_i18n/i.test(res.error.message ?? "")) {
+    res = await supabaseAdmin
+      .from("menu_items")
+      .select(MENU_SELECT)
+      .eq("available", true)
+      .order("category_order", { ascending: true })
+      .order("sort_order", { ascending: true });
+  }
+  const { data, error } = res;
 
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
@@ -259,13 +273,23 @@ export async function getMenu(): Promise<MenuCategoria[]> {
  * Usata in /order.
  */
 export async function getMenuOrderable(): Promise<MenuCategoria[]> {
-  const { data, error } = await supabaseAdmin
+  let res: { data: any[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_items")
-    .select(MENU_SELECT)
+    .select(MENU_SELECT_I18N)
     .eq("available", true)
     .eq("orderable", true)
     .order("category_order", { ascending: true })
     .order("sort_order", { ascending: true });
+  if (res.error && /name_i18n/i.test(res.error.message ?? "")) {
+    res = await supabaseAdmin
+      .from("menu_items")
+      .select(MENU_SELECT)
+      .eq("available", true)
+      .eq("orderable", true)
+      .order("category_order", { ascending: true })
+      .order("sort_order", { ascending: true });
+  }
+  const { data, error } = res;
 
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");

@@ -54,6 +54,8 @@ export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_10", label: "Produit 10", fallback: "" },
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_11", label: "Produit 11", fallback: "" },
   { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_12", label: "Produit 12", fallback: "" },
+  { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_13", label: "Produit 13", fallback: "" },
+  { page: "Épicerie", group: "Galerie produits", key: "site_epicerie_14", label: "Produit 14", fallback: "" },
   // ---------- CARTE ----------
   { page: "Carte", group: "Hero", key: "site_menu_hero", label: "Image hero", fallback: "/chouchou-restaurant.webp" },
   { page: "Carte", group: "Un soir, un chef", key: "site_soir_chef", label: "Image plein largeur", fallback: "/chouchou-restaurant.webp" },

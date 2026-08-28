@@ -67,6 +67,10 @@ function prezzo(cents: number): string {
 function descDi(item: { description_fr: string | null; description_en: string | null }): string | null {
   return en ? (item.description_en || item.description_fr) : item.description_fr;
 }
+// Nome del piatto nella lingua attiva (EN -> name_i18n.en, fallback FR).
+function nomeDi(item: { name: string; name_i18n?: Record<string, string> | null }): string {
+  return en ? (item.name_i18n?.en ?? item.name) : item.name;
+}
 
 // Convention admin : une voce dont le Nom commence par "-" devient un
 // sous-titre de section (pas de prix, pas de description-plat). Etiquette
@@ -364,7 +368,7 @@ gruppi.forEach((g, i) => {
                   <li class="dish">
                     <p class="dish__head">
                       <span class="dish__name">
-                        {item.name}
+                        {nomeDi(item)}
                         {item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
@@ -436,7 +440,7 @@ gruppi.forEach((g, i) => {
               <li class="dish">
                 <p class="dish__head">
                   <span class="dish__name">
-                    {r.item.name}
+                    {nomeDi(r.item)}
                     {r.item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
                     {r.item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                     {r.item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
@@ -488,7 +492,7 @@ gruppi.forEach((g, i) => {
                   <li class="dish">
                     <p class="dish__head">
                       <span class="dish__name">
-                        {item.name}
+                        {nomeDi(item)}
                         {item.is_bestseller && <span class="b b-star" title="Coup de cœur">♥</span>}
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
