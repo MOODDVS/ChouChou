@@ -29,9 +29,18 @@ const IMGS = await siteImages();
 const HERO_FOTO = siteImg(IMGS, "site_epicerie_hero", IMGS["site_disc_epicerie"] || IMGS["site_resto_photo"] || "");
 const EP_FOTO = siteImg(IMGS, "site_disc_epicerie", IMGS["site_resto_photo"] || "");
 
-// Galerie produits (masonry 4 colonnes) : slots admin site_epicerie_1..12.
+// Galerie produits (masonry 4 colonnes) : slots admin site_epicerie_1..14.
 // Case vide -> vignette placeholder (hauteur variée) pour montrer la grille.
-const PRODOTTI = Array.from({ length: 12 }, (_, i) => IMGS[`site_epicerie_${i + 1}`] || null);
+// Ordre mélangé à chaque chargement (SSR) : la disposition change à chaque reload.
+function melange<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const PRODOTTI = melange(Array.from({ length: 14 }, (_, i) => IMGS[`site_epicerie_${i + 1}`] || null));
 // Répétitions du bandeau défilant (comme la home).
 const MARQ = [0, 1, 2, 3];
 
@@ -44,6 +53,7 @@ const MARQUES = [
   { src: "/logos/manucurist-logo.webp", alt: "Manucurist" },
   { src: "/logos/autre-the-logo.webp", alt: "Autre Thé" },
   { src: "/logos/cuberdons-leopold-logo.webp", alt: "Cuberdons Léopold" },
+  { src: "/logos/loccitane-logo.webp", alt: "L'Occitane" },
 ];
 ---
 
@@ -343,7 +353,11 @@ const MARQUES = [
   .ep-marquee {
     position: relative;
     overflow: hidden;
-    margin: clamp(1rem, 3vw, 2.5rem) 0 clamp(2.5rem, 5vw, 4rem);
+    /* padding vertical : laisse respirer les hampes/jambages du script
+       (Birthstone) qui débordent de la boîte de ligne, sinon overflow:hidden
+       les coupe en bas. */
+    padding: clamp(0.5rem, 1.6vw, 1.3rem) 0 clamp(1.1rem, 2.8vw, 2.2rem);
+    margin: clamp(0.6rem, 2.4vw, 1.8rem) 0 clamp(2rem, 4.5vw, 3.4rem);
   }
   .ep-mrow {
     display: flex;
@@ -364,7 +378,7 @@ const MARQUES = [
     font-family: var(--font-script);
     color: var(--mag);
     font-size: clamp(4.5rem, 13vw, 11rem);
-    line-height: 1;
+    line-height: 1.22;
     margin: 0 0.16em;
   }
   .ep-mdot {
