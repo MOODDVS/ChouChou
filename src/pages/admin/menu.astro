@@ -68,6 +68,8 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
     />
     <style is:global>
+      /* Modulo "Commandes" disattivato dal super admin: niente switch "ordinabile". */
+      .no-orders .sw-cmd, .no-orders .m-toggle-cmd { display: none !important; }
       :root {
         --c-hover: #e04f00;
         --c-input: #e6e6e6;
@@ -701,7 +703,7 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
               <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
               <span class="tl-full">{t("menu.visibleSite")}</span><span class="tl-short">{t("menu.visibleShort")}</span>
             </label>
-            <label class="m-toggle">
+            <label class="m-toggle m-toggle-cmd">
               <span class="switch"><input type="checkbox" id="f-or" checked /><span class="track"></span></span>
               <span class="tl-full">{t("menu.orderable")}</span><span class="tl-short">{t("menu.orderableShort")}</span>
             </label>
@@ -994,7 +996,7 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
             ${prezzoHTML(it)}
             <span class="i-switches">
               <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
+              <span class="sw-wrap sw-cmd"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
               <span class="sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.soldShort")}</span></span>
             </span>
             <span class="i-acts"><button class="i-btn i-edit" title="${tr("common.edit")}">✎</button><button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button></span>
@@ -2893,6 +2895,16 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         });
 
         headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
+
+        // Modulo "Commandes" disattivato dal super admin (app_config admin_pages_hidden):
+        // nasconde lo switch "ordinabile" nella lista e nel modale piatto.
+        void fetch("/api/admin/pages", { headers })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j: { hidden?: unknown } | null) => {
+            const hid = Array.isArray(j?.hidden) ? (j!.hidden as unknown[]).map(String) : [];
+            document.body.classList.toggle("no-orders", hid.includes("orders"));
+          })
+          .catch(() => { /* default: modulo attivo */ });
 
         renderNuovaKind();
         // Primo caricamento: usa i dati SSR (Fase 2) se presenti, senza fetch.
