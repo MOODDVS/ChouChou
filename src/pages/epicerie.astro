@@ -61,7 +61,7 @@ const MARQUES = [
   <div class="chou">
   <section class="ep-hero">
     <div class="ep-hero__bg" aria-hidden="true"></div>
-    {HERO_FOTO && <img class="ep-hero__photo" src={HERO_FOTO} alt="" loading="eager" decoding="async" onerror="this.remove()" />}
+    {HERO_FOTO && <img class="ep-hero__photo" src={HERO_FOTO} alt="" loading="eager" fetchpriority="high" decoding="async" onerror="this.remove()" />}
     <div class="ep-hero__overlay" aria-hidden="true"></div>
     <div class="ep-hero__glow" aria-hidden="true"></div>
     <div class="ep-hero__inner">

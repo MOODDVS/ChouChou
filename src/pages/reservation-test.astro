@@ -1,8 +1,0 @@
----
-export const prerender = false;
-// Vecchia URL del widget di prova: il widget MOODD ora vive su /reservation.
-// Redirect conservando la query string (?token= dei link già inviati nelle
-// email di conferma/modifica prenotazione), così i vecchi link continuano
-// a funzionare.
-return Astro.redirect("/reservation" + Astro.url.search, 302);
----

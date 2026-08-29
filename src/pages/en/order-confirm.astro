@@ -4,6 +4,7 @@
 // in evidenza oro, righe dell'ordine e totale.
 import Layout from "../../layouts/Layout.astro";
 import { supabaseAdmin } from "../../lib/db";
+import { CLIENT } from "../../config/client";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
@@ -56,7 +57,7 @@ const paidText = ordine
   : "";
 ---
 
-<Layout title={t("confirm.paidTitle") + " — La Molisana"}>
+<Layout title={t("confirm.paidTitle") + " — " + CLIENT.nome}>
   <section class="oc">
     <div class="oc-card">
       {!ordine && (
@@ -68,7 +69,7 @@ const paidText = ordine
 
       {ordine && confermato && (
         <>
-          <p class="oc-claim">La Molisana — Pizza &amp; Pasta</p>
+          <p class="oc-claim">{CLIENT.nome}</p>
           <h1 class="oc-title">{t("confirm.paidTitle")}</h1>
           <p class="oc-sub">{paidText}</p>
 

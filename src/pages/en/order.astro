@@ -119,17 +119,17 @@ const orderStrings = {
 };
 ---
 
-<Layout title={en ? "Order Online — La Molisana, Italian Restaurant in Saint-Gilles, Brussels" : "Commander en ligne — La Molisana, Restaurant Italien à Saint-Gilles, Bruxelles"}>
+<Layout title={en ? "Order online, Comptoir Chouchou" : "Commander en ligne, Comptoir Chouchou"}>
   <section class="order-hero">
-    <img class="order-hero__bg" src={HERO_FOTO} alt="" loading="eager" decoding="async" />
+    <img class="order-hero__bg" src={HERO_FOTO} alt="" loading="eager" fetchpriority="high" decoding="async" />
     <div class="order-hero__overlay" aria-hidden="true"></div>
 
     <div class="order-hero__inner">
       <h1 class="order-hero__title">{en ? "Order online" : "Commander en ligne"}</h1>
       <p class="order-hero__sub">
         {en
-          ? "Pizzas, homemade pasta and Italian desserts to take away — freshly prepared, ready at your chosen time, in Saint-Gilles, Brussels."
-          : "Pizzas, pâtes maison et desserts italiens à emporter — préparés frais, prêts à l'heure choisie, à Saint-Gilles, Bruxelles."}
+          ? "Take-away order from Comptoir Chouchou, freshly prepared, ready at your chosen time, in Mont-Saint-Guibert."
+          : "Commande à emporter au Comptoir Chouchou, préparée fraîche, prête à l'heure choisie, à Mont-Saint-Guibert."}
       </p>
     </div>
 
