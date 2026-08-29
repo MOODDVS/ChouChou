@@ -17,7 +17,7 @@ export interface SiteImageSlot {
 
 // Slot immagine del sito pubblico gestiti dall'admin (tab Assets > Site).
 // Ordine delle pagine nel filtro.
-export const SITE_PAGES: string[] = ["Accueil", "Carte", "Épicerie", "Contact"];
+export const SITE_PAGES: string[] = ["Accueil", "Carte", "Épicerie", "Agenda", "Contact"];
 
 export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
   // ---------- ACCUEIL ----------
@@ -60,6 +60,9 @@ export const SITE_IMAGE_SLOTS: SiteImageSlot[] = [
   { page: "Carte", group: "Hero", key: "site_menu_hero", label: "Image hero", fallback: "/chouchou-restaurant.webp" },
   { page: "Carte", group: "Un soir, un chef", key: "site_soir_chef", label: "Image plein largeur", fallback: "/chouchou-restaurant.webp" },
   { page: "Carte", group: "Brunch", key: "site_brunch", label: "Image plein largeur", fallback: "/chouchou-restaurant.webp" },
+  // ---------- AGENDA ----------
+  { page: "Agenda", group: "Hero", key: "site_agenda_hero", label: "Image hero", fallback: "/chouchou-restaurant.webp" },
+  { page: "Agenda", group: "Bloc contact", key: "site_agenda_cta", label: "Image de fond", fallback: "/chouchou-restaurant.webp" },
   // ---------- CONTACT ----------
   { page: "Contact", group: "Hero", key: "site_contact_hero", label: "Image hero", fallback: "/chouchou-restaurant.webp" },
 ];

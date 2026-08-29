@@ -1,92 +1,507 @@
 ---
-// Page Agenda — provisoire. Structure et style Chouchou en place ; le contenu
-// réel (rendez-vous, «Un soir, un Chef», brunchs du dimanche, événements)
-// sera ajouté ensuite. Reliée au menu (Header + MobileNav) via /agenda.
+// Page Agenda : hero Chouchou (photo random + overlay + halo), texte
+// d'introduction aux rendez-vous, puis cartes des événements (lues depuis
+// l'admin via getAgendaProchains). Clic sur une carte -> détail plein écran.
+// Le contenu (titres, textes, dates) vient de l'admin ; le moteur n'est pas touché.
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+import { siteImages } from "../lib/siteImages";
+import { getAgendaTous, slugifyTitre } from "../lib/agenda";
+
 export const prerender = false;
+
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
+const loc = en ? "en-GB" : "fr-FR";
+
+// Fond du hero : image définie dans l'admin (site_agenda_hero) ; à défaut, une photo Chouchou au hasard.
+const IMGS = await siteImages();
+const POOL_KEYS = [
+  "site_hero_1", "site_hero_2", "site_hero_3",
+  "site_gallery_1", "site_gallery_2", "site_gallery_3", "site_gallery_4", "site_gallery_5",
+  "site_gallery_6", "site_gallery_7", "site_gallery_8", "site_gallery_9",
+  "site_resto_photo", "site_soir_chef", "site_brunch",
+  "site_menu_hero", "site_contact_hero", "site_epicerie_hero",
+];
+const DISPO = POOL_KEYS.map((k) => IMGS[k]).filter(Boolean);
+const HERO_RANDOM = DISPO.length ? DISPO[Math.floor(Math.random() * DISPO.length)] : "/chouchou-restaurant.webp";
+// Hero : image définie dans l'admin (Assets > Agenda). Sinon, photo Chouchou au hasard.
+const HERO_BG = IMGS["site_agenda_hero"] || HERO_RANDOM;
+const CTA_FOTO = IMGS["site_agenda_cta"] || IMGS["site_resto_photo"] || IMGS["site_soir_chef"] || HERO_RANDOM;
+
+// Tous les événements publiés (à venir puis passés).
+const oggi = new Date().toISOString().slice(0, 10);
+const eventi = await getAgendaTous(40);
+const estPasse = (e: { date_start: string; date_end: string | null }) => (e.date_end || e.date_start) < oggi;
+const futurs = eventi.filter((e) => !estPasse(e));
+const passes = eventi.filter((e) => estPasse(e));
+
+const L = {
+  title: en ? "Events" : "L'agenda",
+  sub: en
+    ? "Guest chefs, Sunday brunches and special evenings: our upcoming dates at Comptoir Chouchou."
+    : "Chefs invités, brunchs du dimanche et soirées spéciales : nos prochains rendez-vous au Comptoir Chouchou.",
+  introT: en ? "Our gatherings" : "Nos rendez-vous",
+  introP: en
+    ? "More than a restaurant, Comptoir Chouchou is a place to meet and share. « Un soir, un Chef », Sunday brunches and special evenings punctuate the season. Find our next dates below and book your table so you don't miss a thing."
+    : "Bien plus qu'un restaurant, le Comptoir Chouchou est un lieu de rencontres et de partage. « Un soir, un Chef », les brunchs du dimanche et nos soirées spéciales rythment la saison. Retrouvez ici nos prochains rendez-vous, et réservez votre table pour ne rien manquer.",
+  empty: en ? "No upcoming events for now. Come back very soon!" : "Aucun rendez-vous à venir pour le moment. Revenez très bientôt !",
+  noFutur: en
+    ? "No upcoming events at the moment. Come back very soon, new dates are on their way!"
+    : "Aucun événement à venir pour le moment. Revenez très bientôt, de nouveaux rendez-vous arrivent !",
+  more: en ? "Learn more" : "En savoir plus",
+  pastTitle: en ? "Our past events" : "Nos événements passés",
+  ctaKicker: en ? "Get in touch" : "Contact",
+  ctaTitle: en ? "A question, a special request?" : "Une envie, une question\u00A0?",
+  ctaText: en
+    ? "For a booking, a private event or simply to say hello, the Comptoir Chouchou team is here for you."
+    : "Pour une réservation, un événement privé ou simplement nous dire bonjour, l'équipe du Comptoir Chouchou est là.",
+  ctaContact: en ? "Contact us" : "Nous contacter",
+  ctaBook: en ? "Book a table" : "Réserver une table",
+  book: en ? "Book a table" : "Réserver une table",
+  soon: en ? "Coming soon" : "Bientôt",
+};
+
+function titreDi(e: { title: string; title_i18n: Record<string, string> | null }): string {
+  return en ? (e.title_i18n?.en ?? e.title) : e.title;
+}
+// Pastille : jour + mois abrégé à 3 lettres (MARS -> MAR, SEPTEMBRE -> SEP).
+function badgeDate(iso: string): string {
+  try {
+    const d = new Date(iso + "T12:00:00");
+    const j = d.toLocaleDateString(loc, { day: "numeric" });
+    const m = d.toLocaleDateString(loc, { month: "long" }).slice(0, 3);
+    return `${j} ${m}`;
+  } catch {
+    return iso;
+  }
+}
+// Ligne complète sous la carte : « Dimanche, 1er Mars 2026 » (capitalisée en CSS).
+function jourNum(iso: string): string {
+  const n = new Date(iso + "T12:00:00").getDate();
+  return !en && n === 1 ? "1er" : String(n);
+}
+function jourLigne(e: { date_start: string; date_end: string | null }): string {
+  const d = new Date(e.date_start + "T12:00:00");
+  const mois = d.toLocaleDateString(loc, { month: "long" });
+  const an = d.getFullYear();
+  if (e.date_end && e.date_end !== e.date_start) {
+    const d2 = new Date(e.date_end + "T12:00:00");
+    const mois2 = d2.toLocaleDateString(loc, { month: "long" });
+    const an2 = d2.getFullYear();
+    return en
+      ? `From ${jourNum(e.date_start)} ${mois} to ${jourNum(e.date_end)} ${mois2} ${an2}`
+      : `Du ${jourNum(e.date_start)} ${mois} au ${jourNum(e.date_end)} ${mois2} ${an2}`;
+  }
+  const sem = d.toLocaleDateString(loc, { weekday: "long" });
+  return `${sem}, ${jourNum(e.date_start)} ${mois} ${an}`;
+}
+function extrait(body: string | null, n = 150): string {
+  if (!body) return "";
+  const plat = body.replace(/\s+/g, " ").trim();
+  return plat.length > n ? plat.slice(0, n).trimEnd() + "…" : plat;
+}
+const reserveUrl = getLocalizedUrl("/reservation", lang);
+const contactUrl = getLocalizedUrl("/contact", lang);
+
+// Étincelles décoratives (position, taille, délai) pour la bannière.
+const SPARKS = [
+  { top: "22%", left: "5%",  s: "11px", d: "0s" },
+  { top: "70%", left: "11%", s: "7px",  d: "0.7s" },
+  { top: "34%", left: "20%", s: "8px",  d: "1.4s" },
+  { top: "74%", left: "28%", s: "9px",  d: "0.4s" },
+  { top: "20%", left: "76%", s: "8px",  d: "1.1s" },
+  { top: "66%", left: "88%", s: "11px", d: "0.2s" },
+  { top: "32%", left: "94%", s: "7px",  d: "1.8s" },
+  { top: "78%", left: "70%", s: "8px",  d: "1.5s" },
+];
 ---
 
 <Layout title={(en ? "Events" : "Agenda") + ", Comptoir Chouchou"}>
-  <section class="ph">
-    <div class="ph-glow"></div>
-    <div class="ph-in">
-      <p class="ph-script">Comptoir</p>
-      <h1 class="ph-title">{en ? "Events" : "L'agenda"}</h1>
-      <p class="ph-sub">
-        {en
-          ? "Our events, \"One evening, one chef\" nights, Sunday brunches and more. This page is coming very soon."
-          : "Nos rendez-vous, « Un soir, un Chef », brunchs du dimanche et événements. Cette page arrive très bientôt."}
-      </p>
-      <a class="ph-btn" href={getLocalizedUrl("/", lang)}>{en ? "Back to home" : "Retour à l'accueil"}</a>
-    </div>
-  </section>
+  <div class="ag">
+    <!-- HERO -->
+    <section class="ag-hero">
+      <div class="ag-hero__bg" aria-hidden="true"></div>
+      <img class="ag-hero__photo" src={HERO_BG} alt="" loading="eager" decoding="async" onerror="this.remove()" />
+      <div class="ag-hero__overlay" aria-hidden="true"></div>
+      <div class="ag-hero__glow" aria-hidden="true"></div>
+      <div class="ag-hero__inner">
+        <h1 class="ag-hero__title">{L.title}</h1>
+        <p class="ag-hero__sub">{L.sub}</p>
+      </div>
+    </section>
+
+    <!-- INTRO + CARTES -->
+    <section class="ag-body">
+      <div class="ag-body__glow" aria-hidden="true"></div>
+      <div class="ag-wrap">
+        <div class="ag-intro">
+          <p class="ag-intro__kicker">{en ? "The agenda" : "L'agenda"}</p>
+          <h2 class="ag-intro__t">{L.introT}</h2>
+          <p class="ag-intro__p">{L.introP}</p>
+        </div>
+
+        {futurs.length === 0 && (
+          <p class="ag-none">
+            {SPARKS.map((sp) => (
+              <span class="ag-spark" style={`top:${sp.top};left:${sp.left};--s:${sp.s};--d:${sp.d}`} aria-hidden="true">✦</span>
+            ))}
+            <span class="ag-none__txt">{L.noFutur}</span>
+          </p>
+        )}
+
+        {eventi.length === 0 ? (
+          <p class="ag-empty">{L.empty}</p>
+        ) : (
+          <Fragment>
+            {futurs.length === 1 && futurs.map((e) => (
+              <article class="ag-solo">
+                <a class="ag-solo__media" href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+                  {e.image_url
+                    ? <img src={e.image_url} alt={titreDi(e)} loading="eager" decoding="async" onerror="this.remove();" />
+                    : <span class="ph" aria-hidden="true">✦</span>}
+                </a>
+                <div class="ag-solo__body">
+                  <p class="ag-solo__meta">{jourLigne(e)}</p>
+                  <h2 class="ag-solo__title">{titreDi(e)}</h2>
+                  {extrait(e.body, 260) && <p class="ag-solo__text">{extrait(e.body, 260)}</p>}
+                  <a class="ag-solo__btn" href={`/agenda/${slugifyTitre(e.title)}`}>{L.more} →</a>
+                </div>
+              </article>
+            ))}
+
+            {futurs.length > 1 && (
+              <div class="ag-evgrid">
+                {futurs.map((e) => (
+                  <a class="ag-evh" href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+                    <div class="ag-evh__media">
+                      {e.image_url
+                        ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.remove();" />
+                        : <span class="ph" aria-hidden="true">✦</span>}
+                    </div>
+                    <div class="ag-evh__body">
+                      <p class="ag-evh__meta">{jourLigne(e)}</p>
+                      <h3 class="ag-evh__title">{titreDi(e)}</h3>
+                      {extrait(e.body) && <p class="ag-evh__text">{extrait(e.body)}</p>}
+                      <span class="ag-evh__cta">{L.more}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {passes.length > 0 && (
+              <Fragment>
+                <h2 class="ag-past-title">{L.pastTitle}</h2>
+                <div class="ag-grid">
+                  {passes.map((e, i) => (
+            <a class={"ag-card" + (estPasse(e) ? " is-past" : "")} href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+              <div class="ag-card__media">
+                {e.image_url
+                  ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.closest('.ag-card__media').classList.add('is-ph'); this.remove();" />
+                  : <span class="ag-card__ph" aria-hidden="true">✦</span>}
+                <span class="ag-card__date">
+                  <span class="ag-card__date-d">{badgeDate(e.date_start)}</span>
+                  <span class="ag-card__date-y">{new Date(e.date_start + "T12:00:00").getFullYear()}</span>
+                </span>
+                {estPasse(e) && <span class="ag-card__past">{en ? "Past" : "Passé"}</span>}
+              </div>
+              <div class="ag-card__body">
+                <p class="ag-card__day">{jourLigne(e)}</p>
+                <h3 class="ag-card__t">{titreDi(e)}</h3>
+                {extrait(e.body) && <p class="ag-card__ex">{extrait(e.body)}</p>}
+                <span class="ag-card__more">{L.more} →</span>
+              </div>
+            </a>
+                  ))}
+                </div>
+              </Fragment>
+            )}
+          </Fragment>
+        )}
+      </div>
+    </section>
+
+    <!-- CTA CONTACT -->
+    <section class="ag-cta">
+      <img class="ag-cta__img" src={CTA_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
+      <div class="ag-cta__scrim" aria-hidden="true"></div>
+      <div class="ag-cta__fade" aria-hidden="true"></div>
+      <div class="ag-cta__in">
+        <p class="ag-cta__kicker">{L.ctaKicker}</p>
+        <h2 class="ag-cta__title">{L.ctaTitle}</h2>
+        <p class="ag-cta__text">{L.ctaText}</p>
+        <div class="ag-cta__btns">
+          <a class="ag-cta__btn ag-cta__btn--mag" href={contactUrl}>{L.ctaContact} →</a>
+          <a class="ag-cta__btn ag-cta__btn--ghost" href={reserveUrl}>{L.ctaBook}</a>
+        </div>
+      </div>
+    </section>
+  </div>
 </Layout>
 
+
 <style>
-  .ph {
-    --navy: #353c4e;
-    --mag: #ed2289;
+  .ag { --navy: #353c4e; --mag: #ed2289; --ivory: #f7f4ee; --muted: #6b7183; background: #2b3040; position: relative; }
+
+  /* ---------- HERO ---------- */
+  .ag-hero {
     position: relative;
-    min-height: 72vh;
+    min-height: clamp(400px, 56vh, 600px);
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
+    padding: clamp(9rem, 15vh, 12.5rem) 1.5rem 4.5rem;
     overflow: hidden;
-    background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%);
-    padding: 8rem 1.5rem 6rem;
   }
-  .ph-glow {
-    position: absolute;
-    left: 50%;
-    top: 42%;
-    width: 640px;
-    height: 640px;
-    max-width: 120vw;
-    transform: translate(-50%, -50%);
-    background: radial-gradient(circle, rgba(237, 34, 137, 0.2) 0%, rgba(237, 34, 137, 0) 62%);
-    pointer-events: none;
-  }
-  .ph-in { position: relative; z-index: 1; max-width: 640px; }
-  .ph-script {
-    font-family: var(--font-script);
-    color: var(--mag);
-    font-size: clamp(2rem, 6vw, 3.2rem);
-    line-height: 0.9;
-    margin: 0 0 0.1em;
-  }
-  .ph-title {
+  .ag-hero__bg { position: absolute; inset: 0; z-index: 0; background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%); }
+  .ag-hero__photo { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; }
+  .ag-hero__overlay { position: absolute; inset: 0; z-index: 2; background: linear-gradient(180deg, rgba(23,27,40,0.5) 0%, rgba(23,27,40,0.68) 100%); }
+  .ag-hero__glow { position: absolute; left: 50%; top: 50%; z-index: 2; width: 560px; height: 560px; max-width: 130vw; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(237,34,137,0.22) 0%, rgba(237,34,137,0) 62%); pointer-events: none; }
+  .ag-hero__inner { position: relative; z-index: 3; }
+  .ag-hero__title {
     font-family: var(--font-display);
     font-weight: 500;
+    font-size: clamp(2.4rem, 5.4vw, 3.6rem);
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    margin: 0 0 0.8rem;
     color: #fff;
-    font-size: clamp(2.4rem, 7vw, 4rem);
-    line-height: 1;
-    margin: 0;
   }
-  .ph-sub {
+  .ag-hero__sub {
+    max-width: 620px;
+    margin: 0 auto;
     font-family: var(--font-body);
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.86);
-    font-size: clamp(1rem, 2.2vw, 1.18rem);
+    font-size: 1rem;
     line-height: 1.6;
-    margin: 1.4rem auto 0;
-    max-width: 30em;
+    color: rgba(255,255,255,0.88);
   }
-  .ph-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 2.2rem;
-    padding: 14px 32px;
-    font-family: var(--font-body);
-    font-weight: 700;
-    color: #fff;
-    text-decoration: none;
-    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.6);
-    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+
+  /* ---------- BODY ---------- */
+  .ag-body {
+    position: relative;
+    background: #ffffff;
+    padding: clamp(3rem, 7vh, 5.5rem) 0 clamp(4rem, 9vh, 6.5rem);
+    overflow: hidden;
   }
-  .ph-btn:hover { background: #fff; color: var(--navy); transform: translateY(-2px); }
+  /* Même conteneur que le reste du site (header) : 1440px + 28px de marge,
+     pour que la 1re carte s'aligne sur le bloc logo. */
+  .ag-wrap { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 0 28px; }
+  .ag-body__glow {
+    position: absolute; left: 50%; top: 0; z-index: 0;
+    width: 720px; height: 520px; max-width: 130vw;
+    transform: translate(-50%, -34%);
+    background: radial-gradient(circle, rgba(237,34,137,0.09) 0%, rgba(237,34,137,0) 66%);
+    pointer-events: none;
+  }
+  .ag-intro { max-width: 720px; margin: 0 auto clamp(2.5rem, 6vw, 4rem); text-align: center; }
+  .ag-intro__kicker {
+    font-family: var(--font-body); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.28em; font-size: 0.72rem; color: var(--mag); margin: 0 0 0.9rem;
+  }
+  .ag-intro__t {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(1.9rem, 4vw, 2.8rem); line-height: 1.1; color: var(--navy); margin: 0 0 1rem;
+  }
+  .ag-intro__p {
+    font-family: var(--font-body); font-size: 1.02rem; line-height: 1.7; color: var(--muted); margin: 0;
+  }
+
+  .ag-empty { text-align: center; font-family: var(--font-body); font-size: 1.05rem; color: var(--muted); padding: 2rem 0; }
+
+  /* Bandeau « aucun événement à venir » (accent). */
+  .ag-none {
+    position: relative; overflow: hidden;
+    background: rgba(237, 34, 137, 0.09);
+    border: 1px solid rgba(237, 34, 137, 0.22);
+    color: var(--mag);
+    text-align: center; margin: 0 0 clamp(2.5rem, 6vw, 3.5rem);
+    padding: clamp(1.5rem, 3.5vw, 2.2rem) 1.5rem;
+    border-radius: 18px;
+    font-family: var(--font-body); font-weight: 700;
+    font-size: clamp(1rem, 2vw, 1.1rem); line-height: 1.6;
+  }
+  .ag-none__txt { position: relative; z-index: 1; }
+  .ag-spark {
+    position: absolute; z-index: 0;
+    font-size: var(--s, 9px); line-height: 1; color: var(--mag);
+    opacity: 0; transform: scale(0.4);
+    animation: ag-twinkle 2.8s ease-in-out infinite;
+    animation-delay: var(--d, 0s);
+    pointer-events: none;
+  }
+  @keyframes ag-twinkle {
+    0%, 100% { opacity: 0; transform: scale(0.35) rotate(0deg); }
+    50% { opacity: 0.7; transform: scale(1) rotate(90deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ag-spark { animation: none; opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Titre centré « Nos événements passés » */
+  .ag-past-title {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(1.5rem, 3.2vw, 2.1rem); line-height: 1.15;
+    color: var(--navy); text-align: center;
+    margin: clamp(3rem, 7vw, 4.5rem) 0 clamp(1.8rem, 4vw, 2.6rem);
+  }
+
+  /* ===== Événement à venir unique : image gauche, contenu droite ===== */
+  .ag-solo {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: clamp(1.6rem, 4vw, 3.5rem); align-items: center;
+    margin-bottom: clamp(1rem, 3vw, 2rem);
+  }
+  .ag-solo__media { display: block; aspect-ratio: 4 / 3; background: linear-gradient(150deg, #e2ddd0, #d3ccbc); overflow: hidden; }
+  .ag-solo__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ag-solo__media .ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: rgba(53,60,78,0.3); font-size: 2.4rem; }
+  .ag-solo__meta { font-family: var(--font-body); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.82rem; color: var(--mag); margin: 0 0 0.6rem; }
+  .ag-solo__title { font-family: var(--font-title); font-weight: 700; color: var(--navy); font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 1.08; margin: 0 0 1rem; }
+  .ag-solo__text { font-family: var(--font-body); color: #4a5064; font-size: 1.05rem; line-height: 1.7; margin: 0 0 1.8rem; max-width: 34em; }
+  .ag-solo__btn { display: inline-block; background: var(--mag); color: #fff; text-decoration: none; font-family: var(--font-title); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.82rem; padding: 15px 32px; border-radius: 999px; transition: opacity 0.2s ease; }
+  .ag-solo__btn:hover { opacity: 0.9; }
+
+  /* ===== Événements à venir (2+) : cartes style accueil ===== */
+  .ag-evgrid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(1.2rem, 2.4vw, 2.2rem); }
+  .ag-evh { display: flex; flex-direction: column; color: var(--navy); text-decoration: none; transition: transform 0.2s ease; }
+  .ag-evh:hover { transform: translateY(-3px); }
+  .ag-evh__media { aspect-ratio: 16 / 10; background: linear-gradient(150deg, #e2ddd0, #d3ccbc); overflow: hidden; }
+  .ag-evh__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ag-evh__media .ph { display: flex; width: 100%; height: 100%; align-items: center; justify-content: center; color: rgba(53,60,78,0.3); font-size: 2rem; }
+  .ag-evh__body { padding: clamp(1.1rem, 1.8vw, 1.5rem) 0 0; }
+  .ag-evh__meta { font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mag); margin: 0; }
+  .ag-evh__title { font-family: var(--font-title); font-weight: 700; color: var(--navy); font-size: clamp(1.4rem, 2.4vw, 1.95rem); line-height: 1.1; margin: 0.5rem 0 0.7rem; }
+  .ag-evh__text { font-family: var(--font-body); color: #4a5064; font-size: 0.98rem; line-height: 1.6; margin: 0; }
+  .ag-evh__cta { display: inline-block; margin-top: 1rem; font-family: var(--font-title); font-weight: 700; font-size: 0.9rem; color: var(--mag); }
+  .ag-evh__cta::after { content: " \2192"; }
+  .ag-evh:hover .ag-evh__cta { text-decoration: underline; }
+
+  @media (max-width: 760px) {
+    .ag-solo { grid-template-columns: 1fr; }
+    .ag-evgrid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .ag-cta__title { font-size: clamp(1.5rem, 6.6vw, 1.9rem); }
+  }
+
+  /* ---------- GRID CARTES ---------- */
+  .ag-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+    gap: clamp(1.4rem, 3vw, 2.2rem);
+  }
+  .ag-card {
+    background: #fff; border-radius: 0; overflow: hidden; cursor: pointer;
+    border: 1px solid rgba(53,60,78,0.10);
+    box-shadow: 0 10px 30px rgba(53,60,78,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex; flex-direction: column;
+    text-decoration: none; color: inherit;
+  }
+  .ag-card:hover, .ag-card:focus-visible {
+    transform: translateY(-4px); box-shadow: 0 18px 44px rgba(53,60,78,0.16); outline: none;
+  }
+  .ag-card__media {
+    position: relative; aspect-ratio: 4 / 3; background: #efe9e0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ag-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ag-card__media.is-ph::after { content: "\2726"; }
+  .ag-card__media.is-ph::after, .ag-card__ph { color: rgba(237,34,137,0.35); font-size: 2rem; }
+  .ag-card__date {
+    position: absolute; left: 14px; bottom: 14px;
+    background: #fff; border-top: 3px solid var(--mag);
+    border-radius: 7px; box-shadow: 0 5px 16px rgba(23, 27, 40, 0.24);
+    padding: 8px 14px; line-height: 1.15;
+    display: inline-flex; flex-direction: column; align-items: center; gap: 1px;
+    font-family: var(--font-title); text-transform: uppercase;
+  }
+  .ag-card__date-d {
+    display: block; white-space: nowrap;
+    color: var(--navy); font-weight: 700;
+    letter-spacing: 0.06em; font-size: 0.82rem;
+  }
+  .ag-card__date-y {
+    display: block; white-space: nowrap;
+    color: var(--mag); font-weight: 700;
+    letter-spacing: 0.08em; font-size: 0.74rem;
+  }
+  .ag-card__past {
+    position: absolute; right: 14px; top: 14px;
+    background: rgba(53,60,78,0.82); color: #fff; font-family: var(--font-title); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.66rem;
+    padding: 5px 11px; border-radius: 999px;
+  }
+  .ag-card.is-past .ag-card__media img { filter: grayscale(0.35); }
+  .ag-card__body { padding: 1.3rem 1.4rem 1.5rem; display: flex; flex-direction: column; flex: 1; }
+  .ag-card__day {
+    font-family: var(--font-body); font-weight: 700; text-transform: capitalize;
+    color: var(--mag); font-size: 0.85rem; letter-spacing: 0.02em; margin: 0 0 0.6rem;
+  }
+  .ag-card__t {
+    font-family: var(--font-display); font-weight: 500; color: var(--navy);
+    font-size: 1.3rem; line-height: 1.2; margin: 0 0 0.6rem;
+  }
+  .ag-card__ex {
+    font-family: var(--font-body); font-size: 0.92rem; line-height: 1.55; color: var(--muted);
+    margin: 0 0 1rem; flex: 1;
+  }
+  .ag-card__more {
+    font-family: var(--font-title); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.78rem; color: var(--mag); margin-top: auto;
+  }
+
+  @media (max-width: 560px) {
+    .ag-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- CTA CONTACT ---------- */
+  .ag-cta {
+    position: relative; overflow: hidden;
+    background: #fff;
+    margin-top: -1px;
+    min-height: clamp(420px, 58vh, 560px);
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    padding: clamp(5rem, 12vh, 8rem) 28px clamp(3.5rem, 8vh, 6rem);
+  }
+  .ag-cta__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* voile sombre : lisibilité du texte blanc */
+  .ag-cta__scrim {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(to top, rgba(30,34,46,0.82) 0%, rgba(30,34,46,0.62) 55%, rgba(30,34,46,0.55) 100%);
+  }
+  /* dégradé blanc en haut : fond l'image dans la section blanche au-dessus */
+  .ag-cta__fade {
+    position: absolute; left: 0; right: 0; top: 0; height: 40%; pointer-events: none;
+    background: linear-gradient(to bottom, #fff 0%, #fff 9%, rgba(255,255,255,0.85) 26%, rgba(255,255,255,0) 100%);
+  }
+  .ag-cta__in { position: relative; z-index: 2; max-width: 640px; margin: 0 auto; }
+  .ag-cta__kicker {
+    font-family: var(--font-body); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.28em; font-size: 0.72rem; color: #fff; margin: 0 0 0.9rem;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.45);
+  }
+  .ag-cta__title {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(1.7rem, 4.4vw, 2.9rem); line-height: 1.12; color: #fff; margin: 0 0 1rem;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.55); text-wrap: balance;
+  }
+  .ag-cta__text {
+    font-family: var(--font-body); font-size: 1.05rem; line-height: 1.7;
+    color: rgba(255,255,255,0.92); margin: 0 auto 2.2rem; max-width: 34em;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.45);
+  }
+  .ag-cta__btns { display: flex; flex-wrap: wrap; gap: 0.9rem; justify-content: center; }
+  .ag-cta__btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    font-family: var(--font-title); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.82rem; text-decoration: none;
+    padding: 15px 32px; border-radius: 999px; transition: all 0.2s ease;
+  }
+  .ag-cta__btn--mag { background: var(--mag); color: #fff; }
+  .ag-cta__btn--mag:hover { opacity: 0.9; }
+  .ag-cta__btn--ghost { color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.55); }
+  .ag-cta__btn--ghost:hover { background: #fff; color: var(--navy); }
+
 </style>
