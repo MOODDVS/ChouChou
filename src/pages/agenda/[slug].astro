@@ -1,0 +1,335 @@
+---
+// Page d'un événement (URL /agenda/<slug>). Pas de hero : l'image de l'événement
+// est affichée en entier (jamais rognée), largeur max 1024px, centrée sous le
+// header. Titre, date et TEXTE LONG (body_long_i18n) centrés. Moteur non touché.
+import Layout from "../../layouts/Layout.astro";
+import { getLangFromUrl, getLocalizedUrl } from "../../i18n/ui";
+import { getAgendaBySlug, getAgendaTous, slugifyTitre } from "../../lib/agenda";
+
+export const prerender = false;
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+const loc = en ? "en-GB" : "fr-FR";
+
+const { slug } = Astro.params;
+const ev = slug ? await getAgendaBySlug(slug) : null;
+if (!ev) return Astro.redirect(getLocalizedUrl("/agenda", lang));
+
+const titre = en ? (ev.title_i18n?.en ?? ev.title) : ev.title;
+const photo = ev.image_url || "/chouchou-restaurant.webp";
+const gallery = (ev.gallery ?? []).filter(Boolean);
+const oggi = new Date().toISOString().slice(0, 10);
+const passe = (ev.date_end || ev.date_start) < oggi;
+
+// Texte long (HTML du rich text de l'admin) dans la langue active, repli FR.
+const longMap = ev.body_long_i18n ?? {};
+const bodyLong = (longMap[lang] || longMap.fr || Object.values(longMap)[0] || "").trim();
+
+function fmtJour(iso: string): string {
+  try {
+    return new Date(iso + "T12:00:00").toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  } catch {
+    return iso;
+  }
+}
+const dateStr =
+  ev.date_end && ev.date_end !== ev.date_start
+    ? `${en ? "from" : "du"} ${fmtJour(ev.date_start)} ${en ? "to" : "au"} ${fmtJour(ev.date_end)}`
+    : fmtJour(ev.date_start);
+
+// Événements précédent / suivant (ordre chronologique par date).
+const tousEv = await getAgendaTous(500);
+const chrono = [...tousEv].sort((a, b) => a.date_start.localeCompare(b.date_start));
+const posIdx = chrono.findIndex((e) => e.id === ev.id);
+const prevEv = posIdx > 0 ? chrono[posIdx - 1] : null;
+const nextEv = posIdx >= 0 && posIdx < chrono.length - 1 ? chrono[posIdx + 1] : null;
+const titreDe = (e: { title: string; title_i18n: Record<string, string> | null }) => (en ? (e.title_i18n?.en ?? e.title) : e.title);
+const dateCourte = (iso: string) => {
+  try { return new Date(iso + "T12:00:00").toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" }); }
+  catch { return iso; }
+};
+
+const reserveUrl = getLocalizedUrl("/reservation", lang);
+const agendaUrl = getLocalizedUrl("/agenda", lang);
+const L = {
+  back: en ? "Back to the agenda" : "Retour à l'agenda",
+  book: en ? "Book a table" : "Réserver une table",
+};
+---
+
+<Layout title={titre + ", Comptoir Chouchou"} lightHeader={true}>
+  <article class="ev">
+    <div class="ev-media">
+      <img class="ev-img" src={photo} alt={titre} loading="eager" decoding="async" />
+    </div>
+    <div class="ev-card">
+      <div class="ev-in">
+        <a class="ev-back" href={agendaUrl}>← {L.back}</a>
+        <h1 class="ev-title">{titre}</h1>
+        <p class="ev-date">{dateStr}</p>
+        {bodyLong
+          ? <div class="ev-body" set:html={bodyLong} />
+          : (ev.body && <div class="ev-body ev-body--plain">{ev.body}</div>)}
+      </div>
+
+      {gallery.length > 0 && (
+        <div class="ev-gallery">
+          {gallery.map((src, i) => (
+            <a class="ev-gallery__item" href={src} data-idx={i} target="_blank" rel="noopener noreferrer">
+              <img src={src} alt={titre} loading="lazy" decoding="async" />
+            </a>
+          ))}
+        </div>
+      )}
+
+
+      {!passe && <a class="ev-cta" href={reserveUrl}>{L.book} →</a>}
+    </div>
+
+      {gallery.length > 0 && (
+        <div class="ev-lb" id="ev-lb" hidden aria-hidden="true">
+          <button type="button" class="ev-lb__x" id="ev-lb-x" aria-label={en ? "Close" : "Fermer"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
+          <button type="button" class="ev-lb__nav ev-lb__prev" id="ev-lb-prev" aria-label={en ? "Previous" : "Précédent"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <img class="ev-lb__img" id="ev-lb-img" src="" alt={titre} />
+          <button type="button" class="ev-lb__nav ev-lb__next" id="ev-lb-next" aria-label={en ? "Next" : "Suivant"}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      )}
+    {prevEv && (
+      <a class="ev-nav ev-nav--prev" href={`/agenda/${slugifyTitre(prevEv.title)}`} aria-label={titreDe(prevEv)}>
+        <span class="ev-nav__arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span>
+        <span class="ev-nav__meta">
+          <span class="ev-nav__k">{en ? "Previous" : "Précédent"}</span>
+          <span class="ev-nav__name">{titreDe(prevEv)}</span>
+          <span class="ev-nav__date">{dateCourte(prevEv.date_start)}</span>
+        </span>
+      </a>
+    )}
+    {nextEv && (
+      <a class="ev-nav ev-nav--next" href={`/agenda/${slugifyTitre(nextEv.title)}`} aria-label={titreDe(nextEv)}>
+        <span class="ev-nav__arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+        <span class="ev-nav__meta">
+          <span class="ev-nav__k">{en ? "Next" : "Suivant"}</span>
+          <span class="ev-nav__name">{titreDe(nextEv)}</span>
+          <span class="ev-nav__date">{dateCourte(nextEv.date_start)}</span>
+        </span>
+      </a>
+    )}
+  </article>
+
+<script is:inline>
+  (function () {
+    var lb = document.getElementById("ev-lb");
+    if (!lb) return;
+    var img = document.getElementById("ev-lb-img");
+    var items = Array.prototype.slice.call(document.querySelectorAll(".ev-gallery__item"));
+    var srcs = items.map(function (a) { return a.getAttribute("href"); });
+    var idx = 0;
+
+    function show(i) {
+      idx = (i + srcs.length) % srcs.length;
+      img.setAttribute("src", srcs[idx]);
+    }
+    function open(i) {
+      show(i);
+      lb.hidden = false;
+      lb.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+    }
+    function close() {
+      lb.hidden = true;
+      lb.setAttribute("aria-hidden", "true");
+      img.setAttribute("src", "");
+      document.body.style.overflow = "";
+    }
+
+    items.forEach(function (a, i) {
+      a.addEventListener("click", function (ev) { ev.preventDefault(); open(i); });
+    });
+    document.getElementById("ev-lb-x").addEventListener("click", close);
+    document.getElementById("ev-lb-prev").addEventListener("click", function (e) { e.stopPropagation(); show(idx - 1); });
+    document.getElementById("ev-lb-next").addEventListener("click", function (e) { e.stopPropagation(); show(idx + 1); });
+    lb.addEventListener("click", function (e) { if (e.target === lb) close(); });
+    document.addEventListener("keydown", function (e) {
+      if (lb.hidden) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowLeft") show(idx - 1);
+      else if (e.key === "ArrowRight") show(idx + 1);
+    });
+  })();
+</script>
+</Layout>
+
+<style>
+  .ev {
+    --navy: #353c4e;
+    --mag: #ed2289;
+    --muted: #6b7183;
+    background: #ffffff;
+    padding: clamp(9rem, 16vh, 12.5rem) 24px clamp(4rem, 9vw, 6.5rem);
+  }
+  /* Image principale : plus large (1180) mais PAS plus haute (hauteur plafonnée, cover) */
+  .ev-media { max-width: 1180px; margin: 0 auto; }
+  .ev-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 620px;
+    object-fit: cover;
+  }
+  /* Bloc texte : max 1024, remonté de 40px sur l'image, ombre douce portée dessus */
+  .ev-card {
+    position: relative; z-index: 1;
+    max-width: 1024px;
+    margin: -40px auto 0;
+    background: #fff;
+    padding: clamp(2.4rem, 5vw, 3.6rem) clamp(1.4rem, 4vw, 3rem) clamp(1rem, 2vw, 1.5rem);
+    border-top: 1px solid var(--mag);
+    text-align: center;
+  }
+  .ev-in { max-width: 760px; margin: 0 auto; }
+  .ev-back {
+    display: inline-block;
+    font-family: var(--font-body); font-weight: 700;
+    font-size: 0.85rem; letter-spacing: 0.02em;
+    color: var(--mag); text-decoration: none;
+    margin: 0 0 1.6rem;
+  }
+  .ev-back:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .ev-title {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1;
+    color: var(--navy); margin: 0 0 0.7rem; text-wrap: balance;
+  }
+  .ev-date {
+    font-family: var(--font-body); font-weight: 700; text-transform: capitalize;
+    color: var(--mag); font-size: 1rem; margin: 0 0 2rem;
+  }
+  .ev-body {
+    font-family: var(--font-body); font-size: 1.05rem; line-height: 1.8;
+    color: #4a4f5c;
+  }
+  .ev-body--plain { white-space: pre-line; }
+  .ev-body :global(p) { margin: 0 0 1.1rem; }
+  .ev-body :global(h2) { font-family: var(--font-title); color: var(--mag); margin: 1.8rem 0 0.6rem; }
+  .ev-body :global(h3) { font-family: var(--font-title); color: var(--navy); margin: 1.8rem 0 0.6rem; }
+  .ev-body :global(ul),
+  .ev-body :global(ol) { display: inline-block; text-align: left; margin: 0.4rem 0 1.1rem; }
+  .ev-body :global(a) { color: var(--mag); }
+  .ev-body :global(strong) { color: var(--navy); }
+  /* Texte en italique (ex. « sur réservation uniquement… ») : plus grand + accent */
+  .ev-body :global(em),
+  .ev-body :global(i) { font-style: italic; color: var(--mag); font-size: 1.55em; line-height: 1.35; }
+  .ev-cta {
+    display: inline-block; margin-top: 2.4rem;
+    background: var(--mag); color: #fff; text-decoration: none;
+    font-family: var(--font-title); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.82rem; padding: 15px 34px; border-radius: 999px;
+    transition: opacity 0.2s ease;
+  }
+  .ev-cta:hover { opacity: 0.9; }
+
+  /* ---------- GALERIE PHOTOS DE L'ÉVÉNEMENT ---------- */
+  .ev-gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 920px;
+    margin: clamp(2.4rem, 5vw, 3.4rem) auto 0;
+  }
+  .ev-gallery__item {
+    display: block;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #efe9e0;
+  }
+  .ev-gallery__item img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    transition: transform 0.35s ease;
+  }
+  .ev-gallery__item:hover img { transform: scale(1.05); }
+  @media (max-width: 560px) {
+    .ev-gallery { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  }
+
+
+  /* ---------- LIGHTBOX ---------- */
+  .ev-lb {
+    position: fixed; inset: 0; z-index: 400;
+    background: rgba(20, 23, 33, 0.92);
+    display: flex; align-items: center; justify-content: center;
+    padding: clamp(1rem, 5vw, 4rem);
+  }
+  .ev-lb[hidden] { display: none; }
+  .ev-lb__img {
+    max-width: min(1100px, 94vw); max-height: 88vh;
+    width: auto; height: auto; object-fit: contain;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .ev-lb__x, .ev-lb__nav {
+    position: absolute; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; color: #fff;
+    background: rgba(255,255,255,0.12); border-radius: 999px;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .ev-lb__nav:hover { background: rgba(255,255,255,0.26); }
+  .ev-lb__x {
+    top: max(3vh, 16px); right: max(3vw, 16px); width: 52px; height: 52px;
+    background: var(--mag); color: #fff; box-shadow: 0 6px 20px rgba(237,34,137,0.45);
+  }
+  .ev-lb__x:hover { background: #ff2e97; transform: scale(1.06); }
+  .ev-lb__x svg { width: 22px; height: 22px; }
+  .ev-lb__nav { top: 50%; transform: translateY(-50%); width: 52px; height: 52px; }
+  .ev-lb__nav svg { width: 26px; height: 26px; }
+  .ev-lb__prev { left: max(2vw, 12px); }
+  .ev-lb__next { right: max(2vw, 12px); }
+  @media (max-width: 560px) {
+    .ev-lb__nav { width: 44px; height: 44px; }
+  }
+
+
+  /* ---------- NAVIGATION ENTRE ÉVÉNEMENTS ---------- */
+  .ev-nav {
+    position: fixed; top: 50%; transform: translateY(-50%); z-index: 40;
+    display: flex; align-items: center; gap: 11px;
+    background: transparent; text-decoration: none;
+    padding: 12px 16px; max-width: 250px;
+    transition: transform 0.25s ease;
+  }
+  .ev-nav__arrow {
+    flex: 0 0 auto; width: 38px; height: 38px; border-radius: 999px;
+    background: var(--mag); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(237,34,137,0.32);
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .ev-nav:hover .ev-nav__arrow { background: #ff2e97; transform: scale(1.06); }
+  .ev-nav__arrow svg { width: 19px; height: 19px; }
+  .ev-nav__meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .ev-nav__k { font-family: var(--font-body); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.56rem; color: var(--mag); }
+  .ev-nav__name { font-family: var(--font-title); font-weight: 600; font-size: 0.82rem; line-height: 1.15; color: var(--navy); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev-nav__date { font-family: var(--font-body); font-size: 0.66rem; color: var(--muted); }
+
+  .ev-nav--prev { left: 0; }
+  .ev-nav--prev:hover { transform: translateY(-50%) translateX(3px); }
+  .ev-nav--next { right: 0; flex-direction: row-reverse; text-align: right; }
+  .ev-nav--next .ev-nav__meta { align-items: flex-end; }
+  .ev-nav--next:hover { transform: translateY(-50%) translateX(-3px); }
+
+  /* Mobile : seulement la flèche, juste au-dessus du menu flottant (barre à 16px + 62px) */
+  @media (max-width: 900px) {
+    .ev { padding-top: clamp(6.5rem, 11vh, 8rem); }
+    .ev-nav { top: auto; bottom: 90px; transform: none; padding: 8px; max-width: none; }
+    .ev-nav__meta { display: none; }
+    .ev-nav--prev:hover, .ev-nav--next:hover { transform: none; }
+  }
+
+</style>
