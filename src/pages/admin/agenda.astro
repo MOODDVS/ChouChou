@@ -238,6 +238,18 @@ const pubLangsJson = JSON.stringify({
       .f-input::placeholder, .f-area::placeholder { color: var(--c-muted); opacity: 0.7; }
       .f-input:focus, .f-area:focus { outline: none; border-color: var(--c-accent); }
       .f-area { min-height: 90px; resize: vertical; }
+      /* Editor rich text (descrizione lunga evento) */
+      .rte { border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-card); overflow: hidden; }
+      .rte-tb { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.4rem; border-bottom: 1px solid var(--c-line); background: color-mix(in srgb, var(--c-line) 22%, transparent); }
+      .rte-b { min-width: 30px; height: 30px; padding: 0 0.5rem; border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); border-radius: 6px; cursor: pointer; font-size: 0.85rem; line-height: 1; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-body); }
+      .rte-b:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .rte-ed { min-height: 180px; padding: 0.65rem 0.85rem; color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; line-height: 1.6; outline: none; overflow-y: auto; }
+      .rte-ed:empty::before { content: attr(data-ph); color: var(--c-muted); opacity: 0.7; }
+      .rte-ed h2 { font-family: var(--font-title); font-size: 1.25rem; letter-spacing: 0.02em; margin: 0.7rem 0 0.3rem; }
+      .rte-ed h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.02em; margin: 0.6rem 0 0.25rem; }
+      .rte-ed p { margin: 0 0 0.6rem; }
+      .rte-ed a { color: var(--c-accent); text-decoration: underline; }
+      .rte-ed ul, .rte-ed ol { margin: 0 0 0.6rem 1.2rem; }
       .f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
       .f-row--img { grid-template-columns: 1fr auto; align-items: center; }
       .picks--lang { margin-bottom: 0.2rem; }
@@ -723,10 +735,49 @@ const pubLangsJson = JSON.stringify({
             .join("");
           const ordine2 = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
           fLongLangs.innerHTML = ordine2
-            .map((l) => `<label class="f-lab">${esc(tr("ag.descLong"))} (${esc(langTag(l))})</label><textarea class="f-area f-lx" data-lang="${l}" style="min-height:180px"></textarea>`)
+            .map((l) => `<label class="f-lab">${esc(tr("ag.descLong"))} (${esc(langTag(l))})</label>` +
+              `<div class="rte">` +
+                `<div class="rte-tb">` +
+                  `<button type="button" class="rte-b" data-cmd="bold" title="${esc(tr("ag.rteBold"))}"><b>B</b></button>` +
+                  `<button type="button" class="rte-b" data-cmd="italic" title="${esc(tr("ag.rteItalic"))}"><i>I</i></button>` +
+                  `<button type="button" class="rte-b" data-cmd="h2" title="${esc(tr("ag.rteH2"))}">H2</button>` +
+                  `<button type="button" class="rte-b" data-cmd="h3" title="${esc(tr("ag.rteH3"))}">H3</button>` +
+                  `<button type="button" class="rte-b" data-cmd="link" title="${esc(tr("ag.rteLink"))}">🔗</button>` +
+                  `<button type="button" class="rte-b" data-cmd="unlink" title="${esc(tr("ag.rteUnlink"))}">⤫</button>` +
+                `</div>` +
+                `<div class="rte-ed f-lx" contenteditable="true" data-lang="${l}" data-ph="${esc(tr("ag.textPh"))}"></div>` +
+              `</div>`)
             .join("");
         }
         costruisciCampiLinguaEvento();
+        try { document.execCommand("defaultParagraphSeparator", false, "p"); } catch { /* non supportato */ }
+        function rteExec(ed: HTMLElement, cmd: string) {
+          ed.focus();
+          if (cmd === "bold" || cmd === "italic") { document.execCommand(cmd, false); return; }
+          if (cmd === "h2" || cmd === "h3") {
+            let blk = "";
+            try { blk = String(document.queryCommandValue("formatBlock") || "").toLowerCase(); } catch { /* ignore */ }
+            document.execCommand("formatBlock", false, blk === cmd ? "P" : cmd.toUpperCase());
+            return;
+          }
+          if (cmd === "unlink") { document.execCommand("unlink", false); return; }
+          if (cmd === "link") {
+            const url = window.prompt(tr("ag.rteLinkPrompt"), "https://");
+            if (url == null) return;
+            const u = url.trim();
+            if (!u) { document.execCommand("unlink", false); return; }
+            document.execCommand("createLink", false, u);
+            return;
+          }
+        }
+        // mousedown + preventDefault: non perdere la selezione nell'editor
+        fLongLangs.addEventListener("mousedown", (e) => {
+          const b = (e.target as HTMLElement).closest(".rte-b") as HTMLElement | null;
+          if (!b) return;
+          e.preventDefault();
+          const ed = b.closest(".rte")?.querySelector(".rte-ed") as HTMLElement | null;
+          if (ed && b.dataset.cmd) rteExec(ed, b.dataset.cmd);
+        });
 
         // Tab della colonna destra (Descrizione / Galleria / Impostazioni)
         const evTabs = document.getElementById("ev-tabs") as HTMLDivElement;
@@ -790,7 +841,7 @@ const pubLangsJson = JSON.stringify({
           renderFotoPrev();
           { const ti = ev?.title_i18n ?? {}; fLangs.querySelectorAll<HTMLInputElement>(".f-tx").forEach((inp) => { const l = inp.dataset.lang ?? ""; inp.value = ti[l] ?? (l === PUB.def ? (ev?.title ?? "") : ""); }); }
           { const bi = ev?.body_i18n ?? {}; fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const l = ta.dataset.lang ?? ""; ta.value = bi[l] ?? (l === PUB.def ? (ev?.body ?? "") : ""); }); }
-          { const bl = ev?.body_long_i18n ?? {}; fLongLangs.querySelectorAll<HTMLTextAreaElement>(".f-lx").forEach((ta) => { ta.value = bl[ta.dataset.lang ?? ""] ?? ""; }); }
+          { const bl = ev?.body_long_i18n ?? {}; fLongLangs.querySelectorAll<HTMLElement>(".f-lx").forEach((ed) => { ed.innerHTML = bl[ed.dataset.lang ?? ""] ?? ""; }); }
           fRsvpMax.value = ev?.rsvp_max != null ? String(ev.rsvp_max) : "";
           mostraTabEv("desc");
           galleria = Array.isArray(ev?.gallery) ? [...ev!.gallery] : [];
@@ -1008,7 +1059,7 @@ const pubLangsJson = JSON.stringify({
           const bodyI18n: Record<string, string> = {};
           fLangs.querySelectorAll<HTMLTextAreaElement>(".f-bx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyI18n[ta.dataset.lang ?? ""] = v; });
           const bodyLongI18n: Record<string, string> = {};
-          fLongLangs.querySelectorAll<HTMLTextAreaElement>(".f-lx").forEach((ta) => { const v = ta.value.trim(); if (v) bodyLongI18n[ta.dataset.lang ?? ""] = v; });
+          fLongLangs.querySelectorAll<HTMLElement>(".f-lx").forEach((ed) => { const html = (ed.innerHTML || "").trim(); if (html && (ed.textContent ?? "").trim()) bodyLongI18n[ed.dataset.lang ?? ""] = html; });
           const rsvpMaxN = parseInt(fRsvpMax.value, 10);
           const payload = {
             id: editId ?? undefined,
