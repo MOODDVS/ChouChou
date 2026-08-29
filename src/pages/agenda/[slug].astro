@@ -60,7 +60,7 @@ const L = {
 };
 ---
 
-<Layout title={titre + ", Comptoir Chouchou"} description={metaDesc} lightHeader={true}>
+<Layout title={titre + ", Comptoir Chouchou"} description={metaDesc} ogImage={ev.image_url ?? undefined} lightHeader={true}>
   <article class="ev">
     <div class="ev-media">
       <img class="ev-img" src={photo} alt={titre} loading="eager" fetchpriority="high" decoding="async" />

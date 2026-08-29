@@ -15,12 +15,13 @@ interface Props {
   title?: string;
   description?: string;
   noindex?: boolean;
+  ogImage?: string;
   transparentHeader?: boolean;
   lightHeader?: boolean;
   hideMobileNav?: boolean;
   bare?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, description: descProp, noindex = false, transparentHeader = true, lightHeader = false, hideMobileNav = false, bare = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, description: descProp, noindex = false, ogImage: ogImageProp, transparentHeader = true, lightHeader = false, hideMobileNav = false, bare = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -32,7 +33,10 @@ const description =
     : "Comptoir Chouchou, restaurant et épicerie à Mont-Saint-Guibert, en Brabant wallon. Cuisine créative et faite maison, au fil des saisons. Réservez votre table.");
 
 const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://example.com").replace(/\/$/, "");
-const ogImage = `${siteUrl}/slideshow/slide-01.webp`;
+const ogImage = ogImageProp
+  ? (ogImageProp.startsWith("http") ? ogImageProp : new URL(ogImageProp, siteUrl).href)
+  : `${siteUrl}/og-image.jpg`;
+const ogImageDefault = !ogImageProp;
 const canonical = new URL(Astro.url.pathname, siteUrl).href;
 
 // Favicon del brand (Admin -> Général): usata sul sito pubblico E sull'admin.
@@ -88,6 +92,11 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang);
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImage} />
+    <meta property="og:image:secure_url" content={ogImage} />
+    {ogImageDefault && <meta property="og:image:type" content="image/jpeg" />}
+    {ogImageDefault && <meta property="og:image:width" content="1200" />}
+    {ogImageDefault && <meta property="og:image:height" content="630" />}
+    <meta property="og:image:alt" content={title} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={ogLocale} />
 
