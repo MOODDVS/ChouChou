@@ -57,6 +57,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 48 | `reservation_reminder.sql` | `reminder_sent_at` su reservations: rappel client ~3h avant (jour futur uniquement, anti-doublon) |
 | 49 | `orders_manual_payment.sql` | orders: toglie il check lang fr/en (ora fr/en/it/nl/es come reservations) + colonna `payment_method` (cash/card/link) per ordini pagati di persona in cassa |
 | 50 | `orders_modifica_diff.sql` | orders: `supplement_due_cents`/`supplement_paid_at`/`refund_due_cents` per la differenza d'importo dopo una modifica (link supplemento se aumenta, bottone rimborso se diminuisce) |
+| 51 | `lunch_hide_by_course.sql` | `hide_by_course` (jsonb) su lunch_menus: nascondi i piatti del lunch dal menu pubblico PER PORTATA (estende hide_items; fallback automatico se manca). I menù fissi usano il flag `hide` dentro il JSON `courses` (no migrazione). |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 
