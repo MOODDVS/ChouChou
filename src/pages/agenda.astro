@@ -118,7 +118,12 @@ const SPARKS = [
 ];
 ---
 
-<Layout title={(en ? "Events" : "Agenda") + ", Comptoir Chouchou"}>
+<Layout
+  title={en ? "Events, Comptoir Chouchou in Mont-Saint-Guibert" : "Agenda & événements, Comptoir Chouchou"}
+  description={en
+    ? "What's on at Comptoir Chouchou in Mont-Saint-Guibert: guest-chef evenings, Sunday brunches and events. Find our next dates."
+    : "L'agenda du Comptoir Chouchou à Mont-Saint-Guibert : « Un soir, un Chef », brunchs du dimanche et événements. Retrouvez nos prochains rendez-vous."}
+>
   <div class="ag">
     <!-- HERO -->
     <section class="ag-hero">

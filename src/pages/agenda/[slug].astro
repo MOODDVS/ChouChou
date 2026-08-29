@@ -50,6 +50,8 @@ const dateCourte = (iso: string) => {
   catch { return iso; }
 };
 
+const metaDesc = ((en ? (ev.body_i18n?.en ?? ev.body) : ev.body) || "").trim() ||
+  (en ? "Event at Comptoir Chouchou, restaurant in Mont-Saint-Guibert." : "Événement au Comptoir Chouchou, restaurant à Mont-Saint-Guibert.");
 const reserveUrl = getLocalizedUrl("/reservation", lang);
 const agendaUrl = getLocalizedUrl("/agenda", lang);
 const L = {
@@ -58,7 +60,7 @@ const L = {
 };
 ---
 
-<Layout title={titre + ", Comptoir Chouchou"} lightHeader={true}>
+<Layout title={titre + ", Comptoir Chouchou"} description={metaDesc} lightHeader={true}>
   <article class="ev">
     <div class="ev-media">
       <img class="ev-img" src={photo} alt={titre} loading="eager" fetchpriority="high" decoding="async" />

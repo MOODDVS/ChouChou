@@ -9,23 +9,27 @@ import { getLangFromUrl } from "../i18n/ui";
 import { CLIENT } from "../config/client";
 import { supabaseAdmin } from "../lib/db";
 import { cacheOr } from "../lib/cache";
+import { restaurantJsonLd } from "../lib/jsonLd";
 
 interface Props {
   title?: string;
+  description?: string;
+  noindex?: boolean;
   transparentHeader?: boolean;
   lightHeader?: boolean;
   hideMobileNav?: boolean;
   bare?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = true, lightHeader = false, hideMobileNav = false, bare = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, description: descProp, noindex = false, transparentHeader = true, lightHeader = false, hideMobileNav = false, bare = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
-// SEO: descrizione unica per tutto il sito (bilingue), immagine di condivisione.
+// SEO: descrizione per-pagina (passata dalle pagine); fallback ricco di keyword locali.
 const description =
-  lang === "en"
-    ? `${CLIENT.nome} — ${CLIENT.claim}.`
-    : `${CLIENT.nome} — ${CLIENT.claim}.`;
+  descProp ??
+  (lang === "en"
+    ? "Comptoir Chouchou, restaurant and grocery in Mont-Saint-Guibert, Walloon Brabant. Creative, homemade cuisine in tune with the seasons. Book your table."
+    : "Comptoir Chouchou, restaurant et épicerie à Mont-Saint-Guibert, en Brabant wallon. Cuisine créative et faite maison, au fil des saisons. Réservez votre table.");
 
 const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://example.com").replace(/\/$/, "");
 const ogImage = `${siteUrl}/slideshow/slide-01.webp`;
@@ -44,6 +48,16 @@ const brandFavicon = await cacheOr("public:favicon", async () => {
   }
 });
 const ogLocale = lang === "en" ? "en_US" : "fr_BE";
+
+// hreflang FR/EN (versione alternata della pagina corrente)
+const _p = Astro.url.pathname;
+const frPath = _p === "/en" ? "/" : _p.startsWith("/en/") ? _p.slice(3) : _p;
+const enPath = frPath === "/" ? "/en" : "/en" + frPath;
+const frUrl = new URL(frPath, siteUrl).href;
+const enUrl = new URL(enPath, siteUrl).href;
+
+// Dati strutturati Restaurant (SEO locale), su tutte le pagine tranne quelle "bare".
+const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang);
 ---
 
 <html lang={lang}>
@@ -53,6 +67,10 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
+    <link rel="alternate" hreflang="fr-be" href={frUrl} />
+    <link rel="alternate" hreflang="en" href={enUrl} />
+    <link rel="alternate" hreflang="x-default" href={frUrl} />
 
     {brandFavicon ? (
       <link rel="icon" href={brandFavicon} />
@@ -413,6 +431,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
       .bk-cal-cell.is-disabled { color: #4a4a4a; cursor: not-allowed; text-decoration: line-through; }
       .bk-cal-cell.is-selected { background: var(--c-text); color: var(--c-bg); }
     </style>
+    {jsonLd && <script type="application/ld+json" set:html={jsonLd} is:inline />}
   </head>
   <body>
     {!bare && <Header transparent={transparentHeader} onLight={lightHeader} />}

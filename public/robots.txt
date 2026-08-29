@@ -1,14 +1,18 @@
 User-agent: *
 Allow: /
 
-# Pagine post-pagamento e API: non indicizzare
+# Pages post-paiement, widget et API : ne pas indexer
+Disallow: /order
 Disallow: /order-confirm
 Disallow: /order-cancel
+Disallow: /en/order
 Disallow: /en/order-confirm
 Disallow: /en/order-cancel
+Disallow: /reservation-embed
+Disallow: /reservation/cancel
+Disallow: /order/cancel
+Disallow: /feedback
+Disallow: /en/feedback
 Disallow: /api/
 
-# PER-CLIENTE: sostituire col dominio del cliente (deve combaciare con
-# `site` in astro.config.mjs). Se resta sbagliato, Google legge la sitemap
-# di un altro sito.
-Sitemap: https://www.dominiocliente.be/sitemap-index.xml
+Sitemap: https://www.comptoirchouchou.be/sitemap.xml

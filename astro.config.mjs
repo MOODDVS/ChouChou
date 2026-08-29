@@ -2,7 +2,6 @@
 import { defineConfig } from "astro/config";
 import node from "@astrojs/node";
 import react from "@astrojs/react";
-import sitemap from "@astrojs/sitemap";
 
 // https://astro.build/config
 export default defineConfig({
@@ -18,7 +17,7 @@ export default defineConfig({
   // autenticato via Bearer token (non via cookie), quindi non è esposto a CSRF,
   // e gli endpoint pubblici sono non autenticati e già inviano JSON.
   security: { checkOrigin: false },
-  integrations: [react(), sitemap()],
+  integrations: [react()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {
     // Inietta il CSS dei componenti direttamente nell'HTML invece di servirlo
@@ -34,5 +33,5 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
-  site: "https://example.com", // CAMBIARE per cliente (vedi SETUP.md)
+  site: "https://www.comptoirchouchou.be",
 });

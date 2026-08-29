@@ -57,7 +57,12 @@ const MARQUES = [
 ];
 ---
 
-<Layout title={L.title + ", Comptoir Chouchou"}>
+<Layout
+  title={en ? "Grocery, Comptoir Chouchou in Mont-Saint-Guibert" : "L'épicerie, Comptoir Chouchou à Mont-Saint-Guibert"}
+  description={en
+    ? "The Comptoir Chouchou grocery in Mont-Saint-Guibert: a selection of gourmet, quality products, local and beyond, to take home."
+    : "L'épicerie du Comptoir Chouchou à Mont-Saint-Guibert : une sélection de produits gourmands et de qualité, d'ici et d'ailleurs, à emporter chez vous."}
+>
   <div class="chou">
   <section class="ep-hero">
     <div class="ep-hero__bg" aria-hidden="true"></div>
