@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { trovaCategoriaStandard, i18nStandard } from "./admin/categorieStandard";
+import { cacheOr } from "./cache";
 import { prezzoEffettivo } from "./pricing";
 
 const SUPABASE_URL = import.meta.env.SUPABASE_URL;
@@ -244,6 +245,10 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
  * Usata in /menu.
  */
 export async function getMenu(): Promise<MenuCategoria[]> {
+  return cacheOr("menu:public", getMenuNoCache);
+}
+
+async function getMenuNoCache(): Promise<MenuCategoria[]> {
   let res: { data: any[] | null; error: { message?: string } | null } = await supabaseAdmin
     .from("menu_items")
     .select(MENU_SELECT_I18N)

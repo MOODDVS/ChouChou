@@ -102,7 +102,7 @@ const L = {
         </div>
       )}
     {prevEv && (
-      <a class="ev-nav ev-nav--prev" href={`/agenda/${slugifyTitre(prevEv.title)}`} aria-label={titreDe(prevEv)}>
+      <a class="ev-nav ev-nav--prev" href={getLocalizedUrl(`/agenda/${slugifyTitre(prevEv.title)}`, lang)} aria-label={titreDe(prevEv)}>
         <span class="ev-nav__arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></span>
         <span class="ev-nav__meta">
           <span class="ev-nav__k">{en ? "Previous" : "Précédent"}</span>
@@ -112,7 +112,7 @@ const L = {
       </a>
     )}
     {nextEv && (
-      <a class="ev-nav ev-nav--next" href={`/agenda/${slugifyTitre(nextEv.title)}`} aria-label={titreDe(nextEv)}>
+      <a class="ev-nav ev-nav--next" href={getLocalizedUrl(`/agenda/${slugifyTitre(nextEv.title)}`, lang)} aria-label={titreDe(nextEv)}>
         <span class="ev-nav__arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
         <span class="ev-nav__meta">
           <span class="ev-nav__k">{en ? "Next" : "Suivant"}</span>

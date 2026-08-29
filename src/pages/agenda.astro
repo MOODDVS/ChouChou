@@ -62,6 +62,7 @@ const L = {
   soon: en ? "Coming soon" : "Bientôt",
 };
 
+const bodyDi = (e: { body: string | null; body_i18n?: Record<string, string> | null }) => (en ? (e.body_i18n?.en ?? e.body) : e.body);
 function titreDi(e: { title: string; title_i18n: Record<string, string> | null }): string {
   return en ? (e.title_i18n?.en ?? e.title) : e.title;
 }
@@ -156,7 +157,7 @@ const SPARKS = [
           <Fragment>
             {futurs.length === 1 && futurs.map((e) => (
               <article class="ag-solo">
-                <a class="ag-solo__media" href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+                <a class="ag-solo__media" href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
                   {e.image_url
                     ? <img src={e.image_url} alt={titreDi(e)} loading="eager" decoding="async" onerror="this.remove();" />
                     : <span class="ph" aria-hidden="true">✦</span>}
@@ -164,8 +165,8 @@ const SPARKS = [
                 <div class="ag-solo__body">
                   <p class="ag-solo__meta">{jourLigne(e)}</p>
                   <h2 class="ag-solo__title">{titreDi(e)}</h2>
-                  {extrait(e.body, 260) && <p class="ag-solo__text">{extrait(e.body, 260)}</p>}
-                  <a class="ag-solo__btn" href={`/agenda/${slugifyTitre(e.title)}`}>{L.more} →</a>
+                  {extrait(bodyDi(e), 260) && <p class="ag-solo__text">{extrait(bodyDi(e), 260)}</p>}
+                  <a class="ag-solo__btn" href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)}>{L.more} →</a>
                 </div>
               </article>
             ))}
@@ -173,7 +174,7 @@ const SPARKS = [
             {futurs.length > 1 && (
               <div class="ag-evgrid">
                 {futurs.map((e) => (
-                  <a class="ag-evh" href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+                  <a class="ag-evh" href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
                     <div class="ag-evh__media">
                       {e.image_url
                         ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.remove();" />
@@ -182,7 +183,7 @@ const SPARKS = [
                     <div class="ag-evh__body">
                       <p class="ag-evh__meta">{jourLigne(e)}</p>
                       <h3 class="ag-evh__title">{titreDi(e)}</h3>
-                      {extrait(e.body) && <p class="ag-evh__text">{extrait(e.body)}</p>}
+                      {extrait(bodyDi(e)) && <p class="ag-evh__text">{extrait(bodyDi(e))}</p>}
                       <span class="ag-evh__cta">{L.more}</span>
                     </div>
                   </a>
@@ -195,7 +196,7 @@ const SPARKS = [
                 <h2 class="ag-past-title">{L.pastTitle}</h2>
                 <div class="ag-grid">
                   {passes.map((e, i) => (
-            <a class={"ag-card" + (estPasse(e) ? " is-past" : "")} href={`/agenda/${slugifyTitre(e.title)}`} aria-label={titreDi(e)}>
+            <a class={"ag-card" + (estPasse(e) ? " is-past" : "")} href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
               <div class="ag-card__media">
                 {e.image_url
                   ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.closest('.ag-card__media').classList.add('is-ph'); this.remove();" />
@@ -209,7 +210,7 @@ const SPARKS = [
               <div class="ag-card__body">
                 <p class="ag-card__day">{jourLigne(e)}</p>
                 <h3 class="ag-card__t">{titreDi(e)}</h3>
-                {extrait(e.body) && <p class="ag-card__ex">{extrait(e.body)}</p>}
+                {extrait(bodyDi(e)) && <p class="ag-card__ex">{extrait(bodyDi(e))}</p>}
                 <span class="ag-card__more">{L.more} →</span>
               </div>
             </a>

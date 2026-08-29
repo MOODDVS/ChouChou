@@ -1,12 +1,14 @@
 // Lettura pubblica (vetrina) degli eventi agenda per le "stories" della
 // pagina Links. Read-only, service key server-side (come getMenu).
 import { supabaseAdmin } from "./db";
+import { cacheOr } from "./cache";
 
 export interface AgendaEvento {
   id: string;
   title: string;
   title_i18n: Record<string, string> | null;
   body: string | null;
+  body_i18n?: Record<string, string> | null;
   body_long_i18n?: Record<string, string> | null;
   image_url: string | null;
   gallery?: string[] | null;
@@ -17,6 +19,9 @@ export interface AgendaEvento {
 /** Prossimi eventi pubblicati (active), ordinati per data. Tollerante alle
  *  colonne i18n non ancora migrate. */
 export async function getAgendaProchains(limite = 12): Promise<AgendaEvento[]> {
+  return cacheOr("agenda:prochains:" + limite, () => getAgendaProchainsNoCache(limite));
+}
+async function getAgendaProchainsNoCache(limite = 12): Promise<AgendaEvento[]> {
   const oggi = new Date().toISOString().slice(0, 10);
   try {
     let res: { data: any[] | null; error: { message?: string } | null } = await supabaseAdmin
@@ -53,13 +58,16 @@ export async function getAgendaProchains(limite = 12): Promise<AgendaEvento[]> {
 /** Tutti gli eventi pubblicati (active), per la PAGINA agenda: prima i prossimi
  *  (data crescente), poi i passati (piu recenti in cima). Tollerante all'i18n. */
 export async function getAgendaTous(limite = 40): Promise<AgendaEvento[]> {
+  return cacheOr("agenda:tous:" + limite, () => getAgendaTousNoCache(limite));
+}
+async function getAgendaTousNoCache(limite = 40): Promise<AgendaEvento[]> {
   const oggi = new Date().toISOString().slice(0, 10);
   try {
     let res: { data: any[] | null; error: { message?: string } | null } = await supabaseAdmin
       .from("agenda_events")
-      .select("id, title, title_i18n, body, body_long_i18n, image_url, gallery, date_start, date_end")
+      .select("id, title, title_i18n, body, body_i18n, body_long_i18n, image_url, gallery, date_start, date_end")
       .eq("active", true);
-    if (res.error && /title_i18n|body_long_i18n|gallery/i.test(res.error.message ?? "")) {
+    if (res.error && /title_i18n|body_i18n|body_long_i18n|gallery/i.test(res.error.message ?? "")) {
       res = await supabaseAdmin
         .from("agenda_events")
         .select("id, title, body, image_url, date_start, date_end")
@@ -71,6 +79,7 @@ export async function getAgendaTous(limite = 40): Promise<AgendaEvento[]> {
       title: r.title,
       title_i18n: r.title_i18n ?? null,
       body: r.body ?? null,
+      body_i18n: r.body_i18n ?? null,
       body_long_i18n: r.body_long_i18n ?? null,
       image_url: r.image_url ?? null,
       gallery: Array.isArray(r.gallery) ? r.gallery.filter(Boolean) : null,

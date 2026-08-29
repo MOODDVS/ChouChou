@@ -1,0 +1,8 @@
+---
+// Version EN de /agenda/[slug] : rend la page FR (bilingue) avec lang=en
+// (détectée depuis l'URL /en/...). Source unique, pas de duplication.
+import FrPage from "../../agenda/[slug].astro";
+export const prerender = false;
+---
+
+<FrPage />

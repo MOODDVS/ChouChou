@@ -57,4 +57,40 @@ const metodoOverride = defineMiddleware(async (context, next) => {
   return next();
 });
 
-export const onRequest = sequence(metodoOverride, redirectWww);
+
+/**
+ * Cache edge (CDN Hostinger / Cloudflare) delle SOLE pagine pubbliche di
+ * contenuto (home, carte, épicerie, contact, agenda + événement, links,
+ * privacy, cookies), FR e EN. Si invia:
+ *   Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=600
+ * -> il browser rivalida sempre (contenuto fresco per l'utente), ma una cache
+ *    condivisa/edge può servire l'HTML per 60s: TTFB quasi azzerato.
+ * NON tocca: /api, /admin, il widget /reservation-embed, feedback, order,
+ * annulla-token e le pagine con stato dinamico per-utente. Engine-safe.
+ */
+const CACHE_BASI = ["/menu", "/epicerie", "/contact", "/agenda", "/links", "/privacy", "/cookies"];
+function paginaPubblicaCachabile(pathname: string): boolean {
+  let p = pathname.replace(/\/+$/, "") || "/";
+  if (p === "/en") p = "/";
+  else if (p.startsWith("/en/")) p = p.slice(3) || "/";
+  if (p === "/") return true;
+  return CACHE_BASI.some((b) => p === b || p.startsWith(b + "/"));
+}
+
+const cacheEdge = defineMiddleware(async (context, next) => {
+  const res = await next();
+  const metodo = context.request.method;
+  if (metodo !== "GET" && metodo !== "HEAD") return res;
+  if (res.status !== 200) return res;
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("text/html")) return res;
+  const { pathname } = new URL(context.request.url);
+  if (!paginaPubblicaCachabile(pathname)) return res;
+  // Non sovrascrive un eventuale Cache-Control già impostato dalla pagina.
+  if (!res.headers.has("cache-control")) {
+    res.headers.set("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=600");
+  }
+  return res;
+});
+
+export const onRequest = sequence(metodoOverride, redirectWww, cacheEdge);
