@@ -81,6 +81,61 @@ function pulisciI18n(v: unknown, maxLen: number): Record<string, string> {
   }
   return out;
 }
+// --- Sanitizzazione HTML (descrizione lunga, rich text) -----------------
+// Whitelist volutamente minima: grassetto, corsivo, titoli h2/h3, paragrafi,
+// a-capo, liste e link. Ogni altro tag viene rimosso (il testo resta), tutti
+// gli attributi vengono eliminati tranne href sui link (solo schemi sicuri),
+// e i link ricevono target/rel di sicurezza. Difesa contro XSS stored.
+const TAG_HTML_OK = new Set(["b", "strong", "i", "em", "u", "h2", "h3", "p", "br", "ul", "ol", "li", "a"]);
+
+function schemaHrefSicuro(href: string): string | null {
+  const h = href.trim();
+  if (/^(https?:|mailto:|tel:)/i.test(h)) return h;   // schemi consentiti
+  if (/^\/\//.test(h)) return "https:" + h;           // protocol-relative → https
+  if (/^\/(?!\/)/.test(h)) return h;                  // path relativo del sito
+  return null;                                         // javascript:, data:, ecc. → scartato
+}
+
+function pulisciHtml(grezzo: unknown, maxLen: number): string {
+  let s = String(grezzo ?? "");
+  if (!s) return "";
+  s = s.replace(/\u0000/g, "");
+  s = s.replace(/<!--[\s\S]*?-->/g, "");                       // commenti
+  s = s.replace(/<(script|style|iframe|object|embed)\b[\s\S]*?<\/\1\s*>/gi, ""); // elementi pericolosi (con contenuto)
+  s = s.replace(/<\/?(script|style|iframe|object|embed)[^>]*>/gi, ""); // eventuali tag pericolosi residui
+  s = s.replace(/<[^>]*>/g, (tag) => {
+    const m = /^<\s*(\/?)\s*([a-zA-Z0-9]+)([^>]*)>$/.exec(tag);
+    if (!m) return "";
+    const chiuso = m[1] === "/";
+    const nome = m[2].toLowerCase();
+    if (!TAG_HTML_OK.has(nome)) return "";                     // tag non consentito → via (testo resta)
+    if (chiuso) return `</${nome}>`;
+    if (nome === "br") return "<br>";
+    if (nome === "a") {
+      const hm = /href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m[3]);
+      const raw = hm ? (hm[2] ?? hm[3] ?? hm[4] ?? "") : "";
+      const safe = schemaHrefSicuro(raw);
+      if (!safe) return "";                                    // link non valido → rimuovi apertura
+      const href = safe.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer nofollow">`;
+    }
+    return `<${nome}>`;                                        // consentito: nessun attributo
+  });
+  return s.trim().slice(0, maxLen);
+}
+
+/** Come pulisciI18n ma con sanitizzazione HTML (rich text) per ogni valore. */
+function pulisciI18nHtml(v: unknown, maxLen: number): Record<string, string> {
+  if (v === undefined || v === null || typeof v !== "object" || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    const code = String(k).toLowerCase().slice(0, 5);
+    const html = pulisciHtml(val, maxLen);
+    if (code && html) out[code] = html;
+  }
+  return out;
+}
+
 function mancaI18n(err: { message?: string } | null): boolean {
   return !!err?.message && /title_i18n|body_i18n|body_long_i18n|rsvp_max/i.test(err.message);
 }
@@ -113,7 +168,7 @@ function valida(b: EventoInput): { errore?: string; valori?: Record<string, unkn
       active: b.active !== false,
       title_i18n: pulisciI18n(b.title_i18n, 160),
       body_i18n: pulisciI18n(b.body_i18n, 2000),
-      body_long_i18n: pulisciI18n(b.body_long_i18n, 6000),
+      body_long_i18n: pulisciI18nHtml(b.body_long_i18n, 8000),
       rsvp_max: typeof b.rsvp_max === "number" && Number.isFinite(b.rsvp_max) && b.rsvp_max > 0 && b.rsvp_max <= 100000 ? Math.floor(b.rsvp_max) : null,
     },
   };
