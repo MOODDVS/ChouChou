@@ -1016,3 +1016,131 @@ export async function nomeRecensione(reviewId: string): Promise<string | null> {
   const name = String(data?.name ?? "").trim();
   return name || null;
 }
+
+
+// ============================================================
+//  PERFORMANCE — statistiche della scheda (viste, click, chiamate,
+//  indicazioni, prenotazioni, ordini, menu) + parole chiave di ricerca.
+//  Business Profile Performance API v1 (scope business.manage).
+//  NB: i dati Google hanno qualche giorno di latenza; gli ultimi 1-3
+//  giorni sono spesso 0. Le keyword sono mensili.
+// ============================================================
+
+const PERF_BASE = "https://businessprofileperformance.googleapis.com/v1";
+
+const PERF_METRICS = [
+  "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+  "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+  "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+  "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+  "BUSINESS_DIRECTION_REQUESTS",
+  "CALL_CLICKS",
+  "WEBSITE_CLICKS",
+  "BUSINESS_CONVERSATIONS",
+  "BUSINESS_BOOKINGS",
+  "BUSINESS_FOOD_ORDERS",
+  "BUSINESS_FOOD_MENU_CLICKS",
+] as const;
+
+export type PerfPoint = { date: string; value: number }; // date = "YYYY-MM-DD"
+export type PerfSerie = { metric: string; total: number; punti: PerfPoint[] };
+export type PerfKeyword = { keyword: string; value: number; approx: boolean };
+export type PerfData = {
+  serie: PerfSerie[];
+  keywords: PerfKeyword[];
+  from: string;
+  to: string;
+  error: string;
+};
+
+function perfYmd(d: Date): { year: number; month: number; day: number } {
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+function perfIso(o: { year?: number; month?: number; day?: number }): string {
+  const y = o.year ?? 0, m = o.month ?? 1, d = o.day ?? 1;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Parole chiave di ricerca (mensili) aggregate sul range di mesi coperto. */
+async function leggiKeywords(
+  token: string,
+  locName: string,
+  inizio: Date,
+  fine: Date,
+): Promise<PerfKeyword[]> {
+  const qp = new URLSearchParams();
+  qp.set("monthlyRange.start_month.year", String(inizio.getUTCFullYear()));
+  qp.set("monthlyRange.start_month.month", String(inizio.getUTCMonth() + 1));
+  qp.set("monthlyRange.end_month.year", String(fine.getUTCFullYear()));
+  qp.set("monthlyRange.end_month.month", String(fine.getUTCMonth() + 1));
+  qp.set("pageSize", "100");
+  const url = `${PERF_BASE}/${locName}/searchkeywords/impressions/monthly?${qp.toString()}`;
+  const { data } = await gGetErr<{
+    searchKeywordsCounts?: { searchKeyword?: string; insightsValue?: { value?: string; threshold?: string } }[];
+  }>(token, url);
+  const agg = new Map<string, { value: number; approx: boolean }>();
+  for (const k of data?.searchKeywordsCounts ?? []) {
+    const kw = String(k?.searchKeyword ?? "").trim();
+    if (!kw) continue;
+    const iv = k?.insightsValue ?? {};
+    const val = iv.value != null ? Number(iv.value) : iv.threshold != null ? Number(iv.threshold) : 0;
+    const approx = iv.value == null; // threshold = valore approssimato ("<X")
+    const prev = agg.get(kw) ?? { value: 0, approx: false };
+    prev.value += Number.isFinite(val) ? val : 0;
+    prev.approx = prev.approx || approx;
+    agg.set(kw, prev);
+  }
+  return [...agg.entries()]
+    .map(([keyword, v]) => ({ keyword, value: v.value, approx: v.approx }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 30);
+}
+
+/** Serie temporali giornaliere + keyword per il periodo indicato (in giorni). */
+export async function leggiPerformance(token: string, path: string, giorni: number): Promise<PerfData> {
+  const locName = path.split("/").slice(-2).join("/"); // "locations/{id}"
+  const oggi = new Date();
+  const inizio = new Date(oggi);
+  inizio.setUTCDate(inizio.getUTCDate() - (giorni - 1));
+  const s = perfYmd(inizio), e = perfYmd(oggi);
+
+  const qp = new URLSearchParams();
+  for (const m of PERF_METRICS) qp.append("dailyMetrics", m);
+  qp.set("dailyRange.start_date.year", String(s.year));
+  qp.set("dailyRange.start_date.month", String(s.month));
+  qp.set("dailyRange.start_date.day", String(s.day));
+  qp.set("dailyRange.end_date.year", String(e.year));
+  qp.set("dailyRange.end_date.month", String(e.month));
+  qp.set("dailyRange.end_date.day", String(e.day));
+
+  const url = `${PERF_BASE}/${locName}:fetchMultiDailyMetricsTimeSeries?${qp.toString()}`;
+  const { data, error } = await gGetErr<{
+    multiDailyMetricTimeSeries?: { dailyMetricTimeSeries?: unknown }[];
+  }>(token, url);
+
+  const serie: PerfSerie[] = [];
+  for (const blocco of data?.multiDailyMetricTimeSeries ?? []) {
+    const raw = blocco?.dailyMetricTimeSeries;
+    const lista = (Array.isArray(raw) ? raw : raw ? [raw] : []) as {
+      dailyMetric?: string;
+      timeSeries?: { datedValues?: { date?: { year?: number; month?: number; day?: number }; value?: string }[] };
+    }[];
+    for (const dm of lista) {
+      const metric = String(dm?.dailyMetric ?? "");
+      if (!metric) continue;
+      const punti: PerfPoint[] = [];
+      let total = 0;
+      for (const dv of dm?.timeSeries?.datedValues ?? []) {
+        const v = Number(dv?.value ?? 0) || 0;
+        total += v;
+        punti.push({ date: perfIso(dv?.date ?? {}), value: v });
+      }
+      serie.push({ metric, total, punti });
+    }
+  }
+
+  let keywords: PerfKeyword[] = [];
+  try { keywords = await leggiKeywords(token, locName, inizio, oggi); } catch { keywords = []; }
+
+  return { serie, keywords, from: perfIso(s), to: perfIso(e), error };
+}

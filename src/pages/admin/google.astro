@@ -369,6 +369,47 @@ const t = adminT(lang);
       .switch .track::before { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s; }
       .switch input:checked + .track { background: var(--c-accent); }
       .switch input:checked + .track::before { transform: translateX(17px); background: var(--c-bg); }
+
+      /* ===== Tab DATA (statistiche) ===== */
+      .dt-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .7rem; margin-bottom: 1.6rem; }
+      .dt-kpi { border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-card); padding: .9rem 1rem; }
+      .dt-kpi .k-lab { display: flex; align-items: center; gap: .45rem; color: var(--c-muted); font-size: .8rem; letter-spacing: .02em; margin-bottom: .35rem; }
+      .dt-kpi .k-lab svg { width: 16px; height: 16px; fill: none; stroke: var(--c-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+      .dt-kpi .k-val { font-family: var(--font-title); font-size: 1.7rem; line-height: 1; color: var(--c-text); }
+      .dt-block { border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-card); padding: 1.1rem 1.2rem; margin-bottom: 1.4rem; }
+      .dt-block h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: .03em; margin: 0 0 .9rem; color: var(--c-text); }
+      /* selettore metrica del grafico */
+      .dt-metsel { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .dt-met { flex-shrink: 0; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .78rem; padding: .3rem .8rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; }
+      .dt-met.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .dt-met .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .8; }
+      .dt-chart { width: 100%; display: grid; grid-template-columns: 2.3rem 1fr; grid-template-rows: auto auto; align-items: stretch; }
+      .dt-yaxis { grid-column: 1; grid-row: 1; position: relative; }
+      .dt-yl { position: absolute; right: .45rem; transform: translateY(-50%); font-size: .58rem; color: var(--c-muted); font-family: var(--font-body); line-height: 1; white-space: nowrap; }
+      .dt-plot { grid-column: 2; grid-row: 1; min-width: 0; }
+      .dt-xaxis { grid-column: 2; grid-row: 2; position: relative; height: .95rem; margin-top: .25rem; }
+      .dt-xl { position: absolute; top: 0; font-size: .58rem; color: var(--c-muted); font-family: var(--font-body); line-height: 1; white-space: nowrap; }
+      .dt-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+      .dt-chart .grid { stroke: var(--c-line); stroke-width: 1; opacity: .35; stroke-dasharray: 3 4; }
+      .dt-chart .area { fill: var(--c-accent); opacity: .13; }
+      .dt-chart .line { fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .dt-chart .pt { fill: var(--c-accent); }
+      /* keyword */
+      .dt-kw { display: flex; flex-direction: column; gap: .55rem; }
+      .dt-kw-row { display: grid; grid-template-columns: 1.6rem 1fr auto; align-items: center; gap: .7rem; }
+      .dt-kw-rank { color: var(--c-muted); font-size: .82rem; text-align: left; }
+      .dt-kw-bar { position: relative; height: 26px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 6px; overflow: hidden; }
+      .dt-kw-fill { position: absolute; inset: 0 auto 0 0; background: var(--c-accent); }
+      .dt-kw-txt { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 .6rem; font-size: .82rem; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .dt-kw-val { font-family: var(--font-title); font-size: .95rem; color: var(--c-text); min-width: 3.2rem; text-align: right; }
+      .dt-kw-val.approx { color: var(--c-muted); }
+      .dt-empty { color: var(--c-muted); text-align: center; padding: 1.4rem 0; }
+      @media (max-width: 560px) {
+        .dt-kpis { grid-template-columns: 1fr 1fr; }
+        .dt-kpi .k-val { font-size: 1.4rem; }
+        .dt-chart svg { height: 200px; }
+        .dt-yl { right: auto; left: 0; }
+      }
     </style>
     <AdminHead />
   </head>
@@ -387,6 +428,7 @@ const t = adminT(lang);
           <button class="mtab" data-gtab="posts">{t("gg.tabPosts")}</button>
           <button class="mtab" data-gtab="menu">{t("gg.tabMenu")}</button>
           <button class="mtab" data-gtab="foto">{t("gg.tabFoto")}</button>
+          <button class="mtab" data-gtab="data">{t("gg.tabData")}</button>
         </div>
 
         <div class="g-tab-panel" data-gpanel="fiche">
@@ -593,6 +635,15 @@ const t = adminT(lang);
           <p class="menu-note" style="margin-bottom:1.3rem">{t("gg.fotoNote")}</p>
           <div id="foto-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
           <input type="file" id="foto-file" accept="image/*" style="display:none" />
+        </div>
+        <div class="g-tab-panel" data-gpanel="data" style="display:none">
+          <div class="fi-filtri rh-filters" id="dt-range">
+            <button type="button" class="rh-filter" data-g="7">{t("gg.data7")}</button>
+            <button type="button" class="rh-filter is-on" data-g="30">{t("gg.data30")}</button>
+            <button type="button" class="rh-filter" data-g="90">{t("gg.data90")}</button>
+          </div>
+          <p class="menu-note" style="margin:-.6rem 0 1.4rem">{t("gg.dataNote")}</p>
+          <div id="dt-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
         </div>
         <div class="save-bar" id="fi-savebar">
           <span class="msg" id="fi-msg"></span>
@@ -1620,6 +1671,197 @@ const t = adminT(lang);
             const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
             if (b?.dataset.gtab !== "foto" || loaded) return;
             loaded = true; void loadFoto();
+          });
+        })();
+
+        // ============ DATA (statistiche performance della scheda) ============
+        (function initData() {
+          let loaded = false;
+          let giorni = 30;
+          let selMetric = "VIEWS";
+          type Pt = { date: string; value: number };
+          type Serie = { metric: string; total: number; punti: Pt[] };
+          type Kw = { keyword: string; value: number; approx: boolean };
+          let dati: { serie: Serie[]; keywords: Kw[]; from: string; to: string } | null = null;
+
+          const bodyEl = document.getElementById("dt-body") as HTMLElement | null;
+          const rangeEl = document.getElementById("dt-range") as HTMLElement | null;
+
+          const IMPR = [
+            "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+            "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+            "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+            "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+          ];
+          const IC = {
+            eye: '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+            globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>',
+            phone: '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>',
+            pin: '<svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+            menu: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+            cal: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+            bag: '<svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>',
+            chat: '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.5 9.5 0 0 1-4-.9L3 21l1.9-5A8.4 8.4 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>',
+          };
+          // KPI: [metric(s), label i18n, icona, mostra-sempre]
+          const KPIS: { key: string; metrics: string[]; lab: string; ico: string; always: boolean }[] = [
+            { key: "VIEWS", metrics: IMPR, lab: "gg.dataViews", ico: IC.eye, always: true },
+            { key: "WEBSITE_CLICKS", metrics: ["WEBSITE_CLICKS"], lab: "gg.dataWebsite", ico: IC.globe, always: true },
+            { key: "CALL_CLICKS", metrics: ["CALL_CLICKS"], lab: "gg.dataCalls", ico: IC.phone, always: true },
+            { key: "BUSINESS_DIRECTION_REQUESTS", metrics: ["BUSINESS_DIRECTION_REQUESTS"], lab: "gg.dataDirections", ico: IC.pin, always: true },
+            { key: "BUSINESS_FOOD_MENU_CLICKS", metrics: ["BUSINESS_FOOD_MENU_CLICKS"], lab: "gg.dataMenuClicks", ico: IC.menu, always: true },
+            { key: "BUSINESS_BOOKINGS", metrics: ["BUSINESS_BOOKINGS"], lab: "gg.dataBookings", ico: IC.cal, always: false },
+            { key: "BUSINESS_FOOD_ORDERS", metrics: ["BUSINESS_FOOD_ORDERS"], lab: "gg.dataOrders", ico: IC.bag, always: false },
+            { key: "BUSINESS_CONVERSATIONS", metrics: ["BUSINESS_CONVERSATIONS"], lab: "gg.dataMessages", ico: IC.chat, always: false },
+          ];
+          // opzioni del grafico (label i18n)
+          const CHARTS: { key: string; metrics: string[]; lab: string }[] = [
+            { key: "VIEWS", metrics: IMPR, lab: "gg.dataViews" },
+            { key: "WEBSITE_CLICKS", metrics: ["WEBSITE_CLICKS"], lab: "gg.dataWebsite" },
+            { key: "CALL_CLICKS", metrics: ["CALL_CLICKS"], lab: "gg.dataCalls" },
+            { key: "BUSINESS_DIRECTION_REQUESTS", metrics: ["BUSINESS_DIRECTION_REQUESTS"], lab: "gg.dataDirections" },
+            { key: "BUSINESS_FOOD_MENU_CLICKS", metrics: ["BUSINESS_FOOD_MENU_CLICKS"], lab: "gg.dataMenuClicks" },
+          ];
+
+          const nf = (n: number) => n.toLocaleString(LOC);
+          const totOf = (metrics: string[]) =>
+            metrics.reduce((a, m) => a + (dati?.serie.find((x) => x.metric === m)?.total || 0), 0);
+          const puntiOf = (metric: string) => dati?.serie.find((x) => x.metric === metric)?.punti || [];
+
+          function allDates(): string[] {
+            if (!dati) return [];
+            const out: string[] = [];
+            const d = new Date(dati.from + "T00:00:00Z");
+            const end = new Date(dati.to + "T00:00:00Z");
+            let guard = 0;
+            while (d <= end && guard < 400) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); guard++; }
+            return out;
+          }
+          function valuesFor(metrics: string[], dates: string[]): number[] {
+            const maps = metrics.map((m) => {
+              const mp = new Map<string, number>();
+              for (const p of puntiOf(m)) mp.set(p.date, p.value);
+              return mp;
+            });
+            return dates.map((dt) => maps.reduce((a, mp) => a + (mp.get(dt) || 0), 0));
+          }
+          function dShort(iso: string): string {
+            try { return new Date(iso + "T00:00:00Z").toLocaleDateString(LOC, { day: "2-digit", month: "short" }); }
+            catch { return iso.slice(5); }
+          }
+
+          function niceScale(max: number): { max: number; step: number } {
+            if (max <= 0) return { max: 1, step: 1 };
+            const rough = max / 8;
+            const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+            const cand = [1, 2, 2.5, 5, 10].map((m) => m * pow);
+            const step = cand.find((c) => c >= rough) ?? 10 * pow;
+            return { max: Math.ceil(max / step) * step, step };
+          }
+
+          function chartSVG(vals: number[], dates: string[]): string {
+            // valori Y FUORI a sinistra (HTML .dt-yaxis) e date X in HTML (.dt-xaxis):
+            // così il grafico si può allungare senza deformare il testo.
+            const W = 720, H = 180, padT = 12, padB = 12;
+            const iw = W, ih = H - padT - padB;
+            const n = vals.length;
+            const sc = niceScale(Math.max(1, ...vals));
+            const max = sc.max;
+            const x = (i: number) => (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+            const y = (v: number) => padT + ih - (v / max) * ih;
+            const line = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+            const area = `M${x(0).toFixed(1)} ${(padT + ih).toFixed(1)} ` +
+              vals.map((v, i) => `L${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ") +
+              ` L${x(n - 1).toFixed(1)} ${(padT + ih).toFixed(1)} Z`;
+            let grid = "", ylHtml = "";
+            for (let g = 0; g <= max + 1e-6; g += sc.step) {
+              const yy = y(g);
+              grid += `<line class="grid" x1="0" y1="${yy.toFixed(1)}" x2="${W}" y2="${yy.toFixed(1)}"/>`;
+              ylHtml += `<span class="dt-yl" style="top:${(yy / H * 100).toFixed(2)}%">${nf(Math.round(g))}</span>`;
+            }
+            const idx = n <= 1 ? [0] : [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (n - 1))))];
+            const xHtml = idx.map((i) => {
+              const pct = (x(i) / W * 100).toFixed(2);
+              const tx = i === 0 ? "0" : i === n - 1 ? "-100%" : "-50%";
+              return `<span class="dt-xl" style="left:${pct}%;transform:translateX(${tx})">${dShort(dates[i])}</span>`;
+            }).join("");
+            const pts = n <= 31 ? vals.map((v, i) => `<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.1"/>`).join("") : "";
+            const svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${grid}<path class="area" d="${area}"/><path class="line" d="${line}"/>${pts}</svg>`;
+            return `<div class="dt-yaxis">${ylHtml}</div><div class="dt-plot">${svg}</div><div class="dt-xaxis">${xHtml}</div>`;
+          }
+
+          function render() {
+            if (!bodyEl) return;
+            if (!dati) { bodyEl.innerHTML = `<p class="dt-empty">${esc(tr("gg.dataEmpty"))}</p>`; return; }
+            const dates = allDates();
+
+            // KPI
+            const kpis = KPIS.filter((k) => k.always || totOf(k.metrics) > 0)
+              .map((k) => `<div class="dt-kpi"><div class="k-lab">${k.ico}<span>${esc(tr(k.lab))}</span></div><div class="k-val">${nf(totOf(k.metrics))}</div></div>`)
+              .join("");
+
+            // selettore metrica: mostra solo opzioni con dati (+ sempre VIEWS)
+            const opts = CHARTS.filter((c) => c.key === "VIEWS" || totOf(c.metrics) > 0);
+            if (!opts.find((o) => o.key === selMetric)) selMetric = "VIEWS";
+            const cur = opts.find((o) => o.key === selMetric) || opts[0];
+            const metsel = opts.map((c) =>
+              `<button type="button" class="dt-met${c.key === selMetric ? " is-on" : ""}" data-m="${c.key}"><span class="dot"></span>${esc(tr(c.lab))}</button>`
+            ).join("");
+            const vals = valuesFor(cur.metrics, dates);
+            const chart = dates.length ? chartSVG(vals, dates) : `<p class="dt-empty">${esc(tr("gg.dataEmpty"))}</p>`;
+
+            // keyword
+            const kws = dati.keywords || [];
+            const kwMax = Math.max(1, ...kws.map((k) => k.value));
+            const kwHtml = kws.length
+              ? `<div class="dt-kw">` + kws.map((k, i) =>
+                  `<div class="dt-kw-row"><span class="dt-kw-rank">${i + 1}</span>` +
+                  `<div class="dt-kw-bar"><div class="dt-kw-fill" style="width:${Math.max(4, Math.round((k.value / kwMax) * 100))}%"></div><div class="dt-kw-txt">${esc(k.keyword)}</div></div>` +
+                  `<span class="dt-kw-val${k.approx ? " approx" : ""}">${k.approx ? "<" : ""}${nf(k.value)}</span></div>`
+                ).join("") + `</div>`
+              : `<p class="dt-empty">${esc(tr("gg.dataKwEmpty"))}</p>`;
+
+            bodyEl.innerHTML =
+              `<div class="dt-kpis">${kpis}</div>` +
+              `<div class="dt-block"><h3>${esc(tr("gg.dataTrend"))}</h3><div class="dt-metsel" id="dt-metsel">${metsel}</div><div class="dt-chart">${chart}</div></div>` +
+              `<div class="dt-block"><h3>${esc(tr("gg.dataKw"))}</h3>${kwHtml}</div>` +
+              `<p class="dt-empty" style="text-align:left;padding:0;font-size:.78rem">${esc(tr("gg.dataLatency"))}</p>`;
+
+            document.getElementById("dt-metsel")?.addEventListener("click", (ev) => {
+              const b = (ev.target as HTMLElement).closest(".dt-met") as HTMLElement | null;
+              if (!b || !b.dataset.m) return;
+              selMetric = b.dataset.m;
+              render();
+            });
+          }
+
+          async function load() {
+            if (!bodyEl) return;
+            bodyEl.innerHTML = `<p class="fi-soon">${esc(tr("gg.attrLoading"))}</p>`;
+            try {
+              const r = await fetch(`/api/admin/google/data?giorni=${giorni}`, { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              dati = j;
+              render();
+            } catch (e) {
+              dati = null;
+              bodyEl.innerHTML = `<p class="dt-empty">${esc((e as Error).message || tr("res.connErr"))}</p>`;
+            }
+          }
+
+          rangeEl?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+            if (!b || !b.dataset.g) return;
+            document.querySelectorAll("#dt-range .rh-filter").forEach((x) => x.classList.toggle("is-on", x === b));
+            giorni = parseInt(b.dataset.g, 10) || 30;
+            void load();
+          });
+
+          document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (b?.dataset.gtab !== "data" || loaded) return;
+            loaded = true; void load();
           });
         })();
 
