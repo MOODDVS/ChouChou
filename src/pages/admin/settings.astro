@@ -3747,7 +3747,7 @@ const t = adminT(lang);
                   body: JSON.stringify({ test: true }),
                 });
                 const j = await res.json();
-                if (nfMsg) nfMsg.textContent = res.ok ? `${tr("set.nf.testPrefix")} ${j.sent ?? 0}/${j.found ?? 0} ${tr("set.nf.sentPl")}${j.err ? " — " + j.err : ""}` : tr("set.nf.testFail");
+                if (nfMsg) nfMsg.textContent = res.ok ? `${tr("set.nf.testPrefix")} ${j.sent ?? 0}/${j.found ?? 0}${j.riassunto ? " — " + j.riassunto : ""}` : tr("set.nf.testFail");
               } catch { if (nfMsg) nfMsg.textContent = tr("common.netErr"); }
             });
           }
