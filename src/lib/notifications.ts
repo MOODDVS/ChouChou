@@ -1089,9 +1089,10 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
 
   // Stelle cliccabili (gating): 1-3 -> pagina feedback privata; 4-5 -> link Google.
   // Se il link Google non è configurato, tutte le stelle vanno alla pagina feedback.
-  const baseSite = SITE_URL.replace(/\/$/, "");
+  // Base pubblica per-cliente (root o sotto-prefisso), non /demo01 fisso.
+  const baseSite = await siteBaseResa();
   const feedbackUrl = (r: number) =>
-    `${baseSite}/demo01/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
+    `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
     `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
     `&phone=${encodeURIComponent(o.customer_phone ?? "")}`;
   const starHref = (r: number) => (reviewUrl && r >= 4 ? reviewUrl : feedbackUrl(r));
@@ -1169,7 +1170,7 @@ const TXT_REVIEW_RESA = {
       `Merci ${name} pour votre visite d'hier !<br>` +
       `Nous espérons que vous avez passé un bon moment.<br>` +
       `Un petit avis de votre part nous aide énormément&nbsp;— cela ne prend qu'une minute.`,
-    btn: "Laisser un avis Google",
+    tapToRate: "Touchez les étoiles ci-dessus pour nous noter — cela prend une seconde.",
     sign: CLIENT.firma.fr,
   },
   en: {
@@ -1179,7 +1180,7 @@ const TXT_REVIEW_RESA = {
       `Thank you ${name} for visiting us yesterday!<br>` +
       `We hope you had a great time.<br>` +
       `A quick review helps us enormously&nbsp;— it only takes a minute.`,
-    btn: "Leave a Google review",
+    tapToRate: "Tap the stars above to rate us — it only takes a second.",
     sign: CLIENT.firma.en,
   },
   it: {
@@ -1189,7 +1190,7 @@ const TXT_REVIEW_RESA = {
       `Grazie ${name} per la tua visita di ieri!<br>` +
       `Speriamo che tu abbia trascorso un bel momento.<br>` +
       `Una tua breve recensione ci aiuta moltissimo&nbsp;— ci vuole solo un minuto.`,
-    btn: "Lascia una recensione Google",
+    tapToRate: "Tocca le stelle qui sopra per valutarci — bastano pochi secondi.",
     sign: firma("it"),
   },
   nl: {
@@ -1199,7 +1200,7 @@ const TXT_REVIEW_RESA = {
       `Bedankt ${name} voor je bezoek van gisteren!<br>` +
       `We hopen dat je een fijne tijd hebt gehad.<br>` +
       `Een korte review helpt ons enorm&nbsp;— het kost maar een minuut.`,
-    btn: "Een Google-review achterlaten",
+    tapToRate: "Tik op de sterren hierboven om ons te beoordelen — het duurt maar een seconde.",
     sign: firma("nl"),
   },
   es: {
@@ -1209,7 +1210,7 @@ const TXT_REVIEW_RESA = {
       `¡Gracias ${name} por tu visita de ayer!<br>` +
       `Esperamos que hayas pasado un buen rato.<br>` +
       `Una breve reseña nos ayuda muchísimo&nbsp;— solo lleva un minuto.`,
-    btn: "Dejar una reseña en Google",
+    tapToRate: "Toca las estrellas de arriba para valorarnos — solo lleva un segundo.",
     sign: firma("es"),
   },
 } as const;
@@ -1387,6 +1388,23 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   const t = pick5(TXT_REVIEW_RESA, r.lang);
   const nome = esc(r.first_name.trim() || r.last_name.trim() || "");
 
+  // Stelle cliccabili con gating (come l'email ordine): 1-3 -> pagina feedback
+  // privata del cliente, 4-5 -> link recensione Google. La base pubblica è
+  // quella per-cliente (stessa dei link modifica/annulla prenotazione), così
+  // funziona su ogni installazione (root o sotto-prefisso), non solo /demo01.
+  const baseResa = await siteBaseResa();
+  const nomeCompleto = (r.first_name.trim() + " " + r.last_name.trim()).trim();
+  const feedbackUrl = (star: number) =>
+    `${baseResa}/feedback?r=${star}&lang=${r.lang || "fr"}` +
+    `&name=${encodeURIComponent(nomeCompleto)}&email=${encodeURIComponent(r.email.trim())}`;
+  const starHref = (star: number) => (reviewUrl && star >= 4 ? reviewUrl : feedbackUrl(star));
+  const stelle = [1, 2, 3, 4, 5]
+    .map(
+      (star) =>
+        `<a href="${starHref(star)}" style="text-decoration:none;color:${tema.accent};font-size:34px;line-height:1;padding:0 5px;display:inline-block;">★</a>`
+    )
+    .join("");
+
   const html = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
       <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
@@ -1398,10 +1416,10 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
         <p style="margin:18px 0 0;color:${tema.text};font-size:15px;line-height:1.7;">${t.intro(nome)}</p>
       </td></tr>
       <tr><td class="em-pad" style="padding:26px 44px 2px;text-align:center;">
-        <p style="margin:0;color:${tema.accent};font-size:30px;letter-spacing:6px;line-height:1;">★★★★★</p>
+        <div style="line-height:1;">${stelle}</div>
       </td></tr>
-      <tr><td class="em-pad" style="padding:20px 44px 8px;text-align:center;">
-        <a href="${reviewUrl}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;padding:14px 34px;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${t.btn}</a>
+      <tr><td class="em-pad" style="padding:14px 44px 8px;text-align:center;">
+        <p style="margin:0;color:${tema.muted};font-size:14px;line-height:1.7;">${t.tapToRate}</p>
       </td></tr>
       <tr><td class="em-pad" style="padding:22px 44px 8px;text-align:center;">
         <div style="height:4px;max-width:180px;margin:0 auto 20px;background:${tema.accent};border-radius:999px;"></div>
