@@ -28,6 +28,17 @@ const t = adminT(lang);
       <p class="g-quote" id="g-quote"></p>
       <span class="g-who" id="g-who"></span>
     </div>
+    <div class="g-reply" id="g-reply" style="display:none">
+      <button type="button" class="g-reply-open" id="g-reply-open">{t("gg.reply")}</button>
+      <div class="g-reply-box" id="g-reply-box" style="display:none">
+        <textarea id="g-reply-txt" maxlength="4000" placeholder={t("gg.replyPh")}></textarea>
+        <div class="g-reply-act">
+          <span class="g-reply-msg" id="g-reply-msg"></span>
+          <button type="button" class="g-reply-cancel" id="g-reply-cancel">{t("common.cancel")}</button>
+          <button type="button" class="g-reply-pub" id="g-reply-pub">{t("gg.replyPublish")}</button>
+        </div>
+      </div>
+    </div>
     <div class="g-nav">
       <button type="button" class="g-arrow" id="g-prev" aria-label={t("home.prevReview")}>‹</button>
       <span class="g-dots" id="g-dots"></span>
@@ -77,4 +88,31 @@ const t = adminT(lang);
     .tile-google .g-avis { flex: 0 0 auto; }
     .tile-google .g-quote { flex: 0 0 auto; height: 150px; }  /* altezza FISSA: il tile non cambia col commento; i lunghi scrollano */
   }
+
+  /* Rispondi alla recensione (inline nella tile) */
+  .g-reply { flex: 0 0 auto; margin-top: 0.6rem; }
+  .g-reply-open {
+    background: none; border: 1px solid var(--c-accent); color: var(--c-accent);
+    font-family: var(--font-body); font-size: 0.8rem; padding: 0.4rem 0.9rem;
+    border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s;
+  }
+  .g-reply-open:hover { background: var(--c-accent); color: var(--c-bg); }
+  .g-reply-box { display: flex; flex-direction: column; gap: 0.5rem; }
+  .g-reply-box textarea {
+    width: 100%; box-sizing: border-box; min-height: 70px; resize: vertical;
+    background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
+    font-family: var(--font-body); font-size: 0.88rem; line-height: 1.5;
+    padding: 0.55rem 0.7rem; border-radius: 8px;
+  }
+  .g-reply-box textarea:focus { outline: none; border-color: var(--c-accent); }
+  .g-reply-act { display: flex; align-items: center; gap: 0.5rem; }
+  .g-reply-msg { font-size: 0.78rem; color: var(--c-muted); margin-right: auto; }
+  .g-reply-cancel, .g-reply-pub {
+    font-family: var(--font-body); font-size: 0.8rem; padding: 0.4rem 0.9rem;
+    border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line);
+  }
+  .g-reply-cancel { background: none; color: var(--c-muted); }
+  .g-reply-cancel:hover { color: var(--c-text); border-color: var(--c-muted); }
+  .g-reply-pub { background: var(--c-accent); color: var(--c-bg); border-color: var(--c-accent); }
+  .g-reply-pub:disabled { opacity: 0.55; cursor: default; }
 </style>

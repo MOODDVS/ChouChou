@@ -6,6 +6,8 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
+import "../../styles/fab.css";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -178,6 +180,74 @@ const t = adminT(lang);
       .toast { position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(1rem); background: var(--c-text); color: var(--c-bg); padding: .7rem 1.2rem; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
       .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
       .toast.is-error { background: #d33; color: #fff; }
+      /* ---- Tab POST ---- */
+      .p-compose { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; }
+      .p-types { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .p-type { background: none; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .85rem; padding: .4rem 1rem; border-radius: 999px; cursor: pointer; }
+      .p-type.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .p-field { margin-bottom: .85rem; }
+      .p-lab { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); margin: 0 0 .35rem; }
+      .p-field input, .p-field select, .p-field textarea { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; }
+      .p-field textarea { min-height: 90px; resize: vertical; }
+      .p-field input:focus, .p-field select:focus, .p-field textarea:focus { outline: none; border-color: var(--c-accent); }
+      .p-dates { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+      .p-photo { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+      .p-photo-prev { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
+      .p-photo-prev svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+      .p-photo-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .p-photo-btn { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .9rem; padding: .55rem 1.2rem; border-radius: 999px; cursor: pointer; transition: border-color .15s, color .15s; }
+      .p-photo-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .p-photo-state { font-size: .78rem; color: var(--c-muted); }
+      .p-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+      .p-offer .p-lab { margin-top: .6rem; }
+      .p-actions { display: flex; align-items: center; gap: .8rem; margin-top: .4rem; }
+      .p-msg { font-size: .8rem; color: #ff8a8f; margin-right: auto; }
+      .p-list-tit { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: .04em; margin: 0 0 .8rem; }
+      .p-card { display: flex; gap: .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: .8rem .95rem; margin-bottom: .7rem; }
+      .p-card-img img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; display: block; }
+      .p-card-main { flex: 1; min-width: 0; }
+      .p-card-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+      .p-badge { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); border-radius: 999px; padding: .12rem .55rem; font-weight: 700; }
+      .p-state-b { font-size: .68rem; text-transform: uppercase; color: #ffcf8f; }
+      .p-card-dt { font-size: .75rem; color: var(--c-muted); margin-left: auto; }
+      .p-card-txt { margin: 0 0 .5rem; font-size: .9rem; line-height: 1.5; color: var(--c-text); }
+      .p-card-act { display: flex; align-items: center; gap: .8rem; }
+      .p-card-link { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; font-weight: 600; color: var(--c-accent); text-decoration: none; }
+      .p-card-link:hover { color: var(--c-accent); opacity: .8; }
+      .p-card-link .p-card-link-arr { transition: transform .15s; }
+      .p-card-link:hover .p-card-link-arr { transform: translateX(3px); }
+      .i-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--c-line); color: var(--c-text); cursor: pointer; border-radius: 50%; font-size: .95rem; transition: border-color .15s, color .15s, background .15s; }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-btn:disabled { opacity: .3; cursor: not-allowed; }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 .7rem; border-radius: 999px; font-size: .75rem; }
+      .p-del { margin-left: auto; }
+      @media (max-width: 560px) { .p-dates, .p-cta-row { grid-template-columns: 1fr; } }
+      /* Sinistra: riquadro pubblica · Destra: post pubblicati (desktop / tablet landscape) */
+      .p-cols, .p-col { display: block; }
+      .p-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; }
+      /* Colonna sinistra sticky SOLO su desktop/tablet landscape (sotto l'header ~80px) */
+      @media (min-width: 901px) and (orientation: landscape), (min-width: 1025px) {
+        .p-overlay { position: sticky; top: calc(48px + 2rem + 1rem); align-self: start; }
+      }
+      /* Tablet in orizzontale (es. iPad mini 1024): colonne 2/5 - 3/5 */
+      @media (orientation: landscape) and (min-width: 901px) and (max-width: 1180px) {
+        .p-layout { grid-template-columns: 2fr 3fr; }
+      }
+      .p-compose { margin-bottom: 0; }
+      .p-fab, .p-close { display: none; }
+      /* Tablet verticale / mobile: riquadro pubblica in un MODALE (FAB), lista a tutta larghezza */
+      @media (max-width: 900px), (orientation: portrait) and (max-width: 1024px) {
+        .p-layout { display: block; }
+        .p-compose { margin-bottom: 1.5rem; }
+        body.tab-posts .p-fab { display: inline-flex; }
+        .p-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto; }
+        .p-overlay.is-open { display: flex; }
+        .p-overlay .p-compose { width: 100%; max-width: 560px; margin: 0; max-height: 90vh; overflow-y: auto; position: relative; }
+        .p-close { display: block; position: absolute; top: .5rem; right: .7rem; background: none; border: none; color: var(--c-muted); font-size: 1.7rem; line-height: 1; cursor: pointer; }
+      }
     </style>
     <AdminHead />
   </head>
@@ -192,6 +262,7 @@ const t = adminT(lang);
 
         <div class="mtabs" id="g-tabs">
           <button class="mtab is-active" data-gtab="reviews">{t("gg.tabReviews")}</button>
+          <button class="mtab" data-gtab="posts">{t("gg.tabPosts")}</button>
         </div>
 
         <div class="g-tab-panel" data-gpanel="reviews">
@@ -226,16 +297,109 @@ const t = adminT(lang);
           </div>
         </div>
         </div>
+
+        <div class="g-tab-panel" data-gpanel="posts" style="display:none">
+          <div class="g-connect" id="posts-notready" style="display:none">
+            <h2>{t("gg.notReadyTitle")}</h2>
+            <p>{t("gg.postsConnectHint")}</p>
+          </div>
+          <div id="posts-area" style="display:none">
+            <button class="fab-add fab-pill p-fab" id="p-fab" type="button"><span class="fab-plus">+</span> {t("gg.tabPosts")}</button>
+            <div class="p-layout">
+            <div class="p-overlay" id="p-overlay">
+            <div class="p-compose">
+              <button type="button" class="p-close" id="p-close" aria-label="Fermer">×</button>
+              <div class="p-types" id="p-types">
+                <button type="button" class="p-type is-on" data-pt="STANDARD">{t("gg.postStandard")}</button>
+                <button type="button" class="p-type" data-pt="EVENT">{t("gg.postEvent")}</button>
+                <button type="button" class="p-type" data-pt="OFFER">{t("gg.postOffer")}</button>
+              </div>
+
+              <div class="p-cols">
+              <div class="p-col">
+              <div class="p-field" data-when="EVENT OFFER">
+                <label class="p-lab">{t("gg.postTitle")}</label>
+                <input type="text" id="p-title" maxlength="58" />
+              </div>
+              <div class="p-field p-dates" data-when="EVENT OFFER">
+                <div><label class="p-lab">{t("gg.postStart")}</label><input type="date" id="p-start" /></div>
+                <div><label class="p-lab">{t("gg.postEnd")}</label><input type="date" id="p-end" /></div>
+              </div>
+
+              <div class="p-field">
+                <label class="p-lab">{t("gg.postText")}</label>
+                <textarea id="p-summary" maxlength="1500" placeholder={t("gg.postTextPh")}></textarea>
+              </div>
+
+              <div class="p-field">
+                <label class="p-lab">{t("gg.postPhoto")}</label>
+                <div class="p-photo">
+                  <span class="p-photo-prev" id="p-photo-prev"></span>
+                  <button type="button" class="p-photo-btn" id="p-photo-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="p-photo-btn" id="p-photo-lib">{t("menu.library")}</button>
+                  <button type="button" class="p-photo-btn" id="p-photo-clear" style="display:none">{t("gg.postRemovePhoto")}</button>
+                  <input type="file" id="p-photo-file" accept="image/*" style="display:none" />
+                  <span class="p-photo-state" id="p-photo-state"></span>
+                </div>
+              </div>
+
+              </div>
+              <div class="p-col">
+              <div class="p-field p-cta" data-when="STANDARD EVENT">
+                <label class="p-lab">{t("gg.postCta")}</label>
+                <div class="p-cta-row">
+                  <select id="p-cta-type">
+                    <option value="">{t("gg.postCtaNone")}</option>
+                    <option value="LEARN_MORE">{t("gg.ctaLearnMore")}</option>
+                    <option value="BOOK">{t("gg.ctaBook")}</option>
+                    <option value="ORDER">{t("gg.ctaOrder")}</option>
+                    <option value="SIGN_UP">{t("gg.ctaSignUp")}</option>
+                    <option value="SHOP">{t("gg.ctaShop")}</option>
+                    <option value="CALL">{t("gg.ctaCall")}</option>
+                  </select>
+                  <input type="url" id="p-cta-url" placeholder="https://" />
+                </div>
+              </div>
+
+              <div class="p-field p-offer" data-when="OFFER">
+                <label class="p-lab">{t("gg.postCoupon")}</label>
+                <input type="text" id="p-coupon" maxlength="58" placeholder={t("gg.postCouponPh")} />
+                <label class="p-lab">{t("gg.postRedeemUrl")}</label>
+                <input type="url" id="p-redeem" placeholder="https://" />
+                <label class="p-lab">{t("gg.postTerms")}</label>
+                <textarea id="p-terms" maxlength="5000"></textarea>
+              </div>
+
+              </div>
+              </div>
+
+              <div class="p-actions">
+                <span class="p-msg" id="p-msg"></span>
+                <button type="button" class="g-sync" id="p-publish">{t("gg.postPublish")}</button>
+              </div>
+            </div>
+            </div>
+
+            <div class="p-published">
+            <div class="state" id="p-state" style="display:none">{t("sup.loading")}</div>
+            <div id="p-list"></div>
+            </div>
+            </div>
+          </div>
+        </div>
       </main>
       <AdminFooter />
     </div>
 
     <div class="toast" id="toast"></div>
 
+    <ImagePicker />
+
     <AdminNav current="google" />
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { comprimiFoto } from "../../lib/admin/imageCompress";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -601,6 +765,156 @@ const t = adminT(lang);
             p.style.display = p.dataset.gpanel === tab ? "block" : "none";
           });
         });
+
+        // ============ POST GOOGLE (Novità / Evento / Offerta) ============
+        (function initPost() {
+          let loaded = false;
+          let pType = "STANDARD";
+          let pPhoto = "";
+          let postLang = "fr";
+          const area = document.getElementById("posts-area") as HTMLElement | null;
+          const notready = document.getElementById("posts-notready") as HTMLElement | null;
+          const typesEl = document.getElementById("p-types");
+          const prev = document.getElementById("p-photo-prev");
+          const clearBtn = document.getElementById("p-photo-clear") as HTMLElement | null;
+          const upBtn = document.getElementById("p-photo-up") as HTMLButtonElement | null;
+          const libBtn = document.getElementById("p-photo-lib");
+          const fileInput = document.getElementById("p-photo-file") as HTMLInputElement | null;
+          const photoState = document.getElementById("p-photo-state");
+          const ICO_IMG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+          const pubBtn = document.getElementById("p-publish") as HTMLButtonElement | null;
+          const msg = document.getElementById("p-msg");
+          const listEl = document.getElementById("p-list");
+          const stateEl = document.getElementById("p-state") as HTMLElement | null;
+          const fab = document.getElementById("p-fab");
+          const overlay = document.getElementById("p-overlay");
+          const closeBtn = document.getElementById("p-close");
+          const apri = () => overlay?.classList.add("is-open");
+          const chiudi = () => overlay?.classList.remove("is-open");
+          fab?.addEventListener("click", apri);
+          closeBtn?.addEventListener("click", chiudi);
+          overlay?.addEventListener("click", (e) => { if (e.target === overlay) chiudi(); });
+          const gv = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? "";
+          const sv = (id: string, v: string) => { const e = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (e) e.value = v; };
+          const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const ICO_TRASH = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+          function applyType() {
+            typesEl?.querySelectorAll(".p-type").forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.pt === pType));
+            document.querySelectorAll<HTMLElement>("#posts-area [data-when]").forEach((el) => {
+              el.style.display = (el.dataset.when || "").split(" ").includes(pType) ? "" : "none";
+            });
+          }
+          function renderPhoto() {
+            if (prev) prev.innerHTML = pPhoto ? `<img src="${escP(pPhoto)}" alt="" />` : ICO_IMG;
+            if (clearBtn) clearBtn.style.display = pPhoto ? "" : "none";
+          }
+          renderPhoto();
+          typesEl?.addEventListener("click", (e) => { const b = (e.target as HTMLElement).closest(".p-type") as HTMLElement | null; if (!b?.dataset.pt) return; pType = b.dataset.pt; applyType(); });
+          libBtn?.addEventListener("click", () => window.dispatchEvent(new CustomEvent("imgpick:open")));
+          upBtn?.addEventListener("click", () => fileInput?.click());
+          fileInput?.addEventListener("change", async () => {
+            const file = fileInput.files?.[0];
+            if (!file || !upBtn) return;
+            upBtn.disabled = true;
+            if (photoState) photoState.textContent = tr("cli.uploading");
+            try {
+              const foto = await comprimiFoto(file);
+              if (foto.size > 4 * 1024 * 1024) throw new Error(tr("cli.fileTooBig"));
+              const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] ?? ""); r.onerror = () => rej(new Error()); r.readAsDataURL(foto); });
+              const resp = await fetch("/api/admin/upload", { method: "POST", headers: await authFresh(), body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups", folder: "google" }) });
+              const j = await resp.json();
+              if (!resp.ok || !j.url) throw new Error(j.error ?? tr("cli.uploadError"));
+              pPhoto = j.url as string; renderPhoto();
+              if (photoState) photoState.textContent = "";
+            } catch (err) {
+              if (photoState) photoState.textContent = err instanceof Error ? err.message : tr("cli.uploadError");
+            } finally {
+              upBtn.disabled = false; fileInput.value = "";
+            }
+          });
+          clearBtn?.addEventListener("click", () => { pPhoto = ""; renderPhoto(); });
+          window.addEventListener("imgpick:pick", (e) => {
+            const panel = document.querySelector('[data-gpanel="posts"]') as HTMLElement | null;
+            if (!panel || panel.style.display === "none") return; // il picker serve solo al tab Post
+            pPhoto = (e as CustomEvent<{ url: string }>).detail.url; renderPhoto();
+          });
+
+          const badge = (t: string) => t === "EVENT" ? tr("gg.postEvent") : t === "OFFER" ? tr("gg.postOffer") : tr("gg.postStandard");
+          function postCard(p: any): string {
+            const foto = p.media?.[0]?.googleUrl || p.media?.[0]?.sourceUrl || "";
+            const dt = p.createTime ? new Date(p.createTime).toLocaleDateString() : "";
+            const testo = escP((p.summary || p.event?.title || "").slice(0, 160));
+            const link = p.searchUrl ? `<a class="p-card-link" href="${escP(p.searchUrl)}" target="_blank" rel="noopener">${tr("gg.postView")} <span class="p-card-link-arr">\u2192</span></a>` : "";
+            const stato = p.state && p.state !== "LIVE" ? `<span class="p-state-b">${escP(p.state)}</span>` : "";
+            return `<div class="p-card">${foto ? `<span class="p-card-img"><img src="${escP(foto)}" alt="" /></span>` : ""}<div class="p-card-main"><div class="p-card-top"><span class="p-badge">${badge(p.topicType)}</span>${stato}<span class="p-card-dt">${escP(dt)}</span></div><p class="p-card-txt">${testo || "\u2014"}</p><div class="p-card-act">${link}<button type="button" class="i-btn i-del p-del" data-name="${escP(p.name || "")}" title="${tr("common.delete")}">${ICO_TRASH}</button></div></div></div>`;
+          }
+          async function loadPosts() {
+            if (stateEl) stateEl.style.display = "";
+            try {
+              const r = await fetch("/api/admin/google/posts", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { if (area) area.style.display = "none"; if (notready) notready.style.display = ""; return; }
+              if (notready) notready.style.display = "none";
+              if (area) area.style.display = "";
+              const limite = Date.now() - 365 * 24 * 3600 * 1000; // solo ultimi 12 mesi
+              const posts = ((j.posts || []) as any[]).filter((p) => !p.createTime || Date.parse(p.createTime) >= limite);
+              if (listEl) listEl.innerHTML = posts.length ? posts.map(postCard).join("") : `<p class="state">${tr("gg.postNone")}</p>`;
+            } catch { if (listEl) listEl.innerHTML = ""; } finally { if (stateEl) stateEl.style.display = "none"; }
+          }
+          async function caricaLang() {
+            try { const r = await fetch("/api/admin/pages", { headers: await authFresh() }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.publicLangs) && j.publicLangs[0]) postLang = String(j.publicLangs[0]); } } catch { /* default fr */ }
+          }
+          pubBtn?.addEventListener("click", async () => {
+            if (!pubBtn) return;
+            if (msg) msg.textContent = "";
+            const body = { tipo: pType, lang: postLang, summary: gv("p-summary"), photo: pPhoto,
+              ctaType: gv("p-cta-type"), ctaUrl: gv("p-cta-url"), title: gv("p-title"),
+              startDate: gv("p-start"), endDate: gv("p-end"), couponCode: gv("p-coupon"),
+              redeemUrl: gv("p-redeem"), terms: gv("p-terms") };
+            pubBtn.disabled = true; const orig = pubBtn.textContent; pubBtn.textContent = tr("gg.postPublishing");
+            try {
+              const r = await fetch("/api/admin/google/posts", { method: "POST", headers: await authFresh(), body: JSON.stringify(body) });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.postDone"));
+              ["p-summary", "p-title", "p-start", "p-end", "p-cta-url", "p-coupon", "p-redeem", "p-terms"].forEach((id) => sv(id, ""));
+              pPhoto = ""; renderPhoto();
+              chiudi();
+              await loadPosts();
+            } catch (e) { if (msg) msg.textContent = (e as Error).message; }
+            finally { pubBtn.disabled = false; pubBtn.textContent = orig; }
+          });
+          listEl?.addEventListener("click", async (e) => {
+            const b = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null; if (!b) return;
+            const name = b.dataset.name || ""; if (!name) return;
+            // Conferma a 2 tocchi (standard RH): 1° tap = pillola rossa piena, 2° = elimina
+            if (!b.classList.contains("confirm")) {
+              b.classList.add("confirm");
+              b.textContent = tr("common.confirm");
+              window.setTimeout(() => { if (b.classList.contains("confirm")) { b.classList.remove("confirm"); b.innerHTML = ICO_TRASH; } }, 3000);
+              return;
+            }
+            b.disabled = true;
+            try {
+              const r = await fetch(`/api/admin/google/posts?name=${encodeURIComponent(name)}`, { method: "POST", headers: { ...(await authFresh()), "X-Method-Override": "DELETE" } });
+              if (!r.ok) { const j = await r.json(); throw new Error(j.error || tr("res.connErr")); }
+              toast(tr("gg.postDeleted"));
+              await loadPosts();
+            } catch (err) { b.disabled = false; b.classList.remove("confirm"); b.innerHTML = ICO_TRASH; toast((err as Error).message, true); }
+          });
+          document.getElementById("g-tabs")?.addEventListener("click", async (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (!b) return;
+            const isPosts = b.dataset.gtab === "posts";
+            document.body.classList.toggle("tab-posts", isPosts);
+            window.dispatchEvent(new Event("resize")); // ricalcola la posizione del FAB sopra l'isola
+            if (!isPosts) return;
+            applyType();
+            if (loaded) return; loaded = true;
+            await caricaLang(); await loadPosts();
+          });
+        })();
 
         await carica();
       })();

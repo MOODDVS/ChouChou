@@ -456,6 +456,74 @@ export async function eliminaRisposta(token: string, reviewName: string): Promis
   }
 }
 
+// ============================================================
+// POST (Local Posts) — Google Business Profile, API v4.
+// Tipi: STANDARD ("Novità"), EVENT, OFFER. Scope business.manage (già presente).
+// La foto è un URL pubblico (media.sourceUrl): riusiamo lo storage del motore.
+// ============================================================
+export type GData = { year: number; month: number; day: number };
+export type GPost = {
+  name?: string;            // accounts/../locations/../localPosts/..
+  languageCode?: string;
+  summary?: string;
+  topicType?: string;       // STANDARD | EVENT | OFFER | ALERT
+  state?: string;           // LIVE | REJECTED | PROCESSING
+  createTime?: string;
+  updateTime?: string;
+  searchUrl?: string;
+  media?: { mediaFormat?: string; sourceUrl?: string; googleUrl?: string }[];
+  callToAction?: { actionType?: string; url?: string };
+  event?: { title?: string; schedule?: { startDate?: GData; endDate?: GData } };
+  offer?: { couponCode?: string; redeemOnlineUrl?: string; termsConditions?: string };
+};
+
+export async function listaPost(token: string, path: string): Promise<{ posts: GPost[]; error: string }> {
+  const { data, error } = await gGetErr<{ localPosts?: GPost[] }>(
+    token,
+    `https://mybusiness.googleapis.com/v4/${path}/localPosts?pageSize=100`
+  );
+  if (error) return { posts: [], error };
+  return { posts: data?.localPosts ?? [], error: "" };
+}
+
+export async function creaPost(
+  token: string,
+  path: string,
+  corpo: Record<string, unknown>
+): Promise<{ ok: boolean; error: string; post?: GPost }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${path}/localPosts`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    let post: GPost | undefined;
+    try { post = JSON.parse(txt) as GPost; } catch { /* ignore */ }
+    return { ok: true, error: "", post };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+/** postName = accounts/../locations/../localPosts/.. (campo name del post). */
+export async function eliminaPost(token: string, postName: string): Promise<boolean> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${postName}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 const K_PROFILE = "google_profile";
 const K_RATING = "google_rating";
 const K_COUNT = "google_review_count";
