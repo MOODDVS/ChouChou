@@ -98,3 +98,31 @@ export function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
   return inviaPush({ title: "Nouvelle commande", body, url: "/admin/orders" });
 }
 
+
+export interface RecensionePushInfo {
+  author: string;
+  rating: number; // 1..5
+  count: number;  // quante nuove recensioni in questo sync
+}
+
+/** Notifica all'admin: nuova/e recensione/i Google. */
+export function inviaPushRecensione(info: RecensionePushInfo): Promise<PushEsito> {
+  const n = Math.max(1, Number(info.count) || 1);
+  if (n > 1) {
+    return inviaPush({
+      title: "Nouveaux avis Google",
+      body: `${n} nouveaux avis à découvrir`,
+      url: "/admin/google",
+      tag: "google-review",
+    });
+  }
+  const r = Math.max(0, Math.min(5, Math.round(Number(info.rating) || 0)));
+  const stelle = "★".repeat(r) + "☆".repeat(5 - r);
+  const nome = String(info.author ?? "").trim() || "Client";
+  return inviaPush({
+    title: "Nouvel avis Google",
+    body: `${stelle} · ${nome}`,
+    url: "/admin/google",
+    tag: "google-review",
+  });
+}

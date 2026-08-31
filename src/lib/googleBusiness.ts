@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "./db";
+import { inviaPushRecensione } from "./push";
 
 /**
  * Google Business Profile — collegamento OAuth per-cliente (livello 2).
@@ -976,6 +977,13 @@ export async function sincronizzaRecensioni(): Promise<{
   const { reviews, average, total, error } = await listaRecensioni(token, loc.path);
   const nowISO = new Date().toISOString();
 
+  // Recensioni gia' note (per rilevare le NUOVE e notificare l'admin).
+  let idsEsistenti = new Set<string>();
+  try {
+    const { data: ex } = await supabaseAdmin.from("google_reviews").select("review_id");
+    idsEsistenti = new Set((ex ?? []).map((x) => String((x as { review_id?: unknown }).review_id ?? "")));
+  } catch { /* best-effort: se fallisce, semplicemente non notifica */ }
+
   let dbError = "";
   if (reviews.length) {
     const righe = reviews.map((r) => ({
@@ -993,6 +1001,17 @@ export async function sincronizzaRecensioni(): Promise<{
     }));
     const { error: upErr } = await supabaseAdmin.from("google_reviews").upsert(righe, { onConflict: "review_id" });
     if (upErr) dbError = upErr.message;
+
+    // Notifica push all'admin per le recensioni NUOVE. Salta il primissimo
+    // sync (DB vuoto) per non notificare l'intero storico all'attivazione.
+    if (!upErr && idsEsistenti.size > 0) {
+      const nuove = reviews.filter((r) => r.reviewId && !idsEsistenti.has(r.reviewId));
+      if (nuove.length) {
+        // la piu' recente per create_time → autore/voto da mostrare
+        const ultima = [...nuove].sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
+        void inviaPushRecensione({ author: ultima.author, rating: ultima.rating, count: nuove.length });
+      }
+    }
   }
 
   await supabaseAdmin.from("app_config").upsert(

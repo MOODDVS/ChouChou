@@ -2,6 +2,11 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 31/08/2026 — sessione Cowork (Notifiche push: verifica + nuova notifica recensioni Google)
+
+- **Verifica notifiche push PWA admin — tutte OK**: nuovo ordine (`stripe-webhook.ts` → `inviaPushOrdine`, dati numero/nome/totale corretti), nuova prenotazione + demande (`reservation.ts` → `inviaPushResa "new"/"demande"`), prenotazione **modificata** e **annullata** dal cliente (`inviaPushResa "modif"/"annul"`). `push.ts` robusto: VAPID lazy (nessun throw se assente), invio a tutte le subscription con **pulizia automatica** di quelle morte (404/410), best-effort. Service worker (`public/sw.js`) generico: mostra title/body/tag e al click naviga su `data.url`.
+- **NUOVA notifica: recensione Google** (richiesta Enzo). Aggiunto `inviaPushRecensione` in `push.ts` (1 nuova → «Nouvel avis Google · ★★★★☆ · <autore>»; più di una → «N nouveaux avis»; link a `/admin/google`, tag `google-review`). Agganciata in `sincronizzaRecensioni` (cron orario `google-reviews`): rileva le recensioni **non ancora in DB** confrontando i `review_id` esistenti e notifica solo le nuove; **salta il primissimo sync** (DB vuoto) per non notificare tutto lo storico all'attivazione. `tsc` OK. NB: richiede che il cron `google-reviews-hourly` sia attivo sul cliente (già nella lista dei 5 job).
+
 ## 📌 31/08/2026 — sessione Cowork (Audit di sicurezza + hardening: rate limiting, header, cron)
 
 - **Audit di sicurezza completo** del motore (report consegnato a Enzo). Esito: basi solide (firma webhook Stripe verificata + idempotenza, integrità prezzi checkout ricalcolati server-side, service key solo server, escaping anti-XSS nell'admin, JWT verificato in locale via JWKS, Places API in cache, upload con limiti/auth, login su Supabase con rate limiting integrato, nessun CORS wildcard, isolamento multi-tenant per-DB). Problemi trovati e stato:
