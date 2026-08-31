@@ -1,0 +1,41 @@
+/* Barra "Salva" flottante condivisa (RestoHub) — riferimento: pagina Impostazioni.
+   Compare quando si modifica qualcosa e diventa verde a salvataggio riuscito.
+   Posizione allineata alla convenzione dei FAB (fab.css): sempre in basso a destra,
+   sollevata sopra la dock quando l'isola nav occupa la larghezza. Su ≥1024 il
+   sollevamento "se non c'è spazio a lato" lo gestisce AdminNav (adattaFab), che
+   include .save-bar tra gli elementi flottanti a destra.
+   Uso: <div class="save-bar"><span class="msg"></span><button class="save">Salva</button></div>
+   JS: aggiungere .is-visible alla barra su "dirty"; .is-saved al bottone a salvataggio ok. */
+.save-bar {
+  position: fixed; z-index: 95;
+  right: 1.5rem; bottom: 1.25rem; left: auto;
+  display: flex; align-items: center; gap: 1rem;
+  opacity: 0; pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 0.25s, transform 0.25s;
+}
+.save-bar.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+/* Tablet portrait (isola nav larga): sollevata sopra la dock. */
+@media (min-width: 521px) and (max-width: 1023px) { .save-bar { bottom: calc(1.25rem + 72px); } }
+/* Mobile: sopra la dock e un filo più vicino al bordo. */
+@media (max-width: 520px) { .save-bar { right: 1rem; bottom: calc(1.25rem + 72px); } }
+
+.save {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
+  background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
+  font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em;
+  padding: 0.75rem 2.4rem; cursor: pointer; border-radius: 999px;
+  transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.15s;
+}
+/* Convenzione bottoni flottanti: hover = shrink + oro più scuro (mai trasparente) */
+.save:hover:not(:disabled):not(.is-saved) { background: var(--c-hover); border-color: var(--c-hover); color: var(--c-bg); transform: scale(0.94); }
+.save:disabled { opacity: 0.5; cursor: not-allowed; }
+.save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
+/* Tablet (incl. iPad mini landscape 1024): bottone più piccolo, come i FAB. */
+@media (min-width: 521px) and (max-width: 1024px) { .save { font-size: 0.92rem; padding: 0.5rem 1.5rem; } }
+/* Mobile: ancora più piccolo. */
+@media (max-width: 520px) { .save { font-size: 0.85rem; padding: 0.45rem 1.3rem; } }
+
+.msg { font-size: 0.9rem; }
+.msg.ok { color: #4caf7d; }
+.msg.err { color: #ff6b6b; }

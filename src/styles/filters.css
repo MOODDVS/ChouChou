@@ -1,0 +1,29 @@
+/* Filtri a pillola condivisi (RestoHub).
+   Riferimento: i FILTRI sotto la linea nella pagina Menu (categorie: Antipasti/Test/…),
+   NON i tab grandi sopra la linea.
+   Uso: <div class="rh-filters"> <button class="rh-filter is-on">…</button> … </div>
+   La spaziatura del contenitore (margini) resta specifica di ogni pagina. */
+.rh-filters {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rh-filters::-webkit-scrollbar { display: none; }
+
+.rh-filter {
+  flex-shrink: 0;
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  color: var(--c-muted);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rh-filter:hover { color: var(--c-text); border-color: var(--c-accent); }
+.rh-filter.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }

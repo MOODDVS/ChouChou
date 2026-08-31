@@ -13,18 +13,22 @@
 <div class="imgpick-overlay" id="imgpick-overlay">
   <div class="imgpick-modal">
     <button class="imgpick-close" id="imgpick-close" aria-label="Fermer">×</button>
-    <h2>Bibliothèque d'images</h2>
-    <button type="button" class="imgpick-add" id="imgpick-add">+ Ajouter une image</button>
-    <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
-    <div class="imgpick-tabs" id="imgpick-tabs">
-      <button type="button" class="imgpick-tab is-on" data-b="">Toutes</button>
-      <button type="button" class="imgpick-tab" data-b="menu">Menu</button>
-      <button type="button" class="imgpick-tab" data-b="marketing">Marketing</button>
-      <button type="button" class="imgpick-tab" data-b="libre">Libres</button>
-      <button type="button" class="imgpick-tab" data-b="docs" id="imgpick-tab-docs" style="display:none">Documents</button>
+    <div class="imgpick-head">
+      <h2>Bibliothèque d'images</h2>
+      <button type="button" class="imgpick-add" id="imgpick-add">+ Ajouter une image</button>
+      <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+      <div class="imgpick-tabs" id="imgpick-tabs">
+        <button type="button" class="imgpick-tab is-on" data-b="">Toutes</button>
+        <button type="button" class="imgpick-tab" data-b="menu">Menu</button>
+        <button type="button" class="imgpick-tab" data-b="marketing">Marketing</button>
+        <button type="button" class="imgpick-tab" data-b="libre">Libres</button>
+        <button type="button" class="imgpick-tab" data-b="docs" id="imgpick-tab-docs" style="display:none">Documents</button>
+      </div>
     </div>
-    <div class="imgpick-state" id="imgpick-state">Chargement…</div>
-    <div class="imgpick-grid" id="imgpick-grid"></div>
+    <div class="imgpick-body">
+      <div class="imgpick-state" id="imgpick-state">Chargement…</div>
+      <div class="imgpick-grid" id="imgpick-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -36,10 +40,13 @@
   }
   .imgpick-overlay.is-open { display: flex; }
   .imgpick-modal {
-    width: 100%; max-width: 680px; max-height: 86vh; overflow-y: auto;
+    width: 100%; max-width: 680px; max-height: 86vh; overflow: hidden;
     background: var(--c-bg, var(--c-bg)); border: 1px solid var(--c-line, var(--c-line));
     padding: 1.75rem; position: relative; margin: auto;
+    display: flex; flex-direction: column;
   }
+  .imgpick-head { flex: 0 0 auto; }
+  .imgpick-body { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin: 0 -1.75rem -1.75rem; padding: 0 1.75rem 1.75rem; }
   .imgpick-modal h2 { font-family: var(--font-title, sans-serif); font-size: 1.6rem; letter-spacing: 0.04em; margin: 0 0 1rem; }
   .imgpick-close {
     position: absolute; top: 0.8rem; right: 1rem; background: none; border: none;
@@ -49,8 +56,10 @@
   .imgpick-add { display: inline-block; margin-bottom: 1rem; background: var(--c-accent, var(--c-accent)); color: var(--c-bg); border: 1px solid var(--c-accent, var(--c-accent)); border-radius: 999px; padding: 0.4rem 1.1rem; font-family: var(--font-title, inherit); letter-spacing: 0.03em; font-size: 0.9rem; cursor: pointer; }
   .imgpick-add:hover:not(:disabled) { background: transparent; color: var(--c-accent, var(--c-accent)); }
   .imgpick-add:disabled { opacity: 0.5; cursor: not-allowed; }
-  .imgpick-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+  .imgpick-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .imgpick-tabs::-webkit-scrollbar { display: none; }
   .imgpick-tab {
+    flex-shrink: 0;
     background: var(--c-card, var(--c-card)); border: 1px solid var(--c-line, var(--c-line)); color: var(--c-muted, var(--c-muted));
     font-family: var(--font-title, sans-serif); font-size: 0.95rem; letter-spacing: 0.05em;
     padding: 0.35rem 1rem; cursor: pointer; border-radius: 999px;
@@ -59,7 +68,7 @@
   .imgpick-tab:hover { color: var(--c-text, #fff); border-color: var(--c-accent, var(--c-accent)); }
   .imgpick-tab.is-on { background: var(--c-accent, var(--c-accent)); border-color: var(--c-accent, var(--c-accent)); color: var(--c-bg); }
   .imgpick-state { color: var(--c-muted, var(--c-muted)); text-align: center; padding: 1.5rem 0; }
-  .imgpick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 0.5rem; }
+  .imgpick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
   .imgpick-cell {
     padding: 0; border: 1px solid var(--c-line, var(--c-line)); background: var(--c-card, var(--c-card));
     cursor: pointer; border-radius: 8px; overflow: hidden; display: block;
@@ -74,6 +83,13 @@
   .imgpick-cell--pdf svg { width: 26px; height: 26px; fill: none; stroke: var(--c-accent, var(--c-accent)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   .imgpick-doc-name { font-size: 0.62rem; word-break: break-all; text-align: center; max-height: 2.4em; overflow: hidden; }
   .imgpick-cell--pdf img { object-position: top; }
+  @media (max-width: 640px) {
+    .imgpick-modal { padding: 1.15rem; max-height: 92vh; }
+    .imgpick-body { margin: 0 -1.15rem -1.15rem; padding: 0 1.15rem 1.15rem; }
+    .imgpick-modal h2 { font-size: 1.3rem; margin: 0 0 0.8rem; }
+    .imgpick-add { font-size: 0.82rem; padding: 0.35rem 0.9rem; }
+    .imgpick-grid { gap: 0.4rem; }
+  }
 </style>
 
 <script>

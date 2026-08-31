@@ -24,6 +24,7 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
+import "../../styles/savebar.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -498,19 +499,6 @@ const t = adminT(lang);
       }
       .kemail-add:hover { background: var(--c-accent); color: var(--c-bg); }
 
-      .save-bar {
-        position: fixed; z-index: 95;
-        display: flex; align-items: center; gap: 1rem;
-        left: 50%; bottom: 6.5rem;
-        opacity: 0; pointer-events: none;
-        transform: translateX(-50%) translateY(8px);
-        transition: opacity 0.25s, transform 0.25s;
-      }
-      .save-bar.is-visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-      @media (min-width: 900px) {
-        .save-bar { left: auto; right: 1.75rem; bottom: 1.75rem; transform: translateY(8px); }
-        .save-bar.is-visible { transform: translateY(0); }
-      }
       @media (min-width: 900px) {
         #content { grid-template-columns: 1fr 1fr; }
       }
@@ -718,20 +706,6 @@ const t = adminT(lang);
       }
       .hint { color: var(--c-muted); font-size: 0.8rem; }
 
-      .save {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em;
-        padding: 0.75rem 2.4rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.15s;
-      }
-      /* Convenzione bottoni flottanti: hover = shrink + oro più scuro (mai trasparente) */
-      .save:hover:not(:disabled):not(.is-saved) { background: var(--c-hover); border-color: var(--c-hover); color: var(--c-bg); transform: scale(0.94); }
-      .save:disabled { opacity: 0.5; cursor: not-allowed; }
-      .save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
-      .msg { font-size: 0.9rem; }
-      .msg.ok { color: #4caf7d; }
-      .msg.err { color: #ff6b6b; }
 
       /* --- Team (rubrica contatti) --- */
       .tm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
@@ -3589,7 +3563,7 @@ const t = adminT(lang);
         applicaLingua();
 
         // --- Link social / recensioni (tab Liens) ---
-        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
         const lnkEls = new Map(
           CHIAVI_LINK.map((k) => [k, document.getElementById("lnk-" + k) as HTMLInputElement])
         );

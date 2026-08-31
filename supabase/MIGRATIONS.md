@@ -95,5 +95,7 @@ Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per qu
 | `KITCHEN_EMAIL` | .env + host | Fallback email cucina (prio: app_config) |
 | `SLACK_WEBHOOK_URL` | opzionale | Notifica ordini su Slack |
 | `CRON_SECRET` | .env + host | Protegge i cron: /api/cron/daily-brief, /api/cron/newsletter, /api/cron/reservation-reminders |
+| `GOOGLE_CLIENT_ID` | opzionale (host) | OAuth app **MOODD** (Business Profile API). Serve per il collegamento della scheda Google dall'admin (`admin/google`). Uguale per tutti i clienti; il refresh token del singolo ristoratore finisce in `app_config.google_oauth_refresh`. Redirect da registrare su Google Cloud: `{PUBLIC_SITE_URL}/api/google/callback`. |
+| `GOOGLE_CLIENT_SECRET` | opzionale (host) | Secret dell'app OAuth MOODD (coppia con `GOOGLE_CLIENT_ID`). |
 | `GOOGLE_SA_KEY_B64` | opzionale (host) | Base64 del JSON del service account Google (Search Console → onglet Visibilité). Robot da aggiungere come utente nella Search Console di ogni cliente. |
 | `GOOGLE_PLACES_API_KEY` | opzionale (host) | Google Places API (New) per le recensioni pubbliche (`/api/reviews` del sito). Richiede anche `google_place_id` in `app_config`. |
