@@ -457,6 +457,18 @@ export async function aggiornaScheda(
   }
 }
 
+/** Legge l'indirizzo grezzo (storefrontAddress) così com'è su Google — per fare
+ *  un merge in scrittura senza perdere languageCode e senza introdurre campi
+ *  che il paese non usa (es. administrativeArea in Belgio → INVALID_ARGUMENT). */
+export async function leggiIndirizzoRaw(token: string, path: string): Promise<Record<string, unknown> | null> {
+  const locName = path.split("/").slice(-2).join("/");
+  const { data } = await gGetErr<{ storefrontAddress?: Record<string, unknown> }>(
+    token,
+    `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?readMask=storefrontAddress`
+  );
+  return data?.storefrontAddress ?? null;
+}
+
 /** Mappa giorno 0..6 (lun..dom) -> enum Google. */
 export const GIORNI_ENUM = GIORNI;
 

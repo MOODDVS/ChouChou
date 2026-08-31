@@ -352,6 +352,8 @@ const t = adminT(lang);
       .fi-actions { display: flex; align-items: center; gap: .8rem; margin-top: 1.4rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; }
       .fi-actions .p-msg { margin-right: auto; color: var(--c-muted); }
       @media (max-width: 640px) { .fi-row2, .fi-row3 { grid-template-columns: 1fr; } }
+      /* quando la Provincia/Regione non serve (paese che non la usa), riempi lo spazio */
+      @media (min-width: 641px) and (max-width: 999px) { .fi-row3.senza-prov { grid-template-columns: 1fr 2fr; } }
       /* Desktop: sezione Informazioni su 3 colonne (una card per colonna). */
       @media (min-width: 1000px) {
         .fi-sec[data-sec="info"] { display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; align-items: start; }
@@ -464,10 +466,10 @@ const t = adminT(lang);
                 <div class="fi-block">
                   <h3 class="fi-h3">{t("gg.ficheAddress")}</h3>
                   <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrLine")}</label><input type="text" id="fi-addr-line" /></div>
-                  <div class="fi-row3">
+                  <div class="fi-row3" id="fi-addr-row">
                     <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrCap")}</label><input type="text" id="fi-addr-cap" /></div>
                     <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrCity")}</label><input type="text" id="fi-addr-city" /></div>
-                    <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrProv")}</label><input type="text" id="fi-addr-prov" /></div>
+                    <div class="fi-field" id="fi-prov-field"><label class="p-lab">{t("gg.ficheAddrProv")}</label><input type="text" id="fi-addr-prov" /></div>
                   </div>
                   <div class="fi-field" style="max-width:160px"><label class="p-lab">{t("gg.ficheAddrCountry")}</label><input type="text" id="fi-addr-country" maxlength="2" /></div>
                   <p class="fi-warn">{t("gg.ficheAddrWarn")}</p>
@@ -1204,6 +1206,26 @@ const t = adminT(lang);
           const aCity = document.getElementById("fi-addr-city") as HTMLInputElement | null;
           const aProv = document.getElementById("fi-addr-prov") as HTMLInputElement | null;
           const aCountry = document.getElementById("fi-addr-country") as HTMLInputElement | null;
+          const provField = document.getElementById("fi-prov-field") as HTMLElement | null;
+          const addrRow = document.getElementById("fi-addr-row") as HTMLElement | null;
+          // Paesi il cui indirizzo Google usa la Provincia/Regione (administrativeArea):
+          // provincia/stato/regione. Altrove (Belgio, Francia, Germania, NL…) il campo
+          // non serve e Google rifiuta il valore → lo nascondiamo.
+          const PAESI_REGIONE = new Set([
+            "IT", "ES", "US", "CA", "AU", "BR", "IN", "CN", "JP", "KR", "MX", "AR",
+            "CL", "CO", "PE", "VE", "EC", "ID", "MY", "TH", "PH", "VN", "ZA", "EG",
+            "SA", "AE", "TR", "RU", "UA", "NZ", "MA", "TN",
+          ]);
+          let provDaGoogle = false;   // Google ha restituito una regione per QUESTA scheda?
+          let paeseIniziale = "";     // paese originale letto da Google
+          function aggiornaCampiPaese(): void {
+            const code = (aCountry?.value || "").trim().toUpperCase();
+            const mostra = PAESI_REGIONE.has(code) || (provDaGoogle && code === paeseIniziale);
+            if (provField) provField.style.display = mostra ? "" : "none";
+            if (addrRow) addrRow.classList.toggle("senza-prov", !mostra);
+            if (aProv && !mostra) aProv.value = ""; // niente valore fantasma se il campo è nascosto
+          }
+          aCountry?.addEventListener("input", aggiornaCampiPaese);
           const msg = document.getElementById("fi-msg");
           const updCount = () => { if (descCount && desc) descCount.textContent = String(desc.value.length); };
           desc?.addEventListener("input", updCount);
@@ -1328,6 +1350,9 @@ const t = adminT(lang);
               if (aCity) aCity.value = ad.locality || "";
               if (aProv) aProv.value = ad.adminArea || "";
               if (aCountry) aCountry.value = ad.regionCode || "";
+              provDaGoogle = !!String(ad.adminArea || "").trim();
+              paeseIniziale = String(ad.regionCode || "").trim().toUpperCase();
+              aggiornaCampiPaese();
               updCount();
               fiHours = [0, 1, 2, 3, 4, 5, 6].map((d) => {
                 const g = (sc.hours || []).find((x: { d: number }) => x.d === d);

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { accessToken, locationSalvata, leggiScheda, aggiornaScheda, GIORNI_ENUM } from "../../../../lib/googleBusiness";
+import { accessToken, locationSalvata, leggiScheda, aggiornaScheda, leggiIndirizzoRaw, GIORNI_ENUM } from "../../../../lib/googleBusiness";
 
 export const prerender = false;
 
@@ -93,15 +93,23 @@ export const PUT: APIRoute = async ({ request }) => {
     // regionCode (codice paese) obbligatorio per l'update dell'indirizzo su Google:
     // se manca, non tocco l'indirizzo per non inviare un dato incompleto.
     if (region) {
+      // Parto dall'indirizzo ESISTENTE su Google (conserva languageCode ecc.) e
+      // sovrascrivo solo i campi modificati. administrativeArea (Provincia/Regione)
+      // va inviato SOLO se quel paese lo usa già: molti paesi (es. Belgio) non lo
+      // prevedono e Google risponde INVALID_ARGUMENT se lo mandi.
+      const existing = (await leggiIndirizzoRaw(p.token!, p.path!)) ?? {};
       const lines = String(ad.lines ?? "").trim();
       const addr: Record<string, unknown> = {
+        ...existing,
         regionCode: region,
         addressLines: lines ? [lines] : [],
         locality: String(ad.locality ?? "").trim(),
         postalCode: String(ad.postalCode ?? "").trim(),
       };
       const admin = String(ad.adminArea ?? "").trim();
-      if (admin) addr.administrativeArea = admin;
+      const existingAdmin = String((existing as { administrativeArea?: unknown }).administrativeArea ?? "").trim();
+      if (existingAdmin) addr.administrativeArea = admin || existingAdmin; // paese che usa la regione
+      else delete addr.administrativeArea; // paese che NON usa la regione (es. Belgio)
       corpo.storefrontAddress = addr;
       masks.push("storefrontAddress");
     }
