@@ -88,34 +88,47 @@ Mai riusare il CRON_SECRET di un altro cliente. Mai incollare secret in chat.
 - `security.checkOrigin` è già disattivato in astro.config (necessario dietro
   il proxy; sicuro perché l'admin usa Bearer token).
 
-## 6. Scheduler pg_cron (dopo il deploy)
+## 6. Scheduler pg_cron (dopo il deploy) — TUTTI e 5 i job
 
-Nel SQL Editor del Supabase del cliente (sostituisci dominio e secret):
+⚠️ Ogni cliente ha il SUO Supabase: i cron NON si ereditano dal motore. Se
+li dimentichi, NON partono: recap giornaliero, promemoria prenotazioni,
+completamento automatico ordini, newsletter programmata, recensioni Google.
+Prima attiva le estensioni **`pg_cron`** e **`pg_net`** (Database → Extensions).
+
+Nel SQL Editor del Supabase del cliente (sostituisci dominio e secret — il
+`CRON_SECRET` sta nelle variabili d'ambiente su **Hostinger**, non su Vercel):
 
 ```sql
-select cron.schedule('daily-brief-hourly', '0 * * * *', $$
-  select net.http_get(
-    url := 'https://www.dominiocliente.be/api/cron/daily-brief',
-    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')
-  );
-$$);
+-- Completamento automatico ordini
+select cron.schedule('auto-complete-orders', '0 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/auto-complete-orders',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
 
-select cron.schedule('newsletter-hourly', '10 * * * *', $$
-  select net.http_get(
-    url := 'https://www.dominiocliente.be/api/cron/newsletter',
-    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')
-  );
-$$);
+-- Recap giornaliero (invia una sola volta al giorno, all'ora scelta nell'admin)
+select cron.schedule('daily-brief', '5 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/daily-brief',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
 
--- Rappel client ~3 h avant la réservation (toutes les 30 min pour un
--- timing serré ; la lib n'envoie que ce qui est dû, l'appeler souvent est sûr).
-select cron.schedule('resa-reminders-30min', '20,50 * * * *', $$
-  select net.http_get(
-    url := 'https://www.dominiocliente.be/api/cron/reservation-reminders',
-    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')
-  );
-$$);
+-- Newsletter programmate
+select cron.schedule('newsletter', '10 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/newsletter',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
+
+-- Rappel client ~3 h avant la réservation (la lib invia solo ciò che è dovuto)
+select cron.schedule('reservation-reminders', '15 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/reservation-reminders',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
+
+-- Sincronizzazione recensioni Google (solo se il cliente usa Google Business)
+select cron.schedule('google-reviews-hourly', '20 * * * *', $$
+  select net.http_get(url := 'https://www.dominiocliente.be/api/cron/google-reviews',
+    headers := jsonb_build_object('x-cron-key', 'IL_CRON_SECRET')); $$);
 ```
+
+Verifica: `select jobname, schedule, active from cron.job order by jobid;`
+(5 righe, tutte `active = true`). Dopo lo scoccare dell'ora, controlla gli esiti:
+`select jobid, status, return_message, start_time from cron.job_run_details order by start_time desc limit 10;`
+(`succeeded` = ok; `401` = il secret nel job non combacia con quello su Hostinger).
 
 ## 7. Primo avvio
 

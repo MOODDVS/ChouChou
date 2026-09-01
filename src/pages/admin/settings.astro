@@ -24,6 +24,7 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
+import "../../styles/savebar.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -89,6 +90,12 @@ const t = adminT(lang);
       }
       .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
       .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* Tablet e mobile: tab scrollabili orizzontalmente invece di andare a capo */
+      @media (max-width: 1024px) {
+        .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tabs button { flex-shrink: 0; }
+      }
       /* Fuori dal tab Horaire il contenuto sta su una colonna contenuta */
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
@@ -237,6 +244,8 @@ const t = adminT(lang);
       .nf-field label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
       .nf-field input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.6rem 0.85rem; font-family: var(--font-body); font-size: 0.95rem; width: 100%; box-sizing: border-box; color-scheme: dark; }
       .nf-field input:focus { outline: none; border-color: var(--c-accent); }
+      /* L'ora d'invio (input time) deve avere la stessa altezza degli altri campi notifiche: annulla il min-height 48px del touch (pointer: coarse) che la faceva sfasare */
+      .nf-field input[type="time"] { min-height: 0; padding: 0.6rem 0.85rem; font-size: 0.95rem; }
       .nf-f-emails { flex: 0 0 300px; }
       .nf-f-form { flex: 0 0 600px; max-width: 100%; display: flex; flex-direction: column; gap: .8rem; }
       .cf-sender { display: flex; gap: .7rem; }
@@ -252,6 +261,13 @@ const t = adminT(lang);
       .section[data-tab="notifications"] .nf-row.nff .nf-field { margin-right: calc(46px + 1.4rem); }
       @media (max-width: 900px) { .nf-f-emails { flex: 1 1 100%; } .section[data-tab="notifications"] .nf-row.nff .nf-field { margin-right: 0; } }
       @media (max-width: 900px) { .nf-f-hour, .nf-f-email { flex: 1 1 100%; } }
+      /* Riga "La tua giornata" (ora+email) su tablet/mobile: titolo e toggle in alto sulla stessa riga, ora ed email sotto */
+      @media (max-width: 900px) {
+        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-txt { order: 1; }
+        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-sw { order: 2; align-self: flex-start; margin: 2px 0 0; }
+        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-f-hour { order: 3; max-width: 200px; }
+        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-f-email { order: 4; }
+      }
 
       /* --- Aperçu widget réservations --- */
       .rw-note { color: var(--c-muted); font-size: 0.8rem; line-height: 1.6; margin-bottom: 1rem; }
@@ -498,19 +514,6 @@ const t = adminT(lang);
       }
       .kemail-add:hover { background: var(--c-accent); color: var(--c-bg); }
 
-      .save-bar {
-        position: fixed; z-index: 95;
-        display: flex; align-items: center; gap: 1rem;
-        left: 50%; bottom: 6.5rem;
-        opacity: 0; pointer-events: none;
-        transform: translateX(-50%) translateY(8px);
-        transition: opacity 0.25s, transform 0.25s;
-      }
-      .save-bar.is-visible { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
-      @media (min-width: 900px) {
-        .save-bar { left: auto; right: 1.75rem; bottom: 1.75rem; transform: translateY(8px); }
-        .save-bar.is-visible { transform: translateY(0); }
-      }
       @media (min-width: 900px) {
         #content { grid-template-columns: 1fr 1fr; }
       }
@@ -674,7 +677,7 @@ const t = adminT(lang);
       .rs-day:hover { border-color: var(--c-accent); color: var(--c-text); }
       .rs-day.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .rs-row .rs-key {
-        flex: 1; min-width: 0; height: 42px; box-sizing: border-box;
+        flex: 1 1 auto; min-width: 0; max-width: 360px; height: 42px; box-sizing: border-box;
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.5rem 0.6rem; color-scheme: dark; border-radius: 0;
       }
@@ -692,7 +695,7 @@ const t = adminT(lang);
       .tz-select:focus { outline: none; border-color: var(--c-accent); }
       .section[data-tab="reservations"] .field .rs-row .rs-from,
       .section[data-tab="reservations"] .field .rs-row .rs-to {
-        flex: 0 0 108px; width: 108px; height: 42px; box-sizing: border-box; padding: 0.5rem 0.6rem;
+        flex: 0 0 124px; width: 124px; height: 42px; min-height: 42px; box-sizing: border-box; padding: 0.4rem 0.6rem;
       }
       .section[data-tab="reservations"] .field .rs-row .rs-hold,
       .section[data-tab="reservations"] .field .rs-row .rs-slot {
@@ -709,29 +712,33 @@ const t = adminT(lang);
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
         .section[data-tab="reservations"] .field input { flex-basis: 100%; }
         .section[data-tab="reservations"] .hint { margin-left: 0; }
+        /* Campi con righe dinamiche (sezioni/coperti, piantina, servizi): contenuto a tutta larghezza sotto il label, invece di schiacciarsi accanto al label da 300px */
+        .section[data-tab="reservations"] .field > .dyn-col { flex-basis: 100%; width: 100%; }
+        .section[data-tab="reservations"] .field:has(> .dyn-col) > label { flex: 0 0 100%; max-width: none; }
+        /* Riga servizio: select nome a tutta larghezza sopra, orari (+ elimina) sotto */
+        .section[data-tab="reservations"] .rs-line1 { flex-wrap: wrap; }
+        .section[data-tab="reservations"] .rs-row .rs-key { flex: 0 0 100%; max-width: none; }
       }
       @media (max-width: 700px) {
-        .field label { flex: 0 0 auto; max-width: none; }
+        /* Label impilato sopra il field: avvicina il field al suo label (solo verticale) e label meno opaco */
+        .field { gap: 0.4rem 1rem; }
+        .field label { flex: 0 0 auto; max-width: none; opacity: 0.66; }
+        /* Field un po' piu alti su mobile */
+        input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
+          padding-top: 0.55rem; padding-bottom: 0.55rem;
+        }
         .section[data-tab="general"] .field { flex-wrap: wrap; }
+        .section[data-tab="general"] .field label { flex: 0 0 100%; max-width: none; }
         .section[data-tab="general"] .field input, .section[data-tab="general"] .kemails { flex-basis: 100%; }
         .section[data-tab="general"] .kemail-add, .section[data-tab="general"] .hint { margin-left: 0; }
+        /* CAP e città sulla stessa riga */
+        .section[data-tab="general"] .field input.g-zip { flex: 0 0 32%; }
+        .section[data-tab="general"] .field #g-city { flex: 1 1 0; min-width: 0; }
+        /* Email pubblica: campo nome a tutta larghezza */
+        .section[data-tab="general"] .field input.g-name-inp { flex: 0 0 100%; }
       }
       .hint { color: var(--c-muted); font-size: 0.8rem; }
 
-      .save {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.05em;
-        padding: 0.75rem 2.4rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.15s;
-      }
-      /* Convenzione bottoni flottanti: hover = shrink + oro più scuro (mai trasparente) */
-      .save:hover:not(:disabled):not(.is-saved) { background: var(--c-hover); border-color: var(--c-hover); color: var(--c-bg); transform: scale(0.94); }
-      .save:disabled { opacity: 0.5; cursor: not-allowed; }
-      .save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
-      .msg { font-size: 0.9rem; }
-      .msg.ok { color: #4caf7d; }
-      .msg.err { color: #ff6b6b; }
 
       /* --- Team (rubrica contatti) --- */
       .tm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; }
@@ -951,6 +958,11 @@ const t = adminT(lang);
         }
       }
       .sp-dates input { flex: 1; min-width: 0; cursor: pointer; }
+      /* Touch (iPad mini/mobile): input ora dei giorni piu bassi, campi giorni speciali un po' piu alti */
+      @media (pointer: coarse) {
+        .band input[type="time"] { padding: 0.5rem 0.7rem; min-height: 42px; font-size: 1rem; }
+        .sp-dates input, #sp-note { padding: 0.7rem 0.85rem; min-height: 46px; font-size: 1rem; }
+      }
 
       #sp-note { flex: 1; min-width: 140px; }
       .sp-addbtn {
@@ -965,7 +977,7 @@ const t = adminT(lang);
         .day-head { flex-wrap: wrap; gap: 0.5rem; }
         .day-head .day-name { flex: 1; order: 1; }
         .day-head .switch { order: 2; }
-        .day-head .mode { order: 3; flex-basis: 100%; }
+        .day-head .mode { order: 3; flex-basis: 100%; justify-content: flex-end; }
         .bands { padding-right: 0; }
         .band { justify-content: flex-start; }
         .band input[type="time"] { flex: 1; min-width: 0; }
@@ -980,6 +992,12 @@ const t = adminT(lang);
         animation: btnspin 0.7s linear infinite;
       }
       @keyframes btnspin { to { transform: rotate(360deg); } }
+
+      /* Mobile: titolo tile piu piccolo e bianco + padding interno ridotto (coerente con le altre pagine) */
+      @media (max-width: 640px) {
+        .section { padding: 1.1rem; }
+        .section h2 { font-size: 1.15rem; color: var(--c-text); margin-bottom: 0.8rem; }
+      }
     </style>
     <AdminHead />
   </head>
@@ -3589,7 +3607,7 @@ const t = adminT(lang);
         applicaLingua();
 
         // --- Link social / recensioni (tab Liens) ---
-        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "google_review"];
+        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
         const lnkEls = new Map(
           CHIAVI_LINK.map((k) => [k, document.getElementById("lnk-" + k) as HTMLInputElement])
         );
@@ -3773,7 +3791,7 @@ const t = adminT(lang);
                   body: JSON.stringify({ test: true }),
                 });
                 const j = await res.json();
-                if (nfMsg) nfMsg.textContent = res.ok ? `${tr("set.nf.testPrefix")} ${j.sent ?? 0}/${j.found ?? 0} ${tr("set.nf.sentPl")}${j.err ? " — " + j.err : ""}` : tr("set.nf.testFail");
+                if (nfMsg) nfMsg.textContent = res.ok ? `${tr("set.nf.testPrefix")} ${j.sent ?? 0}/${j.found ?? 0}${j.riassunto ? " — " + j.riassunto : ""}` : tr("set.nf.testFail");
               } catch { if (nfMsg) nfMsg.textContent = tr("common.netErr"); }
             });
           }
@@ -4168,6 +4186,7 @@ const t = adminT(lang);
         let dpMese = 0; // 0-11
         const dpPanel = document.createElement("div");
         dpPanel.className = "dp-panel";
+        dpPanel.style.position = "absolute";
         dpPanel.style.display = "none";
         document.body.appendChild(dpPanel);
 
@@ -4219,11 +4238,36 @@ const t = adminT(lang);
           dpAnno = Number(base.slice(0, 4));
           dpMese = Number(base.slice(5, 7)) - 1;
           dpRender();
+          dpPanel.style.maxHeight = "";
+          dpPanel.style.overflowY = "";
           dpPanel.style.display = "block";
           const r = target.getBoundingClientRect();
           const pw = dpPanel.offsetWidth || 308;
-          dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
-          dpPanel.style.top = `${r.bottom + 6}px`;
+          const ph = dpPanel.offsetHeight || 360;
+          const gap = 6;
+          // spazio riservato per l'isola nav (in basso) e per l'header sticky (in alto)
+          const navReserve = window.innerWidth <= 900 ? 90 : 12;
+          const headerReserve = 72;
+          const spaceBelow = window.innerHeight - r.bottom - gap - navReserve;
+          const spaceAbove = r.top - gap - headerReserve;
+          let topVp: number;
+          if (ph <= spaceBelow) {
+            topVp = r.bottom + gap;                       // sotto il campo
+          } else if (ph <= spaceAbove) {
+            topVp = r.top - gap - ph;                     // sopra il campo
+          } else if (spaceBelow >= spaceAbove) {
+            topVp = r.bottom + gap;                       // sotto, con scroll interno
+            dpPanel.style.maxHeight = `${Math.max(220, spaceBelow)}px`;
+            dpPanel.style.overflowY = "auto";
+          } else {
+            const h = Math.max(220, spaceAbove);          // sopra, con scroll interno
+            topVp = r.top - gap - h;
+            dpPanel.style.maxHeight = `${h}px`;
+            dpPanel.style.overflowY = "auto";
+          }
+          const leftVp = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+          dpPanel.style.left = `${leftVp + window.scrollX}px`;
+          dpPanel.style.top = `${topVp + window.scrollY}px`;
         }
         function dpChiudi() {
           dpPanel.style.display = "none";

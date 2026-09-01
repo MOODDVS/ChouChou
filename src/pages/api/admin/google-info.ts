@@ -23,6 +23,9 @@ interface Avis {
   note: number;
   texte: string;
   quand: string;
+  id?: string;          // review_id (solo se via Business Profile): serve per rispondere
+  reply?: boolean;      // true = ha già una risposta del ristorante
+  quand_iso?: string;   // data ISO (Business Profile) da formattare lato client
 }
 
 // Places API (New) restituisce 5 recensioni scelte da Google come "pertinenti"
@@ -129,7 +132,33 @@ export const GET: APIRoute = async ({ request }) => {
       },
       30 * 60_000
     );
-    return json({ configured: true, ...info });
+    // Se il Business Profile è collegato, le recensioni sincronizzate (tabella
+    // google_reviews) hanno l'id e lo stato "risposta" → le usiamo per la tile
+    // così da poter mostrare il bottone «Rispondi». Lettura fresca (no cache):
+    // dopo una risposta il bottone deve sparire subito. Fallback = avis Places.
+    let avisOut = info.avis;
+    try {
+      const { data: gr } = await supabaseAdmin
+        .from("google_reviews")
+        .select("review_id, author, rating, comment, reply_comment, create_time")
+        .order("create_time", { ascending: false })
+        .limit(8);
+      if (gr && gr.length) {
+        const conTesto = gr.filter((r) => String(r.comment ?? "").trim());
+        if (conTesto.length) {
+          avisOut = conTesto.map((r) => ({
+            auteur: String(r.author ?? ""),
+            note: Number(r.rating ?? 0),
+            texte: String(r.comment ?? "").slice(0, 1500),
+            quand: "",
+            quand_iso: r.create_time ? String(r.create_time) : undefined,
+            id: String(r.review_id),
+            reply: !!r.reply_comment,
+          }));
+        }
+      }
+    } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
+    return json({ configured: true, ...info, avis: avisOut });
   } catch {
     return json({ configured: true, error: "Google indisponible" }, 200);
   }

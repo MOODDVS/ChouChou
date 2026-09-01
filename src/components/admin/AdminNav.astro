@@ -491,7 +491,7 @@ const t = adminT(lang);
       const nav = document.querySelector(".admin-nav") as HTMLElement | null;
       if (!nav) return;
       // FAB a destra (+ Ordine / + Prenotazione) e a sinistra (campana/zone).
-      const fabs = document.querySelectorAll<HTMLElement>(".fab-add, .fab, .fab-serv, .fab-zone");
+      const fabs = document.querySelectorAll<HTMLElement>(".fab-add, .fab, .fab-serv, .fab-zone, .save-bar");
       if (!fabs.length) return;
       // ≤1023px: l'isola è larga per definizione → i FAB vanno SEMPRE sopra, e
       // ci pensano le media query (CSS affidabile, nessun timing). Qui azzeriamo
@@ -506,7 +506,7 @@ const t = adminT(lang);
       const nb = nav.getBoundingClientRect();
       const sopra = `${Math.round(window.innerHeight - nb.top + 12)}px`;
       const BUF = 12; // piccolo margine di sicurezza
-      const rightFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-add") || f.classList.contains("fab"));
+      const rightFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-add") || f.classList.contains("fab") || f.classList.contains("save-bar"));
       const leftFabs = Array.from(fabs).filter((f) => f.classList.contains("fab-serv") || f.classList.contains("fab-zone"));
       const gruppoTocca = (g: HTMLElement[]): boolean => g.some((f) => {
         const fr = f.getBoundingClientRect();

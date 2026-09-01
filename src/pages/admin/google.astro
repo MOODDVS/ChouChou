@@ -6,6 +6,10 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
+import "../../styles/fab.css";
+import "../../styles/filters.css";
+import "../../styles/savebar.css";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -138,11 +142,38 @@ const t = adminT(lang);
       .g-dist-i b { color: #f5b301; font-weight: 400; margin-right: .12rem; }
 
       /* Tab di sezione (Recensioni, e in futuro Profilo/Foto/Post) */
-      .mtabs { display: flex; gap: .4rem; flex-wrap: wrap; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line); }
-      .mtab { background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: 1rem; letter-spacing: .05em; padding: .5rem 1.2rem; cursor: pointer; border-radius: 10px; transition: background .15s, color .15s, border-color .15s; }
+      .mtabs { display: flex; gap: .4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--c-line); }
+      .mtabs::-webkit-scrollbar { display: none; }
+      .mtab { flex-shrink: 0; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-title); font-size: 1rem; letter-spacing: .05em; padding: .5rem 1.2rem; cursor: pointer; border-radius: 10px; transition: background .15s, color .15s, border-color .15s; }
       .mtab:hover { color: var(--c-text); border-color: var(--c-accent); }
       .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .g-tab-panel { display: block; }
+      .menu-hd { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.3rem; }
+      .menu-tit { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: .02em; margin: 0 0 .3rem; }
+      .menu-note { color: var(--c-muted); font-size: .85rem; line-height: 1.5; margin: 0; max-width: 620px; }
+      .menu-row { display: flex; justify-content: space-between; gap: 1rem; padding: .4rem 0; border-bottom: 1px solid var(--c-line); font-size: .9rem; }
+      .menu-row:last-child { border-bottom: none; }
+      .menu-row .p { color: var(--c-accent); font-weight: 600; white-space: nowrap; }
+      .foto-duo { display: flex; gap: 2rem; flex-wrap: wrap; }
+      .foto-one { flex: 1 1 260px; min-width: 0; }
+      .foto-one .fi-h3 { margin-top: 0; }
+      .foto-single { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+      .foto-thumb { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid var(--c-line); background: var(--c-bg); display: block; }
+      .foto-logo .foto-thumb, .foto-logo .foto-empty { width: 90px; height: 90px; }
+      .foto-thumb.big { width: 220px; height: 120px; }
+      .foto-empty { width: 120px; height: 120px; border-radius: 12px; border: 1px dashed var(--c-line); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
+      .foto-thumb.big + .foto-btns, .foto-empty.big { }
+      .foto-btns { display: flex; gap: .5rem; flex-wrap: wrap; }
+      .foto-btn { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .85rem; padding: .45rem 1.1rem; border-radius: 999px; cursor: pointer; transition: border-color .15s, background .15s, color .15s; }
+      .foto-btn:hover { border-color: var(--c-accent); }
+      .foto-btn.del { color: var(--c-muted); }
+      .foto-btn.confirm, .foto-x.confirm { background: #d64545; border-color: #d64545; color: #fff; }
+      .foto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .8rem; }
+      .foto-cell { position: relative; }
+      .foto-cell img { width: 100%; height: 130px; object-fit: cover; border-radius: 10px; border: 1px solid var(--c-line); display: block; }
+      .foto-x { position: absolute; top: 6px; right: 6px; background: rgba(10,20,26,.72); border: none; color: #fff; border-radius: 999px; width: 28px; height: 28px; font-size: 1.05rem; line-height: 1; cursor: pointer; }
+      .foto-add { min-height: 130px; border: 1px dashed color-mix(in srgb, var(--c-accent) 55%, var(--c-line)); background: color-mix(in srgb, var(--c-accent) 10%, transparent); color: var(--c-accent); border-radius: 10px; cursor: pointer; font-family: var(--font-title); font-size: .85rem; letter-spacing: .03em; }
+      .foto-add:hover { background: color-mix(in srgb, var(--c-accent) 20%, transparent); }
 
       /* Layout: fiche business (sinistra) + recensioni (a destra) */
       .g-split { display: flex; gap: 1.1rem; align-items: flex-start; }
@@ -178,6 +209,209 @@ const t = adminT(lang);
       .toast { position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(1rem); background: var(--c-text); color: var(--c-bg); padding: .7rem 1.2rem; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
       .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
       .toast.is-error { background: #d33; color: #fff; }
+      /* ---- Tab POST ---- */
+      .p-compose { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; }
+      .p-types { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .p-type { background: none; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .85rem; padding: .4rem 1rem; border-radius: 999px; cursor: pointer; }
+      .p-type.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .p-field { margin-bottom: .85rem; }
+      .p-lab { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); margin: 0 0 .35rem; }
+      .p-field input, .p-field select, .p-field textarea { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; }
+      .p-field textarea { min-height: 90px; resize: vertical; }
+      .p-field input:focus, .p-field select:focus, .p-field textarea:focus { outline: none; border-color: var(--c-accent); }
+      .p-dates { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+      .p-photo { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+      .p-photo-prev { width: 64px; height: 64px; border-radius: 10px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
+      .p-photo-prev svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+      .p-photo-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .p-photo-btn { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: .9rem; padding: .55rem 1.2rem; border-radius: 999px; cursor: pointer; transition: border-color .15s, color .15s; }
+      .p-photo-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .p-photo-state { font-size: .78rem; color: var(--c-muted); }
+      .p-cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+      .p-offer .p-lab { margin-top: .6rem; }
+      .p-actions { display: flex; align-items: center; gap: .8rem; margin-top: .4rem; }
+      .p-msg { font-size: .8rem; color: #ff8a8f; margin-right: auto; }
+      .p-list-tit { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: .04em; margin: 0 0 .8rem; }
+      .p-card { display: flex; gap: .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 10px; padding: .8rem .95rem; margin-bottom: .7rem; }
+      .p-card-img img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; display: block; }
+      .p-card-main { flex: 1; min-width: 0; }
+      .p-card-top { display: flex; align-items: center; gap: .5rem; margin-bottom: .3rem; }
+      .p-badge { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; background: color-mix(in srgb, var(--c-accent) 18%, transparent); color: var(--c-accent); border-radius: 999px; padding: .12rem .55rem; font-weight: 700; }
+      .p-state-b { font-size: .68rem; text-transform: uppercase; color: #ffcf8f; }
+      .p-card-dt { font-size: .75rem; color: var(--c-muted); margin-left: auto; }
+      .p-card-txt { margin: 0 0 .5rem; font-size: .9rem; line-height: 1.5; color: var(--c-text); }
+      .p-card-act { display: flex; align-items: center; gap: .8rem; }
+      .p-card-link { display: inline-flex; align-items: center; gap: .3rem; font-size: .82rem; font-weight: 600; color: var(--c-accent); text-decoration: none; }
+      .p-card-link:hover { color: var(--c-accent); opacity: .8; }
+      .p-card-link .p-card-link-arr { transition: transform .15s; }
+      .p-card-link:hover .p-card-link-arr { transform: translateX(3px); }
+      .i-btn { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--c-line); color: var(--c-text); cursor: pointer; border-radius: 50%; font-size: .95rem; transition: border-color .15s, color .15s, background .15s; }
+      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .i-btn:disabled { opacity: .3; cursor: not-allowed; }
+      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
+      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
+      .i-del .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 .7rem; border-radius: 999px; font-size: .75rem; }
+      .p-del { margin-left: auto; }
+      @media (max-width: 560px) { .p-dates, .p-cta-row { grid-template-columns: 1fr; } }
+      /* Sinistra: riquadro pubblica · Destra: post pubblicati (desktop / tablet landscape) */
+      .p-cols, .p-col { display: block; }
+      .p-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; }
+      /* Colonna sinistra sticky SOLO su desktop/tablet landscape (sotto l'header ~80px) */
+      @media (min-width: 901px) and (orientation: landscape), (min-width: 1025px) {
+        .p-overlay { position: sticky; top: calc(48px + 2rem + 1rem); align-self: start; }
+      }
+      /* Tablet in orizzontale (es. iPad mini 1024): colonne 2/5 - 3/5 */
+      @media (orientation: landscape) and (min-width: 901px) and (max-width: 1180px) {
+        .p-layout { grid-template-columns: 2fr 3fr; }
+      }
+      .p-compose { margin-bottom: 0; }
+      .p-fab, .p-close { display: none; }
+      /* Tablet verticale / mobile: riquadro pubblica in un MODALE (FAB), lista a tutta larghezza */
+      @media (max-width: 900px), (orientation: portrait) and (max-width: 1024px) {
+        .p-layout { display: block; }
+        .p-compose { margin-bottom: 1.5rem; }
+        body.tab-posts .p-fab { display: inline-flex; }
+        .p-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto; }
+        .p-overlay.is-open { display: flex; }
+        .p-overlay .p-compose { width: 100%; max-width: 560px; margin: 0; max-height: 90vh; overflow-y: auto; position: relative; }
+        .p-close { display: block; position: absolute; top: .5rem; right: .7rem; background: none; border: none; color: var(--c-muted); font-size: 1.7rem; line-height: 1; cursor: pointer; }
+      }
+      /* ---- Tab SCHEDA (Business Information) ---- */
+      .fiche-head { font-size: .85rem; color: var(--c-muted); line-height: 1.6; margin-bottom: 1.3rem; }
+      .fiche-head b { color: var(--c-text); font-family: var(--font-title); font-size: 1.1rem; letter-spacing: .02em; }
+      .fiche-form { max-width: none; }
+      /* Orari/Attributi/Links restano a larghezza leggibile; Informazioni usa tutta la pagina. */
+      .fi-sec[data-sec="attr"], .fi-sec[data-sec="links"] { max-width: 900px; }
+      /* filtri: stile condiviso in src/styles/filters.css (.rh-filters / .rh-filter) */
+      .fi-filtri { margin-bottom: 1.4rem; }
+      .fi-soon { color: var(--c-muted); font-size: .9rem; font-style: italic; }
+      .fi-field { margin-bottom: 1rem; }
+      .fi-field textarea, .fi-field input { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; font-family: var(--font-body); }
+      .fi-field textarea { min-height: 90px; resize: vertical; }
+      .fi-field textarea:focus, .fi-field input:focus { outline: none; border-color: var(--c-accent); }
+      .fi-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      .fi-block { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.1rem 1.2rem; margin: 0 0 .9rem; }
+      .fi-block > .fi-field:last-child, .fi-block > .attr-row:last-child { margin-bottom: 0; }
+      .fi-h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: .03em; margin: 0 0 .8rem; }
+      .fi-hd { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: .8rem; }
+      .fi-hd .fi-h3 { margin: 0; }
+      .fi-sync { display: inline-flex; align-items: center; gap: .35rem; background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent); font-family: var(--font-title); font-size: .82rem; letter-spacing: .03em; padding: .4rem 1rem; border-radius: 999px; cursor: pointer; transition: background .2s, border-color .2s, transform .15s; }
+      .fi-sync:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.96); }
+      .fi-sync:disabled { opacity: .6; cursor: default; }
+      .fi-field select { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; font-family: var(--font-body); }
+      .fi-field select:focus { outline: none; border-color: var(--c-accent); }
+      .fi-row3 { display: grid; grid-template-columns: 1fr 2fr 1.4fr; gap: 1rem; }
+      .fi-count { text-align: right; font-size: .72rem; color: var(--c-muted); margin-top: .25rem; }
+      .fi-warn { color: var(--c-muted); font-size: .8rem; line-height: 1.5; margin: .6rem 0 0; display: flex; gap: .45rem; align-items: flex-start; }
+      .fi-warn::before { content: "\26A0"; color: var(--c-accent); flex-shrink: 0; }
+      .attr-note { color: var(--c-muted); font-size: .8rem; line-height: 1.5; margin: 0 0 1.2rem; }
+      .attr-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--c-line); }
+      .attr-row:last-child { border-bottom: none; }
+      .attr-lab { font-size: .9rem; color: var(--c-text); padding-top: .35rem; flex: 1; }
+      .attr-ctrl { flex-shrink: 0; }
+      .attr-tri { display: inline-flex; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden; }
+      .attr-tri button { background: var(--c-bg); border: none; border-left: 1px solid var(--c-line); color: var(--c-muted); font-size: .8rem; padding: .35rem .8rem; cursor: pointer; font-family: var(--font-body); }
+      .attr-tri button:first-child { border-left: none; }
+      .attr-tri button.on { background: var(--c-accent); color: var(--c-bg); }
+      select.attr-enum { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .85rem; padding: .4rem .6rem; border-radius: 8px; font-family: var(--font-body); max-width: 220px; }
+      .attr-re { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: flex-end; max-width: 60%; }
+      .attr-chip { background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 999px; padding: .3rem .8rem; font-size: .8rem; color: var(--c-muted); cursor: pointer; }
+      .attr-chip.on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .attr-urls { display: flex; flex-direction: column; gap: .4rem; min-width: 260px; }
+      .attr-urls input { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .85rem; padding: .4rem .6rem; border-radius: 8px; font-family: var(--font-body); }
+      @media (max-width: 640px) { .attr-row { flex-direction: column; align-items: stretch; } .attr-re { max-width: none; justify-content: flex-start; } }
+      .fi-day { display: flex; align-items: flex-start; gap: 1.2rem; padding: .65rem 0; border-bottom: 1px solid var(--c-line); flex-wrap: wrap; }
+      .fi-day-head { display: flex; align-items: center; gap: .7rem; min-width: 160px; }
+      .fi-day-nome { font-weight: 700; width: 46px; }
+      .fi-day-sw { display: inline-flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--c-muted); cursor: pointer; }
+      .fi-ranges { display: flex; flex-direction: column; gap: .4rem; flex: 1; min-width: 200px; }
+      .fi-range { display: flex; align-items: center; gap: .4rem; }
+      .fi-range input[type=time], .fi-sp input[type=time], .fi-sp input[type=date] { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 6px; padding: .4rem .55rem; font-size: .85rem; font-family: var(--font-body); }
+      .fi-r-del, .fi-sp-del { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1.15rem; line-height: 1; }
+      .fi-r-del:hover, .fi-sp-del:hover { color: #ff8a8f; }
+      .fi-r-add { background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 999px; padding: .25rem .8rem; font-size: .78rem; cursor: pointer; align-self: flex-start; }
+      .fi-r-add:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .fi-closed { color: var(--c-muted); font-size: .85rem; font-style: italic; }
+      .fi-sp { margin-bottom: .8rem; padding-bottom: .7rem; border-bottom: 1px solid var(--c-line); }
+      .fi-sp:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+      .fi-sp-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+      .fi-sp .fi-ranges { margin-top: .5rem; }
+      .fi-add {
+        margin-top: .6rem;
+        display: inline-flex; align-items: center; gap: .4rem;
+        background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+        border: 1px dashed color-mix(in srgb, var(--c-accent) 55%, var(--c-line));
+        color: var(--c-accent);
+        font-family: var(--font-title); font-size: .9rem; letter-spacing: .03em;
+        padding: .5rem 1.3rem; border-radius: 999px; cursor: pointer;
+        transition: background .2s, border-color .2s, color .2s, transform .15s;
+      }
+      .fi-add:hover { background: color-mix(in srgb, var(--c-accent) 20%, transparent); border-color: var(--c-accent); }
+      .fi-add:active { transform: scale(0.96); }
+      .fi-actions { display: flex; align-items: center; gap: .8rem; margin-top: 1.4rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; }
+      .fi-actions .p-msg { margin-right: auto; color: var(--c-muted); }
+      @media (max-width: 640px) { .fi-row2, .fi-row3 { grid-template-columns: 1fr; } }
+      /* quando la Provincia/Regione non serve (paese che non la usa), riempi lo spazio */
+      @media (min-width: 641px) and (max-width: 999px) { .fi-row3.senza-prov { grid-template-columns: 1fr 2fr; } }
+      /* Desktop: sezione Informazioni su 3 colonne (una card per colonna). */
+      @media (min-width: 1000px) {
+        .fi-sec[data-sec="info"] { display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; align-items: start; }
+        .fi-sec[data-sec="info"] .fi-block { margin: 0; }
+        .fi-sec[data-sec="info"] .fi-row2, .fi-sec[data-sec="info"] .fi-row3 { grid-template-columns: 1fr; }
+      }
+      /* Desktop + iPad orizzontale: Orari di apertura e Orari speciali affiancati 50/50. */
+      @media (min-width: 1000px) {
+        .fi-sec[data-sec="orari"] { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; align-items: start; }
+        .fi-sec[data-sec="orari"] .fi-block { margin: 0; }
+      }
+      .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; display: inline-block; }
+      .switch input { opacity: 0; width: 0; height: 0; }
+      .switch .track { position: absolute; inset: 0; cursor: pointer; border-radius: 999px; background: var(--c-line); transition: background 0.2s; }
+      .switch .track::before { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s; }
+      .switch input:checked + .track { background: var(--c-accent); }
+      .switch input:checked + .track::before { transform: translateX(17px); background: var(--c-bg); }
+
+      /* ===== Tab DATA (statistiche) ===== */
+      .dt-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .7rem; margin-bottom: 1.6rem; }
+      .dt-kpi { border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-card); padding: .9rem 1rem; }
+      .dt-kpi .k-lab { display: flex; align-items: center; gap: .45rem; color: var(--c-muted); font-size: .8rem; letter-spacing: .02em; margin-bottom: .35rem; }
+      .dt-kpi .k-lab svg { width: 16px; height: 16px; fill: none; stroke: var(--c-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+      .dt-kpi .k-val { font-family: var(--font-title); font-size: 1.7rem; line-height: 1; color: var(--c-text); }
+      .dt-block { border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-card); padding: 1.1rem 1.2rem; margin-bottom: 1.4rem; }
+      .dt-block h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: .03em; margin: 0 0 .9rem; color: var(--c-text); }
+      /* selettore metrica del grafico */
+      .dt-metsel { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .dt-met { flex-shrink: 0; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .78rem; padding: .3rem .8rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: .35rem; }
+      .dt-met.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      .dt-met .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: .8; }
+      .dt-chart { width: 100%; display: grid; grid-template-columns: 2.3rem 1fr; grid-template-rows: auto auto; align-items: stretch; }
+      .dt-yaxis { grid-column: 1; grid-row: 1; position: relative; }
+      .dt-yl { position: absolute; right: .45rem; transform: translateY(-50%); font-size: .58rem; color: var(--c-muted); font-family: var(--font-body); line-height: 1; white-space: nowrap; }
+      .dt-plot { grid-column: 2; grid-row: 1; min-width: 0; }
+      .dt-xaxis { grid-column: 2; grid-row: 2; position: relative; height: .95rem; margin-top: .25rem; }
+      .dt-xl { position: absolute; top: 0; font-size: .58rem; color: var(--c-muted); font-family: var(--font-body); line-height: 1; white-space: nowrap; }
+      .dt-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+      .dt-chart .grid { stroke: var(--c-line); stroke-width: 1; opacity: .35; stroke-dasharray: 3 4; }
+      .dt-chart .area { fill: var(--c-accent); opacity: .13; }
+      .dt-chart .line { fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+      .dt-chart .pt { fill: var(--c-accent); }
+      /* keyword */
+      .dt-kw { display: flex; flex-direction: column; gap: .55rem; }
+      .dt-kw-row { display: grid; grid-template-columns: 1.6rem 1fr auto; align-items: center; gap: .7rem; }
+      .dt-kw-rank { color: var(--c-muted); font-size: .82rem; text-align: left; }
+      .dt-kw-bar { position: relative; height: 26px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 6px; overflow: hidden; }
+      .dt-kw-fill { position: absolute; inset: 0 auto 0 0; background: var(--c-accent); }
+      .dt-kw-txt { position: absolute; inset: 0; display: flex; align-items: center; padding: 0 .6rem; font-size: .82rem; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .dt-kw-val { font-family: var(--font-title); font-size: .95rem; color: var(--c-text); min-width: 3.2rem; text-align: right; }
+      .dt-kw-val.approx { color: var(--c-muted); }
+      .dt-empty { color: var(--c-muted); text-align: center; padding: 1.4rem 0; }
+      @media (max-width: 560px) {
+        .dt-kpis { grid-template-columns: 1fr 1fr; }
+        .dt-kpi .k-val { font-size: 1.4rem; }
+        .dt-chart svg { height: 200px; }
+        .dt-yl { right: auto; left: 0; }
+      }
     </style>
     <AdminHead />
   </head>
@@ -191,10 +425,83 @@ const t = adminT(lang);
         </h1>
 
         <div class="mtabs" id="g-tabs">
-          <button class="mtab is-active" data-gtab="reviews">{t("gg.tabReviews")}</button>
+          <button class="mtab is-active" data-gtab="fiche">{t("gg.tabFiche")}</button>
+          <button class="mtab" data-gtab="reviews">{t("gg.tabReviews")}</button>
+          <button class="mtab" data-gtab="posts">{t("gg.tabPosts")}</button>
+          <button class="mtab" data-gtab="menu">{t("gg.tabMenu")}</button>
+          <button class="mtab" data-gtab="foto">{t("gg.tabFoto")}</button>
+          <button class="mtab" data-gtab="data">{t("gg.tabData")}</button>
         </div>
 
-        <div class="g-tab-panel" data-gpanel="reviews">
+        <div class="g-tab-panel" data-gpanel="fiche">
+          <div class="g-connect" id="fiche-notready" style="display:none">
+            <h2>{t("gg.notReadyTitle")}</h2>
+            <p>{t("gg.ficheConnectHint")}</p>
+          </div>
+          <div id="fiche-area" style="display:none">
+            <div class="fi-filtri rh-filters" id="fi-filtri">
+              <button type="button" class="rh-filter is-on" data-sec="info">{t("gg.ficheSecInfo")}</button>
+              <button type="button" class="rh-filter" data-sec="orari">{t("gg.ficheSecHours")}</button>
+              <button type="button" class="rh-filter" data-sec="links">{t("gg.ficheSecLinks")}</button>
+              <button type="button" class="rh-filter" data-sec="attr">{t("gg.ficheSecAttr")}</button>
+            </div>
+            <div class="fiche-form">
+              <div class="fi-sec" data-sec="info">
+                <div class="fi-block">
+                  <h3 class="fi-h3">{t("gg.ficheGeneral")}</h3>
+                  <div class="fi-row2">
+                    <div class="fi-field"><label class="p-lab">{t("gg.ficheName")}</label><input type="text" id="fi-name" /></div>
+                    <div class="fi-field"><label class="p-lab">{t("gg.ficheStatus")}</label><select id="fi-status"><option value="OPEN">{t("gg.ficheStOpen")}</option><option value="CLOSED_TEMPORARILY">{t("gg.ficheStTemp")}</option><option value="CLOSED_PERMANENTLY">{t("gg.ficheStPerm")}</option></select></div>
+                  </div>
+                  <div class="fi-field"><label class="p-lab">{t("gg.ficheDesc")}</label><textarea id="fi-desc" maxlength="750" placeholder={t("gg.ficheDescPh")}></textarea><div class="fi-count"><span id="fi-desc-count">0</span>/750</div></div>
+                </div>
+                <div class="fi-block">
+                  <h3 class="fi-h3">{t("gg.ficheContacts")}</h3>
+                  <div class="fi-row2">
+                    <div class="fi-field"><label class="p-lab">{t("gg.fichePhone")}</label><input type="tel" id="fi-phone" /></div>
+                    <div class="fi-field"><label class="p-lab">{t("gg.fichePhone2")}</label><input type="tel" id="fi-phone2" /></div>
+                  </div>
+                  <div class="fi-field"><label class="p-lab">{t("gg.ficheWebsite")}</label><input type="url" id="fi-web" placeholder="https://" /></div>
+                </div>
+                <div class="fi-block">
+                  <h3 class="fi-h3">{t("gg.ficheAddress")}</h3>
+                  <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrLine")}</label><input type="text" id="fi-addr-line" /></div>
+                  <div class="fi-row3" id="fi-addr-row">
+                    <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrCap")}</label><input type="text" id="fi-addr-cap" /></div>
+                    <div class="fi-field"><label class="p-lab">{t("gg.ficheAddrCity")}</label><input type="text" id="fi-addr-city" /></div>
+                    <div class="fi-field" id="fi-prov-field"><label class="p-lab">{t("gg.ficheAddrProv")}</label><input type="text" id="fi-addr-prov" /></div>
+                  </div>
+                  <div class="fi-field" style="max-width:160px"><label class="p-lab">{t("gg.ficheAddrCountry")}</label><input type="text" id="fi-addr-country" maxlength="2" /></div>
+                  <p class="fi-warn">{t("gg.ficheAddrWarn")}</p>
+                </div>
+              </div>
+              <div class="fi-sec" data-sec="orari" style="display:none">
+                <div class="fi-block">
+                  <div class="fi-hd">
+                    <h3 class="fi-h3">{t("gg.ficheHours")}</h3>
+                    <button type="button" class="fi-sync" id="fi-sync-rh">↻ {t("gg.ficheSyncRH")}</button>
+                  </div>
+                  <div id="fi-days"></div>
+                </div>
+                <div class="fi-block">
+                  <h3 class="fi-h3">{t("gg.ficheSpecial")}</h3>
+                  <div id="fi-special"></div>
+                  <button type="button" class="pill sec-btn fi-add" id="fi-special-add">{t("gg.ficheSpecialAdd")}</button>
+                </div>
+              </div>
+              <div class="fi-sec" data-sec="links" style="display:none">
+                <p class="attr-note">{t("gg.linksNote")}</p>
+                <div id="fi-links"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+              </div>
+              <div class="fi-sec" data-sec="attr" style="display:none">
+                <p class="attr-note">{t("gg.attrNote")}</p>
+                <div id="fi-attr"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="g-tab-panel" data-gpanel="reviews" style="display:none">
         <!-- Non ancora configurata: il setup e' lato MOODD (super admin) -->
         <div class="g-connect" id="notready" style="display:none">
           <h2>{t("gg.notReadyTitle")}</h2>
@@ -226,16 +533,137 @@ const t = adminT(lang);
           </div>
         </div>
         </div>
+
+        <div class="g-tab-panel" data-gpanel="posts" style="display:none">
+          <div class="g-connect" id="posts-notready" style="display:none">
+            <h2>{t("gg.notReadyTitle")}</h2>
+            <p>{t("gg.postsConnectHint")}</p>
+          </div>
+          <div id="posts-area" style="display:none">
+            <button class="fab-add fab-pill p-fab" id="p-fab" type="button"><span class="fab-plus">+</span> {t("gg.tabPosts")}</button>
+            <div class="p-layout">
+            <div class="p-overlay" id="p-overlay">
+            <div class="p-compose">
+              <button type="button" class="p-close" id="p-close" aria-label="Fermer">×</button>
+              <div class="p-types" id="p-types">
+                <button type="button" class="p-type is-on" data-pt="STANDARD">{t("gg.postStandard")}</button>
+                <button type="button" class="p-type" data-pt="EVENT">{t("gg.postEvent")}</button>
+                <button type="button" class="p-type" data-pt="OFFER">{t("gg.postOffer")}</button>
+              </div>
+
+              <div class="p-cols">
+              <div class="p-col">
+              <div class="p-field" data-when="EVENT OFFER">
+                <label class="p-lab">{t("gg.postTitle")}</label>
+                <input type="text" id="p-title" maxlength="58" />
+              </div>
+              <div class="p-field p-dates" data-when="EVENT OFFER">
+                <div><label class="p-lab">{t("gg.postStart")}</label><input type="date" id="p-start" /></div>
+                <div><label class="p-lab">{t("gg.postEnd")}</label><input type="date" id="p-end" /></div>
+              </div>
+
+              <div class="p-field">
+                <label class="p-lab">{t("gg.postText")}</label>
+                <textarea id="p-summary" maxlength="1500" placeholder={t("gg.postTextPh")}></textarea>
+              </div>
+
+              <div class="p-field">
+                <label class="p-lab">{t("gg.postPhoto")}</label>
+                <div class="p-photo">
+                  <span class="p-photo-prev" id="p-photo-prev"></span>
+                  <button type="button" class="p-photo-btn" id="p-photo-up">{t("cli.uploadPhoto")}</button>
+                  <button type="button" class="p-photo-btn" id="p-photo-lib">{t("menu.library")}</button>
+                  <button type="button" class="p-photo-btn" id="p-photo-clear" style="display:none">{t("gg.postRemovePhoto")}</button>
+                  <input type="file" id="p-photo-file" accept="image/*" style="display:none" />
+                  <span class="p-photo-state" id="p-photo-state"></span>
+                </div>
+              </div>
+
+              </div>
+              <div class="p-col">
+              <div class="p-field p-cta" data-when="STANDARD EVENT">
+                <label class="p-lab">{t("gg.postCta")}</label>
+                <div class="p-cta-row">
+                  <select id="p-cta-type">
+                    <option value="">{t("gg.postCtaNone")}</option>
+                    <option value="LEARN_MORE">{t("gg.ctaLearnMore")}</option>
+                    <option value="BOOK">{t("gg.ctaBook")}</option>
+                    <option value="ORDER">{t("gg.ctaOrder")}</option>
+                    <option value="SIGN_UP">{t("gg.ctaSignUp")}</option>
+                    <option value="SHOP">{t("gg.ctaShop")}</option>
+                    <option value="CALL">{t("gg.ctaCall")}</option>
+                  </select>
+                  <input type="url" id="p-cta-url" placeholder="https://" />
+                </div>
+              </div>
+
+              <div class="p-field p-offer" data-when="OFFER">
+                <label class="p-lab">{t("gg.postCoupon")}</label>
+                <input type="text" id="p-coupon" maxlength="58" placeholder={t("gg.postCouponPh")} />
+                <label class="p-lab">{t("gg.postRedeemUrl")}</label>
+                <input type="url" id="p-redeem" placeholder="https://" />
+                <label class="p-lab">{t("gg.postTerms")}</label>
+                <textarea id="p-terms" maxlength="5000"></textarea>
+              </div>
+
+              </div>
+              </div>
+
+              <div class="p-actions">
+                <span class="p-msg" id="p-msg"></span>
+                <button type="button" class="g-sync" id="p-publish">{t("gg.postPublish")}</button>
+              </div>
+            </div>
+            </div>
+
+            <div class="p-published">
+            <div class="state" id="p-state" style="display:none">{t("sup.loading")}</div>
+            <div id="p-list"></div>
+            </div>
+            </div>
+          </div>
+        </div>
+        <div class="g-tab-panel" data-gpanel="menu" style="display:none">
+          <div class="menu-hd">
+            <div>
+              <h2 class="menu-tit">{t("gg.tabMenu")}</h2>
+              <p class="menu-note">{t("gg.menuNote")}</p>
+            </div>
+            <button type="button" class="fi-sync" id="menu-sync">↻ {t("gg.menuSync")}</button>
+          </div>
+          <div id="menu-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+        </div>
+        <div class="g-tab-panel" data-gpanel="foto" style="display:none">
+          <p class="menu-note" style="margin-bottom:1.3rem">{t("gg.fotoNote")}</p>
+          <div id="foto-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+          <input type="file" id="foto-file" accept="image/*" style="display:none" />
+        </div>
+        <div class="g-tab-panel" data-gpanel="data" style="display:none">
+          <div class="fi-filtri rh-filters" id="dt-range">
+            <button type="button" class="rh-filter" data-g="7">{t("gg.data7")}</button>
+            <button type="button" class="rh-filter is-on" data-g="30">{t("gg.data30")}</button>
+            <button type="button" class="rh-filter" data-g="90">{t("gg.data90")}</button>
+          </div>
+          <p class="menu-note" style="margin:-.6rem 0 1.4rem">{t("gg.dataNote")}</p>
+          <div id="dt-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
+        </div>
+        <div class="save-bar" id="fi-savebar">
+          <span class="msg" id="fi-msg"></span>
+          <button type="button" class="save" id="fi-save">{t("common.save")}</button>
+        </div>
       </main>
       <AdminFooter />
     </div>
 
     <div class="toast" id="toast"></div>
 
+    <ImagePicker />
+
     <AdminNav current="google" />
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { comprimiFoto } from "../../lib/admin/imageCompress";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -601,6 +1029,866 @@ const t = adminT(lang);
             p.style.display = p.dataset.gpanel === tab ? "block" : "none";
           });
         });
+
+        // ============ POST GOOGLE (Novità / Evento / Offerta) ============
+        (function initPost() {
+          let loaded = false;
+          let pType = "STANDARD";
+          let pPhoto = "";
+          let postLang = "fr";
+          const area = document.getElementById("posts-area") as HTMLElement | null;
+          const notready = document.getElementById("posts-notready") as HTMLElement | null;
+          const typesEl = document.getElementById("p-types");
+          const prev = document.getElementById("p-photo-prev");
+          const clearBtn = document.getElementById("p-photo-clear") as HTMLElement | null;
+          const upBtn = document.getElementById("p-photo-up") as HTMLButtonElement | null;
+          const libBtn = document.getElementById("p-photo-lib");
+          const fileInput = document.getElementById("p-photo-file") as HTMLInputElement | null;
+          const photoState = document.getElementById("p-photo-state");
+          const ICO_IMG = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+          const pubBtn = document.getElementById("p-publish") as HTMLButtonElement | null;
+          const msg = document.getElementById("p-msg");
+          const listEl = document.getElementById("p-list");
+          const stateEl = document.getElementById("p-state") as HTMLElement | null;
+          const fab = document.getElementById("p-fab");
+          const overlay = document.getElementById("p-overlay");
+          const closeBtn = document.getElementById("p-close");
+          const apri = () => overlay?.classList.add("is-open");
+          const chiudi = () => overlay?.classList.remove("is-open");
+          fab?.addEventListener("click", apri);
+          closeBtn?.addEventListener("click", chiudi);
+          overlay?.addEventListener("click", (e) => { if (e.target === overlay) chiudi(); });
+          const gv = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? "";
+          const sv = (id: string, v: string) => { const e = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (e) e.value = v; };
+          const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const ICO_TRASH = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+
+          function applyType() {
+            typesEl?.querySelectorAll(".p-type").forEach((b) => b.classList.toggle("is-on", (b as HTMLElement).dataset.pt === pType));
+            document.querySelectorAll<HTMLElement>("#posts-area [data-when]").forEach((el) => {
+              el.style.display = (el.dataset.when || "").split(" ").includes(pType) ? "" : "none";
+            });
+          }
+          function renderPhoto() {
+            if (prev) prev.innerHTML = pPhoto ? `<img src="${escP(pPhoto)}" alt="" />` : ICO_IMG;
+            if (clearBtn) clearBtn.style.display = pPhoto ? "" : "none";
+          }
+          renderPhoto();
+          typesEl?.addEventListener("click", (e) => { const b = (e.target as HTMLElement).closest(".p-type") as HTMLElement | null; if (!b?.dataset.pt) return; pType = b.dataset.pt; applyType(); });
+          libBtn?.addEventListener("click", () => window.dispatchEvent(new CustomEvent("imgpick:open")));
+          upBtn?.addEventListener("click", () => fileInput?.click());
+          fileInput?.addEventListener("change", async () => {
+            const file = fileInput.files?.[0];
+            if (!file || !upBtn) return;
+            upBtn.disabled = true;
+            if (photoState) photoState.textContent = tr("cli.uploading");
+            try {
+              const foto = await comprimiFoto(file);
+              if (foto.size > 4 * 1024 * 1024) throw new Error(tr("cli.fileTooBig"));
+              const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] ?? ""); r.onerror = () => rej(new Error()); r.readAsDataURL(foto); });
+              const resp = await fetch("/api/admin/upload", { method: "POST", headers: await authFresh(), body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups", folder: "google" }) });
+              const j = await resp.json();
+              if (!resp.ok || !j.url) throw new Error(j.error ?? tr("cli.uploadError"));
+              pPhoto = j.url as string; renderPhoto();
+              if (photoState) photoState.textContent = "";
+            } catch (err) {
+              if (photoState) photoState.textContent = err instanceof Error ? err.message : tr("cli.uploadError");
+            } finally {
+              upBtn.disabled = false; fileInput.value = "";
+            }
+          });
+          clearBtn?.addEventListener("click", () => { pPhoto = ""; renderPhoto(); });
+          window.addEventListener("imgpick:pick", (e) => {
+            const panel = document.querySelector('[data-gpanel="posts"]') as HTMLElement | null;
+            if (!panel || panel.style.display === "none") return; // il picker serve solo al tab Post
+            pPhoto = (e as CustomEvent<{ url: string }>).detail.url; renderPhoto();
+          });
+
+          const badge = (t: string) => t === "EVENT" ? tr("gg.postEvent") : t === "OFFER" ? tr("gg.postOffer") : tr("gg.postStandard");
+          function postCard(p: any): string {
+            const foto = p.media?.[0]?.googleUrl || p.media?.[0]?.sourceUrl || "";
+            const dt = p.createTime ? new Date(p.createTime).toLocaleDateString() : "";
+            const testo = escP((p.summary || p.event?.title || "").slice(0, 160));
+            const link = p.searchUrl ? `<a class="p-card-link" href="${escP(p.searchUrl)}" target="_blank" rel="noopener">${tr("gg.postView")} <span class="p-card-link-arr">\u2192</span></a>` : "";
+            const stato = p.state && p.state !== "LIVE" ? `<span class="p-state-b">${escP(p.state)}</span>` : "";
+            return `<div class="p-card">${foto ? `<span class="p-card-img"><img src="${escP(foto)}" alt="" /></span>` : ""}<div class="p-card-main"><div class="p-card-top"><span class="p-badge">${badge(p.topicType)}</span>${stato}<span class="p-card-dt">${escP(dt)}</span></div><p class="p-card-txt">${testo || "\u2014"}</p><div class="p-card-act">${link}<button type="button" class="i-btn i-del p-del" data-name="${escP(p.name || "")}" title="${tr("common.delete")}">${ICO_TRASH}</button></div></div></div>`;
+          }
+          async function loadPosts() {
+            if (stateEl) stateEl.style.display = "";
+            try {
+              const r = await fetch("/api/admin/google/posts", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { if (area) area.style.display = "none"; if (notready) notready.style.display = ""; return; }
+              if (notready) notready.style.display = "none";
+              if (area) area.style.display = "";
+              const limite = Date.now() - 365 * 24 * 3600 * 1000; // solo ultimi 12 mesi
+              const posts = ((j.posts || []) as any[]).filter((p) => !p.createTime || Date.parse(p.createTime) >= limite);
+              if (listEl) listEl.innerHTML = posts.length ? posts.map(postCard).join("") : `<p class="state">${tr("gg.postNone")}</p>`;
+            } catch { if (listEl) listEl.innerHTML = ""; } finally { if (stateEl) stateEl.style.display = "none"; }
+          }
+          async function caricaLang() {
+            try { const r = await fetch("/api/admin/pages", { headers: await authFresh() }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.publicLangs) && j.publicLangs[0]) postLang = String(j.publicLangs[0]); } } catch { /* default fr */ }
+          }
+          pubBtn?.addEventListener("click", async () => {
+            if (!pubBtn) return;
+            if (msg) msg.textContent = "";
+            const body = { tipo: pType, lang: postLang, summary: gv("p-summary"), photo: pPhoto,
+              ctaType: gv("p-cta-type"), ctaUrl: gv("p-cta-url"), title: gv("p-title"),
+              startDate: gv("p-start"), endDate: gv("p-end"), couponCode: gv("p-coupon"),
+              redeemUrl: gv("p-redeem"), terms: gv("p-terms") };
+            pubBtn.disabled = true; const orig = pubBtn.textContent; pubBtn.textContent = tr("gg.postPublishing");
+            try {
+              const r = await fetch("/api/admin/google/posts", { method: "POST", headers: await authFresh(), body: JSON.stringify(body) });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.postDone"));
+              ["p-summary", "p-title", "p-start", "p-end", "p-cta-url", "p-coupon", "p-redeem", "p-terms"].forEach((id) => sv(id, ""));
+              pPhoto = ""; renderPhoto();
+              chiudi();
+              await loadPosts();
+            } catch (e) { if (msg) msg.textContent = (e as Error).message; }
+            finally { pubBtn.disabled = false; pubBtn.textContent = orig; }
+          });
+          listEl?.addEventListener("click", async (e) => {
+            const b = (e.target as HTMLElement).closest(".i-del") as HTMLButtonElement | null; if (!b) return;
+            const name = b.dataset.name || ""; if (!name) return;
+            // Conferma a 2 tocchi (standard RH): 1° tap = pillola rossa piena, 2° = elimina
+            if (!b.classList.contains("confirm")) {
+              b.classList.add("confirm");
+              b.textContent = tr("common.confirm");
+              window.setTimeout(() => { if (b.classList.contains("confirm")) { b.classList.remove("confirm"); b.innerHTML = ICO_TRASH; } }, 3000);
+              return;
+            }
+            b.disabled = true;
+            try {
+              const r = await fetch(`/api/admin/google/posts?name=${encodeURIComponent(name)}`, { method: "POST", headers: { ...(await authFresh()), "X-Method-Override": "DELETE" } });
+              if (!r.ok) { const j = await r.json(); throw new Error(j.error || tr("res.connErr")); }
+              toast(tr("gg.postDeleted"));
+              await loadPosts();
+            } catch (err) { b.disabled = false; b.classList.remove("confirm"); b.innerHTML = ICO_TRASH; toast((err as Error).message, true); }
+          });
+          document.getElementById("g-tabs")?.addEventListener("click", async (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (!b) return;
+            const isPosts = b.dataset.gtab === "posts";
+            document.body.classList.toggle("tab-posts", isPosts);
+            window.dispatchEvent(new Event("resize")); // ricalcola la posizione del FAB sopra l'isola
+            if (!isPosts) return;
+            applyType();
+            if (loaded) return; loaded = true;
+            await caricaLang(); await loadPosts();
+          });
+        })();
+
+        // ============ MODIFICA SCHEDA GOOGLE (Business Information) ============
+        (function initFiche() {
+          let loaded = false;
+          let fiHours: { chiuso: boolean; ranges: { a: string; b: string }[] }[] = [];
+          let fiSpecial: { date: string; closed: boolean; ranges: { a: string; b: string }[] }[] = [];
+          let activeSec = "info";
+          let attrLoaded = false;
+          type AItem = { id: string; type: string; label: string; options: { value: string; label: string }[]; bool: boolean | null; enumVal: string | null; set: string[]; urls: string[]; repeatable: boolean };
+          let attrModel: AItem[] = [];
+          let attrInitial = "";
+          const area = document.getElementById("fiche-area") as HTMLElement | null;
+          const notready = document.getElementById("fiche-notready") as HTMLElement | null;
+          const daysEl = document.getElementById("fi-days");
+          const specialEl = document.getElementById("fi-special");
+          const desc = document.getElementById("fi-desc") as HTMLTextAreaElement | null;
+          const phone = document.getElementById("fi-phone") as HTMLInputElement | null;
+          const web = document.getElementById("fi-web") as HTMLInputElement | null;
+          const nameEl = document.getElementById("fi-name") as HTMLInputElement | null;
+          const phone2 = document.getElementById("fi-phone2") as HTMLInputElement | null;
+          const statusEl = document.getElementById("fi-status") as HTMLSelectElement | null;
+          const descCount = document.getElementById("fi-desc-count");
+          const aLine = document.getElementById("fi-addr-line") as HTMLInputElement | null;
+          const aCap = document.getElementById("fi-addr-cap") as HTMLInputElement | null;
+          const aCity = document.getElementById("fi-addr-city") as HTMLInputElement | null;
+          const aProv = document.getElementById("fi-addr-prov") as HTMLInputElement | null;
+          const aCountry = document.getElementById("fi-addr-country") as HTMLInputElement | null;
+          const provField = document.getElementById("fi-prov-field") as HTMLElement | null;
+          const addrRow = document.getElementById("fi-addr-row") as HTMLElement | null;
+          // Paesi il cui indirizzo Google usa la Provincia/Regione (administrativeArea):
+          // provincia/stato/regione. Altrove (Belgio, Francia, Germania, NL…) il campo
+          // non serve e Google rifiuta il valore → lo nascondiamo.
+          const PAESI_REGIONE = new Set([
+            "IT", "ES", "US", "CA", "AU", "BR", "IN", "CN", "JP", "KR", "MX", "AR",
+            "CL", "CO", "PE", "VE", "EC", "ID", "MY", "TH", "PH", "VN", "ZA", "EG",
+            "SA", "AE", "TR", "RU", "UA", "NZ", "MA", "TN",
+          ]);
+          let provDaGoogle = false;   // Google ha restituito una regione per QUESTA scheda?
+          let paeseIniziale = "";     // paese originale letto da Google
+          function aggiornaCampiPaese(): void {
+            const code = (aCountry?.value || "").trim().toUpperCase();
+            const mostra = PAESI_REGIONE.has(code) || (provDaGoogle && code === paeseIniziale);
+            if (provField) provField.style.display = mostra ? "" : "none";
+            if (addrRow) addrRow.classList.toggle("senza-prov", !mostra);
+            if (aProv && !mostra) aProv.value = ""; // niente valore fantasma se il campo è nascosto
+          }
+          aCountry?.addEventListener("input", aggiornaCampiPaese);
+          const msg = document.getElementById("fi-msg");
+          const updCount = () => { if (descCount && desc) descCount.textContent = String(desc.value.length); };
+          desc?.addEventListener("input", updCount);
+          const saveBtn = document.getElementById("fi-save") as HTMLButtonElement | null;
+          const esc = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const WD = [0, 1, 2, 3, 4, 5, 6].map((d) => tr("gg.wd" + d));
+          document.getElementById("fi-filtri")?.addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+            if (!b?.dataset.sec) return;
+            activeSec = b.dataset.sec;
+            document.querySelectorAll("#fi-filtri .rh-filter").forEach((x) => x.classList.toggle("is-on", x === b));
+            document.querySelectorAll<HTMLElement>(".fi-sec").forEach((sec) => { sec.style.display = sec.dataset.sec === activeSec ? "" : "none"; });
+            if ((activeSec === "attr" || activeSec === "links") && !attrLoaded) { attrLoaded = true; void loadAttr(); }
+          });
+
+          function renderDays() {
+            if (!daysEl) return;
+            daysEl.innerHTML = fiHours.map((g, d) => {
+              const ranges = g.chiuso
+                ? `<span class="fi-closed">${tr("gg.ficheClosed")}</span>`
+                : g.ranges.map((r, ri) => `<div class="fi-range"><input type="time" class="fi-ra" data-d="${d}" data-ri="${ri}" value="${esc(r.a)}" /><span>\u2013</span><input type="time" class="fi-rb" data-d="${d}" data-ri="${ri}" value="${esc(r.b)}" /><button type="button" class="fi-r-del" data-d="${d}" data-ri="${ri}">\u00d7</button></div>`).join("") + `<button type="button" class="fi-r-add" data-d="${d}">+ ${tr("gg.ficheAddRange")}</button>`;
+              return `<div class="fi-day"><div class="fi-day-head"><span class="fi-day-nome">${esc(WD[d])}</span><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-open" data-d="${d}" ${g.chiuso ? "" : "checked"} /><span class="track"></span></span>${g.chiuso ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label></div><div class="fi-ranges">${ranges}</div></div>`;
+            }).join("");
+          }
+          function renderSpecial() {
+            if (!specialEl) return;
+            specialEl.innerHTML = fiSpecial.map((sp, i) => {
+              const head = `<div class="fi-sp-head"><input type="date" class="fi-sp-date" data-i="${i}" value="${esc(sp.date)}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
+              if (sp.closed) return `<div class="fi-sp">${head}</div>`;
+              const ranges = sp.ranges.map((r, ri) => `<div class="fi-range"><input type="time" class="fi-spr-a" data-i="${i}" data-ri="${ri}" value="${esc(r.a)}" /><span>\u2013</span><input type="time" class="fi-spr-b" data-i="${i}" data-ri="${ri}" value="${esc(r.b)}" /><button type="button" class="fi-r-del fi-spr-del" data-i="${i}" data-ri="${ri}">\u00d7</button></div>`).join("") + `<button type="button" class="fi-r-add fi-spr-add" data-i="${i}">+ ${tr("gg.ficheAddRange")}</button>`;
+              return `<div class="fi-sp">${head}<div class="fi-ranges">${ranges}</div></div>`;
+            }).join("");
+          }
+
+          daysEl?.addEventListener("change", (e) => {
+            const t = e.target as HTMLInputElement;
+            if (!t.classList.contains("fi-open")) return;
+            const d = Number(t.dataset.d);
+            fiHours[d].chiuso = !t.checked;
+            if (t.checked && !fiHours[d].ranges.length) fiHours[d].ranges = [{ a: "09:00", b: "18:00" }];
+            renderDays();
+          });
+          daysEl?.addEventListener("input", (e) => {
+            const t = e.target as HTMLInputElement;
+            const d = Number(t.dataset.d), ri = Number(t.dataset.ri);
+            if (Number.isNaN(d) || Number.isNaN(ri) || !fiHours[d]?.ranges[ri]) return;
+            if (t.classList.contains("fi-ra")) fiHours[d].ranges[ri].a = t.value;
+            if (t.classList.contains("fi-rb")) fiHours[d].ranges[ri].b = t.value;
+          });
+          daysEl?.addEventListener("click", (e) => {
+            const add = (e.target as HTMLElement).closest(".fi-r-add") as HTMLElement | null;
+            if (add) { const d = Number(add.dataset.d); fiHours[d].ranges.push({ a: "", b: "" }); renderDays(); return; }
+            const del = (e.target as HTMLElement).closest(".fi-r-del") as HTMLElement | null;
+            if (del) { const d = Number(del.dataset.d), ri = Number(del.dataset.ri); fiHours[d].ranges.splice(ri, 1); renderDays(); }
+          });
+
+          specialEl?.addEventListener("input", (e) => {
+            const t = e.target as HTMLInputElement; const i = Number(t.dataset.i);
+            if (!fiSpecial[i]) return;
+            if (t.classList.contains("fi-sp-date")) { fiSpecial[i].date = t.value; return; }
+            const ri = Number(t.dataset.ri);
+            if (Number.isNaN(ri) || !fiSpecial[i].ranges[ri]) return;
+            if (t.classList.contains("fi-spr-a")) fiSpecial[i].ranges[ri].a = t.value;
+            if (t.classList.contains("fi-spr-b")) fiSpecial[i].ranges[ri].b = t.value;
+          });
+          specialEl?.addEventListener("change", (e) => {
+            const t = e.target as HTMLInputElement;
+            if (!t.classList.contains("fi-sp-open")) return;
+            const i = Number(t.dataset.i);
+            fiSpecial[i].closed = !t.checked;
+            if (t.checked && !fiSpecial[i].ranges.length) fiSpecial[i].ranges = [{ a: "09:00", b: "18:00" }];
+            renderSpecial();
+          });
+          specialEl?.addEventListener("click", (e) => {
+            const add = (e.target as HTMLElement).closest(".fi-spr-add") as HTMLElement | null;
+            if (add) { const i = Number(add.dataset.i); fiSpecial[i].ranges.push({ a: "", b: "" }); renderSpecial(); return; }
+            const rdel = (e.target as HTMLElement).closest(".fi-spr-del") as HTMLElement | null;
+            if (rdel) { const i = Number(rdel.dataset.i), ri = Number(rdel.dataset.ri); fiSpecial[i].ranges.splice(ri, 1); renderSpecial(); return; }
+            const del = (e.target as HTMLElement).closest(".fi-sp-del") as HTMLElement | null;
+            if (del) { fiSpecial.splice(Number(del.dataset.i), 1); renderSpecial(); }
+          });
+          document.getElementById("fi-special-add")?.addEventListener("click", () => { fiSpecial.push({ date: "", closed: true, ranges: [] }); renderSpecial(); });
+          document.getElementById("fi-sync-rh")?.addEventListener("click", async () => {
+            const sb = document.getElementById("fi-sync-rh") as HTMLButtonElement | null;
+            if (sb) sb.disabled = true;
+            try {
+              const r = await fetch("/api/admin/google/rh-hours", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              fiHours = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+                const gg = (j.hours || []).find((x: { d: number }) => x.d === d);
+                return { chiuso: gg ? !!gg.chiuso : true, ranges: gg ? (gg.ranges || []).map((rr: { a: string; b: string }) => ({ a: rr.a, b: rr.b })) : [] };
+              });
+              renderDays();
+              const rhSpecial = (j.special || []).map((sp2: { date: string; closed: boolean; ranges: { a: string; b: string }[] }) => ({ date: sp2.date, closed: !!sp2.closed, ranges: sp2.closed ? [] : (sp2.ranges || []).map((r: { a: string; b: string }) => ({ a: r.a, b: r.b })) }));
+              const rhDates = new Set(rhSpecial.map((sp2: { date: string }) => sp2.date));
+              fiSpecial = [...fiSpecial.filter((sp2) => !rhDates.has(sp2.date)), ...rhSpecial].sort((a, b) => a.date.localeCompare(b.date));
+              renderSpecial();
+              dirty();
+              toast(tr("gg.ficheSyncDone"));
+            } catch (e) { toast((e as Error).message, true); }
+            finally { if (sb) sb.disabled = false; }
+          });
+
+          async function loadFiche() {
+            try {
+              const r = await fetch("/api/admin/google/profile", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { if (area) area.style.display = "none"; if (notready) notready.style.display = ""; return; }
+              if (notready) notready.style.display = "none";
+              if (area) area.style.display = "";
+              const sc = j.scheda || {};
+              if (desc) desc.value = sc.description || "";
+              if (phone) phone.value = sc.phone || "";
+              if (web) web.value = sc.website || "";
+              if (nameEl) nameEl.value = sc.title || "";
+              if (phone2) phone2.value = sc.phone2 || "";
+              if (statusEl) statusEl.value = sc.status || "OPEN";
+              const ad = sc.addr || {};
+              if (aLine) aLine.value = ad.lines || "";
+              if (aCap) aCap.value = ad.postalCode || "";
+              if (aCity) aCity.value = ad.locality || "";
+              if (aProv) aProv.value = ad.adminArea || "";
+              if (aCountry) aCountry.value = ad.regionCode || "";
+              provDaGoogle = !!String(ad.adminArea || "").trim();
+              paeseIniziale = String(ad.regionCode || "").trim().toUpperCase();
+              aggiornaCampiPaese();
+              updCount();
+              fiHours = [0, 1, 2, 3, 4, 5, 6].map((d) => {
+                const g = (sc.hours || []).find((x: { d: number }) => x.d === d);
+                return { chiuso: g ? !!g.chiuso : true, ranges: g ? (g.ranges || []).map((r: { a: string; b: string }) => ({ a: r.a, b: r.b })) : [] };
+              });
+              const spGroups = new Map<string, { date: string; closed: boolean; ranges: { a: string; b: string }[] }>();
+              (sc.special || []).forEach((x: { date: string; closed: boolean; a: string; b: string }) => {
+                if (!x.date) return;
+                if (!spGroups.has(x.date)) spGroups.set(x.date, { date: x.date, closed: false, ranges: [] });
+                const g = spGroups.get(x.date)!;
+                if (x.closed) g.closed = true;
+                else g.ranges.push({ a: x.a || "", b: x.b || "" });
+              });
+              fiSpecial = [...spGroups.values()].map((g) => ({ date: g.date, closed: g.closed, ranges: g.closed ? [] : g.ranges }));
+              renderDays(); renderSpecial();
+            } catch { /* rete assente */ }
+          }
+
+          const attrEl = document.getElementById("fi-attr");
+          const linksEl = document.getElementById("fi-links");
+          function attrSnap(it: AItem): string { return JSON.stringify({ b: it.bool, e: it.enumVal, s: [...it.set].sort(), u: [...it.urls] }); }
+          function renderAttrItem(it: AItem, i: number): string {
+            let ctrl = "";
+            if (it.type === "BOOL") {
+              const btn = (v: string, lab: string, on: boolean) => `<button type="button" data-i="${i}" data-v="${v}" class="${on ? "on" : ""}">${lab}</button>`;
+              ctrl = `<div class="attr-tri">${btn("true", tr("gg.attrYes"), it.bool === true)}${btn("false", tr("gg.attrNo"), it.bool === false)}${btn("", tr("gg.attrUnset"), it.bool === null)}</div>`;
+            } else if (it.type === "ENUM") {
+              const opts = `<option value="">${tr("gg.attrUnset")}</option>` + it.options.map((o) => `<option value="${esc(o.value)}" ${it.enumVal === o.value ? "selected" : ""}>${esc(o.label)}</option>`).join("");
+              ctrl = `<select class="attr-enum" data-i="${i}">${opts}</select>`;
+            } else if (it.type === "REPEATED_ENUM") {
+              ctrl = `<div class="attr-re">${it.options.map((o) => `<button type="button" class="attr-chip ${it.set.includes(o.value) ? "on" : ""}" data-i="${i}" data-v="${esc(o.value)}">${esc(o.label)}</button>`).join("")}</div>`;
+            } else if (it.type === "URL") {
+              // Valore singolo (Facebook, menu, ...): un solo campo. Solo se ripetibile
+              // mostriamo i valori esistenti + un campo vuoto per aggiungerne altri.
+              const urls = it.urls.length > 1 ? it.urls : [it.urls[0] ?? ""];
+              ctrl = `<div class="attr-urls">${urls.map((u) => `<input type="url" data-i="${i}" placeholder="https://" value="${esc(u)}" />`).join("")}</div>`;
+            }
+            return `<div class="attr-row"><span class="attr-lab">${esc(it.label)}</span><span class="attr-ctrl">${ctrl}</span></div>`;
+          }
+          function attrRender(groups: { group: string; items: AItem[] }[]) {
+            attrModel = [];
+            groups.forEach((g) => g.items.forEach((it) => attrModel.push(it)));
+            attrInitial = JSON.stringify(attrModel.map(attrSnap));
+            // Split: gli attributi URL vanno nel tab "Links / Azioni", il resto in "Attributi".
+            let i = -1;
+            const attrHtml: string[] = [], linkHtml: string[] = [];
+            groups.forEach((g) => {
+              const aItems: string[] = [], lItems: string[] = [];
+              g.items.forEach((it) => { i++; const html = renderAttrItem(it, i); (it.type === "URL" ? lItems : aItems).push(html); });
+              if (aItems.length) attrHtml.push(`<div class="fi-block"><h3 class="fi-h3">${esc(g.group)}</h3>${aItems.join("")}</div>`);
+              if (lItems.length) linkHtml.push(`<div class="fi-block"><h3 class="fi-h3">${esc(g.group)}</h3>${lItems.join("")}</div>`);
+            });
+            if (attrEl) attrEl.innerHTML = attrHtml.length ? attrHtml.join("") : `<p class="fi-soon">${tr("gg.attrEmpty")}</p>`;
+            if (linksEl) linksEl.innerHTML = linkHtml.length ? linkHtml.join("") : `<p class="fi-soon">${tr("gg.attrEmpty")}</p>`;
+          }
+          const attrHosts = [attrEl, linksEl];
+          const onAttrClick = (e: Event) => {
+            const t = e.target as HTMLElement;
+            const tri = t.closest(".attr-tri button") as HTMLElement | null;
+            if (tri) {
+              const i = Number(tri.dataset.i), v = tri.dataset.v;
+              if (attrModel[i]) attrModel[i].bool = v === "true" ? true : v === "false" ? false : null;
+              tri.parentElement?.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === tri));
+              return;
+            }
+            const chip = t.closest(".attr-chip") as HTMLElement | null;
+            if (chip) {
+              const i = Number(chip.dataset.i), v = String(chip.dataset.v);
+              const it = attrModel[i]; if (!it) return;
+              const on = it.set.includes(v);
+              it.set = on ? it.set.filter((x) => x !== v) : [...it.set, v];
+              chip.classList.toggle("on", !on);
+            }
+          };
+          const onAttrChange = (e: Event) => {
+            const t = e.target as HTMLElement;
+            if (t.classList.contains("attr-enum")) {
+              const sel = t as HTMLSelectElement, i = Number(sel.dataset.i);
+              if (attrModel[i]) attrModel[i].enumVal = sel.value || null;
+            }
+          };
+          const onAttrInput = (e: Event) => {
+            const t = e.target as HTMLInputElement;
+            if (t.type === "url" && t.dataset.i != null) {
+              const it = attrModel[Number(t.dataset.i)]; if (!it) return;
+              const box = t.closest(".attr-urls") as HTMLElement | null; if (!box) return;
+              it.urls = [...box.querySelectorAll<HTMLInputElement>("input")].map((x) => x.value.trim()).filter(Boolean);
+            }
+          };
+          attrHosts.forEach((el) => {
+            el?.addEventListener("click", onAttrClick);
+            el?.addEventListener("change", onAttrChange);
+            el?.addEventListener("input", onAttrInput);
+          });
+          async function loadAttr() {
+            const load = `<p class="fi-soon">${tr("gg.attrLoading")}</p>`;
+            if (attrEl) attrEl.innerHTML = load;
+            if (linksEl) linksEl.innerHTML = load;
+            try {
+              const r = await fetch("/api/admin/google/attributes?lang=" + encodeURIComponent(LANG), { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { const m = `<p class="fi-soon">${esc(j.error || tr("res.connErr"))}</p>`; if (attrEl) attrEl.innerHTML = m; if (linksEl) linksEl.innerHTML = m; return; }
+              attrRender(j.gruppi || []);
+            } catch { const m = `<p class="fi-soon">${tr("res.connErr")}</p>`; if (attrEl) attrEl.innerHTML = m; if (linksEl) linksEl.innerHTML = m; }
+          }
+          async function saveAttr() {
+            const init = JSON.parse(attrInitial || "[]") as string[];
+            const changed = attrModel
+              .map((it, i) => ({ it, i }))
+              .filter(({ it, i }) => attrSnap(it) !== init[i])
+              .map(({ it }) => ({
+                id: it.id, type: it.type, bool: it.bool, enumVal: it.enumVal,
+                set: it.set,
+                unset: it.type === "REPEATED_ENUM" ? it.options.map((o) => o.value).filter((v) => !it.set.includes(v)) : [],
+                urls: it.urls,
+              }));
+            if (!changed.length) return;
+            const r = await fetch("/api/admin/google/attributes", { method: "PUT", headers: await authFresh(), body: JSON.stringify({ items: changed }) });
+            const j = await r.json();
+            if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+            if (Array.isArray(j.notApplied) && j.notApplied.length) {
+              const labels = j.notApplied.map((id: string) => attrModel.find((a) => a.id === id)?.label || id);
+              throw new Error(tr("gg.attrNotApplied") + " " + labels.join(", "));
+            }
+            attrInitial = JSON.stringify(attrModel.map(attrSnap));
+          }
+
+          const saveBar = document.getElementById("fi-savebar") as HTMLElement | null;
+          function dirty() { saveBar?.classList.add("is-visible"); }
+          function salvato() {
+            if (!saveBtn) return;
+            saveBtn.classList.add("is-saved");
+            saveBtn.textContent = tr("gg.ficheSaved");
+            setTimeout(() => {
+              saveBar?.classList.remove("is-visible");
+              setTimeout(() => { if (saveBtn) { saveBtn.classList.remove("is-saved"); saveBtn.textContent = tr("common.save"); } }, 300);
+            }, 1600);
+          }
+          // La barra "Salva" appare appena si modifica qualcosa (come nelle altre pagine).
+          [nameEl, statusEl, desc, phone, phone2, web, aLine, aCap, aCity, aProv, aCountry].forEach((el) => {
+            el?.addEventListener("input", dirty); el?.addEventListener("change", dirty);
+          });
+          [daysEl, specialEl, attrEl, linksEl].forEach((el) => {
+            el?.addEventListener("input", dirty); el?.addEventListener("change", dirty);
+          });
+          daysEl?.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest(".fi-r-add, .fi-r-del")) dirty(); });
+          specialEl?.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest(".fi-sp-del, .fi-spr-add, .fi-spr-del")) dirty(); });
+          attrEl?.addEventListener("click", (e) => { if ((e.target as HTMLElement).closest(".attr-tri button, .attr-chip")) dirty(); });
+          document.getElementById("fi-special-add")?.addEventListener("click", dirty);
+
+          saveBtn?.addEventListener("click", async () => {
+            if (!saveBtn) return;
+            if (msg) { msg.textContent = ""; msg.classList.remove("err"); }
+            saveBtn.disabled = true;
+            saveBtn.textContent = tr("gg.ficheSaving");
+            try {
+              if (activeSec === "attr" || activeSec === "links") {
+                await saveAttr();
+              } else {
+                const body = {
+                  title: nameEl?.value ?? "",
+                  description: desc?.value ?? "",
+                  phone: phone?.value ?? "",
+                  phone2: phone2?.value ?? "",
+                  website: web?.value ?? "",
+                  status: statusEl?.value ?? "OPEN",
+                  addr: {
+                    lines: aLine?.value ?? "",
+                    postalCode: aCap?.value ?? "",
+                    locality: aCity?.value ?? "",
+                    adminArea: aProv?.value ?? "",
+                    regionCode: aCountry?.value ?? "",
+                  },
+                  hours: fiHours.map((g, d) => ({ d, chiuso: g.chiuso, ranges: g.ranges })),
+                  special: fiSpecial.filter((sp) => sp.date).flatMap((sp) =>
+                sp.closed
+                  ? [{ date: sp.date, closed: true, a: "", b: "" }]
+                  : sp.ranges.filter((r) => r.a && r.b).map((r) => ({ date: sp.date, closed: false, a: r.a, b: r.b }))
+              ),
+                };
+                const r = await fetch("/api/admin/google/profile", { method: "PUT", headers: await authFresh(), body: JSON.stringify(body) });
+                const j = await r.json();
+                if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              }
+              salvato();
+            } catch (e) {
+              if (msg) { msg.textContent = (e as Error).message; msg.classList.add("err"); }
+              saveBtn.textContent = tr("common.save");
+            } finally {
+              saveBtn.disabled = false;
+            }
+          });
+
+          document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (!b) return;
+            if (b.dataset.gtab !== "fiche") { saveBar?.classList.remove("is-visible"); return; }
+            if (loaded) return;
+            loaded = true; void loadFiche();
+          });
+          loaded = true; void loadFiche(); // tab di default: carica subito
+        })();
+
+        // ============ MENU (Food Menu Google, sync da RestoHub) ============
+        (function initMenu() {
+          let loaded = false;
+          const bodyEl = document.getElementById("menu-body");
+          const syncBtn = document.getElementById("menu-sync") as HTMLButtonElement | null;
+          const escM = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const fmtP = (c: number) => "€ " + (c / 100).toFixed(2).replace(".", ",");
+          async function loadMenu() {
+            if (!bodyEl) return;
+            bodyEl.innerHTML = `<p class="fi-soon">${tr("gg.attrLoading")}</p>`;
+            try {
+              const r = await fetch("/api/admin/google/menu", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${escM(j.error || tr("res.connErr"))}</p>`; return; }
+              const sez = (j.sezioni || []) as { name: string; items: { name: string; priceCents: number }[] }[];
+              if (!sez.length) { bodyEl.innerHTML = `<p class="fi-soon">${tr("gg.menuEmpty")}</p>`; return; }
+              bodyEl.innerHTML = sez.map((s2) => `<div class="fi-block"><h3 class="fi-h3">${escM(s2.name)}</h3>${(s2.items || []).map((it) => `<div class="menu-row"><span>${escM(it.name)}</span><span class="p">${fmtP(it.priceCents)}</span></div>`).join("")}</div>`).join("");
+            } catch { bodyEl.innerHTML = `<p class="fi-soon">${tr("res.connErr")}</p>`; }
+          }
+          syncBtn?.addEventListener("click", async () => {
+            if (!syncBtn) return;
+            syncBtn.disabled = true; const o = syncBtn.textContent; syncBtn.textContent = tr("gg.menuSyncing");
+            try {
+              const r = await fetch("/api/admin/google/menu", { method: "POST", headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.menuSynced"));
+            } catch (e) { toast((e as Error).message, true); }
+            finally { syncBtn.disabled = false; syncBtn.textContent = o; }
+          });
+          document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (b?.dataset.gtab !== "menu" || loaded) return;
+            loaded = true; void loadMenu();
+          });
+        })();
+
+        // ============ FOTO (Media Google: logo, copertina, galleria) ============
+        (function initFoto() {
+          let loaded = false;
+          let upCat = "ADDITIONAL";
+          type FMedia = { id: string; url: string; category: string };
+          let data: { logo: FMedia | null; cover: FMedia | null; gallery: FMedia[] } = { logo: null, cover: null, gallery: [] };
+          const bodyEl = document.getElementById("foto-body");
+          const fileInput = document.getElementById("foto-file") as HTMLInputElement | null;
+          const escF = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const ICO = `<svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`;
+          function renderFoto() {
+            if (!bodyEl) return;
+            const slot = (cat: string, m: FMedia | null, big: boolean) => m
+              ? `<div class="foto-single"><img class="foto-thumb${big ? " big" : ""}" src="${escF(m.url)}" referrerpolicy="no-referrer" alt="" /><div class="foto-btns"><button type="button" class="foto-btn" data-up="${cat}">${tr("gg.fotoReplace")}</button><button type="button" class="foto-btn del" data-del="${escF(m.id)}">${tr("gg.fotoDelete")}</button></div></div>`
+              : `<div class="foto-single"><span class="foto-empty${big ? " big" : ""}">${ICO}</span><button type="button" class="foto-btn" data-up="${cat}">${tr("gg.fotoUpload")}</button></div>`;
+            const gal = `<button type="button" class="foto-add" data-up="ADDITIONAL">+ ${tr("gg.fotoAdd")}</button>`
+              + data.gallery.map((m) => `<div class="foto-cell"><img src="${escF(m.url)}" referrerpolicy="no-referrer" alt="" /><button type="button" class="foto-x" data-del="${escF(m.id)}">\u00d7</button></div>`).join("");
+            bodyEl.innerHTML =
+              `<div class="fi-block"><div class="foto-duo">` +
+                `<div class="foto-one foto-logo"><h3 class="fi-h3">${tr("gg.fotoLogo")}</h3>${slot("LOGO", data.logo, false)}</div>` +
+                `<div class="foto-one"><h3 class="fi-h3">${tr("gg.fotoCover")}</h3>${slot("COVER", data.cover, true)}</div>` +
+              `</div></div>` +
+              `<div class="fi-block"><h3 class="fi-h3">${tr("gg.fotoGallery")}</h3><div class="foto-grid">${gal}</div></div>`;
+          }
+          async function loadFoto() {
+            if (!bodyEl) return;
+            bodyEl.innerHTML = `<p class="fi-soon">${tr("gg.attrLoading")}</p>`;
+            try {
+              const r = await fetch("/api/admin/google/media", { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) { bodyEl.innerHTML = `<p class="fi-soon">${escF(j.error || tr("res.connErr"))}</p>`; return; }
+              data = { logo: j.logo || null, cover: j.cover || null, gallery: (j.gallery || []) as FMedia[] };
+              renderFoto();
+            } catch { bodyEl.innerHTML = `<p class="fi-soon">${tr("res.connErr")}</p>`; }
+          }
+          bodyEl?.addEventListener("click", async (e) => {
+            const up = (e.target as HTMLElement).closest("[data-up]") as HTMLElement | null;
+            if (up) {
+              upCat = String(up.dataset.up);
+              if (up.classList.contains("foto-add")) { window.dispatchEvent(new CustomEvent("imgpick:open")); return; }
+              fileInput?.click();
+              return;
+            }
+            const del = (e.target as HTMLElement).closest("[data-del]") as HTMLButtonElement | null;
+            if (!del) { bodyEl.querySelectorAll(".confirm").forEach((x) => x.classList.remove("confirm")); return; }
+            if (!del.classList.contains("confirm")) {
+              bodyEl.querySelectorAll(".confirm").forEach((x) => { x.classList.remove("confirm"); if (x.classList.contains("del")) x.textContent = tr("gg.fotoDelete"); });
+              del.classList.add("confirm");
+              if (del.classList.contains("del")) del.textContent = tr("gg.fotoConfirm");
+              return;
+            }
+            del.disabled = true;
+            try {
+              const r = await fetch("/api/admin/google/media", { method: "POST", headers: { ...(await authFresh()), "X-Method-Override": "DELETE" }, body: JSON.stringify({ name: del.dataset.del }) });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.fotoDeleted"));
+              await loadFoto();
+            } catch (err) { toast((err as Error).message, true); del.disabled = false; }
+          });
+          fileInput?.addEventListener("change", async () => {
+            const file = fileInput.files?.[0];
+            if (!file) return;
+            toast(tr("cli.uploading"));
+            try {
+              const foto = await comprimiFoto(file);
+              if (foto.size > 5 * 1024 * 1024) throw new Error(tr("cli.fileTooBig"));
+              const b64 = await new Promise<string>((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result).split(",")[1] ?? ""); rd.onerror = () => rej(new Error()); rd.readAsDataURL(foto); });
+              const up = await fetch("/api/admin/upload", { method: "POST", headers: await authFresh(), body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups", folder: "google-media" }) });
+              const uj = await up.json();
+              if (!up.ok || !uj.url) throw new Error(uj.error || tr("cli.uploadError"));
+              // Logo/Copertina sono slot singoli: se ne esiste già uno, lo elimino prima
+              // (altrimenti Google terrebbe due logo/copertine).
+              const vecchia = upCat === "LOGO" ? data.logo : upCat === "COVER" ? data.cover : null;
+              if (vecchia) {
+                try { await fetch("/api/admin/google/media", { method: "POST", headers: { ...(await authFresh()), "X-Method-Override": "DELETE" }, body: JSON.stringify({ name: vecchia.id }) }); } catch { /* best-effort */ }
+              }
+              const r = await fetch("/api/admin/google/media", { method: "POST", headers: await authFresh(), body: JSON.stringify({ url: uj.url, category: upCat }) });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.fotoUploaded"));
+              await loadFoto();
+            } catch (err) { toast((err as Error).message, true); }
+            finally { fileInput.value = ""; }
+          });
+          window.addEventListener("imgpick:pick", async (e) => {
+            const panel = document.querySelector('[data-gpanel="foto"]') as HTMLElement | null;
+            if (!panel || panel.style.display === "none") return; // solo quando siamo nel tab Foto
+            const url = (e as CustomEvent<{ url: string }>).detail?.url;
+            if (!url) return;
+            toast(tr("cli.uploading"));
+            try {
+              const r = await fetch("/api/admin/google/media", { method: "POST", headers: await authFresh(), body: JSON.stringify({ url, category: upCat }) });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              toast(tr("gg.fotoUploaded"));
+              await loadFoto();
+            } catch (err) { toast((err as Error).message, true); }
+          });
+          document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (b?.dataset.gtab !== "foto" || loaded) return;
+            loaded = true; void loadFoto();
+          });
+        })();
+
+        // ============ DATA (statistiche performance della scheda) ============
+        (function initData() {
+          let loaded = false;
+          let giorni = 30;
+          let selMetric = "VIEWS";
+          type Pt = { date: string; value: number };
+          type Serie = { metric: string; total: number; punti: Pt[] };
+          type Kw = { keyword: string; value: number; approx: boolean };
+          let dati: { serie: Serie[]; keywords: Kw[]; from: string; to: string } | null = null;
+
+          const bodyEl = document.getElementById("dt-body") as HTMLElement | null;
+          const rangeEl = document.getElementById("dt-range") as HTMLElement | null;
+
+          const IMPR = [
+            "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+            "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+            "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+            "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+          ];
+          const IC = {
+            eye: '<svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+            globe: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>',
+            phone: '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2z"/></svg>',
+            pin: '<svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+            menu: '<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+            cal: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+            bag: '<svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/></svg>',
+            chat: '<svg viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.5 9.5 0 0 1-4-.9L3 21l1.9-5A8.4 8.4 0 0 1 3 11.5 8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg>',
+          };
+          // KPI: [metric(s), label i18n, icona, mostra-sempre]
+          const KPIS: { key: string; metrics: string[]; lab: string; ico: string; always: boolean }[] = [
+            { key: "VIEWS", metrics: IMPR, lab: "gg.dataViews", ico: IC.eye, always: true },
+            { key: "WEBSITE_CLICKS", metrics: ["WEBSITE_CLICKS"], lab: "gg.dataWebsite", ico: IC.globe, always: true },
+            { key: "CALL_CLICKS", metrics: ["CALL_CLICKS"], lab: "gg.dataCalls", ico: IC.phone, always: true },
+            { key: "BUSINESS_DIRECTION_REQUESTS", metrics: ["BUSINESS_DIRECTION_REQUESTS"], lab: "gg.dataDirections", ico: IC.pin, always: true },
+            { key: "BUSINESS_FOOD_MENU_CLICKS", metrics: ["BUSINESS_FOOD_MENU_CLICKS"], lab: "gg.dataMenuClicks", ico: IC.menu, always: true },
+            { key: "BUSINESS_BOOKINGS", metrics: ["BUSINESS_BOOKINGS"], lab: "gg.dataBookings", ico: IC.cal, always: false },
+            { key: "BUSINESS_FOOD_ORDERS", metrics: ["BUSINESS_FOOD_ORDERS"], lab: "gg.dataOrders", ico: IC.bag, always: false },
+            { key: "BUSINESS_CONVERSATIONS", metrics: ["BUSINESS_CONVERSATIONS"], lab: "gg.dataMessages", ico: IC.chat, always: false },
+          ];
+          // opzioni del grafico (label i18n)
+          const CHARTS: { key: string; metrics: string[]; lab: string }[] = [
+            { key: "VIEWS", metrics: IMPR, lab: "gg.dataViews" },
+            { key: "WEBSITE_CLICKS", metrics: ["WEBSITE_CLICKS"], lab: "gg.dataWebsite" },
+            { key: "CALL_CLICKS", metrics: ["CALL_CLICKS"], lab: "gg.dataCalls" },
+            { key: "BUSINESS_DIRECTION_REQUESTS", metrics: ["BUSINESS_DIRECTION_REQUESTS"], lab: "gg.dataDirections" },
+            { key: "BUSINESS_FOOD_MENU_CLICKS", metrics: ["BUSINESS_FOOD_MENU_CLICKS"], lab: "gg.dataMenuClicks" },
+          ];
+
+          const nf = (n: number) => n.toLocaleString(LOC);
+          const totOf = (metrics: string[]) =>
+            metrics.reduce((a, m) => a + (dati?.serie.find((x) => x.metric === m)?.total || 0), 0);
+          const puntiOf = (metric: string) => dati?.serie.find((x) => x.metric === metric)?.punti || [];
+
+          function allDates(): string[] {
+            if (!dati) return [];
+            const out: string[] = [];
+            const d = new Date(dati.from + "T00:00:00Z");
+            const end = new Date(dati.to + "T00:00:00Z");
+            let guard = 0;
+            while (d <= end && guard < 400) { out.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); guard++; }
+            return out;
+          }
+          function valuesFor(metrics: string[], dates: string[]): number[] {
+            const maps = metrics.map((m) => {
+              const mp = new Map<string, number>();
+              for (const p of puntiOf(m)) mp.set(p.date, p.value);
+              return mp;
+            });
+            return dates.map((dt) => maps.reduce((a, mp) => a + (mp.get(dt) || 0), 0));
+          }
+          function dShort(iso: string): string {
+            try { return new Date(iso + "T00:00:00Z").toLocaleDateString(LOC, { day: "2-digit", month: "short" }); }
+            catch { return iso.slice(5); }
+          }
+
+          function niceScale(max: number): { max: number; step: number } {
+            if (max <= 0) return { max: 1, step: 1 };
+            const rough = max / 8;
+            const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+            const cand = [1, 2, 2.5, 5, 10].map((m) => m * pow);
+            const step = cand.find((c) => c >= rough) ?? 10 * pow;
+            return { max: Math.ceil(max / step) * step, step };
+          }
+
+          function chartSVG(vals: number[], dates: string[]): string {
+            // valori Y FUORI a sinistra (HTML .dt-yaxis) e date X in HTML (.dt-xaxis):
+            // così il grafico si può allungare senza deformare il testo.
+            const W = 720, H = 180, padT = 12, padB = 12;
+            const iw = W, ih = H - padT - padB;
+            const n = vals.length;
+            const sc = niceScale(Math.max(1, ...vals));
+            const max = sc.max;
+            const x = (i: number) => (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+            const y = (v: number) => padT + ih - (v / max) * ih;
+            const line = vals.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
+            const area = `M${x(0).toFixed(1)} ${(padT + ih).toFixed(1)} ` +
+              vals.map((v, i) => `L${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ") +
+              ` L${x(n - 1).toFixed(1)} ${(padT + ih).toFixed(1)} Z`;
+            let grid = "", ylHtml = "";
+            for (let g = 0; g <= max + 1e-6; g += sc.step) {
+              const yy = y(g);
+              grid += `<line class="grid" x1="0" y1="${yy.toFixed(1)}" x2="${W}" y2="${yy.toFixed(1)}"/>`;
+              ylHtml += `<span class="dt-yl" style="top:${(yy / H * 100).toFixed(2)}%">${nf(Math.round(g))}</span>`;
+            }
+            const idx = n <= 1 ? [0] : [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (n - 1))))];
+            const xHtml = idx.map((i) => {
+              const pct = (x(i) / W * 100).toFixed(2);
+              const tx = i === 0 ? "0" : i === n - 1 ? "-100%" : "-50%";
+              return `<span class="dt-xl" style="left:${pct}%;transform:translateX(${tx})">${dShort(dates[i])}</span>`;
+            }).join("");
+            const pts = n <= 31 ? vals.map((v, i) => `<circle class="pt" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.1"/>`).join("") : "";
+            const svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">${grid}<path class="area" d="${area}"/><path class="line" d="${line}"/>${pts}</svg>`;
+            return `<div class="dt-yaxis">${ylHtml}</div><div class="dt-plot">${svg}</div><div class="dt-xaxis">${xHtml}</div>`;
+          }
+
+          function render() {
+            if (!bodyEl) return;
+            if (!dati) { bodyEl.innerHTML = `<p class="dt-empty">${esc(tr("gg.dataEmpty"))}</p>`; return; }
+            const dates = allDates();
+
+            // KPI
+            const kpis = KPIS.filter((k) => k.always || totOf(k.metrics) > 0)
+              .map((k) => `<div class="dt-kpi"><div class="k-lab">${k.ico}<span>${esc(tr(k.lab))}</span></div><div class="k-val">${nf(totOf(k.metrics))}</div></div>`)
+              .join("");
+
+            // selettore metrica: mostra solo opzioni con dati (+ sempre VIEWS)
+            const opts = CHARTS.filter((c) => c.key === "VIEWS" || totOf(c.metrics) > 0);
+            if (!opts.find((o) => o.key === selMetric)) selMetric = "VIEWS";
+            const cur = opts.find((o) => o.key === selMetric) || opts[0];
+            const metsel = opts.map((c) =>
+              `<button type="button" class="dt-met${c.key === selMetric ? " is-on" : ""}" data-m="${c.key}"><span class="dot"></span>${esc(tr(c.lab))}</button>`
+            ).join("");
+            const vals = valuesFor(cur.metrics, dates);
+            const chart = dates.length ? chartSVG(vals, dates) : `<p class="dt-empty">${esc(tr("gg.dataEmpty"))}</p>`;
+
+            // keyword
+            const kws = dati.keywords || [];
+            const kwMax = Math.max(1, ...kws.map((k) => k.value));
+            const kwHtml = kws.length
+              ? `<div class="dt-kw">` + kws.map((k, i) =>
+                  `<div class="dt-kw-row"><span class="dt-kw-rank">${i + 1}</span>` +
+                  `<div class="dt-kw-bar"><div class="dt-kw-fill" style="width:${Math.max(4, Math.round((k.value / kwMax) * 100))}%"></div><div class="dt-kw-txt">${esc(k.keyword)}</div></div>` +
+                  `<span class="dt-kw-val${k.approx ? " approx" : ""}">${k.approx ? "<" : ""}${nf(k.value)}</span></div>`
+                ).join("") + `</div>`
+              : `<p class="dt-empty">${esc(tr("gg.dataKwEmpty"))}</p>`;
+
+            bodyEl.innerHTML =
+              `<div class="dt-kpis">${kpis}</div>` +
+              `<div class="dt-block"><h3>${esc(tr("gg.dataTrend"))}</h3><div class="dt-metsel" id="dt-metsel">${metsel}</div><div class="dt-chart">${chart}</div></div>` +
+              `<div class="dt-block"><h3>${esc(tr("gg.dataKw"))}</h3>${kwHtml}</div>` +
+              `<p class="dt-empty" style="text-align:left;padding:0;font-size:.78rem">${esc(tr("gg.dataLatency"))}</p>`;
+
+            document.getElementById("dt-metsel")?.addEventListener("click", (ev) => {
+              const b = (ev.target as HTMLElement).closest(".dt-met") as HTMLElement | null;
+              if (!b || !b.dataset.m) return;
+              selMetric = b.dataset.m;
+              render();
+            });
+          }
+
+          async function load() {
+            if (!bodyEl) return;
+            bodyEl.innerHTML = `<p class="fi-soon">${esc(tr("gg.attrLoading"))}</p>`;
+            try {
+              const r = await fetch(`/api/admin/google/data?giorni=${giorni}`, { headers: await authFresh() });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error || tr("res.connErr"));
+              dati = j;
+              render();
+            } catch (e) {
+              dati = null;
+              bodyEl.innerHTML = `<p class="dt-empty">${esc((e as Error).message || tr("res.connErr"))}</p>`;
+            }
+          }
+
+          rangeEl?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+            if (!b || !b.dataset.g) return;
+            document.querySelectorAll("#dt-range .rh-filter").forEach((x) => x.classList.toggle("is-on", x === b));
+            giorni = parseInt(b.dataset.g, 10) || 30;
+            void load();
+          });
+
+          document.getElementById("g-tabs")?.addEventListener("click", (ev) => {
+            const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
+            if (b?.dataset.gtab !== "data" || loaded) return;
+            loaded = true; void load();
+          });
+        })();
 
         await carica();
       })();

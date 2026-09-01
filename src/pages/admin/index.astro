@@ -1053,6 +1053,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           let dpMese = 0;
           const dpPanel = document.createElement("div");
           dpPanel.className = "dp-panel";
+          dpPanel.style.position = "absolute";
           dpPanel.style.display = "none";
           document.body.appendChild(dpPanel);
 
@@ -1095,12 +1096,35 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             dpAnno = Number(base.slice(0, 4));
             dpMese = Number(base.slice(5, 7)) - 1;
             dpRender();
+            dpPanel.style.maxHeight = "";
+            dpPanel.style.overflowY = "";
             dpPanel.style.display = "block";
             const r = evtDate.getBoundingClientRect();
             const pw = dpPanel.offsetWidth || 308;
             const ph = dpPanel.offsetHeight || 360;
-            dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
-            dpPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+            const gap = 6;
+            const navReserve = window.innerWidth <= 900 ? 90 : 12;
+            const headerReserve = 72;
+            const spaceBelow = window.innerHeight - r.bottom - gap - navReserve;
+            const spaceAbove = r.top - gap - headerReserve;
+            let topVp: number;
+            if (ph <= spaceBelow) {
+              topVp = r.bottom + gap;
+            } else if (ph <= spaceAbove) {
+              topVp = r.top - gap - ph;
+            } else if (spaceBelow >= spaceAbove) {
+              topVp = r.bottom + gap;
+              dpPanel.style.maxHeight = `${Math.max(220, spaceBelow)}px`;
+              dpPanel.style.overflowY = "auto";
+            } else {
+              const h = Math.max(220, spaceAbove);
+              topVp = r.top - gap - h;
+              dpPanel.style.maxHeight = `${h}px`;
+              dpPanel.style.overflowY = "auto";
+            }
+            const leftVp = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+            dpPanel.style.left = `${leftVp + window.scrollX}px`;
+            dpPanel.style.top = `${topVp + window.scrollY}px`;
           }
           function dpChiudi() {
             dpPanel.style.display = "none";
@@ -1576,7 +1600,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!res.ok) return;
             const g = (await res.json()) as {
               configured: boolean; name?: string; rating?: number | null; reviews?: number;
-              maps_url?: string; avis?: { auteur: string; note: number; texte: string; quand: string }[];
+              maps_url?: string; avis?: { auteur: string; note: number; texte: string; quand: string; id?: string; reply?: boolean; quand_iso?: string }[];
             };
             if (!g.configured || g.rating == null) return; // niente Place ID → tile nascosta
             tile.style.display = "";
@@ -1602,16 +1626,36 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (car) car.style.display = "";
             let idx = 0;
             let auto: number | undefined;
+            let editing = false; // risposta in corso: sospende l'auto-rotazione
+            const rWrap = document.getElementById("g-reply");
+            const rOpen = document.getElementById("g-reply-open");
+            const rBox = document.getElementById("g-reply-box");
+            const rTxt = document.getElementById("g-reply-txt") as HTMLTextAreaElement | null;
+            const rPub = document.getElementById("g-reply-pub") as HTMLButtonElement | null;
+            const rCancel = document.getElementById("g-reply-cancel");
+            const rMsg = document.getElementById("g-reply-msg");
+            const chiudiBox = () => {
+              editing = false;
+              if (rBox) rBox.style.display = "none";
+              if (rOpen) rOpen.style.display = "";
+              if (rTxt) rTxt.value = "";
+              if (rMsg) rMsg.textContent = "";
+            };
 
+            const quandLabel = (a: (typeof avis)[number]) =>
+              a.quand || (a.quand_iso ? new Date(a.quand_iso).toLocaleDateString() : "");
             const mostra = (i: number) => {
               idx = (i + avis.length) % avis.length;
               const a = avis[idx];
               if (asEl) asEl.textContent = stelle(a.note || 0);
               if (qEl) qEl.textContent = "« " + a.texte + " »";
-              if (wEl) wEl.textContent = [a.auteur, a.quand].filter(Boolean).join(" · ");
+              if (wEl) wEl.textContent = [a.auteur, quandLabel(a)].filter(Boolean).join(" · ");
               if (dots) {
                 dots.querySelectorAll("i").forEach((d, n) => d.classList.toggle("on", n === idx));
               }
+              // Bottone «Rispondi»: solo se via Business Profile (ha id) e senza risposta
+              chiudiBox();
+              if (rWrap) rWrap.style.display = a.id && !a.reply ? "" : "none";
             };
             if (dots) {
               dots.innerHTML = avis.map(() => "<i></i>").join("");
@@ -1621,10 +1665,44 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             }
             const riparti = () => {
               window.clearInterval(auto);
-              if (avis.length > 1) auto = window.setInterval(() => mostra(idx + 1), 12000);
+              if (avis.length > 1 && !editing) auto = window.setInterval(() => mostra(idx + 1), 12000);
             };
             document.getElementById("g-prev")?.addEventListener("click", () => { mostra(idx - 1); riparti(); });
             document.getElementById("g-next")?.addEventListener("click", () => { mostra(idx + 1); riparti(); });
+            // Apri l'editor di risposta (sospende auto-rotazione)
+            rOpen?.addEventListener("click", () => {
+              editing = true;
+              window.clearInterval(auto);
+              if (rOpen) rOpen.style.display = "none";
+              if (rBox) rBox.style.display = "";
+              rTxt?.focus();
+            });
+            rCancel?.addEventListener("click", () => { chiudiBox(); riparti(); });
+            rPub?.addEventListener("click", async () => {
+              const a = avis[idx];
+              const testo = (rTxt?.value ?? "").trim();
+              if (!a.id || !testo || !rPub) return;
+              rPub.disabled = true;
+              const originale = rPub.textContent;
+              rPub.textContent = tr("gg.replySaving");
+              try {
+                const res = await fetch("/api/admin/google/reply", {
+                  method: "POST",
+                  headers: { ...headers, "Content-Type": "application/json" },
+                  body: JSON.stringify({ reviewId: a.id, comment: testo }),
+                });
+                if (!res.ok) throw new Error();
+                a.reply = true;
+                if (rMsg) rMsg.textContent = tr("gg.replySaved");
+                if (rBox) rBox.style.display = "none";
+                if (rOpen) rOpen.style.display = "none";
+                if (rWrap) window.setTimeout(() => { if (rWrap) rWrap.style.display = "none"; editing = false; riparti(); }, 1500);
+              } catch {
+                if (rMsg) rMsg.textContent = tr("gg.replyError");
+                rPub.disabled = false;
+                rPub.textContent = originale;
+              }
+            });
             mostra(0);
             riparti();
           } catch { /* rete assente : tile reste cachée */ }

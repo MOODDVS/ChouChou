@@ -98,3 +98,73 @@ export function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
   return inviaPush({ title: "Nouvelle commande", body, url: "/admin/orders" });
 }
 
+
+export interface RecensionePushInfo {
+  author: string;
+  rating: number; // 1..5
+  count: number;  // quante nuove recensioni in questo sync
+}
+
+/** Notifica all'admin: nuova/e recensione/i Google. */
+export function inviaPushRecensione(info: RecensionePushInfo): Promise<PushEsito> {
+  const n = Math.max(1, Number(info.count) || 1);
+  if (n > 1) {
+    return inviaPush({
+      title: "Nouveaux avis Google",
+      body: `${n} nouveaux avis à découvrir`,
+      url: "/admin/google",
+      tag: "google-review",
+    });
+  }
+  const r = Math.max(0, Math.min(5, Math.round(Number(info.rating) || 0)));
+  const stelle = "★".repeat(r) + "☆".repeat(5 - r);
+  const nome = String(info.author ?? "").trim() || "Client";
+  return inviaPush({
+    title: "Nouvel avis Google",
+    body: `${stelle} · ${nome}`,
+    url: "/admin/google",
+    tag: "google-review",
+  });
+}
+
+export interface PushDettaglio { host: string; ok: boolean; code?: number }
+
+/**
+ * Come inviaPush ma ritorna il DETTAGLIO per iscrizione (host + esito):
+ * serve al bottone "Test" per capire a colpo d'occhio quali dispositivi
+ * (iPhone/Apple, Android/Chrome, Firefox) sono iscritti e se la push è
+ * partita. Ripulisce comunque le iscrizioni morte (404/410).
+ */
+export async function inviaPushConDettagli(
+  msg: PushMsg,
+): Promise<{ sent: number; found: number; puliti: number; dettagli: PushDettaglio[] }> {
+  if (!configura()) return { sent: 0, found: 0, puliti: 0, dettagli: [] };
+  const { data, error } = await supabaseAdmin
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth");
+  if (error) return { sent: 0, found: 0, puliti: 0, dettagli: [] };
+  const subs = (data ?? []) as { id: string; endpoint: string; p256dh: string; auth: string }[];
+  const payload = JSON.stringify(msg);
+  const dettagli: PushDettaglio[] = [];
+  const morti: string[] = [];
+  let sent = 0;
+  await Promise.allSettled(
+    subs.map(async (s) => {
+      let host = "";
+      try { host = new URL(s.endpoint).host; } catch { host = "?"; }
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+        sent++;
+        dettagli.push({ host, ok: true });
+      } catch (e) {
+        const code = (e as { statusCode?: number }).statusCode;
+        dettagli.push({ host, ok: false, code });
+        if (code === 404 || code === 410) morti.push(s.id);
+      }
+    }),
+  );
+  if (morti.length) {
+    try { await supabaseAdmin.from("push_subscriptions").delete().in("id", morti); } catch { /* best-effort */ }
+  }
+  return { sent, found: subs.length, puliti: morti.length, dettagli };
+}

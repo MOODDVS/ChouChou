@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "./db";
+import { inviaPushRecensione } from "./push";
 
 /**
  * Google Business Profile — collegamento OAuth per-cliente (livello 2).
@@ -341,6 +342,421 @@ export async function dettagliScheda(token: string, path: string): Promise<GSche
   };
 }
 
+// ============================================================
+// MODIFICA SCHEDA (Business Information API v1) — orari, orari speciali,
+// descrizione, telefono, sito. Categorie/attributi = step successivo.
+// ============================================================
+export type OrarioRange = { a: string; b: string };
+export type IndirizzoEdit = {
+  lines: string;       // via/numero (addressLines uniti)
+  postalCode: string;  // CAP
+  locality: string;    // citta'
+  adminArea: string;   // provincia/regione (opzionale)
+  regionCode: string;  // codice paese CLDR (es. BE) — necessario per l'update
+};
+export type SchedaEdit = {
+  title: string;
+  address: string;        // versione display (unita) per il banner
+  addr: IndirizzoEdit;    // indirizzo strutturato modificabile
+  category: string;
+  description: string;
+  phone: string;          // telefono principale
+  phone2: string;         // telefono aggiuntivo (primo additionalPhones)
+  website: string;
+  status: string;         // openInfo.status: OPEN | CLOSED_TEMPORARILY | CLOSED_PERMANENTLY
+  hours: { d: number; chiuso: boolean; ranges: OrarioRange[] }[]; // d 0..6 = lun..dom
+  special: { date: string; closed: boolean; a: string; b: string }[]; // date ISO YYYY-MM-DD
+};
+
+/** Legge la scheda in forma MODIFICABILE (orari come {a,b}, orari speciali). */
+export async function leggiScheda(token: string, path: string): Promise<SchedaEdit | null> {
+  const locName = path.split("/").slice(-2).join("/");
+  const mask = "title,storefrontAddress,phoneNumbers,websiteUri,regularHours,specialHours,categories,profile,openInfo";
+  const { data } = await gGetErr<{
+    title?: string;
+    storefrontAddress?: { addressLines?: string[]; locality?: string; postalCode?: string; administrativeArea?: string; regionCode?: string };
+    phoneNumbers?: { primaryPhone?: string; additionalPhones?: string[] };
+    websiteUri?: string;
+    regularHours?: { periods?: { openDay?: string; openTime?: { hours?: number; minutes?: number }; closeTime?: { hours?: number; minutes?: number } }[] };
+    specialHours?: { specialHourPeriods?: { startDate?: { year?: number; month?: number; day?: number }; closed?: boolean; openTime?: { hours?: number; minutes?: number }; closeTime?: { hours?: number; minutes?: number } }[] };
+    categories?: { primaryCategory?: { displayName?: string } };
+    profile?: { description?: string };
+    openInfo?: { status?: string };
+  }>(token, `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?readMask=${mask}`);
+  if (!data) return null;
+
+  const hm = (t?: { hours?: number; minutes?: number }): string =>
+    `${String(t?.hours ?? 0).padStart(2, "0")}:${String(t?.minutes ?? 0).padStart(2, "0")}`;
+  const pad = (n?: number) => String(n ?? 0).padStart(2, "0");
+  const a = data.storefrontAddress;
+  const address = a
+    ? [(a.addressLines ?? []).join(" "), a.postalCode, a.locality, a.administrativeArea].filter(Boolean).join(", ")
+    : "";
+
+  const byDay: Record<number, OrarioRange[]> = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+  for (const p of data.regularHours?.periods ?? []) {
+    const di = GIORNI.indexOf(String(p.openDay ?? ""));
+    if (di < 0) continue;
+    byDay[di].push({ a: hm(p.openTime), b: hm(p.closeTime) });
+  }
+  const hours = [0, 1, 2, 3, 4, 5, 6].map((d) => ({ d, chiuso: byDay[d].length === 0, ranges: byDay[d] }));
+
+  const special = (data.specialHours?.specialHourPeriods ?? [])
+    .map((sp) => {
+      const sd = sp.startDate;
+      const date = sd?.year ? `${sd.year}-${pad(sd.month)}-${pad(sd.day)}` : "";
+      if (sp.closed) return { date, closed: true, a: "", b: "" };
+      return { date, closed: false, a: hm(sp.openTime), b: hm(sp.closeTime) };
+    })
+    .filter((x) => x.date);
+
+  const addr: IndirizzoEdit = {
+    lines: (a?.addressLines ?? []).join(" "),
+    postalCode: String(a?.postalCode ?? ""),
+    locality: String(a?.locality ?? ""),
+    adminArea: String(a?.administrativeArea ?? ""),
+    regionCode: String(a?.regionCode ?? ""),
+  };
+
+  return {
+    title: String(data.title ?? ""),
+    address,
+    addr,
+    category: String(data.categories?.primaryCategory?.displayName ?? ""),
+    description: String(data.profile?.description ?? ""),
+    phone: String(data.phoneNumbers?.primaryPhone ?? ""),
+    phone2: String((data.phoneNumbers?.additionalPhones ?? [])[0] ?? ""),
+    website: String(data.websiteUri ?? ""),
+    status: String(data.openInfo?.status ?? "OPEN"),
+    hours,
+    special,
+  };
+}
+
+/** PATCH della location: corpo + updateMask (campi con dot-path). */
+export async function aggiornaScheda(
+  token: string,
+  path: string,
+  corpo: Record<string, unknown>,
+  updateMask: string
+): Promise<{ ok: boolean; error: string }> {
+  const locName = path.split("/").slice(-2).join("/");
+  try {
+    const r = await fetch(
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?updateMask=${encodeURIComponent(updateMask)}`,
+      { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(corpo) }
+    );
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+/** Legge l'indirizzo grezzo (storefrontAddress) così com'è su Google — per fare
+ *  un merge in scrittura senza perdere languageCode e senza introdurre campi
+ *  che il paese non usa (es. administrativeArea in Belgio → INVALID_ARGUMENT). */
+export async function leggiIndirizzoRaw(token: string, path: string): Promise<Record<string, unknown> | null> {
+  const locName = path.split("/").slice(-2).join("/");
+  const { data } = await gGetErr<{ storefrontAddress?: Record<string, unknown> }>(
+    token,
+    `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?readMask=storefrontAddress`
+  );
+  return data?.storefrontAddress ?? null;
+}
+
+/** Mappa giorno 0..6 (lun..dom) -> enum Google. */
+export const GIORNI_ENUM = GIORNI;
+
+// ---------------------------------------------------------------------------
+// ATTRIBUTI della scheda (parcheggio, pagamenti, accessibilita', servizi...).
+// Dinamici e dipendenti dalla categoria: si leggono da Google, non si hardcodano.
+// ---------------------------------------------------------------------------
+export type AttrType = "BOOL" | "ENUM" | "URL" | "REPEATED_ENUM";
+export type AttrOption = { value: string; label: string };
+export type AttrItem = {
+  id: string;                 // "attributes/xxx"
+  type: AttrType;
+  label: string;
+  options: AttrOption[];      // ENUM / REPEATED_ENUM
+  bool: boolean | null;       // BOOL
+  enumVal: string | null;     // ENUM
+  set: string[];              // REPEATED_ENUM (valori attivi)
+  urls: string[];             // URL
+  repeatable: boolean;
+};
+export type AttrGroup = { group: string; items: AttrItem[] };
+
+type MetaRaw = {
+  parent?: string;
+  valueType?: string;
+  displayName?: string;
+  groupDisplayName?: string;
+  repeatable?: boolean;
+  deprecated?: boolean;
+  valueMetadata?: { value?: string; displayName?: string }[];
+};
+type AttrRaw = {
+  name?: string;
+  valueType?: string;
+  values?: unknown[];
+  repeatedEnumValue?: { setValues?: string[]; unsetValues?: string[] };
+  uriValues?: { uri?: string }[];
+};
+
+/** Legge gli attributi disponibili per la categoria + i valori correnti, raggruppati. */
+export async function leggiAttributi(token: string, path: string, lang: string): Promise<{ gruppi: AttrGroup[] | null; error: string }> {
+  const locName = path.split("/").slice(-2).join("/");
+  const base = "https://mybusinessbusinessinformation.googleapis.com/v1";
+
+  // 0) categoria (gcid) + regione della scheda: servono per attributes.list.
+  //    NB: con "parent" Google vieta languageCode/showAll; con categoryName+regionCode
+  //    si puo' invece scegliere la lingua. Quindi preferiamo la seconda via.
+  const { data: info } = await gGetErr<{
+    categories?: { primaryCategory?: { name?: string } };
+    storefrontAddress?: { regionCode?: string };
+  }>(token, `${base}/${locName}?readMask=categories,storefrontAddress`);
+  const categoryName = String(info?.categories?.primaryCategory?.name ?? "");
+  const regionCode = String(info?.storefrontAddress?.regionCode ?? "");
+
+  // 1) metadati disponibili (paginati)
+  const metas: MetaRaw[] = [];
+  let pageToken = "";
+  for (let i = 0; i < 20; i++) {
+    const qs = categoryName && regionCode
+      ? `categoryName=${encodeURIComponent(categoryName)}&regionCode=${encodeURIComponent(regionCode)}&languageCode=${encodeURIComponent(lang || "en")}&pageSize=100`
+      : `parent=${encodeURIComponent(locName)}&pageSize=100`;
+    const url = `${base}/attributes?${qs}` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+    const { data, status, error } = await gGetErr<{ attributeMetadata?: MetaRaw[]; nextPageToken?: string }>(token, url);
+    if (!data) return { gruppi: null, error: `[meta ${status}] ${error} (cat=${categoryName || "?"} reg=${regionCode || "?"})` };
+    for (const m of data.attributeMetadata ?? []) metas.push(m);
+    pageToken = String(data.nextPageToken ?? "");
+    if (!pageToken) break;
+  }
+
+  // 2) valori correnti della scheda
+  // Valori correnti dall'endpoint dedicato locations.getAttributes
+  // (locations/{id}/attributes), lo STESSO su cui si scrive. NB: leggere via
+  // ?readMask=attributes sulla location dà una vista diversa/non aggiornata.
+  const { data: cur } = await gGetErr<{ attributes?: AttrRaw[] }>(
+    token,
+    `${base}/${locName}/attributes`
+  );
+  const byId = new Map<string, AttrRaw>();
+  for (const a of cur?.attributes ?? []) if (a.name) byId.set(a.name, a);
+
+  // 3) merge -> gruppi
+  const groups = new Map<string, AttrItem[]>();
+  for (const m of metas) {
+    if (m.deprecated) continue;
+    const id = String(m.parent ?? "");
+    const type = String(m.valueType ?? "") as AttrType;
+    if (!id || !["BOOL", "ENUM", "URL", "REPEATED_ENUM"].includes(type)) continue;
+    const c = byId.get(id);
+    const options: AttrOption[] = (m.valueMetadata ?? [])
+      .filter((v) => v.value != null)
+      .map((v) => ({ value: String(v.value), label: String(v.displayName ?? v.value) }));
+    const boolVal = type === "BOOL"
+      ? (c?.values?.[0] === true ? true : c?.values?.[0] === false ? false : null)
+      : null;
+    const item: AttrItem = {
+      id,
+      type,
+      label: String(m.displayName ?? id),
+      options,
+      bool: boolVal,
+      enumVal: type === "ENUM" ? (c?.values?.[0] != null ? String(c.values[0]) : null) : null,
+      set: type === "REPEATED_ENUM" ? (c?.repeatedEnumValue?.setValues ?? []).map(String) : [],
+      urls: type === "URL" ? (c?.uriValues ?? []).map((u) => String(u.uri ?? "")).filter(Boolean) : [],
+      repeatable: Boolean(m.repeatable),
+    };
+    const g = String(m.groupDisplayName ?? "").trim() || "Autres";
+    if (!groups.has(g)) groups.set(g, []);
+    groups.get(g)!.push(item);
+  }
+
+  return { gruppi: [...groups.entries()].map(([group, items]) => ({ group, items })), error: "" };
+}
+
+/** Aggiorna gli attributi cambiati. items = solo quelli modificati. */
+export async function aggiornaAttributi(
+  token: string,
+  path: string,
+  items: { id: string; type: AttrType; bool?: boolean | null; enumVal?: string | null; set?: string[]; unset?: string[]; urls?: string[] }[]
+): Promise<{ ok: boolean; error: string; notApplied?: string[]; resp?: string }> {
+  const locName = path.split("/").slice(-2).join("/");
+  const attributes: AttrRaw[] = [];
+  const mask: string[] = [];
+  for (const it of items) {
+    // NB: valueType è "output only" per Google → NON va inviato nel body.
+    const a: AttrRaw = { name: it.id };
+    if (it.type === "BOOL") a.values = it.bool === true ? [true] : it.bool === false ? [false] : [];
+    else if (it.type === "ENUM") a.values = it.enumVal ? [it.enumVal] : [];
+    else if (it.type === "REPEATED_ENUM") a.repeatedEnumValue = { setValues: (it.set ?? []).filter(Boolean), unsetValues: (it.unset ?? []).filter(Boolean) };
+    else if (it.type === "URL") a.uriValues = (it.urls ?? []).filter(Boolean).map((u) => ({ uri: u }));
+    attributes.push(a);
+    mask.push(it.id);
+  }
+  if (!mask.length) return { ok: true, error: "" };
+  try {
+    const r = await fetch(
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}/attributes?attributeMask=${encodeURIComponent(mask.join(","))}`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `${locName}/attributes`, attributes }),
+      }
+    );
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    // La risposta di updateAttributes È l'oggetto Attributes aggiornato:
+    // verifichiamo che i valori inviati siano stati davvero applicati.
+    let respAttrs: AttrRaw[] = [];
+    try { respAttrs = (JSON.parse(txt) as { attributes?: AttrRaw[] }).attributes ?? []; } catch { /* ignore */ }
+    const byName = new Map<string, AttrRaw>();
+    for (const a of respAttrs) if (a.name) byName.set(a.name, a);
+    const notApplied: string[] = [];
+    for (const it of items) {
+      const g = byName.get(it.id);
+      let okv = false;
+      if (it.type === "BOOL") { const v = g?.values?.[0]; okv = it.bool === null ? v === undefined : v === it.bool; }
+      else if (it.type === "ENUM") { const v = g?.values?.[0]; okv = it.enumVal ? v === it.enumVal : v === undefined; }
+      else if (it.type === "REPEATED_ENUM") { const got = new Set((g?.repeatedEnumValue?.setValues ?? []).map(String)); const want = new Set((it.set ?? []).filter(Boolean)); okv = got.size === want.size && [...want].every((x) => got.has(x)); }
+      else if (it.type === "URL") { const got = new Set((g?.uriValues ?? []).map((u) => String(u.uri ?? ""))); const want = new Set((it.urls ?? []).filter(Boolean)); okv = got.size === want.size && [...want].every((x) => got.has(x)); }
+      if (!okv) notApplied.push(it.id);
+    }
+    return { ok: true, error: "", notApplied, resp: txt.slice(0, 500) };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FOTO / MEDIA della scheda (logo, copertina, galleria) — API v4.
+// ---------------------------------------------------------------------------
+export type GMedia = { id: string; url: string; category: string };
+
+/** Elenca le foto della scheda (paginato). */
+export async function listaMedia(token: string, path: string): Promise<{ media: GMedia[]; error: string }> {
+  const media: GMedia[] = [];
+  let pageToken = "";
+  for (let i = 0; i < 10; i++) {
+    const url = `https://mybusiness.googleapis.com/v4/${path}/media?pageSize=100` + (pageToken ? `&pageToken=${pageToken}` : "");
+    const { data, error } = await gGetErr<{
+      mediaItems?: { name?: string; googleUrl?: string; thumbnailUrl?: string; sourceUrl?: string; locationAssociation?: { category?: string } }[];
+      nextPageToken?: string;
+    }>(token, url);
+    if (!data) return { media, error };
+    for (const m of data.mediaItems ?? []) {
+      media.push({
+        id: String(m.name ?? ""),
+        url: String(m.googleUrl || m.thumbnailUrl || m.sourceUrl || ""),
+        category: String(m.locationAssociation?.category ?? "ADDITIONAL"),
+      });
+    }
+    pageToken = String(data.nextPageToken ?? "");
+    if (!pageToken) break;
+  }
+  return { media, error: "" };
+}
+
+/** Carica una foto (da URL pubblico) con una categoria (LOGO/COVER/ADDITIONAL...). */
+export async function caricaMedia(token: string, path: string, sourceUrl: string, category: string): Promise<{ ok: boolean; error: string }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${path}/media`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ mediaFormat: "PHOTO", locationAssociation: { category }, sourceUrl }),
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = ""; try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+/** Elimina una foto (mediaName = accounts/../locations/../media/..). */
+export async function eliminaMedia(token: string, mediaName: string): Promise<{ ok: boolean; error: string }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${mediaName}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) {
+      const txt = await r.text();
+      let msg = ""; try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FOOD MENU (menu del ristorante su Google) — API v4.
+// ---------------------------------------------------------------------------
+export type FMLabel = { displayName: string; description?: string; languageCode: string };
+export type FMItem = { labels: FMLabel[]; attributes: { price: { currencyCode: string; units: string; nanos: number } } };
+export type FMSection = { labels: FMLabel[]; items: FMItem[] };
+export type FMMenu = { labels: FMLabel[]; sections: FMSection[] };
+
+/** Stato del menu Google attuale (best-effort): quante sezioni ha già. */
+export async function leggiFoodMenuStato(token: string, path: string): Promise<{ ok: boolean; sezioni: number; error: string }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${path}/foodMenus`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, sezioni: 0, error: msg || `HTTP ${r.status}` };
+    }
+    let sez = 0;
+    try {
+      const d = JSON.parse(txt) as { menus?: { sections?: unknown[] }[] };
+      for (const m of d.menus ?? []) sez += (m.sections ?? []).length;
+    } catch { /* ignore */ }
+    return { ok: true, sezioni: sez, error: "" };
+  } catch {
+    return { ok: false, sezioni: 0, error: "Connexion à Google impossible" };
+  }
+}
+
+/** Sostituisce il menu Google con quello fornito (updateMask=menus). */
+export async function spingiFoodMenu(token: string, path: string, menus: FMMenu[]): Promise<{ ok: boolean; error: string }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${path}/foodMenus?updateMask=menus`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name: `${path}/foodMenus`, menus }),
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    return { ok: true, error: "" };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
 /**
  * Scopre la scheda (location) del cliente: primo account + prima location.
  * NB: fase 1 = una sola scheda per cliente (auto-selezione della prima).
@@ -456,6 +872,74 @@ export async function eliminaRisposta(token: string, reviewName: string): Promis
   }
 }
 
+// ============================================================
+// POST (Local Posts) — Google Business Profile, API v4.
+// Tipi: STANDARD ("Novità"), EVENT, OFFER. Scope business.manage (già presente).
+// La foto è un URL pubblico (media.sourceUrl): riusiamo lo storage del motore.
+// ============================================================
+export type GData = { year: number; month: number; day: number };
+export type GPost = {
+  name?: string;            // accounts/../locations/../localPosts/..
+  languageCode?: string;
+  summary?: string;
+  topicType?: string;       // STANDARD | EVENT | OFFER | ALERT
+  state?: string;           // LIVE | REJECTED | PROCESSING
+  createTime?: string;
+  updateTime?: string;
+  searchUrl?: string;
+  media?: { mediaFormat?: string; sourceUrl?: string; googleUrl?: string }[];
+  callToAction?: { actionType?: string; url?: string };
+  event?: { title?: string; schedule?: { startDate?: GData; endDate?: GData } };
+  offer?: { couponCode?: string; redeemOnlineUrl?: string; termsConditions?: string };
+};
+
+export async function listaPost(token: string, path: string): Promise<{ posts: GPost[]; error: string }> {
+  const { data, error } = await gGetErr<{ localPosts?: GPost[] }>(
+    token,
+    `https://mybusiness.googleapis.com/v4/${path}/localPosts?pageSize=100`
+  );
+  if (error) return { posts: [], error };
+  return { posts: data?.localPosts ?? [], error: "" };
+}
+
+export async function creaPost(
+  token: string,
+  path: string,
+  corpo: Record<string, unknown>
+): Promise<{ ok: boolean; error: string; post?: GPost }> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${path}/localPosts`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(corpo),
+    });
+    const txt = await r.text();
+    if (!r.ok) {
+      let msg = "";
+      try { msg = String((JSON.parse(txt) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* ignore */ }
+      return { ok: false, error: msg || `HTTP ${r.status}` };
+    }
+    let post: GPost | undefined;
+    try { post = JSON.parse(txt) as GPost; } catch { /* ignore */ }
+    return { ok: true, error: "", post };
+  } catch {
+    return { ok: false, error: "Connexion à Google impossible" };
+  }
+}
+
+/** postName = accounts/../locations/../localPosts/.. (campo name del post). */
+export async function eliminaPost(token: string, postName: string): Promise<boolean> {
+  try {
+    const r = await fetch(`https://mybusiness.googleapis.com/v4/${postName}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 const K_PROFILE = "google_profile";
 const K_RATING = "google_rating";
 const K_COUNT = "google_review_count";
@@ -493,6 +977,13 @@ export async function sincronizzaRecensioni(): Promise<{
   const { reviews, average, total, error } = await listaRecensioni(token, loc.path);
   const nowISO = new Date().toISOString();
 
+  // Recensioni gia' note (per rilevare le NUOVE e notificare l'admin).
+  let idsEsistenti = new Set<string>();
+  try {
+    const { data: ex } = await supabaseAdmin.from("google_reviews").select("review_id");
+    idsEsistenti = new Set((ex ?? []).map((x) => String((x as { review_id?: unknown }).review_id ?? "")));
+  } catch { /* best-effort: se fallisce, semplicemente non notifica */ }
+
   let dbError = "";
   if (reviews.length) {
     const righe = reviews.map((r) => ({
@@ -510,6 +1001,17 @@ export async function sincronizzaRecensioni(): Promise<{
     }));
     const { error: upErr } = await supabaseAdmin.from("google_reviews").upsert(righe, { onConflict: "review_id" });
     if (upErr) dbError = upErr.message;
+
+    // Notifica push all'admin per le recensioni NUOVE. Salta il primissimo
+    // sync (DB vuoto) per non notificare l'intero storico all'attivazione.
+    if (!upErr && idsEsistenti.size > 0) {
+      const nuove = reviews.filter((r) => r.reviewId && !idsEsistenti.has(r.reviewId));
+      if (nuove.length) {
+        // la piu' recente per create_time → autore/voto da mostrare
+        const ultima = [...nuove].sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
+        void inviaPushRecensione({ author: ultima.author, rating: ultima.rating, count: nuove.length });
+      }
+    }
   }
 
   await supabaseAdmin.from("app_config").upsert(
@@ -544,4 +1046,132 @@ export async function nomeRecensione(reviewId: string): Promise<string | null> {
   const { data } = await supabaseAdmin.from("google_reviews").select("name").eq("review_id", reviewId).maybeSingle();
   const name = String(data?.name ?? "").trim();
   return name || null;
+}
+
+
+// ============================================================
+//  PERFORMANCE — statistiche della scheda (viste, click, chiamate,
+//  indicazioni, prenotazioni, ordini, menu) + parole chiave di ricerca.
+//  Business Profile Performance API v1 (scope business.manage).
+//  NB: i dati Google hanno qualche giorno di latenza; gli ultimi 1-3
+//  giorni sono spesso 0. Le keyword sono mensili.
+// ============================================================
+
+const PERF_BASE = "https://businessprofileperformance.googleapis.com/v1";
+
+const PERF_METRICS = [
+  "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+  "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+  "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+  "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+  "BUSINESS_DIRECTION_REQUESTS",
+  "CALL_CLICKS",
+  "WEBSITE_CLICKS",
+  "BUSINESS_CONVERSATIONS",
+  "BUSINESS_BOOKINGS",
+  "BUSINESS_FOOD_ORDERS",
+  "BUSINESS_FOOD_MENU_CLICKS",
+] as const;
+
+export type PerfPoint = { date: string; value: number }; // date = "YYYY-MM-DD"
+export type PerfSerie = { metric: string; total: number; punti: PerfPoint[] };
+export type PerfKeyword = { keyword: string; value: number; approx: boolean };
+export type PerfData = {
+  serie: PerfSerie[];
+  keywords: PerfKeyword[];
+  from: string;
+  to: string;
+  error: string;
+};
+
+function perfYmd(d: Date): { year: number; month: number; day: number } {
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+function perfIso(o: { year?: number; month?: number; day?: number }): string {
+  const y = o.year ?? 0, m = o.month ?? 1, d = o.day ?? 1;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** Parole chiave di ricerca (mensili) aggregate sul range di mesi coperto. */
+async function leggiKeywords(
+  token: string,
+  locName: string,
+  inizio: Date,
+  fine: Date,
+): Promise<PerfKeyword[]> {
+  const qp = new URLSearchParams();
+  qp.set("monthlyRange.start_month.year", String(inizio.getUTCFullYear()));
+  qp.set("monthlyRange.start_month.month", String(inizio.getUTCMonth() + 1));
+  qp.set("monthlyRange.end_month.year", String(fine.getUTCFullYear()));
+  qp.set("monthlyRange.end_month.month", String(fine.getUTCMonth() + 1));
+  qp.set("pageSize", "100");
+  const url = `${PERF_BASE}/${locName}/searchkeywords/impressions/monthly?${qp.toString()}`;
+  const { data } = await gGetErr<{
+    searchKeywordsCounts?: { searchKeyword?: string; insightsValue?: { value?: string; threshold?: string } }[];
+  }>(token, url);
+  const agg = new Map<string, { value: number; approx: boolean }>();
+  for (const k of data?.searchKeywordsCounts ?? []) {
+    const kw = String(k?.searchKeyword ?? "").trim();
+    if (!kw) continue;
+    const iv = k?.insightsValue ?? {};
+    const val = iv.value != null ? Number(iv.value) : iv.threshold != null ? Number(iv.threshold) : 0;
+    const approx = iv.value == null; // threshold = valore approssimato ("<X")
+    const prev = agg.get(kw) ?? { value: 0, approx: false };
+    prev.value += Number.isFinite(val) ? val : 0;
+    prev.approx = prev.approx || approx;
+    agg.set(kw, prev);
+  }
+  return [...agg.entries()]
+    .map(([keyword, v]) => ({ keyword, value: v.value, approx: v.approx }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 30);
+}
+
+/** Serie temporali giornaliere + keyword per il periodo indicato (in giorni). */
+export async function leggiPerformance(token: string, path: string, giorni: number): Promise<PerfData> {
+  const locName = path.split("/").slice(-2).join("/"); // "locations/{id}"
+  const oggi = new Date();
+  const inizio = new Date(oggi);
+  inizio.setUTCDate(inizio.getUTCDate() - (giorni - 1));
+  const s = perfYmd(inizio), e = perfYmd(oggi);
+
+  const qp = new URLSearchParams();
+  for (const m of PERF_METRICS) qp.append("dailyMetrics", m);
+  qp.set("dailyRange.start_date.year", String(s.year));
+  qp.set("dailyRange.start_date.month", String(s.month));
+  qp.set("dailyRange.start_date.day", String(s.day));
+  qp.set("dailyRange.end_date.year", String(e.year));
+  qp.set("dailyRange.end_date.month", String(e.month));
+  qp.set("dailyRange.end_date.day", String(e.day));
+
+  const url = `${PERF_BASE}/${locName}:fetchMultiDailyMetricsTimeSeries?${qp.toString()}`;
+  const { data, error } = await gGetErr<{
+    multiDailyMetricTimeSeries?: { dailyMetricTimeSeries?: unknown }[];
+  }>(token, url);
+
+  const serie: PerfSerie[] = [];
+  for (const blocco of data?.multiDailyMetricTimeSeries ?? []) {
+    const raw = blocco?.dailyMetricTimeSeries;
+    const lista = (Array.isArray(raw) ? raw : raw ? [raw] : []) as {
+      dailyMetric?: string;
+      timeSeries?: { datedValues?: { date?: { year?: number; month?: number; day?: number }; value?: string }[] };
+    }[];
+    for (const dm of lista) {
+      const metric = String(dm?.dailyMetric ?? "");
+      if (!metric) continue;
+      const punti: PerfPoint[] = [];
+      let total = 0;
+      for (const dv of dm?.timeSeries?.datedValues ?? []) {
+        const v = Number(dv?.value ?? 0) || 0;
+        total += v;
+        punti.push({ date: perfIso(dv?.date ?? {}), value: v });
+      }
+      serie.push({ metric, total, punti });
+    }
+  }
+
+  let keywords: PerfKeyword[] = [];
+  try { keywords = await leggiKeywords(token, locName, inizio, oggi); } catch { keywords = []; }
+
+  return { serie, keywords, from: perfIso(s), to: perfIso(e), error };
 }

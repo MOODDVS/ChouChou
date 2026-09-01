@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { segretoUguale } from "../../../lib/cronAuth";
 import { eseguiRappelReservations } from "../../../lib/rappelReservations";
 
 export const prerender = false;
@@ -21,7 +22,7 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   if (!CRON_SECRET) return json({ error: "CRON_SECRET non configurato" }, 503);
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
-  if (chiave !== CRON_SECRET) return json({ error: "Non autorisé" }, 401);
+  if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
 
   const force = url.searchParams.get("force") === "1";
   try {

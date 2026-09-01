@@ -36,6 +36,35 @@ const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// ============================================================
+// AUTORIZZAZIONE (non solo autenticazione)
+// ============================================================
+// Un JWT valido prova solo che l'utente esiste sul progetto Supabase del
+// cliente. Per accedere all'admin serve essere STAFF PROVISIONATO:
+//  - super admin MOODD (email fissa), oppure
+//  - un ruolo esplicito in app_metadata (scrivibile solo con service key:
+//    lo assegna il pannello Réglages → Users), oppure
+//  - un'email nella allowlist di bootstrap (env, per account legacy).
+// Chi si auto-registrasse (registrazioni Supabase per errore aperte) NON ha
+// ruolo → viene RIFIUTATO. Difesa in profondità: anche se le registrazioni
+// fossero aperte, non si ottiene accesso all'admin.
+const SUPER_EMAIL_AUTH = "admin@moodd.online";
+const BOOTSTRAP_EMAILS = new Set(
+  String(import.meta.env.ADMIN_BOOTSTRAP_EMAILS ?? process.env.ADMIN_BOOTSTRAP_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+function staffAutorizzato(u: StaffUser): boolean {
+  const email = (u.email ?? "").trim().toLowerCase();
+  if (email === SUPER_EMAIL_AUTH) return true; // super MOODD: sempre
+  if (u.role === "super" || u.role === "admin" || u.role === "user") return true; // ruolo esplicito
+  if (u.is_super === true) return true; // vecchio flag booleano
+  if (email && BOOTSTRAP_EMAILS.has(email)) return true; // valvola legacy (env)
+  return false; // nessun ruolo → probabile auto-registrato → rifiutato
+}
+
 // Forma minima dell'utente usata dagli endpoint admin: bastano id ed email.
 export interface StaffUser {
   id: string;
@@ -187,6 +216,9 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
     };
   }
 
+  // AUTORIZZAZIONE: token valido ma utente non provisionato → niente accesso.
+  if (!staffAutorizzato(user)) return null;
+
   if (tokenVerificati.size > 200) tokenVerificati.clear();
   tokenVerificati.set(token, { scade: Date.now() + CACHE_TOKEN_MS, user });
   return user;
@@ -200,7 +232,9 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
  */
 export async function verificaTokenLocale(token: string): Promise<StaffUser | null> {
   if (!token) return null;
-  return verificaLocale(token);
+  const user = await verificaLocale(token);
+  if (!user || !staffAutorizzato(user)) return null;
+  return user;
 }
 
 /** Risposta standard 401 per richieste non autenticate. */

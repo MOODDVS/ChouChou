@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { segretoUguale } from "../../../lib/cronAuth";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
 import { TIMEZONE } from "../../../lib/slots";
@@ -27,7 +28,7 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   if (!CRON_SECRET) return json({ error: "CRON_SECRET non configurato" }, 503);
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
-  if (chiave !== CRON_SECRET) return json({ error: "Non autorisé" }, 401);
+  if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
 
   const nowB = DateTime.now().setZone(TIMEZONE);
   // Prima delle 02:00 gli ordini di IERI hanno ancora la grazia → soglia = inizio di ieri.
