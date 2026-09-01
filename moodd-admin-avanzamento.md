@@ -2,6 +2,15 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 01/09/2026 — sessione Cowork (Statistiche: nuovo tab «Prenotazioni» + rifiniture mobile/CSS)
+
+- **Nuovo tab «Prenotazioni»** nella pagina Statistiche (3° tab dopo Google/Finanze). Analitiche aggregate del ristorante sulle `reservations`. Filtri periodo **7g / 15g / 1 mese / 3 mesi / 6 mesi / 1 anno** (pillole `.rh-filter`). Backend: `src/lib/admin/statsResa.ts` (`calcolaStatsResa(giorni)`) + endpoint `GET /api/admin/stats-reservations?giorni=N` (auth staff). **Nessuna migrazione** (usa colonne esistenti: status confirmed/cancelled/noshow/seated/done, people, table_minutes, spent_cents, tables, created_at, source, service_key, birthday/special_event).
+  - **KPI** in 3 sezioni: *Panoramica* (prenotazioni, coperti totali + media/pren, giorno più forte con media, fascia di punta + %), *Medie* (media tavoli/giorno, tempo medio al tavolo, spesa media + €/coperto, anticipo medio prenotazione), *Affidabilità* (cancellazioni + %, no-show + %, tasso di presenza, eventi speciali compleanni/eventi).
+  - **Grafici** (SVG puro, a tutta larghezza): andamento prenotazioni con **cancellazioni e no-show sovrapposti** (multi-linea + legenda); barre per **giorno della settimana** (nomi localizzati via Intl); barre **fasce orarie di punta**; barre orizzontali **per fonte** (web/telefono/walk-in/google) e **coperti per servizio** (pranzo/cena).
+  - i18n `st.r*` in 5 lingue. Switch tab generalizzato a 3 pannelli; redraw su resize. `tsc` + syntax-check OK; render reale verificato con mock (funzioni rMulti/rBars/rHbars/rTile).
+- **Rifiniture Statistiche mobile/CSS** (stessa sessione): filtri periodo migrati alla classe condivisa `.rh-filter` con **scroll orizzontale** su mobile (Finanze+Google); su **iPad mini verticale/tablet** le card in **3 colonne** con numeri più piccoli (telefono 3 colonne compatte); titoli tile e padding ridotti su mobile (fix ordine CSS: override spostati in fondo per vincere sulle regole base); **grafici Clic/Impressioni Google a tutta larghezza** (padL/padR=0, valori Y sopra le griglie); 4 tile Google (grid4) con font/padding ridotti su mobile.
+
+
 ## 📌 31/08/2026 — sessione Cowork (Notifiche push: verifica + nuova notifica recensioni Google)
 
 - **Verifica notifiche push PWA admin — tutte OK**: nuovo ordine (`stripe-webhook.ts` → `inviaPushOrdine`, dati numero/nome/totale corretti), nuova prenotazione + demande (`reservation.ts` → `inviaPushResa "new"/"demande"`), prenotazione **modificata** e **annullata** dal cliente (`inviaPushResa "modif"/"annul"`). `push.ts` robusto: VAPID lazy (nessun throw se assente), invio a tutte le subscription con **pulizia automatica** di quelle morte (404/410), best-effort. Service worker (`public/sw.js`) generico: mostra title/body/tag e al click naviga su `data.url`.

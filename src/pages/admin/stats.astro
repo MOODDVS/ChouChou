@@ -5,6 +5,7 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import "../../styles/filters.css";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { calcolaStats } from "../../lib/admin/calcolaStats";
@@ -69,20 +70,28 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
-      /* Selettore periodo */
-      .periods { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-top: 1.4rem; margin: 0 0 1.5rem; border-top: 1px solid var(--c-line); }
-      .period {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.45rem 1.2rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-      .period:hover { color: var(--c-text); border-color: var(--c-accent); }
-      .period.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* Selettore periodo — pillole condivise (.rh-filters/.rh-filter in filters.css,
+         con scroll orizzontale su mobile). Qui resta solo la spaziatura di pagina. */
+      .periods { padding-top: 1.4rem; margin: 0 0 1.5rem; border-top: 1px solid var(--c-line); }
 
       /* Griglia stat */
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
-      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      /* iPad / tablet (incl. iPad mini verticale): 3 colonne come desktop, ma numeri
+         più piccoli e spaziatura ridotta perché le colonne sono strette. */
+      @media (min-width: 641px) and (max-width: 1024px) {
+        .grid:not(.grid4) { gap: 0.7rem; }
+        .grid:not(.grid4) .stat { padding: 1.1rem; }
+        .grid:not(.grid4) .stat-big { font-size: 2rem; }
+        .grid:not(.grid4) .stat-lab { font-size: 0.68rem; }
+      }
+      /* Telefono: 3 colonne compatte con numeri piccoli. */
+      @media (max-width: 640px) {
+        .grid:not(.grid4) { grid-template-columns: repeat(3, 1fr); gap: 0.4rem; }
+        .grid:not(.grid4) .stat { padding: 0.7rem 0.6rem; }
+        .grid:not(.grid4) .stat-big { font-size: 1.35rem; }
+        .grid:not(.grid4) .stat-lab { font-size: 0.58rem; letter-spacing: 0.03em; margin-bottom: 0.4rem; }
+        .grid:not(.grid4) .stat-sub { font-size: 0.66rem; margin-top: 0.4rem; }
+      }
       .stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.6rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.7rem; }
       .stat-big { font-family: var(--font-title); font-size: 3rem; line-height: 1; color: var(--c-accent); }
@@ -123,7 +132,9 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .loading { opacity: 0.45; pointer-events: none; }
 
       /* Onglets Finances / Google — mêmes pastilles que la page Assets */
-      .tabs2 { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+      .tabs2 { display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-bottom: 1.5rem; }
+      .tabs2::-webkit-scrollbar { display: none; }
+      .tab2 { flex-shrink: 0; }
       .tab2 {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
@@ -151,6 +162,36 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       /* Deux colonnes (requêtes / pages) */
       .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
       @media (max-width: 900px) { .two-cols { grid-template-columns: 1fr; } }
+      /* --- Tab Prenotazioni --- */
+      .sec-lab { font-family: var(--font-title); letter-spacing: 0.05em; font-size: 1.05rem; color: var(--c-muted); margin: 1.6rem 0 0.7rem; }
+      .sec-lab:first-child { margin-top: 0; }
+      .rkpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; margin-bottom: 1.4rem; }
+      .rkpi-card { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      .rkpi-head { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-title); letter-spacing: 0.05em; font-size: 1.05rem; color: var(--c-text); margin-bottom: 0.4rem; }
+      .rkpi-head svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .rkpi-item { padding: 0.7rem 0; border-top: 1px solid var(--c-line); min-width: 0; }
+      .rkpi-item:first-child { border-top: none; }
+      .rkpi-lab { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rkpi-val { font-family: var(--font-title); font-size: 1.7rem; line-height: 1; color: var(--c-accent); letter-spacing: 0.02em; }
+      .rkpi-sub { color: var(--c-muted); font-size: 0.76rem; margin-top: 0.3rem; }
+      @media (max-width: 640px) {
+        .rkpi-grid { grid-template-columns: 1fr; }
+        .rkpi-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 0.9rem; row-gap: 0; }
+        .rkpi-item { border-top: none; padding: 0.55rem 0; }
+        .rkpi-val { font-size: 1.35rem; }
+      }
+      .rsub { color: var(--c-muted); font-size: 0.82rem; margin: -0.6rem 0 0.6rem; }
+      .rlegend { display: flex; gap: 1.1rem; flex-wrap: wrap; margin: 0 0 1rem; }
+      .rlegend span { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; color: var(--c-muted); }
+      .rlegend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+      .rbar-lab { fill: var(--c-muted); font-size: 11px; font-family: var(--font-body); }
+      .rbar-val { fill: var(--c-text); font-size: 11px; font-family: var(--font-body); }
+      .hb-row { display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 0.7rem; margin-bottom: 0.5rem; }
+      .hb-k { font-size: 0.85rem; color: var(--c-text); }
+      .hb-bar { position: relative; height: 22px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 6px; overflow: hidden; }
+      .hb-fill { position: absolute; inset: 0 auto 0 0; background: var(--c-accent); }
+      .hb-val { font-family: var(--font-title); font-size: 1rem; min-width: 3rem; text-align: right; color: var(--c-text); }
+      @media (max-width: 640px) { .hb-row { grid-template-columns: 5rem 1fr auto; } .sec-lab { font-size: 0.95rem; } }
       .gtab-row, .gtab-head { display: flex; align-items: baseline; gap: 0.8rem; }
       .gtab-row { padding: 0.5rem 0; border-bottom: 1px solid var(--c-line); font-size: 0.9rem; }
       .gtab-row:last-child { border-bottom: none; }
@@ -172,6 +213,15 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .src-n { flex: 0 0 3rem; text-align: right; font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .src-pct { flex: 0 0 2.8rem; text-align: right; color: var(--c-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
       @media (max-width: 560px) { .src-nom { flex-basis: 6rem; font-size: 0.9rem; } }
+      /* Override mobile posti in fondo per vincere sulle regole base (stessa specificità). */
+      @media (max-width: 640px) {
+        .top-title, .chart-title { font-size: 1rem; margin-bottom: 0.6rem; }
+        .chart, .top { padding: 0.7rem; }
+        .grid4 .stat { padding: 1rem; }
+        .grid4 .stat-big { font-size: 1.8rem; }
+        .grid4 .stat-lab { font-size: 0.66rem; }
+        .grid4 .stat-sub { font-size: 0.72rem; }
+      }
     </style>
     <AdminHead />
   </head>
@@ -184,15 +234,16 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         <div class="tabs2" id="tabs2">
           <button type="button" class="tab2" data-tab="ggl"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>Google</button>
           <button type="button" class="tab2 is-on" data-tab="fin"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M15 9.5a3.5 3.5 0 1 0 0 5" /><line x1="7.5" y1="11" x2="12.5" y2="11" /><line x1="7.5" y1="13" x2="11.5" y2="13" /></svg>{t("st.finances")}</button>
+          <button type="button" class="tab2" data-tab="resa"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>{t("st.resaTab")}</button>
         </div>
 
         <section class="pane2" data-pane="fin">
-        <div class="periods" id="periods">
-          <button class="period is-active" data-p="day">{t("st.pDay")}</button>
-          <button class="period" data-p="week">{t("res.week")}</button>
-          <button class="period" data-p="month">{t("res.month")}</button>
-          <button class="period" data-p="ytd">{t("st.pYear")}</button>
-          <button class="period" data-p="all">{t("ord.total")}</button>
+        <div class="rh-filters periods" id="periods">
+          <button class="rh-filter is-on" data-p="day">{t("st.pDay")}</button>
+          <button class="rh-filter" data-p="week">{t("res.week")}</button>
+          <button class="rh-filter" data-p="month">{t("res.month")}</button>
+          <button class="rh-filter" data-p="ytd">{t("st.pYear")}</button>
+          <button class="rh-filter" data-p="all">{t("ord.total")}</button>
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
@@ -230,12 +281,12 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         </section>
 
         <section class="pane2" data-pane="ggl" hidden>
-          <div class="periods" id="g-periods">
-            <button class="period" data-d="7">{t("st.days7")}</button>
-            <button class="period is-active" data-d="28">{t("st.days28")}</button>
-            <button class="period" data-d="90">{t("st.months3")}</button>
-            <button class="period" data-d="180">{t("st.months6")}</button>
-            <button class="period" data-d="365">{t("st.months12")}</button>
+          <div class="rh-filters periods" id="g-periods">
+            <button class="rh-filter" data-d="7">{t("st.days7")}</button>
+            <button class="rh-filter is-on" data-d="28">{t("st.days28")}</button>
+            <button class="rh-filter" data-d="90">{t("st.months3")}</button>
+            <button class="rh-filter" data-d="180">{t("st.months6")}</button>
+            <button class="rh-filter" data-d="365">{t("st.months12")}</button>
           </div>
           <div class="state" id="g-state">{t("sup.loading")}</div>
           <div class="state" id="g-empty" style="display:none">
@@ -278,6 +329,47 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
               {t("st.trafficIntro")}
             </p>
             <div id="g-sources"></div>
+          </div>
+        </section>
+
+        <section class="pane2" data-pane="resa" hidden>
+          <div class="rh-filters periods" id="r-periods">
+            <button class="rh-filter" data-g="7">{t("st.rFil7")}</button>
+            <button class="rh-filter" data-g="15">{t("st.rFil15")}</button>
+            <button class="rh-filter is-on" data-g="30">{t("st.rFil30")}</button>
+            <button class="rh-filter" data-g="90">{t("st.rFil90")}</button>
+            <button class="rh-filter" data-g="180">{t("st.rFil180")}</button>
+            <button class="rh-filter" data-g="365">{t("st.rFil365")}</button>
+          </div>
+          <div class="state" id="r-state">{t("sup.loading")}</div>
+          <div class="state" id="r-empty" style="display:none">{t("st.rNoData")}</div>
+          <div id="r-content" style="display:none">
+            <div class="rkpi-grid">
+              <div class="rkpi-card"><div class="rkpi-head"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>{t("st.rSecOverview")}</div><div class="rkpi-body" id="r-kpi1"></div></div>
+              <div class="rkpi-card"><div class="rkpi-head"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="20" x2="6" y2="13"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="10"/></svg>{t("st.rSecAvg")}</div><div class="rkpi-body" id="r-kpi2"></div></div>
+              <div class="rkpi-card"><div class="rkpi-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>{t("st.rSecReliab")}</div><div class="rkpi-body" id="r-kpi3"></div></div>
+            </div>
+
+            <div class="chart">
+              <div class="chart-title">{t("st.rTrend")}</div>
+              <p class="rsub">{t("st.rTrendSub")}</p>
+              <div class="rlegend">
+                <span><i style="background:var(--c-accent)"></i>{t("st.rLegBook")}</span>
+                <span><i style="background:#7fa6ae"></i>{t("st.rLegCanc")}</span>
+                <span><i style="background:#5c6b7a"></i>{t("st.rLegNs")}</span>
+              </div>
+              <div class="lchart" id="r-trend"></div>
+            </div>
+
+            <div class="two-cols">
+              <div class="chart"><div class="chart-title">{t("st.rByWeekday")}</div><div class="lchart" id="r-week"></div></div>
+              <div class="chart"><div class="chart-title">{t("st.rByHour")}</div><div class="lchart" id="r-hours"></div></div>
+            </div>
+
+            <div class="two-cols">
+              <div class="top"><div class="top-title">{t("st.rBySource")}</div><div id="r-src"></div></div>
+              <div class="top"><div class="top-title">{t("st.rCoversSvc")}</div><div id="r-svc"></div></div>
+            </div>
           </div>
         </section>
       </main>
@@ -480,10 +572,10 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         }
 
         periodsEl.addEventListener("click", (e) => {
-          const t = (e.target as HTMLElement).closest(".period") as HTMLElement | null;
+          const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
           if (!t || t.dataset.p === periodo) return;
           periodo = t.dataset.p!;
-          periodsEl.querySelectorAll(".period").forEach((b) => b.classList.toggle("is-active", b === t));
+          periodsEl.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
           carica();
         });
 
@@ -500,6 +592,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         const tabs2 = document.getElementById("tabs2") as HTMLElement;
         const paneGgl = document.querySelector('.pane2[data-pane="ggl"]') as HTMLElement;
         const paneFin = document.querySelector('.pane2[data-pane="fin"]') as HTMLElement;
+        const paneResa = document.querySelector('.pane2[data-pane="resa"]') as HTMLElement;
         const gPeriods = document.getElementById("g-periods") as HTMLElement;
         const gState = document.getElementById("g-state") as HTMLElement;
         const gEmpty = document.getElementById("g-empty") as HTMLElement;
@@ -565,7 +658,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           const tip = document.getElementById(tipId) as HTMLElement | null;
           if (!box) return;
           const W = Math.max(320, Math.round(box.clientWidth || 600));
-          const H = 230, padL = 46, padR = 12, padT = 12, padB = 26;
+          const H = 230, padL = 0, padR = 0, padT = 16, padB = 26;
           const iw = W - padL - padR, ih = H - padT - padB;
           const n = pts.length;
           if (!n) { box.innerHTML = `<p class="state" style="padding:1.5rem 0">${tr("st.noData")}</p>`; return; }
@@ -582,13 +675,15 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             const val = (maxV / 2) * k;
             const yy = Y(val);
             grid += `<line class="gl" x1="${padL}" y1="${yy.toFixed(1)}" x2="${W - padR}" y2="${yy.toFixed(1)}" />`;
-            grid += `<text class="axlab" x="${padL - 6}" y="${(yy + 3).toFixed(1)}" text-anchor="end">${nfInt.format(Math.round(val))}</text>`;
+            grid += `<text class="axlab" x="2" y="${(yy - 4).toFixed(1)}" text-anchor="start">${nfInt.format(Math.round(val))}</text>`;
           }
           // ~6 etichette data sull'asse x
           let xlab = "";
           const passo = Math.max(1, Math.ceil(n / 6));
           for (let i = 0; i < n; i += passo) {
-            xlab += `<text class="axlab" x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${fmtJour(pts[i].date)}</text>`;
+            const xx = X(i);
+            const anc = xx < 24 ? "start" : xx > W - 24 ? "end" : "middle";
+            xlab += `<text class="axlab" x="${xx.toFixed(1)}" y="${H - 8}" text-anchor="${anc}">${fmtJour(pts[i].date)}</text>`;
           }
 
           box.innerHTML =
@@ -692,31 +787,174 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         }
 
         gPeriods.addEventListener("click", (e) => {
-          const t = (e.target as HTMLElement).closest(".period") as HTMLElement | null;
+          const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
           if (!t || Number(t.dataset.d) === gDays) return;
           gDays = Number(t.dataset.d);
-          gPeriods.querySelectorAll(".period").forEach((b) => b.classList.toggle("is-active", b === t));
+          gPeriods.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
           void caricaG();
+        });
+
+        // ============ PRENOTAZIONI ============
+        type RSerie = { date: string; pren: number; canc: number; ns: number };
+        type RStats = {
+          totale: number; coperti: number; copertiMediPren: number;
+          giornoTopIdx: number; giornoTopMedia: number;
+          fasciaTopOra: string; fasciaTopPct: number;
+          mediaTavoliGiorno: number; tempoMedioMin: number;
+          spesaMediaCents: number; spesaCopertoCents: number; anticipoOre: number;
+          cancellazioni: number; cancellazioniPct: number; noshow: number; noshowPct: number;
+          presenzaPct: number; eventiSpeciali: number;
+          serie: RSerie[]; perGiorno: number[];
+          perOra: { ora: string; n: number }[];
+          perFonte: { fonte: string; n: number }[];
+          copertiServizio: { servizio: string; coperti: number }[];
+        };
+        const rState = document.getElementById("r-state") as HTMLElement;
+        const rEmpty = document.getElementById("r-empty") as HTMLElement;
+        const rContent = document.getElementById("r-content") as HTMLElement;
+        const rPeriods = document.getElementById("r-periods") as HTMLElement;
+        let rDays = 30, rLoaded = false;
+        let rDati: RStats | null = null;
+
+        const nf1 = (x: number) => x.toLocaleString(LOC, { maximumFractionDigits: 1 });
+        function rTile(lab: string, big: string, sub: string): string {
+          return `<div class="rkpi-item"><div class="rkpi-lab" title="${lab}">${lab}</div><div class="rkpi-val">${esc(big)}</div>${sub ? `<div class="rkpi-sub">${sub}</div>` : ""}</div>`;
+        }
+        function fmtMin(min: number): string {
+          if (!min) return "\u2014";
+          const h = Math.floor(min / 60), m = Math.round(min % 60);
+          return h ? `${h}h${String(m).padStart(2, "0")}` : `${m}m`;
+        }
+        function fmtLead(ore: number): string {
+          if (!ore) return "\u2014";
+          return ore < 24 ? `${nf1(ore)} h` : `${nf1(ore / 24)} g`;
+        }
+        function giornoNome(idx: number, style: "long" | "short"): string {
+          if (idx < 0) return "\u2014";
+          const ref = new Date(2024, 0, 1 + idx); // 1 gen 2024 = lunedì
+          return ref.toLocaleDateString(LOC, { weekday: style });
+        }
+        function rMulti(boxId: string, series: { data: number[]; color: string; area?: boolean }[], labels: string[]): void {
+          const box = document.getElementById(boxId); if (!box) return;
+          const W = Math.max(320, Math.round(box.clientWidth || 600));
+          const H = 220, padT = 16, padB = 24, ih = H - padT - padB, n = labels.length;
+          if (!n) { box.innerHTML = ""; return; }
+          const max = Math.max(1, ...series.flatMap((s) => s.data));
+          const X = (i: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W);
+          const Y = (v: number) => padT + ih - (v / max) * ih;
+          let g = "";
+          for (let k = 0; k <= 2; k++) { const val = (max / 2) * k, yy = Y(val); g += `<line class="gl" x1="0" y1="${yy.toFixed(1)}" x2="${W}" y2="${yy.toFixed(1)}"/>`; g += `<text class="axlab" x="2" y="${(yy - 4).toFixed(1)}">${nfInt.format(Math.round(val))}</text>`; }
+          let paths = "";
+          for (const sr of series) {
+            const d = sr.data.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(" ");
+            if (sr.area) paths += `<path d="M${X(0).toFixed(1)} ${padT + ih} ${sr.data.map((v, i) => `L${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(" ")} L${X(n - 1).toFixed(1)} ${padT + ih} Z" fill="${sr.color}" fill-opacity="0.12"/>`;
+            paths += `<path d="${d}" fill="none" stroke="${sr.color}" stroke-width="2" stroke-linejoin="round"/>`;
+          }
+          let xl = ""; const step = Math.max(1, Math.ceil(n / 7));
+          for (let i = 0; i < n; i += step) { const xx = X(i), a = xx < 24 ? "start" : xx > W - 24 ? "end" : "middle"; xl += `<text class="axlab" x="${xx.toFixed(1)}" y="${H - 6}" text-anchor="${a}">${labels[i]}</text>`; }
+          box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${g}${paths}${xl}</svg>`;
+        }
+        function rBars(boxId: string, data: number[], labels: string[], color: string): void {
+          const box = document.getElementById(boxId); if (!box) return;
+          const W = Math.max(320, Math.round(box.clientWidth || 600));
+          const H = 200, padT = 14, padB = 22, ih = H - padT - padB, n = data.length;
+          if (!n) { box.innerHTML = ""; return; }
+          const max = Math.max(1, ...data), gap = W / n, bw = gap * 0.6;
+          let b = "";
+          data.forEach((v, i) => {
+            const h = (v / max) * ih, x = i * gap + (gap - bw) / 2, y = padT + ih - h;
+            b += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="${color}"/>`;
+            b += `<text class="rbar-lab" x="${(x + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${labels[i]}</text>`;
+            if (v) b += `<text class="rbar-val" x="${(x + bw / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle">${nfInt.format(v)}</text>`;
+          });
+          box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${b}</svg>`;
+        }
+        function rHbars(boxId: string, rows: { k: string; v: number; c?: string }[]): void {
+          const box = document.getElementById(boxId); if (!box) return;
+          if (!rows.length) { box.innerHTML = `<p class="state" style="padding:1rem 0">${tr("st.noData")}</p>`; return; }
+          const max = Math.max(1, ...rows.map((r) => r.v));
+          box.innerHTML = rows.map((r) => `<div class="hb-row"><span class="hb-k">${esc(r.k)}</span><div class="hb-bar"><div class="hb-fill" style="width:${Math.max(4, Math.round((r.v / max) * 100))}%;background:${r.c || "var(--c-accent)"}"></div></div><span class="hb-val">${nfInt.format(r.v)}</span></div>`).join("");
+        }
+        const FONTE_LAB: Record<string, string> = { web: tr("st.srcWeb"), phone: tr("st.srcPhone"), walkin: tr("st.srcWalkin"), google: tr("st.srcGoogle"), altro: tr("st.srcOther") };
+        const SVC_LAB: Record<string, string> = { midi: tr("st.svMidi"), soir: tr("st.svSoir") };
+
+        function renderResa(): void {
+          const d = rDati; if (!d) return;
+          (document.getElementById("r-kpi1") as HTMLElement).innerHTML =
+            rTile(tr("st.rTotal"), nfInt.format(d.totale), "") +
+            rTile(tr("st.rCovers"), nfInt.format(d.coperti), `${nf1(d.copertiMediPren)} ${tr("st.rPerBooking")}`) +
+            rTile(tr("st.rTopDay"), giornoNome(d.giornoTopIdx, "long"), d.giornoTopIdx >= 0 ? `${tr("st.rDayAvg")} ${nf1(d.giornoTopMedia)}` : "") +
+            rTile(tr("st.rPeakSlot"), d.fasciaTopOra || "\u2014", d.fasciaTopOra ? `${Math.round(d.fasciaTopPct)}% ${tr("st.rOfTotal")}` : "");
+          (document.getElementById("r-kpi2") as HTMLElement).innerHTML =
+            rTile(tr("st.rAvgTables"), nf1(d.mediaTavoliGiorno), "") +
+            rTile(tr("st.rTableTime"), fmtMin(d.tempoMedioMin), "") +
+            rTile(tr("st.rAvgSpend"), euro(d.spesaMediaCents), d.spesaCopertoCents ? `${euro(d.spesaCopertoCents)} ${tr("st.rPerCover")}` : "") +
+            rTile(tr("st.rLead"), fmtLead(d.anticipoOre), tr("st.rLeadSub"));
+          (document.getElementById("r-kpi3") as HTMLElement).innerHTML =
+            rTile(tr("st.rCancel"), nfInt.format(d.cancellazioni), `${nf1(d.cancellazioniPct)}% ${tr("st.rOfTotal")}`) +
+            rTile(tr("st.rNoshow"), nfInt.format(d.noshow), `${nf1(d.noshowPct)}% ${tr("st.rOfTotal")}`) +
+            rTile(tr("st.rShowRate"), `${Math.round(d.presenzaPct)}%`, tr("st.rShowRateSub")) +
+            rTile(tr("st.rSpecial"), nfInt.format(d.eventiSpeciali), tr("st.rSpecialSub"));
+
+          rMulti("r-trend", [
+            { data: d.serie.map((x) => x.pren), color: "var(--c-accent)", area: true },
+            { data: d.serie.map((x) => x.canc), color: "#7fa6ae" },
+            { data: d.serie.map((x) => x.ns), color: "#5c6b7a" },
+          ], d.serie.map((x) => fmtJour(x.date)));
+          rBars("r-week", d.perGiorno, [0, 1, 2, 3, 4, 5, 6].map((i) => giornoNome(i, "short")), "var(--c-accent)");
+          rBars("r-hours", d.perOra.map((o) => o.n), d.perOra.map((o) => o.ora.slice(0, 2)), "var(--c-accent)");
+          rHbars("r-src", d.perFonte.map((f) => ({ k: FONTE_LAB[f.fonte] ?? f.fonte, v: f.n })));
+          rHbars("r-svc", d.copertiServizio.map((x) => ({ k: SVC_LAB[x.servizio] ?? x.servizio, v: x.coperti, c: x.servizio === "midi" ? "#7fa6ae" : "var(--c-accent)" })));
+        }
+
+        async function caricaResa(): Promise<void> {
+          rLoaded = true;
+          rState.style.display = "block"; rState.textContent = tr("sup.loading");
+          rEmpty.style.display = "none"; rContent.style.display = "none";
+          try {
+            const res = await fetch("/api/admin/stats-reservations?giorni=" + rDays, { headers });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error || tr("res.connErr"));
+            rDati = j.stats as RStats;
+            rState.style.display = "none";
+            if (!rDati || (rDati.totale === 0 && rDati.cancellazioni === 0)) { rEmpty.style.display = "block"; return; }
+            rContent.style.display = "block";
+            renderResa();
+          } catch (e) {
+            rState.textContent = (e as Error).message || tr("res.connErr");
+          }
+        }
+
+        rPeriods.addEventListener("click", (e) => {
+          const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
+          if (!t || Number(t.dataset.g) === rDays) return;
+          rDays = Number(t.dataset.g);
+          rPeriods.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
+          void caricaResa();
         });
 
         tabs2.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".tab2") as HTMLElement | null;
           if (!t) return;
-          const ggl = t.dataset.tab === "ggl";
+          const tab = t.dataset.tab;
           tabs2.querySelectorAll(".tab2").forEach((b) => b.classList.toggle("is-on", b === t));
-          paneFin.hidden = ggl;
-          paneGgl.hidden = !ggl;
-          if (ggl && !gLoaded) void caricaG();
+          paneFin.hidden = tab !== "fin";
+          paneGgl.hidden = tab !== "ggl";
+          paneResa.hidden = tab !== "resa";
+          if (tab === "ggl" && !gLoaded) void caricaG();
+          if (tab === "resa" && !rLoaded) void caricaResa();
         });
 
         // Ridisegna i grafici quando la finestra cambia (SVG rifitta la larghezza)
         let rzT: number | undefined;
         window.addEventListener("resize", () => {
-          if (paneGgl.hidden || !gSerie.length) return;
           window.clearTimeout(rzT);
           rzT = window.setTimeout(() => {
-            drawLine("g-chart-clicks", "tip-clicks", gSerie.map((p) => ({ date: p.date, val: p.clicks })), "var(--c-accent)");
-            drawLine("g-chart-impr", "tip-impr", gSerie.map((p) => ({ date: p.date, val: p.impressions })), "#5c6b7a");
+            if (!paneGgl.hidden && gSerie.length) {
+              drawLine("g-chart-clicks", "tip-clicks", gSerie.map((p) => ({ date: p.date, val: p.clicks })), "var(--c-accent)");
+              drawLine("g-chart-impr", "tip-impr", gSerie.map((p) => ({ date: p.date, val: p.impressions })), "#5c6b7a");
+            }
+            if (!paneResa.hidden && rDati) renderResa();
           }, 180);
         });
 

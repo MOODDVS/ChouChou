@@ -1339,6 +1339,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
         let dpMese = 0; // 0-11
         const dpPanel = document.createElement("div");
         dpPanel.className = "dp-panel";
+        dpPanel.style.position = "absolute";
         dpPanel.style.display = "none";
         document.body.appendChild(dpPanel);
 
@@ -1386,12 +1387,35 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
           dpAnno = Number(base.slice(0, 4));
           dpMese = Number(base.slice(5, 7)) - 1;
           dpRender();
+          dpPanel.style.maxHeight = "";
+          dpPanel.style.overflowY = "";
           dpPanel.style.display = "block";
           const r = target.getBoundingClientRect();
           const pw = dpPanel.offsetWidth || 308;
           const ph = dpPanel.offsetHeight || 360;
-          dpPanel.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - pw - 8))}px`;
-          dpPanel.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - ph - 8))}px`;
+          const gap = 6;
+          const navReserve = window.innerWidth <= 900 ? 90 : 12;
+          const headerReserve = 72;
+          const spaceBelow = window.innerHeight - r.bottom - gap - navReserve;
+          const spaceAbove = r.top - gap - headerReserve;
+          let topVp: number;
+          if (ph <= spaceBelow) {
+            topVp = r.bottom + gap;
+          } else if (ph <= spaceAbove) {
+            topVp = r.top - gap - ph;
+          } else if (spaceBelow >= spaceAbove) {
+            topVp = r.bottom + gap;
+            dpPanel.style.maxHeight = `${Math.max(220, spaceBelow)}px`;
+            dpPanel.style.overflowY = "auto";
+          } else {
+            const h = Math.max(220, spaceAbove);
+            topVp = r.top - gap - h;
+            dpPanel.style.maxHeight = `${h}px`;
+            dpPanel.style.overflowY = "auto";
+          }
+          const leftVp = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+          dpPanel.style.left = `${leftVp + window.scrollX}px`;
+          dpPanel.style.top = `${topVp + window.scrollY}px`;
         }
         function dpChiudi() {
           dpPanel.style.display = "none";

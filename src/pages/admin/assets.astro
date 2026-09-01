@@ -84,6 +84,12 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       }
       .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
       .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      /* Tablet e mobile: tab e filtri scrollabili orizzontalmente invece di andare a capo */
+      @media (max-width: 1024px) {
+        .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab { flex-shrink: 0; }
+      }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
 
       .tabs-sub { border-bottom: none; padding-bottom: 0; margin-bottom: 1.25rem; }
