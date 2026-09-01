@@ -1,62 +1,65 @@
 # CLIENTI — stato di allineamento col motore
 
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
-Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/MIGRATIONS.md` (#1–#67).
+Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** HEAD `e373d8a` (29/08/2026) · migrazioni **#1–#67**.
+**Motore — riferimento attuale:** HEAD `bbe0885` (01/09/2026).
 
 ## Legenda stato
-- 🟢 **Allineato** — a pari (o quasi) con `engine/main`, migrazioni #1–#67 lanciate.
+- 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
 - 🟡 **Parziale** — allineato a una data passata; mancano commit motore recenti e/o migrazioni.
 - 🔴 **Indietro** — molto distante dal motore, richiede merge importante.
-- ⚫ **Fuori motore** — non gira ancora sul motore (da ricostruire).
+- ⚫ **Fuori motore** — non gira sul motore (da ricostruire).
 
 ## Quadro
 
-| Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Migrazioni | Cron |
-|---|---|---|---|---|---|---|---|
-| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | clone da `e373d8a` (29/08) | #1–#67 da lanciare al setup | da configurare (5 job) |
-| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be | Chiaro (widget rosa #ed2289) | merge **21/08** + cron 29/08 | ~#1–#50 ✅ · #51 e #52–#67 da verificare | 5 job pg_cron ✅ (29/08) |
-| **La Molisana** | 🔴 Indietro | Hostinger (EU) | — (live) | Scuro (pinnato) | blocco PUSH **27/07** | #1–#44 ✅ · **#45–#67 mancanti** | daily-brief + newsletter ✅ (mancano auto-complete-orders, reminders, google-reviews) |
-| **EducazioneNapoletana** | ⚫ Fuori motore | — | — (live su admin vecchio) | — | mai (fork pre-motore) | — (DB fatto a mano, 4 tabelle) | — |
+| Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Note |
+|---|---|---|---|---|---|---|
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `bbe0885` — 01/09/2026** | sito+branding tenuti, migrazioni recuperate |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `bbe0885` — 01/09/2026** | conflitto solo middleware (cacheEdge) |
+| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `bbe0885` — 01/09/2026** | merge pulito, 0 conflitti |
+| **Educazione Napoletana** | ⚫ Fuori motore | — | (live su admin vecchio) | — | mai | **richiede rebuild totale sul motore** |
 
 ---
 
-## L'huile sur le feu — 🟢 Allineato *(setup in corso)*
-- **Nuovo cliente** (avviato 29/08). Repo `MOODDVS/lhuilesurlefeu` **clonato dal motore a HEAD `e373d8a`** → nasce a pari col motore (storia git condivisa, remote `engine` già configurato). Primo `push -u origin main` fatto.
-- **Setup in corso** seguendo `NUOVO_PROGETTO.md`: brand (`client.ts`/`public/`/`astro.config`) · Supabase nuovo (**migrazioni #1–#67** in ordine) · env su Hostinger (**`CRON_SECRET` NUOVO**) · deploy · **5 job pg_cron**.
-- Hosting: Hostinger *(da confermare)*. Dominio e design: *da definire*.
-- Lavoro cliente: nel **suo progetto Claude** dedicato (qui si tocca solo il motore).
+## La Molisana — 🟢 Allineato (01/09/2026)
+- **LIVE** su `lamolisana.be` (primo cliente). Tema **scuro** pinnato in Réglages → Design.
+- **Merge `engine/main` → `bbe0885` (01/09)**: era indietro di **164 commit** (base 30/07). Merge pulito a parte **5 conflitti**, risolti tenendo il sito/branding di La Molisana e prendendo la struttura del motore:
+  - `package.json` / `public/manifest.json` → nome, colori PWA (#231f20) di La Molisana (versione motore 3.0.0, icone `/restohub/`).
+  - `src/config/client.ts` → firma email fr/en "La famille de La Molisana" (footer prodotto → "RestoHub v3.0" dal motore).
+  - `src/layouts/Layout.astro` → Layout di La Molisana + import del motore per la favicon-da-DB (`supabaseAdmin`/`cacheOr`; `CLIENT` scartato perché non usato).
+  - `src/pages/index.astro` → **homepage vera di La Molisana** (Hero/Story/Molise/PhotoStrip), scartato il template "coming soon" del motore.
+- `npx tsc --noEmit` 0 errori · `npm run build` OK · push fatto.
+- **Migrazioni recuperate (01/09)**: il merge portava `db.ts` che seleziona `is_seasonal` → menu/order davano 500 finché la colonna mancava. Applicato lo script `MIGRAZIONI_DA_APPLICARE.sql` (**19 migrazioni**, tutte `if not exists`): menu (seasonal, sold_out, i18n, sotto-categorie, categorie i18n), lunch/formule (hide_items, hide_by_course, i18n, set_menus + draft/grant), ordini (manual_payment, modifica_diff), popup (i18n, position), agenda (events + i18n), google_reviews, clients_lang.
+  - ⚠️ Attenzione: alcune migrazioni con `create policy` NON sono idempotenti e possono fermare lo script → applicare `google_reviews` da sola se la tabella manca ("Could not find table public.google_reviews in schema cache").
+- ⚠️ **Merge futuri**: NON sovrascrivere lo strato vetrina — tenere sempre `src/pages/index.astro`, `src/layouts/Layout.astro`, `src/config/client.ts`, `public/manifest.json`, `package.json` (nome/colori) lato La Molisana.
 
-## Comptoir ChouChou — 🟡 Parziale
-- **LIVE** su `comptoirchouchou.be` (ex dominio temp `blanchedalmond-pheasant-795745.hostingersite.com`).
-- **Merge 21/08**: era molto indietro → portato al motore (~11 conflitti + template demo01, pagine legali, feedback, recensioni Google). `astro check` 0 errori. ReservationWidget tenuto coi colori ChouChou (rosa #ed2289).
-- **Migrazioni**: al merge mancavano solo `google_reviews` / `popups_i18n` / `popups_position` → **lanciate**. Le altre erano già presenti. Da verificare/lanciare (idempotenti): **#51** (`lunch_hide_by_course`) e le **#52–#67** riconciliate.
-- **Cron (29/08)**: erano TUTTI mancanti (`cron.job` vuoto) → ricreati i **5 job pg_cron** col dominio vero + suo `CRON_SECRET` (header `x-cron-key`). Run `succeeded`.
-- **Env minima attuale**: Supabase + `MOODD_STRIPE_SECRET_KEY` (crediti + gift card via retrieve; NO webhook/Resend ancora).
-- ⚠️ **Da fare al prossimo merge**: manca ancora `public/restohub/wordmark.png` (mergiato PRIMA del fix wordmark → footer email rotto su tema chiaro). Applicare il passo wordmark del merge.
-- ⚠️ **Delta motore non ancora incluso**: il merge è del 21/08, quindi NON ha il lavoro motore del **26–29/08** (modale Nuovo ordine, floor-plan + prenotazioni 27/08, redesign mobile clienti/menu 28/08, menu tab dal/fuori menu + agenda rich text 29/08). Da portare al prossimo allineamento.
+## Comptoir ChouChou — 🟢 Allineato (01/09/2026)
+- **LIVE** su `comptoirchouchou.be`. Widget prenotazioni coi colori ChouChou (rosa #ed2289).
+- **Merge `engine/main` → `bbe0885` (01/09)**: era 12 commit indietro. **Un solo conflitto**, `src/middleware.ts`: il motore aggiunge `securityHeaders` + `rateLimit`, ChouChou aveva `cacheEdge` → risolto combinando la sequence: `sequence(securityHeaders, rateLimit, metodoOverride, redirectWww, cacheEdge)`. Push fatto.
+- Migrazioni: base recente → il merge non ha aggiunto migrazioni nuove. Se comparisse un 500 menu o "google_reviews in schema cache", applicare `menu_seasonal` / `google_reviews`.
 
-## La Molisana — 🔴 Indietro
-- **LIVE** (primo cliente). Tema **scuro** pinnato in Réglages → Design.
-- **Ultimo allineamento: 27/07** (blocco PUSH). Base motore ~`a2b6611`/`5dab4a9`. Push attivo (chiavi **VAPID** su Hostinger, migrazione **#44**). Ha remote `engine` e branch `backup-pre-merge`.
-- **Migrazioni lanciate: #1–#44.** **Mancano #45–#67** (gift cards, gift_card_orders, traffic, reminder, orders_manual_payment, orders_modifica_diff, lunch_hide_by_course + le 16 riconciliate: agenda, menu i18n/sotto-categorie/sold_out/seasonal, set_menus, clients_lang, popups i18n/position, google_reviews…).
-- **Delta motore mancante = quasi tutto agosto**: email transazionali ridisegnate, recensioni Google + gating feedback, marketing 2.0 (pop-up/newsletter/coupon/buoni), menu (sotto-categorie, i18n, esaurito, stagionale, menù fissi), agenda eventi, clienti (lingua, storico, mobile), modifica ordine con differenza, floor-plan, demo01 sito, ecc.
-- ⚠️ **Merge SELETTIVO obbligatorio** (ha lo strato vetrina Molise congelato): dopo `git merge engine/main`, `git checkout HEAD -- public/ src/config/ src/pages/{index,en/index,links}.astro src/layouts/Layout.astro astro.config.mjs` per NON cancellare foto/loghi del sito live. Poi `git checkout engine/main -- public/restohub/` per il branding motore (incl. wordmark). Lanciare le migrazioni mancanti, ri-pinnare il tema, verificare i cron.
-- **Codice buono auto**: `LAMOL-…` (5 iniziali del nome).
+## L'huile sur le feu — 🟢 Allineato (01/09/2026) *(setup in corso)*
+- Repo `MOODDVS/lhuilesurlefeu`, clonato dal motore (base `e373d8a`, 29/08). Remote `engine` configurato.
+- **Merge `engine/main` → `bbe0885` (01/09)**: 11 commit indietro, **0 conflitti** (lavoro cliente sito/menu e commit motore su file diversi). `npm run build` + push.
+- **Nessuna migrazione DB nuova** dal merge (i .sql erano già nel repo dal clone). A patto che al setup siano state applicate le migrazioni di base (incl. `menu_seasonal`, `google_reviews`), il DB è a posto.
+- Hosting/dominio/design: *da definire*. Lavoro cliente nel suo progetto Claude dedicato.
 
-## EducazioneNapoletana (EN) — ⚫ Fuori motore
-- **LIVE su admin VECCHIO** (fork pre-motore, troppo divergente: niente `client.ts`/middleware/lib-admin; DB fatto a mano, 4 tabelle). **NIENTE merge.**
-- **Piano EN v2 = rebuild da zero sul motore**, in parallelo: Supabase nuovo (#1–#67), si re-inseriscono solo **menu + orari** (storico ordini → CSV d'archivio). Salvare: GA4, SEO, cookie consent. Lasciare: BizPrint (→ futura stampa termica nativa).
-- Sviluppo su 2 macchine (Mac mini + MacBook) → `git pull` prima di lavorare, `git push` dopo.
+## Educazione Napoletana — ⚫ Fuori motore
+- **LIVE su admin VECCHIO** (fork pre-motore, troppo divergente: niente `client.ts`/middleware/lib-admin del motore; DB fatto a mano). Repo `MOODDVS/educazionenapoletana`. **NIENTE merge** — incompatibile.
+- **Piano = REBUILD TOTALE sul motore** (ricode completo), in parallelo:
+  - Supabase nuovo con tutte le migrazioni del motore in ordine.
+  - Si re-inseriscono solo **menu + orari**; storico ordini → CSV d'archivio.
+  - Salvare: GA4, SEO, cookie consent. Valutare a parte: stampa termica (ex BizPrint) come feature nativa futura.
+- Sviluppo su 2 macchine (Mac mini + MacBook) → `git pull` prima, `git push` dopo.
 
 ---
 
 ## Come allineare un cliente (promemoria)
-1. `git fetch engine && git merge engine/main` (dal repo del cliente).
-2. Se ha strato vetrina congelato (es. La Molisana) → **merge selettivo** (checkout `HEAD --` sui file vetrina/config, checkout `engine/main -- public/restohub/`).
-3. `npx astro check` (dal Mac) = 0 errori.
-4. Lanciare le **migrazioni mancanti** di `MIGRATIONS.md` (tutte idempotenti → rilanciarle non fa danni).
-5. `git push` → deploy Hostinger.
+1. Dal repo del cliente: `git fetch engine && git merge engine/main --no-edit`.
+2. Risolvere gli eventuali conflitti (di norma: **tenere sito/branding del cliente**, prendere la struttura del motore). Per La Molisana i file vetrina/config vanno SEMPRE tenuti lato cliente.
+3. `npm run build` (dal Mac) = deve passare.
+4. Applicare le **migrazioni nuove** che il merge ha aggiunto in `supabase/` sul Supabase del cliente (tutte `if not exists`; se una policy blocca, lanciare le tabelle mancanti singolarmente).
+5. `git commit --no-edit` (se merge con conflitti) + `git push` → deploy Hostinger.
 6. Verificare i **5 job pg_cron** (dominio vero + `CRON_SECRET`): daily-brief, newsletter, reservation-reminders, auto-complete-orders, google-reviews.
-7. Ri-pinnare tema/permessi se serve, aggiornare questo file.
+7. Ri-pinnare tema/permessi se serve e **aggiornare questo file**.
