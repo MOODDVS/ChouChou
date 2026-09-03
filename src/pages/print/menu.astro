@@ -1,0 +1,651 @@
+---
+// =====================================================================
+// PAGINA /print/menu — genera il MENU CARTACEO di Chouchou (PDF).
+// Riproduce il design del menù stampato ma prende i piatti dall'admin
+// (getMenu()). Quando il cliente cambia il menù nell'admin, questa
+// pagina si rigenera da sola e il PDF resta aggiornato.
+//
+// Formato: A5 (148x210 mm), abbondanza (bleed) 3 mm + segni di taglio
+// su ogni pagina. L'impaginazione automatica su pagine A5 e' gestita da
+// paged.js (vendorizzato in /vendor/paged.polyfill.min.js).
+//
+// SOLO SITO PUBBLICO — nessun file del motore RH viene toccato.
+// =====================================================================
+export const prerender = false;
+
+import { getMenu, type MenuItem, type MenuCategoria } from "../../lib/db";
+
+const menu = await getMenu();
+
+// Foto copertina/retro: immagini dedicate in public/print/.
+const COVER_FOTO = "/print/chouchou-dessert-01.png";
+const BACK_FOTO = "/print/chouchou-dessert-02.png";
+
+// ---- Classificazione categorie (stessa logica di /menu) --------------
+const BEVANDA_WORDS = new Set([
+  "aperitif", "aperitifs", "apero", "aperos", "boisson", "boissons", "boire",
+  "bulle", "bulles", "champagne", "cremant", "mousseux", "petillant", "petillants", "prosecco",
+  "vin", "vins", "cocktail", "cocktails", "mocktail", "mocktails",
+  "soft", "softs", "soda", "sodas", "limonade", "limonades", "sirop", "sirops", "jus",
+  "biere", "bieres", "eau", "eaux",
+  "cafe", "cafes", "the", "thes", "infusion", "infusions", "chaud", "chaude", "chaudes",
+  "digestif", "digestifs", "spiritueux", "gin", "whisky", "rhum", "vodka", "liqueur", "liqueurs",
+  "alcool",
+]);
+const norm = (s: string) => (s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const hasWord = (name: string, set: Set<string>) =>
+  norm(name).split(/[^a-z0-9]+/).filter(Boolean).some((t) => set.has(t));
+const isBevandaCat = (c: MenuCategoria) => hasWord(c.category, BEVANDA_WORDS) || hasWord(c.root ?? "", BEVANDA_WORDS);
+const VIN_WORDS = new Set(["vin", "vins"]);
+const isVinCat = (c: MenuCategoria) => hasWord(c.category, VIN_WORDS) || hasWord(c.root ?? "", VIN_WORDS);
+
+const foodCats = menu.filter((c) => !isBevandaCat(c));
+const vinCats = menu.filter((c) => isBevandaCat(c) && isVinCat(c));
+const drinkCats = menu.filter((c) => isBevandaCat(c) && !isVinCat(c));
+
+// ---- Helper di rendering --------------------------------------------
+function prezzo(cents: number): string {
+  const euro = cents / 100;
+  return Number.isInteger(euro) ? `${euro} €` : `${euro.toFixed(2).replace(".", ",")} €`;
+}
+// Nome FR (senza il trattino delle voci-sottotitolo).
+const nomeFr = (it: MenuItem) => (it.name ?? "").replace(/^-+\s*/, "").trim();
+// Traduzione EN del piatto (riga grigia sotto), come sul cartaceo.
+const nomeEn = (it: MenuItem) => (it.name_i18n?.en ?? it.description_en ?? "").trim();
+// Descrizione FR (per i vini/bevande: regione, cepage, ecc.).
+const desc = (it: MenuItem) => (it.description_fr ?? "").trim();
+// Voce che inizia con "-" = sottotitolo di sezione (convenzione admin).
+const isSub = (it: MenuItem) => (it.name ?? "").trim().startsWith("-");
+
+// Elenco dei piatti "veri" di una categoria (senza i sottotitoli vuoti).
+type Riga = { sub: string } | { it: MenuItem };
+function righeDi(c: MenuCategoria): Riga[] {
+  const out: Riga[] = [];
+  for (const it of c.items) {
+    if (isSub(it)) out.push({ sub: nomeFr(it) });
+    else out.push({ it });
+  }
+  return out;
+}
+const hasFood = foodCats.some((c) => c.items.length);
+const hasVins = vinCats.some((c) => c.items.length);
+const hasDrinks = drinkCats.some((c) => c.items.length);
+
+// --- Struttura delle pagine della carta (come il menù cartaceo). Ogni gruppo
+// e' una PAGINA: quali sezioni contiene e se mostrare la nota allergeni sotto.
+// Match per nome sezione (senza accenti/maiuscole, con "include").
+const STRUTTURA_CARTA: { sezioni: string[]; allergeni: boolean }[] = [
+  { sezioni: ["a partager", "pour commencer"], allergeni: true },
+  { sezioni: ["pour suivre", "cote street", "plats enfants"], allergeni: false },
+  { sezioni: ["pour terminer"], allergeni: true },
+];
+const foodDisponibili = foodCats.filter((c) => c.items.length);
+const inGruppo = (c: MenuCategoria, sezioni: string[]) => {
+  const n = norm(c.category);
+  return sezioni.some((s) => n.includes(s));
+};
+const usateCarta = new Set<string>();
+const pagineCarta: { cats: MenuCategoria[]; allergeni: boolean }[] = [];
+for (const g of STRUTTURA_CARTA) {
+  const cats = foodDisponibili.filter((c) => inGruppo(c, g.sezioni));
+  cats.forEach((c) => usateCarta.add(c.category));
+  if (cats.length) pagineCarta.push({ cats, allergeni: g.allergeni });
+}
+// Sezioni cibo non previste dalla struttura: pagina extra in fondo.
+const extraCarta = foodDisponibili.filter((c) => !usateCarta.has(c.category));
+if (extraCarta.length) pagineCarta.push({ cats: extraCarta, allergeni: true });
+
+// --- VINI AU VERRE (solo al bicchiere), raggruppati per colore.
+// Nel gestionale la categoria "Nos suggestions au verre" ha voci come
+// "Bordeaux - Rouge": il colore e' il suffisso dopo l'ultimo " - ".
+const COLORI: { key: string; label: string }[] = [
+  { key: "rouge", label: "Rouge" },
+  { key: "rose", label: "Rosé" },
+  { key: "blanc", label: "Blanc" },
+];
+const catAuVerre = vinCats.filter((c) => norm(c.category).includes("au verre"));
+type VinoV = { nom: string; region: string; price: number };
+const perColore = new Map<string, VinoV[]>();
+const prezziVerre: number[] = [];
+for (const c of catAuVerre) {
+  for (const it of c.items) {
+    if (isSub(it)) continue;
+    const raw = nomeFr(it);
+    const m = raw.match(/\s[-–·]\s*(rouge|rosé|rose|blanc|orange)\s*$/i);
+    let colorKey = m ? norm(m[1]) : "rouge";
+    if (colorKey === "orange") continue; // il vin orange non va qui
+    if (!COLORI.some((x) => x.key === colorKey)) colorKey = "rouge";
+    const nomeClean = m ? raw.slice(0, m.index).trim() : raw;
+    if (!perColore.has(colorKey)) perColore.set(colorKey, []);
+    perColore.get(colorKey)!.push({ nom: nomeClean, region: desc(it), price: it.price_cents });
+    if (it.price_cents > 0) prezziVerre.push(it.price_cents);
+  }
+}
+// Prezzo "standard" al bicchiere = quello piu' ricorrente (per l'intestazione).
+let prezzoVerre = 0;
+{
+  const cnt = new Map<number, number>();
+  prezziVerre.forEach((p) => cnt.set(p, (cnt.get(p) ?? 0) + 1));
+  let bestC = -1;
+  for (const [p, c] of cnt) if (c > bestC) { prezzoVerre = p; bestC = c; }
+}
+const gruppiVerre = COLORI
+  .map((col) => ({ label: col.label, vini: perColore.get(col.key) ?? [] }))
+  .filter((g) => g.vini.length);
+const hasVerre = gruppiVerre.length > 0;
+
+// --- VINI IN BOTTIGLIA: categorie vino NON "au verre" e NON "orange",
+// raggruppate per colore (Rouges, Rosé, Blancs). Nome diviso: la cuvée
+// (prima virgola) in grassetto, il resto (domaine/annata) sotto in navy,
+// e la regione/cepage in grigio (description_fr).
+const COLORI_BOT: { label: string; match: string }[] = [
+  { label: "Rouges", match: "rouge" },
+  { label: "Rosé", match: "rose" },
+  { label: "Blancs", match: "blanc" },
+];
+const bottleCats = vinCats.filter(
+  (c) => c.items.length && !norm(c.category).includes("au verre") && !norm(c.category).includes("orange")
+);
+const splitVino = (raw: string): { main: string; sub: string } => {
+  const i = raw.indexOf(",");
+  return i === -1 ? { main: raw.trim(), sub: "" } : { main: raw.slice(0, i).trim(), sub: raw.slice(i + 1).trim() };
+};
+const gruppiBottiglia = COLORI_BOT.map((col) => {
+  const cats = bottleCats.filter((c) => norm(c.category).includes(col.match));
+  const vini = cats.flatMap((c) =>
+    c.items.filter((it) => !isSub(it)).map((it) => {
+      const s = splitVino(nomeFr(it));
+      return { main: s.main, sub: s.sub, region: desc(it), price: it.price_cents };
+    })
+  );
+  return { label: col.label, vini };
+}).filter((g) => g.vini.length);
+const hasBottiglia = gruppiBottiglia.length > 0;
+
+// --- ALTRE BEVANDE (Apéritifs, Bières, Digestifs, Softs, Boissons chaudes),
+// raggruppate per famiglia (categoria radice). Le sotto-categorie del
+// gestionale (Bulles, Cocktails, Alcools, Sans alcool...) diventano
+// sotto-titoli magenta. Stessa logica della pagina /menu.
+type BevSub = { label: string | null; items: MenuItem[]; note?: string; orange?: boolean };
+type BevFam = { root: string; title: string; ordine: number; subs: BevSub[] };
+const bevMap = new Map<string, BevFam>();
+for (const c of drinkCats.filter((x) => x.items.length)) {
+  const root = c.root ?? c.category;
+  if (!bevMap.has(root)) bevMap.set(root, { root, title: root, ordine: c.category_order, subs: [] });
+  const fam = bevMap.get(root)!;
+  fam.ordine = Math.min(fam.ordine, c.category_order);
+  const isRoot = c.category === root;
+  const nn = norm(c.category);
+  const note = nn.includes("cocktail") ? "Et les classiques Apérol, Pisang, etc" : undefined;
+  fam.subs.push({ label: isRoot ? null : c.category, items: c.items.filter((it) => !isSub(it)), note });
+}
+function rangoBev(fam: BevFam): number {
+  const n = norm(fam.root);
+  if (n.includes("aperitif") || n.includes("apero")) return 1;
+  if (n.includes("biere")) return 2;
+  if (n.includes("soft")) return 3;
+  if (n.includes("digestif")) return 4;
+  if (n.includes("chaud")) return 5;
+  return 9;
+}
+const gruppiBev = Array.from(bevMap.values()).sort((a, b) => rangoBev(a) - rangoBev(b) || a.ordine - b.ordine);
+
+// Vin orange: categoria a se' (classificata tra i "vini" perche' il nome
+// contiene "vin"), da mostrare come blocco separato a tutta larghezza SOTTO
+// la sotto-categoria Bulles negli Apéritifs, con una linea puntinata sopra.
+const orangeItems = vinCats
+  .filter((c) => norm(c.category).includes("orange"))
+  .flatMap((c) => c.items.filter((it) => !isSub(it)));
+if (orangeItems.length) {
+  const apFam = gruppiBev.find((f) => rangoBev(f) === 1);
+  if (apFam) {
+    const orangeSub: BevSub = { label: null, items: orangeItems, orange: true };
+    const bIdx = apFam.subs.findIndex((s) => s.label && norm(s.label).includes("bulle"));
+    if (bIdx >= 0) apFam.subs.splice(bIdx + 1, 0, orangeSub);
+    else apFam.subs.unshift(orangeSub);
+  }
+}
+const hasBev = gruppiBev.length > 0;
+
+// Sotto-categoria dei tè: riquadro dedicato, prezzo unico nell'intestazione,
+// voci centrate senza prezzo singolo.
+const isTeaSub = (s: BevSub) =>
+  !!s.label && norm(s.label).split(/[^a-z0-9]+/).some((w) => w === "the" || w === "thes");
+const teaHead = (s: BevSub) => {
+  const p = s.items.find((it) => it.price_cents > 0)?.price_cents ?? 0;
+  const base = s.label ?? "";
+  return /€/.test(base) || p === 0 ? base : `${base} - ${prezzo(p)}`;
+};
+---
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Comptoir Chouchou — La Carte (PDF)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style is:inline>
+    :root{
+      --navy:#353c4e;
+      --mag:#ed2289;
+      --ivory:#f7f4ee;
+      --grey:#8a8f9b;
+      --font-title:"Quicksand", system-ui, sans-serif;
+      --font-body:"Lato", system-ui, sans-serif;
+      --font-script:"Birthstone", cursive;
+    }
+    *{box-sizing:border-box}
+
+    /* ---------- PAGE (A5 + bleed 3mm + segni di taglio) ---------- */
+    @page{
+      size:148mm 210mm;
+      bleed:3mm;
+      marks:crop cross;
+      margin:15mm 16mm 14mm;
+    }
+    .p-cover{ page:cover; } @page cover{ margin:0; }
+    .p-magenta{ page:magenta; break-before:page; } @page magenta{ margin:0; }
+    .p-back{ page:back; break-before:page; } @page back{ margin:0; }
+
+    html,body{margin:0;padding:0;background:#fff;color:var(--navy);
+      font-family:var(--font-body);-webkit-font-smoothing:antialiased;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+    /* ---------- pagine a fondo pieno (copertina/magenta/retro) ---------- */
+    .sheet{position:relative;width:148mm;}
+    .fullbleed{position:absolute;top:-3mm;left:-3mm;width:154mm;height:216mm;}
+
+    /* ---------- LOGO CHOUCHOU ---------- */
+    .logo{width:32mm;height:32mm;border:1.6px solid var(--navy);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      font-family:var(--font-title);font-weight:600;color:var(--navy);
+      font-size:19px;line-height:.98;letter-spacing:.02em;position:relative;background:#fff;}
+    .logo .comptoir{position:absolute;top:-13px;left:1px;font-family:var(--font-script);
+      color:var(--mag);font-size:25px;transform:rotate(-4deg);}
+
+    /* Logo vero (SVG) in un riquadro bianco con ombra */
+    .logobox{background:#fff;padding:5mm;border-radius:2mm;display:inline-block;
+      box-shadow:0 12px 30px rgba(53,60,78,.22);}
+    .logobox img{display:block;width:31mm;height:auto;transform:translate(calc(-10px + 1.58mm),calc(-10px + 1.58mm));}
+
+    /* ---------- COPERTINA ---------- */
+    .cover-photo{position:absolute;top:-3mm;left:-3mm;width:154mm;height:86mm;
+      background-size:cover;background-position:center;}
+    .cover-photo::after{content:"";position:absolute;inset:0;
+      background:linear-gradient(180deg, rgba(53,60,78,.08) 0%, rgba(53,60,78,0) 55%, #fff 100%);}
+    .cover-body{position:relative;padding:70mm 16mm 12mm;height:209mm;
+      display:flex;flex-direction:column;align-items:center;}
+    .cover-logo{margin-bottom:8mm}
+    .cover-carte{font-family:var(--font-title);font-weight:700;color:var(--mag);
+      font-size:30px;letter-spacing:.03em;margin-top:2mm;}
+    .cover-sup{margin-top:auto;text-align:center;width:100%;}
+    .cover-sup .sh{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:12.5px;margin:0 0 6px;}
+    .cover-sup .sub{font-family:var(--font-title);font-weight:700;color:var(--navy);font-size:12px;margin:8px 0 3px;}
+    .cover-sup .lst{font-family:var(--font-body);color:var(--navy);font-size:10px;line-height:1.5;max-width:110mm;margin:0 auto;}
+
+    /* ---------- PAGINA MAGENTA (concept) ---------- */
+    .mag-bg{position:absolute;top:-5mm;left:-5mm;width:158mm;height:224mm;background:var(--mag);}
+    .mag-body{position:relative;height:209mm;padding:15mm 15mm;text-align:center;
+      display:flex;flex-direction:column;align-items:center;justify-content:flex-start;}
+    .mag-body .blk{margin-bottom:6.5mm}
+    .mag-body h2{font-family:var(--font-title);font-weight:700;color:var(--navy);
+      font-size:15px;letter-spacing:.04em;margin:0 0 4px;}
+    .mag-body p{font-family:var(--font-body);color:#fff;font-size:12.5px;line-height:1.5;margin:2px 0;}
+    .mag-body b{font-weight:800;color:#fff}
+    .mag-body .price{font-family:var(--font-title);font-weight:700;color:#fff;font-size:13.5px;margin-top:4px;}
+    .mag-body .script{font-family:var(--font-script);color:#fff;font-size:22px;line-height:1;margin-top:5px;}
+    .mag-body .chefs{font-style:italic;color:#fff;font-size:10.5px;}
+    .mag-body .qr{width:23mm;height:23mm;margin:5mm auto 0;background:#fff;padding:2mm;}
+    .mag-body .qr img{width:100%;height:100%;display:block;}
+
+    /* ---------- SEZIONI CARTA ---------- */
+    .carte-break{break-before:page;}
+    /* Ogni pagina carta alta quanto l'area stampabile, cosi' la nota
+       allergeni resta ancorata a pie' di pagina. */
+    .carte-food{display:flex;flex-direction:column;min-height:181mm;break-before:page;}
+    .carte-food .allergen{margin-top:auto;}
+    .carte-title{font-family:var(--font-title);font-weight:700;color:var(--mag);
+      font-size:24px;text-align:center;letter-spacing:.03em;margin:0 0 8mm;
+      break-after:avoid;}
+    .sec{font-family:var(--font-title);font-weight:700;color:var(--navy);
+      font-size:12.5px;letter-spacing:.22em;text-transform:uppercase;
+      border-bottom:1.4px solid var(--mag);padding-bottom:5px;margin:7mm 0 5mm;
+      break-after:avoid;}
+    .sec:first-of-type{margin-top:0}
+    .dish{margin-bottom:4.5mm;break-inside:avoid;}
+    .dish .row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+    .dish .name{font-family:var(--font-title);font-weight:500;color:var(--navy);font-size:15px;line-height:1.2;}
+    .dish .price{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:15px;white-space:nowrap;}
+    .dish .tr{font-family:var(--font-body);color:var(--grey);font-size:11px;line-height:1.35;margin-top:2px;}
+    .subhead{font-family:var(--font-title);font-weight:700;color:var(--navy);font-size:11.5px;
+      letter-spacing:.02em;margin:4mm 0 3mm;break-after:avoid;}
+
+    /* Riquadro gusti glaces/sorbets sotto l'ultimo dessert */
+    .icebox{margin:3mm 0 0;break-inside:avoid;}
+    .icebox p{font-family:var(--font-body);font-size:12px;line-height:1.5;color:var(--navy);margin:1px 0;}
+    .icebox b{font-weight:700;color:var(--navy);}
+    .icebox .en{color:var(--grey);}
+    .icebox .en b{color:var(--grey);}
+
+    .allergen{text-align:center;margin-top:8mm;break-inside:avoid;}
+    .allergen .ln{width:34mm;height:1px;background:var(--navy);opacity:.5;margin:0 auto 5px;}
+    .allergen p{font-family:var(--font-body);font-size:9px;color:var(--navy);margin:2px 0;line-height:1.4;}
+    .allergen .it{font-style:italic;color:var(--grey);max-width:100mm;margin:0 auto;}
+
+    /* ---------- VINI / BEVANDE (2 colonne) ---------- */
+    .drink-part{break-before:page;}
+    .vins-title{font-family:var(--font-script);color:var(--mag);font-size:44px;text-align:center;
+      line-height:.8;margin:0 0 3mm;break-after:avoid;}
+    .vins-thanks{font-family:var(--font-title);font-weight:600;color:var(--navy);font-size:19px;
+      text-align:center;line-height:1.3;margin:0 0 12mm;break-after:avoid;}
+    .vins-thanks .n{font-family:var(--font-script);color:var(--mag);font-size:30px;}
+    .verre-head{display:flex;justify-content:space-between;align-items:baseline;
+      font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:14px;
+      letter-spacing:.16em;text-transform:uppercase;border-bottom:1.6px solid var(--mag);
+      padding-bottom:6px;margin:0 0 6mm;break-after:avoid;}
+    .fam-title{font-family:var(--font-title);font-weight:600;color:var(--navy);font-size:30px;
+      text-align:center;line-height:1;letter-spacing:.01em;margin:6mm 0 3mm;break-after:avoid;}
+    .bev-sublabel{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:13px;
+      letter-spacing:.2em;text-transform:uppercase;margin:5mm 0 3mm;break-after:avoid;}
+    .bev-break{break-before:page;}
+    .vinorange-sep{border-top:2px dotted var(--mag);margin:5mm 0 4mm;break-after:avoid;}
+    /* Riquadro dei tè (prezzo unico, voci centrate) */
+    .tea-head{text-align:center;font-family:var(--font-title);font-weight:700;color:var(--mag);
+      font-size:14px;margin:6mm 0 4mm;break-after:avoid;}
+    .teabox{border:1.5px solid var(--navy);padding:6mm 6mm 3mm;break-inside:avoid;}
+    .tea-grid{column-count:2;column-gap:8mm;}
+    .tea{break-inside:avoid;text-align:center;margin-bottom:3.5mm;}
+    .tea-name{font-family:var(--font-title);font-weight:600;color:var(--navy);font-size:14px;line-height:1.15;}
+    .tea-desc{font-family:var(--font-body);color:var(--navy);font-size:11px;line-height:1.3;margin-top:1px;}
+    .bev-note{text-align:center;font-family:var(--font-title);font-weight:600;color:var(--mag);
+      font-size:12px;margin:1mm 0 3mm;break-inside:avoid;}
+    .wine .wn.best{color:var(--mag);}
+    .vcolor{font-family:var(--font-title);font-weight:700;color:var(--navy);font-size:15px;
+      letter-spacing:.02em;margin:6mm 0 3mm;break-after:avoid;}
+    .twocol{column-count:2;column-gap:9mm;}
+    /* Un blocco colore vino (Rouges/Rosé/Blancs) non si spezza tra due pagine */
+    .vin-block{break-inside:avoid;}
+    .wine{break-inside:avoid;margin-bottom:2.5mm;}
+    .wine .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+    .wine .wn{font-family:var(--font-title);font-weight:500;color:var(--navy);font-size:14px;line-height:1.2;}
+    .wine .wp{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:13px;white-space:nowrap;}
+    .wine .wsub{font-family:var(--font-title);font-weight:400;color:var(--navy);font-size:12.5px;line-height:1.25;margin-top:1px;}
+    .wine .wr{font-family:var(--font-body);color:var(--grey);font-size:11px;line-height:1.3;margin-top:2px;}
+    .wine.subrow .wn{color:var(--navy);font-weight:700;}
+    /* Intestazioni colore vini in bottiglia (ROUGES / ROSÉ / BLANCS) */
+    .wsec{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:14px;
+      letter-spacing:.22em;text-transform:uppercase;border-bottom:1.6px solid var(--mag);
+      padding-bottom:6px;margin:9mm 0 5mm;break-after:avoid;}
+    .wsec:first-of-type{margin-top:0;}
+
+    /* ---------- RETRO ---------- */
+    .back-photo{position:absolute;left:-3mm;bottom:-3mm;width:154mm;height:150mm;
+      background-size:cover;background-position:center;}
+    .back-photo::before{content:"";position:absolute;inset:0;
+      background:linear-gradient(180deg,#fff 0%, rgba(255,255,255,0) 34%);}
+    .back-body{position:relative;height:209mm;display:flex;justify-content:center;align-items:flex-start;padding-top:30mm;}
+  </style>
+
+  <!-- Stili di ANTEPRIMA/schermo e bottone: in un foglio IGNORATO da paged.js
+       (paged.js riscrive il CSS principale e perderebbe le regole @media screen). -->
+  <style is:inline data-pagedjs-ignore="true">
+    .dl-btn{position:fixed;right:20px;bottom:20px;z-index:99999;border:none;cursor:pointer;
+      background:#ed2289;color:#fff;font-family:"Quicksand",system-ui,sans-serif;font-weight:700;
+      font-size:15px;padding:13px 22px;border-radius:999px;box-shadow:0 8px 24px rgba(237,34,137,.4);}
+    /* Fondo magenta su TUTTO il foglio della pagina concept, abbondanza inclusa
+       (il foglio paged.js taglia gli elementi interni: lo coloriamo direttamente). */
+    .pagedjs_magenta_page .pagedjs_sheet{background:#ed2289 !important;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    @media screen{
+      html,html body{background:#e7e5e0 !important;}
+      .pagedjs_pages{padding:26px 0 96px;}
+      .pagedjs_pages .pagedjs_page{margin:0 auto 22px !important;background:#fff !important;
+        box-shadow:0 10px 34px rgba(53,60,78,.18) !important;}
+      /* fallback se paged.js non parte: contenuto centrato e leggibile */
+      body.no-paged{max-width:154mm;margin:0 auto;padding:14px 8px 96px;background:#fff;}
+    }
+    @media print{ .dl-btn{display:none !important;} }
+  </style>
+</head>
+<body class="no-paged">
+
+  <!-- ============ PAGINA 1 : COPERTINA ============ -->
+  <section class="sheet p-cover">
+    <div class="cover-photo" style={`background-image:url('${COVER_FOTO}')`}></div>
+    <div class="cover-body">
+      <div class="cover-logo">
+        <div class="logobox"><img src="/SVG/chouchou-navy-v.svg" alt="Comptoir Chouchou" width="199" height="207" /></div>
+      </div>
+      <div class="cover-carte">LA CARTE</div>
+      <div class="cover-sup">
+        <p class="sh">Fournisseurs et producteurs locaux et belges</p>
+        <p class="sub">Boissons :</p>
+        <p class="lst">Domaine W, Domaine de Glabais, Domaine du Chenoy, Bertinchamps, Brasserie de L'Orne, Brasserie 3D, Tea Bo, Dada Gin, Ritchie</p>
+        <p class="sub">Viandes, produits laitiers, maraîchage, épicerie :</p>
+        <p class="lst">Au Gré des Pétales, Hors Champs, Les P'tits Plaisirs, Les Glaces d'Ophélie, Bamboo, Badjawan, Maître Corbeau, Les Fraises de Jonathan, Nuu Miso</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PAGINA 2 : CONCEPT (magenta) ============ -->
+  <section class="sheet p-magenta">
+    <div class="mag-bg"></div>
+    <div class="mag-body">
+      <div class="blk">
+        <h2>PLATS ENFANTS (-12 ANS)</h2>
+        <p>En taille enfant, <b>les entrées à 10€, les plats à 18€</b></p>
+        <p class="script">(hors suggestions)</p>
+      </div>
+      <div class="blk">
+        <h2>LE LUNCH</h2>
+        <p>Servi <b>du mardi midi au vendredi midi</b></p>
+        <p>son contenu est publié chaque semaine sur le site internet et les réseaux sociaux</p>
+        <p class="price">entrée et plat, ou dessert et plat · 32,00 €</p>
+        <p class="price">entrée, plat, dessert · 37,00 €</p>
+      </div>
+      <div class="blk">
+        <h2>UN SOIR, UN CHEF</h2>
+        <p><b>Un concept créé par Chouchou en 2024</b>, dans l'idée d'inviter un Chef par mois, pour un moment de partage unique.</p>
+        <p class="chefs">Eric Boschman, Curtis Mulpas, Pierre Burtonboy, Dario Michaud, Kévin Roquet, Carlo de Pascale, Sébastien Hayot…</p>
+        <p class="script">qui sera le prochain ?</p>
+      </div>
+      <div class="blk">
+        <h2>UN DIMANCHE CHOUCHOU</h2>
+        <p>Une offre de produits locaux pour le petit-déjeuner vous est proposée chaque 1er dimanche du mois, de 11h00 à 14h00, au prix de 30,00€ hors boissons.</p>
+        <p class="script">Sur réservation uniquement.</p>
+      </div>
+      <p class="script" style="font-size:18px">À découvrir sur le site et les réseaux sociaux</p>
+      <div class="qr"><img src="/SVG/qr-chouhou-links.svg" alt="QR Comptoir Chouchou" /></div>
+    </div>
+  </section>
+
+  <!-- ============ LA CARTE (piatti, dinamico, una pagina per gruppo) ============ -->
+  {hasFood && pagineCarta.map((pg, idx) => (
+    <section class={"carte-food" + (idx > 0 ? " carte-break" : "")}>
+      {idx === 0 && <div class="carte-title">LA CARTE</div>}
+      {pg.cats.map((c) => (
+        <div class="sec-block">
+          <div class="sec">{c.category}</div>
+          {righeDi(c).map((r) => (
+            "sub" in r
+              ? <div class="subhead">{r.sub}</div>
+              : (
+                <div class="dish">
+                  <div class="row">
+                    <span class="name">{nomeFr(r.it)}</span>
+                    {r.it.price_cents > 0 && <span class="price">{prezzo(r.it.price_cents)}</span>}
+                  </div>
+                  {nomeEn(r.it) && <div class="tr">{nomeEn(r.it)}</div>}
+                </div>
+              )
+          ))}
+        </div>
+      ))}
+      {pg.cats.some((c) => norm(c.category).includes("pour terminer")) && (
+        <div class="icebox">
+          <p><b>Glace :</b> vanille, chocolat, moka, caramel beurre salé, fruits rouges</p>
+          <p><b>Sorbet :</b> framboise, chocolat, citron vert &amp; gingembre</p>
+          <p class="en"><b>Ice cream:</b> vanilla, chocolate, mocha, salted butter caramel, red berries</p>
+          <p class="en"><b>Sorbet:</b> raspberry, chocolate, lime &amp; ginger</p>
+        </div>
+      )}
+      {pg.allergeni && (
+        <div class="allergen">
+          <div class="ln"></div>
+          <p>Note : n'oubliez pas de nous communiquer vos allergies et intolérances</p>
+          <p class="it">(gluten, poisson, arachides, soja, lait, fruits à coque, œufs, céleri, moutarde, sésame, sulfites, lupin, mollusques, crustacés, …)</p>
+        </div>
+      )}
+    </section>
+  ))}
+
+  <!-- ============ LES VINS (solo au verre, per colore) ============ -->
+  {hasVerre && (
+    <section class="drink-part">
+      <div class="vins-title">Les Vins</div>
+      <div class="vins-thanks">Merci à <span class="n">Eric Boschman</span> pour<br>sa carte de vins très Chouchou</div>
+      <div class="verre-head">
+        <span>Nos suggestions au verre</span>
+        {prezzoVerre > 0 && <span>{prezzo(prezzoVerre)}</span>}
+      </div>
+      {gruppiVerre.map((g) => (
+        <div class="vin-block">
+          <div class="vcolor">{g.label}</div>
+          <div class="twocol">
+            {g.vini.map((v) => (
+              <div class="wine">
+                <div class="top">
+                  <span class="wn">{v.nom}</span>
+                  {v.price > 0 && v.price !== prezzoVerre && <span class="wp">{prezzo(v.price)}</span>}
+                </div>
+                {v.region && <div class="wr">{v.region}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  )}
+
+  <!-- ============ VINS EN BOUTEILLE (pagina successiva) ============ -->
+  {hasBottiglia && (
+    <section class="drink-part">
+      {gruppiBottiglia.map((g) => (
+        <div class="vin-block">
+          <div class="wsec">{g.label}</div>
+          <div class="twocol">
+            {g.vini.map((v) => (
+              <div class="wine">
+                <div class="top">
+                  <span class="wn">{v.main}</span>
+                  {v.price > 0 && <span class="wp">{prezzo(v.price)}</span>}
+                </div>
+                {v.sub && <div class="wsub">{v.sub}</div>}
+                {v.region && <div class="wr">{v.region}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  )}
+
+  <!-- ============ AUTRES BOISSONS (famiglie + sotto-categorie) ============ -->
+  {hasBev && (
+    <section class={hasBottiglia ? "" : "drink-part"}>
+      {gruppiBev.map((fam) => (
+        <div class="fam-block">
+          <div class="fam-title">{fam.title}</div>
+          {fam.subs.map((sub) => (
+            sub.orange ? (
+              <div class="bev-sub">
+                <div class="vinorange-sep"></div>
+                {sub.items.map((it) => (
+                  <div class="wine">
+                    <div class="top">
+                      <span class="wn">{nomeFr(it)}</span>
+                      {it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
+                    </div>
+                    {desc(it) && <div class="wr">{desc(it)}</div>}
+                  </div>
+                ))}
+              </div>
+            ) : isTeaSub(sub) ? (
+              <div class="bev-sub tea-wrap">
+                <div class="tea-head">{teaHead(sub)}</div>
+                <div class="teabox">
+                  <div class="tea-grid">
+                    {sub.items.map((it) => (
+                      <div class="tea">
+                        <div class="tea-name">{nomeFr(it)}</div>
+                        {desc(it) && <div class="tea-desc">{desc(it)}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div class={"bev-sub" + (sub.label && norm(sub.label).includes("cocktail") ? " bev-break" : "")}>
+                {sub.label && <div class="bev-sublabel">{sub.label}</div>}
+                <div class="twocol">
+                  {sub.items.map((it) => (
+                    <div class="wine">
+                      <div class="top">
+                        <span class="wn">{nomeFr(it)}</span>
+                        {it.price_cents > 0 && <span class="wp">{prezzo(it.price_cents)}</span>}
+                      </div>
+                      {desc(it) && <div class="wr">{desc(it)}</div>}
+                    </div>
+                  ))}
+                </div>
+                {sub.note && <p class="bev-note">{sub.note}</p>}
+              </div>
+            )
+          ))}
+        </div>
+      ))}
+    </section>
+  )}
+
+  <!-- ============ RETRO ============ -->
+  <section class="sheet p-back">
+    <div class="back-photo" style={`background-image:url('${BACK_FOTO}')`}></div>
+    <div class="back-body">
+      <div class="logobox"><img src="/SVG/chouchou-navy-v.svg" alt="Comptoir Chouchou" width="199" height="207" /></div>
+    </div>
+  </section>
+
+  <!-- paged.js: impaginazione A5 + bleed + segni di taglio -->
+  <script is:inline>
+    // Il bottone viene creato DOPO l'impaginazione, cosi' paged.js non lo
+    // "risucchia" dentro le pagine e resta fisso in basso a destra.
+    function addBtn() {
+      if (document.getElementById("dlpdf")) return;
+      var b = document.createElement("button");
+      b.id = "dlpdf"; b.className = "dl-btn"; b.type = "button";
+      b.textContent = "⬇  Télécharger le PDF";
+      b.addEventListener("click", function () { window.print(); });
+      document.body.appendChild(b);
+    }
+    window.PagedConfig = {
+      auto: true,
+      before: function () { return (document.fonts && document.fonts.ready) || Promise.resolve(); },
+      after: function () { document.body.classList.remove("no-paged"); addBtn(); }
+    };
+    // Sicurezza: se paged.js non produce pagine (script non caricato), mostra
+    // comunque il contenuto centrato e il bottone.
+    setTimeout(function () {
+      if (!document.querySelector(".pagedjs_page")) { document.body.classList.remove("no-paged"); addBtn(); }
+    }, 12000);
+  </script>
+  <script is:inline src="/vendor/paged.polyfill.min.js"></script>
+</body>
+</html>
