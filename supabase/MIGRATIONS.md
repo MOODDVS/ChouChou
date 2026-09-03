@@ -74,6 +74,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 65 | `popups_i18n.sql` | `title_i18n`/`body_i18n`/`btn1_label_i18n`/`btn2_label_i18n` (jsonb) su popups + backfill dei campi fr/en esistenti: contenuto del pop-up nelle lingue pubbliche. |
 | 66 | `popups_position.sql` | `position` (text, default 'center') su popups: posizione del pop-up (center/bottom-left/bottom-center/bottom-right). |
 | 67 | `google_reviews.sql` | Tabella `google_reviews` (sync recensioni Google Business Profile API v4): review_id, resource name, autore/foto/rating/commento, create/update_time, `reply_comment`/`reply_time` (risposta ristorante), synced_at + indice per data. NB: distinta da `/api/reviews` (cache Places API del sito pubblico). |
+| 68 | `print_orders.sql` | Tabella `print_orders` (ordini di prodotti stampati acquistati dal ristoratore presso MOODD, pagati sullo Stripe MOODD): product_slug/label + qty + amount_cents + meta (snapshot), stripe_session_id UNIQUE (idempotenza), status pending/paid/cancelled, buyer_email, paid_at/shipped_at + indice per status. |
+| 69 | `reservations_extra_minutes.sql` | `extra_minutes` (int, default 0) su reservations: minuti di estensione del tavolo (+15/+30/+45 dal modale). Finestra tavolo = heure + durée + extra_minutes; usata da fase/timer, auto-Fini, disponibilità pubblica e piano sala. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

@@ -5,7 +5,7 @@
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 interface Props {
-  current?: "home" | "orders" | "reservations" | "clients" | "menu" | "stats" | "marketing" | "assets" | "agenda" | "google" | "settings" | "super";
+  current?: "home" | "orders" | "reservations" | "clients" | "menu" | "stats" | "marketing" | "assets" | "print" | "agenda" | "google" | "settings" | "super";
 }
 const { current } = Astro.props;
 const lang = await adminLang();
@@ -113,6 +113,14 @@ const t = adminT(lang);
       <polyline points="2 12 12 17 22 12" />
     </svg>
     <span>{t("nav.s.assets")}</span>
+  </a>
+  <a href="/admin/print" data-page="print" class={current === "print" ? "active" : ""} aria-label={t("nav.print")}>
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </svg>
+    <span>{t("nav.s.print")}</span>
   </a>
   <a href="/admin/settings" data-page="settings" class={current === "settings" ? "active" : ""} aria-label={t("nav.settings")}>
     <svg viewBox="0 0 24 24" aria-hidden="true">

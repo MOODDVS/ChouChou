@@ -294,6 +294,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
         cursor: pointer; font-family: inherit; transition: border-color 0.15s, transform 0.15s; }
       .gs-pack:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .gs-pack:disabled { opacity: 0.5; cursor: wait; transform: none; }
+      .gs-pack.is-on { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
+      #gs-overlay .m-foot .m-save { margin-left: auto; }
+      #gs-overlay .m-save:disabled { opacity: 0.45; cursor: not-allowed; }
+      .m-ghost { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 1rem; padding: 0.6rem 1.3rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: border-color 0.15s, color 0.15s; }
+      .m-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .gs-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .gs-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
       .gs-unit { color: var(--c-muted); font-size: 0.72rem; }
@@ -935,6 +940,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
 
         <p class="f-hint" id="gs-msg" style="margin-top:1rem"></p>
         <div id="gs-hist"></div>
+        <div class="m-foot">
+          <button type="button" class="m-ghost" id="gs-cancel">{t("common.cancel")}</button>
+          <button type="button" class="m-save" id="gs-pay" disabled>{t("mk.pay")}</button>
+        </div>
       </div>
     </div>
 
@@ -2908,6 +2917,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
         const gsMsg = document.getElementById("gs-msg") as HTMLParagraphElement;
         const gsHist = document.getElementById("gs-hist") as HTMLDivElement;
         const gcShop = document.getElementById("gc-shop") as HTMLButtonElement;
+        const gsPay = document.getElementById("gs-pay") as HTMLButtonElement | null;
+        const gsCancel = document.getElementById("gs-cancel") as HTMLButtonElement | null;
+        let gsPack: string | null = null;
 
         async function gsStorico() {
           try {
@@ -2927,30 +2939,40 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
 
         gcShop?.addEventListener("click", () => {
           gsMsg.textContent = "";
+          gsPack = null;
+          gsPacks.querySelectorAll(".gs-pack").forEach((x) => x.classList.remove("is-on"));
+          if (gsPay) gsPay.disabled = true;
           gsOverlay.classList.add("is-open");
           void gsStorico();
         });
+        gsCancel?.addEventListener("click", () => gsOverlay.classList.remove("is-open"));
         gsClose?.addEventListener("click", () => gsOverlay.classList.remove("is-open"));
         gsOverlay?.addEventListener("click", (e) => { if (e.target === gsOverlay) gsOverlay.classList.remove("is-open"); });
 
-        gsPacks?.addEventListener("click", async (e) => {
+        gsPacks?.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".gs-pack") as HTMLButtonElement | null;
           if (!b) return;
+          gsPack = b.dataset.pack ?? null;
+          gsPacks.querySelectorAll(".gs-pack").forEach((x) => x.classList.toggle("is-on", x === b));
+          gsMsg.textContent = "";
+          if (gsPay) gsPay.disabled = !gsPack;
+        });
+        gsPay?.addEventListener("click", async () => {
+          if (!gsPack) return;
           gsMsg.textContent = tr("mk.redirectPayment");
-          gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = true));
+          gsPay.disabled = true;
           try {
             const res = await fetch("/api/admin/gift-cards-shop", {
               method: "POST",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ pack: b.dataset.pack }),
+              body: JSON.stringify({ pack: gsPack }),
             });
             const j = await res.json();
-            if (!res.ok || !j.url) { gsMsg.textContent = j.error ?? tr("mk.paymentFailed"); return; }
+            if (!res.ok || !j.url) { gsMsg.textContent = j.error ?? tr("mk.paymentFailed"); gsPay.disabled = false; return; }
             window.location.href = j.url;
           } catch {
             gsMsg.textContent = tr("common.netErr");
-          } finally {
-            gsPacks.querySelectorAll("button").forEach((x) => (x.disabled = false));
+            gsPay.disabled = false;
           }
         });
 

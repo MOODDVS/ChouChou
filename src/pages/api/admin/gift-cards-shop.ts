@@ -112,7 +112,10 @@ export const POST: APIRoute = async ({ request }) => {
     buyer_email: staff.email ?? null,
     status: "pending",
   });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) {
+    console.error("[bons] insert gift_card_orders FALLITO:", error.message ?? error, error.details ?? "", error.hint ?? "", error.code ?? "");
+    return json({ error: "Enregistrement impossible" }, 500);
+  }
 
   return json({ ok: true, url: session.url });
 };

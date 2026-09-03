@@ -480,7 +480,7 @@ export const GET: APIRoute = async ({ url }) => {
   const excl = url.searchParams.get("exclude") ?? "";
   let dayQ = supabaseAdmin
     .from("reservations")
-    .select("heure, people, zone, service_key")
+    .select("heure, people, zone, service_key, extra_minutes")
     .eq("date", date)
     .in("status", ["confirmed", "seated"]);
   if (excl && RE_UUID.test(excl)) dayQ = dayQ.neq("cancel_token", excl);
@@ -579,7 +579,7 @@ async function verificaCreneau(
 
   let dayQ = supabaseAdmin
     .from("reservations")
-    .select("heure, people, zone, service_key")
+    .select("heure, people, zone, service_key, extra_minutes")
     .eq("date", p.date)
     .in("status", ["confirmed", "seated"]);
   if (p.excludeToken && RE_UUID.test(p.excludeToken)) dayQ = dayQ.neq("cancel_token", p.excludeToken);
@@ -612,7 +612,7 @@ async function verificaCreneau(
     for (const rr of day.data ?? []) {
       const rMin = minutiDi(String(rr.heure).slice(0, 5));
       if (rMin < 0) continue;
-      const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
+      const rHold = (holdByKey.get(rr.service_key ?? "") ?? holdNuovo) + (Number((rr as { extra_minutes?: number }).extra_minutes) || 0);
       if (rMin < slotMin + holdNuovo && rMin + rHold > slotMin) {
         occTot += rr.people ?? 0;
         const rz = String(rr.zone ?? "").trim();
