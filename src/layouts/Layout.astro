@@ -13,8 +13,9 @@ import { cacheOr } from "../lib/cache";
 interface Props {
   title?: string;
   transparentHeader?: boolean;
+  noindex?: boolean;
 }
-const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = false } = Astro.props;
+const { title = `${CLIENT.nome} — ${CLIENT.claim}`, transparentHeader = false, noindex = false } = Astro.props;
 
 const lang = getLangFromUrl(Astro.url);
 
@@ -47,6 +48,7 @@ const ogLocale = lang === "en" ? "en_US" : "fr_BE";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {noindex && <meta name="robots" content="noindex, nofollow" />}
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />

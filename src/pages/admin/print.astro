@@ -1,0 +1,431 @@
+---
+// Pannello admin — PRINT (lato ristoratore).
+// Mostra i prodotti stampabili VISIBILI del catalogo (app_config
+// `print_catalog`, gestito dal super admin in /admin/super). Per ogni
+// prodotto: anteprima del PDF (iframe sulla route di stampa) e download
+// (stampa dell'iframe → "Enregistrer en PDF" del browser). L'ordine
+// (Commander) è lo step 3: qui è disattivato con "Bientôt".
+import AdminNav from "../../components/admin/AdminNav.astro";
+import AdminHead from "../../components/admin/AdminHead.astro";
+import AdminHeader from "../../components/admin/AdminHeader.astro";
+import AdminFooter from "../../components/admin/AdminFooter.astro";
+import { CLIENT } from "../../config/client";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+import { supabaseAdmin } from "../../lib/db";
+import { K_PRINT_CATALOG, PRINT_DEFAULTS, normalizzaCatalogo } from "../../config/printCatalog";
+
+const lang = await adminLang();
+const t = adminT(lang);
+
+// Catalogo del cliente (o default). Solo i prodotti visibili.
+let catalogo = PRINT_DEFAULTS;
+try {
+  const { data } = await supabaseAdmin
+    .from("app_config")
+    .select("value")
+    .eq("key", K_PRINT_CATALOG)
+    .maybeSingle();
+  const grezzo = data?.value ?? "";
+  if (grezzo && String(grezzo).trim()) catalogo = normalizzaCatalogo(String(grezzo));
+} catch {
+  /* default */
+}
+const prodotti = catalogo.filter((p) => p.visible);
+
+// Etichetta prodotto tradotta per slug (fallback: label salvata).
+const plabel = (slug: string, fallback: string) => {
+  const k = "print.prod." + slug;
+  const v = t(k);
+  return v === k ? fallback : v;
+};
+---
+
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{t("nav.print") + " — Admin " + CLIENT.nome}</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
+    />
+    <style is:global>
+      :root {
+        --c-hover: #e04f00;
+        --c-input: #e6e6e6;
+        --c-bg: #ffffff;
+        --c-text: #666666;
+        --c-accent: #ff7300;
+        --c-muted: #a6a6a6;
+        --c-line: #ebebeb;
+        --c-card: #ffffff;
+        --font-title: "Quicksand", system-ui, sans-serif;
+        --font-body: "Nunito Sans", system-ui, sans-serif;
+      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
+      #app { display: none; min-height: 100vh; flex-direction: column; }
+      h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; }
+      h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
+    </style>
+    <AdminHead />
+  </head>
+  <body>
+    <div id="app">
+      <AdminHeader />
+      <main>
+        <h1>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <polyline points="6 9 6 2 18 2 18 9" />
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+            <rect x="6" y="14" width="12" height="8" />
+          </svg>
+          {t("nav.print")}
+        </h1>
+        <p class="pr-intro">{t("print.page.intro")}</p>
+        <div class="pbanner" id="pbanner" hidden></div>
+
+        {prodotti.length === 0 ? (
+          <p class="state">{t("print.empty")}</p>
+        ) : (
+          <div class="pgrid">
+            {prodotti.map((p) => (
+              <article class="pcard" data-name={plabel(p.slug, p.label)}>
+                {p.route ? (
+                  <div class="pcard-cover pbtn-preview" data-route={p.route} role="button" tabindex="0" aria-label={t("print.card.preview")}>
+                    <iframe src={p.route} title={plabel(p.slug, p.label)} loading="lazy" scrolling="no" tabindex="-1"></iframe>
+                    <span class="pcard-zoom" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    </span>
+                  </div>
+                ) : (
+                  <div class="pcard-cover pcard-cover--empty" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                  </div>
+                )}
+                <div class="pcard-body">
+                  <div class="pcard-title">{plabel(p.slug, p.label)}</div>
+                  <dl class="pcard-specs">
+                    {p.meta.format && (<div><dt>{t("print.meta.format")}</dt><dd>{p.meta.format}</dd></div>)}
+                    {p.meta.pages && (<div><dt>{t("print.meta.pages")}</dt><dd>{p.meta.pages}</dd></div>)}
+                    {p.meta.paper && (<div><dt>{t("print.meta.paper")}</dt><dd>{p.meta.paper}</dd></div>)}
+                    {p.meta.color && (<div><dt>{t("print.meta.color")}</dt><dd>{p.meta.color}</dd></div>)}
+                  </dl>
+                  <div class="pcard-foot">
+                    {p.route ? (
+                      <button type="button" class="pbtn pbtn-primary pbtn-dl" data-route={p.route} aria-label={t("print.card.download")}><svg class="pbtn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>PDF</button>
+                    ) : (
+                      <span class="pcard-nopage">{t("print.card.noPage")}</span>
+                    )}
+                    <button type="button" class="pbtn pbtn-buy" data-slug={p.slug}>{t("print.card.order")}</button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </main>
+      <AdminFooter />
+
+      <script type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) })}></script>
+      <script type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") })}></script>
+
+      <!-- Modale ordine (acquisto) -->
+      <div class="pmodal" id="omodal" hidden>
+        <div class="pmodal-back" data-oclose></div>
+        <div class="omodal-box" role="dialog" aria-modal="true">
+          <div class="omodal-head">
+            <h2 class="omodal-title" id="omodal-title"></h2>
+            <button type="button" class="omodal-x" data-oclose aria-label={t("common.close")}>×</button>
+          </div>
+          <div class="omodal-body">
+            <p class="omodal-ship">{t("print.order.ship")}</p>
+            <div class="opacks" id="opacks"></div>
+            <p class="omodal-err" id="omodal-err"></p>
+          </div>
+          <div class="omodal-foot">
+            <button type="button" class="ofoot ofoot-cancel" data-oclose>{t("common.cancel")}</button>
+            <button type="button" class="ofoot ofoot-pay" id="obuy-pay" disabled>{t("print.order.pay")}</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modale anteprima -->
+      <div class="pmodal" id="pmodal" hidden>
+        <div class="pmodal-back" data-close></div>
+        <div class="pmodal-box" role="dialog" aria-modal="true">
+          <div class="pmodal-head">
+            <span class="pmodal-title" id="pmodal-title"></span>
+            <span class="pmodal-sp"></span>
+            <button type="button" class="pbtn pbtn-primary" id="pmodal-dl" aria-label={t("print.card.download")}><svg class="pbtn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>PDF</button>
+            <button type="button" class="pbtn pbtn-ghost" data-close>{t("common.close")}</button>
+          </div>
+          <iframe id="pmodal-frame" title={t("print.card.preview")}></iframe>
+        </div>
+      </div>
+    </div>
+    <AdminNav current="print" />
+
+    <style>
+      .pr-intro { color: var(--c-muted); font-size: 0.92rem; line-height: 1.6; margin: 0.5rem 0 1.6rem; max-width: 60ch; }
+
+      .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: stretch; }
+      .pcard { border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); overflow: hidden; display: flex; flex-direction: column; }
+      .pcard-cover { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; cursor: pointer; display: block; }
+      .pcard-cover iframe { position: absolute; top: 0; left: 0; width: 1240px; height: 882px; border: 0; transform-origin: top left; pointer-events: none; }
+      .pcard-cover .pcard-zoom { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; background: rgba(0, 0, 0, 0.15); transition: opacity 0.15s; }
+      .pcard-cover:hover .pcard-zoom, .pcard-cover:focus-visible .pcard-zoom { opacity: 1; }
+      .pcard-cover .pcard-zoom svg { width: 34px; height: 34px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5)); }
+      .pcard-cover:focus-visible { outline: none; }
+      .pcard-cover--empty { display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.04); cursor: default; }
+      .pcard-cover--empty svg { width: 40px; height: 40px; fill: none; stroke: var(--c-muted); stroke-width: 1.4; }
+      .pcard-body { display: flex; flex-direction: column; gap: 0.4rem; padding: 1.1rem 1.2rem; flex: 1; }
+      .pcard-title { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-text); letter-spacing: 0.02em; }
+      .pcard-sub { color: var(--c-accent); font-weight: 700; font-size: 0.85rem; }
+      .pcard-text { color: var(--c-muted); font-size: 0.85rem; margin-top: 0.15rem; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .pcard-meta { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+      .m-tag { display: inline-block; padding: 0.16rem 0.55rem; border: 1px solid var(--c-line); border-radius: 999px; color: var(--c-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+      .pcard-specs { display: flex; flex-direction: column; gap: 0.32rem; margin: 0.15rem 0 0.1rem; }
+      .pcard-specs > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; font-size: 0.85rem; }
+      .pcard-specs dt { color: var(--c-muted); white-space: nowrap; }
+      .pcard-specs dd { color: var(--c-text); font-weight: 600; text-align: right; }
+      .pcard-foot { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
+      .pcard-nopage { color: var(--c-muted); font-size: 0.85rem; font-style: italic; margin-right: auto; }
+
+      .pbtn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
+      .pbtn-ico { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      .pbtn-primary { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .pbtn-primary:hover { background: transparent; color: var(--c-accent); }
+      .pbtn-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .pbtn-buy { margin-left: auto; }
+      .pbtn-buy:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .pbtn:disabled { cursor: not-allowed; }
+
+      .pmodal { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+      .pmodal[hidden] { display: none; }
+      .pmodal-back { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+      .pmodal-box { position: relative; width: min(1000px, 100%); height: min(90vh, 100%); background: var(--c-card); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; overflow: hidden; }
+      .pmodal-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--c-line); }
+      .pmodal-title { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-text); }
+      .pmodal-sp { flex: 1; }
+      #pmodal-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+
+      .pbanner { border-radius: 10px; padding: 0.7rem 1rem; margin-bottom: 1.2rem; font-size: 0.9rem; }
+      .pbanner.ok { background: color-mix(in srgb, #2e9e5b 15%, transparent); color: #2e9e5b; border: 1px solid color-mix(in srgb, #2e9e5b 40%, transparent); }
+      .pbanner.warn { background: color-mix(in srgb, var(--c-accent) 12%, transparent); color: var(--c-accent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); }
+      .pbanner.err { background: color-mix(in srgb, #c0392b 12%, transparent); color: #c0392b; border: 1px solid color-mix(in srgb, #c0392b 40%, transparent); }
+
+      .omodal-box { position: relative; width: min(600px, 100%); max-height: 90vh; overflow-y: auto; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45); }
+      .omodal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1rem; border-bottom: 1px solid var(--c-line); }
+      .omodal-title { font-family: var(--font-title); font-size: 1.5rem; color: var(--c-text); letter-spacing: 0.02em; }
+      .omodal-x { background: none; border: 0; color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+      .omodal-x:hover { color: var(--c-accent); }
+      .omodal-body { padding: 1.3rem 1.6rem; }
+      .omodal-ship { font-size: 0.85rem; color: var(--c-muted); margin: 0 0 1.3rem; line-height: 1.5; }
+      .omodal-err { color: #c0392b; font-size: 0.85rem; min-height: 1em; margin-top: 0.9rem; }
+      .omodal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.6rem 1.4rem; border-top: 1px solid var(--c-line); }
+      .ofoot { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.6rem 1.4rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
+      .ofoot-cancel:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .ofoot-pay { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .ofoot-pay:hover:not(:disabled) { filter: brightness(1.08); }
+      .ofoot-pay:disabled { opacity: 0.45; cursor: not-allowed; }
+    </style>
+
+    <style is:global>
+      /* Card dei pack dell'ordine: generate via JS → stili globali (lo scoped non le raggiunge). */
+      #opacks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }
+      #opacks .opack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 3px; padding: 1.2rem 0.6rem; cursor: pointer; font-family: inherit; text-align: center; transition: border-color 0.15s, background 0.15s; }
+      #opacks .opack:hover { border-color: var(--c-accent); }
+      #opacks .opack.is-sel { border-color: var(--c-accent); box-shadow: inset 0 0 0 1px var(--c-accent); }
+      #opacks .opack-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+      #opacks .opack-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
+      #opacks .opack-unit { color: var(--c-muted); font-size: 0.72rem; }
+    </style>
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      (async () => {
+        const app = document.getElementById("app") as HTMLDivElement;
+        const userEmail = document.getElementById("user-email") as HTMLSpanElement | null;
+        const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement | null;
+
+        logoutBtn?.addEventListener("click", async () => {
+          await supabaseBrowser.auth.signOut();
+          window.location.replace("/admin/login");
+        });
+
+        const { data: sessionData } = await supabaseBrowser.auth.getSession();
+        const session = sessionData.session;
+        if (!session) { window.location.replace("/admin/login"); return; }
+        if (userEmail) userEmail.textContent = session.user.email ?? "";
+        app.style.display = "flex";
+        supabaseBrowser.auth.getUser().then(({ data, error }) => {
+          if (error || !data.user) window.location.replace("/admin/login");
+        });
+
+        // --- Modale anteprima / stampa ---
+        const modal = document.getElementById("pmodal") as HTMLDivElement;
+        const frame = document.getElementById("pmodal-frame") as HTMLIFrameElement;
+        const titleEl = document.getElementById("pmodal-title") as HTMLSpanElement;
+        const dlBtn = document.getElementById("pmodal-dl") as HTMLButtonElement;
+
+        function stampa() {
+          try { frame.contentWindow?.focus(); frame.contentWindow?.print(); } catch { /* no-op */ }
+        }
+        function apri(route: string, nome: string, autoStampa: boolean) {
+          titleEl.textContent = nome;
+          modal.hidden = false;
+          document.body.style.overflow = "hidden";
+          if (autoStampa) {
+            frame.addEventListener("load", () => window.setTimeout(stampa, 250), { once: true });
+          }
+          frame.src = route;
+        }
+        function chiudi() {
+          modal.hidden = true;
+          frame.src = "about:blank";
+          document.body.style.overflow = "";
+        }
+
+        document.querySelector(".pgrid")?.addEventListener("click", (e) => {
+          const btn = (e.target as HTMLElement).closest(".pbtn-preview, .pbtn-dl") as HTMLElement | null;
+          if (!btn) return;
+          const route = btn.dataset.route || "";
+          const card = btn.closest(".pcard") as HTMLElement | null;
+          const nome = card?.dataset.name || "";
+          if (!route) return;
+          apri(route, nome, btn.classList.contains("pbtn-dl"));
+        });
+        // Miniature: scala l'iframe della pagina di stampa dentro la card.
+        const PREV_W = 1240;
+        function fitPreviews() {
+          document.querySelectorAll<HTMLElement>(".pcard-cover").forEach((wrap) => {
+            const fr = wrap.querySelector("iframe") as HTMLIFrameElement | null;
+            if (fr) fr.style.transform = "scale(" + wrap.clientWidth / PREV_W + ")";
+          });
+        }
+        fitPreviews();
+        window.addEventListener("resize", fitPreviews);
+        window.setTimeout(fitPreviews, 300);
+
+        // Tastiera: Invio/Spazio sulla miniatura apre l'anteprima.
+        document.querySelector(".pgrid")?.addEventListener("keydown", (e) => {
+          const ev = e as KeyboardEvent;
+          if (ev.key !== "Enter" && ev.key !== " ") return;
+          const prev = (ev.target as HTMLElement).closest(".pcard-cover") as HTMLElement | null;
+          if (!prev) return;
+          ev.preventDefault();
+          const card = prev.closest(".pcard") as HTMLElement | null;
+          apri(prev.dataset.route || "", card?.dataset.name || "", false);
+        });
+
+        dlBtn.addEventListener("click", stampa);
+        modal.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", chiudi));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) chiudi(); });
+
+        // ---------- Ordine (acquisto) ----------
+        const authH = { Authorization: `Bearer ${session.access_token ?? ""}`, "Content-Type": "application/json" };
+        const parse = (id: string) => { try { return JSON.parse(document.getElementById(id)?.textContent || "{}"); } catch { return {}; } };
+        const PD = parse("print-data") as { unit?: string; products?: any[] };
+        const OI = parse("print-order-i18n") as Record<string, string>;
+        const oProducts = Array.isArray(PD.products) ? PD.products : [];
+        const oUnit = PD.unit || "";
+        const oEsc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
+
+        const omodal = document.getElementById("omodal") as HTMLDivElement;
+        const otitle = document.getElementById("omodal-title") as HTMLHeadingElement;
+        const opacks = document.getElementById("opacks") as HTMLDivElement;
+        const oerr = document.getElementById("omodal-err") as HTMLParagraphElement;
+        const opay = document.getElementById("obuy-pay") as HTMLButtonElement;
+        const banner = document.getElementById("pbanner") as HTMLDivElement;
+        let curSlug = "";
+        let curQty = 0;
+
+        function showBanner(msg: string, kind: string) {
+          banner.textContent = msg;
+          banner.className = "pbanner " + kind;
+          banner.hidden = false;
+        }
+        const oEurBig = (c: number) => { const n = c / 100; return (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(".", ",")) + " €"; };
+        const oEurUnit = (c: number, q: number) => (c / q / 100).toFixed(2).replace(".", ",") + " €";
+
+        function apriOrdine(slug: string) {
+          const prod = oProducts.find((p) => p.slug === slug);
+          if (!prod) return;
+          otitle.textContent = prod.label;
+          oerr.textContent = "";
+          curSlug = "";
+          curQty = 0;
+          opay.disabled = true;
+          opacks.innerHTML = (prod.tiers || []).map((t: any) =>
+            `<button type="button" class="opack" data-slug="${oEsc(prod.slug)}" data-qty="${t.qty}">` +
+              `<span class="opack-qty">${t.qty} ${oEsc(oUnit)}</span>` +
+              `<span class="opack-price">${oEurBig(t.price_cents)}</span>` +
+              `<span class="opack-unit">${oEurUnit(t.price_cents, t.qty)} / ${oEsc(oUnit)}</span>` +
+            `</button>`).join("");
+          omodal.hidden = false;
+          document.body.style.overflow = "hidden";
+        }
+        function chiudiOrdine() { omodal.hidden = true; document.body.style.overflow = ""; }
+
+        document.querySelector(".pgrid")?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".pbtn-buy") as HTMLElement | null;
+          if (b) apriOrdine(b.dataset.slug || "");
+        });
+
+        opacks.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".opack") as HTMLElement | null;
+          if (!b) return;
+          opacks.querySelectorAll(".opack").forEach((x) => x.classList.toggle("is-sel", x === b));
+          curSlug = b.dataset.slug || "";
+          curQty = Number(b.dataset.qty) || 0;
+          oerr.textContent = "";
+          opay.disabled = !(curSlug && curQty);
+        });
+        opay.addEventListener("click", async () => {
+          if (!curSlug || !curQty) return;
+          const old = opay.textContent;
+          opay.disabled = true; opay.textContent = OI.paying || "\u2026";
+          try {
+            const res = await fetch("/api/admin/print-order", { method: "POST", headers: authH, body: JSON.stringify({ slug: curSlug, qty: curQty }) });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body.url) { oerr.textContent = body.error || OI.error; opay.disabled = false; opay.textContent = old; return; }
+            window.location.href = body.url;
+          } catch {
+            oerr.textContent = OI.error; opay.disabled = false; opay.textContent = old;
+          }
+        });
+        omodal.querySelectorAll("[data-oclose]").forEach((el) => el.addEventListener("click", chiudiOrdine));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !omodal.hidden) chiudiOrdine(); });
+
+        // Guarigione: conferma eventuali ordini pagati ma rimasti pending (browser chiuso).
+        fetch("/api/admin/print-order", { headers: authH }).catch(() => {});
+
+        // Ritorno dal pagamento Stripe
+        const params = new URLSearchParams(location.search);
+        const cleanUrl = () => history.replaceState({}, "", location.pathname);
+        if (params.get("print_cancel")) { showBanner(OI.canceled, "warn"); cleanUrl(); }
+        const sid = params.get("print_order");
+        if (sid) {
+          fetch("/api/admin/print-order", { method: "PUT", headers: authH, body: JSON.stringify({ session_id: sid }) })
+            .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+            .then(({ ok, j }) => showBanner(ok ? OI.paid : (j.error || OI.error), ok ? "ok" : "err"))
+            .catch(() => showBanner(OI.error, "err"))
+            .finally(cleanUrl);
+        }
+      })();
+    </script>
+  </body>
+</html>

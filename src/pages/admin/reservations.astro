@@ -614,6 +614,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-fill { display: block; height: 100%; width: 0; background: var(--c-accent); transition: width 1s linear; }
       .dt-fin { margin-top: 0.5rem; font-size: 0.8rem; color: var(--c-muted); }
       .dt-spend { margin-top: 0.85rem; }
+      .dt-extend { margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--c-line); }
+      .dt-extend-btns { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+      .dt-ext { flex: 1; font-family: var(--font-title); letter-spacing: 0.03em; font-size: 0.95rem; padding: 0.6rem 0; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
+      .dt-ext:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+      .dt-ext:disabled { opacity: 0.5; cursor: wait; }
       .dt-spend-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
       .dt-spend-row .nm-in { max-width: 140px; flex: 0 1 auto; }
       .dt-spend-save {
@@ -974,6 +979,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           <div class="dt-clock" id="dt-clock">—</div>
           <div class="dt-track" id="dt-track"><span class="dt-fill" id="dt-fill"></span></div>
           <div class="dt-fin" id="dt-fin"></div>
+          <div class="dt-extend" id="dt-extend">
+            <span class="f-label">{t("res.extend")}</span>
+            <div class="dt-extend-btns">
+              <button type="button" class="dt-ext" data-ext="15">+15 min</button>
+              <button type="button" class="dt-ext" data-ext="30">+30 min</button>
+              <button type="button" class="dt-ext" data-ext="45">+45 min</button>
+            </div>
+          </div>
           <div class="dt-spend" id="dt-spend" style="display:none">
             <span class="f-label">{t("res.bill")}</span>
             <div class="dt-spend-row">
@@ -1153,6 +1166,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         special_event?: boolean;
         seated_at?: string | null;
         table_minutes?: number | null;
+        extra_minutes?: number;
         spent_cents?: number | null;
         notes: string | null;
         status: string;
@@ -1337,13 +1351,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         return Number.isFinite(n) && n >= 15 && n <= 360 ? n : holdMinutes;
       }
       /** Fase temporale di una CONFERMATA: future | encours | passe */
+      // Finestra reale del tavolo per QUESTA prenotazione: durée del service + estensione.
+      function holdR(x: { service_key: string | null; extra_minutes?: number | null }): number {
+        return holdDi(x.service_key) + (Number(x.extra_minutes) || 0);
+      }
       function fase(r: Resa): "future" | "encours" | "passe" {
         const oggi = isoOggi();
         if (r.date > oggi) return "future";
         if (r.date < oggi) return "passe";
         const adesso = minutiOra();
         const inizio = minutiDa(r.heure);
-        if (adesso >= inizio + holdDi(r.service_key)) return "passe";
+        if (adesso >= inizio + holdR(r)) return "passe";
         if (adesso >= inizio) return "encours";
         return "future";
       }
@@ -1419,7 +1437,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           // ma arriva comunque al 100% alla fine prevista della prenotazione.
           // TUTTO nel fuso del ristorante (come fase/minutiOra): l'orologio
           // del device può essere su un altro fuso e falserebbe il calcolo.
-          const hold = holdDi(r.service_key);
+          const hold = holdR(r);
           const fineMin = minutiDa(r.heure) + hold; // fine prevista (minuti del giorno)
           const arrivoMs = r.status === "seated" && r.seated_at ? Date.parse(r.seated_at) : NaN;
           const trascorsi = Number.isFinite(arrivoMs)
@@ -1813,12 +1831,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           stMenu.style.display = "none";
           stMenuId = "";
         }
+        // Stato "visualizzato" = quello derivato dall'orologio (come card e modale):
+        // confermata a orario passato → Finito; confermata all'ora → In corso.
+        function statoVisuale(r: Resa): string {
+          if ((r.status === "confirmed" || r.status === "seated") && fase(r) === "passe") return "done";
+          if (r.status === "confirmed" && fase(r) === "encours") return "seated";
+          return r.status;
+        }
         function apriStMenu(anchor: HTMLElement, id: string) {
           const r = rese.find((x) => x.id === id);
           stMenuId = id;
           stMenu.innerHTML = STATI_MENU.map(
             (v) =>
-              `<button type="button" data-st="${v.st}" class="${r?.status === v.st ? "is-cur" : ""}"><span class="st-dot" style="background:${v.colore}"></span>${v.label}</button>`
+              `<button type="button" data-st="${v.st}" class="${r && statoVisuale(r) === v.st ? "is-cur" : ""}"><span class="st-dot" style="background:${v.colore}"></span>${v.label}</button>`
           ).join("");
           stMenu.style.display = "block";
           const rect = anchor.getBoundingClientRect();
@@ -2560,12 +2585,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             `${r.first_name} ${r.last_name}`.trim() || tr("res.reservation");
 
           // Badge di stato (stessi colori del menu stati; confirmed passata l'ora = En cours)
-          const stKey = r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status;
+          const finestraPassata = (r.status === "confirmed" || r.status === "seated") && fase(r) === "passe";
+          const stKey = finestraPassata ? "done" : (r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status);
           const st = STATI_MENU.find((x) => x.st === stKey) ?? STATI_MENU.find((x) => x.st === r.status);
           const stHtml = st
             ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>`
             : "";
-          const enCours = r.status === "seated" || (r.status === "confirmed" && fase(r) === "encours");
+          const enCours = (r.status === "seated" || r.status === "confirmed") && fase(r) === "encours";
           const conBlocco = r.status === "confirmed" || r.status === "seated" || r.status === "done";
 
           // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
@@ -2625,7 +2651,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 .join('<span class="sep">·</span>')
             : "";
           if (enCours) {
-            const hold = holdDi(r.service_key);
+            const hold = holdR(r);
             const inizioMin = minutiDa(r.heure);
             const arrivoMs = r.status === "seated" && r.seated_at ? Date.parse(r.seated_at) : NaN;
             const startMs = Number.isFinite(arrivoMs)
@@ -2655,7 +2681,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             tick();
             dtTimerInt = window.setInterval(tick, 1000);
             timerBox.style.display = "";
-          } else if (r.status === "done") {
+          } else if (r.status === "done" || finestraPassata) {
             // Fini: stesso blocco, durata REGISTRATA (table_minutes) al posto del live
             const lab = document.getElementById("dt-tlab") as HTMLElement;
             const clockEl = document.getElementById("dt-clock") as HTMLElement;
@@ -2664,14 +2690,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const tm =
               r.table_minutes != null && r.table_minutes > 0
                 ? Math.round(r.table_minutes)
-                : holdDi(r.service_key) + 15; // vecchie senza dato: durée prevista + 15 (auto-Fini)
+                : holdR(r); // finestra passata (non ancora chiusa) o dato vecchio: durée nominale
             lab.style.display = "";
             lab.textContent = tr("res.tableTime");
             clockEl.style.display = "";
             clockEl.textContent = tm < 90 ? `${tm} min` : `${Math.floor(tm / 60)} h ${String(tm % 60).padStart(2, "0")}`;
             trackEl.style.display = "";
             (document.getElementById("dt-fill") as HTMLElement).style.width = "100%";
-            (document.getElementById("dt-spend") as HTMLElement).style.display = "";
+            (document.getElementById("dt-spend") as HTMLElement).style.display = r.status === "done" ? "" : "none";
             (document.getElementById("dt-spend-in") as HTMLInputElement).value =
               r.spent_cents != null ? `${(r.spent_cents / 100).toFixed(2).replace(".", ",")} €` : "";
             timerBox.style.display = "";
@@ -2685,7 +2711,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             clockEl.textContent = "0:00";
             (document.getElementById("dt-track") as HTMLElement).style.display = "";
             (document.getElementById("dt-fill") as HTMLElement).style.width = "0%";
-            const holdC = holdDi(r.service_key);
+            const holdC = holdR(r);
             (document.getElementById("dt-fin") as HTMLElement).textContent =
               `${tr("res.endExpected")} ${hhmmDa(minutiDa(r.heure) + holdC)} · ${tr("res.duration")} ${holdC} min`;
             (document.getElementById("dt-spend") as HTMLElement).style.display = "none";
@@ -2779,6 +2805,29 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             toast(tr("res.billSaved"));
           } catch {
             toast(tr("common.saveErr"), "err");
+          }
+        });
+        (document.getElementById("dt-extend") as HTMLElement | null)?.addEventListener("click", async (e) => {
+          const b = (e.target as HTMLElement).closest(".dt-ext") as HTMLElement | null;
+          if (!b || !dtId) return;
+          const min = Number(b.dataset.ext) || 0;
+          if (min <= 0) return;
+          const id = dtId;
+          document.querySelectorAll<HTMLButtonElement>("#dt-extend .dt-ext").forEach((x) => (x.disabled = true));
+          try {
+            const res = await fetch("/api/admin/reservations", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, extra_add: min }),
+            });
+            if (!res.ok) throw new Error();
+            toast(tr("res.extended"), "ok");
+            await carica();
+            if (dtId === id) apriDettagli(id);
+          } catch {
+            toast(tr("us.editErr"), "err");
+          } finally {
+            document.querySelectorAll<HTMLButtonElement>("#dt-extend .dt-ext").forEach((x) => (x.disabled = false));
           }
         });
         (document.getElementById("dt-close") as HTMLButtonElement).addEventListener("click", chiudiDettagli);
@@ -3572,7 +3621,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             for (const rr of reseGiorno) {
               if (nmEditId && rr.id === nmEditId) continue;
               const rMin = minutiDa(rr.heure);
-              const rHold = holdDi(rr.service_key);
+              const rHold = holdR(rr);
               if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
                 const rz = (rr.zone ?? "").trim();
                 if (rz) m.set(rz, (m.get(rz) ?? 0) + rr.people);
@@ -3591,7 +3640,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             for (const rr of reseGiorno) {
               if (nmEditId && rr.id === nmEditId) continue; // in edit non conta sé stessa
               const rMin = minutiDa(rr.heure);
-              const rHold = holdDi(rr.service_key); // durée del service della prenotazione
+              const rHold = holdR(rr); // durée del service della prenotazione
               if (rMin < sMin + holdNuovo && rMin + rHold > sMin) {
                 occTot += rr.people;
                 if (nmZone && (rr.zone ?? "") === nmZone) occZona += rr.people;
@@ -3666,7 +3715,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             for (const rr of dati?.rese ?? []) {
               if (nmEditId && rr.id === nmEditId) continue;
               const rMin = minutiDa(rr.heure);
-              if (rMin < T + holdNew && rMin + holdDi(rr.service_key) > T) {
+              if (rMin < T + holdNew && rMin + holdR(rr) > T) {
                 occTot += rr.people;
                 const rz = (rr.zone ?? "").trim();
                 if (rz) occ.set(rz, (occ.get(rz) ?? 0) + rr.people);
@@ -3762,7 +3811,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (nmEditId && rr.id === nmEditId) continue;
             if (!Array.isArray(rr.tables)) continue;
             const ini = minutiDa(rr.heure);
-            const fin = ini + holdDi(rr.service_key);
+            const fin = ini + holdR(rr);
             for (const idT of rr.tables) {
               const k = String(idT);
               if (!perTav.has(k)) perTav.set(k, []);

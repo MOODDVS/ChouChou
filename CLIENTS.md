@@ -22,6 +22,15 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 ---
 
+## ⚠️ Migrazioni pendenti per TUTTI i clienti (lavoro motore 03/09/2026)
+Il 03/09 sono state aggiunte al motore la **feature Print** e l'**estensione prenotazioni**. Al prossimo `git merge engine/main` (dopo che Enzo committa/pusha il motore), i clienti passano a 🟡 finché non si riallineano. Dopo il merge, sul Supabase di OGNI cliente lanciare:
+- **`print_orders.sql`** (#68) — ordini prodotti stampati (Stripe MOODD).
+- **`reservations_extra_minutes.sql`** (#69) — colonna `extra_minutes` (estensione tavolo).
+
+Entrambe idempotenti (`create table if not exists` / `add column if not exists`). **Nessun cron nuovo.** Env già presente da riusare: `MOODD_STRIPE_SECRET_KEY` (crediti/buoni) vale anche per gli ordini Print. Se l'ordine di stampa o l'estensione danno «Enregistrement impossible», la migrazione corrispondente non è stata lanciata.
+
+---
+
 ## La Molisana — 🟢 Allineato (01/09/2026)
 - **LIVE** su `lamolisana.be` (primo cliente). Tema **scuro** pinnato in Réglages → Design.
 - **Merge `engine/main` → `bbe0885` (01/09)**: era indietro di **164 commit** (base 30/07). Merge pulito a parte **5 conflitti**, risolti tenendo il sito/branding di La Molisana e prendendo la struttura del motore:

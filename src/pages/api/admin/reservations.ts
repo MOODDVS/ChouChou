@@ -627,6 +627,22 @@ export const PATCH: APIRoute = async ({ request }) => {
       }
     }
   }
+  if ((body as { extra_add?: number }).extra_add !== undefined) {
+    const add = Math.floor(Number((body as { extra_add?: number }).extra_add));
+    if (Number.isFinite(add) && add > 0) {
+      const { data: cur } = await supabaseAdmin
+        .from("reservations")
+        .select("extra_minutes, status, seated_at")
+        .eq("id", id)
+        .maybeSingle();
+      const base = Math.max(0, Math.floor(Number(cur?.extra_minutes) || 0));
+      upd.extra_minutes = Math.min(600, base + add);
+      if (cur?.status === "done") {
+        upd.status = cur.seated_at ? "seated" : "confirmed";
+        upd.table_minutes = null;
+      }
+    }
+  }
   if (body.date !== undefined) {
     if (!RE_DATA.test(String(body.date))) return json({ error: "Date invalide" }, 400);
     upd.date = body.date;

@@ -34,6 +34,25 @@ const supI18n = {
     )
   ) as Record<string, string>,
 };
+
+const prI18n = {
+  colQty: t("print.col.qty"),
+  colPrice: t("print.col.price"),
+  visible: t("print.visible"),
+  hidden: t("print.hidden"),
+  addTier: t("print.addTier"),
+  removeTier: t("print.removeTier"),
+  saved: t("print.saved"),
+  saveError: t("print.saveError"),
+  loadError: t("print.loadError"),
+  resetDone: t("print.resetDone"),
+  prodLabels: { menu: t("print.prod.menu"), "business-cards": t("print.prod.business-cards") } as Record<string, string>,
+  metaTitle: t("print.meta.title"),
+  metaFormat: t("print.meta.format"),
+  metaPages: t("print.meta.pages"),
+  metaPaper: t("print.meta.paper"),
+  metaColor: t("print.meta.color"),
+};
 ---
 
 <html lang={lang}>
@@ -420,6 +439,7 @@ const supI18n = {
           <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("sup.tab.users")}</button>
           <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("sup.tab.reglages")}</button>
           <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("sup.tab.integrations")}</button>
+          <button type="button" data-t="print"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>{t("sup.tab.print")}</button>
         </div>
 
         <section class="pane" data-pane="design">
@@ -619,6 +639,23 @@ const supI18n = {
               <span class="us-err" id="nl-err"></span>
             </div>
           </div>
+        </section>
+
+        <!-- ===== PRINT (super admin) : catalogo prodotti stampabili ordinabili a MOODD ===== -->
+        <section class="pane" data-pane="print" hidden>
+          <h1>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+            {t("sup.tab.print")}
+          </h1>
+          <p class="sub">{t("print.intro")}</p>
+          <script type="application/json" id="pr-i18n" set:html={JSON.stringify(prI18n)}></script>
+          <div id="pr-list" class="pr-list"></div>
+          <div class="pr-actions">
+            <button type="button" id="pr-reset" class="us-ghost">{t("print.reset")}</button>
+            <button type="button" id="pr-save" class="us-add">{t("common.save")}</button>
+            <span id="pr-state" class="pr-state-msg"></span>
+          </div>
+          <p class="note">{t("print.note")}</p>
         </section>
 
         <section class="pane" data-pane="users" hidden>
@@ -1650,6 +1687,203 @@ const supI18n = {
           stateEl.textContent = SUP.loadError ?? "Erreur de chargement.";
         }
       })();
+    </script>
+
+    <style is:global>
+      .pane[data-pane="print"] .pr-list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; }
+      .pr-card { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1rem 1.2rem 1.2rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      .pr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.9rem; }
+      .pr-titles { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+      .pr-name { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-text); }
+      .pr-route { font-size: 0.78rem; color: var(--c-muted); }
+      .pr-toggle { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+      .pr-toggle-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .pr-tiers { width: 100%; border-collapse: collapse; }
+      .pr-tiers th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); font-weight: 700; padding: 0 0.4rem 0.4rem; }
+      .pr-tiers th:last-child { width: 40px; }
+      .pr-tiers td { padding: 0.25rem 0.4rem; }
+      .pr-tiers input { width: 100%; padding: 0.45rem 0.6rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; }
+      .pr-tiers input:focus { outline: none; border-color: var(--c-accent); }
+      .pr-del { width: 30px; height: 30px; border: 1px solid var(--c-line); background: var(--c-input); color: var(--c-muted); border-radius: 8px; cursor: pointer; font-size: 1.1rem; line-height: 1; transition: color 0.15s, border-color 0.15s; }
+      .pr-del:hover { color: #c0392b; border-color: #c0392b; }
+      .pr-add { margin-top: 0.7rem; background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-family: var(--font-body); font-size: 0.85rem; transition: color 0.15s, border-color 0.15s; }
+      .pr-add:hover { color: var(--c-accent); border-color: var(--c-accent); }
+      .pane[data-pane="print"] .pr-actions { display: flex; gap: 0.7rem; align-items: center; margin-top: 1.4rem; flex-wrap: wrap; }
+      .pr-state-msg { font-size: 0.85rem; }
+      .pr-meta { margin-top: 1.1rem; padding-top: 0.9rem; border-top: 1px solid var(--c-line); }
+      .pr-meta-t { font-family: var(--font-title); font-size: 0.8rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 0.6rem; }
+      .pr-meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+      .pr-m-f { display: flex; flex-direction: column; gap: 0.25rem; }
+      .pr-m-f span { font-size: 0.72rem; color: var(--c-muted); }
+      .pr-m-f input { padding: 0.45rem 0.6rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); font-size: 0.9rem; }
+      .pr-m-f input:focus { outline: none; border-color: var(--c-accent); }
+      @media (max-width: 560px) { .pr-meta-grid { grid-template-columns: minmax(0, 1fr); } }
+    </style>
+
+    <script>
+      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+
+      const paneEl = document.querySelector('.pane[data-pane="print"]');
+      if (paneEl) {
+        const PR = (() => { try { return JSON.parse(document.getElementById("pr-i18n")?.textContent || "{}"); } catch { return {}; } })() as Record<string, any>;
+        const listEl = document.getElementById("pr-list") as HTMLDivElement;
+        const saveBtn = document.getElementById("pr-save") as HTMLButtonElement;
+        const resetBtn = document.getElementById("pr-reset") as HTMLButtonElement;
+        const stateEl = document.getElementById("pr-state") as HTMLSpanElement;
+
+        let catalogo: any[] = [];
+        let defaults: any[] = [];
+        let token = "";
+
+        const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
+        const eur = (cents: number) => (Math.max(0, Math.round(cents)) / 100).toFixed(2);
+        const toCents = (v: unknown) => { const n = Math.round(parseFloat(String(v).replace(",", ".")) * 100); return Number.isFinite(n) && n >= 0 ? n : 0; };
+        const toQty = (v: unknown) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+        function msg(text: string, isErr = false) {
+          if (!stateEl) return;
+          stateEl.textContent = text;
+          stateEl.style.color = isErr ? "#c0392b" : "var(--c-accent)";
+          if (text) window.setTimeout(() => { if (stateEl.textContent === text) stateEl.textContent = ""; }, 4000);
+        }
+
+        // Precompila i campi caratteristiche vuoti col valore consigliato del seed
+        // (restano da salvare: sync() legge il value dell'input).
+        function metaVal(p: any, k: string): string {
+          const seed = (defaults.find((d: any) => d.slug === p.slug)?.meta) || {};
+          return (p.meta && p.meta[k]) || seed[k] || "";
+        }
+
+        function render() {
+          listEl.innerHTML = catalogo.map((p, pi) => `
+            <div class="pr-card" data-p="${pi}">
+              <div class="pr-head">
+                <div class="pr-titles">
+                  <span class="pr-name">${esc(PR.prodLabels?.[p.slug] ?? p.label)}</span>
+                  <span class="pr-route">${esc(p.route || "")}</span>
+                </div>
+                <label class="pr-toggle">
+                  <span class="pr-toggle-lbl">${p.visible ? esc(PR.visible) : esc(PR.hidden)}</span>
+                  <span class="switch"><input type="checkbox" class="pr-vis" ${p.visible ? "checked" : ""} /><span class="track"></span></span>
+                </label>
+              </div>
+              <table class="pr-tiers">
+                <thead><tr><th>${esc(PR.colQty)}</th><th>${esc(PR.colPrice)}</th><th></th></tr></thead>
+                <tbody>
+                  ${p.tiers.map((t: any, ti: number) => `
+                    <tr data-t="${ti}">
+                      <td><input type="number" min="1" step="1" class="pr-qty" value="${t.qty}" /></td>
+                      <td><input type="text" inputmode="decimal" class="pr-price" value="${eur(t.price_cents)}" /></td>
+                      <td><button type="button" class="pr-del" title="${esc(PR.removeTier)}" aria-label="${esc(PR.removeTier)}">\u00d7</button></td>
+                    </tr>`).join("")}
+                </tbody>
+              </table>
+              <button type="button" class="pr-add">${esc(PR.addTier)}</button>
+              <div class="pr-meta">
+                <div class="pr-meta-t">${esc(PR.metaTitle)}</div>
+                <div class="pr-meta-grid">
+                  <label class="pr-m-f"><span>${esc(PR.metaFormat)}</span><input type="text" class="pr-m" data-m="format" value="${esc(metaVal(p, "format"))}" /></label>
+                  <label class="pr-m-f"><span>${esc(PR.metaPages)}</span><input type="text" class="pr-m" data-m="pages" value="${esc(metaVal(p, "pages"))}" /></label>
+                  <label class="pr-m-f"><span>${esc(PR.metaPaper)}</span><input type="text" class="pr-m" data-m="paper" value="${esc(metaVal(p, "paper"))}" /></label>
+                  <label class="pr-m-f"><span>${esc(PR.metaColor)}</span><input type="text" class="pr-m" data-m="color" value="${esc(metaVal(p, "color"))}" /></label>
+                </div>
+              </div>
+            </div>`).join("");
+        }
+
+        // Legge gli input nel modello senza re-render (per non perdere il focus).
+        function sync() {
+          listEl.querySelectorAll<HTMLElement>(".pr-card").forEach((card) => {
+            const pi = Number(card.dataset.p);
+            const p = catalogo[pi];
+            if (!p) return;
+            p.visible = (card.querySelector(".pr-vis") as HTMLInputElement | null)?.checked ?? false;
+            card.querySelectorAll<HTMLElement>("tbody tr").forEach((tr) => {
+              const ti = Number(tr.dataset.t);
+              if (!p.tiers[ti]) return;
+              p.tiers[ti].qty = toQty((tr.querySelector(".pr-qty") as HTMLInputElement | null)?.value);
+              p.tiers[ti].price_cents = toCents((tr.querySelector(".pr-price") as HTMLInputElement | null)?.value);
+            });
+            p.meta = p.meta || {};
+            card.querySelectorAll<HTMLInputElement>(".pr-m").forEach((inp) => {
+              const key = inp.dataset.m;
+              if (key) (p.meta as Record<string, string>)[key] = inp.value.trim();
+            });
+          });
+        }
+
+        listEl.addEventListener("input", (e) => {
+          const t = e.target as HTMLElement;
+          if (t.classList.contains("pr-vis")) { sync(); render(); }
+        });
+        listEl.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          const card = t.closest(".pr-card") as HTMLElement | null;
+          if (!card) return;
+          const pi = Number(card.dataset.p);
+          if (t.classList.contains("pr-add")) {
+            sync();
+            catalogo[pi].tiers.push({ qty: 0, price_cents: 0 });
+            render();
+          } else if (t.classList.contains("pr-del")) {
+            sync();
+            const tr = t.closest("tr") as HTMLElement | null;
+            if (!tr) return;
+            catalogo[pi].tiers.splice(Number(tr.dataset.t), 1);
+            render();
+          }
+        });
+
+        function pulisci(cat: any[]) {
+          return cat.map((p) => ({ ...p, tiers: p.tiers.filter((t: any) => t.qty > 0).sort((a: any, b: any) => a.qty - b.qty) }));
+        }
+
+        async function carica() {
+          try {
+            const { data } = await supabaseBrowser.auth.getSession();
+            token = data.session?.access_token ?? "";
+            const res = await fetch("/api/admin/print-catalog", { headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error();
+            const body = await res.json();
+            catalogo = Array.isArray(body.catalog) ? body.catalog : [];
+            defaults = Array.isArray(body.defaults) ? body.defaults : [];
+            render();
+          } catch {
+            msg(PR.loadError, true);
+          }
+        }
+
+        async function salva() {
+          sync();
+          catalogo = pulisci(catalogo);
+          render();
+          saveBtn.disabled = true;
+          try {
+            const res = await fetch("/api/admin/print-catalog", {
+              method: "PUT",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ catalog: catalogo }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) { msg(body.error || PR.saveError, true); return; }
+            if (Array.isArray(body.catalog)) { catalogo = body.catalog; render(); }
+            msg(PR.saved);
+          } catch {
+            msg(PR.saveError, true);
+          } finally {
+            saveBtn.disabled = false;
+          }
+        }
+
+        saveBtn?.addEventListener("click", salva);
+        resetBtn?.addEventListener("click", () => {
+          catalogo = JSON.parse(JSON.stringify(defaults));
+          render();
+          msg(PR.resetDone);
+        });
+
+        carica();
+      }
     </script>
   </body>
 </html>

@@ -223,7 +223,7 @@ export async function assegnaTavoli(p: {
     // manca (#37 non lanciata) si riprova senza: tutte "virtuali".
     let dayQ = supabaseAdmin
       .from("reservations")
-      .select("id, heure, people, zone, service_key, tables, created_at")
+      .select("id, heure, people, zone, service_key, tables, created_at, extra_minutes")
       .eq("date", p.date)
       .in("status", ["confirmed", "seated"]);
     if (p.excludeId) dayQ = dayQ.neq("id", p.excludeId);
@@ -231,7 +231,7 @@ export async function assegnaTavoli(p: {
     if (day.error && String(day.error.message ?? "").includes("tables")) {
       let q2 = supabaseAdmin
         .from("reservations")
-        .select("id, heure, people, zone, service_key, created_at")
+        .select("id, heure, people, zone, service_key, created_at, extra_minutes")
         .eq("date", p.date)
         .in("status", ["confirmed", "seated"]);
       if (p.excludeId) q2 = q2.neq("id", p.excludeId);
@@ -239,11 +239,11 @@ export async function assegnaTavoli(p: {
     }
     if (day.error) return null;
 
-    type Riga = { id: string; heure: string; people: number; zone: string | null; service_key: string | null; tables?: unknown; created_at?: string };
+    type Riga = { id: string; heure: string; people: number; zone: string | null; service_key: string | null; tables?: unknown; created_at?: string; extra_minutes?: number };
     const sovrapposte = ((day.data ?? []) as Riga[]).filter((rr) => {
       const rMin = minutiDi(String(rr.heure).slice(0, 5));
       if (rMin < 0) return false;
-      const rHold = holdByKey.get(rr.service_key ?? "") ?? holdNuovo;
+      const rHold = (holdByKey.get(rr.service_key ?? "") ?? holdNuovo) + (Number(rr.extra_minutes) || 0);
       return rMin < slotMin + holdNuovo && rMin + rHold > slotMin;
     });
 

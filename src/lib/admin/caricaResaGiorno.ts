@@ -140,7 +140,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         if (date < oggiTz) return true; // giorni passati: si chiudono comunque
         const inizio = minutiHH(String(r.heure ?? ""));
         if (inizio < 0) return false;
-        return adesso >= inizio + holdDiKey(r.service_key ?? null) + 15;
+        return adesso >= inizio + holdDiKey(r.service_key ?? null) + (Number((r as { extra_minutes?: number }).extra_minutes) || 0) + 20;
       });
       if (daChiudere.length) {
         // Durata reale del tavolo per l'auto-Fini: il manager ha lasciato correre
@@ -157,11 +157,10 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         })();
         const esiti = await Promise.all(
           daChiudere.map((r) => {
-            const inizioMs = Date.parse(`${date}T${String(r.heure ?? "").slice(0, 5)}:00Z`) - offMin * 60000;
-            const fineMs = inizioMs + (holdDiKey(r.service_key ?? null) + 15) * 60000;
-            const arrivo = r.seated_at ? Date.parse(String(r.seated_at)) : NaN;
-            const startMs = Number.isFinite(arrivo) ? Math.min(arrivo, fineMs) : inizioMs;
-            const durata = Number.isFinite(fineMs) ? Math.max(0, Math.round((fineMs - startMs) / 60000)) : null;
+            // Auto-Fini (nessuno ha chiuso): registra il tempo NOMINALE del tavolo
+            // (durée configurata in admin), non il tempo reale.
+            void offMin;
+            const durata = holdDiKey(r.service_key ?? null) + (Number((r as { extra_minutes?: number }).extra_minutes) || 0);
             r.table_minutes = durata;
             return supabaseAdmin.from("reservations").update({ status: "done", table_minutes: durata }).eq("id", r.id);
           })
