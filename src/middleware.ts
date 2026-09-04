@@ -138,24 +138,19 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   h.set("Permissions-Policy", "geolocation=(), camera=(), microphone=(), payment=(self)");
   h.set("X-XSS-Protection", "0"); // deprecato: disattivato esplicitamente (best practice)
 
-  // CSP — sottoinsieme SICURO da applicare (non limita il caricamento di
-  // script/img/connect legittimi, quindi non rompe nulla): niente plugin,
-  // niente base-tag injection, form solo verso il proprio dominio, e niente
-  // framing dell'admin (anti-clickjacking). La CSP completa su script-src
-  // richiede test dedicati (inline anti-flash) → TODO separato.
-  const frameAnc = path.startsWith("/admin") ? "frame-ancestors 'none'" : "frame-ancestors 'self'";
-  h.set("Content-Security-Policy", `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`);
-  // CSP completa su script-src — per ora SOLO in REPORT-ONLY e SOLO sull'admin
-  // (dove tutti gli <script> inline sono del motore e portano il nonce). Non
-  // blocca nulla: il browser segnala eventuali violazioni in console. Quando
-  // la verifica è pulita, si «promuove» spostando script-src nell'header
-  // enforced qui sopra. Il pubblico (script inline per-cliente) resta invariato.
-  if (path.startsWith("/admin")) {
-    h.set(
-      "Content-Security-Policy-Report-Only",
-      `script-src 'self' 'nonce-${nonce}'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`
-    );
-  }
+  // CSP — base ovunque (niente plugin, niente base-tag injection, form solo
+  // verso il proprio dominio, no framing dell'admin) + script-src ENFORCED
+  // sull'admin (vedi sotto).
+  const admin = path.startsWith("/admin");
+  const frameAnc = admin ? "frame-ancestors 'none'" : "frame-ancestors 'self'";
+  // CSP ENFORCED. script-src ('self' + nonce per-richiesta) SOLO sull'admin:
+  // lì tutti gli <script> inline sono del motore e portano nonce={cspNonce},
+  // i <script> processati da Astro diventano bundle serviti da 'self', e i
+  // blocchi type="application/json" non sono eseguiti. Il PUBBLICO ha script
+  // inline PER-CLIENTE (non nonce-abili dal motore) → niente script-src lì.
+  // Verificato in dev (report-only pulito) prima di attivarlo. 04/09/2026.
+  const base = `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`;
+  h.set("Content-Security-Policy", admin ? `${base}; script-src 'self' 'nonce-${nonce}'` : base);
 
   const host = new URL(context.request.url).hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");

@@ -18,6 +18,11 @@ export default defineConfig({
   // autenticato via Bearer token (non via cookie), quindi non è esposto a CSRF,
   // e gli endpoint pubblici sono non autenticati e già inviano JSON.
   security: { checkOrigin: false },
+  // Dev toolbar disattivata: in dev iniettava uno <script> inline suo (uguale
+  // su ogni pagina) che faceva scattare la CSP Report-Only con violazioni
+  // fantasma; è roba solo di sviluppo (in build non esiste). Off = console dev
+  // pulita per verificare la CSP. Rimettere `enabled: true` se serve la toolbar.
+  devToolbar: { enabled: false },
   integrations: [react(), sitemap()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {
