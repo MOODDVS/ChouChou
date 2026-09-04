@@ -144,7 +144,7 @@ const t = adminT(lang);
      nasconde subito le voci vietate (nav + tile). Senza cache (primo login):
      nav invisibile finché lo script asincrono non ha la lista vera. Il tag
      <style id="nav-permessi"> viene rimosso dallo script asincrono. -->
-<script is:inline>
+<script is:inline nonce={Astro.locals.cspNonce}>
   (() => {
     try {
       // Email dell'utente corrente: sessione Supabase in localStorage (sync)

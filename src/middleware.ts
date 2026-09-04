@@ -120,6 +120,10 @@ const rateLimit = defineMiddleware((context, next) => {
  * introdotta con test dedicati (prima in report-only) per non rompere nulla.
  */
 const securityHeaders = defineMiddleware(async (context, next) => {
+  // Nonce CSP per-richiesta: disponibile alle pagine via Astro.locals.cspNonce
+  // (marcato sugli <script> inline dell'admin) e usato nell'header qui sotto.
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  context.locals.cspNonce = nonce;
   const res = await next();
   const path = new URL(context.request.url).pathname;
   let h: Headers;
@@ -141,6 +145,17 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   // richiede test dedicati (inline anti-flash) → TODO separato.
   const frameAnc = path.startsWith("/admin") ? "frame-ancestors 'none'" : "frame-ancestors 'self'";
   h.set("Content-Security-Policy", `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`);
+  // CSP completa su script-src — per ora SOLO in REPORT-ONLY e SOLO sull'admin
+  // (dove tutti gli <script> inline sono del motore e portano il nonce). Non
+  // blocca nulla: il browser segnala eventuali violazioni in console. Quando
+  // la verifica è pulita, si «promuove» spostando script-src nell'header
+  // enforced qui sopra. Il pubblico (script inline per-cliente) resta invariato.
+  if (path.startsWith("/admin")) {
+    h.set(
+      "Content-Security-Policy-Report-Only",
+      `script-src 'self' 'nonce-${nonce}'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`
+    );
+  }
 
   const host = new URL(context.request.url).hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");

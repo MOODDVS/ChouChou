@@ -33,6 +33,13 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 - **gift-cards.ts**: `lang5()` valida i codici; salvati in meta (POST creazione + PUT modifica); passati alle email; `emailBonRistoratore(bon)` chiamata SEMPRE alla creazione; `sender_lang` aggiunto alla select del `resend_link` (email offrant localizzata anche al rinvio).
 - **Verifica**: esbuild OK su tutti i file (+ estrazione `<script>` di marketing.astro) + **17 test unitari** (validazione lingua, fallback default pubblico, indipendenza mittente/destinatario, toggle del selettore). **1 migrazione (#70)** da lanciare su ogni cliente; nessun cron.
 
+### 🔐 CSP `script-src` sull'admin (Report-Only, nonce)
+- Completata la CSP: aggiunta la direttiva **`script-src`** (la vera protezione anti-XSS), **solo su `/admin`** e per ora in **`Content-Security-Policy-Report-Only`** (non blocca nulla, segnala in console). Il pubblico (script inline per-cliente) resta invariato.
+- **Nonce per-richiesta**: il middleware genera `crypto.randomUUID()` → `context.locals.cspNonce` (prima di `next()`), messo nell'header e sugli `<script>` inline eseguibili dell'admin (tutti del motore): `AdminHead` (anti-flash SERVER-rendered dinamico → per questo serve il nonce, non l'hash), `AdminNav`, `login`, `reset-password`. Tipo in nuovo `src/env.d.ts` (`App.Locals.cspNonce`).
+- **Nessuno script esterno** nel progetto (solo `'self'` + inline) → `script-src 'self' 'nonce-…'` copre tutto: i `<script>` semplici li bundla Astro (serviti da `'self'`), i `type="application/json"` sono dati non eseguiti. Unico handler inline dell'admin (`assets.astro` `onerror`) **rifattorizzato** in `addEventListener` (niente `unsafe-hashes`).
+- **Da fare da Enzo per attivarla davvero**: dopo il deploy, aprire l'admin (login, dashboard, réservations, assets, marketing) con la console DevTools aperta e controllare che NON compaiano violazioni «[Report Only] Refused to execute … script-src». Se pulito, **promuovere a enforcing** cambiando in `src/middleware.ts` il nome header da `Content-Security-Policy-Report-Only` a `Content-Security-Policy` (restano due header CSP, entrambi enforced: OK). **Nessuna migrazione.**
+- Verifica: esbuild OK (middleware + script assets estratto). `npx astro check` sul Mac per il type-check (nonce tipizzato via env.d.ts).
+
 ## 📌 03/09/2026 — sessione Cowork (Feature PRINT on-demand + ciclo di vita prenotazioni)
 
 ### 🖨️ PRINT — prodotti stampabili ordinabili a MOODD (nuova feature, 3 step)

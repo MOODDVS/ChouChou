@@ -61,7 +61,7 @@ const script = righe.length ? `(function(){var d=document;${righe.join(";")}})()
 {/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo
     al <head>, dopo i :root della pagina => vince nella cascata. */}
 {css && <style is:inline set:html={css} />}
-{script && <script is:inline set:html={script} />}
+{script && <script is:inline set:html={script} nonce={Astro.locals.cspNonce} />}
 {/* Installazione PWA: nome e icona SEMPRE RestoHub, su qualsiasi dispositivo.
     L'icona iOS (apple-touch-icon) NON è tra i rel="icon" riscritti sopra col
     favicon del cliente, quindi resta il marchio RestoHub. */}
