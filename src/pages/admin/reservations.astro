@@ -619,6 +619,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-ext { flex: 1; font-family: var(--font-title); letter-spacing: 0.03em; font-size: 0.95rem; padding: 0.6rem 0; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
       .dt-ext:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
       .dt-ext:disabled { opacity: 0.5; cursor: wait; }
+      .dt-ext-confirm { margin-top: 0.5rem; }
+      .dt-ext-warn { margin: 0 0 0.6rem; padding: 0.6rem 0.7rem; border-radius: 8px; background: rgba(210,77,85,0.12); border: 1px solid #d24d55; color: #d24d55; font-size: 0.88rem; line-height: 1.4; }
+      .dt-ext-confirm-btns { display: flex; gap: 0.5rem; }
+      .dt-ext-no, .dt-ext-yes { flex: 1; font-family: var(--font-title); letter-spacing: 0.03em; font-size: 0.95rem; padding: 0.6rem 0; border-radius: 8px; cursor: pointer; transition: opacity 0.15s, border-color 0.15s, color 0.15s; }
+      .dt-ext-no { border: 1px solid var(--c-line); background: var(--c-bg); color: var(--c-text); }
+      .dt-ext-no:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .dt-ext-yes { border: 1px solid #d24d55; background: #d24d55; color: #fff; }
+      .dt-ext-yes:hover { opacity: 0.88; }
       .dt-spend-row { display: flex; gap: 0.5rem; margin-top: 0.35rem; }
       .dt-spend-row .nm-in { max-width: 140px; flex: 0 1 auto; }
       .dt-spend-save {
@@ -981,10 +989,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           <div class="dt-fin" id="dt-fin"></div>
           <div class="dt-extend" id="dt-extend">
             <span class="f-label">{t("res.extend")}</span>
-            <div class="dt-extend-btns">
+            <div class="dt-extend-btns" id="dt-ext-btns">
               <button type="button" class="dt-ext" data-ext="15">+15 min</button>
               <button type="button" class="dt-ext" data-ext="30">+30 min</button>
               <button type="button" class="dt-ext" data-ext="45">+45 min</button>
+            </div>
+            <div class="dt-ext-confirm" id="dt-ext-confirm" style="display:none">
+              <p class="dt-ext-warn" id="dt-ext-warn"></p>
+              <div class="dt-ext-confirm-btns">
+                <button type="button" class="dt-ext-no" id="dt-ext-cancel">{t("common.cancel")}</button>
+                <button type="button" class="dt-ext-yes" id="dt-ext-go">{t("res.extConfirmGo")}</button>
+              </div>
             </div>
           </div>
           <div class="dt-spend" id="dt-spend" style="display:none">
@@ -2639,6 +2654,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             dtTimerInt = 0;
           }
           const timerBox = document.getElementById("dt-timer") as HTMLDivElement;
+          // Fase 3: reset della conferma estensione a ogni apertura del modale
+          {
+            const eb = document.getElementById("dt-ext-btns") as HTMLElement | null;
+            const ec = document.getElementById("dt-ext-confirm") as HTMLElement | null;
+            if (eb) eb.style.display = "";
+            if (ec) ec.style.display = "none";
+          }
           const srcIco =
             r.source && ICO_SRC[r.source]
               ? `<span class="src" title="${esc(SRC_TITRE[r.source] ?? "")}">${ICO_SRC[r.source]}</span>`
@@ -2807,13 +2829,63 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             toast(tr("common.saveErr"), "err");
           }
         });
-        (document.getElementById("dt-extend") as HTMLElement | null)?.addEventListener("click", async (e) => {
-          const b = (e.target as HTMLElement).closest(".dt-ext") as HTMLElement | null;
-          if (!b || !dtId) return;
-          const min = Number(b.dataset.ext) || 0;
-          if (min <= 0) return;
-          const id = dtId;
-          document.querySelectorAll<HTMLButtonElement>("#dt-extend .dt-ext").forEach((x) => (x.disabled = true));
+        // Fase 3 — conflitto d'estensione. Con tavoli assegnati: collisione sullo
+        // STESSO tavolo con una prenotazione che inizia dentro i minuti aggiunti.
+        // Senza tavoli: i coperti della sala (r.zone, o capienza totale se
+        // "Indifférent") superano la capienza in un momento della finestra
+        // aggiunta. Ritorna null o un messaggio già tradotto.
+        function conflittoEstensione(r: Resa, addMin: number): string | null {
+          const ini = minutiDa(r.heure);
+          if (ini < 0 || addMin <= 0) return null;
+          const endCur = ini + holdR(r);
+          const endNew = endCur + addMin;
+          const attive = rese.filter((x) => x.id !== r.id && (x.status === "confirmed" || x.status === "seated"));
+          // MODO TAVOLI
+          if (Array.isArray(r.tables) && r.tables.length) {
+            const miei = new Set(r.tables.map(String));
+            let hit: { min: number; rr: Resa } | null = null;
+            for (const rr of attive) {
+              if (!Array.isArray(rr.tables) || !rr.tables.length) continue;
+              if (!rr.tables.some((tid) => miei.has(String(tid)))) continue;
+              const iniRr = minutiDa(rr.heure);
+              if (iniRr < 0 || iniRr < endCur || iniRr >= endNew) continue;
+              if (!hit || iniRr < hit.min) hit = { min: iniRr, rr };
+            }
+            if (hit) {
+              const nom = `${hit.rr.first_name} ${hit.rr.last_name}`.trim() || tr("res.reservation");
+              return `\u26a0 ${tr("res.extConflictTable")} ${nom} ${tr("home.at")} ${hit.rr.heure} \u2014 ${tr("res.extConflictTableSuf")}.`;
+            }
+            return null;
+          }
+          // MODO CAPIENZA (nessun tavolo)
+          const zona = (r.zone ?? "").trim();
+          const cap = zona ? (nmCfg?.zone_seats?.[zona] ?? 0) : (nmCfg?.capacity ?? 0);
+          if (cap <= 0) return null; // capienza non configurata: niente controllo
+          const inZona = (rr: Resa) => (zona ? (rr.zone ?? "").trim() === zona : true);
+          const momenti = [endCur];
+          for (const rr of attive) {
+            if (!inZona(rr)) continue;
+            const iniRr = minutiDa(rr.heure);
+            if (iniRr > endCur && iniRr < endNew) momenti.push(iniRr);
+          }
+          let worst: { tot: number } | null = null;
+          for (const t of momenti) {
+            let occ = 0;
+            for (const rr of attive) {
+              if (!inZona(rr)) continue;
+              const iniRr = minutiDa(rr.heure);
+              if (iniRr < 0) continue;
+              if (iniRr <= t && iniRr + holdR(rr) > t) occ += rr.people;
+            }
+            const tot = occ + r.people;
+            if (occ > 0 && tot > cap && (!worst || tot > worst.tot)) worst = { tot };
+          }
+          if (worst) return `\u26a0 ${tr("res.extConflictCap")}${zona ? " " + zona : ""} (${worst.tot}/${cap}).`;
+          return null;
+        }
+
+        async function applicaEstensione(id: string, min: number) {
+          document.querySelectorAll<HTMLButtonElement>("#dt-extend button").forEach((x) => (x.disabled = true));
           try {
             const res = await fetch("/api/admin/reservations", {
               method: "PATCH",
@@ -2827,8 +2899,46 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           } catch {
             toast(tr("us.editErr"), "err");
           } finally {
-            document.querySelectorAll<HTMLButtonElement>("#dt-extend .dt-ext").forEach((x) => (x.disabled = false));
+            document.querySelectorAll<HTMLButtonElement>("#dt-extend button").forEach((x) => (x.disabled = false));
           }
+        }
+
+        function chiudiConfermaEst() {
+          const cf = document.getElementById("dt-ext-confirm") as HTMLElement | null;
+          const bt = document.getElementById("dt-ext-btns") as HTMLElement | null;
+          if (cf) cf.style.display = "none";
+          if (bt) bt.style.display = "";
+        }
+
+        (document.getElementById("dt-ext-btns") as HTMLElement | null)?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".dt-ext") as HTMLElement | null;
+          if (!b || !dtId) return;
+          const min = Number(b.dataset.ext) || 0;
+          if (min <= 0) return;
+          const id = dtId;
+          const r = rese.find((x) => x.id === id);
+          const avviso = r ? conflittoEstensione(r, min) : null;
+          if (avviso) {
+            const warn = document.getElementById("dt-ext-warn") as HTMLElement | null;
+            const go = document.getElementById("dt-ext-go") as HTMLElement | null;
+            const bt = document.getElementById("dt-ext-btns") as HTMLElement | null;
+            const cf = document.getElementById("dt-ext-confirm") as HTMLElement | null;
+            if (warn) warn.textContent = avviso;
+            if (go) go.dataset.min = String(min);
+            if (bt) bt.style.display = "none";
+            if (cf) cf.style.display = "";
+            return;
+          }
+          void applicaEstensione(id, min);
+        });
+
+        (document.getElementById("dt-ext-cancel") as HTMLElement | null)?.addEventListener("click", chiudiConfermaEst);
+        (document.getElementById("dt-ext-go") as HTMLElement | null)?.addEventListener("click", () => {
+          const go = document.getElementById("dt-ext-go") as HTMLElement | null;
+          const min = Number(go?.dataset.min) || 0;
+          const id = dtId;
+          chiudiConfermaEst();
+          if (id && min > 0) void applicaEstensione(id, min);
         });
         (document.getElementById("dt-close") as HTMLButtonElement).addEventListener("click", chiudiDettagli);
         dtOverlay.addEventListener("click", (e) => {

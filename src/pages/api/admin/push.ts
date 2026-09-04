@@ -2,6 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { inviaPush, inviaPushConDettagli, type PushDettaglio } from "../../../lib/push";
+import { adminLang } from "../../../lib/admin/adminLang";
+import type { AdminLang } from "../../../i18n/admin";
+
+// Corpo della notifica di TEST nella lingua admin (fallback FR).
+const TEST_BODY: Record<AdminLang, string> = {
+  fr: "Les notifications fonctionnent \u2713",
+  en: "Notifications are working \u2713",
+  it: "Le notifiche funzionano \u2713",
+  nl: "Meldingen werken \u2713",
+  es: "Las notificaciones funcionan \u2713",
+};
 
 export const prerender = false;
 
@@ -24,7 +35,8 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Requête invalide" }, 400);
   }
   if (body.test) {
-    const r = await inviaPushConDettagli({ title: "MOODD", body: "Les notifications fonctionnent \u2713", url: "/admin" });
+    const lang = await adminLang();
+    const r = await inviaPushConDettagli({ title: "MOODD", body: TEST_BODY[lang] ?? TEST_BODY.fr, url: "/admin" });
     // Riepilogo per tipo di dispositivo (aiuta a capire se l'iPhone è iscritto).
     const tipo = (d: PushDettaglio): string => {
       const h = d.host.toLowerCase();

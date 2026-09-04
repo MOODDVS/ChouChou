@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { normalizzaCodice } from "../../../lib/coupons";
 import { datiRistorante } from "../../../lib/ristorante";
-import { emailBonCadeau, type BonEmail } from "../../../lib/notifications";
+import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
 import { creaCheckoutBon } from "../../../lib/stripe";
 
 export const prerender = false;
@@ -68,6 +68,12 @@ function oggiISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Codice lingua valido per un buono (lingue pubbliche), altrimenti null (= default sito). */
+function lang5(v: unknown): string | null {
+  const c = String(v ?? "").trim().toLowerCase();
+  return ["fr", "en", "it", "nl", "es"].includes(c) ? c : null;
+}
+
 interface GiftInput {
   action?: string;
   id?: string;
@@ -82,6 +88,8 @@ interface GiftInput {
   sender_name?: string;
   sender_email?: string;
   sender_phone?: string;
+  sender_lang?: string;
+  recipient_lang?: string;
   ship?: boolean;
   ship_address?: string;
   ship_zip?: string;
@@ -171,7 +179,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (!body.id) return json({ error: "id manquant" }, 400);
     const { data: card, error: e0 } = await supabaseAdmin
       .from("gift_cards")
-      .select("id, code, initial_cents, shipping_cents, paid, payment_method, sender_email, sender_name, recipient_name, message, expires_at, pay_token, ship, ship_address, ship_zip, ship_city, ship_country")
+      .select("id, code, initial_cents, shipping_cents, paid, payment_method, sender_email, sender_name, recipient_name, message, expires_at, pay_token, ship, ship_address, ship_zip, ship_city, ship_country, sender_lang")
       .eq("id", body.id)
       .maybeSingle();
     if (e0) return json({ error: "Lecture impossible" }, 500);
@@ -222,6 +230,8 @@ export const POST: APIRoute = async ({ request }) => {
     sender_name: txt(body.sender_name, 120),
     sender_email: txt(body.sender_email, 200),
     sender_phone: txt(body.sender_phone, 40),
+    sender_lang: lang5(body.sender_lang),
+    recipient_lang: lang5(body.recipient_lang),
     message: txt(body.message, 500),
     ship: body.ship === true,
     ship_address: body.ship === true ? txt(body.ship_address, 200) : null,
@@ -243,11 +253,21 @@ export const POST: APIRoute = async ({ request }) => {
   for (const code of tentativi) {
     const code_norm = normalizzaCodice(code);
     if (!code_norm) { ultimoErr = "Code invalide."; continue; }
-    const { data, error } = await supabaseAdmin
+    let { data, error } = await supabaseAdmin
       .from("gift_cards")
       .insert({ ...meta, code, code_norm })
       .select("id, code, pay_token")
       .single();
+    // Migrazione #70 non ancora lanciata: si riprova senza le colonne lingua
+    if (error && /sender_lang|recipient_lang/.test(error.message || "")) {
+      const metaNoLang: Record<string, unknown> = { ...meta };
+      delete metaNoLang.sender_lang; delete metaNoLang.recipient_lang;
+      ({ data, error } = await supabaseAdmin
+        .from("gift_cards")
+        .insert({ ...metaNoLang, code, code_norm })
+        .select("id, code, pay_token")
+        .single());
+    }
     if (!error && data) {
       const site = (import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
       // Lien de paiement Stripe (solo se il pagamento è "link")
@@ -282,6 +302,8 @@ export const POST: APIRoute = async ({ request }) => {
       const offrEmail = txt(body.sender_email, 200);
       if (body.send_recipient && destEmail) void emailBonCadeau(bon, "destinataire", destEmail);
       if (body.send_sender && offrEmail) void emailBonCadeau(bon, "offrant", offrEmail);
+      // Notifica al ristoratore (lingua admin), sempre alla creazione.
+      void emailBonRistoratore(bon);
       return json({ ok: true, id: data.id, code: data.code, pay_url: payUrl, pay_error: payError }, 201);
     }
     if (error?.code === "23505") { ultimoErr = "Ce code existe déjà."; continue; }
@@ -318,6 +340,8 @@ export const PUT: APIRoute = async ({ request }) => {
     sender_name: txt(body.sender_name, 120),
     sender_email: txt(body.sender_email, 200),
     sender_phone: txt(body.sender_phone, 40),
+    sender_lang: lang5(body.sender_lang),
+    recipient_lang: lang5(body.recipient_lang),
     message: txt(body.message, 500),
     ship: body.ship === true,
     ship_address: body.ship === true ? txt(body.ship_address, 200) : null,
@@ -362,7 +386,13 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
-  const { error } = await supabaseAdmin.from("gift_cards").update(patch).eq("id", body.id);
+  let { error } = await supabaseAdmin.from("gift_cards").update(patch).eq("id", body.id);
+  // Migrazione #70 non ancora lanciata: si riprova senza le colonne lingua
+  if (error && /sender_lang|recipient_lang/.test(error.message || "")) {
+    const patchNoLang: Record<string, unknown> = { ...patch };
+    delete patchNoLang.sender_lang; delete patchNoLang.recipient_lang;
+    ({ error } = await supabaseAdmin.from("gift_cards").update(patchNoLang).eq("id", body.id));
+  }
   if (error) {
     if (error.code === "23505") return json({ error: "Ce code existe déjà." }, 409);
     return json({ error: "Enregistrement impossible" }, 500);

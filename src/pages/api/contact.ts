@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../lib/db";
 import { datiRistorante } from "../../lib/ristorante";
 import { temaEmail } from "../../lib/temaBrand";
 import { adminLang } from "../../lib/admin/adminLang";
+import { inviaPushContatto } from "../../lib/push";
 import { CLIENT } from "../../config/client";
 import { Resend } from "resend";
 
@@ -297,6 +298,10 @@ export const POST: APIRoute = async ({ request }) => {
     if (errR) {
       return new Response(JSON.stringify({ error: "Envoi impossible" }), { status: 502 });
     }
+
+    // Notifica push all'admin: qualcuno ha contattato il ristorante dal form.
+    // Best-effort (come le altre notifiche): non blocca la risposta.
+    void inviaPushContatto({ nome, oggetto, messaggio });
 
     // 2) Ringraziamento al cliente (se fallisce, l'operazione resta ok)
     const { error: errC } = await resend.emails.send({

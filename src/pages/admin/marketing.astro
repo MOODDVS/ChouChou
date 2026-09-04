@@ -836,6 +836,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
               <input type="tel" class="f-input" id="gc-sphone" placeholder={t("ord.phone")} />
             </div>
           </div>
+          <label class="f-lab">{t("mk.emailLangOpt")}</label>
+          <div class="picks picks--lang gc-langpick" id="gc-slang"></div>
+          <p class="f-hint">{t("mk.emailLangHint")}</p>
         </div>
 
         <!-- Étape 3 : destinataire -->
@@ -853,6 +856,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
               <input type="tel" class="f-input" id="gc-rphone" placeholder={t("ord.phone")} />
             </div>
           </div>
+          <label class="f-lab">{t("mk.emailLangOpt")}</label>
+          <div class="picks picks--lang gc-langpick" id="gc-rlang"></div>
+          <p class="f-hint">{t("mk.emailLangHint")}</p>
           <label class="f-lab" for="gc-msg">{t("mk.messageOpt")}</label>
           <textarea class="f-area" id="gc-msg" rows="3" placeholder={t("mk.giftMsgPh")}></textarea>
 
@@ -2703,6 +2709,26 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
         const gcSfname = document.getElementById("gc-sfname") as HTMLInputElement;
         const gcSlname = document.getElementById("gc-slname") as HTMLInputElement;
         const gcSemail = document.getElementById("gc-semail") as HTMLInputElement;
+        const gcSlang = document.getElementById("gc-slang") as HTMLDivElement;
+        const gcRlang = document.getElementById("gc-rlang") as HTMLDivElement;
+        function gcRenderLang(box: HTMLDivElement) {
+          const ord = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+          box.innerHTML = ord.map((l) => `<span class="pick" data-l="${esc(l)}">${esc(PUB.labels[l]?.flag ?? "")} ${esc(l.toUpperCase())}</span>`).join("");
+        }
+        function gcLangSel(box: HTMLDivElement, l: string) {
+          box.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", !!l && el.dataset.l === l));
+        }
+        function gcLangVal(box: HTMLDivElement): string {
+          return (box.querySelector(".pick.is-on") as HTMLElement | null)?.dataset.l ?? "";
+        }
+        [gcSlang, gcRlang].forEach((box) => box.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          const on = el.classList.contains("is-on");
+          box.querySelectorAll(".pick").forEach((x) => x.classList.remove("is-on"));
+          if (!on) el.classList.add("is-on"); // ri-click sulla stessa = deseleziona (= default sito)
+        }));
+        gcRenderLang(gcSlang); gcRenderLang(gcRlang);
         const gcSphone = document.getElementById("gc-sphone") as HTMLInputElement;
         const gcMsg = document.getElementById("gc-msg") as HTMLTextAreaElement;
         const gcSave = document.getElementById("gc-save") as HTMLButtonElement;
@@ -2739,6 +2765,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
           paid?: boolean; payment_method?: string;
           recipient_email?: string | null; recipient_phone?: string | null;
           sender_email?: string | null; sender_phone?: string | null;
+          sender_lang?: string | null; recipient_lang?: string | null;
           ship?: boolean; ship_address?: string | null; ship_zip?: string | null;
           ship_city?: string | null; ship_country?: string | null; shipping_cents?: number | null;
         }
@@ -2848,6 +2875,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
           const [rf, rl] = nomi(c?.recipient_name);
           gcSfname.value = sf; gcSlname.value = sl; gcSemail.value = c?.sender_email ?? "";
           gcRfname.value = rf; gcRlname.value = rl; gcRemail.value = c?.recipient_email ?? "";
+          gcLangSel(gcSlang, String(c?.sender_lang ?? ""));
+          gcLangSel(gcRlang, String(c?.recipient_lang ?? ""));
           tel(c?.sender_phone, gcSprefix, gcSphone);
           tel(c?.recipient_phone, gcRprefix, gcRphone);
           gcMsg.value = c?.message ?? "";
@@ -3168,9 +3197,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES);
                 expires_at: gcExp.dataset.iso || undefined,
                 recipient_name: `${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim() || undefined,
                 recipient_email: gcRemail.value.trim() || undefined,
+                recipient_lang: gcLangVal(gcRlang) || undefined,
                 recipient_phone: gcTelFull(gcRprefix, gcRphone),
                 sender_name: `${gcSfname.value.trim()} ${gcSlname.value.trim()}`.trim() || undefined,
                 sender_email: gcSemail.value.trim() || undefined,
+                sender_lang: gcLangVal(gcSlang) || undefined,
                 sender_phone: gcTelFull(gcSprefix, gcSphone),
                 message: gcMsg.value.trim() || undefined,
                 payment_method: (gcPayPicks.querySelector(".pick.is-on") as HTMLElement | null)?.dataset.pay ?? "cash",

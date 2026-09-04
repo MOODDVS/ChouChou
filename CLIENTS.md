@@ -22,12 +22,13 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 ---
 
-## ⚠️ Migrazioni pendenti per TUTTI i clienti (lavoro motore 03/09/2026)
-Il 03/09 sono state aggiunte al motore la **feature Print** e l'**estensione prenotazioni**. Al prossimo `git merge engine/main` (dopo che Enzo committa/pusha il motore), i clienti passano a 🟡 finché non si riallineano. Dopo il merge, sul Supabase di OGNI cliente lanciare:
-- **`print_orders.sql`** (#68) — ordini prodotti stampati (Stripe MOODD).
-- **`reservations_extra_minutes.sql`** (#69) — colonna `extra_minutes` (estensione tavolo).
+## ⚠️ Migrazioni pendenti per TUTTI i clienti
+**04/09/2026** — ✅ **#68 print_orders, #69 reservations.extra_minutes, #46 gift_card_orders** già lanciate su **ChouChou, La Molisana, L'Huile** durante i merge del 04/09 (EducazioneNapoletana fuori dal motore).
 
-Entrambe idempotenti (`create table if not exists` / `add column if not exists`). **Nessun cron nuovo.** Env già presente da riusare: `MOODD_STRIPE_SECRET_KEY` (crediti/buoni) vale anche per gli ordini Print. Se l'ordine di stampa o l'estensione danno «Enregistrement impossible», la migrazione corrispondente non è stata lanciata.
+🟡 **PENDENTE al prossimo merge** (lavoro motore 04/09: buoni regalo multilingua):
+- **`gift_cards_langs.sql`** (#70) — colonne `sender_lang` + `recipient_lang` su gift_cards (lingua email offrant/destinataire + PDF; NULL = default sito pubblico).
+
+Idempotente (`add column if not exists`). **Nessun cron nuovo.** L'API dei buoni è tollerante (ritenta senza le colonne se la #70 non è ancora lanciata), ma senza #70 le lingue scelte non vengono salvate. Le altre modifiche 04/09 (alert conflitto estensione, notifica push form contatti, push tradotte) **non richiedono migrazioni**.
 
 ---
 
