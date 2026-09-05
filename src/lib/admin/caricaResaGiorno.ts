@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../db";
+import { appConfigIn } from "../appConfigCache";
 import { postiDalPlan } from "../planSalle";
 
 // Carica le prenotazioni di un giorno + la configurazione + le chiusure, nella
@@ -36,10 +37,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
       .eq("date", date)
       .order("heure", { ascending: true })
       .order("created_at", { ascending: true }),
-    supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", [
+    appConfigIn([
         "reservation_hold_minutes",
         "reservation_slot_minutes",
         "reservation_services",

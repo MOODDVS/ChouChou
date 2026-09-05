@@ -24,8 +24,8 @@ const pubLangsJson = JSON.stringify({
   langs: boot.publicLangs,
   def: boot.publicLangDefault,
   labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
-});
-const sitePagesJson = JSON.stringify(SITE_PAGES);
+}).replace(/</g, "\\u003c");
+const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 ---
 
 <html lang={lang}>

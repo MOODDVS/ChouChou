@@ -32,7 +32,8 @@ function pulisci(s: string): string {
 type LangPdf = "fr" | "en" | "it" | "nl" | "es";
 const LANGS_PDF: LangPdf[] = ["fr", "en", "it", "nl", "es"];
 function norm5Pdf(x: unknown): LangPdf | "" {
-  const c = String(x ?? "").trim().toLowerCase();
+  if (typeof x !== "string") return "";
+  const c = x.trim().toLowerCase();
   return (LANGS_PDF as string[]).includes(c) ? (c as LangPdf) : "";
 }
 interface TxtPdf { bonCadeau: string; votreCode: string; beneficiaire: string; offertPar: string; valeur: string; soldeRestant: string; aUtiliser: string; footNote: string; }

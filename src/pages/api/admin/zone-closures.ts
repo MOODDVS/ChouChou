@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
+import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
@@ -91,6 +92,7 @@ export const POST: APIRoute = async ({ request }) => {
       .from("app_config")
       .upsert({ key: "zone_closures_permanent", value: JSON.stringify(nuova) }, { onConflict: "key" });
     if (error) return json({ error: "Enregistrement impossible" }, 500);
+    invalidaAppConfig();
     return json({ ok: true, permanent: nuova });
   }
   const date = String(body.date ?? "");

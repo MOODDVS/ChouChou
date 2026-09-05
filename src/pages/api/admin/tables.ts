@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
+import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
@@ -107,6 +108,7 @@ async function salvaMappa(chiave: string, zone: string, valore: unknown | null):
   const { error } = await supabaseAdmin
     .from("app_config")
     .upsert({ key: chiave, value: JSON.stringify(mappa) }, { onConflict: "key" });
+  if (!error) invalidaAppConfig();
   return !error;
 }
 
@@ -134,6 +136,7 @@ export const PUT: APIRoute = async ({ request }) => {
       .from("app_config")
       .upsert({ key: "reservation_zone_priority", value: JSON.stringify(priority) }, { onConflict: "key" });
     if (error) return json({ error: "Enregistrement impossible" }, 500);
+    invalidaAppConfig();
     return json({ ok: true, priority });
   }
 

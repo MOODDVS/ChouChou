@@ -312,7 +312,7 @@ const tabTitle = brand.nome || t("login.title");
       } catch { /* niente logo */ }
     </script>
     <script>
-      import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { supabaseBrowser, scriviCookieToken } from "../../lib/supabaseBrowser";
       import { adminT, type AdminLang } from "../../i18n/admin";
       const tr = adminT((document.documentElement.lang || "fr") as AdminLang);
       const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -338,7 +338,12 @@ const tabTitle = brand.nome || t("login.title");
       });
 
       supabaseBrowser.auth.getSession().then(({ data }) => {
-        if (data.session) window.location.href = "/admin";
+        if (data.session) {
+          // Cookie SSR scritto PRIMA del redirect: il guard del middleware lo
+          // trova già al primo GET di /admin (niente rimbalzo login→admin→login).
+          scriviCookieToken(data.session.access_token);
+          window.location.href = "/admin";
+        }
       });
 
       // --- LOGIN ---
@@ -360,12 +365,15 @@ const tabTitle = brand.nome || t("login.title");
         btn.disabled = true; btn.textContent = tr("login.connecting");
         const email = $<HTMLInputElement>("email").value.trim();
         const password = $<HTMLInputElement>("password").value;
-        const { error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabaseBrowser.auth.signInWithPassword({ email, password });
         if (error) {
           errorEl.textContent = tr("login.error");
           btn.disabled = false; btn.textContent = tr("login.submit");
           return;
         }
+        // Cookie SSR scritto esplicitamente prima di andare su /admin (il guard
+        // del middleware lo richiede al primo GET).
+        if (data.session) scriviCookieToken(data.session.access_token);
         window.location.href = "/admin";
       });
 

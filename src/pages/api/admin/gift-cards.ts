@@ -70,7 +70,8 @@ function oggiISO(): string {
 
 /** Codice lingua valido per un buono (lingue pubbliche), altrimenti null (= default sito). */
 function lang5(v: unknown): string | null {
-  const c = String(v ?? "").trim().toLowerCase();
+  if (typeof v !== "string") return null; // solo stringhe: niente coercizione di array/oggetti
+  const c = v.trim().toLowerCase();
   return ["fr", "en", "it", "nl", "es"].includes(c) ? c : null;
 }
 

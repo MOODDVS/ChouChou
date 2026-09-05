@@ -116,7 +116,7 @@ function b64urlJson(s: string): any {
  * in tutti questi casi il chiamante ricade sul fallback di rete, che è sicuro
  * perché un token davvero invalido fallisce anche lì.
  */
-async function verificaLocale(token: string): Promise<StaffUser | null> {
+async function verificaLocale(token: string, opts: { ignoraScadenza?: boolean } = {}): Promise<StaffUser | null> {
   const parti = token.split(".");
   if (parti.length !== 3) return null;
 
@@ -143,7 +143,8 @@ async function verificaLocale(token: string): Promise<StaffUser | null> {
       keys = await leggiJwks(true);
       jwk = keys.find((k) => k.kid === header.kid);
     }
-  } catch {
+  } catch (e) {
+    if (opts.ignoraScadenza) throw e; // modalità guard: il chiamante fa fail-open
     return null; // JWKS non raggiungibile → fallback di rete
   }
   if (!jwk) return null;
@@ -166,7 +167,7 @@ async function verificaLocale(token: string): Promise<StaffUser | null> {
 
   // Controllo claim essenziali.
   const now = Math.floor(Date.now() / 1000);
-  if (typeof payload.exp === "number" && payload.exp <= now) return null;
+  if (!opts.ignoraScadenza && typeof payload.exp === "number" && payload.exp <= now) return null;
   if (typeof payload.nbf === "number" && payload.nbf > now + 5) return null;
   if (payload.iss && !String(payload.iss).startsWith(SUPABASE_URL)) return null;
   if (!payload.sub) return null;
@@ -235,6 +236,25 @@ export async function verificaTokenLocale(token: string): Promise<StaffUser | nu
   const user = await verificaLocale(token);
   if (!user || !staffAutorizzato(user)) return null;
   return user;
+}
+
+/**
+ * «Questo browser si è già loggato qui?» — per il GUARD delle pagine /admin
+ * nel middleware: firma valida di uno staff autorizzato, SCADENZA IGNORATA.
+ * Decide solo se RENDERIZZARE la pagina (mai i dati: quelli richiedono sempre
+ * un token vivo via Bearer/verificaStaff). Un token scaduto ma autentico =
+ * utente che torna dopo un'ora → render, e il client rinfresca la sessione.
+ */
+export async function sessioneRiconosciuta(token: string): Promise<boolean> {
+  if (!token) return false;
+  try {
+    // Solo la FIRMA: non si controlla staffAutorizzato qui, altrimenti un utente
+    // loggato ma non provisionato rimbalzerebbe login→admin→login all'infinito
+    // (oggi quel caso lo chiude il client col 401 → signOut, e resta così).
+    return !!(await verificaLocale(token, { ignoraScadenza: true }));
+  } catch {
+    return true; // JWKS irraggiungibile: fail-open (render come prima), mai un loop di login
+  }
 }
 
 /** Risposta standard 401 per richieste non autenticate. */

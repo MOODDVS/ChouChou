@@ -76,7 +76,7 @@ function euro(cents: number): string {
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // Lingue delle email cliente: FR/EN/IT/NL/ES (le "lingue pubbliche").
@@ -2476,7 +2476,8 @@ function euroCents(c: number): string {
 type LangBon = "fr" | "en" | "it" | "nl" | "es";
 const LANGS_BON: LangBon[] = ["fr", "en", "it", "nl", "es"];
 function norm5(l: unknown): LangBon | "" {
-  const c = String(l ?? "").trim().toLowerCase();
+  if (typeof l !== "string") return "";
+  const c = l.trim().toLowerCase();
   return (LANGS_BON as string[]).includes(c) ? (c as LangBon) : "";
 }
 /** Lingua effettiva del buono: quella scelta, altrimenti default pubblico del sito. */
@@ -2578,14 +2579,14 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
       ${indirizzoSped ? `<tr><td class="em-pad" style="padding:8px 44px 0;"><p style="margin:0;color:${tema.muted};font-size:13px;line-height:1.7;">${esc(L.envoiPostal)}&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
       ${
         !perDest && bon.pay_url
-          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${bon.pay_url}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.payer)}</a><p style="margin:12px 0 0;color:${tema.muted};font-size:12px;">${esc(L.payerHint)}</p></td></tr>`
+          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${esc(bon.pay_url)}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.payer)}</a><p style="margin:12px 0 0;color:${tema.muted};font-size:12px;">${esc(L.payerHint)}</p></td></tr>`
           : !perDest && bon.paid === false
             ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><p style="margin:0;color:${tema.accent};font-size:14px;font-weight:bold;">${esc(L.pending)}</p><p style="margin:8px 0 0;color:${tema.muted};font-size:12px;">${esc(L.pendingHint)}</p></td></tr>`
             : ""
       }
       ${
         perDest && bon.pdf_url
-          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${bon.pdf_url}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.telecharger)}</a></td></tr>`
+          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${esc(bon.pdf_url)}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.telecharger)}</a></td></tr>`
           : ""
       }
       <tr><td class="em-pad" style="padding:20px 44px 26px;text-align:center;">

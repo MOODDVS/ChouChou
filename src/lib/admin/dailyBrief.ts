@@ -21,7 +21,7 @@ const LOGO_URL = `${SITE_URL}/icon-512.png`;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 const esc = (t: unknown): string =>
-  String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const euro = (cents: number): string =>
   (cents / 100).toLocaleString("fr-BE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 const cap = (t: string): string => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);

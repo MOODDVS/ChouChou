@@ -124,7 +124,9 @@ function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -148,6 +150,10 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!nome || !email || !messaggio) {
     return new Response(JSON.stringify({ error: "Champs requis manquants" }), { status: 400 });
+  }
+  // Limiti di lunghezza (endpoint pubblico): evita email/push abnormi e abusi.
+  if (nome.length > 120 || email.length > 200 || oggetto.length > 200 || messaggio.length > 5000) {
+    return new Response(JSON.stringify({ error: "Message trop long" }), { status: 400 });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return new Response(JSON.stringify({ error: "Email invalide" }), { status: 400 });

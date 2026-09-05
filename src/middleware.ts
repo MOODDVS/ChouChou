@@ -1,5 +1,6 @@
 import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
+import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 
 /**
  * Host canonico: forza il www.
@@ -151,6 +152,9 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   // Verificato in dev (report-only pulito) prima di attivarlo. 04/09/2026.
   const base = `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`;
   h.set("Content-Security-Policy", admin ? `${base}; script-src 'self' 'nonce-${nonce}'` : base);
+  // Pagine e API admin: MAI in cache (contenuto autenticato; e il nonce CSP è
+  // per-richiesta: una pagina cachata riproporrebbe un nonce vecchio).
+  if (admin || path.startsWith("/api/admin")) h.set("Cache-Control", "no-store");
 
   const host = new URL(context.request.url).hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
@@ -161,4 +165,26 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   return res;
 });
 
-export const onRequest = sequence(securityHeaders, rateLimit, metodoOverride, redirectWww);
+/**
+ * GUARD delle pagine /admin — PRIMA del render.
+ * Senza questo, la pagina admin veniva renderizzata intera (nav compresa) per
+ * chiunque, e solo il JS lato browser rimandava al login: da qui il «lampo»
+ * della nav visto dai non loggati. Ora: cookie di sessione `mdd_at` assente o
+ * con firma non valida → redirect al login prima di renderizzare qualsiasi cosa.
+ * La firma è verificata in locale (JWKS in cache), scadenza ignorata (vedi
+ * sessioneRiconosciuta). Solo pagine (GET/HEAD) e mai login/reset-password.
+ */
+const PUBBLICHE_ADMIN = new Set(["/admin/login", "/admin/reset-password"]);
+const authGuardAdmin = defineMiddleware(async (context, next) => {
+  const { pathname } = new URL(context.request.url);
+  const m = context.request.method;
+  if ((m === "GET" || m === "HEAD") && (pathname === "/admin" || pathname.startsWith("/admin/")) && !PUBBLICHE_ADMIN.has(pathname.replace(/\/$/, ""))) {
+    const token = context.cookies.get("mdd_at")?.value ?? "";
+    if (!(await sessioneRiconosciuta(token))) {
+      return context.redirect("/admin/login", 302);
+    }
+  }
+  return next();
+});
+
+export const onRequest = sequence(securityHeaders, authGuardAdmin, rateLimit, metodoOverride, redirectWww);

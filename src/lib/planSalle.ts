@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./db";
+import { appConfigIn, appConfigEq } from "./appConfigCache";
 
 /**
  * Plan de salle come FONTE DEI POSTI (reservation_plan_mode = "1"):
@@ -34,7 +35,7 @@ export async function maxInsiemePerZona(planMode: string | undefined): Promise<M
   try {
     const [{ data: tavoli, error }, { data: cfg }] = await Promise.all([
       supabaseAdmin.from("restaurant_tables").select("id, zone, seats"),
-      supabaseAdmin.from("app_config").select("value").eq("key", "reservation_plan_links").maybeSingle(),
+      appConfigEq("reservation_plan_links"),
     ]);
     if (error || !tavoli) return null;
     const posti = new Map<string, number>();
@@ -153,10 +154,7 @@ export async function assegnaTavoli(p: {
     const slotMin = minutiDi(p.heure);
     if (slotMin < 0 || !Number.isFinite(p.people) || p.people < 1) return null;
 
-    const { data: cfgRows } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones", "zone_closures_permanent"]);
+    const { data: cfgRows } = await appConfigIn(["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones", "zone_closures_permanent"]);
     const cfg = new Map((cfgRows ?? []).map((r) => [r.key, String(r.value ?? "")]));
     if (cfg.get("reservation_plan_mode") !== "1") return null;
 
@@ -281,8 +279,7 @@ export async function assegnaESalva(
   try {
     // Attribuzione manuale (reservation_auto_tables = "0"): il motore non
     // tocca MAI i tavoli — li mette/toglie il ristoratore dal modale.
-    const { data: at } = await supabaseAdmin
-      .from("app_config").select("value").eq("key", "reservation_auto_tables").maybeSingle();
+    const { data: at } = await appConfigEq("reservation_auto_tables");
     if (String(at?.value ?? "1") === "0") return;
     const scelta = await assegnaTavoli({ ...p, excludeId: id });
     await supabaseAdmin.from("reservations").update({ tables: scelta ? scelta.ids : null }).eq("id", id);

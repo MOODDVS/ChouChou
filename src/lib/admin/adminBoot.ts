@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../db";
 import { cacheOr } from "../cache";
-import { TEMA_CHIAVI, normalizzaLinguePubbliche } from "./superAdmin";
+import { PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI, normalizzaLinguePubbliche } from "./superAdmin";
 import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../i18n/admin";
 
 /**
@@ -31,6 +31,9 @@ export const CHIAVE_PUBLIC_LANGS = "public_languages";
 export const CHIAVE_PUBLIC_DEFAULT = "public_lang_default";
 /** Voce di cache condivisa: invalidarla dopo un salvataggio di lingua/tema/logo. */
 export const CACHE_ADMIN_BOOT = "admin:boot";
+/** Visibilità pagine/tab per i NON super (Réglages): stesse chiavi di /api/admin/pages. */
+export const CHIAVE_PAGES_HIDDEN = "admin_pages_hidden";
+export const CHIAVE_TABS_HIDDEN = "admin_tabs_hidden";
 
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -43,9 +46,12 @@ export interface AdminBoot {
   /** Lingue pubbliche attive (codici, ordine canonico) e predefinita. */
   publicLangs: string[];
   publicLangDefault: string;
+  /** Pagine/tab nascoste ai non-super (chiavi valide soltanto). */
+  hiddenPages: string[];
+  hiddenTabs: string[];
 }
 
-const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr" };
+const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr", hiddenPages: [], hiddenTabs: [] };
 
 /** Stesse regole di validazione dell'endpoint /api/admin/pages. */
 function pulisciTema(grezzo: string): Record<string, string> {
@@ -72,7 +78,7 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       const { data, error } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT]);
+        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT, CHIAVE_PAGES_HIDDEN, CHIAVE_TABS_HIDDEN]);
       if (error) throw error;
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
 
@@ -80,12 +86,17 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       const logo = (m.get(CHIAVE_BRAND_FAVICON) ?? "").trim();
       const pub = normalizzaLinguePubbliche(m.get(CHIAVE_PUBLIC_LANGS) ?? "", m.get(CHIAVE_PUBLIC_DEFAULT) ?? "");
 
+      const lista = (grezzo: string, validi: string[]): string[] => {
+        try { const a = JSON.parse(grezzo || "[]"); return Array.isArray(a) ? a.filter((k) => validi.includes(k)) : []; } catch { return []; }
+      };
       return {
         lang: isAdminLang(l) ? l : ADMIN_LANG_DEFAULT,
         theme: pulisciTema(m.get(CHIAVE_ADMIN_TEMA) ?? ""),
         logo: logo.startsWith("https://") || logo.startsWith("/") ? logo : null,
         publicLangs: pub.langs,
         publicLangDefault: pub.def,
+        hiddenPages: lista(m.get(CHIAVE_PAGES_HIDDEN) ?? "", PAGINE_ADMIN.map((pg) => pg.key)),
+        hiddenTabs: lista(m.get(CHIAVE_TABS_HIDDEN) ?? "", TABS_VALIDI),
       } satisfies AdminBoot;
     });
   } catch {

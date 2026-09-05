@@ -51,7 +51,7 @@ const bg = hex(boot.theme.bg);
 // lo script statico qui sotto li legge e li applica pre-paint. Statico = un solo
 // nonce per-richiesta lo copre (come AdminNav), niente set:html dinamico.
 const flash = { glass: boot.theme.glass === "on", bg: bg || null, logo: boot.logo || null };
-const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash) : "";
+const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).replace(/</g, "\\u003c") : "";
 ---
 
 {/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo

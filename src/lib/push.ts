@@ -170,7 +170,7 @@ export interface ContattoPushInfo {
 /** Notifica all'admin: qualcuno ha scritto dal form di contatto del sito. */
 export async function inviaPushContatto(info: ContattoPushInfo): Promise<PushEsito> {
   const L = await tradPush();
-  const nome = String(info.nome ?? "").trim() || L.client;
+  const nome = String(info.nome ?? "").trim().slice(0, 60) || L.client;
   const extra = (String(info.oggetto ?? "").trim() || String(info.messaggio ?? "").trim()).slice(0, 80);
   const body = extra ? `${nome} · ${extra}` : nome;
   return inviaPush({ title: L.msg, body, url: "/admin", tag: "contact" });

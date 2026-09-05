@@ -138,8 +138,8 @@ const plabel = (slug: string, fallback: string) => {
       </main>
       <AdminFooter />
 
-      <script type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) })}></script>
-      <script type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") })}></script>
+      <script type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) }).replace(/</g, "\\u003c")}></script>
+      <script type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") }).replace(/</g, "\\u003c")}></script>
 
       <!-- Modale ordine (acquisto) -->
       <div class="pmodal" id="omodal" hidden>

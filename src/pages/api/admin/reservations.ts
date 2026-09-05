@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { appConfigIn, appConfigEq } from "../../../lib/appConfigCache";
 import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowResa, inviaConfermaResa, type ResaEmail } from "../../../lib/notifications";
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
@@ -213,7 +214,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const tutte = [...righe.values()];
 
     // Anticipo di prenotazione: momento della résa (fuso ristorante) - created_at.
-    const { data: tzRow } = await supabaseAdmin.from("app_config").select("value").eq("key", "timezone").maybeSingle();
+    const { data: tzRow } = await appConfigEq("timezone");
     const tz = String(tzRow?.value || "Europe/Brussels");
     const offsetMin = (utcMs: number): number => {
       try {
@@ -278,7 +279,7 @@ export const GET: APIRoute = async ({ request, url }) => {
         .select("type, date_from, date_to")
         .lte("date_from", ultimo)
         .gte("date_to", primo),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode", "timezone"]),
+      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "timezone"]),
       supabaseAdmin
         .from("reservations")
         .select("date, service_key, people, status")
@@ -604,11 +605,7 @@ export const PATCH: APIRoute = async ({ request }) => {
         .eq("id", id)
         .maybeSingle();
       if (cur && (cur.status === "confirmed" || cur.status === "seated")) {
-        const { data: tzRow } = await supabaseAdmin
-          .from("app_config")
-          .select("value")
-          .eq("key", "timezone")
-          .maybeSingle();
+        const { data: tzRow } = await appConfigEq("timezone");
         const tz = String(tzRow?.value || "Europe/Brussels");
         let offMin = 0;
         try {
