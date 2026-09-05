@@ -65,6 +65,13 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 - **Test**: 32/32 (forma drop-in, filtro chiavi, TTL, invalidazione, fallback su errore DB, errore non cachato; guard su rotte/metodi/cookie incl. slash finale, `/administrator`, `/api/admin`, POST; sessioneRiconosciuta firma/scadenza/fail-open; parsing liste boot; cookie). esbuild OK su 14 file. `npx astro check` sul Mac. **Nessuna migrazione.**
 - **Prossimi passi possibili (non fatti)**: SSR anche per marketing/settings/agenda (oggi HTML poi fetch API); `temaEmail()` in cache (2 query per email inviata); polling nav ogni 20s (ok).
 
+### 🔁 Propagazione ai 3 clienti + lezione sul deploy Hostinger (05/09)
+- Merge del motore `1f9c983` su **ChouChou** (conflitto su `middleware.ts`, risolto `--theirs`), **La Molisana** e **L'Huile** (entrambi puliti). Build OK, push, migrazione **#70** lanciata su tutti e 3. **Nessuna migrazione pendente.**
+- **⚠️ Lezione**: il guard sembrava non funzionare (in incognito `/admin` rispondeva **200 con 18,8 kB** = pagina admin completa, poi il JS rimandava al login → l'isola compariva lo stesso). Causa: **il deploy Hostinger non era ancora concluso** — il middleware è codice SERVER, quindi finché il processo Node non serve il nuovo `entry.mjs` il guard non esiste. Dopo il deploy `Completed + Current`: `/admin` → **302, 0,5 kB**. Il service worker era stato sospettato ma è innocente (non fa cache: `respondWith(fetch(...))` pass-through; il fetch di rete da 18,8 kB lo dimostra).
+- **Metodo di verifica** (da riusare): DevTools → Network → spuntare **Keep log** (altrimenti la richiesta a `/admin` sparisce al redirect) → incognito su `/admin` → la riga `admin/` deve essere **302**. Se è 200, il deploy non è ancora attivo.
+- **Pulizia**: la cartella `Claude outputs/` (mockup email/PDF buoni mostrati in chat) era finita nel repo e si stava propagando ai clienti → rimossa dal tracking (`git rm --cached`, file lasciati su disco) + regola in `.gitignore`. Sparirà dai clienti al prossimo merge.
+- **Residuo noto (non un bug)**: l'isola può ancora comparire un istante nel caso «cookie presente ma sessione del browser scaduta» (il server renderizza legittimamente, poi il client rimanda al login). Non capita in incognito. Si eliminerebbe nascondendo nav+contenuto finché il client non conferma la sessione — proposto a Enzo, non ancora fatto.
+
 ## 📌 03/09/2026 — sessione Cowork (Feature PRINT on-demand + ciclo di vita prenotazioni)
 
 ### 🖨️ PRINT — prodotti stampabili ordinabili a MOODD (nuova feature, 3 step)

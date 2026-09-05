@@ -22,13 +22,15 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 ---
 
-## ⚠️ Migrazioni pendenti per TUTTI i clienti
-**04/09/2026** — ✅ **#68 print_orders, #69 reservations.extra_minutes, #46 gift_card_orders** già lanciate su **ChouChou, La Molisana, L'Huile** durante i merge del 04/09 (EducazioneNapoletana fuori dal motore).
+## ✅ Migrazioni — nessuna pendente (05/09/2026)
+**Tutti e 3 i clienti allineati al motore `1f9c983`** (ChouChou, La Molisana, L'Huile). EducazioneNapoletana è fuori dal motore.
 
-🟡 **PENDENTE al prossimo merge** (lavoro motore 04/09: buoni regalo multilingua):
-- **`gift_cards_langs.sql`** (#70) — colonne `sender_lang` + `recipient_lang` su gift_cards (lingua email offrant/destinataire + PDF; NULL = default sito pubblico).
+- **04/09** — #68 `print_orders`, #69 `reservations.extra_minutes`, #46 `gift_card_orders`: lanciate su tutti e 3.
+- **05/09** — #70 `gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
 
-Idempotente (`add column if not exists`). **Nessun cron nuovo.** L'API dei buoni è tollerante (ritenta senza le colonne se la #70 non è ancora lanciata), ma senza #70 le lingue scelte non vengono salvate. Le altre modifiche 04/09 (alert conflitto estensione, notifica push form contatti, push tradotte) **non richiedono migrazioni**.
+**Nessun cron nuovo.** Il merge del 05/09 porta anche: CSP `script-src` enforced su `/admin` (nonce per-richiesta), **guard di autenticazione lato server** sulle pagine `/admin` (niente più flash della nav prima del login), cache `app_config` 30s + `/api/admin/pages` da 6 query a 1, revisione di sicurezza (`esc()` con virgolette, `no-store` su admin/api-admin, limiti input form contatti) — **tutto senza migrazioni**.
+
+⚠️ **Lezione deploy (05/09)**: il middleware è codice SERVER. Dopo il push, il deploy Hostinger deve risultare **Completed + Current** PRIMA di testare: un test troppo presto mostra ancora la versione vecchia (successo con ChouChou: `/admin` dava 200 con la pagina admin, poi 302 corretto a deploy concluso). Verifica rapida: incognito su `/admin` → deve rispondere **302**, non 200.
 
 ---
 
