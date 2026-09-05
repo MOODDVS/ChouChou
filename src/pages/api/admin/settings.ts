@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
+import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
 
 export const prerender = false;
@@ -526,5 +527,6 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
+  invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito
   return json({ ok: true });
 };

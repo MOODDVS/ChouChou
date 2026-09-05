@@ -76,6 +76,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 67 | `google_reviews.sql` | Tabella `google_reviews` (sync recensioni Google Business Profile API v4): review_id, resource name, autore/foto/rating/commento, create/update_time, `reply_comment`/`reply_time` (risposta ristorante), synced_at + indice per data. NB: distinta da `/api/reviews` (cache Places API del sito pubblico). |
 | 68 | `print_orders.sql` | Tabella `print_orders` (ordini di prodotti stampati acquistati dal ristoratore presso MOODD, pagati sullo Stripe MOODD): product_slug/label + qty + amount_cents + meta (snapshot), stripe_session_id UNIQUE (idempotenza), status pending/paid/cancelled, buyer_email, paid_at/shipped_at + indice per status. |
 | 69 | `reservations_extra_minutes.sql` | `extra_minutes` (int, default 0) su reservations: minuti di estensione del tavolo (+15/+30/+45 dal modale). Finestra tavolo = heure + durée + extra_minutes; usata da fase/timer, auto-Fini, disponibilità pubblica e piano sala. |
+| 70 | `gift_cards_langs.sql` | `sender_lang` + `recipient_lang` (text) su gift_cards: lingua dell'email all'offrant e lingua dell'email al destinataire + del PDF. NULL = lingua predefinita del sito pubblico. Il PDF (on-demand) legge `recipient_lang`. Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

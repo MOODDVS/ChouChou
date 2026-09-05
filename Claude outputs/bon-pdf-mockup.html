@@ -1,0 +1,64 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup PDF — Bon cadeau</title>
+<style>
+  body{margin:0;background:#ececef;font-family:Arial,Helvetica,sans-serif;padding:26px 12px 60px}
+  .head{max-width:620px;margin:0 auto 18px;text-align:center}
+  .head h2{margin:0 0 4px;font-size:19px;color:#111}
+  .head p{margin:0;color:#777;font-size:13px}
+  .fr{display:inline-block;margin-top:8px;font-size:11px;color:#b06a2a;background:#fff2e6;border:1px solid #ffd7b0;border-radius:999px;padding:2px 10px;font-weight:700}
+  .stage{display:flex;justify-content:center}
+  /* A4 in punti: 595.28 x 841.89 pt */
+  .sheet{position:relative;width:595.28pt;height:841.89pt;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.18);overflow:hidden}
+  .band{position:absolute;top:0;left:0;right:0;height:111pt;background:#231F20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9pt}
+  .band .nom{color:#fff;font-size:22pt;font-weight:700;letter-spacing:.5pt}
+  .band .sub{color:#DFAB4E;font-size:11pt;letter-spacing:3pt}
+  .codebox{position:absolute;top:156.9pt;left:60pt;width:475.28pt;height:165pt;border:2pt solid #DFAB4E;background:#FCF7ED;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12pt}
+  .codebox .lbl{color:#736E6B;font-size:10pt;letter-spacing:4pt}
+  .codebox .code{color:#231F20;font-size:26pt;font-weight:700;letter-spacing:3pt}
+  .codebox .val{color:#DFAB4E;font-size:30pt;font-weight:700}
+  .details{position:absolute;top:352pt;left:70pt;width:455.28pt}
+  .drow{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:8pt;margin-bottom:20pt;border-bottom:.5pt solid #E0DEDC}
+  .drow .k{color:#736E6B;font-size:11pt}
+  .drow .v{color:#231F20;font-size:11pt;font-weight:700}
+  .msg{position:absolute;top:560pt;left:70pt;width:455.28pt;color:#736E6B;font-size:12pt}
+  .foot{position:absolute;left:40pt;right:40pt;text-align:center;color:#736E6B;font-size:10pt;line-height:1.7}
+  .foot.n1{top:678pt}
+  .foot.n2{top:718pt}
+  .foot.n3{top:735pt}
+  .cap{max-width:620px;margin:16px auto 0;color:#777;font-size:12.5px;line-height:1.6;text-align:center}
+</style></head>
+<body>
+  <div class="head">
+    <h2>Bon cadeau — PDF stampabile</h2>
+    <p>Generato al volo da <code>/api/bon-pdf</code> con pdf-lib, dati live dal database.</p>
+    <span class="fr">oggi solo in francese</span>
+  </div>
+  <div class="stage">
+    <div class="sheet">
+      <div class="band">
+        <div class="nom">Chez Marius</div>
+        <div class="sub">BON CADEAU</div>
+      </div>
+
+      <div class="codebox">
+        <div class="lbl">VOTRE CODE</div>
+        <div class="code">MARIUS-7K2P</div>
+        <div class="val">50,00 EUR</div>
+      </div>
+
+      <div class="details">
+        <div class="drow"><span class="k">Beneficiaire</span><span class="v">Marie Dupont</span></div>
+        <div class="drow"><span class="k">Offert par</span><span class="v">Jean Martin</span></div>
+        <div class="drow"><span class="k">Valeur</span><span class="v">50,00 EUR</span></div>
+        <div class="drow"><span class="k">A utiliser avant le</span><span class="v">31/12/2026</span></div>
+      </div>
+
+      <div class="msg">" Joyeux anniversaire Marie, régale-toi ! "</div>
+
+      <div class="foot n1">Presentez ce code sur place ou saisissez-le lors de votre commande en ligne.</div>
+      <div class="foot n2">Chez Marius - 12 rue des Oliviers, 1000 Bruxelles</div>
+      <div class="foot n3">+32 2 123 45 67</div>
+    </div>
+  </div>
+  <p class="cap">Nota: se il buono è stato usato in parte, tra «Valeur» e la scadenza compare anche una riga <b>«Solde restant»</b> col saldo residuo (letto dal DB in tempo reale).</p>
+</body></html>

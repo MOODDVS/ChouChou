@@ -58,6 +58,9 @@ alter table public.gift_cards enable row level security;
 grant select, insert, update, delete on public.gift_cards to service_role;
 -- Colonna aggiunta dopo il primo rilascio: idempotente per tabelle già create.
 alter table public.gift_cards add column if not exists recipient_phone text;
+-- #70: lingue di mittente/destinatario (email + PDF). NULL = default sito pubblico.
+alter table public.gift_cards add column if not exists sender_lang    text;
+alter table public.gift_cards add column if not exists recipient_lang text;
 alter table public.gift_cards add column if not exists sender_email text;
 alter table public.gift_cards add column if not exists sender_phone text;
 alter table public.gift_cards add column if not exists ship boolean not null default false;

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { temaEmail, type TemaEmail } from "./temaBrand";
 import { adminLang } from "./admin/adminLang";
+import { caricaBootAdmin } from "./admin/adminBoot";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
 import { TIMEZONE } from "./slots";
@@ -75,7 +76,7 @@ function euro(cents: number): string {
 }
 
 function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // Lingue delle email cliente: FR/EN/IT/NL/ES (le "lingue pubbliche").
@@ -2454,6 +2455,13 @@ export interface BonEmail {
   pay_url?: string | null;
   pdf_url?: string | null;
   paid?: boolean;
+  // #70: lingue scelte nel modale (fallback = default pubblico)
+  sender_lang?: string | null;
+  recipient_lang?: string | null;
+  // letti per l'email al ristoratore (presenti nel meta del buono)
+  recipient_email?: string | null;
+  sender_email?: string | null;
+  payment_method?: string | null;
 }
 
 function euroCents(c: number): string {
@@ -2465,34 +2473,78 @@ function euroCents(c: number): string {
  * `a`: "destinataire" = a chi riceve il regalo · "offrant" = copia a chi l'offre.
  * Non lancia mai eccezioni.
  */
+type LangBon = "fr" | "en" | "it" | "nl" | "es";
+const LANGS_BON: LangBon[] = ["fr", "en", "it", "nl", "es"];
+function norm5(l: unknown): LangBon | "" {
+  if (typeof l !== "string") return "";
+  const c = l.trim().toLowerCase();
+  return (LANGS_BON as string[]).includes(c) ? (c as LangBon) : "";
+}
+/** Lingua effettiva del buono: quella scelta, altrimenti default pubblico del sito. */
+async function linguaBon(scelta: unknown): Promise<LangBon> {
+  const s = norm5(scelta);
+  if (s) return s;
+  try { return norm5((await caricaBootAdmin()).publicLangDefault) || "fr"; } catch { return "fr"; }
+}
+
+interface TxtBon {
+  subjDest: (resto: string, val: string) => string;
+  subjOffr: (code: string) => string;
+  titleDest: string;
+  titleOffr: string;
+  leadDestWith: (senderHtml: string, resto: string) => string;
+  leadDestNo: (resto: string) => string;
+  leadOffrWith: (recHtml: string) => string;
+  leadOffrNo: string;
+  votreCode: string;
+  valeur: string;
+  aUtiliser: string;
+  fraisEnvoi: string;
+  envoiPostal: string;
+  payer: string;
+  payerHint: string;
+  pending: string;
+  pendingHint: string;
+  telecharger: string;
+  footNote: string;
+  valable: (date: string) => string;
+}
+
+const TXT_BON: Record<LangBon, TxtBon> = {
+  fr: { subjDest: (r, v) => `Votre bon cadeau ${r} — ${v}`, subjOffr: (c) => `Bon cadeau créé — ${c}`, titleDest: "Votre bon cadeau", titleOffr: "Votre bon cadeau a été créé", leadDestWith: (s, r) => `Bonne nouvelle&nbsp;! ${s} vous offre un bon cadeau à utiliser chez ${r}.`, leadDestNo: (r) => `Vous avez reçu un bon cadeau à utiliser chez ${r}.`, leadOffrWith: (n) => `Voici le récapitulatif du bon cadeau destiné à ${n}.`, leadOffrNo: "Voici le récapitulatif de votre bon cadeau.", votreCode: "Votre code", valeur: "Valeur", aUtiliser: "À utiliser avant le", fraisEnvoi: "Frais d'envoi", envoiPostal: "Envoi postal", payer: "Payer maintenant", payerHint: "Le bon sera activé dès réception du paiement.", pending: "Paiement en attente", pendingHint: "Le restaurant vous transmettra le lien de paiement ; le bon sera activé dès réception.", telecharger: "Télécharger le PDF", footNote: "Présentez ce code sur place ou saisissez-le lors de votre commande en ligne.", valable: (d) => ` Valable jusqu'au ${d}.` },
+  en: { subjDest: (r, v) => `Your gift card ${r} — ${v}`, subjOffr: (c) => `Gift card created — ${c}`, titleDest: "Your gift card", titleOffr: "Your gift card has been created", leadDestWith: (s, r) => `Good news! ${s} is giving you a gift card to use at ${r}.`, leadDestNo: (r) => `You have received a gift card to use at ${r}.`, leadOffrWith: (n) => `Here is the summary of the gift card for ${n}.`, leadOffrNo: "Here is the summary of your gift card.", votreCode: "Your code", valeur: "Value", aUtiliser: "Valid until", fraisEnvoi: "Shipping fee", envoiPostal: "Postal delivery", payer: "Pay now", payerHint: "The card will be activated once payment is received.", pending: "Payment pending", pendingHint: "The restaurant will send you the payment link; the card will be activated once received.", telecharger: "Download the PDF", footNote: "Show this code on site or enter it when ordering online.", valable: (d) => ` Valid until ${d}.` },
+  it: { subjDest: (r, v) => `Il tuo buono regalo ${r} — ${v}`, subjOffr: (c) => `Buono regalo creato — ${c}`, titleDest: "Il tuo buono regalo", titleOffr: "Il tuo buono regalo è stato creato", leadDestWith: (s, r) => `Buona notizia! ${s} ti offre un buono regalo da usare da ${r}.`, leadDestNo: (r) => `Hai ricevuto un buono regalo da usare da ${r}.`, leadOffrWith: (n) => `Ecco il riepilogo del buono regalo destinato a ${n}.`, leadOffrNo: "Ecco il riepilogo del tuo buono regalo.", votreCode: "Il tuo codice", valeur: "Valore", aUtiliser: "Da usare entro il", fraisEnvoi: "Spese di spedizione", envoiPostal: "Spedizione postale", payer: "Paga ora", payerHint: "Il buono sarà attivato alla ricezione del pagamento.", pending: "Pagamento in attesa", pendingHint: "Il ristorante ti invierà il link di pagamento; il buono sarà attivato alla ricezione.", telecharger: "Scarica il PDF", footNote: "Presenta questo codice sul posto o inseriscilo al momento dell'ordine online.", valable: (d) => ` Valido fino al ${d}.` },
+  nl: { subjDest: (r, v) => `Je cadeaubon ${r} — ${v}`, subjOffr: (c) => `Cadeaubon aangemaakt — ${c}`, titleDest: "Je cadeaubon", titleOffr: "Je cadeaubon is aangemaakt", leadDestWith: (s, r) => `Goed nieuws! ${s} biedt je een cadeaubon aan om te gebruiken bij ${r}.`, leadDestNo: (r) => `Je hebt een cadeaubon ontvangen om te gebruiken bij ${r}.`, leadOffrWith: (n) => `Hier is het overzicht van de cadeaubon bestemd voor ${n}.`, leadOffrNo: "Hier is het overzicht van je cadeaubon.", votreCode: "Je code", valeur: "Waarde", aUtiliser: "Te gebruiken vóór", fraisEnvoi: "Verzendkosten", envoiPostal: "Verzending per post", payer: "Nu betalen", payerHint: "De bon wordt geactiveerd zodra de betaling is ontvangen.", pending: "Betaling in afwachting", pendingHint: "Het restaurant stuurt je de betaallink; de bon wordt geactiveerd zodra deze is ontvangen.", telecharger: "Download de PDF", footNote: "Toon deze code ter plaatse of voer hem in bij je online bestelling.", valable: (d) => ` Geldig tot ${d}.` },
+  es: { subjDest: (r, v) => `Tu tarjeta regalo ${r} — ${v}`, subjOffr: (c) => `Tarjeta regalo creada — ${c}`, titleDest: "Tu tarjeta regalo", titleOffr: "Tu tarjeta regalo ha sido creada", leadDestWith: (s, r) => `¡Buenas noticias! ${s} te ofrece una tarjeta regalo para usar en ${r}.`, leadDestNo: (r) => `Has recibido una tarjeta regalo para usar en ${r}.`, leadOffrWith: (n) => `Aquí tienes el resumen de la tarjeta regalo destinada a ${n}.`, leadOffrNo: "Aquí tienes el resumen de tu tarjeta regalo.", votreCode: "Tu código", valeur: "Valor", aUtiliser: "Usar antes del", fraisEnvoi: "Gastos de envío", envoiPostal: "Envío postal", payer: "Pagar ahora", payerHint: "La tarjeta se activará al recibir el pago.", pending: "Pago pendiente", pendingHint: "El restaurante te enviará el enlace de pago; la tarjeta se activará al recibirlo.", telecharger: "Descargar el PDF", footNote: "Muestra este código en el local o introdúcelo al hacer tu pedido online.", valable: (d) => ` Válido hasta el ${d}.` },
+};
+
 export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant", dest: string): Promise<void> {
   if (!resend || !RESEND_FROM || !dest) {
     console.warn("Resend non configurato: salto l'email du bon cadeau");
     return;
   }
+  const perDest = a === "destinataire";
+  const L = TXT_BON[await linguaBon(perDest ? bon.recipient_lang : bon.sender_lang)];
   const dati = await datiRistorante();
   const tema = await temaEmail();
-  const perDest = a === "destinataire";
   const nomeDest = String(bon.recipient_name ?? "").trim();
   const nomeOffr = String(bon.sender_name ?? "").trim();
   const scadenza = bon.expires_at ? String(bon.expires_at).split("-").reverse().join("/") : "";
 
-  const title = perDest ? "Votre bon cadeau" : "Votre bon cadeau a été créé";
+  const title = perDest ? L.titleDest : L.titleOffr;
+  const offrHtml = `<strong style="color:${tema.title};">${esc(nomeOffr)}</strong>`;
+  const destHtml = `<strong style="color:${tema.title};">${esc(nomeDest)}</strong>`;
   const lead = perDest
-    ? (nomeOffr
-        ? `Bonne nouvelle&nbsp;! <strong style="color:${tema.title};">${esc(nomeOffr)}</strong> vous offre un bon cadeau à utiliser chez ${esc(dati.nome)}.`
-        : `Vous avez reçu un bon cadeau à utiliser chez ${esc(dati.nome)}.`)
-    : (nomeDest
-        ? `Voici le récapitulatif du bon cadeau destiné à <strong style="color:${tema.title};">${esc(nomeDest)}</strong>.`
-        : "Voici le récapitulatif de votre bon cadeau.");
+    ? (nomeOffr ? L.leadDestWith(offrHtml, esc(dati.nome)) : L.leadDestNo(esc(dati.nome)))
+    : (nomeDest ? L.leadOffrWith(destHtml) : L.leadOffrNo);
 
   const riga = (k: string, v: string) =>
     `<tr><td style="padding:12px 16px;border-bottom:1px solid ${tema.border};color:${tema.muted};font-size:14px;">${esc(k)}</td><td style="padding:12px 16px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-weight:bold;">${esc(v)}</td></tr>`;
 
   const righe = [
-    riga("Valeur", euroCents(bon.initial_cents)),
-    scadenza ? riga("À utiliser avant le", scadenza) : "",
-    bon.ship && bon.shipping_cents ? riga("Frais d'envoi", euroCents(bon.shipping_cents)) : "",
+    riga(L.valeur, euroCents(bon.initial_cents)),
+    scadenza ? riga(L.aUtiliser, scadenza) : "",
+    bon.ship && bon.shipping_cents ? riga(L.fraisEnvoi, euroCents(bon.shipping_cents)) : "",
   ].join("");
 
   const indirizzoSped = bon.ship
@@ -2512,7 +2564,7 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
       <tr><td class="em-pad" style="padding:26px 44px 6px;text-align:center;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px dashed ${tema.accent};border-radius:12px;">
           <tr><td style="padding:22px 16px;text-align:center;">
-            <p style="margin:0;color:${tema.muted};font-size:11px;letter-spacing:3px;text-transform:uppercase;">Votre code</p>
+            <p style="margin:0;color:${tema.muted};font-size:11px;letter-spacing:3px;text-transform:uppercase;">${esc(L.votreCode)}</p>
             <p style="margin:10px 0 0;color:${tema.accent};font-size:28px;letter-spacing:3px;font-weight:bold;">${esc(bon.code)}</p>
             <p style="margin:12px 0 0;color:${tema.title};font-size:22px;font-weight:bold;">${esc(euroCents(bon.initial_cents))}</p>
           </td></tr>
@@ -2524,21 +2576,21 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
           ${righe}
         </table>
       </td></tr>
-      ${indirizzoSped ? `<tr><td class="em-pad" style="padding:8px 44px 0;"><p style="margin:0;color:${tema.muted};font-size:13px;line-height:1.7;">Envoi postal&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
+      ${indirizzoSped ? `<tr><td class="em-pad" style="padding:8px 44px 0;"><p style="margin:0;color:${tema.muted};font-size:13px;line-height:1.7;">${esc(L.envoiPostal)}&nbsp;: ${esc(indirizzoSped)}</p></td></tr>` : ""}
       ${
         !perDest && bon.pay_url
-          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${bon.pay_url}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Payer maintenant</a><p style="margin:12px 0 0;color:${tema.muted};font-size:12px;">Le bon sera activé dès réception du paiement.</p></td></tr>`
+          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${esc(bon.pay_url)}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.payer)}</a><p style="margin:12px 0 0;color:${tema.muted};font-size:12px;">${esc(L.payerHint)}</p></td></tr>`
           : !perDest && bon.paid === false
-            ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><p style="margin:0;color:${tema.accent};font-size:14px;font-weight:bold;">Paiement en attente</p><p style="margin:8px 0 0;color:${tema.muted};font-size:12px;">Le restaurant vous transmettra le lien de paiement&nbsp;; le bon sera activé dès réception.</p></td></tr>`
+            ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><p style="margin:0;color:${tema.accent};font-size:14px;font-weight:bold;">${esc(L.pending)}</p><p style="margin:8px 0 0;color:${tema.muted};font-size:12px;">${esc(L.pendingHint)}</p></td></tr>`
             : ""
       }
       ${
         perDest && bon.pdf_url
-          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${bon.pdf_url}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">Télécharger le PDF</a></td></tr>`
+          ? `<tr><td class="em-pad" style="padding:22px 44px 4px;text-align:center;"><a href="${esc(bon.pdf_url)}" style="display:inline-block;background:${tema.accent};color:${tema.onAccent};text-decoration:none;font-size:15px;font-weight:bold;padding:14px 34px;border-radius:999px;">${esc(L.telecharger)}</a></td></tr>`
           : ""
       }
       <tr><td class="em-pad" style="padding:20px 44px 26px;text-align:center;">
-        <p style="margin:0;color:${tema.muted};font-size:13px;line-height:1.7;">Présentez ce code sur place ou saisissez-le lors de votre commande en ligne.${scadenza ? ` Valable jusqu'au ${esc(scadenza)}.` : ""}</p>
+        <p style="margin:0;color:${tema.muted};font-size:13px;line-height:1.7;">${esc(L.footNote)}${scadenza ? esc(L.valable(scadenza)) : ""}</p>
       </td></tr>
       <tr><td class="em-pad" style="padding:22px 44px;border-top:1px solid ${tema.border};text-align:center;">
         <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.nome)}<br>${esc(dati.indirizzo ?? "")}</p>
@@ -2551,11 +2603,100 @@ export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant
       from: RESEND_FROM,
       to: dest,
       bcc: BCC,
-      subject: perDest ? `Votre bon cadeau ${dati.nome} — ${euroCents(bon.initial_cents)}` : `Bon cadeau créé — ${bon.code}`,
+      subject: perDest ? L.subjDest(dati.nome, euroCents(bon.initial_cents)) : L.subjOffr(bon.code),
       html: avvolgiTema(html, tema),
     });
   } catch (e) {
     console.error("Errore email bon cadeau:", e);
+  }
+}
+
+// ---- Email al RISTORATORE alla creazione di un buono (lingua ADMIN) ----
+interface TxtBonAdmin {
+  subject: (code: string) => string;
+  title: string;
+  intro: string;
+  code: string; value: string; beneficiaire: string; offertPar: string;
+  emailDest: string; emailOffr: string; paymentMethod: string; status: string;
+  paid: string; unpaid: string; expiry: string; noExpiry: string; shipping: string; messageLbl: string;
+  mCash: string; mCard: string; mLink: string;
+}
+const TXT_BON_ADMIN: Record<LangBon, TxtBonAdmin> = {
+  fr: { subject: (c) => `Nouveau bon cadeau créé — ${c}`, title: "Nouveau bon cadeau", intro: "Un bon cadeau vient d'être créé. Voici le récapitulatif.", code: "Code", value: "Valeur", beneficiaire: "Bénéficiaire", offertPar: "Offert par", emailDest: "Email destinataire", emailOffr: "Email offrant", paymentMethod: "Paiement", status: "Statut", paid: "Payé", unpaid: "En attente de paiement", expiry: "Échéance", noExpiry: "Sans échéance", shipping: "Envoi postal", messageLbl: "Message", mCash: "Espèces", mCard: "Carte", mLink: "Lien de paiement" },
+  en: { subject: (c) => `New gift card created — ${c}`, title: "New gift card", intro: "A gift card has just been created. Here is the summary.", code: "Code", value: "Value", beneficiaire: "Recipient", offertPar: "From", emailDest: "Recipient email", emailOffr: "Sender email", paymentMethod: "Payment", status: "Status", paid: "Paid", unpaid: "Awaiting payment", expiry: "Expiry", noExpiry: "No expiry", shipping: "Postal delivery", messageLbl: "Message", mCash: "Cash", mCard: "Card", mLink: "Payment link" },
+  it: { subject: (c) => `Nuovo buono regalo creato — ${c}`, title: "Nuovo buono regalo", intro: "È stato appena creato un buono regalo. Ecco il riepilogo.", code: "Codice", value: "Valore", beneficiaire: "Destinatario", offertPar: "Offerto da", emailDest: "Email destinatario", emailOffr: "Email offerente", paymentMethod: "Pagamento", status: "Stato", paid: "Pagato", unpaid: "In attesa di pagamento", expiry: "Scadenza", noExpiry: "Senza scadenza", shipping: "Spedizione postale", messageLbl: "Messaggio", mCash: "Contanti", mCard: "Carta", mLink: "Link di pagamento" },
+  nl: { subject: (c) => `Nieuwe cadeaubon aangemaakt — ${c}`, title: "Nieuwe cadeaubon", intro: "Er is zojuist een cadeaubon aangemaakt. Hier is het overzicht.", code: "Code", value: "Waarde", beneficiaire: "Begunstigde", offertPar: "Aangeboden door", emailDest: "E-mail begunstigde", emailOffr: "E-mail aanbieder", paymentMethod: "Betaling", status: "Status", paid: "Betaald", unpaid: "In afwachting van betaling", expiry: "Vervaldatum", noExpiry: "Geen vervaldatum", shipping: "Verzending per post", messageLbl: "Bericht", mCash: "Contant", mCard: "Kaart", mLink: "Betaallink" },
+  es: { subject: (c) => `Nueva tarjeta regalo creada — ${c}`, title: "Nueva tarjeta regalo", intro: "Se acaba de crear una tarjeta regalo. Aquí tienes el resumen.", code: "Código", value: "Valor", beneficiaire: "Beneficiario", offertPar: "Ofrecido por", emailDest: "Email destinatario", emailOffr: "Email ofertante", paymentMethod: "Pago", status: "Estado", paid: "Pagado", unpaid: "Pendiente de pago", expiry: "Vencimiento", noExpiry: "Sin vencimiento", shipping: "Envío postal", messageLbl: "Mensaje", mCash: "Efectivo", mCard: "Tarjeta", mLink: "Enlace de pago" },
+};
+
+/** Indirizzo email del ristoratore per le notifiche (notify > contact > public > CLIENT). */
+async function emailRistoratore(): Promise<string> {
+  try {
+    const { data } = await supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_notify_email", "contact_emails", "public_email"]);
+    const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
+    const notif = m.get("reservation_notify_email");
+    if (notif) return notif;
+    const contact = (m.get("contact_emails") ?? "").split(",").map((e) => e.trim()).filter(Boolean)[0];
+    if (contact) return contact;
+    const pub = m.get("public_email");
+    if (pub) return pub;
+  } catch { /* best-effort */ }
+  return CLIENT.email || "";
+}
+
+/** Notifica al ristoratore: un buono e' stato creato (lingua ADMIN). Best-effort. */
+export async function emailBonRistoratore(bon: BonEmail): Promise<void> {
+  const dest = await emailRistoratore();
+  if (!resend || !RESEND_FROM || !dest) {
+    console.warn("Resend/email ristoratore non configurati: salto notifica bon");
+    return;
+  }
+  const L = TXT_BON_ADMIN[norm5(await adminLang()) || "fr"];
+  const dati = await datiRistorante();
+  const tema = await temaEmail();
+  const scadenza = bon.expires_at ? String(bon.expires_at).split("-").reverse().join("/") : "";
+  const metodo = bon.payment_method === "card" ? L.mCard : bon.payment_method === "link" ? L.mLink : L.mCash;
+  const statoPag = bon.paid === false ? L.unpaid : L.paid;
+
+  const riga = (k: string, v: string) =>
+    v ? `<tr><td style="padding:12px 16px;border-bottom:1px solid ${tema.border};color:${tema.muted};font-size:14px;">${esc(k)}</td><td style="padding:12px 16px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:14px;text-align:right;font-weight:bold;">${esc(v)}</td></tr>` : "";
+
+  const righe = [
+    riga(L.code, bon.code),
+    riga(L.value, euroCents(bon.initial_cents)),
+    riga(L.beneficiaire, String(bon.recipient_name ?? "")),
+    riga(L.emailDest, String(bon.recipient_email ?? "")),
+    riga(L.offertPar, String(bon.sender_name ?? "")),
+    riga(L.emailOffr, String(bon.sender_email ?? "")),
+    riga(L.paymentMethod, metodo),
+    riga(L.status, statoPag),
+    riga(L.expiry, scadenza || L.noExpiry),
+    bon.ship && bon.shipping_cents ? riga(L.shipping, euroCents(bon.shipping_cents)) : "",
+  ].join("");
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${tema.accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr><td class="em-pad" style="padding:36px 44px 0;text-align:center;">
+        <h1 style="margin:0;color:${tema.title};font-size:24px;letter-spacing:1px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${esc(L.title)}</h1>
+        <p style="margin:14px 0 0;color:${tema.text};font-size:15px;line-height:1.6;">${esc(L.intro)}</p>
+      </td></tr>
+      <tr><td class="em-pad" style="padding:22px 44px 8px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${tema.border};border-radius:8px;">
+          ${righe}
+        </table>
+      </td></tr>
+      ${bon.message ? `<tr><td class="em-pad" style="padding:12px 44px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:3px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:14px;font-style:italic;line-height:1.6;">${esc(L.messageLbl)}: « ${esc(bon.message)} »</td></tr></table></td></tr>` : ""}
+      <tr><td class="em-pad" style="padding:22px 44px;border-top:1px solid ${tema.border};text-align:center;">
+        <p style="margin:0 0 12px;color:${tema.muted};font-size:12px;line-height:1.8;">${esc(dati.nome)}</p>
+        <img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" />
+      </td></tr>
+    </table>
+`;
+  try {
+    await resend.emails.send({ from: RESEND_FROM, to: dest, bcc: BCC, subject: L.subject(bon.code), html: avvolgiTema(html, tema) });
+  } catch (e) {
+    console.error("Errore email bon ristoratore:", e);
   }
 }
 

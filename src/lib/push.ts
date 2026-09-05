@@ -1,5 +1,7 @@
 import webpush from "web-push";
 import { supabaseAdmin } from "./db";
+import { adminLang } from "./admin/adminLang";
+import type { AdminLang } from "../i18n/admin";
 
 // VAPID dalle env (lazy: nessun throw all'import se mancano -> push semplicemente saltati).
 const PUB = import.meta.env.PUBLIC_VAPID_KEY ?? process.env.PUBLIC_VAPID_KEY ?? "";
@@ -62,6 +64,35 @@ export async function inviaPush(msg: PushMsg): Promise<PushEsito> {
 }
 
 // ---- Helper ad alto livello: notifiche pronte per gli eventi dell'admin ----
+// Le notifiche vanno al RISTORATORE → testo nella LINGUA DELL'ADMIN
+// (app_config admin_lang, 5 lingue, fallback FR). adminLang() è in cache.
+
+interface TradPush {
+  client: string;
+  pers: string;
+  resaNew: string;
+  resaDemande: string;
+  resaModif: string;
+  resaAnnul: string;
+  ordre: string;
+  avisNew: string;
+  avisMulti: string;
+  avisMultiBody: (n: number) => string;
+  msg: string;
+}
+
+const TRAD_PUSH: Record<AdminLang, TradPush> = {
+  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message" },
+  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message" },
+  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio" },
+  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht" },
+  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje" },
+};
+
+/** Testi delle notifiche nella lingua admin (fallback FR, mai lancia). */
+async function tradPush(): Promise<TradPush> {
+  try { return TRAD_PUSH[await adminLang()] ?? TRAD_PUSH.fr; } catch { return TRAD_PUSH.fr; }
+}
 
 export interface ResaPushInfo {
   first_name: string;
@@ -72,16 +103,17 @@ export interface ResaPushInfo {
 }
 
 // kind: "new" (confermata) | "demande" (in attesa) | "modif" | "annul"
-export function inviaPushResa(kind: "new" | "demande" | "modif" | "annul", r: ResaPushInfo): Promise<PushEsito> {
+export async function inviaPushResa(kind: "new" | "demande" | "modif" | "annul", r: ResaPushInfo): Promise<PushEsito> {
+  const L = await tradPush();
   const parti = String(r.date ?? "").split("-");
   const quando = parti.length === 3 ? `${parti[2]}/${parti[1]}` : String(r.date ?? "");
-  const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "Client";
-  const body = `${nome} · ${r.people} pers. · ${quando} ${r.heure ?? ""}`.trim();
+  const nome = `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || L.client;
+  const body = `${nome} · ${r.people} ${L.pers} · ${quando} ${r.heure ?? ""}`.trim();
   const title =
-    kind === "new" ? "Nouvelle réservation" :
-    kind === "demande" ? "Nouvelle demande de réservation" :
-    kind === "modif" ? "Réservation modifiée" :
-    "Réservation annulée";
+    kind === "new" ? L.resaNew :
+    kind === "demande" ? L.resaDemande :
+    kind === "modif" ? L.resaModif :
+    L.resaAnnul;
   return inviaPush({ title, body, url: "/admin/reservations" });
 }
 
@@ -91,11 +123,12 @@ export interface OrdinePushInfo {
   total_cents: number;
 }
 
-export function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
-  const nome = String(o.customer_name ?? "").trim() || "Client";
+export async function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
+  const L = await tradPush();
+  const nome = String(o.customer_name ?? "").trim() || L.client;
   const tot = (Number(o.total_cents ?? 0) / 100).toFixed(2).replace(".", ",");
   const body = `${nome} · ${tot} € · #${o.numero}`;
-  return inviaPush({ title: "Nouvelle commande", body, url: "/admin/orders" });
+  return inviaPush({ title: L.ordre, body, url: "/admin/orders" });
 }
 
 
@@ -106,25 +139,41 @@ export interface RecensionePushInfo {
 }
 
 /** Notifica all'admin: nuova/e recensione/i Google. */
-export function inviaPushRecensione(info: RecensionePushInfo): Promise<PushEsito> {
+export async function inviaPushRecensione(info: RecensionePushInfo): Promise<PushEsito> {
+  const L = await tradPush();
   const n = Math.max(1, Number(info.count) || 1);
   if (n > 1) {
     return inviaPush({
-      title: "Nouveaux avis Google",
-      body: `${n} nouveaux avis à découvrir`,
+      title: L.avisMulti,
+      body: L.avisMultiBody(n),
       url: "/admin/google",
       tag: "google-review",
     });
   }
   const r = Math.max(0, Math.min(5, Math.round(Number(info.rating) || 0)));
   const stelle = "★".repeat(r) + "☆".repeat(5 - r);
-  const nome = String(info.author ?? "").trim() || "Client";
+  const nome = String(info.author ?? "").trim() || L.client;
   return inviaPush({
-    title: "Nouvel avis Google",
+    title: L.avisNew,
     body: `${stelle} · ${nome}`,
     url: "/admin/google",
     tag: "google-review",
   });
+}
+
+export interface ContattoPushInfo {
+  nome: string;
+  oggetto?: string;
+  messaggio?: string;
+}
+
+/** Notifica all'admin: qualcuno ha scritto dal form di contatto del sito. */
+export async function inviaPushContatto(info: ContattoPushInfo): Promise<PushEsito> {
+  const L = await tradPush();
+  const nome = String(info.nome ?? "").trim().slice(0, 60) || L.client;
+  const extra = (String(info.oggetto ?? "").trim() || String(info.messaggio ?? "").trim()).slice(0, 80);
+  const body = extra ? `${nome} · ${extra}` : nome;
+  return inviaPush({ title: L.msg, body, url: "/admin", tag: "contact" });
 }
 
 export interface PushDettaglio { host: string; ok: boolean; code?: number }

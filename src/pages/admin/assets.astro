@@ -273,7 +273,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
                   <div class="site-slots">
                     {slots.map((s) => (
                       <div class="card site-slot" data-key={s.key} data-fallback={s.fallback}>
-                        <div class="card-img"><img src={s.fallback} alt="" loading="lazy" onerror="this.classList.add('is-broken')" /></div>
+                        <div class="card-img"><img src={s.fallback} alt="" loading="lazy" /></div>
                         <div class="card-body">
                           <div class="card-name">{s.label}</div>
                           <div class="card-meta"><span class="tag tag-l">{s.page}</span><span class="tag tag-u site-perso" hidden>{t("as.personalized")}</span></div>
@@ -342,6 +342,13 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+
+      // Immagini vetrina rotte → classe .is-broken (rimpiazza l'onerror inline, per la CSP).
+      document.querySelectorAll<HTMLImageElement>(".site-slot .card-img img").forEach((img) => {
+        const brk = () => img.classList.add("is-broken");
+        if (img.complete && img.naturalWidth === 0) brk();
+        img.addEventListener("error", brk);
+      });
 
       type Img = {
         bucket: "menu" | "popups";

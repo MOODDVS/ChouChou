@@ -37,11 +37,15 @@ export const supabaseBrowser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // pagine ricadono sul comportamento attuale (fetch lato client). Non è
 // httpOnly (lo scrive il client) → stessa esposizione del token già in
 // localStorage. Scope `Path=/admin` così viaggia solo sulle pagine admin.
-function scriviCookieToken(token: string | null): void {
+export function scriviCookieToken(token: string | null): void {
   if (typeof document === "undefined" || typeof location === "undefined") return;
   const secure = location.protocol === "https:" ? "; Secure" : "";
   if (token) {
-    document.cookie = `mdd_at=${token}; Path=/admin; Max-Age=3600; SameSite=Lax${secure}`;
+    // 30 giorni (non 1h): il token dentro scade comunque dopo 1h (i DATI richiedono
+    // sempre un token vivo), ma il cookie che sopravvive dice al server «questo
+    // browser si è già loggato qui» → il middleware renderizza l'admin invece di
+    // rimbalzare al login chi torna il giorno dopo. Al logout viene cancellato.
+    document.cookie = `mdd_at=${token}; Path=/admin; Max-Age=2592000; SameSite=Lax${secure}`;
   } else {
     document.cookie = `mdd_at=; Path=/admin; Max-Age=0; SameSite=Lax${secure}`;
   }

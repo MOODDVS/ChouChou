@@ -1,5 +1,6 @@
 import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
+import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
 
 /**
  * Host canonico: forza il www.
@@ -120,6 +121,10 @@ const rateLimit = defineMiddleware((context, next) => {
  * introdotta con test dedicati (prima in report-only) per non rompere nulla.
  */
 const securityHeaders = defineMiddleware(async (context, next) => {
+  // Nonce CSP per-richiesta: disponibile alle pagine via Astro.locals.cspNonce
+  // (marcato sugli <script> inline dell'admin) e usato nell'header qui sotto.
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  context.locals.cspNonce = nonce;
   const res = await next();
   const path = new URL(context.request.url).pathname;
   let h: Headers;
@@ -134,13 +139,22 @@ const securityHeaders = defineMiddleware(async (context, next) => {
   h.set("Permissions-Policy", "geolocation=(), camera=(), microphone=(), payment=(self)");
   h.set("X-XSS-Protection", "0"); // deprecato: disattivato esplicitamente (best practice)
 
-  // CSP — sottoinsieme SICURO da applicare (non limita il caricamento di
-  // script/img/connect legittimi, quindi non rompe nulla): niente plugin,
-  // niente base-tag injection, form solo verso il proprio dominio, e niente
-  // framing dell'admin (anti-clickjacking). La CSP completa su script-src
-  // richiede test dedicati (inline anti-flash) → TODO separato.
-  const frameAnc = path.startsWith("/admin") ? "frame-ancestors 'none'" : "frame-ancestors 'self'";
-  h.set("Content-Security-Policy", `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`);
+  // CSP — base ovunque (niente plugin, niente base-tag injection, form solo
+  // verso il proprio dominio, no framing dell'admin) + script-src ENFORCED
+  // sull'admin (vedi sotto).
+  const admin = path.startsWith("/admin");
+  const frameAnc = admin ? "frame-ancestors 'none'" : "frame-ancestors 'self'";
+  // CSP ENFORCED. script-src ('self' + nonce per-richiesta) SOLO sull'admin:
+  // lì tutti gli <script> inline sono del motore e portano nonce={cspNonce},
+  // i <script> processati da Astro diventano bundle serviti da 'self', e i
+  // blocchi type="application/json" non sono eseguiti. Il PUBBLICO ha script
+  // inline PER-CLIENTE (non nonce-abili dal motore) → niente script-src lì.
+  // Verificato in dev (report-only pulito) prima di attivarlo. 04/09/2026.
+  const base = `object-src 'none'; base-uri 'self'; form-action 'self'; ${frameAnc}`;
+  h.set("Content-Security-Policy", admin ? `${base}; script-src 'self' 'nonce-${nonce}'` : base);
+  // Pagine e API admin: MAI in cache (contenuto autenticato; e il nonce CSP è
+  // per-richiesta: una pagina cachata riproporrebbe un nonce vecchio).
+  if (admin || path.startsWith("/api/admin")) h.set("Cache-Control", "no-store");
 
   const host = new URL(context.request.url).hostname;
   const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
@@ -152,38 +166,25 @@ const securityHeaders = defineMiddleware(async (context, next) => {
 });
 
 /**
- * Cache edge (CDN Hostinger / Cloudflare) delle SOLE pagine pubbliche di
- * contenuto (home, carte, épicerie, contact, agenda + événement, links,
- * privacy, cookies), FR e EN. Si invia:
- *   Cache-Control: public, max-age=0, s-maxage=60, stale-while-revalidate=600
- * -> il browser rivalida sempre (contenuto fresco per l'utente), ma una cache
- *    condivisa/edge può servire l'HTML per 60s: TTFB quasi azzerato.
- * NON tocca: /api, /admin, il widget /reservation-embed, feedback, order,
- * annulla-token e le pagine con stato dinamico per-utente. Engine-safe.
+ * GUARD delle pagine /admin — PRIMA del render.
+ * Senza questo, la pagina admin veniva renderizzata intera (nav compresa) per
+ * chiunque, e solo il JS lato browser rimandava al login: da qui il «lampo»
+ * della nav visto dai non loggati. Ora: cookie di sessione `mdd_at` assente o
+ * con firma non valida → redirect al login prima di renderizzare qualsiasi cosa.
+ * La firma è verificata in locale (JWKS in cache), scadenza ignorata (vedi
+ * sessioneRiconosciuta). Solo pagine (GET/HEAD) e mai login/reset-password.
  */
-const CACHE_BASI = ["/menu", "/epicerie", "/contact", "/agenda", "/links", "/privacy", "/cookies"];
-function paginaPubblicaCachabile(pathname: string): boolean {
-  let p = pathname.replace(/\/+$/, "") || "/";
-  if (p === "/en") p = "/";
-  else if (p.startsWith("/en/")) p = p.slice(3) || "/";
-  if (p === "/") return true;
-  return CACHE_BASI.some((b) => p === b || p.startsWith(b + "/"));
-}
-
-const cacheEdge = defineMiddleware(async (context, next) => {
-  const res = await next();
-  const metodo = context.request.method;
-  if (metodo !== "GET" && metodo !== "HEAD") return res;
-  if (res.status !== 200) return res;
-  const ct = res.headers.get("content-type") ?? "";
-  if (!ct.includes("text/html")) return res;
+const PUBBLICHE_ADMIN = new Set(["/admin/login", "/admin/reset-password"]);
+const authGuardAdmin = defineMiddleware(async (context, next) => {
   const { pathname } = new URL(context.request.url);
-  if (!paginaPubblicaCachabile(pathname)) return res;
-  // Non sovrascrive un eventuale Cache-Control già impostato dalla pagina.
-  if (!res.headers.has("cache-control")) {
-    res.headers.set("Cache-Control", "public, max-age=0, s-maxage=60, stale-while-revalidate=600");
+  const m = context.request.method;
+  if ((m === "GET" || m === "HEAD") && (pathname === "/admin" || pathname.startsWith("/admin/")) && !PUBBLICHE_ADMIN.has(pathname.replace(/\/$/, ""))) {
+    const token = context.cookies.get("mdd_at")?.value ?? "";
+    if (!(await sessioneRiconosciuta(token))) {
+      return context.redirect("/admin/login", 302);
+    }
   }
-  return res;
+  return next();
 });
 
-export const onRequest = sequence(securityHeaders, rateLimit, metodoOverride, redirectWww, cacheEdge);
+export const onRequest = sequence(securityHeaders, authGuardAdmin, rateLimit, metodoOverride, redirectWww);

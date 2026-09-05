@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANGS_DEFAULT, PUBLIC_LANG_DEFAULT, normalizzaLinguePubbliche } from "../../../lib/admin/superAdmin";
-import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../../i18n/admin";
-import { CHIAVE_ADMIN_LANG, CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
+import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT } from "../../../lib/admin/superAdmin";
+import { isAdminLang, type AdminLang } from "../../../i18n/admin";
+import { CHIAVE_ADMIN_LANG, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
 
 export const prerender = false;
@@ -24,81 +24,6 @@ const CHIAVE_PUBLIC_LANGS = "public_languages";
 const CHIAVE_PUBLIC_DEFAULT = "public_lang_default";
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
-/** Favicon del brand (Admin -> General): URL pubblico nel bucket brand.
- *  Se caricato, l'header dell'admin lo usa al posto del logo di default. */
-async function leggiLogo(): Promise<string | null> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "brand_favicon")
-      .maybeSingle();
-    const v = String(data?.value ?? "").trim();
-    return v.startsWith("https://") || v.startsWith("/") ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Tema letto da app_config: SOLO chiavi conosciute e hex validi. */
-async function leggiTema(): Promise<Record<string, string>> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", CHIAVE_TEMA)
-      .maybeSingle();
-    const obj = JSON.parse(data?.value ?? "{}");
-    const out: Record<string, string> = {};
-    for (const k of TEMA_CHIAVI) {
-      const v = obj?.[k];
-      if (typeof v === "string" && RE_HEX.test(v)) out[k] = v.toLowerCase();
-    }
-    // Effet verre: "on" = trasparenze+blur (assente = opaco, il default)
-    if (obj?.glass === "on") out.glass = "on";
-    // Intensita' delle ombre: "0".."100" (assente = default 15)
-    if (typeof obj?.shadow === "string" && /^\d{1,3}$/.test(obj.shadow) && Number(obj.shadow) <= 100) {
-      out.shadow = obj.shadow;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Lingue pubbliche: set attivo (>=1) + predefinita (sempre nel set attivo).
- * Solo codici noti (PUBLIC_LANG_CODES). Se app_config è vuoto/incoerente si
- * torna ai default storici (attive FR+EN, predefinita FR).
- */
-async function leggiLinguePubbliche(): Promise<{ langs: string[]; def: string }> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", [CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT]);
-    const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
-    return normalizzaLinguePubbliche(m.get(CHIAVE_PUBLIC_LANGS) ?? "", m.get(CHIAVE_PUBLIC_DEFAULT) ?? "");
-  } catch {
-    return { langs: [...PUBLIC_LANGS_DEFAULT], def: PUBLIC_LANG_DEFAULT };
-  }
-}
-
-/** Lingua globale dell'admin (app_config "admin_lang"), default francese. */
-async function leggiLang(): Promise<AdminLang> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", CHIAVE_ADMIN_LANG)
-      .maybeSingle();
-    const v = String(data?.value ?? "").trim();
-    return isAdminLang(v) ? v : ADMIN_LANG_DEFAULT;
-  } catch {
-    return ADMIN_LANG_DEFAULT;
-  }
-}
-
 const VALIDE = PAGINE_ADMIN.map((p) => p.key);
 
 function json(body: unknown, status = 200): Response {
@@ -108,32 +33,19 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function leggiLista(chiave: string, validi: string[]): Promise<string[]> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", chiave)
-      .maybeSingle();
-    const arr = JSON.parse(data?.value ?? "[]");
-    return Array.isArray(arr) ? arr.filter((k) => validi.includes(k)) : [];
-  } catch {
-    return [];
-  }
-}
-
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const [hidden, hiddenTabs, theme, logo, lang, publicLang] = await Promise.all([
-    leggiLista(CHIAVE, VALIDE),
-    leggiLista(CHIAVE_TABS, TABS_VALIDI),
-    leggiTema(),
-    leggiLogo(),
-    leggiLang(),
-    leggiLinguePubbliche(),
-  ]);
+  // UNA lettura in cache (60s) invece di 6 query: stessi dati e stesse regole
+  // di validazione del boot SSR (AdminHead/AdminNav), chiamata a ogni navigazione.
+  const boot = await caricaBootAdmin();
+  const hidden = boot.hiddenPages;
+  const hiddenTabs = boot.hiddenTabs;
+  const theme = boot.theme;
+  const logo = boot.logo;
+  const lang = boot.lang;
+  const publicLang = { langs: boot.publicLangs, def: boot.publicLangDefault };
   // Ruolo "user": in più delle pagine spente in Réglages, mai Admin né Statistiques.
   const ruolo = ruoloDi(staff);
   const hiddenRuolo =
@@ -225,7 +137,7 @@ export const PUT: APIRoute = async ({ request }) => {
   // Invalida subito la cache di boot (lingua + tema + favicon + lingue pubbliche,
   // lette in SSR da AdminHead/AdminHeader e dal modale ordine): il reload mostra
   // già i valori nuovi senza aspettare la scadenza dei 60s.
-  if (lang !== null || theme !== null || publicLangs !== null) cacheDel(CACHE_ADMIN_BOOT);
+  if (lang !== null || theme !== null || publicLangs !== null || hidden !== null || hiddenTabs !== null) cacheDel(CACHE_ADMIN_BOOT);
 
   return json({ ok: true, hidden: hidden ?? undefined, hiddenTabs: hiddenTabs ?? undefined, theme: theme ?? undefined, lang: lang ?? undefined, publicLangs: publicLangs ?? undefined, publicLangDefault: publicDefault ?? undefined });
 };

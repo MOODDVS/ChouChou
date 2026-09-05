@@ -46,22 +46,33 @@ const hex = (v: string | undefined): string =>
 // alto nel <head>, quindi qui esistono gia': un micro script inline (sincrono,
 // pre-paint) li riallinea. Nessun localStorage, nessuna rete: i valori sono
 // gia' scritti dentro lo script dal server.
-const righe: string[] = [];
-if (boot.theme.glass === "on") righe.push('d.documentElement.classList.add("glass")');
 const bg = hex(boot.theme.bg);
-if (bg) {
-  righe.push(`d.querySelector('meta[name="theme-color"]')?.setAttribute("content",${JSON.stringify(bg)})`);
-}
-if (boot.logo) {
-  righe.push(`d.querySelectorAll('link[rel~="icon"]').forEach(function(l){l.setAttribute("href",${JSON.stringify(boot.logo)})})`);
-}
-const script = righe.length ? `(function(){var d=document;${righe.join(";")}})()` : "";
+// Dati anti-flash passati come JSON (blocco dati, non eseguito → fuori da CSP);
+// lo script statico qui sotto li legge e li applica pre-paint. Statico = un solo
+// nonce per-richiesta lo copre (come AdminNav), niente set:html dinamico.
+const flash = { glass: boot.theme.glass === "on", bg: bg || null, logo: boot.logo || null };
+const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).replace(/</g, "\\u003c") : "";
 ---
 
 {/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo
     al <head>, dopo i :root della pagina => vince nella cascata. */}
 {css && <style is:inline set:html={css} />}
-{script && <script is:inline set:html={script} />}
+{flashJson && <script type="application/json" id="mdd-flash" is:inline set:html={flashJson} />}
+{flashJson && (
+  <script is:inline nonce={Astro.locals.cspNonce}>
+    (function () {
+      var d = document;
+      try {
+        var el = d.getElementById("mdd-flash");
+        if (!el) return;
+        var b = JSON.parse(el.textContent || "{}");
+        if (b.glass) d.documentElement.classList.add("glass");
+        if (b.bg) { var m = d.querySelector('meta[name="theme-color"]'); if (m) m.setAttribute("content", b.bg); }
+        if (b.logo) d.querySelectorAll('link[rel~="icon"]').forEach(function (l) { l.setAttribute("href", b.logo); });
+      } catch (e) { /* niente flash: la pagina resta col tema di default */ }
+    })();
+  </script>
+)}
 {/* Installazione PWA: nome e icona SEMPRE RestoHub, su qualsiasi dispositivo.
     L'icona iOS (apple-touch-icon) NON è tra i rel="icon" riscritti sopra col
     favicon del cliente, quindi resta il marchio RestoHub. */}

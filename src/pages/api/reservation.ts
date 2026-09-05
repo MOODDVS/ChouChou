@@ -15,6 +15,7 @@ import {
 } from "../../lib/notifications";
 import { registraCliente } from "../../lib/registraCliente";
 import { inviaPushResa } from "../../lib/push";
+import { appConfigIn } from "../../lib/appConfigCache";
 
 export const prerender = false;
 
@@ -115,10 +116,7 @@ interface WidgetConfig {
 
 /** Legge la configurazione réservations da app_config. */
 async function leggiConfig(): Promise<WidgetConfig> {
-  const { data } = await supabaseAdmin
-    .from("app_config")
-    .select("key, value")
-    .in("key", [
+  const { data } = await appConfigIn([
       "reservation_services",
       "reservation_zones",
       "reservation_plan_mode",
@@ -253,10 +251,7 @@ async function leggiConfig(): Promise<WidgetConfig> {
  *  Contano come chiusi OGNI giorno finché il ristoratore non riapre. */
 async function chiusurePermanenti(): Promise<{ svc: string[]; zone: string[] }> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["service_closures_permanent", "zone_closures_permanent"]);
+    const { data } = await appConfigIn(["service_closures_permanent", "zone_closures_permanent"]);
     const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
     const leggi = (k: string): string[] => {
       try {
@@ -370,7 +365,7 @@ export const GET: APIRoute = async ({ url }) => {
           }
           return r;
         }),
-      supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_services", "reservation_zones", "reservation_plan_mode", "reservation_auto_accept"]),
+      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "reservation_auto_accept"]),
       supabaseAdmin
         .from("reservations")
         .select("date, service_key, people")
