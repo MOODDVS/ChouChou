@@ -9,6 +9,7 @@
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
 import { getMenu } from "../lib/db";
+import { etichettaVariante } from "../lib/pricing";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
@@ -184,18 +185,36 @@ gruppi.forEach((g, i) => {
                         {item.is_vegan && <span class="b" title={en ? "Vegan" : "Végan"}>🌱</span>}
                         {item.is_spicy && <span class="b" title={en ? "Spicy" : "Épicé"}>🌶️</span>}
                         {item.is_suggestion && <span class="b-sugg">Suggestion</span>}
+                        {item.is_sold_out && <span class="b-sugg b-out">{en ? "Sold out" : "Épuisé"}</span>}
                         {item.is_seasonal && <span class="b" title={en ? "Seasonal" : "Saisonnier"}>🍂</span>}
                         {item.allergens.length > 0 && (
                           <sup class="dish__alg">{item.allergens.join("·")}</sup>
                         )}
                       </span>
                       <span class="dish__dots" aria-hidden="true"></span>
-                      <span class="dish__price">
-                        {item.original_price_cents && (
-                          <s class="dish__old">{prezzo(item.original_price_cents)}</s>
-                        )}
-                        {prezzo(item.price_cents)}
-                      </span>
+                      {item.variants.length > 0 ? (
+                        <span class="dish__price dish__price--var">
+                          {item.variants.map((v) => (
+                            <span class="dish__var">
+                              <span class="dish__var-lb">
+                                {etichettaVariante(v, lang)}
+                                {v.sold_out && <span class="b-sugg b-out">{en ? "Sold out" : "Épuisé"}</span>}
+                              </span>
+                              {v.original_price_cents && (
+                                <s class="dish__old">{prezzo(v.original_price_cents)}</s>
+                              )}
+                              {prezzo(v.price_cents)}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span class="dish__price">
+                          {item.original_price_cents && (
+                            <s class="dish__old">{prezzo(item.original_price_cents)}</s>
+                          )}
+                          {prezzo(item.price_cents)}
+                        </span>
+                      )}
                     </p>
                     {descDi(item) && <p class="dish__desc">{descDi(item)}</p>}
                   </li>
@@ -488,6 +507,12 @@ gruppi.forEach((g, i) => {
     vertical-align: 2px;
     white-space: nowrap;
   }
+  /* Stessa pillola di Suggestion, ma spenta: «esaurito» non è una promozione. */
+  .b-out {
+    background: transparent;
+    color: var(--c-muted);
+    border: 1px solid var(--c-line);
+  }
   .dish__alg {
     font-size: 0.62rem;
     color: var(--c-muted);
@@ -510,6 +535,20 @@ gruppi.forEach((g, i) => {
     color: rgba(255, 255, 255, 0.55);
     margin-right: 0.45rem;
     font-size: 0.95rem;
+  }
+
+  /* Piatto venduto in più formati: un prezzo per riga, etichetta a sinistra. */
+  .dish__price--var {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    line-height: 1.35;
+  }
+  .dish__var-lb {
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    margin-right: 0.5rem;
   }
 
   .dish__desc {

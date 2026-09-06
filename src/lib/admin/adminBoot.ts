@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "../db";
 import { cacheOr } from "../cache";
-import { PAGINE_ADMIN, TABS_VALIDI, TEMA_CHIAVI, normalizzaLinguePubbliche } from "./superAdmin";
+import { PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, normalizzaLinguePubbliche } from "./superAdmin";
 import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../i18n/admin";
 
 /**
@@ -34,6 +34,8 @@ export const CACHE_ADMIN_BOOT = "admin:boot";
 /** Visibilità pagine/tab per i NON super (Réglages): stesse chiavi di /api/admin/pages. */
 export const CHIAVE_PAGES_HIDDEN = "admin_pages_hidden";
 export const CHIAVE_TABS_HIDDEN = "admin_tabs_hidden";
+/** Funzioni opzionali accese per questo cliente (Réglages → Fonctions). */
+export const CHIAVE_FEATURES = "admin_features";
 
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -49,9 +51,11 @@ export interface AdminBoot {
   /** Pagine/tab nascoste ai non-super (chiavi valide soltanto). */
   hiddenPages: string[];
   hiddenTabs: string[];
+  /** Funzioni opzionali attive (chiavi valide soltanto). Vuoto = tutte spente. */
+  features: string[];
 }
 
-const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr", hiddenPages: [], hiddenTabs: [] };
+const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr", hiddenPages: [], hiddenTabs: [], features: [] };
 
 /** Stesse regole di validazione dell'endpoint /api/admin/pages. */
 function pulisciTema(grezzo: string): Record<string, string> {
@@ -78,7 +82,7 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       const { data, error } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT, CHIAVE_PAGES_HIDDEN, CHIAVE_TABS_HIDDEN]);
+        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT, CHIAVE_PAGES_HIDDEN, CHIAVE_TABS_HIDDEN, CHIAVE_FEATURES]);
       if (error) throw error;
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
 
@@ -97,6 +101,7 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
         publicLangDefault: pub.def,
         hiddenPages: lista(m.get(CHIAVE_PAGES_HIDDEN) ?? "", PAGINE_ADMIN.map((pg) => pg.key)),
         hiddenTabs: lista(m.get(CHIAVE_TABS_HIDDEN) ?? "", TABS_VALIDI),
+        features: lista(m.get(CHIAVE_FEATURES) ?? "", FUNZIONI_VALIDE),
       } satisfies AdminBoot;
     });
   } catch {

@@ -433,6 +433,66 @@ const orderStrings = {
     font-weight: 400;
   }
 
+  /* Piatto venduto in più formati: un bottone per formato (etichetta + prezzo)
+     al posto del prezzo unico e del "+". */
+  .order-item-vars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+  .order-item-var {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--c-line);
+    background: transparent;
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .order-item-var:hover {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--c-bg);
+  }
+  .order-item-var:hover .order-item-var-lb,
+  .order-item-var:hover .order-item-old {
+    color: inherit;
+  }
+  .order-item-var-lb {
+    color: var(--c-muted);
+  }
+  .order-item-var-pr {
+    font-weight: 700;
+  }
+
+  /* Stessa pillola di Suggestion, spenta: «esaurito» non è una promozione. */
+  .order-out {
+    background: transparent;
+    color: var(--c-muted);
+    border: 1px solid var(--c-line);
+  }
+  .order-item-var:disabled,
+  .order-item-add:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .order-item-var:disabled:hover {
+    background: transparent;
+    border-color: var(--c-line);
+    color: var(--c-text);
+  }
+  .order-item-add:disabled:hover {
+    background: var(--c-accent);
+    color: var(--c-bg);
+    transform: none;
+  }
+
   .order-item-add {
     flex: 0 0 auto;
     width: 42px;

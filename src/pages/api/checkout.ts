@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../lib/db";
+import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
-import { prezzoEffettivo } from "../../lib/pricing";
+import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
@@ -30,7 +30,7 @@ const SUPPL_LABEL: Record<Supplemento, string> = {
 };
 
 interface CheckoutRequest {
-  items: { id: string; qty: number; supplement?: Supplemento }[];
+  items: { id: string; qty: number; supplement?: Supplemento; variant?: string }[];
   slot: string;
   note?: string;
   coupon?: string;
@@ -96,10 +96,14 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const ids = body.items.map((i) => i.id);
-  const { data: piatti, error: errMenu } = await supabaseAdmin
-    .from("menu_items")
-    .select("id, name, category, price_cents, available, category_order, discount_type, discount_value")
-    .in("id", ids);
+  const CAMPI = "id, name, category, price_cents, available, category_order, discount_type, discount_value";
+  // `sold_out` e `variants` mancano sui DB dove le migrazioni #55/#71 non sono
+  // state lanciate: si ripiega su quelle che ci sono invece di rifiutare l'ordine.
+  const { data: piatti, error: errMenu } = await conRipiegoColonne(
+    CAMPI,
+    async (campi) =>
+      (await supabaseAdmin.from("menu_items").select(campi).in("id", ids)) as unknown as RisultatoQuery
+  );
 
   if (errMenu || !piatti) {
     return err(503, "Impossibile leggere il menu");
@@ -112,13 +116,15 @@ export const POST: APIRoute = async ({ request }) => {
     qty: number;
     price_cents: number;
     notes: string;
+    /** Chiave del formato scelto (migrazione #71). Assente = prezzo unico. */
+    variant?: string;
   }[] = [];
   // Righe per il calcolo del coupon (prezzo base effettivo, senza supplementi).
   const lineeCoupon: LineaCoupon[] = [];
 
   for (const richiesto of body.items) {
     const piatto = piatti.find((p) => p.id === richiesto.id);
-    if (!piatto || !piatto.available) {
+    if (!piatto || !piatto.available || piatto.sold_out === true) {
       return err(409, "Un piatto selezionato non è più disponibile");
     }
     const qty = Math.max(1, Math.floor(richiesto.qty));
@@ -132,14 +138,29 @@ export const POST: APIRoute = async ({ request }) => {
       supplemento = richiestoSuppl;
     }
     const supplCents = SUPPL[supplemento];
+
+    // Formato scelto (pizza 30/40 cm, calice/bottiglia...). Se il piatto ha
+    // formati, sceglierne uno è OBBLIGATORIO e il prezzo è quello del formato:
+    // dal browser arriva solo la chiave, il prezzo lo decide il server.
+    let variante = null as ReturnType<typeof trovaVariante>;
+    if (haVarianti(piatto.variants)) {
+      variante = trovaVariante(piatto.variants, richiesto.variant, true);
+      if (!variante) {
+        return err(409, "Le format choisi n'est plus disponible");
+      }
+    }
+    const prezzoPieno = variante ? variante.price_cents : piatto.price_cents;
+
     // Prezzo base EFFETTIVO: gli sconti (fissi o %) valgono sempre online.
-    const prezzoBase = prezzoEffettivo(piatto.price_cents, piatto.discount_type, piatto.discount_value);
+    const prezzoBase = prezzoEffettivo(prezzoPieno, piatto.discount_type, piatto.discount_value);
     const prezzoUnitario = prezzoBase + supplCents;
 
+    const etichetta = variante ? etichettaVariante(variante, body.lang ?? "fr") : "";
+    const nomeConFormato = etichetta ? `${piatto.name} — ${etichetta}` : piatto.name;
     const nomeRiga =
       supplemento === "none"
-        ? piatto.name
-        : `${piatto.name} (${SUPPL_LABEL[supplemento]})`;
+        ? nomeConFormato
+        : `${nomeConFormato} (${SUPPL_LABEL[supplemento]})`;
 
     voci.push({ name: nomeRiga, price_cents: prezzoUnitario, qty });
     itemsOrdine.push({
@@ -148,10 +169,11 @@ export const POST: APIRoute = async ({ request }) => {
       qty,
       price_cents: prezzoUnitario,
       notes: supplemento === "none" ? "" : SUPPL_LABEL[supplemento],
+      ...(variante ? { variant: variante.key } : {}),
     });
     lineeCoupon.push({
       price_cents: prezzoBase,
-      is_promo: prezzoBase < piatto.price_cents,
+      is_promo: prezzoBase < prezzoPieno,
       category: piatto.category,
       qty,
     });

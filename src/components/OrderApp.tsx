@@ -1,5 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import SlotPicker from "./SlotPicker";
+import { etichettaVariante } from "../lib/pricing";
+
+/** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
+ *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
+interface Variante {
+  key: string;
+  label_i18n: Record<string, string>;
+  price_cents: number;
+  original_price_cents: number | null;
+  orderable: boolean;
+  /** Finito adesso: si vede, ma non si può aggiungere al carrello. */
+  sold_out: boolean;
+}
 
 interface MenuItem {
   id: string;
@@ -17,6 +30,10 @@ interface MenuItem {
   is_spicy: boolean;
   is_suggestion: boolean;
   is_seasonal: boolean;
+  /** Piatto esaurito: resta in carta, segnalato, ma non ordinabile. */
+  is_sold_out: boolean;
+  /** Vuoto = prezzo unico. Pieno = il cliente sceglie il formato. */
+  variants: Variante[];
 }
 interface MenuCategoria {
   category: string;
@@ -32,6 +49,14 @@ interface CartLine {
   name: string;
   price_cents: number;
   qty: number;
+  /** Chiave del formato scelto. Assente = piatto a prezzo unico.
+   *  Due formati dello stesso piatto sono DUE righe distinte. */
+  variant?: string;
+}
+
+/** Identità di una riga di carrello: piatto + formato. */
+function chiaveLinea(l: { id: string; variant?: string }): string {
+  return l.variant ? `${l.id}::${l.variant}` : l.id;
 }
 
 // Stringhe tradotte passate dal lato Astro.
@@ -247,25 +272,34 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
     }, 700);
   }
 
-  function aggiungi(item: MenuItem) {
+  function aggiungi(item: MenuItem, v?: Variante) {
+    if (item.is_sold_out || v?.sold_out) return;
+    const nuova: CartLine = v
+      ? {
+          id: item.id,
+          name: `${item.name} — ${etichettaVariante(v, lang)}`,
+          price_cents: v.price_cents,
+          qty: 1,
+          variant: v.key,
+        }
+      : { id: item.id, name: item.name, price_cents: item.price_cents, qty: 1 };
+    const chiave = chiaveLinea(nuova);
     setLinee((prev) => {
-      const esistente = prev.find((l) => l.id === item.id);
-      if (esistente) {
-        return prev.map((l) => (l.id === item.id ? { ...l, qty: l.qty + 1 } : l));
+      if (prev.some((l) => chiaveLinea(l) === chiave)) {
+        return prev.map((l) => (chiaveLinea(l) === chiave ? { ...l, qty: l.qty + 1 } : l));
       }
-      return [
-        ...prev,
-        { id: item.id, name: item.name, price_cents: item.price_cents, qty: 1 },
-      ];
+      return [...prev, nuova];
     });
   }
-  function cambiaQty(id: string, delta: number) {
+  function cambiaQty(chiave: string, delta: number) {
     setLinee((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0)
+      prev
+        .map((l) => (chiaveLinea(l) === chiave ? { ...l, qty: l.qty + delta } : l))
+        .filter((l) => l.qty > 0)
     );
   }
-  function rimuovi(id: string) {
-    setLinee((prev) => prev.filter((l) => l.id !== id));
+  function rimuovi(chiave: string) {
+    setLinee((prev) => prev.filter((l) => chiaveLinea(l) !== chiave));
   }
 
   // Rimozione con conferma in 2 tap (come nell'admin): il primo tap
@@ -273,14 +307,14 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
   const [daConfermare, setDaConfermare] = useState<string | null>(null);
   const timerConferma = useRef<number | null>(null);
 
-  function clickRimuovi(id: string) {
+  function clickRimuovi(chiave: string) {
     if (timerConferma.current) window.clearTimeout(timerConferma.current);
-    if (daConfermare === id) {
+    if (daConfermare === chiave) {
       setDaConfermare(null);
-      rimuovi(id);
+      rimuovi(chiave);
       return;
     }
-    setDaConfermare(id);
+    setDaConfermare(chiave);
     timerConferma.current = window.setTimeout(() => setDaConfermare(null), 3000);
   }
 
@@ -313,7 +347,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
-          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
           email: email.trim(),
           lang,
         }),
@@ -359,7 +393,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
           slot,
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
@@ -394,6 +428,9 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           <span className="order-b" title={lang === "en" ? "Spicy" : "Épicé"}>🌶️</span>
         )}
         {item.is_suggestion && <span className="order-sugg">Suggestion</span>}
+        {item.is_sold_out && (
+          <span className="order-sugg order-out">{lang === "en" ? "Sold out" : "Épuisé"}</span>
+        )}
         {item.is_seasonal && (
           <span className="order-b" title={lang === "en" ? "Seasonal" : "Saisonnier"}>🍂</span>
         )}
@@ -404,23 +441,25 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
-        {linee.map((l) => (
-          <li key={l.id} className="order-cart-line">
+        {linee.map((l) => {
+          const k = chiaveLinea(l);
+          return (
+          <li key={k} className="order-cart-line">
             <div className="order-cart-line-top">
               <span className="order-cart-line-name">{l.name}</span>
               <span className="order-cart-line-price">{euro(prezzoRiga(l))}</span>
             </div>
             <div className="order-cart-line-controls">
-              <button type="button" onClick={() => cambiaQty(l.id, -1)} aria-label={t.ariaDecrease}>−</button>
+              <button type="button" onClick={() => cambiaQty(k, -1)} aria-label={t.ariaDecrease}>−</button>
               <span className="order-cart-qty">{l.qty}</span>
-              <button type="button" onClick={() => cambiaQty(l.id, 1)} aria-label={t.ariaIncrease}>+</button>
+              <button type="button" onClick={() => cambiaQty(k, 1)} aria-label={t.ariaIncrease}>+</button>
               <button
                 type="button"
-                className={"order-cart-remove" + (daConfermare === l.id ? " confirm" : "")}
-                onClick={() => clickRimuovi(l.id)}
+                className={"order-cart-remove" + (daConfermare === k ? " confirm" : "")}
+                onClick={() => clickRimuovi(k)}
                 aria-label={t.ariaRemove}
               >
-                {daConfermare === l.id ? (
+                {daConfermare === k ? (
                   lang === "en" ? "Confirm?" : "Confirmer ?"
                 ) : (
                   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -434,7 +473,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
               </button>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     );
   }
@@ -614,14 +654,46 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
                               <Badges item={item} />
                             </h3>
                             {desc && <p className="order-item-desc">{desc}</p>}
-                            <p className="order-item-price">
-                              {item.original_price_cents && (
-                                <s className="order-item-old">{euro(item.original_price_cents)}</s>
-                              )}
-                              {euro(item.price_cents)}
-                            </p>
+                            {item.variants.length > 0 ? (
+                              /* Piatto in più formati: un bottone per formato,
+                                 il click aggiunge QUEL formato al carrello. */
+                              <div className="order-item-vars">
+                                {item.variants.map((v) => (
+                                  <button
+                                    key={v.key}
+                                    type="button"
+                                    className="order-item-var"
+                                    disabled={v.sold_out || item.is_sold_out}
+                                    aria-label={`${t.ariaAdd} ${item.name} — ${etichettaVariante(v, lang)}`}
+                                    onClick={() => aggiungi(item, v)}
+                                  >
+                                    <span className="order-item-var-lb">
+                                      {etichettaVariante(v, lang)}
+                                      {v.sold_out && (
+                                        <span className="order-sugg order-out">{lang === "en" ? "Sold out" : "Épuisé"}</span>
+                                      )}
+                                    </span>
+                                    <span className="order-item-var-pr">
+                                      {v.original_price_cents && (
+                                        <s className="order-item-old">{euro(v.original_price_cents)}</s>
+                                      )}
+                                      {euro(v.price_cents)}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="order-item-price">
+                                {item.original_price_cents && (
+                                  <s className="order-item-old">{euro(item.original_price_cents)}</s>
+                                )}
+                                {euro(item.price_cents)}
+                              </p>
+                            )}
                           </div>
-                          <button type="button" className="order-item-add" aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
+                          {item.variants.length === 0 && (
+                            <button type="button" className="order-item-add" disabled={item.is_sold_out} aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
+                          )}
                         </div>
                       );
                     })}

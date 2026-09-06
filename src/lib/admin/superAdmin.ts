@@ -48,6 +48,17 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
   ],
 };
 
+/**
+ * FUNZIONI OPZIONALI del motore: non tutti i ristoranti le usano, e chi non
+ * le usa non deve nemmeno vederle. Il super admin le accende per cliente
+ * (Réglages → Fonctions), salvate in app_config "admin_features".
+ * Spente di default: un cliente esistente non vede comparire nulla.
+ */
+export const FUNZIONI_OPZIONALI: { key: string; label: string }[] = [
+  { key: "variants", label: "Variantes" },
+];
+export const FUNZIONI_VALIDE: string[] = FUNZIONI_OPZIONALI.map((f) => f.key);
+
 /** Tutte le combinazioni valide "pagina:tab" (per validare lato server). */
 export const TABS_VALIDI: string[] = Object.entries(TABS_ADMIN).flatMap(
   ([pagina, tabs]) => tabs.map((t) => `${pagina}:${t.key}`)

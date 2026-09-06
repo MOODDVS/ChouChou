@@ -26,6 +26,8 @@ const supI18n = {
   shadowTitle: t("tema.shadow.title"),
   visible: t("sup.visible"),
   hidden: t("sup.hidden"),
+  on: t("sup.features.on"),
+  off: t("sup.features.off"),
   loadError: t("sup.load.error"),
   pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
   tabLabels: Object.fromEntries(
@@ -33,6 +35,7 @@ const supI18n = {
       tabs.map((tb) => [pk + ":" + tb.key, t("tab." + pk + "." + tb.key)])
     )
   ) as Record<string, string>,
+  featureLabels: { variants: t("menu.variants") } as Record<string, string>,
 };
 
 const prI18n = {
@@ -503,6 +506,13 @@ const prI18n = {
 
           <hr class="publang-sep" />
 
+          {/* Funzioni opzionali del motore (accese per cliente) */}
+          <p class="tema-titre" style="margin-top:0">{t("sup.features.title")}</p>
+          <p class="sub">{t("sup.features.hint")}</p>
+          <div class="rows" id="feat-rows" style="display:none"></div>
+
+          <hr class="publang-sep" />
+
           {/* Visibilità pagine (permessi degli altri utenti) */}
           <p class="tema-titre" style="margin-top:0">{t("sup.pagesvis.title")}</p>
           <p class="sub">{t("sup.reglages.intro")}</p>
@@ -719,7 +729,7 @@ const prI18n = {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+      import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
       (async () => {
@@ -798,11 +808,50 @@ const prI18n = {
           temaLabels?: Record<string, string>;
           glassTitle?: string; glassOn?: string; glassOff?: string; shadowTitle?: string;
           visible?: string; hidden?: string; loadError?: string;
+          on?: string; off?: string;
           pageLabels?: Record<string, string>; tabLabels?: Record<string, string>;
+          featureLabels?: Record<string, string>;
         };
 
         let nascoste: string[] = [];
         let nascosteTab: string[] = [];
+        let funzioni: string[] = [];
+
+        // ---- Funzioni opzionali (spente di default: chi non le usa non le vede) ----
+        const featRowsEl = document.getElementById("feat-rows") as HTMLDivElement;
+        function renderFunzioni() {
+          featRowsEl.innerHTML = FUNZIONI_OPZIONALI.map((f) => {
+            const attiva = funzioni.includes(f.key);
+            return `
+            <div class="rowwrap" data-f="${f.key}">
+              <div class="row${attiva ? "" : " is-off"}">
+                <span class="row-name">${SUP.featureLabels?.[f.key] ?? f.label}</span>
+                <span class="row-state">${attiva ? (SUP.on ?? "Actif") : (SUP.off ?? "Inactif")}</span>
+                <label class="switch"><input type="checkbox" class="t-feat" ${attiva ? "checked" : ""} /><span class="track"></span></label>
+              </div>
+            </div>`;
+          }).join("");
+        }
+        featRowsEl.addEventListener("change", async (e) => {
+          const cb = (e.target as HTMLElement).closest<HTMLInputElement>(".t-feat");
+          if (!cb) return;
+          const key = cb.closest<HTMLElement>(".rowwrap")?.dataset.f ?? "";
+          if (!key) return;
+          const prima = [...funzioni];
+          funzioni = cb.checked ? [...new Set([...funzioni, key])] : funzioni.filter((k) => k !== key);
+          renderFunzioni();
+          try {
+            const res = await fetch("/api/admin/pages", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ features: funzioni }),
+            });
+            if (!res.ok) throw new Error();
+          } catch {
+            funzioni = prima; // salvataggio fallito: si torna com'era
+            renderFunzioni();
+          }
+        });
 
         function render() {
           rowsEl.innerHTML = PAGINE_ADMIN.map((p) => {
@@ -1665,21 +1714,25 @@ const prI18n = {
           const dati = (await res.json()) as {
             hidden: string[];
             hiddenTabs?: string[];
+            features?: string[];
             theme?: Record<string, string>;
             publicLangs?: string[];
             publicLangDefault?: string;
           };
           nascoste = dati.hidden ?? [];
           nascosteTab = dati.hiddenTabs ?? [];
+          funzioni = dati.features ?? [];
           tema = dati.theme ?? {};
           publicLangs = Array.isArray(dati.publicLangs) && dati.publicLangs.length ? dati.publicLangs : ["fr", "en"];
           publicDefault = dati.publicLangDefault && publicLangs.includes(dati.publicLangDefault) ? dati.publicLangDefault : publicLangs[0];
           stateEl.style.display = "none";
           rowsEl.style.display = "grid";
+          featRowsEl.style.display = "grid";
           temaRowsEl.style.display = "grid";
           temaResetEl.style.display = "inline-block";
           if (publangEl) publangEl.style.display = "grid";
           render();
+          renderFunzioni();
           renderPublang();
           renderTema();
           applicaTema();

@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { prezzoEffettivo } from "./pricing";
+import { prezzoEffettivo, leggiVariantiDb, haVarianti, type DiscountType } from "./pricing";
 
 const SUPABASE_URL = import.meta.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = import.meta.env.SUPABASE_SERVICE_KEY;
@@ -21,6 +21,19 @@ export const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 // Menu
 // ============================================================
 
+/** Un formato del piatto (pizza 30/40 cm, calice/bottiglia, porzione).
+ *  I formati sono mutuamente esclusivi: il cliente ne sceglie UNO.
+ *  `key` è l'identificatore stabile che viaggia negli ordini. */
+export interface Variante {
+  key: string;
+  label_i18n: Record<string, string>;
+  price_cents: number; // prezzo EFFETTIVO del formato (sconto già applicato)
+  original_price_cents: number | null; // pieno, solo se scontato
+  orderable: boolean;
+  /** Finito adesso: si vede in carta, segnalato, ma non si ordina. */
+  sold_out: boolean;
+}
+
 export interface MenuItem {
   id: string;
   category: string;
@@ -38,6 +51,11 @@ export interface MenuItem {
   is_spicy: boolean;
   is_suggestion: boolean;
   is_seasonal: boolean;
+  /** Piatto segnalato «esaurito»: resta in carta ma non è ordinabile. */
+  is_sold_out: boolean;
+  /** Formati del piatto. Vuoto = prezzo unico (comportamento storico).
+   *  Se pieno, `price_cents` è il prezzo «a partire da» (il più basso). */
+  variants: Variante[];
 }
 
 export interface MenuCategoria {
@@ -53,21 +71,90 @@ export interface MenuCategoria {
 
 const MENU_SELECT =
   "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
+/** Colonne aggiunte da migrazioni successive: su un cliente che non le ha
+ *  ancora lanciate la select fallisce, e si riprova senza QUELLA colonna. */
+export const MENU_COLONNE_NUOVE = ["sold_out", "variants"];
+
+export type RisultatoQuery = { data: any[] | null; error: { message?: string } | null };
+
+/**
+ * Esegue una query su menu_items togliendo, una alla volta, le colonne
+ * opzionali che QUEL database non conosce ancora (migrazione non lanciata).
+ * Meglio perdere una colonna che far cadere il menu o un ordine.
+ * Condivisa da sito pubblico, checkout e ordini dello staff.
+ */
+export async function conRipiegoColonne(
+  campiBase: string,
+  esegui: (campi: string) => Promise<RisultatoQuery>
+): Promise<RisultatoQuery> {
+  const escluse = new Set<string>();
+  let ultimo: RisultatoQuery = { data: null, error: { message: "" } };
+  for (let giro = 0; giro <= MENU_COLONNE_NUOVE.length; giro++) {
+    const campi = [campiBase, ...MENU_COLONNE_NUOVE.filter((c) => !escluse.has(c))].join(", ");
+    ultimo = await esegui(campi);
+    const msg = String(ultimo.error?.message ?? "");
+    const colpevole = ultimo.error ? MENU_COLONNE_NUOVE.find((c) => !escluse.has(c) && msg.includes(c)) : undefined;
+    if (!colpevole) return ultimo;
+    escluse.add(colpevole);
+  }
+  return ultimo;
+}
 
 /**
  * Trasforma le righe DB (già ordinate) in categorie raggruppate.
  * `online = true` (take-away): applica TUTTI gli sconti.
  * `online = false` (vetrina): applica solo gli sconti con scope 'all'.
  */
+/** Normalizza il jsonb `variants` in array tipizzato per il sito, applicando
+ *  lo sconto del piatto a ogni formato. La lettura grezza sta in pricing.ts
+ *  (stessa funzione usata dal checkout: un solo punto di verità).
+ *  `soloOrdinabili` scarta i formati non ordinabili (menu take-away). */
+function leggiVarianti(
+  raw: unknown,
+  applicabile: boolean,
+  type: unknown,
+  value: unknown,
+  soloOrdinabili: boolean
+): Variante[] {
+  return leggiVariantiDb(raw)
+    .filter((v) => !soloOrdinabili || v.orderable)
+    .map((v) => {
+      const eff = applicabile
+        ? prezzoEffettivo(v.price_cents, type as DiscountType, value as number | null)
+        : v.price_cents;
+      return {
+        key: v.key,
+        label_i18n: v.label_i18n,
+        price_cents: eff,
+        original_price_cents: eff < v.price_cents ? v.price_cents : null,
+        orderable: v.orderable,
+        sold_out: v.sold_out,
+      };
+    });
+}
+
 function raggruppa(data: any[], online: boolean): MenuCategoria[] {
   const gruppi: MenuCategoria[] = [];
   const indiceCategoria = new Map<string, number>();
 
   for (const riga of data) {
     const applicabile = online || riga.discount_scope === "all";
-    const effettivo = applicabile
+    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online);
+    // Un piatto con formati, ma nessun formato ordinabile, sparisce dal
+    // menu take-away (come un piatto con orderable = false).
+    if (online && haVarianti(riga.variants) && varianti.length === 0) continue;
+    const base = applicabile
       ? prezzoEffettivo(riga.price_cents, riga.discount_type, riga.discount_value)
       : riga.price_cents;
+    // Con i formati il prezzo mostrato è il più basso («à partir de»).
+    // «à partir de»: si guarda ai formati ancora disponibili; se sono tutti
+    // esauriti si ripiega su tutti, così un prezzo si vede comunque.
+    const perPrezzo = varianti.filter((v) => !v.sold_out);
+    const daPrezzare = perPrezzo.length ? perPrezzo : varianti;
+    const effettivo = daPrezzare.length ? Math.min(...daPrezzare.map((v) => v.price_cents)) : base;
+    const pienoRiferimento = daPrezzare.length
+      ? (daPrezzare.find((v) => v.price_cents === effettivo)?.original_price_cents ?? null)
+      : (effettivo < riga.price_cents ? riga.price_cents : null);
     const item: MenuItem = {
       id: riga.id,
       category: riga.category,
@@ -78,13 +165,15 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
       description_en: riga.description_en,
       allergens: riga.allergens ?? [],
       price_cents: effettivo,
-      original_price_cents: effettivo < riga.price_cents ? riga.price_cents : null,
+      original_price_cents: pienoRiferimento,
       image_url: riga.image_url,
       is_bestseller: !!riga.is_bestseller,
       is_vegan: !!riga.is_vegan,
       is_spicy: !!riga.is_spicy,
       is_suggestion: !!riga.is_suggestion,
       is_seasonal: !!riga.is_seasonal,
+      is_sold_out: !!riga.sold_out,
+      variants: varianti,
     };
 
     if (!indiceCategoria.has(riga.category)) {
@@ -226,18 +315,30 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
   return nascosti;
 }
 
+/** Legge i piatti dal DB. Se la colonna `variants` non esiste ancora
+ *  (migrazione #71 non lanciata su quel cliente) ripiega sulla select senza,
+ *  così il sito continua a funzionare col prezzo unico. */
+type RisultatoPiatti = { data: any[] | null; error: { message?: string } | null };
+
+async function leggiPiatti(soloOrdinabili: boolean): Promise<RisultatoPiatti> {
+  // La lista di colonne è una variabile (serve per il ripiego), quindi
+  // supabase-js non può inferire la forma della riga: si tipizza a mano.
+  const query = async (campi: string): Promise<RisultatoPiatti> => {
+    let q = supabaseAdmin.from("menu_items").select(campi).eq("available", true);
+    if (soloOrdinabili) q = q.eq("orderable", true);
+    return (await q
+      .order("category_order", { ascending: true })
+      .order("sort_order", { ascending: true })) as unknown as RisultatoPiatti;
+  };
+  return await conRipiegoColonne(MENU_SELECT, query);
+}
+
 /**
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
  */
 export async function getMenu(): Promise<MenuCategoria[]> {
-  const { data, error } = await supabaseAdmin
-    .from("menu_items")
-    .select(MENU_SELECT)
-    .eq("available", true)
-    .order("category_order", { ascending: true })
-    .order("sort_order", { ascending: true });
-
+  const { data, error } = await leggiPiatti(false);
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
   }
@@ -251,14 +352,7 @@ export async function getMenu(): Promise<MenuCategoria[]> {
  * Usata in /order.
  */
 export async function getMenuOrderable(): Promise<MenuCategoria[]> {
-  const { data, error } = await supabaseAdmin
-    .from("menu_items")
-    .select(MENU_SELECT)
-    .eq("available", true)
-    .eq("orderable", true)
-    .order("category_order", { ascending: true })
-    .order("sort_order", { ascending: true });
-
+  const { data, error } = await leggiPiatti(true);
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
