@@ -30,6 +30,16 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "coupons", label: "Coupons" },
     { key: "giftcards", label: "Bons cadeaux" },
   ],
+  stats: [
+    { key: "ggl", label: "Google" },
+    { key: "fin", label: "Finances" },
+    { key: "resa", label: "Réservations" },
+  ],
+  assets: [
+    { key: "site", label: "Site" },
+    { key: "images", label: "Images" },
+    { key: "documents", label: "Documents" },
+  ],
   menu: [
     { key: "food", label: "Plats" },
     { key: "drink", label: "Boissons" },
@@ -58,6 +68,26 @@ export const FUNZIONI_OPZIONALI: { key: string; label: string }[] = [
   { key: "variants", label: "Variantes" },
 ];
 export const FUNZIONI_VALIDE: string[] = FUNZIONI_OPZIONALI.map((f) => f.key);
+
+/**
+ * Tab che hanno senso SOLO se un'altra pagina è visibile: se il ristorante
+ * non usa le prenotazioni, le statistiche delle prenotazioni non devono
+ * comparire. Spegnendo la pagina si spengono anche questi, senza che il
+ * super admin debba ricordarsene.
+ * chiave = "pagina:tab" da nascondere · valore = pagina da cui dipende.
+ */
+export const TAB_DIPENDENTI: Record<string, string> = {
+  "stats:resa": "reservations",
+  "settings:reservations": "reservations",
+};
+
+/** Tab da nascondere in più, viste le pagine già nascoste. */
+export function tabDaDipendenze(paginaNascoste: string[]): string[] {
+  const set = new Set(paginaNascoste);
+  return Object.entries(TAB_DIPENDENTI)
+    .filter(([, pagina]) => set.has(pagina))
+    .map(([tab]) => tab);
+}
 
 /** Tutte le combinazioni valide "pagina:tab" (per validare lato server). */
 export const TABS_VALIDI: string[] = Object.entries(TABS_ADMIN).flatMap(

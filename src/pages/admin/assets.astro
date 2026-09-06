@@ -952,7 +952,32 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           const t = (e.target as HTMLElement).closest(".tab") as HTMLElement | null;
           if (t?.dataset.t) mostraTab(t.dataset.t);
         });
-        mostraTab(sessionStorage.getItem("lm-adm-assets-tab") ?? "site");
+
+        // Tab spenti dal super admin (Réglages). Il super vede sempre tutto.
+        let tabIniziale = sessionStorage.getItem("lm-adm-assets-tab") ?? "site";
+        try {
+          const rp = await fetch("/api/admin/pages", { headers });
+          if (rp.ok) {
+            const jp = (await rp.json()) as { hiddenTabs?: string[]; super?: boolean };
+            if (!jp.super) {
+              const nascosti = (jp.hiddenTabs ?? [])
+                .filter((k) => k.startsWith("assets:"))
+                .map((k) => k.slice("assets:".length));
+              // Si toglie solo il BOTTONE: la sezione resta nel DOM (nascosta
+              // da mostraTab) perché più sotto altri listener cercano elementi
+              // al suo interno e morirebbero su null.
+              for (const tk of nascosti) {
+                mainTabs.querySelector(`.tab[data-t="${tk}"]`)?.remove();
+              }
+              if (nascosti.includes(tabIniziale)) {
+                tabIniziale = mainTabs.querySelector<HTMLElement>(".tab")?.dataset.t ?? "site";
+              }
+            }
+          }
+        } catch {
+          /* rete assente: si mostra tutto */
+        }
+        mostraTab(tabIniziale);
 
         // ---------- Tab Site: immagini del sito pubblico ----------
         function siteAggiorna(slot: HTMLElement, url: string) {

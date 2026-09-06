@@ -326,6 +326,12 @@ const DIZIONARIO: Dizionario = {
   "tab.settings.team":          { fr: "Team", en: "Team", it: "Team", nl: "Team", es: "Equipo" },
   "tab.settings.documents":     { fr: "Documents", en: "Documents", it: "Documenti", nl: "Documenten", es: "Documentos" },
   "tab.settings.notifications": { fr: "Notifications", en: "Notifications", it: "Notifiche", nl: "Meldingen", es: "Notificaciones" },
+  "tab.stats.ggl":   { fr: "Google", en: "Google", it: "Google", nl: "Google", es: "Google" },
+  "tab.stats.fin":   { fr: "Finances", en: "Finances", it: "Finanze", nl: "Financiën", es: "Finanzas" },
+  "tab.stats.resa":  { fr: "Réservations", en: "Reservations", it: "Prenotazioni", nl: "Reserveringen", es: "Reservas" },
+  "tab.assets.site":      { fr: "Site", en: "Site", it: "Sito", nl: "Site", es: "Sitio" },
+  "tab.assets.images":    { fr: "Images", en: "Images", it: "Immagini", nl: "Afbeeldingen", es: "Imágenes" },
+  "tab.assets.documents": { fr: "Documents", en: "Documents", it: "Documenti", nl: "Documenten", es: "Documentos" },
 
   // ----- Anteprima (mockup del tema) -----
   "sup.preview":      { fr: "Aperçu", en: "Preview", it: "Anteprima", nl: "Voorbeeld", es: "Vista previa" },

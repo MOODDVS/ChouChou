@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT } from "../../../lib/admin/superAdmin";
+import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
 import { isAdminLang, type AdminLang } from "../../../i18n/admin";
 import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
@@ -52,7 +52,14 @@ export const GET: APIRoute = async ({ request }) => {
   const ruolo = ruoloDi(staff);
   const hiddenRuolo =
     ruolo === "user" ? [...new Set([...hidden, ...PAGINE_SOLO_ADMIN])] : hidden;
-  return json({ hidden: hiddenRuolo, hiddenTabs, features, theme, logo, lang, publicLangs: publicLang.langs, publicLangDefault: publicLang.def, role: ruolo, super: isSuperUser(staff) });
+  // Tab che dipendono da una pagina spenta (es. Statistiques → Réservations):
+  // si nascondono da soli, senza che il super debba spegnerli a mano.
+  // Al SUPER si dà la lista grezza: la sua pagina Réglages mostra e risalva
+  // gli interruttori, e non deve persistere scelte che non ha fatto lui.
+  const tabsRuolo = isSuperUser(staff)
+    ? hiddenTabs
+    : [...new Set([...hiddenTabs, ...tabDaDipendenze(hiddenRuolo)])];
+  return json({ hidden: hiddenRuolo, hiddenTabs: tabsRuolo, features, theme, logo, lang, publicLangs: publicLang.langs, publicLangDefault: publicLang.def, role: ruolo, super: isSuperUser(staff) });
 };
 
 export const PUT: APIRoute = async ({ request }) => {

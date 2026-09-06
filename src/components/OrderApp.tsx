@@ -106,6 +106,17 @@ interface OrderAppProps {
   t: OrderStrings;
   lang: "fr" | "en";
   closedToday?: boolean;
+  /** Come il cliente sceglie il formato di un piatto con varianti.
+   *  "pulsanti" (default): un bottone per formato dentro la scheda, adatto
+   *  alle liste asciutte. "modale": scheda con foto grande e radio, per i
+   *  siti che puntano sulla vetrina fotografica. Scelta PER CLIENTE: la
+   *  passa la pagina /order, che è un file del cliente. */
+  sceltaFormato?: "pulsanti" | "modale";
+  /** Mostrare la foto del piatto nella lista? Scelta di design PER CLIENTE:
+   *  un menu a lista asciutta non la vuole, una vetrina fotografica sì.
+   *  Anche quando è true, la foto compare solo sui piatti che ne hanno una:
+   *  niente riquadri vuoti a spezzare le righe. Default: nessuna foto. */
+  foto?: boolean;
 }
 
 type Vista = "menu" | "checkout";
@@ -137,7 +148,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false }: OrderAppProps) {
   // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
   // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
   // Boissons = tutte le bevande (category_order >= 9)
@@ -270,6 +281,56 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
     window.setTimeout(() => {
       cliccoInCorso.current = false;
     }, 700);
+  }
+
+  // ---- Scelta del formato: modale con foto grande, come sulla scheda ----
+  const [itemModale, setItemModale] = useState<MenuItem | null>(null);
+  const [varianteScelta, setVarianteScelta] = useState<string>("");
+
+  /** Formati che si possono davvero ordinare adesso. */
+  function variantiOrdinabili(item: MenuItem): Variante[] {
+    return item.variants.filter((v) => v.orderable && !v.sold_out);
+  }
+
+  function clicPiu(item: MenuItem) {
+    if (item.is_sold_out) return;
+    const ordinabili = variantiOrdinabili(item);
+    if (ordinabili.length === 0) {
+      // Nessun formato: il piatto ha un prezzo unico e va dritto nel carrello.
+      if (item.variants.length === 0) aggiungi(item);
+      return;
+    }
+    setItemModale(item);
+    setVarianteScelta(ordinabili[0].key); // il primo formato è quello base
+  }
+
+  /** Il piatto mostra i formati come bottoni dentro la scheda? */
+  function formatiInLinea(item: MenuItem): boolean {
+    return sceltaFormato === "pulsanti" && item.variants.length > 0;
+  }
+
+  /** Questo piatto va mostrato con la foto? */
+  function conFoto(item: MenuItem): boolean {
+    return foto && !!item.image_url;
+  }
+
+  function chiudiModale() {
+    setItemModale(null);
+    setVarianteScelta("");
+  }
+
+  function confermaModale() {
+    if (!itemModale) return;
+    const v = itemModale.variants.find((x) => x.key === varianteScelta);
+    if (v) aggiungi(itemModale, v);
+    chiudiModale();
+  }
+
+  /** Differenza rispetto al formato base, col segno. */
+  function euroDelta(cents: number): string {
+    if (cents === 0) return "";
+    const segno = cents > 0 ? "+" : "−";
+    return segno + " " + euro(Math.abs(cents));
   }
 
   function aggiungi(item: MenuItem, v?: Variante) {
@@ -435,6 +496,52 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           <span className="order-b" title={lang === "en" ? "Seasonal" : "Saisonnier"}>🍂</span>
         )}
       </>
+    );
+  }
+
+  /** Modale di scelta del formato: foto, nome e i formati come radio.
+   *  Il primo formato è il riferimento, gli altri mostrano la differenza. */
+  function ModaleVarianti() {
+    if (sceltaFormato !== "modale" || !itemModale) return null;
+    const ordinabili = variantiOrdinabili(itemModale);
+    const base = ordinabili[0];
+    if (!base) return null;
+    return (
+      <div className="order-modal-overlay" onClick={chiudiModale}>
+        <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="order-modal-close" onClick={chiudiModale} aria-label={t.ariaRemove}>×</button>
+          {itemModale.image_url && (
+            <img className="order-modal-img" src={itemModale.image_url} alt={itemModale.name} />
+          )}
+          <h3 className="order-modal-title">{itemModale.name}</h3>
+          <div className="order-modal-variants">
+            {ordinabili.map((v) => {
+              const delta = v.price_cents - base.price_cents;
+              const isBase = v.key === base.key;
+              return (
+                <label
+                  key={v.key}
+                  className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
+                >
+                  <input
+                    type="radio"
+                    name="variante"
+                    checked={varianteScelta === v.key}
+                    onChange={() => setVarianteScelta(v.key)}
+                  />
+                  <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
+                  <span className="order-modal-variant-price">
+                    {isBase ? euro(v.price_cents) : euroDelta(delta)}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <button type="button" className="order-modal-add" onClick={confermaModale}>
+            {t.ariaAdd}
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -654,9 +761,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
                               <Badges item={item} />
                             </h3>
                             {desc && <p className="order-item-desc">{desc}</p>}
-                            {item.variants.length > 0 ? (
-                              /* Piatto in più formati: un bottone per formato,
-                                 il click aggiunge QUEL formato al carrello. */
+                            {formatiInLinea(item) ? (
+                              /* Un bottone per formato: aggiunge QUEL formato. */
                               <div className="order-item-vars">
                                 {item.variants.map((v) => (
                                   <button
@@ -691,8 +797,37 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
                               </p>
                             )}
                           </div>
-                          {item.variants.length === 0 && (
-                            <button type="button" className="order-item-add" disabled={item.is_sold_out} aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
+                          {/* Con la foto, il "+" ci sta appoggiato sopra;
+                              senza, resta il bottone tondo di sempre.
+                              Prezzo unico -> dritto nel carrello; con formati
+                              -> modale, se il cliente ha scelto quella via. */}
+                          {conFoto(item) ? (
+                            <div className="order-item-photo">
+                              <img src={item.image_url!} alt={item.name} loading="lazy" decoding="async" />
+                              {!formatiInLinea(item) && (
+                                <button
+                                  type="button"
+                                  className="order-item-add"
+                                  disabled={item.is_sold_out}
+                                  aria-label={`${t.ariaAdd} ${item.name}`}
+                                  onClick={() => clicPiu(item)}
+                                >
+                                  +
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            !formatiInLinea(item) && (
+                              <button
+                                type="button"
+                                className="order-item-add"
+                                disabled={item.is_sold_out}
+                                aria-label={`${t.ariaAdd} ${item.name}`}
+                                onClick={() => clicPiu(item)}
+                              >
+                                +
+                              </button>
+                            )
                           )}
                         </div>
                       );
@@ -760,6 +895,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           </button>
         )
       )}
+
+      <ModaleVarianti />
     </div>
   );
 }

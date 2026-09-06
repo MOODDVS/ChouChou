@@ -2,15 +2,19 @@
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { supabaseAdmin } from "../lib/db";
 import { linksSocial } from "../lib/links";
+import { datiRistorante } from "../lib/ristorante";
 import { cacheOr } from "../lib/cache";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
 
 
-const EMAIL = "pizzeria@lamolisana.be";
-const PHONE_DISPLAY = "+32 455 13 14 65";
-const PHONE_TEL = "+32455131465";
+// Contatti da Réglages → Général (app_config), con ripiego su client.ts:
+// il ristoratore li cambia dall'admin senza toccare il codice.
+const risto = await datiRistorante();
+const EMAIL = risto.email;
+const PHONE_DISPLAY = risto.tel;
+const PHONE_TEL = risto.telLink;
 
 const YEAR = new Date().getFullYear();
 

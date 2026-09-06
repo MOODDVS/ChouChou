@@ -433,64 +433,36 @@ const orderStrings = {
     font-weight: 400;
   }
 
-  /* Piatto venduto in più formati: un bottone per formato (etichetta + prezzo)
-     al posto del prezzo unico e del "+". */
-  .order-item-vars {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.35rem;
-  }
-  .order-item-var {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    padding: 0.4rem 0.8rem;
-    border: 1px solid var(--c-line);
-    background: transparent;
-    color: var(--c-text);
-    font-family: var(--font-body);
-    font-size: 0.95rem;
-    border-radius: 999px;
-    cursor: pointer;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-  }
-  .order-item-var:hover {
-    background: var(--c-accent);
-    border-color: var(--c-accent);
-    color: var(--c-bg);
-  }
-  .order-item-var:hover .order-item-var-lb,
-  .order-item-var:hover .order-item-old {
-    color: inherit;
-  }
-  .order-item-var-lb {
-    color: var(--c-muted);
-  }
-  .order-item-var-pr {
-    font-weight: 700;
-  }
-
   /* Stessa pillola di Suggestion, spenta: «esaurito» non è una promozione. */
   .order-out {
     background: transparent;
     color: var(--c-muted);
     border: 1px solid var(--c-line);
   }
-  .order-item-var:disabled,
-  .order-item-add:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .order-item-var:disabled:hover {
-    background: transparent;
-    border-color: var(--c-line);
-    color: var(--c-text);
-  }
   .order-item-add:disabled:hover {
     background: var(--c-accent);
     color: var(--c-bg);
     transform: none;
+  }
+
+  /* Foto del piatto nella lista ordini. `is-empty` = nessuna foto caricata:
+     resta un riquadro neutro così le righe non ballano. */
+  .order-item-photo {
+    flex: 0 0 auto;
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .order-item-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  @media (max-width: 560px) {
+    .order-item-photo { width: 56px; height: 56px; }
   }
 
   .order-item-add {
@@ -952,4 +924,160 @@ const orderStrings = {
       stroke-linecap: round;
     }
   }
+
+  /* Formati come bottoni dentro la scheda (sceltaFormato="pulsanti"). */
+  .order-item-vars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+  }
+  .order-item-var {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--c-line);
+    background: transparent;
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .order-item-var:hover {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--c-bg);
+  }
+  .order-item-var:hover .order-item-var-lb,
+  .order-item-var:hover .order-item-old { color: inherit; }
+  .order-item-var-lb { color: var(--c-muted); }
+  .order-item-var-pr { font-weight: 700; }
+  .order-item-var:disabled { opacity: 0.4; cursor: not-allowed; }
+  .order-item-var:disabled:hover {
+    background: transparent;
+    border-color: var(--c-line);
+    color: var(--c-text);
+  }
+
+  /* ---------- Modale di scelta del formato (varianti, #71) ---------- */
+  .order-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 1000;
+  }
+  .order-modal {
+    position: relative;
+    background: var(--c-bg);
+    color: var(--c-text);
+    border: 1px solid var(--c-line);
+    border-radius: 18px;
+    padding: 28px 24px 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .order-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--c-accent);
+    color: var(--c-bg);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.18s ease;
+  }
+  .order-modal-close:hover { transform: scale(0.85); }
+  .order-modal-img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .order-modal-title {
+    margin: 0 0 16px;
+    font-family: var(--font-title);
+    font-size: 1.4rem;
+    letter-spacing: 0.02em;
+  }
+  .order-modal-variants {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .order-modal-variant {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .order-modal-variant:hover { border-color: var(--c-accent); }
+  .order-modal-variant.is-selected { border-color: var(--c-accent); background: rgba(255, 255, 255, 0.06); }
+  .order-modal-variant input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    flex-shrink: 0;
+    border: 2px solid var(--c-muted);
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: border-color 0.18s ease;
+  }
+  .order-modal-variant input[type="radio"]::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    transform: scale(0);
+    transition: transform 0.18s ease;
+  }
+  .order-modal-variant input[type="radio"]:checked { border-color: var(--c-accent); }
+  .order-modal-variant input[type="radio"]:checked::before { transform: scale(1); }
+  .order-modal-variant-label { flex: 1; }
+  .order-modal-variant-price { font-weight: 700; white-space: nowrap; }
+  .order-modal-add {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--c-accent);
+    color: var(--c-bg);
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+  }
+  .order-modal-add:hover { transform: scale(0.98); }
+
 </style>
