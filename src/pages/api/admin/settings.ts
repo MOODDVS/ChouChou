@@ -24,7 +24,7 @@ interface GiornoInput {
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
-const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
+const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
 
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [
