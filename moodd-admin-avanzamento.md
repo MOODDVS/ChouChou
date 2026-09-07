@@ -4,6 +4,36 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 
 ## 📌 07/09/2026 — sessione Cowork (notifiche al ristoratore in lingua admin + tempo di preparazione dal tile + jours spéciaux condivisi)
 
+### 🛒 Checkout pubblico: due buchi chiusi (telefono + lingua del cliente)
+- **Telefono e cognome non erano verificati dal server.** `OrderApp` non lascia inviare senza (nome, cognome, telefono, email valida, consenso), ma `api/checkout.ts` controllava solo `slot`, `email` e `name`: chi chiamava l'API fuori dal form creava ordini senza modo di richiamare il cliente. Ora il server ricontrolla quello che il form già esige.
+- **La lingua del cliente veniva schiacciata su due valori.** `OrderApp` manda la lingua della pagina, ma il checkout faceva `body.lang === "en" ? "en" : "fr"`: un cliente italiano su Educazione Napoletana veniva **salvato come francese** e riceveva la conferma in francese. Stessa famiglia di bug dei ternari tolti da `OrderApp` il 06/09, un piano più sotto.
+- Ora la lingua vera (5 lingue) finisce **sull'ordine**, che è quello che conta: le email al cliente passano da `pick5` e le 5 lingue le hanno già. Anche `etichettaVariante` segue la lingua vera.
+- **Coupon**: `src/lib/coupons.ts` aveva `type Lang = "fr" | "en"` e un helper `msg(lang, fr, en)` — 9 messaggi con l'inglese come unico ramo alternativo. Sostituito da `TXT_COUPON` (11 chiavi × 5 lingue, con `minSpesa` parametrica) e `testiCoupon(lang)`, che accetta qualunque stringa e ripiega sul francese. Le firme prendono `string`, così chi chiama non deve restringere prima. Aggiornati anche i 4 messaggi scritti a mano in `api/coupon.ts`.
+- **Prefisso Stripe**: era `lang === "en" ? "/en" : ""`, cioè il motore dava per scontato che il sito fosse francese con l'inglese sotto `/en`. Ora `stripe.ts` importa **`defaultLang` dal `src/i18n/ui.ts` del cliente** (file per-cliente, che tutti e 4 già espongono) e applica la stessa regola di `getLocalizedUrl`: lingua di default alla radice, le altre sotto `/<lingua>`. Il motore smette di indovinare il routing del sito pubblico e lo chiede al cliente — coerente col confine scritto in `ENGINE.md`.
+- Tradotti anche gli ultimi due messaggi rimasti a due rami: «ordini momentaneamente chiusi» (`api/checkout.ts`) e l'etichetta del supplemento sulla pagina Stripe (`stripe.ts`).
+- **Verifica**: `grep '=== "en" ?'` su checkout, coupon, coupons e stripe → **nessun residuo**.
+
+### 🧾 Nuovo ordine: obbligatori NOME e TELEFONO (non più il cognome)
+- Prima l'unico campo obbligatorio era il **cognome** (`Cognome *`), e il telefono era facoltativo. Al banco è il contrario: il cognome spesso non lo si chiede, il numero serve se il ritiro va storto.
+- Ora: **Nome \*** e **Telefono \***, cognome facoltativo. L'email resta facoltativa e obbligatoria **solo** col link di pagamento — che via email va spedito.
+- Un solo punto di verità lato client: `ncErroreCliente(payment)` restituisce il messaggio o stringa vuota, ed è usato sia dal passaggio di step sia dall'invio. Prima le due validazioni erano scritte due volte e potevano divergere.
+- Messaggi separati invece dell'unico «Nome ed email validi richiesti»: `ord.namePhoneReq`, `ord.emailInvalid`, `ord.emailForLink` (5 lingue). Prima tre errori diversi davano la stessa frase.
+- **Anche lato server** (`POST /api/admin/orders`): `first_name` e `phone` obbligatori, altrimenti la regola si aggira chiamando l'API.
+- ⚠️ **La MODIFICA non li impone**, di proposito: gli ordini presi dal sito pubblico possono non avere il telefono (`api/checkout.ts` chiede solo nome ed email), e non si blocca una modifica per un dato mai raccolto. In modifica i placeholder perdono l'asterisco — stessa convenzione già usata per l'email (`emailReq`/`emailOpt`).
+
+### 📅 Ordini: il datepicker apre anche sul futuro
+- Nella pagina Ordini il calendario di consultazione bloccava tutto ciò che veniva dopo oggi: giorni disabilitati e freccia «mese successivo» spenta. Ma gli ordini si prendono **con ritiro programmato**, anche fra giorni: il ristoratore deve poter vedere in anticipo cosa lo aspetta.
+- Tolti `futuro` sulle celle e `nextOff` sulla freccia. Resta il grigio sui **giorni di chiusura** (che erano e restano cliccabili) e il pallino verde sui giorni con ordini.
+- Lato server non serviva niente: `/api/admin/orders?date=` e `?month=` filtrano per **intervallo** su `pickup_time`, senza sapere da che parte sta oggi.
+- ⚠️ **Non toccato** il datepicker del modale «Nuovo ordine»: quello blocca il passato, ed è giusto così — un ordine non si crea per ieri.
+
+### 🔕 Push: l'interruttore spento ora dice PERCHÉ
+- Su ChouChou il toggle «Notifications sur cet appareil» non faceva **niente** al click; su L'Huile dava `applicationServerKey must contain a valid P-256 public key`. Due sintomi diversi, stessa causa: **chiavi VAPID mancanti nel `.env` del cliente** (ChouChou non aveva proprio le righe, L'Huile le aveva vuote).
+- Il codice disabilitava il bottone e metteva la ragione **solo nel `title`**: un tooltip, che su touch non esiste e col mouse è facile non vederlo. Da fuori sembra rotto — è costato una diagnosi su due clienti.
+- Ora le due cause sono **distinte e scritte sotto lo switch** (nel `.nf-msg` che c'era già): `set.nf.noKeys` (problema di installazione: env + rebuild) contro `set.nf.unavailable` (browser senza push, o pagina non in HTTPS). Più `.nf-sw:disabled { opacity: .45 }`, così si vede che è inerte.
+- ⚠️ **Trappola da ricordare**: `PUBLIC_VAPID_KEY` è una variabile `PUBLIC_*`, quindi Astro la **incolla nel bundle al build**. Metterla su Hostinger e riavviare NON basta: senza rebuild il browser riceve ancora il valore vecchio.
+- Stato chiavi al 07/09: La Molisana, L'Huile ed EN a posto (87/43 caratteri); **ChouChou da generare**.
+
 ### 📧 Notifiche al ristoratore: tutte nella lingua dell'admin (+ logo RestoHub)
 - **Segnalato da EN**: admin in italiano, ma la mail «Nouvelle réservation» arrivava in francese. Le tre email prenotazione **verso il ristorante** avevano i testi scritti a mano in FR — non era un ripiego, era proprio l'unica lingua.
 - Nuovo dizionario **`R_TXT`** in `notifications.ts` (5 lingue, stessa forma di `K_TXT` del ticket ordine) + helper `contestoRisto()` che restituisce lingua ed etichette in una lettura sola. Coperte: `emailNotificaResa` (nuova prenotazione E nuova demande), `emailNotificaAnnulloResa`, `emailNotificaModificaResa`.

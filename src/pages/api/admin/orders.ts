@@ -360,6 +360,12 @@ export const POST: APIRoute = async ({ request }) => {
   const email = String(body.email ?? "").trim();
   const slot = String(body.slot ?? "");
   const items = Array.isArray(body.items) ? body.items : [];
+  // Ordine creato dallo staff: PRENOME e TELEFONO obbligatori — servono a
+  // richiamare il cliente se qualcosa non va col ritiro. Il cognome no: al
+  // banco spesso non lo si chiede. (La MODIFICA non li impone: gli ordini
+  // presi dal sito pubblico possono non avere il telefono.)
+  if (!String(body.first_name ?? "").trim()) return json({ error: "Prénom requis" }, 400);
+  if (!String(body.phone ?? "").trim()) return json({ error: "Téléphone requis" }, 400);
   if (!nome) return json({ error: "Nom requis" }, 400);
   // Email obbligatoria SOLO per il link di pagamento; facoltativa se pagato di
   // persona (walk-in). Se presente deve comunque essere valida.

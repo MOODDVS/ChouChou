@@ -9,6 +9,7 @@ import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from ".
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
+  testiCoupon,
   normalizzaCodice,
   type CouponRow,
   type LineaCoupon,
@@ -40,7 +41,8 @@ interface CheckoutRequest {
     phone: string;
     email: string;
   };
-  lang?: "fr" | "en";
+  /** Lingua della pagina pubblica da cui arriva l'ordine (5 lingue). */
+  lang?: string;
 }
 
 function isPizza(categoryOrder: number): boolean {
@@ -58,11 +60,28 @@ export const POST: APIRoute = async ({ request }) => {
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return err(400, "Carrello vuoto");
   }
+  // Il form pubblico (OrderApp) esige nome, cognome, telefono ed email: qui si
+  // ricontrolla, perche' l'API e' raggiungibile anche senza passare dal form e
+  // un ordine senza telefono lascia il ristoratore senza modo di richiamare.
   if (!body.slot || !body.customer?.email || !body.customer?.name) {
     return err(400, "Dati mancanti");
   }
+  if (!String(body.customer.surname ?? "").trim() || !String(body.customer.phone ?? "").trim()) {
+    return err(400, "Dati mancanti");
+  }
 
-  const lang: "fr" | "en" = body.lang === "en" ? "en" : "fr";
+  // Lingua del CLIENTE: quella della pagina da cui ordina. Va salvata intera
+  // sull'ordine, perche' le email al cliente esistono in 5 lingue.
+  const LANG_PUBBLICHE = ["fr", "en", "it", "nl", "es"];
+  const lang = LANG_PUBBLICHE.includes(String(body.lang)) ? String(body.lang) : "fr";
+  // Ordini chiusi dall'admin: messaggio nella lingua del cliente.
+  const TXT_CHIUSO: Record<string, string> = {
+    fr: "Les commandes en ligne sont momentanément fermées. Réessayez plus tard.",
+    en: "Online ordering is temporarily closed. Please try again later.",
+    it: "Gli ordini online sono momentaneamente chiusi. Riprova più tardi.",
+    nl: "Online bestellen is tijdelijk gesloten. Probeer het later opnieuw.",
+    es: "Los pedidos en línea están cerrados temporalmente. Inténtalo más tarde.",
+  };
 
   // Servizio chiuso dall'admin (bottone "Fermer" nella pagina Commandes):
   // blocco anche lato server, per chi avesse la pagina già aperta.
@@ -72,12 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
     .eq("key", "orders_closed")
     .maybeSingle();
   if (cfgChiusura?.value === "1") {
-    return err(
-      503,
-      lang === "en"
-        ? "Online ordering is temporarily closed. Please try again later."
-        : "Les commandes en ligne sont momentanément fermées. Réessayez plus tard."
-    );
+    return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
   }
 
   const ora = DateTime.now().setZone(TIMEZONE);
@@ -155,7 +169,7 @@ export const POST: APIRoute = async ({ request }) => {
     const prezzoBase = prezzoEffettivo(prezzoPieno, piatto.discount_type, piatto.discount_value);
     const prezzoUnitario = prezzoBase + supplCents;
 
-    const etichetta = variante ? etichettaVariante(variante, body.lang ?? "fr") : "";
+    const etichetta = variante ? etichettaVariante(variante, lang) : "";
     const nomeConFormato = etichetta ? `${piatto.name} — ${etichetta}` : piatto.name;
     const nomeRiga =
       supplemento === "none"
@@ -209,7 +223,7 @@ export const POST: APIRoute = async ({ request }) => {
       .eq("code_norm", codeInput)
       .maybeSingle();
     if (!coupon) {
-      return err(409, lang === "en" ? "Invalid promo code." : "Code promo non valide.");
+      return err(409, testiCoupon(lang).nonValido);
     }
     const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, lang);
     if (ris.error) return err(409, ris.error);

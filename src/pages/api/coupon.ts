@@ -7,9 +7,9 @@ import {
   calcolaScontoCoupon,
   verificaLimitiUso,
   normalizzaCodice,
+  testiCoupon,
   type CouponRow,
   type LineaCoupon,
-  type Lang,
 } from "../../lib/coupons";
 
 export const prerender = false;
@@ -44,13 +44,15 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false, error: "Requête invalide." }, 400);
   }
 
-  const lang: Lang = body.lang === "en" ? "en" : "fr";
+  // Lingua della pagina pubblica del cliente: i messaggi esistono in 5 lingue.
+  const lang = String(body.lang ?? "");
+  const L = testiCoupon(lang);
   const codeNorm = normalizzaCodice(body.code ?? "");
-  if (!codeNorm) return json({ ok: false, error: lang === "en" ? "Enter a code." : "Entrez un code." });
+  if (!codeNorm) return json({ ok: false, error: L.inserisciCodice });
 
   const items = Array.isArray(body.items) ? body.items.filter((i) => i && i.id) : [];
   if (items.length === 0) {
-    return json({ ok: false, error: lang === "en" ? "Your cart is empty." : "Votre panier est vide." });
+    return json({ ok: false, error: L.carrelloVuoto });
   }
 
   const { data: coupon } = await supabaseAdmin
@@ -59,8 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
     .eq("code_norm", codeNorm)
     .maybeSingle();
 
-  const introvabile = lang === "en" ? "Invalid promo code." : "Code promo non valide.";
-  if (!coupon) return json({ ok: false, error: introvabile });
+  if (!coupon) return json({ ok: false, error: L.nonValido });
 
   // Costruisce le righe carrello leggendo i prezzi REALI dal DB.
   const ids = items.map((i) => i.id);
@@ -82,7 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
   if (linee.length === 0) {
-    return json({ ok: false, error: lang === "en" ? "Your cart is empty." : "Votre panier est vide." });
+    return json({ ok: false, error: L.carrelloVuoto });
   }
 
   const now = DateTime.now().setZone(TIMEZONE);
