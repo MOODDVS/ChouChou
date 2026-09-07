@@ -295,6 +295,11 @@ const DIZIONARIO: Dizionario = {
   "sup.load.error": { fr: "Erreur de chargement.", en: "Loading error.", it: "Errore di caricamento.", nl: "Laadfout.", es: "Error de carga." },
   "sup.visible":    { fr: "Visible", en: "Visible", it: "Visibile", nl: "Zichtbaar", es: "Visible" },
   "sup.hidden":     { fr: "Masquée", en: "Hidden", it: "Nascosta", nl: "Verborgen", es: "Oculta" },
+  // Funzioni opzionali del motore (super admin → Réglages)
+  "sup.features.title": { fr: "Fonctions optionnelles", en: "Optional features", it: "Funzioni opzionali", nl: "Optionele functies", es: "Funciones opcionales" },
+  "sup.features.hint":  { fr: "Fonctions que tous les restaurants n'utilisent pas. Désactivées, elles disparaissent complètement de l'admin du client.", en: "Features not every restaurant uses. When off, they disappear entirely from the client's admin.", it: "Funzioni che non tutti i ristoranti usano. Se spente, spariscono del tutto dall'admin del cliente.", nl: "Functies die niet elk restaurant gebruikt. Uitgeschakeld verdwijnen ze volledig uit de admin van de klant.", es: "Funciones que no todos los restaurantes usan. Desactivadas, desaparecen por completo del admin del cliente." },
+  "sup.features.on":    { fr: "Activée", en: "On", it: "Attiva", nl: "Aan", es: "Activa" },
+  "sup.features.off":   { fr: "Désactivée", en: "Off", it: "Spenta", nl: "Uit", es: "Desactivada" },
   "sup.reglages.note": {
     fr: "L'Accueil reste toujours accessible : c'est la page d'arrivée après la connexion. Les modifications sont immédiates pour tous les utilisateurs.",
     en: "Home stays always accessible: it's the landing page after login. Changes are immediate for all users.",
@@ -321,6 +326,12 @@ const DIZIONARIO: Dizionario = {
   "tab.settings.team":          { fr: "Team", en: "Team", it: "Team", nl: "Team", es: "Equipo" },
   "tab.settings.documents":     { fr: "Documents", en: "Documents", it: "Documenti", nl: "Documenten", es: "Documentos" },
   "tab.settings.notifications": { fr: "Notifications", en: "Notifications", it: "Notifiche", nl: "Meldingen", es: "Notificaciones" },
+  "tab.stats.ggl":   { fr: "Google", en: "Google", it: "Google", nl: "Google", es: "Google" },
+  "tab.stats.fin":   { fr: "Finances", en: "Finances", it: "Finanze", nl: "Financiën", es: "Finanzas" },
+  "tab.stats.resa":  { fr: "Réservations", en: "Reservations", it: "Prenotazioni", nl: "Reserveringen", es: "Reservas" },
+  "tab.assets.site":      { fr: "Site", en: "Site", it: "Sito", nl: "Site", es: "Sitio" },
+  "tab.assets.images":    { fr: "Images", en: "Images", it: "Immagini", nl: "Afbeeldingen", es: "Imágenes" },
+  "tab.assets.documents": { fr: "Documents", en: "Documents", it: "Documenti", nl: "Documenten", es: "Documentos" },
 
   // ----- Anteprima (mockup del tema) -----
   "sup.preview":      { fr: "Aperçu", en: "Preview", it: "Anteprima", nl: "Voorbeeld", es: "Vista previa" },
@@ -538,6 +549,9 @@ const DIZIONARIO: Dizionario = {
   "home.resize":       { fr: "Redimensionner", en: "Resize", it: "Ridimensiona", nl: "Formaat wijzigen", es: "Redimensionar" },
 
   // Modale Événements locaux
+  "home.evtTabEvent":     { fr: "Événement local", en: "Local event", it: "Evento locale", nl: "Lokaal evenement", es: "Evento local" },
+  "home.evtTabClosure":   { fr: "Fermeture / ouverture", en: "Closing / opening", it: "Chiusura / apertura", nl: "Sluiting / opening", es: "Cierre / apertura" },
+  "home.closureIntro":    { fr: "Fermer ou ouvrir exceptionnellement le resto sur une date ou une période. Le site public et les réservations suivent tout de suite.", en: "Exceptionally close or open the restaurant on a date or a period. The public site and bookings follow immediately.", it: "Chiudere o aprire eccezionalmente il ristorante in una data o in un periodo. Il sito pubblico e le prenotazioni si adeguano subito.", nl: "Het restaurant uitzonderlijk sluiten of openen op een datum of periode. De publieke site en de reserveringen volgen meteen.", es: "Cerrar o abrir excepcionalmente el restaurante en una fecha o un periodo. El sitio público y las reservas se adaptan enseguida." },
   "home.localEvents":     { fr: "Événements locaux", en: "Local events", it: "Eventi locali", nl: "Lokale evenementen", es: "Eventos locales" },
   "home.localEventsIntro":{ fr: "Des rappels pour le resto : fête du quartier, brocante, anniversaire… Ils apparaissent dans « Événements à venir », rien d'autre ne change.", en: "Reminders for the restaurant: neighborhood party, flea market, anniversary… They appear in « Upcoming events », nothing else changes.", it: "Promemoria per il ristorante: festa di quartiere, mercatino, anniversario… Appaiono in « Prossimi eventi », nient'altro cambia.", nl: "Herinneringen voor het restaurant: buurtfeest, rommelmarkt, verjaardag… Ze verschijnen in « Aankomende evenementen », verder verandert er niets.", es: "Recordatorios para el restaurante: fiesta del barrio, mercadillo, aniversario… Aparecen en « Próximos eventos », nada más cambia." },
   "home.name":       { fr: "Nom", en: "Name", it: "Nome", nl: "Naam", es: "Nombre" },
@@ -930,6 +944,17 @@ const DIZIONARIO: Dizionario = {
   "menu.descEn":        { fr: "Description (EN)", en: "Description (EN)", it: "Descrizione (EN)", nl: "Beschrijving (EN)", es: "Descripción (EN)" },
   "menu.allergensEu":   { fr: "Allergènes (UE)", en: "Allergens (EU)", it: "Allergeni (UE)", nl: "Allergenen (EU)", es: "Alérgenos (UE)" },
   "menu.badges":        { fr: "Badges", en: "Badges", it: "Badge", nl: "Badges", es: "Distintivos" },
+  // Varianti di un piatto (migrazione #71)
+  "menu.variants":      { fr: "Variantes", en: "Variants", it: "Varianti", nl: "Varianten", es: "Variantes" },
+  "menu.variantsHint":  { fr: "Plusieurs variantes du même plat, chacune avec son prix (30/40 cm, verre/bouteille). Laissez vide pour un prix unique.", en: "Several variants of the same dish, each with its own price (30/40 cm, glass/bottle). Leave empty for a single price.", it: "Più varianti dello stesso piatto, ognuna col suo prezzo (30/40 cm, calice/bottiglia). Lascia vuoto per un prezzo unico.", nl: "Meerdere varianten van hetzelfde gerecht, elk met eigen prijs (30/40 cm, glas/fles). Laat leeg voor één prijs.", es: "Varias variantes del mismo plato, cada una con su precio (30/40 cm, copa/botella). Déjalo vacío para un precio único." },
+  "menu.variantAdd":    { fr: "Ajouter une variante", en: "Add a variant", it: "Aggiungi una variante", nl: "Variant toevoegen", es: "Añadir una variante" },
+  "menu.variantLabel":  { fr: "Libellé", en: "Label", it: "Etichetta", nl: "Label", es: "Etiqueta" },
+  "menu.variantPrice":  { fr: "Prix (€)", en: "Price (€)", it: "Prezzo (€)", nl: "Prijs (€)", es: "Precio (€)" },
+  "menu.variantOrder":  { fr: "Commandable", en: "Orderable", it: "Ordinabile", nl: "Bestelbaar", es: "Pedible" },
+  "menu.variantRemove": { fr: "Supprimer cette variante", en: "Remove this variant", it: "Elimina questa variante", nl: "Deze variant verwijderen", es: "Eliminar esta variante" },
+  "menu.variantLabelReq": { fr: "Chaque variante doit avoir un libellé", en: "Each variant needs a label", it: "Ogni variante deve avere un'etichetta", nl: "Elke variant heeft een label nodig", es: "Cada variante necesita una etiqueta" },
+  "menu.variantPriceReq": { fr: "Prix de variante invalide", en: "Invalid variant price", it: "Prezzo della variante non valido", nl: "Ongeldige variantprijs", es: "Precio de variante no válido" },
+  "menu.variantsNote":  { fr: "Avec des variantes, le prix ci-dessus sert de repère : le client paie le prix de la variante choisie.", en: "With variants, the price above is only a reference: the customer pays the chosen variant's price.", it: "Con le varianti, il prezzo qui sopra è solo un riferimento: il cliente paga il prezzo della variante scelta.", nl: "Met varianten is de prijs hierboven slechts een referentie: de klant betaalt de prijs van de gekozen variant.", es: "Con variantes, el precio de arriba es solo una referencia: el cliente paga el precio de la variante elegida." },
   "menu.bestseller":    { fr: "Best-seller", en: "Best-seller", it: "Bestseller", nl: "Bestseller", es: "Más vendido" },
   "menu.vegan":         { fr: "Végan", en: "Vegan", it: "Vegano", nl: "Veganistisch", es: "Vegano" },
   "menu.spicy":         { fr: "Épicé", en: "Spicy", it: "Piccante", nl: "Pittig", es: "Picante" },

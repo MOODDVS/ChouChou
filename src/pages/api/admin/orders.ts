@@ -1,11 +1,11 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../../lib/db";
+import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from "../../../lib/stripe";
 import { calcolaSlotGiorno, TIMEZONE } from "../../../lib/slots";
 import { configGiornoEffettiva } from "../../../lib/schedule";
-import { prezzoEffettivo } from "../../../lib/pricing";
+import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
 
 export const prerender = false;
@@ -255,6 +255,41 @@ export const GET: APIRoute = async ({ request, url }) => {
 // Crea l'ordine (status pending, source manual), genera la sessione Stripe
 // e invia al cliente l'email con il link di pagamento. Il webhook esistente
 // lo passerà a 'paid' quando il cliente paga (email cucina/conferma comprese).
+/** Piatti per il calcolo di un ordine dello staff. Prezzi SEMPRE dal DB.
+ *  Ripiega senza `variants` sui DB dove la migrazione #71 manca ancora. */
+async function piattiPerOrdine(ids: string[]): Promise<RisultatoQuery> {
+  const CAMPI = "id, name, price_cents, available, discount_type, discount_value";
+  return await conRipiegoColonne(
+    CAMPI,
+    async (campi) =>
+      (await supabaseAdmin.from("menu_items").select(campi).in("id", ids)) as unknown as RisultatoQuery
+  );
+}
+
+/** Riga d'ordine a partire dal piatto e dal formato eventualmente scelto.
+ *  `null` = il formato richiesto non esiste più (il chiamante risponde 409). */
+function rigaOrdine(
+  piatto: any,
+  rich: { qty?: unknown; variant?: unknown },
+  lang: string
+): { name: string; price_cents: number; qty: number; variant?: string } | null {
+  const qty = Math.max(1, Math.floor(Number(rich.qty)));
+  let variante = null as ReturnType<typeof trovaVariante>;
+  if (haVarianti(piatto.variants)) {
+    variante = trovaVariante(piatto.variants, rich.variant, true);
+    if (!variante) return null;
+  }
+  const pieno = variante ? variante.price_cents : piatto.price_cents;
+  const price_cents = prezzoEffettivo(pieno, piatto.discount_type, piatto.discount_value);
+  const etichetta = variante ? etichettaVariante(variante, lang) : "";
+  return {
+    name: etichetta ? `${piatto.name} — ${etichetta}` : piatto.name,
+    price_cents,
+    qty,
+    ...(variante ? { variant: variante.key } : {}),
+  };
+}
+
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
@@ -354,21 +389,18 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi
   const ids = items.map((i) => String(i.id ?? ""));
-  const { data: piatti, error: errMenu } = await supabaseAdmin
-    .from("menu_items")
-    .select("id, name, price_cents, available, discount_type, discount_value")
-    .in("id", ids);
+  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids);
   if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
 
   const voci: VoceCheckout[] = [];
-  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string }[] = [];
+  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available) return json({ error: "Un plat n'est plus disponible" }, 409);
-    const qty = Math.max(1, Math.floor(Number(rich.qty)));
-    const prezzo = prezzoEffettivo(piatto.price_cents, piatto.discount_type, piatto.discount_value);
-    voci.push({ name: piatto.name, price_cents: prezzo, qty });
-    itemsOrdine.push({ id: piatto.id, name: piatto.name, qty, price_cents: prezzo, notes: "" });
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
+    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
+    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
+    itemsOrdine.push({ id: piatto.id, name: riga.name, qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });
@@ -630,21 +662,18 @@ export const PUT: APIRoute = async ({ request }) => {
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi.
   const ids = items.map((i) => String(i.id ?? ""));
-  const { data: piatti, error: errMenu } = await supabaseAdmin
-    .from("menu_items")
-    .select("id, name, price_cents, available, discount_type, discount_value")
-    .in("id", ids);
+  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids);
   if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
 
   const voci: VoceCheckout[] = [];
-  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string }[] = [];
+  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available) return json({ error: "Un plat n'est plus disponible" }, 409);
-    const qty = Math.max(1, Math.floor(Number(rich.qty)));
-    const prezzo = prezzoEffettivo(piatto.price_cents, piatto.discount_type, piatto.discount_value);
-    voci.push({ name: piatto.name, price_cents: prezzo, qty });
-    itemsOrdine.push({ id: piatto.id, name: piatto.name, qty, price_cents: prezzo, notes: "" });
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
+    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
+    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
+    itemsOrdine.push({ id: piatto.id, name: riga.name, qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });

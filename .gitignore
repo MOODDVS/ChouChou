@@ -25,3 +25,7 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 *.zip
+
+# Mockup/anteprime generati durante le sessioni Cowork: NON fanno parte del
+# prodotto e non devono propagarsi ai clienti col merge.
+Claude outputs/

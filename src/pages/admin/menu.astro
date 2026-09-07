@@ -47,6 +47,9 @@ const pubLangsJson = JSON.stringify({
   labels: Object.fromEntries(LINGUE_PUBBLICHE.map((l) => [l.code, { label: l.label, flag: l.flag }])),
 }).replace(/</g, "\\u003c");
 const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
+// Varianti: funzione opzionale accesa dal super admin (Réglages → Fonctions).
+// Spenta = il tab non esiste proprio, il ristoratore non ci inciampa.
+const varianti = boot.features.includes("variants");
 ---
 
 <html lang={lang}>
@@ -383,6 +386,9 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       .m-badges { flex-wrap: wrap; gap: 1.1rem 1.6rem; margin-top: 0.2rem; }
       .m-sublabel { display: block; margin-bottom: 0.4rem; }
       .m-sep { border-top: 1px solid var(--c-line); margin: 0.7rem 0 0.9rem; }
+
+      /* Varianti del piatto (#71): riusa .lu-block / .mn-corso-* / .m-toggle / .i-del */
+      .f-hint { margin: 0 0 0.8rem; color: var(--c-muted); font-size: 0.78rem; line-height: 1.45; }
       .m-states { flex-wrap: wrap; gap: 0.9rem 1.4rem; }
 
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem 1.2rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; flex-wrap: wrap; }
@@ -656,16 +662,24 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
             </div>
           </div>
 
-          <!-- COLONNA DESTRA: tab descrizioni · allergeni · sconto -->
+          <!-- COLONNA DESTRA: tab descrizioni · formati · allergeni · sconto -->
           <div class="m-col">
             <div class="m-tabs" id="m-tabs">
               <button type="button" class="m-tab is-on" data-tab="desc">{t("menu.tabDesc")}</button>
+              {varianti && <button type="button" class="m-tab" data-tab="var">{t("menu.variants")}</button>}
               <button type="button" class="m-tab" data-tab="alg">{t("menu.tabAllerg")}</button>
               <button type="button" class="m-tab" data-tab="disc">{t("menu.tabDisc")}</button>
             </div>
             <div class="m-pane" data-pane="desc">
               <div id="f-descs"></div>
             </div>
+            {varianti && (
+              <div class="m-pane" data-pane="var" style="display: none">
+                <p class="f-hint">{t("menu.variantsHint")}</p>
+                <div id="f-vars"></div>
+                <button type="button" class="pill sec-btn" id="f-var-add" style="margin-top: 0.6rem">+ {t("menu.variantAdd")}</button>
+              </div>
+            )}
             <div class="m-pane" data-pane="alg" style="display: none">
               <div class="alg-grid" id="f-alg"></div>
             </div>
@@ -891,6 +905,7 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         id: string; category: string; category_order: number; sort_order: number;
         name: string; description_fr: string | null; description_en: string | null;
         name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null;
+        variants?: { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out?: boolean }[] | null;
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; is_seasonal: boolean; sold_out?: boolean;
@@ -1395,6 +1410,14 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         fNamesExtra.querySelectorAll<HTMLInputElement>(".f-nx").forEach((inp) => {
           inp.value = nI18n[inp.dataset.lang ?? ""] ?? "";
         });
+        mVar = (it?.variants ?? []).map((v) => ({
+          key: String(v.key ?? ""),
+          label_i18n: { ...(v.label_i18n ?? {}) },
+          price_cents: Number(v.price_cents ?? 0),
+          orderable: v.orderable !== false,
+          sold_out: v.sold_out === true,
+        }));
+        renderVarianti();
         const dI18n = it?.desc_i18n ?? {};
         fDescs.querySelectorAll<HTMLTextAreaElement>(".f-dx").forEach((ta) => {
           const l = ta.dataset.lang ?? "";
@@ -1444,6 +1467,131 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
       }
       fDtype.addEventListener("change", aggiornaCampiSconto);
 
+      // ---------- Formati / varianti del piatto (#71) ----------
+      type VarRiga = { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out: boolean };
+      let mVar: VarRiga[] = [];
+      // Presenti solo se il super admin ha acceso la funzione "variants".
+      const fVars = document.getElementById("f-vars") as HTMLDivElement | null;
+      const fVarAdd = document.getElementById("f-var-add") as HTMLButtonElement | null;
+      const variantiOn = !!fVars;
+
+      /** Chiave stabile ricavata dall'etichetta (usata solo alla creazione). */
+      function chiaveDaEtichetta(testo: string, prese: Set<string>): string {
+        const base = testo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24) || "f";
+        let k = base, i = 2;
+        while (prese.has(k)) k = `${base}-${i++}`.slice(0, 24);
+        prese.add(k);
+        return k;
+      }
+
+      /** Copia nello stato quello che c'è nei campi (prima di ridisegnare). */
+      function sincronizzaVarDom() {
+        if (!fVars) return;
+        fVars.querySelectorAll<HTMLElement>(".f-var-row").forEach((riga, i) => {
+          if (!mVar[i]) return;
+          const et: Record<string, string> = {};
+          riga.querySelectorAll<HTMLInputElement>(".f-var-lb").forEach((inp) => {
+            const v = inp.value.trim();
+            if (v) et[inp.dataset.lang ?? ""] = v;
+          });
+          mVar[i].label_i18n = et;
+          const pr = riga.querySelector<HTMLInputElement>(".f-var-pr");
+          const cents = Math.round(parseFloat((pr?.value ?? "").replace(",", ".")) * 100);
+          mVar[i].price_cents = Number.isFinite(cents) && cents >= 0 ? cents : -1;
+          const og = riga.querySelector<HTMLInputElement>(".f-var-og");
+          mVar[i].orderable = og ? og.checked : true;
+          const so = riga.querySelector<HTMLInputElement>(".f-var-so");
+          mVar[i].sold_out = so ? so.checked : false;
+        });
+      }
+
+      function renderVarianti() {
+        if (!fVars) return;
+        const ordineLingue = [PUB.def, ...PUB.langs.filter((l) => l !== PUB.def)];
+        const unaLingua = ordineLingue.length <= 1;
+        fVars.innerHTML = mVar
+          .map((v, i) => {
+            const etichette = ordineLingue
+              .map((l) => {
+                const ph = unaLingua ? "" : ` (${esc(langTag(l))})`;
+                return `<div class="f-row"><div class="f-field"><input type="text" class="f-var-lb" data-lang="${l}" maxlength="40" placeholder="${esc(tr("menu.variantLabel"))}${ph}" value="${esc(v.label_i18n?.[l] ?? "")}" /></div></div>`;
+              })
+              .join("");
+            const prezzo = v.price_cents >= 0 ? (v.price_cents / 100).toFixed(2) : "";
+            return `
+            <div class="lu-block f-var-row" data-i="${i}">
+              <div class="mn-corso-nomi">
+                <span class="f-label">${esc(tr("menu.variantLabel"))}</span>
+                ${etichette}
+              </div>
+              <div class="f-row">
+                <div class="f-field">
+                  <span class="f-label">${esc(tr("menu.variantPrice"))}</span>
+                  <input type="number" class="f-var-pr" min="0" step="0.01" inputmode="decimal" value="${prezzo}" />
+                </div>
+              </div>
+              <div class="m-toggles">
+                <label class="m-toggle">
+                  <span class="switch"><input type="checkbox" class="f-var-og"${v.orderable ? " checked" : ""} /><span class="track"></span></span>
+                  ${esc(tr("menu.variantOrder"))}
+                </label>
+                <label class="m-toggle">
+                  <span class="switch"><input type="checkbox" class="f-var-so"${v.sold_out ? " checked" : ""} /><span class="track"></span></span>
+                  ${esc(tr("menu.soldOut"))}
+                </label>
+              </div>
+              <div class="mn-corso-foot">
+                <button type="button" class="i-btn i-del f-var-del" data-i="${i}" title="${esc(tr("menu.variantRemove"))}">${ICO_TRASH}</button>
+              </div>
+            </div>`;
+          })
+          .join("");
+        if (mVar.length > 0) {
+          fVars.insertAdjacentHTML("beforeend", `<p class="f-hint">${esc(tr("menu.variantsNote"))}</p>`);
+        }
+        // Il contenuto sta in un tab: il conteggio si vede senza aprirlo.
+        const tab = mTabs.querySelector<HTMLElement>('[data-tab="var"]');
+        if (tab) tab.textContent = tr("menu.variants") + (mVar.length ? ` (${mVar.length})` : "");
+      }
+
+      fVarAdd?.addEventListener("click", () => {
+        sincronizzaVarDom();
+        mVar.push({ key: "", label_i18n: {}, price_cents: -1, orderable: true, sold_out: false });
+        renderVarianti();
+      });
+      fVars?.addEventListener("click", (e) => {
+        const del = (e.target as HTMLElement).closest<HTMLButtonElement>(".f-var-del");
+        if (!del) return;
+        // Primo tap: il cestino diventa "Confermare?" per 3 secondi. Secondo: elimina.
+        if (!del.classList.contains("confirm")) {
+          del.classList.add("confirm");
+          del.textContent = tr("common.confirm");
+          setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
+          return;
+        }
+        sincronizzaVarDom();
+        mVar.splice(Number(del.dataset.i), 1);
+        renderVarianti();
+      });
+
+      /** Varianti pronte per il server, o un messaggio d'errore. */
+      function variantiDaSalvare(): { errore?: string; value?: VarRiga[] } {
+        if (!variantiOn) return {}; // funzione spenta: non si tocca il campo
+        sincronizzaVarDom();
+        const prese = new Set<string>(mVar.map((v) => v.key).filter(Boolean));
+        const out: VarRiga[] = [];
+        for (const v of mVar) {
+          const etichette = Object.entries(v.label_i18n ?? {}).filter(([, t]) => t.trim());
+          if (etichette.length === 0) return { errore: tr("menu.variantLabelReq") };
+          if (!(v.price_cents >= 0)) return { errore: tr("menu.variantPriceReq") };
+          const key = v.key || chiaveDaEtichetta(v.label_i18n[PUB.def] ?? etichette[0][1], prese);
+          v.key = key;
+          out.push({ key, label_i18n: Object.fromEntries(etichette), price_cents: v.price_cents, orderable: v.orderable, sold_out: v.sold_out });
+        }
+        return { value: out };
+      }
+
       async function salvaModale() {
         mMsg.textContent = "";
         if (!fName.value.trim()) { mMsg.textContent = tr("menu.nameRequired"); return; }
@@ -1451,8 +1599,12 @@ const catStdJson = JSON.stringify(CATEGORIE_STANDARD).replace(/</g, "\\u003c");
         const prezzo = Math.round(parseFloat(fPrice.value.replace(",", ".")) * 100);
         if (!Number.isFinite(prezzo) || prezzo < 0) { mMsg.textContent = tr("menu.priceInvalid"); return; }
 
+        const varianti = variantiDaSalvare();
+        if (varianti.errore) { mMsg.textContent = varianti.errore; return; }
+
         const orig = editId ? items.find((x) => x.id === editId) : null;
         const body: Record<string, unknown> = {
+          ...(varianti.value ? { variants: varianti.value } : {}),
           name: fName.value.trim(),
           category: fCat.value,
           price_cents: prezzo,

@@ -6,6 +6,13 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
 
+/** Tavoli massimi in UNA combinazione (liaison) e combinazioni per section.
+ *  Erano 8 e 40, applicati scartando in silenzio: con tavoli da 2 il tetto
+ *  reale era 16 posti, e chi provava a fare una catena da 22 vedeva la
+ *  combinazione sparire senza capire perché. */
+const MAX_TAVOLI_LIAISON = 16;
+const MAX_LIAISONS = 40;
+
 // Plan de salle — tavoli disegnati per ogni section (Réglages → Réservations).
 // Coordinate in unità astratte: canvas 1000×600 (lo snap è lato client).
 // L'AREA della sala (rettangolo, 4 angoli) vive in app_config
@@ -143,14 +150,28 @@ export const PUT: APIRoute = async ({ request }) => {
   const zone = String(body.zone ?? "").trim().slice(0, 60);
   if (!zone) return json({ error: "Section obligatoire" }, 400);
 
-  // Liaisons: { zone, links: [["id","id"], …] } (validate e salvate a parte)
+  // Liaisons: { zone, links: [["id","id"], …] } (validate e salvate a parte).
+  // I limiti sono una difesa contro valori assurdi, non una regola di sala:
+  // 16 tavoli coprono qualsiasi catena reale (con tavoli da 2 sono 32 posti).
+  // Una combinazione fuori limite viene RIFIUTATA con un messaggio, mai
+  // scartata in silenzio: prima spariva e sembrava che l'admin non salvasse.
   if ("links" in body) {
     const grezzi = Array.isArray((body as { links?: unknown }).links) ? ((body as { links: unknown[] }).links) : [];
+    if (grezzi.length > MAX_LIAISONS) {
+      return json({ error: `Maximum ${MAX_LIAISONS} liaisons par section` }, 400);
+    }
     const links: string[][] = [];
-    for (const g of grezzi.slice(0, 40)) {
-      if (!Array.isArray(g)) continue;
+    for (const g of grezzi) {
+      if (!Array.isArray(g)) return json({ error: "Liaison invalide" }, 400);
       const ids = g.map((x) => String(x)).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
-      if (ids.length >= 2 && ids.length <= 8) links.push(ids);
+      if (ids.length !== g.length) return json({ error: "Liaison invalide" }, 400);
+      if (ids.length < 2) {
+        return json({ error: "Une liaison doit contenir au moins 2 tables" }, 400);
+      }
+      if (ids.length > MAX_TAVOLI_LIAISON) {
+        return json({ error: `Une liaison dépasse le maximum de ${MAX_TAVOLI_LIAISON} tables` }, 400);
+      }
+      links.push(ids);
     }
     const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null);
     if (!ok) return json({ error: "Enregistrement impossible" }, 500);

@@ -6,7 +6,32 @@ export const prerender = false;
 
 const SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
-const SELECT = SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
+/** Colonne aggiunte da migrazioni successive: su un cliente che non le ha
+ *  ancora lanciate la query fallisce, e si riprova senza QUELLA colonna
+ *  (non senza tutte, per non perdere le altre). */
+const COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants"];
+
+type Risultato = { data: unknown; error: { message?: string } | null };
+
+/** Esegue l'operazione togliendo una per una le colonne che il DB non conosce. */
+async function conRipiego(
+  esegui: (select: string, campi: Record<string, unknown>) => Promise<Risultato>,
+  campi: Record<string, unknown> = {}
+): Promise<Risultato> {
+  const escluse = new Set<string>();
+  let ultimo: Risultato = { data: null, error: { message: "" } };
+  for (let giro = 0; giro <= COLONNE_NUOVE.length; giro++) {
+    const sel = [SELECT_BASE, ...COLONNE_NUOVE.filter((c) => !escluse.has(c))].join(", ");
+    const c: Record<string, unknown> = { ...campi };
+    for (const e of escluse) delete c[e];
+    ultimo = await esegui(sel, c);
+    const msg = String(ultimo.error?.message ?? "");
+    const colpevole = ultimo.error ? COLONNE_NUOVE.find((k) => !escluse.has(k) && msg.includes(k)) : undefined;
+    if (!colpevole) return ultimo;
+    escluse.add(colpevole);
+  }
+  return ultimo;
+}
 
 // Lingue del sito pubblico supportate (traduzioni piatti). Vedi superAdmin.ts.
 const LANG_CODES = ["fr", "en", "it", "nl", "es"];
@@ -22,9 +47,43 @@ function pulisciI18n(raw: unknown, max: number): Record<string, string> {
   }
   return out;
 }
-/** Errore Postgres dovuto alle colonne nuove non ancora migrate. */
-function mancaI18n(msg: string): boolean {
-  return msg.includes("name_i18n") || msg.includes("desc_i18n") || msg.includes("sold_out");
+
+const MAX_VARIANTI = 12;
+
+/** Valida i formati di un piatto in arrivo dall'admin.
+ *  Ritorna { errore } oppure { value } pronto per il jsonb. */
+function validaVarianti(raw: unknown): {
+  errore?: string;
+  value?: { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out: boolean }[];
+} {
+  if (raw == null) return { value: [] };
+  if (!Array.isArray(raw)) return { errore: "Formats invalides" };
+  if (raw.length > MAX_VARIANTI) return { errore: `Maximum ${MAX_VARIANTI} formats` };
+  const viste = new Set<string>();
+  const out: { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out: boolean }[] = [];
+  for (const v of raw) {
+    if (!v || typeof v !== "object" || Array.isArray(v)) return { errore: "Format invalide" };
+    const r = v as Record<string, unknown>;
+    const key = String(r.key ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 24);
+    if (!key) return { errore: "Chaque format doit avoir une clé" };
+    if (viste.has(key)) return { errore: `Clé de format en double : ${key}` };
+    viste.add(key);
+    const price = Math.round(Number(r.price_cents));
+    if (!Number.isFinite(price) || price < 0 || price > 100000000) {
+      return { errore: "Prix de format invalide" };
+    }
+    const label_i18n = pulisciI18n(r.label_i18n, 40);
+    if (Object.keys(label_i18n).length === 0) {
+      return { errore: "Chaque format doit avoir un libellé" };
+    }
+    out.push({ key, label_i18n, price_cents: price, orderable: r.orderable !== false, sold_out: r.sold_out === true });
+  }
+  return { value: out };
 }
 
 /** Ordine della sezione (menu_categories); null se la sezione non esiste. */
@@ -90,6 +149,11 @@ function validaCampi(
   }
   if ("name_i18n" in body) {
     campi.name_i18n = pulisciI18n(body.name_i18n, 120);
+  }
+  if ("variants" in body) {
+    const { errore, value } = validaVarianti(body.variants);
+    if (errore) return { errore };
+    campi.variants = value;
   }
   if ("desc_i18n" in body) {
     const d = pulisciI18n(body.desc_i18n, 500);
@@ -165,12 +229,9 @@ export const GET: APIRoute = async ({ request }) => {
       .order("category_order", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
-  let res: { data: unknown[] | null; error: { message?: string } | null } = await ordina(SELECT);
-  if (res.error && mancaI18n(res.error.message ?? "")) {
-    res = await ordina(SELECT_BASE);
-  }
+  const res = await conRipiego(async (sel) => (await ordina(sel)) as Risultato);
   if (res.error) return json({ error: "Lecture impossible" }, 500);
-  return json({ items: res.data ?? [] });
+  return json({ items: (res.data as unknown[]) ?? [] });
 };
 
 // POST /api/admin/menu — crea un piatto
@@ -200,17 +261,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (ord === null) return json({ error: "Section inconnue" }, 400);
   campi.category_order = ord;
 
-  let res: { data: unknown; error: { message?: string } | null } = await supabaseAdmin
-    .from("menu_items")
-    .insert(campi)
-    .select(SELECT)
-    .single();
-  if (res.error && mancaI18n(res.error.message ?? "")) {
-    delete campi.name_i18n;
-    delete campi.desc_i18n;
-    delete campi.sold_out;
-    res = await supabaseAdmin.from("menu_items").insert(campi).select(SELECT_BASE).single();
-  }
+  const res = await conRipiego(
+    async (sel, c) => (await supabaseAdmin.from("menu_items").insert(c).select(sel).single()) as Risultato,
+    campi
+  );
   if (res.error || !res.data) return json({ error: "Création impossible" }, 500);
   return json({ item: res.data });
 };
@@ -242,18 +296,10 @@ export const PUT: APIRoute = async ({ request }) => {
     campi.category_order = ord;
   }
 
-  let res: { data: unknown; error: { message?: string } | null } = await supabaseAdmin
-    .from("menu_items")
-    .update(campi)
-    .eq("id", id)
-    .select(SELECT)
-    .single();
-  if (res.error && mancaI18n(res.error.message ?? "")) {
-    delete campi.name_i18n;
-    delete campi.desc_i18n;
-    delete campi.sold_out;
-    res = await supabaseAdmin.from("menu_items").update(campi).eq("id", id).select(SELECT_BASE).single();
-  }
+  const res = await conRipiego(
+    async (sel, c) => (await supabaseAdmin.from("menu_items").update(c).eq("id", id).select(sel).single()) as Risultato,
+    campi
+  );
   if (res.error || !res.data) return json({ error: "Modification impossible" }, 500);
   return json({ item: res.data });
 };

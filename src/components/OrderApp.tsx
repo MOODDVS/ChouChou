@@ -1,5 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import SlotPicker from "./SlotPicker";
+import { etichettaVariante } from "../lib/pricing";
+import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
+
+/** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
+ *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
+interface Variante {
+  key: string;
+  label_i18n: Record<string, string>;
+  price_cents: number;
+  original_price_cents: number | null;
+  orderable: boolean;
+  /** Finito adesso: si vede, ma non si può aggiungere al carrello. */
+  sold_out: boolean;
+}
 
 interface MenuItem {
   id: string;
@@ -17,6 +31,10 @@ interface MenuItem {
   is_spicy: boolean;
   is_suggestion: boolean;
   is_seasonal: boolean;
+  /** Piatto esaurito: resta in carta, segnalato, ma non ordinabile. */
+  is_sold_out: boolean;
+  /** Vuoto = prezzo unico. Pieno = il cliente sceglie il formato. */
+  variants: Variante[];
 }
 interface MenuCategoria {
   category: string;
@@ -32,6 +50,14 @@ interface CartLine {
   name: string;
   price_cents: number;
   qty: number;
+  /** Chiave del formato scelto. Assente = piatto a prezzo unico.
+   *  Due formati dello stesso piatto sono DUE righe distinte. */
+  variant?: string;
+}
+
+/** Identità di una riga di carrello: piatto + formato. */
+function chiaveLinea(l: { id: string; variant?: string }): string {
+  return l.variant ? `${l.id}::${l.variant}` : l.id;
 }
 
 // Stringhe tradotte passate dal lato Astro.
@@ -74,13 +100,34 @@ interface OrderStrings {
   consentPre: string;
   consentLink: string;
   privacyHref: string;
+  /** Etichette dei badge e degli stati. OPZIONALI: se la pagina del cliente
+   *  non le passa, si usano quelle del motore nella lingua giusta. */
+  soldOut?: string;
+  vegan?: string;
+  spicy?: string;
+  seasonal?: string;
+  suggestion?: string;
+  confirm?: string;
 }
 
 interface OrderAppProps {
   menu: MenuCategoria[];
   t: OrderStrings;
-  lang: "fr" | "en";
+  /** Lingua della pagina. Qualunque lingua pubblica, non solo fr/en:
+   *  le etichette passano da `etichettaMenu`, che sa ripiegare. */
+  lang: string;
   closedToday?: boolean;
+  /** Come il cliente sceglie il formato di un piatto con varianti.
+   *  "pulsanti" (default): un bottone per formato dentro la scheda, adatto
+   *  alle liste asciutte. "modale": scheda con foto grande e radio, per i
+   *  siti che puntano sulla vetrina fotografica. Scelta PER CLIENTE: la
+   *  passa la pagina /order, che è un file del cliente. */
+  sceltaFormato?: "pulsanti" | "modale";
+  /** Mostrare la foto del piatto nella lista? Scelta di design PER CLIENTE:
+   *  un menu a lista asciutta non la vuole, una vetrina fotografica sì.
+   *  Anche quando è true, la foto compare solo sui piatti che ne hanno una:
+   *  niente riquadri vuoti a spezzare le righe. Default: nessuna foto. */
+  foto?: boolean;
 }
 
 type Vista = "menu" | "checkout";
@@ -112,7 +159,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false }: OrderAppProps) {
   // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
   // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
   // Boissons = tutte le bevande (category_order >= 9)
@@ -247,25 +294,93 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
     }, 700);
   }
 
-  function aggiungi(item: MenuItem) {
+  // ---- Scelta del formato: modale con foto grande, come sulla scheda ----
+  const [itemModale, setItemModale] = useState<MenuItem | null>(null);
+  const [varianteScelta, setVarianteScelta] = useState<string>("");
+
+  /** Formati che si possono davvero ordinare adesso. */
+  function variantiOrdinabili(item: MenuItem): Variante[] {
+    return item.variants.filter((v) => v.orderable && !v.sold_out);
+  }
+
+  function clicPiu(item: MenuItem) {
+    if (item.is_sold_out) return;
+    const ordinabili = variantiOrdinabili(item);
+    if (ordinabili.length === 0) {
+      // Nessun formato: il piatto ha un prezzo unico e va dritto nel carrello.
+      if (item.variants.length === 0) aggiungi(item);
+      return;
+    }
+    setItemModale(item);
+    setVarianteScelta(ordinabili[0].key); // il primo formato è quello base
+  }
+
+  /** Etichetta fissa nella lingua della pagina: prima quella del cliente
+   *  (se l'ha passata in `t`), poi quella del motore. */
+  function et(chiave: ChiaveEtichetta): string {
+    return etichettaMenu(chiave, lang, t as Partial<Record<ChiaveEtichetta, string>>);
+  }
+
+  /** Il piatto mostra i formati come bottoni dentro la scheda? */
+  function formatiInLinea(item: MenuItem): boolean {
+    return sceltaFormato === "pulsanti" && item.variants.length > 0;
+  }
+
+  /** Questo piatto va mostrato con la foto? */
+  function conFoto(item: MenuItem): boolean {
+    return foto && !!item.image_url;
+  }
+
+  function chiudiModale() {
+    setItemModale(null);
+    setVarianteScelta("");
+  }
+
+  function confermaModale() {
+    if (!itemModale) return;
+    const v = itemModale.variants.find((x) => x.key === varianteScelta);
+    if (v) aggiungi(itemModale, v);
+    chiudiModale();
+  }
+
+  /** Differenza rispetto al formato base, col segno. */
+  function euroDelta(cents: number): string {
+    if (cents === 0) return "";
+    const segno = cents > 0 ? "+" : "−";
+    return segno + " " + euro(Math.abs(cents));
+  }
+
+  function aggiungi(item: MenuItem, v?: Variante) {
+    if (item.is_sold_out || v?.sold_out) return;
+    // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
+    // il server ricostruisce le righe d'ordine da lì, non da qui.
+    const nomeVisto = testoPiatto(item, lang).name;
+    const nuova: CartLine = v
+      ? {
+          id: item.id,
+          name: `${nomeVisto} — ${etichettaVariante(v, lang)}`,
+          price_cents: v.price_cents,
+          qty: 1,
+          variant: v.key,
+        }
+      : { id: item.id, name: nomeVisto, price_cents: item.price_cents, qty: 1 };
+    const chiave = chiaveLinea(nuova);
     setLinee((prev) => {
-      const esistente = prev.find((l) => l.id === item.id);
-      if (esistente) {
-        return prev.map((l) => (l.id === item.id ? { ...l, qty: l.qty + 1 } : l));
+      if (prev.some((l) => chiaveLinea(l) === chiave)) {
+        return prev.map((l) => (chiaveLinea(l) === chiave ? { ...l, qty: l.qty + 1 } : l));
       }
-      return [
-        ...prev,
-        { id: item.id, name: item.name, price_cents: item.price_cents, qty: 1 },
-      ];
+      return [...prev, nuova];
     });
   }
-  function cambiaQty(id: string, delta: number) {
+  function cambiaQty(chiave: string, delta: number) {
     setLinee((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0)
+      prev
+        .map((l) => (chiaveLinea(l) === chiave ? { ...l, qty: l.qty + delta } : l))
+        .filter((l) => l.qty > 0)
     );
   }
-  function rimuovi(id: string) {
-    setLinee((prev) => prev.filter((l) => l.id !== id));
+  function rimuovi(chiave: string) {
+    setLinee((prev) => prev.filter((l) => chiaveLinea(l) !== chiave));
   }
 
   // Rimozione con conferma in 2 tap (come nell'admin): il primo tap
@@ -273,14 +388,14 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
   const [daConfermare, setDaConfermare] = useState<string | null>(null);
   const timerConferma = useRef<number | null>(null);
 
-  function clickRimuovi(id: string) {
+  function clickRimuovi(chiave: string) {
     if (timerConferma.current) window.clearTimeout(timerConferma.current);
-    if (daConfermare === id) {
+    if (daConfermare === chiave) {
       setDaConfermare(null);
-      rimuovi(id);
+      rimuovi(chiave);
       return;
     }
-    setDaConfermare(id);
+    setDaConfermare(chiave);
     timerConferma.current = window.setTimeout(() => setDaConfermare(null), 3000);
   }
 
@@ -313,7 +428,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code,
-          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
           email: email.trim(),
           lang,
         }),
@@ -359,7 +474,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          items: linee.map((l) => ({ id: l.id, qty: l.qty })),
+          items: linee.map((l) => ({ id: l.id, qty: l.qty, ...(l.variant ? { variant: l.variant } : {}) })),
           slot,
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
@@ -388,40 +503,91 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           <span className="order-b order-b-star" title="Best-seller">★</span>
         )}
         {item.is_vegan && (
-          <span className="order-b" title={lang === "en" ? "Vegan" : "Végan"}>🌱</span>
+          <span className="order-b" title={et("vegan")}>🌱</span>
         )}
         {item.is_spicy && (
-          <span className="order-b" title={lang === "en" ? "Spicy" : "Épicé"}>🌶️</span>
+          <span className="order-b" title={et("spicy")}>🌶️</span>
         )}
-        {item.is_suggestion && <span className="order-sugg">Suggestion</span>}
+        {item.is_suggestion && <span className="order-sugg">{et("suggestion")}</span>}
+        {item.is_sold_out && (
+          <span className="order-sugg order-out">{et("soldOut")}</span>
+        )}
         {item.is_seasonal && (
-          <span className="order-b" title={lang === "en" ? "Seasonal" : "Saisonnier"}>🍂</span>
+          <span className="order-b" title={et("seasonal")}>🍂</span>
         )}
       </>
+    );
+  }
+
+  /** Modale di scelta del formato: foto, nome e i formati come radio.
+   *  Il primo formato è il riferimento, gli altri mostrano la differenza. */
+  function ModaleVarianti() {
+    if (sceltaFormato !== "modale" || !itemModale) return null;
+    const ordinabili = variantiOrdinabili(itemModale);
+    const base = ordinabili[0];
+    if (!base) return null;
+    return (
+      <div className="order-modal-overlay" onClick={chiudiModale}>
+        <div className="order-modal" onClick={(e) => e.stopPropagation()}>
+          <button type="button" className="order-modal-close" onClick={chiudiModale} aria-label={t.ariaRemove}>×</button>
+          {itemModale.image_url && (
+            <img className="order-modal-img" src={itemModale.image_url} alt={itemModale.name} />
+          )}
+          <h3 className="order-modal-title">{testoPiatto(itemModale, lang).name}</h3>
+          <div className="order-modal-variants">
+            {ordinabili.map((v) => {
+              const delta = v.price_cents - base.price_cents;
+              const isBase = v.key === base.key;
+              return (
+                <label
+                  key={v.key}
+                  className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
+                >
+                  <input
+                    type="radio"
+                    name="variante"
+                    checked={varianteScelta === v.key}
+                    onChange={() => setVarianteScelta(v.key)}
+                  />
+                  <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
+                  <span className="order-modal-variant-price">
+                    {isBase ? euro(v.price_cents) : euroDelta(delta)}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <button type="button" className="order-modal-add" onClick={confermaModale}>
+            {t.ariaAdd}
+          </button>
+        </div>
+      </div>
     );
   }
 
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
-        {linee.map((l) => (
-          <li key={l.id} className="order-cart-line">
+        {linee.map((l) => {
+          const k = chiaveLinea(l);
+          return (
+          <li key={k} className="order-cart-line">
             <div className="order-cart-line-top">
               <span className="order-cart-line-name">{l.name}</span>
               <span className="order-cart-line-price">{euro(prezzoRiga(l))}</span>
             </div>
             <div className="order-cart-line-controls">
-              <button type="button" onClick={() => cambiaQty(l.id, -1)} aria-label={t.ariaDecrease}>−</button>
+              <button type="button" onClick={() => cambiaQty(k, -1)} aria-label={t.ariaDecrease}>−</button>
               <span className="order-cart-qty">{l.qty}</span>
-              <button type="button" onClick={() => cambiaQty(l.id, 1)} aria-label={t.ariaIncrease}>+</button>
+              <button type="button" onClick={() => cambiaQty(k, 1)} aria-label={t.ariaIncrease}>+</button>
               <button
                 type="button"
-                className={"order-cart-remove" + (daConfermare === l.id ? " confirm" : "")}
-                onClick={() => clickRimuovi(l.id)}
+                className={"order-cart-remove" + (daConfermare === k ? " confirm" : "")}
+                onClick={() => clickRimuovi(k)}
                 aria-label={t.ariaRemove}
               >
-                {daConfermare === l.id ? (
-                  lang === "en" ? "Confirm?" : "Confirmer ?"
+                {daConfermare === k ? (
+                  et("confirm")
                 ) : (
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <polyline points="3 6 5 6 21 6" />
@@ -434,7 +600,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
               </button>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     );
   }
@@ -479,7 +646,10 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           <aside className="order-cart order-cart--checkout">
             <h2 className="order-cart-title">{t.yourInfo}</h2>
             <label className="order-field-label">{t.pickupTime}</label>
-            <SlotPicker onSelect={setSlot} lang={lang} />
+            {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
+                che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
+                che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
+            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} />
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
               <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
@@ -603,25 +773,86 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
                   )}
                   <div className="order-items">
                     {sub.items.map((item) => {
-                      const desc = lang === "en"
-                        ? (item.description_en ?? item.description_fr)
-                        : item.description_fr;
+                      // Nome e descrizione nella lingua della pagina
+                      // (name_i18n/desc_i18n, con ripiego sulle colonne storiche).
+                      const testi = testoPiatto(item, lang);
+                      const desc = testi.description;
                       return (
                         <div key={item.id} className="order-item">
                           <div className="order-item-info">
                             <h3 className="order-item-name">
-                              {item.name}
+                              {testi.name}
                               <Badges item={item} />
                             </h3>
                             {desc && <p className="order-item-desc">{desc}</p>}
-                            <p className="order-item-price">
-                              {item.original_price_cents && (
-                                <s className="order-item-old">{euro(item.original_price_cents)}</s>
-                              )}
-                              {euro(item.price_cents)}
-                            </p>
+                            {formatiInLinea(item) ? (
+                              /* Un bottone per formato: aggiunge QUEL formato. */
+                              <div className="order-item-vars">
+                                {item.variants.map((v) => (
+                                  <button
+                                    key={v.key}
+                                    type="button"
+                                    className="order-item-var"
+                                    disabled={v.sold_out || item.is_sold_out}
+                                    aria-label={`${t.ariaAdd} ${item.name} — ${etichettaVariante(v, lang)}`}
+                                    onClick={() => aggiungi(item, v)}
+                                  >
+                                    <span className="order-item-var-lb">
+                                      {etichettaVariante(v, lang)}
+                                      {v.sold_out && (
+                                        <span className="order-sugg order-out">{et("soldOut")}</span>
+                                      )}
+                                    </span>
+                                    <span className="order-item-var-pr">
+                                      {v.original_price_cents && (
+                                        <s className="order-item-old">{euro(v.original_price_cents)}</s>
+                                      )}
+                                      {euro(v.price_cents)}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="order-item-price">
+                                {item.original_price_cents && (
+                                  <s className="order-item-old">{euro(item.original_price_cents)}</s>
+                                )}
+                                {euro(item.price_cents)}
+                              </p>
+                            )}
                           </div>
-                          <button type="button" className="order-item-add" aria-label={`${t.ariaAdd} ${item.name}`} onClick={() => aggiungi(item)}>+</button>
+                          {/* Con la foto, il "+" ci sta appoggiato sopra;
+                              senza, resta il bottone tondo di sempre.
+                              Prezzo unico -> dritto nel carrello; con formati
+                              -> modale, se il cliente ha scelto quella via. */}
+                          {conFoto(item) ? (
+                            <div className="order-item-photo">
+                              <img src={item.image_url!} alt={item.name} loading="lazy" decoding="async" />
+                              {!formatiInLinea(item) && (
+                                <button
+                                  type="button"
+                                  className="order-item-add"
+                                  disabled={item.is_sold_out}
+                                  aria-label={`${t.ariaAdd} ${item.name}`}
+                                  onClick={() => clicPiu(item)}
+                                >
+                                  +
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            !formatiInLinea(item) && (
+                              <button
+                                type="button"
+                                className="order-item-add"
+                                disabled={item.is_sold_out}
+                                aria-label={`${t.ariaAdd} ${item.name}`}
+                                onClick={() => clicPiu(item)}
+                              >
+                                +
+                              </button>
+                            )
+                          )}
                         </div>
                       );
                     })}
@@ -688,6 +919,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false }: OrderAp
           </button>
         )
       )}
+
+      <ModaleVarianti />
     </div>
   );
 }

@@ -6,11 +6,13 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 
 // Tab "Liens": social + recensioni Google (icone piatte, currentColor)
 const LNK = [
   { k: "facebook", label: "Facebook", ph: "https://www.facebook.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07z"/></svg>' },
   { k: "instagram", label: "Instagram", ph: "https://www.instagram.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.7 3.7 0 0 1-1.38-.9 3.7 3.7 0 0 1-.9-1.38c-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.9 5.9 0 0 0-2.13 1.39A5.9 5.9 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.39 2.13a5.9 5.9 0 0 0 2.13 1.39c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.39 5.9 5.9 0 0 0 1.39-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.39-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zM12 16a4 4 0 1 1 4-4 4 4 0 0 1-4 4zM19.85 5.59a1.44 1.44 0 1 1-1.44-1.44 1.44 1.44 0 0 1 1.44 1.44z"/></svg>' },
+  { k: "youtube", label: "YouTube", ph: "https://www.youtube.com/@...", icon: '<svg viewBox="0 0 24 24"><path d="M23.5 6.2a3 3 0 0 0-2.12-2.13C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.52A3 3 0 0 0 .5 6.2C0 8.08 0 12 0 12s0 3.92.5 5.8a3 3 0 0 0 2.12 2.13c1.88.52 9.38.52 9.38.52s7.5 0 9.38-.52a3 3 0 0 0 2.12-2.13C24 15.92 24 12 24 12s0-3.92-.5-5.8zM9.55 15.57V8.43L15.82 12l-6.27 3.57z"/></svg>' },
   { k: "tiktok", label: "TikTok", ph: "https://www.tiktok.com/@...", icon: '<svg viewBox="0 0 24 24"><path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>' },
   { k: "linkedin", label: "LinkedIn", ph: "https://www.linkedin.com/company/...", icon: '<svg viewBox="0 0 24 24"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.55C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.72C24 .77 23.2 0 22.22 0z"/></svg>' },
   { k: "x", label: "X (Twitter)", ph: "https://x.com/...", icon: '<svg viewBox="0 0 24 24"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.41l-5.8-7.58-6.64 7.58H.46l8.6-9.83L0 1.15h7.59l5.24 6.93zM17.6 20.64h2.04L6.49 3.24H4.3z"/></svg>' },
@@ -901,54 +903,6 @@ const t = adminT(lang);
       .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
       .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
       .tm-save { box-shadow: none; font-size: 1rem; padding: 0.6rem 1.6rem; }
-
-      /* --- Jours spéciaux --- */
-      .sp-type { display: inline-flex; gap: 0.4rem; }
-      .sp-type button {
-        background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.04em;
-        padding: 0.35rem 0.95rem; cursor: pointer; border-radius: 999px; text-transform: uppercase;
-        transition: background 0.15s, border-color 0.15s, color 0.15s;
-      }
-      .sp-type button:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .sp-type button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      .sp-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1rem; }
-      .sp-item { display: flex; align-items: center; gap: 0.6rem; border: 1px solid var(--c-line); padding: 0.5rem 0.7rem; font-size: 0.9rem; }
-      .sp-badge { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.15rem 0.55rem; border-radius: 999px; font-weight: 700; }
-      .sp-b-closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
-      .sp-b-open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
-      .sp-txt { flex: 1; display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
-      .sp-date { font-weight: 800; color: var(--c-text); }
-      .sp-ore { color: var(--c-muted); font-size: 0.82rem; }
-      .sp-note { color: var(--c-muted); font-style: italic; font-size: 0.82rem; }
-      .sp-sv-pill { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.12rem 0.6rem; font-size: 0.72rem; font-weight: 700; background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-gold); border: 1px solid color-mix(in srgb, var(--c-accent) 35%, transparent); white-space: nowrap; }
-      .sp-sv-pill small { font-weight: 600; opacity: 0.8; font-size: 0.68rem; }
-      .sp-sv-pill.is-cmd { background: rgba(93, 85, 85, 0.25); color: var(--c-muted); border-color: var(--c-line); }
-      .sp-del { background: none; border: none; color: var(--c-muted); font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0 0.2rem; }
-      .sp-del:hover { color: #ff6b6b; }
-      .sp-add { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
-      .sp-servs-wrap { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem; }
-      .sp-servs { display: flex; flex-wrap: wrap; gap: 0.5rem 1.3rem; }
-      .sp-sv {
-        display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
-        font-size: 0.86rem; color: var(--c-muted); user-select: none;
-      }
-      .sp-sv.is-on { color: var(--c-text); }
-      .sp-sw {
-        position: relative; width: 40px; height: 20px; border-radius: 999px;
-        background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box;
-        transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
-      }
-      .sp-sv.is-on .sp-sw { border-color: var(--c-accent); }
-      .sp-sw::before {
-        content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-        border-radius: 50%; background: #8f8781; transition: transform 0.15s, background 0.15s;
-      }
-      .sp-sv.is-on .sp-sw { background: var(--c-accent); }
-      .sp-sv.is-on .sp-sw::before { transform: translateX(20px); background: var(--c-bg); }
-      .sp-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-      .sp-dates { flex-wrap: nowrap; }
-      #sp-hours { flex-direction: column; gap: 0.6rem; }
       /* Touch (tablet/telefono): campi data/ora più grandi per le dita */
       @media (pointer: coarse) {
         input[type="date"], input[type="time"] {
@@ -957,21 +911,10 @@ const t = adminT(lang);
           min-height: 48px;
         }
       }
-      .sp-dates input { flex: 1; min-width: 0; cursor: pointer; }
       /* Touch (iPad mini/mobile): input ora dei giorni piu bassi, campi giorni speciali un po' piu alti */
       @media (pointer: coarse) {
         .band input[type="time"] { padding: 0.5rem 0.7rem; min-height: 42px; font-size: 1rem; }
-        .sp-dates input, #sp-note { padding: 0.7rem 0.85rem; min-height: 46px; font-size: 1rem; }
       }
-
-      #sp-note { flex: 1; min-width: 140px; }
-      .sp-addbtn {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.45rem 1.5rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.2s, color 0.2s;
-      }
-      .sp-addbtn:hover { background: var(--c-accent); color: var(--c-bg); }
 
       @media (max-width: 560px) {
         .day-head { flex-wrap: wrap; gap: 0.5rem; }
@@ -981,7 +924,6 @@ const t = adminT(lang);
         .bands { padding-right: 0; }
         .band { justify-content: flex-start; }
         .band input[type="time"] { flex: 1; min-width: 0; }
-        .sp-row input[type="time"] { flex: 1; min-width: 0; }
       }
       /* Loader dentro i bottoni di salvataggio */
       .is-loading { position: relative; color: transparent !important; pointer-events: none; }
@@ -1132,50 +1074,7 @@ const t = adminT(lang);
 
           <div class="section" data-tab="horaire" style="display:none">
             <h2>{t("home.specialDays")}</h2>
-            <div class="sp-list" id="sp-list"></div>
-            <div class="sp-add">
-              <div class="sp-row">
-                <span class="sp-type">
-                  <button type="button" id="sp-t-closed" class="is-active">{t("home.tagClosed")}</button>
-                  <button type="button" id="sp-t-open">{t("home.tagOpen")}</button>
-                </span>
-              </div>
-              <div class="sp-row sp-dates">
-                <input type="text" id="sp-from" placeholder={t("mk.datePh")} readonly />
-                <span class="hint">→</span>
-                <input type="text" id="sp-to" placeholder={t("mk.datePh")} readonly />
-              </div>
-              <div id="sp-hours" style="display:none">
-                <div class="sp-row">
-                  <span class="sp-type">
-                    <button type="button" id="sp-m-continu" class="is-active">{t("set.hor.continuous")}</button>
-                    <button type="button" id="sp-m-coupe">{t("set.hor.split")}</button>
-                  </span>
-                </div>
-                <div class="sp-row">
-                  <span class="band-label" id="sp-lab-midi">{t("set.hor.midi")}</span>
-                  <input type="time" id="sp-lo" value="11:00" />
-                  <span class="hint">→</span>
-                  <input type="time" id="sp-lc" value="23:30" />
-                </div>
-                <div class="sp-row" id="sp-soir" style="display:none">
-                  <span class="band-label">{t("set.hor.evening")}</span>
-                  <input type="time" id="sp-do" value="18:00" />
-                  <span class="hint">→</span>
-                  <input type="time" id="sp-dc" value="23:00" />
-                </div>
-                <div class="sp-servs-wrap">
-                  <span class="band-label">{t("set.hor.activeServices")}</span>
-                  <div class="sp-servs" id="sp-servs"></div>
-                  <span class="hint">{t("set.hor.noServiceHint")}</span>
-                </div>
-              </div>
-              <div class="sp-row">
-                <input type="text" id="sp-note" placeholder={t("set.hor.notePh")} maxlength="200" />
-                <button type="button" class="sp-addbtn" id="sp-add">{t("common.add")}</button>
-              </div>
-              <span class="msg" id="sp-msg"></span>
-            </div>
+            <SpecialDaysForm />
           </div>
 
           <div class="section" data-tab="reservations" style="display:none">
@@ -2107,6 +2006,7 @@ const t = adminT(lang);
         const SL_AREA_TRASH = slAreaDel.innerHTML;
         let slArea: number[][] | null = null; // perimetro salvato (4 angoli del rettangolo)
         let slLinks: string[][] = [];         // gruppi di tavoli unibili
+        let slLinksOk: string[][] = [];       // ultimo stato accettato dal server
         let slLinkMode = false;
         const slLinkSel = new Set<string>();
         const slLinkBtn = document.getElementById("sl-link-btn") as HTMLButtonElement;
@@ -2181,8 +2081,22 @@ const t = adminT(lang);
         async function slSalvaLinks() {
           try {
             const res = await slFetch("/api/admin/tables", { method: "PUT", body: JSON.stringify({ zone: slZona, links: slLinks }) });
-            if (!res.ok) slMsg.textContent = tr("set.res.linksSaveErr");
-          } catch { slMsg.textContent = tr("common.netErr"); }
+            if (res.ok) {
+              slMsg.textContent = "";
+              slLinksOk = slLinks.map((g) => [...g]);
+            } else {
+              // Il server spiega PERCHÉ ha rifiutato (es. troppi tavoli in una
+              // combinazione): si mostra il suo messaggio e si annulla la
+              // modifica, altrimenti a schermo resterebbe una combinazione che
+              // in realtà non è stata salvata.
+              const j = (await res.json().catch(() => null)) as { error?: string } | null;
+              slMsg.textContent = j?.error || tr("set.res.linksSaveErr");
+              slLinks = slLinksOk.map((g) => [...g]);
+            }
+          } catch {
+            slMsg.textContent = tr("common.netErr");
+            slLinks = slLinksOk.map((g) => [...g]);
+          }
           slRenderLinks();
           slRenderArea();
         }
@@ -2421,6 +2335,7 @@ const t = adminT(lang);
             slTavoli = (j.tables as Tavolo[]) ?? [];
             slArea = Array.isArray(j.area) ? (j.area as number[][]) : null;
             slLinks = Array.isArray(j.links) ? (j.links as string[][]) : [];
+            slLinksOk = slLinks.map((g) => [...g]);
             slDecor = Array.isArray(j.decor) ? (j.decor as Decor[]) : [];
             slDecorSel = null;
             slDecorEdit.style.display = "none";
@@ -3068,7 +2983,7 @@ const t = adminT(lang);
           return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
         }
 
-        // Jours spéciaux correnti (riempita da caricaSpecial): serve al
+        // Jours spéciaux correnti (riempita dal componente condiviso): serve al
         // datepicker del widget per bloccare i giorni di chiusura.
         let spCache: {
           date_from: string;
@@ -3607,7 +3522,7 @@ const t = adminT(lang);
         applicaLingua();
 
         // --- Link social / recensioni (tab Liens) ---
-        const CHIAVI_LINK = ["facebook", "instagram", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
+        const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
         const lnkEls = new Map(
           CHIAVI_LINK.map((k) => [k, document.getElementById("lnk-" + k) as HTMLInputElement])
         );
@@ -3908,261 +3823,25 @@ const t = adminT(lang);
         });
         [prepEl, slotEl].forEach((el) => el.addEventListener("input", dirty));
 
-        // --- Jours spéciaux (salvataggio immediato, indipendente da Enregistrer) ---
-        type SpecialDay = {
-          id: string; type: "closed" | "open";
-          date_from: string; date_to: string;
-          lunch_open: string | null; lunch_close: string | null;
-          dinner_open: string | null; dinner_close: string | null;
-          note: string;
-          services?: string[] | null;
-        };
-        const spList = document.getElementById("sp-list") as HTMLDivElement;
-        const spFrom = document.getElementById("sp-from") as HTMLInputElement;
-        const spTo = document.getElementById("sp-to") as HTMLInputElement;
-        const spNote = document.getElementById("sp-note") as HTMLInputElement;
-        const spHours = document.getElementById("sp-hours") as HTMLElement;
-        const spLo = document.getElementById("sp-lo") as HTMLInputElement;
-        const spLc = document.getElementById("sp-lc") as HTMLInputElement;
-        const spSoir = document.getElementById("sp-soir") as HTMLElement;
-        const spDo = document.getElementById("sp-do") as HTMLInputElement;
-        const spDc = document.getElementById("sp-dc") as HTMLInputElement;
-        const spLabMidi = document.getElementById("sp-lab-midi") as HTMLElement;
-        const spMContinu = document.getElementById("sp-m-continu") as HTMLButtonElement;
-        const spMCoupe = document.getElementById("sp-m-coupe") as HTMLButtonElement;
-        let spMode: "continu" | "coupe" = "continu";
-        const spAddBtn = document.getElementById("sp-add") as HTMLButtonElement;
-        const spMsg = document.getElementById("sp-msg") as HTMLSpanElement;
-        const spTClosed = document.getElementById("sp-t-closed") as HTMLButtonElement;
-        const spTOpen = document.getElementById("sp-t-open") as HTMLButtonElement;
-        let spType: "closed" | "open" = "closed";
-
-        function fmtData(iso: string): string {
-          const [y, m, d] = iso.split("-");
-          return `${d}/${m}/${y}`;
+        // --- Jours spéciaux ---
+        // Il form è il componente condiviso <SpecialDaysForm />. Qui restano
+        // solo i due ganci verso questa pagina: i servizi LIVE dell'editor
+        // (non ancora salvati) e la cache che serve al datepicker del widget
+        // per bloccare i giorni di chiusura.
+        document.addEventListener("spf:servizi", (e) => {
+          const det = (e as CustomEvent).detail as { servizi: { key: string; da: number; a: number }[] | null };
+          det.servizi = rwServizi().map((sv) => ({ key: sv.key, da: sv.da, a: sv.a }));
+        });
+        function spAggiornaCache(days: typeof spCache) {
+          spCache = days;
+          rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
         }
-        function spItemHTML(s: SpecialDay): string {
-          const dates = s.date_from === s.date_to
-            ? fmtData(s.date_from)
-            : `${fmtData(s.date_from)} → ${fmtData(s.date_to)}`;
-          let ore = "";
-          if (s.type === "open" && s.lunch_open && s.lunch_close) {
-            ore = `${s.lunch_open.slice(0, 5)}–${s.lunch_close.slice(0, 5)}`;
-            if (s.dinner_open && s.dinner_close) {
-              ore += ` / ${s.dinner_open.slice(0, 5)}–${s.dinner_close.slice(0, 5)}`;
-            }
-            ore = `<span class="sp-ore">${ore}</span>`;
-          }
-          let servTxt = "";
-          if (s.type === "open" && Array.isArray(s.services)) {
-            servTxt = s.services.length
-              ? s.services.map((t) => {
-                  const [k, h] = t.split("|");
-                  const nome = nomeServizio(k, LANG);
-                  const orario = h ? ` <small>${h.replace("-", "–")}</small>` : "";
-                  return `<span class="sp-sv-pill">${nome}${orario}</span>`;
-                }).join("")
-              : `<span class="sp-sv-pill is-cmd">${tr("set.hor.ordersOnly")}</span>`;
-          }
-          const nota = s.note ? `<span class="sp-note">${s.note}</span>` : "";
-          const badge = s.type === "closed"
-            ? `<span class="sp-badge sp-b-closed">${tr("home.tagClosed")}</span>`
-            : `<span class="sp-badge sp-b-open">${tr("home.tagOpen")}</span>`;
-          return `<div class="sp-item">${badge}<span class="sp-txt"><span class="sp-date">${dates}</span>${ore}${servTxt}${nota}</span><button type="button" class="sp-del" data-id="${s.id}" aria-label="${tr("common.delete")}">×</button></div>`;
-        }
-        async function caricaSpecial() {
-          try {
-            const res = await fetch("/api/admin/special-days", { headers });
-            if (!res.ok) return;
-            const j = await res.json();
-            const items = (j.days as SpecialDay[]) ?? [];
-            spCache = items;
-            spList.innerHTML = items.length
-              ? items.map(spItemHTML).join("")
-              : `<p class="hint">${tr("set.hor.noSpecialDays")}</p>`;
-            rwImpostaData(rwDate.dataset.iso ?? rwIsoPiuGiorni(0));
-          } catch { /* silenzioso: la lista resta com'era */ }
-        }
-        // Switch dei servizi per il giorno speciale "Ouvert".
-        // Token "key|from-to" (distingue due servizi con la stessa chiave,
-        // es. i due "Soir"). DEFAULT: tutti SPENTI (scelta Enzo 20/07).
-        const spServsEl = document.getElementById("sp-servs") as HTMLDivElement;
-        const spServSel = new Set<string>();
-        function spToken(sv: { key: string; da: number; a: number }): string {
-          const hh = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-          return `${sv.key}|${hh(sv.da)}-${hh(sv.a)}`;
-        }
-        function renderSpServs() {
-          const servizi = rwServizi();
-          spServsEl.innerHTML = servizi.length
-            ? servizi
-                .map((sv) => {
-                  const tok = spToken(sv);
-                  const lab = nomeServizio(sv.key, LANG);
-                  const ore = tok.split("|")[1].replace("-", "–");
-                  return `<span class="sp-sv${spServSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="sp-sw"></span>${lab} · ${ore}</span>`;
-                })
-                .join("")
-            : `<span class="hint">${tr("set.hor.noServiceConfig")}</span>`;
-        }
-        spServsEl.addEventListener("click", (e) => {
-          const el = (e.target as HTMLElement).closest(".sp-sv") as HTMLElement | null;
-          if (!el || !el.dataset.tok) return;
-          if (spServSel.has(el.dataset.tok)) spServSel.delete(el.dataset.tok);
-          else spServSel.add(el.dataset.tok);
-          renderSpServs();
+        document.addEventListener("spf:loaded", (e) => {
+          spAggiornaCache(((e as CustomEvent).detail as { days: typeof spCache }).days);
         });
-
-        spTClosed.addEventListener("click", () => {
-          spType = "closed";
-          spTClosed.classList.add("is-active");
-          spTOpen.classList.remove("is-active");
-          spHours.style.display = "none";
-        });
-        spTOpen.addEventListener("click", () => {
-          spType = "open";
-          spTOpen.classList.add("is-active");
-          spTClosed.classList.remove("is-active");
-          spHours.style.display = "flex";
-          renderSpServs();
-        });
-        spMContinu.addEventListener("click", () => {
-          spMode = "continu";
-          spMContinu.classList.add("is-active");
-          spMCoupe.classList.remove("is-active");
-          spSoir.style.display = "none";
-          spLabMidi.style.display = "none";
-          if (spLc.value === "14:30") spLc.value = "23:30";
-        });
-        spMCoupe.addEventListener("click", () => {
-          spMode = "coupe";
-          spMCoupe.classList.add("is-active");
-          spMContinu.classList.remove("is-active");
-          spSoir.style.display = "flex";
-          spLabMidi.style.display = "";
-          if (spLc.value === "23:30") spLc.value = "14:30";
-          if (!spDo.value) spDo.value = "18:00";
-          if (!spDc.value) spDc.value = "23:00";
-        });
-        // All'avvio la modalità è Continu: etichetta Midi nascosta
-        spLabMidi.style.display = "none";
-        type SpResa = { id: string; date: string; heure: string; people: number; first_name: string; last_name: string };
-        // Modale di allerta: prenotazioni presenti su un giorno che sto per chiudere.
-        // Ritorna "cancel" (annulla+email), "keep" (lascia), o null (annulla l'azione).
-        function spChiediImpatto(resas: SpResa[]): Promise<"cancel" | "keep" | null> {
-          return new Promise((resolve) => {
-            const ov = document.createElement("div");
-            ov.style.cssText = "position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);padding:1rem;";
-            const righe = resas
-              .map((r) => {
-                const p = r.date.split("-");
-                const nom = (r.first_name + " " + r.last_name).trim();
-                return `<li>${p[2]}/${p[1]} &middot; ${r.heure} &middot; ${r.people} ${tr("res.pers")} &middot; ${nom}</li>`;
-              })
-              .join("");
-            ov.innerHTML = `
-              <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:14px;max-width:440px;width:92%;padding:1.5rem;color:var(--c-text);">
-                <h3 style="margin:0 0 0.5rem;font-family:var(--font-title);color:var(--c-accent);">${resas.length} ${tr("set.hor.impactTitle")}</h3>
-                <p style="margin:0 0 0.8rem;color:var(--c-muted);font-size:0.9rem;">${tr("set.hor.impactMsg")}</p>
-                <ul style="margin:0 0 1.1rem;padding-left:1.1rem;max-height:180px;overflow:auto;font-size:0.85rem;line-height:1.6;">${righe}</ul>
-                <div style="display:flex;flex-direction:column;gap:0.5rem;">
-                  <button type="button" data-r="cancel" style="background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);border-radius:999px;padding:0.6rem;font-family:var(--font-title);letter-spacing:0.03em;cursor:pointer;">${tr("set.hor.impactCancel")}</button>
-                  <button type="button" data-r="keep" style="background:transparent;color:var(--c-text);border:1px solid var(--c-line);border-radius:999px;padding:0.6rem;cursor:pointer;">${tr("set.hor.impactKeep")}</button>
-                  <button type="button" data-r="abort" style="background:none;border:none;color:var(--c-muted);cursor:pointer;font-size:0.8rem;padding:0.3rem;">${tr("common.cancel")}</button>
-                </div>
-              </div>`;
-            document.body.appendChild(ov);
-            ov.addEventListener("click", (e) => {
-              const b = (e.target as HTMLElement).closest("button[data-r]") as HTMLElement | null;
-              if (!b && e.target !== ov) return;
-              const r = b?.dataset.r ?? "abort";
-              ov.remove();
-              resolve(r === "cancel" ? "cancel" : r === "keep" ? "keep" : null);
-            });
-          });
-        }
-        spAddBtn.addEventListener("click", async () => {
-          spMsg.textContent = "";
-          spMsg.className = "msg";
-          if (!spFrom.dataset.iso) {
-            spMsg.textContent = tr("set.hor.chooseDate");
-            spMsg.classList.add("err");
-            return;
-          }
-          spAddBtn.disabled = true;
-          try {
-            let cancelResa = false;
-            if (spType === "closed") {
-              const fISO = spFrom.dataset.iso;
-              const tISO = spTo.dataset.iso || spFrom.dataset.iso;
-              const impRes = await fetch(`/api/admin/special-days-impact?from=${fISO}&to=${tISO}`, { headers });
-              const impJ = (await impRes.json()) as { reservations?: SpResa[] };
-              const resas = impJ.reservations ?? [];
-              if (resas.length > 0) {
-                const scelta = await spChiediImpatto(resas);
-                if (scelta === null) { spAddBtn.disabled = false; return; }
-                cancelResa = scelta === "cancel";
-              }
-            }
-            const res = await fetch("/api/admin/special-days", {
-              method: "POST",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                type: spType,
-                date_from: spFrom.dataset.iso,
-                date_to: spTo.dataset.iso || spFrom.dataset.iso,
-                lunch_open: spType === "open" ? spLo.value : null,
-                lunch_close: spType === "open" ? spLc.value : null,
-                dinner_open: spType === "open" && spMode === "coupe" ? spDo.value : null,
-                dinner_close: spType === "open" && spMode === "coupe" ? spDc.value : null,
-                services: spType === "open" ? [...spServSel] : null,
-                note: spNote.value.trim(),
-              }),
-            });
-            const j = await res.json();
-            if (!res.ok) {
-              spMsg.textContent = j.error ?? tr("menu.errorDot");
-              spMsg.classList.add("err");
-            } else {
-              if (cancelResa) {
-                const fISO = spFrom.dataset.iso;
-                const tISO = spTo.dataset.iso || spFrom.dataset.iso;
-                try {
-                  const cRes = await fetch("/api/admin/special-days-impact", {
-                    method: "POST",
-                    headers: { ...headers, "Content-Type": "application/json" },
-                    body: JSON.stringify({ from: fISO, to: tISO }),
-                  });
-                  const cJ = (await cRes.json()) as { cancelled?: number };
-                  spMsg.textContent = cRes.ok
-                    ? `${cJ.cancelled ?? 0} ${tr("set.hor.cancelledEmailed")}`
-                    : tr("set.hor.dayCreatedCancelErr");
-                  if (!cRes.ok) spMsg.classList.add("err");
-                } catch {
-                  spMsg.textContent = tr("set.hor.dayCreatedCancelErr");
-                  spMsg.classList.add("err");
-                }
-              }
-              spFrom.value = ""; spTo.value = ""; spNote.value = "";
-              delete spFrom.dataset.iso; delete spTo.dataset.iso;
-              await caricaSpecial();
-            }
-          } catch {
-            spMsg.textContent = tr("common.netErr");
-            spMsg.classList.add("err");
-          } finally {
-            spAddBtn.disabled = false;
-          }
-        });
-        spList.addEventListener("click", async (e) => {
-          const t = e.target as HTMLElement;
-          if (!t.classList.contains("sp-del")) return;
-          try {
-            await fetch("/api/admin/special-days?id=" + t.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            await caricaSpecial();
-          } catch { /* la lista resta com'era */ }
-        });
-        await caricaSpecial();
+        // Il componente può aver caricato prima che il gancio fosse pronto.
+        const spGiaCaricati = (window as unknown as { __spfDays?: typeof spCache }).__spfDays;
+        if (spGiaCaricati) spAggiornaCache(spGiaCaricati);
 
         // Campi ORA: un tap apre subito il picker nativo.
         document.addEventListener("click", (e) => {
@@ -4233,6 +3912,7 @@ const t = adminT(lang);
             <div class="dp-grid">${celle}</div>`;
         }
         function dpApri(target: HTMLInputElement) {
+          document.querySelectorAll<HTMLElement>(".dp-panel").forEach((x) => { if (x !== dpPanel) x.style.display = "none"; });
           dpTarget = target;
           const base = target.dataset.iso || isoOggi();
           dpAnno = Number(base.slice(0, 4));
@@ -4287,22 +3967,9 @@ const t = adminT(lang);
             const iso = t.dataset.iso;
             dpTarget.dataset.iso = iso;
             dpTarget.value = fmtFr(iso);
-            // se la fine manca o è prima dell'inizio, allineala
-            const fromIso = spFrom.dataset.iso ?? "";
-            const toIso = spTo.dataset.iso ?? "";
-            if (dpTarget === spFrom && (!toIso || toIso < fromIso)) {
-              spTo.dataset.iso = iso;
-              spTo.value = fmtFr(iso);
-            }
             dpTarget.dispatchEvent(new Event("change"));
             dpChiudi();
           }
-        });
-        [spFrom, spTo].forEach((el) => {
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
-            dpApri(el);
-          });
         });
         document.addEventListener("click", (e) => {
           if (dpPanel.style.display !== "none" && !dpPanel.contains(e.target as Node)) dpChiudi();
