@@ -18,12 +18,14 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 | **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `bbe0885` — 01/09/2026** | sito+branding tenuti, migrazioni recuperate |
 | **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `bbe0885` — 01/09/2026** | conflitto solo middleware (cacheEdge) |
 | **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `bbe0885` — 01/09/2026** | merge pulito, 0 conflitti |
-| **Educazione Napoletana** | ⚫ Fuori motore | — | (live su admin vecchio) | — | mai | **richiede rebuild totale sul motore** |
+| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **clone + merge — 05/09/2026** | repo NUOVO `educazione-napoletana`; il sito live gira ancora dal vecchio |
 
 ---
 
 ## ✅ Migrazioni — nessuna pendente (05/09/2026)
-**Tutti e 3 i clienti allineati al motore `1f9c983`** (ChouChou, La Molisana, L'Huile). EducazioneNapoletana è fuori dal motore.
+**Tutti e 3 i clienti allineati al motore `1f9c983`** (ChouChou, La Molisana, L'Huile). **Educazione Napoletana v2** ha già tutte le migrazioni #1→#71.
+
+⚠️ **#71 `menu_variants.sql` (varianti) è da lanciare su ChouChou, La Molisana e L'Huile** al prossimo merge. Senza, il sito non si rompe (le query ripiegano) ma i formati non esistono.
 
 - **04/09** — #68 `print_orders`, #69 `reservations.extra_minutes`, #46 `gift_card_orders`: lanciate su tutti e 3.
 - **05/09** — #70 `gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.
@@ -57,13 +59,13 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 - **Nessuna migrazione DB nuova** dal merge (i .sql erano già nel repo dal clone). A patto che al setup siano state applicate le migrazioni di base (incl. `menu_seasonal`, `google_reviews`), il DB è a posto.
 - Hosting/dominio/design: *da definire*. Lavoro cliente nel suo progetto Claude dedicato.
 
-## Educazione Napoletana — ⚫ Fuori motore
-- **LIVE su admin VECCHIO** (fork pre-motore, troppo divergente: niente `client.ts`/middleware/lib-admin del motore; DB fatto a mano). Repo `MOODDVS/educazionenapoletana`. **NIENTE merge** — incompatibile.
-- **Piano = REBUILD TOTALE sul motore** (ricode completo), in parallelo:
-  - Supabase nuovo con tutte le migrazioni del motore in ordine.
-  - Si re-inseriscono solo **menu + orari**; storico ordini → CSV d'archivio.
-  - Salvare: GA4, SEO, cookie consent. Valutare a parte: stampa termica (ex BizPrint) come feature nativa futura.
-- Sviluppo su 2 macchine (Mac mini + MacBook) → `git pull` prima, `git push` dopo.
+## Educazione Napoletana — 🟡 v2 in ricostruzione (05/09/2026)
+- **Il sito LIVE è ancora il vecchio** (repo `MOODDVS/educazionenapoletana`, admin pre-motore). Intatto, non toccato.
+- **v2 = repo NUOVO `MOODDVS/educazione-napoletana`**, clone del motore. Distinto dal vecchio apposta: Hostinger deploya al push, e un push sul repo vecchio avrebbe messo online la v2 incompleta.
+- Fatto: Supabase nuovo con le 71 migrazioni, menu importato dal vecchio DB (61 piatti, 21 con formati), design storico portato dentro le componenti del motore, footer collegato all'admin.
+- Da fare: seed Général/Liens/orari, Hostinger + env, 5 cron, accendere la funzione «Varianti», foto dei piatti da travasare, poi switch del dominio.
+- 📄 **Stato completo e trappole: `EN_V2_STATO.md` nel repo del cliente.**
+- Lavoro cliente nel suo progetto Claude dedicato.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
+import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -99,12 +100,22 @@ interface OrderStrings {
   consentPre: string;
   consentLink: string;
   privacyHref: string;
+  /** Etichette dei badge e degli stati. OPZIONALI: se la pagina del cliente
+   *  non le passa, si usano quelle del motore nella lingua giusta. */
+  soldOut?: string;
+  vegan?: string;
+  spicy?: string;
+  seasonal?: string;
+  suggestion?: string;
+  confirm?: string;
 }
 
 interface OrderAppProps {
   menu: MenuCategoria[];
   t: OrderStrings;
-  lang: "fr" | "en";
+  /** Lingua della pagina. Qualunque lingua pubblica, non solo fr/en:
+   *  le etichette passano da `etichettaMenu`, che sa ripiegare. */
+  lang: string;
   closedToday?: boolean;
   /** Come il cliente sceglie il formato di un piatto con varianti.
    *  "pulsanti" (default): un bottone per formato dentro la scheda, adatto
@@ -304,6 +315,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setVarianteScelta(ordinabili[0].key); // il primo formato è quello base
   }
 
+  /** Etichetta fissa nella lingua della pagina: prima quella del cliente
+   *  (se l'ha passata in `t`), poi quella del motore. */
+  function et(chiave: ChiaveEtichetta): string {
+    return etichettaMenu(chiave, lang, t as Partial<Record<ChiaveEtichetta, string>>);
+  }
+
   /** Il piatto mostra i formati come bottoni dentro la scheda? */
   function formatiInLinea(item: MenuItem): boolean {
     return sceltaFormato === "pulsanti" && item.variants.length > 0;
@@ -335,15 +352,18 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
 
   function aggiungi(item: MenuItem, v?: Variante) {
     if (item.is_sold_out || v?.sold_out) return;
+    // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
+    // il server ricostruisce le righe d'ordine da lì, non da qui.
+    const nomeVisto = testoPiatto(item, lang).name;
     const nuova: CartLine = v
       ? {
           id: item.id,
-          name: `${item.name} — ${etichettaVariante(v, lang)}`,
+          name: `${nomeVisto} — ${etichettaVariante(v, lang)}`,
           price_cents: v.price_cents,
           qty: 1,
           variant: v.key,
         }
-      : { id: item.id, name: item.name, price_cents: item.price_cents, qty: 1 };
+      : { id: item.id, name: nomeVisto, price_cents: item.price_cents, qty: 1 };
     const chiave = chiaveLinea(nuova);
     setLinee((prev) => {
       if (prev.some((l) => chiaveLinea(l) === chiave)) {
@@ -483,17 +503,17 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           <span className="order-b order-b-star" title="Best-seller">★</span>
         )}
         {item.is_vegan && (
-          <span className="order-b" title={lang === "en" ? "Vegan" : "Végan"}>🌱</span>
+          <span className="order-b" title={et("vegan")}>🌱</span>
         )}
         {item.is_spicy && (
-          <span className="order-b" title={lang === "en" ? "Spicy" : "Épicé"}>🌶️</span>
+          <span className="order-b" title={et("spicy")}>🌶️</span>
         )}
-        {item.is_suggestion && <span className="order-sugg">Suggestion</span>}
+        {item.is_suggestion && <span className="order-sugg">{et("suggestion")}</span>}
         {item.is_sold_out && (
-          <span className="order-sugg order-out">{lang === "en" ? "Sold out" : "Épuisé"}</span>
+          <span className="order-sugg order-out">{et("soldOut")}</span>
         )}
         {item.is_seasonal && (
-          <span className="order-b" title={lang === "en" ? "Seasonal" : "Saisonnier"}>🍂</span>
+          <span className="order-b" title={et("seasonal")}>🍂</span>
         )}
       </>
     );
@@ -513,7 +533,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           {itemModale.image_url && (
             <img className="order-modal-img" src={itemModale.image_url} alt={itemModale.name} />
           )}
-          <h3 className="order-modal-title">{itemModale.name}</h3>
+          <h3 className="order-modal-title">{testoPiatto(itemModale, lang).name}</h3>
           <div className="order-modal-variants">
             {ordinabili.map((v) => {
               const delta = v.price_cents - base.price_cents;
@@ -567,7 +587,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 aria-label={t.ariaRemove}
               >
                 {daConfermare === k ? (
-                  lang === "en" ? "Confirm?" : "Confirmer ?"
+                  et("confirm")
                 ) : (
                   <svg viewBox="0 0 24 24" aria-hidden="true">
                     <polyline points="3 6 5 6 21 6" />
@@ -626,7 +646,10 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           <aside className="order-cart order-cart--checkout">
             <h2 className="order-cart-title">{t.yourInfo}</h2>
             <label className="order-field-label">{t.pickupTime}</label>
-            <SlotPicker onSelect={setSlot} lang={lang} />
+            {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
+                che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
+                che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
+            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} />
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
               <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
@@ -750,14 +773,15 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                   )}
                   <div className="order-items">
                     {sub.items.map((item) => {
-                      const desc = lang === "en"
-                        ? (item.description_en ?? item.description_fr)
-                        : item.description_fr;
+                      // Nome e descrizione nella lingua della pagina
+                      // (name_i18n/desc_i18n, con ripiego sulle colonne storiche).
+                      const testi = testoPiatto(item, lang);
+                      const desc = testi.description;
                       return (
                         <div key={item.id} className="order-item">
                           <div className="order-item-info">
                             <h3 className="order-item-name">
-                              {item.name}
+                              {testi.name}
                               <Badges item={item} />
                             </h3>
                             {desc && <p className="order-item-desc">{desc}</p>}
@@ -776,7 +800,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                                     <span className="order-item-var-lb">
                                       {etichettaVariante(v, lang)}
                                       {v.sold_out && (
-                                        <span className="order-sugg order-out">{lang === "en" ? "Sold out" : "Épuisé"}</span>
+                                        <span className="order-sugg order-out">{et("soldOut")}</span>
                                       )}
                                     </span>
                                     <span className="order-item-var-pr">

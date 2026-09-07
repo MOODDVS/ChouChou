@@ -872,11 +872,11 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
 /** Etichette del ticket ordine (al ristoratore) nella lingua dell'admin. */
 const K_TXT = {
-  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", callClient: "Appeler le client", note: "Note client", total: "TOTAL", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
-  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", callClient: "Call the customer", note: "Customer note", total: "TOTAL", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
-  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
-  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
-  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
+  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
+  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
+  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
+  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
+  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
 } as const;
 
 /** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
@@ -976,19 +976,20 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
+  const k = K_TXT[await adminLang().catch(() => "fr" as const)] ?? K_TXT.fr;
   try {
     const righe = piatti.map((i) => `• ${i.qty}× ${i.name}`).join("\n");
-    const notaRiga = noteCliente ? `\n*Note client:* ${noteCliente}` : "";
+    const notaRiga = noteCliente ? `\n*${k.note}:* ${noteCliente}` : "";
 
     const testo =
-      `🍕 *Nouvelle commande #${o.numero}*\n\n` +
-      `*Client:* ${o.customer_name}\n` +
-      `*Téléphone:* ${o.customer_phone ?? "—"}\n` +
-      `*Email:* ${o.customer_email}\n` +
-      `*Retrait:* ${oraRitiro(o.pickup_time)}\n` +
-      `*Paiement:* Payé ✅\n\n` +
-      `*Commande:*\n${righe}${notaRiga}\n\n` +
-      `*Total:* ${euro(o.total_cents)}`;
+      `🍕 *${k.newOrder} #${o.numero}*\n\n` +
+      `*${k.client}:* ${o.customer_name}\n` +
+      `*${k.phone}:* ${o.customer_phone ?? "—"}\n` +
+      `*${k.email}:* ${o.customer_email}\n` +
+      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time)}\n` +
+      `*${k.payment}:* ${k.paid} ✅\n\n` +
+      `*${k.order}:*\n${righe}${notaRiga}\n\n` +
+      `*${k.total}:* ${euro(o.total_cents)}`;
 
     await fetch(SLACK_WEBHOOK_URL, {
       method: "POST",
@@ -2252,25 +2253,49 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
 // Design volutamente DIVERSO dagli ordini (card chiara, centrata sui coperti,
 // niente prezzi) + nastro colorato per tipo: verde=nuova, ambra=modifica,
 // rosso=annullo. Colori fissi (non seguono il tema del cliente).
-function compattaData(iso: string): { dateBig: string; year: string } {
+/**
+ * Etichette delle email di PRENOTAZIONE al ristoratore, nella lingua admin.
+ * Stessa logica di K_TXT (ticket ordine): il ristoratore legge sempre nella
+ * lingua che ha scelto nel pannello, mai in quella del cliente.
+ */
+const R_TXT = {
+  fr: { nouvelle: "Nouvelle réservation", annulee: "Réservation annulée", modifiee: "Réservation modifiée", bannerAnnul: "Annulée par le client", bannerModif: "Modifiée par le client · nouvelles informations ci-dessous", appeler: "Appeler le client", couverts: "couverts", date: "Date", heure: "Heure", service: "Service", section: "Section", options: "Options", note: "Note :", resa: "Réservation", pers: "pers.", optChaise: "Chaise bébé", optCalme: "Endroit calme", optAffaires: "Repas d'affaires", optAnniv: "Anniversaire", optEvent: "Événement spécial" },
+  en: { nouvelle: "New reservation", annulee: "Reservation cancelled", modifiee: "Reservation modified", bannerAnnul: "Cancelled by the customer", bannerModif: "Modified by the customer · new details below", appeler: "Call the customer", couverts: "guests", date: "Date", heure: "Time", service: "Service", section: "Section", options: "Options", note: "Note:", resa: "Reservation", pers: "guests", optChaise: "High chair", optCalme: "Quiet spot", optAffaires: "Business meal", optAnniv: "Birthday", optEvent: "Special occasion" },
+  it: { nouvelle: "Nuova prenotazione", annulee: "Prenotazione annullata", modifiee: "Prenotazione modificata", bannerAnnul: "Annullata dal cliente", bannerModif: "Modificata dal cliente · nuovi dati qui sotto", appeler: "Chiama il cliente", couverts: "coperti", date: "Data", heure: "Ora", service: "Servizio", section: "Sezione", options: "Opzioni", note: "Nota:", resa: "Prenotazione", pers: "pers.", optChaise: "Seggiolone", optCalme: "Posto tranquillo", optAffaires: "Pranzo di lavoro", optAnniv: "Compleanno", optEvent: "Evento speciale" },
+  nl: { nouvelle: "Nieuwe reservering", annulee: "Reservering geannuleerd", modifiee: "Reservering gewijzigd", bannerAnnul: "Geannuleerd door de klant", bannerModif: "Gewijzigd door de klant · nieuwe gegevens hieronder", appeler: "Bel de klant", couverts: "gasten", date: "Datum", heure: "Uur", service: "Service", section: "Zone", options: "Opties", note: "Notitie:", resa: "Reservering", pers: "pers.", optChaise: "Kinderstoel", optCalme: "Rustige plek", optAffaires: "Zakenlunch", optAnniv: "Verjaardag", optEvent: "Speciale gelegenheid" },
+  es: { nouvelle: "Nueva reserva", annulee: "Reserva anulada", modifiee: "Reserva modificada", bannerAnnul: "Anulada por el cliente", bannerModif: "Modificada por el cliente · nuevos datos abajo", appeler: "Llamar al cliente", couverts: "comensales", date: "Fecha", heure: "Hora", service: "Servicio", section: "Sección", options: "Opciones", note: "Nota:", resa: "Reserva", pers: "pers.", optChaise: "Trona", optCalme: "Sitio tranquilo", optAffaires: "Comida de negocios", optAnniv: "Cumpleaños", optEvent: "Evento especial" },
+} as const;
+type RTxt = (typeof R_TXT)[keyof typeof R_TXT];
+
+/** Lingua admin + etichette + locale, in una sola lettura (mai lancia). */
+async function contestoRisto(): Promise<{ lang: LinguaWidget; k: RTxt }> {
+  try {
+    const l = await adminLang();
+    return { lang: (R_TXT[l] ? l : "fr") as LinguaWidget, k: R_TXT[l] ?? R_TXT.fr };
+  } catch {
+    return { lang: "fr", k: R_TXT.fr };
+  }
+}
+
+function compattaData(iso: string, lang: LinguaWidget = "fr"): { dateBig: string; year: string } {
   const d = new Date(`${iso}T12:00:00`);
   if (isNaN(d.getTime())) return { dateBig: iso, year: "" };
-  return { dateBig: d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "short" }), year: String(d.getFullYear()) };
+  return { dateBig: d.toLocaleDateString(LOCALE_RESA[lang] ?? "fr-FR", { weekday: "short", day: "2-digit", month: "short" }), year: String(d.getFullYear()) };
 }
 function detRigaResto(lab: string, val: string): string {
   if (!val) return "";
   return `<tr><td style="padding:9px 0;border-bottom:1px solid #eee;color:#666;font-size:14px;">${esc(lab)}</td><td style="padding:9px 0;border-bottom:1px solid #eee;color:#000;font-size:14px;text-align:right;font-weight:bold;">${esc(val)}</td></tr>`;
 }
-function notaResto(note?: string | null): string {
-  return note ? `<div style="margin-top:14px;background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;color:#7a4a09;font-size:14px;border-radius:0 8px 8px 0;"><strong>Note :</strong> ${esc(note)}</div>` : "";
+function notaResto(note: string | null | undefined, k: RTxt): string {
+  return note ? `<div style="margin-top:14px;background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;color:#7a4a09;font-size:14px;border-radius:0 8px 8px 0;"><strong>${esc(k.note)}</strong> ${esc(note)}</div>` : "";
 }
-function opzioniResa(r: ResaEmail): string {
+function opzioniResa(r: ResaEmail, k: RTxt): string {
   const o: string[] = [];
-  if (r.high_chair) o.push("Chaise bébé");
-  if (r.quiet) o.push("Endroit calme");
-  if (r.business) o.push("Repas d'affaires" + (r.company ? ` (${r.company})` : ""));
-  if (r.birthday) o.push("Anniversaire");
-  if (r.special_event) o.push("Événement spécial");
+  if (r.high_chair) o.push(k.optChaise);
+  if (r.quiet) o.push(k.optCalme);
+  if (r.business) o.push(k.optAffaires + (r.company ? ` (${r.company})` : ""));
+  if (r.birthday) o.push(k.optAnniv);
+  if (r.special_event) o.push(k.optEvent);
   return o.join(" · ");
 }
 function guscioResaRisto(o: {
@@ -2278,16 +2303,16 @@ function guscioResaRisto(o: {
   subBanner: string; subBg: string; subText: string;
   nome: string; people: number; phone: string; email: string; telLink: string;
   dateBig: string; year: string; heure: string; serviceLabel: string;
-  detailRows: string; noteHtml: string; nomeRisto: string;
+  detailRows: string; noteHtml: string; nomeRisto: string; k: RTxt;
 }): string {
   const callBtn = o.telLink
-    ? `<a href="tel:${o.telLink}" style="display:inline-block;margin-top:2px;background:${o.accent};color:#ffffff;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">Appeler le client</a>`
+    ? `<a href="tel:${o.telLink}" style="display:inline-block;margin-top:2px;background:${o.accent};color:#ffffff;text-decoration:none;padding:12px 28px;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;border-radius:999px;">${esc(o.k.appeler)}</a>`
     : "";
   const sub = o.subBanner
     ? `<tr><td style="padding:13px 30px;background:${o.subBg};border-bottom:2px solid ${o.accent};"><p style="margin:0;color:${o.subText};font-size:14px;font-weight:bold;text-align:center;">${esc(o.subBanner)}</p></td></tr>`
     : "";
   const svcTile = o.serviceLabel
-    ? `<td width="4%">&nbsp;</td><td width="28%" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;"><p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Service</p><p style="margin:6px 0 0;color:#111;font-size:16px;font-weight:bold;line-height:1.2;">${esc(o.serviceLabel)}</p></td>`
+    ? `<td width="4%">&nbsp;</td><td width="28%" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;"><p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${esc(o.k.service)}</p><p style="margin:6px 0 0;color:#111;font-size:16px;font-weight:bold;line-height:1.2;">${esc(o.serviceLabel)}</p></td>`
     : "";
   const dateW = o.serviceLabel ? "40%" : "48%";
   const heureW = o.serviceLabel ? "28%" : "48%";
@@ -2305,7 +2330,7 @@ function guscioResaRisto(o: {
       ${sub}
       <tr>
         <td style="padding:26px 30px 16px;text-align:center;background:#f6f7f5;">
-          <p style="margin:0;color:#000;font-size:23px;font-weight:bold;">${esc(o.nome)} <span style="display:inline-block;margin-left:6px;background:${o.accent};color:#fff;font-size:13px;font-weight:bold;padding:4px 12px;border-radius:999px;vertical-align:middle;">${o.people} couverts</span></p>
+          <p style="margin:0;color:#000;font-size:23px;font-weight:bold;">${esc(o.nome)} <span style="display:inline-block;margin-left:6px;background:${o.accent};color:#fff;font-size:13px;font-weight:bold;padding:4px 12px;border-radius:999px;vertical-align:middle;">${o.people} ${esc(o.k.couverts)}</span></p>
           <p style="margin:8px 0 ${callBtn ? "16px" : "0"};color:#555;font-size:14px;">${esc(o.phone)} · ${esc(o.email)}</p>
           ${callBtn}
         </td>
@@ -2314,13 +2339,13 @@ function guscioResaRisto(o: {
         <td style="padding:6px 24px 22px;background:#f6f7f5;border-bottom:1px solid #e6e6e2;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td width="${dateW}" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;">
-              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Date</p>
+              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${esc(o.k.date)}</p>
               <p style="margin:6px 0 0;color:#111;font-size:17px;font-weight:bold;line-height:1.2;">${esc(o.dateBig)}</p>
               ${o.year ? `<p style="margin:1px 0 0;color:#888;font-size:12px;">${esc(o.year)}</p>` : ""}
             </td>
             <td width="4%">&nbsp;</td>
             <td width="${heureW}" valign="middle" style="background:#ffffff;border:1px solid #e6e6e2;border-radius:12px;padding:14px 10px;text-align:center;">
-              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Heure</p>
+              <p style="margin:0;color:${o.accent};font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${esc(o.k.heure)}</p>
               <p style="margin:6px 0 0;color:#111;font-size:20px;font-weight:bold;line-height:1;">${esc(o.heure)}</p>
             </td>
             ${svcTile}
@@ -2333,7 +2358,12 @@ function guscioResaRisto(o: {
           ${o.noteHtml}
         </td>
       </tr>
-      <tr><td style="padding:14px 30px 22px;text-align:center;background:#f6f7f5;border-top:1px solid #e6e6e2;color:#9a9a94;font-size:12px;">Réservation · ${esc(o.nomeRisto)}</td></tr>
+      <tr>
+        <td style="padding:14px 30px 22px;text-align:center;background:#f6f7f5;border-top:1px solid #e6e6e2;color:#9a9a94;font-size:12px;">
+          ${esc(o.k.resa)} · ${esc(o.nomeRisto)}
+          <p style="margin:14px 0 0;"><img src="${SITE_URL.replace(/\/$/, "")}/restohub/wordmark.png" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
+        </td>
+      </tr>
     </table>
   </div>
   `;
@@ -2347,16 +2377,17 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
     return;
   }
   const dati = await datiRistorante();
-  const servFr = labelService(r.service_key, "fr");
-  const dataFr = fmtDataResa(r.date, "fr");
-  const { dateBig, year } = compattaData(r.date);
+  const { lang, k } = await contestoRisto();
+  const servFr = labelService(r.service_key, lang);
+  const dataFr = fmtDataResa(r.date, lang);
+  const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
-  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
+  const detailRows = detRigaResto(k.section, r.zone ?? "") + detRigaResto(k.options, opzioniResa(r, k));
 
   const html = guscioResaRisto({
     accent: "#0e7a5f",
-    label: "Nouvelle réservation",
+    label: k.nouvelle,
     dataFr,
     subBanner: "",
     subBg: "",
@@ -2371,8 +2402,9 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
     heure: r.heure,
     serviceLabel: servFr,
     detailRows,
-    noteHtml: notaResto(r.notes),
+    noteHtml: notaResto(r.notes, k),
     nomeRisto: dati.nome,
+    k,
   });
 
   try {
@@ -2380,7 +2412,7 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: `Nouvelle réservation — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      subject: `${k.nouvelle} — ${dataFr} ${r.heure} · ${r.people} ${k.pers}`,
       html,
     });
   } catch (e) {
@@ -2397,18 +2429,19 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
     return;
   }
   const dati = await datiRistorante();
-  const servFr = labelService(r.service_key, "fr");
-  const dataFr = fmtDataResa(r.date, "fr");
-  const { dateBig, year } = compattaData(r.date);
+  const { lang, k } = await contestoRisto();
+  const servFr = labelService(r.service_key, lang);
+  const dataFr = fmtDataResa(r.date, lang);
+  const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
-  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
+  const detailRows = detRigaResto(k.section, r.zone ?? "") + detRigaResto(k.options, opzioniResa(r, k));
 
   const html = guscioResaRisto({
     accent: "#b23b30",
-    label: "Réservation annulée",
+    label: k.annulee,
     dataFr,
-    subBanner: "Annulée par le client",
+    subBanner: k.bannerAnnul,
     subBg: "#fdecea",
     subText: "#8f2d22",
     nome: nomeCompleto,
@@ -2421,8 +2454,9 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
     heure: r.heure,
     serviceLabel: servFr,
     detailRows,
-    noteHtml: notaResto(r.notes),
+    noteHtml: notaResto(r.notes, k),
     nomeRisto: dati.nome,
+    k,
   });
 
   try {
@@ -2430,7 +2464,7 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: `Réservation annulée — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      subject: `${k.annulee} — ${dataFr} ${r.heure} · ${r.people} ${k.pers}`,
       html,
     });
   } catch (e) {
@@ -2709,18 +2743,19 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
     return;
   }
   const dati = await datiRistorante();
-  const servFr = labelService(r.service_key, "fr");
-  const dataFr = fmtDataResa(r.date, "fr");
-  const { dateBig, year } = compattaData(r.date);
+  const { lang, k } = await contestoRisto();
+  const servFr = labelService(r.service_key, lang);
+  const dataFr = fmtDataResa(r.date, lang);
+  const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
-  const detailRows = detRigaResto("Section", r.zone ?? "") + detRigaResto("Options", opzioniResa(r));
+  const detailRows = detRigaResto(k.section, r.zone ?? "") + detRigaResto(k.options, opzioniResa(r, k));
 
   const html = guscioResaRisto({
     accent: "#b5701a",
-    label: "Réservation modifiée",
+    label: k.modifiee,
     dataFr,
-    subBanner: "Modifiée par le client · nouvelles informations ci-dessous",
+    subBanner: k.bannerModif,
     subBg: "#fdf1df",
     subText: "#8a5410",
     nome: nomeCompleto,
@@ -2733,8 +2768,9 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
     heure: r.heure,
     serviceLabel: servFr,
     detailRows,
-    noteHtml: notaResto(r.notes),
+    noteHtml: notaResto(r.notes, k),
     nomeRisto: dati.nome,
+    k,
   });
 
   try {
@@ -2742,7 +2778,7 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
       from,
       to: dest.split(",").map((e) => e.trim()).filter(Boolean),
       bcc: BCC,
-      subject: `Réservation modifiée — ${dataFr} ${r.heure} · ${r.people} pers.`,
+      subject: `${k.modifiee} — ${dataFr} ${r.heure} · ${r.people} ${k.pers}`,
       html,
     });
   } catch (e) {

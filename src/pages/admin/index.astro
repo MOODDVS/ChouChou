@@ -11,6 +11,7 @@ import TileCommandes from "../../components/admin/home/TileCommandes.astro";
 import TileReservations from "../../components/admin/home/TileReservations.astro";
 import TileHoraires from "../../components/admin/home/TileHoraires.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
+import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
@@ -218,10 +219,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .ev-nome.ev-loc { color: var(--c-accent); }
 
       #evt-overlay .evm-modal {
-        width: 100%; max-width: 460px; margin: auto; position: relative;
+        width: 100%; max-width: 520px; margin: auto; position: relative;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         padding: 1.7rem; box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
+        max-height: 88vh; overflow-y: auto;
       }
+      /* Tab del modale (stesso stile dei tab del menu) */
+      .m-tabs { display: flex; gap: 0.5rem; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
+      .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .m-tab:hover { color: var(--c-text); }
+      .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .evm-pane .evm-lab:first-of-type { margin-top: 0.6rem; }
       .evm-titre { font-family: var(--font-title); font-size: 1.7rem; letter-spacing: 0.04em; margin-bottom: 0.3rem; }
       .evm-sub { color: var(--c-muted); font-size: 0.85rem; line-height: 1.55; margin-bottom: 0.4rem; }
       .evm-lab { display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin: 1rem 0 0.35rem; }
@@ -474,19 +482,29 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       </div>
     </div>
 
-    <!-- Modale Notes -->
+    <!-- Modale Jours speciaux : evenement local | fermeture/ouverture -->
     <div class="overlay" id="evt-overlay">
       <div class="evm-modal">
         <button type="button" class="evm-x" id="evt-close" aria-label={t("common.close")}>✕</button>
-        <h2 class="evm-titre">{t("home.localEvents")}</h2>
-        <p class="evm-sub">{t("home.localEventsIntro")}</p>
-        <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
-        <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
-        <label class="evm-lab" for="evt-date">{t("home.date")}</label>
-        <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
-        <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
-        <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
-        <div class="evm-list" id="evt-list"></div>
+        <h2 class="evm-titre">{t("home.specialDays")}</h2>
+        <div class="m-tabs" id="evt-tabs">
+          <button type="button" class="m-tab is-on" data-p="ev">{t("home.evtTabEvent")}</button>
+          <button type="button" class="m-tab" data-p="cl">{t("home.evtTabClosure")}</button>
+        </div>
+        <div class="evm-pane" data-p="ev">
+          <p class="evm-sub">{t("home.localEventsIntro")}</p>
+          <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
+          <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
+          <label class="evm-lab" for="evt-date">{t("home.date")}</label>
+          <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
+          <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
+          <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
+          <div class="evm-list" id="evt-list"></div>
+        </div>
+        <div class="evm-pane" data-p="cl" hidden>
+          <p class="evm-sub">{t("home.closureIntro")}</p>
+          <SpecialDaysForm />
+        </div>
       </div>
     </div>
 
@@ -517,7 +535,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
-      import { SERVIZI_WIDGET, nomeServizio } from "../../lib/reservationI18n";
+      import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -1001,6 +1019,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               return false;
             }
           }
+          // Tab del modale: Événement local | Fermeture / ouverture
+          const evtTabs = document.getElementById("evt-tabs") as HTMLDivElement | null;
+          evtTabs?.addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest<HTMLElement>(".m-tab");
+            if (!b || !b.dataset.p) return;
+            const p = b.dataset.p;
+            evtTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((x) => x.classList.toggle("is-on", x.dataset.p === p));
+            evtOverlay.querySelectorAll<HTMLElement>(".evm-pane").forEach((x) => { x.hidden = x.dataset.p !== p; });
+          });
+
           const apriEvt = () => { renderListaEvt(); evtOverlay.classList.add("is-open"); };
           const chiudiEvt = () => { evtOverlay.classList.remove("is-open"); dpChiudi(); };
           evtBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); apriEvt(); });
@@ -1092,6 +1120,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               <div class="dp-grid">${celle}</div>`;
           }
           function dpApri() {
+            document.querySelectorAll<HTMLElement>(".dp-panel").forEach((x) => { if (x !== dpPanel) x.style.display = "none"; });
             const base = evtDate.dataset.iso || isoOggiDp();
             dpAnno = Number(base.slice(0, 4));
             dpMese = Number(base.slice(5, 7)) - 1;
@@ -1382,10 +1411,64 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           };
           aggiornaCucina();
           if (cfg) {
-            const cp = document.getElementById("cui-prep") as HTMLElement | null;
-            if (cp) cp.textContent = `${cfg.prep_time_minutes} min`;
             const cs = document.getElementById("cui-slot") as HTMLElement | null;
             if (cs) cs.textContent = `${cfg.slot_duration_minutes} min`;
+          }
+
+          // ---- Tempo di preparazione, modificabile dal tile ----
+          // Stessa PATCH dei bottoni della pagina Commandes: scrive su TUTTI
+          // i giorni, ed è quella che valida 0–240.
+          const prepBox = document.getElementById("cui-prep") as HTMLElement | null;
+          if (prepBox && cfg) {
+            let prepMin = Number(cfg.prep_time_minutes);
+
+            const segnaPrep = () => {
+              // Un valore fuori dai tre preset (impostato dai Réglages) non
+              // deve sparire: diventa un chip in più, così il tile dice sempre
+              // il tempo vero invece di non accendere niente.
+              if (!prepBox.querySelector(`.cui-p[data-min="${prepMin}"]`) && Number.isFinite(prepMin)) {
+                const extra = document.createElement("button");
+                extra.type = "button";
+                extra.className = "cui-p";
+                extra.dataset.min = String(prepMin);
+                extra.textContent = String(prepMin);
+                prepBox.appendChild(extra);
+              }
+              prepBox.querySelectorAll<HTMLButtonElement>(".cui-p").forEach((b) => {
+                b.classList.toggle("is-on", Number(b.dataset.min) === prepMin);
+              });
+            };
+            segnaPrep();
+
+            prepBox.addEventListener("click", async (e) => {
+              const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".cui-p");
+              if (!b) return;
+              // Il tile è un link verso i Réglages: senza questo, il click
+              // cambierebbe pagina invece di salvare.
+              e.preventDefault();
+              e.stopPropagation();
+              const min = Number(b.dataset.min);
+              if (!Number.isFinite(min) || min === prepMin) return;
+              const prima = prepMin;
+              const chips = prepBox.querySelectorAll<HTMLButtonElement>(".cui-p");
+              chips.forEach((x) => (x.disabled = true));
+              prepMin = min;
+              segnaPrep();
+              try {
+                const r = await fetch("/api/admin/settings", {
+                  method: "PATCH",
+                  headers: { ...headers, "Content-Type": "application/json" },
+                  body: JSON.stringify({ prep_time_minutes: min }),
+                });
+                if (!r.ok) throw new Error();
+              } catch {
+                prepMin = prima; // salvataggio fallito: il tile non deve mentire
+                segnaPrep();
+              } finally {
+                chips.forEach((x) => (x.disabled = false));
+                b.blur();
+              }
+            });
           }
           cuiSw?.addEventListener("click", async (e) => {
             e.preventDefault();

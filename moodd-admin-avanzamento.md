@@ -2,6 +2,67 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 07/09/2026 — sessione Cowork (notifiche al ristoratore in lingua admin + tempo di preparazione dal tile + jours spéciaux condivisi)
+
+### 📧 Notifiche al ristoratore: tutte nella lingua dell'admin (+ logo RestoHub)
+- **Segnalato da EN**: admin in italiano, ma la mail «Nouvelle réservation» arrivava in francese. Le tre email prenotazione **verso il ristorante** avevano i testi scritti a mano in FR — non era un ripiego, era proprio l'unica lingua.
+- Nuovo dizionario **`R_TXT`** in `notifications.ts` (5 lingue, stessa forma di `K_TXT` del ticket ordine) + helper `contestoRisto()` che restituisce lingua ed etichette in una lettura sola. Coperte: `emailNotificaResa` (nuova prenotazione E nuova demande), `emailNotificaAnnulloResa`, `emailNotificaModificaResa`.
+- Tradotto **tutto** il guscio, non solo il titolo: oggetto della mail, banner, «Appeler le client», «couverts», Date / Heure / Service, Section, Options (comprese le cinque opzioni: seggiolone, posto tranquillo, pranzo di lavoro, compleanno, evento speciale), «Note :» e il piè di pagina. Anche la **data lunga**, la **data compatta** e il **nome del servizio** ora seguono il locale admin (`compattaData` prende la lingua, `labelService` pure).
+- **Récap quotidiano «Votre journée»** (`dailyBrief.ts`): stesso trattamento, dizionario `B_TXT` con ~28 voci e i plurali per lingua, `LOC_BRIEF` per le date Luxon, nome dei servizi via `nomeServizio(key, LANG)` invece di `SERVIZI_WIDGET[...].fr`.
+- **Slack cucina**: le etichette del messaggio (Client, Téléphone, Retrait, Commande, Total…) prese da `K_TXT`, che si è allargato con `client/phone/email/order/payment`.
+- **Logo RestoHub** aggiunto in fondo alle email prenotazione al ristorante (il wordmark chiaro, come già nelle altre email; il brief ce l'aveva già).
+- ⚠️ Restano volutamente in francese le mail che vanno a **MOODD**, non al ristoratore: `api/admin/docs.ts` (résiliation) e `api/admin/print-order.ts`. Il modulo contatto e le push erano già tradotti.
+
+### ⏱️ Tempo di preparazione modificabile dal tile Cuisine
+- Il tile «Cuisine» in home mostrava il tempo di preparazione come **valore statico**: per cambiarlo bisognava andare in Réglages. Ora ci sono tre **pillole 15 / 30 / 45** con «min» accanto, allineate a destra sulla stessa riga delle fasce.
+- Il tile è un `<a>`: i click sulle pillole fanno `preventDefault` + `stopPropagation`, altrimenti si navigava via invece di salvare.
+- Aggiornamento **ottimista** con `PATCH /api/admin/settings { prep_time_minutes }`; se il server rifiuta si torna al valore precedente. Un valore fuori dai tre preset (es. 20) genera una **quarta pillola** al volo, così non si perde mai il valore reale.
+
+### 🗓️ Jours spéciaux: un solo form, due posti
+- Richiesta: dal «+» del tile Jours spéciaux poter anche **chiudere/aprire** il ristorante, non solo aggiungere un evento locale. Scelta: **form completo ma CONDIVISO**, non una copia ridotta.
+- Nuovo componente **`src/components/admin/SpecialDaysForm.astro`**: markup + CSS + script, tutto per **classe** (niente `id`), così due istanze possono convivere sulla stessa pagina. Lo script è unico (Astro deduplica) e inizializza ogni radice `.spf` che trova; la lista è **una sola sorgente** e tutte le istanze si riallineano insieme dopo un aggiunta o una cancellazione.
+- Porta con sé tutto quello che c'era in Réglages: tipo Fermé/Ouvert, intervallo di date col datepicker brand, giornata continua o spezzata, **servizi attivi** a switch, nota, e soprattutto il **controllo d'impatto** (se ci sono prenotazioni nei giorni che sto per chiudere → modale con la lista e tre scelte: annullare + email, lasciare, o annullare l'azione).
+- **Réglages → Horaire** ora monta il componente: via ~250 righe di script e ~40 di CSS dalla pagina. Restano due ganci, perché la pagina ha informazioni che il componente non può avere:
+  - `spf:servizi` → la pagina risponde con i servizi **LIVE dell'editor** (anche non ancora salvati); fuori da Réglages il componente li legge da `/api/admin/settings`.
+  - `spf:loaded` → la pagina aggiorna `spCache`, che serve al datepicker del widget per bloccare i giorni di chiusura. Siccome i due script sono moduli separati e l'ordine non è garantito, il componente lascia anche `window.__spfDays`: chi arriva dopo lo legge invece di perdere l'evento.
+- **Home**: il modale del «+» ora ha due tab (pillole `.m-tab`, stesse del menu) — «Événement local» (il form di prima) e «Fermeture / ouverture» (il componente). Titolo del modale diventato «Jours spéciaux».
+- Un solo datepicker aperto per volta: `dpApri` chiude gli altri `.dp-panel` della pagina (in home ce ne sono due, in Réglages pure).
+- **Verifica**: esbuild OK su tutti gli script e i blocchi CSS toccati (il CSS orfano dopo l'estrazione si vede solo così).
+
+## 📌 06/09/2026 — sessione Cowork (liaisons piano sala + lettura i18n dei piatti)
+
+### 🔗 Liaisons: limite alzato e SILENZIO eliminato
+- **Segnalato da EN**: una combinazione da 22 posti (11 tavoli da 2) non si salvava. Causa: in `api/admin/tables.ts` il vincolo era sul NUMERO DI TAVOLI (`ids.length <= 8`) e le combinazioni fuori limite venivano **scartate senza avviso** — l'API rispondeva `ok: true` con la lista già ripulita. Con tavoli da 2 il tetto reale era 16 posti, con tavoli da 4 diventava 32: il limite percepito cambiava da ristorante a ristorante.
+- **Fix**: `MAX_TAVOLI_LIAISON = 16` (era 8) e `MAX_LIAISONS = 40`, entrambi in costanti nominate. Una combinazione fuori limite ora è **400 con messaggio esplicito** («Une liaison dépasse le maximum de 16 tables», «Maximum 40 liaisons par section», «Une liaison doit contenir au moins 2 tables») invece di sparire. Niente più salvataggi parziali.
+- **Admin** (`settings.astro`, piano sala): mostra il messaggio del server al posto dell'errore generico, e soprattutto **ripristina lo stato precedente** se il salvataggio è rifiutato — prima la combinazione restava disegnata a schermo come se fosse stata salvata (stesso inganno, solo spostato più in là). Nuovo `slLinksOk` = ultimo stato accettato dal server.
+- **Effetto a valle**: `maxInsiemePerZona()` (planSalle) calcola `max_ins` dalle catene; con le combinazioni lunghe che ora si salvano, il widget arriva davvero al numero di coperti dichiarato invece di fermarsi prima.
+- Entrambi i file (`src/pages/api/**`, `src/pages/admin/**`) prendono la versione del motore al merge: i clienti lo ereditano senza toccare nulla.
+
+### 🛡️ Due file per-cliente che il `.gitattributes` non proteggeva
+- **Segnalato da EN**: `src/config/siteImageSlots.ts` si dichiara «FILE PER-CLIENTE» nella propria intestazione, ma `git check-attr merge` rispondeva **`unspecified`**: al primo `git merge engine/main` la mappa delle immagini del cliente sarebbe tornata quella del template.
+- Cercando file con la stessa firma ne è saltato fuori un **secondo**: `src/config/sitePages.ts` («pagine del sito pubblico di QUESTO cliente»), anch'esso scoperto.
+- Aggiunte due righe `merge=ours` in `.gitattributes` + riga nella tabella di `ENGINE.md`. Il `.gitattributes` non è protetto, quindi la correzione arriva a tutti col merge.
+- **Verificato che NON vanno protetti**: `src/config/printCatalog.ts` (catalogo prodotti MOODD, seed uguale per tutti, valori reali in `app_config`) e `src/middleware.ts` (motore; «per-cliente» era solo un commento sugli script inline del sito pubblico).
+- ⚠️ Da controllare sui clienti già mergiati: se avevano personalizzato quei due file **prima** di questa correzione, un merge passato può averli già sovrascritti.
+
+### 🈯 `OrderApp`: via i ternari a due rami sulla lingua
+- **Segnalato da EN** (sito trilingue): su `/it/order` il tag diceva «Épuisé» mentre la carta `/it/menu` accanto diceva «Esaurito». Causa: etichette scritte a mano come `lang === "en" ? "Sold out" : "Épuisé"` — il ramo `else` è il francese, quindi **qualunque lingua diversa da `en` finiva in francese**. Sette occorrenze: esaurito (x2), vegano, piccante, stagionale, «Suggestion», conferma rimozione, più la **descrizione del piatto**.
+- Nuovo modulo **`src/lib/i18nMenu.ts`**, senza dipendenze come `pricing.ts`: `ETICHETTE_MENU` (5 lingue x 6 chiavi), `etichettaMenu(chiave, lang, dizionario)` con ordine **dizionario del cliente → lingua richiesta → ripiego esplicito su `fr`**, più `i18nPulito` e `testoPiatto` spostati qui.
+- ⚠️ **Perché non in `db.ts`**: `OrderApp` è un'isola React, e `db.ts` crea il client Supabase con la **service key** — importarlo lato client la porterebbe nel bundle del browser. `db.ts` ora ri-esporta `testoPiatto` per il server, ma le isole devono importare da `i18nMenu`.
+- `OrderApp`: `lang` passa da `"fr" | "en"` a `string` (il motore ha 5 lingue pubbliche); le nuove chiavi di `OrderStrings` (`soldOut`, `vegan`, `spicy`, `seasonal`, `suggestion`, `confirm`) sono **opzionali**, così le `order.astro` dei clienti — file per-cliente, che il merge NON aggiorna — continuano a compilare. Se il cliente non le passa, valgono quelle del motore nella lingua giusta; se le passa, vincono le sue.
+- Nome e descrizione del piatto ora da `testoPiatto(item, lang)`, anche nella riga di carrello e nel titolo del modale. Restano **solo per mostrare**: il server ricostruisce le righe d'ordine leggendo `name` dal DB.
+- **Verifica**: esbuild OK, `i18nMenu.ts` senza alcun riferimento a supabase, **19 test unitari** sul modulo reale transpilato (le 5 lingue, lingua ignota, sovrascrittura del cliente, traduzione vuota che non copre lo storico).
+
+### 🌍 Piatti multilingue: il sito ora può leggere `name_i18n`/`desc_i18n`
+- **Il buco**: le colonne esistono dalla migrazione #56 e l'admin le scrive da mesi, ma `MENU_SELECT` in `db.ts` si fermava a `description_fr`/`description_en`. Un cliente con una terza lingua attiva non poteva mostrare i piatti in quella lingua.
+- `name_i18n` e `desc_i18n` aggiunte a **`MENU_COLONNE_NUOVE`** (non alla select fissa): chi non ha lanciato la #56 ripiega senza quelle colonne e non si rompe.
+- Nuovo helper esportato **`testoPiatto(item, lang, langDefault)`** con la stessa cascata di `etichettaVariante`: lingua richiesta → lingua predefinita → colonne storiche → valore di base. **Un testo vuoto conta come MANCANTE** (`||`, non `??`): chi ha `desc_i18n` compilato a metà continua a vedere la descrizione storica invece di un buco.
+- `i18nPulito()` scarta testi vuoti o di soli spazi, applicato sia alla mappatura sia dentro `testoPiatto` (la funzione è esportata e potrebbe ricevere una riga grezza).
+- ⚠️ **Solo per MOSTRARE**: `name` resta il nome canonico per cucina, stampa ed email. Le righe d'ordine il server le ricostruisce leggendo `name` dal DB, mai dal browser.
+- **Nessun cliente cambia comportamento**: l'helper è solo esportato, e le pagine che decidono cosa mostrare (`menu.astro`, `order.astro`, componenti) sono per-cliente. Chi vuole le lingue lo chiama nella sua pagina dopo il merge.
+- Le **sezioni** erano già a posto: `menu_categories.name_i18n` è letto da `mappaCategorie()` ed esposto come `name_i18n`/`root_i18n` sulla categoria.
+- **Verifica**: esbuild OK, **11 test unitari** sulle due funzioni estratte dal file reale e transpilate (cliente storico, traduzione a metà, terza lingua mancante, dati sporchi).
+
 ## 📌 05/09/2026 — sessione Cowork (Educazione Napoletana v2 + FORMATI/varianti nel motore)
 
 ### 🍕 NUOVA FEATURE MOTORE — Formati (varianti) di un piatto · migrazione #71

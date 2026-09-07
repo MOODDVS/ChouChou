@@ -14,12 +14,49 @@ passa da `src/config/client.ts` e da Réglages → Général (app_config).
 | `src/components/admin/**` | `src/i18n/**` |
 | `src/lib/**` + `src/lib/admin/**` | `public/**` (loghi, icone, foto, manifest.json) |
 | `supabase/*.sql` (migrazioni) | `src/config/client.ts` (brand) |
+| | `src/config/siteImageSlots.ts` (slot immagini del sito) |
+| | `src/config/sitePages.ts` (pagine del sito) |
 | | `astro.config.mjs` (site URL) |
 
 `src/lib/admin/` contiene le lib usate SOLO dall'admin
 (adminAuth, superAdmin, imageCompress, newsletterQuota).
 `src/lib/ristorante.ts` fornisce alle email nome/telefono/indirizzo:
 legge Réglages → Général con fallback su `client.ts`.
+
+### Dove passa il confine (deciso 06/09/2026)
+
+Il motore è **l'admin e i dati**: quello che il ristoratore può inserire e
+cambiare, e le regole che lo governano. **Design, markup, testi e resa del
+sito pubblico sono del cliente**: il motore fornisce i dati, non decide come
+si vedono.
+
+Il repo del motore contiene comunque un sito pubblico completo, ma serve solo
+come **punto di partenza** per il clone di un nuovo cliente. Attenzione: la
+protezione `ours` scatta solo quando ENTRAMBI i lati hanno modificato lo
+stesso file — finché un cliente non tocca `Header.astro` o `OrderApp.tsx`,
+le modifiche del motore gli arrivano lo stesso.
+
+**L'eccezione consapevole è `OrderApp.tsx`.** Non è design: è il flusso
+d'ordine (carrello, scelta del formato, chiamata al checkout), la parte dove
+si sbaglia un prezzo o si perde un ordine. Sta nel motore come implementazione
+di riferimento, e vale la regola:
+
+> Ogni decisione VISIVA di quel componente deve essere una **prop passata
+> dalla pagina del cliente** o un **default sovrascrivibile** — mai una scelta
+> cablata nel componente.
+
+Esempi già in piedi: `sceltaFormato` (`"pulsanti"` o `"modale"`), `foto`
+(`true`/`false`), e le etichette di `i18nMenu.ts`, dove il dizionario passato
+dal cliente vince sempre su quello del motore.
+
+Un cliente che vuole un flusso d'ordine tutto suo si tiene la propria copia
+del componente — e da quel momento smette di ricevere le correzioni: è una
+scelta legittima, ma va fatta sapendo il prezzo.
+
+⚠️ **`OrderApp` è un'isola React**: importa da `src/lib/pricing.ts` e
+`src/lib/i18nMenu.ts`, moduli **senza dipendenze**. Non deve MAI importare da
+`src/lib/db.ts`, che crea il client Supabase con la **service key**: finirebbe
+nel bundle del browser.
 
 ## Checklist nuovo cliente
 

@@ -36,3 +36,10 @@ public/restohub/**       merge
 # --- Brand e dominio ---
 src/config/client.ts     merge=ours
 astro.config.mjs         merge=ours
+
+# --- Config che descrive il SITO del cliente ---
+# Si dichiarano "per-cliente" nella loro intestazione ma erano scoperti:
+# `git check-attr merge` diceva `unspecified`, quindi al primo merge del
+# motore la mappa del cliente tornava quella del template. (06/09/2026)
+src/config/siteImageSlots.ts  merge=ours
+src/config/sitePages.ts       merge=ours

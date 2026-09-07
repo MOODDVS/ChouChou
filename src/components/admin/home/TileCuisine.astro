@@ -11,10 +11,19 @@ const t = adminT(lang);
 <a class="tile" href="/admin/settings?tab=cuisine" data-admin-page="settings" data-tile="cuisine">
   <div class="tile-title"><svg class="tt-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>{t("tab.settings.cuisine")}</div>
   <div class="sched-status" id="cui-status">—</div>
-  <div class="tile-next sched-two">
+  <div class="tile-next sched-two cui-two">
     <div>
       <span class="lab">{t("home.prep")}</span>
-      <span class="val" id="cui-prep">—</span>
+      {/* Il tempo di preparazione si cambia da qui: stessi tre tempi della
+          pagina Commandes, così il vocabolario è lo stesso nei due posti.
+          Un valore diverso (impostato dai Réglages) compare come quarto
+          chip, aggiunto dallo script. */}
+      <span class="cui-prep" id="cui-prep">
+        <button type="button" class="cui-p" data-min="15" title={t("ord.prepFast")}>15</button>
+        <button type="button" class="cui-p" data-min="30" title={t("ord.prepNormal")}>30</button>
+        <button type="button" class="cui-p" data-min="45" title={t("ord.prepBusy")}>45</button>
+        <span class="cui-min">min</span>
+      </span>
     </div>
     <div>
       <span class="lab">{t("home.slots")}</span>
@@ -26,3 +35,59 @@ const t = adminT(lang);
     <button type="button" class="cui-sw" id="cui-sw" aria-label={t("home.toggleKitchen")}><span class="cui-knob"></span></button>
   </div>
 </a>
+
+<style>
+  /* Chip del tempo di preparazione: stessa pillola degli altri comandi
+     dell'admin, in piccolo perché il tile è stretto. */
+  /* I chip occupano lo spazio che serve, «Fasce» va in fondo alla riga
+     (le due colonne non sono più larghe uguali). */
+  .cui-two > div:first-child { flex: 0 0 auto; }
+  .cui-two > div:last-child {
+    margin-left: auto;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Il valore di «Fasce» sta sulla stessa mediana delle pillole: stesso
+     stacco dall'etichetta e stessa altezza della riga dei chip. */
+  .cui-two > div:last-child .val {
+    margin-top: 0.3rem;
+    min-height: 2.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .cui-prep { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; min-height: 2.2rem; }
+  /* Unità scritta una volta accanto ai chip, non ripetuta su ognuno. */
+  .cui-min {
+    align-self: center;
+    line-height: 1;
+    color: var(--c-muted);
+    font-size: 0.85rem;
+    margin-left: 0.15rem;
+  }
+  .cui-p {
+    min-width: 62px;
+    padding: 0.45rem 0.9rem;
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    /* Più scuro della superficie del tile, qualunque sia il tema del cliente:
+       il nero in trasparenza funziona sia su temi scuri sia su temi chiari. */
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--c-text);
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .cui-p:hover { border-color: var(--c-accent); color: var(--c-accent); }
+  .cui-p.is-on {
+    border-color: var(--c-accent);
+    background: var(--c-accent);
+    color: var(--c-bg);
+  }
+  .cui-p:disabled { opacity: 0.5; cursor: wait; }
+</style>

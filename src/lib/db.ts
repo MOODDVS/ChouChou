@@ -1,5 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { prezzoEffettivo, leggiVariantiDb, haVarianti, type DiscountType } from "./pricing";
+import { i18nPulito } from "./i18nMenu";
+
+// Ri-esportato per comodità: il server legge il menu da qui.
+// NB: le isole React devono importarlo da "./i18nMenu", non da db.ts
+// (questo file crea il client Supabase con la service key).
+export { testoPiatto } from "./i18nMenu";
 
 const SUPABASE_URL = import.meta.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = import.meta.env.SUPABASE_SERVICE_KEY;
@@ -56,6 +62,11 @@ export interface MenuItem {
   /** Formati del piatto. Vuoto = prezzo unico (comportamento storico).
    *  Se pieno, `price_cents` è il prezzo «a partire da» (il più basso). */
   variants: Variante[];
+  /** Nome e descrizione per lingua pubblica (migrazione #56), scritti
+   *  dall'admin. `name` e `description_fr`/`_en` restano il ripiego e la
+   *  fonte canonica per cucina e ordini: si leggono con `testoPiatto()`. */
+  name_i18n: Record<string, string>;
+  desc_i18n: Record<string, string>;
 }
 
 export interface MenuCategoria {
@@ -73,7 +84,7 @@ const MENU_SELECT =
   "id, category, name, description, description_fr, description_en, allergens, price_cents, image_url, category_order, sort_order, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
 /** Colonne aggiunte da migrazioni successive: su un cliente che non le ha
  *  ancora lanciate la select fallisce, e si riprova senza QUELLA colonna. */
-export const MENU_COLONNE_NUOVE = ["sold_out", "variants"];
+export const MENU_COLONNE_NUOVE = ["sold_out", "variants", "name_i18n", "desc_i18n"];
 
 export type RisultatoQuery = { data: any[] | null; error: { message?: string } | null };
 
@@ -174,6 +185,8 @@ function raggruppa(data: any[], online: boolean): MenuCategoria[] {
       is_seasonal: !!riga.is_seasonal,
       is_sold_out: !!riga.sold_out,
       variants: varianti,
+      name_i18n: i18nPulito(riga.name_i18n),
+      desc_i18n: i18nPulito(riga.desc_i18n),
     };
 
     if (!indiceCategoria.has(riga.category)) {
@@ -360,3 +373,4 @@ export async function getMenuOrderable(): Promise<MenuCategoria[]> {
   const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
   return arricchisci(raggruppa(visibili, true), await mappaCategorie());
 }
+
