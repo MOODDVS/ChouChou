@@ -734,7 +734,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal-resa .m-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex: 0 0 auto; background: var(--c-bg); padding-bottom: 1rem; }
       .modal-resa .m-head h2 { margin: 0; }
       .modal-resa .m-head .m-close { position: static; float: none; margin: 0; }
-      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; }
+      /* minmax(0,1fr): senza, la riga della griglia si dimensiona sul CONTENUTO,
+         le colonne restano alte quanto il loro contenuto e l'overflow-y non
+         scrolla mai — il fondo finiva tagliato da overflow:hidden del modale. */
+      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
       .modal-resa > .m-actions { flex: 0 0 auto; }
       @media (min-width: 761px) {
         .modal-resa .nm-col { overflow-y: auto; min-height: 0; padding-right: 0.5rem; }
@@ -3980,12 +3983,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           opzioni.sort((x, y) => x.posti - y.posti || x.ids.length - y.ids.length);
 
-          // Default: SOLO le opzioni col numero esatto di posti; fallback al piu piccolo che basta
+          // Default: le opzioni SENSATE per quel numero di persone, cioe' con
+          // capienza fra persone-1 e persone+2. Proporre un tavolo da 8 per 4
+          // coperti non serve a nessuno e affoga la scelta utile.
+          // Se in quella finestra non cade niente (es. 4 persone e solo tavoli
+          // da 8), si ripiega sulla piu' piccola che basta: meglio una proposta
+          // larga che una lista vuota. Il "+N" resta per i casi strani.
+          const MIN_POSTI = Math.max(1, nmPers - 1);
+          const MAX_POSTI = nmPers + 2;
           const key = (nmZone || "*") + "|" + nmPers;
           const tutti = nmTavTutti && nmTavTuttiKey === key;
-          const esatte = opzioni.filter((o) => o.posti === nmPers);
+          const finestra = opzioni.filter((o) => o.posti >= MIN_POSTI && o.posti <= MAX_POSTI);
           let base: Opz[];
-          if (esatte.length) base = esatte;
+          if (finestra.length) base = finestra;
           else {
             const sopra = opzioni.filter((o) => o.posti > nmPers);
             if (sopra.length) { const mn = Math.min(...sopra.map((o) => o.posti)); base = opzioni.filter((o) => o.posti === mn); }

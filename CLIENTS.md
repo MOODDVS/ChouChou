@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** HEAD `bbe0885` (01/09/2026).
+**Motore — riferimento attuale:** HEAD `7936e3b` (07/09/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
@@ -15,17 +15,41 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `bbe0885` — 01/09/2026** | sito+branding tenuti, migrazioni recuperate |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `bbe0885` — 01/09/2026** | conflitto solo middleware (cacheEdge) |
-| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `bbe0885` — 01/09/2026** | merge pulito, 0 conflitti |
-| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **clone + merge — 05/09/2026** | repo NUOVO `educazione-napoletana`; il sito live gira ancora dal vecchio |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `7936e3b` — 07/09/2026** | merge pulito 0 conflitti; ⚠️ #71 e redeploy da fare |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `7936e3b` — 07/09/2026** | conflitto su `db.ts` risolto a mano; ⚠️ #71 e redeploy da fare |
+| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `7936e3b` — 07/09/2026** | conflitto solo `.gitignore`; ⚠️ #71 e redeploy da fare |
+| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `7936e3b` — 07/09/2026** | conflitto solo `.gitattributes`; design storico intatto; unico con «Varianti» da accendere |
 
 ---
 
-## ✅ Migrazioni — nessuna pendente (05/09/2026)
-**Tutti e 3 i clienti allineati al motore `1f9c983`** (ChouChou, La Molisana, L'Huile). **Educazione Napoletana v2** ha già tutte le migrazioni #1→#71.
+## 🔄 Giro di merge del 07/09/2026 — motore `7936e3b`
 
-⚠️ **#71 `menu_variants.sql` (varianti) è da lanciare su ChouChou, La Molisana e L'Huile** al prossimo merge. Senza, il sito non si rompe (le query ripiegano) ma i formati non esistono.
+Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ristoratore nella **lingua admin**, form Jours spéciaux condiviso (due tab nel modale della home), tempo di preparazione dal tile Cuisine, liaisons fino a 16 tavoli, `i18nMenu.ts`.
+
+| Cliente | Conflitti | Risoluzione |
+|---|---|---|
+| ChouChou | `src/lib/db.ts` (6 blocchi) | ChouChou aveva una versione **fatta a mano** di `name_i18n` (`MENU_SELECT_I18N`): sostituita da quella del motore, che ripiega su qualunque colonna nuova. **Tenute** le due cose sue: `cacheOr("menu:public", …)` e il fallback delle categorie standard (`i18nDi`, era già fuori dai conflitti). |
+| L'Huile | `.gitignore` | Due aggiunte in coda che non si escludono: tenute entrambe. |
+| La Molisana | nessuno | — |
+| Educazione Napoletana | `.gitattributes` | EN si era già protetto `siteImageSlots.ts` da solo; presa la versione del motore, che copre anche `sitePages.ts`. |
+
+⚠️ **Trappola vista su EN**: `OrderApp.tsx` aveva modifiche **non committate** — la stessa correzione sulle lingue che stavo facendo nel motore, applicata a mano dentro il cliente. Il merge si è rifiutato di partire. Verificato con `diff` che il motore fosse un superset (lo era: aveva in più la restrizione di `SlotPicker` a fr/en), poi `git restore`. Se le due versioni avessero divergiuto sarebbe stato un pasticcio: **`OrderApp.tsx` non si tocca nei clienti**.
+
+**Correzioni per-cliente fatte nello stesso giro** (non toccano il motore):
+- L'Huile: 20 errori `astro check` preesistenti — tipi mancanti in `src/pages/print/menu.astro` (frontmatter in JS puro) e `LinksBoard.astro`.
+- La Molisana: `Layout.astro` non aveva la prop `noindex`, che `feedback.astro` gli passava — **la pagina feedback era indicizzabile**. Aggiunta la prop e il `<meta name="robots">`. Inoltre `tsconfig.json` non escludeva `build/`, e `astro check` analizzava anche l'output compilato (446 file invece di ~220).
+
+---
+
+## ✅ Migrazioni — nessuna pendente (07/09/2026)
+**#71 `menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
+
+**Chiavi VAPID: tutte e 4 a posto.** Mancavano su ChouChou (righe assenti nel `.env`) e su L'Huile (righe vuote) — generate il 07/09 con `npx web-push generate-vapid-keys`.
+⚠️ `PUBLIC_VAPID_KEY` è una variabile `PUBLIC_*`: Astro la **incolla nel bundle al build**. Metterla su Hostinger e riavviare NON basta, serve il rebuild.
+
+⚠️ **Redeploy Hostinger**: finché non si ridistribuisce, il codice nuovo resta nel repo. Senza redeploy le notifiche restano in francese, il tempo di preparazione non si salva dal tile e le push non si attivano.
+
+ℹ️ **«Varianti» è una feature opzionale**: si accende cliente per cliente da Super admin → Impostazioni. Per ora la vuole **solo Educazione Napoletana**; gli altri non vedono nemmeno il tab.
 
 - **04/09** — #68 `print_orders`, #69 `reservations.extra_minutes`, #46 `gift_card_orders`: lanciate su tutti e 3.
 - **05/09** — #70 `gift_cards_langs.sql` (`sender_lang`/`recipient_lang` su gift_cards): lanciata su tutti e 3.

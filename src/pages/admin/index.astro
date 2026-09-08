@@ -85,11 +85,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          allargare la sua colonna). grid-auto-rows + align-items:start =
          masonry: ogni tile occupa N micro-righe in base alla SUA altezza,
          quindi una tile alta non allunga le vicine e le tile sotto risalgono. */
+      /* SCALA DELLE COLONNE — se cambia qui, cambia anche colonne() nello
+         script: il drag & drop calcola le posizioni da quel numero, e le due
+         cose devono dire la stessa identica cosa.
+             >= 1280   4 colonne
+             920-1279  3
+             760-919   2
+             < 760     1 (impilate, niente masonry ne' riordino) */
       .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 0.75rem; grid-auto-rows: 2px; align-items: start; }
-      @media (max-width: 1100px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-      /* MOBILE : une tuile par ligne, hauteur = contenu (pas de masonry),
+      @media (max-width: 1279px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 919px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      /* STRETTO : une tuile par ligne, hauteur = contenu (pas de masonry),
          et pas de réorganisation (ni FAB, ni poignées). */
-      @media (max-width: 560px) {
+      @media (max-width: 759px) {
         .cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
         .cards .tile { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 0 !important; height: auto !important; }
         .cards .tile-notes { min-height: 180px !important; }
@@ -129,11 +137,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       /* --- Tile Statistiques (2 colonne) --- */
       .tile-stats { grid-column: span 2; }
-      @media (max-width: 560px) { .tile-stats { grid-column: 1 / -1; } }
+      @media (max-width: 759px) { .tile-stats { grid-column: 1 / -1; } }
 
       /* --- Card Photos récentes (2 colonne, griglia 4x2) --- */
       .tile-photos { grid-column: span 2; }
-      @media (max-width: 560px) { .tile-photos { grid-column: 1 / -1; } }
+      @media (max-width: 759px) { .tile-photos { grid-column: 1 / -1; } }
       .ph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
       .ph-cell {
         display: block; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden;
@@ -832,7 +840,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         cardsEl.style.display = "grid";
         // Organiser: solo su schermi larghi (su mobile le tuiles sono impilate)
         const fabOrg = document.getElementById("organiser-btn");
-        const petit = window.matchMedia("(max-width: 560px)").matches;
+        const petit = window.matchMedia("(max-width: 759px)").matches;
         if (fabOrg && !petit) fabOrg.style.display = "flex";
         // Sur mobile : pas de réorganisation, mais on garde le choix des tuiles
         const fabTui = document.getElementById("organiser-tuiles");
@@ -1588,12 +1596,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => m.set(t.dataset.tile as string, t));
           return m;
         };
+        // Deve combaciare con le media query di .cards nel CSS qui sopra:
+        // il drag & drop e il ridimensionamento contano su questo numero.
         const colonne = () =>
-          window.matchMedia("(max-width:560px)").matches ? 1 : window.matchMedia("(max-width:1100px)").matches ? 2 : 4;
+          window.matchMedia("(max-width:759px)").matches ? 1
+          : window.matchMedia("(max-width:919px)").matches ? 2
+          : window.matchMedia("(max-width:1279px)").matches ? 3
+          : 4;
 
         // MOBILE: una tuile par ligne, hauteur = contenu. Pas de masonry,
         // pas de largeurs, pas de hauteurs minimales : tout est remis à zéro.
-        const isMobile = () => window.matchMedia("(max-width: 560px)").matches;
+        const isMobile = () => window.matchMedia("(max-width: 759px)").matches;
 
         function applicaSpans() {
           const mob = isMobile();

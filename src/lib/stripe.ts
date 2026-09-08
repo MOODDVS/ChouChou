@@ -1,4 +1,15 @@
 import Stripe from "stripe";
+// La lingua di DEFAULT del sito pubblico e' una scelta del cliente
+// (src/i18n/ui.ts, file per-cliente): il motore la legge invece di dare per
+// scontato che sia il francese e che l'unica altra lingua sia l'inglese.
+import { defaultLang } from "../i18n/ui";
+
+/** Prefisso di lingua negli URL del sito pubblico: la lingua di default sta
+ *  alla radice, le altre sotto /<lingua>. Stessa regola di getLocalizedUrl(). */
+function prefissoLingua(lang: string | undefined): string {
+  const l = String(lang ?? "").trim();
+  return !l || l === defaultLang ? "" : `/${l}`;
+}
 
 const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
 
@@ -40,7 +51,8 @@ interface CreaSessioneInput {
   voci: VoceCheckout[];
   orderId: string;
   siteUrl: string;
-  lang?: "fr" | "en";
+  /** Lingua della pagina da cui arriva l'ordine (qualunque lingua pubblica). */
+  lang?: string;
   // Base URL di ritorno (es. "/demo01") per gli ordini che partono da un
   // template: vince sul prefisso lingua. Assente = comportamento standard.
   returnBase?: string;
@@ -58,12 +70,11 @@ export async function creaCheckoutSession({
   voci,
   orderId,
   siteUrl,
-  lang = "fr",
+  lang = defaultLang,
   returnBase,
   discount,
 }: CreaSessioneInput): Promise<string> {
-  // Prefisso lingua per gli URL di ritorno: EN sotto /en/, FR senza prefisso.
-  const prefix = lang === "en" ? "/en" : "";
+  const prefix = prefissoLingua(lang);
 
   // Sconto coupon → coupon Stripe monouso applicato alla sessione.
   let discounts: { coupon: string }[] | undefined;
@@ -146,14 +157,19 @@ export async function creaCheckoutSupplemento(opts: {
   diffCents: number;
   numero: string;
   siteUrl: string;
-  lang?: "fr" | "en";
+  lang?: string;
   returnBase?: string;
 }): Promise<string> {
-  const prefix = opts.lang === "en" ? "/en" : "";
-  const label =
-    opts.lang === "en"
-      ? `Order #${opts.numero} — extra`
-      : `Commande #${opts.numero} — supplement`;
+  const prefix = prefissoLingua(opts.lang);
+  // Etichetta mostrata sulla pagina di pagamento Stripe, nella lingua del cliente.
+  const SUPPL: Record<string, (n: string) => string> = {
+    fr: (n) => `Commande #${n} — supplément`,
+    en: (n) => `Order #${n} — extra`,
+    it: (n) => `Ordine #${n} — supplemento`,
+    nl: (n) => `Bestelling #${n} — supplement`,
+    es: (n) => `Pedido #${n} — suplemento`,
+  };
+  const label = (SUPPL[String(opts.lang ?? "")] ?? SUPPL.fr)(opts.numero);
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],

@@ -752,7 +752,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                   QUESTI campi, non la ricerca dietro il modale. */}
               <form id="nc-cli-form" autocomplete="off" novalidate>
                 <div class="nc-row nc-ta-anchor">
-                  <input type="text" class="nc-in" id="nc-prenom" autocomplete="off" placeholder={t("ord.firstName")} />
+                  <input type="text" class="nc-in" id="nc-prenom" autocomplete="off" placeholder={t("ord.firstNameReq")} />
                   <input type="text" class="nc-in" id="nc-nom" autocomplete="off" placeholder={t("ord.lastNameReq")} />
                   {/* Suggerimenti clienti già esistenti (digitando nome/cognome) */}
                   <div class="nc-ta" id="nc-ta" style="display:none" role="listbox"></div>
@@ -760,7 +760,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                 <input type="email" class="nc-in" id="nc-email" autocomplete="off" placeholder={t("ord.emailReq")} />
                 <div class="nc-tel">
                   <select class="nc-in nc-tel-prefix brand-select" id="nc-tel-prefix" aria-label="Prefisso" set:html={opzioniPrefisso(CLIENT.paese)}></select>
-                  <input type="tel" class="nc-in" id="nc-tel" autocomplete="off" placeholder={t("ord.phone")} />
+                  <input type="tel" class="nc-in" id="nc-tel" autocomplete="off" placeholder={t("ord.phoneReq")} />
                 </div>
               </form>
               {/* Svuota i dati del cliente selezionato */}
@@ -1310,7 +1310,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         }
         oggiBtn?.addEventListener("click", tornaOggi);
 
-        // Datepicker brandizzato di CONSULTAZIONE (passato + oggi; futuro off).
+        // Datepicker brandizzato di CONSULTAZIONE. Passato, oggi E FUTURO:
+        // gli ordini si prendono anche per giorni a venire (ritiro programmato),
+        // quindi il ristoratore deve poterli consultare in anticipo. L'API filtra
+        // per intervallo di date, non le importa da che parte sta oggi.
         const MESI_DPV = Array.from({ length: 12 }, (_, i) => new Date(2021, i, 1).toLocaleDateString(LOC, { month: "long" }));
         const DOW_DPV = Array.from({ length: 7 }, (_, i) => new Date(2021, 2, 1 + i).toLocaleDateString(LOC, { weekday: "narrow" }));
         let dpvAnno = 0, dpvMese = 0;
@@ -1352,26 +1355,23 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           const sel = giornoView || oggi;
           const offset = (new Date(dpvAnno, dpvMese, 1).getDay() + 6) % 7;
           const nGiorni = new Date(dpvAnno, dpvMese + 1, 0).getDate();
-          const oy = Number(oggi.slice(0, 4)), om = Number(oggi.slice(5, 7)) - 1;
-          const nextOff = dpvAnno > oy || (dpvAnno === oy && dpvMese >= om); // niente mesi futuri
           let celle = "";
           for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
           for (let g = 1; g <= nGiorni; g++) {
             const iso = isoDpv(dpvAnno, dpvMese, g);
-            const futuro = iso > oggi;            // futuro: disabilitato
             const chiuso = dpvClosedSet.has(iso); // chiusura: grigio ma cliccabile
             const cls = ["dp-cell"];
-            if (futuro || chiuso) cls.push("dp-off");
+            if (chiuso) cls.push("dp-off");
             if (iso === oggi) cls.push("dp-today");
-            if (iso === sel && !futuro) cls.push("dp-sel");
+            if (iso === sel) cls.push("dp-sel");
             const punto = dpvOrderDays.has(iso) ? '<span class="dp-dot"></span>' : "";
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${futuro ? "disabled" : ""}>${g}${punto}</button>`;
+            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}">${g}${punto}</button>`;
           }
           dpvPanel.innerHTML = `
             <div class="dp-head">
               <button type="button" class="dp-nav" data-nav="-1">‹</button>
               <span class="dp-title">${MESI_DPV[dpvMese]} ${dpvAnno}</span>
-              <button type="button" class="dp-nav" data-nav="1" ${nextOff ? "disabled" : ""}>›</button>
+              <button type="button" class="dp-nav" data-nav="1">›</button>
             </div>
             <div class="dp-dow">${DOW_DPV.map((g) => `<span>${g}</span>`).join("")}</div>
             <div class="dp-grid">${celle}</div>`;
@@ -1869,6 +1869,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-lang-block") as HTMLElement).style.display = "block";
           (document.getElementById("nc-send") as HTMLElement).style.display = "none";
           (document.getElementById("nc-email") as HTMLInputElement).placeholder = tr("ord.emailReq");
+          (document.getElementById("nc-prenom") as HTMLInputElement).placeholder = tr("ord.firstNameReq");
+          (document.getElementById("nc-tel") as HTMLInputElement).placeholder = tr("ord.phoneReq");
           ncRenderCart();
           ncOverlay.classList.add("is-open");
           // Data = oggi, pillole resettate, poi carico gli slot di quella data.
@@ -1943,6 +1945,11 @@ let ncLang: string = NC_LANG_DEFAULT;
           send.style.display = "block";
           send.textContent = tr("ord.saveChanges");
           (document.getElementById("nc-email") as HTMLInputElement).placeholder = ncEditStatus === "pending" ? tr("ord.emailReq") : tr("ord.emailOpt");
+          // In MODIFICA niente asterischi: gli ordini presi dal sito pubblico non
+          // hanno per forza un telefono (il checkout chiede solo nome ed email),
+          // e non si puo' bloccare la modifica per un dato mai raccolto.
+          (document.getElementById("nc-prenom") as HTMLInputElement).placeholder = tr("ord.firstName");
+          (document.getElementById("nc-tel") as HTMLInputElement).placeholder = tr("ord.phone");
           ncOverlay.classList.add("is-open");
           // Data + orario dal pickup_time
           const dayKey = dayKeyBrussels(o.pickup_time);
@@ -2390,18 +2397,29 @@ let ncLang: string = NC_LANG_DEFAULT;
         }
         ncCliClear.addEventListener("click", ncSvuotaCliente);
 
+        // Campi obbligatori alla CREAZIONE di un ordine: NOME e TELEFONO.
+        // Il cognome è facoltativo (al banco spesso non lo si chiede) e l'email
+        // pure — tranne col link di pagamento, che via email va spedito.
+        // Ritorna "" se va bene, altrimenti il messaggio da mostrare.
+        function ncErroreCliente(payment: "cash" | "card" | "link" | null): string {
+          const nome = (document.getElementById("nc-prenom") as HTMLInputElement).value.trim();
+          const tel = (document.getElementById("nc-tel") as HTMLInputElement).value.trim();
+          const email = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
+          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+          if (!nome || !tel) return tr("ord.namePhoneReq");
+          if (email && !emailOk) return tr("ord.emailInvalid");
+          if (payment === "link" && !emailOk) return tr("ord.emailForLink");
+          return "";
+        }
+
         // payment: "cash"/"card" = pagato in cassa (ordine subito confermato) ·
         // "link" = invio del link di pagamento Stripe via email.
         async function inviaOrdine(payment: "cash" | "card" | "link") {
           if (!payment) { ncToast(tr("ord.payLabel"), true); return; }
           const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
           const emailCl = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
-          const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailCl);
-          if (!nom) { ncToast(tr("ord.nameEmailReq"), true); return; }
-          // Email obbligatoria solo per il link; per cash/card facoltativa ma, se
-          // scritta, dev'essere valida.
-          if (payment === "link" && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
-          if (emailCl && !emailOk) { ncToast(tr("ord.nameEmailReq"), true); return; }
+          const errCli = ncErroreCliente(payment);
+          if (errCli) { ncToast(errCli, true); return; }
           if (!ncSlot) { ncToast(tr("ord.chooseSlot"), true); return; }
           if (!ncCart.size) { ncToast(tr("ord.cartIsEmpty"), true); return; }
           const btns = ["nc-cash", "nc-card", "nc-link", "nc-send"].map((id) => document.getElementById(id) as HTMLButtonElement);
@@ -2522,10 +2540,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           if (n === 1 && !ncCart.size) { ncToast(tr("ord.cartIsEmpty"), true); return false; }
           if (n === 2 && !ncSlot) { ncToast(tr("ord.chooseSlot"), true); return false; }
           if (n === 3) {
-            const nom = (document.getElementById("nc-nom") as HTMLInputElement).value.trim();
-            const email = (document.getElementById("nc-email") as HTMLInputElement).value.trim();
-            if (!nom) { ncToast(tr("ord.nameEmailReq"), true); return false; }
-            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { ncToast(tr("ord.nameEmailReq"), true); return false; }
+            const errCli = ncErroreCliente(null);
+            if (errCli) { ncToast(errCli, true); return false; }
           }
           return true;
         }
