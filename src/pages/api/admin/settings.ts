@@ -52,6 +52,7 @@ const CHIAVI_GENERAL = [
   "brand_logo_negative",
   "brand_logo_mono",
   "brand_favicon",
+  "brand_app_icon",          // PNG 512 quadrato: icona dell'app installata (PWA)
 ];
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

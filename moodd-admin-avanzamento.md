@@ -126,6 +126,21 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 - ✅ **Con questa la conversione dei breakpoint e' chiusa.** In tutto il motore restano solo i quattro valori della scala, le eccezioni dichiarate in `ENGINE.md` e i `@media (pointer: coarse)`, che non sono soglie di larghezza ma di dispositivo.
 - Bilancio: molte soglie non sono state convertite ma **tolte** (i tab scorrevoli in 4 pagine, `.gs-packs` e `.n-stats` in 2, `SpecialDaysForm`). Ogni volta la domanda vera non era «a che larghezza», era «quando il contenuto non ci sta» — e quella il CSS la sa rispondere da solo.
 
+## 📌 08/09/2026 — Icona della PWA scegliibile per cliente
+
+### 📱 L'app installata può portare il marchio del cliente
+- **Non era una dimenticanza**: in `AdminHead.astro` c'era scritto «Installazione PWA: nome e icona **SEMPRE** RestoHub», e lo script anti-flash riscrive i `rel="icon"` col favicon del cliente ma lascia stare l'`apple-touch-icon` **apposta**. Qui non si riempie un vuoto, si rende configurabile una decisione presa.
+- ⚠️ **Il favicon NON può fare da icona PWA.** Android vuole un PNG **quadrato** di almeno 192px (512 e' la misura buona): con un favicon da 32px o un SVG l'icona esce sgranata o l'installazione viene rifiutata. Percio' c'e' una casella **dedicata** in Réglages → Général → «Icona dell'app», e non un riuso del favicon.
+- Nuova `generaIconaPWA()` in `imageCompress.ts`: mette l'immagine dentro un quadrato 512 in modalita **contain** su fondo trasparente. Un logo largo resta intero con aria sopra e sotto — meglio centrato che decapitato. Se la sorgente e' sotto i 512 avvisa ma lascia passare.
+- **Il manifest non e' piu' un file statico.** Nuova rotta `src/pages/manifest.webmanifest.ts` che legge `app_config`. Due trappole evitate:
+  - il percorso e' `.webmanifest`, **non** `/manifest.json`: i file in `public/` **oscurano** le rotte con lo stesso percorso, e `public/**` ha policy `merge=ours`, quindi il vecchio `public/manifest.json` sopravvive nei repo dei clienti e avrebbe vinto per sempre. Il file vecchio resta dov'e' (innocuo, non piu' referenziato).
+  - `id: "/admin"` **non si tocca mai**: e' l'identita' dell'app per il sistema operativo. Cambiarlo darebbe due icone a chi l'ha gia' installata.
+- **iOS ignora il manifest** per icona e nome dell'app: servono `apple-touch-icon` e `apple-mobile-web-app-title`, che ora sono condizionali in `AdminHead`.
+- Il `<link rel="manifest">` era **ripetuto identico in 14 pagine**: spostato in `AdminHead` (12 pagine), tranne `login` e `reset-password` che non usano quel componente e hanno solo cambiato percorso.
+- **Interruttore nel super admin** (Réglages), chiave `pwa_brand`. Spento e con la spiegazione se il cliente non ha ancora caricato l'icona — stessa cura dello switch push. E il ripiego «niente icona → RestoHub» sta in `caricaBootAdmin()`, **non** nell'interruttore: cosi vale anche se l'icona viene cancellata dopo averlo acceso.
+- ⚠️ **Chi ha gia' installato l'app non vede il cambio**: il sistema fissa l'icona al momento dell'installazione. Serve disinstallare e reinstallare — scritto nell'interfaccia, altrimenti la prima segnalazione e' «l'ho attivato e non cambia niente».
+- **Nessuna migrazione**: `app_config` e' chiave/valore.
+
 ### 🧹 Pulizia degli hint di `astro check`
 - Motivo per farla: gli hint non rompono niente, ma **nascondono gli errori veri** — i 20 errori di L'Huile erano annegati in quella colonna.
 - **Codice morto tolto** (verificato uno per uno che non fosse usato altrove): `avvolgiScuro` in `notifications.ts` (sostituito da `avvolgiTema`), `gGet` in `googleBusiness.ts` (si usa `gGetErr`), l'import `inviaPush` in `api/admin/push.ts`, `apriModale` in `clients.astro` (il commento accanto diceva già «ex apriModale»), il rilevamento iOS/Safari in `AdminHeader.astro` (la logica del bottone «Installa» è cambiata e non lo consulta più).

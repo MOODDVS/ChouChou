@@ -36,6 +36,10 @@ export const CHIAVE_PAGES_HIDDEN = "admin_pages_hidden";
 export const CHIAVE_TABS_HIDDEN = "admin_tabs_hidden";
 /** Funzioni opzionali accese per questo cliente (Réglages → Fonctions). */
 export const CHIAVE_FEATURES = "admin_features";
+/** Icona dell'app installata (PWA): PNG 512 quadrato caricato in Réglages → Général. */
+export const CHIAVE_BRAND_APP_ICON = "brand_app_icon";
+/** Chi mette la faccia sull'app installata: "restohub" (default) o "client". Scelta del super. */
+export const CHIAVE_PWA_MARCHIO = "pwa_brand";
 
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -53,9 +57,13 @@ export interface AdminBoot {
   hiddenTabs: string[];
   /** Funzioni opzionali attive (chiavi valide soltanto). Vuoto = tutte spente. */
   features: string[];
+  /** URL dell'icona app del cliente (PNG 512), o null se non caricata. */
+  appIcon: string | null;
+  /** Marchio dell'app installata: "restohub" (default) o "client". */
+  pwaBrand: "restohub" | "client";
 }
 
-const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr", hiddenPages: [], hiddenTabs: [], features: [] };
+const VUOTO: AdminBoot = { lang: ADMIN_LANG_DEFAULT, theme: {}, logo: null, publicLangs: ["fr", "en"], publicLangDefault: "fr", hiddenPages: [], hiddenTabs: [], features: [], appIcon: null, pwaBrand: "restohub" };
 
 /** Stesse regole di validazione dell'endpoint /api/admin/pages. */
 function pulisciTema(grezzo: string): Record<string, string> {
@@ -82,12 +90,17 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       const { data, error } = await supabaseAdmin
         .from("app_config")
         .select("key, value")
-        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT, CHIAVE_PAGES_HIDDEN, CHIAVE_TABS_HIDDEN, CHIAVE_FEATURES]);
+        .in("key", [CHIAVE_ADMIN_LANG, CHIAVE_ADMIN_TEMA, CHIAVE_BRAND_FAVICON, CHIAVE_PUBLIC_LANGS, CHIAVE_PUBLIC_DEFAULT, CHIAVE_PAGES_HIDDEN, CHIAVE_TABS_HIDDEN, CHIAVE_FEATURES, CHIAVE_BRAND_APP_ICON, CHIAVE_PWA_MARCHIO]);
       if (error) throw error;
       const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "")] as [string, string]));
 
       const l = (m.get(CHIAVE_ADMIN_LANG) ?? "").trim();
       const logo = (m.get(CHIAVE_BRAND_FAVICON) ?? "").trim();
+      const appIcon = (m.get(CHIAVE_BRAND_APP_ICON) ?? "").trim();
+      const urlOk = (u: string) => u.startsWith("https://") || u.startsWith("/");
+      // Il marchio cliente vale solo se l'icona c'e' DAVVERO: senza, l'app
+      // resterebbe senza icona invece di ripiegare su RestoHub.
+      const marchio = m.get(CHIAVE_PWA_MARCHIO) === "client" && urlOk(appIcon) ? "client" : "restohub";
       const pub = normalizzaLinguePubbliche(m.get(CHIAVE_PUBLIC_LANGS) ?? "", m.get(CHIAVE_PUBLIC_DEFAULT) ?? "");
 
       const lista = (grezzo: string, validi: string[]): string[] => {
@@ -96,12 +109,14 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       return {
         lang: isAdminLang(l) ? l : ADMIN_LANG_DEFAULT,
         theme: pulisciTema(m.get(CHIAVE_ADMIN_TEMA) ?? ""),
-        logo: logo.startsWith("https://") || logo.startsWith("/") ? logo : null,
+        logo: urlOk(logo) ? logo : null,
         publicLangs: pub.langs,
         publicLangDefault: pub.def,
         hiddenPages: lista(m.get(CHIAVE_PAGES_HIDDEN) ?? "", PAGINE_ADMIN.map((pg) => pg.key)),
         hiddenTabs: lista(m.get(CHIAVE_TABS_HIDDEN) ?? "", TABS_VALIDI),
         features: lista(m.get(CHIAVE_FEATURES) ?? "", FUNZIONI_VALIDE),
+        appIcon: urlOk(appIcon) ? appIcon : null,
+        pwaBrand: marchio,
       } satisfies AdminBoot;
     });
   } catch {

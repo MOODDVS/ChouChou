@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** HEAD `b8bd85d` (08/09/2026).
+**Motore — riferimento attuale:** HEAD `8b1481c` (08/09/2026, secondo giro della giornata).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
@@ -15,10 +15,25 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `b8bd85d` — 08/09/2026** | merge pulito 0 conflitti; ⚠️ #71 e redeploy da fare |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `b8bd85d` — 08/09/2026** | conflitto su `db.ts` risolto a mano; ⚠️ #71 e redeploy da fare |
-| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `b8bd85d` — 08/09/2026** | conflitto solo `.gitignore`; ⚠️ #71 e redeploy da fare |
-| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `b8bd85d` — 08/09/2026** | conflitto solo `.gitattributes`; design storico intatto; unico con «Varianti» da accendere |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
+| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
+| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto; unico trilingue → controllo live da fare |
+
+---
+
+## 🔄 Secondo giro di merge dell'08/09/2026 — motore `8b1481c`
+
+**Tutti e 4 puliti, zero conflitti**, stessa identica lista di 35 file. Porta due sessioni di lavoro (da `b8bd85d`):
+
+- **Breakpoint: conversione CHIUSA.** Nessuna deviazione residua nel motore. Molte soglie non convertite ma **tolte** (tab scrollabili in agenda/marketing/assets/settings, `.gs-packs` e `.n-stats` passate ad `auto-fit`, orari di `SpecialDaysForm`). Le eccezioni dichiarate stanno in `ENGINE.md`.
+- **Clienti**: larghezze delle colonne calcolate nel JS (`--grid-cols`), selettore colonne accanto alla ricerca con preferenza in `localStorage`, lingua tolta dalla colonna e messa come bandierina sul badge, dati in bianco pieno, totale a zero → trattino.
+- **Google**: mai più WebP verso Google (accetta solo JPG/PNG — era la causa del logo PNG che non si caricava su EN), tab Post impilato su tablet e mobile, recensioni a una colonna quando la scheda si impila, spazi dei campi della scheda uniformati.
+- **Marketing e Assets**: bottoni «aggiungi» uniformati al FAB corallo condiviso.
+- **Agenda**: modale evento che non accavalla più le due colonne a una colonna.
+- **Documenti**: lingua scelta per documento (résiliation nella lingua del fornitore) → **migrazione #72**. Email «Commande Print» con il guscio delle altre.
+
+✅ **Migrazione #72 (`supabase/admin_docs_lang.sql`) lanciata su tutti e 4** l'08/09.
 
 ---
 
@@ -49,13 +64,15 @@ Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ri
 
 ---
 
-## ✅ Migrazioni — nessuna pendente (07/09/2026)
+## ✅ Migrazioni — nessuna pendente (08/09/2026)
+**#72 `admin_docs_lang.sql`** (colonna `lang` su `admin_docs_meta`) **lanciata su tutti e quattro** l'08/09. Tutti i clienti sono a pari con le migrazioni del motore.
+
 **#71 `menu_variants.sql` lanciata su ChouChou, La Molisana e L'Huile.** Educazione Napoletana v2 aveva già #1→#71. Tutti e 4 i clienti sono a pari con le migrazioni del motore.
 
 **Chiavi VAPID: tutte e 4 a posto.** Mancavano su ChouChou (righe assenti nel `.env`) e su L'Huile (righe vuote) — generate il 07/09 con `npx web-push generate-vapid-keys`.
 ⚠️ `PUBLIC_VAPID_KEY` è una variabile `PUBLIC_*`: Astro la **incolla nel bundle al build**. Metterla su Hostinger e riavviare NON basta, serve il rebuild.
 
-⚠️ **Redeploy Hostinger**: finché non si ridistribuisce, il codice nuovo resta nel repo. Senza redeploy le notifiche restano in francese, il tempo di preparazione non si salva dal tile e le push non si attivano.
+✅ **Redeploy Hostinger fatto su tutti l'08/09** (secondo giro), **verificato live**: logo PNG che si carica nel tab Foto di Google (era il caso che ha fatto scoprire la conversione in WebP), notifiche EN in italiano, ordine EN con `lang: it`. Il promemoria di sopra resta valido come metodo: senza redeploy il codice nuovo resta nel repo.
 
 ℹ️ **«Varianti» è una feature opzionale**: si accende cliente per cliente da Super admin → Impostazioni. Per ora la vuole **solo Educazione Napoletana**; gli altri non vedono nemmeno il tab.
 

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
 import { isAdminLang, type AdminLang } from "../../../i18n/admin";
-import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
+import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CHIAVE_PWA_MARCHIO, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
 
 export const prerender = false;
@@ -59,7 +59,7 @@ export const GET: APIRoute = async ({ request }) => {
   const tabsRuolo = isSuperUser(staff)
     ? hiddenTabs
     : [...new Set([...hiddenTabs, ...tabDaDipendenze(hiddenRuolo)])];
-  return json({ hidden: hiddenRuolo, hiddenTabs: tabsRuolo, features, theme, logo, lang, publicLangs: publicLang.langs, publicLangDefault: publicLang.def, role: ruolo, super: isSuperUser(staff) });
+  return json({ hidden: hiddenRuolo, hiddenTabs: tabsRuolo, features, theme, logo, lang, publicLangs: publicLang.langs, publicLangDefault: publicLang.def, role: ruolo, super: isSuperUser(staff), pwaBrand: boot.pwaBrand, appIcon: boot.appIcon });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
@@ -69,7 +69,7 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ error: "Réservé à l'administrateur MOODD" }, 403);
   }
 
-  let body: { hidden?: string[]; hiddenTabs?: string[]; features?: string[]; theme?: Record<string, string>; lang?: string; publicLangs?: string[]; publicLangDefault?: string };
+  let body: { hidden?: string[]; hiddenTabs?: string[]; features?: string[]; theme?: Record<string, string>; lang?: string; publicLangs?: string[]; publicLangDefault?: string; pwaBrand?: string };
   try {
     body = await request.json();
   } catch {
@@ -110,6 +110,18 @@ export const PUT: APIRoute = async ({ request }) => {
     if (typeof sh === "string" && /^\d{1,3}$/.test(sh) && Number(sh) <= 100) theme.shadow = sh;
   }
 
+  // Marchio dell'app installata (PWA): "restohub" (default) o "client".
+  // Opzionale: se assente non lo tocca. Il ripiego quando l'icona del cliente
+  // manca NON e' qui ma in caricaBootAdmin(), cosi vale anche se l'icona viene
+  // cancellata dopo aver acceso l'interruttore.
+  let pwaBrand: string | null = null;
+  if (body.pwaBrand !== undefined) {
+    if (body.pwaBrand !== "restohub" && body.pwaBrand !== "client") {
+      return json({ error: "Marque PWA invalide" }, 400);
+    }
+    pwaBrand = body.pwaBrand;
+  }
+
   // lang opzionale: se presente e valida, aggiorna la lingua globale dell'admin.
   let lang: AdminLang | null = null;
   if (body.lang !== undefined) {
@@ -139,6 +151,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (features !== null) upserts.push({ key: CHIAVE_FEATURES, value: JSON.stringify(features) });
   if (theme !== null) upserts.push({ key: CHIAVE_TEMA, value: JSON.stringify(theme) });
   if (lang !== null) upserts.push({ key: CHIAVE_ADMIN_LANG, value: lang });
+  if (pwaBrand !== null) upserts.push({ key: CHIAVE_PWA_MARCHIO, value: pwaBrand });
   if (publicLangs !== null) upserts.push({ key: CHIAVE_PUBLIC_LANGS, value: JSON.stringify(publicLangs) });
   if (publicDefault !== null) upserts.push({ key: CHIAVE_PUBLIC_DEFAULT, value: publicDefault });
 
@@ -152,7 +165,7 @@ export const PUT: APIRoute = async ({ request }) => {
   // Invalida subito la cache di boot (lingua + tema + favicon + lingue pubbliche,
   // lette in SSR da AdminHead/AdminHeader e dal modale ordine): il reload mostra
   // già i valori nuovi senza aspettare la scadenza dei 60s.
-  if (lang !== null || theme !== null || publicLangs !== null || hidden !== null || hiddenTabs !== null || features !== null) cacheDel(CACHE_ADMIN_BOOT);
+  if (lang !== null || theme !== null || publicLangs !== null || hidden !== null || hiddenTabs !== null || features !== null || pwaBrand !== null) cacheDel(CACHE_ADMIN_BOOT);
 
   return json({ ok: true, hidden: hidden ?? undefined, hiddenTabs: hiddenTabs ?? undefined, features: features ?? undefined, theme: theme ?? undefined, lang: lang ?? undefined, publicLangs: publicLangs ?? undefined, publicLangDefault: publicDefault ?? undefined });
 };
