@@ -4,6 +4,20 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 
 ## 📌 07/09/2026 — sessione Cowork (notifiche al ristoratore in lingua admin + tempo di preparazione dal tile + jours spéciaux condivisi)
 
+### 🧱 Home: scala delle colonne 4 / 3 / 2 / 1
+- Prima la scala era **1 → 2 → 4** con le soglie a 560 e 1100: fra 561 e 1100 due colonne larghissime (a 1000px due tile da ~490px), poi di colpo quattro da ~260px. **La terza colonna non esisteva.**
+- Nuova scala (scelta Enzo 08/09): **≥1280 → 4 · 920-1279 → 3 · 760-919 → 2 · <760 → 1**.
+- La soglia mobile passa da 560 a **760**, e con essa TUTTO il blocco: impilamento, niente masonry, niente drag & drop, niente maniglie, FAB ridotto alla sola scelta delle tile. Sotto i 760 non c'è niente da riorganizzare, quindi i comandi spariscono. Un iPad mini in verticale (768px) resta appena sopra, a due colonne.
+- ⚠️ **Le colonne erano scritte in due posti**: le media query di `.cards` e la funzione `colonne()` nello script, che il drag & drop usa per calcolare le posizioni. Erano già duplicate prima; ora c'è un commento su entrambe che dice che vanno cambiate insieme — se divergono, vedi 3 colonne e il trascinamento ne calcola 4.
+- Allineate anche le eccezioni `span 2` di Statistiche e Foto, che erano ferme a 560.
+- **Nessuna migrazione**: la larghezza salvata di ogni tile (1-4) viene già tagliata alle colonne disponibili e torna al valore pieno su schermo largo.
+
+### 🪑 Nuova prenotazione: colonne scrollabili e tavoli proposti sensati
+- **Le due colonne del modale non scrollavano.** Le regole c'erano (`.nm-col { overflow-y: auto }` su desktop), ma `.nm-grid` è una **griglia** e le sue righe si dimensionano sul CONTENUTO: le colonne restavano alte quanto il contenuto, `overflow-y` non entrava mai in gioco e il fondo veniva tagliato da `overflow: hidden` del modale. Fix: `grid-template-rows: minmax(0, 1fr)` — dà alla riga un'altezza definita, e le colonne tornano a scorrere.
+- **Scelta manuale del tavolo**: il default mostrava solo la capienza ESATTA, e il «+N» apriva TUTTE le combinazioni — con tavoli da 8 proposti per 4 coperti. Ora il default è la finestra **[persone − 1, persone + 2]**: per 4 coperti si vedono le opzioni da 3, 4, 5 e 6 posti.
+- Invariato quello che funzionava: il piano continua a **proporre** i tavoli con il bottone «Cambia» accanto, e dentro la vista Cambia resta il «+N» che apre comunque l'elenco completo, per i casi strani.
+- Ripiego: se nella finestra non cade niente (4 persone e in sala solo tavoli da 8) si torna alla più piccola che basta — meglio una proposta larga di una lista vuota.
+
 ### 🛒 Checkout pubblico: due buchi chiusi (telefono + lingua del cliente)
 - **Telefono e cognome non erano verificati dal server.** `OrderApp` non lascia inviare senza (nome, cognome, telefono, email valida, consenso), ma `api/checkout.ts` controllava solo `slot`, `email` e `name`: chi chiamava l'API fuori dal form creava ordini senza modo di richiamare il cliente. Ora il server ricontrolla quello che il form già esige.
 - **La lingua del cliente veniva schiacciata su due valori.** `OrderApp` manda la lingua della pagina, ma il checkout faceva `body.lang === "en" ? "en" : "fr"`: un cliente italiano su Educazione Napoletana veniva **salvato come francese** e riceveva la conferma in francese. Stessa famiglia di bug dei ternari tolti da `OrderApp` il 06/09, un piano più sotto.
