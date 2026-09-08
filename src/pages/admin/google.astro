@@ -74,10 +74,12 @@ const t = adminT(lang);
       .rev-top { display: flex; align-items: center; gap: .8rem; }
       .rev-av { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--c-input); flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: var(--c-muted); font-family: var(--font-title); font-size: 1.1rem; overflow: hidden; }
       .rev-av img { width: 100%; height: 100%; object-fit: cover; }
-      .rev-who { min-width: 0; }
-      .rev-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); }
-      .rev-date { font-size: .76rem; color: var(--c-muted); margin-top: .1rem; }
-      .rev-stars { margin-left: auto; color: #f5b301; font-size: 1rem; letter-spacing: 1px; white-space: nowrap; }
+      /* A tre colonne una card e' larga ~290px: il nome dell'autore deve
+         accorciarsi da solo, altrimenti spinge fuori le stelle. */
+      .rev-who { min-width: 0; flex: 1 1 auto; }
+      .rev-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .rev-date { font-size: .76rem; color: var(--c-muted); margin-top: .1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rev-stars { margin-left: auto; flex: 0 0 auto; color: #f5b301; font-size: 1rem; letter-spacing: 1px; white-space: nowrap; }
       .rev-stars .off { color: var(--c-line); }
       .rev-body { color: var(--c-text); font-size: .92rem; line-height: 1.5; margin-top: .7rem; white-space: pre-wrap; }
 
@@ -97,7 +99,7 @@ const t = adminT(lang);
       .rev-edit.open { display: block; }
       .rev-edit textarea { width: 100%; min-height: 84px; resize: vertical; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 10px; padding: .6rem .8rem; font-family: var(--font-body); font-size: .9rem; }
       .rev-edit textarea:focus { outline: none; border-color: var(--c-accent); }
-      .rev-edit .row { display: flex; gap: .5rem; margin-top: .55rem; }
+      .rev-edit .row { display: flex; gap: .5rem; margin-top: .55rem; flex-wrap: wrap; }
       .rev-pub { background: var(--c-accent); color: var(--c-bg); border: none; font-family: var(--font-title); font-size: .85rem; padding: .5rem 1.1rem; border-radius: 999px; cursor: pointer; }
       .rev-pub:disabled { opacity: .55; cursor: default; }
 
@@ -108,9 +110,9 @@ const t = adminT(lang);
       .g-connect button { background: var(--c-accent); color: var(--c-bg); border: none; font-family: var(--font-title); font-size: 1rem; letter-spacing: .03em; padding: .75rem 1.6rem; border-radius: 999px; cursor: pointer; }
 
       /* Barra sede collegata */
-      .g-locbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: .6rem .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; }
+      .g-locbar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; margin-bottom: 1rem; padding: .6rem .9rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; }
       .g-locbar-k { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--c-muted); }
-      .g-locbar-t { font-size: .95rem; color: var(--c-text); }
+      .g-locbar-t { font-size: .95rem; color: var(--c-text); min-width: 0; overflow-wrap: anywhere; }
       .g-locbar-t b { font-family: var(--font-title); color: var(--c-text); }
       .g-locbar-b { margin-left: auto; background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .8rem; padding: .35rem .85rem; border-radius: 999px; cursor: pointer; transition: all .15s; }
       .g-locbar-b:hover { border-color: var(--c-accent); color: var(--c-accent); }
@@ -124,8 +126,8 @@ const t = adminT(lang);
       .pick:hover { border-color: var(--c-accent); }
       .pick.is-current { border-color: var(--c-accent); }
       .pick-body { min-width: 0; flex: 1; }
-      .pick-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); }
-      .pick-addr { font-size: .8rem; color: var(--c-muted); margin-top: .1rem; }
+      .pick-name { font-family: var(--font-title); font-size: 1rem; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pick-addr { font-size: .8rem; color: var(--c-muted); margin-top: .1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .pick-badge { font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--c-accent); border: 1px solid var(--c-accent); border-radius: 999px; padding: .1rem .5rem; white-space: nowrap; }
       .pick-go { font-size: .8rem; font-family: var(--font-title); color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: .35rem .9rem; white-space: nowrap; }
 
@@ -168,6 +170,8 @@ const t = adminT(lang);
       .foto-btn:hover { border-color: var(--c-accent); }
       .foto-btn.del { color: var(--c-muted); }
       .foto-btn.confirm, .foto-x.confirm { background: #d64545; border-color: #d64545; color: #fff; }
+      /* Qui auto-FILL e' voluto: con due foto sole le miniature devono restare
+         miniature, non allargarsi a mezzo schermo. */
       .foto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .8rem; }
       .foto-cell { position: relative; }
       .foto-cell img { width: 100%; height: 130px; object-fit: cover; border-radius: 10px; border: 1px solid var(--c-line); display: block; }
@@ -179,7 +183,14 @@ const t = adminT(lang);
       .g-split { display: flex; gap: 1.1rem; align-items: flex-start; }
       .g-reviews { flex: 1 1 0; min-width: 0; }
       .g-fiche { flex: 0 0 360px; max-width: 360px; position: sticky; top: 96px; }
-      @media (max-width: 1000px) { .g-split { flex-direction: column; } .g-fiche { position: static; flex-basis: auto; max-width: none; width: 100%; } }
+      /* Impilati: .g-split ha align-items: flex-start, che in colonna agisce
+         sull'asse ORIZZONTALE — senza width:100% i figli si dimensionano sul
+         contenuto e la lista recensioni usciva dallo schermo. */
+      @media (max-width: 1023px) {
+        .g-split { flex-direction: column; }
+        .g-fiche { position: static; flex-basis: auto; max-width: none; width: 100%; }
+        .g-reviews { width: 100%; }
+      }
 
       /* Card fiche (replica Google Business) */
       .fiche { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; overflow: hidden; }
@@ -212,7 +223,10 @@ const t = adminT(lang);
       /* ---- Tab POST ---- */
       .p-compose { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; }
       .p-types { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
-      .p-type { background: none; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .85rem; padding: .4rem 1rem; border-radius: 999px; cursor: pointer; }
+      /* Fondo scuro come gli altri controlli dentro una card (.attr-chip,
+         .dt-met, i campi): su .p-compose il trasparente non staccava. */
+      .p-type { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: .85rem; padding: .4rem 1rem; border-radius: 999px; cursor: pointer; transition: border-color .15s, color .15s; }
+      .p-type:hover { border-color: var(--c-accent); color: var(--c-text); }
       .p-type.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .p-field { margin-bottom: .85rem; }
       .p-lab { display: block; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--c-muted); margin: 0 0 .35rem; }
@@ -253,29 +267,25 @@ const t = adminT(lang);
       .i-del .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 .7rem; border-radius: 999px; font-size: .75rem; }
       .p-del { margin-left: auto; }
-      @media (max-width: 560px) { .p-dates, .p-cta-row { grid-template-columns: 1fr; } }
+      @media (max-width: 640px) { .p-dates, .p-cta-row { grid-template-columns: 1fr; } }
       /* Sinistra: riquadro pubblica · Destra: post pubblicati (desktop / tablet landscape) */
       .p-cols, .p-col { display: block; }
       .p-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: start; }
       /* Colonna sinistra sticky SOLO su desktop/tablet landscape (sotto l'header ~80px) */
       @media (min-width: 901px) and (orientation: landscape), (min-width: 1025px) {
-        .p-overlay { position: sticky; top: calc(48px + 2rem + 1rem); align-self: start; }
+        .p-side { position: sticky; top: calc(48px + 2rem + 1rem); align-self: start; }
       }
       /* Tablet in orizzontale (es. iPad mini 1024): colonne 2/5 - 3/5 */
       @media (orientation: landscape) and (min-width: 901px) and (max-width: 1180px) {
         .p-layout { grid-template-columns: 2fr 3fr; }
       }
       .p-compose { margin-bottom: 0; }
-      .p-fab, .p-close { display: none; }
-      /* Tablet verticale / mobile: riquadro pubblica in un MODALE (FAB), lista a tutta larghezza */
+      /* Tablet e mobile: il riquadro «pubblica» va IMPILATO sopra la lista.
+         Prima era un modale aperto da un FAB — una finestra in piu' per una
+         cosa che sta benissimo in cima alla pagina. */
       @media (max-width: 900px), (orientation: portrait) and (max-width: 1024px) {
         .p-layout { display: block; }
         .p-compose { margin-bottom: 1.5rem; }
-        body.tab-posts .p-fab { display: inline-flex; }
-        .p-overlay { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; padding: 1rem; overflow-y: auto; }
-        .p-overlay.is-open { display: flex; }
-        .p-overlay .p-compose { width: 100%; max-width: 560px; margin: 0; max-height: 90vh; overflow-y: auto; position: relative; }
-        .p-close { display: block; position: absolute; top: .5rem; right: .7rem; background: none; border: none; color: var(--c-muted); font-size: 1.7rem; line-height: 1; cursor: pointer; }
       }
       /* ---- Tab SCHEDA (Business Information) ---- */
       .fiche-head { font-size: .85rem; color: var(--c-muted); line-height: 1.6; margin-bottom: 1.3rem; }
@@ -290,7 +300,14 @@ const t = adminT(lang);
       .fi-field textarea, .fi-field input { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; font-family: var(--font-body); }
       .fi-field textarea { min-height: 90px; resize: vertical; }
       .fi-field textarea:focus, .fi-field input:focus { outline: none; border-color: var(--c-accent); }
-      .fi-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+      /* Lo spazio fra due campi lo decide UNA cosa sola: 1rem.
+         Dentro .fi-row2/.fi-row3 il `gap` della griglia si sommava al
+         margin-bottom di .fi-field, e quelle righe risultavano distanti il
+         doppio delle altre — evidente su desktop, dove la sezione
+         Informazioni riduce le righe a una colonna sola. */
+      .fi-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+      .fi-row2 > .fi-field, .fi-row3 > .fi-field { margin-bottom: 0; }
+      .fi-block > .fi-row2:last-child, .fi-block > .fi-row3:last-child { margin-bottom: 0; }
       .fi-block { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.1rem 1.2rem; margin: 0 0 .9rem; }
       .fi-block > .fi-field:last-child, .fi-block > .attr-row:last-child { margin-bottom: 0; }
       .fi-h3 { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: .03em; margin: 0 0 .8rem; }
@@ -301,7 +318,7 @@ const t = adminT(lang);
       .fi-sync:disabled { opacity: .6; cursor: default; }
       .fi-field select { width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); font-size: .9rem; padding: .55rem .7rem; border-radius: 8px; font-family: var(--font-body); }
       .fi-field select:focus { outline: none; border-color: var(--c-accent); }
-      .fi-row3 { display: grid; grid-template-columns: 1fr 2fr 1.4fr; gap: 1rem; }
+      .fi-row3 { display: grid; grid-template-columns: 1fr 2fr 1.4fr; gap: 1rem; margin-bottom: 1rem; }
       .fi-count { text-align: right; font-size: .72rem; color: var(--c-muted); margin-top: .25rem; }
       .fi-warn { color: var(--c-muted); font-size: .8rem; line-height: 1.5; margin: .6rem 0 0; display: flex; gap: .45rem; align-items: flex-start; }
       .fi-warn::before { content: "\26A0"; color: var(--c-accent); flex-shrink: 0; }
@@ -353,15 +370,15 @@ const t = adminT(lang);
       .fi-actions .p-msg { margin-right: auto; color: var(--c-muted); }
       @media (max-width: 640px) { .fi-row2, .fi-row3 { grid-template-columns: 1fr; } }
       /* quando la Provincia/Regione non serve (paese che non la usa), riempi lo spazio */
-      @media (min-width: 641px) and (max-width: 999px) { .fi-row3.senza-prov { grid-template-columns: 1fr 2fr; } }
+      @media (min-width: 641px) and (max-width: 1023px) { .fi-row3.senza-prov { grid-template-columns: 1fr 2fr; } }
       /* Desktop: sezione Informazioni su 3 colonne (una card per colonna). */
-      @media (min-width: 1000px) {
+      @media (min-width: 1024px) {
         .fi-sec[data-sec="info"] { display: grid; grid-template-columns: repeat(3, 1fr); gap: .9rem; align-items: start; }
         .fi-sec[data-sec="info"] .fi-block { margin: 0; }
         .fi-sec[data-sec="info"] .fi-row2, .fi-sec[data-sec="info"] .fi-row3 { grid-template-columns: 1fr; }
       }
       /* Desktop + iPad orizzontale: Orari di apertura e Orari speciali affiancati 50/50. */
-      @media (min-width: 1000px) {
+      @media (min-width: 1024px) {
         .fi-sec[data-sec="orari"] { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; align-items: start; }
         .fi-sec[data-sec="orari"] .fi-block { margin: 0; }
       }
@@ -373,7 +390,10 @@ const t = adminT(lang);
       .switch input:checked + .track::before { transform: translateX(17px); background: var(--c-bg); }
 
       /* ===== Tab DATA (statistiche) ===== */
-      .dt-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .7rem; margin-bottom: 1.6rem; }
+      /* auto-FIT, non auto-fill: i KPI sono da 5 a 8 (tre compaiono solo se il
+         cliente ha dati). Con auto-fill le tracce vuote restano e le carte
+         restano larghe 150px con mezza fascia bianca a destra. */
+      .dt-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .7rem; margin-bottom: 1.6rem; }
       .dt-kpi { border: 1px solid var(--c-line); border-radius: 12px; background: var(--c-card); padding: .9rem 1rem; }
       .dt-kpi .k-lab { display: flex; align-items: center; gap: .45rem; color: var(--c-muted); font-size: .8rem; letter-spacing: .02em; margin-bottom: .35rem; }
       .dt-kpi .k-lab svg { width: 16px; height: 16px; fill: none; stroke: var(--c-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
@@ -406,7 +426,7 @@ const t = adminT(lang);
       .dt-kw-val { font-family: var(--font-title); font-size: .95rem; color: var(--c-text); min-width: 3.2rem; text-align: right; }
       .dt-kw-val.approx { color: var(--c-muted); }
       .dt-empty { color: var(--c-muted); text-align: center; padding: 1.4rem 0; }
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .dt-kpis { grid-template-columns: 1fr 1fr; }
         .dt-kpi .k-val { font-size: 1.4rem; }
         .dt-chart svg { height: 200px; }
@@ -540,11 +560,9 @@ const t = adminT(lang);
             <p>{t("gg.postsConnectHint")}</p>
           </div>
           <div id="posts-area" style="display:none">
-            <button class="fab-add fab-pill p-fab" id="p-fab" type="button"><span class="fab-plus">+</span> {t("gg.tabPosts")}</button>
             <div class="p-layout">
-            <div class="p-overlay" id="p-overlay">
+            <div class="p-side">
             <div class="p-compose">
-              <button type="button" class="p-close" id="p-close" aria-label="Fermer">×</button>
               <div class="p-types" id="p-types">
                 <button type="button" class="p-type is-on" data-pt="STANDARD">{t("gg.postStandard")}</button>
                 <button type="button" class="p-type" data-pt="EVENT">{t("gg.postEvent")}</button>
@@ -574,7 +592,7 @@ const t = adminT(lang);
                   <button type="button" class="p-photo-btn" id="p-photo-up">{t("cli.uploadPhoto")}</button>
                   <button type="button" class="p-photo-btn" id="p-photo-lib">{t("menu.library")}</button>
                   <button type="button" class="p-photo-btn" id="p-photo-clear" style="display:none">{t("gg.postRemovePhoto")}</button>
-                  <input type="file" id="p-photo-file" accept="image/*" style="display:none" />
+                  <input type="file" id="p-photo-file" accept="image/jpeg,image/png" style="display:none" />
                   <span class="p-photo-state" id="p-photo-state"></span>
                 </div>
               </div>
@@ -634,9 +652,10 @@ const t = adminT(lang);
           <div id="menu-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
         </div>
         <div class="g-tab-panel" data-gpanel="foto" style="display:none">
-          <p class="menu-note" style="margin-bottom:1.3rem">{t("gg.fotoNote")}</p>
+          <p class="menu-note" style="margin-bottom:.4rem">{t("gg.fotoNote")}</p>
+          <p class="menu-note" style="margin-bottom:1.3rem">{t("gg.fotoReq")}</p>
           <div id="foto-body"><p class="fi-soon">{t("gg.attrLoading")}</p></div>
-          <input type="file" id="foto-file" accept="image/*" style="display:none" />
+          <input type="file" id="foto-file" accept="image/jpeg,image/png" style="display:none" />
         </div>
         <div class="g-tab-panel" data-gpanel="data" style="display:none">
           <div class="fi-filtri rh-filters" id="dt-range">
@@ -663,7 +682,7 @@ const t = adminT(lang);
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
-      import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -795,9 +814,16 @@ const t = adminT(lang);
           }
         }
 
+        // Sotto i 1024 la scheda business e le recensioni si impilano: la
+        // lista torna larga quanto la pagina e il masonry ricalcolava 3
+        // colonne. Impilato = una colonna sola, come il resto della pagina.
+        const MQ_IMPILATO = window.matchMedia("(max-width: 1023px)");
+        // 340px e' la larghezza minima sotto la quale una card recensione
+        // (avatar 44 + nome + stelle 85) inizia a stare stretta.
         function colCount(): number {
+          if (MQ_IMPILATO.matches) return 1;
           const w = listEl.clientWidth || window.innerWidth;
-          return Math.max(1, Math.min(3, Math.floor(w / 300)));
+          return Math.max(1, Math.min(3, Math.floor(w / 340)));
         }
 
         function render() {
@@ -1050,14 +1076,6 @@ const t = adminT(lang);
           const msg = document.getElementById("p-msg");
           const listEl = document.getElementById("p-list");
           const stateEl = document.getElementById("p-state") as HTMLElement | null;
-          const fab = document.getElementById("p-fab");
-          const overlay = document.getElementById("p-overlay");
-          const closeBtn = document.getElementById("p-close");
-          const apri = () => overlay?.classList.add("is-open");
-          const chiudi = () => overlay?.classList.remove("is-open");
-          fab?.addEventListener("click", apri);
-          closeBtn?.addEventListener("click", chiudi);
-          overlay?.addEventListener("click", (e) => { if (e.target === overlay) chiudi(); });
           const gv = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? "";
           const sv = (id: string, v: string) => { const e = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (e) e.value = v; };
           const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -1083,7 +1101,11 @@ const t = adminT(lang);
             upBtn.disabled = true;
             if (photoState) photoState.textContent = tr("cli.uploading");
             try {
-              const foto = await comprimiFoto(file);
+              // Le foto dei post finiscono su Google: niente WebP, solo JPG/PNG.
+              const prep = await preparaFotoGoogle(file);
+              if (!prep) throw new Error(tr("gg.fotoFormato"));
+              if (Math.min(prep.larghezza, prep.altezza) < GOOGLE_LATO_MIN) throw new Error(tr("gg.fotoPiccola"));
+              const foto = prep.file;
               if (foto.size > 4 * 1024 * 1024) throw new Error(tr("cli.fileTooBig"));
               const b64 = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] ?? ""); r.onerror = () => rej(new Error()); r.readAsDataURL(foto); });
               const resp = await fetch("/api/admin/upload", { method: "POST", headers: await authFresh(), body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups", folder: "google" }) });
@@ -1101,7 +1123,9 @@ const t = adminT(lang);
           window.addEventListener("imgpick:pick", (e) => {
             const panel = document.querySelector('[data-gpanel="posts"]') as HTMLElement | null;
             if (!panel || panel.style.display === "none") return; // il picker serve solo al tab Post
-            pPhoto = (e as CustomEvent<{ url: string }>).detail.url; renderPhoto();
+            const url = (e as CustomEvent<{ url: string }>).detail.url;
+            if (!/\.(jpe?g|png)(\?|#|$)/i.test(url)) { if (photoState) photoState.textContent = tr("gg.fotoFormato"); return; }
+            pPhoto = url; renderPhoto();
           });
 
           const badge = (t: string) => t === "EVENT" ? tr("gg.postEvent") : t === "OFFER" ? tr("gg.postOffer") : tr("gg.postStandard");
@@ -1144,7 +1168,6 @@ const t = adminT(lang);
               toast(tr("gg.postDone"));
               ["p-summary", "p-title", "p-start", "p-end", "p-cta-url", "p-coupon", "p-redeem", "p-terms"].forEach((id) => sv(id, ""));
               pPhoto = ""; renderPhoto();
-              chiudi();
               await loadPosts();
             } catch (e) { if (msg) msg.textContent = (e as Error).message; }
             finally { pubBtn.disabled = false; pubBtn.textContent = orig; }
@@ -1171,8 +1194,6 @@ const t = adminT(lang);
             const b = (ev.target as HTMLElement).closest(".mtab") as HTMLElement | null;
             if (!b) return;
             const isPosts = b.dataset.gtab === "posts";
-            document.body.classList.toggle("tab-posts", isPosts);
-            window.dispatchEvent(new Event("resize")); // ricalcola la posizione del FAB sopra l'isola
             if (!isPosts) return;
             applyType();
             if (loaded) return; loaded = true;
@@ -1658,7 +1679,12 @@ const t = adminT(lang);
             if (!file) return;
             toast(tr("cli.uploading"));
             try {
-              const foto = await comprimiFoto(file);
+              // Google Business accetta SOLO JPG e PNG: il WebP di comprimiFoto
+              // veniva rifiutato (era il caso del logo PNG).
+              const prep = await preparaFotoGoogle(file);
+              if (!prep) throw new Error(tr("gg.fotoFormato"));
+              if (Math.min(prep.larghezza, prep.altezza) < GOOGLE_LATO_MIN) throw new Error(tr("gg.fotoPiccola"));
+              const foto = prep.file;
               if (foto.size > 5 * 1024 * 1024) throw new Error(tr("cli.fileTooBig"));
               const b64 = await new Promise<string>((res, rej) => { const rd = new FileReader(); rd.onload = () => res(String(rd.result).split(",")[1] ?? ""); rd.onerror = () => rej(new Error()); rd.readAsDataURL(foto); });
               const up = await fetch("/api/admin/upload", { method: "POST", headers: await authFresh(), body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups", folder: "google-media" }) });
@@ -1683,6 +1709,8 @@ const t = adminT(lang);
             if (!panel || panel.style.display === "none") return; // solo quando siamo nel tab Foto
             const url = (e as CustomEvent<{ url: string }>).detail?.url;
             if (!url) return;
+            // Dalla libreria puo arrivare un .webp: Google lo rifiuterebbe.
+            if (!/\.(jpe?g|png)(\?|#|$)/i.test(url)) { toast(tr("gg.fotoFormato"), true); return; }
             toast(tr("cli.uploading"));
             try {
               const r = await fetch("/api/admin/google/media", { method: "POST", headers: await authFresh(), body: JSON.stringify({ url, category: upCat }) });

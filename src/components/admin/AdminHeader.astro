@@ -152,12 +152,6 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
   const giaInstallata =
     window.matchMedia("(display-mode: standalone)").matches ||
     (navigator as any).standalone === true;
-  const nav = navigator as any;
-  const isIOS =
-    /iphone|ipad|ipod/i.test(nav.userAgent) ||
-    (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
-  const isSafari = /^((?!chrome|android|crios|fxios|edg).)*safari/i.test(nav.userAgent);
-
   function mostraHint(v: boolean) {
     if (installHint) installHint.style.display = v ? "" : "none";
   }

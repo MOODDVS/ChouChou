@@ -188,8 +188,11 @@ const tabTitle = brand.nome || t("login.title");
       .form-legal a:hover { color: var(--c-text); text-decoration: underline; }
       .form-legal .sep { opacity: .5; margin: 0 .3rem; }
 
-      /* ---------- Mobile: immagine sopra, form sotto ---------- */
-      @media (max-width: 860px) {
+      /* ---------- Tablet e mobile: immagine sopra, form sotto ----------
+         900/901, la coppia tablet↔desktop del motore. Il pannello form e'
+         `flex: .9` con un contenuto da 360px + padding: sotto i 900 di finestra
+         gli restano ~405px e inizia a stringersi. Impilato sta meglio. */
+      @media (max-width: 900px) {
         .split { flex-direction: column; }
         .pane-img {
           min-height: 240px; flex: none; padding: 2.2rem 1.6rem 2.6rem;

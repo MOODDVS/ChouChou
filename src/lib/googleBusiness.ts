@@ -170,17 +170,7 @@ export type GReview = {
 const STELLE: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
 
 /** GET autenticato verso le API Google; ritorna il JSON (o null su errore). */
-async function gGet<T>(token: string, url: string): Promise<T | null> {
-  try {
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) return null;
-    return (await r.json()) as T;
-  } catch {
-    return null;
-  }
-}
-
-/** Come gGet ma cattura status ed errore, per diagnosticare liste vuote / 403 (allowlist Google). */
+/** GET autenticata che cattura status ed errore, per diagnosticare liste vuote / 403 (allowlist Google). */
 async function gGetErr<T>(token: string, url: string): Promise<{ data: T | null; status: number; error: string }> {
   try {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });

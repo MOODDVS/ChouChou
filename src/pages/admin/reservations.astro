@@ -734,16 +734,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .modal-resa .m-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex: 0 0 auto; background: var(--c-bg); padding-bottom: 1rem; }
       .modal-resa .m-head h2 { margin: 0; }
       .modal-resa .m-head .m-close { position: static; float: none; margin: 0; }
-      /* minmax(0,1fr): senza, la riga della griglia si dimensiona sul CONTENUTO,
-         le colonne restano alte quanto il loro contenuto e l'overflow-y non
-         scrolla mai — il fondo finiva tagliato da overflow:hidden del modale. */
-      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; }
       .modal-resa > .m-actions { flex: 0 0 auto; }
+      /* DUE COLONNE: ognuna scrolla per conto suo, quindi la riga della griglia
+         va VINCOLATA (minmax(0,1fr)) — senza, si dimensiona sul contenuto, le
+         colonne restano alte quanto il loro contenuto e overflow-y non scrolla
+         mai: il fondo finiva tagliato da overflow:hidden del modale.
+         ⚠️ Questo vincolo vale SOLO a due colonne. A una colonna le due parti
+         stanno in due righe: bloccare l'altezza della prima le fa accavallare. */
       @media (min-width: 761px) {
+        .modal-resa .nm-grid { grid-template-rows: minmax(0, 1fr); }
         .modal-resa .nm-col { overflow-y: auto; min-height: 0; padding-right: 0.5rem; }
       }
+      /* UNA COLONNA: righe ad altezza contenuto, scrolla tutta la griglia. */
       @media (max-width: 760px) {
-        .modal-resa .nm-grid { overflow-y: auto; overflow-x: hidden; }
+        .modal-resa .nm-grid { grid-template-rows: auto; overflow-y: auto; overflow-x: hidden; }
       }
       .nm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; }
       .nm-col { min-width: 0; }
@@ -3264,7 +3269,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         function posizionaFabs() {
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
           if (!barra) return;
-          const largo = window.matchMedia("(min-width: 521px)").matches;
+          // Deve combaciare con fab.css (641): sotto, i FAB stanno sopra la barra.
+          const largo = window.matchMedia("(min-width: 641px)").matches;
           const pill = document.getElementById("fab-add") as HTMLElement | null;
           const cerchi = [
             document.getElementById("fab-serv") as HTMLElement | null,

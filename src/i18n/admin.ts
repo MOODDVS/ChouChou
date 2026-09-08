@@ -887,6 +887,9 @@ const DIZIONARIO: Dizionario = {
   "cli.sinceTitle": { fr: "Client depuis", en: "Customer since", it: "Cliente da", nl: "Klant sinds", es: "Cliente desde" },
   "cli.resaCol":    { fr: "Résa", en: "Res.", it: "Pren.", nl: "Res.", es: "Res." },
   "cli.langCol":    { fr: "Langue", en: "Language", it: "Lingua", nl: "Taal", es: "Idioma" },
+  "cli.cols":       { fr: "Colonnes", en: "Columns", it: "Colonne", nl: "Kolommen", es: "Columnas" },
+  "cli.colsTitle":  { fr: "Afficher / masquer des colonnes", en: "Show / hide columns", it: "Mostra / nascondi colonne", nl: "Kolommen tonen / verbergen", es: "Mostrar / ocultar columnas" },
+  "cli.colAuto":    { fr: "Masquée automatiquement à cette largeur", en: "Hidden automatically at this width", it: "Nascosta automaticamente a questa larghezza", nl: "Automatisch verborgen bij deze breedte", es: "Oculta automáticamente a este ancho" },
   "cli.allLang":    { fr: "Toutes les langues", en: "All languages", it: "Tutte le lingue", nl: "Alle talen", es: "Todos los idiomas" },
   "cli.resasLabel": { fr: "Résas", en: "Res.", it: "Pren.", nl: "Res.", es: "Res." },
   "cli.addClient":  { fr: "Ajouter un client", en: "Add a customer", it: "Aggiungi un cliente", nl: "Klant toevoegen", es: "Añadir un cliente" },
@@ -1185,6 +1188,9 @@ const DIZIONARIO: Dizionario = {
   "st.evolution":    { fr: "Évolution", en: "Trend", it: "Andamento", nl: "Verloop", es: "Evolución" },
 
   // ===== Pagina Assets =====
+  // Etichette corte per i FAB «+ …» (il testo lungo sta nel title).
+  "as.fabImage":     { fr: "Image", en: "Image", it: "Immagine", nl: "Afbeelding", es: "Imagen" },
+  "as.fabDoc":       { fr: "Document", en: "Document", it: "Documento", nl: "Document", es: "Documento" },
   "as.addImage":     { fr: "Ajouter une image", en: "Add an image", it: "Aggiungi un'immagine", nl: "Afbeelding toevoegen", es: "Añadir una imagen" },
   "as.addDoc":       { fr: "Ajouter un document", en: "Add a document", it: "Aggiungi un documento", nl: "Document toevoegen", es: "Añadir un documento" },
   "as.site":         { fr: "Site", en: "Site", it: "Sito", nl: "Site", es: "Sitio" },
@@ -1236,6 +1242,9 @@ const DIZIONARIO: Dizionario = {
   "mk.newPopup":     { fr: "Nouveau pop-up", en: "New pop-up", it: "Nuovo pop-up", nl: "Nieuwe pop-up", es: "Nuevo pop-up" },
   "mk.editPopup":    { fr: "Modifier le pop-up", en: "Edit pop-up", it: "Modifica il pop-up", nl: "Pop-up bewerken", es: "Editar el pop-up" },
   "mk.popupEmpty":   { fr: "Aucun pop-up pour le moment. Créez-en un : il apparaîtra sur les pages choisies.", en: "No pop-up yet. Create one: it will appear on the selected pages.", it: "Nessun pop-up per ora. Creane uno: apparirà sulle pagine scelte.", nl: "Nog geen pop-up. Maak er een aan: hij verschijnt op de gekozen pagina's.", es: "Aún no hay pop-ups. Crea uno: aparecerá en las páginas elegidas." },
+  // Etichette corte per i FAB «+ …» (il testo lungo sta nel title).
+  "mk.fabCoupon":    { fr: "Coupon", en: "Coupon", it: "Coupon", nl: "Coupon", es: "Cupón" },
+  "mk.fabGift":      { fr: "Bon cadeau", en: "Gift card", it: "Buono regalo", nl: "Cadeaubon", es: "Tarjeta regalo" },
   "mk.newCoupon":    { fr: "Nouveau coupon", en: "New coupon", it: "Nuovo coupon", nl: "Nieuwe coupon", es: "Nuevo cupón" },
   "mk.editCoupon":   { fr: "Modifier le coupon", en: "Edit coupon", it: "Modifica il coupon", nl: "Coupon bewerken", es: "Editar el cupón" },
   "mk.couponEmpty":  { fr: "Aucun coupon pour le moment. Créez-en un : le client pourra le saisir au paiement.", en: "No coupon yet. Create one: the customer can enter it at checkout.", it: "Nessun coupon per ora. Creane uno: il cliente potrà inserirlo al pagamento.", nl: "Nog geen coupon. Maak er een aan: de klant kan hem invoeren bij het afrekenen.", es: "Aún no hay cupones. Crea uno: el cliente podrá introducirlo al pagar." },
@@ -1659,6 +1668,8 @@ const DIZIONARIO: Dizionario = {
   "set.doc.intro": { fr: "Contrats, factures, reçus, documents légaux… (PDF, max 10 Mo). Chaque document est classé par catégorie au téléversement.", en: "Contracts, invoices, receipts, legal documents… (PDF, max 10 MB). Each document is filed by category on upload.", it: "Contratti, fatture, ricevute, documenti legali… (PDF, max 10 MB). Ogni documento è classificato per categoria al caricamento.", nl: "Contracten, facturen, bonnetjes, juridische documenten… (PDF, max 10 MB). Elk document wordt bij het uploaden per categorie ingedeeld.", es: "Contratos, facturas, recibos, documentos legales… (PDF, máx. 10 MB). Cada documento se clasifica por categoría al subirlo." },
   "set.doc.category": { fr: "Catégorie", en: "Category", it: "Categoria", nl: "Categorie", es: "Categoría" },
   "set.doc.contractEmail": { fr: "Email de référence du contrat", en: "Contract reference email", it: "Email di riferimento del contratto", nl: "Referentie-e-mail van het contract", es: "Correo de referencia del contrato" },
+  "set.doc.letterLang": { fr: "Langue de la lettre", en: "Letter language", it: "Lingua della lettera", nl: "Taal van de brief", es: "Idioma de la carta" },
+  "set.doc.letterLangHint": { fr: "La demande de résiliation part au fournisseur : c'est sa langue, pas la vôtre.", en: "The termination request goes to the supplier: this is their language, not yours.", it: "La disdetta parte verso il fornitore: è la sua lingua, non la tua.", nl: "De opzegging gaat naar de leverancier: dit is zijn taal, niet de uwe.", es: "La rescisión se envía al proveedor: es su idioma, no el tuyo." },
   "set.doc.dueDate": { fr: "Date d'échéance", en: "Due date", it: "Data di scadenza", nl: "Vervaldatum", es: "Fecha de vencimiento" },
   "set.doc.noDueDate": { fr: "Sans échéance", en: "No due date", it: "Senza scadenza", nl: "Zonder vervaldatum", es: "Sin vencimiento" },
   "set.doc.clearDate": { fr: "Effacer la date", en: "Clear the date", it: "Cancella la data", nl: "Datum wissen", es: "Borrar la fecha" },
@@ -1828,6 +1839,9 @@ const DIZIONARIO: Dizionario = {
   "gg.fotoConfirm": { fr: "Confirmer ?", en: "Confirm?", it: "Confermi?", nl: "Bevestigen?", es: "¿Confirmar?" },
   "gg.fotoUploaded": { fr: "Photo envoyée à Google", en: "Photo sent to Google", it: "Foto inviata a Google", nl: "Foto naar Google verzonden", es: "Foto enviada a Google" },
   "gg.fotoDeleted": { fr: "Photo supprimée", en: "Photo deleted", it: "Foto eliminata", nl: "Foto verwijderd", es: "Foto eliminada" },
+  "gg.fotoReq":     { fr: "JPG ou PNG · 250 × 250 px minimum. Google refuse les autres formats (WebP, GIF, SVG…).", en: "JPG or PNG · 250 × 250 px minimum. Google rejects other formats (WebP, GIF, SVG…).", it: "JPG o PNG · minimo 250 × 250 px. Google rifiuta gli altri formati (WebP, GIF, SVG…).", nl: "JPG of PNG · minimaal 250 × 250 px. Google weigert andere formaten (WebP, GIF, SVG…).", es: "JPG o PNG · mínimo 250 × 250 px. Google rechaza otros formatos (WebP, GIF, SVG…)." },
+  "gg.fotoFormato": { fr: "Google n'accepte que le JPG et le PNG pour les photos de la fiche.", en: "Google only accepts JPG and PNG for listing photos.", it: "Google accetta solo JPG e PNG per le foto della scheda.", nl: "Google accepteert alleen JPG en PNG voor vermeldingsfoto's.", es: "Google solo acepta JPG y PNG para las fotos de la ficha." },
+  "gg.fotoPiccola": { fr: "Image trop petite : Google demande au moins 250 × 250 px.", en: "Image too small: Google requires at least 250 × 250 px.", it: "Immagine troppo piccola: Google richiede almeno 250 × 250 px.", nl: "Afbeelding te klein: Google vereist minstens 250 × 250 px.", es: "Imagen demasiado pequeña: Google exige al menos 250 × 250 px." },
   "gg.fotoNessuna": { fr: "Aucune photo.", en: "No photo.", it: "Nessuna foto.", nl: "Geen foto.", es: "Sin fotos." },
   "gg.menuNote": { fr: "Reprends le menu de RestoHub (catégories, plats, prix) et publie-le sur ta fiche Google. Seuls les plats disponibles avec un prix sont envoyés.", en: "Take your RestoHub menu (categories, dishes, prices) and publish it on your Google listing. Only available dishes with a price are sent.", it: "Riprende il menu di RestoHub (categorie, piatti, prezzi) e lo pubblica sulla scheda Google. Vengono inviati solo i piatti disponibili con un prezzo.", nl: "Neemt je RestoHub-menu (categorieën, gerechten, prijzen) over en publiceert het op je Google-vermelding. Alleen beschikbare gerechten met prijs worden verzonden.", es: "Toma tu menú de RestoHub (categorías, platos, precios) y lo publica en tu ficha de Google. Solo se envían platos disponibles con precio." },
   "gg.menuSync": { fr: "Publier sur Google", en: "Publish to Google", it: "Pubblica su Google", nl: "Publiceren op Google", es: "Publicar en Google" },

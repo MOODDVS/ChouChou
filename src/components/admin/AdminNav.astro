@@ -223,6 +223,18 @@ const t = adminT(lang);
     padding: 0.35rem;
     z-index: 100;
 
+    /* NON deve mai uscire dallo schermo: la pillola si ferma a un rem per
+       lato e, se le voci non ci stanno, SCORRE. Legato al CONTENUTO, non a
+       una soglia: con 13 voci il punto in cui non ci sta piu' dipende da
+       quante ne sono attive per quel cliente, non da una larghezza scelta a
+       mano (prima sotto i 640 scorreva, sopra sbordava — es. iPad mini). */
+    max-width: calc(100vw - 2rem);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+
     /* Pillola */
     border-radius: 999px;
 
@@ -234,9 +246,13 @@ const t = adminT(lang);
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
 
+  .admin-nav::-webkit-scrollbar { display: none; }
+
   .admin-nav a {
     position: relative;
     display: flex;
+    /* Mai schiacciate: se non ci stanno, e' la barra che scorre. */
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
     gap: 0.18rem;
@@ -293,7 +309,7 @@ const t = adminT(lang);
      seguito da un separatore verticale. Solo per super admin (JS lo mostra). --- */
   /* MOBILE : la page Réglages (super admin) est pensée pour le bureau —
      on cache son bouton + separatore ; l'accès direct par URL reste possible. */
-  @media (max-width: 560px) {
+  @media (max-width: 640px) {
     .admin-super, .nav-sep { display: none !important; }
   }
   /* .admin-super eredita il layout da `.admin-nav a`; niente stile isola. */
@@ -306,25 +322,9 @@ const t = adminT(lang);
     flex: 0 0 auto;
   }
 
-  @media (max-width: 520px) {
-    /* Icone a grandezza normale + SCROLL laterale dentro l'isola.
-       La voce attiva viene riportata in vista dallo script (scrollIntoView). */
-    .admin-nav {
-      left: 1rem;
-      right: 1rem;
-      transform: none;
-      justify-content: flex-start;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      scroll-behavior: smooth;
-    }
-    .admin-nav::-webkit-scrollbar { display: none; }
-    .admin-nav a {
-      flex: 0 0 auto;
-      padding: 0.42rem 0.85rem;
-    }
-  }
+  /* Lo scroll laterale non ha piu' un blocco mobile suo: sta nella regola
+     base di .admin-nav, perche' il punto in cui le voci non ci stanno piu'
+     dipende da quante ne sono attive, non da una larghezza. */
 
   /* --- Toast globale "Nouvelle réservation / commande" (poller) --- */
   /* Fondo ORO, testo MARRONE, più alto: titolo + dettagli su due righe. */
@@ -351,7 +351,7 @@ const t = adminT(lang);
   .mn-toast.is-cancel svg { stroke: #9a3418; }
   .mn-toast.is-cancel .mn-ico { background: rgba(150, 45, 20, 0.16); }
   .mn-toast.is-cancel strong { color: #8f2e15; }
-  @media (max-width: 520px) { .mn-toast { bottom: calc(1.25rem + 138px); min-width: 0; width: 92vw; padding: 1.05rem 1.25rem; } }
+  @media (max-width: 640px) { .mn-toast { bottom: calc(1.25rem + 138px); min-width: 0; width: 92vw; padding: 1.05rem 1.25rem; } }
 </style>
 
 <script>
@@ -440,7 +440,7 @@ const t = adminT(lang);
 
     if (isSuperUser(data.session?.user)) {
       const sup = document.getElementById("admin-nav-super");
-      if (sup && !window.matchMedia("(max-width: 560px)").matches) {
+      if (sup && !window.matchMedia("(max-width: 640px)").matches) {
         sup.style.display = "flex";
         const sep = document.getElementById("admin-nav-sep");
         if (sep) sep.style.display = "block";
@@ -707,11 +707,15 @@ const t = adminT(lang);
 
     pollOrdini(); // baseline immediata: registra i pagati già presenti al load
 
-    // Mobile: l'isola scorre in orizzontale → la pagina ATTIVA va portata in vista
-    if (window.matchMedia("(max-width: 520px)").matches) {
+    // Se l'isola scorre davvero (le voci non ci stanno), la pagina ATTIVA va
+    // portata in vista. Si guarda il contenuto, non la larghezza: dipende da
+    // quante voci quel cliente ha attive.
+    {
       const nav = document.querySelector(".admin-nav") as HTMLElement | null;
       const attivo = nav?.querySelector("a.active") as HTMLElement | null;
-      if (nav && attivo) nav.scrollLeft = attivo.offsetLeft - (nav.clientWidth - attivo.offsetWidth) / 2;
+      if (nav && attivo && nav.scrollWidth > nav.clientWidth + 4) {
+        nav.scrollLeft = attivo.offsetLeft - (nav.clientWidth - attivo.offsetWidth) / 2;
+      }
     }
     window.setInterval(poll, 20000);
     window.setInterval(pollOrdini, 20000);

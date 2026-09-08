@@ -79,10 +79,13 @@ const t = adminT(lang);
   .g-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-line); display: block; cursor: pointer; transition: background 0.15s; }
   .g-dots i.on { background: var(--c-accent); }
 
-  /* MOBILE: niente resize, tile impilate ad altezza automatica. Il "riempi +
-     flex-basis:0" del desktop qui farebbe collassare il commento → si torna al
-     flusso naturale, con un tetto e scroll per le recensioni molto lunghe. */
-  @media (max-width: 560px) {
+  /* Tile IMPILATE (una colonna): niente resize, altezza automatica. Il "riempi
+     + flex-basis:0" del desktop qui farebbe collassare il commento → si torna al
+     flusso naturale, con un tetto e scroll per le recensioni molto lunghe.
+     759 NON e' una soglia scelta qui: e' la stessa di `--cols: 1` in
+     admin/index.astro. Deve restare in coppia con quella — a 560 la regola non
+     partiva fra 561 e 759, dove le tile sono gia impilate. */
+  @media (max-width: 759px) {
     .tile.tile-google { min-height: 0; }
     .tile-google .g-carousel { flex: 0 0 auto; }
     .tile-google .g-avis { flex: 0 0 auto; }

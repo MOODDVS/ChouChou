@@ -41,10 +41,15 @@ const t = adminT(lang);
      dell'admin, in piccolo perché il tile è stretto. */
   /* I chip occupano lo spazio che serve, «Fasce» va in fondo alla riga
      (le due colonne non sono più larghe uguali). */
-  .cui-two > div:first-child { flex: 0 0 auto; }
+  /* I chip prendono lo spazio che serve; se «Fasce» non ci sta piu' accanto,
+     va a capo invece di sovrapporsi (la tile e' stretta a 3 colonne). */
+  .cui-two > div:first-child { flex: 0 1 auto; min-width: 0; }
+  /* Sta a destra finche' divide la riga con i chip; quando va a capo si
+     allinea a SINISTRA come tutto il resto. margin-left:auto la teneva a
+     destra anche da sola: ci pensa space-between su .cui-two. */
   .cui-two > div:last-child {
-    margin-left: auto;
-    text-align: right;
+    flex: 0 0 auto;
+    text-align: left;
     display: flex;
     flex-direction: column;
   }
@@ -55,10 +60,10 @@ const t = adminT(lang);
     min-height: 2.2rem;
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: flex-start;
   }
 
-  .cui-prep { display: flex; align-items: center; gap: 0.4rem; margin-top: 0.3rem; min-height: 2.2rem; }
+  .cui-prep { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-top: 0.3rem; min-height: 2.2rem; }
   /* Unità scritta una volta accanto ai chip, non ripetuta su ognuno. */
   .cui-min {
     align-self: center;

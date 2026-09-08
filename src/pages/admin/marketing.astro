@@ -13,6 +13,7 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
+import "../../styles/fab.css";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { SITE_PAGES } from "../../config/sitePages";
@@ -68,7 +69,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       /* Tabs (come Réglages) */
-      .mtabs { display: flex; gap: 0.4rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
+      /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
+         mano: quanti sono dipende dai moduli attivi del cliente. Stessa cura
+         di agenda.astro e della barra di navigazione. */
+      .mtabs {
+        display: flex; gap: 0.4rem; flex-wrap: nowrap;
+        overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line);
+      }
+      .mtabs::-webkit-scrollbar { display: none; }
+      .mtab { flex-shrink: 0; }
       .t-ico {
         width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
         fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
@@ -90,6 +101,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         transition: border-color 0.2s;
       }
       .pill:hover { border-color: var(--c-accent); }
+      /* Un FAB per tab: il look e la posizione vengono da fab.css, qui c'e'
+         solo «quale si vede». Doppia classe per vincere sul display:inline-flex
+         di .fab-pill senza dipendere dall'ordine dei fogli. */
+      .fab-pill.mk-fab { display: none; }
+      .fab-pill.mk-fab.is-on { display: inline-flex; }
       #c-buy { background: var(--c-input); }
       /* Pillole segmenti/programmazione nel modale newsletter */
       .seg-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
@@ -288,7 +304,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .gc-pay.ok { background: #2e9e6b; }
       .gc-pay.wait { background: #9b9490; }
       .gc-pay.wait svg { fill: #fff; stroke: none; }
-      .gs-packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7rem; }
+      /* Dentro un modale: la larghezza della FINESTRA non dice quanto sia largo
+         il contenitore. Le colonne si contano da sole. */
+      .gs-packs { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.7rem; }
       .gs-pack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.25rem;
         background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 0.6rem;
         cursor: pointer; font-family: inherit; transition: border-color 0.15s, transform 0.15s; }
@@ -305,7 +323,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .gs-badge { position: absolute; top: -9px; background: var(--c-accent); color: var(--c-bg); font-size: 0.6rem;
         font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.12rem 0.5rem; border-radius: 999px; }
       .gs-hist-row { display: flex; justify-content: space-between; border-top: 1px solid var(--c-line); padding: 0.5rem 0; font-size: 0.82rem; color: var(--c-muted); }
-      @media (max-width: 520px) { .gs-packs { grid-template-columns: 1fr; } }
       .gc-ship-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.75rem; }
       #gc-ship-box .f-row { margin-top: 0.6rem; }
       #gc-send-picks .pick.is-off, #gc-pay-picks .pick.is-off { opacity: 0.4; cursor: not-allowed; }
@@ -348,8 +365,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .pos-opt.is-on .pos-name { color: var(--c-text); }
 
       /* Newsletter */
-      .n-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
-      @media (max-width: 720px) { .n-stats { grid-template-columns: 1fr; } }
+      .n-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
       .n-stat { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.3rem 1.5rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .n-stat-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin-bottom: 0.5rem; }
       .n-stat-big { font-family: var(--font-title); font-size: 2.4rem; line-height: 1; color: var(--c-accent); }
@@ -418,9 +434,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <div class="state" id="state">{t("sup.loading")}</div>
 
         <div id="tab-popup" style="display:none">
-          <div class="actionsbar">
-            <button class="pill" id="add-btn">+ {t("mk.newPopup")}</button>
-          </div>
           <div class="state" id="empty" style="display:none">
             {t("mk.popupEmpty")}
           </div>
@@ -428,9 +441,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         </div>
 
         <div id="tab-coupons" style="display:none">
-          <div class="actionsbar">
-            <button class="pill" id="cp-add">+ {t("mk.newCoupon")}</button>
-          </div>
           <div class="state" id="cp-empty" style="display:none">
             {t("mk.couponEmpty")}
           </div>
@@ -439,7 +449,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         <div id="tab-giftcards" style="display:none">
           <div class="actionsbar">
-            <button class="pill" id="gc-add">+ {t("mk.newGift")}</button>
             <button class="pill" id="gc-shop">{t("mk.buyVouchers")}</button>
           </div>
           <div class="state" id="gc-empty" style="display:none">
@@ -473,10 +482,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             </div>
           </div>
 
-          <div class="actionsbar">
-            <button class="pill" id="n-add">+ {t("mk.newNewsletter")}</button>
-          </div>
-
           <h2 class="n-htitle" id="nd-tit" style="display:none">{t("mk.drafts")}</h2>
           <div class="n-history" id="nd-list"></div>
 
@@ -490,6 +495,12 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       </main>
       <AdminFooter />
     </div>
+
+    <!-- Bottone flottante per aggiungere, uno per tab (come Clienti/Ordini/Prenotazioni) -->
+    <button class="fab-add fab-pill mk-fab" id="add-btn" type="button" data-fabtab="popup" title={t("mk.newPopup")}><span class="fab-plus">+</span>{t("tab.marketing.popup")}</button>
+    <button class="fab-add fab-pill mk-fab" id="cp-add" type="button" data-fabtab="coupons" title={t("mk.newCoupon")}><span class="fab-plus">+</span>{t("mk.fabCoupon")}</button>
+    <button class="fab-add fab-pill mk-fab" id="gc-add" type="button" data-fabtab="giftcards" title={t("mk.newGift")}><span class="fab-plus">+</span>{t("mk.fabGift")}</button>
+    <button class="fab-add fab-pill mk-fab" id="n-add" type="button" data-fabtab="news" title={t("mk.newNewsletter")}><span class="fab-plus">+</span>{t("tab.marketing.news")}</button>
 
     <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
     <script id="site-pages" type="application/json" is:inline set:html={sitePagesJson}></script>
@@ -1141,6 +1152,15 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           tabCoupons.style.display = t === "coupons" && !vietato(tabCoupons) ? "block" : "none";
           tabGift.style.display = t === "giftcards" && !vietato(tabGift) ? "block" : "none";
           tabPromos.style.display = t === "promos" && !vietato(tabPromos) ? "block" : "none";
+          // Il FAB segue il PANNELLO: se il tab e' spento dal super admin il
+          // pannello resta a display:none e il suo bottone non compare.
+          document.querySelectorAll<HTMLElement>(".mk-fab").forEach((f) => {
+            const cont = document.getElementById("tab-" + (f.dataset.fabtab ?? ""));
+            f.classList.toggle("is-on", !!cont && cont.style.display !== "none");
+          });
+          // Il FAB e' appena comparso/sparito: AdminNav rimisura se va sollevato
+          // sopra l'isola nav (lo fa sul resize).
+          window.dispatchEvent(new Event("resize"));
         }
         mtabs.addEventListener("click", (e) => {
           const el = (e.target as HTMLElement).closest(".mtab") as HTMLElement | null;

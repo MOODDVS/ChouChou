@@ -11,11 +11,10 @@
    portrait con isola larga). La classe .fab-lifted è aggiunta via JS (AdminNav)
    misurando lo spazio reale a destra dell'isola. */
 .fab-add.fab-lifted { bottom: calc(1.25rem + 72px); }
-@media (max-width: 520px) {
-  .fab-add { bottom: calc(1.25rem + 72px); }
-}
-/* Tablet portrait: l'isola nav occupa quasi tutta la larghezza → FAB sopra. */
-@media (min-width: 521px) and (max-width: 1023px) {
+/* Fino al desktop l'isola nav occupa quasi tutta la larghezza → FAB sopra.
+   (Erano due media query con la stessa identica dichiarazione: 0-520 e
+   521-1023. Una sola regola.) */
+@media (max-width: 1023px) {
   .fab-add { bottom: calc(1.25rem + 72px); }
 }
 
@@ -47,12 +46,12 @@
 .fab-pill .fab-plus { font-size: 1.2rem; line-height: 1; margin-right: 0.35rem; }
 .fab-pill:hover { background: var(--c-hover); border-color: var(--c-hover); transform: scale(0.94); }
 /* Tablet (incluso iPad mini landscape 1024): label e bottone un po' più piccoli. */
-@media (min-width: 521px) and (max-width: 1024px) {
+@media (min-width: 641px) and (max-width: 1024px) {
   .fab-pill { font-size: 0.92rem; height: 44px; padding: 0 0.95rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
   .fab-pill .fab-plus { font-size: 1.05rem; }
 }
 /* Mobile: label e bottone ancora più piccoli. */
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .fab-pill { font-size: 0.82rem; height: 38px; padding: 0 0.85rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
   .fab-pill .fab-plus { font-size: 0.95rem; margin-right: 0.3rem; }
 }

@@ -332,7 +332,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .tag-paid { background: #2e9e6b; color: #fff; border-radius: 999px; white-space: nowrap; }
       .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
-      @media (max-width: 520px) { .nc-add { bottom: calc(1.25rem + 72px); } }
+      @media (max-width: 640px) { .nc-add { bottom: calc(1.25rem + 72px); } }
       .nc-overlay {
         position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none;
         align-items: center; justify-content: center; z-index: 1000; padding: 3vh 1rem; overflow-y: auto;
@@ -2568,7 +2568,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           const barra = document.querySelector(".admin-nav") as HTMLElement | null;
           const btn = document.getElementById("nc-add") as HTMLElement | null;
           if (!barra || !btn) return;
-          if (!window.matchMedia("(min-width: 521px)").matches) {
+          // Deve combaciare con fab.css (641): sotto, i FAB stanno sopra la barra.
+          if (!window.matchMedia("(min-width: 641px)").matches) {
             btn.style.height = "";
             btn.style.bottom = "";
             return; // mobile: la barra è a tutta larghezza, il bottone resta sopra

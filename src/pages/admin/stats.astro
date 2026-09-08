@@ -77,8 +77,9 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       /* Griglia stat */
       .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 1.25rem; }
       /* iPad / tablet (incl. iPad mini verticale): 3 colonne come desktop, ma numeri
-         più piccoli e spaziatura ridotta perché le colonne sono strette. */
-      @media (min-width: 641px) and (max-width: 1024px) {
+         più piccoli e spaziatura ridotta perché le colonne sono strette.
+         Si ferma a 1023: 1024 è l'iPad in orizzontale e sta col desktop. */
+      @media (min-width: 641px) and (max-width: 1023px) {
         .grid:not(.grid4) { gap: 0.7rem; }
         .grid:not(.grid4) .stat { padding: 1.1rem; }
         .grid:not(.grid4) .stat-big { font-size: 2rem; }
@@ -165,7 +166,9 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       /* --- Tab Prenotazioni --- */
       .sec-lab { font-family: var(--font-title); letter-spacing: 0.05em; font-size: 1.05rem; color: var(--c-muted); margin: 1.6rem 0 0.7rem; }
       .sec-lab:first-child { margin-top: 0; }
-      .rkpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; margin-bottom: 1.4rem; }
+      /* Le tre card si contano da sole: a 3 colonne sotto i 730px stavano
+         strette, e prima saltavano da 3 a 1 senza passare dal 2. */
+      .rkpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.9rem; margin-bottom: 1.4rem; }
       .rkpi-card { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       .rkpi-head { display: flex; align-items: center; gap: 0.5rem; font-family: var(--font-title); letter-spacing: 0.05em; font-size: 1.05rem; color: var(--c-text); margin-bottom: 0.4rem; }
       .rkpi-head svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -212,7 +215,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .src-bar > span { display: block; height: 100%; background: var(--c-accent); border-radius: 999px; }
       .src-n { flex: 0 0 3rem; text-align: right; font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.03em; color: var(--c-accent); }
       .src-pct { flex: 0 0 2.8rem; text-align: right; color: var(--c-muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
-      @media (max-width: 560px) { .src-nom { flex-basis: 6rem; font-size: 0.9rem; } }
+      @media (max-width: 640px) { .src-nom { flex-basis: 6rem; font-size: 0.9rem; } }
       /* Override mobile posti in fondo per vincere sulle regole base (stessa specificità). */
       @media (max-width: 640px) {
         .top-title, .chart-title { font-size: 1rem; margin-bottom: 0.6rem; }

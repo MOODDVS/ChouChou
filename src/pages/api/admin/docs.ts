@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { datiRistorante } from "../../../lib/ristorante";
+import { adminLang } from "../../../lib/admin/adminLang";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -42,24 +43,101 @@ function frData(iso: string): string {
 }
 
 /** Lettera FORMALE di résiliation: fondo bianco, serif, firma semplice. */
+type TestiResil = {
+  apertura: string;
+  corpo: (file: string, quando: string, preavviso: string) => string;
+  conferma: string;
+  procedura: string;
+  saluti: string;
+  oggetto: (societa: string, file: string) => string;
+  /** "3 mesi" / "30 jours": l'unita' e' salvata in francese, va tradotta. */
+  durata: (n: number, unita: string) => string;
+  aEchenza: (data: string) => string;
+  allaProssima: string;
+  conPreavviso: (p: string) => string;
+};
+/** La lettera va al FORNITORE: la lingua e' quella scelta sul documento
+ *  (admin_docs_meta.lang), non quella dell'admin. */
+const RESIL: Record<string, TestiResil> = {
+  fr: {
+    apertura: "Madame, Monsieur,",
+    corpo: (f, q, p) => `Par la présente, nous vous informons de notre volonté de <b>résilier le contrat</b> « ${f} » qui lie votre société à la nôtre,${q}${p}.`,
+    conferma: "Nous vous prions de bien vouloir <b>confirmer la bonne réception</b> de la présente demande ainsi que la prise en compte de la résiliation à la date indiquée.",
+    procedura: "Si la résiliation ne peut être valablement demandée par simple email, nous vous remercions de nous <b>indiquer en réponse la procédure à suivre</b> (courrier recommandé, formulaire dédié ou autre modalité), afin que nous puissions l'accomplir dans les délais.",
+    saluti: "Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.",
+    oggetto: (s, f) => `Demande de résiliation de contrat — ${s} (${f})`,
+    durata: (n, u) => `${n} ${u === "jours" ? "jours" : "mois"}`,
+    aEchenza: (d) => ` à son échéance du <b>${d}</b>`,
+    allaProssima: " à la prochaine échéance contractuelle",
+    conPreavviso: (p) => `, dans le respect du préavis prévu (${p})`,
+  },
+  en: {
+    apertura: "Dear Sir or Madam,",
+    corpo: (f, q, p) => `We hereby inform you of our decision to <b>terminate the contract</b> "${f}" between your company and ours,${q}${p}.`,
+    conferma: "Please <b>confirm receipt</b> of this request and that the termination has been recorded for the date indicated.",
+    procedura: "If termination cannot validly be requested by email alone, please <b>reply with the procedure to follow</b> (registered letter, dedicated form or other), so that we can complete it in time.",
+    saluti: "Yours faithfully,",
+    oggetto: (s, f) => `Contract termination request — ${s} (${f})`,
+    durata: (n, u) => `${n} ${u === "jours" ? (n > 1 ? "days" : "day") : n > 1 ? "months" : "month"}`,
+    aEchenza: (d) => ` effective on its expiry date of <b>${d}</b>`,
+    allaProssima: " at the next contractual expiry date",
+    conPreavviso: (p) => `, respecting the agreed notice period (${p})`,
+  },
+  it: {
+    apertura: "Spettabile,",
+    corpo: (f, q, p) => `Con la presente Vi comunichiamo la nostra volontà di <b>disdire il contratto</b> « ${f} » in essere fra la Vostra società e la nostra,${q}${p}.`,
+    conferma: "Vi preghiamo di <b>confermare la ricezione</b> della presente richiesta e la presa in carico della disdetta alla data indicata.",
+    procedura: "Qualora la disdetta non possa essere validamente richiesta via email, Vi chiediamo di <b>indicarci in risposta la procedura da seguire</b> (raccomandata, modulo dedicato o altra modalità), affinché possiamo adempiervi nei termini.",
+    saluti: "Distinti saluti.",
+    oggetto: (s, f) => `Richiesta di disdetta del contratto — ${s} (${f})`,
+    durata: (n, u) => `${n} ${u === "jours" ? (n > 1 ? "giorni" : "giorno") : n > 1 ? "mesi" : "mese"}`,
+    aEchenza: (d) => ` alla sua scadenza del <b>${d}</b>`,
+    allaProssima: " alla prossima scadenza contrattuale",
+    conPreavviso: (p) => `, nel rispetto del preavviso previsto (${p})`,
+  },
+  nl: {
+    apertura: "Geachte heer, mevrouw,",
+    corpo: (f, q, p) => `Hierbij delen wij u mee dat wij het contract "${f}" tussen uw onderneming en de onze wensen te <b>beëindigen</b>,${q}${p}.`,
+    conferma: "Gelieve de <b>goede ontvangst</b> van dit verzoek te bevestigen, alsook dat de opzegging op de vermelde datum is geregistreerd.",
+    procedura: "Indien de opzegging niet rechtsgeldig per e-mail kan gebeuren, verzoeken wij u ons in antwoord <b>de te volgen procedure mee te delen</b> (aangetekend schrijven, specifiek formulier of andere), zodat wij deze tijdig kunnen vervullen.",
+    saluti: "Met vriendelijke groeten,",
+    oggetto: (s, f) => `Verzoek tot opzegging van het contract — ${s} (${f})`,
+    durata: (n, u) => `${n} ${u === "jours" ? (n > 1 ? "dagen" : "dag") : n > 1 ? "maanden" : "maand"}`,
+    aEchenza: (d) => ` op de vervaldatum van <b>${d}</b>`,
+    allaProssima: " op de eerstvolgende contractuele vervaldatum",
+    conPreavviso: (p) => `, met inachtneming van de voorziene opzegtermijn (${p})`,
+  },
+  es: {
+    apertura: "Estimados señores:",
+    corpo: (f, q, p) => `Por la presente les comunicamos nuestra voluntad de <b>rescindir el contrato</b> « ${f} » que vincula a su empresa con la nuestra,${q}${p}.`,
+    conferma: "Les rogamos <b>confirmen la recepción</b> de esta solicitud, así como el registro de la rescisión en la fecha indicada.",
+    procedura: "Si la rescisión no puede solicitarse válidamente por simple correo electrónico, les agradecemos que nos <b>indiquen en su respuesta el procedimiento a seguir</b> (carta certificada, formulario específico u otra modalidad), para poder cumplirlo en plazo.",
+    saluti: "Atentamente,",
+    oggetto: (s, f) => `Solicitud de rescisión del contrato — ${s} (${f})`,
+    durata: (n, u) => `${n} ${u === "jours" ? (n > 1 ? "días" : "día") : n > 1 ? "meses" : "mes"}`,
+    aEchenza: (d) => ` en su fecha de vencimiento del <b>${d}</b>`,
+    allaProssima: " en el próximo vencimiento contractual",
+    conPreavviso: (p) => `, respetando el preaviso previsto (${p})`,
+  },
+};
+
 function htmlResiliation(p: {
   societa: string; vat: string; nome: string; indirizzo: string; tel: string; email: string;
-  file: string; scadenza: string; preavviso: string;
+  file: string; scadenza: string; preavviso: string; lang: string;
 }): string {
-  const quando = p.scadenza
-    ? ` à son échéance du <b>${escHtml(p.scadenza)}</b>`
-    : " à la prochaine échéance contractuelle";
-  const preavviso = p.preavviso ? `, dans le respect du préavis prévu (${escHtml(p.preavviso)})` : "";
+  const L = RESIL[p.lang] ?? RESIL.fr;
+  const quando = p.scadenza ? L.aEchenza(escHtml(p.scadenza)) : L.allaProssima;
+  const preavviso = p.preavviso ? L.conPreavviso(escHtml(p.preavviso)) : "";
   return `<!doctype html>
-<html lang="fr">
+<html lang="${escHtml(p.lang)}">
 <head><meta charset="utf-8" /></head>
 <body style="margin:0;padding:24px 12px;background:#f2f0ed;">
   <div style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #d8d3cd;padding:40px 44px;color:#222222;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.75;">
-    <p style="margin:0 0 18px;">Madame, Monsieur,</p>
-    <p style="margin:0 0 18px;">Par la présente, nous vous informons de notre volonté de <b>résilier le contrat</b> « ${escHtml(p.file)} » qui lie votre société à la nôtre,${quando}${preavviso}.</p>
-    <p style="margin:0 0 18px;">Nous vous prions de bien vouloir <b>confirmer la bonne réception</b> de la présente demande ainsi que la prise en compte de la résiliation à la date indiquée.</p>
-    <p style="margin:0 0 18px;">Si la résiliation ne peut être valablement demandée par simple email, nous vous remercions de nous <b>indiquer en réponse la procédure à suivre</b> (courrier recommandé, formulaire dédié ou autre modalité), afin que nous puissions l'accomplir dans les délais.</p>
-    <p style="margin:0 0 18px;">Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.</p>
+    <p style="margin:0 0 18px;">${L.apertura}</p>
+    <p style="margin:0 0 18px;">${L.corpo(escHtml(p.file), quando, preavviso)}</p>
+    <p style="margin:0 0 18px;">${L.conferma}</p>
+    <p style="margin:0 0 18px;">${L.procedura}</p>
+    <p style="margin:0 0 18px;">${L.saluti}</p>
     <div style="margin-top:30px;border-top:1px solid #e3ded8;padding-top:18px;font-size:14px;line-height:1.7;color:#333333;">
       <b style="font-size:15px;">${escHtml(p.societa)}</b> — ${escHtml(p.nome)}<br />
       ${escHtml(p.indirizzo)}<br />
@@ -107,12 +185,15 @@ interface Meta {
   expires: string | null;
   notice_value: number | null;
   notice_unit: string | null;
+  /** Lingua della lettera di disdetta (#72). NULL = lingua dell'admin. */
+  lang: string | null;
   resiliation_at?: string | null; // solo in lettura (GET)
 }
+const LINGUE_LETTERA = ["fr", "en", "it", "nl", "es"];
 
 /** Metadati dal body (solo per i contrats; per le altre categorie → null). */
 function metaDalBody(body: Record<string, unknown>, cat: string): Meta {
-  if (cat !== "contrat") return { email: null, expires: null, notice_value: null, notice_unit: null };
+  if (cat !== "contrat") return { email: null, expires: null, notice_value: null, notice_unit: null, lang: null };
   const email = String(body.email ?? "").trim().slice(0, 120) || null;
   const exp = String(body.expires ?? "").trim();
   const expires = RE_DATA.test(exp) ? exp : null;
@@ -120,7 +201,9 @@ function metaDalBody(body: Record<string, unknown>, cat: string): Meta {
   const notice_value = Number.isFinite(nv) && nv > 0 && nv <= 365 ? nv : null;
   const unit = String(body.notice_unit ?? "");
   const notice_unit = notice_value && (unit === "jours" || unit === "mois") ? unit : notice_value ? "mois" : null;
-  return { email, expires, notice_value, notice_unit };
+  const l = String(body.lang ?? "").trim();
+  const lang = LINGUE_LETTERA.includes(l) ? l : null;
+  return { email, expires, notice_value, notice_unit, lang };
 }
 
 /** Upsert / pulizia della riga metadati (best-effort: mai bloccante). */
@@ -130,9 +213,14 @@ async function salvaMeta(path: string, meta: Meta) {
       await supabaseAdmin.from("admin_docs_meta").delete().eq("path", path);
       return;
     }
-    await supabaseAdmin
-      .from("admin_docs_meta")
-      .upsert({ path, ...meta, updated_at: new Date().toISOString() }, { onConflict: "path" });
+    const riga = { path, ...meta, updated_at: new Date().toISOString() };
+    const { error } = await supabaseAdmin.from("admin_docs_meta").upsert(riga, { onConflict: "path" });
+    // #72 non lanciata: la colonna `lang` non esiste ancora. Si riprova senza,
+    // altrimenti smetterebbero di salvarsi TUTTI i metadati, in silenzio.
+    if (error && String(error.message ?? "").includes("lang")) {
+      const { lang: _l, ...senzaLang } = riga;
+      await supabaseAdmin.from("admin_docs_meta").upsert(senzaLang, { onConflict: "path" });
+    }
   } catch {
     /* migrazione #40 assente: si va avanti senza metadati */
   }
@@ -145,8 +233,14 @@ export const GET: APIRoute = async ({ request }) => {
   // Metadati (se la #40 è lanciata)
   const metaMap = new Map<string, Meta>();
   try {
-    const { data } = await supabaseAdmin.from("admin_docs_meta").select("path, email, expires, notice_value, notice_unit, resiliation_at");
-    for (const r of data ?? []) metaMap.set(r.path, r as unknown as Meta);
+    const BASE = "path, email, expires, notice_value, notice_unit, resiliation_at";
+    let res = await supabaseAdmin.from("admin_docs_meta").select(BASE + ", lang");
+    // #72 non lanciata: senza il ripiego la lista perderebbe TUTTI i metadati.
+    if (res.error && String(res.error.message ?? "").includes("lang")) {
+      res = await supabaseAdmin.from("admin_docs_meta").select(BASE);
+    }
+    const righe = (res.data ?? []) as unknown as (Meta & { path: string })[];
+    for (const r of righe) metaMap.set(r.path, r);
   } catch {
     /* senza metadati */
   }
@@ -175,6 +269,7 @@ export const GET: APIRoute = async ({ request }) => {
         expires: meta?.expires ?? null,
         notice_value: meta?.notice_value ?? null,
         notice_unit: meta?.notice_unit ?? null,
+        lang: meta?.lang ?? null,
         resiliation_at: meta?.resiliation_at ?? null,
       });
     }
@@ -207,10 +302,20 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       const { data } = await supabaseAdmin
         .from("admin_docs_meta")
-        .select("email, expires, notice_value, notice_unit")
+        .select("email, expires, notice_value, notice_unit, lang")
         .eq("path", `contrat/${name}`)
         .maybeSingle();
       meta = data;
+      if (!meta) {
+        // #72 non lanciata: si rilegge senza `lang` (la lettera userà la
+        // lingua dell'admin, come prima).
+        const r2 = await supabaseAdmin
+          .from("admin_docs_meta")
+          .select("email, expires, notice_value, notice_unit")
+          .eq("path", `contrat/${name}`)
+          .maybeSingle();
+        meta = r2.data;
+      }
     } catch {
       meta = null;
     }
@@ -226,8 +331,9 @@ export const POST: APIRoute = async ({ request }) => {
     const societa = m.get("company_name") || dati.nome;
     const scadIso = String(meta?.expires ?? "");
     const nv = Number(meta?.notice_value ?? 0);
-    const preavviso = nv > 0 ? `${nv} ${String(meta?.notice_unit ?? "mois")}` : "";
-
+    const langLettera = String(meta?.lang ?? "") || (await adminLang());
+    const LL = RESIL[langLettera] ?? RESIL.fr;
+    const preavviso = nv > 0 ? LL.durata(nv, String(meta?.notice_unit ?? "mois")) : "";
     const html = htmlResiliation({
       societa,
       vat: m.get("company_vat") ?? "",
@@ -238,13 +344,15 @@ export const POST: APIRoute = async ({ request }) => {
       file: name,
       scadenza: RE_DATA.test(scadIso) ? frData(scadIso) : "",
       preavviso,
+      // Lingua scelta sul documento; se non c'è, quella dell'admin.
+      lang: langLettera,
     });
     try {
       await resend.emails.send({
         from: RESEND_FROM as string,
         to: dest,
         replyTo: dati.email, // la risposta del fornitore arriva al ristorante
-        subject: `Demande de résiliation de contrat — ${societa} (${name})`,
+        subject: LL.oggetto(societa, name),
         html,
       });
     } catch {
