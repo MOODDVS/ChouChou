@@ -49,21 +49,56 @@ async function leggiCatalogo(): Promise<PrintProduct[]> {
   return PRINT_DEFAULTS;
 }
 
-/** Avvisa MOODD via email che è arrivato un ordine di stampa (best-effort). */
+const escP = (t: unknown): string =>
+  String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Riga "etichetta / valore" del riepilogo. */
+function rigaPrint(lab: string, val: string, forte = false): string {
+  return `<tr><td style="padding:9px 0;border-bottom:1px solid #e6e6e2;color:#666;font-size:14px;">${escP(lab)}</td><td style="padding:9px 0;border-bottom:1px solid #e6e6e2;color:#111;font-size:${forte ? "16px" : "14px"};text-align:right;font-weight:bold;">${escP(val)}</td></tr>`;
+}
+
+/** Avvisa MOODD via email che è arrivato un ordine di stampa (best-effort).
+ *  Destinatario: MOODD, non il ristoratore — resta in francese di proposito. */
 async function avvisaMoodd(o: { label: string; qty: number; amount_cents: number; buyer?: string | null }): Promise<void> {
   if (!resend || !RESEND_FROM) return;
+  const accent = "#0e7a5f";
+  const wordmark = `${SITE_URL.replace(/\/$/, "")}/restohub/wordmark.png`;
+  const html = `
+  <div style="font-family:Arial,Helvetica,sans-serif;background:#e8e6e1;padding:30px 14px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
+      <tr>
+        <td style="padding:18px 30px;background:${accent};color:#ffffff;font-size:14px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Commande Print</td>
+      </tr>
+      <tr>
+        <td style="padding:26px 30px 8px;text-align:center;background:#f6f7f5;border-bottom:1px solid #e6e6e2;">
+          <p style="margin:0;color:#000;font-size:23px;font-weight:bold;">${escP(CLIENT.nome)}</p>
+          <p style="margin:8px 0 18px;color:#555;font-size:14px;">${escP(o.buyer ?? "—")}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:18px 30px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${rigaPrint("Produit", o.label)}
+            ${rigaPrint("Quantité", String(o.qty))}
+            ${rigaPrint("Montant payé", euro(o.amount_cents), true)}
+          </table>
+          <p style="margin:16px 0 0;color:#7a4a09;background:#fff4e0;border-left:4px solid #d8851b;padding:12px 16px;font-size:14px;border-radius:0 8px 8px 0;">L'adresse de livraison est disponible dans Stripe (MOODD).</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:14px 30px 22px;text-align:center;background:#f6f7f5;border-top:1px solid #e6e6e2;color:#9a9a94;font-size:12px;">
+          Commande Print &middot; ${escP(CLIENT.nome)}
+          <p style="margin:14px 0 0;"><img src="${wordmark}" alt="RestoHub" width="100" style="display:inline-block;width:100px;max-width:40%;height:auto;opacity:0.7;border:0;" /></p>
+        </td>
+      </tr>
+    </table>
+  </div>`;
   try {
     await resend.emails.send({
       from: RESEND_FROM,
       to: MOODD_ORDERS_EMAIL,
-      subject: `Nouvelle commande Print — ${CLIENT.nome}`,
-      html:
-        `<h2>Commande Print — ${CLIENT.nome}</h2>` +
-        `<p><b>Produit :</b> ${o.label}<br>` +
-        `<b>Quantité :</b> ${o.qty}<br>` +
-        `<b>Montant payé :</b> ${euro(o.amount_cents)}<br>` +
-        `<b>Client :</b> ${o.buyer ?? "—"}</p>` +
-        `<p>L'adresse de livraison est disponible dans Stripe (MOODD).</p>`,
+      subject: `Nouvelle commande Print — ${CLIENT.nome} · ${o.qty}× ${o.label}`,
+      html,
     });
   } catch (e) {
     console.error("[print-order] notifica MOODD fallita:", e);

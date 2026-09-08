@@ -125,8 +125,8 @@ const varianti = boot.features.includes("variants");
         width: 17px; height: 17px; margin-right: 0.45rem; display: block;
         fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
       }
-      @media (max-width: 520px) { .mn-float { bottom: calc(1.25rem + 72px); right: 1rem; } .mn-float-left { left: 1rem; right: auto; } }
-      @media (min-width: 521px) and (max-width: 1023px) { .mn-float { bottom: calc(1.25rem + 72px); } }
+      @media (max-width: 640px) { .mn-float { bottom: calc(1.25rem + 72px); right: 1rem; } .mn-float-left { left: 1rem; right: auto; } }
+      @media (min-width: 641px) and (max-width: 1023px) { .mn-float { bottom: calc(1.25rem + 72px); } }
       /* Mobile: niente gestione categorie → nascondo il bottone "Categorie". */
       @media (max-width: 640px) { #mn-float-left { display: none; } }
       .add-btn { background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
@@ -290,7 +290,10 @@ const varianti = boot.features.includes("variants");
       /* Dish/Lunch: le colonne scrollano da sole */
       .modal-dish .m-cols, #lu-overlay .m-cols { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow: hidden; }
       .modal-dish .m-col, #lu-overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
-      @media (max-width: 780px), (orientation: portrait) and (max-width: 1024px) {
+      /* 760/761: stessa coppia del modale Nuova prenotazione. La domanda e' la
+         stessa (due colonne dentro un modale largo ~940px diventano scomode),
+         quindi la soglia deve essere una sola in tutto il motore. */
+      @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) {
         /* display:block: le due colonne diventano blocchi in flusso normale
            (impilati, impossibile la sovrapposizione del grid). */
         .modal-dish .m-cols, #lu-overlay .m-cols, #mn-overlay .m-cols { display: block; overflow-y: auto; }
@@ -331,7 +334,7 @@ const varianti = boot.features.includes("variants");
       /* Modale piatto a 2 colonne + tab */
       .modal-dish { max-width: 940px; }
       .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
-      @media (max-width: 780px), (orientation: portrait) and (max-width: 1024px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
+      @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
       .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
       .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
       .m-tab:hover { color: var(--c-text); }
@@ -1025,6 +1028,7 @@ const varianti = boot.features.includes("variants");
         const nb = barra.getBoundingClientRect();
         const sopra = `${Math.round(window.innerHeight - nb.top + 12)}px`;
         // ≤1023px: l'isola è larga per definizione → entrambe le colonne SOPRA.
+        // (1024 = iPad orizzontale: sta dalla parte del DESKTOP.)
         if (window.innerWidth <= 1023) {
           for (const box of boxes) box.style.bottom = sopra;
           return;

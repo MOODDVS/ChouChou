@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { inviaPush, inviaPushConDettagli, type PushDettaglio } from "../../../lib/push";
+import { inviaPushConDettagli, type PushDettaglio } from "../../../lib/push";
 import { adminLang } from "../../../lib/admin/adminLang";
 import type { AdminLang } from "../../../i18n/admin";
 

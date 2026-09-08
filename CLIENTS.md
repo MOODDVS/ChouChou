@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** HEAD `7936e3b` (07/09/2026).
+**Motore — riferimento attuale:** HEAD `b8bd85d` (08/09/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
@@ -15,10 +15,18 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `7936e3b` — 07/09/2026** | merge pulito 0 conflitti; ⚠️ #71 e redeploy da fare |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `7936e3b` — 07/09/2026** | conflitto su `db.ts` risolto a mano; ⚠️ #71 e redeploy da fare |
-| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `7936e3b` — 07/09/2026** | conflitto solo `.gitignore`; ⚠️ #71 e redeploy da fare |
-| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `7936e3b` — 07/09/2026** | conflitto solo `.gitattributes`; design storico intatto; unico con «Varianti» da accendere |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `b8bd85d` — 08/09/2026** | merge pulito 0 conflitti; ⚠️ #71 e redeploy da fare |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `b8bd85d` — 08/09/2026** | conflitto su `db.ts` risolto a mano; ⚠️ #71 e redeploy da fare |
+| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `b8bd85d` — 08/09/2026** | conflitto solo `.gitignore`; ⚠️ #71 e redeploy da fare |
+| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `b8bd85d` — 08/09/2026** | conflitto solo `.gitattributes`; design storico intatto; unico con «Varianti» da accendere |
+
+---
+
+## 🔄 Giro di merge dell'08/09/2026 — motore `b8bd85d`
+
+**Tutti e 4 puliti, zero conflitti.** Porta: ordini (date future nel datepicker, nome+telefono obbligatori), checkout e coupon nelle 5 lingue, prefisso Stripe che legge `defaultLang` dal cliente, modale prenotazioni scrollabile con tavoli nella finestra persone−1/+2, colonne della home 4/3/2/1, switch push che dice perché è spento.
+
+⚠️ **Trappola vista su La Molisana**: `git merge` è morto con `fatal: stash failed`. Causa: un `.git/index.lock` rimasto da un `git status` lanciato dalla VM Cowork (che nelle cartelle senza permesso di cancellazione crea il lock ma non riesce a toglierlo). Il merge non era nemmeno partito. Si risolve con `rm -f .git/index.lock`. **Da qui in avanti: niente comandi git nei repo dal lato Cowork** — si leggono i file, non l'indice.
 
 ---
 

@@ -12,6 +12,7 @@ import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -64,13 +65,23 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
       .spacer { flex: 1; }
-      .pill { font-family: var(--font-title); letter-spacing: 0.05em; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s, border-color 0.2s; }
-      .add-btn { background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
-      .add-btn:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
-      .add-btn:disabled { cursor: not-allowed; }
+      /* Il look del bottone «aggiungi» viene da fab.css, come nelle altre
+         pagine: qui resta solo lo stato disabilitato durante il caricamento. */
+      .fab-pill:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+      .fab-pill:disabled:hover { background: var(--c-accent); border-color: var(--c-accent); transform: none; }
 
       /* --- Tabs origine --- */
-      .tabs { display: flex; gap: 0.4rem; padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line); }
+      /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
+         mano: quanti sono dipende dalle pagine del sito e dai moduli attivi.
+         Stessa cura di agenda, marketing e della barra di navigazione. */
+      .tabs {
+        display: flex; gap: 0.4rem; flex-wrap: nowrap;
+        overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 1.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--c-line);
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab { flex-shrink: 0; }
       .t-ico {
         width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
         fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
@@ -84,12 +95,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       }
       .tab:hover { color: var(--c-text); border-color: var(--c-accent); }
       .tab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      /* Tablet e mobile: tab e filtri scrollabili orizzontalmente invece di andare a capo */
-      @media (max-width: 1024px) {
-        .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tab { flex-shrink: 0; }
-      }
       .tab .n { font-size: 0.75rem; opacity: 0.75; margin-left: 0.3rem; }
 
       .tabs-sub { border-bottom: none; padding-bottom: 0; margin-bottom: 1.25rem; }
@@ -237,11 +242,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             </svg>
             {t("nav.assets")}
           </h1>
-          <span class="spacer"></span>
-          <button class="pill add-btn" id="add-btn">+ {t("as.addImage")}</button>
-          <input type="file" id="add-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
-          <button class="pill add-btn" id="add-doc-btn" style="display:none">+ {t("as.addDoc")}</button>
-          <input type="file" id="add-doc-file" accept=".pdf" style="display:none" />
         </div>
         <div class="tabs" id="main-tabs">
           <button class="tab is-active" data-t="site"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18" /></svg>{t("as.site")}</button>
@@ -306,6 +306,12 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       </main>
       <AdminFooter />
     <ImagePicker />
+
+    <!-- Bottone flottante per aggiungere, uno per tab (come Clienti/Ordini/Marketing) -->
+    <button class="fab-add fab-pill" id="add-btn" type="button" title={t("as.addImage")}><span class="fab-plus">+</span>{t("as.fabImage")}</button>
+    <input type="file" id="add-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+    <button class="fab-add fab-pill" id="add-doc-btn" type="button" style="display:none" title={t("as.addDoc")}><span class="fab-plus">+</span>{t("as.fabDoc")}</button>
+    <input type="file" id="add-doc-file" accept=".pdf" style="display:none" />
     </div>
 
     <div class="toast" id="toast"></div>
@@ -945,6 +951,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           secSite.style.display = t === "site" ? "" : "none";
           addBtn.style.display = t === "images" ? "" : "none";
           addDocBtn.style.display = t === "documents" ? "" : "none";
+          // Il FAB compare o sparisce cambiando tab: AdminNav rimisura sul
+          // resize se va sollevato sopra l'isola nav.
+          window.dispatchEvent(new Event("resize"));
           mainTabs.querySelectorAll<HTMLElement>(".tab").forEach((el) => el.classList.toggle("is-active", el.dataset.t === t));
           sessionStorage.setItem("lm-adm-assets-tab", t);
         }

@@ -7,6 +7,8 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
+// Elenco lingue (bandiera + nome nativo) per il selettore della lettera di disdetta.
+import { LINGUE_WIDGET as LINGUE_ELENCO } from "../../lib/reservationI18n";
 
 // Tab "Liens": social + recensioni Google (icone piatte, currentColor)
 const LNK = [
@@ -73,7 +75,17 @@ const t = adminT(lang);
       .state { color: var(--c-muted); text-align: center; padding: 3rem 1rem; }
 
       #content { display: grid; grid-template-columns: 1fr; gap: 1.5rem; align-items: start; }
-      .tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; margin: 0 0 1.5rem; border-bottom: 1px solid var(--c-line); }
+      /* I tab scorrono quando NON ci stanno, non sotto una larghezza scelta a
+         mano: quanti sono dipende dai moduli attivi del cliente. Stessa cura
+         di agenda, marketing, assets e della barra di navigazione. */
+      .tabs {
+        display: flex; gap: 0.5rem; flex-wrap: nowrap;
+        overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 1.5rem; margin: 0 0 1.5rem; border-bottom: 1px solid var(--c-line);
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tabs button { flex-shrink: 0; }
       .t-ico {
         width: 16px; height: 16px; margin-right: 0.45rem; vertical-align: -3px;
         fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
@@ -92,19 +104,15 @@ const t = adminT(lang);
       }
       .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
       .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      /* Tablet e mobile: tab scrollabili orizzontalmente invece di andare a capo */
-      @media (max-width: 1024px) {
-        .tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-        .tabs::-webkit-scrollbar { display: none; }
-        .tabs button { flex-shrink: 0; }
-      }
       /* Fuori dal tab Horaire il contenuto sta su una colonna contenuta */
       #content:not([data-tab="horaire"]) { grid-template-columns: 1fr; max-width: 720px; }
       .section { background: var(--c-card); border: 1px solid var(--c-line); padding: 1.5rem; min-width: 0; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
       #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"], #content[data-tab="documents"] { max-width: none; }
       #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
-      @media (max-width: 1100px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
+      /* 1279/1280: le righe di questo tab hanno un label fisso da 300px, due
+         colonne stanno comode solo su schermi larghi. Era 1100. */
+      @media (max-width: 1279px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
 
       /* --- Plan de salle (tab Réservations) --- */
       .sl-col { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
@@ -712,7 +720,7 @@ const t = adminT(lang);
       .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
       .section[data-tab="reservations"] .field label.switch { flex: 0 0 44px; max-width: 44px; width: 44px; }
       .section[data-tab="reservations"] .field .switch input { flex: none; width: 0; min-width: 0; }
-      @media (max-width: 700px) {
+      @media (max-width: 640px) {
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
         .section[data-tab="reservations"] .field input { flex-basis: 100%; }
         .section[data-tab="reservations"] .hint { margin-left: 0; }
@@ -723,7 +731,7 @@ const t = adminT(lang);
         .section[data-tab="reservations"] .rs-line1 { flex-wrap: wrap; }
         .section[data-tab="reservations"] .rs-row .rs-key { flex: 0 0 100%; max-width: none; }
       }
-      @media (max-width: 700px) {
+      @media (max-width: 640px) {
         /* Label impilato sopra il field: avvicina il field al suo label (solo verticale) e label meno opaco */
         .field { gap: 0.4rem 1rem; }
         .field label { flex: 0 0 auto; max-width: none; opacity: 0.66; }
@@ -900,7 +908,7 @@ const t = adminT(lang);
       .overlay textarea.f-input { resize: vertical; }
       .f-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.6rem; }
       .overlay .f-row2 .f-lab { margin-top: 0; }
-      @media (max-width: 620px) { .f-row2 { grid-template-columns: 1fr; } }
+      @media (max-width: 640px) { .f-row2 { grid-template-columns: 1fr; } }
       .tm-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 1.1rem; margin-top: 1.9rem; }
       .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
       .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
@@ -918,7 +926,7 @@ const t = adminT(lang);
         .band input[type="time"] { padding: 0.5rem 0.7rem; min-height: 42px; font-size: 1rem; }
       }
 
-      @media (max-width: 560px) {
+      @media (max-width: 640px) {
         .day-head { flex-wrap: wrap; gap: 0.5rem; }
         .day-head .day-name { flex: 1; order: 1; }
         .day-head .switch { order: 2; }
@@ -1487,8 +1495,21 @@ const t = adminT(lang);
         <span class="f-lab">{t("set.doc.category")}</span>
         <div class="tm-filters" id="dc-cats" style="margin: 0.5rem 0 0.4rem"></div>
         <div id="dc-contrat" style="display:none">
-          <span class="f-lab">{t("set.doc.contractEmail")}</span>
-          <input type="text" class="f-input" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
+          <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:flex-end">
+            <div style="flex:1 1 220px; min-width:0">
+              <span class="f-lab">{t("set.doc.contractEmail")}</span>
+              <input type="text" class="f-input" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
+            </div>
+            <div style="flex:0 0 auto">
+              <span class="f-lab">{t("set.doc.letterLang")}</span>
+              <select class="f-input" id="dc-lang" style="min-width:140px">
+                {LINGUE_ELENCO.filter((l) => ["fr", "en", "it", "nl", "es"].includes(l.code)).map((l) => (
+                  <option value={l.code}>{l.flag} {l.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <p class="hint" style="margin:0.35rem 0 0">{t("set.doc.letterLangHint")}</p>
           <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
             <div style="flex:1; min-width:170px">
               <span class="f-lab">{t("set.doc.dueDate")}</span>
@@ -4153,7 +4174,7 @@ const t = adminT(lang);
         ];
         interface DocAmm {
           cat: string; name: string; url: string; thumb_url: string | null; size: number; created_at: string;
-          email: string | null; expires: string | null; notice_value: number | null; notice_unit: string | null;
+          email: string | null; expires: string | null; notice_value: number | null; notice_unit: string | null; lang?: string | null;
           resiliation_at: string | null;
         }
         let dcDocs: DocAmm[] = [];
@@ -4257,6 +4278,8 @@ const t = adminT(lang);
         const dcExp = document.getElementById("dc-exp") as HTMLInputElement;
         const dcNval = document.getElementById("dc-nval") as HTMLInputElement;
         const dcNunit = document.getElementById("dc-nunit") as HTMLSelectElement;
+        const dcLang = document.getElementById("dc-lang") as HTMLSelectElement;
+        const LINGUE_LETTERA = ["fr", "en", "it", "nl", "es"];
         function dcRenderCats() {
           dcCatsEl.innerHTML = DOC_CATS.map((c) => `<button type="button" class="tm-fil${dcCatScelta === c.k ? " is-on" : ""}" data-c="${c.k}">${c.lab}</button>`).join("");
           (document.getElementById("dc-contrat") as HTMLElement).style.display = dcCatScelta === "contrat" ? "" : "none";
@@ -4277,6 +4300,7 @@ const t = adminT(lang);
             expires: dcExp.dataset.iso ?? "",
             notice_value: Number(dcNval.value || 0),
             notice_unit: dcNunit.value,
+            lang: dcLang.value,
           };
         }
         function dcCompilaMeta(d: DocAmm | null) {
@@ -4285,6 +4309,9 @@ const t = adminT(lang);
           dcExp.value = d?.expires ? dcData(d.expires) : "";
           dcNval.value = d?.notice_value ? String(d.notice_value) : "";
           dcNunit.value = d?.notice_unit === "jours" ? "jours" : "mois";
+          // Lingua della lettera: quella salvata sul documento, altrimenti
+          // quella dell'admin come punto di partenza ragionevole.
+          dcLang.value = d?.lang && LINGUE_LETTERA.includes(d.lang) ? d.lang : LANG;
         }
         // Bottone «Demander la résiliation»: solo in MODIFICA di un contrat
         // con email di riferimento salvata e senza richiesta già inviata

@@ -162,11 +162,11 @@ const prI18n = {
       .tema-titre { font-family: var(--font-title); font-size: 1.15rem; letter-spacing: 0.04em; margin: 2.4rem 0 0.35rem; }
       /* Design : colonne (couleurs à gauche, aperçu à droite) */
       .design-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; align-items: start; }
-      @media (min-width: 1080px) { .design-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2.5rem; } }
+      @media (min-width: 1024px) { .design-cols { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2.5rem; } }
 
       /* Cartes couleur */
       .tema-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem; margin-top: 1.1rem; }
-      @media (max-width: 560px) { .tema-rows { grid-template-columns: minmax(0, 1fr); } }
+      @media (max-width: 640px) { .tema-rows { grid-template-columns: minmax(0, 1fr); } }
       .tema-card {
         display: flex; flex-direction: column; gap: 0.5rem;
         background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
@@ -433,7 +433,7 @@ const prI18n = {
   </head>
   <body>
     <div id="app">
-      <script type="application/json" id="sup-i18n" set:html={JSON.stringify(supI18n)}></script>
+      <script is:inline type="application/json" id="sup-i18n" set:html={JSON.stringify(supI18n)}></script>
       <AdminHeader />
       <main>
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>{t("sup.title")}</h1>
@@ -658,7 +658,7 @@ const prI18n = {
             {t("sup.tab.print")}
           </h1>
           <p class="sub">{t("print.intro")}</p>
-          <script type="application/json" id="pr-i18n" set:html={JSON.stringify(prI18n)}></script>
+          <script is:inline type="application/json" id="pr-i18n" set:html={JSON.stringify(prI18n)}></script>
           <div id="pr-list" class="pr-list"></div>
           <div class="pr-actions">
             <button type="button" id="pr-reset" class="us-ghost">{t("print.reset")}</button>
@@ -1770,7 +1770,7 @@ const prI18n = {
       .pr-m-f span { font-size: 0.72rem; color: var(--c-muted); }
       .pr-m-f input { padding: 0.45rem 0.6rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); font-size: 0.9rem; }
       .pr-m-f input:focus { outline: none; border-color: var(--c-accent); }
-      @media (max-width: 560px) { .pr-meta-grid { grid-template-columns: minmax(0, 1fr); } }
+      @media (max-width: 640px) { .pr-meta-grid { grid-template-columns: minmax(0, 1fr); } }
     </style>
 
     <script>

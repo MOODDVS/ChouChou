@@ -16,9 +16,9 @@
 }
 .save-bar.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
 /* Tablet portrait (isola nav larga): sollevata sopra la dock. */
-@media (min-width: 521px) and (max-width: 1023px) { .save-bar { bottom: calc(1.25rem + 72px); } }
+@media (min-width: 641px) and (max-width: 1023px) { .save-bar { bottom: calc(1.25rem + 72px); } }
 /* Mobile: sopra la dock e un filo più vicino al bordo. */
-@media (max-width: 520px) { .save-bar { right: 1rem; bottom: calc(1.25rem + 72px); } }
+@media (max-width: 640px) { .save-bar { right: 1rem; bottom: calc(1.25rem + 72px); } }
 
 .save {
   box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
@@ -32,9 +32,9 @@
 .save:disabled { opacity: 0.5; cursor: not-allowed; }
 .save.is-saved { background: #2e9e6b; border-color: #2e9e6b; color: #ffffff; }
 /* Tablet (incl. iPad mini landscape 1024): bottone più piccolo, come i FAB. */
-@media (min-width: 521px) and (max-width: 1024px) { .save { font-size: 0.92rem; padding: 0.5rem 1.5rem; } }
+@media (min-width: 641px) and (max-width: 1024px) { .save { font-size: 0.92rem; padding: 0.5rem 1.5rem; } }
 /* Mobile: ancora più piccolo. */
-@media (max-width: 520px) { .save { font-size: 0.85rem; padding: 0.45rem 1.3rem; } }
+@media (max-width: 640px) { .save { font-size: 0.85rem; padding: 0.45rem 1.3rem; } }
 
 .msg { font-size: 0.9rem; }
 .msg.ok { color: #4caf7d; }

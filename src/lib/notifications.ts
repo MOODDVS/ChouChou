@@ -1778,19 +1778,6 @@ function rigaRecap(tema: TemaEmail, lab: string, val: string): string {
 // Avvolge l'HTML di una email nel DOCUMENTO SCURO completo (head color-scheme
 // dark + body/table con sfondo #00252b): elimina il "riquadro bianco" che il
 // client email mette attorno al contenuto. Stessa tecnica dell'email quotidiana.
-function avvolgiScuro(inner: string, dir = "ltr"): string {
-  return `<!doctype html>
-  <html dir="${dir}" lang="fr">
-  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="color-scheme" content="dark" /><meta name="supported-color-schemes" content="dark" /></head>
-  <body bgcolor="#00252b" style="margin:0;padding:0;background:#00252b;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#00252b" style="background:#00252b;margin:0;padding:0;"><tr><td>
-  ${inner}
-  </td></tr></table>
-  </body></html>`;
-}
-
-/** Guscio email THEME-DRIVEN (colori da admin_theme): documento completo con
- *  sfondo pieno del tema. Usato dalle email ordini convertite. */
 function avvolgiTema(inner: string, tema: TemaEmail, dir = "ltr"): string {
   return `<!doctype html>
 <html dir="${dir}">

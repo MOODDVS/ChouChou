@@ -78,6 +78,7 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 69 | `reservations_extra_minutes.sql` | `extra_minutes` (int, default 0) su reservations: minuti di estensione del tavolo (+15/+30/+45 dal modale). Finestra tavolo = heure + durée + extra_minutes; usata da fase/timer, auto-Fini, disponibilità pubblica e piano sala. |
 | 70 | `gift_cards_langs.sql` | `sender_lang` + `recipient_lang` (text) su gift_cards: lingua dell'email all'offrant e lingua dell'email al destinataire + del PDF. NULL = lingua predefinita del sito pubblico. Il PDF (on-demand) legge `recipient_lang`. Idempotente. |
 | 71 | `menu_variants.sql` | `variants` (jsonb, default `[]`) su menu_items: formati/varianti di un piatto con prezzo proprio (pizza 30/40 cm, calice/bottiglia, porzione). Array di `{ key, label_i18n, price_cents, orderable, sold_out }`. Vuoto = comportamento invariato (prezzo unico); pieno = `price_cents` diventa «a partire da» e il prezzo incassato è quello della variante, risolto lato server. Vincolo: deve essere un array. Idempotente. |
+| 72 | `admin_docs_lang.sql` | `lang` (text) su admin_docs_meta: lingua della LETTERA DI DISDETTA di un contratto. Non segue `admin_lang` perché l'email va al FORNITORE, non al ristoratore: si sceglie per documento in Réglages → Documents. NULL = lingua dell'admin (comportamento storico). L'API ripiega da sola se la colonna manca. Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

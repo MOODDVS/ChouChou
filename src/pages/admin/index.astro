@@ -85,20 +85,23 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          allargare la sua colonna). grid-auto-rows + align-items:start =
          masonry: ogni tile occupa N micro-righe in base alla SUA altezza,
          quindi una tile alta non allunga le vicine e le tile sotto risalgono. */
-      /* SCALA DELLE COLONNE — se cambia qui, cambia anche colonne() nello
-         script: il drag & drop calcola le posizioni da quel numero, e le due
-         cose devono dire la stessa identica cosa.
+      /* SCALA DELLE COLONNE — UNICA FONTE: la variabile --cols.
+         La griglia la usa per disegnarsi e lo script la RILEGGE da qui
+         (getComputedStyle) per sapere quante colonne ci sono davvero: il
+         drag & drop e il ridimensionamento calcolano tutto da quel numero.
+         Cambiare le soglie qui basta e avanza, non c'e' nient'altro da
+         aggiornare.
              >= 1280   4 colonne
              920-1279  3
              760-919   2
              < 760     1 (impilate, niente masonry ne' riordino) */
-      .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 0.75rem; grid-auto-rows: 2px; align-items: start; }
-      @media (max-width: 1279px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-      @media (max-width: 919px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      .cards { --cols: 4; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 0 0.75rem; grid-auto-rows: 2px; align-items: start; }
+      @media (max-width: 1279px) { .cards { --cols: 3; } }
+      @media (max-width: 919px) { .cards { --cols: 2; } }
       /* STRETTO : une tuile par ligne, hauteur = contenu (pas de masonry),
          et pas de réorganisation (ni FAB, ni poignées). */
       @media (max-width: 759px) {
-        .cards { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; }
+        .cards { --cols: 1; grid-auto-rows: auto; }
         .cards .tile { grid-column: 1 / -1 !important; grid-row: auto !important; min-height: 0 !important; height: auto !important; }
         .cards .tile-notes { min-height: 180px !important; }
         .org-fab:not(.org-fab-tiles), .cards .tile-move, .cards .tile-resize { display: none !important; }
@@ -110,8 +113,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
       .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .tile-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
-      .ord-two { display: flex; gap: 1.5rem; }
-      .ord-two > div { flex: 1; min-width: 0; }
+      .ord-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; }
+      .ord-two > div { flex: 1 1 110px; min-width: 0; }
       .ord-nexts { display: flex; flex-direction: column; gap: 0.35rem; }
       .ord-nx { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.95rem; min-width: 0; }
       .ord-nx .nx-h { font-weight: 800; color: var(--c-accent); flex: 0 0 auto; }
@@ -136,12 +139,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .state { color: var(--c-muted); padding: 1rem 0; }
 
       /* --- Tile Statistiques (2 colonne) --- */
+      /* A una colonna ci pensa gia' `.cards .tile { grid-column: 1/-1 !important }`
+         del blocco stretto: nessuna eccezione da ripetere qui. */
       .tile-stats { grid-column: span 2; }
-      @media (max-width: 759px) { .tile-stats { grid-column: 1 / -1; } }
 
       /* --- Card Photos récentes (2 colonne, griglia 4x2) --- */
       .tile-photos { grid-column: span 2; }
-      @media (max-width: 759px) { .tile-photos { grid-column: 1 / -1; } }
       .ph-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.8rem; }
       .ph-cell {
         display: block; border: 1px solid var(--c-line); border-radius: 8px; overflow: hidden;
@@ -154,15 +157,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .st-head .tile-title { margin-bottom: 0; }
       .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
       .st-link:hover { color: var(--c-accent); }
-      .st-grid { display: flex; gap: 1.75rem; }
-      .st-left { flex: 1; min-width: 0; }
-      .st-chart { flex: 1.2; min-width: 0; display: flex; flex-direction: column; }
-      @media (max-width: 700px) { .st-grid { flex-direction: column; } }
+      /* Le due metà si affiancano finche' c'e' spazio DENTRO LA TILE, poi
+         vanno a capo da sole. Prima c'era @media (max-width: 700px), che pero'
+         misura la FINESTRA: a tre colonne la tile e' larga ~380px anche su uno
+         schermo da 1200, e le due metà si schiacciavano. */
+      .st-grid { display: flex; gap: 1.75rem; flex-wrap: wrap; }
+      .st-left { flex: 1 1 240px; min-width: 0; }
+      .st-chart { flex: 1.2 1 260px; min-width: 0; display: flex; flex-direction: column; }
       .st-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
-      .st-two { display: flex; gap: 1.5rem; margin-bottom: 1.1rem; }
-      .st-two > div { flex: 1; }
+      .st-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; margin-bottom: 1.1rem; }
+      .st-two > div { flex: 1 1 110px; min-width: 0; }
       .st-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; color: var(--c-accent); }
-      .st-facts { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; gap: 1.5rem; }
+      .st-facts { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; }
       .st-facts > div { flex: 1; min-width: 0; }
       .st-facts .val { font-weight: 700; font-size: 0.95rem; }
       .st-bars { display: flex; align-items: flex-end; gap: 2px; height: 110px; border-bottom: 1px solid var(--c-line); margin-top: 0.4rem; flex: 1; }
@@ -180,8 +186,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .sched-bands { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
       .sched-band { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; }
       .sched-band .clock { width: 15px; height: 15px; stroke: var(--c-accent); fill: none; stroke-width: 1.8; flex-shrink: 0; }
-      .sched-two { display: flex; gap: 1.5rem; }
-      .sched-two > div { flex: 1; }
+      .sched-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.9rem; }
+      /* Le due metà agli estremi finche' stanno in riga; a capo, a sinistra. */
+      .cui-two { justify-content: space-between; }
+      .sched-two > div { flex: 1 1 auto; min-width: 0; }
 
       /* --- Tile Cuisine --- */
       .cui-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--c-line); margin-top: 1.1rem; padding-top: 1rem; }
@@ -194,12 +202,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
       /* --- Tile Jours spéciaux --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
-      .spx-row { display: flex; align-items: center; gap: 0.55rem; font-size: 0.92rem; min-width: 0; }
+      .spx-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; row-gap: 0.15rem; font-size: 0.92rem; min-width: 0; }
       .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
       .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
       .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
       .spx-date { font-weight: 800; color: var(--c-text); white-space: nowrap; }
-      .spx-note { color: var(--c-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+      /* Se accanto alle date non ci sta, va SOTTO a tutta larghezza invece di
+         ridursi a «vaca…»: cosi' la nota si legge davvero. */
+      .spx-note { color: var(--c-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 11rem; min-width: 0; }
       .spx-more { color: var(--c-muted); font-size: 0.8rem; }
       .spx-empty { color: var(--c-muted); font-size: 0.9rem; padding: 0.4rem 0; }
       .spx-evts { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -786,6 +796,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const stateEl = document.getElementById("state") as HTMLDivElement;
         const cardsEl = document.getElementById("cards") as HTMLDivElement;
 
+        /** Colonne ATTUALI della griglia delle tile: unica fonte = --cols,
+         *  impostata dalle media query di .cards. Ripiego a 4 se il CSS non
+         *  e' ancora applicato (non dovrebbe mai capitare). */
+        function colonne(): number {
+          const v = parseInt(getComputedStyle(cardsEl).getPropertyValue("--cols"), 10);
+          return Number.isFinite(v) && v >= 1 ? v : 4;
+        }
+        /** Larghezza "stretta": una colonna sola, quindi niente riordino. */
+        const stretto = () => colonne() === 1;
+
         logoutBtn.addEventListener("click", async () => {
           await supabaseBrowser.auth.signOut();
           window.location.replace("/admin/login");
@@ -840,7 +860,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         cardsEl.style.display = "grid";
         // Organiser: solo su schermi larghi (su mobile le tuiles sono impilate)
         const fabOrg = document.getElementById("organiser-btn");
-        const petit = window.matchMedia("(max-width: 759px)").matches;
+        const petit = stretto();
         if (fabOrg && !petit) fabOrg.style.display = "flex";
         // Sur mobile : pas de réorganisation, mais on garde le choix des tuiles
         const fabTui = document.getElementById("organiser-tuiles");
@@ -852,7 +872,8 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         function posizionaIsole() {
           const nav = document.querySelector(".admin-nav") as HTMLElement | null;
           if (!nav) return;
-          const largo = window.matchMedia("(min-width: 521px)").matches;
+          // Deve combaciare con fab.css (641): sotto, i FAB stanno sopra la barra.
+          const largo = window.matchMedia("(min-width: 641px)").matches;
           const r = nav.getBoundingClientRect();
           const base = window.innerHeight - r.bottom + (r.height - 52) / 2;
           const STEP = 66; // spaziatura verticale tra i FAB impilati
@@ -1596,17 +1617,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           cards.querySelectorAll<HTMLElement>(".tile[data-tile]").forEach((t) => m.set(t.dataset.tile as string, t));
           return m;
         };
-        // Deve combaciare con le media query di .cards nel CSS qui sopra:
-        // il drag & drop e il ridimensionamento contano su questo numero.
-        const colonne = () =>
-          window.matchMedia("(max-width:759px)").matches ? 1
-          : window.matchMedia("(max-width:919px)").matches ? 2
-          : window.matchMedia("(max-width:1279px)").matches ? 3
-          : 4;
-
+        // Le SOGLIE non sono ripetute qui: il numero di colonne si legge da
+        // --cols, che le media query di .cards impostano nel CSS. Cambiando
+        // le soglie la' dentro, drag & drop e ridimensionamento seguono da
+        // soli. (Questo e' un secondo blocco <script>, con il suo scope: il
+        // lettore e' tre righe, le soglie restano una sola volta nel CSS.)
+        const colonne = (): number => {
+          const v = parseInt(getComputedStyle(cards).getPropertyValue("--cols"), 10);
+          return Number.isFinite(v) && v >= 1 ? v : 4;
+        };
         // MOBILE: una tuile par ligne, hauteur = contenu. Pas de masonry,
         // pas de largeurs, pas de hauteurs minimales : tout est remis à zéro.
-        const isMobile = () => window.matchMedia("(max-width: 759px)").matches;
+        const isMobile = () => colonne() === 1;
 
         function applicaSpans() {
           const mob = isMobile();

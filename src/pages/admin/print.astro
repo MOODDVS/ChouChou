@@ -104,7 +104,7 @@ const plabel = (slug: string, fallback: string) => {
               <article class="pcard" data-name={plabel(p.slug, p.label)}>
                 {p.route ? (
                   <div class="pcard-cover pbtn-preview" data-route={p.route} role="button" tabindex="0" aria-label={t("print.card.preview")}>
-                    <iframe src={p.route} title={plabel(p.slug, p.label)} loading="lazy" scrolling="no" tabindex="-1"></iframe>
+                    <iframe src={p.route} title={plabel(p.slug, p.label)} loading="lazy" tabindex="-1"></iframe>
                     <span class="pcard-zoom" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                     </span>
@@ -138,8 +138,8 @@ const plabel = (slug: string, fallback: string) => {
       </main>
       <AdminFooter />
 
-      <script type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) }).replace(/</g, "\\u003c")}></script>
-      <script type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") }).replace(/</g, "\\u003c")}></script>
+      <script is:inline type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) }).replace(/</g, "\\u003c")}></script>
+      <script is:inline type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") }).replace(/</g, "\\u003c")}></script>
 
       <!-- Modale ordine (acquisto) -->
       <div class="pmodal" id="omodal" hidden>
@@ -180,10 +180,13 @@ const plabel = (slug: string, fallback: string) => {
     <style>
       .pr-intro { color: var(--c-muted); font-size: 0.92rem; line-height: 1.6; margin: 0.5rem 0 1.6rem; max-width: 60ch; }
 
-      .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: stretch; }
+      /* min(320px, 100%): sotto i 320px di contenitore un minmax fisso NON si
+         stringe, la traccia resta 320 e la griglia esce dallo schermo. */
+      .pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 0.9rem; align-items: stretch; }
       .pcard { border: 1px solid var(--c-line); border-radius: 14px; background: var(--c-card); overflow: hidden; display: flex; flex-direction: column; }
       .pcard-cover { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #fff; cursor: pointer; display: block; }
-      .pcard-cover iframe { position: absolute; top: 0; left: 0; width: 1240px; height: 882px; border: 0; transform-origin: top left; pointer-events: none; }
+      /* overflow:hidden sostituisce l'attributo scrolling="no", deprecato. */
+      .pcard-cover iframe { position: absolute; top: 0; left: 0; width: 1240px; height: 882px; border: 0; overflow: hidden; transform-origin: top left; pointer-events: none; }
       .pcard-cover .pcard-zoom { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; opacity: 0; background: rgba(0, 0, 0, 0.15); transition: opacity 0.15s; }
       .pcard-cover:hover .pcard-zoom, .pcard-cover:focus-visible .pcard-zoom { opacity: 1; }
       .pcard-cover .pcard-zoom svg { width: 34px; height: 34px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5)); }
@@ -199,8 +202,8 @@ const plabel = (slug: string, fallback: string) => {
       .pcard-specs { display: flex; flex-direction: column; gap: 0.32rem; margin: 0.15rem 0 0.1rem; }
       .pcard-specs > div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; font-size: 0.85rem; }
       .pcard-specs dt { color: var(--c-muted); white-space: nowrap; }
-      .pcard-specs dd { color: var(--c-text); font-weight: 600; text-align: right; }
-      .pcard-foot { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
+      .pcard-specs dd { color: var(--c-text); font-weight: 600; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+      .pcard-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
       .pcard-nopage { color: var(--c-muted); font-size: 0.85rem; font-style: italic; margin-right: auto; }
 
       .pbtn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.5rem 1.1rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: var(--c-card); color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
@@ -217,7 +220,9 @@ const plabel = (slug: string, fallback: string) => {
       .pmodal-back { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
       .pmodal-box { position: relative; width: min(1000px, 100%); height: min(90vh, 100%); background: var(--c-card); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column; overflow: hidden; }
       .pmodal-head { display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1rem; border-bottom: 1px solid var(--c-line); }
-      .pmodal-title { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-text); }
+      /* Il nome del prodotto si accorcia; PDF e Chiudi non si spostano mai. */
+      .pmodal-title { font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; color: var(--c-text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pmodal-head .pbtn { flex: 0 0 auto; }
       .pmodal-sp { flex: 1; }
       #pmodal-frame { flex: 1; width: 100%; border: 0; background: #fff; }
 
@@ -228,13 +233,13 @@ const plabel = (slug: string, fallback: string) => {
 
       .omodal-box { position: relative; width: min(600px, 100%); max-height: 90vh; overflow-y: auto; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45); }
       .omodal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1rem; border-bottom: 1px solid var(--c-line); }
-      .omodal-title { font-family: var(--font-title); font-size: 1.5rem; color: var(--c-text); letter-spacing: 0.02em; }
-      .omodal-x { background: none; border: 0; color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+      .omodal-title { font-family: var(--font-title); font-size: 1.5rem; color: var(--c-text); letter-spacing: 0.02em; min-width: 0; overflow-wrap: anywhere; }
+      .omodal-x { background: none; border: 0; color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; flex: 0 0 auto; }
       .omodal-x:hover { color: var(--c-accent); }
       .omodal-body { padding: 1.3rem 1.6rem; }
       .omodal-ship { font-size: 0.85rem; color: var(--c-muted); margin: 0 0 1.3rem; line-height: 1.5; }
       .omodal-err { color: #c0392b; font-size: 0.85rem; min-height: 1em; margin-top: 0.9rem; }
-      .omodal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.6rem 1.4rem; border-top: 1px solid var(--c-line); }
+      .omodal-foot { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.6rem 1.4rem; border-top: 1px solid var(--c-line); }
       .ofoot { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.6rem 1.4rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
       .ofoot-cancel:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .ofoot-pay { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
