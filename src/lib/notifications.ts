@@ -66,7 +66,10 @@ export interface OrdineNotifica {
   customer_email: string;
   customer_phone: string | null;
   pickup_time: string; // ISO
-  items: { name: string; qty: number; price_cents: number; notes?: string }[];
+  // `name` resta la stringa completa (email cliente, stampa, Stripe la usano).
+  // `base_name` e `variant_label` ci sono solo sugli ordini NUOVI: chi legge
+  // deve ripiegare su `name` quando mancano.
+  items: { name: string; qty: number; price_cents: number; notes?: string; base_name?: string; variant_label?: string }[];
   total_cents: number;
   lang?: string;
 }
@@ -893,19 +896,34 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
 
+  // Pastiglia: niente flex nelle email, sono span inline-block che vanno in
+  // fila da soli. Il corallo e' la variante (cambia il prezzo), il grigio il
+  // supplemento — stessa gerarchia della card Ordini nell'admin.
+  const pastiglia = (testo: string, forte: boolean) =>
+    `<span style="display:inline-block;border:1px solid ${forte ? tema.accent : tema.border};border-radius:999px;padding:3px 12px;margin:8px 6px 0 0;color:${forte ? tema.accent : tema.muted};font-size:13px;font-weight:${forte ? "bold" : "normal"};line-height:1.3;">${testo}</span>`;
+
   const righeHtml = piatti
     .map((i) => {
+      // Ordini NUOVI: nome base ed etichetta variante arrivano gia separati.
+      // Ordini VECCHI: c'e' solo `name` concatenato, si ripiega sulla parentesi
+      // del supplemento come prima.
       const match = i.name.match(/^(.*?)\s*\((.+)\)\s*$/);
-      const nomeBase = match ? match[1] : i.name;
-      const suppl = match ? match[2] : "";
-      const supplRow = suppl
-        ? `<tr><td colspan="2" style="padding:0 0 10px;color:${tema.accent};font-size:15px;font-weight:bold;">↳ ${esc(suppl)}</td></tr>`
-        : "";
+      const nuovo = !!i.base_name;
+      const nomeBase = nuovo ? (i.base_name as string) : match ? match[1] : i.name;
+      const suppl = nuovo ? i.notes || "" : match ? match[2] : "";
+      const pastiglie =
+        (i.variant_label ? pastiglia(esc(i.variant_label), true) : "") +
+        (suppl ? pastiglia(esc(suppl), false) : "");
+      // Il filetto sta SEMPRE in fondo al blocco del piatto: se ci sono le
+      // pastiglie e' la loro riga a portarlo, altrimenti quella del nome.
+      const bordo = `border-bottom:1px solid ${tema.border};`;
+      const pad = pastiglie ? "14px 0 0" : "14px 0";
+      const bordoNome = pastiglie ? "" : bordo;
       return `
       <tr>
-        <td class="em-pad" style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
-        <td class="em-pad" style="padding:14px 0;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;">${euro(i.price_cents * i.qty)}</td>
-      </tr>${supplRow}`;
+        <td class="em-pad" style="padding:${pad};${bordoNome}color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
+        <td class="em-pad" style="padding:${pad};${bordoNome}color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;vertical-align:top;">${euro(i.price_cents * i.qty)}</td>
+      </tr>${pastiglie ? `<tr><td colspan="2" class="em-pad" style="padding:0 0 12px;${bordo}">${pastiglie}</td></tr>` : ""}`;
     })
     .join("");
 

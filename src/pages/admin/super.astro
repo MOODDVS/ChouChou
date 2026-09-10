@@ -36,6 +36,9 @@ const supI18n = {
     )
   ) as Record<string, string>,
   featureLabels: { variants: t("menu.variants") } as Record<string, string>,
+  pwaNoIcon: t("sup.pwa.noIcon"),
+  pwaNomeCliente: CLIENT.nome,
+  pwaReinstall: t("sup.pwa.reinstall"),
 };
 
 const prI18n = {
@@ -65,7 +68,6 @@ const prI18n = {
     <title>{t("sup.title") + " — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -506,6 +508,22 @@ const prI18n = {
 
           <hr class="publang-sep" />
 
+          {/* Marchio dell'app installata (PWA): RestoHub o cliente */}
+          <p class="tema-titre" style="margin-top:0">{t("sup.pwa.title")}</p>
+          <p class="sub">{t("sup.pwa.hint")}</p>
+          <div class="rows">
+            <div class="rowwrap">
+              <div class="row is-off" id="pwa-row">
+                <span class="row-name">{t("sup.pwa.row")}</span>
+                <span class="row-state" id="pwa-state">—</span>
+                <label class="switch"><input type="checkbox" id="pwa-sw" /><span class="track"></span></label>
+              </div>
+              <p class="note" id="pwa-msg" style="margin: 0.8rem 0 0"></p>
+            </div>
+          </div>
+
+          <hr class="publang-sep" />
+
           {/* Funzioni opzionali del motore (accese per cliente) */}
           <p class="tema-titre" style="margin-top:0">{t("sup.features.title")}</p>
           <p class="sub">{t("sup.features.hint")}</p>
@@ -811,6 +829,7 @@ const prI18n = {
           on?: string; off?: string;
           pageLabels?: Record<string, string>; tabLabels?: Record<string, string>;
           featureLabels?: Record<string, string>;
+          pwaNoIcon?: string; pwaReinstall?: string; pwaNomeCliente?: string;
         };
 
         let nascoste: string[] = [];
@@ -850,6 +869,46 @@ const prI18n = {
           } catch {
             funzioni = prima; // salvataggio fallito: si torna com'era
             renderFunzioni();
+          }
+        });
+
+        // ---- Marchio dell'app installata (PWA) ----
+        // L'interruttore si accende solo se l'icona del cliente esiste davvero:
+        // senza, l'app resterebbe senza icona invece di ripiegare su RestoHub.
+        const pwaSw = document.getElementById("pwa-sw") as HTMLInputElement | null;
+        const pwaRow = document.getElementById("pwa-row") as HTMLElement | null;
+        const pwaState = document.getElementById("pwa-state") as HTMLElement | null;
+        const pwaMsg = document.getElementById("pwa-msg") as HTMLElement | null;
+        let pwaBrand: "restohub" | "client" = "restohub";
+        let pwaIcona = false;
+
+        function renderPwa() {
+          if (!pwaSw || !pwaRow || !pwaState || !pwaMsg) return;
+          const acceso = pwaBrand === "client";
+          pwaSw.checked = acceso;
+          pwaSw.disabled = !pwaIcona;
+          pwaRow.classList.toggle("is-off", !acceso);
+          pwaState.textContent = acceso ? (SUP.pwaNomeCliente || "Client") : "RestoHub";
+          // Un interruttore spento senza spiegazione sembra un guasto: qui dice
+          // sempre perche' e' spento, o cosa succede se lo accendi.
+          pwaMsg.textContent = pwaIcona ? (SUP.pwaReinstall ?? "") : (SUP.pwaNoIcon ?? "");
+        }
+        pwaSw?.addEventListener("change", async () => {
+          const prima = pwaBrand;
+          pwaBrand = pwaSw.checked ? "client" : "restohub";
+          renderPwa();
+          try {
+            const res = await fetch("/api/admin/pages", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ pwaBrand }),
+            });
+            if (!res.ok) throw new Error();
+            toast(tr("common.saved"));
+          } catch {
+            pwaBrand = prima; // salvataggio fallito: si torna com'era
+            renderPwa();
+            toast(tr("common.saveErr"), true);
           }
         });
 
@@ -1718,6 +1777,8 @@ const prI18n = {
             theme?: Record<string, string>;
             publicLangs?: string[];
             publicLangDefault?: string;
+            pwaBrand?: string;
+            appIcon?: string | null;
           };
           nascoste = dati.hidden ?? [];
           nascosteTab = dati.hiddenTabs ?? [];
@@ -1725,6 +1786,8 @@ const prI18n = {
           tema = dati.theme ?? {};
           publicLangs = Array.isArray(dati.publicLangs) && dati.publicLangs.length ? dati.publicLangs : ["fr", "en"];
           publicDefault = dati.publicLangDefault && publicLangs.includes(dati.publicLangDefault) ? dati.publicLangDefault : publicLangs[0];
+          pwaBrand = dati.pwaBrand === "client" ? "client" : "restohub";
+          pwaIcona = Boolean(dati.appIcon);
           stateEl.style.display = "none";
           rowsEl.style.display = "grid";
           featRowsEl.style.display = "grid";
@@ -1735,6 +1798,7 @@ const prI18n = {
           renderFunzioni();
           renderPublang();
           renderTema();
+          renderPwa();
           applicaTema();
         } catch {
           stateEl.textContent = SUP.loadError ?? "Erreur de chargement.";

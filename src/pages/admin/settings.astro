@@ -41,7 +41,6 @@ const t = adminT(lang);
     <title>{"Admin — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -607,6 +606,7 @@ const t = adminT(lang);
       .brand-prev.light { background: #f2ede4; }
       .brand-prev img { max-height: 72px; max-width: 88%; }
       .brand-prev.fav img { max-height: 32px; max-width: 32px; }
+      .brand-prev.fav.app img { max-height: 64px; max-width: 64px; border-radius: 12px; }
       .brand-empty { color: var(--c-muted); }
       .brand-btns { display: flex; gap: 0.5rem; }
       .brand-up {
@@ -1065,6 +1065,14 @@ const t = adminT(lang);
                   <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
+              <div class="brand-card" data-bk="brand_app_icon">
+                <p class="brand-lab">{t("set.gen.appIcon")}</p>
+                <div class="brand-prev fav app"><span class="brand-empty">—</span><img alt={t("set.gen.appIcon")} style="display:none" /></div>
+                <div class="brand-btns">
+                  <label class="brand-up">{t("mk.upload")}<input type="file" accept=".png,.jpg,.jpeg,.webp" hidden /></label>
+                  <button type="button" class="tm-ibtn del brand-rm" style="display:none" aria-label={t("set.gen.remove")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                </div>
+              </div>
               <div class="brand-card" data-bk="brand_favicon">
                 <p class="brand-lab">Favicon</p>
                 <div class="brand-prev fav"><span class="brand-empty">—</span><img alt="Favicon" style="display:none" /></div>
@@ -1075,6 +1083,7 @@ const t = adminT(lang);
               </div>
             </div>
             <p class="brand-hint">{t("set.gen.brandHint")}</p>
+            <p class="brand-hint">{t("set.gen.appIconHint")}</p>
           </div>
 
           <div class="section" data-tab="horaire" style="display:none">
@@ -1621,6 +1630,7 @@ const t = adminT(lang);
       import { isSuperUser } from "../../lib/admin/superAdmin";
       import { SERVIZI_WIDGET, nomeServizio, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { generaIconaPWA, PWA_ICONA_LATO } from "../../lib/admin/imageCompress";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -1760,7 +1770,7 @@ const t = adminT(lang);
         });
 
         // --- Logos & favicon (bucket "brand", URL in app_config) ---
-        const BRAND_CHIAVI = ["brand_logo", "brand_logo_negative", "brand_logo_mono", "brand_favicon"];
+        const BRAND_CHIAVI = ["brand_logo", "brand_logo_negative", "brand_logo_mono", "brand_favicon", "brand_app_icon"];
         const brandVal: Record<string, string> = Object.fromEntries(BRAND_CHIAVI.map((k) => [k, ""]));
         const brandPrev = (card: HTMLElement) => {
           const k = card.dataset.bk as string;
@@ -1783,23 +1793,34 @@ const t = adminT(lang);
             if (f.size > 4 * 1024 * 1024) { stateEl.textContent = tr("cli.fileTooBig"); return; }
             stateEl.textContent = tr("cli.uploading");
             try {
+              // L'icona dell'app non e' un logo qualsiasi: Android vuole un PNG
+              // QUADRATO di almeno 192px (512 e' la misura buona). La generiamo
+              // qui invece di sperare che il file caricato sia gia' giusto.
+              let daCaricare = f;
+              if (k === "brand_app_icon") {
+                const ico = await generaIconaPWA(f);
+                if (!ico) { stateEl.textContent = tr("set.gen.appIconFormat"); return; }
+                daCaricare = ico.file;
+                if (ico.latoSorgente < PWA_ICONA_LATO) stateEl.textContent = tr("set.gen.appIconSmall");
+              }
               const b64 = await new Promise<string>((ok, ko) => {
                 const r = new FileReader();
                 r.onload = () => ok(String(r.result).split(",")[1] ?? "");
                 r.onerror = () => ko(new Error("lettura"));
-                r.readAsDataURL(f);
+                r.readAsDataURL(daCaricare);
               });
               const { data: sFr } = await supabaseBrowser.auth.getSession();
               const res = await fetch("/api/admin/upload", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${sFr.session?.access_token ?? ""}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ bucket: "brand", filename: f.name, data: b64 }),
+                body: JSON.stringify({ bucket: "brand", filename: daCaricare.name, data: b64 }),
               });
               const j = await res.json();
               if (!res.ok || !j.url) { stateEl.textContent = j.error ?? tr("menu.uploadFailedDot"); return; }
               brandVal[k] = j.url as string;
               brandPrev(card);
-              stateEl.textContent = "";
+              // Se sopra abbiamo avvisato che l'immagine era piccola, l'avviso resta.
+              if (stateEl.textContent === tr("cli.uploading")) stateEl.textContent = "";
               dirty();
             } catch {
               stateEl.textContent = tr("common.netErr");
@@ -3573,7 +3594,17 @@ const t = adminT(lang);
         });
 
         const token = session.access_token ?? "";
-        const headers = { Authorization: `Bearer ${token}` };
+        let headers = { Authorization: `Bearer ${token}` };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}` };
+        });
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---

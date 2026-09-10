@@ -112,3 +112,58 @@ export async function preparaFotoGoogle(file: File): Promise<FotoGoogle | null> 
   const ext = tipo === "image/png" ? "png" : "jpg";
   return { file: new File([blob], `${base}.${ext}`, { type: tipo }), larghezza: w, altezza: h };
 }
+
+/* ------------------------------------------------------------------------
+ * ICONA dell'app installata (PWA).
+ * Requisiti veri, non nostri: Android/Chrome vogliono un PNG QUADRATO di
+ * almeno 192px per considerare l'app installabile, e 512 e' la misura che
+ * copre anche la schermata di avvio. Un favicon da 32px o un SVG NON vanno:
+ * l'icona esce sfocata o l'installazione viene rifiutata.
+ *
+ * Qui l'immagine viene messa dentro un quadrato 512 SENZA tagliarla
+ * («contain», sfondo trasparente): un logo largo resta intero, con aria
+ * sopra e sotto. Meglio un logo centrato che un logo decapitato.
+ * ---------------------------------------------------------------------- */
+
+export const PWA_ICONA_LATO = 512;
+
+export type IconaPWA = {
+  file: File;
+  /** Lato lungo dell'immagine di partenza: sotto 512 l'icona sara' sgranata. */
+  latoSorgente: number;
+};
+
+/** null = formato non utilizzabile (SVG compreso) o immagine non decodificabile. */
+export async function generaIconaPWA(file: File): Promise<IconaPWA | null> {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) return null;
+
+  let img: ImageBitmap | HTMLImageElement;
+  try {
+    img = await caricaImmagine(file);
+  } catch {
+    return null;
+  }
+  const w0 = img instanceof HTMLImageElement ? img.naturalWidth : img.width;
+  const h0 = img instanceof HTMLImageElement ? img.naturalHeight : img.height;
+  if (!w0 || !h0) return null;
+
+  const L = PWA_ICONA_LATO;
+  const canvas = document.createElement("canvas");
+  canvas.width = L;
+  canvas.height = L;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  const scala = Math.min(L / w0, L / h0);
+  const w = Math.round(w0 * scala);
+  const h = Math.round(h0 * scala);
+  ctx.drawImage(img, Math.round((L - w) / 2), Math.round((L - h) / 2), w, h);
+
+  const blob = await toBlob(canvas, "image/png", 1);
+  if (!blob) return null;
+  const base = file.name.replace(/\.[^.]+$/, "") || "app-icon";
+  return {
+    file: new File([blob], `${base}-512.png`, { type: "image/png" }),
+    latoSorgente: Math.max(w0, h0),
+  };
+}

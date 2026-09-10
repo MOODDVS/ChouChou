@@ -12,12 +12,20 @@ const SELECT_BASE =
 const COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants"];
 
 type Risultato = { data: unknown; error: { message?: string } | null };
+/** Come Risultato, ma dice anche QUALI colonne ha dovuto togliere per riuscire. */
+type RisultatoRipiego = Risultato & { escluse: string[] };
 
-/** Esegue l'operazione togliendo una per una le colonne che il DB non conosce. */
+/** Esegue l'operazione togliendo una per una le colonne che il DB non conosce.
+ *
+ *  ⚠️ Per le LETTURE il ripiego è giusto: un cliente indietro con le migrazioni
+ *  deve comunque vedere il menu. Per le SCRITTURE invece toglieva il campo dal
+ *  payload e tornava 200: il salvataggio sembrava riuscito e il dato spariva
+ *  (caso reale: le varianti che «non si salvavano»). Da qui `escluse`, che il
+ *  chiamante DEVE guardare prima di dire all'utente che è andato tutto bene. */
 async function conRipiego(
   esegui: (select: string, campi: Record<string, unknown>) => Promise<Risultato>,
   campi: Record<string, unknown> = {}
-): Promise<Risultato> {
+): Promise<RisultatoRipiego> {
   const escluse = new Set<string>();
   let ultimo: Risultato = { data: null, error: { message: "" } };
   for (let giro = 0; giro <= COLONNE_NUOVE.length; giro++) {
@@ -27,10 +35,16 @@ async function conRipiego(
     ultimo = await esegui(sel, c);
     const msg = String(ultimo.error?.message ?? "");
     const colpevole = ultimo.error ? COLONNE_NUOVE.find((k) => !escluse.has(k) && msg.includes(k)) : undefined;
-    if (!colpevole) return ultimo;
+    if (!colpevole) return { ...ultimo, escluse: [...escluse] };
     escluse.add(colpevole);
   }
-  return ultimo;
+  return { ...ultimo, escluse: [...escluse] };
+}
+
+/** Campi che il chiamante voleva scrivere e che il DB non ha accettato.
+ *  Vuoto = tutto salvato davvero. */
+function campiPersi(res: RisultatoRipiego, campi: Record<string, unknown>): string[] {
+  return res.escluse.filter((c) => c in campi);
 }
 
 // Lingue del sito pubblico supportate (traduzioni piatti). Vedi superAdmin.ts.
@@ -266,6 +280,13 @@ export const POST: APIRoute = async ({ request }) => {
     campi
   );
   if (res.error || !res.data) return json({ error: "Création impossible" }, 500);
+  const persi = campiPersi(res, campi);
+  if (persi.length) {
+    return json(
+      { error: `Base de données incomplète : colonne(s) ${persi.join(", ")} absente(s). Le plat est créé, pas ces champs. Appliquer les migrations.` },
+      409
+    );
+  }
   return json({ item: res.data });
 };
 
@@ -301,6 +322,13 @@ export const PUT: APIRoute = async ({ request }) => {
     campi
   );
   if (res.error || !res.data) return json({ error: "Modification impossible" }, 500);
+  const persi = campiPersi(res, campi);
+  if (persi.length) {
+    return json(
+      { error: `Base de données incomplète : colonne(s) ${persi.join(", ")} absente(s). Le reste est enregistré, pas ces champs. Appliquer les migrations.` },
+      409
+    );
+  }
   return json({ item: res.data });
 };
 

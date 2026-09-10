@@ -71,7 +71,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <title>{t("nav.orders") + " — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -224,6 +223,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .item-qty { color: var(--c-accent); font-weight: 700; }
       .item-name { flex: 1; color: var(--c-text); }
       .item-sub { color: var(--c-muted); font-size: 0.8rem; white-space: nowrap; }
+      /* Varianti e supplementi: pastiglie SOTTO il nome, rientrate della
+         larghezza del «2×» + il suo gap, cosi formano una colonna sotto il
+         piatto invece di ripartire dal bordo della card. Vanno a capo da sole:
+         a cedere sono le pastiglie, mai il nome del piatto. */
+      .item-vars { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.3rem; padding-left: calc(1.7rem + 0.6rem); }
+      .v-chip {
+        font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em;
+        color: var(--c-accent); border: 1px solid var(--c-accent);
+        border-radius: 999px; padding: 0.1rem 0.55rem; white-space: nowrap;
+      }
 
       .order-note { margin-top: 0.9rem; padding: 0.7rem 0.9rem; background: var(--c-card); border-left: 2px solid var(--c-accent); font-size: 0.9rem; }
 
@@ -479,10 +488,30 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-cats::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 999px; }
       .nc-cats .nc-pill { flex: 0 0 auto; white-space: nowrap; }
       .nc-items { max-height: 320px; overflow-y: auto; border: 1px solid var(--c-line); border-radius: 8px; }
-      .nc-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 0.8rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
+      /* min-height: tutte le righe alte uguale, con o senza il bottone «+»
+         (26px) e con o senza prezzo. Il padding da solo non basta: la riga
+         col bottone e' piu alta di quella di solo testo. */
+      .nc-item { display: flex; align-items: center; gap: 0.6rem; min-height: 3.3rem; padding: 0.85rem 0.8rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
       .nc-item:last-child { border-bottom: none; }
       .nc-item .n { flex: 1; min-width: 0; }
       .nc-item .p { color: var(--c-muted); white-space: nowrap; }
+      /* Piatto con formati: il nome fa da testata (niente prezzo, niente +) e
+         ogni formato ha la sua riga rientrata. Si sceglie dalla lista, senza
+         un modale in mezzo. */
+      .nc-item-head { border-bottom: none; font-weight: 700; }
+      .nc-item-var { padding-left: 1.6rem; border-bottom: none; }
+      /* Dopo l'ULTIMA variante la linea torna piena: separa il piatto dal
+         successivo. (Stessa specificita della regola dopo: conta l'ordine.) */
+      .nc-item-var + .nc-item { border-top: 1px solid var(--c-line); }
+      /* Fra DUE varianti la linea e' rientrata: parte dove parte il
+         triangolino e finisce dove finisce il cerchio del «+», non da bordo
+         a bordo della lista. Le varianti restano un blocco solo. */
+      .nc-item-var + .nc-item-var { border-top: none; position: relative; }
+      .nc-item-var + .nc-item-var::before { content: ""; position: absolute; top: 0; left: 1.6rem; right: 0.8rem; border-top: 1px solid var(--c-line); }
+      .nc-item-var .n { color: var(--c-text); font-weight: 700; font-size: 0.84rem; letter-spacing: 0.02em; }
+      /* Triangolino corallo: e' il marcatore a dire «questa e' una variante»,
+         cosi l'etichetta resta bianca e leggibile come il resto della lista. */
+      .nc-item-var .n::before { content: ""; display: inline-block; vertical-align: middle; width: 0; height: 0; margin-right: 0.5rem; position: relative; top: -1px; border-left: 6px solid var(--c-accent); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
       .nc-plus {
         width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-accent);
         background: transparent; color: var(--c-accent); font-size: 1rem; line-height: 1;
@@ -812,12 +841,25 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { leggiVariantiDb, etichettaVariante, prezzoEffettivo } from "../../lib/pricing";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
 
-      type Item = { id: string; name: string; qty: number; price_cents: number; notes: string };
+      type Item = {
+        id: string;
+        /** Stringa completa «Margherita — 33 cm (Sans gluten)»: c'e' SEMPRE, anche sugli ordini vecchi. */
+        name: string;
+        /** Pezzi separati: solo dagli ordini fatti dopo il 10/09/2026. */
+        base_name?: string;
+        variant_label?: string;
+        /** Chiave del formato scelto, quando il piatto ne ha. */
+        variant?: string;
+        qty: number;
+        price_cents: number;
+        notes: string;
+      };
       type Order = {
         id: string;
         status: string;
@@ -907,11 +949,31 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         const itemsHTML = piatti
           .map((i) => {
-            const sub = i.notes ? ` <span class="item-sub">(${esc(i.notes)})</span>` : "";
-            return `
+            // Ordini NUOVI: nome in grande, variante e supplementi come pastiglie
+            // sotto, allineate al nome (non al numero) cosi il blocco si legge
+            // come una cosa sola. Ordini VECCHI: `base_name` non c'e' e si torna
+            // alla riga piatta di prima — nessuna migrazione dei dati.
+            if (!i.base_name) {
+              const sub = i.notes ? ` <span class="item-sub">(${esc(i.notes)})</span>` : "";
+              return `
               <div class="item">
                 <span class="item-qty">${i.qty}×</span>
                 <span class="item-name">${esc(i.name)}${sub}</span>
+              </div>`;
+            }
+            const pastiglie = [i.variant_label ?? "", i.notes ?? ""]
+              .filter(Boolean)
+              .map((v) => `<span class="v-chip">${esc(v)}</span>`)
+              .join("");
+            // Niente pastiglie = niente riga: un piatto semplice non si allunga.
+            const varsHTML = pastiglie ? `<div class="item-vars">${pastiglie}</div>` : "";
+            return `
+              <div class="item-blk">
+                <div class="item">
+                  <span class="item-qty">${i.qty}×</span>
+                  <span class="item-name">${esc(i.base_name)}</span>
+                </div>
+                ${varsHTML}
               </div>`;
           })
           .join("");
@@ -1065,7 +1127,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         });
 
         const token = session.access_token ?? "";
-        const headers = { Authorization: `Bearer ${token}` };
+        let headers = { Authorization: `Bearer ${token}` };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}` };
+        });
 
         // --- Bottoni rapidi tempo di preparazione (15/30/45) ---
         const prepBtns = Array.from(document.querySelectorAll<HTMLButtonElement>(".prep-btn[data-min]"));
@@ -1736,9 +1808,36 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           id: string; name: string; category: string; price_cents: number;
           available: boolean; orderable?: boolean;
           discount_type?: string | null; discount_value?: number | null;
+          variants?: unknown;
         };
         let ncMenu: VoceMenu[] = [];
-        const ncCart = new Map<string, { voce: VoceMenu; qty: number }>();
+        /** Riga di carrello. La CHIAVE e' `id|variante`: due formati dello stesso
+         *  piatto sono due righe distinte, altrimenti la seconda sovrascrive la prima.
+         *  `price` e' gia' risolto (variante + sconto): il resto del codice non
+         *  deve piu' sapere se la riga ha un formato o no. */
+        type RigaCart = { voce: VoceMenu; qty: number; variant?: string; label?: string; price: number };
+        const ncCart = new Map<string, RigaCart>();
+        const ncKey = (id: string, variant?: string) => (variant ? `${id}|${variant}` : id);
+        const ncNome = (r: RigaCart) => (r.label ? `${r.voce.name} — ${r.label}` : r.voce.name);
+        /** Formati ORDINABILI di un piatto (esclude spenti ed esauriti). */
+        function ncVarianti(v: VoceMenu) {
+          return leggiVariantiDb(v.variants).filter((x) => x.orderable && !x.sold_out);
+        }
+        /** Aggiunge (o incrementa) una riga. Unico punto che scrive nel carrello. */
+        function ncAggiungi(voce: VoceMenu, variantKey?: string) {
+          const disp = ncVarianti(voce);
+          // Piatto CON formati e nessuna chiave (preferito vecchio, senza
+          // variante salvata): si prende il primo disponibile invece di mandare
+          // una riga senza formato, che il server rifiuterebbe con un 409.
+          const va = disp.length ? (disp.find((x) => x.key === variantKey) ?? disp[0]) : undefined;
+          const label = va ? etichettaVariante(va, LANG) : undefined;
+          const price = va
+            ? prezzoEffettivo(va.price_cents, voce.discount_type as never, voce.discount_value ?? null)
+            : ncPrezzo(voce);
+          const k = ncKey(voce.id, va?.key);
+          const cur = ncCart.get(k);
+          ncCart.set(k, { voce, qty: (cur?.qty ?? 0) + 1, variant: va?.key, label, price });
+        }
         // Lingua email dell'ordine: parte dalla predefinita della regola (data-default),
 // e può cambiare solo tra le lingue pubbliche ATTIVE (pillole renderizzate SSR).
 const NC_LANG_DEFAULT = (document.getElementById("nc-langs") as HTMLElement | null)?.dataset.default || "fr";
@@ -1804,10 +1903,25 @@ let ncLang: string = NC_LANG_DEFAULT;
         function ncRenderItems() {
           (document.getElementById("nc-items") as HTMLDivElement).innerHTML = ncMenu
             .filter((v) => v.category === ncCat)
-            .map(
-              (v) =>
-                `<div class="nc-item"><span class="n">${esc(v.name)}</span><span class="p">${euro(ncPrezzo(v))}</span><button type="button" class="nc-plus" data-add="${v.id}">+</button></div>`
-            )
+            .map((v) => {
+              const va = ncVarianti(v);
+              // Piatto SENZA formati: riga singola, identica a prima.
+              if (!va.length) {
+                return `<div class="nc-item"><span class="n">${esc(v.name)}</span><span class="p">${euro(ncPrezzo(v))}</span><button type="button" class="nc-plus" data-add="${v.id}">+</button></div>`;
+              }
+              // Piatto CON formati: il nome fa da testata (niente prezzo, niente +),
+              // e ogni formato ha la sua riga col suo prezzo e il suo +. Cosi si
+              // sceglie in un colpo solo, senza un modale in mezzo.
+              return (
+                `<div class="nc-item nc-item-head"><span class="n">${esc(v.name)}</span></div>` +
+                va
+                  .map(
+                    (x) =>
+                      `<div class="nc-item nc-item-var"><span class="n">${esc(etichettaVariante(x, LANG))}</span><span class="p">${euro(prezzoEffettivo(x.price_cents, v.discount_type as never, v.discount_value ?? null))}</span><button type="button" class="nc-plus" data-add="${v.id}" data-var="${esc(x.key)}">+</button></div>`
+                  )
+                  .join("")
+              );
+            })
             .join("");
         }
         function ncRenderCart() {
@@ -1817,21 +1931,21 @@ let ncLang: string = NC_LANG_DEFAULT;
             '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
           box.innerHTML = righe.length
             ? righe
-                .map(
-                  ({ voce, qty }) =>
-                    `<div class="nc-cline">
-                       <div class="nc-cline-top"><span>${esc(voce.name)}</span><span>${euro(ncPrezzo(voce) * qty)}</span></div>
+                .map((r) => {
+                  const k = ncKey(r.voce.id, r.variant);
+                  return `<div class="nc-cline">
+                       <div class="nc-cline-top"><span>${esc(ncNome(r))}</span><span>${euro(r.price * r.qty)}</span></div>
                        <div class="nc-cline-controls">
-                         <button type="button" data-meno="${voce.id}" aria-label="${tr("ord.less")}">−</button>
-                         <span class="nc-cline-qty">${qty}</span>
-                         <button type="button" data-piu="${voce.id}" aria-label="${tr("ord.more")}">+</button>
-                         <button type="button" class="nc-cline-remove" data-del="${voce.id}" aria-label="${tr("ord.remove")}">${ICO_BIN}</button>
+                         <button type="button" data-meno="${esc(k)}" aria-label="${tr("ord.less")}">−</button>
+                         <span class="nc-cline-qty">${r.qty}</span>
+                         <button type="button" data-piu="${esc(k)}" aria-label="${tr("ord.more")}">+</button>
+                         <button type="button" class="nc-cline-remove" data-del="${esc(k)}" aria-label="${tr("ord.remove")}">${ICO_BIN}</button>
                        </div>
-                     </div>`
-                )
+                     </div>`;
+                })
                 .join("")
             : `<div class="nc-cart-empty">${tr("ord.cartEmpty")}</div>`;
-          const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
+          const tot = righe.reduce((t, r) => t + r.price * r.qty, 0);
           (document.getElementById("nc-total") as HTMLElement).textContent = euro(tot);
         }
         async function apriNc() {
@@ -1909,7 +2023,20 @@ let ncLang: string = NC_LANG_DEFAULT;
           for (const it of o.items) {
             if (it.id === "note") continue;
             const voce = ncMenu.find((v) => v.id === it.id);
-            if (voce) ncCart.set(voce.id, { voce, qty: Math.max(1, Math.floor(Number(it.qty) || 1)) });
+            if (!voce) continue;
+            const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
+            // Ricostruisce anche il formato: senza, modificare un ordine con
+            // varianti lo riscriverebbe tutto sul formato base.
+            const va = it.variant ? ncVarianti(voce).find((x) => x.key === it.variant) : undefined;
+            ncCart.set(ncKey(voce.id, va?.key), {
+              voce,
+              qty,
+              variant: va?.key,
+              label: va ? etichettaVariante(va, LANG) : undefined,
+              price: va
+                ? prezzoEffettivo(va.price_cents, voce.discount_type as never, voce.discount_value ?? null)
+                : ncPrezzo(voce),
+            });
           }
           ncRenderCart();
           // Cliente: ultima parola = cognome (campo obbligatorio), resto = nome
@@ -2019,7 +2146,7 @@ let ncLang: string = NC_LANG_DEFAULT;
                 date: ncDate,
                 slot: ncSlot,
                 note: (document.getElementById("nc-note") as HTMLTextAreaElement).value,
-                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty })),
+                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty, ...(r.variant ? { variant: r.variant } : {}) })),
               }),
             });
             const j = (await res.json()) as { error?: string };
@@ -2236,8 +2363,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           if (!b) return;
           const voce = ncMenu.find((v) => v.id === b.dataset.add);
           if (!voce) return;
-          const cur = ncCart.get(voce.id);
-          ncCart.set(voce.id, { voce, qty: (cur?.qty ?? 0) + 1 });
+          ncAggiungi(voce, b.dataset.var);
           ncRenderCart();
         });
         (document.getElementById("nc-cart") as HTMLDivElement).addEventListener("click", (e) => {
@@ -2354,7 +2480,7 @@ let ncLang: string = NC_LANG_DEFAULT;
             if (phone) qs.set("phone", phone);
             const res = await fetch("/api/admin/orders?" + qs.toString(), { headers });
             if (!res.ok) return;
-            const j = (await res.json()) as { top_items?: Array<{ id: string; name: string; qty: number }> };
+            const j = (await res.json()) as { top_items?: Array<{ id: string; name: string; qty: number; variant?: string }> };
             if (seq !== ncFavSeq) return;
             const items = j.top_items ?? [];
             if (!items.length) return;
@@ -2363,7 +2489,7 @@ let ncLang: string = NC_LANG_DEFAULT;
               `<div class="nc-fav-chips">` +
               items.map((it) => {
                 const inMenu = ncMenu.some((v) => v.id === it.id);
-                return `<button type="button" class="nc-fav-chip${inMenu ? "" : " off"}" data-fav="${esc(it.id)}"${inMenu ? "" : " disabled"} title="${esc(tr("ord.favAdd"))}"><span class="nc-fav-n">${esc(it.name)}</span><span class="nc-fav-q">×${it.qty}</span></button>`;
+                return `<button type="button" class="nc-fav-chip${inMenu ? "" : " off"}" data-fav="${esc(it.id)}"${it.variant ? ` data-favvar="${esc(it.variant)}"` : ""}${inMenu ? "" : " disabled"} title="${esc(tr("ord.favAdd"))}"><span class="nc-fav-n">${esc(it.name)}</span><span class="nc-fav-q">×${it.qty}</span></button>`;
               }).join("") +
               `</div>`;
             ncFav.hidden = false;
@@ -2374,8 +2500,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           if (!b) return;
           const voce = ncMenu.find((v) => v.id === b.dataset.fav);
           if (!voce) return;
-          const cur = ncCart.get(voce.id);
-          ncCart.set(voce.id, { voce, qty: (cur?.qty ?? 0) + 1 });
+          // Il preferito porta anche il formato ordinato l'ultima volta, se c'era.
+          ncAggiungi(voce, b.dataset.favvar || undefined);
           ncRenderCart();
           ncRenderRecap(); // siamo allo step 3: aggiorna anche il riepilogo carrello
           ncToast(tr("ord.favAdded"));
@@ -2438,7 +2564,7 @@ let ncLang: string = NC_LANG_DEFAULT;
                 date: ncDate,
                 slot: ncSlot,
                 note: (document.getElementById("nc-note") as HTMLTextAreaElement).value,
-                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty })),
+                items: [...ncCart.values()].map((r) => ({ id: r.voce.id, qty: r.qty, ...(r.variant ? { variant: r.variant } : {}) })),
               }),
             });
             const j = (await res.json()) as { error?: string };
@@ -2481,9 +2607,9 @@ let ncLang: string = NC_LANG_DEFAULT;
           const box = document.getElementById("nc-recap") as HTMLDivElement;
           const righe = [...ncCart.values()];
           box.innerHTML = righe.length
-            ? righe.map((r) => `<div class="nc-recap-row"><span>${r.qty}× ${esc(r.voce.name)}</span><span>${euro(ncPrezzo(r.voce) * r.qty)}</span></div>`).join("")
+            ? righe.map((r) => `<div class="nc-recap-row"><span>${r.qty}× ${esc(ncNome(r))}</span><span>${euro(r.price * r.qty)}</span></div>`).join("")
             : `<div class="nc-cart-empty">${tr("ord.cartEmpty")}</div>`;
-          const tot = righe.reduce((t, r) => t + ncPrezzo(r.voce) * r.qty, 0);
+          const tot = righe.reduce((t, r) => t + r.price * r.qty, 0);
           (document.getElementById("nc-total-2") as HTMLElement).textContent = euro(tot);
         }
         // Recap "cosa cambia" (solo in modifica): confronta carrello/orario/totale
@@ -2492,12 +2618,12 @@ let ncLang: string = NC_LANG_DEFAULT;
           const box = document.getElementById("nc-mod-recap") as HTMLElement;
           if (!ncEditId || !ncOrig) { box.hidden = true; box.innerHTML = ""; return; }
           const cur = new Map<string, number>();
-          for (const { voce, qty } of ncCart.values()) cur.set(voce.name, (cur.get(voce.name) ?? 0) + qty);
+          for (const r of ncCart.values()) cur.set(ncNome(r), (cur.get(ncNome(r)) ?? 0) + r.qty);
           const added: string[] = [];
           const removed: string[] = [];
           for (const [name, q] of cur) { const d = q - (ncOrig.items.get(name) ?? 0); if (d > 0) added.push(`${d}× ${esc(name)}`); }
           for (const [name, q] of ncOrig.items) { const d = q - (cur.get(name) ?? 0); if (d > 0) removed.push(`${d}× ${esc(name)}`); }
-          const curTotal = [...ncCart.values()].reduce((tt, r) => tt + ncPrezzo(r.voce) * r.qty, 0);
+          const curTotal = [...ncCart.values()].reduce((tt, r) => tt + r.price * r.qty, 0);
           const timeChanged = ncOrig.date !== ncDate || ncOrig.slot !== ncSlot;
           const totalChanged = curTotal !== ncOrig.total;
           box.hidden = false;

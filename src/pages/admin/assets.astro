@@ -32,7 +32,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <title>{t("nav.assets") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -788,6 +787,16 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         });
 
         headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}` };
+        });
         await carica();
         void caricaDocs();
 

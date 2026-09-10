@@ -36,7 +36,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
     <title>{t("nav.marketing") + " — Admin " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -429,6 +428,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <button class="mtab" data-tab="coupons"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" /><line x1="13" y1="5" x2="13" y2="7" /><line x1="13" y1="11" x2="13" y2="13" /><line x1="13" y1="17" x2="13" y2="19" /></svg>{t("tab.marketing.coupons")}</button>
           <button class="mtab" data-tab="giftcards"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12" /><rect x="2" y="7" width="20" height="5" /><line x1="12" y1="22" x2="12" y2="7" /><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" /><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" /></svg>{t("tab.marketing.giftcards")}</button>
           <button class="mtab" data-tab="promos"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg>{t("tab.marketing.promos")}</button>
+          <button class="mtab" data-tab="fidelity"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21l7.7-7.6 1.1-1a5.5 5.5 0 0 0 0-7.8z" /></svg>{t("tab.marketing.fidelity")}</button>
         </div>
 
         <div class="state" id="state">{t("sup.loading")}</div>
@@ -457,8 +457,15 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <div class="pops" id="giftcards"></div>
         </div>
 
+        {/* I pannelli restano SEMPRE nel DOM: mostraTab e i listener li cercano
+            per id e morirebbero su null. A spegnerli e' il super admin, che
+            mette data-off="1" (Réglages → Pagine visibili → Marketing). */}
         <div id="tab-promos" style="display:none">
           <div class="state">{t("mk.promoSoon")}</div>
+        </div>
+
+        <div id="tab-fidelity" style="display:none">
+          <div class="state">{t("mk.fidelitySoon")}</div>
         </div>
 
         <div id="tab-news" style="display:none">
@@ -1138,6 +1145,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const tabCoupons = document.getElementById("tab-coupons") as HTMLDivElement;
         const tabGift = document.getElementById("tab-giftcards") as HTMLDivElement;
         const tabPromos = document.getElementById("tab-promos") as HTMLDivElement;
+        const tabFidelity = document.getElementById("tab-fidelity") as HTMLDivElement;
         const mtabs = document.getElementById("mtabs") as HTMLDivElement;
         let tabAttivo = "popup";
 
@@ -1152,6 +1160,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           tabCoupons.style.display = t === "coupons" && !vietato(tabCoupons) ? "block" : "none";
           tabGift.style.display = t === "giftcards" && !vietato(tabGift) ? "block" : "none";
           tabPromos.style.display = t === "promos" && !vietato(tabPromos) ? "block" : "none";
+          tabFidelity.style.display = t === "fidelity" && !vietato(tabFidelity) ? "block" : "none";
           // Il FAB segue il PANNELLO: se il tab e' spento dal super admin il
           // pannello resta a display:none e il suo bottone non compare.
           document.querySelectorAll<HTMLElement>(".mk-fab").forEach((f) => {

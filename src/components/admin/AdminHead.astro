@@ -14,9 +14,13 @@
  * serve a recepire un cambio di colori avvenuto DENTRO i 60s di cache.
  */
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
+import { CLIENT } from "../../config/client";
 import "../../styles/modal.css";  // regole condivise dei modali su mobile
 
 const boot = await caricaBootAdmin();
+// App installata col marchio del cliente: vale solo se l'icona c'e' davvero
+// (caricaBootAdmin ripiega gia' su "restohub" se manca, qui e' solo leggibilita').
+const marchioCliente = boot.pwaBrand === "client" && !!boot.appIcon;
 // FAB condiviso: pulsante d'azione fisso in basso a destra, identico su ogni
 // pagina admin. Definito qui (fondo <head>) così vince sempre nella cascata.
 const FAB_CSS =
@@ -73,11 +77,14 @@ const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).
     })();
   </script>
 )}
-{/* Installazione PWA: nome e icona SEMPRE RestoHub, su qualsiasi dispositivo.
-    L'icona iOS (apple-touch-icon) NON è tra i rel="icon" riscritti sopra col
-    favicon del cliente, quindi resta il marchio RestoHub. */}
-<link rel="apple-touch-icon" href="/restohub/apple-touch-icon.png" />
-<meta name="apple-mobile-web-app-title" content="RestoHub" />
+{/* Installazione PWA. Il manifest sta QUI, non nelle singole pagine: era
+    ripetuto identico in 12 file, e ora il suo contenuto dipende da una scelta
+    del super admin (icona RestoHub o del cliente) che va letta a runtime.
+    L'icona iOS e il nome vanno dichiarati a parte: iOS IGNORA il manifest per
+    queste due cose, quindi non basta cambiare il manifest. */}
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href={marchioCliente ? boot.appIcon! : "/restohub/apple-touch-icon.png"} />
+<meta name="apple-mobile-web-app-title" content={marchioCliente ? CLIENT.nome : "RestoHub"} />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 {/* Font handwriting per il saluto header (desktop/tablet). */}

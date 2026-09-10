@@ -52,7 +52,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <title>{"Admin — " + CLIENT.nome}</title>
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -206,6 +205,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
       .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
       .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+      /* Grigia: il piatto e' fuori dal sito. Rossa (.closed) = esaurito ma
+         ancora a menu — stessa famiglia di pastiglie dei giorni speciali. */
+      .spx-b.hid { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
+      .spx-nome { color: var(--c-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 6rem; min-width: 0; }
       .spx-date { font-weight: 800; color: var(--c-text); white-space: nowrap; }
       /* Se accanto alle date non ci sta, va SOTTO a tutta larghezza invece di
          ridursi a «vaca…»: cosi' la nota si legge davvero. */
@@ -568,7 +571,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         dinner_active: boolean; dinner_open: string | null; dinner_close: string | null;
         prep_time_minutes: number; slot_duration_minutes: number;
       } | null;
-      type MenuRow = { category: string; available: boolean };
+      type MenuRow = { category: string; available: boolean; name: string; sold_out?: boolean | null };
       type Cat = { name: string; kind: "food" | "drink" };
       type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null };
       type StatsResp = {
@@ -853,7 +856,17 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const oggiKey = dayKey(oggi);
 
         const token = session.access_token ?? "";
-        const headers = { Authorization: `Bearer ${token}` };
+        let headers = { Authorization: `Bearer ${token}` };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}` };
+        });
 
         // Cards visibili subito; Notes e tile si popolano in parallelo.
         stateEl.style.display = "none";
@@ -1211,31 +1224,48 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         })();
 
         // ---------- Jours spéciaux (fetch autonomo, fuori dal batch SSR) ----------
-        (async () => {
+        // La stessa lista vive in due posti: qui nella tile e nel form dentro
+        // la modale. Il form rilancia `spf:loaded` dopo ogni aggiunta o
+        // cancellazione, quindi la tile si ridisegna con QUEI dati — niente
+        // secondo fetch e niente ricarica della pagina.
+        (() => {
           const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
           if (!wrap) return;
-          try {
-            const res = await fetch("/api/admin/special-days", { headers });
-            if (!res.ok) throw new Error();
-            const days = (((await res.json()) as { days: { type: string; date_from: string; date_to: string; note?: string | null }[] }).days) ?? [];
+          type SpxDay = { type: string; date_from: string; date_to: string; note?: string | null };
+          const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
+          const escSpx = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          const MAX = 4;
+
+          function renderSpx(days: SpxDay[]): void {
+            if (!wrap) return;
             if (!days.length) {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
               return;
             }
-            const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
-            const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-            const MAX = 4;
             wrap.innerHTML =
               days.slice(0, MAX).map((sp) => {
                 const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
                 const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
-                const nota = sp.note ? `<span class="spx-note">${esc(String(sp.note))}</span>` : "";
+                const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
                 return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
               }).join("") +
               (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} ${tr("home.more")}…</div>` : "");
-          } catch {
-            wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
           }
+
+          document.addEventListener("spf:loaded", (e) => {
+            const d = (e as CustomEvent<{ days?: SpxDay[] }>).detail?.days;
+            if (Array.isArray(d)) renderSpx(d);
+          });
+
+          void (async () => {
+            try {
+              const res = await fetch("/api/admin/special-days", { headers });
+              if (!res.ok) throw new Error();
+              renderSpx((((await res.json()) as { days: SpxDay[] }).days) ?? []);
+            } catch {
+              wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
+            }
+          })();
         })();
 
         try {
@@ -1523,22 +1553,34 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const rows = ((await resMenu.json()).items as MenuRow[]) ?? [];
             const cats = ((await resCats.json()).categories as Cat[]) ?? [];
             const kindByCat = new Map(cats.map((c) => [c.name, c.kind]));
-            let food = 0, drink = 0, indispo = 0;
+            let food = 0, drink = 0;
             for (const r of rows) {
               if (kindByCat.get(r.category) === "drink") drink++;
               else food++;
-              if (!r.available) indispo++;
             }
             (document.getElementById("menu-food") as HTMLElement).textContent = String(food);
             (document.getElementById("menu-drink") as HTMLElement).textContent = String(drink);
+
+            // Non un numero ma i NOMI: il ristoratore deve sapere QUALE piatto
+            // e' fuori, altrimenti deve aprire il menu per scoprirlo.
+            // Prima gli esauriti (sono ancora sul sito, il cliente li vede),
+            // poi i nascosti. «Nascosto» vince su «esaurito»: se il piatto non
+            // e' online, dire che e' esaurito non aggiunge niente.
             const indispoEl = document.getElementById("menu-indispo") as HTMLElement;
-            if (indispo > 0) {
-              indispoEl.textContent = `${indispo} ${tr(indispo > 1 ? "home.dishesWord" : "home.dishWord")}`;
-              indispoEl.classList.add("warn");
-            } else {
-              indispoEl.textContent = tr("home.allVisible");
-              indispoEl.classList.add("none");
-            }
+            const fuori = rows
+              .filter((r) => !r.available || r.sold_out)
+              .sort((x, y) => Number(!!y.available && !!y.sold_out) - Number(!!x.available && !!x.sold_out));
+            const MAXI = 4;
+            const escM = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+            indispoEl.innerHTML = !fuori.length
+              ? `<div class="spx-empty">${tr("home.allVisible")}</div>`
+              : fuori.slice(0, MAXI).map((r) => {
+                  const b = !r.available
+                    ? `<span class="spx-b hid">${tr("print.hidden")}</span>`
+                    : `<span class="spx-b closed">${tr("menu.soldOut")}</span>`;
+                  return `<div class="spx-row">${b}<span class="spx-nome">${escM(r.name)}</span></div>`;
+                }).join("") +
+                (fuori.length > MAXI ? `<div class="spx-more">+ ${fuori.length - MAXI} ${tr("home.more")}…</div>` : "");
           }
 
           // ---------- Statistiques ----------
