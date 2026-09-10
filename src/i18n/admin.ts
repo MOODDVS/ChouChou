@@ -500,7 +500,7 @@ const DIZIONARIO: Dizionario = {
   "home.upcomingEvents": { fr: "Événements à venir", en: "Upcoming events", it: "Prossimi eventi", nl: "Aankomende evenementen", es: "Próximos eventos" },
   "home.dishes":      { fr: "plats", en: "dishes", it: "piatti", nl: "gerechten", es: "platos" },
   "home.drinks":      { fr: "boissons", en: "drinks", it: "bevande", nl: "dranken", es: "bebidas" },
-  "home.unavailable": { fr: "Indisponibles (masqués du site)", en: "Unavailable (hidden from site)", it: "Non disponibili (nascosti dal sito)", nl: "Niet beschikbaar (verborgen op site)", es: "No disponibles (ocultos del sitio)" },
+  "home.unavailable": { fr: "Indisponibles", en: "Unavailable", it: "Non disponibili", nl: "Niet beschikbaar", es: "No disponibles" },
   "home.notes":       { fr: "Notes", en: "Notes", it: "Note", nl: "Notities", es: "Notas" },
   "home.enlarge":     { fr: "Agrandir", en: "Enlarge", it: "Ingrandisci", nl: "Vergroten", es: "Ampliar" },
   "home.addNote":     { fr: "Ajouter une note", en: "Add a note", it: "Aggiungi una nota", nl: "Notitie toevoegen", es: "Añadir una nota" },

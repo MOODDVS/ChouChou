@@ -831,7 +831,36 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - Aggiunti due campi **accanto** a `name`, non al suo posto: **`base_name`** e **`variant_label`** (il supplemento era gia in `notes`, la chiave variante gia in `variant`).
 - ✅ **`name` NON e' stato toccato**: lo leggono le email al ristoratore, la stampa cucina e Stripe. Cambiarlo avrebbe rotto tutto quanto sta a valle per guadagnare niente.
 - ✅ **Nessuna migrazione**: gli ordini vecchi non hanno `base_name` e il rendering ripiega da solo sulla riga piatta di prima. Vecchi e nuovi convivono nella stessa lista, con un solo `if` in un solo punto.
-- **Da fare quando servira**: le stesse pastiglie nella stampa cucina e nelle notifiche, che oggi usano `name` e restano com'erano.
+- **Da fare quando servira**: le stesse pastiglie nella **stampa cucina** e nelle **notifiche push**, che oggi usano `name` e restano com'erano.
+
+### 📖 Home, tile «Menu»: i nomi al posto del numero
+- «4 piatti» non dice QUALE: bisognava aprire il menu per scoprirlo. Ora la tile elenca i piatti fuori uso con la pastiglia: **grigia «Nascosto»** (fuori dal sito), **rossa «Esaurito»** (ancora a menu ma finito).
+- **Nascosto vince su esaurito**: se il piatto non e' online, dire che e' esaurito non aggiunge niente al ristoratore.
+- Ordine: prima gli **esauriti** (li vede anche il cliente sul sito), poi i nascosti. Massimo 4 + «+ N ancora…».
+- Riusate le pastiglie dei Giorni speciali (`.spx-b`), aggiunto solo il grigio `.hid`. Nessun elemento nuovo.
+- ⚠️ **Il select SSR della home non chiedeva `sold_out`** — stesso buco delle varianti in `caricaMenu.ts`, altro file. Aggiunto `MENU_SELECT_HOME` **con ripiego**: se la colonna manca (cliente indietro con le migrazioni) la query non fallisce intera, si rilegge senza. La home non puo' permettersi di restare senza dati per una colonna.
+- `home.unavailable` non dice piu «(nascosti dal sito)»: adesso la sezione contiene due cose diverse.
+
+### 🗓️ Home, tile «Giorni speciali»: si aggiornava solo ricaricando
+- La lista della tile era disegnata **una volta sola** da una IIFE al load. Il form dentro la modale salvava, rileggeva, e la tile restava indietro.
+- Il segnale c'era gia: `SpecialDaysForm` lancia `spf:loaded` su `document` dopo ogni aggiunta e ogni cancellazione. Mancava solo chi lo ascoltasse.
+- Estratta `renderSpx(days)` dalla IIFE e agganciata all'evento: la tile si ridisegna **con i dati dell'evento**, senza un secondo fetch.
+- Lezione: quando la stessa lista vive in due posti, il posto che la SCRIVE deve annunciarlo e il posto che la MOSTRA deve ascoltare. Un render dentro una IIFE non e' richiamabile da nessuno.
+
+### 📧 Email al ristoratore: pastiglie anche li
+- La mail «Nuovo ordine» mostrava `Bruschette al pomodoro — test1` su una riga sola, esattamente il problema che avevamo appena tolto dalla card.
+- Ora nome del piatto grande, e **sotto le pastiglie**: corallo la variante, grigia il supplemento. Stessa gerarchia della card Ordini.
+- **Niente flex nelle email**: sono `span` `inline-block` con `border-radius:999px`, che si mettono in fila da soli. Outlook desktop squadra gli angoli e pazienza — la pastiglia si legge lo stesso, ed e la stessa forma gia usata dal badge «PAGATO» e dai bottoni di queste mail.
+- **Il filetto sta sempre in fondo al blocco del piatto**: se ci sono le pastiglie e la loro riga a portarlo, altrimenti quella del nome. Prima il `↳` del supplemento cadeva SOTTO la linea, attaccato visivamente al piatto successivo.
+- **Ordini vecchi**: senza `base_name` si ripiega sulla parentesi come prima. Nessuna migrazione, vecchi e nuovi nella stessa mail.
+- `OrdineNotifica.items` ha ora `base_name?` e `variant_label?` **accanto** a `name`, mai al suo posto.
+
+### 🔴 Menu: pallino col numero di varianti accanto al nome
+- Nella lista piatti un piatto con formati non si distingueva da uno senza: bisognava aprirlo per scoprirlo.
+- Ora accanto al nome c'e' un **pallino corallo col numero di varianti** (`.i-vars`): stesso colore delle pastiglie della card Ordini, cosi la variante ha un solo colore in tutto l'admin.
+- **Compare solo dove serve**: funzione «variants» accesa dal super admin E almeno una variante. Un piatto semplice resta identico a prima.
+- Il segnale lato client e' lo stesso gia usato dal modale (`FEAT_VARIANTI` = presenza del pannello `#f-vars`), non un secondo flag da tenere allineato.
+- `flex: none` come gli altri badge della riga: a stringersi e' sempre il nome (`.i-nm` con ellissi), mai il pallino.
 
 ## 🎟️ PROGETTO — FIDELITY CARD — idea impostata 08/09/2026 (da costruire)
 

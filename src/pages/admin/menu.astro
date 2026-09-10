@@ -228,6 +228,9 @@ const varianti = boot.features.includes("variants");
       .i-badges { flex: none; display: inline-flex; gap: 0.3rem; margin-left: 0.5rem; vertical-align: middle; }
       .i-soldout { flex: none; display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .i-badge { font-size: 0.82rem; line-height: 1; }
+      /* Pallino col numero di varianti: corallo come le pastiglie della card
+         ordine, cosi' la variante ha lo stesso colore ovunque nell'admin. */
+      .i-vars { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; margin-left: 0.55rem; min-width: 1.35rem; height: 1.35rem; padding: 0 0.34rem; border: 2px solid var(--c-accent); border-radius: 999px; color: #fff; font-size: 0.7rem; font-weight: 800; line-height: 1; }
       .b-best { color: var(--c-accent); }
       .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .i-alg {
@@ -996,6 +999,16 @@ const varianti = boot.features.includes("variants");
         if (it.is_seasonal) b += `<span class="i-badge" title="${tr("menu.seasonal")}">🍂</span>`;
         return b ? `<span class="i-badges">${b}</span>` : "";
       }
+      // La funzione "variants" e' accesa dal super admin: il segnale lato
+      // client e' lo stesso usato dal modale, cioe' la presenza del pannello.
+      const FEAT_VARIANTI = !!document.getElementById("f-vars");
+      // Il pallino compare solo dove serve: funzione accesa e almeno una
+      // variante. Un piatto semplice resta identico a prima.
+      function variantiHTML(it: Item): string {
+        if (!FEAT_VARIANTI) return "";
+        const n = it.variants?.length ?? 0;
+        return n ? `<span class="i-vars" title="${n} ${esc(tr("menu.variants"))}">${n}</span>` : "";
+      }
       function itemHTML(it: Item, indent = 0): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
         // Colonna allergeni: sempre presente (anche vuota) così le righe restano allineate
@@ -1008,7 +1021,7 @@ const varianti = boot.features.includes("variants");
           <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}"${indent ? ` style="margin-left:${indent}rem"` : ""}>
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
-            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
+            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${variantiHTML(it)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
             <span class="i-switches">

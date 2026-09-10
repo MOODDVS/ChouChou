@@ -488,16 +488,30 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-cats::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 999px; }
       .nc-cats .nc-pill { flex: 0 0 auto; white-space: nowrap; }
       .nc-items { max-height: 320px; overflow-y: auto; border: 1px solid var(--c-line); border-radius: 8px; }
-      .nc-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 0.8rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
+      /* min-height: tutte le righe alte uguale, con o senza il bottone «+»
+         (26px) e con o senza prezzo. Il padding da solo non basta: la riga
+         col bottone e' piu alta di quella di solo testo. */
+      .nc-item { display: flex; align-items: center; gap: 0.6rem; min-height: 3.3rem; padding: 0.85rem 0.8rem; border-bottom: 1px solid var(--c-line); font-size: 0.88rem; }
       .nc-item:last-child { border-bottom: none; }
       .nc-item .n { flex: 1; min-width: 0; }
       .nc-item .p { color: var(--c-muted); white-space: nowrap; }
       /* Piatto con formati: il nome fa da testata (niente prezzo, niente +) e
          ogni formato ha la sua riga rientrata. Si sceglie dalla lista, senza
          un modale in mezzo. */
-      .nc-item-head { border-bottom: none; padding-bottom: 0.25rem; font-weight: 700; }
-      .nc-item-var { padding-top: 0.45rem; padding-bottom: 0.45rem; padding-left: 1.6rem; }
-      .nc-item-var .n { color: var(--c-accent); font-weight: 700; font-size: 0.84rem; letter-spacing: 0.02em; }
+      .nc-item-head { border-bottom: none; font-weight: 700; }
+      .nc-item-var { padding-left: 1.6rem; border-bottom: none; }
+      /* Dopo l'ULTIMA variante la linea torna piena: separa il piatto dal
+         successivo. (Stessa specificita della regola dopo: conta l'ordine.) */
+      .nc-item-var + .nc-item { border-top: 1px solid var(--c-line); }
+      /* Fra DUE varianti la linea e' rientrata: parte dove parte il
+         triangolino e finisce dove finisce il cerchio del «+», non da bordo
+         a bordo della lista. Le varianti restano un blocco solo. */
+      .nc-item-var + .nc-item-var { border-top: none; position: relative; }
+      .nc-item-var + .nc-item-var::before { content: ""; position: absolute; top: 0; left: 1.6rem; right: 0.8rem; border-top: 1px solid var(--c-line); }
+      .nc-item-var .n { color: var(--c-text); font-weight: 700; font-size: 0.84rem; letter-spacing: 0.02em; }
+      /* Triangolino corallo: e' il marcatore a dire «questa e' una variante»,
+         cosi l'etichetta resta bianca e leggibile come il resto della lista. */
+      .nc-item-var .n::before { content: ""; display: inline-block; vertical-align: middle; width: 0; height: 0; margin-right: 0.5rem; position: relative; top: -1px; border-left: 6px solid var(--c-accent); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
       .nc-plus {
         width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--c-accent);
         background: transparent; color: var(--c-accent); font-size: 1rem; line-height: 1;

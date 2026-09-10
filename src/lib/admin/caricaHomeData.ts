@@ -15,6 +15,26 @@ import { TIMEZONE } from "../slots";
 
 const MENU_SELECT =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
+// La tile Menu della Accueil elenca anche i piatti ESAURITI, quindi qui serve
+// `sold_out`. E' una colonna arrivata con una migrazione: su un cliente che non
+// l'ha ancora lanciata la query fallirebbe INTERA e la home resterebbe senza
+// dati. Quindi si prova con, e si ripiega senza.
+const MENU_SELECT_HOME = MENU_SELECT + ", sold_out";
+
+function menuOrdinato(sel: string) {
+  return supabaseAdmin
+    .from("menu_items")
+    .select(sel)
+    .order("category_order", { ascending: true })
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
+}
+
+async function caricaMenuHome(): Promise<{ data: unknown[] | null }> {
+  const res = await menuOrdinato(MENU_SELECT_HOME);
+  if (!res.error) return { data: res.data as unknown[] | null };
+  return { data: (await menuOrdinato(MENU_SELECT)).data as unknown[] | null };
+}
 const ORDERS_SELECT =
   "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at";
 
@@ -32,12 +52,7 @@ export async function caricaHomeData() {
       .order("pickup_time", { ascending: true }),
     caricaResaGiorno(oggiKey),
     caricaToday(),
-    supabaseAdmin
-      .from("menu_items")
-      .select(MENU_SELECT)
-      .order("category_order", { ascending: true })
-      .order("sort_order", { ascending: true })
-      .order("name", { ascending: true }),
+    caricaMenuHome(),
     supabaseAdmin
       .from("menu_categories")
       .select("id, name, sort_order, kind")
