@@ -155,7 +155,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const email = (url.searchParams.get("email") ?? "").trim();
     const phone = (url.searchParams.get("phone") ?? "").trim();
     if (!email && !phone) return json({ top_items: [], lang: "" });
-    type ItemJ = { id?: string; name?: string; qty?: number };
+    type ItemJ = { id?: string; name?: string; qty?: number; variant?: string };
     const rows = new Map<string, { items: ItemJ[]; lang: string; created_at: string }>();
     const raccogli = async (mode: "email" | "phone", val: string) => {
       const base = supabaseAdmin
@@ -170,7 +170,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     };
     try { if (email) await raccogli("email", email); } catch { /* */ }
     try { if (phone) await raccogli("phone", phone); } catch { /* */ }
-    const tally = new Map<string, { id: string; name: string; qty: number }>();
+    // Chiave id+FORMATO: «Margherita 33» e «Margherita 45» sono due preferiti
+    // diversi. Aggregando sul solo id, cliccare il preferito di un piatto con
+    // formati manderebbe una riga senza formato, che il server rifiuta (409).
+    const tally = new Map<string, { id: string; name: string; qty: number; variant?: string }>();
     let lang = "";
     let ultima = "";
     for (const r of rows.values()) {
@@ -179,9 +182,11 @@ export const GET: APIRoute = async ({ request, url }) => {
         if (!it || it.id === "note" || !it.id) continue;
         const q = Math.max(0, Number(it.qty) || 0);
         if (!q) continue;
-        const cur = tally.get(it.id) ?? { id: it.id, name: String(it.name ?? ""), qty: 0 };
+        const variant = it.variant ? String(it.variant) : undefined;
+        const k = variant ? `${it.id}|${variant}` : it.id;
+        const cur = tally.get(k) ?? { id: it.id, name: String(it.name ?? ""), qty: 0, ...(variant ? { variant } : {}) };
         cur.qty += q;
-        tally.set(it.id, cur);
+        tally.set(k, cur);
       }
     }
     const top = [...tally.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
@@ -272,7 +277,7 @@ function rigaOrdine(
   piatto: any,
   rich: { qty?: unknown; variant?: unknown },
   lang: string
-): { name: string; price_cents: number; qty: number; variant?: string } | null {
+): { name: string; base_name: string; variant_label?: string; price_cents: number; qty: number; variant?: string } | null {
   const qty = Math.max(1, Math.floor(Number(rich.qty)));
   let variante = null as ReturnType<typeof trovaVariante>;
   if (haVarianti(piatto.variants)) {
@@ -283,7 +288,11 @@ function rigaOrdine(
   const price_cents = prezzoEffettivo(pieno, piatto.discount_type, piatto.discount_value);
   const etichetta = variante ? etichettaVariante(variante, lang) : "";
   return {
+    // `name` resta la stringa completa: la leggono email, stampa e Stripe.
     name: etichetta ? `${piatto.name} — ${etichetta}` : piatto.name,
+    // I pezzi separati per la card Ordini (pastiglie sotto il nome), come in checkout.ts.
+    base_name: piatto.name,
+    ...(etichetta ? { variant_label: etichetta } : {}),
     price_cents,
     qty,
     ...(variante ? { variant: variante.key } : {}),
@@ -399,14 +408,14 @@ export const POST: APIRoute = async ({ request }) => {
   if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
 
   const voci: VoceCheckout[] = [];
-  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
+  const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
     if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
     if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
-    itemsOrdine.push({ id: piatto.id, name: riga.name, qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
+    itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });
@@ -672,14 +681,14 @@ export const PUT: APIRoute = async ({ request }) => {
   if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
 
   const voci: VoceCheckout[] = [];
-  const itemsOrdine: { id: string; name: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
+  const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
     if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
     if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
-    itemsOrdine.push({ id: piatto.id, name: riga.name, qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
+    itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
   const noteText = String(body.note ?? "").trim().slice(0, 500);
   if (noteText) itemsOrdine.push({ id: "note", name: "NOTE CLIENT", qty: 0, price_cents: 0, notes: noteText });

@@ -179,7 +179,15 @@ export const POST: APIRoute = async ({ request }) => {
     voci.push({ name: nomeRiga, price_cents: prezzoUnitario, qty });
     itemsOrdine.push({
       id: piatto.id,
+      // `name` resta la stringa completa concatenata: la leggono le email, la
+      // stampa e Stripe, e cambiarla romperebbe tutto quanto sta a valle.
       name: nomeRiga,
+      // I PEZZI separati, per chi vuole comporli da solo (card Ordini: nome in
+      // grande, variante e supplemento come pastiglie sotto). Senza questi
+      // l'unico modo sarebbe spezzare `name` sul trattino lungo — e si romperebbe
+      // col primo piatto che ha un trattino nel nome.
+      base_name: piatto.name,
+      ...(etichetta ? { variant_label: etichetta } : {}),
       qty,
       price_cents: prezzoUnitario,
       notes: supplemento === "none" ? "" : SUPPL_LABEL[supplemento],

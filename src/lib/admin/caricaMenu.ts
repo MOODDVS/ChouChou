@@ -7,7 +7,13 @@ import { supabaseAdmin } from "../db";
 
 const MENU_SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
-const MENU_SELECT = MENU_SELECT_BASE + ", sold_out, name_i18n, desc_i18n";
+// ⚠️ Questa lista DEVE restare allineata a COLONNE_NUOVE in
+// `api/admin/menu.ts`. Ci mancava `variants`, e siccome questa e' la lettura
+// SSR (quella del PRIMO caricamento della pagina), le varianti salvate
+// sparivano a ogni reload: c'erano nel database, c'erano nella risposta
+// dell'API dopo il salvataggio, ma non nei dati con cui la pagina nasce.
+const MENU_COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants"];
+const MENU_SELECT = MENU_SELECT_BASE + ", " + MENU_COLONNE_NUOVE.join(", ");
 
 async function caricaItems(): Promise<{ data: unknown[] | null }> {
   const ordina = (sel: string) =>
@@ -18,8 +24,17 @@ async function caricaItems(): Promise<{ data: unknown[] | null }> {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
   let res: { data: unknown[] | null; error: { message?: string } | null } = await ordina(MENU_SELECT);
-  if (res.error && (String(res.error.message ?? "").includes("name_i18n") || String(res.error.message ?? "").includes("desc_i18n") || String(res.error.message ?? "").includes("sold_out"))) {
-    res = await ordina(MENU_SELECT_BASE); // colonne i18n non ancora migrate
+  // Su un cliente indietro con le migrazioni si toglie SOLO la colonna che
+  // manca, non tutte: prima bastava una colonna assente per perdere anche le
+  // altre tre. (Stesso ripiego di `conRipiego` in api/admin/menu.ts.)
+  const escluse = new Set<string>();
+  for (let giro = 0; giro < MENU_COLONNE_NUOVE.length && res.error; giro++) {
+    const msg = String(res.error.message ?? "");
+    const colpevole = MENU_COLONNE_NUOVE.find((c) => !escluse.has(c) && msg.includes(c));
+    if (!colpevole) break;
+    escluse.add(colpevole);
+    const sel = [MENU_SELECT_BASE, ...MENU_COLONNE_NUOVE.filter((c) => !escluse.has(c))].join(", ");
+    res = await ordina(sel);
   }
   return { data: res.data };
 }

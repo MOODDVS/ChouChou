@@ -29,6 +29,8 @@ export const TABS_ADMIN: Record<string, { key: string; label: string }[]> = {
     { key: "news", label: "Newsletter" },
     { key: "coupons", label: "Coupons" },
     { key: "giftcards", label: "Bons cadeaux" },
+    { key: "promos", label: "Promotions" },
+    { key: "fidelity", label: "Fidélité" },
   ],
   stats: [
     { key: "ggl", label: "Google" },

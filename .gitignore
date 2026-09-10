@@ -29,3 +29,7 @@ pnpm-debug.log*
 # Mockup/anteprime generati durante le sessioni Cowork: NON fanno parte del
 # prodotto e non devono propagarsi ai clienti col merge.
 Claude outputs/
+
+# Scarti delle verifiche fatte da Cowork: la VM non puo' cancellare file
+# sul Mac, quindi li sposta qui. Cancellabile a mano quando capita.
+_to_delete/

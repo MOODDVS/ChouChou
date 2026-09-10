@@ -739,7 +739,8 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - **🎁 BONS CADEAUX — Step B**: uso del buono ONLINE al checkout (scala il saldo, Stripe incassa il resto; colonne `gift_card_*` su orders già pronte). Poi **Step C**: acquisto del buono dal cliente sul sito pubblico.
 - **🤝 RESTOTEAM — modello deciso** (sezione dedicata): prima la piattaforma col suo sito/API, poi la pagina Recrutement nel motore.
 - **🍽️ SERVICE EN SALLE — spec approvate** (sezione dedicata) — `table_sessions` con `location_id` dal giorno uno.
-- **🏢 MULTI-SEDE — scenario studiato** (sezione dedicata): strada B subito quando serve, nativo dopo Service en salle.
+- **🎟️ FIDELITY CARD — idea impostata 08/09/2026** (sezione dedicata): nessuna tessera (il cliente È la carta), bollini o cashback, e il premio esce come **coupon** riusando il sistema esistente. Limite noto: chi paga in cassa non accumula.
+- **🏢 MULTI-SEDE — DECISO 08/09/2026** (sezione dedicata): UNA installazione, `location_id` nullable dove NULL = «tutte le sedi», interruttore nel super admin. Caso reale: 450 Gradi, 3 punti. ~~Strada B~~ superata.
 - **⬆️ ASTRO 7** su branch dedicato (compiler severo sui tag, `compressHTML: true` esplicito, Node ≥ 22.12).
 - **🏗️ Brand step 2**: restano sito pubblico ed email transazionali (admin header/favicon ✅ 24/07).
 - **🧹 REFACTOR**: datepicker `.dp-*` in 5 copie (menu, résa, settings, marketing, accueil/eventi) → componente condiviso.
@@ -790,7 +791,127 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - **Flusso inverso**: candidato assunto → un click → membro Team precompilato dal profilo RestoTeam.
 - **Ordine**: 1) RestoTeam sito + API machine-first; 2) Recrutement nel motore (integrazione sottile).
 
-## 🏢 MULTI-SEDE (più punti, sito unico) — scenario studiato 24/07
+## 📌 10/09/2026 — Varianti visibili nella card Ordini
+
+### 🍕 Le pastiglie sotto il nome del piatto
+- **Prima**: `2× Margherita — 33 cm (Sans gluten)`, una riga sola in cui piatto, formato e supplemento hanno lo stesso peso. In cucina si legge male.
+- **Ora**: il nome del piatto in grande, e sotto le **pastiglie corallo** con variante e supplementi.
+- **Le pastiglie sono allineate al NOME, non al numero**: rientrano di `calc(1.7rem + 0.6rem)`, cioe la larghezza del «2×» piu il suo gap. Cosi formano una colonna sotto il piatto invece di ripartire dal bordo della card — e' il dettaglio che fa leggere il blocco come una cosa sola.
+- **Niente pastiglie = niente riga**: un piatto senza varianti resta identico a prima, la card non si allunga di un pixel.
+- Vanno a capo da sole (`flex-wrap`): a cedere sono le pastiglie, **mai il nome del piatto**. Provato col caso difficile, «Calzone ai funghi porcini» con tre pastiglie in una card stretta.
+
+### 🐛 Le varianti «non si salvavano»: erano salvate, non venivano LETTE
+- Sintomo: metti le varianti, salvi, toast «piatto aggiornato», riapri la modifica e ci sono. **Ricarichi la pagina e spariscono.**
+- Il toast era la prova decisiva: il PUT rispondeva **200 senza colonne scartate**, quindi la scrittura conteneva davvero le varianti. Il problema non era la scrittura, era la **prima lettura**.
+- **Causa**: la pagina Menu nasce da dati **SSR** (`caricaMenuPagina()` in `lib/admin/caricaMenu.ts`), non da una chiamata all'API. E li la select era `MENU_SELECT_BASE + ", sold_out, name_i18n, desc_i18n"` — **senza `variants`**.
+- Ecco perche' il sintomo sembrava assurdo: dopo il salvataggio la pagina fa `caricaTutto()`, che **passa dall'API** (che le varianti le legge) → si vedevano. Al reload i dati arrivano dall'SSR → sparivano. Stesso dato, due letture diverse, una sola incompleta.
+- ⚠️ **Due liste di colonne che dovevano restare allineate e non lo erano**: `COLONNE_NUOVE` in `api/admin/menu.ts` e `MENU_SELECT` in `caricaMenu.ts`. La migrazione #71 ha aggiornato la prima e dimenticato la seconda. Ora `caricaMenu.ts` ha la sua costante `MENU_COLONNE_NUOVE` con il commento che dice a cosa va tenuta allineata.
+- Corretto nella stessa passata anche il ripiego: se una colonna mancava, prima si ricadeva su `MENU_SELECT_BASE` perdendo **tutte** le colonne nuove. Ora se ne toglie **una alla volta**, come fa gia `conRipiego` nell'API.
+
+### 🔑 «Non autorisé» dopo un'ora — il token non veniva mai rinnovato
+- Segnalato come «le varianti non si salvano»: si mettevano, si vedevano, dopo un reload sparivano. Poi, provando di nuovo, «non autorizzato». **Non era un problema di varianti.**
+- **Causa**: `headers = { Authorization: Bearer <token> }` veniva costruito **una volta sola al caricamento della pagina**. I token Supabase scadono (di norma dopo un'ora): un tab lasciato aperto continuava a mandare quello vecchio, e **ogni scrittura tornava 401 «Non autorisé»**.
+- ⚠️ **Riguardava 8 pagine su 10**: `assets`, `clients`, `index`, `menu`, `orders`, `reservations`, `settings`, `stats`. Solo `agenda` e `google` erano a posto, perche avevano gia una `authFresh()` che rilegge la sessione a ogni chiamata.
+- **Fix scelto — l'ascoltatore, non la riscrittura.** supabase-js rinnova il token da solo in background ed emette l'evento: basta un `onAuthStateChange` che riscrive `headers`. **Nessuna delle ~150 chiamate `fetch` e' stata toccata.** L'alternativa (mettere `await authFresh()` a ogni call site) era 8 file × ~20 punti, tutta superficie per sbagliare.
+- Dove `headers` era `const` e' diventato `let` (5 pagine). Nelle altre 3 era gia' `let`.
+- 🔎 **Perche' era cosi difficile da vedere**: il sintomo cambia col punto in cui capita. Nel modale del menu l'errore appare in un messaggio piccolo che si perde; altrove la lista si ricarica e sembra solo che il dato «non sia stato salvato». Da qui la pista sbagliata sulle varianti — e la caccia a un bug che stava due piani piu' sotto.
+
+### 🛒 Modale «Nuovo ordine»: si sceglie il formato
+- Il modale non mostrava le varianti: qualunque piatto si aggiungesse, partiva col prezzo base. **Il server invece le accettava gia'** (`rigaOrdine` legge `rich.variant` da un pezzo): mancava solo la scelta nell'interfaccia.
+- **Nessun modale in mezzo**: un piatto con formati mostra il nome come testata (niente prezzo, niente +) e sotto una riga rientrata per formato, col suo prezzo e il suo +. Si sceglie dalla lista, in un colpo solo. Un piatto senza formati resta identico a prima.
+- ⚠️ **La chiave del carrello e' diventata `id|formato`.** Con la sola `id`, aggiungere la Margherita da 45 dopo quella da 33 **sovrascriveva** la riga invece di aggiungerne una. Introdotto `RigaCart` con `variant`, `label` e `price` gia risolto (formato + sconto), cosi il resto del codice non deve piu' sapere se una riga ha un formato: totali, recap, «cosa cambia» e invio leggono `r.price` e `ncNome(r)`.
+- **`ncAggiungi()` e' l'unico punto che scrive nel carrello** — prima la stessa riga era duplicata in tre posti (lista, preferiti, ricarica in modifica) e sarebbe diventata tre volte sbagliata.
+- 🐛 **Preferiti: bug trovato mentre lo scrivevo.** L'API aggregava i piu' ordinati **sul solo `id`**, quindi il chip di un piatto con formati avrebbe mandato una riga senza formato → **409 dal server**. Ora aggrega su `id|formato` e restituisce `variant`: «Margherita 33» e «Margherita 45» sono due preferiti distinti. Piu' una rete di sicurezza lato client: piatto con formati e chiave mancante → si prende il primo disponibile.
+- **Modifica di un ordine**: il carrello si ricostruisce col formato salvato. Senza, modificare un ordine con varianti lo avrebbe riscritto tutto sul formato base.
+- Anche gli ordini creati a mano salvano ora `base_name` e `variant_label` (`rigaOrdine`), quindi le pastiglie valgono pure per loro.
+- ⚠️ Errore evitato: avevo aggiunto `variants` a mano nella select di `piattiPerOrdine`, ma **`conRipiegoColonne` lo aggiunge gia'** (`MENU_COLONNE_NUOVE`). Sarebbe finita duplicata. Annullato.
+
+### ⚠️ La modifica vera stava sotto, non nel CSS
+- `checkout.ts` salvava sulla riga d'ordine **una stringa sola**, concatenata: nome + trattino + etichetta variante + supplemento fra parentesi. Per mostrare i pezzi separati l'unica strada sarebbe stata **spezzarla sul trattino lungo** — e si sarebbe rotta col primo piatto che ha un trattino nel nome.
+- Aggiunti due campi **accanto** a `name`, non al suo posto: **`base_name`** e **`variant_label`** (il supplemento era gia in `notes`, la chiave variante gia in `variant`).
+- ✅ **`name` NON e' stato toccato**: lo leggono le email al ristoratore, la stampa cucina e Stripe. Cambiarlo avrebbe rotto tutto quanto sta a valle per guadagnare niente.
+- ✅ **Nessuna migrazione**: gli ordini vecchi non hanno `base_name` e il rendering ripiega da solo sulla riga piatta di prima. Vecchi e nuovi convivono nella stessa lista, con un solo `if` in un solo punto.
+- **Da fare quando servira**: le stesse pastiglie nella stampa cucina e nelle notifiche, che oggi usano `name` e restano com'erano.
+
+## 🎟️ PROGETTO — FIDELITY CARD — idea impostata 08/09/2026 (da costruire)
+
+**L'idea in una riga: la fidelity card NON è una card.** Il cliente è già identificato da telefono/email su ogni ordine e prenotazione. Una tessera fisica aggiunge un oggetto da perdere e una cosa da stampare, senza aggiungere informazione.
+
+**Come si guadagna** — due modalità configurabili per cliente, non una imposta dal motore: **bollini** (10 pizze = 1 gratis, l'idioma della pizzeria) o **cashback in %**. Per 450 Gradi: bollini.
+
+**Come si spende — e qui sta la scelta architetturale.** Al raggiungimento della soglia il motore **genera un coupon** intestato a quel cliente. Niente moneta nuova, niente logica di riscatto nuova: il sistema coupon esiste già, è validato al checkout ed è testato. **La fidelity PRODUCE coupon, non inventa un secondo circuito.**
+
+**Dati: due cose sole.**
+- **`loyalty_events`** — cliente, sede, ordine di riferimento, delta, motivo, data. **Append-only.** ⚠️ **Mai una colonna `saldo` modificabile sul cliente**: con le cose che somigliano a denaro si tiene il libro mastro e si somma, altrimenti il primo bug lascia saldi sbagliati senza modo di ricostruirli. Il saldo è una `SUM`, eventualmente in cache.
+- **Configurazione in `app_config`** — modalità, soglia, premio, scadenza dei punti, e **quali canali contano** (ordine online, prenotazione onorata, entrambi).
+
+**Multi-sede** (coerente con la sezione qui sotto): la carta segue il **cliente** (condivisa, `location_id` nullo), ma ogni evento registra **dove** è maturato e dove è stato speso. Stesso schema dei buoni regalo, e serve alla stessa cosa: compensare fra società diverse.
+
+⚠️ **IL LIMITE VERO, da dire al cliente prima di venderla.** Oggi il motore vede solo ordini online e prenotazioni: **chi entra, mangia e paga in cassa non accumula niente**, ed è la maggioranza dei clienti di una pizzeria. Tre modi per chiuderlo: (1) il cameriere digita il telefono nell'admin — attrito basso, funziona subito; (2) QR sullo scontrino che il cliente scansiona; (3) aspettare **Service en salle**, già in roadmap, che lo risolve alla radice. **Partire da (1), progettare per (3).**
+
+### ✅ FATTO 08/09: gli switch (solo quelli)
+- ❌ **Primo tentativo sbagliato, annullato**: avevo messo `fidelity` fra le **funzioni opzionali** (`FUNZIONI_OPZIONALI`), con lo switch che nascondeva il tab «Promozioni». Sbagliato perche' **il meccanismo giusto esisteva gia'**: Marketing ha i suoi **sotto-tab** (Pop-up, Newsletter, Coupon, Buoni regalo) governati da `TABS_ADMIN` + `admin_tabs_hidden`. Un secondo meccanismo per la stessa cosa, e per di piu' uno solo per due funzioni diverse.
+- ✅ **Fatto invece**: due sotto-tab nuovi in `TABS_ADMIN.marketing` — **`promos` (Promozioni)** e **`fidelity` (Fedeltà)** — che compaiono come pillole sotto lo switch Marketing nel super admin, accanto alle altre quattro. **Separati**, perche' sono due cose distinte: le promozioni sono regole di prezzo automatiche, la fedelta e' un programma a punti. Un cliente puo' volere l'una senza l'altra.
+- In `marketing.astro`: due tab e due pannelli distinti (`#tab-promos`, `#tab-fidelity`), per ora entrambi «Prossimamente».
+- ⚠️ **I pannelli restano SEMPRE nel DOM**, li spegne il super con `data-off="1"`: `mostraTab` e i listener li cercano per id e morirebbero su null. Trappola gia' annotata per gli altri tab, riusata invece che reinventata.
+- **Nessuna funzione opzionale aggiunta**: `FUNZIONI_OPZIONALI` resta con la sola `variants`.
+
+### Dove si attiva e si configura — entrambi i posti ESISTONO GIA'
+- **Super admin → Réglages → Pagine visibili → Marketing**: le due pillole **Promozioni** e **Fedeltà**, accanto a Pop-up / Newsletter / Coupon / Buoni regalo. Stesso meccanismo di tutti gli altri sotto-tab (`TABS_ADMIN` + `admin_tabs_hidden`), nessuna invenzione.
+- **Marketing → tab «Fedeltà»**: dove il ristoratore configura il programma. **Marketing → tab «Promozioni»**: le regole di prezzo. Separati.
+- Dentro: interruttore acceso/spento del programma (diverso dal livello super — il modulo puo' esserci ma essere in pausa), modalita bollini/cashback, soglia e premio, canali che contano, scadenza. Piu' **un'anteprima della frase che ricevera' il cliente**: la soglia si sceglie guardando quella, non in astratto.
+- **Il premio punta al sistema coupon**: in quella schermata si sceglie o si crea il coupon da emettere. E' li' che si chiude il cerchio — la fidelity non inventa una moneta, produce coupon.
+- Il tab Promozioni si nasconde quando il modulo e' spento, con lo stesso meccanismo che gia' nasconde la colonna ordini quando il modulo ordini e' spento.
+
+### Adesione e interfaccia — deciso 08/09 (prima ipotesi corretta)
+- **Ipotesi iniziale**: checkbox al checkout «Vuoi i vantaggi fedeltà? sì/no» + tab «Fidelity» nella lista clienti con gli opted-in. **Scartata.**
+- ❌ **Niente checkbox al checkout.** Ogni casella in più è attrito, e l'attrito al checkout si paga in ordini persi. Ma il problema peggiore e' un altro: chi non spunta ordina dieci pizze e non guadagna niente, poi lo scopre e se la prende col ristorante. Il programma partirebbe dal giorno in cui il cliente ha notato una casella, non dal primo ordine.
+- ✅ **Si accumula per TUTTI, in silenzio.** I dati ci sono gia': ordini, telefono ed email si salvano comunque per evadere l'ordine, e sommare non richiede un permesso in piu'. Il momento del contatto diventa il **premio**: al superamento della soglia parte l'email «hai una pizza gratis». Il cliente scopre il programma li', ed e' una bella notizia invece di una domanda.
+- **Il consenso sta sull'EMAIL, non sull'accumulo** — e la macchina esiste gia': `newsletter_optout` sui clienti, con le pillole «Opted-in / Opted-out» gia' nella pagina. Chi si e' disiscritto non riceve la mail del premio. (Formulazione dell'informativa da far confermare a chi segue la privacy: l'aritmetica no, la comunicazione commerciale si'.)
+- **Se si vuole usare comunque quello spazio al checkout**, va girato al contrario: «Questo ordine ti dà 1 bollino — te ne mancano 4». Stessi pixel, effetto opposto: non chiedi al cliente di fare una cosa, gli dai un motivo per tornare.
+- ❌ **Nella lista clienti: NON un tab, una pillola.** Quella pagina non ha tab, ha filtri a pillola (Nuovo, No-show, Opted-in, Opted-out): una barra di tab sarebbe un elemento nuovo dove non serve.
+- ✅ E cambia **cosa** filtra: se accumulano tutti, «chi ha aderito» e' un elenco di nomi senza niente da farci. Le due liste che il ristoratore usa davvero sono **«vicini al premio»** e **«premio da usare»** — sulla prima manda una spinta, sulla seconda sa di avere un conto aperto. Piu' una **colonna coi bollini**, accendibile dal selettore colonne.
+
+**Cosa NON fare**: punti con tasso di conversione, livelli bronzo/argento/oro, scadenze aggressive — complessità che il ristoratore non gestisce e che il cliente non capisce. E i punti maturati sono un **debito**: servono una scadenza dichiarata e due righe di condizioni, altrimenti te li porti dietro per sempre.
+
+---
+
+## 🏢 MULTI-SEDE — DECISO 08/09/2026 (caso reale: 450 Gradi, 3 punti a Bruxelles)
+
+**Sostituisce lo scenario del 24/07 qui sotto**, che consigliava N installazioni separate. La decisione si è ribaltata quando sono usciti i requisiti veri del cliente: la condivisione che vogliono è troppa perché tre installazioni possano darla.
+
+**Il cliente**: 450 Gradi, pizzeria napoletana, **tre società separate** (Schaerbeek, Jourdan, Stockel), un marchio solo, sito unico. Menu identico nei tre punti.
+
+**Scelta: UNA installazione, `location_id`, interruttore nel super admin.**
+
+- **`location_id` NULLABLE, e NULL significa «vale per tutte le sedi».** È il perno di tutto il disegno e regala due cose: (1) le righe che esistono oggi hanno NULL → **per La Molisana, ChouChou, L'Huile ed EN non cambia NIENTE**; (2) la regola di lettura `location_id = sede OR location_id IS NULL` dà la condivisione senza un secondo meccanismo.
+- **Interruttore `multi_location`** in `app_config` (super admin). Spento: nessun selettore, ogni scrittura mette NULL, ogni lettura ignora la colonna. Acceso: selettore di sede nell'header, le scritture timbrano la sede corrente, il super vede tutto. **Va scritto PRIMA del resto: è la rete di sicurezza per i clienti live.**
+
+**Cosa è condiviso (sede NULL)** — menu, categorie, formule, menu fissi, **clienti**, coupon, pop-up, newsletter, **buoni regalo**, agenda, note, documenti.
+
+**Cosa è per sede** — prenotazioni, tavoli, zone e chiusure, giorni speciali, ordini, recensioni Google, statistiche, personale, iscrizioni push, **e i riscatti dei buoni**.
+
+**Due tabelle nuove:**
+- `locations` — nome, slug, indirizzo, telefono, attiva, + una colonna JSON con orari, servizi, zone e contatti della sede. **Le impostazioni per sede NON vanno in `app_config`**: quella tabella è letta ovunque e cambiarle la chiave primaria sarebbe la parte più invasiva del lavoro. `app_config` resta globale (brand, tema, lingue).
+- **disponibilità del menu per sede** — l'esaurito NON è una proprietà del piatto, è della coppia *piatto + sede*. Deve puntare al piatto **o alla singola variante** (oggi l'esaurito esiste a due livelli: `is_sold_out` sul piatto, `sold_out` sulla variante), con la stessa convenzione: variante nulla = tutto il piatto. Stessa tabella pronta per prezzi o visibilità per sede, se un giorno servono.
+
+**Sito pubblico: sottocartella, non cookie** — `/schaerbeek/…`, `/jourdan/…`, `/stockel/…`. Tre punti sono tre schede Google e tre bacini locali: con URL distinti ognuno si posiziona per conto suo, con un cookie non si posiziona nessuno. La pagina *Locations* diventa lo smistatore.
+
+**Statistiche**: selettore di sede con «Tutte le sedi» in più. L'aggregato è una vista di **gestione**; gli export per il commercialista restano per sede, perché sono tre contabilità.
+
+### ⚠️ Quello che il software NON risolve (da mettere per iscritto FRA I TRE SOCI)
+- **Un database clienti in comune fra tre società = contitolarità del trattamento.** Serve una riga nell'informativa e un accordo fra loro.
+- **Buono comprato a Schaerbeek e speso a Jourdan = Jourdan regala pizza contro soldi incassati da Schaerbeek.** Il motore registra *dove* il buono viene riscattato, quindi a fine mese la tabella di chi deve cosa a chi c'è — ma la compensazione fra le tre società è un accordo commerciale, da fare prima che succeda. Idem, in piccolo, per i coupon.
+- **Tre società = tre conti Stripe**, mentre un'installazione ha una `STRIPE_SECRET_KEY` sola → chiavi per sede nell'`.env` (l'ambiente lo controlli tu) e webhook separati per punto. Stessa cosa per la scheda Google, oggi una per installazione.
+- **Il rischio vero non è la difficoltà, è il filtro dimenticato.** Con tre società nello stesso Postgres, una query senza `location_id` non è un bug: è Schaerbeek che vede i clienti di Stockel. Il filtro deve passare da **un punto solo** e va testato apposta. `supabaseAdmin` usa la service role key e **bypassa RLS**, quindi la disciplina sta nel codice, non nel database.
+
+**Sequenza proposta**: `locations` + interruttore + selettore + spina dorsale prenotazioni/ordini (quello che serve a 450 Gradi per aprire) → statistiche e marketing per sede in una seconda passata. **Su un branch, mergiato una volta sola e testato**, mai a pezzi dentro i giri di merge normali.
+
+**Aperto, da chiedere al cliente**: di chi è il marchio (dove vive il sito vetrina), se la consegna resta su Uber Eats (oggi è così → il nostro ordine sarebbe solo asporto), le lingue pubbliche (Bruxelles: FR/NL oltre all'inglese?), e se ci sono prenotazioni da recuperare dal widget attuale.
+
+---
+
+## 🏢 MULTI-SEDE (più punti, sito unico) — ~~scenario studiato 24/07~~ SUPERATO dalla sezione qui sopra
 
 - **A — nativo (futuro, dopo Service en salle)**: un Supabase, `location_id` ovunque, selettore sede nell'header, permessi per sede, UN CRM/newsletter. Refactor profondo (settimane).
 - **B — N motori + sito vetrina (CONSIGLIATA per il primo caso)**: un'installazione per punto su sottodomini; la vetrina fa scegliere il punto (widget embeddabile). Zero modifiche = N× SETUP.md. Contro: CRM/stats separati, login multipli (mitigabile: stesso utente nei N Supabase).
