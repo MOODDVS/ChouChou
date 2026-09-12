@@ -1058,6 +1058,13 @@ dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
 trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
 stessa causa: **due copie della stessa cosa, corretta in una sola**.
 
+### ⚖️ La data della disdetta spariva per una rinomina
+- Enzo ha provato la rinomina di un documento: peso e data **restano**, la voce vecchia in coda era infondata. Ma guardando quel punto e' saltato fuori un guasto vero, nello stesso codice.
+- 🐛 `resiliation_at` — la data in cui parte la **richiesta formale di disdetta** di un contratto — non sopravviveva a una rinomina. Il PATCH cancella la riga dei metadati (il percorso cambia, ed e' la chiave) e ne scrive una nuova da `metaDalBody()`, che quel campo non lo contiene: non e' un campo del modulo, e' **la traccia di un'atto compiuto**.
+- 🐛 Secondo percorso, peggiore: `salvaMeta` cancellava la riga quando email, scadenza e preavviso erano tutti vuoti. Bastava svuotare quei tre campi su un contratto gia' disdetto per perdere la data della lettera, **senza rinominare niente**.
+- ✅ `resiliationDi(path)` legge la data prima della cancellazione e la riporta sulla riga nuova; la riga non si cancella piu' se resta almeno la disdetta. Il ripiego per i clienti non migrati e' diventato generico (prima toglieva solo `lang`, ora anche `resiliation_at`): un `upsert` che fallisce per una colonna mancante ritenta senza quella colonna, invece di far sparire **tutti** i metadati in silenzio.
+- **La lezione**: un dato che registra un'AZIONE non si tratta come un campo del modulo. Il modulo non lo manda mai, quindi ogni riscrittura «da quello che arriva» lo cancella.
+
 ### 🧹 Due pulizie, e una era piu' morta di quanto sembrasse
 - **`reservations.astro`**: tolti `.m-actions`, `.m-cancel` e `.m-save` (13 righe). Non agganciavano piu' niente da quando i modali usano `<Modal>`: i due bottoni portano `md-btn`, e `m-cancel`/`m-save` sono rimasti solo come **ID**. `.m-msg` invece resta — e' la pastiglia rossa dell'errore dentro il footer condiviso.
 - ⚠️ Controllato prima di cancellare, dopo il caso `.m-save.confirm` di Marketing: **nessun JS aggiunge classi di stato** a quel bottone, quindi non c'era una regola di secondo tempo da salvare.
