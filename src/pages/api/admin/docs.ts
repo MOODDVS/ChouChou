@@ -207,19 +207,56 @@ function metaDalBody(body: Record<string, unknown>, cat: string): Meta {
 }
 
 /** Upsert / pulizia della riga metadati (best-effort: mai bloccante). */
-async function salvaMeta(path: string, meta: Meta) {
+/**
+ * Legge la data della richiesta di disdetta gia' registrata per un percorso.
+ * Serve a NON perderla: `resiliation_at` non arriva mai dal modulo — non e' un
+ * campo da compilare, e' la traccia di un'azione compiuta (la lettera partita).
+ */
+async function resiliationDi(path: string): Promise<string | null> {
   try {
-    if (!meta.email && !meta.expires && !meta.notice_value) {
+    const { data } = await supabaseAdmin
+      .from("admin_docs_meta")
+      .select("resiliation_at")
+      .eq("path", path)
+      .maybeSingle();
+    return (data as { resiliation_at?: string | null } | null)?.resiliation_at ?? null;
+  } catch {
+    return null; // colonna assente (#40/#72 non lanciate): niente da salvare
+  }
+}
+
+/**
+ * @param resiliation Data di disdetta da RIPORTARE sulla riga nuova. Si passa
+ *   esplicitamente quando il file cambia percorso (la riga vecchia viene
+ *   cancellata prima); altrimenti la si rilegge da `path`.
+ *
+ * ⚠️ Senza questo, rinominare un contratto — o semplicemente svuotare email,
+ * scadenza e preavviso — cancellava la data della disdetta inviata: il registro
+ * di un atto formale perso per un'operazione di manutenzione.
+ */
+async function salvaMeta(path: string, meta: Meta, resiliation?: string | null) {
+  try {
+    const resil = resiliation !== undefined ? resiliation : await resiliationDi(path);
+    // La riga si cancella solo se non resta NIENTE da ricordare: la disdetta
+    // da sola basta a tenerla in vita.
+    if (!meta.email && !meta.expires && !meta.notice_value && !resil) {
       await supabaseAdmin.from("admin_docs_meta").delete().eq("path", path);
       return;
     }
-    const riga = { path, ...meta, updated_at: new Date().toISOString() };
-    const { error } = await supabaseAdmin.from("admin_docs_meta").upsert(riga, { onConflict: "path" });
-    // #72 non lanciata: la colonna `lang` non esiste ancora. Si riprova senza,
-    // altrimenti smetterebbero di salvarsi TUTTI i metadati, in silenzio.
-    if (error && String(error.message ?? "").includes("lang")) {
-      const { lang: _l, ...senzaLang } = riga;
-      await supabaseAdmin.from("admin_docs_meta").upsert(senzaLang, { onConflict: "path" });
+    const riga: Record<string, unknown> = {
+      path,
+      ...meta,
+      resiliation_at: resil,
+      updated_at: new Date().toISOString(),
+    };
+    let { error } = await supabaseAdmin.from("admin_docs_meta").upsert(riga, { onConflict: "path" });
+    // Migrazioni non lanciate: si riprova senza la colonna che manca, invece di
+    // smettere di salvare TUTTI i metadati in silenzio (#72 `lang`, #40
+    // `resiliation_at`).
+    for (const col of ["lang", "resiliation_at"]) {
+      if (!error || !String(error.message ?? "").includes(col)) continue;
+      delete riga[col];
+      ({ error } = await supabaseAdmin.from("admin_docs_meta").upsert(riga, { onConflict: "path" }));
     }
   } catch {
     /* migrazione #40 assente: si va avanti senza metadati */
@@ -434,6 +471,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (!nuovoNome) return json({ error: "Nouveau nom invalide (.pdf obligatoire)" }, 400);
 
   // Spostamento file (nome e/o categoria cambiati)
+  let resilPrec: string | null | undefined;
   if (nuovaCat !== cat || nuovoNome !== name) {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
@@ -441,7 +479,10 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (error) return json({ error: "Ce nom existe déjà ou déplacement impossible" }, 409);
     // L'anteprima segue il PDF (se non esiste, l'errore si ignora)
     await supabaseAdmin.storage.from(BUCKET).move(`${cat}/${thumbDi(name)}`, `${nuovaCat}/${thumbDi(nuovoNome)}`);
-    // La vecchia riga metadati si elimina (la nuova si scrive sotto)
+    // La vecchia riga metadati si elimina (la nuova si scrive sotto) — ma la
+    // data della disdetta va LETTA PRIMA e riportata: il percorso cambia, e
+    // quel dato non torna dal modulo.
+    resilPrec = await resiliationDi(`${cat}/${name}`);
     try {
       await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${cat}/${name}`);
     } catch {
@@ -449,7 +490,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
   }
 
-  await salvaMeta(`${nuovaCat}/${nuovoNome}`, metaDalBody(body, nuovaCat));
+  await salvaMeta(`${nuovaCat}/${nuovoNome}`, metaDalBody(body, nuovaCat), resilPrec);
 
   const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${nuovaCat}/${nuovoNome}`).data.publicUrl;
   return json({ ok: true, cat: nuovaCat, name: nuovoNome, url });
