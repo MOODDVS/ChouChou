@@ -13,10 +13,14 @@
 set -uo pipefail
 
 # ---- Percorsi locali dei repo cliente sul Mac (aggiungi qui i nuovi) ----
+# ⚠️ La lista e' la sola fonte: un cliente che non e' qui non viene mergiato E
+# NON COMPARE nel riepilogo finale — sembra tutto a posto e uno resta indietro.
+# Quando si aggiunge un cliente, si aggiunge QUI lo stesso giorno.
 CLIENTI=(
   "$HOME/Developer/ChouChou"
   "$HOME/Developer/LaMolisana"
-  # "$HOME/Developer/EducazioneNapoletana"   # TODO: rimettere dopo aver ricostruito EN sul motore attuale
+  "$HOME/Developer/LhuileSurLeFeu"
+  "$HOME/Developer/EducazioneNapoletana"
 )
 ENGINE_URL="https://github.com/MOODDVS/MOODD-Admin.git"
 BRANCH="main"
@@ -69,7 +73,7 @@ for repo in "${CLIENTI[@]}"; do
     ok+=("$nome"); continue
   fi
 
-  echo "   • merge engine/$BRANCH…"
+  echo "   • merge engine/${BRANCH}…"
   if git merge --no-edit -m "merge: aggiornamento motore RestoHub" "engine/$BRANCH"; then
     echo "   ✓ merge ok"
     # package.json cambiato? -> serve npm install

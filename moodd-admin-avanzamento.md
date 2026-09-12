@@ -1058,6 +1058,21 @@ dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
 trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
 stessa causa: **due copie della stessa cosa, corretta in una sola**.
 
+### 🧩 Conflitto su tsconfig.json: due clienti su quattro
+- Il motore aveva aggiunto `_to_delete` agli `exclude`; **La Molisana** ci aveva messo `build`, **L'Huile** `build` + `_backup` — le loro cartelle di lavoro. Stessa riga toccata da due parti: conflitto. ChouChou ed EN, che non l'avevano toccato, sono passati lisci.
+- ✅ Risolto **a monte**: nel motore gli exclude sono ora `dist`, `build`, `_backup`, `_to_delete`. Cosi' nessun cliente ha piu' un motivo per toccare quel file, e la versione del motore e' un sovrainsieme di quelle locali — risolvere col `--theirs` non perde niente.
+- **Un conflitto ripetuto sullo stesso file del motore va letto come «manca qualcosa nel motore»**, non come sfortuna. Annotato in ENGINE.md accanto alla regola d'oro.
+
+### 💥 Lo script di sync moriva alla prima riga di merge vera
+- `BRANCH?: unbound variable`, riga 76. La riga era `echo "   • merge engine/$BRANCH…"`: i **puntini di sospensione attaccati alla variabile**. Bash prende i byte di `…` come parte del nome, cerca `BRANCH…` e sotto `set -u` si ferma. Risolto con le graffe: `${BRANCH}…`.
+- **Perche' non era mai saltato fuori**: quella riga sta DOPO il ramo del dry-run (che fa `continue`) e dopo il «gia' aggiornato» (che fa `continue`). Si tocca solo quando c'e' davvero qualcosa da mergiare — cioe' nel momento peggiore, a meta' giro, col primo cliente gia' fetchato.
+- Cercati tutti i casi dello stesso tipo in `scripts/`: era l'unico.
+
+### 🧭 Lo script di sync aveva due clienti su quattro
+- `scripts/sync-clienti.sh` elencava solo **ChouChou** e **La Molisana**. Sul Mac i repo cliente sul motore sono **quattro**: mancavano **L'Huile** — che il diario risulta mergiato a ogni giro, quindi finora a mano — ed **EN v2**, rimasta commentata con un TODO anche dopo la ricostruzione sul motore.
+- Il punto non e' la riga mancante: **lo script stampa solo i clienti che ha in lista**, quindi il riepilogo finale diceva «✓ ok» e sembrava tutto a posto. Un cliente fuori lista e' invisibile, non segnalato.
+- ✅ Lista completata (4 clienti) e messo in cima l'avviso che quella lista e' la sola fonte. Stessa nota in ENGINE.md.
+
 ### 🎛️ Documenti: sei colonne e due piani di colore
 - **Sei colonne fisse** al posto di `auto-fill, minmax(190px, 1fr)`. Su uno schermo largo l'auto-fill ne infilava otto o nove e la prima pagina di un A4 diventava un francobollo illeggibile — che e' proprio quello per cui l'anteprima esiste. Sei e' il numero in cui il menu si riconosce ancora. Poi 4 / 3 / 2 sulla scala 1279 · 1023 · 640.
 - **Le card erano `--c-card`, lo stesso colore della `.section` che le contiene**: a separarle c'era solo un bordo. Passate a `--c-bg`, come le card del Team nella stessa pagina.
