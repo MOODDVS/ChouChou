@@ -1058,6 +1058,12 @@ dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
 trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
 stessa causa: **due copie della stessa cosa, corretta in una sola**.
 
+### 🔐 npm audit: da 18 a 4, e le 4 che restano non ci riguardano (ancora)
+- `npm audit fix` (senza `--force`) ne ha chiuse **14**: vitest, browserslist, postcss, svgo, js-yaml, nanoid, fast-uri, yaml e la catena del language server. Tutte dipendenze di **build e sviluppo**: nessuna finisce nel browser di chi visita il sito. Build OK, **39 test verdi**.
+- Le **4 rimaste** sono una catena sola — `astro`, `@astrojs/node`, `esbuild`, `sharp` — e cadono solo col salto **Astro 6 → 7**, che e' una migrazione, non un comando.
+- ⚠️ **La «critica» e' di Astro, ma non e' raggiungibile qui.** Verificate le cinque advisory una per una contro il codice: nessun `{...}` in un template `.astro` (spread XSS), nessuna View Transition ne' `transition:*`, nessun `astro:assets` / `<Image>` (RCE via AVIF), nessun `base` in `astro.config.mjs` (bypass di autorizzazione). Resta da pianificare, non da rincorrere.
+- 💡 Dettaglio che conferma il fix del tsconfig: il config ha `outDir: "./build"`, quindi `build/` e' la cartella di output **di tutti** — mancava dagli exclude del motore, ed e' per quello che i clienti se l'erano aggiunta a mano.
+
 ### 🧩 Conflitto su tsconfig.json: due clienti su quattro
 - Il motore aveva aggiunto `_to_delete` agli `exclude`; **La Molisana** ci aveva messo `build`, **L'Huile** `build` + `_backup` — le loro cartelle di lavoro. Stessa riga toccata da due parti: conflitto. ChouChou ed EN, che non l'avevano toccato, sono passati lisci.
 - ✅ Risolto **a monte**: nel motore gli exclude sono ora `dist`, `build`, `_backup`, `_to_delete`. Cosi' nessun cliente ha piu' un motivo per toccare quel file, e la versione del motore e' un sovrainsieme di quelle locali — risolvere col `--theirs` non perde niente.
