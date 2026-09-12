@@ -80,6 +80,10 @@ const badgeLogo = brand.favicon || "/favicon.svg";
 const showPayoff = true; // il payoff RestoHub accompagna sempre il logo RestoHub
 const heroTitle = brand.nome || t("login.title");
 const tabTitle = brand.nome || t("login.title");
+// Astro 7 (compilatore Rust): il binding `Astro` esiste solo se il frontmatter
+// lo nomina davvero. Il nonce va quindi letto QUI, non direttamente nell'attributo
+// del tag, altrimenti a runtime si ha «Astro is not defined».
+const nonce = Astro.locals.cspNonce;
 ---
 
 <html lang={lang}>
@@ -293,7 +297,7 @@ const tabTitle = brand.nome || t("login.title");
       </section>
     </div>
 
-    <script is:inline nonce={Astro.locals.cspNonce}>
+    <script is:inline nonce={nonce}>
       try {
         const th = JSON.parse(localStorage.getItem("mdd_theme") || "null");
         if (th && typeof th === "object") {

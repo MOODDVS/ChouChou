@@ -365,15 +365,6 @@ const pubLangsJson = JSON.stringify({
       @media (max-width: 640px) {
         .f-row { grid-template-columns: 1fr; }
       }
-      /* Loader dentro i bottoni di salvataggio */
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
 
     <style is:global>
@@ -513,6 +504,8 @@ const pubLangsJson = JSON.stringify({
     <AdminNav current="agenda" />
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -564,10 +557,7 @@ const pubLangsJson = JSON.stringify({
         const listEl = document.getElementById("events") as HTMLDivElement;
         const toastEl = document.getElementById("toast") as HTMLDivElement;
 
-        logoutBtn?.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const session = sessionData.session;
@@ -1131,17 +1121,19 @@ const pubLangsJson = JSON.stringify({
               }, 3000);
               return;
             }
-            try {
-              const res = await fetch("/api/admin/agenda?id=" + encodeURIComponent(id), {
-                method: "POST",
-                headers: { ...(await authFresh()), "X-Method-Override": "DELETE" },
-              });
-              if (!res.ok) { toast(tr("us.delErr"), true); return; }
-              toast(tr("ag.deleted"));
-              await carica();
-            } catch {
-              toast(tr("res.connErr"), true);
-            }
+            await conAttesa(del, async () => {
+              try {
+                const res = await fetch("/api/admin/agenda?id=" + encodeURIComponent(id), {
+                  method: "POST",
+                  headers: { ...(await authFresh()), "X-Method-Override": "DELETE" },
+                });
+                if (!res.ok) { toast(tr("us.delErr"), true); return; }
+                toast(tr("ag.deleted"));
+                await carica();
+              } catch {
+                toast(tr("res.connErr"), true);
+              }
+            });
             return;
           }
           const sw = t.closest(".t-active") as HTMLInputElement | null;

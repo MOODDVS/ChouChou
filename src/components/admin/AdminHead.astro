@@ -59,6 +59,12 @@ const bg = hex(boot.theme.bg);
 // nonce per-richiesta lo copre (come AdminNav), niente set:html dinamico.
 const flash = { glass: boot.theme.glass === "on", bg: bg || null, logo: boot.logo || null };
 const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).replace(/</g, "\\u003c") : "";
+// ⚠️ Astro 7 (compilatore Rust): il binding `Astro` dentro il componente viene
+// creato SOLO se il frontmatter lo nomina. Usarlo unicamente nel template
+// (nonce={Astro.locals.cspNonce}) compilava in un riferimento a una variabile
+// mai dichiarata → «Astro is not defined» a runtime. Leggerlo qui e' la forma
+// sicura: vale per QUALSIASI uso di Astro nel solo template.
+const nonce = Astro.locals.cspNonce;
 ---
 
 {/* is:inline = Astro NON tocca il tag: resta esattamente qui, in fondo
@@ -66,7 +72,7 @@ const flashJson = flash.glass || flash.bg || flash.logo ? JSON.stringify(flash).
 {css && <style is:inline set:html={css} />}
 {flashJson && <script type="application/json" id="mdd-flash" is:inline set:html={flashJson} />}
 {flashJson && (
-  <script is:inline nonce={Astro.locals.cspNonce}>
+  <script is:inline nonce={nonce}>
     (function () {
       var d = document;
       try {

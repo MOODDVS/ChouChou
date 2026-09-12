@@ -23,6 +23,13 @@ export default defineConfig({
   // fantasma; è roba solo di sviluppo (in build non esiste). Off = console dev
   // pulita per verificare la CSP. Rimettere `enabled: true` se serve la toolbar.
   devToolbar: { enabled: false },
+  // Astro 7 ha cambiato il default di `compressHTML` da `true` a `"jsx"`:
+  // con le regole JSX gli spazi FRA elementi inline spariscono, e
+  // `<span>ciao</span> <em>mondo</em>` diventa «ciaomondo». Qui si dichiara
+  // il comportamento di sempre: un aggiornamento del motore non deve
+  // cambiare la spaziatura di pagine che nessuno ha toccato.
+  // ⚠️ Questo file e' `merge=ours`: va messo a mano anche in OGNI cliente.
+  compressHTML: true,
   integrations: [react(), sitemap()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {

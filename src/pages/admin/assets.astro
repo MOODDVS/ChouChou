@@ -179,15 +179,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
          e si allargava per tutta la larghezza — proprio mentre caricavi.
          Un elemento `fixed` e' gia' contenitore per il suo ::after, quindi qui
          si esclude. */
-      .is-loading { color: transparent !important; pointer-events: none; }
-      .is-loading:not(.fab-add) { position: relative; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
 
       /* Toast */
       .toast {
@@ -315,6 +306,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -699,10 +692,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         const userEmail = document.getElementById("user-email") as HTMLSpanElement;
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco immediato con la sessione locale; getUser() valida in background
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
@@ -801,6 +791,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           addDocBtn.disabled = true;
           addDocBtn.classList.add("is-loading");
           try {
+            // L'anteprima si disegna dal file che e' gia' qui: parte SUBITO e
+            // corre insieme all'upload, invece di aspettare il suo turno dopo.
+            const anteprima = generaAnteprima(file).catch(() => null);
             const b64 = await new Promise<string>((resolve, reject) => {
               const r = new FileReader();
               r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
@@ -814,23 +807,29 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
-            // Anteprima della prima pagina (best-effort: se fallisce resta l'icona)
+            // Il documento e' salvato: si avvisa e si aggiorna la lista SUBITO.
+            // L'anteprima e' un di piu' e arriva quando e' pronta: aspettarla
+            // qui allungava il caricamento di tutto il tempo di pdf.js.
             const nomeCaricato = decodeURIComponent(String(j.url ?? "").split("/").pop() ?? "");
-            const thumb = await generaAnteprima(file);
-            if (thumb && nomeCaricato) {
-              await fetch("/api/admin/documents", {
+            toast(`${tr("as.docAdded")} ✓`);
+            await caricaDocs();
+
+            void (async () => {
+              const thumb = await anteprima;
+              if (!thumb || !nomeCaricato) {
+                // Il documento c'e' lo stesso: manca solo la miniatura della
+                // prima pagina (pdf.js non raggiungibile, o PDF protetto).
+                // Meglio dirlo che lasciare l'icona generica senza spiegazione.
+                console.warn("[assets] anteprima PDF non generata");
+                return;
+              }
+              const ok = await fetch("/api/admin/documents", {
                 method: "POST",
                 headers: { ...headers, "Content-Type": "application/json" },
                 body: JSON.stringify({ name: nomeCaricato, thumb }),
-              }).catch(() => {});
-            } else {
-              // Il documento c'e' lo stesso: manca solo la miniatura della prima
-              // pagina (pdf.js non raggiungibile, o PDF protetto). Meglio dirlo
-              // che lasciare l'icona generica senza spiegazione.
-              console.warn("[assets] anteprima PDF non generata");
-            }
-            toast(`${tr("as.docAdded")} ✓`);
-            await caricaDocs();
+              }).then((r) => r.ok).catch(() => false);
+              if (ok) await caricaDocs();
+            })();
           } catch (err) {
             toast(err instanceof Error ? err.message : tr("as.uploadFailed"), true);
           } finally {
@@ -886,21 +885,23 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               return;
             }
             disarmaCestinoDoc();
-            try {
-              const res = await fetch("/api/admin/documents?name=" + encodeURIComponent(doc.name), {
-                method: "POST",
-                headers: { ...headers, "X-Method-Override": "DELETE" },
-              });
-              const j = await res.json();
-              if (!res.ok) {
-                toast(j.error ?? tr("us.delErr"), true);
-                return;
+            await conAttesa(del, async () => {
+              try {
+                const res = await fetch("/api/admin/documents?name=" + encodeURIComponent(doc.name), {
+                  method: "POST",
+                  headers: { ...headers, "X-Method-Override": "DELETE" },
+                });
+                const j = await res.json();
+                if (!res.ok) {
+                  toast(j.error ?? tr("us.delErr"), true);
+                  return;
+                }
+                toast(tr("as.docDeleted"));
+                await caricaDocs();
+              } catch {
+                toast(tr("res.connErr"), true);
               }
-              toast(tr("as.docDeleted"));
-              await caricaDocs();
-            } catch {
-              toast(tr("res.connErr"), true);
-            }
+            });
           }
         });
 
@@ -1060,19 +1061,21 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
               }, 3000);
               return;
             }
-            try {
-              const qs = new URLSearchParams({ bucket: card.dataset.bucket ?? "", name: card.dataset.name ?? "" });
-              const res = await fetch("/api/admin/images?" + qs.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              const j = await res.json();
-              if (!res.ok) {
-                toast(j.error ?? tr("us.delErr"), true);
-                return;
+            await conAttesa(del, async () => {
+              try {
+                const qs = new URLSearchParams({ bucket: card.dataset.bucket ?? "", name: card.dataset.name ?? "" });
+                const res = await fetch("/api/admin/images?" + qs.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                const j = await res.json();
+                if (!res.ok) {
+                  toast(j.error ?? tr("us.delErr"), true);
+                  return;
+                }
+                toast(tr("as.imgDeleted"));
+                await carica();
+              } catch {
+                toast(tr("res.connErr"), true);
               }
-              toast(tr("as.imgDeleted"));
-              await carica();
-            } catch {
-              toast(tr("res.connErr"), true);
-            }
+            });
           }
         });
       })();

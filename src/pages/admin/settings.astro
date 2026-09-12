@@ -957,15 +957,6 @@ const t = adminT(lang);
         .band { justify-content: flex-start; }
         .band input[type="time"] { flex: 1; min-width: 0; }
       }
-      /* Loader dentro i bottoni di salvataggio */
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
 
       /* Mobile: titolo tile piu piccolo e bianco + padding interno ridotto (coerente con le altre pagine) */
       @media (max-width: 640px) {
@@ -1660,6 +1651,8 @@ const t = adminT(lang);
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser } from "../../lib/admin/superAdmin";
       import { SERVIZI_WIDGET, nomeServizio, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
@@ -2729,15 +2722,17 @@ const t = adminT(lang);
           slDel.classList.remove("confirm");
           slDel.innerHTML = SL_TRASH;
           const t = slSel;
-          try {
-            const res = await slFetch("/api/admin/tables?id=" + t.id, { method: "POST", headers: { "X-Method-Override": "DELETE" } });
-            if (!res.ok) { slMsg.textContent = tr("set.gen.deleteErrDot"); return; }
-            slTavoli = slTavoli.filter((x) => x.id !== t.id);
-            const prima = slLinks.length;
-            slLinks = slLinks.map((g) => g.filter((id) => id !== t.id)).filter((g) => g.length >= 2);
-            if (slLinks.length !== prima) void slSalvaLinks();
-            slSeleziona(null);
-          } catch { slMsg.textContent = tr("common.netErr"); }
+          await conAttesa(slDel, async () => {
+            try {
+              const res = await slFetch("/api/admin/tables?id=" + t.id, { method: "POST", headers: { "X-Method-Override": "DELETE" } });
+              if (!res.ok) { slMsg.textContent = tr("set.gen.deleteErrDot"); return; }
+              slTavoli = slTavoli.filter((x) => x.id !== t.id);
+              const prima = slLinks.length;
+              slLinks = slLinks.map((g) => g.filter((id) => id !== t.id)).filter((g) => g.length >= 2);
+              if (slLinks.length !== prima) void slSalvaLinks();
+              slSeleziona(null);
+            } catch { slMsg.textContent = tr("common.netErr"); }
+          });
         });
 
         // Le pillole seguono le section (aggiunta/rinomina/cancellazione)
@@ -3607,10 +3602,7 @@ const t = adminT(lang);
         const saveBtn = document.getElementById("save-btn") as HTMLButtonElement;
         const msgEl = document.getElementById("msg") as HTMLSpanElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).
@@ -4245,6 +4237,10 @@ const t = adminT(lang);
         let dcFiltro = "all";
         let dcCatScelta = "autre";
         let dcFilePronto: File | null = null;
+        // Anteprima della prima pagina: parte quando si SCEGLIE il file, non
+        // quando si clicca «Carica». Mentre si sceglie la categoria, pdf.js si
+        // carica e la miniatura si disegna: al click e' gia' pronta.
+        let dcAnteprimaPronta: Promise<string | null> | null = null;
         let dcEditDoc: DocAmm | null = null; // documento in modifica (null = upload)
         const dcGrid = document.getElementById("dc-grid") as HTMLDivElement;
         const dcStateEl = document.getElementById("dc-state") as HTMLParagraphElement;
@@ -4453,6 +4449,7 @@ const t = adminT(lang);
             return;
           }
           dcFilePronto = f;
+          dcAnteprimaPronta = dcAnteprima(f);
           dcEditDoc = null;
           dcErr.textContent = "";
           dcTitle.textContent = tr("set.doc.newDoc");
@@ -4467,8 +4464,11 @@ const t = adminT(lang);
           dcOverlay.hidden = false;
         });
         // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
-        dcOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { dcOverlay.hidden = true; }));
-        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !dcOverlay.hidden) dcOverlay.hidden = true; });
+        // Non durante un caricamento: chiudere il modale mentre il PDF sale
+        // farebbe sparire l'unico segnale che qualcosa sta succedendo.
+        const dcOccupato = () => dcUp.classList.contains("is-loading");
+        dcOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { if (!dcOccupato()) dcOverlay.hidden = true; }));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !dcOverlay.hidden && !dcOccupato()) dcOverlay.hidden = true; });
 
         // L'anteprima della prima pagina la fa `src/lib/admin/pdfThumb.ts`,
         // lo stesso modulo della pagina Assets. Qui c'era una SECONDA copia
@@ -4482,6 +4482,7 @@ const t = adminT(lang);
             const nuovo = dcNom.value.trim();
             if (!nuovo) { dcErr.textContent = tr("as.nameRequired"); return; }
             dcUp.disabled = true;
+            dcUp.classList.add("is-loading");
             try {
               const res = await fetch("/api/admin/docs", {
                 method: "PATCH",
@@ -4503,13 +4504,19 @@ const t = adminT(lang);
               dcErr.textContent = err instanceof Error ? err.message : tr("us.editErr");
             } finally {
               dcUp.disabled = false;
+              dcUp.classList.remove("is-loading");
             }
             return;
           }
           const f = dcFilePronto;
           if (!f) return;
           dcErr.textContent = "";
+          // Un PDF da 10 MB diventa ~13 MB di base64 da spedire, poi c'e'
+          // l'anteprima da disegnare e una seconda chiamata: sono secondi in
+          // cui un bottone solo spento sembra un click andato perso. La rotella
+          // di `.is-loading` (button.css) dice che sta lavorando.
           dcUp.disabled = true;
+          dcUp.classList.add("is-loading");
           try {
             const b64 = await new Promise<string>((resolve, reject) => {
               const r = new FileReader();
@@ -4524,22 +4531,37 @@ const t = adminT(lang);
             });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error ?? tr("as.uploadFailed"));
-            const thumb = await dcAnteprima(f);
-            if (thumb && j.name) {
-              await fetch("/api/admin/docs", {
-                method: "POST",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ cat: dcCatScelta, name: j.name, thumb }),
-              }).catch(() => {});
-            }
+
+            // Il documento e' SALVATO: da qui in poi non c'e' piu' niente da
+            // aspettare. L'anteprima e' cosmetica, e prima teneva il modale
+            // aperto per tutto il tempo di pdf.js (la prima volta, secondi):
+            // per chi guarda era il caricamento a essere lentissimo. Ora si
+            // chiude subito, la card compare con l'icona, e la miniatura la
+            // sostituisce quando e' pronta.
+            const cat = dcCatScelta;
+            const nome = String(j.name ?? "");
+            const anteprima = dcAnteprimaPronta;
+            dcAnteprimaPronta = null;
             dcFilePronto = null;
             dcOverlay.hidden = true;
-            dcFiltro = dcCatScelta; // si atterra sulla categoria appena usata
+            dcFiltro = cat; // si atterra sulla categoria appena usata
             await dcCarica();
+
+            void (async () => {
+              const thumb = anteprima ? await anteprima : null;
+              if (!thumb || !nome) return;
+              const ok = await fetch("/api/admin/docs", {
+                method: "POST",
+                headers: { ...headers, "Content-Type": "application/json" },
+                body: JSON.stringify({ cat, name: nome, thumb }),
+              }).then((r) => r.ok).catch(() => false);
+              if (ok) await dcCarica();
+            })();
           } catch (err) {
             dcErr.textContent = err instanceof Error ? err.message : tr("as.uploadFailed");
           } finally {
             dcUp.disabled = false;
+            dcUp.classList.remove("is-loading");
           }
         });
 
@@ -4571,6 +4593,7 @@ const t = adminT(lang);
             if (!d) return;
             dcEditDoc = d;
             dcFilePronto = null;
+            dcAnteprimaPronta = null;
             dcErr.textContent = "";
             dcTitle.textContent = tr("set.doc.editDoc");
             dcUp.textContent = tr("common.save");
@@ -4596,16 +4619,18 @@ const t = adminT(lang);
               return;
             }
             dcDisarmaCestino();
-            const res = await fetch(`/api/admin/docs?cat=${encodeURIComponent(cat)}&name=${encodeURIComponent(name)}`, {
-              method: "POST",
-              headers: { ...headers, "X-Method-Override": "DELETE" },
+            await conAttesa(del, async () => {
+              const res = await fetch(`/api/admin/docs?cat=${encodeURIComponent(cat)}&name=${encodeURIComponent(name)}`, {
+                method: "POST",
+                headers: { ...headers, "X-Method-Override": "DELETE" },
+              });
+              if (!res.ok) {
+                dcStateEl.style.display = "";
+                dcStateEl.textContent = tr("set.gen.deleteErrDot");
+                return;
+              }
+              await dcCarica();
             });
-            if (!res.ok) {
-              dcStateEl.style.display = "";
-              dcStateEl.textContent = tr("set.gen.deleteErrDot");
-              return;
-            }
-            await dcCarica();
           }
         });
         void dcCarica();
@@ -4908,12 +4933,14 @@ const t = adminT(lang);
             if (tmDelPending === id) {
               window.clearTimeout(tmDelTimer);
               tmDelPending = null;
-              try {
-                const res = await fetch("/api/admin/team?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-                if (res.ok) await tmCarica();
-              } catch {
-                /* noop */
-              }
+              await conAttesa(del, async () => {
+                try {
+                  const res = await fetch("/api/admin/team?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                  if (res.ok) await tmCarica();
+                } catch {
+                  /* noop */
+                }
+              });
               return;
             }
             tmDelPending = id;

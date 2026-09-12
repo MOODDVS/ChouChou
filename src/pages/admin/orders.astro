@@ -871,6 +871,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { telefonoCompleto, collegaPrefissoTel, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { leggiVariantiDb, etichettaVariante, prezzoEffettivo } from "../../lib/pricing";
@@ -1160,10 +1161,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const countEl = document.getElementById("count") as HTMLParagraphElement;
         const labelEl = document.getElementById("today-label") as HTMLParagraphElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).

@@ -6,8 +6,10 @@ import { createClient } from "@supabase/supabase-js";
 // dello staff. NON confondere con `supabaseAdmin` in db.ts, che usa la
 // service key e gira esclusivamente sul server.
 
-const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+// Esportate: servono anche a logout.ts, che chiama /auth/v1/logout a mano
+// per non dover aspettare la revoca prima di far uscire chi ha cliccato.
+export const SUPABASE_URL = import.meta.env.PUBLIC_SUPABASE_URL;
+export const SUPABASE_ANON_KEY = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
