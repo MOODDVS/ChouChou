@@ -137,6 +137,30 @@ i merge non generano conflitti. Se un conflitto appare, vuol dire che un
 file del motore è stato modificato lato cliente: va riportato nel motore o
 ripristinato.
 
+### `package.json` NON si rebrandizza
+Il campo `name` (`restohub-admin`) è metadato interno di npm: non compare da
+nessuna parte, né per il ristoratore né per i suoi clienti. Se un cliente lo
+cambia, il `package-lock.json` porta quel nome in due punti, il merge lo
+riporta a quello del motore e il primo `npm install` lo riscrive indietro:
+il repo resta sporco e al giro dopo `sync-clienti.sh` lo salta. La Molisana ci
+è passata due volte il 12/09 prima che si capisse.
+
+### L'ordine giusto: merge PRIMA, `npm install` DOPO
+`npm install` riscrive il `package-lock.json` anche quando non cambia nulla di
+sostanziale. Se lo si lancia **prima** del merge, il repo cliente risulta
+sporco e `sync-clienti.sh` lo **salta** — giustamente, per non mergiare sopra
+del lavoro non salvato. Succede allo stesso modo se si rilancia il sync dopo
+un install.
+
+Se un cliente viene saltato, la prima cosa da guardare è quella:
+```
+git -C <repo-cliente> status --short
+```
+Se l'unica riga è ` M package-lock.json`, si scarta (`git checkout --
+package-lock.json`) e si rilancia il sync: la versione buona arriva dal
+motore. Se compare un file sotto `src/`, no: lì c'è del lavoro vero da
+salvare prima.
+
 ### Nota migrazioni ed env
 Le migrazioni sono idempotenti (rilanciarle è sicuro); lanciale sul Supabase
 di OGNI cliente dopo il merge. Le env nuove richieste da una versione vanno
@@ -254,9 +278,14 @@ Chiudere una pagina vuol dire anche togliere `.overlay`, `.modal`, `.m-close`,
 Note) · `agenda` (evento) · `orders` (nuovo ordine) · `clients` (attività
 cliente, modifica/aggiungi) · `menu` (piatto, sezioni) · `super` (nuovo utente)
 · `settings` (piantina della sala, contatto team, documento — pagina CHIUSA).
-**Da fare**: solo `ImagePicker` (265 righe, guscio proprio `.imgpick-*`).
-E' l'unico che e' un COMPONENTE: si converte una volta e cambia in ogni pagina
-che lo usa, quindi va riprovato in tutte.
+**FINITO.** `ImagePicker` era l'ultimo e il 12/09 e' passato anche lui: non
+esiste piu' un modale admin fuori dal guscio condiviso.
+
+⚠️ **Un modale che si apre DA un altro modale** (la libreria immagini) deve
+stare sopra il `z-index: 400` di `.md-overlay`, e non puo' affidarsi all'ordine
+nel DOM: il componente e' incluso in punti diversi da pagina a pagina. La
+libreria dichiara `z-index: 440` su `#imgpick-overlay`. Stessa famiglia di
+trappola dei riquadri flottanti della piantina.
 
 🧹 **Codice morto rimasto** (non urgente): `.m-actions` / `.m-cancel` in
 `reservations.astro` non aggancia piu' niente.

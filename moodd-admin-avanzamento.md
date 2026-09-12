@@ -1058,6 +1058,22 @@ dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
 trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
 stessa causa: **due copie della stessa cosa, corretta in una sola**.
 
+### 🖼️ ImagePicker: l'ultimo guscio, e un guasto che avremmo spedito noi
+- Ultimo modale fuori dal guscio condiviso, e l'unico COMPONENTE: incluso in sei pagine (Menu piatto e menu, Clienti, Agenda, Marketing, Google, Assets), si apre col bottone «Libreria» accanto a «Carica una foto».
+- 🐛 **Il suo `z-index` era 340**: stava sopra il vecchio `.overlay` (300) ma **sotto `.md-overlay` (400)**. Convertendo oggi tutti i modali che lo aprono, la libreria era finita **dietro** al modale da cui la si apre: si premeva «Libreria» e non compariva niente. Un guasto creato da noi oggi, che stavamo per spedire ai clienti.
+- ✅ Passato a `<Modal>` con `z-index: 440` dichiarato. **Non puo' dipendere dall'ordine nel DOM**: in Clienti il componente sta PRIMA del modale che lo apre, in Menu dopo — con z-index uguali il risultato sarebbe cambiato da pagina a pagina.
+- 🇫🇷 **Tutte le stringhe erano in francese nel codice**: «Bibliothèque d'images», «Toutes», «Libres», «Aucune image.», «Chargement…», «Envoi…», «Fichier trop lourd». Era l'unico pezzo di admin mai tradotto. Ora 11 chiavi `ip.*` nelle 5 lingue.
+- Conservata la finezza che c'era gia': l'Escape e' agganciato in **capture** su window e fa `stopPropagation`, cosi' chiude SOLO la libreria e non il modale sotto — che altrimenti perderebbe il lavoro a meta'.
+- Bottone «+ Aggiungi un'immagine» → `.btn`; i filtri passano da `--c-line` a `color-mix`, come ovunque.
+
+### 🔀 Clienti: l'ordinamento c'era, ma nessuno poteva usarlo
+- Sette colonne ordinabili, click per ordinare, secondo click per invertire, freccia sulla colonna attiva: **tutto scritto e funzionante nel JS**. Solo che `clients.astro` aveva `.thead { display: none }` **senza media query**, quindi l'intestazione — e con lei i pulsanti — era nascosta a ogni larghezza.
+- Risultato: la lista restava per sempre sull'ordinamento iniziale, `sortKey = "total"` decrescente. **Nessuno se n'era accorto perche' «i migliori clienti in cima» sembra una scelta**, non un ripiego. Stessa forma di tutti gli altri guasti di oggi.
+- ✅ **Il comando e' un menu «Ordina» accanto al selettore colonne**, non l'intestazione: Enzo l'ha voluto li' e ha ragione, perche' l'intestazione sparisce quando si nascondono le colonne e su schermo stretto non c'e' proprio. Il menu riusa il guscio del selettore colonne (`.colpick`/`.cp-btn`/`.cp-menu`/`.cp-item`): nessun componente nuovo.
+- L'intestazione resta nascosta a ogni larghezza, ma i `.th` restano nel markup: il JS li usa come sorgente di verita' dello stato (chiave attiva + verso), e `updateHeader()` continua a girare.
+- **Sotto i 720px il menu non c'e'**: li' la barra e' compatta e senza a capo ([tutto] [Filtri] [ricerca] [colonne]), un pulsante in piu' la strozzerebbe.
+- 🧹 Nel farlo, **una funzione sola per i menu a tendina** (`menuTendina`) invece di riscrivere apri/chiudi/click-fuori/Escape per il secondo menu — e in piu' aprendone uno si chiude l'altro, cosa che due copie separate non avrebbero fatto.
+
 ### 🔐 npm audit: da 18 a 4, e le 4 che restano non ci riguardano (ancora)
 - `npm audit fix` (senza `--force`) ne ha chiuse **14**: vitest, browserslist, postcss, svgo, js-yaml, nanoid, fast-uri, yaml e la catena del language server. Tutte dipendenze di **build e sviluppo**: nessuna finisce nel browser di chi visita il sito. Build OK, **39 test verdi**.
 - Le **4 rimaste** sono una catena sola — `astro`, `@astrojs/node`, `esbuild`, `sharp` — e cadono solo col salto **Astro 6 → 7**, che e' una migrazione, non un comando.

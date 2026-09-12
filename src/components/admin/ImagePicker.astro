@@ -1,100 +1,92 @@
 ---
-// Modale "Bibliothèque" riutilizzabile : mostra tutte le immagini già
-// caricate (bucket `menu` e `popups`) e lascia sceglierne una senza
-// doverla ricaricare. Comunicazione via eventi window :
+// Modale "Libreria" riutilizzabile: mostra tutte le immagini gia' caricate
+// (bucket `menu` e `popups`) e lascia sceglierne una senza doverla ricaricare.
+// Comunicazione via eventi window:
 //   apertura  → window.dispatchEvent(new CustomEvent("imgpick:open"))
-//               (detail.mode = "link" mostra anche il tab Documents:
+//               (detail.mode = "link" mostra anche il tab Documenti:
 //                serve a scegliere un URL da incollare in un campo lien)
 //   selezione → evento "imgpick:pick" con detail = { url }
 // La pagina che lo usa tiene il riferimento al campo di destinazione
 // e ascolta "imgpick:pick".
+import Modal from "./Modal.astro";
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+const lang = await adminLang();
+const t = adminT(lang);
 ---
 
-<div class="imgpick-overlay" id="imgpick-overlay">
-  <div class="imgpick-modal">
-    <button class="imgpick-close" id="imgpick-close" aria-label="Fermer">×</button>
-    <div class="imgpick-head">
-      <h2>Bibliothèque d'images</h2>
-      <button type="button" class="imgpick-add" id="imgpick-add">+ Ajouter une image</button>
-      <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
-      <div class="imgpick-tabs" id="imgpick-tabs">
-        <button type="button" class="imgpick-tab is-on" data-b="">Toutes</button>
-        <button type="button" class="imgpick-tab" data-b="menu">Menu</button>
-        <button type="button" class="imgpick-tab" data-b="marketing">Marketing</button>
-        <button type="button" class="imgpick-tab" data-b="libre">Libres</button>
-        <button type="button" class="imgpick-tab" data-b="docs" id="imgpick-tab-docs" style="display:none">Documents</button>
-      </div>
-    </div>
-    <div class="imgpick-body">
-      <div class="imgpick-state" id="imgpick-state">Chargement…</div>
-      <div class="imgpick-grid" id="imgpick-grid"></div>
+<Modal id="imgpick-overlay" title={t("ip.title")} width="680px">
+  <div class="ip-head">
+    <button type="button" class="btn" id="imgpick-add">{"+ " + t("ip.add")}</button>
+    <input type="file" id="imgpick-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
+    <div class="ip-tabs" id="imgpick-tabs">
+      <button type="button" class="ip-tab is-on" data-b="">{t("ip.all")}</button>
+      <button type="button" class="ip-tab" data-b="menu">{t("nav.menu")}</button>
+      <button type="button" class="ip-tab" data-b="marketing">{t("nav.marketing")}</button>
+      <button type="button" class="ip-tab" data-b="libre">{t("ip.free")}</button>
+      <button type="button" class="ip-tab" data-b="docs" id="imgpick-tab-docs" hidden>{t("ip.docs")}</button>
     </div>
   </div>
-</div>
+  <div class="ip-body">
+    <div class="ip-state" id="imgpick-state">{t("sup.loading")}</div>
+    <div class="ip-grid" id="imgpick-grid"></div>
+  </div>
+</Modal>
 
 <style is:global>
-  .imgpick-overlay {
-    position: fixed; inset: 0; z-index: 340; display: none;
-    background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-    align-items: center; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
-  }
-  .imgpick-overlay.is-open { display: flex; }
-  .imgpick-modal {
-    width: 100%; max-width: 680px; max-height: 86vh; overflow: hidden;
-    background: var(--c-bg, var(--c-bg)); border: 1px solid var(--c-line, var(--c-line));
-    padding: 1.75rem; position: relative; margin: auto;
-    display: flex; flex-direction: column;
-  }
-  .imgpick-head { flex: 0 0 auto; }
-  .imgpick-body { flex: 1 1 auto; overflow-y: auto; min-height: 0; margin: 0 -1.75rem -1.75rem; padding: 0 1.75rem 1.75rem; }
-  .imgpick-modal h2 { font-family: var(--font-title, sans-serif); font-size: 1.6rem; letter-spacing: 0.04em; margin: 0 0 1rem; }
-  .imgpick-close {
-    position: absolute; top: 0.8rem; right: 1rem; background: none; border: none;
-    color: var(--c-muted, var(--c-muted)); font-size: 1.6rem; cursor: pointer; line-height: 1;
-  }
-  .imgpick-close:hover { color: var(--c-text, #fff); }
-  .imgpick-add { display: inline-block; margin-bottom: 1rem; background: var(--c-accent, var(--c-accent)); color: var(--c-bg); border: 1px solid var(--c-accent, var(--c-accent)); border-radius: 999px; padding: 0.4rem 1.1rem; font-family: var(--font-title, inherit); letter-spacing: 0.03em; font-size: 0.9rem; cursor: pointer; }
-  .imgpick-add:hover:not(:disabled) { background: transparent; color: var(--c-accent, var(--c-accent)); }
-  .imgpick-add:disabled { opacity: 0.5; cursor: not-allowed; }
-  .imgpick-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-  .imgpick-tabs::-webkit-scrollbar { display: none; }
-  .imgpick-tab {
+  /* ⚠️ SOPRA gli altri modali. La libreria si apre SEMPRE da dentro un altro
+     modale (piatto, cliente, evento, popup), quindi deve stare sopra il 400 di
+     `.md-overlay` — e non puo' dipendere dall'ordine nel DOM, perche' il
+     componente e' incluso in punti diversi da pagina a pagina (in Clienti sta
+     PRIMA del modale che lo apre). */
+  #imgpick-overlay { z-index: 440; }
+  /* La testata (aggiungi + filtri) sta ferma, scorre solo la griglia. */
+  #imgpick-overlay .md-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .ip-head { flex: 0 0 auto; margin-bottom: 0.9rem; }
+  .ip-head .btn { margin-bottom: 0.9rem; }
+  .ip-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  /* Filtri: scorrono in orizzontale invece di andare a capo, cosi' la testata
+     resta alta una riga sola anche quando i tab sono cinque. */
+  .ip-tabs { display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .ip-tabs::-webkit-scrollbar { display: none; }
+  .ip-tab {
     flex-shrink: 0;
-    background: var(--c-card, var(--c-card)); border: 1px solid var(--c-line, var(--c-line)); color: var(--c-muted, var(--c-muted));
-    font-family: var(--font-title, sans-serif); font-size: 0.95rem; letter-spacing: 0.05em;
-    padding: 0.35rem 1rem; cursor: pointer; border-radius: 999px;
+    background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg)); color: var(--c-muted);
+    font-family: var(--font-body); font-size: 0.82rem; letter-spacing: 0.03em;
+    padding: 0.35rem 0.9rem; cursor: pointer; border-radius: 999px;
     transition: background 0.15s, color 0.15s, border-color 0.15s;
   }
-  .imgpick-tab:hover { color: var(--c-text, #fff); border-color: var(--c-accent, var(--c-accent)); }
-  .imgpick-tab.is-on { background: var(--c-accent, var(--c-accent)); border-color: var(--c-accent, var(--c-accent)); color: var(--c-bg); }
-  .imgpick-state { color: var(--c-muted, var(--c-muted)); text-align: center; padding: 1.5rem 0; }
-  .imgpick-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
-  .imgpick-cell {
-    padding: 0; border: 1px solid var(--c-line, var(--c-line)); background: var(--c-card, var(--c-card));
+  .ip-tab:hover { color: var(--c-text); border-color: var(--c-accent); }
+  .ip-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+  .ip-state { color: var(--c-muted); text-align: center; padding: 1.5rem 0; }
+  .ip-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .ip-cell {
+    padding: 0; border: 1px solid var(--c-line); background: var(--c-card);
     cursor: pointer; border-radius: 8px; overflow: hidden; display: block;
     transition: border-color 0.15s, transform 0.15s;
   }
-  .imgpick-cell:hover { border-color: var(--c-accent, var(--c-accent)); transform: scale(0.97); }
-  .imgpick-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
-  .imgpick-cell--pdf {
+  .ip-cell:hover { border-color: var(--c-accent); transform: scale(0.97); }
+  .ip-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  .ip-cell--pdf {
     aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 0.4rem; color: var(--c-muted, var(--c-muted)); padding: 0.4rem;
+    gap: 0.4rem; color: var(--c-muted); padding: 0.4rem;
   }
-  .imgpick-cell--pdf svg { width: 26px; height: 26px; fill: none; stroke: var(--c-accent, var(--c-accent)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  .imgpick-doc-name { font-size: 0.62rem; word-break: break-all; text-align: center; max-height: 2.4em; overflow: hidden; }
-  .imgpick-cell--pdf img { object-position: top; }
+  .ip-cell--pdf svg { width: 26px; height: 26px; fill: none; stroke: var(--c-accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .ip-doc-name { font-size: 0.62rem; word-break: break-all; text-align: center; max-height: 2.4em; overflow: hidden; }
+  .ip-cell--pdf img { object-position: top; }
   @media (max-width: 640px) {
-    .imgpick-modal { padding: 1.15rem; max-height: 92vh; }
-    .imgpick-body { margin: 0 -1.15rem -1.15rem; padding: 0 1.15rem 1.15rem; }
-    .imgpick-modal h2 { font-size: 1.3rem; margin: 0 0 0.8rem; }
-    .imgpick-add { font-size: 0.82rem; padding: 0.35rem 0.9rem; }
-    .imgpick-grid { gap: 0.4rem; }
+    .ip-grid { gap: 0.4rem; }
   }
 </style>
 
 <script>
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
   import { comprimiFoto } from "../../lib/admin/imageCompress";
+  import { adminT, type AdminLang } from "../../i18n/admin";
+
+  const LANG = (document.documentElement.lang || "fr") as AdminLang;
+  const tr = adminT(LANG);
 
   type Img = { bucket: string; name: string; url: string; used_by: string[]; tags: string[] };
   type Doc = { name: string; url: string; thumb_url: string | null };
@@ -118,20 +110,21 @@
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  function vuoto(msg: string) {
+    stateEl.style.display = "";
+    stateEl.textContent = msg;
+    grid.innerHTML = "";
+  }
+
   function render() {
     if (filtro === "docs") {
-      if (!docs.length) {
-        stateEl.style.display = "";
-        stateEl.textContent = "Aucun document.";
-        grid.innerHTML = "";
-        return;
-      }
+      if (!docs.length) return vuoto(tr("ip.noDocs"));
       stateEl.style.display = "none";
       grid.innerHTML = docs
         .map((d) =>
           d.thumb_url
-            ? `<button type="button" class="imgpick-cell" data-url="${esc(d.url)}" title="${esc(d.name)}"><img src="${esc(d.thumb_url)}" alt="" loading="lazy" /></button>`
-            : `<button type="button" class="imgpick-cell imgpick-cell--pdf" data-url="${esc(d.url)}" title="${esc(d.name)}">${ICO_PDF}<span class="imgpick-doc-name">${esc(d.name)}</span></button>`
+            ? `<button type="button" class="ip-cell" data-url="${esc(d.url)}" title="${esc(d.name)}"><img src="${esc(d.thumb_url)}" alt="" loading="lazy" /></button>`
+            : `<button type="button" class="ip-cell ip-cell--pdf" data-url="${esc(d.url)}" title="${esc(d.name)}">${ICO_PDF}<span class="ip-doc-name">${esc(d.name)}</span></button>`
         )
         .join("");
       return;
@@ -141,25 +134,18 @@
       : filtro === "libre"
         ? imgs.filter((i) => !i.tags.length)
         : imgs.filter((i) => i.tags.includes(filtro));
-    if (!vis.length) {
-      stateEl.style.display = "";
-      stateEl.textContent = "Aucune image.";
-      grid.innerHTML = "";
-      return;
-    }
+    if (!vis.length) return vuoto(tr("ip.noImages"));
     stateEl.style.display = "none";
     grid.innerHTML = vis
       .map(
         (i) =>
-          `<button type="button" class="imgpick-cell" data-url="${esc(i.url)}" title="${esc(i.name)}"><img src="${esc(i.url)}" alt="" loading="lazy" /></button>`
+          `<button type="button" class="ip-cell" data-url="${esc(i.url)}" title="${esc(i.name)}"><img src="${esc(i.url)}" alt="" loading="lazy" /></button>`
       )
       .join("");
   }
 
   async function carica() {
-    stateEl.style.display = "";
-    stateEl.textContent = "Chargement…";
-    grid.innerHTML = "";
+    vuoto(tr("sup.loading"));
     try {
       const { data } = await supabaseBrowser.auth.getSession();
       const token = data.session?.access_token ?? "";
@@ -174,36 +160,36 @@
       docs = resDoc && resDoc.ok ? ((await resDoc.json()) as { documents: Doc[] }).documents : [];
       render();
     } catch {
-      stateEl.textContent = "Erreur de chargement.";
+      stateEl.textContent = tr("ip.loadErr");
     }
   }
 
   function chiudi() {
-    overlay.classList.remove("is-open");
+    overlay.hidden = true;
   }
 
   window.addEventListener("imgpick:open", (e) => {
     modo = (e as CustomEvent<{ mode?: string }>).detail?.mode === "link" ? "link" : "image";
     const tabDocs = document.getElementById("imgpick-tab-docs") as HTMLButtonElement;
-    tabDocs.style.display = modo === "link" ? "" : "none";
+    tabDocs.hidden = modo !== "link";
     if (modo !== "link" && filtro === "docs") {
       filtro = "";
-      tabsEl.querySelectorAll<HTMLElement>(".imgpick-tab").forEach((el) => el.classList.toggle("is-on", el.dataset.b === ""));
+      tabsEl.querySelectorAll<HTMLElement>(".ip-tab").forEach((el) => el.classList.toggle("is-on", el.dataset.b === ""));
     }
-    overlay.classList.add("is-open");
+    overlay.hidden = false;
     void carica(); // ricarica sempre: include gli upload appena fatti
   });
 
   tabsEl.addEventListener("click", (e) => {
-    const t = (e.target as HTMLElement).closest(".imgpick-tab") as HTMLElement | null;
+    const t = (e.target as HTMLElement).closest(".ip-tab") as HTMLElement | null;
     if (!t) return;
     filtro = t.dataset.b ?? "";
-    tabsEl.querySelectorAll(".imgpick-tab").forEach((el) => el.classList.toggle("is-on", el === t));
+    tabsEl.querySelectorAll(".ip-tab").forEach((el) => el.classList.toggle("is-on", el === t));
     render();
   });
 
   grid.addEventListener("click", (e) => {
-    const cell = (e.target as HTMLElement).closest(".imgpick-cell") as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest(".ip-cell") as HTMLElement | null;
     if (!cell) return;
     window.dispatchEvent(new CustomEvent("imgpick:pick", { detail: { url: cell.dataset.url ?? "" } }));
     chiudi();
@@ -215,14 +201,14 @@
     if (!file) return;
     const prev = addBtn.textContent;
     addBtn.disabled = true;
-    addBtn.textContent = "Envoi…";
+    addBtn.textContent = tr("ip.sending");
     try {
       const foto = await comprimiFoto(file);
-      if (foto.size > 4 * 1024 * 1024) throw new Error("Fichier trop lourd (max 4 Mo)");
+      if (foto.size > 4 * 1024 * 1024) throw new Error(tr("ip.tooBig"));
       const b64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
         r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-        r.onerror = () => reject(new Error("Fichier illisible"));
+        r.onerror = () => reject(new Error(tr("ip.unreadable")));
         r.readAsDataURL(foto);
       });
       const { data } = await supabaseBrowser.auth.getSession();
@@ -233,12 +219,12 @@
         body: JSON.stringify({ filename: foto.name, data: b64, bucket: "popups" }),
       });
       const j = (await res.json()) as { error?: string; url?: string };
-      if (!res.ok || !j.url) throw new Error(j.error ?? "Téléversement impossible");
+      if (!res.ok || !j.url) throw new Error(j.error ?? tr("as.uploadFailed"));
       window.dispatchEvent(new CustomEvent("imgpick:pick", { detail: { url: j.url } }));
       chiudi();
     } catch (err) {
       stateEl.style.display = "";
-      stateEl.textContent = err instanceof Error ? err.message : "Téléversement impossible";
+      stateEl.textContent = err instanceof Error ? err.message : tr("as.uploadFailed");
     } finally {
       addBtn.disabled = false;
       addBtn.textContent = prev;
@@ -246,15 +232,15 @@
     }
   });
 
-  (document.getElementById("imgpick-close") as HTMLButtonElement).addEventListener("click", chiudi);
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) chiudi();
-  });
-  // Capture su window: l'Escape chiude SOLO la galleria, non il modale sotto
+  // Chiusura: le ancore del guscio condiviso (sfondo, ×).
+  overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudi));
+  // ⚠️ Capture su window: l'Escape chiude SOLO la libreria, non il modale che
+  // sta sotto e che l'ha aperta. Senza `stopPropagation` si chiuderebbero
+  // tutti e due, e il lavoro a meta' nel modale sotto andrebbe perso.
   window.addEventListener(
     "keydown",
     (e) => {
-      if (e.key === "Escape" && overlay.classList.contains("is-open")) {
+      if (e.key === "Escape" && !overlay.hidden) {
         e.stopPropagation();
         chiudi();
       }
