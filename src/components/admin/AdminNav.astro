@@ -327,31 +327,115 @@ const t = adminT(lang);
      dipende da quante ne sono attive, non da una larghezza. */
 
   /* --- Toast globale "Nouvelle réservation / commande" (poller) --- */
-  /* Fondo ORO, testo MARRONE, più alto: titolo + dettagli su due righe. */
+  /* CORALLO del brand, non piu' il degrade' oro: era l'unico elemento
+     dell'admin di un colore che non esiste da nessun'altra parte. Testo scuro
+     su corallo, la stessa coppia del bottone «Terminée» della card ordine.
+     Struttura: .mn-toast e' il GUSCIO (posizione e entrata), .mn-box la
+     scatola colorata, e in mezzo i due strati dell'aura. */
+
+  /* Lo schermo dietro si scurisce, e il velo CHIUDE al click: la notifica e'
+     una cosa da sbrigare, non da ignorare. Resta sotto al toast (490 < 500). */
+  .mn-scrim {
+    position: fixed; inset: 0; z-index: 490;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.45s ease;
+  }
+  .mn-scrim.show { opacity: 1; pointer-events: auto; cursor: pointer; }
+
   .mn-toast {
-    position: fixed; left: 50%; bottom: 5.5rem; transform: translateX(-50%) translateY(160%);
-    display: flex; align-items: center; gap: 1.1rem; max-width: 94vw; min-width: 340px; min-height: 92px;
-    background: linear-gradient(135deg, #eec063 0%, var(--c-accent) 52%, #d09a3b 100%);
-    border: 1.5px solid #b9822b; color: #3a2b1c;
-    font-family: var(--font-body, system-ui, sans-serif); line-height: 1.25;
-    padding: 1.25rem 1.6rem; border-radius: 20px; cursor: pointer; z-index: 500;
+    position: fixed; left: 50%; bottom: 5.5rem; z-index: 500;
+    transform: translateX(-50%) translateY(160%);
     opacity: 0; pointer-events: none;
     transition: opacity 0.35s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    box-shadow: 0 18px 50px rgba(0, 0, 0, calc(0.55 * var(--sh, 0.15)));
   }
   .mn-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
-  .mn-ico { flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%;
-    background: rgba(58, 43, 28, 0.14); display: flex; align-items: center; justify-content: center; }
-  .mn-toast svg { width: 30px; height: 30px; fill: none; stroke: #4a3418; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-  .mn-txt { display: flex; flex-direction: column; gap: 0.18rem; min-width: 0; }
-  .mn-txt strong { color: #2c2013; font-weight: 800; font-size: 1.18rem; letter-spacing: 0.01em; }
-  .mn-txt .det { color: #5a4327; font-weight: 600; font-size: 1rem; }
-  .mn-toast .mn-toast-x { margin-left: auto; padding-left: 0.6rem; color: #7a5f38; font-size: 1.6rem; line-height: 1; align-self: center; }
-  .mn-toast.is-cancel { border-color: #a5401f; }
-  .mn-toast.is-cancel svg { stroke: #9a3418; }
-  .mn-toast.is-cancel .mn-ico { background: rgba(150, 45, 20, 0.16); }
-  .mn-toast.is-cancel strong { color: #8f2e15; }
-  @media (max-width: 640px) { .mn-toast { bottom: calc(1.25rem + 138px); min-width: 0; width: 92vw; padding: 1.05rem 1.25rem; } }
+
+  .mn-box {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 1.2rem;
+    max-width: 94vw; min-width: 600px; min-height: 112px;
+    background: var(--c-accent);
+    border: 1px solid color-mix(in srgb, var(--c-accent) 70%, #000);
+    color: var(--c-bg);
+    font-family: var(--font-body, system-ui, sans-serif); line-height: 1.25;
+    padding: 1.35rem 1.7rem; border-radius: 22px; cursor: pointer;
+    /* Ombra a opacita' FISSA, non legata a --sh: sul tema scuro --sh e' ~0 e
+       l'ombra sparirebbe proprio dove serve. (Stessa scelta del FAB.) */
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  }
+
+  /* ---- AURA: l'alone che pulsa dietro al toast ----
+     Due strati, perche' uno solo o si vede poco o diventa una macchia:
+     .mn-aura-glow = l'alone vero, sempre acceso, che respira — e' quello che
+                     si nota con la coda dell'occhio dall'altra parte della
+                     cucina;
+     .mn-aura-wave = un'onda che parte dalla sagoma del toast e si spegne
+                     allargandosi: e' lei a dare il BATTITO. Senza, l'alone
+                     sembra solo una luce accesa.
+     Non gira: un movimento rotatorio in periferia tira l'occhio VIA dal testo,
+     il battito lo tira VERSO il toast. */
+  .mn-aura-glow {
+    position: absolute; inset: -44px; z-index: 0; border-radius: 70px;
+    background: radial-gradient(closest-side,
+      color-mix(in srgb, var(--c-accent) 95%, transparent),
+      color-mix(in srgb, var(--c-accent) 45%, transparent) 58%,
+      transparent 78%);
+    filter: blur(30px);
+    animation: mn-breathe 2.2s ease-in-out infinite;
+  }
+  .mn-aura-wave {
+    position: absolute; inset: 0; z-index: 0; border-radius: 22px;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 75%, transparent),
+                0 0 34px 10px color-mix(in srgb, var(--c-accent) 55%, transparent);
+    animation: mn-wave 2.2s ease-out infinite;
+  }
+  @keyframes mn-breathe {
+    0%, 100% { transform: scale(0.94); opacity: 0.55; }
+    50%      { transform: scale(1.08); opacity: 1; }
+  }
+  @keyframes mn-wave {
+    0%   { transform: scale(1);    opacity: 0.75; }
+    70%  { transform: scale(1.13); opacity: 0; }
+    100% { transform: scale(1.13); opacity: 0; }
+  }
+  /* Chi ha chiesto meno animazioni non si prende una girandola addosso a ogni
+     ordine: l'alone resta, fermo, e l'onda non parte. */
+  @media (prefers-reduced-motion: reduce) {
+    .mn-aura-glow { animation: none; opacity: 0.85; }
+    .mn-aura-wave { display: none; }
+  }
+
+  .mn-ico { flex-shrink: 0; width: 62px; height: 62px; border-radius: 50%;
+    background: rgba(18, 36, 42, 0.16); display: flex; align-items: center; justify-content: center; }
+  .mn-toast svg { width: 34px; height: 34px; fill: none; stroke: var(--c-bg); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .mn-txt { display: flex; flex-direction: column; gap: 0.22rem; min-width: 0; }
+  .mn-txt strong { color: var(--c-bg); font-weight: 800; font-size: 1.35rem; letter-spacing: 0.01em; }
+  .mn-txt .det { color: rgba(18, 36, 42, 0.78); font-weight: 600; font-size: 1.02rem; }
+  .mn-toast .mn-toast-x { margin-left: auto; padding-left: 0.8rem; color: rgba(18, 36, 42, 0.6); font-size: 1.8rem; line-height: 1; align-self: center; }
+
+  /* Annullamento: rosso, non corallo — non e' una buona notizia. */
+  .mn-toast.is-cancel .mn-box { background: #b8392e; border-color: #7e2418; color: #ffe9e5; }
+  .mn-toast.is-cancel svg { stroke: #ffe9e5; }
+  .mn-toast.is-cancel .mn-ico { background: rgba(0, 0, 0, 0.18); }
+  .mn-toast.is-cancel .mn-txt strong { color: #ffe9e5; }
+  .mn-toast.is-cancel .mn-txt .det { color: rgba(255, 233, 229, 0.8); }
+  .mn-toast.is-cancel .mn-toast-x { color: rgba(255, 233, 229, 0.65); }
+  .mn-toast.is-cancel .mn-aura-glow {
+    background: radial-gradient(closest-side, rgba(184, 57, 46, 0.95), rgba(184, 57, 46, 0.45) 58%, transparent 78%);
+  }
+  .mn-toast.is-cancel .mn-aura-wave {
+    box-shadow: 0 0 0 2px rgba(184, 57, 46, 0.75), 0 0 34px 10px rgba(184, 57, 46, 0.55);
+  }
+
+  @media (max-width: 640px) {
+    .mn-toast { bottom: calc(1.25rem + 138px); width: 92vw; }
+    .mn-box { min-width: 0; width: 100%; padding: 1.1rem 1.25rem; gap: 0.9rem; min-height: 96px; }
+    .mn-ico { width: 52px; height: 52px; }
+    .mn-toast svg { width: 28px; height: 28px; }
+    .mn-txt strong { font-size: 1.15rem; }
+    .mn-txt .det { font-size: 0.92rem; }
+  }
 </style>
 
 <script>
@@ -559,10 +643,20 @@ const t = adminT(lang);
     if (!token) return;
     const headers = { Authorization: `Bearer ${token}` };
 
+    // Guscio + i due strati dell'aura + la scatola colorata. Il contenuto
+    // cambia a ogni notifica e va scritto in `tBox`, NON in `tEl`: scrivendo
+    // nel guscio si cancellerebbero l'alone e l'onda.
     const tEl = document.createElement("div");
     tEl.className = "mn-toast";
     tEl.setAttribute("role", "status");
+    tEl.innerHTML = '<span class="mn-aura-glow"></span><span class="mn-aura-wave"></span><div class="mn-box"></div>';
+    const tBox = tEl.querySelector(".mn-box") as HTMLDivElement;
     document.body.appendChild(tEl);
+
+    // Velo scuro dietro: la notifica e' una cosa da sbrigare. Cliccarlo chiude.
+    const tScrim = document.createElement("div");
+    tScrim.className = "mn-scrim";
+    document.body.appendChild(tScrim);
 
     // Suono campana. I browser bloccano l'audio finché l'utente non interagisce:
     // al primo click/tasto lo "sblocchiamo" (play+pause muto) così poi parte.
@@ -614,6 +708,22 @@ const t = adminT(lang);
     const jjmm = (iso: string) => { const p = iso.split("-"); return `${p[2]}/${p[1]}`; };
     const euro = (c: number) => (Math.round(Number(c)) / 100).toFixed(2).replace(".", ",") + " €";
 
+    // Apertura e chiusura in UN posto solo: prima ogni notifica si riscriveva
+    // il suo `classList.add("show")` e il suo timeout.
+    function apriToast() {
+      tEl.classList.add("show");
+      tScrim.classList.add("show");
+      window.clearTimeout(tTimer);
+      // 8 secondi, non 5: il toast e' cliccabile e porta alla pagina — cinque
+      // sono pochi per accorgersene, asciugarsi le mani e toccarlo.
+      tTimer = window.setTimeout(chiudiToast, 8000);
+    }
+    function chiudiToast() {
+      tEl.classList.remove("show");
+      tScrim.classList.remove("show");
+      window.clearTimeout(tTimer);
+    }
+    tScrim.addEventListener("click", chiudiToast);
     tEl.addEventListener("click", () => { window.location.href = lastHref; });
 
     function mostra(eventi: { tipo: string; r: any }[]) {
@@ -632,10 +742,8 @@ const t = adminT(lang);
         : "";
       tEl.classList.toggle("is-cancel", n === 1 && last.tipo === "cancelled");
       const icoResa = `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><polyline points="9 15 11 17 15 13"/></svg>`;
-      tEl.innerHTML = `<span class="mn-ico">${icoResa}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
-      tEl.classList.add("show");
-      window.clearTimeout(tTimer);
-      tTimer = window.setTimeout(() => tEl.classList.remove("show"), 5000);
+      tBox.innerHTML = `<span class="mn-ico">${icoResa}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
+      apriToast();
     }
 
     async function poll() {
@@ -669,10 +777,8 @@ const t = adminT(lang);
       const dettaglio = n === 1 ? `${esc(nome)} · ${euro(o.total_cents)}` : "";
       tEl.classList.remove("is-cancel");
       const icoCmd = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 4 6v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6l-2-4Z"/><path d="M4 6h16"/><path d="M9 10a3 3 0 0 0 6 0"/></svg>`;
-      tEl.innerHTML = `<span class="mn-ico">${icoCmd}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
-      tEl.classList.add("show");
-      window.clearTimeout(tTimer);
-      tTimer = window.setTimeout(() => tEl.classList.remove("show"), 5000);
+      tBox.innerHTML = `<span class="mn-ico">${icoCmd}</span><span class="mn-txt"><strong>${titolo}</strong>${dettaglio ? `<span class="det">${dettaglio}</span>` : ""}</span><span class="mn-toast-x">›</span>`;
+      apriToast();
     }
     async function pollOrdini() {
       try {

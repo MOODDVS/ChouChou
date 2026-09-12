@@ -8,6 +8,7 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
@@ -147,19 +148,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .vs-head .vs-n { font-family: var(--font-body); font-size: 0.8rem; letter-spacing: 0; color: var(--c-muted); }
       .vs-head .vs-n b { color: var(--c-text); }
       .vs-head .vs-n i, .vm-r i { color: var(--c-accent); font-style: normal; }
-      .vs-row {
-        display: flex; align-items: center; gap: 1rem;
-        background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.5rem 1rem; margin-bottom: 0.3rem; cursor: pointer;
-        transition: border-color 0.15s;
-      }
-      .vs-row:hover { border-color: var(--c-accent); }
-      .vs-h { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-accent); min-width: 3.2rem; }
-      .vs-nome { font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .vs-p { white-space: nowrap; font-size: 0.85rem; color: var(--c-muted); }
-      .vs-p b { color: var(--c-text); font-size: 0.95rem; }
-      .vs-z { color: var(--c-muted); font-size: 0.8rem; white-space: nowrap; }
-      .vs-st { font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+      /* Blocco delle card di un giorno nella vista Settimana. */
+      .vs-giorno { margin-bottom: 1.4rem; }
+      .vm-piu { display: flex; justify-content: center; margin-top: 1.1rem; }
+      .vm-dw { display: none; color: var(--c-muted); font-weight: 700; margin-right: 0.35rem; }
       .vm-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 0.3rem; }
       .vm-dow span { text-align: center; font-size: 0.72rem; color: var(--c-muted); text-transform: uppercase; padding: 0.2rem 0; }
       .vm-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -179,7 +171,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .vm-r { font-size: 0.72rem; color: var(--c-muted); }
       @media (max-width: 640px) {
         .vm-cell { min-height: 70px; padding: 0.35rem 0.4rem; }
-        .vs-row { flex-wrap: wrap; gap: 0.4rem 0.8rem; }
       }
       .spacer { flex: 1; }
       .d-search {
@@ -226,6 +217,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
       /* Mobile: ricerca a piena larghezza sotto ai controlli. */
       @media (max-width: 640px) {
+        /* Vista Mese su telefono: SETTE colonne su 360px sono strisce di 45px.
+           Due colonne, niente testata dei giorni (non vuol piu' dire niente) e
+           niente celle vuote di allineamento: i giorni scorrono uno dopo
+           l'altro da oggi in avanti. L'iniziale del giorno passa DENTRO la
+           cella, altrimenti non si sa piu' che giorno sia. */
+        .vm-grid { grid-template-columns: 1fr 1fr; }
+        .vm-dow { display: none; }
+        .vm-vuota { display: none; }
+        .vm-dw { display: inline; }
+        .vm-cell { min-height: 62px; }
         .head-row { flex-direction: column; align-items: stretch; gap: 1.25rem; }
         .daybar { width: 100%; column-gap: 0.4rem; row-gap: 0.8rem; }
         .daybar .d-search-wrap { order: 5; flex: 1 1 100%; }
@@ -233,8 +234,18 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         /* Data + Oggi/Sett/Mese sulla STESSA linea: numeri nascosti, bottoni compatti */
         .d-today .n { display: none; }
         .d-today { flex: 0 0 auto; padding: 0 0.7rem; }
-        .d-pill { flex: 1 1 auto; min-width: 0; }
-        .d-label { min-width: 0; font-size: 0.95rem; }
+        /* ⚠️ `.daybar` davanti NON e' decorativo: piu' sotto c'e' un blocco
+           @media 760px con `.d-label { flex: 1; font-size: 1.1rem }` che,
+           venendo DOPO nel file, vinceva su queste e allargava la pillola
+           della data finche' il bottone «Mese» andava a capo. */
+        .daybar .d-pill { flex: 1 1 0; min-width: 0; }
+        /* L'etichetta RIEMPIE la pillola (`flex: 1`), altrimenti le due frecce
+           si accostano al testo e restano aria morta a destra: la pillola e'
+           larga quanto lo spazio libero, il testo no. Il `min-width: 0` e
+           l'ellissi sono cio' che le impedisce di allargare la pillola. */
+        .daybar .d-label { flex: 1 1 auto; min-width: 0; font-size: 0.95rem; padding: 0 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .daybar .d-nav { width: 26px; height: 26px; }
+        .daybar .d-today { height: 34px; padding: 0 0.6rem; }
         /* Oggi = solo icona */
         #d-today .d-txt-full { display: none; }
         #d-today .d-ico-today { display: inline-flex; }
@@ -495,20 +506,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-heures { color: var(--c-muted); font-size: 0.82rem; }
       .sv-info { flex: 1; min-width: 140px; }
       .sv-past-lab { color: var(--c-muted); font-size: 0.78rem; font-style: italic; }
-      .sv-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
-      .sv-switch input { opacity: 0; width: 0; height: 0; }
-      .sv-track {
-        position: absolute; inset: 0; background: var(--c-line); border-radius: 999px;
-        cursor: pointer; transition: background 0.2s;
-      }
-      .sv-track::before {
-        content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px;
-        background: var(--c-muted); border-radius: 50%; transition: transform 0.2s, background 0.2s;
-      }
-      .sv-switch input:checked + .sv-track { background: var(--c-accent); }
-      .sv-switch input:checked + .sv-track::before { transform: translateX(20px); background: var(--c-bg); }
-      .sv-switch input:disabled + .sv-track { cursor: not-allowed; }
+      /* L'interruttore e' il componente condiviso: .switch in styles/switch.css. */
       .sv-actions { flex-basis: 100%; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+      /* Servizio aperto: nessuna azione, e la riga non lascia spazio vuoto. */
+      .sv-actions:empty { display: none; }
       .sv-raisons { display: flex; gap: 0.4rem; flex: 0 1 auto; }
       .sv-state.is-perm { color: #d24d55; font-weight: 700; }
       .sv-permbtn {
@@ -542,28 +543,24 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .sv-fut-info { flex: 1; color: var(--c-muted); font-size: 0.85rem; }
       .sv-fut-info b { color: var(--c-text); font-weight: 700; }
 
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        align-items: center; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      .modal { width: 100%; max-width: 520px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: sticky; top: 0; float: right; margin: 0 0 0 0.6rem; z-index: 7; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
+      /* Il guscio dei modali sta in `src/styles/modal.css` (.md-*): qui non
+         resta nessun `.overlay`/`.modal`, tutti convertiti al componente. */
       /* Modale dettagli prenotazione */
       .dt-badge {
         display: inline-block; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase;
-        padding: 0.32rem 0.85rem; border-radius: 999px; border: none; margin-bottom: 1.1rem;
+        padding: 0.32rem 0.85rem; border-radius: 999px; border: none; margin: 0;
         font-weight: 700; color: var(--c-text);
       }
-      .dt-timer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.8rem; margin-bottom: 0.55rem; }
-      .dt-timer-head .dt-badge { margin-bottom: 0; }
+      /* Riga di testa del modale dettagli: a sinistra le informazioni della
+         prenotazione (un'icona davanti a ognuna, tavoli compresi), a destra
+         lo stato e il canale di prenotazione. */
+      /* --dt-riga: l'altezza della pillola di stato. La prima riga della meta
+         la eredita, cosi' i due blocchi si centrano sulla STESSA linea invece
+         di appoggiarsi al bordo alto, dove i testi non si allineavano. */
+      .dt-headline { --dt-riga: 1.7rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.55rem 1rem; flex-wrap: wrap; margin: 0; }
+      #dt-tstatus { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; flex: 0 0 auto; min-height: var(--dt-riga); }
+      .dt-src { display: inline-flex; align-items: center; color: #fff; }
+      .dt-src svg { width: 18px; height: 18px; display: block; color: #fff; }
       #dt-title { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
       .dt-new {
         display: inline-block; background: var(--c-accent); color: var(--c-bg); font-family: var(--font-body);
@@ -571,12 +568,26 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         padding: 0.28rem 0.65rem; border-radius: 999px;
       }
       .dt-meta {
-        font-size: 0.85rem; color: var(--c-text); font-weight: 700; padding-top: 0.35rem; min-width: 0;
-        display: flex; align-items: center; flex-wrap: wrap;
+        font-size: 0.97rem; color: var(--c-text); font-weight: 700; min-width: 0; flex: 1 1 240px;
+        display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem;
       }
-      .dt-meta .sep { color: var(--c-accent); font-weight: 700; margin: 0 0.35rem; }
-      .dt-meta .src { display: inline-flex; margin-right: 0.55rem; }
-      .dt-meta .src svg { width: 17px; height: 17px; color: var(--c-accent); display: block; }
+      .dt-mrow { display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem 0.9rem; max-width: 100%; min-height: var(--dt-riga); }
+      /* Mobile: in colonna non c'e' piu' una destra dove mettere lo stato, e
+         appeso in fondo si perdeva. Sale in cima — prima la pillola, poi il
+         canale — e i dettagli scendono sotto. Solo l'ordine visivo cambia:
+         nel DOM i dettagli restano primi, come li legge chi usa uno screen
+         reader e come li scrive il JS. */
+      @media (max-width: 640px) {
+        .dt-headline { flex-direction: column-reverse; flex-wrap: nowrap; align-items: flex-start; gap: 0.7rem; }
+        #dt-tstatus { flex-direction: row-reverse; }
+        /* ⚠️ Girando la direzione in colonna, `flex: 1 1 240px` non e' piu' una
+           larghezza minima ma un'ALTEZZA di partenza: 240px di vuoto sotto i
+           dettagli. In colonna la base va azzerata e la larghezza presa piena. */
+        .dt-meta { flex: 0 0 auto; width: 100%; }
+      }
+      .dt-m { display: inline-flex; align-items: center; gap: 0.38rem; white-space: nowrap; min-width: 0; }
+      .dt-m span { overflow: hidden; text-overflow: ellipsis; }
+      .dt-m svg { width: 17px; height: 17px; color: var(--c-accent); display: block; flex: 0 0 auto; }
       .dt-contacts {
         display: flex; flex-wrap: wrap; gap: 0.45rem 1.2rem;
         margin: -0.55rem 0 1.1rem; font-size: 0.88rem;
@@ -634,7 +645,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         padding: 0.35rem 1rem; border-radius: 999px; cursor: pointer;
       }
       .dt-spend-save:hover { background: var(--c-accent); color: var(--c-bg); }
-      .dt-opts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.75rem; }
+      .dt-opts { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.8rem 0 0; }
+      .dt-tblock { margin-top: 0.9rem; }
       .dt-opts:empty { display: none; }
       .dt-opts .tag {
         border: 1px solid var(--c-accent); color: var(--c-accent); border-radius: 999px;
@@ -652,12 +664,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .f-row { display: flex; gap: 0.8rem; margin-bottom: 0.9rem; }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 0; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
-      .modal input, .modal textarea {
+      /* ⚠️ Questi stili erano agganciati a `.modal`: i modali del guscio
+         condiviso sono `.md-box` e senza questi selettori i campi tornano
+         al bianco di sistema. */
+      .md-box input, .md-box textarea {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
         width: 100%; color-scheme: dark;
       }
-      .modal input:focus, .modal textarea:focus { outline: none; border-color: var(--c-accent); }
+      .md-box input:focus, .md-box textarea:focus { outline: none; border-color: var(--c-accent); }
       /* Form del modale: stesso design dello step 2 del widget */
       .nm-frow { display: flex; gap: 0.5rem; margin-bottom: 0.6rem; }
       .nm-ta-anchor { position: relative; }
@@ -676,21 +691,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-ta-name { font-size: 0.92rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
       .nm-ta-sub { font-size: 0.76rem; color: var(--c-muted); margin-top: 1px; }
       .nm-ta-block { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.4); border-radius: 999px; padding: 0.05rem 0.4rem; }
-      .modal .nm-in {
+      .md-box .nm-in {
         flex: 1; width: 100%; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line);
         color: var(--c-text); padding: 0.55rem 0.7rem; font-size: 0.9rem; border-radius: 8px;
         font-family: var(--font-body); max-width: none;
       }
-      .modal .nm-in:focus { outline: none; border-color: var(--c-accent); }
-      .modal .nm-in::placeholder { color: #8f8781; }
-      .modal select.nm-tel-prefix {
+      .md-box .nm-in:focus { outline: none; border-color: var(--c-accent); }
+      .md-box .nm-in::placeholder { color: #8f8781; }
+      .md-box select.nm-tel-prefix {
         flex: 0 0 112px; color-scheme: dark; cursor: pointer;
         -webkit-appearance: none; appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
         background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 12px;
         padding-right: 2.1rem;
       }
-      .modal textarea.nm-in { resize: vertical; min-height: 72px; }
+      .md-box textarea.nm-in { resize: vertical; min-height: 72px; }
       .nm-opts { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.35rem 0 0.7rem; }
       .nm-opt {
         background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted);
@@ -710,7 +725,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-lang.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .nm-lang-flag { font-size: 1.05rem; line-height: 1; }
       .nm-lang-more { font-weight: 700; letter-spacing: 0.02em; }
-      .modal textarea { resize: vertical; min-height: 56px; }
+      .md-box textarea { resize: vertical; min-height: 56px; }
       .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
       .m-msg { display: inline-block; margin-right: auto; background: #d84a3f; color: #ffffff; font-size: 0.82rem; font-weight: 700; padding: 0.42rem 0.9rem; border-radius: 999px; line-height: 1.35; }
       .m-msg:empty { display: none; }
@@ -729,12 +744,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       /* Modale prenotazione: header e footer FISSI (flex), corpo scrollabile.
          Su desktop le due colonne scrollano indipendenti; su mobile scrolla
          tutta la griglia. Header/footer restano opachi, nessuna trasparenza. */
-      .modal-resa { max-width: 920px; display: flex; flex-direction: column; overflow: hidden; }
-      .modal-resa .m-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex: 0 0 auto; background: var(--c-bg); padding-bottom: 1rem; }
-      .modal-resa .m-head h2 { margin: 0; }
-      .modal-resa .m-head .m-close { position: static; float: none; margin: 0; }
-      .modal-resa .nm-grid { flex: 1 1 auto; min-height: 0; }
-      .modal-resa > .m-actions { flex: 0 0 auto; }
+      /* DEROGA VOLUTA al guscio (come il modale evento di Agenda): qui NON
+         scorre il corpo, scorrono le due colonne SEPARATAMENTE. Sono due cose
+         indipendenti — a sinistra data/ora/sezione, a destra il cliente — e con
+         una barra sola, scegliendo l'orario, si perde di vista il nome. */
+      #m-overlay .md-body { display: flex; overflow: hidden; }
+      #m-overlay .nm-grid { flex: 1 1 auto; min-height: 0; }
+      /* Il messaggio d'errore resta a sinistra e spinge i bottoni a destra. */
+      #m-overlay .md-foot .m-msg { margin-right: auto; }
       /* DUE COLONNE: ognuna scrolla per conto suo, quindi la riga della griglia
          va VINCOLATA (minmax(0,1fr)) — senza, si dimensiona sul contenuto, le
          colonne restano alte quanto il loro contenuto e overflow-y non scrolla
@@ -742,12 +759,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
          ⚠️ Questo vincolo vale SOLO a due colonne. A una colonna le due parti
          stanno in due righe: bloccare l'altezza della prima le fa accavallare. */
       @media (min-width: 761px) {
-        .modal-resa .nm-grid { grid-template-rows: minmax(0, 1fr); }
-        .modal-resa .nm-col { overflow-y: auto; min-height: 0; padding-right: 0.5rem; }
+        #m-overlay .nm-grid { grid-template-rows: minmax(0, 1fr); }
+        #m-overlay .nm-col { overflow-y: auto; min-height: 0; padding-right: 0.5rem; }
       }
-      /* UNA COLONNA: righe ad altezza contenuto, scrolla tutta la griglia. */
+      /* UNA COLONNA: righe ad altezza contenuto, scrolla tutta la griglia —
+         due barre affiancate hanno senso, due impilate no. */
       @media (max-width: 760px) {
-        .modal-resa .nm-grid { grid-template-rows: auto; overflow-y: auto; overflow-x: hidden; }
+        #m-overlay .md-body { display: block; overflow-y: auto; }
+        #m-overlay .nm-grid { grid-template-rows: auto; }
       }
       .nm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.6rem; }
       .nm-col { min-width: 0; }
@@ -832,6 +851,41 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-zones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
       .nm-warn { color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); border-radius: 8px; padding: 0.5rem 0.8rem; font-size: 0.82rem; line-height: 1.5; margin-top: 0.6rem; }
       .nm-tables-man { flex-wrap: wrap; }
+      /* Finestra del tavolo accanto al numero: piccola, discreta, non compete
+         col conteggio ma lo spiega. */
+      /* --- Modale «cosa fare con questa prenotazione» --- */
+      .rm-hint { color: var(--c-muted); font-size: 0.9rem; line-height: 1.55; margin: 0 0 1.2rem; }
+      .rm-choice {
+        display: block; width: 100%; border-radius: 999px; padding: 0.85rem; cursor: pointer;
+        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
+        background: transparent; border: 1px solid var(--c-line); color: var(--c-text);
+        margin-bottom: 0.7rem; transition: filter 0.15s, border-color 0.15s, color 0.15s, background 0.15s;
+      }
+      .rm-choice:last-child { margin-bottom: 0; }
+      .rm-choice-primary { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+      .rm-choice-primary:hover { filter: brightness(1.08); }
+      /* Rosso, non corallo: e' distruttiva e non manda niente al cliente. */
+      .rm-choice-danger { color: #ed6a5f; border-color: rgba(237, 28, 36, 0.45); }
+      .rm-choice-danger:hover { border-color: #ed1c24; background: rgba(237, 28, 36, 0.1); }
+      .rm-choice-ghost { color: var(--c-muted); font-family: var(--font-body); font-size: 0.9rem; padding: 0.7rem; }
+      .rm-choice-ghost:hover { color: var(--c-text); border-color: var(--c-text); }
+      /* Fondo e bordo li mette gia `.md-box textarea`: qui solo la forma.
+         (Prima era `background: var(--c-bg)` dentro un modale con lo stesso
+         fondo: un campo invisibile.) */
+      .md-box .rm-area { border-radius: 10px; padding: 0.7rem 0.9rem; resize: vertical; margin: 0 0 0.9rem; }
+      /* --- Modale no-show --- */
+      .ns-name { color: var(--c-text); font-weight: 600; margin: 0 0 0.9rem; }
+      /* Il riquadro dello storico aveva `background: var(--c-bg)` DENTRO un
+         modale che ha gia quel fondo: era un rettangolo invisibile con un
+         bordo. Ora e' un blocco pieno, ricavato dal colore del testo. */
+      .ns-hist { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem;
+        background: color-mix(in srgb, var(--c-text) 10%, var(--c-bg)); border: 0; border-radius: 12px;
+        padding: 0.85rem 1rem; margin-bottom: 1.15rem; }
+      .ns-hist > span:first-child { color: var(--c-muted); font-size: 0.88rem; line-height: 1.4; }
+      .ns-count { font-family: var(--font-title); font-size: 1.6rem; color: #ed6a5f; line-height: 1; }
+      .ns-blocca { display: flex; align-items: center; justify-content: space-between; gap: 0.9rem;
+        cursor: pointer; color: var(--c-text); font-size: 0.9rem; line-height: 1.45; }
+      .nm-cap-win { color: var(--c-muted); font-size: 0.76rem; font-variant-numeric: tabular-nums; margin-left: 0.55rem; white-space: nowrap; }
       .nm-tv-lab { color: var(--c-muted); font-size: 0.82rem; margin-inline-end: 0.2rem; }
       .nm-tv-z { width: 100%; color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.2rem; }
       .nm-tv {
@@ -961,35 +1015,28 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     </button>
 
     <!-- Modale sections: chiusure par section -->
-    <div class="overlay" id="zn-overlay">
-      <div class="modal">
-        <button class="m-close" id="zn-close" aria-label={t("common.close")}>×</button>
-        <h2>{t("res.sections")}</h2>
-        <span class="f-label">{t("home.date")}</span>
-        <div class="nm-days sv-days">
-          <button type="button" class="nm-pill" id="zn-auj">{t("ord.today")}</button>
-          <button type="button" class="nm-pill" id="zn-dem">{t("res.tomorrow")}</button>
-        </div>
-        <input type="text" id="zn-datein" class="nm-datein" readonly />
-        <div id="zn-list"></div>
-        <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
-        <div id="zn-future"></div>
+    <Modal id="zn-overlay" title={t("res.sections")} width="520px">
+      <span class="f-label">{t("home.date")}</span>
+      <div class="nm-days sv-days">
+        <button type="button" class="nm-pill" id="zn-auj">{t("ord.today")}</button>
+        <button type="button" class="nm-pill" id="zn-dem">{t("res.tomorrow")}</button>
       </div>
-    </div>
+      <input type="text" id="zn-datein" class="nm-datein" readonly />
+      <div id="zn-list"></div>
+      <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
+      <div id="zn-future"></div>
+    </Modal>
 
     <!-- Modale dettagli prenotazione (click sulla card) -->
-    <div class="overlay" id="dt-overlay">
-      <div class="modal">
-        <button class="m-close" id="dt-close" aria-label={t("common.close")}>×</button>
-        <h2 id="dt-title">{t("res.reservation")}</h2>
-        <div class="dt-contacts" id="dt-contacts"></div>
-        <div id="dt-status"></div>
-        <div class="dt-timer" id="dt-timer" style="display:none">
-          <div class="dt-timer-head">
-            <span class="dt-meta" id="dt-meta"></span>
-            <span id="dt-tstatus"></span>
-          </div>
-          <div class="dt-opts" id="dt-opts"></div>
+    <Modal id="dt-overlay" title={t("res.reservation")} titleId="dt-title" width="560px">
+      <div class="dt-contacts" id="dt-contacts"></div>
+      <div class="dt-timer" id="dt-timer">
+        <div class="dt-headline">
+          <span class="dt-meta" id="dt-meta"></span>
+          <span id="dt-tstatus"></span>
+        </div>
+        <div class="dt-opts" id="dt-opts"></div>
+        <div class="dt-tblock" id="dt-tblock" style="display:none">
           <span class="f-label" id="dt-tlab">{t("res.seatedSince")}</span>
           <div class="dt-clock" id="dt-clock">—</div>
           <div class="dt-track" id="dt-track"><span class="dt-fill" id="dt-fill"></span></div>
@@ -1017,37 +1064,27 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             </div>
           </div>
         </div>
-        <div class="dt-note" id="dt-note"></div>
-        <div id="dt-rows"></div>
-        <div class="dt-stats" id="dt-stats"></div>
       </div>
-    </div>
+      <div class="dt-note" id="dt-note"></div>
+      <div class="dt-stats" id="dt-stats"></div>
+    </Modal>
 
     <!-- Modale services du jour: chiusure par service -->
-    <div class="overlay" id="sv-overlay">
-      <div class="modal">
-        <button class="m-close" id="sv-close" aria-label={t("common.close")}>×</button>
-        <h2>{t("res.services")}</h2>
-        <span class="f-label">{t("home.date")}</span>
-        <div class="nm-days sv-days">
-          <button type="button" class="nm-pill" id="sv-auj">{t("ord.today")}</button>
-          <button type="button" class="nm-pill" id="sv-dem">{t("res.tomorrow")}</button>
-        </div>
-        <input type="text" id="sv-datein" class="nm-datein" readonly />
-        <div id="sv-list"></div>
-        <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
-        <div id="sv-future"></div>
+    <Modal id="sv-overlay" title={t("res.services")} width="520px">
+      <span class="f-label">{t("home.date")}</span>
+      <div class="nm-days sv-days">
+        <button type="button" class="nm-pill" id="sv-auj">{t("ord.today")}</button>
+        <button type="button" class="nm-pill" id="sv-dem">{t("res.tomorrow")}</button>
       </div>
-    </div>
+      <input type="text" id="sv-datein" class="nm-datein" readonly />
+      <div id="sv-list"></div>
+      <span class="f-label sv-fut-lab">{t("res.upcomingClosures")}</span>
+      <div id="sv-future"></div>
+    </Modal>
 
     <!-- Modale prenotazione manuale (walk-in / telefono), stile widget -->
-    <div class="overlay" id="m-overlay">
-      <div class="modal modal-resa">
-        <div class="m-head">
-          <h2 id="m-title">{t("res.newReservation")}</h2>
-          <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
-        </div>
-        <div class="nm-grid">
+    <Modal id="m-overlay" title={t("res.newReservation")} titleId="m-title" width="920px">
+      <div class="nm-grid">
           <div class="nm-col">
             <span class="f-label" id="nm-type-lab">{t("res.type")}</span>
             <div class="nm-days" id="nm-type-row">
@@ -1103,54 +1140,50 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             </div>
           </div>
         </div>
-        <div class="m-actions">
-          <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
-          <button class="m-save" id="m-save">{t("common.add")}</button>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="m-msg" id="m-msg"></span>
+        <button class="md-btn" id="m-cancel">{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="m-save">{t("common.add")}</button>
+      </Fragment>
+    </Modal>
 
     <div class="toast" id="toast"></div>
 
     <!-- Modale: cosa fare del cestino di una prenotazione (annulla+email vs elimina) -->
-    <div class="overlay" id="rm-overlay">
-      <div class="modal" style="max-width:440px;">
-        <button class="m-close" id="rm-close" aria-label={t("common.close")}>&times;</button>
-        <h2>{t("res.delTitle")}</h2>
-        <div id="rm-choices">
-          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 1.3rem;">{t("res.delHint")}</p>
-          <button type="button" id="rm-cancel-email" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.delCancelEmail")}</button>
-          <button type="button" id="rm-delete" style="display:block;width:100%;background:transparent;color:#ed6a5f;border:1px solid rgba(237,28,36,0.45);border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;">{t("res.delSilent")}</button>
-        </div>
-        <div id="rm-reason-box" style="display:none;">
-          <p style="color:var(--c-muted);font-size:0.9rem;line-height:1.55;margin:0.3rem 0 0.7rem;">{t("res.delReasonHint")}</p>
-          <p id="rm-lang-hint" style="display:none;color:var(--c-muted);font-size:0.85rem;margin:0 0 0.8rem;"></p>
-          <textarea id="rm-reason" rows="3" placeholder={t("res.delReasonPh")} style="width:100%;background:var(--c-bg);color:var(--c-text);border:1px solid var(--c-line);border-radius:10px;padding:0.7rem 0.9rem;font-family:var(--font-body);font-size:0.95rem;resize:vertical;margin:0 0 0.9rem;"></textarea>
-          <button type="button" id="rm-confirm-cancel" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.6rem;">{t("res.delConfirmCancel")}</button>
-          <button type="button" id="rm-back" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.7rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("common.cancel")}</button>
-        </div>
+    <Modal id="rm-overlay" title={t("res.delTitle")} width="440px">
+      {/* Due scelte alternative, non un'azione da confermare: restano nel CORPO
+          a tutta larghezza. Nel footer sarebbero «la» azione, e qui non c'e'
+          una risposta giusta fra le due. */}
+      <div id="rm-choices">
+        <p class="rm-hint">{t("res.delHint")}</p>
+        <button type="button" class="rm-choice rm-choice-primary" id="rm-cancel-email">{t("res.delCancelEmail")}</button>
+        <button type="button" class="rm-choice rm-choice-danger" id="rm-delete">{t("res.delSilent")}</button>
       </div>
-    </div>
+      <div id="rm-reason-box" style="display:none">
+        <p class="rm-hint">{t("res.delReasonHint")}</p>
+        <p class="rm-hint" id="rm-lang-hint" style="display:none"></p>
+        <textarea class="rm-area" id="rm-reason" rows="3" placeholder={t("res.delReasonPh")}></textarea>
+        <button type="button" class="rm-choice rm-choice-primary" id="rm-confirm-cancel">{t("res.delConfirmCancel")}</button>
+        <button type="button" class="rm-choice rm-choice-ghost" id="rm-back">{t("common.cancel")}</button>
+      </div>
+    </Modal>
 
     <!-- Modale: no-show (storico + notifica facoltativa + blocco cliente) -->
-    <div class="overlay" id="ns-overlay">
-      <div class="modal" style="max-width:440px;">
-        <button class="m-close" id="ns-close" aria-label={t("common.close")}>&times;</button>
-        <h2>{t("res.nsTitle")}</h2>
-        <p id="ns-name" style="color:var(--c-text);font-weight:600;margin:0.2rem 0 0.9rem;"></p>
-        <div id="ns-hist" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;background:var(--c-bg);border:1px solid var(--c-line);border-radius:12px;padding:0.85rem 1rem;margin-bottom:1.15rem;">
-          <span id="ns-hist-lab" style="color:var(--c-muted);font-size:0.88rem;line-height:1.4;"></span>
-          <span id="ns-count" style="font-family:var(--font-title);font-size:1.6rem;color:#ed6a5f;line-height:1;"></span>
-        </div>
-        <label style="display:flex;align-items:center;justify-content:space-between;gap:0.9rem;margin-bottom:1.25rem;cursor:pointer;">
-          <span style="color:var(--c-text);font-size:0.9rem;line-height:1.45;">{t("res.nsBlock")}</span>
-          <span class="sv-switch"><input type="checkbox" id="ns-block" /><span class="sv-track"></span></span>
-        </label>
-        <button type="button" id="ns-notify" style="display:block;width:100%;background:var(--c-accent);color:var(--c-bg);border:none;border-radius:999px;padding:0.85rem;font-family:var(--font-title);font-size:0.95rem;letter-spacing:0.03em;cursor:pointer;margin-bottom:0.7rem;">{t("res.nsNotify")}</button>
-        <button type="button" id="ns-silent" style="display:block;width:100%;background:transparent;color:var(--c-muted);border:1px solid var(--c-line);border-radius:999px;padding:0.85rem;font-family:var(--font-body);font-size:0.9rem;cursor:pointer;">{t("res.nsSilent")}</button>
+    <Modal id="ns-overlay" title={t("res.nsTitle")} width="440px">
+      <p class="ns-name" id="ns-name"></p>
+      <div class="ns-hist">
+        <span id="ns-hist-lab"></span>
+        <span class="ns-count" id="ns-count"></span>
       </div>
-    </div>
+      <label class="ns-blocca">
+        <span>{t("res.nsBlock")}</span>
+        <span class="switch"><input type="checkbox" id="ns-block" /><span class="track"></span></span>
+      </label>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn" id="ns-silent">{t("res.nsSilent")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="ns-notify">{t("res.nsNotify")}</button>
+      </Fragment>
+    </Modal>
 
     <AdminNav current="reservations" />
 
@@ -1232,6 +1265,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         google: tr("res.srcGoogle"),
       };
 
+      // Icone della riga di testa del modale dettagli: una davanti a ogni
+      // informazione (data, ora, coperti, tavoli, section).
+      const ICO_DT_CAL =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="17" rx="2"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></svg>';
+      const ICO_DT_ORA =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/></svg>';
+      const ICO_DT_PERS =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.5 20.5v-1.4a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1.4"/><circle cx="9" cy="7.5" r="3.2"/><path d="M21.5 20.5v-1.4a4 4 0 0 0-3-3.87"/><path d="M16.2 4.3a4 4 0 0 1 0 7.5"/></svg>';
+      const ICO_DT_ZONE =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s7-5.6 7-11.1a7 7 0 1 0-14 0c0 5.5 7 11.1 7 11.1z"/><circle cx="12" cy="10.2" r="2.5"/></svg>';
+      const ICO_DT_TAV =
+        '<svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><ellipse cx="50" cy="25" rx="40" ry="15"/><path d="m50 45c-16.01 0-32.115-3.538-40-10.361v5.361c0 8.737 16.139 15.889 36.666 16.595v26.738h-3.333l-2.271-9.082c-6.539 1.367-11.062 4.16-11.062 7.415 0 4.6 8.955 8.333 19.999 8.333 11.042 0 20-3.733 20-8.333 0-4.124-7.215-7.545-16.666-8.209v-16.862c20.526-.706 36.667-7.858 36.667-16.595v-5.361c-7.885 6.823-23.992 10.361-40 10.361z"/></svg>';
+
       const ICO_EDIT =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" /></svg>';
 
@@ -1293,6 +1339,24 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       let giorno = pDateURL && /^\d{4}-\d{2}-\d{2}$/.test(pDateURL) ? pDateURL : isoOggi();
       let modoRicerca = false; // il campo di ricerca sta mostrando risultati
       let vista: "jour" | "semaine" | "mois" = "jour"; // bottoni Semaine / Mois
+      // caricaVista() e' dichiarata nel blocco delle viste, piu' in basso e
+      // fuori dallo scope di carica(): il ponte e' questo segnaposto, riempito
+      // da quel blocco. (Stesso motivo di planNomi.)
+      let ricaricaVista: (() => void) | null = null;
+      // Prenotazioni caricate dalla vista Settimana/Mese: un insieme DIVERSO
+      // da `rese`, che tiene solo il giorno mostrato. Da quando la settimana
+      // disegna le card vere, anche le sue azioni devono ritrovare la
+      // prenotazione — e nel giorno corrente non c'e'.
+      let reseVista: Resa[] = [];
+      // Ampiezza della vista Mese: parte da 30 giorni e si allunga di 15 alla
+      // volta col bottone in fondo. Torna a 30 ogni volta che si rientra nella
+      // vista: un mese lungo tre mesi, ritrovato il giorno dopo, disorienta.
+      let giorniMese = 30;
+      /** Cerca in entrambe le liste: prima il giorno mostrato, poi la vista. */
+      function trovaResa(id: string): Resa | undefined {
+        const a = rese.find((x) => x.id === id);
+        return a ?? reseVista.find((x) => x.id === id);
+      }
       let filtroServ = ""; // "" = tutti i services, altrimenti la key (midi, soir…)
       function dataFr(iso: string): string {
         const [y, m, d] = iso.split("-");
@@ -1670,6 +1734,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           // Refresh silenzioso e niente è cambiato: non toccare il DOM.
           if (silenzioso && firma === firmaLista) return;
           firmaLista = firma;
+          // La settimana mostra le stesse card: se qualcosa e' cambiato va
+          // ridisegnata anche lei, altrimenti resta indietro fino al prossimo
+          // cambio di vista. (A vista "jour" non costa nulla: esce subito.)
+          if (vista !== "jour") ricaricaVista?.();
           rese = j.reservations;
           if (!silenzioso) suggeriti.clear(); // ricalcola i suggerimenti per il giorno
           chiusureOggi = j.closures ?? [];
@@ -1797,7 +1865,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         function refreshLive() {
           if (modoRicerca) return;
           if (document.visibilityState !== "visible") return;
-          if (document.querySelector(".overlay.is-open")) return;
+          // Tutti i modali di questa pagina sono il guscio condiviso: aperto
+          // = senza `hidden`. Senza questo controllo la lista si ricaricherebbe
+          // sotto le mani di chi ha un modale aperto.
+          if (document.querySelector(".md-overlay:not([hidden])")) return;
           void carica(true); // silenzioso: aggiorna solo se qualcosa è cambiato
         }
         // 1) evento da AdminNav (nuova / annullée / modifiée dal cliente)
@@ -1871,7 +1942,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           return r.status;
         }
         function apriStMenu(anchor: HTMLElement, id: string) {
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           stMenuId = id;
           stMenu.innerHTML = STATI_MENU.map(
             (v) =>
@@ -1891,7 +1962,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const id = stMenuId;
           const st = b.dataset.st ?? "";
           chiudiStMenu();
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           // No-show: apre il modale dedicato (storico + notifica + blocco),
           // invece di cambiare stato al volo. Se è già no-show, non riapre.
           if (st === "noshow" && r?.status !== "noshow") { void apriNs(id); return; }
@@ -1942,11 +2013,19 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   : `<span class="sv-state">${chiusa ? tr("home.tagClosed") : tr("home.tagOpen")}</span>`;
               const switchHtml = perm
                 ? ""
-                : `<label class="sv-switch">
+                : `<label class="switch">
                     <input type="checkbox" data-k="${sv.key}" ${chiusa ? "" : "checked"} ${passato ? "disabled" : ""} />
-                    <span class="sv-track"></span>
+                    <span class="track"></span>
                   </label>`;
-              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pk="${sv.key}">${perm ? tr("res.reopenService") : tr("res.closeUntilReopen")}</button>`;
+              // «Chiudi fino alla riapertura» compare SOLO a servizio chiuso,
+              // come le due pillole del motivo: a servizio aperto e' un'azione
+              // che non c'entra ancora niente, e riempiva ogni riga di un
+              // bottone che non si usa quasi mai.
+              // ⚠️ Quando la chiusura E' permanente il bottone resta: diventa
+              // «Riapri», ed e' l'unico modo per tornare indietro.
+              const permBtn = perm || chiusa
+                ? `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pk="${sv.key}">${perm ? tr("res.reopenService") : tr("res.closeUntilReopen")}</button>`
+                : "";
               return `<div class="sv-row${passato ? " is-past" : ""}">
                   <div class="sv-info">
                     <div class="sv-nom">${esc(sv.label)}</div>
@@ -2039,7 +2118,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
 
         (document.getElementById("fab-serv") as HTMLButtonElement).addEventListener("click", () => {
-          svOverlay.classList.add("is-open");
+          svOverlay.hidden = false;
           svImpostaData(giorno);
           void svFutureCarica();
         });
@@ -2102,11 +2181,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             void svFutureCarica();
           })();
         });
-        (document.getElementById("sv-close") as HTMLButtonElement).addEventListener("click", () => {
-          svOverlay.classList.remove("is-open");
-        });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        svOverlay.querySelectorAll("[data-md-close]").forEach((el) =>
+          el.addEventListener("click", () => { svOverlay.hidden = true; })
+        );
         svOverlay.addEventListener("click", (e) => {
-          if (e.target === svOverlay) svOverlay.classList.remove("is-open");
           if (!(e.target as HTMLElement).closest("[data-date]")) svFutDisarma();
         });
         svList.addEventListener("change", (e) => {
@@ -2213,11 +2292,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                 : `<span class="sv-state">${chiusa ? tr("home.closed") : tr("home.open")}</span>`;
               const switchHtml = perm
                 ? ""
-                : `<label class="sv-switch">
+                : `<label class="switch">
                     <input type="checkbox" data-z="${esc(z)}" ${chiusa ? "" : "checked"} />
-                    <span class="sv-track"></span>
+                    <span class="track"></span>
                   </label>`;
-              const permBtn = `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pz="${esc(z)}">${perm ? tr("res.reopenSection") : tr("res.closeUntilReopen")}</button>`;
+              // Stessa regola delle sale: compare solo a sala chiusa.
+              const permBtn = perm || chiusa
+                ? `<button type="button" class="sv-permbtn${perm ? " is-on" : ""}" data-pz="${esc(z)}">${perm ? tr("res.reopenSection") : tr("res.closeUntilReopen")}</button>`
+                : "";
               return `<div class="sv-row" data-zrow="${esc(z)}">
                   <span class="zn-grip" title="${tr("res.dragPriority")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" /></svg></span>
                   <span class="zn-prio">${i + 1}</span>
@@ -2475,13 +2557,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         });
 
         (document.getElementById("fab-zone") as HTMLButtonElement).addEventListener("click", () => {
-          znOverlay.classList.add("is-open");
+          znOverlay.hidden = false;
           znImpostaData(giorno);
           void znFutureCarica();
         });
-        (document.getElementById("zn-close") as HTMLButtonElement).addEventListener("click", () => {
-          znOverlay.classList.remove("is-open");
-        });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        znOverlay.querySelectorAll("[data-md-close]").forEach((el) =>
+          el.addEventListener("click", () => { znOverlay.hidden = true; })
+        );
         (document.getElementById("zn-auj") as HTMLButtonElement).addEventListener("click", () => {
           znImpostaData(isoOggi());
         });
@@ -2582,7 +2665,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           })();
         });
         znOverlay.addEventListener("click", (e) => {
-          if (e.target === znOverlay) znOverlay.classList.remove("is-open");
           if (!(e.target as HTMLElement).closest("[data-date]")) znFutDisarma();
         });
 
@@ -2600,7 +2682,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let dtTimerInt = 0;
         let dtId = ""; // resa mostrata nel modale (per scartare risposte in ritardo)
         function chiudiDettagli() {
-          dtOverlay.classList.remove("is-open");
+          dtOverlay.hidden = true;
           if (dtTimerInt) {
             clearInterval(dtTimerInt);
             dtTimerInt = 0;
@@ -2610,7 +2692,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           return `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
         }
         function apriDettagli(id: string) {
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           if (!r) return;
           dtId = r.id;
           (document.getElementById("dt-title") as HTMLElement).textContent =
@@ -2620,49 +2702,61 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const finestraPassata = (r.status === "confirmed" || r.status === "seated") && fase(r) === "passe";
           const stKey = finestraPassata ? "done" : (r.status === "confirmed" && fase(r) === "encours" ? "seated" : r.status);
           const st = STATI_MENU.find((x) => x.st === stKey) ?? STATI_MENU.find((x) => x.st === r.status);
-          const stHtml = st
-            ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>`
+          // Il canale di prenotazione (walk-in / telefono / sito) sta a sinistra
+          // della pillola dello stato, come sola icona bianca: la parola era
+          // rumore, l'icona la stessa che gia' sta sulle card. Il nome resta
+          // nel `title`, per chi non la riconosce al volo.
+          const srcIco = r.source ? (ICO_SRC[r.source] ?? "") : "";
+          const srcHtml = srcIco
+            ? `<span class="dt-src" title="${esc((r.source && SRC_TITRE[r.source]) || "")}">${srcIco}</span>`
             : "";
+          const stHtml =
+            srcHtml + (st ? `<span class="dt-badge" style="background:${st.colore}">${st.label}</span>` : "");
           const enCours = (r.status === "seated" || r.status === "confirmed") && fase(r) === "encours";
-          const conBlocco = r.status === "confirmed" || r.status === "seated" || r.status === "done";
 
-          // Dettagli (se c'è il timer, data/ora/service/persone salgono nel blocco)
-          const svLbl = SERVIZI_WIDGET[r.service_key ?? ""] ? nomeServizio(r.service_key ?? "", LANG) : "";
-          const righe: string[] = [];
-          const dett = (k: string, v: string) => righe.push(`<div class="dt-row"><span class="k">${k}</span><span class="v">${v}</span></div>`);
-          if (!conBlocco) {
-            dett(tr("home.date"), esc(dataFr(r.date)));
-            dett(tr("res.hour"), esc(r.heure));
-            if (svLbl) dett(tr("res.service"), esc(svLbl));
-            dett(tr("res.people"), String(r.people));
-          }
-          if (!conBlocco && r.zone) dett(tr("res.section"), esc(r.zone));
-          if (!conBlocco) {
-            const tv = etichettaTavoli(r);
-            if (tv) dett(tr("res.tables"), esc(tv));
-          }
+          // Riga di testa, su due livelli: sopra QUANDO e per QUANTI, sotto
+          // DOVE. Il servizio non c'e': lo dice gia' l'ora, e ripeterlo rubava
+          // la riga ai tavoli, che sono l'informazione che mancava davvero.
+          type VoceMeta = [string, string, string];
+          const metaQuando: VoceMeta[] = [
+            [ICO_DT_CAL, dataFr(r.date), tr("home.date")],
+            [ICO_DT_ORA, r.heure, tr("res.hour")],
+            [ICO_DT_PERS, `${r.people} ${tr("res.pers")}`, tr("res.people")],
+          ];
+          // Tavolo prima, section dopo: stesso ordine delle card, dove il
+          // tavolo sta in grande e la section piccola sotto.
+          const metaDove: VoceMeta[] = [
+            [ICO_DT_TAV, etichettaTavoli(r), tr("res.tables")],
+            [ICO_DT_ZONE, sezioneTavoli(r), tr("res.section")],
+          ];
+          const metaRiga = (voci: VoceMeta[]): string => {
+            const piene = voci.filter(([, v]) => v);
+            if (!piene.length) return "";
+            return `<div class="dt-mrow">${piene
+              .map(([ico, v, ttl]) => `<span class="dt-m" title="${esc(ttl)}">${ico}<span>${esc(v)}</span></span>`)
+              .join("")}</div>`;
+          };
+          (document.getElementById("dt-meta") as HTMLElement).innerHTML =
+            metaRiga(metaQuando) + metaRiga(metaDove);
           const contattiDt: string[] = [];
           if (r.phone)
             contattiDt.push(`<span class="r-c">${ICO_TEL}<a href="tel:${esc(r.phone).replace(/\s/g, "")}">${esc(r.phone)}</a></span>`);
           if (r.email)
             contattiDt.push(`<span class="r-c">${ICO_MAIL}<a href="mailto:${esc(r.email)}">${esc(r.email)}</a></span>`);
           (document.getElementById("dt-contacts") as HTMLElement).innerHTML = contattiDt.join("");
-          if (!conBlocco && r.source && SRC_TITRE[r.source]) dett(tr("res.origin"), esc(SRC_TITRE[r.source]));
           const opz: string[] = [];
           if (r.high_chair) opz.push(tr("res.optHighchair"));
           if (r.quiet) opz.push(tr("res.optQuiet"));
           if (r.business) opz.push(tr("res.optBusiness") + (r.company ? ` (${r.company})` : ""));
           if (r.birthday) opz.push(tr("res.optBirthday"));
           if (r.special_event) opz.push(tr("res.optEvent"));
-          if (!conBlocco && opz.length) dett(tr("res.options"), esc(opz.join(" · ")));
-          (document.getElementById("dt-opts") as HTMLElement).innerHTML = conBlocco
-            ? opz.map((o) => `<span class="tag">${esc(o)}</span>`).join("")
-            : "";
+          (document.getElementById("dt-opts") as HTMLElement).innerHTML = opz
+            .map((o) => `<span class="tag">${esc(o)}</span>`)
+            .join("");
 
           (document.getElementById("dt-note") as HTMLElement).innerHTML = r.notes
             ? `<svg class="r-note-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg><span>${esc(r.notes)}</span>`
             : "";
-          (document.getElementById("dt-rows") as HTMLElement).innerHTML = righe.join("");
 
           // Timer live (solo En cours). Ancore in ms calcolate UNA volta partendo
           // dal fuso del ristorante; poi il tick usa solo differenze Date.now().
@@ -2670,7 +2764,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             clearInterval(dtTimerInt);
             dtTimerInt = 0;
           }
-          const timerBox = document.getElementById("dt-timer") as HTMLDivElement;
+          // Il riquadro resta sempre: dentro ci stanno le informazioni della
+          // prenotazione. A comparire e sparire e' solo la parte cronometro.
+          const timerBox = document.getElementById("dt-tblock") as HTMLDivElement;
           // Fase 3: reset della conferma estensione a ogni apertura del modale
           {
             const eb = document.getElementById("dt-ext-btns") as HTMLElement | null;
@@ -2678,17 +2774,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (eb) eb.style.display = "";
             if (ec) ec.style.display = "none";
           }
-          const srcIco =
-            r.source && ICO_SRC[r.source]
-              ? `<span class="src" title="${esc(SRC_TITRE[r.source] ?? "")}">${ICO_SRC[r.source]}</span>`
-              : "";
-          (document.getElementById("dt-meta") as HTMLElement).innerHTML = conBlocco
-            ? srcIco +
-              [dataFr(r.date), r.heure, svLbl, `${r.people} ${tr("res.pers")}`, r.zone]
-                .filter(Boolean)
-                .map((v) => esc(String(v)))
-                .join('<span class="sep">·</span>')
-            : "";
           if (enCours) {
             const hold = holdR(r);
             const inizioMin = minutiDa(r.heure);
@@ -2758,8 +2843,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           } else {
             timerBox.style.display = "none";
           }
-          (document.getElementById("dt-tstatus") as HTMLElement).innerHTML = conBlocco ? stHtml : "";
-          (document.getElementById("dt-status") as HTMLElement).innerHTML = conBlocco ? "" : stHtml;
+          (document.getElementById("dt-tstatus") as HTMLElement).innerHTML = stHtml;
 
           // Statistiche cliente (async, arrivano dopo l'apertura)
           const statsBox = document.getElementById("dt-stats") as HTMLDivElement;
@@ -2815,10 +2899,10 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               .catch(() => { /* niente stats: il modale resta utilizzabile */ });
           }
 
-          dtOverlay.classList.add("is-open");
+          dtOverlay.hidden = false;
         }
         (document.getElementById("dt-spend-save") as HTMLButtonElement).addEventListener("click", async () => {
-          const r = rese.find((x) => x.id === dtId);
+          const r = trovaResa(dtId);
           if (!r) return;
           const grezzo = (document.getElementById("dt-spend-in") as HTMLInputElement).value
             .trim()
@@ -2933,7 +3017,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const min = Number(b.dataset.ext) || 0;
           if (min <= 0) return;
           const id = dtId;
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           const avviso = r ? conflittoEstensione(r, min) : null;
           if (avviso) {
             const warn = document.getElementById("dt-ext-warn") as HTMLElement | null;
@@ -2957,12 +3041,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           chiudiConfermaEst();
           if (id && min > 0) void applicaEstensione(id, min);
         });
-        (document.getElementById("dt-close") as HTMLButtonElement).addEventListener("click", chiudiDettagli);
-        dtOverlay.addEventListener("click", (e) => {
-          if (e.target === dtOverlay) chiudiDettagli();
+        // Chiusura: le ancore del guscio condiviso (sfondo + ×). Il timer
+        // va fermato, quindi passiamo dalla nostra chiudiDettagli().
+        dtOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", chiudiDettagli);
         });
 
-        rowsEl.addEventListener("click", (e) => {
+        // Lo STESSO gestore serve la lista del giorno e quella della
+        // settimana: le card sono le stesse, le azioni devono esserlo.
+        function gestisciClickLista(e: Event) {
           const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
           if (!btn) {
             disarmaCestino();
@@ -2985,10 +3072,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             apriStMenu(btn, id);
           }
           if (act === "edit") {
-            const r = rese.find((x) => x.id === id);
+            const r = trovaResa(id);
             if (r) apriModale(r);
           }
-        });
+        }
+        rowsEl.addEventListener("click", gestisciClickLista);
         document.addEventListener("click", (e) => {
           if (!(e.target as HTMLElement).closest(".b-annule")) disarmaCestino();
         });
@@ -2998,25 +3086,25 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         let rmId = "";
         function apriRm(id: string) {
           rmId = id;
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           const already = !!r && (r.status === "cancelled" || r.status === "noshow");
           const choices = document.getElementById("rm-choices") as HTMLDivElement;
           const reasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
           choices.style.display = "block";
           reasonBox.style.display = "none";
           (document.getElementById("rm-cancel-email") as HTMLElement).style.display = already ? "none" : "block";
-          rmOverlay.classList.add("is-open");
+          rmOverlay.hidden = false;
         }
         function chiudiRm() {
-          rmOverlay.classList.remove("is-open");
+          rmOverlay.hidden = true;
           rmId = "";
         }
         const rmChoices = document.getElementById("rm-choices") as HTMLDivElement;
         const rmReasonBox = document.getElementById("rm-reason-box") as HTMLDivElement;
         const rmReason = document.getElementById("rm-reason") as HTMLTextAreaElement;
         function rmMostraScelte() { rmChoices.style.display = "block"; rmReasonBox.style.display = "none"; }
-        (document.getElementById("rm-close") as HTMLElement).addEventListener("click", chiudiRm);
-        rmOverlay.addEventListener("click", (e) => { if (e.target === rmOverlay) chiudiRm(); });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        rmOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiRm));
         // "Annuler et prévenir": mostra il textarea per la ragione (facoltativa).
         function nomeLingua(code: string): string {
           const c = (code || "").trim();
@@ -3030,7 +3118,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         (document.getElementById("rm-cancel-email") as HTMLElement).addEventListener("click", () => {
           rmReason.value = "";
-          const r = rese.find((x) => x.id === rmId);
+          const r = trovaResa(rmId);
           const lh = document.getElementById("rm-lang-hint") as HTMLElement;
           const nome = r?.lang ? nomeLingua(r.lang) : "";
           if (nome) { lh.innerHTML = `${esc(tr("res.delReasonLang"))} <span style="display:inline-block;background:color-mix(in srgb, var(--c-accent) 16%, transparent);color:var(--c-accent);padding:3px 11px;border-radius:999px;font-size:0.82rem;font-weight:700;margin-left:4px;">${esc(nome)}</span>`; lh.style.display = "block"; }
@@ -3054,17 +3142,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const nsOverlay = document.getElementById("ns-overlay") as HTMLDivElement;
         const nsBlock = document.getElementById("ns-block") as HTMLInputElement;
         let nsId = "";
-        function chiudiNs() { nsOverlay.classList.remove("is-open"); nsId = ""; }
+        function chiudiNs() { nsOverlay.hidden = true; nsId = ""; }
         async function apriNs(id: string) {
           nsId = id;
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           nsBlock.checked = false;
           (document.getElementById("ns-name") as HTMLElement).textContent =
             r ? (`${r.first_name} ${r.last_name}`.trim() || tr("res.reservation")) : "";
           const lab = document.getElementById("ns-hist-lab") as HTMLElement;
           const cnt = document.getElementById("ns-count") as HTMLElement;
           lab.textContent = "…"; cnt.textContent = "";
-          nsOverlay.classList.add("is-open");
+          nsOverlay.hidden = false;
           // Storico no-show del cliente (per email/telefono), best-effort.
           try {
             const qs = new URLSearchParams({ client_stats: "1" });
@@ -3100,15 +3188,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         async function confermaNs(notify: boolean) {
           const id = nsId;
-          const r = rese.find((x) => x.id === id);
+          const r = trovaResa(id);
           const blocca = nsBlock.checked;
           chiudiNs();
           if (!id) return;
           if (blocca && r) await bloccaCliente(r);
           await cambiaStato(id, "noshow", undefined, notify);
         }
-        (document.getElementById("ns-close") as HTMLElement).addEventListener("click", chiudiNs);
-        nsOverlay.addEventListener("click", (e) => { if (e.target === nsOverlay) chiudiNs(); });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        nsOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiNs));
         (document.getElementById("ns-notify") as HTMLElement).addEventListener("click", () => void confermaNs(true));
         (document.getElementById("ns-silent") as HTMLElement).addEventListener("click", () => void confermaNs(false));
 
@@ -3117,13 +3205,22 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const moisEl = document.getElementById("vista-mois") as HTMLDivElement;
         const btnSem = document.getElementById("d-sem") as HTMLButtonElement;
         const btnMois = document.getElementById("d-mois") as HTMLButtonElement;
-        const VISTA_ST: Record<string, { lab: string; col: string }> = {
-          pending: { lab: tr("res.stPending"), col: "var(--c-accent)" },
-          confirmed: { lab: tr("res.stConfirmed"), col: "#2e9e6b" },
-          seated: { lab: tr("res.stSeated"), col: "#3b82f6" },
-          done: { lab: tr("res.stDone"), col: "var(--c-muted)" },
-        };
+        // (VISTA_ST serviva alle righe compatte della settimana: ora la
+        //  settimana usa le card del giorno, che lo stato se lo disegnano da se.)
         let vistaSeq = 0;
+
+        /** Etichetta in alto nelle viste Settimana/Mese. Per il mese il
+            numero di giorni cambia, quindi sta in un segnaposto {n}. */
+        function aggiornaEtichettaVista() {
+          const lb = document.getElementById("d-label") as HTMLElement;
+          const nn = (k: string) => tr(k).replace("{n}", String(giorniMese));
+          lb.innerHTML =
+            vista === "semaine"
+              ? `<span class="dl-full">${tr("res.next7Days")}</span><span class="dl-short">${tr("res.next7DaysShort")}</span>`
+              : `<span class="dl-full">${nn("res.nextNDays")}</span><span class="dl-short">${nn("res.nextNDaysShort")}</span>`;
+          // Non e' piu' un giorno: via l'evidenza "oggi" dall'etichetta.
+          lb.classList.remove("is-today");
+        }
 
         function vaiVista(v: "jour" | "semaine" | "mois") {
           vista = v;
@@ -3139,12 +3236,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             rowsEl.style.display = "none";
             emptyEl.style.display = "none";
             stateEl.style.display = "none";
-            const lb = document.getElementById("d-label") as HTMLElement;
-            lb.innerHTML =
-              v === "semaine"
-                ? `<span class="dl-full">${tr("res.next7Days")}</span><span class="dl-short">${tr("res.next7DaysShort")}</span>`
-                : `<span class="dl-full">${tr("res.next30Days")}</span><span class="dl-short">${tr("res.next30DaysShort")}</span>`;
-            lb.classList.remove("is-today");
+            if (v === "mois") giorniMese = 30; // si rientra sempre da 30
+            aggiornaEtichettaVista();
             (document.getElementById("d-today") as HTMLElement).classList.remove("is-now");
             void caricaVista();
           }
@@ -3157,13 +3250,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           const cont = v === "semaine" ? semEl : moisEl;
           cont.innerHTML = `<p class="state">${tr("sup.loading")}</p>`;
           const da = isoOggi();
-          const a = isoPiuGiorni(da, v === "semaine" ? 6 : 29);
+          const a = isoPiuGiorni(da, v === "semaine" ? 6 : giorniMese - 1);
           try {
             const res = await fetch(`/api/admin/reservations?from=${da}&to=${a}`, { headers });
             if (!res.ok) throw new Error();
             const j = (await res.json()) as { reservations?: Resa[] };
             if (seq !== vistaSeq || vista !== v) return; // vista cambiata nel frattempo
             const lista = (j.reservations ?? []).filter((r) => r.status !== "cancelled" && r.status !== "noshow");
+            reseVista = lista;
             if (v === "semaine") renderSemaine(lista, da);
             else renderMois(lista, da);
             const attive = lista.filter((r) => r.status === "confirmed" || r.status === "seated");
@@ -3175,6 +3269,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (seq === vistaSeq) cont.innerHTML = `<p class="state">${tr("sup.load.error")}</p>`;
           }
         }
+
+        // Il ponte verso carica(): vedi `ricaricaVista` in alto.
+        ricaricaVista = () => {
+          void caricaVista();
+        };
 
         function renderSemaine(lista: Resa[], da: string) {
           const perGiorno = new Map<string, Resa[]>();
@@ -3192,14 +3291,14 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const conte = arr.length
               ? `<b>${cop}</b> ${tr("res.covers")} · ${attive.length} ${attive.length > 1 ? tr("res.resaMany") : tr("res.resaOne")}${att ? ` · <i>${att} ${tr("res.waiting")}</i>` : ""}`
               : tr("res.noResaLower");
+            // `data-date` sta SOLO sulla testata: cliccando il giorno si va al
+            // giorno, cliccando una card si aprono i suoi dettagli — come nel
+            // giorno. Se il data-date fosse anche sulla card, ogni click su una
+            // prenotazione porterebbe via dalla settimana.
             html += `<div class="vs-head${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}">${labelGiorno(iso)}<span class="vs-n">${conte}</span></div>`;
-            html += arr
-              .map((r) => {
-                const st = VISTA_ST[r.status] ?? { lab: r.status, col: "var(--c-muted)" };
-                const tav = etichettaTavoli(r);
-                return `<div class="vs-row" data-date="${iso}"><span class="vs-h">${esc(r.heure.slice(0, 5))}</span><span class="vs-nome">${esc(`${r.first_name} ${r.last_name}`.trim())}</span><span class="vs-p"><b>${r.people}</b> ${tr("res.pers")}</span><span class="vs-z">${esc(tav || r.zone || "")}</span><span class="vs-st" style="color:${st.col}">${st.lab}</span></div>`;
-              })
-              .join("");
+            // Le stesse card del giorno (`riga`), non una riga riassuntiva:
+            // stessi contatti, stessi stati, stessi bottoni.
+            html += arr.length ? `<div class="vs-giorno">${arr.map(riga).join("")}</div>` : "";
           }
           semEl.innerHTML = html;
         }
@@ -3214,10 +3313,11 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           }
           const fmtMois = new Intl.DateTimeFormat(LOC, { month: "short" });
           const dowPrimo = (new Date(da + "T12:00:00").getDay() + 6) % 7; // lunedì=0
+          const INIZIALI = tr("res.dowInitials").split(",");
           let html = '<div class="vm-dow">' + tr("res.dowInitials").split(",").map((g) => `<span>${g}</span>`).join("") + "</div>";
           html += '<div class="vm-grid">';
           for (let i = 0; i < dowPrimo; i++) html += '<span class="vm-cell vm-vuota"></span>';
-          for (let i = 0; i < 30; i++) {
+          for (let i = 0; i < giorniMese; i++) {
             const iso = isoPiuGiorni(da, i);
             const d = Number(iso.slice(8, 10));
             const mois = i === 0 || d === 1 ? ` <span class="vm-mois">${fmtMois.format(new Date(iso + "T12:00:00"))}</span>` : "";
@@ -3225,9 +3325,16 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             const dentro = info
               ? `<span class="vm-c"><b>${info.cop}</b> ${tr("home.covers")}</span><span class="vm-r">${info.att} ${tr("res.resaOne")}${info.pend ? ` · <i>${info.pend} ${tr("res.waitingShort")}</i>` : ""}</span>`
               : "";
-            html += `<div class="vm-cell${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}"><span class="vm-d">${d}${mois}</span>${dentro}</div>`;
+            // L'iniziale del giorno e' nascosta quando la griglia e' a 7 colonne
+            // (la dice la testata); serve su telefono, dove le colonne sono 2 e
+            // la posizione nella riga non vuol piu' dire niente.
+            const dw = INIZIALI[(new Date(iso + "T12:00:00").getDay() + 6) % 7] ?? "";
+            html += `<div class="vm-cell${iso === isoOggi() ? " is-today" : ""}" data-date="${iso}"><span class="vm-d"><span class="vm-dw">${esc(dw)}</span>${d}${mois}</span>${dentro}</div>`;
           }
           html += "</div>";
+          // Allunga la finestra invece di cambiare pagina: il ristoratore
+          // guarda "da qui in avanti", non un mese di calendario.
+          html += `<div class="vm-piu"><button type="button" class="d-today" id="vm-piu15">${tr("res.more15")}</button></div>`;
           moisEl.innerHTML = html;
         }
 
@@ -3237,11 +3344,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           vaiVista("jour");
           void carica();
         }
+        // Le card della settimana sono le stesse del giorno: stesso gestore.
+        // (Va agganciato QUI e non accanto a quello di `rowsEl`: `semEl` e'
+        // dichiarato piu sotto, e usarlo prima sarebbe un ReferenceError.)
+        semEl.addEventListener("click", gestisciClickLista);
         semEl.addEventListener("click", (e) => {
-          const t = (e.target as HTMLElement).closest("[data-date]") as HTMLElement | null;
+          // Solo la TESTATA del giorno porta al giorno: le card sotto hanno le
+          // loro azioni e i loro dettagli, come nella vista giorno.
+          const t = (e.target as HTMLElement).closest(".vs-head[data-date]") as HTMLElement | null;
           if (t?.dataset.date) vaiAlGiorno(t.dataset.date);
         });
         moisEl.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest("#vm-piu15")) {
+            giorniMese += 15;
+            aggiornaEtichettaVista();
+            void caricaVista();
+            return;
+          }
           const t = (e.target as HTMLElement).closest(".vm-cell[data-date]") as HTMLElement | null;
           if (t?.dataset.date) vaiAlGiorno(t.dataset.date);
         });
@@ -3470,7 +3589,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
             if (!res.ok) return;
             const j = (await res.json()) as { clients?: TaClient[] };
             if (seq !== taSeq) return; // risposta obsoleta
-            if (!mOverlay.classList.contains("is-open")) return;
+            if (mOverlay.hidden) return;
             taItems = j.clients ?? [];
             taActive = -1;
             taRender();
@@ -3866,7 +3985,20 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           if (tot <= 0) { el.style.display = "none"; return; }
           const cls = chiusa ? " is-closed" : resto >= nmPers ? "" : " is-ko";
           const val = chiusa ? tr("res.closedF") : `${resto} / ${tot}`;
-          el.innerHTML = `<span class="nm-tv-lab">${label}</span><span class="nm-cap${cls}">${val}</span>`;
+          // La FINESTRA del tavolo, accanto al numero. Il conteggio non e' «i
+          // posti liberi adesso» ma «i posti liberi per tutta la durata di
+          // questo tavolo»: senza scriverla, il numero sembra sbagliato ogni
+          // volta che una prenotazione vicina entra o esce dalla finestra.
+          // Serve anche a vedere a colpo d'occhio se la durata d'occupazione
+          // configurata in Réglages e' quella che si crede.
+          let finestra = "";
+          if (hasTime && !chiusa) {
+            const T = minutiDa(nmHeure);
+            const fine = T + holdDi(nmServKey || null);
+            const hhmm = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+            finestra = `<span class="nm-cap-win">${nmHeure}–${hhmm(fine)}</span>`;
+          }
+          el.innerHTML = `<span class="nm-tv-lab">${label}</span><span class="nm-cap${cls}">${val}</span>${finestra}`;
           el.classList.add("nm-tables-man");
           el.style.display = "";
         }
@@ -4185,7 +4317,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           nmSetData(resa?.date ?? giorno);
           nmRenderPers();
           nmRenderZone();
-          mOverlay.classList.add("is-open");
+          mOverlay.hidden = false;
           // Autofill del browser: con il modale aperto disabilito la barra di
           // ricerca dietro, così l'email autocompletata non finisce lì.
           dSearch.disabled = true;
@@ -4193,16 +4325,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         }
         function chiudiModale() {
           dpChiudi();
-          mOverlay.classList.remove("is-open");
+          mOverlay.hidden = true;
           dSearch.disabled = false;
           taHide();
         }
         (document.getElementById("fab-add") as HTMLButtonElement).addEventListener("click", () => apriModale());
-        (document.getElementById("m-close") as HTMLButtonElement).addEventListener("click", chiudiModale);
+        // Sfondo, × e «Annulla»: un solo aggancio, [data-md-close]. Il bottone
+        // Annulla lo porta gia dal markup, quindi non serve un listener suo.
+        mOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiModale));
         (document.getElementById("m-cancel") as HTMLButtonElement).addEventListener("click", chiudiModale);
-        mOverlay.addEventListener("click", (e) => {
-          if (e.target === mOverlay) chiudiModale();
-        });
         document.addEventListener("keydown", (e) => {
           if (e.key !== "Escape") return;
           if (dpPanel.style.display !== "none") {
@@ -4262,7 +4393,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
                   spOpen: Boolean(j.special_open),
                   spServ: (j.special_services ?? null) as string[] | null,
                 });
-                if (mOverlay.classList.contains("is-open")) nmRenderOre();
+                if (!mOverlay.hidden) nmRenderOre();
               })
               .catch(() => { /* senza dati: nessuno sbarrato */ });
           }

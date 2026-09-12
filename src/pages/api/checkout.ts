@@ -132,6 +132,11 @@ export const POST: APIRoute = async ({ request }) => {
     notes: string;
     /** Chiave del formato scelto (migrazione #71). Assente = prezzo unico. */
     variant?: string;
+    /** Nome del piatto SENZA variante/supplemento: le card e le email lo
+        vogliono separato per disegnare le pastiglie. `name` resta intero. */
+    base_name?: string;
+    /** Etichetta della variante scelta, gia' tradotta. */
+    variant_label?: string;
   }[] = [];
   // Righe per il calcolo del coupon (prezzo base effettivo, senza supplementi).
   const lineeCoupon: LineaCoupon[] = [];

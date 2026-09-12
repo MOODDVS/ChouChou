@@ -114,13 +114,49 @@ export const GET: APIRoute = async ({ request }) => {
     .order("created_at", { ascending: false });
   if (error) return json({ error: "Lecture impossible" }, 500);
 
-  // Numero di utilizzi per buono (righe del ledger dei riscatti)
-  const usi = new Map<string, number>();
-  const { data: red } = await supabaseAdmin.from("gift_card_redemptions").select("gift_card_id");
-  for (const r of (red ?? []) as { gift_card_id: string }[]) {
-    if (r.gift_card_id) usi.set(r.gift_card_id, (usi.get(r.gift_card_id) ?? 0) + 1);
+  // Righe del ledger dei riscatti: non solo QUANTE volte, ma QUANDO e quanto.
+  // Il conteggio da solo diceva «usato 3 volte» e si fermava li': per sapere
+  // dove fossero finiti i soldi bisognava aprire la tabella su Supabase.
+  type Riscatto = {
+    gift_card_id: string;
+    amount_cents: number | null;
+    created_at: string | null;
+    note: string | null;
+    kind: string | null;
+    created_by: string | null;
+  };
+  let red: Riscatto[] = [];
+  const ricco = await supabaseAdmin
+    .from("gift_card_redemptions")
+    .select("gift_card_id, amount_cents, created_at, note, kind, created_by")
+    .order("created_at", { ascending: false });
+  if (ricco.error) {
+    // Cliente non migrato (mancano note/kind/created_by): si torna al solo
+    // conteggio, che e' sempre esistito. Meglio meno righe che zero.
+    const magro = await supabaseAdmin.from("gift_card_redemptions").select("gift_card_id");
+    red = ((magro.data ?? []) as { gift_card_id: string }[]).map((r) => ({
+      gift_card_id: r.gift_card_id,
+      amount_cents: null,
+      created_at: null,
+      note: null,
+      kind: null,
+      created_by: null,
+    }));
+  } else {
+    red = (ricco.data ?? []) as Riscatto[];
   }
-  const cards = (data ?? []).map((c) => ({ ...c, uses: usi.get(c.id) ?? 0 }));
+
+  const usi = new Map<string, Riscatto[]>();
+  for (const r of red) {
+    if (!r.gift_card_id) continue;
+    const lista = usi.get(r.gift_card_id) ?? [];
+    lista.push(r);
+    usi.set(r.gift_card_id, lista);
+  }
+  const cards = (data ?? []).map((c) => {
+    const lista = usi.get(c.id) ?? [];
+    return { ...c, uses: lista.length, redemptions: lista };
+  });
   return json({ cards });
 };
 

@@ -332,36 +332,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   return json({ count: clienti.length, clients: clienti });
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  const staff = await verificaStaff(request);
-  if (!staff) return nonAutorizzato();
-
-  let body: { name?: string; email?: string; phone?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Corps invalide" }, 400);
-  }
-
-  const name = (body.name ?? "").trim();
-  const email = (body.email ?? "").trim();
-  const phone = (body.phone ?? "").trim();
-
-  if (!name) return json({ error: "Le nom est obligatoire" }, 400);
-  if (!email && !phone) return json({ error: "Renseignez au moins un email ou un téléphone" }, 400);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return json({ error: "Email invalide" }, 400);
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("clients")
-    .insert({ name, email: email || null, phone: phone || null })
-    .select("id")
-    .single();
-
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
-  return json({ ok: true, id: data.id }, 201);
-};
+// NIENTE POST: la creazione di un cliente passa da PATCH con `id: null`, che
+// e' quello che fa il modale unico «aggiungi / modifica» della pagina Clients.
+// La POST esisteva per il vecchio modale «aggiungi», sparito quando i due sono
+// diventati uno solo: e' rimasta esposta per settimane senza chiamanti, con una
+// copia dei controlli da tenere allineata a quelli della PATCH.
 
 // PATCH → modifica i dati di un cliente (modale matita nella pagina Clients).
 // Se il cliente aggregato non ha ancora un record in `clients` (viene dagli

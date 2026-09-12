@@ -6,6 +6,8 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaClienti } from "../../lib/admin/caricaClienti";
@@ -239,15 +241,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-label { flex: 1 1 auto; color: var(--c-muted); font-size: 0.88rem; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .act-amount { font-family: var(--font-title); color: var(--c-accent); font-size: 1.05rem; letter-spacing: 0.03em; flex-shrink: 0; white-space: nowrap; }
       .act-status { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; border-radius: 999px; padding: 0.2rem 0.7rem; border: 1px solid var(--c-line); color: var(--c-muted); flex-shrink: 0; white-space: nowrap; }
-      .act-new { display: inline-block; margin-left: 0.6rem; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; background: var(--c-accent); color: var(--c-bg); border-radius: 999px; padding: 0.15rem 0.55rem; font-weight: 700; }
+      /* Lo spazio dal nome lo da' il `gap` di #act-name: qui niente margine,
+         o si sommerebbero. */
+      .act-new { display: inline-block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; vertical-align: middle; background: var(--c-accent); color: var(--c-bg); border-radius: 999px; padding: 0.15rem 0.55rem; font-weight: 700; }
       .act-stats { display: flex; flex-direction: column; gap: 0.9rem; margin: 0 0 1.4rem; }
       .act-stats:empty { display: none; }
       .act-flags { margin-top: 0.1rem; }
-      .afl-sw { position: relative; width: 44px; height: 25px; border-radius: 999px; border: none; cursor: pointer; padding: 0; flex-shrink: 0; background: color-mix(in srgb, var(--c-muted) 45%, transparent); transition: background 0.18s; }
-      .afl-sw[aria-checked="true"] { background: var(--c-accent); }
-      .afl-sw:disabled { opacity: 0.5; cursor: default; }
-      .afl-sw-knob { position: absolute; top: 3px; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); transition: transform 0.18s; }
-      .afl-sw[aria-checked="true"] .afl-sw-knob { transform: translateX(19px); }
       .st-sec { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 0.8rem 1.1rem 0.9rem; }
       .st-sec-h { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
       .st-sec-h svg { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
@@ -258,6 +257,20 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .st-row .k { color: var(--c-muted); font-size: 0.85rem; }
       .st-row .v { font-family: var(--font-title); font-weight: 700; font-size: 1.02rem; letter-spacing: 0.02em; color: var(--c-text); }
       .st-row.hl .v { color: var(--c-accent); font-size: 1.14rem; }
+      /* I 5 piatti piu' ordinati, in fondo alla sezione ORDINI. Stessa forma
+         dei preferiti nel modale «Nuovo ordine», ma qui sono da leggere e
+         basta: niente hover, niente click. La riga sopra tiene gia' la sua
+         linea (non e' piu' l'ultimo figlio), quindi qui nessun bordo. */
+      .st-fav { margin-top: 0.7rem; }
+      .st-fav-lab { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .st-fav-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
+      .st-fav-chip {
+        display: inline-flex; align-items: baseline; gap: 0.4rem; min-width: 0;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 999px;
+        padding: 0.3rem 0.75rem; font-size: 0.82rem; color: var(--c-text);
+      }
+      .st-fav-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .st-fav-q { color: var(--c-accent); font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
       .act-status.ko { border-color: #ed1c24; color: #ff8a8f; }
       .act-status.ns { border-color: var(--c-accent); color: var(--c-accent); }
       .row:last-child { border-bottom: none; }
@@ -310,17 +323,14 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
          celle vuote. */
       .c-total.vuoto { font-family: var(--font-body); font-size: 0.95rem; color: var(--c-muted); }
       .c-act { display: flex; justify-content: flex-end; gap: 0.45rem; overflow: visible; }
-      .ed-photo-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.1rem; }
+      /* Riga foto: la stessa forma degli altri modali (anteprima + pastiglie
+         neutre «Carica una foto» / «Libreria»). L'anteprima resta il CERCHIO
+         dell'avatar, non il quadrato smussato: per una persona il ritratto e'
+         tondo dappertutto nell'app, dalla lista alle card. */
+      .ed-photo-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
       .ed-avatar { width: 64px; height: 64px; font-size: 1.25rem; margin-right: 0; }
-      .ed-upl {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
-        border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer;
-        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
-        transition: background 0.2s, color 0.2s, border-color 0.2s;
-      }
-      .ed-upl:hover { background: var(--c-accent); color: var(--c-bg); }
-      .ed-upl-rm { border-color: var(--c-line); color: var(--c-muted); margin-left: 0.4rem; }
-      .ed-upl-rm:hover { background: transparent; border-color: #ed1c24; color: #ff6b6b; }
+      /* I bottoni d'azione sono il componente condiviso `.btn`
+         (src/styles/button.css): qui non resta niente da ridisegnare. */
       .ed-danger { border-color: #7a3a3a; color: #ff8a8f; }
       .ed-danger:hover { background: rgba(237, 28, 36, 0.25); border-color: #ed1c24; color: #ff8a8f; }
       .ed-row2 {
@@ -328,17 +338,31 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         border-top: 1px solid var(--c-line); padding: 0.85rem 0; margin-top: 0.3rem;
       }
       .ed-hint { color: var(--c-muted); font-size: 0.82rem; margin: 0.2rem 0 0; }
-      .ed-hint.warn { color: #ff8a8f; }
-      .ed-hint.ok { color: #2e9e6b; }
-      .ed-upl-state { color: var(--c-muted); font-size: 0.78rem; margin: 0.4rem 0 0; min-height: 1em; }
-      .ed-err { color: #ff8a8f; font-size: 0.85rem; min-height: 1.1em; margin: 0.5rem 0; }
-      .ed-save {
-        width: 100%; background: var(--c-accent); color: var(--c-bg); border: 2px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.6rem; border-radius: 999px; cursor: pointer; transition: background 0.2s, color 0.2s;
+      /* Permesso/negato sono uno STATO, e su questa pagina gli stati sono
+         pillole (vedi .act-status nella colonna accanto). Stessa forma, verde
+         quando e' concesso e rosso quando non lo e'. Il testo semplice resta
+         solo per il caso neutro — cliente senza email, dove non c'e' niente
+         da concedere o negare. */
+      .ed-hint.ok, .ed-hint.warn {
+        /* `block` + `fit-content`, non `inline-block`: la pillola deve restare
+           sulla riga sotto l'etichetta (com'era da `<p>`) e larga quanto il suo
+           testo. Con `inline-block` si incollava di fianco a NEWSLETTER. */
+        display: block; width: fit-content; max-width: 100%;
+        font-size: 0.68rem; text-transform: uppercase;
+        letter-spacing: 0.06em; font-weight: 700; white-space: nowrap;
+        border: 1px solid currentColor; border-radius: 999px;
+        padding: 0.25rem 0.75rem; margin-top: 0.45rem;
       }
-      .ed-save:hover { background: transparent; color: var(--c-accent); }
-      .ed-save:disabled { opacity: 0.6; cursor: wait; }
+      .ed-hint.warn { color: #ff8a8f; border-color: #ed1c24; }
+      .ed-hint.ok { color: #63c495; border-color: #2e9e6b; }
+      .ed-upl-state { color: var(--c-muted); font-size: 0.78rem; margin: 0; }
+      .ed-upl-state:empty { display: none; }
+      /* L'errore vive nel footer del guscio, spinto a sinistra dai bottoni.
+         Vuoto non deve occupare spazio, o il footer resta alto per niente. */
+      .ed-err { color: #ff8a8f; font-size: 0.85rem; margin: 0; margin-right: auto; align-self: center; }
+      .ed-err:empty { display: none; }
+      .ed-names { display: flex; gap: 0.8rem; }
+      .ed-names .f-field { flex: 1; min-width: 0; }
       .k-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .i-btn {
         width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -353,37 +377,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
       .loading { opacity: 0.45; pointer-events: none; }
 
-      .tel-prefix {
-        flex: 0 0 118px; background: var(--c-card); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem;
-        padding: 0.55rem 0.5rem; color-scheme: dark; border-radius: 0;
-      }
-      .tel-prefix:focus { outline: none; border-color: var(--c-accent); }
-      select.tel-prefix {
-        -webkit-appearance: none; appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-        background-repeat: no-repeat; background-position: right 0.7rem center; background-size: 12px;
-        padding-right: 2.1rem;
-      }
-
-      /* Modale ajout client */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        align-items: center; justify-content: center; padding: 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      .modal { width: 100%; max-width: 480px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
-      /* Modale attività cliente: largo, due colonne, scroll interno */
-      .modal-act { max-width: 1080px; max-height: 88vh; padding: 2rem 1.6rem 1.4rem; display: flex; flex-direction: column; overflow: hidden; }
-      .modal-act h2 { margin-bottom: 0.9rem; }
+      /* Il guscio fatto a mano (.overlay / .modal / .m-close / .m-actions /
+         .m-save / .tel-prefix) NON C'E' PIU': apriva un modale «aggiungi
+         cliente» che nessuno chiamava piu' da quando creazione e modifica
+         sono la stessa finestra (#ed-overlay). Clienti e' una pagina chiusa. */
+      /* Modale attività cliente: largo, due colonne che scrollano da sole.
+         Il corpo del guscio non scrolla (`overflow:hidden`), altrimenti le due
+         colonne scorrerebbero insieme invece che ognuna per conto suo. */
+      #act-overlay .md-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      #act-name { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
       .act-cols { display: flex; gap: 1.5rem; min-height: 0; flex: 1 1 auto; overflow: hidden; }
       .act-left { flex: 0 0 44%; max-width: 44%; overflow-y: auto; padding-right: 0.4rem; }
       .act-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; border-left: 1px solid var(--c-line); padding-left: 1.5rem; }
@@ -394,29 +396,22 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .act-tab.is-on .act-tab-n { background: rgba(0,0,0,0.18); }
       .act-left::-webkit-scrollbar, .act-right::-webkit-scrollbar { width: 8px; }
       .act-left::-webkit-scrollbar-thumb, .act-right::-webkit-scrollbar-thumb { background: var(--c-line); border-radius: 8px; }
-      @media (max-width: 720px) {
-        .modal-act { max-width: 480px; padding: 2rem 1.4rem 1.3rem; }
+      /* Altezza fissa finche' le colonne sono due: senza, il modale si
+         affloscia sul contenuto e le due liste perdono la loro barra. */
+      @media (min-width: 761px) { #act-overlay .md-box { height: 88vh; max-height: 88vh; } }
+      /* 760/761 e' la deroga gia' in uso per i modali a due colonne. */
+      @media (max-width: 760px) {
         .act-cols { flex-direction: column; overflow-y: auto; gap: 1.1rem; }
         .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
         .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
-        .modal-act h2 { position: sticky; top: 0; z-index: 5; background: var(--c-bg); font-size: 1.35rem; margin: 0 -1.4rem 0.9rem; padding: 0.1rem 1.4rem 0.55rem; }
       }
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
-      .modal input {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
-        width: 100%; color-scheme: dark;
-      }
-      .modal input:focus { outline: none; border-color: var(--c-accent); }
       .ed-telrow { display: flex; gap: 0.5rem; }
       .ed-telrow input { flex: 1; min-width: 0; }
-      .ed-prefix {
-        flex: 0 0 auto; width: 118px; background: var(--c-card); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.4rem;
-        border-radius: 0; color-scheme: dark; cursor: pointer;
-      }
-      .ed-prefix:focus { outline: none; border-color: var(--c-accent); }
+      /* Solo la misura e il posto nella riga: la grafica del campo (fondo,
+         bordo, angoli, freccia) arriva da field.css. */
+      .ed-prefix { flex: 0 0 auto; width: 126px; }
       .ed-langs { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
       .ed-lang-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
@@ -432,17 +427,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;
       }
       .ed-lang-piu:hover { color: var(--c-text); border-color: var(--c-text); }
-      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
-      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
-      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
-      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
-      .m-save {
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px; transition: background 0.2s, color 0.2s;
-      }
-      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
-      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
       /* Toast */
       .toast {
@@ -584,104 +568,70 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       <AdminFooter />
     </div>
 
-    <!-- Modale ajout client -->
     <!-- Modale attività cliente: storico ordini + prenotazioni -->
-    <div class="overlay" id="act-overlay">
-      <div class="modal modal-act">
-        <button class="m-close" id="act-close" aria-label={t("common.close")}>×</button>
-        <div class="act-cols">
-          <div class="act-left">
-            <h2 id="act-name">{t("ord.client")}</h2>
-            <p class="act-contacts" id="act-contacts"></p>
-            <div class="act-flags" id="act-flags"></div>
-            <div class="act-stats" id="act-stats"></div>
+    <Modal id="act-overlay" title={t("ord.client")} titleId="act-name" width="1080px">
+      <div class="act-cols">
+        <div class="act-left">
+          <p class="act-contacts" id="act-contacts"></p>
+          <div class="act-flags" id="act-flags"></div>
+          <div class="act-stats" id="act-stats"></div>
+        </div>
+        <div class="act-right">
+          <div class="act-tabs" id="act-tabs">
+            <button type="button" class="act-tab is-on" data-tab="reservation">{t("nav.reservations")} <span class="act-tab-n" id="act-n-resa">0</span></button>
+            <button type="button" class="act-tab" data-tab="order">{t("nav.orders")} <span class="act-tab-n" id="act-n-ord">0</span></button>
           </div>
-          <div class="act-right">
-            <div class="act-tabs" id="act-tabs">
-              <button type="button" class="act-tab is-on" data-tab="reservation">{t("nav.reservations")} <span class="act-tab-n" id="act-n-resa">0</span></button>
-              <button type="button" class="act-tab" data-tab="order">{t("nav.orders")} <span class="act-tab-n" id="act-n-ord">0</span></button>
-            </div>
-            <div class="act-state" id="act-state">{t("sup.loading")}</div>
-            <div id="act-list"></div>
-          </div>
+          <div class="act-state" id="act-state">{t("sup.loading")}</div>
+          <div id="act-list"></div>
         </div>
       </div>
-    </div>
+    </Modal>
 
     <!-- Bottone flottante per aggiungere (come Résa/Commandes) -->
     <button class="fab-add fab-pill" id="add-btn" type="button" title={t("cli.addClient")}><span class="fab-plus">+</span>{t("cli.clientWordCap")}</button>
 
     <!-- Modale modifica cliente (matita): dati + foto -->
-    <div class="overlay" id="ed-overlay">
-      <div class="modal">
-        <button class="m-close" id="ed-close" aria-label={t("common.close")}>×</button>
-        <h2 id="ed-title">{t("cli.editClient")}</h2>
+    <Modal id="ed-overlay" title={t("cli.editClient")} titleId="ed-title" width="520px">
+      <div class="f-field">
+        <span class="f-label">{t("menu.photoOpt")}</span>
         <div class="ed-photo-row">
           <span class="c-avatar ed-avatar" id="ed-avatar">?</span>
-          <div>
-            <button type="button" class="ed-upl" id="ed-upload">{t("cli.uploadPhoto")}</button>
-            <button type="button" class="ed-upl ed-upl-rm" id="ed-photo-rm" style="display:none">{t("ord.remove")}</button>
-            <input type="file" id="ed-file" accept="image/*" style="display:none" />
-            <p class="ed-upl-state" id="ed-upl-state"></p>
-          </div>
+          <button type="button" class="btn" id="ed-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="btn" id="ed-photo-lib">{t("menu.library")}</button>
+          <button type="button" class="btn btn-danger" id="ed-photo-rm" style="display:none">{t("ord.remove")}</button>
+          <input type="file" id="ed-file" accept="image/*" style="display:none" />
+          <span class="ed-upl-state" id="ed-upl-state"></span>
         </div>
-        <div style="display:flex; gap:0.8rem;">
-          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.firstName")}</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
-          <div class="f-field" style="flex:1"><span class="f-label">{t("ord.lastNameReq")}</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
-        </div>
-        <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
-        <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
-          <span class="ed-telrow">
-            <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
-            <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
-          </span>
-        </div>
-        <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><div class="ed-langs" id="ed-langs"></div><input type="hidden" id="ed-lang" /></div>
-        <div class="ed-row2">
-          <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
-          <button type="button" class="afl-sw" role="switch" id="ed-news-btn"><span class="afl-sw-knob"></span></button>
-        </div>
-        <div class="ed-row2" id="ed-block-row">
-          <div><span class="f-label">{t("nav.reservations")}</span><p class="ed-hint" id="ed-block-state"></p></div>
-          <button type="button" class="afl-sw" role="switch" id="ed-block-btn"><span class="afl-sw-knob"></span></button>
-        </div>
+      </div>
+      <div class="ed-names">
+        <div class="f-field"><span class="f-label">{t("ord.firstName")}</span><input type="text" id="ed-fname" maxlength="60" autocomplete="off" /></div>
+        <div class="f-field"><span class="f-label">{t("ord.lastNameReq")}</span><input type="text" id="ed-lname" maxlength="60" autocomplete="off" /></div>
+      </div>
+      <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
+      <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
+        <span class="ed-telrow">
+          <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
+          <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
+        </span>
+      </div>
+      <div class="f-field"><span class="f-label">{t("cli.langCol")}</span><div class="ed-langs" id="ed-langs"></div><input type="hidden" id="ed-lang" /></div>
+      <div class="ed-row2">
+        <div><span class="f-label">{t("tab.marketing.news")}</span><p class="ed-hint" id="ed-news-state"></p></div>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="ed-news-btn"><span class="track"></span></button>
+      </div>
+      <div class="ed-row2" id="ed-block-row">
+        <div><span class="f-label">{t("nav.reservations")}</span><p class="ed-hint" id="ed-block-state"></p></div>
+        <button type="button" class="switch" role="switch" aria-checked="false" id="ed-block-btn"><span class="track"></span></button>
+      </div>
+      <Fragment slot="foot">
         <p class="ed-err" id="ed-err"></p>
-        <button type="button" class="ed-save" id="ed-save">{t("common.save")}</button>
-      </div>
-    </div>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="ed-save">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
 
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
-        <h2>{t("cli.addClient")}</h2>
-        <div style="display:flex; gap:0.8rem;">
-          <div class="f-field" style="flex:1">
-            <span class="f-label">{t("ord.firstName")}</span>
-            <input type="text" id="f-fname" maxlength="60" autocomplete="off" />
-          </div>
-          <div class="f-field" style="flex:1">
-            <span class="f-label">{t("ord.lastNameReq")}</span>
-            <input type="text" id="f-lname" maxlength="60" autocomplete="off" />
-          </div>
-        </div>
-        <div class="f-field">
-          <span class="f-label">{t("ord.emailLabel")}</span>
-          <input type="text" id="f-email" maxlength="160" autocomplete="off" inputmode="email" />
-        </div>
-        <div class="f-field">
-          <span class="f-label">{t("ord.phone")}</span>
-          <div style="display:flex; gap:0.5rem;">
-            <select id="f-prefix" class="tel-prefix"></select>
-            <input type="text" id="f-phone" maxlength="20" autocomplete="off" inputmode="tel" style="flex:1" />
-          </div>
-        </div>
-        <div class="m-actions">
-          <span class="m-msg" id="m-msg"></span>
-          <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
-          <button class="m-save" id="m-save">{t("common.add")}</button>
-        </div>
-      </div>
-    </div>
+
+    <ImagePicker />
 
     <div class="toast" id="toast"></div>
 
@@ -850,13 +800,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         }
         posizionaAdd();
         window.addEventListener("resize", posizionaAdd);
-        const overlay = document.getElementById("overlay") as HTMLDivElement;
-        const fPrefix = document.getElementById("f-prefix") as HTMLSelectElement;
         const PREFISSO_DEFAULT = PREFISSI.find((pf) => pf.code === CLIENT.paese)?.dial ?? PREFISSI[0].dial;
-        fPrefix.innerHTML = PREFISSI.map(
-          (pf) => `<option value="${pf.dial}" title="${pf.nome}">${pf.flag} ${pf.dial}</option>`
-        ).join("");
-        fPrefix.value = PREFISSO_DEFAULT;
         // Select prefisso del MODALE cliente (stessa lista del widget)
         const edPrefixEl = () => document.getElementById("ed-prefix") as HTMLSelectElement;
         edPrefixEl().innerHTML = PREFISSI.map(
@@ -902,25 +846,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edLangEl().value = cur === code ? "" : code;  // riclic = deseleziona
           costruisciEdLingue();
         });
-        const fFname = document.getElementById("f-fname") as HTMLInputElement;
-        // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto
-        // e spostato nella tendina, numero ripulito.
-        setTimeout(() => {
-          const fPhoneEl = document.getElementById("f-phone") as HTMLInputElement;
-          fPhoneEl.addEventListener("input", () => {
-            const sep = separaPrefisso(fPhoneEl.value);
-            if (!sep) return;
-            fPrefix.value = sep.dial;
-            fPhoneEl.value = sep.resto;
-          });
-        }, 0);
-        const fLname = document.getElementById("f-lname") as HTMLInputElement;
-        const fEmail = document.getElementById("f-email") as HTMLInputElement;
-        const fPhone = document.getElementById("f-phone") as HTMLInputElement;
-        const mMsg = document.getElementById("m-msg") as HTMLSpanElement;
-        const mSave = document.getElementById("m-save") as HTMLButtonElement;
-        const mCancel = document.getElementById("m-cancel") as HTMLButtonElement;
-        const mClose = document.getElementById("m-close") as HTMLButtonElement;
+        // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto e
+        // spostato nella tendina, numero ripulito. Stava solo sul modale
+        // «aggiungi» che nessuno apriva piu': qui e' sul modale vero.
+        (document.getElementById("ed-phone") as HTMLInputElement).addEventListener("input", (e) => {
+          const campo = e.target as HTMLInputElement;
+          const sep = separaPrefisso(campo.value);
+          if (!sep) return;
+          edPrefixEl().value = sep.dial;
+          campo.value = sep.resto;
+        });
 
         logoutBtn.addEventListener("click", async () => {
           await supabaseBrowser.auth.signOut();
@@ -1267,11 +1202,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           renderAtti();
         });
         function chiudiAttivita() {
-          actOverlay.classList.remove("is-open");
+          actOverlay.hidden = true;
         }
-        (document.getElementById("act-close") as HTMLButtonElement).addEventListener("click", chiudiAttivita);
-        actOverlay.addEventListener("click", (e) => {
-          if (e.target === actOverlay) chiudiAttivita();
+        // Chiusura: le ancore del guscio condiviso (sfondo + ×).
+        actOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", chiudiAttivita);
         });
         function dataOra(iso: string): string {
           const d = new Date(iso);
@@ -1299,12 +1234,12 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           if (c.email) {
             const optout = Boolean(c.newsletter_optout);
             parti.push(
-              `<div class="ed-row2"><div><span class="f-label">${tr("tab.marketing.news")}</span><p class="ed-hint ${optout ? "warn" : "ok"}">${optout ? tr("cli.optedOut") : tr("cli.optedIn")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${optout ? "false" : "true"}" aria-label="${tr("tab.marketing.news")}" data-aflag="news"><span class="afl-sw-knob"></span></button></div>`
+              `<div class="ed-row2"><div><span class="f-label">${tr("tab.marketing.news")}</span><p class="ed-hint ${optout ? "warn" : "ok"}">${optout ? tr("cli.optedOut") : tr("cli.optedIn")}</p></div><button type="button" class="switch" role="switch" aria-checked="${optout ? "false" : "true"}" aria-label="${tr("tab.marketing.news")}" data-aflag="news"><span class="track"></span></button></div>`
             );
           }
           const bl = Boolean(c.blocked);
           parti.push(
-            `<div class="ed-row2"><div><span class="f-label">${tr("nav.reservations")}</span><p class="ed-hint ${bl ? "warn" : "ok"}">${bl ? tr("cli.blockedShort") : tr("cli.allowedShort")}</p></div><button type="button" class="afl-sw" role="switch" aria-checked="${bl ? "false" : "true"}" aria-label="${tr("nav.reservations")}" data-aflag="block"><span class="afl-sw-knob"></span></button></div>`
+            `<div class="ed-row2"><div><span class="f-label">${tr("nav.reservations")}</span><p class="ed-hint ${bl ? "warn" : "ok"}">${bl ? tr("cli.blockedShort") : tr("cli.allowedShort")}</p></div><button type="button" class="switch" role="switch" aria-checked="${bl ? "false" : "true"}" aria-label="${tr("nav.reservations")}" data-aflag="block"><span class="track"></span></button></div>`
           );
           actFlags.innerHTML = parti.join("");
         }
@@ -1361,16 +1296,30 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           const resaBase = c.reservations ?? 0;
           const noshowBase = c.noshows ?? 0;
           const rigaSt = (k: string, v: string, hl = false) => `<div class="st-row${hl ? " hl" : ""}"><span class="k">${k}</span><span class="v">${v}</span></div>`;
-          const sezione = (ico: string, titolo: string, cnt: string, rows: string[]) =>
-            rows.length ? `<div class="st-sec"><div class="st-sec-h">${ico}<span class="t">${titolo}</span><span class="cnt">${cnt}</span></div>${rows.join("")}</div>` : "";
-          const renderStats = (ex: { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null } | null) => {
+          const sezione = (ico: string, titolo: string, cnt: string, rows: string[], extra = "") =>
+            rows.length ? `<div class="st-sec"><div class="st-sec-h">${ico}<span class="t">${titolo}</span><span class="cnt">${cnt}</span></div>${rows.join("")}${extra}</div>` : "";
+          // I piatti piu' ordinati arrivano dopo, da una loro chiamata: li
+          // teniamo qui insieme all'ultimo pacchetto di statistiche, cosi'
+          // qualunque dei due arrivi per secondo ridisegna con tutto.
+          type StatsEx = { total: number; noshows: number; cancelled: number; avg_people: number | null; avg_lead_min: number | null; avg_table_min: number | null; avg_spent_cents: number | null };
+          let exUltimo: StatsEx | null = null;
+          let topPiatti: Array<{ name: string; qty: number }> = [];
+          const renderStats = (ex: StatsEx | null) => {
+            exUltimo = ex;
             const secs: string[] = [];
             if (ordCount > 0 && !ordersHidden) {
               const rows = [
                 rigaSt(tr("cli.stSpent"), euro(c.total_cents ?? 0), true),
                 rigaSt(tr("cli.avgBasket"), euro(Math.round((c.total_cents ?? 0) / ordCount))),
               ];
-              secs.push(sezione(ICO_ORD, tr("cli.stOrders"), String(ordCount), rows));
+              const fav = topPiatti.length
+                ? `<div class="st-fav"><span class="st-fav-lab">${esc(tr("ord.favItems"))}</span><div class="st-fav-chips">` +
+                  topPiatti
+                    .map((it) => `<span class="st-fav-chip"><span class="st-fav-n">${esc(it.name)}</span><span class="st-fav-q">\u00d7${it.qty}</span></span>`)
+                    .join("") +
+                  `</div></div>`
+                : "";
+              secs.push(sezione(ICO_ORD, tr("cli.stOrders"), String(ordCount), rows, fav));
             }
             const resaTot = ex ? ex.total : resaBase;
             const nsTot = ex ? ex.noshows : noshowBase;
@@ -1407,24 +1356,43 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               })
               .catch(() => { /* niente stats ricche: restano quelle base */ });
           }
+          // I 5 piatti piu' ordinati: stessa chiamata che alimenta i preferiti
+          // nel modale «Nuovo ordine», cosi' i due posti dicono la stessa cosa.
+          if ((c.email || c.phone) && ordCount > 0 && !ordersHidden) {
+            const qt = new URLSearchParams({ client_top: "1" });
+            if (c.email) qt.set("email", c.email);
+            if (c.phone) qt.set("phone", c.phone);
+            fetch(`/api/admin/orders?${qt.toString()}`, { headers })
+              .then(async (res) => {
+                if (!res.ok || actKeyCorrente !== mioKey) return;
+                const j = (await res.json()) as { top_items?: Array<{ name: string; qty: number }> };
+                topPiatti = (j.top_items ?? []).filter((it) => it && it.name);
+                if (topPiatti.length) renderStats(exUltimo);
+              })
+              .catch(() => { /* niente preferiti: la sezione resta com'e' */ });
+          }
 
           actList.innerHTML = "";
           actState.style.display = "";
           actState.textContent = tr("sup.loading");
-          actOverlay.classList.add("is-open");
+          actOverlay.hidden = false;
           try {
             const res = await fetch("/api/admin/clients?activity=" + encodeURIComponent(c.key ?? ""), { headers });
             if (!res.ok) throw new Error();
             const j = (await res.json()) as {
               activity?: { type: string; when: string; label: string; status: string; amount_cents: number | null }[];
             };
-            actAtti = (j.activity ?? []) as Att[];
+            // Modulo ordini spento: gli ordini escono proprio dai dati, non
+            // solo dalla vista. Cosi' non c'e' modo che il tab nascosto venga
+            // scelto da solo e mostri una lista che non dovrebbe esistere.
+            actAtti = ((j.activity ?? []) as Att[]).filter((a) => !ordersHidden || a.type !== "order");
             const nResa = actAtti.filter((a) => a.type === "reservation").length;
             const nOrd = actAtti.filter((a) => a.type === "order").length;
             actNResa.textContent = String(nResa);
             actNOrd.textContent = String(nOrd);
-            // Default: Prenotazioni (primo tab); Ordini solo se non ci sono prenotazioni.
-            actTab = nResa > 0 ? "reservation" : "order";
+            // Default: Prenotazioni (primo tab); Ordini solo se non ci sono
+            // prenotazioni — e mai se il modulo ordini e' spento.
+            actTab = nResa > 0 || ordersHidden ? "reservation" : "order";
             renderAtti();
           } catch {
             actState.textContent = tr("sup.load.error");
@@ -1502,7 +1470,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           blockState.textContent = edBlocked
             ? tr("cli.blocked")
             : tr("cli.allowed");
-          blockState.className = "ed-hint" + (edBlocked ? " warn" : "");
+          blockState.className = "ed-hint" + (edBlocked ? " warn" : " ok");
           blockBtn.setAttribute("aria-checked", edBlocked ? "false" : "true");
         }
 
@@ -1534,7 +1502,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edUplState.textContent = "";
           edRenderAvatar();
           edRenderFlags();
-          edOverlay.classList.add("is-open");
+          edOverlay.hidden = false;
         }
         function apriEdit(c: Client) {
           edCliente = c;
@@ -1560,7 +1528,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edUplState.textContent = "";
           edRenderAvatar();
           edRenderFlags();
-          edOverlay.classList.add("is-open");
+          edOverlay.hidden = false;
         }
         (document.getElementById("ed-news-btn") as HTMLButtonElement).addEventListener("click", () => {
           edOptout = !edOptout;
@@ -1571,15 +1539,29 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           edRenderFlags();
         });
         (document.getElementById("ed-email") as HTMLInputElement).addEventListener("input", edRenderFlags);
-        (document.getElementById("ed-close") as HTMLButtonElement).addEventListener("click", () => edOverlay.classList.remove("is-open"));
-        edOverlay.addEventListener("click", (e) => {
-          if (e.target === edOverlay) edOverlay.classList.remove("is-open");
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        edOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { edOverlay.hidden = true; });
         });
         for (const idc of ["ed-fname", "ed-lname"])
           (document.getElementById(idc) as HTMLInputElement).addEventListener("input", () => {
             if (!edPhotoUrl) edRenderAvatar();
           });
         (document.getElementById("ed-upload") as HTMLButtonElement).addEventListener("click", () => edFile.click());
+        // «Libreria»: la stessa ImagePicker degli altri modali, cosi' una foto
+        // gia' caricata non va ricaricata una seconda volta.
+        (document.getElementById("ed-photo-lib") as HTMLButtonElement).addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("imgpick:open"));
+        });
+        window.addEventListener("imgpick:pick", (e) => {
+          // Solo se il modale e' aperto: la Libreria sta fuori da lui.
+          if (edOverlay.hidden) return;
+          const url = (e as CustomEvent<{ url?: string }>).detail?.url ?? "";
+          if (!url) return;
+          edPhotoUrl = url;
+          edRenderAvatar();
+          edUplState.textContent = "";
+        });
         edPhotoRm.addEventListener("click", () => {
           edPhotoUrl = "";
           edRenderAvatar();
@@ -1635,12 +1617,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             errEl.textContent = tr("res.nameRequired");
             return;
           }
-          if (!edCliente && !emailV && !telV) {
+          // Anche in modifica: il server lo pretende su OGNI scrittura, e
+          // fermarlo qui significa un messaggio tradotto invece del 400 in
+          // francese che arrivava dall'API.
+          if (!emailV && !telV) {
             errEl.textContent = tr("cli.emailOrPhone");
             return;
           }
           const btn = document.getElementById("ed-save") as HTMLButtonElement;
           btn.disabled = true;
+          btn.classList.add("is-loading"); // su rete lenta un bottone solo spento non dice niente
           try {
             const corpo: Record<string, unknown> = {
               id: edCliente?.id ?? null,
@@ -1664,15 +1650,26 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
               errEl.textContent = j.error ?? tr("common.saveErr");
               return;
             }
-            edOverlay.classList.remove("is-open");
+            edOverlay.hidden = true;
             toast(edCliente ? tr("cli.clientModified") : tr("cli.clientAdded"));
             await carica();
           } catch {
             errEl.textContent = tr("res.connErr");
           } finally {
             btn.disabled = false;
+            btn.classList.remove("is-loading");
           }
         });
+
+        // Invio salva, da qualunque campo del modale: c'era nel modale morto
+        // e si era perso in quello unificato.
+        for (const idc of ["ed-fname", "ed-lname", "ed-email", "ed-phone"]) {
+          document.getElementById(idc)?.addEventListener("keydown", (e) => {
+            if ((e as KeyboardEvent).key !== "Enter") return;
+            e.preventDefault();
+            (document.getElementById("ed-save") as HTMLButtonElement).click();
+          });
+        }
 
         async function carica(datiIniziali?: Resp) {
           contentEl.classList.add("loading");
@@ -1703,61 +1700,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           }
         }
 
-        // --- Modale aggiungi cliente ---
-        function chiudiModale() {
-          overlay.classList.remove("is-open");
-        }
-
-        addBtn.addEventListener("click", apriNuovo); // modale unificato: crea e modifica
-        mCancel.addEventListener("click", chiudiModale);
-        mClose.addEventListener("click", chiudiModale);
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) chiudiModale();
-        });
-
-        async function salva() {
-          const name = `${fFname.value.trim()} ${fLname.value.trim()}`.trim();
-          const email = fEmail.value.trim();
-          const grezzo = fPhone.value.trim();
-          const phone = !grezzo
-            ? ""
-            : grezzo.startsWith("+")
-              ? grezzo
-              : `${fPrefix.value} ${grezzo.replace(/^0/, "")}`;
-          if (!fLname.value.trim()) { mMsg.textContent = tr("res.nameRequired"); fLname.focus(); return; }
-          if (!email && !phone) { mMsg.textContent = tr("cli.emailOrPhoneReq"); fEmail.focus(); return; }
-
-          mMsg.textContent = "";
-          mSave.disabled = true;
-          mSave.classList.add("is-loading");
-          try {
-            const res = await fetch("/api/admin/clients", {
-              method: "POST",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ name, email, phone }),
-            });
-            const out = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              mMsg.textContent = out.error || tr("res.saveError");
-              return;
-            }
-            chiudiModale();
-            toast(`${tr("cli.clientAdded")} ✓`);
-            await carica();
-          } catch {
-            mMsg.textContent = tr("common.netErr");
-          } finally {
-            mSave.disabled = false;
-            mSave.classList.remove("is-loading");
-          }
-        }
-
-        mSave.addEventListener("click", salva);
-        [fFname, fLname, fEmail, fPhone].forEach((el) =>
-          el.addEventListener("keydown", (e) => {
-            if ((e as KeyboardEvent).key === "Enter") salva();
-          })
-        );
+        // Aggiungi e modifica sono lo STESSO modale (#ed-overlay): il pulsante
+        // flottante apre quello, in modalita' creazione.
+        addBtn.addEventListener("click", apriNuovo);
 
         // Primo caricamento: usa i dati SSR (Fase 2) se presenti, senza fetch.
         let ssrClientsDati: Resp | null = null;

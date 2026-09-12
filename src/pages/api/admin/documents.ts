@@ -49,9 +49,20 @@ export const GET: APIRoute = async ({ request }) => {
   const { data, error } = await supabaseAdmin.storage
     .from(BUCKET)
     .list("", { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
-  if (error) return json({ documents: [] }); // bucket non ancora creato
+  if (error) {
+    // Bucket non ancora creato = lista legittimamente vuota. QUALUNQUE altro
+    // errore va detto: prima finivano tutti in "nessun documento", e chi
+    // caricava un file vedeva il caricamento fallire senza capire perche'.
+    const msg = String(error.message ?? "").toLowerCase();
+    if (msg.includes("not found") || msg.includes("does not exist")) return json({ documents: [] });
+    return json({ error: "Lecture impossible", detail: error.message ?? "" }, 500);
+  }
 
-  const files = (data ?? []).filter((f) => !!f.name);
+  // ⚠️ `list()` restituisce anche le CARTELLE (prefissi), che non sono oggetti:
+  // arrivano con `id: null` e senza metadati. Finivano nella lista come
+  // documenti fantasma — niente peso, niente data — e non si potevano
+  // cancellare, perche' a quel percorso non c'e' nessun file da togliere.
+  const files = (data ?? []).filter((f) => !!f.name && f.id !== null);
   const nascosti = new Set(files.filter((f) => f.name.startsWith(".")).map((f) => f.name));
   const documents = files
     .filter((f) => !f.name.startsWith("."))
@@ -74,8 +85,13 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const name = url.searchParams.get("name") ?? "";
   if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
 
-  const { error } = await supabaseAdmin.storage.from(BUCKET).remove([name, thumbDi(name)]);
+  const { data, error } = await supabaseAdmin.storage.from(BUCKET).remove([name, thumbDi(name)]);
   if (error) return json({ error: "Suppression impossible" }, 500);
+  // ⚠️ `remove()` NON da' errore per un file che non esiste: restituisce solo
+  // la lista di quelli tolti davvero. Senza questo controllo l'admin diceva
+  // «eliminato» e il documento restava li', il che e' peggio di un errore.
+  const tolti = (data ?? []).map((f) => f.name);
+  if (!tolti.includes(name)) return json({ error: "Fichier introuvable" }, 404);
   return json({ ok: true });
 };
 

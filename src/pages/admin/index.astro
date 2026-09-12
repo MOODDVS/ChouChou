@@ -12,6 +12,7 @@ import TileReservations from "../../components/admin/home/TileReservations.astro
 import TileHoraires from "../../components/admin/home/TileHoraires.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
+import Modal from "../../components/admin/Modal.astro";
 import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
@@ -170,7 +171,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .st-facts { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; }
       .st-facts > div { flex: 1; min-width: 0; }
       .st-facts .val { font-weight: 700; font-size: 0.95rem; }
-      .st-bars { display: flex; align-items: flex-end; gap: 2px; height: 110px; border-bottom: 1px solid var(--c-line); margin-top: 0.4rem; flex: 1; }
+      /* ⚠️ `align-items: stretch` (il default) NON e' un dettaglio: con
+         `flex-end` ogni colonna si restringeva sul proprio contenuto, e
+         allora l'`height: N%` della barra dentro non aveva piu' un'altezza
+         di riferimento — le percentuali contro un genitore alto «auto»
+         valgono `auto`. Restava il `min-height: 2px`, cioe' il trattino
+         che si vedeva al posto dell'istogramma. La barra si appoggia in
+         basso col `justify-content: flex-end` di .st-bar, non con questo. */
+      .st-bars { display: flex; align-items: stretch; gap: 2px; height: 110px; border-bottom: 1px solid var(--c-line); margin-top: 0.4rem; flex: 1; }
       .st-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
       .st-bar .cval { font-family: var(--font-title); font-size: 0.8rem; color: var(--c-text); text-align: center; margin-bottom: 2px; }
       .st-bar .fill { background: var(--c-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
@@ -239,23 +247,41 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .tile[data-tile="special"] .tile-next { margin-top: 0.75rem; }
       .ev-nome.ev-loc { color: var(--c-accent); }
 
-      #evt-overlay .evm-modal {
-        width: 100%; max-width: 520px; margin: auto; position: relative;
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        padding: 1.7rem; box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        max-height: 88vh; overflow-y: auto;
-      }
+      /* Guscio, titolo e × : classi .md-* in src/styles/modal.css. */
       /* Tab del modale (stesso stile dei tab del menu) */
       .m-tabs { display: flex; gap: 0.5rem; margin: 0.9rem 0 1rem; flex-wrap: wrap; }
-      .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
-      .m-tab:hover { color: var(--c-text); }
+      /* Il modale ora ha il fondo --c-bg (prima era --c-card): --c-input e
+         --c-line ci si confondevano dentro. Il bordo e il fondo si ricavano
+         dal COLORE DEL TESTO mescolato al fondo, cosi restano staccati su
+         qualunque tema del cliente — chiaro, scuro o quello che sceglie. */
+      .m-tab { background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg)); border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg)); color: var(--c-text); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      .m-tab:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .evm-pane .evm-lab:first-of-type { margin-top: 0.6rem; }
-      .evm-titre { font-family: var(--font-title); font-size: 1.7rem; letter-spacing: 0.04em; margin-bottom: 0.3rem; }
+      /* `.spf` (form Giorni speciali, condiviso) e' tarato per stare sul
+         --c-card della pagina Réglages. Qui vive dentro il modale, che ha il
+         fondo --c-bg: i suoi campi e interruttori ci si confonderebbero.
+         Si rialzano SOLO qui, con la stessa regola dei tab: colore del testo
+         mescolato al fondo, cosi vale su qualunque tema del cliente. */
+      #evt-overlay .spf input[type="text"],
+      #evt-overlay .spf input[type="time"],
+      #evt-overlay .spf .sp-type button:not(.is-active) {
+        background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg));
+        border-color: color-mix(in srgb, var(--c-text) 30%, var(--c-bg));
+      }
+      /* `:not(.is-active)` NON e' un dettaglio: il selettore con l'id pesa
+         piu di `.spf .sp-type button.is-active`, quindi senza l'esclusione
+         il bottone selezionato perdeva il corallo. */
+      #evt-overlay .spf .sp-type button:not(.is-active) { color: var(--c-text); }
+      /* L'interruttore dei servizi non ha bisogno di ritocchi qui: il
+         componente condiviso si ricava gia il fondo da --c-bg. */
+      #evt-overlay .spf .sp-item,
+      #evt-overlay .spf .sp-add { border-color: color-mix(in srgb, var(--c-text) 22%, var(--c-bg)); }
       .evm-sub { color: var(--c-muted); font-size: 0.85rem; line-height: 1.55; margin-bottom: 0.4rem; }
       .evm-lab { display: block; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin: 1rem 0 0.35rem; }
       .evm-in {
-        width: 100%; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text);
+        width: 100%; background: color-mix(in srgb, var(--c-text) 9%, var(--c-bg));
+        border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg)); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.65rem 0.75rem; border-radius: 8px;
       }
       .evm-in:focus { outline: none; border-color: var(--c-accent); }
@@ -268,29 +294,32 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         transition: background 0.15s, border-color 0.15s;
       }
       .evm-add:hover { background: var(--c-hover); border-color: var(--c-hover); }
-      .evm-x {
-        position: absolute; top: 0.9rem; right: 0.9rem; width: 34px; height: 34px; border-radius: 50%;
-        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); cursor: pointer;
-        transition: color 0.15s, border-color 0.15s;
-      }
-      .evm-x:hover { color: var(--c-text); border-color: var(--c-accent); }
       .evm-list { margin-top: 1.3rem; display: flex; flex-direction: column; gap: 0.4rem; max-height: 260px; overflow-y: auto; }
       .evm-vide { color: var(--c-muted); font-size: 0.85rem; }
+      /* Fondo PIENO, non un rettangolo col bordo: la riga e' un blocco, e il
+         bordo in piu' faceva sembrare ogni evento un campo da compilare. */
       .evm-row {
         display: flex; align-items: center; gap: 0.7rem;
-        background: var(--c-input); border: 1px solid var(--c-line); border-radius: 8px;
-        padding: 0.5rem 0.7rem; font-size: 0.88rem;
+        background: color-mix(in srgb, var(--c-text) 15%, var(--c-bg));
+        border: 0; border-radius: 10px;
+        padding: 0.6rem 0.65rem 0.6rem 0.8rem; font-size: 0.88rem;
       }
       .evm-row .d { color: var(--c-accent); font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
       .evm-row .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .evm-row .y { color: var(--c-muted); font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+      /* Cestino a due tocchi: stesso gesto delle note e del menu — il primo
+         tocco arma «Cancellare ?», il secondo cancella. */
       .evm-del {
-        width: 28px; height: 28px; flex: 0 0 auto; border-radius: 50%;
-        background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
-        cursor: pointer; font-size: 0.8rem; transition: border-color 0.15s, color 0.15s;
+        height: 30px; min-width: 30px; flex: 0 0 auto; border-radius: 999px;
+        display: inline-flex; align-items: center; justify-content: center; padding: 0;
+        background: transparent; border: 1px solid color-mix(in srgb, var(--c-text) 30%, var(--c-bg));
+        color: var(--c-muted); cursor: pointer; font-size: 0.72rem;
+        transition: border-color 0.15s, color 0.15s, background 0.15s;
       }
+      .evm-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .evm-del:hover { border-color: #ed1c24; color: var(--c-text); }
-      .evm-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.6rem; border-radius: 999px; font-size: 0.72rem; }
+      .evm-del:hover { border-color: #ed1c24; color: var(--c-text); }
+      .evm-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; padding: 0 0.7rem; font-weight: 700; }
 
 
       /* --- Tile Menu --- */
@@ -312,26 +341,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .ntile-add { font-size: 1.5rem; line-height: 1; background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
       .ntile-add:hover { background: transparent; color: var(--c-brown); }
       .notes-preview { cursor: pointer; }
-      .np-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-top: 1px solid color-mix(in srgb, var(--c-bg) 18%, transparent); font-size: 0.92rem; }
+      /* Stessa misura del testo del modale (0.98rem) e STESSO cerchio
+         (.note-check): spuntare una nota si fa anche da qui, senza aprire. */
+      .np-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-top: 1px solid color-mix(in srgb, var(--c-bg) 18%, transparent); font-size: 0.98rem; }
       .np-item:first-child { border-top: none; }
-      .np-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-brown); opacity: 0.55; flex-shrink: 0; }
+      .np-item .note-check { margin-top: 0; }
       .np-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .np-item.done .np-text { text-decoration: line-through; opacity: 0.55; }
-      .np-item.done .np-dot { opacity: 0.3; }
       .np-more { font-size: 0.8rem; opacity: 0.75; margin-top: 0.45rem; font-weight: 700; }
       .np-empty { opacity: 0.8; font-size: 0.92rem; }
 
       /* --- Modale Notes (centrato, fondo oro coerente col tile) --- */
-      .overlay { position: fixed; inset: 0; z-index: 300; display: none; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 5vh 1rem; overflow-y: auto; }
-      .overlay.is-open { display: flex; }
-      .modal { width: 100%; max-width: 620px; margin: auto; background: var(--c-accent); color: var(--c-brown); border: 1px solid var(--c-accent); padding: 1.75rem; position: relative; box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15))); }
-      .modal { max-height: 90vh; overflow-y: auto; }
       /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.9rem; letter-spacing: 0.04em; margin-bottom: 1.1rem; color: var(--c-brown); }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: color-mix(in srgb, var(--c-bg) 55%, transparent); font-size: 1.7rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-brown); }
 
       /* Compose */
       .notes-compose { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.25rem; }
@@ -345,7 +366,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .nc-tag.is-on { background: var(--c-brown); color: var(--c-accent); border-color: var(--c-brown); }
       /* MOBILE: modale note un po' più alto, tag in riga, "Aggiungi" sotto i tag. */
       @media (max-width: 640px) {
-        #notes-overlay .modal { min-height: 62vh; }
+        #notes-overlay .md-box { min-height: 62vh; }
         #notes-overlay .notes-compose-actions { flex-direction: column; align-items: stretch; gap: 0.85rem; }
         #notes-overlay .nc-tags { justify-content: flex-start; }
         #notes-overlay .nc-save { width: 100%; text-align: center; }
@@ -366,12 +387,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .note:first-child { border-top: none; }
       .note-check { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--c-brown); background: transparent; cursor: pointer; margin-top: 0.1rem; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
       .note-check:hover { background: color-mix(in srgb, var(--c-bg) 12%, transparent); }
-      .note.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
+      .note.done .note-check, .np-item.done .note-check { background: var(--c-brown); border-color: var(--c-brown); }
       .note-check svg { width: 13px; height: 13px; fill: none; stroke: var(--c-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
       .note-body { flex: 1; min-width: 0; }
-      .note-text { font-size: 0.98rem; white-space: pre-wrap; word-break: break-word; line-height: 1.35; }
+      /* +1px sul testo, -2px sotto: il testo scende di un capello e la riga
+         dell'autore si avvicina. Il -2 e' 1 per annullare la discesa e 1 per
+         chiudere lo spazio. */
+      .note-text { font-size: 0.98rem; white-space: pre-wrap; word-break: break-word; line-height: 1.35; margin-top: 1px; }
       .note.done .note-text { text-decoration: line-through; color: color-mix(in srgb, var(--c-bg) 55%, transparent); }
-      .note-meta { color: color-mix(in srgb, var(--c-bg) 60%, transparent); font-size: 0.72rem; margin-top: 0.3rem; }
+      .note-meta { color: color-mix(in srgb, var(--c-bg) 60%, transparent); font-size: 0.72rem; margin-top: calc(0.3rem - 2px); }
       .note-del { flex-shrink: 0; height: 30px; min-width: 30px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c-bg) 30%, transparent); background: transparent; color: color-mix(in srgb, var(--c-bg) 70%, transparent); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
       .note-del:hover { border-color: #9a1b12; color: #9a1b12; background: rgba(154, 27, 18, 0.08); }
       .note-del svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -407,25 +431,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .org-fab-tiles { left: 1.5rem; }
 
       /* ---- Modale « Tuiles » : afficher / masquer les tuiles ---- */
-      #tuiles-overlay .tm-modal {
-        width: 100%; max-width: 420px; margin: auto; position: relative;
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        padding: 1.7rem; box-shadow: 0 24px 60px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .tm-list { margin-top: 1.1rem; display: flex; flex-direction: column; }
-      .tm-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid var(--c-line); }
+      .tm-list { margin-top: 0.9rem; display: flex; flex-direction: column; }
+      .tm-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid color-mix(in srgb, var(--c-text) 18%, var(--c-bg)); }
       .tm-row:first-child { border-top: none; }
       .tm-nom { font-size: 0.95rem; font-weight: 700; }
-      .tm-sw { position: relative; display: block; width: 42px; height: 24px; flex: 0 0 auto; cursor: pointer; }
-      .tm-sw input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; z-index: 2; }
-      .tm-sw .track { display: block; width: 42px; height: 24px; border-radius: 999px; background: var(--c-input); border: 1px solid var(--c-line); transition: background 0.15s, border-color 0.15s; }
-      .tm-sw .track::before {
-        content: ""; position: absolute; left: 3px; top: 50%; transform: translateY(-50%);
-        width: 18px; height: 18px; border-radius: 50%; background: var(--c-muted);
-        transition: transform 0.15s, background 0.15s;
-      }
-      .tm-sw input:checked + .track { background: var(--c-accent); border-color: var(--c-accent); }
-      .tm-sw input:checked + .track::before { transform: translate(18px, -50%); background: #fff; }
+      /* L'interruttore e' il componente condiviso: .switch in src/styles/switch.css. */
 
       .tile { position: relative; }
       .tile-move, .tile-resize { display: none; }
@@ -494,60 +504,48 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     </div>
 
     <!-- Modale Tuiles : afficher / masquer les tuiles de l'accueil -->
-    <div class="overlay" id="tuiles-overlay">
-      <div class="tm-modal">
-        <button type="button" class="evm-x" id="tuiles-close" aria-label={t("common.close")}>✕</button>
-        <h2 class="evm-titre">{t("home.tiles")}</h2>
-        <p class="evm-sub">{t("home.tilesIntro")}</p>
-        <div class="tm-list" id="tuiles-list"></div>
-      </div>
-    </div>
+    <Modal id="tuiles-overlay" title={t("home.tiles")} width="420px">
+      <p class="evm-sub">{t("home.tilesIntro")}</p>
+      <div class="tm-list" id="tuiles-list"></div>
+    </Modal>
 
     <!-- Modale Jours speciaux : evenement local | fermeture/ouverture -->
-    <div class="overlay" id="evt-overlay">
-      <div class="evm-modal">
-        <button type="button" class="evm-x" id="evt-close" aria-label={t("common.close")}>✕</button>
-        <h2 class="evm-titre">{t("home.specialDays")}</h2>
-        <div class="m-tabs" id="evt-tabs">
-          <button type="button" class="m-tab is-on" data-p="ev">{t("home.evtTabEvent")}</button>
-          <button type="button" class="m-tab" data-p="cl">{t("home.evtTabClosure")}</button>
-        </div>
-        <div class="evm-pane" data-p="ev">
-          <p class="evm-sub">{t("home.localEventsIntro")}</p>
-          <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
-          <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
-          <label class="evm-lab" for="evt-date">{t("home.date")}</label>
-          <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
-          <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
-          <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
-          <div class="evm-list" id="evt-list"></div>
-        </div>
-        <div class="evm-pane" data-p="cl" hidden>
-          <p class="evm-sub">{t("home.closureIntro")}</p>
-          <SpecialDaysForm />
-        </div>
+    <Modal id="evt-overlay" title={t("home.specialDays")} width="520px">
+      <div class="m-tabs" id="evt-tabs">
+        <button type="button" class="m-tab is-on" data-p="ev">{t("home.evtTabEvent")}</button>
+        <button type="button" class="m-tab" data-p="cl">{t("home.evtTabClosure")}</button>
       </div>
-    </div>
+      <div class="evm-pane" data-p="ev">
+        <p class="evm-sub">{t("home.localEventsIntro")}</p>
+        <label class="evm-lab" for="evt-nom">{t("home.name")}</label>
+        <input id="evt-nom" class="evm-in" maxlength="80" placeholder={t("home.eventNamePh")} autocomplete="off" />
+        <label class="evm-lab" for="evt-date">{t("home.date")}</label>
+        <input id="evt-date" class="evm-in" readonly placeholder={t("home.chooseDate")} />
+        <label class="evm-check"><input type="checkbox" id="evt-yearly" />{t("home.yearly")}</label>
+        <button type="button" class="evm-add" id="evt-add">{t("common.add")}</button>
+        <div class="evm-list" id="evt-list"></div>
+      </div>
+      <div class="evm-pane" data-p="cl" hidden>
+        <p class="evm-sub">{t("home.closureIntro")}</p>
+        <SpecialDaysForm />
+      </div>
+    </Modal>
 
-    <div class="overlay" id="notes-overlay">
-      <div class="modal">
-        <button class="m-close" id="notes-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2>{t("home.notes")}</h2>
-        <div class="notes-compose">
-          <textarea id="notes-input" maxlength="1000" placeholder={t("home.notesPlaceholder")}></textarea>
-          <div class="notes-compose-actions">
-            <div class="nc-tags" id="nc-tags">
-              <button type="button" class="nc-tag" data-tag="important">{t("tag.important")}</button>
-              <button type="button" class="nc-tag" data-tag="recurrent">{t("tag.recurrent")}</button>
-              <button type="button" class="nc-tag" data-tag="fournisseur">{t("tag.fournisseur")}</button>
-            </div>
-            <button class="nc-save" id="nc-save" type="button">{t("common.add")}</button>
+    <Modal id="notes-overlay" title={t("home.notes")} width="620px" boxClass="md-nota">
+      <div class="notes-compose">
+        <textarea id="notes-input" maxlength="1000" placeholder={t("home.notesPlaceholder")}></textarea>
+        <div class="notes-compose-actions">
+          <div class="nc-tags" id="nc-tags">
+            <button type="button" class="nc-tag" data-tag="important">{t("tag.important")}</button>
+            <button type="button" class="nc-tag" data-tag="recurrent">{t("tag.recurrent")}</button>
+            <button type="button" class="nc-tag" data-tag="fournisseur">{t("tag.fournisseur")}</button>
           </div>
+          <button class="nc-save" id="nc-save" type="button">{t("common.add")}</button>
         </div>
-        <div class="notes-msg" id="notes-msg"></div>
-        <div id="notes-list"></div>
       </div>
-    </div>
+      <div class="notes-msg" id="notes-msg"></div>
+      <div id="notes-list"></div>
+    </Modal>
 
     <AdminNav current="home" />
 
@@ -628,7 +626,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const expandBtn = document.getElementById("notes-expand") as HTMLButtonElement;
         const addBtn = document.getElementById("notes-add") as HTMLButtonElement;
         const overlay = document.getElementById("notes-overlay") as HTMLElement;
-        const closeBtn = document.getElementById("notes-close") as HTMLButtonElement;
         const input = document.getElementById("notes-input") as HTMLTextAreaElement;
         const saveBtn = document.getElementById("nc-save") as HTMLButtonElement;
         const listEl = document.getElementById("notes-list") as HTMLElement;
@@ -656,8 +653,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             primi
               .map(
                 (n) => `
-              <div class="np-item${n.done ? " done" : ""}">
-                <span class="np-dot"></span><span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
+              <div class="np-item${n.done ? " done" : ""}" data-id="${n.id}">
+                <button class="note-check" type="button" title="${n.done ? tr("home.reopenNote") : tr("home.markDone")}">${n.done ? CHECK_ICON : ""}</button>
+                <span class="np-text">${escHtml(n.content)}</span>${tagPills(n)}
               </div>`
               )
               .join("") +
@@ -684,18 +682,46 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         }
         function render() { renderPreview(); renderList(); }
 
+        /** Segna fatta / da fare. Chiamata sia dal modale sia dall'anteprima
+            nella tile: il cerchio e' lo stesso, quindi lo e' anche il codice. */
+        async function spunta(id: string): Promise<void> {
+          const n = notes.find((x) => x.id === id);
+          if (!n) return;
+          const nuovo = !n.done;
+          msgEl.textContent = "";
+          try {
+            const res = await fetch("/api/admin/notes", {
+              method: "PUT",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, done: nuovo }),
+            });
+            if (res.ok) { n.done = nuovo; render(); }
+            else { msgEl.textContent = await erroreDa(res, tr("home.editFailed")); }
+          } catch { msgEl.textContent = tr("common.netErr"); }
+        }
+
         function openModal(focus: boolean) {
           msgEl.textContent = "";
-          overlay.classList.add("is-open");
+          overlay.hidden = false;
           if (focus) input.focus();
         }
-        function closeModal() { overlay.classList.remove("is-open"); }
+        function closeModal() { overlay.hidden = true; }
 
         expandBtn.addEventListener("click", () => openModal(false));
         addBtn.addEventListener("click", () => openModal(true));
-        preview.addEventListener("click", () => openModal(false));
-        closeBtn.addEventListener("click", closeModal);
-        overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+        preview.addEventListener("click", (e) => {
+          // Il cerchio spunta la nota SENZA aprire il modale: e' l'unico punto
+          // dell'anteprima che non porta dentro.
+          const chk = (e.target as HTMLElement).closest(".note-check");
+          if (chk) {
+            const riga = chk.closest(".np-item") as HTMLElement | null;
+            if (riga?.dataset.id) void spunta(riga.dataset.id);
+            return;
+          }
+          openModal(false);
+        });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", closeModal));
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
         const tagSel = new Set<string>();
@@ -746,20 +772,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const n = notes.find((x) => x.id === id);
           if (!n) return;
 
-          if (t.closest(".note-check")) {
-            const nuovo = !n.done;
-            msgEl.textContent = "";
-            try {
-              const res = await fetch("/api/admin/notes", {
-                method: "PUT",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ id, done: nuovo }),
-              });
-              if (res.ok) { n.done = nuovo; render(); }
-              else { msgEl.textContent = await erroreDa(res, tr("home.editFailed")); }
-            } catch { msgEl.textContent = tr("common.netErr"); }
-            return;
-          }
+          if (t.closest(".note-check")) { await spunta(id); return; }
 
           const del = t.closest(".note-del") as HTMLButtonElement | null;
           if (del) {
@@ -1034,7 +1047,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const evtYear = document.getElementById("evt-yearly") as HTMLInputElement;
           const evtAdd = document.getElementById("evt-add") as HTMLButtonElement;
           const evtList = document.getElementById("evt-list") as HTMLDivElement;
-          const evtClose = document.getElementById("evt-close") as HTMLButtonElement;
           const headersJson = { ...headers, "Content-Type": "application/json" };
 
           const fdFr = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
@@ -1044,7 +1056,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             evtList.innerHTML = eventiLocali.length
               ? eventiLocali
                   .map((ev, i) =>
-                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="evm-del" data-i="${i}" aria-label="${tr("common.delete")}">✕</button></div>`
+                    `<div class="evm-row"><span class="d">${fdFr(ev.date)}</span><span class="n">${escE(ev.label)}</span>${ev.yearly ? `<span class="y">${tr("home.yearlyShort")}</span>` : ""}<button type="button" class="evm-del" data-i="${i}" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${TRASH_ICON}</button></div>`
                   )
                   .join("")
               : `<div class="evm-vide">${tr("home.noLocalEvents")}</div>`;
@@ -1071,11 +1083,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             evtOverlay.querySelectorAll<HTMLElement>(".evm-pane").forEach((x) => { x.hidden = x.dataset.p !== p; });
           });
 
-          const apriEvt = () => { renderListaEvt(); evtOverlay.classList.add("is-open"); };
-          const chiudiEvt = () => { evtOverlay.classList.remove("is-open"); dpChiudi(); };
+          const apriEvt = () => { renderListaEvt(); evtOverlay.hidden = false; };
+          const chiudiEvt = () => { evtOverlay.hidden = true; dpChiudi(); };
           evtBtn.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); apriEvt(); });
-          evtClose.addEventListener("click", chiudiEvt);
-          evtOverlay.addEventListener("click", (e) => { if (e.target === evtOverlay) chiudiEvt(); });
+          // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+          evtOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiEvt));
 
           evtAdd.addEventListener("click", async () => {
             const label = evtNom.value.trim();
@@ -1102,7 +1114,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             if (!b.classList.contains("confirm")) {
               b.classList.add("confirm");
               b.textContent = tr("home.deleteQ");
-              window.setTimeout(() => { b.classList.remove("confirm"); b.textContent = "✕"; }, 2500);
+              window.setTimeout(() => { b.classList.remove("confirm"); b.innerHTML = TRASH_ICON; }, 3000);
               return;
             }
             eventiLocali.splice(Number(b.dataset.i), 1);
@@ -2157,7 +2169,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             nome.className = "tm-nom";
             nome.textContent = NOMI[key] ?? key;
             const sw = document.createElement("label");
-            sw.className = "tm-sw";
+            sw.className = "switch";
             const inp = document.createElement("input");
             inp.type = "checkbox";
             inp.checked = !spenta;
@@ -2176,10 +2188,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             listaTuiles.appendChild(riga);
           }
         }
-        const chiudiTuiles = () => ovTuiles?.classList.remove("is-open");
-        btnTuiles?.addEventListener("click", () => { costruisciLista(); ovTuiles?.classList.add("is-open"); });
-        document.getElementById("tuiles-close")?.addEventListener("click", chiudiTuiles);
-        ovTuiles?.addEventListener("click", (e) => { if (e.target === ovTuiles) chiudiTuiles(); });
+        const chiudiTuiles = () => { if (ovTuiles) ovTuiles.hidden = true; };
+        btnTuiles?.addEventListener("click", () => { costruisciLista(); if (ovTuiles) ovTuiles.hidden = false; });
+        ovTuiles?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiTuiles));
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudiTuiles(); });
       })();
     </script>

@@ -7,6 +7,7 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT, LINGUE_ADMIN } from "../../i18n/admin";
@@ -282,32 +283,19 @@ const prI18n = {
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
       .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
-      .us-overlay {
-        position: fixed; inset: 0; z-index: 300; display: none; padding: 1rem;
-        background: rgba(0, 0, 0, 0.6); align-items: center; justify-content: center;
-      }
-      .us-overlay.is-open { display: flex; }
-      .us-modal {
-        width: 100%; max-width: 460px; background: var(--c-card); border: 1px solid var(--c-line);
-        border-radius: 14px; padding: 1.8rem; position: relative;
-        box-shadow: 0 18px 50px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .us-close { position: absolute; top: 0.7rem; right: 0.9rem; background: none; border: none;
-        color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; }
-      .us-titre { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; margin: 0 0 0.3rem; }
+      /* Il guscio e i campi sono condivisi (modal.css, field.css): qui resta
+         solo quello che e' davvero di questo modulo. */
+      .us-hint { margin: 0 0 1.2rem; }
+      .us-sotto { margin-top: 0.45rem; }
       .us-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
         color: var(--c-muted); margin: 1.1rem 0 0.35rem; }
       .us-frow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
       .us-frow .us-lab { margin-top: 0; }
       .us-frow-pass { grid-template-columns: 1fr auto; align-items: center; }
-      .us-modal input {
-        width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.92rem;
-        padding: 0.5rem 0.7rem; border-radius: 8px;
-      }
-      .us-modal input:focus { outline: none; border-color: var(--c-accent); }
-      .us-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.8rem; flex-wrap: wrap; }
-      .us-err { color: #e2483d; font-size: 0.82rem; }
+      /* L'errore spinge i bottoni a destra; da vuoto non occupa spazio. */
+      #us-overlay .md-foot .us-err { margin-right: auto; }
+      .us-err { color: #ff6b6b; font-size: 0.82rem; }
+      .us-err:empty { display: none; }
       .us-roles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
       .us-role {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted);
@@ -699,11 +687,8 @@ const prI18n = {
     </div>
 
     <!-- Modale : créer un utilisateur -->
-    <div class="us-overlay" id="us-overlay">
-      <div class="us-modal">
-        <button type="button" class="us-close" id="us-close" aria-label={t("common.close")}>×</button>
-        <h2 class="us-titre" id="us-titre">{t("us.new")}</h2>
-        <p class="note" id="us-hint" style="margin:0 0 1.2rem">{t("us.newHint")}</p>
+    <Modal id="us-overlay" title={t("us.new")} titleId="us-titre" width="460px">
+        <p class="note us-hint" id="us-hint">{t("us.newHint")}</p>
 
         <div class="us-frow">
           <div>
@@ -722,9 +707,9 @@ const prI18n = {
         <label class="us-lab" for="us-pass" id="us-pass-lab">{t("us.pass")}</label>
         <div class="us-frow us-frow-pass">
           <input type="text" id="us-pass" placeholder={t("us.passPh")} autocomplete="new-password" />
-          <button type="button" id="us-gen" class="us-ghost">{t("us.gen")}</button>
+          <button type="button" id="us-gen" class="btn">{t("us.gen")}</button>
         </div>
-        <p class="note" id="us-pass-hint" style="margin-top:0.4rem">{t("us.passHint")}</p>
+        <p class="note us-sotto" id="us-pass-hint">{t("us.passHint")}</p>
 
         <label class="us-lab">{t("us.role")}</label>
         <div class="us-roles" id="us-roles">
@@ -732,14 +717,13 @@ const prI18n = {
           <button type="button" class="us-role is-on" data-role="admin">{t("role.admin")}</button>
           <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
         </div>
-        <p class="note" id="us-role-hint" style="margin-top:0.5rem"></p>
-
-        <div class="us-foot">
-          <button type="button" id="us-add" class="us-add">{t("us.createBtn")}</button>
-          <span class="us-err" id="us-err"></span>
-        </div>
-      </div>
-    </div>
+        <p class="note us-sotto" id="us-role-hint"></p>
+      <Fragment slot="foot">
+        <span class="us-err" id="us-err"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" id="us-add" class="md-btn md-btn-primary">{t("us.createBtn")}</button>
+      </Fragment>
+    </Modal>
 
     <div class="toast" id="toast"></div>
 
@@ -1547,7 +1531,6 @@ const prI18n = {
         const usLname = document.getElementById("us-lname") as HTMLInputElement | null;
         const usOverlay = document.getElementById("us-overlay") as HTMLDivElement | null;
         const usOpen = document.getElementById("us-open") as HTMLButtonElement | null;
-        const usClose = document.getElementById("us-close") as HTMLButtonElement | null;
         const usErr = document.getElementById("us-err") as HTMLSpanElement | null;
         const usRoles = document.getElementById("us-roles") as HTMLDivElement | null;
         const usRoleHint = document.getElementById("us-role-hint") as HTMLParagraphElement | null;
@@ -1643,16 +1626,16 @@ const prI18n = {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
           });
           if (usAdd) usAdd.textContent = u ? tr("common.save") : tr("us.createBtn");
-          usOverlay?.classList.add("is-open");
+          if (usOverlay) usOverlay.hidden = false;
           usFname?.focus();
         }
         usOpen?.addEventListener("click", () => usApri());
-        usClose?.addEventListener("click", () => usOverlay?.classList.remove("is-open"));
-        usOverlay?.addEventListener("click", (e) => {
-          if (e.target === usOverlay) usOverlay.classList.remove("is-open");
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        usOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { if (usOverlay) usOverlay.hidden = true; });
         });
         document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") usOverlay?.classList.remove("is-open");
+          if (e.key === "Escape") if (usOverlay) usOverlay.hidden = true;
         });
 
         usAdd?.addEventListener("click", async () => {
@@ -1682,7 +1665,7 @@ const prI18n = {
             });
             const j = await res.json();
             if (!res.ok) { usErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            usOverlay?.classList.remove("is-open");
+            if (usOverlay) usOverlay.hidden = true;
             usMsg.textContent = password
               ? `${usEditId ? tr("us.modified") : tr("us.created")} — ${tr("us.passLabel")} : ${password}`
               : (usEditId ? tr("us.userModifiedDot") : tr("us.invited"));

@@ -1,13 +1,18 @@
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../db";
 import { TIMEZONE } from "../slots";
+import { adminLang } from "./adminLang";
+import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 
-// Calcolo delle statistiche per il render lato server (SSR, Fase 2) della
-// pagina /admin/stats.
+// Calcolo delle statistiche: UNA sola implementazione.
 //
-// ⚠️ Copia FEDELE della logica di GET /api/admin/stats. Se cambi il calcolo
-//    lì, aggiornalo anche qui (e viceversa). L'endpoint resta la fonte usata
-//    dal cambio-periodo lato client.
+// La usano il render lato server della pagina /admin/stats (SSR, Fase 2) e
+// GET /api/admin/stats, che da qui prende il risultato e lo impacchetta in
+// JSON. Fino al 12/09/2026 erano DUE copie identiche di 180 righe, con in
+// cima il commento «se cambi il calcolo lì, aggiornalo anche qui»: la stessa
+// promessa che, sull'anteprima PDF, non era stata mantenuta e aveva lasciato
+// una delle due rotta per settimane. Una funzione sola, nessuna promessa da
+// mantenere.
 
 export type Periodo = "day" | "week" | "month" | "ytd" | "all";
 
@@ -74,10 +79,37 @@ async function fasciaApertura(): Promise<{ minH: number; maxH: number }> {
   return { minH, maxH };
 }
 
-const MESI_FR = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-const GIORNI_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+/**
+ * Etichette dell'asse nella lingua dell'admin.
+ *
+ * ⚠️ Prima erano due array FRANCESI scritti a mano (`GIORNI_FR`, `MESI_FR`):
+ * un ristoratore italiano vedeva «Jeu, Ven, Sam, Dim» sul grafico della Home
+ * e della pagina Statistiche, in mezzo a un'interfaccia tutta in italiano.
+ * Ora le da' Intl, dalla lingua globale dell'admin.
+ *
+ * Intl scrive «lun.» / «gen.»: si toglie il punto e si alza l'iniziale, per
+ * restare identici a com'erano disegnate le etichette.
+ */
+function ripulisci(v: string): string {
+  const t = v.replace(/\.$/, "");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+function nomiGiorni(loc: string): string[] {
+  // 1 gennaio 2024 e' un lunedi: sette giorni di fila partendo da li'.
+  const f = new Intl.DateTimeFormat(loc, { weekday: "short", timeZone: "UTC" });
+  return Array.from({ length: 7 }, (_, i) => ripulisci(f.format(Date.UTC(2024, 0, 1 + i))));
+}
+function nomiMesi(loc: string): string[] {
+  const f = new Intl.DateTimeFormat(loc, { month: "short", timeZone: "UTC" });
+  return Array.from({ length: 12 }, (_, m) => ripulisci(f.format(Date.UTC(2024, m, 1))));
+}
 
-async function serieDi(p: Periodo, ordini: RigaOrdine[]): Promise<{ kind: string; series: Bucket[] }> {
+async function serieDi(
+  p: Periodo,
+  ordini: RigaOrdine[],
+  loc: string,
+  trim: string
+): Promise<{ kind: string; series: Bucket[] }> {
   const ora = DateTime.now().setZone(TIMEZONE);
   const dt = (o: RigaOrdine) => DateTime.fromISO(o.pickup_time).setZone(TIMEZONE);
 
@@ -93,7 +125,7 @@ async function serieDi(p: Periodo, ordini: RigaOrdine[]): Promise<{ kind: string
   if (p === "week") {
     const conta = new Array(7).fill(0) as number[];
     for (const o of ordini) conta[dt(o).weekday - 1]++; // luxon: 1=lun
-    return { kind: "weekday", series: GIORNI_FR.map((g, i) => ({ label: g, count: conta[i] })) };
+    return { kind: "weekday", series: nomiGiorni(loc).map((g, i) => ({ label: g, count: conta[i] })) };
   }
 
   if (p === "month") {
@@ -109,7 +141,8 @@ async function serieDi(p: Periodo, ordini: RigaOrdine[]): Promise<{ kind: string
     const conta = new Array(13).fill(0) as number[];
     for (const o of ordini) conta[dt(o).month]++;
     const series: Bucket[] = [];
-    for (let m = 1; m <= ora.month; m++) series.push({ label: MESI_FR[m - 1], count: conta[m] });
+    const mesi = nomiMesi(loc);
+    for (let m = 1; m <= ora.month; m++) series.push({ label: mesi[m - 1], count: conta[m] });
     return { kind: "month", series };
   }
 
@@ -126,7 +159,7 @@ async function serieDi(p: Periodo, ordini: RigaOrdine[]): Promise<{ kind: string
   const fine = ora.endOf("quarter");
   while (cur <= fine) {
     series.push({
-      label: `T${cur.quarter} ${String(cur.year).slice(2)}`,
+      label: `${trim}${cur.quarter} ${String(cur.year).slice(2)}`,
       count: conta.get(`${cur.year}-${cur.quarter}`) ?? 0,
     });
     cur = cur.plus({ quarters: 1 });
@@ -166,7 +199,8 @@ export async function calcolaStats(p: Periodo) {
     .sort((a, b) => b.qty - a.qty)
     .slice(0, 5);
 
-  const { kind, series } = await serieDi(p, ordini);
+  const lang = await adminLang();
+  const { kind, series } = await serieDi(p, ordini, ADMIN_LOCALE[lang] ?? "fr-BE", adminT(lang)("stats.quarterShort"));
 
   return {
     period: p,

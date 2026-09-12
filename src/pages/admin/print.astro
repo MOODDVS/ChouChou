@@ -9,6 +9,7 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -141,24 +142,15 @@ const plabel = (slug: string, fallback: string) => {
       <script is:inline type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") }).replace(/</g, "\\u003c")}></script>
 
       <!-- Modale ordine (acquisto) -->
-      <div class="pmodal" id="omodal" hidden>
-        <div class="pmodal-back" data-oclose></div>
-        <div class="omodal-box" role="dialog" aria-modal="true">
-          <div class="omodal-head">
-            <h2 class="omodal-title" id="omodal-title"></h2>
-            <button type="button" class="omodal-x" data-oclose aria-label={t("common.close")}>×</button>
-          </div>
-          <div class="omodal-body">
-            <p class="omodal-ship">{t("print.order.ship")}</p>
-            <div class="opacks" id="opacks"></div>
-            <p class="omodal-err" id="omodal-err"></p>
-          </div>
-          <div class="omodal-foot">
-            <button type="button" class="ofoot ofoot-cancel" data-oclose>{t("common.cancel")}</button>
-            <button type="button" class="ofoot ofoot-pay" id="obuy-pay" disabled>{t("print.order.pay")}</button>
-          </div>
-        </div>
-      </div>
+      <Modal id="omodal" titleId="omodal-title">
+        <p class="omodal-ship">{t("print.order.ship")}</p>
+        <div class="opacks" id="opacks"></div>
+        <p class="omodal-err" id="omodal-err"></p>
+        <Fragment slot="foot">
+          <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+          <button type="button" class="md-btn md-btn-primary" id="obuy-pay" disabled>{t("print.order.pay")}</button>
+        </Fragment>
+      </Modal>
 
       <!-- Modale anteprima -->
       <div class="pmodal" id="pmodal" hidden>
@@ -230,27 +222,22 @@ const plabel = (slug: string, fallback: string) => {
       .pbanner.warn { background: color-mix(in srgb, var(--c-accent) 12%, transparent); color: var(--c-accent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); }
       .pbanner.err { background: color-mix(in srgb, #c0392b 12%, transparent); color: #c0392b; border: 1px solid color-mix(in srgb, #c0392b 40%, transparent); }
 
-      .omodal-box { position: relative; width: min(600px, 100%); max-height: 90vh; overflow-y: auto; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 16px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45); }
-      .omodal-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1rem; border-bottom: 1px solid var(--c-line); }
-      .omodal-title { font-family: var(--font-title); font-size: 1.5rem; color: var(--c-text); letter-spacing: 0.02em; min-width: 0; overflow-wrap: anywhere; }
-      .omodal-x { background: none; border: 0; color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; flex: 0 0 auto; }
-      .omodal-x:hover { color: var(--c-accent); }
-      .omodal-body { padding: 1.3rem 1.6rem; }
+      /* Guscio, misure e bottoni: .md-* in src/styles/modal.css.
+         Qui resta solo cio' che e' PROPRIO di questo modale. */
       .omodal-ship { font-size: 0.85rem; color: var(--c-muted); margin: 0 0 1.3rem; line-height: 1.5; }
-      .omodal-err { color: #c0392b; font-size: 0.85rem; min-height: 1em; margin-top: 0.9rem; }
-      .omodal-foot { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.6rem 1.4rem; border-top: 1px solid var(--c-line); }
-      .ofoot { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.6rem 1.4rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
-      .ofoot-cancel:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .ofoot-pay { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .ofoot-pay:hover:not(:disabled) { filter: brightness(1.08); }
-      .ofoot-pay:disabled { opacity: 0.45; cursor: not-allowed; }
+      /* Da vuoto non occupa spazio: il `min-height` lasciava una riga bianca
+         sotto i pacchetti in ogni apertura del modale. */
+      .omodal-err { color: #ff6b6b; font-size: 0.85rem; margin-top: 0.9rem; }
+      .omodal-err:empty { display: none; }
     </style>
 
     <style is:global>
       /* Card dei pack dell'ordine: generate via JS → stili globali (lo scoped non le raggiunge). */
       #opacks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.7rem; }
-      #opacks .opack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 3px; padding: 1.2rem 0.6rem; cursor: pointer; font-family: inherit; text-align: center; transition: border-color 0.15s, background 0.15s; }
-      #opacks .opack:hover { border-color: var(--c-accent); }
+      /* Stessa forma dei pacchetti crediti e buoni regalo in Marketing: 12px
+         e bordo da color-mix (con --c-line spariscono su certi temi). */
+      #opacks .opack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.3rem; background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 18%, var(--c-bg)); border-radius: 12px; padding: 1.2rem 0.6rem; cursor: pointer; font-family: inherit; text-align: center; transition: border-color 0.15s, transform 0.15s; }
+      #opacks .opack:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       #opacks .opack.is-sel { border-color: var(--c-accent); box-shadow: inset 0 0 0 1px var(--c-accent); }
       #opacks .opack-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
       #opacks .opack-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
@@ -411,7 +398,7 @@ const plabel = (slug: string, fallback: string) => {
             oerr.textContent = OI.error; opay.disabled = false; opay.textContent = old;
           }
         });
-        omodal.querySelectorAll("[data-oclose]").forEach((el) => el.addEventListener("click", chiudiOrdine));
+        omodal.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiOrdine));
         document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !omodal.hidden) chiudiOrdine(); });
 
         // Guarigione: conferma eventuali ordini pagati ma rimasti pending (browser chiuso).

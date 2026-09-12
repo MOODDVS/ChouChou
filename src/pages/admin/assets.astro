@@ -9,6 +9,7 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import { CLIENT } from "../../config/client";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -152,21 +153,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       .i-del:hover:not(:disabled) { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
       .i-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
 
-      /* --- Modale édition --- */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        align-items: center; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      .modal { width: 100%; max-width: 460px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
+      /* --- Modale modifica immagine ---
+         Il guscio sta in src/styles/modal.css (.md-*): era l'unico modale
+         della pagina, quindi qui non resta niente del vecchio. */
       .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.3rem; }
       .ed-prev {
         border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
@@ -175,34 +164,23 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       .ed-prev img { max-width: 100%; max-height: 180px; display: block; }
       .ed-meta { color: var(--c-muted); font-size: 0.78rem; margin-bottom: 1rem; }
       .ed-name-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-      .ed-name-row input {
-        flex: 1; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0; min-width: 0;
-      }
-      .ed-name-row input:focus { outline: none; border-color: var(--c-accent); }
+      /* Fondo, bordo e angoli del campo arrivano da field.css: qui resta
+         solo come si comporta nella riga. */
+      .ed-name-row input { flex: 1; min-width: 0; }
       .ed-ext { color: var(--c-muted); font-size: 0.9rem; }
-      .ed-compress {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.5rem 1.4rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.15s, color 0.15s;
-      }
-      .ed-compress:hover:not(:disabled) { background: var(--c-accent); color: var(--c-bg); }
-      .ed-compress:disabled { opacity: 0.5; cursor: not-allowed; }
       .ed-state { color: var(--c-muted); font-size: 0.8rem; margin-top: 0.5rem; min-height: 1.1em; }
-      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 1.4rem; }
-      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
-      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
-      .m-save {
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.2s, color 0.2s;
-      }
-      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
-      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
-      .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
+      /* L'errore spinge i bottoni a destra; da vuoto non occupa spazio. */
+      #ed-overlay .md-foot .m-msg { margin-right: auto; }
+      #ed-overlay .md-foot .m-msg:empty { display: none; }
+      .m-msg { color: #ff6b6b; font-size: 0.85rem; }
+      /* ⚠️ `position: relative` serve SOLO ad ancorare la rotellina del ::after.
+         Su un elemento GIA' posizionato la rovina: il FAB e' `position: fixed`
+         e con `relative` usciva dal suo strato, cadeva nel flusso della pagina
+         e si allargava per tutta la larghezza — proprio mentre caricavi.
+         Un elemento `fixed` e' gia' contenitore per il suo ::after, quindi qui
+         si esclude. */
+      .is-loading { color: transparent !important; pointer-events: none; }
+      .is-loading:not(.fab-add) { position: relative; }
       .is-loading::after {
         content: ""; position: absolute; inset: 0; margin: auto;
         width: 18px; height: 18px; border-radius: 50%;
@@ -316,32 +294,29 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <div class="toast" id="toast"></div>
 
     <!-- Modale édition image -->
-    <div class="overlay" id="ed-overlay">
-      <div class="modal">
-        <button class="m-close" id="ed-close" aria-label={t("common.close")}>×</button>
-        <h2 id="ed-title">{t("as.editImage")}</h2>
-        <div class="ed-prev"><img id="ed-img" alt="" /></div>
-        <div class="ed-meta" id="ed-meta"></div>
-        <span class="f-label">{t("as.fileName")}</span>
-        <div class="ed-name-row">
-          <input type="text" id="ed-name" maxlength="70" />
-          <span class="ed-ext" id="ed-ext"></span>
-        </div>
-        <button type="button" class="ed-compress" id="ed-compress">{t("as.compressWebp")}</button>
-        <p class="ed-state" id="ed-state"></p>
-        <div class="m-actions">
-          <span class="m-msg" id="ed-msg"></span>
-          <button class="m-cancel" id="ed-cancel">{t("common.cancel")}</button>
-          <button class="m-save" id="ed-save">{t("common.save")}</button>
-        </div>
+    <Modal id="ed-overlay" title={t("as.editImage")} titleId="ed-title" width="460px">
+      <div class="ed-prev"><img id="ed-img" alt="" /></div>
+      <div class="ed-meta" id="ed-meta"></div>
+      <span class="f-label">{t("as.fileName")}</span>
+      <div class="ed-name-row">
+        <input type="text" id="ed-name" maxlength="70" />
+        <span class="ed-ext" id="ed-ext"></span>
       </div>
-    </div>
+      <button type="button" class="btn" id="ed-compress">{t("as.compressWebp")}</button>
+      <p class="ed-state" id="ed-state"></p>
+      <Fragment slot="foot">
+        <span class="m-msg" id="ed-msg"></span>
+        <button class="md-btn" id="ed-cancel" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="ed-save">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
 
     <AdminNav current="assets" />
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
+      import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -517,52 +492,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           .join("");
       }
 
-      // ---------- Anteprima PDF (prima pagina → webp, generata al caricamento) ----------
-      let pdfjsPromise: Promise<any> | null = null;
-      function caricaPdfjs(): Promise<any> {
-        if (!pdfjsPromise) {
-          pdfjsPromise = new Promise((resolve, reject) => {
-            const sc = document.createElement("script");
-            sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            sc.onload = () => {
-              const lib = (window as any).pdfjsLib;
-              lib.GlobalWorkerOptions.workerSrc =
-                "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-              resolve(lib);
-            };
-            sc.onerror = () => reject(new Error("pdf.js indisponible"));
-            document.head.appendChild(sc);
-          });
-        }
-        return pdfjsPromise;
-      }
-
-      async function generaAnteprima(file: File): Promise<string | null> {
-        try {
-          const lib = await caricaPdfjs();
-          const buf = await file.arrayBuffer();
-          const pdf = await lib.getDocument({ data: buf }).promise;
-          const page = await pdf.getPage(1);
-          const vp1 = page.getViewport({ scale: 1 });
-          const vp = page.getViewport({ scale: 480 / vp1.width });
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(vp.width);
-          canvas.height = Math.round(vp.height);
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return null;
-          await page.render({ canvasContext: ctx, viewport: vp }).promise;
-          const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.7));
-          if (!blob || blob.size > 512 * 1024) return null;
-          return await new Promise<string>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-            r.onerror = () => reject(new Error());
-            r.readAsDataURL(blob);
-          });
-        } catch {
-          return null; // PDF protetto o illeggibile: si resta sull'icona
-        }
-      }
+      // ---------- Anteprima PDF ----------
+      // La fa `src/lib/admin/pdfThumb.ts`, lo stesso modulo di Impostazioni.
+      // Erano due copie della stessa funzione: quella corretta qui restava
+      // rotta la' , e nessuno poteva accorgersene.
+      const generaAnteprima = (file: File) => generaAnteprimaPdf(file, "assets");
 
       async function caricaDocs() {
         try {
@@ -615,10 +549,10 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edCompress.style.display = giaOttimizzata ? "none" : "";
         edCompress.disabled = false;
         if (giaOttimizzata) edState.textContent = tr("as.alreadyWebp");
-        edOverlay.classList.add("is-open");
+        edOverlay.hidden = false;
       }
       function chiudiEdit() {
-        edOverlay.classList.remove("is-open");
+        edOverlay.hidden = true;
         edTarget = null;
         edDoc = null;
         edCompressa = null;
@@ -636,7 +570,7 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         edExt.textContent = ".pdf";
         edMsg.textContent = "";
         edState.textContent = "";
-        edOverlay.classList.add("is-open");
+        edOverlay.hidden = false;
       }
 
       async function salvaDoc() {
@@ -754,11 +688,8 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         }
       });
 
-      (document.getElementById("ed-close") as HTMLButtonElement).addEventListener("click", chiudiEdit);
-      (document.getElementById("ed-cancel") as HTMLButtonElement).addEventListener("click", chiudiEdit);
-      edOverlay.addEventListener("click", (e) => {
-        if (e.target === edOverlay) chiudiEdit();
-      });
+      // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+      edOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiEdit));
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") chiudiEdit();
       });
@@ -857,7 +788,12 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
             addDocFile.value = "";
             return;
           }
-          if (file.size > 10 * 1024 * 1024) {
+          // Il PDF viaggia dentro un JSON come base64: pesa un terzo in piu'.
+          // Il limite dichiarato e' sul CORPO della richiesta, quindi il file
+          // sul disco non puo' superare i tre quarti di quel limite — altrimenti
+          // il caricamento parte e muore per strada, senza un messaggio utile.
+          const MAX_CORPO = 10 * 1024 * 1024;
+          if (file.size > Math.floor((MAX_CORPO * 3) / 4)) {
             toast(tr("as.tooBig10"), true);
             addDocFile.value = "";
             return;
@@ -887,6 +823,11 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
                 headers: { ...headers, "Content-Type": "application/json" },
                 body: JSON.stringify({ name: nomeCaricato, thumb }),
               }).catch(() => {});
+            } else {
+              // Il documento c'e' lo stesso: manca solo la miniatura della prima
+              // pagina (pdf.js non raggiungibile, o PDF protetto). Meglio dirlo
+              // che lasciare l'icona generica senza spiegazione.
+              console.warn("[assets] anteprima PDF non generata");
             }
             toast(`${tr("as.docAdded")} ✓`);
             await caricaDocs();
@@ -900,9 +841,23 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
         });
 
         // ---------- Azioni sulle righe documenti ----------
+        // Un SOLO cestino armato alla volta. Senza questa guardia ogni bottone
+        // si armava per conto suo e restava armato 3 secondi: con piu' documenti
+        // ci si ritrovava due o tre cestini pronti a scattare, e un click
+        // distratto cancellava un file che non si stava guardando.
+        let cestinoDoc: HTMLButtonElement | null = null;
+        let cestinoTimer = 0;
+        function disarmaCestinoDoc() {
+          window.clearTimeout(cestinoTimer);
+          if (!cestinoDoc) return;
+          cestinoDoc.classList.remove("confirm");
+          cestinoDoc.innerHTML = ICO_TRASH;
+          cestinoDoc = null;
+        }
         (document.getElementById("doc-grid") as HTMLDivElement).addEventListener("click", async (e) => {
           const t = e.target as HTMLElement;
           const row = t.closest(".card") as HTMLElement | null;
+          if (!t.closest(".d-del")) disarmaCestinoDoc();
           if (!row) return;
           const doc = docs.find((d) => d.name === row.dataset.name);
           if (!doc) return;
@@ -922,15 +877,15 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
           }
           const del = t.closest(".d-del") as HTMLButtonElement | null;
           if (del) {
-            if (!del.classList.contains("confirm")) {
+            if (del !== cestinoDoc) {
+              disarmaCestinoDoc(); // il precedente torna al primo tempo
+              cestinoDoc = del;
               del.classList.add("confirm");
               del.textContent = tr("common.confirm");
-              setTimeout(() => {
-                del.classList.remove("confirm");
-                del.innerHTML = ICO_TRASH;
-              }, 3000);
+              cestinoTimer = window.setTimeout(disarmaCestinoDoc, 3000);
               return;
             }
+            disarmaCestinoDoc();
             try {
               const res = await fetch("/api/admin/documents?name=" + encodeURIComponent(doc.name), {
                 method: "POST",

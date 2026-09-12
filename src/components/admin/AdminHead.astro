@@ -15,7 +15,10 @@
  */
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
 import { CLIENT } from "../../config/client";
-import "../../styles/modal.css";  // regole condivise dei modali su mobile
+import "../../styles/modal.css";   // guscio condiviso dei modali (.md-*)
+import "../../styles/switch.css";  // interruttore condiviso (.switch)
+import "../../styles/field.css";   // campi condivisi (.md-box input, .fld)
+import "../../styles/button.css";  // bottoni d'azione condivisi (.btn)
 
 const boot = await caricaBootAdmin();
 // App installata col marchio del cliente: vale solo se l'icona c'e' davvero

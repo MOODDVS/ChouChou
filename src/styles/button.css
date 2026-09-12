@@ -1,0 +1,75 @@
+/* ============================================================
+   BOTTONI ADMIN — uno solo per tutta l'applicazione.
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+   `.btn` e' il bottone d'azione che sta DENTRO un modale o una
+   scheda: «Carica una foto», «Libreria», «Rimuovi», «+ Aggiungi
+   una variante». Neutro, non chiede l'attenzione che spetta al
+   bottone di conferma.
+
+     <button type="button" class="btn">Carica una foto</button>
+     <button type="button" class="btn btn-danger">Rimuovi</button>
+     <button type="button" class="btn btn-sm">+ Variante</button>
+
+   NON sostituisce `.md-btn` di modal.css: quello e' la coppia
+   «annulla / conferma» del footer, e resta dov'e'. Qui c'e' tutto
+   il resto, che ogni pagina si era riscritto a modo suo
+   (.ed-pill, .sec-btn, .f-img-btn, .ed-upl, .pill…).
+
+   COLORI: fondo `--c-card` come i campi — bottone e casella sono
+   tutti e due un piano rialzato sul fondo del modale. Il bordo
+   esce da color-mix sul testo e non da `--c-line`, che su certi
+   temi si confonde col fondo e lascia il bottone senza contorno.
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: var(--c-card);
+  border: 1px solid color-mix(in srgb, var(--c-text) 22%, var(--c-bg));
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Distruttivo: spento finche' non lo si sfiora, poi rosso. Il rosso
+   fisso lo farebbe sembrare un allarme sempre acceso. */
+.btn-danger {
+  color: var(--c-muted);
+}
+.btn-danger:hover:not(:disabled) {
+  border-color: #ed1c24;
+  color: #ff6b6b;
+}
+
+/* Taglia piccola, dove la riga e' fitta. */
+.btn-sm {
+  font-size: 0.8rem;
+  padding: 0.42rem 0.9rem;
+}
