@@ -329,7 +329,10 @@ const varianti = boot.features.includes("variants");
       .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
       @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
       .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
-      .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
+      /* Fondo e bordo da `--c-card` + color-mix, non da `--c-input`/`--c-line`:
+         quei due token su certi temi si confondono col fondo e la pastiglia
+         resta senza contorno. Stessa scelta di switch/field/button. */
+      .m-tab { background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg)); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
       .m-tab:hover { color: var(--c-text); }
       .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
@@ -494,8 +497,11 @@ const varianti = boot.features.includes("variants");
       .lu-mode:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .lu-mode.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .lu-free-row { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
-      .lu-free-in { flex: 1; min-width: 0; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 8px; padding: 0.5rem 0.7rem; font-size: 0.88rem; font-family: inherit; }
-      .lu-free-in::placeholder { color: var(--c-muted); }
+      /* Solo il posto nella riga: fondo, bordo, angoli, misura e placeholder li
+         da' field.css, perche' questi campi stanno dentro `.md-box` (Lunch e
+         Menu sono entrambi sul guscio condiviso). Le dichiarazioni di colore
+         che c'erano qui erano gia' morte: le copriva field.css. */
+      .lu-free-in { flex: 1; min-width: 0; }
       .lu-free-add { display: block; width: 100%; margin-top: 0.5rem; background: rgba(255,255,255,0.04); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 999px; padding: 0.5rem 1rem; font-size: 0.85rem; cursor: pointer; font-family: inherit; }
       .lu-free-add:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .lu-chip-free { border-style: dashed; }
