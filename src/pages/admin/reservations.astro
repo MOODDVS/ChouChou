@@ -726,19 +726,13 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .nm-lang-flag { font-size: 1.05rem; line-height: 1; }
       .nm-lang-more { font-weight: 700; letter-spacing: 0.02em; }
       .md-box textarea { resize: vertical; min-height: 56px; }
-      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; margin-top: 0.4rem; }
+      /* `.m-actions`, `.m-cancel` e `.m-save` NON ci sono piu': erano il footer e
+         i bottoni del guscio fatto a mano, e da quando i modali usano <Modal> non
+         agganciavano piu' niente (i due bottoni portano `md-btn`, `m-cancel` e
+         `m-save` sono solo i loro ID). `.m-msg` invece SERVE: e' la pastiglia
+         rossa dell'errore, ed e' dentro il footer condiviso. */
       .m-msg { display: inline-block; margin-right: auto; background: #d84a3f; color: #ffffff; font-size: 0.82rem; font-weight: 700; padding: 0.42rem 0.9rem; border-radius: 999px; line-height: 1.35; }
       .m-msg:empty { display: none; }
-      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
-      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
-      .m-save {
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.2s, color 0.2s;
-      }
-      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
-      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
       /* Modale résa in stile widget, due colonne */
       /* Modale prenotazione: header e footer FISSI (flex), corpo scrollabile.

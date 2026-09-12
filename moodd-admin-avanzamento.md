@@ -1058,6 +1058,13 @@ dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
 trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
 stessa causa: **due copie della stessa cosa, corretta in una sola**.
 
+### 🧹 Due pulizie, e una era piu' morta di quanto sembrasse
+- **`reservations.astro`**: tolti `.m-actions`, `.m-cancel` e `.m-save` (13 righe). Non agganciavano piu' niente da quando i modali usano `<Modal>`: i due bottoni portano `md-btn`, e `m-cancel`/`m-save` sono rimasti solo come **ID**. `.m-msg` invece resta — e' la pastiglia rossa dell'errore dentro il footer condiviso.
+- ⚠️ Controllato prima di cancellare, dopo il caso `.m-save.confirm` di Marketing: **nessun JS aggiunge classi di stato** a quel bottone, quindi non c'era una regola di secondo tempo da salvare.
+- **`menu.astro`**: gli ultimi due `var(--c-input)` del motore nei modali. `.m-tab` (le linguette Descrizione/Varianti) passa a `--c-card` + `color-mix`, come switch/field/button.
+- 🔎 `.lu-free-in` era **piu' morto di come l'avevo classificato**: fondo, bordo, angoli, misura e placeholder erano gia' coperti da `field.css` da quando Lunch e Menu sono dentro `.md-box`. Restano due dichiarazioni, `flex: 1` e `min-width: 0` — l'unica cosa che era davvero sua.
+- Restano 64 `--c-input` altrove (liste, barre, pagine pubbliche dell'admin): sono fuori dai modali, e vanno guardati quando si tocca quella parte, non tutti insieme.
+
 ### 🖼️ ImagePicker: l'ultimo guscio, e un guasto che avremmo spedito noi
 - Ultimo modale fuori dal guscio condiviso, e l'unico COMPONENTE: incluso in sei pagine (Menu piatto e menu, Clienti, Agenda, Marketing, Google, Assets), si apre col bottone «Libreria» accanto a «Carica una foto».
 - 🐛 **Il suo `z-index` era 340**: stava sopra il vecchio `.overlay` (300) ma **sotto `.md-overlay` (400)**. Convertendo oggi tutti i modali che lo aprono, la libreria era finita **dietro** al modale da cui la si apre: si premeva «Libreria» e non compariva niente. Un guasto creato da noi oggi, che stavamo per spedire ai clienti.
