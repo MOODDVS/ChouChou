@@ -140,6 +140,9 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .cp-item:hover { background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
       .cp-item:disabled { opacity: 0.45; cursor: default; }
       .cp-item:disabled:hover { background: none; }
+      /* Voce di ordinamento attiva: corallo + freccia del verso. */
+      .cp-item.is-on { color: var(--c-accent); font-weight: 700; }
+      .cp-item .cp-dir { font-size: 0.62rem; }
       .cp-box {
         width: 15px; height: 15px; border-radius: 4px; flex: 0 0 auto;
         border: 1px solid var(--c-line); display: inline-flex; align-items: center; justify-content: center;
@@ -184,6 +187,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .table.off-reservations .c-resa, .table.off-reservations .th[data-sort="reservations"],
       .table.off-orders .c-orders, .table.off-orders .th[data-sort="orders"],
       .table.off-total .c-total, .table.off-total .th[data-sort="total"] { display: none; }
+      /* L'intestazione resta nascosta a ogni larghezza: l'ordinamento si fa
+         dal menu «Ordina» accanto al selettore colonne, non cliccando le
+         colonne. I `.th` restano nel markup perche' il JS li usa come
+         sorgente di verita' dello stato (chiave attiva + verso). */
       .thead { display: none; }
       .th {
         background: transparent; border: none; color: var(--c-muted); cursor: pointer;
@@ -452,6 +459,11 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .fl-more { display: none; position: absolute; top: calc(100% + 0.45rem); left: 0; right: 0; z-index: 20; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 0.75rem; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45); }
         .fl-filtri.open .fl-more { display: flex; }
         .search { margin-left: 0; flex: 1 1 auto; min-width: 0; }
+        /* Niente ordinamento su mobile: qui la barra e' compatta e senza a capo
+           ([tutto] [Filtri] [ricerca] [colonne]), un pulsante in piu' la
+           strozzerebbe. Sopra i 720 c'e' spazio, ed e' anche dove le righe
+           tornano una tabella vera. */
+        .sortpick { display: none; }
         .thead { display: none; }
         .row {
           position: relative;
@@ -536,6 +548,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           </div>
           <span class="ab-sep" aria-hidden="true"></span>
           <input id="search" class="search" type="search" placeholder={t("cli.searchPh")} />
+          <div class="colpick sortpick" id="sortpick">
+            <button type="button" class="cp-btn" id="sp-btn" aria-expanded="false" aria-haspopup="true" title={t("cli.sortTitle")} aria-label={t("cli.sortTitle")}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="6" x2="16" y2="6" /><line x1="4" y1="12" x2="13" y2="12" /><line x1="4" y1="18" x2="10" y2="18" /><polyline points="17 15 20 18 17 21" /><line x1="20" y1="18" x2="20" y2="4" /></svg>
+            </button>
+            <div class="cp-menu" id="sp-menu" hidden>
+              <div class="cp-h">{t("cli.sort")}</div>
+              <div id="sp-list"></div>
+            </div>
+          </div>
           <div class="colpick" id="colpick">
             <button type="button" class="cp-btn" id="cp-btn" aria-expanded="false" aria-haspopup="true" title={t("cli.colsTitle")} aria-label={t("cli.colsTitle")}>
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" /></svg>
@@ -973,18 +994,38 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             }).join("");
           }
         }
-        function chiudiColonne() {
-          if (!cpMenu || !cpBtn || cpMenu.hidden) return;
-          cpMenu.hidden = true;
-          cpBtn.setAttribute("aria-expanded", "false");
-        }
-        if (cpBtn && cpMenu) {
-          cpBtn.addEventListener("click", (e) => {
+        /**
+         * Menu a tendina della barra azioni (colonne, ordinamento).
+         * Una funzione sola: apre/chiude, chiude cliccando fuori, chiude con
+         * Escape, e CHIUDE GLI ALTRI quando se ne apre uno — cosi' i due menu
+         * non restano aperti uno sopra l'altro. Duplicare questa logica per
+         * ogni menu e' il modo in cui poi ne resta uno indietro.
+         */
+        const tendine: (() => void)[] = [];
+        function menuTendina(btn: HTMLButtonElement, menu: HTMLElement) {
+          const chiudi = () => {
+            if (menu.hidden) return;
+            menu.hidden = true;
+            btn.setAttribute("aria-expanded", "false");
+          };
+          tendine.push(chiudi);
+          btn.addEventListener("click", (e) => {
             e.stopPropagation();
-            const apri = cpMenu.hidden;
-            cpMenu.hidden = !apri;
-            cpBtn.setAttribute("aria-expanded", apri ? "true" : "false");
+            const apri = menu.hidden;
+            for (const c of tendine) c();
+            menu.hidden = !apri;
+            btn.setAttribute("aria-expanded", apri ? "true" : "false");
           });
+          document.addEventListener("click", (e) => {
+            if (menu.contains(e.target as Node) || btn.contains(e.target as Node)) return;
+            chiudi();
+          });
+          document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudi(); });
+          return chiudi;
+        }
+
+        if (cpBtn && cpMenu) {
+          menuTendina(cpBtn, cpMenu);
           cpMenu.addEventListener("click", (e) => {
             const b = (e.target as HTMLElement).closest(".cp-item") as HTMLButtonElement | null;
             if (!b || b.disabled) return;
@@ -993,11 +1034,54 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             try { localStorage.setItem("mdd_cli_cols", JSON.stringify(colPref)); } catch { /* storage pieno */ }
             applicaColonne();
           });
-          document.addEventListener("click", (e) => {
-            if (cpMenu.contains(e.target as Node) || cpBtn.contains(e.target as Node)) return;
-            chiudiColonne();
+        }
+
+        // ---- Ordinamento: stesse chiavi dei `.th`, ma raggiungibili ----
+        // L'intestazione della tabella e' nascosta a ogni larghezza, quindi
+        // i suoi pulsanti non li puo' premere nessuno: il comando e' qui.
+        const ORDINI: { k: SortKey; lab: string }[] = [
+          { k: "name", lab: tr("us.lname") },
+          { k: "email", lab: tr("ord.emailLabel") },
+          { k: "phone", lab: tr("ord.phone") },
+          { k: "since", lab: tr("cli.since") },
+          { k: "reservations", lab: tr("cli.resaCol") },
+          { k: "orders", lab: tr("nav.s.orders") },
+          { k: "total", lab: tr("ord.total") },
+        ];
+        const spBtn = document.getElementById("sp-btn") as HTMLButtonElement | null;
+        const spMenu = document.getElementById("sp-menu") as HTMLElement | null;
+        const spList = document.getElementById("sp-list") as HTMLElement | null;
+
+        function renderOrdini() {
+          if (!spList) return;
+          spList.innerHTML = ORDINI.map((o) => {
+            const attivo = o.k === sortKey;
+            // La freccia indica il verso SOLO sulla voce attiva: sulle altre
+            // sarebbe una promessa su un verso che non e' ancora stato scelto.
+            const dir = attivo ? `<span class="cp-dir">${sortAsc ? "▲" : "▼"}</span>` : "";
+            return `<button type="button" class="cp-item${attivo ? " is-on" : ""}" data-sk="${o.k}"` +
+              ` aria-current="${attivo ? "true" : "false"}"><span class="cp-box">${dir}</span>${esc(o.lab)}</button>`;
+          }).join("");
+        }
+        if (spBtn && spMenu && spList) {
+          menuTendina(spBtn, spMenu);
+          spMenu.addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest(".cp-item") as HTMLButtonElement | null;
+            if (!b) return;
+            const k = b.dataset.sk as SortKey;
+            // Stessa regola dei `.th`: stessa chiave = inverte, chiave nuova =
+            // parte dal verso che ha senso per quel dato (A-Z per il testo,
+            // dal piu' alto per i numeri).
+            if (k === sortKey) sortAsc = !sortAsc;
+            else {
+              sortKey = k;
+              sortAsc = k === "name" || k === "email" || k === "phone";
+            }
+            updateHeader();
+            renderOrdini();
+            render();
           });
-          document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudiColonne(); });
+          renderOrdini();
         }
         MQ_TABLET.addEventListener("change", applicaColonne);
         MQ_STRETTO.addEventListener("change", applicaColonne);
