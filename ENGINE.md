@@ -102,8 +102,14 @@ Dal repo motore, con i repo cliente clonati in locale:
 Lo script salta i clienti già aggiornati o con lavoro non committato, al
 primo giro crea da solo il `.gitattributes`, e a fine merge elenca le
 **migrazioni Supabase nuove** da lanciare per ciascun cliente (quello resta
-manuale: ogni cliente ha il suo Supabase). Aggiungi i nuovi clienti nella
-lista `CLIENTI` in cima allo script.
+manuale: ogni cliente ha il suo Supabase). Avvisa anche quando `package.json`
+è cambiato, perché allora serve `npm install` nel repo cliente.
+
+⚠️ **La lista `CLIENTI` in cima allo script è la sola fonte.** Un cliente che
+non è in lista non viene mergiato **e non compare nel riepilogo**: il giro
+sembra riuscito e quel cliente resta indietro. Il 12/09 mancavano L'Huile
+(mergiato a mano da sessioni) ed EN v2. Quando si aggiunge un cliente, si
+aggiunge lì lo stesso giorno.
 
 ### Aggiornare UN solo cliente a mano
 ```
@@ -112,6 +118,17 @@ git config merge.ours.driver true        # solo la prima volta
 git fetch engine && git merge engine/main
 git push
 ```
+
+### Quando un conflitto è un sintomo, non un incidente
+Il 12/09 due clienti su quattro hanno dato conflitto su `tsconfig.json`: il
+motore aveva aggiunto `_to_delete` agli `exclude`, La Molisana ci aveva messo
+`build` e L'Huile `build` + `_backup` — cartelle di lavoro loro. Stessa riga,
+due parti, conflitto.
+
+La correzione NON è stata risolvere il conflitto: è stata **mettere tutti e
+quattro gli exclude nel motore**, così nessun cliente ha più motivo di toccare
+quel file. Un conflitto ripetuto sullo stesso file del motore va letto come
+«manca qualcosa nel motore», non come sfortuna.
 
 ### Regola d'oro (perché i merge restano puliti)
 Il cliente non tocca MAI i file del motore, e il motore non mette MAI il

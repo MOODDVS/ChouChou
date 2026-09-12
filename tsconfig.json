@@ -6,6 +6,8 @@
   ],
   "exclude": [
     "dist",
+    "build",
+    "_backup",
     "_to_delete"
   ],
   "compilerOptions": {
