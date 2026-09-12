@@ -1,0 +1,115 @@
+/* ============================================================
+   CAMPI ADMIN — uno solo per tutta l'applicazione.
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+   Dentro un modale del guscio condiviso (.md-box) NON serve
+   nessuna classe: input, textarea e select prendono da soli
+   questa grafica. Fuori dai modali si mette `.fld` sul campo.
+
+     <input type="text" />            dentro .md-box
+     <input type="text" class="fld" /> altrove
+
+   SPECIFICITA': il selettore dei modali e' volutamente lungo
+   (.md-overlay .md-box …) cosi' vince sulle copie locali che
+   le pagine si erano scritte (`.md-box input { … }`) senza
+   dipendere dall'ordine in cui il bundle le mette. E' l'unico
+   modo perche' «uguale in ogni modale» sia vero davvero.
+   Quelle copie vanno tolte pagina per pagina: finche' ci sono
+   non fanno danno, ma sono codice morto.
+
+   COLORI: il fondo e' --c-card, lo stesso delle card (riga di una
+   prenotazione, tile della home, sezioni delle statistiche). E'
+   voluto: una casella da riempire e una card sono tutti e due un
+   piano rialzato rispetto al fondo, e devono stare alla stessa
+   altezza. Cambiando tema si muovono insieme.
+
+   BORDO: nessuno. A distinguere il campo basta il fondo; il bordo
+   lo faceva sembrare un riquadro dentro un riquadro. Resta solo sul
+   focus, in corallo, dove serve davvero a dire dove si sta scrivendo
+   — ed e' `1px solid transparent` a riposo, non `border: 0`, cosi'
+   l'altezza non salta di due pixel quando il campo prende il fuoco.
+
+   Il fondo e' PIENO, opaco al 100%: --c-card e' un hex, qui non
+   c'e' nessuna opacita' ne' rgba.
+
+   ⚠️ Niente `background` scorciatoia: azzererebbe la freccia
+   disegnata dei select. Si tocca solo `background-color`.
+   ============================================================ */
+
+/* I campi che NON sono caselle: checkbox, radio, file, range,
+   color e hidden hanno una grafica loro e vanno lasciati stare
+   (fra questi c'e' anche l'input invisibile di .switch). */
+.md-overlay .md-box :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"])),
+.md-overlay .md-box textarea,
+.md-overlay .md-box select,
+.fld {
+  background-color: var(--c-card);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  padding: 0.62rem 0.8rem;
+  color-scheme: dark;
+  transition: border-color 0.15s;
+}
+
+/* La larghezza piena vale per le caselle di testo, non per i
+   select: quelli stanno spesso in riga con un campo (prefisso
+   telefonico) e la loro larghezza la decide il contenitore. */
+.md-overlay .md-box :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="hidden"])),
+.md-overlay .md-box textarea,
+input.fld,
+textarea.fld {
+  width: 100%;
+}
+
+.md-overlay .md-box :is(input, textarea, select):focus,
+.fld:focus {
+  outline: none;
+  border-color: var(--c-accent);
+}
+
+.md-overlay .md-box :is(input, textarea)::placeholder,
+.fld::placeholder {
+  color: var(--c-muted);
+  opacity: 1;
+}
+
+.md-overlay .md-box :is(input, textarea, select):disabled,
+.fld:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.md-overlay .md-box textarea,
+textarea.fld {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.45;
+}
+
+/* Select: freccia disegnata, staccata dal bordo. Quella di
+   sistema si incolla al bordo e cambia da browser a browser. */
+.md-overlay .md-box select,
+select.fld {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 12px;
+  padding-right: 2.4rem;
+}
+
+/* Mobile: stessa grafica, un filo piu' compatta. Il corpo del testo NON
+   si tocca: sotto i 16px Safari iOS ingrandisce la pagina al primo tocco
+   nel campo, e l'utente si ritrova il modale fuori schermo. */
+@media (max-width: 640px) {
+  .md-overlay .md-box :is(input, textarea, select),
+  .fld { padding: 0.58rem 0.7rem; }
+  .md-overlay .md-box select,
+  select.fld { padding-right: 2.2rem; }
+}

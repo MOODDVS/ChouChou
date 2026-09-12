@@ -7,6 +7,7 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
+import Modal from "../../components/admin/Modal.astro";
 // Elenco lingue (bandiera + nome nativo) per il selettore della lettera di disdetta.
 import { LINGUE_WIDGET as LINGUE_ELENCO } from "../../lib/reservationI18n";
 
@@ -122,30 +123,33 @@ const t = adminT(lang);
       .section[data-tab="reservations"] .field-services { margin-bottom: 2.2rem; }
       .section[data-tab="reservations"] .field-services ~ .field { margin-bottom: 2.2rem; }
       .section[data-tab="reservations"] .sl-filter-field { margin-bottom: 2.2rem; }
-      .overlay .modal.sl-modal { width: 90vw; max-width: 90vw; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
-      .sl-modal > .sl-head { flex: 0 0 auto; display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.2rem; padding-right: 2.5rem; }
-      .sl-modal .sl-head h2 { margin: 0; line-height: 1; }
-      .sl-modal .sl-head .sl-tot { margin-left: 0; margin-top: 0; align-self: center; position: relative; top: -7px; }
-      .sl-modal .sl-wrap { margin: 0.6rem 0 0; flex: 1 1 auto; min-height: 0;
+      /* Guscio condiviso (<Modal>): qui si cambia solo l'altezza, perche' la
+         piantina deve riempire la finestra invece di adattarsi al contenuto.
+         Il corpo diventa una colonna flex cosi' .sl-wrap ha un'altezza vera:
+         senza, il container query del canvas (container-type: size) non ha
+         niente da misurare e la sala si schiaccia a zero. */
+      #sl-overlay .md-box { height: min(90vh, 100%); }
+      #sl-overlay .md-body { display: flex; flex-direction: column; overflow: hidden; padding: 1.1rem 1.3rem; }
+      #sl-overlay .sl-wrap { margin: 0; flex: 1 1 auto; min-height: 0;
         display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
         grid-template-rows: minmax(0, 1fr); gap: 0.5rem 0.8rem; }
+      /* Footer: totale e messaggio a sinistra, «Chiudi» a destra. */
+      #sl-overlay .md-foot { justify-content: flex-start; }
+      #sl-overlay .md-foot .sl-tot { margin-left: 0; }
+      #sl-overlay .md-foot .md-btn { margin-left: auto; }
       .sl-pill { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.82rem; padding: 0.4rem 1rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
       .sl-pill:hover { border-color: var(--c-accent); color: var(--c-text); }
       .sl-pill.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
       .sl-pill .sl-pn { color: var(--c-accent); font-weight: 700; }
-      .sl-wrap { margin-bottom: 1.4rem; }
       .sl-tools { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; align-items: stretch;
         gap: 0.45rem; margin-bottom: 0; overflow-y: auto; }
       .sl-add, .sl-area-btn { justify-content: flex-start; display: inline-flex; align-items: center; gap: 0.5rem; }
       .sl-add .sl-ico { width: 18px; height: 18px; flex: none; color: var(--c-accent); }
-      .sl-tools .sl-tot { margin-left: 0; margin-top: auto; text-align: center; }
-      .sl-tools .sl-msg { margin-left: 0; }
-      .sl-add { border-radius: 8px; border: 1px solid var(--c-accent); background: none; color: var(--c-accent); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
-      .sl-add:hover { background: var(--c-accent); color: var(--c-bg); }
       .sl-tot { margin-left: auto; background: color-mix(in srgb, var(--c-accent) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent); color: var(--c-text); font-size: 0.78rem; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 999px; white-space: nowrap; }
       .sl-tot.troppo { background: rgba(237, 28, 36, 0.16); border-color: rgba(237, 28, 36, 0.45); color: #ff8a8f; }
       .sl-tot:empty { display: none; }
       .sl-msg { color: var(--c-muted); font-size: 0.8rem; }
+      .sl-msg:empty { display: none; }
       .sl-body { grid-column: 2; grid-row: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: flex-start; overflow: hidden; container-type: size; }
       .sl-canvas {
         position: relative; aspect-ratio: 1000 / 600; background: var(--c-bg);
@@ -170,7 +174,8 @@ const t = adminT(lang);
       .sl-decor-add[data-decor="wall"] .sl-ico { color: #b89a86; }
       .sl-decor-lab { font-weight: 700; color: var(--c-accent); font-size: 0.82rem; }
       .sl-de-size { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--c-muted); font-size: 0.8rem; }
-      .sl-de-size input { width: 64px; }
+      /* L'ID batte la larghezza piena che field.css da' ai campi del modale. */
+      #sl-decor-edit .sl-de-size input { width: 64px; }
       .sl-decor-edit .sl-de-size { display: none; }
       .sl-de-colors { display: none; gap: 0.4rem; align-items: center; }
       .sl-decor-edit.is-wall .sl-de-colors { display: flex; }
@@ -179,10 +184,19 @@ const t = adminT(lang);
       .sl-de-color[data-color="black"] { background: #1c1c1c; }
       .sl-de-color[data-color="brown"] { background: #4a4038; }
       .sl-de-color.is-on { border-color: var(--c-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-accent) 35%, transparent); }
+      /* 900/901 — le tre colonne (attrezzi | sala | gruppi) non ci stanno piu':
+         gli attrezzi diventano una riga che va a capo, i gruppi una striscia
+         che scorre in orizzontale, e la sala resta l'unica cosa che cresce. */
+      @media (max-width: 900px) {
+        #sl-overlay .sl-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; gap: 0.6rem; }
+        #sl-overlay .sl-tools { grid-column: 1; grid-row: 1; flex-direction: row; flex-wrap: wrap; align-items: center; overflow: visible; }
+        #sl-overlay .sl-body { grid-column: 1; grid-row: 2; }
+        #sl-overlay .sl-links { grid-column: 1; grid-row: 3; flex-direction: row; max-width: none; min-width: 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 0.2rem; }
+        #sl-overlay .sl-link-group { flex: 0 0 auto; min-width: 165px; }
+        #sl-overlay .md-body { padding: 0.85rem 0.95rem; }
+      }
       .sl-canvas.disegno { cursor: crosshair; }
       .sl-canvas.disegno #sl-tavoli .sl-table { pointer-events: none; opacity: 0.45; }
-      .sl-area-btn { border-radius: 8px; border: 1px solid var(--c-line); background: var(--c-input); color: var(--c-text); font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.8rem; cursor: pointer; transition: border-color 0.15s, color 0.15s, background 0.15s; }
-      .sl-area-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .sl-area-btn.attivo { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .sl-table { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--c-card); border: 1.5px solid #6b5c50; color: var(--c-text); cursor: grab; user-select: none; -webkit-user-select: none; font-size: 0.7rem; line-height: 1.15; box-sizing: border-box; }
       .sl-table.round { border-radius: 50%; }
@@ -207,7 +221,7 @@ const t = adminT(lang);
       .sl-link-chip button:hover { color: #ff8a8f; }
       .sl-link-chip button.armato { background: #a3320f; color: #fff; font-size: 0.68rem; padding: 0.15rem 0.5rem; }
       .sl-table.lk { border-color: var(--c-accent); }
-      .sl-edit { position: fixed; z-index: 60; display: flex; flex-direction: column; gap: 0.5rem; align-items: stretch; margin-top: 0;
+      .sl-edit { position: fixed; z-index: 500; display: flex; flex-direction: column; gap: 0.5rem; align-items: stretch; margin-top: 0;
         background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px; padding: 0.55rem 0.65rem;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); max-width: 92vw; }
       .sl-edit::before { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%) rotate(45deg); width: 10px; height: 10px; background: var(--c-bg); border-left: 1px solid var(--c-line); border-top: 1px solid var(--c-line); }
@@ -220,16 +234,13 @@ const t = adminT(lang);
       .sl-th[data-h="ne"] { right: -8px; top: -8px; cursor: nesw-resize; }
       .sl-th[data-h="sw"] { left: -8px; bottom: -8px; cursor: nesw-resize; }
       .sl-th[data-h="se"] { right: -8px; bottom: -8px; cursor: nwse-resize; }
-      .sl-edit input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.45rem 0.6rem; font-family: var(--font-body); font-size: 0.9rem; }
-      .sl-edit input:focus { outline: none; border-color: var(--c-accent); }
       #sl-nome { width: 120px; }
       #sl-posti { width: 70px; }
       .sl-shapes { display: flex; gap: 0.35rem; }
-      .sl-sh { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 8px; cursor: pointer; }
+      .sl-sh { background: var(--c-card); border: 1px solid color-mix(in srgb, var(--c-text) 22%, var(--c-bg)); color: var(--c-muted); width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 8px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
+      .sl-sh:hover:not(.is-on) { border-color: var(--c-accent); color: var(--c-accent); }
       .sl-sh svg { width: 17px; height: 17px; }
       .sl-sh.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .sl-dup { display: inline-flex; align-items: center; gap: 0.35rem; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: 999px; cursor: pointer; transition: border-color 0.15s, color 0.15s; }
-      .sl-dup:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .sl-dup svg { width: 14px; height: 14px; flex: none; }
 
       /* --- Tab Notifications --- */
@@ -759,9 +770,18 @@ const t = adminT(lang);
       .tm-head-txt .hint { max-width: 680px; }
       .tm-add { margin-top: 0; flex-shrink: 0; white-space: nowrap; }
       /* --- Tab Documents (PDF per categoria) --- */
-      .dc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; }
+      /* Sei colonne fisse invece di `auto-fill, minmax(190px)`: su uno schermo
+         largo l'auto-fill ne infilava otto o nove e le miniature diventavano
+         francobolli. Sei e' il numero in cui una prima pagina A4 resta
+         leggibile. Poi si scende con la scala dei breakpoint. */
+      .dc-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.8rem; }
+      @media (max-width: 1279px) { .dc-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+      @media (max-width: 1023px) { .dc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 640px) { .dc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
       .dc-card {
-        background: var(--c-card); border: 1px solid var(--c-line);
+        /* `--c-bg`, come le card del Team: la sezione e' gia' `--c-card`,
+           e una card dello stesso colore del pannello non si vede. */
+        background: var(--c-bg); border: 1px solid var(--c-line);
         box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
         display: flex; flex-direction: column;
       }
@@ -795,13 +815,14 @@ const t = adminT(lang);
         transition: border-color 0.15s, color 0.15s, background 0.15s;
       }
       .dc-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .dc-btn .dc-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .dc-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #ffffff; }
       .dc-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #ffffff; }
       .dc-del.confirm { background: #a3320f; border-color: #a3320f; color: #fff; width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.75rem; }
       .dc-warn1 { color: var(--c-accent); font-weight: 700; }
       .dc-warn2 { color: #ff8a8f; font-weight: 700; }
       .dc-resil {
-        margin-top: 0.5rem; width: 100%; background: transparent;
+        margin-top: 1.4rem; width: 100%; background: transparent;
         border: 1px solid var(--c-line); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.7rem; font-weight: 700;
         letter-spacing: 0.03em; padding: 0.4rem 0; border-radius: 999px; cursor: pointer;
@@ -810,17 +831,34 @@ const t = adminT(lang);
       .dc-resil:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .dc-resil.confirm { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .dc-resil-ok { color: var(--c-accent); font-weight: 700; }
-      /* Respiro nel modale Documents */
-      #dc-overlay .f-lab { margin-top: 1.4rem; }
-      #dc-overlay #dc-fname { margin-bottom: 0.2rem; }
-      #dc-contrat > div { margin-top: 0.6rem; }
-      #dc-contrat .f-input { margin-bottom: 0.2rem; }
-      #dc-overlay .dc-foot { margin-top: 1.8rem; }
-      .dc-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
-      .dc-err { color: #ff8a8f; font-size: 0.85rem; flex: 1; }
+      /* Modale documento. Erano 13 `style=` in riga nel markup: ogni misura
+         scritta a mano accanto al tag, impossibile da ritoccare senza
+         rileggere l'HTML. Adesso sono queste otto regole. */
+      .dc-fname { margin: 0 0 1rem; }
+      .dc-fname:empty { display: none; }
+      .dc-row { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+      .dc-grow { flex: 1 1 200px; min-width: 0; }
+      .dc-lang { flex: 0 0 auto; min-width: 160px; }
+      /* L'avviso sta sotto il suo campo, non a meta' strada fra i due. */
+      .dc-hint { margin: -0.5rem 0 1rem; }
+      .dc-inline { display: flex; gap: 0.5rem; align-items: center; }
+      .dc-inline input, .dc-inline select { min-width: 0; }
+      #dc-nval { max-width: 92px; }
+      #dc-nunit { max-width: 132px; }
+      #dc-exp { cursor: pointer; }
+      /* Le pastiglie categoria dentro il modale non portano il margine
+         che .tm-filters ha nell'elenco della pagina. */
+      #dc-cats { margin: 0; }
+      /* L'errore vive nel footer, spinto a sinistra dai bottoni. */
+      .dc-err { color: #ff8a8f; font-size: 0.85rem; margin-right: auto; align-self: center; }
+      .dc-err:empty { display: none; }
       .tm-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.1rem 0 1.3rem; }
+      /* Fondo PIENO e piu' scuro della .section che le ospita: da trasparenti
+         si confondevano col pannello e il bordo chiaro era l'unica cosa che
+         le separava. Stesso fondo delle card, cosi' la pagina ha due piani
+         soli: il pannello chiaro e tutto quello che ci sta sopra. */
       .tm-fil {
-        background: transparent; border: 1px solid rgba(179, 172, 166, 0.45); color: var(--c-muted);
+        background: var(--c-bg); border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg)); color: var(--c-muted);
         font-family: var(--font-body); font-size: 0.78rem; letter-spacing: 0.03em;
         padding: 0.35rem 0.85rem; cursor: pointer; border-radius: 999px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
@@ -849,18 +887,12 @@ const t = adminT(lang);
       }
       .tm-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
       .tm-avatar-lg { width: 76px; height: 76px; font-size: 1.6rem; }
-      .tm-avatar-edit { display: flex; align-items: center; gap: 1.1rem; margin-bottom: 0.3rem; }
-      .tm-avatar-side { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; }
-      .tm-upl {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
-        font-family: var(--font-body); font-weight: 700; font-size: 0.8rem;
-        padding: 0.45rem 0.9rem; border-radius: 8px; cursor: pointer;
-        transition: background 0.2s, color 0.2s, border-color 0.2s;
-      }
-      .tm-upl:hover { background: var(--c-accent); color: var(--c-bg); }
-      .tm-upl-rm { border-color: var(--c-line); color: var(--c-muted); }
-      .tm-upl-rm:hover { background: transparent; border-color: #ed1c24; color: #ff6b6b; }
+      /* Riga foto: cerchio + bottoni, come nel modale cliente di Clienti. */
+      .tm-photo-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
+      /* I bottoni della foto sono `.btn` (src/styles/button.css): qui non
+         resta niente da ridisegnare. */
       .tm-upl-state { font-size: 0.75rem; color: var(--c-muted); }
+      .tm-upl-state:empty { display: none; }
       .tm-card-top { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
       .tm-card-name { font-weight: 700; font-size: 1.1rem; color: var(--c-text); }
       .tm-card-role { color: var(--c-muted); font-size: 0.95rem; }
@@ -881,38 +913,28 @@ const t = adminT(lang);
       .tm-ibtn.del:hover { background: rgba(237, 28, 36, 0.5); border-color: #ed1c24; }
       .tm-ibtn.del.confirm { width: auto; padding: 0 0.7rem; border-radius: 999px; font-size: 0.72rem; background: #a3320f; border-color: #a3320f; white-space: nowrap; }
 
-      /* --- Modale team --- */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        justify-content: center; padding: 3vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      .overlay .modal { width: 100%; max-width: 660px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 2rem; position: relative; margin: auto; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      .overlay .modal h2 { color: var(--c-text); margin-bottom: 1.2rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
-      .overlay .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.2rem 0 0.4rem; }
-      .overlay .f-lab:first-of-type { margin-top: 0; }
-      .overlay .f-input {
-        width: 100%; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-size: 0.95rem; padding: 0.6rem 0.8rem; border-radius: 8px;
-        color-scheme: dark; max-width: none;
-      }
-      .overlay .f-input:focus { outline: none; border-color: var(--c-accent); }
-      .overlay select.f-input { cursor: pointer; }
-      .overlay textarea.f-input { resize: vertical; }
-      .f-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.6rem; }
-      .overlay .f-row2 .f-lab { margin-top: 0; }
+      /* --- Modali --- */
+      /* Il guscio fatto a mano (.overlay / .modal / .m-close) NON C'E' PIU':
+         tutti e tre i modali della pagina (piantina, team, documento) usano
+         <Modal> + modal.css, i campi field.css e i bottoni button.css.
+         Sono sparite 24 righe che ridisegnavano cose gia' disegnate. */
+      .f-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
       @media (max-width: 640px) { .f-row2 { grid-template-columns: 1fr; } }
-      .tm-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 1.1rem; margin-top: 1.9rem; }
+      /* Campo ed etichetta: gli stessi del modale cliente in Clienti. La
+         grafica della casella la da' field.css, qui c'e' solo l'impilamento. */
+      .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
+      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
+      /* «Dipendente» e «Attivo» stanno nel footer, accanto ai bottoni:
+         interruttore + etichetta a sinistra, «Annulla / Salva» a destra. */
       .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
       .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
-      .tm-save { box-shadow: none; font-size: 1rem; padding: 0.6rem 1.6rem; }
+      #tm-overlay .md-foot { justify-content: flex-start; gap: 1.1rem; }
+      /* Solo il PRIMO bottone spinge: il secondo gli resta accanto. */
+      #tm-overlay .md-foot .md-btn { margin-left: auto; }
+      #tm-overlay .md-foot .md-btn + .md-btn { margin-left: 0; }
+      /* Vuoto non deve occupare spazio, o il footer resta alto per niente. */
+      .tm-err { color: #ff8a8f; font-size: 0.85rem; align-self: center; }
+      .tm-err:empty { display: none; }
       /* Touch (tablet/telefono): campi data/ora più grandi per le dita */
       @media (pointer: coarse) {
         input[type="date"], input[type="time"] {
@@ -1134,55 +1156,52 @@ const t = adminT(lang);
                 <label class="switch"><input type="checkbox" id="r-autotables" /><span class="track"></span></label>
               </div>
             </div>
-            <div class="overlay" id="sl-overlay">
-              <div class="modal sl-modal">
-                <button class="m-close" id="sl-close" type="button" aria-label={t("common.close")}>×</button>
-                <div class="sl-head">
-                  <h2 id="sl-title">{t("set.res.floorPlan")}</h2>
-                  <span class="sl-tot" id="sl-tot"></span>
+            <Modal id="sl-overlay" titleId="sl-title" width="1600px">
+              <div class="sl-wrap" id="sl-wrap">
+                <div class="sl-tools">
+                  <button type="button" class="btn sl-add" data-sh="round"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg>{t("set.res.addRound")}</button>
+                  <button type="button" class="btn sl-add" data-sh="square"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("set.res.addSquare")}</button>
+                  <button type="button" class="btn sl-add sl-decor-add" data-decor="plant"><img class="sl-ico" src="/restohub/plant.svg" alt="" aria-hidden="true" />{t("set.res.addPlant")}</button>
+                  <button type="button" class="btn sl-add sl-decor-add" data-decor="wall"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="10" width="18" height="4" rx="1" /></svg>{t("set.res.addWall")}</button>
+                  <button type="button" class="btn sl-area-btn" id="sl-area-btn">{"✎ " + t("set.res.drawRoom")}</button>
+                  <button type="button" class="btn sl-area-btn" id="sl-link-btn">{"🔗 " + t("set.res.linkTables")}</button>
+                  <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
-                <div class="sl-wrap" id="sl-wrap">
-              <div class="sl-tools">
-                <button type="button" class="sl-add" data-sh="round"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg>{t("set.res.addRound")}</button>
-                <button type="button" class="sl-add" data-sh="square"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("set.res.addSquare")}</button>
-                <button type="button" class="sl-add sl-decor-add" data-decor="plant"><img class="sl-ico" src="/restohub/plant.svg" alt="" aria-hidden="true" />{t("set.res.addPlant")}</button>
-                <button type="button" class="sl-add sl-decor-add" data-decor="wall"><svg class="sl-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="10" width="18" height="4" rx="1" /></svg>{t("set.res.addWall")}</button>
-                <button type="button" class="sl-area-btn" id="sl-area-btn">{"✎ " + t("set.res.drawRoom")}</button>
-                <button type="button" class="sl-area-btn" id="sl-link-btn">{"🔗 " + t("set.res.linkTables")}</button>
-                <button type="button" class="tm-ibtn del" id="sl-area-del" style="display:none" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
-                <span class="sl-msg" id="sl-msg"></span>
-              </div>
-              <div class="sl-body"><div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div></div>
-              <div class="sl-links" id="sl-links"></div>
-              <div class="sl-edit" id="sl-edit" style="display:none">
-                <div class="sl-edit-row">
-                  <input type="text" id="sl-nome" placeholder={t("set.res.tableNamePh")} maxlength="12" autocomplete="off" />
-                  <input type="number" id="sl-posti" min="1" max="30" title={t("set.res.seatsTitle")} />
-                </div>
-                <div class="sl-edit-row">
-                  <div class="sl-shapes">
-                    <button type="button" class="sl-sh" data-sh="round" title={t("set.res.shapeRound")} aria-label={t("set.res.shapeRound")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg></button>
-                    <button type="button" class="sl-sh" data-sh="square" title={t("set.res.shapeSquare")} aria-label={t("set.res.shapeSquare")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
+                <div class="sl-body"><div class="sl-canvas" id="sl-canvas"><svg id="sl-area-svg" viewBox="0 0 1000 600" preserveAspectRatio="none"></svg><div id="sl-tavoli"></div></div></div>
+                <div class="sl-links" id="sl-links"></div>
+                <div class="sl-edit" id="sl-edit" style="display:none">
+                  <div class="sl-edit-row">
+                    <input type="text" id="sl-nome" placeholder={t("set.res.tableNamePh")} maxlength="12" autocomplete="off" />
+                    <input type="number" id="sl-posti" min="1" max="30" title={t("set.res.seatsTitle")} />
                   </div>
-                  <button type="button" class="sl-dup" id="sl-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
-                  <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  <div class="sl-edit-row">
+                    <div class="sl-shapes">
+                      <button type="button" class="sl-sh" data-sh="round" title={t("set.res.shapeRound")} aria-label={t("set.res.shapeRound")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /></svg></button>
+                      <button type="button" class="sl-sh" data-sh="square" title={t("set.res.shapeSquare")} aria-label={t("set.res.shapeSquare")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2" /></svg></button>
+                    </div>
+                    <button type="button" class="btn btn-sm sl-dup" id="sl-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
+                    <button type="button" class="tm-ibtn del" id="sl-del" aria-label={t("set.res.deleteTable")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
+                  </div>
+                </div>
+                <div class="sl-edit sl-decor-edit" id="sl-decor-edit" style="display:none">
+                  <span id="sl-decor-lab" class="sl-decor-lab"></span>
+                  <label class="sl-de-size">L <input type="number" id="sl-de-w" min="20" max="1000" step="10" /></label>
+                  <label class="sl-de-size">A <input type="number" id="sl-de-h" min="10" max="600" step="10" /></label>
+                  <div class="sl-de-colors" id="sl-de-colors">
+                    <button type="button" class="sl-de-color" data-color="white" title={t("set.res.colWhite")} aria-label={t("set.res.colWhite")}></button>
+                    <button type="button" class="sl-de-color" data-color="black" title={t("set.res.colBlack")} aria-label={t("set.res.colBlack")}></button>
+                    <button type="button" class="sl-de-color" data-color="brown" title={t("set.res.colBrown")} aria-label={t("set.res.colBrown")}></button>
+                  </div>
+                  <button type="button" class="btn btn-sm sl-dup" id="sl-decor-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
+                  <button type="button" class="tm-ibtn del" id="sl-decor-del" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
                 </div>
               </div>
-              <div class="sl-edit sl-decor-edit" id="sl-decor-edit" style="display:none">
-                <span id="sl-decor-lab" class="sl-decor-lab"></span>
-                <label class="sl-de-size">L <input type="number" id="sl-de-w" min="20" max="1000" step="10" /></label>
-                <label class="sl-de-size">A <input type="number" id="sl-de-h" min="10" max="600" step="10" /></label>
-                <div class="sl-de-colors" id="sl-de-colors">
-                  <button type="button" class="sl-de-color" data-color="white" title={t("set.res.colWhite")} aria-label={t("set.res.colWhite")}></button>
-                  <button type="button" class="sl-de-color" data-color="black" title={t("set.res.colBlack")} aria-label={t("set.res.colBlack")}></button>
-                  <button type="button" class="sl-de-color" data-color="brown" title={t("set.res.colBrown")} aria-label={t("set.res.colBrown")}></button>
-                </div>
-                <button type="button" class="sl-dup" id="sl-decor-dup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>{t("set.res.duplicate")}</button>
-                <button type="button" class="tm-ibtn del" id="sl-decor-del" aria-label={t("set.res.clearRoom")}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></button>
-              </div>
-                </div>
-              </div>
-            </div>
+              <Fragment slot="foot">
+                <span class="sl-msg" id="sl-msg"></span>
+                <span class="sl-tot" id="sl-tot"></span>
+                <button type="button" class="md-btn" data-md-close>{t("common.close")}</button>
+              </Fragment>
+            </Modal>
             <div class="field">
               <label for="r-zonechoice">{t("set.res.zoneChoice")}<span class="lab-hint">{t("set.res.zoneChoiceHint")}</span></label>
               <label class="switch"><input type="checkbox" id="r-zonechoice" checked /><span class="track"></span></label>
@@ -1463,7 +1482,6 @@ const t = adminT(lang);
                 <h2>{t("tab.settings.team")}</h2>
                 <p class="hint">{t("set.tm.intro")}</p>
               </div>
-              <button type="button" class="kemail-add tm-add" id="tm-add">{t("set.tm.addContact")}</button>
             </div>
             <div class="tm-filters" id="tm-filters"></div>
             <div class="tm-list" id="tm-list"></div>
@@ -1476,7 +1494,6 @@ const t = adminT(lang);
                 <h2>{t("tab.settings.documents")}</h2>
                 <p class="hint">{t("set.doc.intro")}</p>
               </div>
-              <button type="button" class="kemail-add tm-add" id="dc-add">{"+ " + t("as.addDoc")}</button>
               <input type="file" id="dc-file" accept=".pdf" style="display:none" />
             </div>
             <div class="tm-filters" id="dc-filtri"></div>
@@ -1494,134 +1511,150 @@ const t = adminT(lang);
     </div>
 
     <!-- Modale catégorie document (Admin → Documents) -->
-    <div class="overlay" id="dc-overlay">
-      <div class="modal" style="max-width: 520px">
-        <button class="m-close" id="dc-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2 id="dc-title">{t("set.doc.newDoc")}</h2>
-        <p class="hint" id="dc-fname" style="margin-bottom: 0.4rem"></p>
-        <span class="f-lab" id="dc-nom-lab" style="display:none">{t("as.fileName")}</span>
-        <input type="text" class="f-input" id="dc-nom" maxlength="80" style="display:none" />
-        <span class="f-lab">{t("set.doc.category")}</span>
-        <div class="tm-filters" id="dc-cats" style="margin: 0.5rem 0 0.4rem"></div>
-        <div id="dc-contrat" style="display:none">
-          <div style="display:flex; gap:0.8rem; flex-wrap:wrap; align-items:flex-end">
-            <div style="flex:1 1 220px; min-width:0">
-              <span class="f-lab">{t("set.doc.contractEmail")}</span>
-              <input type="text" class="f-input" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
+    <!-- Modale documento: guscio condiviso, campi e bottoni condivisi -->
+    <Modal id="dc-overlay" title={t("set.doc.newDoc")} titleId="dc-title" width="520px">
+      <p class="hint dc-fname" id="dc-fname"></p>
+
+      <div class="f-field" id="dc-nom-box" style="display:none">
+        <label class="f-label" for="dc-nom">{t("as.fileName")}</label>
+        <input type="text" id="dc-nom" maxlength="80" />
+      </div>
+
+      <div class="f-field">
+        <span class="f-label">{t("set.doc.category")}</span>
+        <div class="tm-filters" id="dc-cats"></div>
+      </div>
+
+      <div id="dc-contrat" style="display:none">
+        <div class="dc-row">
+          <div class="f-field dc-grow">
+            <label class="f-label" for="dc-mail">{t("set.doc.contractEmail")}</label>
+            <input type="text" id="dc-mail" placeholder="contact@fournisseur.be" maxlength="120" />
+          </div>
+          <div class="f-field dc-lang">
+            <label class="f-label" for="dc-lang">{t("set.doc.letterLang")}</label>
+            <select id="dc-lang">
+              {LINGUE_ELENCO.filter((l) => ["fr", "en", "it", "nl", "es"].includes(l.code)).map((l) => (
+                <option value={l.code}>{l.flag} {l.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <p class="hint dc-hint">{t("set.doc.letterLangHint")}</p>
+
+        <div class="dc-row">
+          <div class="f-field dc-grow">
+            <label class="f-label" for="dc-exp">{t("set.doc.dueDate")}</label>
+            <div class="dc-inline">
+              <input type="text" id="dc-exp" placeholder={t("set.doc.noDueDate")} readonly />
+              <button type="button" class="dc-btn" id="dc-exp-x" title={t("set.doc.clearDate")} aria-label={t("set.doc.clearDate")}>×</button>
             </div>
-            <div style="flex:0 0 auto">
-              <span class="f-lab">{t("set.doc.letterLang")}</span>
-              <select class="f-input" id="dc-lang" style="min-width:140px">
-                {LINGUE_ELENCO.filter((l) => ["fr", "en", "it", "nl", "es"].includes(l.code)).map((l) => (
-                  <option value={l.code}>{l.flag} {l.label}</option>
-                ))}
+          </div>
+          <div class="f-field dc-grow">
+            <span class="f-label">{t("set.doc.notice")}</span>
+            <div class="dc-inline">
+              <input type="number" id="dc-nval" class="dc-nval" min="0" max="365" placeholder="3" />
+              <select id="dc-nunit" class="dc-nunit">
+                <option value="mois">{t("set.doc.months")}</option>
+                <option value="jours">{t("set.doc.days")}</option>
               </select>
             </div>
           </div>
-          <p class="hint" style="margin:0.35rem 0 0">{t("set.doc.letterLangHint")}</p>
-          <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
-            <div style="flex:1; min-width:170px">
-              <span class="f-lab">{t("set.doc.dueDate")}</span>
-              <div style="display:flex; gap:0.4rem; align-items:center">
-                <input type="text" class="f-input" id="dc-exp" placeholder={t("set.doc.noDueDate")} readonly style="cursor:pointer" />
-                <button type="button" class="dc-btn" id="dc-exp-x" title={t("set.doc.clearDate")}>×</button>
-              </div>
-            </div>
-            <div style="flex:1; min-width:170px">
-              <span class="f-lab">{t("set.doc.notice")}</span>
-              <div style="display:flex; gap:0.5rem">
-                <input type="number" class="f-input" id="dc-nval" min="0" max="365" placeholder="3" style="max-width:90px" />
-                <select class="f-input" id="dc-nunit" style="max-width:120px">
-                  <option value="mois">{t("set.doc.months")}</option>
-                  <option value="jours">{t("set.doc.days")}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <button type="button" class="dc-resil" id="dc-resil" style="display:none; margin-top:1.4rem">{t("set.doc.requestTermination")}</button>
-          <p class="hint dc-resil-ok" id="dc-resil-info" style="display:none; margin-top:1rem"></p>
         </div>
-        <div class="dc-foot">
-          <span class="dc-err" id="dc-err"></span>
-          <button type="button" class="kemail-add tm-add" id="dc-up">{t("mk.upload")}</button>
-        </div>
+
+        <button type="button" class="dc-resil" id="dc-resil" style="display:none">{t("set.doc.requestTermination")}</button>
+        <p class="hint dc-resil-ok" id="dc-resil-info" style="display:none"></p>
       </div>
-    </div>
+
+      <Fragment slot="foot">
+        <span class="dc-err" id="dc-err"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="dc-up">{t("mk.upload")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale contact Team -->
-    <div class="overlay" id="tm-overlay">
-      <div class="modal">
-        <button class="m-close" id="tm-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2 id="tm-title">{t("set.tm.newContact")}</h2>
-
-        <div class="tm-avatar-edit">
+    <!-- Modale contatto (team): stessa forma del modale cliente in Clienti -->
+    <Modal id="tm-overlay" title={t("set.tm.newContact")} titleId="tm-title" width="660px">
+      <div class="f-field">
+        <span class="f-label">{t("menu.photoOpt")}</span>
+        <div class="tm-photo-row">
           <span class="tm-avatar tm-avatar-lg" id="tm-avatar-prev"></span>
-          <div class="tm-avatar-side">
-            <button type="button" class="tm-upl" id="tm-upload">{t("cli.uploadPhoto")}</button>
-            <button type="button" class="tm-upl tm-upl-rm" id="tm-photo-rm" style="display:none">{t("set.tm.removePhoto")}</button>
-            <input type="file" id="tm-file" accept="image/*" style="display:none" />
-            <p class="tm-upl-state" id="tm-upload-state"></p>
-          </div>
-        </div>
-
-        <label class="f-lab" for="tm-name">{t("menu.nameReq")}</label>
-        <input type="text" class="f-input" id="tm-name" placeholder={t("set.tm.namePh")} />
-
-        <div class="f-row2">
-          <div>
-            <label class="f-lab" for="tm-cat">{t("set.doc.category")}</label>
-            <select class="f-input" id="tm-cat"></select>
-          </div>
-          <div>
-            <label class="f-lab" for="tm-role">{t("set.tm.role")}</label>
-            <input type="text" class="f-input" id="tm-role" placeholder={t("set.tm.rolePh")} />
-          </div>
-        </div>
-
-        <div class="f-row2">
-          <div>
-            <label class="f-lab" for="tm-phone">{t("ord.phone")}</label>
-            <input type="text" class="f-input" id="tm-phone" placeholder="+32…" />
-          </div>
-          <div>
-            <label class="f-lab" for="tm-email">{t("ord.emailLabel")}</label>
-            <input type="text" class="f-input" id="tm-email" placeholder="email@…" />
-          </div>
-        </div>
-
-        <div class="f-row2">
-          <div>
-            <label class="f-lab" for="tm-phone2">{t("set.tm.phone2")}</label>
-            <input type="text" class="f-input" id="tm-phone2" placeholder={t("set.tm.optional")} />
-          </div>
-          <div>
-            <label class="f-lab" for="tm-email2">{t("set.tm.email2")}</label>
-            <input type="text" class="f-input" id="tm-email2" placeholder={t("set.tm.optional")} />
-          </div>
-        </div>
-
-        <div class="f-row2">
-          <div>
-            <label class="f-lab" for="tm-company">{t("set.tm.company")}</label>
-            <input type="text" class="f-input" id="tm-company" placeholder={t("set.tm.companyPh")} />
-          </div>
-          <div>
-            <label class="f-lab" for="tm-website">{t("set.tm.website")}</label>
-            <input type="text" class="f-input" id="tm-website" placeholder="https://…" />
-          </div>
-        </div>
-
-        <label class="f-lab" for="tm-notes">{t("home.notes")}</label>
-        <textarea class="f-input" id="tm-notes" rows="3" placeholder={t("set.tm.notesPh")}></textarea>
-
-        <div class="tm-foot">
-          <button class="save tm-save" id="tm-save" type="button">{t("common.save")}</button>
-          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-emp" /><span class="track"></span></label><span class="sw-lab">{t("set.tm.employee")}</span></span>
-          <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-active" checked /><span class="track"></span></label><span class="sw-lab">{t("menu.active")}</span></span>
-          <span class="msg err" id="tm-err"></span>
+          <button type="button" class="btn" id="tm-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="btn btn-danger" id="tm-photo-rm" style="display:none">{t("set.tm.removePhoto")}</button>
+          <input type="file" id="tm-file" accept="image/*" style="display:none" />
+          <span class="tm-upl-state" id="tm-upload-state"></span>
         </div>
       </div>
-    </div>
+
+      <div class="f-field">
+        <label class="f-label" for="tm-name">{t("menu.nameReq")}</label>
+        <input type="text" id="tm-name" placeholder={t("set.tm.namePh")} />
+      </div>
+
+      <div class="f-row2">
+        <div class="f-field">
+          <label class="f-label" for="tm-cat">{t("set.doc.category")}</label>
+          <select id="tm-cat"></select>
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="tm-role">{t("set.tm.role")}</label>
+          <input type="text" id="tm-role" placeholder={t("set.tm.rolePh")} />
+        </div>
+      </div>
+
+      <div class="f-row2">
+        <div class="f-field">
+          <label class="f-label" for="tm-phone">{t("ord.phone")}</label>
+          <input type="text" id="tm-phone" placeholder="+32…" />
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="tm-email">{t("ord.emailLabel")}</label>
+          <input type="text" id="tm-email" placeholder="email@…" />
+        </div>
+      </div>
+
+      <div class="f-row2">
+        <div class="f-field">
+          <label class="f-label" for="tm-phone2">{t("set.tm.phone2")}</label>
+          <input type="text" id="tm-phone2" placeholder={t("set.tm.optional")} />
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="tm-email2">{t("set.tm.email2")}</label>
+          <input type="text" id="tm-email2" placeholder={t("set.tm.optional")} />
+        </div>
+      </div>
+
+      <div class="f-row2">
+        <div class="f-field">
+          <label class="f-label" for="tm-company">{t("set.tm.company")}</label>
+          <input type="text" id="tm-company" placeholder={t("set.tm.companyPh")} />
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="tm-website">{t("set.tm.website")}</label>
+          <input type="text" id="tm-website" placeholder="https://…" />
+        </div>
+      </div>
+
+      <div class="f-field">
+        <label class="f-label" for="tm-notes">{t("home.notes")}</label>
+        <textarea id="tm-notes" rows="3" placeholder={t("set.tm.notesPh")}></textarea>
+      </div>
+
+      <Fragment slot="foot">
+        <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-emp" /><span class="track"></span></label><span class="sw-lab">{t("set.tm.employee")}</span></span>
+        <span class="sw-wrap"><label class="switch"><input type="checkbox" id="tm-active" checked /><span class="track"></span></label><span class="sw-lab">{t("menu.active")}</span></span>
+        <span class="tm-err" id="tm-err"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="tm-save">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <!-- Pulsante flottante del tab Team: stesso di «+ Cliente» / «+ Ordine».
+         Lo mostra `mostraTab` solo sul tab Team; la barra «Salva» li' non
+         c'e', quindi i due flottanti non si accavallano mai. -->
+    <button class="fab-add fab-pill" id="tm-add" type="button" style="display:none" title={t("set.tm.addContact")}><span class="fab-plus">+</span>{t("set.tm.contactWord")}</button>
+    <button class="fab-add fab-pill" id="dc-add" type="button" style="display:none" title={t("as.addDoc")}><span class="fab-plus">+</span>{t("as.docWord")}</button>
 
     <AdminNav current="settings" />
 
@@ -1631,6 +1664,7 @@ const t = adminT(lang);
       import { SERVIZI_WIDGET, nomeServizio, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { generaIconaPWA, PWA_ICONA_LATO } from "../../lib/admin/imageCompress";
+      import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -1921,7 +1955,6 @@ const t = adminT(lang);
         const slFiltri = document.getElementById("sl-filtri") as HTMLDivElement;
         const slOverlay = document.getElementById("sl-overlay") as HTMLDivElement;
         const slTitle = document.getElementById("sl-title") as HTMLElement;
-        const slClose = document.getElementById("sl-close") as HTMLButtonElement;
         const slCanvas = document.getElementById("sl-canvas") as HTMLDivElement;
         const slEdit = document.getElementById("sl-edit") as HTMLDivElement;
         const slNome = document.getElementById("sl-nome") as HTMLInputElement;
@@ -2032,13 +2065,13 @@ const t = adminT(lang);
         function slApri(zona: string) {
           slZona = zona;
           slTitle.textContent = tr("set.res.floorPlan") + " — " + zona;
-          slOverlay.classList.add("is-open");
+          slOverlay.hidden = false;
           void slCarica(zona);
         }
         function slChiudi() {
           slZona = null;
           slSel = null;
-          slOverlay.classList.remove("is-open");
+          slOverlay.hidden = true;
           void slCaricaTotali().then(() => renderAnteprima()); // pillole + aperçu aggiornati
         }
 
@@ -2402,9 +2435,9 @@ const t = adminT(lang);
           const b = (e.target as HTMLElement).closest(".sl-pill") as HTMLElement | null;
           if (b?.dataset.z) slApri(b.dataset.z);
         });
-        slClose.addEventListener("click", slChiudi);
-        slOverlay.addEventListener("click", (e) => { if (e.target === slOverlay) slChiudi(); });
-        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && slOverlay.classList.contains("is-open")) slChiudi(); });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Chiudi).
+        slOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => slChiudi()));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !slOverlay.hidden) slChiudi(); });
 
         // Aggiunta tavolo
         document.querySelectorAll<HTMLButtonElement>(".sl-add:not(.sl-decor-add)").forEach((btn) => {
@@ -4221,6 +4254,8 @@ const t = adminT(lang);
         const dcErr = document.getElementById("dc-err") as HTMLSpanElement;
         const dcUp = document.getElementById("dc-up") as HTMLButtonElement;
         const dcFile = document.getElementById("dc-file") as HTMLInputElement;
+        const DC_TRASH =
+          '<svg class="dc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>';
         const DC_PDF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>';
 
         const dcLab = (cat: string) => DOC_CATS.find((c) => c.k === cat)?.lab ?? cat;
@@ -4277,7 +4312,7 @@ const t = adminT(lang);
               <div class="dc-actions">
                 <button type="button" class="dc-btn dc-ren" title="${tr("as.rename")}">✎</button>
                 <span class="dc-spacer"></span>
-                <button type="button" class="dc-btn dc-del" title="${tr("common.delete")}">×</button>
+                <button type="button" class="dc-btn dc-del" title="${tr("common.delete")}" aria-label="${tr("common.delete")}">${DC_TRASH}</button>
               </div>
             </div>`)
             .join("");
@@ -4303,7 +4338,7 @@ const t = adminT(lang);
         (document.getElementById("dc-add") as HTMLButtonElement).addEventListener("click", () => dcFile.click());
         const dcTitle = document.getElementById("dc-title") as HTMLHeadingElement;
         const dcFnameEl = document.getElementById("dc-fname") as HTMLParagraphElement;
-        const dcNomLab = document.getElementById("dc-nom-lab") as HTMLElement;
+        const dcNomBox = document.getElementById("dc-nom-box") as HTMLElement;
         const dcNom = document.getElementById("dc-nom") as HTMLInputElement;
         const dcMail = document.getElementById("dc-mail") as HTMLInputElement;
         const dcExp = document.getElementById("dc-exp") as HTMLInputElement;
@@ -4390,7 +4425,7 @@ const t = adminT(lang);
               return;
             }
             dcEditDoc = null;
-            dcOverlay.classList.remove("is-open");
+            dcOverlay.hidden = true;
             await dcCarica();
           } catch {
             dcErr.textContent = tr("common.netErr");
@@ -4424,63 +4459,22 @@ const t = adminT(lang);
           dcUp.textContent = tr("mk.upload");
           dcFnameEl.textContent = f.name;
           dcFnameEl.style.display = "";
-          dcNomLab.style.display = "none";
-          dcNom.style.display = "none";
+          dcNomBox.style.display = "none";
           dcCompilaMeta(null);
           dcAggiornaResil();
           dcCatScelta = dcFiltro !== "all" ? dcFiltro : "autre";
           dcRenderCats();
-          dcOverlay.classList.add("is-open");
+          dcOverlay.hidden = false;
         });
-        (document.getElementById("dc-close") as HTMLButtonElement).addEventListener("click", () => dcOverlay.classList.remove("is-open"));
-        dcOverlay.addEventListener("click", (e) => {
-          if (e.target === dcOverlay) dcOverlay.classList.remove("is-open");
-        });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        dcOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { dcOverlay.hidden = true; }));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !dcOverlay.hidden) dcOverlay.hidden = true; });
 
-        // Anteprima prima pagina con pdf.js (best-effort, come Assets)
-        let dcPdfjs: Promise<any> | null = null;
-        function dcCaricaPdfjs(): Promise<any> {
-          if (!dcPdfjs) {
-            dcPdfjs = new Promise((resolve, reject) => {
-              const sc = document.createElement("script");
-              sc.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-              sc.onload = () => {
-                const lib = (window as any).pdfjsLib;
-                lib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-                resolve(lib);
-              };
-              sc.onerror = () => reject(new Error("pdf.js indisponible"));
-              document.head.appendChild(sc);
-            });
-          }
-          return dcPdfjs;
-        }
-        async function dcAnteprima(file: File): Promise<string | null> {
-          try {
-            const lib = await dcCaricaPdfjs();
-            const buf = await file.arrayBuffer();
-            const pdf = await lib.getDocument({ data: buf }).promise;
-            const page = await pdf.getPage(1);
-            const vp1 = page.getViewport({ scale: 1 });
-            const vp = page.getViewport({ scale: 480 / vp1.width });
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.round(vp.width);
-            canvas.height = Math.round(vp.height);
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return null;
-            await page.render({ canvasContext: ctx, viewport: vp }).promise;
-            const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.7));
-            if (!blob || blob.size > 512 * 1024) return null;
-            return await new Promise<string>((resolve, reject) => {
-              const r = new FileReader();
-              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
-              r.onerror = () => reject(new Error());
-              r.readAsDataURL(blob);
-            });
-          } catch {
-            return null; // PDF protetto o illeggibile: resta l'icona
-          }
-        }
+        // L'anteprima della prima pagina la fa `src/lib/admin/pdfThumb.ts`,
+        // lo stesso modulo della pagina Assets. Qui c'era una SECONDA copia
+        // che caricava pdf.js da cdnjs: la CSP dell'admin la bloccava e
+        // l'anteprima non si generava mai, in silenzio.
+        const dcAnteprima = (file: File) => generaAnteprimaPdf(file, "settings");
         dcUp.addEventListener("click", async () => {
           // ---- MODIFICA: nome + categoria + metadati contratto ----
           if (dcEditDoc) {
@@ -4503,7 +4497,7 @@ const t = adminT(lang);
               const j = await res.json();
               if (!res.ok) throw new Error(j.error ?? tr("us.editErr"));
               dcEditDoc = null;
-              dcOverlay.classList.remove("is-open");
+              dcOverlay.hidden = true;
               await dcCarica();
             } catch (err) {
               dcErr.textContent = err instanceof Error ? err.message : tr("us.editErr");
@@ -4539,7 +4533,7 @@ const t = adminT(lang);
               }).catch(() => {});
             }
             dcFilePronto = null;
-            dcOverlay.classList.remove("is-open");
+            dcOverlay.hidden = true;
             dcFiltro = dcCatScelta; // si atterra sulla categoria appena usata
             await dcCarica();
           } catch (err) {
@@ -4550,9 +4544,24 @@ const t = adminT(lang);
         });
 
         // Azioni card: rinomina inline + elimina con conferma 2 tap
+        // Cestino a due tempi, UNO SOLO armato alla volta: e' la stessa
+        // guardia di Assets e Ordini. Senza, ogni bottone si arma per conto
+        // suo e resta armato 3 secondi — con sei card in riga ci si ritrova
+        // due o tre cestini pronti a scattare, e un click distratto cancella
+        // un documento che non si stava guardando.
+        let dcCestino: HTMLButtonElement | null = null;
+        let dcCestinoTimer = 0;
+        function dcDisarmaCestino() {
+          window.clearTimeout(dcCestinoTimer);
+          if (!dcCestino) return;
+          dcCestino.classList.remove("confirm");
+          dcCestino.innerHTML = DC_TRASH;
+          dcCestino = null;
+        }
         dcGrid.addEventListener("click", async (e) => {
           const t = e.target as HTMLElement;
           const card = t.closest(".dc-card") as HTMLElement | null;
+          if (!t.closest(".dc-del")) dcDisarmaCestino();
           if (!card) return;
           const cat = card.dataset.cat ?? "";
           const name = card.dataset.name ?? "";
@@ -4566,28 +4575,27 @@ const t = adminT(lang);
             dcTitle.textContent = tr("set.doc.editDoc");
             dcUp.textContent = tr("common.save");
             dcFnameEl.style.display = "none";
-            dcNomLab.style.display = "";
-            dcNom.style.display = "";
+            dcNomBox.style.display = "";
             dcNom.value = d.name;
             dcCatScelta = d.cat;
             dcCompilaMeta(d);
             dcAggiornaResil();
             dcRenderCats();
-            dcOverlay.classList.add("is-open");
+            dcOverlay.hidden = false;
             return;
           }
 
           const del = t.closest(".dc-del") as HTMLButtonElement | null;
           if (del) {
-            if (!del.classList.contains("confirm")) {
+            if (del !== dcCestino) {
+              dcDisarmaCestino(); // il precedente torna al primo tempo
+              dcCestino = del;
               del.classList.add("confirm");
               del.textContent = tr("common.confirm");
-              setTimeout(() => {
-                del.classList.remove("confirm");
-                del.textContent = "×";
-              }, 3000);
+              dcCestinoTimer = window.setTimeout(dcDisarmaCestino, 3000);
               return;
             }
+            dcDisarmaCestino();
             const res = await fetch(`/api/admin/docs?cat=${encodeURIComponent(cat)}&name=${encodeURIComponent(name)}`, {
               method: "POST",
               headers: { ...headers, "X-Method-Override": "DELETE" },
@@ -4621,7 +4629,7 @@ const t = adminT(lang);
         const tmUpload = document.getElementById("tm-upload") as HTMLButtonElement;
         const tmPhotoRm = document.getElementById("tm-photo-rm") as HTMLButtonElement;
         const tmFile = document.getElementById("tm-file") as HTMLInputElement;
-        const tmUploadState = document.getElementById("tm-upload-state") as HTMLParagraphElement;
+        const tmUploadState = document.getElementById("tm-upload-state") as HTMLElement;
         const tmEmp = document.getElementById("tm-emp") as HTMLInputElement;
         const tmActive = document.getElementById("tm-active") as HTMLInputElement;
         const tmSave = document.getElementById("tm-save") as HTMLButtonElement;
@@ -4774,17 +4782,16 @@ const t = adminT(lang);
           tmPhotoUrl = m?.photo_url ?? "";
           tmUploadState.textContent = "";
           tmRenderAvatarPreview();
-          tmOverlay.classList.add("is-open");
+          tmOverlay.hidden = false;
         }
         function tmChiudi() {
-          tmOverlay.classList.remove("is-open");
+          tmOverlay.hidden = true;
         }
 
         document.getElementById("tm-add")?.addEventListener("click", () => tmApri(null));
-        document.getElementById("tm-close")?.addEventListener("click", tmChiudi);
-        tmOverlay.addEventListener("click", (e) => {
-          if (e.target === tmOverlay) tmChiudi();
-        });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        tmOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", tmChiudi));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !tmOverlay.hidden) tmChiudi(); });
 
         // Aggiorna le iniziali mentre si scrive il nome (se non c'è foto)
         tmName.addEventListener("input", () => {
@@ -4959,6 +4966,12 @@ const t = adminT(lang);
       const contenuto = document.getElementById("content");
       if (contenuto) contenuto.dataset.tab = t;
       // Enregistrer serve solo dove ci sono campi da salvare
+      // I due pulsanti flottanti (Team, Documenti) seguono il tab. Su quei
+      // due tab la barra «Salva» non c'e', quindi non si accavallano mai.
+      const fabTeam = document.getElementById("tm-add");
+      if (fabTeam) fabTeam.style.display = t === "team" ? "" : "none";
+      const fabDoc = document.getElementById("dc-add");
+      if (fabDoc) fabDoc.style.display = t === "documents" ? "" : "none";
       const bar = document.querySelector<HTMLElement>(".save-bar");
       if (bar) bar.style.display = t === "general" || t === "horaire" || t === "reservations" || t === "cuisine" || t === "liens" || t === "notifications" ? "" : "none";
       try {

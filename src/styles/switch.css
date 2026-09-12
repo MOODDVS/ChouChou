@@ -1,0 +1,103 @@
+/* ============================================================
+   INTERRUTTORE ADMIN — uno solo per tutta l'applicazione.
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+     <label class="switch">
+       <input type="checkbox" />
+       <span class="track"></span>
+     </label>
+
+   Con etichetta accanto:
+     <span class="sw-wrap">
+       <label class="switch">…</label>
+       <span class="sw-lab">Attivo</span>
+     </span>
+
+   Se lo stato NON e' un checkbox ma una classe messa dal JS
+   (succede dove la riga intera e' cliccabile), si usa `.is-on`
+   sul `.switch`: fa esattamente quello che fa `input:checked`.
+
+   MISURA: si cambia con --sw-w / --sw-h / --sw-k sul .switch,
+   non con una classe nuova per ogni taglia.
+
+   ⚠️ Nessun `!important`: e' la base. Le pagine non ancora
+   convertite hanno la loro copia nel <style> scoped, che vince
+   nella cascata finche' non gliela si toglie.
+   ============================================================ */
+
+.sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+.sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+
+.switch {
+  --sw-w: 46px;   /* larghezza */
+  --sw-h: 26px;   /* altezza */
+  --sw-k: 20px;   /* diametro della pallina */
+  --sw-p: 3px;    /* aria fra pallina e bordo */
+  position: relative; display: inline-block; flex-shrink: 0;
+  width: var(--sw-w); height: var(--sw-h);
+}
+
+/* L'input copre TUTTO l'interruttore: cosi' il tocco prende ovunque, anche
+   sui bordi. Prima era `width: 0; height: 0` e cliccava solo la <label>. */
+.switch input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; opacity: 0; cursor: pointer; z-index: 2;
+}
+
+/* SPENTO: fondo PIENO, ricavato dal colore del testo mescolato al fondo —
+   cosi' resta pieno su qualunque tema del cliente, mentre un token fisso
+   (--c-line, --c-input) sparisce appena il tema cambia. Niente bordo: il
+   bordo lo faceva sembrare un campo da compilare. */
+.switch .track {
+  position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--c-text) 28%, var(--c-bg));
+  border: 0;
+  transition: background 0.2s;
+}
+
+/* La pallina si centra con top:50% + translateY(-50%), NON con un `top`
+   fisso: era quello a farla sembrare storta quando l'altezza cambiava. */
+.switch .track::before {
+  content: ""; position: absolute; top: 50%; left: var(--sw-p);
+  width: var(--sw-k); height: var(--sw-k); border-radius: 50%;
+  background: var(--c-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transform: translateY(-50%);
+  transition: transform 0.2s, background 0.2s;
+}
+
+/* ACCESO: corallo del brand, pallina bianca. */
+.switch input:checked + .track,
+.switch.is-on .track { background: var(--c-accent); }
+.switch input:checked + .track::before,
+.switch.is-on .track::before {
+  transform: translate(calc(var(--sw-w) - var(--sw-k) - var(--sw-p) * 2), -50%);
+  background: #fff;
+}
+
+.switch input:focus-visible + .track { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.switch input:disabled { cursor: not-allowed; }
+.switch input:disabled + .track { opacity: 0.5; cursor: not-allowed; }
+
+/* Interruttore come <button role="switch">, dove la riga non ha una label
+   propria e il bottone E' il comando. Lo stato lo porta `aria-checked`, che
+   serve gia' all'accessibilita': tenerlo anche in una classe vorrebbe dire
+   due verita' da mantenere allineate.
+
+     <button type="button" class="switch" role="switch" aria-checked="false">
+       <span class="track"></span>
+     </button>
+*/
+button.switch { padding: 0; border: 0; background: none; cursor: pointer; }
+.switch[aria-checked="true"] .track { background: var(--c-accent); }
+.switch[aria-checked="true"] .track::before {
+  transform: translate(calc(var(--sw-w) - var(--sw-k) - var(--sw-p) * 2), -50%);
+  background: #fff;
+}
+button.switch:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; border-radius: 999px; }
+button.switch:disabled { cursor: not-allowed; }
+button.switch:disabled .track { opacity: 0.5; cursor: not-allowed; }
+
+/* Taglia piccola, dove la riga e' fitta (liste, servizi). */
+.switch.switch-sm { --sw-w: 40px; --sw-h: 22px; --sw-k: 16px; }

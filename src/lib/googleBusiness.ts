@@ -799,8 +799,11 @@ export async function listaRecensioni(
   let total = 0;
   let error = "";
   let pageToken = "";
-  for (let i = 0; i < 40; i++) {
-    // fino a 40 pagine (2000 recensioni) di sicurezza
+  // Tetto anti-runaway: 200 pagine da 50 = 10 000 recensioni. Era 40 (2000),
+  // e una scheda oltre quella soglia perdeva il resto SENZA dirlo — vedi il
+  // messaggio qui sotto: se il tetto si tocca davvero, ora si legge nei log.
+  const MAX_PAGINE = 200;
+  for (let i = 0; i < MAX_PAGINE; i++) {
     const url =
       `https://mybusiness.googleapis.com/v4/${path}/reviews?pageSize=50` + (pageToken ? `&pageToken=${pageToken}` : "");
     const { data: j, error: e } = await gGetErr<{
@@ -831,6 +834,11 @@ export async function listaRecensioni(
     }
     pageToken = String(j.nextPageToken ?? "");
     if (!pageToken) break;
+    if (i === MAX_PAGINE - 1) {
+      console.error(
+        `[google] recensioni troncate al tetto di ${MAX_PAGINE} pagine (${out.length} lette, totale dichiarato ${total}): alzare MAX_PAGINE.`
+      );
+    }
   }
   return { reviews: out, average, total, error };
 }
@@ -968,10 +976,23 @@ export async function sincronizzaRecensioni(): Promise<{
   const nowISO = new Date().toISOString();
 
   // Recensioni gia' note (per rilevare le NUOVE e notificare l'admin).
+  // ⚠️ Anche qui a PAGINE DI 1000, e qui il troncamento faceva un danno vero:
+  // oltre le mille recensioni gli id mancanti facevano sembrare NUOVE delle
+  // recensioni vecchie, e il ristoratore riceveva una notifica push per una
+  // recensione di mesi prima. Con 1138 recensioni stava gia' succedendo.
   let idsEsistenti = new Set<string>();
   try {
-    const { data: ex } = await supabaseAdmin.from("google_reviews").select("review_id");
-    idsEsistenti = new Set((ex ?? []).map((x) => String((x as { review_id?: unknown }).review_id ?? "")));
+    const PAGINA = 1000;
+    for (let da = 0; ; da += PAGINA) {
+      const { data: ex, error } = await supabaseAdmin
+        .from("google_reviews")
+        .select("review_id")
+        .order("review_id", { ascending: true })
+        .range(da, da + PAGINA - 1);
+      if (error) throw error;
+      for (const x of ex ?? []) idsEsistenti.add(String((x as { review_id?: unknown }).review_id ?? ""));
+      if (!ex || ex.length < PAGINA) break;
+    }
   } catch { /* best-effort: se fallisce, semplicemente non notifica */ }
 
   let dbError = "";

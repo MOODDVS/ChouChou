@@ -1,5 +1,10 @@
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "./db";
+// ⚠️ `./db` NON si importa qui in cima. Creare il client Supabase pretende
+// SUPABASE_URL e SUPABASE_SERVICE_KEY e, se mancano, quel modulo LANCIA
+// all'import. Questo file e' quasi tutto calcolo puro (slot, orari), e con
+// l'import in cima moriva chiunque lo usasse senza variabili d'ambiente:
+// `slots.test.ts` non riusciva nemmeno a partire. Il client serve in un punto
+// solo, dentro una funzione gia' async, quindi si carica li'.
 
 /**
  * Fuso orario del RISTORANTE. Default Bruxelles; il valore vero arriva da
@@ -15,6 +20,7 @@ export async function aggiornaTimezone(): Promise<string> {
   if (adesso - tzUltimaLettura < 60_000) return TIMEZONE;
   tzUltimaLettura = adesso;
   try {
+    const { supabaseAdmin } = await import("./db");
     const { data } = await supabaseAdmin
       .from("app_config")
       .select("value")

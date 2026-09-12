@@ -297,19 +297,44 @@ export const PATCH: APIRoute = async ({ request }) => {
     depthDi.set(n.id, d);
   }
 
+  // Un giro solo per le sezioni, e per i piatti SOLO quelle che si sono
+  // davvero mosse. Prima erano due UPDATE in sequenza per ogni sezione: con
+  // venti sezioni, quaranta andate e ritorno verso il database per spostare
+  // una riga di un posto — ed e' li' che se ne andavano i secondi.
+  const attuale = new Map(cats.map((c) => [c.id, c]));
+  const righe: { id: string; name: string; kind: string; sort_order: number; parent_id: string | null; depth: number }[] = [];
+  const ordineCambiato: string[] = []; // NOMI delle sezioni il cui posto cambia
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
-    const { error: e1 } = await supabaseAdmin
-      .from("menu_categories")
-      .update({ sort_order: i + 1, parent_id: n.parent_id, depth: depthDi.get(n.id) ?? 0 })
-      .eq("id", n.id);
-    if (e1) return json({ error: "Enregistrement impossible" }, 500);
-    const { error: e2 } = await supabaseAdmin
-      .from("menu_items")
-      .update({ category_order: i + 1 })
-      .eq("category", perId.get(n.id)!);
-    if (e2) return json({ error: "Plats non synchronisés" }, 500);
+    const cur = attuale.get(n.id)!;
+    const sort = i + 1;
+    const depth = depthDi.get(n.id) ?? 0;
+    if (cur.sort_order === sort && (cur.parent_id ?? null) === n.parent_id && (cur.depth ?? 0) === depth) continue;
+    // `name` e `kind` vanno rimandati indietro identici: l'upsert e' un INSERT
+    // con ON CONFLICT, e le colonne NOT NULL devono esserci comunque.
+    righe.push({ id: n.id, name: cur.name, kind: cur.kind, sort_order: sort, parent_id: n.parent_id, depth });
+    if (cur.sort_order !== sort) ordineCambiato.push(cur.name);
   }
+  if (righe.length === 0) return json({ ok: true, invariato: true });
+
+  let up = await supabaseAdmin.from("menu_categories").upsert(righe, { onConflict: "id" });
+  if (up.error && (String(up.error.message ?? "").includes("parent_id") || String(up.error.message ?? "").includes("depth"))) {
+    // Cliente non ancora migrato: si salva almeno l'ordine (come leggiCategorie).
+    up = await supabaseAdmin
+      .from("menu_categories")
+      .upsert(righe.map((r) => ({ id: r.id, name: r.name, kind: r.kind, sort_order: r.sort_order })), { onConflict: "id" });
+  }
+  if (up.error) return json({ error: "Enregistrement impossible" }, 500);
+
+  // I piatti portano l'ordine della loro sezione per NOME: si toccano solo
+  // quelli delle sezioni che hanno cambiato posto, e in parallelo.
+  const perNome = new Map(righe.map((r) => [r.name, r.sort_order]));
+  const esiti = await Promise.all(
+    ordineCambiato.map((nome) =>
+      supabaseAdmin.from("menu_items").update({ category_order: perNome.get(nome)! }).eq("category", nome)
+    )
+  );
+  if (esiti.some((r) => r.error)) return json({ error: "Plats non synchronisés" }, 500);
   return json({ ok: true });
 };
 

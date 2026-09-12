@@ -570,11 +570,13 @@ export const PATCH: APIRoute = async ({ request }) => {
       total_cents: totale,
       lang: String(prima.lang ?? "fr"),
     };
-    try {
-      await inviaAnnullaOrdine(notif, { refundMode, refund_cents: residuo });
-    } catch {
+    // NON si aspetta l'email: l'annullamento e' gia scritto nel database e
+    // la risposta deve tornare subito, altrimenti l'admin resta fermo per
+    // secondi sul bottone e pensa che non sia successo niente.
+    // (Stesso trattamento di `inviaNotifiche` alla creazione dell'ordine.)
+    void inviaAnnullaOrdine(notif, { refundMode, refund_cents: residuo }).catch(() => {
       /* l'annullamento resta valido anche se l'email fallisce */
-    }
+    });
   }
 
   return json({ ok: true });

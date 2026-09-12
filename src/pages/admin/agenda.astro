@@ -7,6 +7,7 @@ import AdminNav from "../../components/admin/AdminNav.astro";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
@@ -95,14 +96,7 @@ const pubLangsJson = JSON.stringify({
       .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .actionsbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-      .pill {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-weight: 700; font-size: 0.85rem;
-        padding: 0.55rem 1.1rem; cursor: pointer; border-radius: 999px;
-        transition: border-color 0.2s;
-      }
-      .pill:hover { border-color: var(--c-accent); }
-      #c-buy { background: var(--c-input); }
+      /* Bottoni d'azione: componente condiviso (src/styles/button.css, .btn). */
       /* Pillole segmenti/programmazione nel modale newsletter */
       .seg-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .seg-pill {
@@ -165,21 +159,7 @@ const pubLangsJson = JSON.stringify({
       .m-tag.gold { border-color: color-mix(in srgb, var(--c-accent) 50%, transparent); color: var(--c-accent); }
       .pop-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
 
-      /* Switch */
-      .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
-      .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
-      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track {
-        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-line); transition: background 0.2s;
-      }
-      .switch .track::before {
-        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
-        border-radius: 50%; background: var(--c-bg); transition: transform 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(20px); }
+      /* Interruttore: componente condiviso (src/styles/switch.css). */
 
       /* Bottoni icona (come le altre pagine admin) */
       .i-btn {
@@ -195,39 +175,30 @@ const pubLangsJson = JSON.stringify({
       .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
-      /* Modale form */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        justify-content: center; padding: 3vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      /* margin auto = sempre centrato, ma scrollabile se più alto dello schermo */
-      .modal { width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; margin: auto; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: inherit; margin-bottom: 0; padding-bottom: 0.9rem; }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: inherit; }
-      /* Modale evento: 2 colonne, header/footer fissi, scroll nelle colonne */
-      #overlay .modal { max-width: 920px; display: flex; flex-direction: column; overflow: hidden; }
-      #overlay .modal > h2 { position: static; flex: 0 0 auto; }
-      #overlay .modal > .m-foot { position: static; flex: 0 0 auto; margin-top: 0.6rem; }
+      /* Modale evento — guscio, titolo, × e bottoni: classi .md-* in
+         src/styles/modal.css. Qui resta SOLO la disposizione a due colonne.
+         DEROGA VOLUTA al guscio: qui NON scorre il corpo, scorrono le due
+         colonne SEPARATAMENTE. Sono due contenuti indipendenti (a sinistra i
+         titoli per lingua, a destra le descrizioni lunghe): con una barra sola
+         per scrivere la descrizione EN si perderebbe di vista il titolo EN.
+         Percio' il corpo e' `overflow: hidden` e la barra sta nelle colonne. */
+      #overlay .md-body { display: flex; overflow: hidden; }
       #overlay .m-cols { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: stretch; overflow: hidden; }
       #overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
-      /* 760/761: la coppia dei modali a due colonne (prenotazioni, menu).
-         display:block e NON grid a una colonna: con il grid le due meta si
-         accavallavano (il contenitore ha un'altezza definita dal flex, le
-         righe implicite non bastano). In flusso normale e' impossibile.
-         Stessa soluzione gia adottata nei modali di menu.astro. */
+      /* 760/761 (eccezione dichiarata di questa pagina, vedi ENGINE.md): le
+         colonne si impilano e torna la barra unica del corpo — due barre
+         affiancate hanno senso, due impilate no.
+         `display: block` e NON grid a una colonna: col grid le due meta si
+         accavallavano, perche il contenitore ha un'altezza definita dal flex
+         e le righe implicite non bastano. In flusso normale e' impossibile. */
       @media (max-width: 760px) {
-        #overlay .m-cols { display: block; overflow-y: auto; }
-        #overlay .m-col { min-height: 0; overflow: visible; padding-right: 0; }
+        #overlay .md-body { display: block; overflow-y: auto; }
+        #overlay .m-cols { display: block; overflow: visible; }
+        #overlay .m-col { overflow: visible; padding-right: 0; }
         #overlay .m-col + .m-col { margin-top: 1.3rem; }
       }
-      #overlay .m-foot { display: flex; justify-content: flex-end; align-items: center; gap: 0.8rem; border-top: 1px solid var(--c-line); padding-top: 1.1rem; margin-top: 0.4rem; }
-      #overlay .m-foot .m-err { margin-right: auto; color: #ff6b6b; font-size: 0.85rem; }
-      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
-      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
+      /* Il messaggio d'errore spinge i bottoni a destra e resta a sinistra. */
+      #overlay .md-foot .m-err { margin-right: auto; }
       .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
       .f-img-prev { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
       .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -242,20 +213,12 @@ const pubLangsJson = JSON.stringify({
       #overlay .m-tab { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem; border-radius: 999px; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
       #overlay .m-tab:hover { color: var(--c-text); }
       #overlay .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
 
       .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.1rem 0 0.4rem; }
       .f-lab:first-of-type { margin-top: 0; }
-      .f-input, .f-area {
-        width: 100%; background: var(--c-card); border: 1px solid var(--c-line);
-        color: var(--c-text); font-family: var(--font-body); font-size: 0.95rem;
-        padding: 0.65rem 0.85rem; border-radius: 8px; transition: border-color 0.2s;
-      }
-      .f-input::placeholder, .f-area::placeholder { color: var(--c-muted); opacity: 0.7; }
-      .f-input:focus, .f-area:focus { outline: none; border-color: var(--c-accent); }
-      .f-area { min-height: 90px; resize: vertical; }
+      /* Fondo, bordo, angoli e focus dei campi arrivano da field.css: qui
+         resta solo l'altezza minima piu' generosa delle aree di testo. */
+      .f-area { min-height: 90px; }
       /* Editor rich text (descrizione lunga evento) */
       .rte { border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-card); overflow: hidden; }
       .rte-tb { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.4rem; border-bottom: 1px solid var(--c-line); background: color-mix(in srgb, var(--c-line) 22%, transparent); }
@@ -360,15 +323,6 @@ const pubLangsJson = JSON.stringify({
       .gc-tel input[type="tel"] { flex: 1 1 auto; min-width: 0; }
 
 
-      .m-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
-      .m-save {
-        background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 1.6rem; cursor: pointer; border-radius: 999px;
-        transition: filter 0.2s;
-      }
-      .m-save:hover { filter: brightness(1.1); }
-      .m-save:disabled { opacity: 0.5; cursor: wait; }
       .m-err { color: #ff6b6b; font-size: 0.85rem; }
 
       /* Newsletter */
@@ -396,7 +350,6 @@ const pubLangsJson = JSON.stringify({
       .n-row-subject { flex: 1; font-weight: 700; }
       .n-row-count { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-accent); white-space: nowrap; }
       .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
-      .m-save.confirm { background: #a3320f; border-color: #a3320f; color: #fff; }
 
       /* Toast */
       .toast {
@@ -470,19 +423,15 @@ const pubLangsJson = JSON.stringify({
     <div class="toast" id="toast"></div>
 
     <!-- Modale creazione/modifica evento -->
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <button class="m-close" id="m-close" type="button" aria-label={t("common.close")}>&times;</button>
-        <h2 id="m-title">{t("ag.newTitle")}</h2>
-
-        <div class="m-cols">
+    <Modal id="overlay" title={t("ag.newTitle")} titleId="m-title" width="920px">
+      <div class="m-cols">
         <div class="m-col">
         <label class="f-lab">{t("menu.photoOpt")}</label>
         <div class="f-img-row">
           <span class="f-img-prev" id="f-img-prev"></span>
-          <button class="pill" id="f-upload" type="button">{t("cli.uploadPhoto")}</button>
-          <button class="pill" id="f-lib" type="button">{t("menu.library")}</button>
-          <button class="pill" id="f-img-del" type="button" style="display:none">{t("ord.remove")}</button>
+          <button class="btn" id="f-upload" type="button">{t("cli.uploadPhoto")}</button>
+          <button class="btn" id="f-lib" type="button">{t("menu.library")}</button>
+          <button class="btn btn-danger" id="f-img-del" type="button" style="display:none">{t("ord.remove")}</button>
           <input type="hidden" id="f-img" />
           <input type="file" id="f-file" accept="image/*" style="display:none" />
           <span class="f-hint" id="f-upload-state"></span>
@@ -504,8 +453,8 @@ const pubLangsJson = JSON.stringify({
         <div class="m-pane" data-pane="gallery" style="display:none">
           <label class="f-lab">{t("ag.gallery")}</label>
           <div class="f-row">
-            <button class="pill" id="f-gal-add" type="button">+ {t("ag.galleryAdd")}</button>
-            <button class="pill" id="f-gal-lib" type="button">{t("menu.library")}</button>
+            <button class="btn" id="f-gal-add" type="button">+ {t("ag.galleryAdd")}</button>
+            <button class="btn" id="f-gal-lib" type="button">{t("menu.library")}</button>
             <input type="file" id="f-gal-file" accept="image/*" multiple style="display:none" />
           </div>
           <p class="f-hint" id="f-gal-state"></p>
@@ -531,7 +480,7 @@ const pubLangsJson = JSON.stringify({
 
           <label class="f-lab">{t("ag.links")}</label>
           <div id="f-links"></div>
-          <button class="pill" id="f-link-add" type="button" style="margin-top:0.4rem">+ {t("ag.linkAdd")}</button>
+          <button class="btn" id="f-link-add" type="button" style="margin-top:0.4rem">+ {t("ag.linkAdd")}</button>
 
           <div class="f-row" style="align-items:center;margin-top:1.2rem">
             <span class="sw-wrap">
@@ -547,18 +496,17 @@ const pubLangsJson = JSON.stringify({
         </div>
         </div>
 
-        <div class="m-foot">
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">{t("menu.active")}</span>
-          </span>
-          <span class="m-err" id="m-err"></span>
-          <button class="m-cancel" id="m-draft" type="button">{t("menu.saveDraft")}</button>
-          <button class="m-cancel" id="m-cancel-btn" type="button">{t("common.cancel")}</button>
-          <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="sw-wrap">
+          <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
+          <span class="sw-lab">{t("menu.active")}</span>
+        </span>
+        <span class="m-err" id="m-err"></span>
+        <button class="md-btn" id="m-draft" type="button">{t("menu.saveDraft")}</button>
+        <button class="md-btn" id="m-cancel-btn" type="button">{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="m-save" type="button">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
 
     <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
     <ImagePicker />
@@ -874,10 +822,10 @@ const pubLangsJson = JSON.stringify({
           (ev?.links ?? []).forEach((l) => addLinkRow(l.label, l.url));
           fRsvp.checked = ev?.rsvp ?? false;
           fActive.checked = ev ? ev.active : true;
-          overlay.classList.add("is-open");
+          overlay.hidden = false;
         }
         function chiudiModale() {
-          overlay.classList.remove("is-open");
+          overlay.hidden = true;
         }
 
         // ---------- Datepicker (brand, come Marketing/Réglages) ----------
@@ -1156,10 +1104,8 @@ const pubLangsJson = JSON.stringify({
         document.getElementById("m-cancel-btn")!.addEventListener("click", chiudiModale);
 
         document.getElementById("add-btn")!.addEventListener("click", () => apriModale(null));
-        document.getElementById("m-close")!.addEventListener("click", chiudiModale);
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) chiudiModale();
-        });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiModale));
 
         // ---------- Azioni sulle card ----------
         listEl.addEventListener("click", async (e) => {

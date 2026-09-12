@@ -9,6 +9,7 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -93,13 +94,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .mtab.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .actionsbar { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-      .pill {
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        font-family: var(--font-body); font-weight: 700; font-size: 0.85rem;
-        padding: 0.55rem 1.1rem; cursor: pointer; border-radius: 999px;
-        transition: border-color 0.2s;
-      }
-      .pill:hover { border-color: var(--c-accent); }
+      /* Bottoni d'azione: componente condiviso (src/styles/button.css, .btn). */
       /* Un FAB per tab: il look e la posizione vengono da fab.css, qui c'e'
          solo «quale si vede». Doppia classe per vincere sul display:inline-flex
          di .fab-pill senza dipendere dall'ordine dei fogli. */
@@ -169,20 +164,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .pop-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
 
       /* Switch */
-      .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
-      .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
-      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track {
-        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-line); transition: background 0.2s;
-      }
-      .switch .track::before {
-        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px;
-        border-radius: 50%; background: var(--c-bg); transition: transform 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(20px); }
+      /* Interruttore: componente condiviso (src/styles/switch.css). */
 
       /* Bottoni icona (come le altre pagine admin) */
       .i-btn {
@@ -198,24 +180,16 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
 
-      /* Modale form */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        justify-content: center; padding: 3vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      /* margin auto = sempre centrato, ma scrollabile se più alto dello schermo */
-      .modal { --pad: 1.75rem; width: 100%; max-width: 640px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 0 var(--pad); position: relative; margin: auto; }
-      .modal { max-height: 90vh; overflow-y: auto; }
-      /* Header (titolo) e footer (azioni) fissi, corpo scrollabile */
-      .modal > h2 { position: sticky; top: 0; z-index: 6; background: var(--c-bg); margin: 0 calc(-1 * var(--pad)) 0.9rem; padding: var(--pad) var(--pad) 0.9rem; border-bottom: 1px solid var(--c-line); }
-      .modal > .m-actions, .modal > .m-foot { position: sticky; bottom: 0; z-index: 6; background: var(--c-bg); margin: 1.6rem calc(-1 * var(--pad)) 0; padding: 1rem var(--pad) var(--pad); border-top: 1px solid var(--c-line); }
+      /* Modali: il guscio fatto a mano (.overlay / .modal / .m-close / .m-save)
+         NON C'E' PIU'. Tutti e sette i modali della pagina usano <Modal> +
+         modal.css; qui restano solo le deroghe per singolo modale.
+         `.f-lab`, `.f-input` e `.m-err` invece SERVONO ancora: sono etichette,
+         campi e messaggi dentro le scatole condivise. */
       /* Pop-up: Salva sempre a destra nel footer */
-      #overlay .m-foot .m-save { margin-left: auto; order: 3; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: sticky; top: 0.85rem; float: right; z-index: 8; margin: 0 0 -1.9rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
+      /* Attivo a sinistra, errore accanto, bottoni a destra. */
+      #overlay .md-foot { justify-content: flex-start; }
+      #overlay .md-foot .m-err { min-width: 0; }
+      #overlay .md-foot .md-btn:first-of-type { margin-left: auto; }
 
       .f-lab { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-muted); margin: 1.1rem 0 0.4rem; }
       .f-lab:first-of-type { margin-top: 0; }
@@ -249,7 +223,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .f-date { cursor: pointer; }
 
       /* Modale coupon: più largo e con più aria fra le sezioni (solo qui) */
-      #cp-overlay .modal { max-width: 780px; --pad: 2.25rem; padding: 0 var(--pad); }
       #cp-overlay .f-lab { margin-top: 1.75rem; }
       #cp-overlay .f-lab:first-of-type { margin-top: 0; }
       #cp-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
@@ -257,15 +230,16 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       #cp-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
       #cp-overlay .sched-block { margin-top: 1.2rem; }
       #cp-overlay .f-hint { margin-top: 0.1rem; }
-      #cp-overlay .m-foot { margin-top: 2.4rem; }
+      /* Interruttori a sinistra, errore, bottoni a destra. */
+      #cp-overlay .md-foot { justify-content: flex-start; gap: 0.7rem 1rem; }
+      #cp-overlay .md-foot .m-err:empty { display: none; }
+      #cp-overlay .md-foot .md-btn:first-of-type { margin-left: auto; }
       /* Bon cadeau: stessa aria del modale coupon tra le righe */
-      #gc-overlay .modal { --pad: 2.25rem; padding: 0 var(--pad); }
       #gc-overlay .f-lab { margin-top: 1.75rem; }
       #gc-overlay .f-lab:first-of-type { margin-top: 0; }
       #gc-overlay .f-row .f-lab { margin-top: 0; }
       #gc-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
       #gc-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
-      #gc-overlay .m-foot { margin-top: 2.4rem; }
       .gc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.6rem; }
       .gc-step { flex: 1; text-align: center; min-width: 60px; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); border-bottom: 2px solid var(--c-line); padding-bottom: 0.45rem; }
       .gc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
@@ -282,19 +256,51 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .gc-cell-k { color: var(--c-muted); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .gc-cell-v { color: var(--c-text); font-weight: 700; font-size: 0.95rem; word-break: break-word; }
       #gc-send-box { margin-top: 1.6rem; }
-      #gc-overlay #gc-prev { color: var(--c-muted); }
       #gc-overlay .f-lab + .f-row { margin-top: 0; }
-      #gc-overlay .m-foot { flex-wrap: wrap; }
-      #gc-overlay .m-foot .m-err { flex-basis: 100%; order: -1; margin: 0 0 0.2rem; }
-      #gc-overlay .m-err:empty { display: none; }
-      #gc-overlay .m-foot #gc-prev { margin-right: auto; }
-      #gc-overlay .m-foot #gc-next, #gc-overlay .m-foot #gc-save { margin-left: auto; }
-      #gc-overlay .m-save:disabled { opacity: 0.45; cursor: not-allowed; }
+      /* «Indietro» a sinistra, il resto a destra. L'errore prende tutta la
+         riga SOPRA i bottoni (`order: -1`): qui puo' essere lungo e schiacciato
+         di fianco diventerebbe illeggibile. */
+      #gc-overlay .md-foot .m-err { flex-basis: 100%; order: -1; margin: 0 0 0.2rem; }
+      #gc-overlay .md-foot .m-err:empty { display: none; }
+      #gc-overlay .md-foot #gc-prev { margin-right: auto; }
       .gc-val { font-family: var(--font-title); font-size: 1.55rem; letter-spacing: 0.03em; color: var(--c-accent); line-height: 1.1; margin: 0.15rem 0 0.1rem; }
       .gc-val .gc-val-sur { font-family: var(--font-body); font-size: 0.78rem; font-weight: 700; letter-spacing: 0; color: var(--c-muted); margin-left: 0.4rem; }
-      .gc-lines { display: flex; flex-direction: column; gap: 0.18rem; margin-top: 0.55rem; }
-      .gc-lines .gc-line { font-size: 0.82rem; color: var(--c-muted); }
+      /* Destinatario, offrente e scadenza sono l'informazione per cui si apre
+         la pagina: a 0.82rem erano piu' piccoli della nota a margine. */
+      .gc-lines { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.7rem; }
+      /* Icona a larghezza fissa + dato: i quattro dati si incolonnano da soli,
+         senza dipendere da quanto e' lunga l'etichetta tradotta. */
+      .gc-lines .gc-line { display: grid; grid-template-columns: 20px 1fr; gap: 0.55rem; align-items: center; font-size: 0.95rem; color: var(--c-muted); }
       .gc-lines .gc-line b { color: var(--c-text); font-weight: 700; }
+      .gc-line-ico { display: inline-flex; align-items: center; justify-content: center; color: var(--c-accent); }
+      .gc-ico { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .gc-line-txt { min-width: 0; overflow-wrap: anywhere; }
+      .gc-line-unit { font-weight: 400; color: var(--c-muted); }
+      /* Il registro parte sotto il TESTO, non sotto l'icona: e' figlio di
+         .gc-lines (flex), non della griglia della riga, quindi si allinea
+         con un margine pari a icona + gap. */
+      .gc-lines .gc-log { margin-left: calc(20px + 0.55rem); }
+      /* Etichetta letta dagli screen reader, invisibile a schermo: le icone
+         da sole non dicono «Per», «Da parte di», «Scade il», «Usato». */
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+      /* La card usabile E' il bottone «Usa». Il contorno corallo al passaggio
+         dice che si puo' toccare; quella non usabile resta inerte. */
+      #giftcards .pop.gc-clic { cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+      #giftcards .pop.gc-clic:hover { border-color: var(--c-accent); transform: translateY(-2px); }
+      #giftcards .pop.gc-clic:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+      /* I comandi dentro la card non ereditano il puntatore della card. */
+      #giftcards .pop.gc-clic .pop-actions { cursor: default; }
+      /* Registro dei riscatti: rientrato sotto «Usato N volte», con un filetto
+         a sinistra che lo lega alla riga da cui dipende. Altezza limitata e
+         scorrevole, cosi' un buono usato quindici volte non allunga la card
+         e non sfalsa la griglia. */
+      .gc-log { list-style: none; margin: 0.15rem 0 0; padding: 0 0 0 0.7rem;
+        border-left: 2px solid color-mix(in srgb, var(--c-accent) 35%, transparent);
+        display: flex; flex-direction: column; gap: 0.22rem;
+        max-height: 7.5rem; overflow-y: auto; }
+      .gc-log-row { display: flex; align-items: baseline; gap: 0.45rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--c-muted); }
+      .gc-log-amt { color: var(--c-accent); font-weight: 700; }
+      .gc-log-note { min-width: 0; overflow-wrap: anywhere; }
       #giftcards .pop-actions .i-edit { margin-left: auto; }
       #giftcards .pop { position: relative; }
       #giftcards .pop.is-pending { opacity: 0.62; }
@@ -312,10 +318,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .gs-pack:hover { border-color: var(--c-accent); transform: translateY(-2px); }
       .gs-pack:disabled { opacity: 0.5; cursor: wait; transform: none; }
       .gs-pack.is-on { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
-      #gs-overlay .m-foot .m-save { margin-left: auto; }
-      #gs-overlay .m-save:disabled { opacity: 0.45; cursor: not-allowed; }
-      .m-ghost { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 1rem; padding: 0.6rem 1.3rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: border-color 0.15s, color 0.15s; }
-      .m-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
+      .gs-intro { margin: 0 0 1.2rem; }
+      .gs-msg { margin-top: 1rem; }
+      .gs-msg:empty { display: none; }
       .gs-qty { color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
       .gs-price { font-family: var(--font-title); font-size: 1.7rem; color: var(--c-accent); letter-spacing: 0.03em; }
       .gs-unit { color: var(--c-muted); font-size: 0.72rem; }
@@ -332,18 +337,21 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .gc-tel input[type="tel"] { flex: 1 1 auto; min-width: 0; }
 
 
-      .m-foot { display: flex; align-items: center; gap: 1rem; margin-top: 1.6rem; }
-      .m-foot--news { flex-direction: column; align-items: stretch; gap: 0.7rem; }
-      .m-foot--news .m-foot-note { margin: 0; font-size: 0.72rem; line-height: 1.45; color: var(--c-muted); }
-      .m-foot--news .m-foot-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
-      .m-save {
-        background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 1.6rem; cursor: pointer; border-radius: 999px;
-        transition: filter 0.2s;
-      }
-      .m-save:hover { filter: brightness(1.1); }
-      .m-save:disabled { opacity: 0.5; cursor: wait; }
+      /* «Usa buono»: il saldo in cima, poi i due campi. L'importo non deve
+         prendere tutta la riga — e' un numero corto, un campo largo fa
+         pensare che ci vada dell'altro. */
+      .gcu-info { margin: 0 0 1rem; }
+      #gc-use-amount { max-width: 200px; }
+      #gc-use-overlay .f-lab:first-of-type { margin-top: 0; }
+      #gc-use-overlay .md-foot .m-err { margin-right: auto; }
+      #gc-use-overlay .md-foot .m-err:empty { display: none; }
+      /* Newsletter: l'avviso sulla disiscrizione sta SOPRA i bottoni e occupa
+         tutta la riga — e' un obbligo di legge, non una nota a margine. */
+      #n-overlay .md-foot { flex-direction: column; align-items: stretch; gap: 0.7rem; }
+      .m-foot-note { margin: 0; font-size: 0.72rem; line-height: 1.45; color: var(--c-muted); }
+      .m-foot-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; flex-wrap: wrap; }
+      .m-foot-row .m-err { margin-right: auto; }
+      .m-foot-row .m-err:empty { display: none; }
       .m-err { color: #ff6b6b; font-size: 0.85rem; }
       .f-img-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
       .f-img-prev { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-input); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; color: var(--c-muted); }
@@ -371,6 +379,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .n-stat-sub { font-size: 1.1rem; color: var(--c-muted); margin-left: 0.4rem; }
       .n-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
       .n-stat-note { display: block; color: var(--c-muted); font-size: 0.78rem; margin-top: 0.5rem; }
+      .c-info { margin-bottom: 1.1rem; }
+      /* L'errore spinge i bottoni a destra; da vuoto non occupa spazio. */
+      #c-overlay .md-foot .m-err { margin-right: auto; }
+      #c-overlay .md-foot .m-err:empty { display: none; }
       .c-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
       .c-pack {
         display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
@@ -388,7 +400,12 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .n-row-subject { flex: 1; font-weight: 700; }
       .n-row-count { font-family: var(--font-title); font-size: 1.1rem; color: var(--c-accent); white-space: nowrap; }
       .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
-      .m-save.confirm { background: #a3320f; border-color: #a3320f; color: #fff; }
+      /* Secondo tempo del bottone di conferma («Invia a tutti»). Era scritto
+         `.m-save.confirm`, ma quel bottone e' passato a `.md-btn` in una
+         conversione precedente: la regola non agganciava piu' niente e il
+         secondo tempo cambiava solo il testo, senza diventare rosso. */
+      .md-btn-primary.confirm { background: #a3320f; border-color: #a3320f; color: #fff; }
+      .md-btn-primary.confirm:hover { filter: none; background: #a3320f; color: #fff; }
 
       /* Toast */
       .toast {
@@ -449,7 +466,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         <div id="tab-giftcards" style="display:none">
           <div class="actionsbar">
-            <button class="pill" id="gc-shop">{t("mk.buyVouchers")}</button>
+            <button class="btn" id="gc-shop">{t("mk.buyVouchers")}</button>
           </div>
           <div class="state" id="gc-empty" style="display:none">
             {t("mk.giftEmpty")}
@@ -478,7 +495,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               <div class="n-stat-lab">{t("mk.sendsRemaining")}</div>
               <div class="n-stat-row">
                 <div class="n-stat-big" id="n-remaining">—</div>
-                <button class="pill" id="c-buy" type="button">+ {t("mk.addCredits")}</button>
+                <button class="btn" id="c-buy" type="button">+ {t("mk.addCredits")}</button>
               </div>
               <span class="n-stat-note" id="n-purchased"></span>
             </div>
@@ -512,11 +529,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
     <script id="pub-langs" type="application/json" is:inline set:html={pubLangsJson}></script>
     <script id="site-pages" type="application/json" is:inline set:html={sitePagesJson}></script>
     <!-- Modale creazione/modifica -->
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <button class="m-close" id="m-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2 id="m-title">{t("mk.newPopup")}</h2>
-
+    <Modal id="overlay" title={t("mk.newPopup")} titleId="m-title" width="640px">
         <div class="picks picks--lang" id="f-lang"></div>
         <p class="f-hint" style="margin:0.4rem 0 0.9rem">
           {t("mk.popupLangHint")}
@@ -533,9 +546,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <label class="f-lab">{t("mk.image")}</label>
         <div class="f-img-row">
           <span class="f-img-prev" id="f-img-prev"></span>
-          <button type="button" class="pill" id="f-upload">{t("cli.uploadPhoto")}</button>
-          <button type="button" class="pill" id="f-lib">{t("menu.library")}</button>
-          <button type="button" class="pill" id="f-img-del" style="display:none">{t("ord.remove")}</button>
+          <button type="button" class="btn" id="f-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="btn" id="f-lib">{t("menu.library")}</button>
+          <button type="button" class="btn btn-danger" id="f-img-del" style="display:none">{t("ord.remove")}</button>
           <input type="file" id="f-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
           <span class="f-hint" id="f-upload-state"></span>
         </div>
@@ -584,24 +597,20 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         <label class="f-lab" for="f-max">{t("mk.maxViews")}</label>
         <input type="number" class="f-input" id="f-max" min="1" max="10" value="3" style="max-width:120px" />
-
-        <div class="m-foot">
-          <button class="m-save" id="m-save" type="button">{t("common.save")}</button>
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">{t("menu.active")}</span>
-          </span>
-          <span class="m-err" id="m-err"></span>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="sw-wrap">
+          <label class="switch"><input type="checkbox" id="f-active" checked /><span class="track"></span></label>
+          <span class="sw-lab">{t("menu.active")}</span>
+        </span>
+        <span class="m-err" id="m-err"></span>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="m-save" type="button">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale acquisto crediti -->
-    <div class="overlay" id="c-overlay">
-      <div class="modal" style="max-width:520px">
-        <button class="m-close" id="c-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2>{t("mk.buyCredits")}</h2>
-        <p class="f-hint" style="margin-bottom:1.1rem">
+    <Modal id="c-overlay" title={t("mk.buyCredits")} width="520px">
+        <p class="f-hint c-info">
           {t("mk.creditsInfo")}
         </p>
         <div class="c-packs">
@@ -610,19 +619,15 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <button class="c-pack" type="button" data-pack="2000" data-price="14,99 €"><span class="c-pack-n">+2000</span><span class="c-pack-p">14,99&nbsp;€</span></button>
           <button class="c-pack" type="button" data-pack="5000" data-price="29,99 €"><span class="c-pack-n">+5000</span><span class="c-pack-p">29,99&nbsp;€</span></button>
         </div>
-        <div class="m-foot" id="c-foot" style="display:none">
-          <button class="m-save" id="c-checkout" type="button">{t("mk.pay")}</button>
-          <span class="m-err" id="c-err"></span>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="m-err" id="c-err"></span>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="c-checkout" type="button" disabled>{t("mk.pay")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale nuova newsletter -->
-    <div class="overlay" id="n-overlay">
-      <div class="modal">
-        <button class="m-close" id="n-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2>{t("mk.newNewsletter")}</h2>
-
+    <Modal id="n-overlay" title={t("mk.newNewsletter")} width="640px">
         <label class="f-lab">{t("mk.newsRecipientsLang")}</label>
         <div class="seg-row" id="n-lang"></div>
         <label class="f-lab">{t("mk.newsRecipientsGroup")}</label>
@@ -631,9 +636,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <label class="f-lab">{t("mk.image")}</label>
         <div class="f-img-row">
           <span class="f-img-prev" id="n-img-prev"></span>
-          <button type="button" class="pill" id="n-upload">{t("cli.uploadPhoto")}</button>
-          <button type="button" class="pill" id="n-lib">{t("menu.library")}</button>
-          <button type="button" class="pill" id="n-img-del" style="display:none">{t("ord.remove")}</button>
+          <button type="button" class="btn" id="n-upload">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="btn" id="n-lib">{t("menu.library")}</button>
+          <button type="button" class="btn btn-danger" id="n-img-del" style="display:none">{t("ord.remove")}</button>
           <input type="file" id="n-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display:none" />
           <span class="f-hint" id="n-upload-state"></span>
         </div>
@@ -649,14 +654,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <div class="f-row">
           <input type="text" class="f-input" id="n-btnl" placeholder={t("mk.btnLabelMenuPh")} />
           <input type="text" class="f-input" id="n-btnu" placeholder={t("mk.linkHttpsPh")} />
-          <button class="pill asset-pick" type="button" data-target="n-btnu" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
+          <button class="btn asset-pick" type="button" data-target="n-btnu" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
         </div>
 
         <label class="f-lab">{t("mk.btn2Opt")}</label>
         <div class="f-row">
           <input type="text" class="f-input" id="n-btn2l" placeholder={t("mk.btnLabelBookTablePh")} />
           <input type="text" class="f-input" id="n-btn2u" placeholder={t("mk.linkHttpsPh")} />
-          <button class="pill asset-pick" type="button" data-target="n-btn2u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
+          <button class="btn asset-pick" type="button" data-target="n-btn2u" title={t("mk.chooseAsset")}>{t("nav.assets")}</button>
         </div>
 
         <label class="f-lab">{t("mk.send")}</label>
@@ -673,24 +678,20 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <select class="f-input" id="np-heure" style="max-width:110px"></select>
         </div>
 
-        <div class="m-foot m-foot--news">
-          <p class="m-foot-note">{t("mk.newsFooterHint")}</p>
-          <div class="m-foot-row">
-            <button class="m-save" id="n-send" type="button">{t("mk.sendToAll")}</button>
-            <button class="pill" id="n-test" type="button">{t("mk.sendMeTest")}</button>
-            <button class="pill" id="n-draft" type="button">{t("mk.saveDraft")}</button>
-            <span class="m-err" id="n-err"></span>
-          </div>
+      <Fragment slot="foot">
+        <p class="m-foot-note">{t("mk.newsFooterHint")}</p>
+        <div class="m-foot-row">
+          <span class="m-err" id="n-err"></span>
+          <button class="md-btn" id="n-draft" type="button">{t("mk.saveDraft")}</button>
+          <button class="md-btn" id="n-test" type="button">{t("mk.sendMeTest")}</button>
+          <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+          <button class="md-btn md-btn-primary" id="n-send" type="button">{t("mk.sendToAll")}</button>
         </div>
-      </div>
-    </div>
+      </Fragment>
+    </Modal>
 
     <!-- Modale coupon -->
-    <div class="overlay" id="cp-overlay">
-      <div class="modal">
-        <button class="m-close" id="cp-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2 id="cp-title">{t("mk.newCoupon")}</h2>
-
+    <Modal id="cp-overlay" title={t("mk.newCoupon")} titleId="cp-title" width="780px">
         <label class="f-lab" for="cp-code">{t("mk.codeReq")}</label>
         <input type="text" class="f-input" id="cp-code" placeholder={t("mk.couponCodePh")} style="text-transform:uppercase" />
 
@@ -773,27 +774,23 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <span class="pick" data-c="block">{t("mk.blockPromo")}</span>
         </div>
 
-        <div class="m-foot" style="flex-wrap:wrap;gap:1rem">
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="cp-new" /><span class="track"></span></label>
-            <span class="sw-lab">{t("mk.newCustomers")}</span>
-          </span>
-          <span class="sw-wrap">
-            <label class="switch"><input type="checkbox" id="cp-active" checked /><span class="track"></span></label>
-            <span class="sw-lab">{t("menu.active")}</span>
-          </span>
-          <span class="m-err" id="cp-err"></span>
-          <button class="m-save" id="cp-save" type="button" style="margin-left:auto">{t("common.save")}</button>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="sw-wrap">
+          <label class="switch"><input type="checkbox" id="cp-new" /><span class="track"></span></label>
+          <span class="sw-lab">{t("mk.newCustomers")}</span>
+        </span>
+        <span class="sw-wrap">
+          <label class="switch"><input type="checkbox" id="cp-active" checked /><span class="track"></span></label>
+          <span class="sw-lab">{t("menu.active")}</span>
+        </span>
+        <span class="m-err" id="cp-err"></span>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="cp-save" type="button">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale bon cadeau : création (multi-étapes) -->
-    <div class="overlay" id="gc-overlay">
-      <div class="modal" style="max-width:560px">
-        <button class="m-close" id="gc-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2 id="gc-title">{t("mk.newGift")}</h2>
-
+    <Modal id="gc-overlay" title={t("mk.newGift")} titleId="gc-title" width="560px">
         <div class="gc-steps" id="gc-steps">
           <span class="gc-step is-on" data-s="1">{t("mk.giftStep1")}</span>
           <span class="gc-step" data-s="2">{t("mk.givenBy")}</span>
@@ -913,35 +910,32 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           </div>
         </div>
 
-        <div class="m-foot" style="flex-wrap:wrap;gap:0.8rem">
-          <button class="pick" id="gc-prev" type="button" style="display:none">‹ {t("mk.prev")}</button>
-          <button class="m-save" id="gc-next" type="button">{t("mk.next")} ›</button>
-          <button class="m-save" id="gc-save" type="button" style="display:none">{t("us.gen")}</button>
-          <span class="m-err" id="gc-err"></span>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <span class="m-err" id="gc-err"></span>
+        <button class="md-btn" id="gc-prev" type="button" style="display:none">‹ {t("mk.prev")}</button>
+        <button class="md-btn" type="button" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" id="gc-next" type="button">{t("mk.next")} ›</button>
+        <button class="md-btn md-btn-primary" id="gc-save" type="button" style="display:none">{t("us.gen")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale bon cadeau : utilisation manuelle (salle) -->
-    <div class="overlay" id="gc-use-overlay">
-      <div class="modal" style="max-width:420px">
-        <button class="m-close" id="gc-use-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2>{t("mk.useVoucher")}</h2>
-        <p class="f-hint" id="gc-use-info" style="margin:0 0 0.8rem"></p>
-        <label class="f-lab" for="gc-use-amount">{t("mk.amountToUseReq")}</label>
-        <input type="number" class="f-input" id="gc-use-amount" min="0" step="0.01" placeholder="0,00" style="max-width:200px" />
-        <label class="f-lab" for="gc-use-note">{t("mk.noteOpt")}</label>
-        <input type="text" class="f-input" id="gc-use-note" placeholder={t("mk.useNotePh")} />
-        <div class="m-foot"><button class="m-save" id="gc-use-save" type="button">{t("mk.cashIn")}</button><span class="m-err" id="gc-use-err"></span></div>
-      </div>
-    </div>
+    <Modal id="gc-use-overlay" title={t("mk.useVoucher")} width="420px">
+      <p class="f-hint gcu-info" id="gc-use-info"></p>
+      <label class="f-lab" for="gc-use-amount">{t("mk.amountToUseReq")}</label>
+      <input type="number" class="f-input" id="gc-use-amount" min="0" step="0.01" placeholder="0,00" />
+      <label class="f-lab" for="gc-use-note">{t("mk.noteOpt")}</label>
+      <input type="text" class="f-input" id="gc-use-note" placeholder={t("mk.useNotePh")} />
+      <Fragment slot="foot">
+        <span class="m-err" id="gc-use-err"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="gc-use-save">{t("mk.cashIn")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Modale : acheter des bons cadeaux imprimés (MOODD) -->
-    <div class="overlay" id="gs-overlay">
-      <div class="modal" style="max-width:560px">
-        <button class="m-close" id="gs-close" type="button" aria-label={t("common.close")}>×</button>
-        <h2>{t("mk.buyGiftCards")}</h2>
-        <p class="f-hint" style="margin:0 0 1.2rem">{t("mk.giftShopIntro")}</p>
+    <Modal id="gs-overlay" title={t("mk.buyGiftCards")} width="560px">
+        <p class="f-hint gs-intro">{t("mk.giftShopIntro")}</p>
 
         <div class="gs-packs" id="gs-packs">
           <button type="button" class="gs-pack" data-pack="25">
@@ -962,14 +956,13 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           </button>
         </div>
 
-        <p class="f-hint" id="gs-msg" style="margin-top:1rem"></p>
+        <p class="f-hint gs-msg" id="gs-msg"></p>
         <div id="gs-hist"></div>
-        <div class="m-foot">
-          <button type="button" class="m-ghost" id="gs-cancel">{t("common.cancel")}</button>
-          <button type="button" class="m-save" id="gs-pay" disabled>{t("mk.pay")}</button>
-        </div>
-      </div>
-    </div>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="gs-pay" disabled>{t("mk.pay")}</button>
+      </Fragment>
+    </Modal>
 
     <div class="toast" id="toast"></div>
 
@@ -1038,6 +1031,18 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       const ICO_TRASH =
         '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>';
       const ICO_PEN = "✎";
+      // Icone della card buono regalo. Sostituiscono le etichette scritte
+      // («Per», «Da parte di», «Scade il», «Usato»): il dato conta, il nome
+      // del campo no. Il testo resta nel `title` e nell'`aria-label`, perche'
+      // un'icona sola non e' leggibile da uno screen reader.
+      const ICO_GC_TO =
+        '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>';
+      const ICO_GC_FROM =
+        '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+      const ICO_GC_EXP =
+        '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      const ICO_GC_USES =
+        '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
 
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -1276,13 +1281,13 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
                 `<input type="text" class="f-input f-b1lx" data-lang="${esc(l)}" placeholder="${i === 0 ? esc(tr("mk.btnLabelReservePh")) : esc(tr("mk.labelPh"))}" />` +
                 `<div class="f-row f-row-btnu">` +
                   `<input type="text" class="f-input f-b1u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.btnLinkPh"))}" />` +
-                  `<button class="pill asset-pop" type="button" data-cls="f-b1u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
+                  `<button class="btn asset-pop" type="button" data-cls="f-b1u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
                 `</div>` +
                 `<label class="f-lab">${esc(tr("mk.btn2Opt"))} (${T})</label>` +
                 `<input type="text" class="f-input f-b2lx" data-lang="${esc(l)}" placeholder="${esc(tr("mk.labelPh"))}" />` +
                 `<div class="f-row f-row-btnu">` +
                   `<input type="text" class="f-input f-b2u" data-lang="${esc(l)}" placeholder="${esc(tr("mk.linkPh"))}" />` +
-                  `<button class="pill asset-pop" type="button" data-cls="f-b2u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
+                  `<button class="btn asset-pop" type="button" data-cls="f-b2u" title="${esc(tr("mk.chooseAsset"))}">${esc(tr("nav.assets"))}</button>` +
                 `</div>` +
                 `</div>`;
             })
@@ -1369,10 +1374,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           schedDates.classList.toggle("is-visible", kind === "dates");
           schedWeekly.classList.toggle("is-visible", kind === "weekly");
 
-          overlay.classList.add("is-open");
+          overlay.hidden = false;
         }
         function chiudiModale() {
-          overlay.classList.remove("is-open");
+          overlay.hidden = true;
         }
 
         // ---------- Datepicker custom (brand, come Réglages) ----------
@@ -1566,10 +1571,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         });
 
         document.getElementById("add-btn")!.addEventListener("click", () => apriModale(null));
-        document.getElementById("m-close")!.addEventListener("click", chiudiModale);
-        overlay.addEventListener("click", (e) => {
-          if (e.target === overlay) chiudiModale();
-        });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiModale));
 
         mSave.addEventListener("click", async () => {
           mErr.textContent = "";
@@ -1728,11 +1731,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           quando = "now";
           renderSeg();
           aggiornaProg();
-          nOverlay.classList.add("is-open");
+          nOverlay.hidden = false;
         });
-        document.getElementById("n-close")!.addEventListener("click", () => nOverlay.classList.remove("is-open"));
-        nOverlay.addEventListener("click", (e) => {
-          if (e.target === nOverlay) nOverlay.classList.remove("is-open");
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        nOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { nOverlay.hidden = true; });
         });
 
         async function caricaNews() {
@@ -1954,7 +1957,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             renderFotoNews();
             nBtnl.value = "";
             nBtnu.value = "";
-            nOverlay.classList.remove("is-open");
+            nOverlay.hidden = true;
             await caricaNews();
           } catch {
             nErr.textContent = tr("res.connErr");
@@ -2078,7 +2081,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               void fetch("/api/admin/newsletter-schedule?id=" + draftId, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
               draftId = null;
             }
-            nOverlay.classList.remove("is-open");
+            nOverlay.hidden = true;
             quando = "now";
             aggiornaProg();
             void caricaProgrammate();
@@ -2117,7 +2120,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           quando = "now";
           renderSeg();
           aggiornaProg();
-          nOverlay.classList.add("is-open");
+          nOverlay.hidden = false;
         });
         let draftsCache: { id: string; subject: string; message: string; image_url: string | null; btn_label: string | null; btn_url: string | null; btn2_label: string | null; btn2_url: string | null; segment: string }[] = [];
 
@@ -2139,7 +2142,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             if (!res.ok) { nErr.textContent = j.error ?? tr("ord.errShort"); return; }
             draftId = j.schedule?.id ?? null;
             toast(tr("mk.draftSaved"));
-            nOverlay.classList.remove("is-open");
+            nOverlay.hidden = true;
             void caricaProgrammate();
           } catch {
             nErr.textContent = tr("res.connErr");
@@ -2166,7 +2169,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           quando = "now";
           renderSeg();
           aggiornaProg();
-          nOverlay.classList.add("is-open");
+          nOverlay.hidden = false;
         }
         (document.getElementById("nd-list") as HTMLElement).addEventListener("click", async (e) => {
           const del = (e.target as HTMLElement).closest(".np-del") as HTMLButtonElement | null;
@@ -2253,24 +2256,26 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         // ---------- Acquisto crediti (Stripe MOODD) ----------
         const cOverlay = document.getElementById("c-overlay") as HTMLDivElement;
         const cErr = document.getElementById("c-err") as HTMLSpanElement;
-        const cFoot = document.getElementById("c-foot") as HTMLDivElement;
         const cCheckout = document.getElementById("c-checkout") as HTMLButtonElement;
         let packScelto: string | null = null;
 
         function resetPacks() {
           packScelto = null;
           cErr.textContent = "";
-          cFoot.style.display = "none";
+          // Il bottone di pagamento c'e' sempre, spento finche' non si sceglie
+          // un pacchetto: un footer che appare dal nulla sposta tutto sotto.
+          cCheckout.disabled = true;
+          cCheckout.textContent = tr("mk.pay");
           cOverlay.querySelectorAll<HTMLElement>(".c-pack").forEach((b) => b.classList.remove("is-on"));
         }
 
         document.getElementById("c-buy")!.addEventListener("click", () => {
           resetPacks();
-          cOverlay.classList.add("is-open");
+          cOverlay.hidden = false;
         });
-        document.getElementById("c-close")!.addEventListener("click", () => cOverlay.classList.remove("is-open"));
-        cOverlay.addEventListener("click", (e) => {
-          if (e.target === cOverlay) cOverlay.classList.remove("is-open");
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        cOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { cOverlay.hidden = true; });
         });
 
         // 1° passo: scegli il pack → appare il bottone di pagamento
@@ -2282,7 +2287,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             b.classList.toggle("is-on", b === btn)
           );
           cCheckout.textContent = `${tr("mk.pay")} ${btn.dataset.price} →`;
-          cFoot.style.display = "flex";
+          cCheckout.disabled = false;
           cErr.textContent = "";
         });
 
@@ -2307,7 +2312,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           } catch {
             cErr.textContent = tr("res.connErr");
           } finally {
-            cCheckout.disabled = false;
+            cCheckout.disabled = !packScelto;
             cCheckout.classList.remove("is-loading");
           }
         });
@@ -2585,17 +2590,15 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           cpNew.checked = c?.new_customers_only ?? false;
           cpActive.checked = c ? c.active : true;
 
-          cpOverlay.classList.add("is-open");
+          cpOverlay.hidden = false;
         }
         function cpChiudi() {
-          cpOverlay.classList.remove("is-open");
+          cpOverlay.hidden = true;
         }
 
         document.getElementById("cp-add")!.addEventListener("click", () => cpApri(null));
-        document.getElementById("cp-close")!.addEventListener("click", cpChiudi);
-        cpOverlay.addEventListener("click", (e) => {
-          if (e.target === cpOverlay) cpChiudi();
-        });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        cpOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", cpChiudi));
 
         function cpRaccogli() {
           const tipo = cpTipoAttivo();
@@ -2723,7 +2726,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const gcList = document.getElementById("giftcards") as HTMLDivElement;
         const gcEmpty = document.getElementById("gc-empty") as HTMLDivElement;
         const gcOverlay = document.getElementById("gc-overlay") as HTMLDivElement;
-        const gcClose = document.getElementById("gc-close") as HTMLButtonElement;
         const gcValue = document.getElementById("gc-value") as HTMLInputElement;
         const gcValPicks = document.getElementById("gc-val-picks") as HTMLDivElement;
         const gcExpPicks = document.getElementById("gc-exp-picks") as HTMLDivElement;
@@ -2780,7 +2782,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const gcSendBox = document.getElementById("gc-send-box") as HTMLDivElement;
         const gcErr = document.getElementById("gc-err") as HTMLSpanElement;
         const gcUseOverlay = document.getElementById("gc-use-overlay") as HTMLDivElement;
-        const gcUseClose = document.getElementById("gc-use-close") as HTMLButtonElement;
         const gcUseInfo = document.getElementById("gc-use-info") as HTMLParagraphElement;
         const gcUseAmount = document.getElementById("gc-use-amount") as HTMLInputElement;
         const gcUseNote = document.getElementById("gc-use-note") as HTMLInputElement;
@@ -2791,6 +2792,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           id: string; code: string; initial_cents: number; balance_cents: number;
           active: boolean; expires_at: string | null; recipient_name: string | null;
           sender_name: string | null; message: string | null; uses?: number;
+          redemptions?: {
+            amount_cents: number | null; created_at: string | null;
+            note: string | null; kind: string | null; created_by: string | null;
+          }[];
           paid?: boolean; payment_method?: string;
           recipient_email?: string | null; recipient_phone?: string | null;
           sender_email?: string | null; sender_phone?: string | null;
@@ -2806,6 +2811,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         const gcEuro = (cents: number): string => (cents / 100).toFixed(2).replace(".", ",") + " €";
         const gcDate = (d: string | null): string => (d ? d.split("-").reverse().join("/") : "");
+        // Nel registro la sola data non basta: un buono usato due volte lo
+        // stesso giorno darebbe due righe identiche.
+        const gcQuando = (iso: string | null): string => {
+          if (!iso) return "";
+          const d = new Date(iso);
+          if (Number.isNaN(d.getTime())) return "";
+          return d.toLocaleString(LOC, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+        };
         const gcOggi = (): string => new Date().toISOString().slice(0, 10);
         const centsDaEuro = (v: string): number => {
           const n = parseFloat(String(v).replace(",", "."));
@@ -2842,27 +2855,46 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               if (esaurito) tags.push(`<span class="m-tag">${tr("mk.exhausted")}</span>`);
               else if (scaduto) tags.push(`<span class="m-tag">${tr("mk.expired")}</span>`);
               const righe: string[] = [];
-              if (c.recipient_name) righe.push(`<span class="gc-line">${tr("mk.gcFor")} <b>${esc(c.recipient_name)}</b></span>`);
-              if (c.sender_name) righe.push(`<span class="gc-line">${tr("mk.gcFrom")} <b>${esc(c.sender_name)}</b></span>`);
-              if (c.expires_at) righe.push(`<span class="gc-line">${tr("mk.gcExpiresOn")} <b>${gcDate(c.expires_at)}</b></span>`);
+              const riga = (ico: string, etichetta: string, dato: string): string =>
+                `<span class="gc-line" title="${etichetta}"><span class="gc-line-ico" aria-hidden="true">${ico}</span><span class="gc-line-txt"><span class="sr-only">${etichetta}: </span><b>${dato}</b></span></span>`;
+              if (c.recipient_name) righe.push(riga(ICO_GC_TO, tr("mk.gcFor"), esc(c.recipient_name)));
+              if (c.sender_name) righe.push(riga(ICO_GC_FROM, tr("mk.gcFrom"), esc(c.sender_name)));
+              if (c.expires_at) righe.push(riga(ICO_GC_EXP, tr("mk.gcExpiresOn"), gcDate(c.expires_at)));
               const pagato = c.paid !== false;
               const badgePay = pagato
                 ? `<span class="gc-pay ok" title="${tr("ord.paid")}"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`
                 : `<span class="gc-pay wait" title="${tr("ord.awaitingPayment")}"><svg viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></span>`;
               const nUsi = Number(c.uses ?? 0);
-              righe.push(`<span class="gc-line">${tr("mk.gcUsed")} <b>${nUsi}</b> ${tr("mk.times")}</span>`);
-              const useBtn = usabile
-                ? `<button data-use="${c.id}" style="border:1px solid var(--c-accent);color:var(--c-accent);background:none;border-radius:999px;padding:0.3rem 0.85rem;font-size:0.78rem;font-weight:700;cursor:pointer;font-family:inherit">${tr("mk.use")}</button>`
+              righe.push(riga(ICO_GC_USES, tr("mk.gcUsed"), `${nUsi} <span class="gc-line-unit">${tr("mk.times")}</span>`));
+              // Registro dei riscatti, subito sotto il conteggio: quando, quanto
+              // e con che nota. Senza date un «usato 3 volte» non dice se il
+              // buono e' stato speso ieri o l'anno scorso.
+              const log = (c.redemptions ?? []).filter((r) => r.created_at || r.amount_cents);
+              if (log.length) {
+                const voci = log
+                  .map((r) => {
+                    const quando = gcQuando(r.created_at);
+                    const quanto = r.amount_cents ? gcEuro(r.amount_cents) : "";
+                    const nota = r.note ? ` · ${esc(r.note)}` : r.kind === "manual" ? ` · ${tr("mk.gcLogManual")}` : "";
+                    return `<li class="gc-log-row"><span class="gc-log-when">${quando}</span><b class="gc-log-amt">${quanto}</b><span class="gc-log-note">${nota}</span></li>`;
+                  })
+                  .join("");
+                righe.push(`<ul class="gc-log">${voci}</ul>`);
+              }
+              // Niente bottone «Usa»: e' la card intera ad aprire il modale.
+              // Un bottone da 0.78rem in mezzo agli altri comandi era il
+              // bersaglio piu' piccolo per l'azione piu' frequente.
+              const apri = usabile
+                ? ` data-use="${c.id}" role="button" tabindex="0" title="${tr("mk.use")}"`
                 : "";
               return `
-                <div class="pop ${usabile ? "" : "is-off"} ${pagato ? "" : "is-pending"}">
+                <div class="pop ${usabile ? "gc-clic" : "is-off"} ${pagato ? "" : "is-pending"}"${apri}>
                   ${badgePay}
                   <div class="pop-top"><div class="pop-title">${esc(c.code)}</div></div>
                   <div class="gc-val">${gcEuro(c.balance_cents)}<span class="gc-val-sur">/ ${gcEuro(c.initial_cents)}</span></div>
                   ${righe.length ? `<div class="gc-lines">${righe.join("")}</div>` : ""}
                   ${tags.length ? `<div class="pop-meta">${tags.join("")}</div>` : ""}
                   <div class="pop-actions">
-                    ${useBtn}
                     <span class="sw-wrap">
                       <label class="switch"><input type="checkbox" data-toggle="${c.id}" ${c.active ? "checked" : ""} /><span class="track"></span></label>
                       <span class="sw-lab">${tr("menu.active")}</span>
@@ -2964,19 +2996,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           gcTitle.textContent = c ? tr("mk.editGift") : tr("mk.newGift");
           gcSave.textContent = c ? tr("common.save") : tr("us.gen");
           gcStep(1);
-          gcOverlay.classList.add("is-open");
+          gcOverlay.hidden = false;
         }
         gcAdd?.addEventListener("click", () => gcApri(null));
 
         // ---------- Acheter des bons imprimés (paiement MOODD) ----------
         const gsOverlay = document.getElementById("gs-overlay") as HTMLDivElement;
-        const gsClose = document.getElementById("gs-close") as HTMLButtonElement;
         const gsPacks = document.getElementById("gs-packs") as HTMLDivElement;
         const gsMsg = document.getElementById("gs-msg") as HTMLParagraphElement;
         const gsHist = document.getElementById("gs-hist") as HTMLDivElement;
         const gcShop = document.getElementById("gc-shop") as HTMLButtonElement;
         const gsPay = document.getElementById("gs-pay") as HTMLButtonElement | null;
-        const gsCancel = document.getElementById("gs-cancel") as HTMLButtonElement | null;
         let gsPack: string | null = null;
 
         async function gsStorico() {
@@ -3000,12 +3030,13 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           gsPack = null;
           gsPacks.querySelectorAll(".gs-pack").forEach((x) => x.classList.remove("is-on"));
           if (gsPay) gsPay.disabled = true;
-          gsOverlay.classList.add("is-open");
+          gsOverlay.hidden = false;
           void gsStorico();
         });
-        gsCancel?.addEventListener("click", () => gsOverlay.classList.remove("is-open"));
-        gsClose?.addEventListener("click", () => gsOverlay.classList.remove("is-open"));
-        gsOverlay?.addEventListener("click", (e) => { if (e.target === gsOverlay) gsOverlay.classList.remove("is-open"); });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        gsOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { gsOverlay.hidden = true; });
+        });
 
         gsPacks?.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".gs-pack") as HTMLButtonElement | null;
@@ -3128,8 +3159,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           e.stopPropagation();
           dpApri(gcExp);
         });
-        gcClose?.addEventListener("click", () => gcOverlay.classList.remove("is-open"));
-        gcOverlay?.addEventListener("click", (e) => { if (e.target === gcOverlay) gcOverlay.classList.remove("is-open"); });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        gcOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { gcOverlay.hidden = true; });
+        });
 
         // --- Navigazione multi-step ---
         let gcStepN = 1;
@@ -3246,7 +3279,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             });
             const j = await res.json();
             if (!res.ok) { gcErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            gcOverlay.classList.remove("is-open");
+            gcOverlay.hidden = true;
             if (j.pay_error) toast(tr("mk.giftCreatedNoLink") + j.pay_error, true);
             else if (gcEditId) toast(tr("mk.giftUpdated"));
             else toast(tr("mk.giftCreated") + (j.code ?? ""));
@@ -3258,8 +3291,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           }
         });
 
-        gcUseClose?.addEventListener("click", () => gcUseOverlay.classList.remove("is-open"));
-        gcUseOverlay?.addEventListener("click", (e) => { if (e.target === gcUseOverlay) gcUseOverlay.classList.remove("is-open"); });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        gcUseOverlay?.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { gcUseOverlay.hidden = true; }));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && gcUseOverlay && !gcUseOverlay.hidden) gcUseOverlay.hidden = true; });
 
         gcUseSave?.addEventListener("click", async () => {
           if (!gcUseId) return;
@@ -3275,7 +3309,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             });
             const j = await res.json();
             if (!res.ok) { gcUseErr.textContent = j.error ?? tr("mk.cashInFailed"); return; }
-            gcUseOverlay.classList.remove("is-open");
+            gcUseOverlay.hidden = true;
             toast(tr("mk.collectedBalance") + gcEuro(j.balance_cents ?? 0));
             await caricaGiftcards();
           } catch {
@@ -3285,20 +3319,20 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           }
         });
 
+        function gcApriUso(id: string | undefined) {
+          const c = giftCards.find((x) => x.id === id);
+          if (!c) return;
+          gcUseId = c.id;
+          gcUseErr.textContent = "";
+          gcUseAmount.value = "";
+          gcUseNote.value = "";
+          gcUseInfo.textContent = `${c.code} — ${tr("mk.balance")} ${gcEuro(c.balance_cents)}`;
+          gcUseOverlay.hidden = false;
+          gcUseAmount.focus();
+        }
+
         gcList?.addEventListener("click", async (e) => {
           const t = e.target as HTMLElement;
-          const useB = t.closest("[data-use]") as HTMLElement | null;
-          if (useB) {
-            const c = giftCards.find((x) => x.id === useB.dataset.use);
-            if (!c) return;
-            gcUseId = c.id;
-            gcUseErr.textContent = "";
-            gcUseAmount.value = "";
-            gcUseNote.value = "";
-            gcUseInfo.textContent = `${c.code} — ${tr("mk.balance")} ${gcEuro(c.balance_cents)}`;
-            gcUseOverlay.classList.add("is-open");
-            return;
-          }
           const editB = t.closest("[data-edit]") as HTMLElement | null;
           if (editB) {
             const c = giftCards.find((x) => x.id === editB.dataset.edit);
@@ -3329,7 +3363,26 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               delB.classList.remove("confirm");
               delB.innerHTML = ICO_TRASH;
             }, 3000);
+            return;
           }
+          // Ultimo controllo: la card intera apre «Usa buono». Va DOPO gli altri,
+          // perche' matita, cestino e interruttore stanno dentro la card e un
+          // `closest` sulla card li prenderebbe tutti.
+          if (t.closest(".switch")) return;
+          const card = t.closest("[data-use]") as HTMLElement | null;
+          if (card) gcApriUso(card.dataset.use);
+        });
+
+        // Tastiera: la card e' `role="button"`, quindi deve rispondere a Invio
+        // e Spazio come un bottone vero.
+        gcList?.addEventListener("keydown", (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          const t = e.target as HTMLElement;
+          if (t.closest(".switch") || t.closest("[data-edit]") || t.closest("[data-del]")) return;
+          const card = t.closest("[data-use]") as HTMLElement | null;
+          if (!card) return;
+          e.preventDefault();
+          gcApriUso(card.dataset.use);
         });
 
         gcList?.addEventListener("change", async (e) => {

@@ -838,9 +838,12 @@ const DIZIONARIO: Dizionario = {
   "res.duration": { fr: "durée", en: "duration", it: "durata", nl: "duur", es: "duración" },
   "res.invalidAmount": { fr: "Montant invalide", en: "Invalid amount", it: "Importo non valido", nl: "Ongeldig bedrag", es: "Importe no válido" },
   "res.next7Days": { fr: "7 prochains jours", en: "Next 7 days", it: "Prossimi 7 giorni", nl: "Komende 7 dagen", es: "Próximos 7 días" },
-  "res.next30Days": { fr: "30 prochains jours", en: "Next 30 days", it: "Prossimi 30 giorni", nl: "Komende 30 dagen", es: "Próximos 30 días" },
+  // Vista Mese: la finestra si allunga di 15 giorni alla volta, quindi il
+  // numero e' un segnaposto {n} e non piu' un 30 scritto nel testo.
+  "res.nextNDays": { fr: "{n} prochains jours", en: "Next {n} days", it: "Prossimi {n} giorni", nl: "Komende {n} dagen", es: "Próximos {n} días" },
   "res.next7DaysShort": { fr: "7 jours", en: "7 days", it: "7 giorni", nl: "7 dagen", es: "7 días" },
-  "res.next30DaysShort": { fr: "30 jours", en: "30 days", it: "30 giorni", nl: "30 dagen", es: "30 días" },
+  "res.nextNDaysShort": { fr: "{n} jours", en: "{n} days", it: "{n} giorni", nl: "{n} dagen", es: "{n} días" },
+  "res.more15": { fr: "+15 jours", en: "+15 days", it: "+15 giorni", nl: "+15 dagen", es: "+15 días" },
   "res.dowInitials": { fr: "L,M,M,J,V,S,D", en: "M,T,W,T,F,S,S", it: "L,M,M,G,V,S,D", nl: "M,D,W,D,V,Z,Z", es: "L,M,X,J,V,S,D" },
   "res.phoneReq": { fr: "Téléphone *", en: "Phone *", it: "Telefono *", nl: "Telefoon *", es: "Teléfono *" },
   "res.phoneRequired": { fr: "Le téléphone est obligatoire pour une réservation téléphonique.", en: "The phone is required for a phone reservation.", it: "Il telefono è obbligatorio per una prenotazione telefonica.", nl: "Het telefoonnummer is verplicht voor een telefonische reservering.", es: "El teléfono es obligatorio para una reserva telefónica." },
@@ -929,6 +932,8 @@ const DIZIONARIO: Dizionario = {
   "cli.emailOrPhone": { fr: "Renseignez au moins un email ou un téléphone.", en: "Enter at least an email or a phone.", it: "Inserisci almeno un'email o un telefono.", nl: "Vul minstens een e-mail of telefoon in.", es: "Introduce al menos un correo o un teléfono." },
   "cli.clientModified": { fr: "Client modifié", en: "Customer updated", it: "Cliente modificato", nl: "Klant gewijzigd", es: "Cliente modificado" },
   "cli.clientAdded":{ fr: "Client ajouté", en: "Customer added", it: "Cliente aggiunto", nl: "Klant toegevoegd", es: "Cliente añadido" },
+  // Iniziale di «trimestre» sull'asse del grafico: T3 25, Q3 25...
+  "stats.quarterShort": { fr: "T", en: "Q", it: "T", nl: "K", es: "T" },
   "cli.emailOrPhoneReq": { fr: "Email ou téléphone requis.", en: "Email or phone required.", it: "Email o telefono richiesto.", nl: "E-mail of telefoon vereist.", es: "Correo o teléfono obligatorio." },
 
   // ===== Pagina Menu =====
@@ -978,7 +983,7 @@ const DIZIONARIO: Dizionario = {
   "menu.orderable":     { fr: "Commandable", en: "Orderable", it: "Ordinabile", nl: "Bestelbaar", es: "Se puede pedir" },
   "menu.soldOut":       { fr: "Épuisé", en: "Sold out", it: "Esaurito", nl: "Uitverkocht", es: "Agotado" },
   "menu.manageSections":{ fr: "Gérer les sections", en: "Manage sections", it: "Gestisci le sezioni", nl: "Secties beheren", es: "Gestionar las secciones" },
-  "menu.sectionsHint":  { fr: "Glisse ⠿ pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide", en: "Drag ⠿ to reorder · rename and press Enter · 🍴/🍷 = food or drink · deletion only possible if empty", it: "Trascina ⠿ per riordinare · rinomina e premi Invio · 🍴/🍷 = cibo o bevanda · eliminazione possibile solo se vuota", nl: "Sleep ⠿ om te herschikken · hernoem en druk op Enter · 🍴/🍷 = eten of drank · verwijderen kan enkel als leeg", es: "Arrastra ⠿ para reordenar · renombra y pulsa Enter · 🍴/🍷 = comida o bebida · eliminación posible solo si está vacía" },
+  "menu.sectionsHint":  { fr: "Flèches pour réordonner · renomme et appuie Entrée · 🍴/🍷 = nourriture ou boisson · suppression possible seulement si vide", en: "Arrows to reorder · rename and press Enter · 🍴/🍷 = food or drink · deletion only possible if empty", it: "Frecce per riordinare · rinomina e premi Invio · 🍴/🍷 = cibo o bevanda · eliminazione possibile solo se vuota", nl: "Pijlen om te herschikken · hernoem en druk op Enter · 🍴/🍷 = eten of drank · verwijderen kan enkel als leeg", es: "Flechas para reordenar · renombra y pulsa Enter · 🍴/🍷 = comida o bebida · eliminación posible solo si está vacía" },
   "menu.newSectionPh":  { fr: "Nouvelle section (ex. Pizzas colorées)", en: "New section (e.g. Colorful pizzas)", it: "Nuova sezione (es. Pizze colorate)", nl: "Nieuwe sectie (bijv. Kleurrijke pizza's)", es: "Nueva sección (ej. Pizzas coloridas)" },
   "menu.addLunch":      { fr: "Ajouter un lunch", en: "Add a lunch", it: "Aggiungi un lunch", nl: "Lunch toevoegen", es: "Añadir un lunch" },
   "menu.editLunch":     { fr: "Modifier le lunch", en: "Edit lunch", it: "Modifica il lunch", nl: "Lunch bewerken", es: "Editar el lunch" },
@@ -1025,6 +1030,9 @@ const DIZIONARIO: Dizionario = {
   "menu.atTable":       { fr: "à table", en: "at table", it: "al tavolo", nl: "aan tafel", es: "en mesa" },
   "menu.noPhoto":       { fr: "Pas de photo", en: "No photo", it: "Nessuna foto", nl: "Geen foto", es: "Sin foto" },
   "menu.dragReorder":   { fr: "Glisser pour réordonner", en: "Drag to reorder", it: "Trascina per riordinare", nl: "Sleep om te herschikken", es: "Arrastra para reordenar" },
+  "menu.moveUp":        { fr: "Monter", en: "Move up", it: "Sposta su", nl: "Omhoog", es: "Subir" },
+  "menu.unsavedChanges": { fr: "Modifications non enregistrées", en: "Unsaved changes", it: "Modifiche non salvate", nl: "Niet-opgeslagen wijzigingen", es: "Cambios sin guardar" },
+  "menu.moveDown":      { fr: "Descendre", en: "Move down", it: "Sposta giù", nl: "Omlaag", es: "Bajar" },
   "menu.cmdShort":      { fr: "Cmd", en: "Ord.", it: "Ord.", nl: "Best.", es: "Ped." },
   "menu.visibleShort":  { fr: "Visi.", en: "Vis.", it: "Visi.", nl: "Zicht.", es: "Vis." },
   "menu.orderableShort":{ fr: "Comm.", en: "Ord.", it: "Ordi.", nl: "Best.", es: "Ped." },
@@ -1199,6 +1207,8 @@ const DIZIONARIO: Dizionario = {
   "as.fabDoc":       { fr: "Document", en: "Document", it: "Documento", nl: "Document", es: "Documento" },
   "as.addImage":     { fr: "Ajouter une image", en: "Add an image", it: "Aggiungi un'immagine", nl: "Afbeelding toevoegen", es: "Añadir una imagen" },
   "as.addDoc":       { fr: "Ajouter un document", en: "Add a document", it: "Aggiungi un documento", nl: "Document toevoegen", es: "Añadir un documento" },
+  // Etichetta corta del pulsante flottante (il «+» lo mette il markup).
+  "as.docWord":      { fr: "Document", en: "Document", it: "Documento", nl: "Document", es: "Documento" },
   "as.site":         { fr: "Site", en: "Site", it: "Sito", nl: "Site", es: "Sitio" },
   "as.images":       { fr: "Images", en: "Images", it: "Immagini", nl: "Afbeeldingen", es: "Imágenes" },
   "as.siteHint":     { fr: "Changez les photos du site public. Tant qu'une image n'est pas remplacee, la photo actuelle reste affichee.", en: "Change the public site's photos. Until an image is replaced, the current photo stays displayed.", it: "Cambia le foto del sito pubblico. Finché un'immagine non viene sostituita, resta visibile quella attuale.", nl: "Wijzig de foto's van de publieke site. Zolang een afbeelding niet vervangen is, blijft de huidige foto zichtbaar.", es: "Cambia las fotos del sitio público. Mientras no se reemplace una imagen, se mantiene la foto actual." },
@@ -1458,6 +1468,9 @@ const DIZIONARIO: Dizionario = {
   "mk.gcExpiresOn":  { fr: "Expire le", en: "Expires on", it: "Scade il", nl: "Vervalt op", es: "Caduca el" },
   "mk.gcUsed":       { fr: "Utilisé", en: "Used", it: "Usato", nl: "Gebruikt", es: "Usado" },
   "mk.times":        { fr: "fois", en: "times", it: "volte", nl: "keer", es: "veces" },
+  // Registro dei riscatti mostrato sotto «Usato N volte».
+  "mk.gcLogTitle":   { fr: "Utilisations", en: "Redemptions", it: "Utilizzi", nl: "Gebruik", es: "Usos" },
+  "mk.gcLogManual":  { fr: "en salle", en: "in room", it: "in sala", nl: "in de zaal", es: "en sala" },
   "mk.use":          { fr: "Utiliser", en: "Use", it: "Usa", nl: "Gebruiken", es: "Usar" },
   "mk.giftsLoadErr": { fr: "Chargement des bons impossible", en: "Could not load gift cards", it: "Impossibile caricare i buoni", nl: "Cadeaubonnen laden mislukt", es: "No se pudieron cargar las tarjetas regalo" },
   "mk.previousPurchases": { fr: "Achats précédents", en: "Previous purchases", it: "Acquisti precedenti", nl: "Vorige aankopen", es: "Compras anteriores" },
@@ -1706,6 +1719,8 @@ const DIZIONARIO: Dizionario = {
   // ----- Tab Team -----
   "set.tm.intro": { fr: "Répertoire des personnes liées au restaurant : personnel, fournisseurs, techniciens, comptable, partenaires… (contacts uniquement pour l'instant).", en: "Directory of people connected to the restaurant: staff, suppliers, technicians, accountant, partners… (contacts only for now).", it: "Rubrica delle persone legate al ristorante: personale, fornitori, tecnici, commercialista, partner… (solo contatti per ora).", nl: "Overzicht van personen verbonden aan het restaurant: personeel, leveranciers, technici, boekhouder, partners… (voorlopig enkel contacten).", es: "Directorio de personas vinculadas al restaurante: personal, proveedores, técnicos, contable, socios… (solo contactos por ahora)." },
   "set.tm.addContact": { fr: "+ Ajouter un contact", en: "+ Add a contact", it: "+ Aggiungi un contatto", nl: "+ Contact toevoegen", es: "+ Añadir un contacto" },
+  // Etichetta corta del pulsante flottante (il «+» lo mette il markup).
+  "set.tm.contactWord": { fr: "Contact", en: "Contact", it: "Contatto", nl: "Contact", es: "Contacto" },
   "set.tm.empty": { fr: "Aucun contact pour le moment.", en: "No contact yet.", it: "Ancora nessun contatto.", nl: "Nog geen contact.", es: "Aún no hay contactos." },
   "set.tm.newContact": { fr: "Nouveau contact", en: "New contact", it: "Nuovo contatto", nl: "Nieuw contact", es: "Nuevo contacto" },
   "set.tm.editContact": { fr: "Modifier le contact", en: "Edit contact", it: "Modifica contatto", nl: "Contact bewerken", es: "Editar contacto" },

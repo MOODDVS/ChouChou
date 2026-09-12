@@ -791,6 +791,362 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - **Flusso inverso**: candidato assunto → un click → membro Team precompilato dal profilo RestoTeam.
 - **Ordine**: 1) RestoTeam sito + API machine-first; 2) Recrutement nel motore (integrazione sottile).
 
+## 📌 11/09/2026 — Un guscio solo per tutti i modali
+
+### 🎚️ Un interruttore solo per tutta l'applicazione
+- `.switch` era **ridefinito in 6 pagine** (11 blocchi CSS), piu `.tm-sw` sulla Home e `.sp-sw` nel form Giorni speciali: nove disegni leggermente diversi della stessa cosa.
+- Ora `src/styles/switch.css`, importato da AdminHead come `modal.css`. Nessun componente `.astro`: la struttura e' tre tag, il valore sta tutto nel CSS.
+- **Tre difetti veri, non solo estetica**:
+  1. la pallina era posizionata con un `top` fisso (`top: 3px`) invece che con `top: 50%` + `translateY(-50%)` → sembrava storta appena l'altezza cambiava;
+  2. lo spento usava `--c-line` / `--c-input`, token che **spariscono** quando il cliente cambia tema. Ora fondo PIENO ricavato dal colore del testo mescolato al fondo, e **niente bordo**: il bordo lo faceva sembrare un campo da compilare;
+  3. l'input era `width: 0; height: 0` → cliccava solo la label. Ora copre tutto (`inset: 0`), il tocco prende anche sui bordi.
+- **Stato senza checkbox**: dove e' cliccabile la riga intera (i servizi del form Giorni speciali) si mette `is-on` sul `.switch`, che fa quello che fa `input:checked`. Cosi anche quelli non-checkbox usano lo stesso disegno.
+- Misura via `--sw-w` / `--sw-h` / `--sw-k`, piu `.switch-sm` per le liste fitte. Mai una classe nuova per ogni taglia.
+- ✅ Convertiti: **Home** (tile Tuiles) e **SpecialDaysForm** (servizi). ⏳ Da fare: agenda, google, marketing, menu, settings, super, orders, reservations — una alla volta, togliendo la copia locale.
+- Le pagine non convertite non cambiano: la loro copia nel `<style>` scoped vince nella cascata finche' non gliela si toglie.
+
+### 📅 Prenotazioni: la vista Settimana mostra le CARD, non un riassunto
+- Prima la settimana era una riga compatta per prenotazione (ora · nome · coperti · zona · stato): si vedeva che c'era qualcuno, non chi.
+- Ora usa **la stessa `riga()` della vista giorno**: stessi contatti, stessi stati, stessi bottoni. Una funzione sola, nessuna seconda versione della card da tenere allineata.
+- ⚠️ **Le liste sono due**: `rese` (il giorno mostrato) e `reseVista` (i 7/30 giorni). Le azioni cercavano la prenotazione **solo** in `rese` — dalla settimana non l'avrebbero trovata e i bottoni sarebbero stati inerti. Introdotto `trovaResa(id)` che cerca in entrambe: **10 chiamate** `rese.find(...)` sostituite.
+- Il gestore dei click e' ora una funzione sola (`gestisciClickLista`) agganciata a **tutt'e due** i contenitori.
+- ⚠️ Va agganciata accanto al `semEl` **dichiarato piu sotto**: metterla vicino a quella di `rowsEl` compilava ma esplodeva a runtime (TDZ su un `const`).
+- `data-date` ora sta **solo sulla testata del giorno**: cliccando il giorno si va al giorno, cliccando una card si aprono i suoi dettagli. Prima l'aveva anche la riga, quindi ogni click su una prenotazione portava via dalla settimana.
+- Dopo un'azione la settimana si ridisegna da sola: `carica()` chiama `caricaVista()` quando la vista attiva non e' il giorno. Senza, restava indietro fino al cambio di vista.
+- 🧹 Tolte `.vs-row` e le sue cinque figlie + `VISTA_ST`: non servono piu' a nessuno.
+
+### 📅 Prenotazioni — modali al guscio condiviso + vista Mese allungabile
+- Convertiti **Servizi**, **Sezioni** e **Nuova prenotazione**. Interruttori (`.sv-switch`, 3 punti) passati al componente `.switch`.
+- **Nuova prenotazione**: deroga voluta come il modale evento di Agenda — le due colonne scorrono separate (a sinistra data/ora/sezione, a destra il cliente). Sotto i 760px si impilano e torna la barra unica.
+- ⚠️ **Due inciampi sistematici della conversione**, ora scritti in ENGINE.md:
+  1. il controllo «c'e' un modale aperto?» (`.overlay.is-open`) non vedeva i modali nuovi → il refresh automatico ricaricava la lista sotto le mani di chi stava compilando. Ora guarda anche `.md-overlay:not([hidden])`;
+  2. gli stili dei campi erano agganciati a `.modal` → nei modali convertiti gli input tornavano al **bianco di sistema**. Otto selettori riscritti in coppia `.modal X, .md-box X`.
+- **Vista Mese**: bottone «+15 giorni» in fondo, la finestra si allunga di 15 alla volta. L'etichetta in alto e' passata da «Prossimi 30 giorni» fisso a `Prossimi {n} giorni`. Rientrando si riparte da 30.
+- **Mobile**: vista Mese a 2 colonne (7 su 360px sono strisce di 45px), via la testata dei giorni e le celle vuote di allineamento, iniziale del giorno spostata DENTRO la cella.
+- ⚠️ Il bottone «Mese» andava a capo non per mancanza di spazio: un `@media (max-width: 760px)` piu' in basso nel file vinceva sulle regole mobile scritte prima e allargava la pillola della data. Risolto alzando la specificita' (`.daybar .d-label`).
+- **«Chiudi fino alla riapertura»** compare solo a servizio/sala CHIUSI, come le pillole del motivo — tranne quando la chiusura e' gia permanente, dove resta perche' e' l'unico modo di riaprire.
+
+### 🔎 «I posti liberi sono sbagliati» — non lo erano
+- Enzo: con una prenotazione da 4 alle 12:30, il modale diceva 74/74 alle 12:00 **e alle 12:45**, 70/74 solo alle 12:30.
+- Estratto il calcolo e **eseguito in Node** con i suoi dati: la formula (sovrapposizione fra la finestra del nuovo tavolo e quelle esistenti) e' corretta e con durata 90 minuti da 70/74 a 12:00, 12:30 **e 12:45**.
+- Quei numeri sono esattamente quelli di una **durata d'occupazione di 15 minuti**. Era una impostazione di test lasciata in Réglages.
+- ✅ **Aggiunta comunque la FINESTRA accanto al conteggio** (`70 / 74   12:00–13:30`): il numero non e' «i posti liberi adesso» ma «i posti liberi per tutta la durata di questo tavolo», e senza scriverlo sembra sbagliato ogni volta che una prenotazione vicina entra o esce dalla finestra. Rende anche visibile a colpo d'occhio la durata configurata — l'informazione che oggi e' mancata.
+- ❌ **NON** si e' passati al conteggio istantaneo, che Enzo aveva proposto: con 74 posti tutti prenotati alle 12:30, alle 12:00 direbbe «74 liberi», si accettano 10 persone che restano fino alle 13:30 e alle 12:30 ci si trova con 84 coperti. Il conteggio sulla finestra non puo' vendere due volte lo stesso posto.
+
+### 🔔 Il toast delle notifiche: corallo, piu' grande, con un alone che pulsa
+- **Corallo del brand al posto del degrade' oro**: era l'unico elemento dell'admin di un colore che non esiste da nessun'altra parte. Testo scuro su corallo, la stessa coppia del bottone «Terminée» della card ordine.
+- **Piu' largo e piu' alto**: 340 → 600px di minimo, altezza 92 → 112, icona 52 → 62, titolo 1,18 → 1,35rem. Su telefono resta a larghezza piena e scende di un gradino.
+- **Lo schermo dietro si scurisce e il velo CHIUDE al click** (deciso da Enzo fra tre opzioni): la notifica e' una cosa da sbrigare, non da ignorare. `.mn-scrim` a z-index 490, sotto al toast (500).
+- **8 secondi invece di 5**: il toast e' cliccabile e porta alla pagina; cinque sono pochi per accorgersene, asciugarsi le mani e toccarlo.
+- **L'aura pulsa, non gira.** Primo mockup con un alone rotante + un filo bianco che correva sul bordo: Enzo li ha bocciati entrambi e ha ragione — un movimento rotatorio in periferia tira l'occhio VIA dal testo, segui la scintilla invece di leggere il nome. Il battito lo tira VERSO il toast.
+- **Due strati, non uno** (uno solo o si vede poco o diventa una macchia): `.mn-aura-glow` sempre acceso che respira, `.mn-aura-wave` che parte dalla sagoma e si spegne allargandosi. E' l'onda a dare il battito: senza, l'alone sembra solo una luce accesa.
+- `prefers-reduced-motion`: l'alone resta fermo e l'onda non parte.
+- ⚠️ **Struttura cambiata**: `.mn-toast` e' ora il GUSCIO (posizione ed entrata) e `.mn-box` la scatola colorata. Il contenuto va scritto in `tBox`, **non** in `tEl`: scrivendo nel guscio si cancellerebbero alone e onda.
+- Apertura e chiusura in un posto solo (`apriToast` / `chiudiToast`): prima ogni notifica si riscriveva il suo `classList.add("show")` e il suo timeout.
+- Ombra a opacita' FISSA e non legata a `--sh`: sul tema scuro `--sh` e' ~0 e l'ombra sparirebbe proprio dove serve (stessa scelta gia fatta per il FAB).
+
+### 🪟 La verita' e' il modale d'acquisto di Stampa
+- ~30 modali nell'admin, ognuno col suo overlay, la sua scatola, il suo header e i suoi bottoni riscritti a mano. Stessa cosa disegnata trenta volte, quindi trenta volte leggermente diversa.
+- Presa per buona la forma del **modale d'acquisto della pagina Stampa**: angoli 16px, header (titolo + ×) col filetto sotto, corpo, footer coi bottoni e filetto sopra.
+- **Header e footer fermi per COSTRUZIONE, non con `position: sticky`**: la scatola e' un flex in colonna, loro sono `flex: 0 0 auto`, il corpo e' l'unico con `overflow-y: auto`. Niente z-index da governare e niente filetti che sbavano sugli angoli arrotondati. Il `min-height: 0` sul corpo non e' decorativo: senza, un flex item non scende sotto il suo contenuto e spinge header e footer fuori dalla scatola.
+- **Larghezza via `--md-w`**, non una classe nuova per ogni misura: `<Modal width="900px">`.
+- **Cosa cambia per formato**: SOLO grandezza del titolo e altezza di header/footer. Tre gradini: desktop 1.5rem, tablet (≤1023) 1.3rem, mobile (≤640) 1.12rem.
+- **Due pezzi, non uno**: `src/styles/modal.css` (classi `.md-*`, gia importato da AdminHead su ogni pagina) + `src/components/admin/Modal.astro` (il markup). Chi ha una struttura strana usa le classi senza il componente.
+- **Il guscio non porta JS**: la pagina aggancia `[data-md-close]` su sfondo, × e Annulla. Cosi' ogni pagina resta padrona del suo stato (reset dei campi, blocco dello scroll) invece di combattere con un handler condiviso.
+- **Niente `!important` sulle `.md-*`**: sono la base, una pagina che deve deviare lo fa col suo `<style>` scoped. Il vecchio blocco `!important` in fondo a `modal.css` resta per i modali non ancora convertiti e si toglie con l'ultimo.
+- ✅ Convertito: `print` → modale d'acquisto (**il riferimento**). Tolte 14 righe di CSS locale, restano solo `.omodal-ship` e `.omodal-err` che sono davvero suoi.
+- ⏳ Da fare uno alla volta: gli altri ~29. L'anteprima PDF della stessa pagina Stampa ha una forma diversa (header con due bottoni, corpo = iframe a tutta altezza) e va decisa a parte.
+
+### 🏠 Home — i tre modali convertiti
+- **Tuiles** (420px) e **Giorni speciali** (520px): conversione pulita. Sparite `.evm-modal`, `.tm-modal`, `.evm-titre`, `.evm-x` — erano il guscio riscritto due volte.
+- Il modale Giorni speciali aveva `max-height: 88vh; overflow-y: auto` sulla scatola intera: scorreva **tutto**, titolo compreso. Ora scorre solo il corpo.
+- **Note**: e' l'unico corallo dell'admin, e il corallo e' la sua identita' (si legge come un foglietto attaccato al frigo). Deciso con Enzo: **struttura condivisa, colori suoi** → classe `.md-nota` in `modal.css` che ridefinisce SOLO i colori (fondo, filetti, titolo, ×). Il contenuto — textarea avorio, tag marroni, bottone Aggiungi — non si tocca.
+- ⚠️ **Una meccanica sola per aprire e chiudere**: il guscio usa l'attributo `hidden`, non `.is-open`. Le pagine convertite passano a `hidden` e agganciano `[data-md-close]` invece di confrontare `e.target === overlay`. Due meccaniche avrebbero significato due modi di sbagliare.
+- Da `index.astro` sono sparite anche `.overlay`, `.modal`, `.m-close`: sulla Home non serviva piu' nessuna delle tre.
+- 🎨 **Contrasto dopo la conversione**: il modale e' passato da `--c-card` a `--c-bg` (il guscio condiviso), e tutto cio' che era tarato su `--c-input` / `--c-line` ci si e' confuso dentro — tab non selezionati, campi, righe della lista, interruttore delle tile.
+- Rifatti **ricavando fondo e bordo dal COLORE DEL TESTO mescolato al fondo** (`color-mix(in srgb, var(--c-text) 9%, var(--c-bg))`), non da un token fisso: cosi restano staccati su qualunque tema scelga il cliente, chiaro o scuro. Il tab non selezionato ha ora il testo in `--c-text`, non in `--c-muted`.
+- ⚠️ `.spf` (form Giorni speciali) e' **condiviso** con Réglages, dove sta su `--c-card` e va benissimo com'e'. Il rialzo e' quindi scritto **solo** sotto `#evt-overlay`: cambiarlo nel componente avrebbe rotto Réglages.
+- **Tile Note**: testo portato alla stessa misura del modale (0.98rem) e il pallino decorativo `.np-dot` sostituito dal **cerchio vero** `.note-check`. Ora una nota si spunta **dalla tile**, senza aprire il modale: il cerchio e' l'unico punto dell'anteprima che non porta dentro.
+- La logica del «fatto» era scritta dentro l'handler del modale: estratta in `spunta(id)`, chiamata dai due punti. Stesso cerchio, stesso codice.
+
+### 📅 Agenda — il modale evento
+- Era gia costruito **a mano** come il guscio: flex in colonna, `h2` e `.m-foot` in `flex: 0 0 auto`, `.m-cols` come corpo. Aveva ragione lui: e' la stessa idea, scritta una volta di troppo.
+- ⚠️ **DEROGA VOLUTA al guscio**: qui NON scorre il corpo, scorrono le **due colonne separatamente**. Avevo provato a uniformare a una barra sola — Enzo l'ha fermato, e ha ragione: sono due contenuti indipendenti (a sinistra i titoli per lingua, a destra le descrizioni lunghe) e con una barra sola, scrivendo la descrizione EN, si perde di vista il titolo EN. Il corpo e' `overflow: hidden`, la barra sta nelle colonne.
+- Sotto i 760px le colonne si impilano e torna la barra unica: due barre **affiancate** hanno senso, due **impilate** no.
+- Resta valida la nota storica: li serve `display: block` e non un grid a una colonna, perche il contenitore ha un'altezza definita dal flex e le righe implicite non bastano.
+- Bottoni del footer → `.md-btn` / `.md-btn-primary`. Sparite `.m-cancel` e `.m-save` locali; `.m-err` resta (e tiene il `margin-right: auto` che spinge i bottoni a destra).
+- 🧹 **Trovato CSS morto**: ~30 righe di `#cp-overlay` e `#gc-overlay` (coupon e buoni regalo) copiate da `marketing.astro`. Quegli id **non esistono in agenda**. Non toccate: da togliere in un giro di pulizia a parte.
+
+
+### 🛒 Ordini — il modale «Nuovo ordine»
+- Wizard a 3 passi: **lo stepper resta fermo sotto il titolo**, come un header di secondo livello. Al 3° passo si deve poter tornare al 1° senza risalire tutto il carrello. Corpo flex in colonna, `overflow: hidden`, la barra sta nel pannello.
+- **Dimensione fissa 80vw × 80vh su desktop**: comportamento gia' presente e conservato. Serve perche' aggiungendo piatti la scatola crescerebbe sotto le mani. Ora si esprime con `--md-w: 80vw` + `height` sul `.md-box`, invece di riscrivere la scatola.
+- `.nc-nav` era `space-between`. Nel footer condiviso (`flex-end`) basta `#nc-prev { margin-right: auto }`: stesso trucco del `.m-err` in agenda. Sparite `.nc-nav-btn`, `.nc-nav-next` e `.nc-send`.
+- 🧹 Tolto da `modal.css` il blocco mobile `!important` di `.nc-modal`: quelle classi non esistono piu'.
+- ⏳ Sulla stessa pagina resta `#rf-overlay` (rimborso), non ancora convertito.
+
+### 🐛 Ordini: pagina VUOTA e muta — un ordine senza email uccideva tutta la lista
+- Sintomo: nessuna card, nessun messaggio, ma il conteggio in alto giusto («2 ordini · 30,00 €»).
+- **Causa**: `esc()` era `s.replace(...)` su una stringa nuda, e la riga dell'email chiamava `esc(o.customer_email)` **senza guardia**. Un ordine creato dall'admin puo' non avere email — il modale chiede nome + telefono, non l'indirizzo. `null.replace` → TypeError dentro `cardHTML` → `render()` moriva a meta.
+- **Perche' era MUTO**: `render()` nasconde l'elemento del messaggio (`display: none`) quando ha ordini da disegnare, POI lancia; il `catch` scriveva l'errore dentro quell'elemento **senza riaccenderlo**. Ed era pure un `catch` vuoto, senza `console.error`. Il conteggio invece era gia stato scritto, prima del punto di rottura: da qui il quadro assurdo di una pagina vuota con un conteggio giusto.
+- **Tre correzioni**, non una:
+  1. `esc()` accetta `unknown` e fa `String(s ?? "")` — nessun campo puo' piu' farla esplodere;
+  2. la riga dell'email compare **solo se l'email c'e'**, come gia faceva il telefono;
+  3. `mostraStato()` riaccende sempre l'elemento del messaggio, e i tre `catch` fanno `console.error` (anche quello dell'aggiornamento **silenzioso**, che prima inghiottiva tutto).
+- ⚠️ **Lezione sul metodo**: avevo estratto `cardHTML` e girata in Node con tutti gli stati — passava. Passava perche' il mio `esc` **finto** faceva `String(x)`, quello vero no. Uno stub piu' gentile dell'originale nasconde esattamente il bug che stai cercando: gli stub vanno copiati, non riscritti.
+
+### 🐛 Ordini: annullato, ma la card restava fra gli attivi
+- **Le liste sono DUE**: `ordini` (oggi, live) e `ordiniGiorno` (il giorno consultato col datepicker). `render()` disegna quella giusta, ma `cambiaStato()` aggiornava solo `ordini`. Guardando un altro giorno la card non si spostava: il nuovo stato compariva solo ricaricando.
+- **La firma bloccava anche il recupero**: `carica(true)` ridisegna solo se `firmaDa(list)` cambia, e la firma della copia appena modificata a mano e' gia identica a quella del server. Quindi il giro di controllo veniva saltato in silenzio. Ora dopo un cambio di stato la firma si **azzera** e si ricontrolla col server (e si ricarica il giorno, se se ne sta guardando uno).
+- **L'email di annullamento era `await`**: la PATCH restava appesa a Resend per secondi prima di rispondere, col bottone fermo. Ora e' `void ... .catch()`, come `inviaNotifiche` alla creazione: l'annullamento e' gia scritto nel database, la risposta non deve aspettare la posta.
+- Lezione: **due copie della stessa lista e una cache a firma** = due modi indipendenti di non vedere un aggiornamento. Chi scrive lo stato locale deve toccarle entrambe e invalidare la firma.
+
+### ↩️ Ordini annullati: si possono rimettere in corso (ma non tutti)
+- Il rollback esisteva solo per i **terminati**. Ora c'e' anche sugli **annullati** — l'API accettava gia' `cancelled → paid`, mancava il bottone.
+- ⚠️ **Non compare se l'ordine e' stato rimborsato** (anche solo in parte): quel denaro e' uscito davvero, e riportare l'ordine a «pagato» lo farebbe rientrare negli incassi del giorno e nelle statistiche. Deciso con Enzo fra quattro opzioni.
+- ⚠️ **Al cliente NON arriva nessuna email**: quella di annullamento e' gia partita e lui resta convinto che sia annullato. Va avvisato a voce. Un'email «ordine di nuovo confermato» e' un lavoro a parte (nuovo testo in 5 lingue + template).
+- Il click non ha richiesto codice nuovo: gli annullati vivono nella griglia degli **spenti**, che gia' gestiva `data-act="rollback"`.
+- La card annullata puo' ora avere due azioni (Rimborsa + Rimetti in corso): stanno insieme a destra in `.cf-acts`, la pastiglia resta a sinistra.
+
+### 📇 Card ordine: icone al posto di «Email :» e «Tel :»
+- Le due parole si ripetevano su ogni card senza dire niente: un indirizzo e un numero si riconoscono da soli. Sostituite da busta e cornetta, stesso tratto delle altre icone della pagina.
+- Le etichette restano come `aria-label` sul link, per i lettori di schermo.
+- `.row` e' diventata un flex: aggiunta l'ellissi sul testo, altrimenti un indirizzo lungo sfondava la card (prima ci pensava il `<p>` in flusso normale).
+### 📋 Prenotazioni: il modale DETTAGLI, l'ultimo `.overlay` della pagina
+- Mancava l'informazione essenziale quando il piano sala e' acceso: **i tavoli assegnati non comparivano da nessuna parte**. Aggiunti riusando `etichettaTavoli(r)` e `sezioneTavoli(r)`, gli stessi delle card: stesso nome, stessa sezione, nessuna seconda versione da tenere allineata.
+- **Riga di testa su due livelli**: sopra il QUANDO e per QUANTI (data, ora, coperti), sotto il DOVE (tavoli, sezione). Ogni voce ha la sua icona, le voci vuote non si stampano e la seconda riga sparisce del tutto se non c'e' niente da metterci.
+- **Il servizio e' uscito**: lo dice gia' l'ora, e occupava la riga che serviva ai tavoli.
+- **Il canale di prenotazione** (walk-in / telefono / sito) e' ora l'icona bianca a sinistra della pillola di stato, senza parola: il nome resta nel `title`. Prima era un'icona persa in testa alla riga meta **e** una riga «origine» in fondo — la stessa cosa detta due volte.
+- ⚠️ **Allineamento**: pillola e prima riga hanno altezze diverse (l'una ha il padding, l'altra no) e con `align-items: flex-start` i contenuti non cadevano sulla stessa linea. Introdotta `--dt-riga`, l'altezza della pillola, ereditata da entrambi come `min-height`: si centrano sulla stessa linea e la seconda riga scende senza spostare nulla.
+- **Il riquadro e' sempre visibile**: prima era il blocco del cronometro, quindi le informazioni sparivano per una prenotazione in attesa o annullata. Ora il riquadro e' la cornice fissa e a comparire e' solo la parte cronometro (`#dt-tblock`). Sparita la lista chiave/valore `#dt-rows`, che era la seconda presentazione delle stesse cose.
+- ⚠️ **Spaziature dall'alto, non dal basso** (`margin-top` invece di `margin-bottom`): quando manca il cronometro o non ci sono opzioni, il riquadro si chiude sul contenuto invece di lasciare spazio appeso.
+- **Mobile (≤640)**: lo stato sale in cima (prima la pillola, poi il canale) e i dettagli scendono sotto — due sole inversioni CSS (`column-reverse` + `row-reverse`), **senza toccare il markup**, che nel DOM resta in ordine di lettura.
+- ⚠️ Girando la riga in colonna, `flex: 1 1 240px` sulla meta non e' piu' una larghezza minima ma un'**altezza** di partenza: 240px di vuoto nel riquadro. In colonna la base va azzerata.
+- 🏁 Con questo **Prenotazioni e' la prima pagina finita**: nessun `.overlay` rimasto, fuori il CSS del guscio vecchio, i selettori in coppia e il ramo `.overlay.is-open` del controllo «modale aperto».
+
+### 🐛 Due errori veri trovati da `astro check`, non da esbuild
+- **`caricaVista` non era nello scope di `carica()`**: e' dichiarata nel blocco delle viste, molto piu' in basso. Il refresh silenzioso della settimana sarebbe morto con un ReferenceError. Risolto con un segnaposto `ricaricaVista` accanto a `let vista`, riempito da quel blocco — lo stesso schema di `planNomi`.
+- **`base_name` in `checkout.ts`**: il tipo locale di `itemsOrdine` non conosceva i pezzi separati aggiunti per le pastiglie delle varianti.
+- 🧹 `_to_delete` escluso da `tsconfig.json`: i file di verifica estratti dagli `.astro` (senza import risolvibili) producevano **87 errori** che coprivano i due veri. Un check illeggibile e' un check che non si guarda.
+
+### 👥 Clienti: modale dettagli e modale modifica al guscio condiviso
+- **Dettagli** (`#act-overlay`): il nome del cliente e' salito nell'**header** — prima era un `<h2>` dentro la colonna di sinistra, col × che galleggiava da solo in alto a destra. Le due colonne continuano a scorrere separate (`#act-overlay .md-body { overflow: hidden }`), come nel modale evento di Agenda. Breakpoint allineato a **760/761**, la deroga gia' in uso per i modali a due colonne (qui era rimasto 720).
+- **Modifica/aggiungi** (`#ed-overlay`): azioni nel footer (`Annulla` + `Salva`) al posto del bottone corallo a tutta larghezza; l'errore vive nel footer spinto a sinistra e da vuoto non occupa spazio.
+- **Riga foto rifatta come negli altri modali**: etichetta sopra, anteprima, pastiglie neutre «Carica una foto» / «Libreria». L'anteprima resta un **cerchio** con le iniziali: per una persona il ritratto e' tondo dappertutto nell'app. Montato `<ImagePicker />`, che qui non c'era: una foto gia' caricata non va ricaricata.
+- ⚠️ Il listener `imgpick:pick` esce subito se il modale e' chiuso: la Libreria vive **fuori** dal modale e senza quel controllo una scelta fatta altrove finirebbe sull'avatar.
+- **Permesso/negato sono diventati PILLOLE**, verde e rosso, con la stessa forma degli stati nella colonna accanto (`.act-status`). Il testo semplice resta per il caso neutro — cliente senza email — dove non c'e' niente da concedere o negare.
+- 🐛 Trovato per strada: **«Consentito» non aveva nessuna classe**. Solo «Bloccato» diventava rosso, l'altro restava grigio come un testo qualsiasi.
+- 🐛 **Modulo ordini spento dal super admin**: la sezione statistiche, il tab e la colonna erano gia' coperti, ma il tab di partenza no. La regola era «Prenotazioni, ma Ordini se non ci sono prenotazioni»: per un cliente senza prenotazioni sceglieva da solo il tab nascosto e mostrava la lista del modulo spento. Ora gli ordini escono **dai dati** (`actAtti` li filtra), non solo dalla vista.
+- **I 5 piatti piu' ordinati** in fondo alla sezione ORDINI, dalla **stessa chiamata** `client_top` che alimenta i preferiti nel modale «Nuovo ordine»: i due posti non possono dire cose diverse e l'API non e' stata toccata. Qui sono pero' solo da leggere — nel modale ordine servono ad aggiungere al carrello, in una scheda cliente sarebbero un bottone che non fa nulla.
+- ⚠️ Statistiche e piatti arrivano da due chiamate diverse e non si sa quale finisce prima: l'ultimo pacchetto resta in `exUltimo`, cosi' **chiunque arrivi per secondo ridisegna con tutti e due** invece di cancellare l'altro. Entrambe rispettano `actKeyCorrente`.
+
+### ⌨️ Campi — il terzo componente condiviso
+- Dopo il guscio e l'interruttore, `src/styles/field.css`: **dentro un modale non serve nessuna classe**, `input`/`textarea`/`select` in `.md-box` prendono la grafica da soli. Fuori dai modali c'e' `.fld`.
+- **Fondo `--c-card`, lo stesso delle card** (riga di prenotazione, tile, sezioni statistiche). Non e' un caso: una casella da riempire e una card sono tutte e due un piano rialzato rispetto al fondo, e cambiando tema si muovono insieme.
+- **Nessun bordo**, angoli 6px. Il bordo a riposo e' `1px solid transparent` e **non** `border: 0`: cosi' quando prende il fuoco e diventa corallo l'altezza non salta di due pixel.
+- ⚠️ **Il selettore dei modali e' volutamente lungo** (`.md-overlay .md-box …`). Le pagine si erano scritte le loro copie con la **stessa specificita'** (`.md-box input`): chi vince dipenderebbe dall'ordine in cui il bundle le mette, cioe' dal caso. Con un selettore piu' forte «uguale in ogni modale» e' vero davvero; le copie locali si tolgono con calma, finche' ci sono sono codice morto. Tolte in `clients`.
+- ⚠️ **Mai la scorciatoia `background`**, solo `background-color`: la scorciatoia azzererebbe la freccia disegnata dei select.
+- ⚠️ **Il corpo del testo resta 0.95rem anche su mobile**: sotto i 16px Safari iOS ingrandisce la pagina al primo tocco nel campo e il modale finisce fuori schermo. Li' rimpicciolire fa danno.
+- ⚠️ Checkbox, radio, file, range, color e hidden sono **esclusi**: hanno una grafica loro, e fra questi c'e' l'input invisibile di `.switch`, che senza l'esclusione si sarebbe ritrovato un fondo.
+- 📝 **«Sembra che ci sia un'opacita'»**: non c'era. `color-mix` fra due hex non produce alpha. Il campo sembrava di vetro perche' la schiaritura era troppo debole (9% del testo sul fondo) — si alza la percentuale, non si aggiunge un rgba. Poi la risposta vera e' arrivata da Enzo: usare `--c-card`, il colore che l'occhio riconosce gia' come «piano rialzato».
+
+### 🏚️ Interruttore: anche i `<button role="switch">`
+- Su Clienti l'interruttore non e' una checkbox ma un bottone, e lo stato lo porta `aria-checked`. Il componente conosceva solo `input:checked` e `.is-on`.
+- Aggiunto `[aria-checked="true"]` a `switch.css` **senza duplicare lo stato in una classe**: `aria-checked` serve gia' all'accessibilita', una classe parallela sarebbe una seconda verita' da tenere allineata a mano. Il JS non e' stato toccato.
+
+### 🍽️ Menu — modale sezioni: frecce al posto del trascinamento, e un salvataggio solo
+- Il trascinamento su tablet era un terno al lotto e, soprattutto, **riparentava le sezioni per sbaglio**: bastava passare sopra la riga giusta al momento sbagliato.
+- Ora due cerchi su/giu' (`.i-btn`, la stessa impronta degli altri bottoni della riga). La regola: **si sposta di un posto fra i FRATELLI, portandosi dietro il sotto-albero**. Cambiare padre per sbaglio non e' piu' possibile, e la freccia si SPEGNE quando non c'e' dove andare.
+- Se il dito sbaglia e prende la freccia accanto, il rimedio e' premere l'altra: giu'+su e' l'identita'. Col drag, un dito impreciso ti spostava la sezione in un punto qualunque.
+- ⚠️ Touch: `@media (pointer: coarse)` e non un breakpoint di larghezza — un tablet in orizzontale e' largo come un portatile e si usa col dito.
+- **Verificato in Node** su un albero a tre livelli: dopo ogni mossa, ogni figlio ha il padre prima di se', la profondita' e' coerente e sta dentro il blocco del padre. Il caso critico — far uscire una sezione CON figli — li porta dopo il vecchio padre invece di lasciarli in mezzo agli ex fratelli.
+
+### ⏱️ «Ci mette troppo a salvare» — erano DUE problemi, non uno
+- Enzo: «i clienti si innervosiranno». Aveva ragione, e la causa principale non era quella che sembrava.
+- **L'endpoint**: `PATCH /api/admin/categories` faceva **due UPDATE in sequenza per OGNI sezione**, sempre, anche per quelle ferme. Con 20 sezioni, **40 andate e ritorno** verso Supabase per spostare una riga di un posto. Ora e' un `upsert` unico, e i piatti si toccano solo per le sezioni che hanno davvero cambiato posto, in parallelo: da ~40 chiamate a 2.
+- **L'interazione**: ordine, livello, nome e tipo ora si cambiano **solo in memoria**; il server lo si sente una volta sola, con «Salva». Il footer dice «Modifiche non salvate» finche' c'e' qualcosa in sospeso.
+- Aggiungi ed elimina restano immediati ma **salvano prima quello che c'e' in sospeso**: passano dal server e finiscono con un ricaricamento, che altrimenti se lo porterebbe via.
+- ⚠️ **Ordine di salvataggio**: prima i NOMI, poi l'ordine. I piatti sono legati alla sezione per nome e la PATCH tocca gli stessi piatti: invertendo, li cercherebbe con un nome che non esiste piu'.
+- ⚠️ Con modifiche in sospeso il click sullo SFONDO non chiude (un click storto buttava via tutto in silenzio). «Annulla» scarta **e chiude**: e' il «lascia perdere», non un «ripulisci e restaci dentro».
+
+### 🔘 Bottoni — il quarto componente condiviso
+- Dopo guscio, interruttore e campi: `src/styles/button.css`. `.btn` e' il bottone d'azione dentro un modale; `.md-btn` resta la coppia annulla/conferma del footer.
+- Ogni pagina se l'era riscritto: `.ed-pill`, `.sec-btn`, `.f-img-btn`, `.ed-upl`, `.pill`, `.m-ghost`. Sei nomi per la stessa cosa.
+- **Regola nata qui: UN SOLO bottone corallo per modale, ed e' la conferma.** In «Modifica immagine» «Comprimi in WebP» era corallo pieno come «Salva» — due bottoni che chiedono cose diverse con lo stesso peso.
+- `.btn-danger` (Rimuovi) e' grigio a riposo e rosso solo al passaggio: rosso fisso sembra un allarme sempre acceso.
+
+### 🧹 Conversioni: agenda, marketing, assets, menu
+- **Agenda**: il guscio era gia' condiviso ma sotto c'erano tre componenti riscritti a mano (interruttore, `.pill`, `.f-input`). Censimento del CSS: **65 classi e 8 id mai usati**, interi blocchi copiati da marketing (buoni regalo, coupon, newsletter). ~120 righe morte che ogni cliente scarica — segnalate a Enzo, non ancora tolte.
+- **Marketing**: tutti i modali tranne «Usa buono». La pagina si era riscritta un `.modal` che IMITAVA il guscio condiviso (titolo sticky col filetto, footer sticky): sembrava giusto, sotto era tutto suo.
+- ⚠️ **Newsletter: «Invia a tutti» stava per PRIMO, a sinistra, in corallo** — nel punto dove negli altri modali c'e' «Annulla». Per un bottone che manda email a tutti i clienti e non si torna indietro. Riordinato in fondo a destra.
+- **Crediti**: il footer COMPARIVA scegliendo un pacchetto, e i riquadri dei prezzi si spostavano sotto il dito. Ora «Paga» c'e' sempre, spento.
+- **Buoni regalo**: «‹ Indietro» era una `.pick`, la stessa classe delle pastiglie di scelta del form — sembrava un'opzione da selezionare, non un comando.
+- **Assets** e **Prenotazioni** sono le prime pagine FINITE: nessun `.overlay` rimasto, fuori tutto il guscio vecchio.
+- In quasi tutti mancava **«Annulla»**: si usciva solo dalla ×.
+
+### 👻 Il documento che non si cancellava — era una CARTELLA
+- Enzo: «vedo il toaster ma e' sempre li'». Il file mostrava anche nome senza estensione, peso vuoto e data vuota: tre sintomi, una causa sola.
+- `storage.list()` restituisce anche i **PREFISSI** (le cartelle) insieme agli oggetti: arrivano con `id: null` e senza metadati. Il codice li prendeva per documenti — ecco peso e data vuoti, che sono proprio i campi che una cartella non ha.
+- E `remove()` su un percorso senza oggetti **non da' errore**: restituisce la lista (vuota) di cio' che ha tolto. L'endpoint la leggeva come successo → toast verde su un file ancora li'. **Dire il falso e' peggio di un errore.**
+- ✅ La lista scarta le cartelle (`id !== null`); la DELETE verifica che il nome sia fra i file tolti davvero, altrimenti 404.
+
+### 🖼️ L'anteprima PDF non funzionava da una settimana, in silenzio
+- `caricaPdfjs()` inseriva a runtime uno `<script src="https://cdnjs.cloudflare.com/...">`. La CSP dell'admin e' `script-src 'self' 'nonce-...'` (resa stringente il 04/09): origine esterna e niente nonce → **il browser lo rifiutava**.
+- Falliva in silenzio perche' `generaAnteprima()` ha un `catch` che ripiega sull'icona. Nessun errore, nessun sospetto.
+- ✅ `pdfjs-dist` (6.3.289) come dipendenza, con `import()` dinamico e worker via `?url`: Vite ne fa un pezzo servito da `'self'`, la CSP resta stretta e si scarica solo quando si carica davvero un PDF.
+- ⚠️ Il rovescio: prima un CDN irraggiungibile costava solo l'anteprima; ora una dipendenza mancante ferma tutta la pagina Assets. Dopo ogni merge sui clienti va rifatto `npm install`.
+
+### 🧪 16 test che non giravano da mesi
+- Lanciando `npm test` per la prima volta: `slots.test.ts` segnava **«0 test»** e falliva all'import. Non «nessun test da fare» — non partiva affatto.
+- `slots.ts` importava `./db` in cima, e `db.ts` **lancia** se mancano SUPABASE_URL / SUPABASE_SERVICE_KEY. Astro gliele passa, vitest no (Vite espone solo le `VITE_*`).
+- ✅ Il client Supabase serve in UN punto, dentro `aggiornaTimezone()` che e' gia' async e gia' in try/catch: import dinamico li'. `slots.ts` torna a essere calcolo puro e i suoi **16 test** girano. Totale: **39 verdi**.
+- E' la lezione gia' scritta nel diario («env valutate all'import → lazy»), applicata altrove ma non qui.
+
+### 🧪 Assets/Documenti — 18 test unitari e tre problemi veri
+- Enzo: «ho l'impressione che ci siano diversi problemi». Invece di tirare a indovinare, `tests/documenti.test.mjs` (18 test, `node --test`): nomi, anteprime, rinomina, cancellazione, trasporto, cestino. Funzioni copiate **verbatim**.
+- **Verde**: accenti e spazi nei nomi, anteprima agganciata al nome giusto, omonimi che non si sovrascrivono, `../` rifiutati, anteprime che non compaiono come documenti.
+- 🐛 **Due cestini armati insieme**: il cestino e' a due tempi, ma ogni bottone si armava per conto suo e restava armato 3 secondi. Con piu' documenti se ne potevano avere due o tre pronti a scattare, e un click distratto cancellava un file che non si stava guardando. Aggiunta la guardia «uno solo alla volta», la stessa che Ordini e Prenotazioni avevano gia'.
+- 🐛 **Il limite di peso guardava la cosa sbagliata**: il client bloccava a 10 MB il file SUL DISCO, ma il PDF viaggia in JSON come base64 — **+33%**. Un file da 9 MB partiva come ~12 MB e poteva morire per strada senza messaggio. Ora il limite e' sui tre quarti.
+- 🐛 **L'API nascondeva gli errori**: `if (error) return { documents: [] }` col commento «bucket non ancora creato» faceva diventare QUALUNQUE errore «nessun documento» — bucket mancante, permessi, Supabase giu'. Ora solo il bucket inesistente da' lista vuota.
+- L'anteprima PDF viene da pdf.js su CDN esterno: se e' bloccato non si genera, e ora almeno lo scrive in console invece di sparire in silenzio.
+
+### 🖨️ Stampa e Super: l'ultimo giro di modali
+- **Stampa (acquisto)**: gia' sul guscio condiviso. Rimessi in riga i riquadri dei pacchetti — bordo da `color-mix` sul testo invece di `--c-line`, stesso sollevamento al passaggio del mouse delle altre card — e l'errore portato al rosso di sistema con `:empty { display: none }` (prima lasciava una riga vuota).
+- **Super (nuovo utente)**: era un guscio tutto suo (`.us-overlay`, `.us-modal`, `.us-close`, campi con fondo `--c-card`). Passato a `<Modal>`: ~15 righe di CSS in meno, azioni in un footer vero con un «Annulla» che prima non c'era, «Genera» diventato `.btn`, e tre `style=` inline diventati classi.
+
+### 🪑 La piantina della sala — il modale piu' grosso di tutti
+- Ultimo `.overlay` fatto a mano che valesse la pena convertire: 90vw × 90vh, header cucito a mano, e dentro una tela con tavoli trascinabili, due pannelli flottanti e la colonna dei tavoli collegati.
+- ✅ Passato a `<Modal>` (`width="1600px"`). Il titolo e la × arrivano dal guscio; il **totale** («7 tavoli · 14 posti») e i messaggi sono scesi nel **footer**, a sinistra, col «Chiudi» a destra — cosi' restano sempre visibili invece di stare appesi in fondo alla colonna degli attrezzi.
+- ✅ Bottoni al componente condiviso: i quattro «+ Rotondo / Quadrato / Pianta / Muro», «Disegna la sala» e «Collega tavoli» sono `.btn`, i due «Duplica» sono `.btn .btn-sm`. Tolte 6 righe di CSS: prima ce n'erano **tre disegni diversi** nello stesso modale (contorno corallo, riempito, pastiglia).
+- ✅ Campi al componente condiviso: i due pannelli flottanti (nome/posti del tavolo, larghezza/altezza del decoro) non hanno piu' il loro CSS — li veste `field.css` perche' stanno dentro `.md-box`.
+- ⚠️ **Due trappole, tutte e due invisibili finche' non si prova**:
+  1. **I pannelli flottanti sparivano dietro il modale.** Sono `position: fixed` con `z-index: 60`: bastava contro il guscio vecchio (300), non contro `.md-overlay` (**400**). Portati a 500.
+  2. **La sala si sarebbe schiacciata a zero.** La tela si dimensiona con un container query (`container-type: size`), che misura il genitore: il `.md-body` e' alto quanto il contenuto, quindi non c'era niente da misurare. Risolto mettendo il corpo a colonna flex e `.sl-wrap` a `flex: 1 1 auto; min-height: 0`. Le due regole sono ora scritte in ENGINE.md, perche' valgono per qualsiasi modale che debba RIEMPIRE la finestra.
+- ➕ Sotto i **900px** le tre colonne (attrezzi | sala | gruppi) si impilano: prima il modale non aveva **nessun** `@media` e su tablet le colonne uscivano dal bordo.
+- I cestini tondi restano `.tm-ibtn` — e' il bottone-icona della pagina, usato anche da Team e Marchi, e ha uno stato «conferma» che si allunga in pastiglia. `button.css` non ha (ancora) una variante icona: farne una e migrare le quattro pagine e' un giro a se'.
+
+### 👔 Team: il modale contatto prende la forma di quello cliente
+- Era l'altro `.overlay` fatto a mano di Impostazioni: guscio proprio, campi `.f-input`, etichette `.f-lab` con margini a occhio, e un footer dove «Salva» stava **a sinistra** con i due interruttori di fianco — l'unico posto dell'admin dove il bottone di conferma non era in fondo a destra.
+- ✅ Passato a `<Modal>` (660px). Footer standard: errore a sinistra, **Annulla / Salva** a destra come in ogni altro modale. L'«Annulla» prima non c'era.
+- ✅ Campi ed etichette: `.f-field` + `.f-label`, **gli stessi del modale cliente** in Clienti. Le caselle non hanno piu' CSS proprio, le veste `field.css`; la riga foto e' la stessa (`cerchio + bottoni .btn`, «Rimuovi» in `.btn-danger`).
+- **DIPENDENTE e ATTIVO restano nel footer** (provato a portarli nel corpo come righe con filetto, Enzo li ha rivoluti li'): interruttore + etichetta a sinistra, «Annulla / Salva» a destra. Il footer allinea a sinistra e a spingere e' solo il PRIMO bottone (`margin-left: auto`), cosi' il secondo gli resta accanto invece di volare all'altro capo.
+- ✅ **«+ Aggiungi un contatto» e' diventato il FAB condiviso**: pillola corallo in basso a destra con etichetta corta «+ Contatto», come «+ Cliente» e «+ Ordine». Era l'ultimo posto dell'admin dove il pulsante d'aggiunta stava dentro l'intestazione della pagina. Nuova chiave `set.tm.contactWord` nelle 5 lingue (il «+» lo mette il markup, come altrove).
+- Lo mostra `mostraTab` **solo** sul tab Team, che e' anche l'unico dove la barra «Salva» non compare: i due flottanti occupano lo stesso angolo e non si incontrano mai.
+- Tolte ~14 righe di CSS (`.tm-upl`, `.tm-upl-rm`, `.tm-foot`, `.tm-save`, `.tm-avatar-edit`, `.tm-avatar-side`). `.f-lab` resta, ma ormai serve **solo** al modale documenti — l'ultimo guscio vecchio della pagina.
+
+### 👻 L'anteprima PDF era rotta in DUE posti, ne avevamo aggiustato uno
+- Enzo: «nella pagina documenti l'anteprima non appare neanche qui». Era vero, ed e' lo **stesso** guasto corretto in Assets qualche giorno fa: il tab Documenti di Impostazioni aveva la **sua copia** della funzione, che caricava pdf.js da `cdnjs.cloudflare.com` con uno `<script>` creato a runtime. La CSP dell'admin (`script-src 'self' 'nonce-…'`) lo rifiuta — origine esterna, niente nonce — e il `catch { return null }` era **muto**: restava l'icona grigia, identica a quella di un PDF protetto.
+- Il documento che l'anteprima ce l'aveva era stato caricato dalla pagina Assets, gia' corretta. Due porte per la stessa stanza, una aggiustata e una no.
+- ✅ **Una funzione sola**: `src/lib/admin/pdfThumb.ts` (`caricaPdfjs` + `generaAnteprimaPdf`), usata da Assets e da Impostazioni. Tolte 71 righe da Assets e 50 da Impostazioni. Il parametro `origine` finisce nel log, cosi' si sa da quale pagina arriva l'errore.
+- **La lezione non e' «c'era un bug»**: correggere una copia e lasciare l'altra e' il modo tipico in cui un guasto sopravvive a chi l'ha riparato. Quando una funzione e' copiata in due pagine, la correzione va nel modulo, non nella copia.
+
+### 📄 Documenti: anche «+ Aggiungi un documento» e' il FAB condiviso
+- Pillola corallo in basso a destra, etichetta corta **«+ Documento»** (nuova chiave `as.docWord` nelle 5 lingue). L'`<input type="file">` resta nascosto nel tab, e' il FAB a farci click sopra.
+- Come quello del Team lo mostra `mostraTab` solo sul suo tab — e anche li' la barra «Salva» non compare, quindi l'angolo in basso a destra e' libero.
+
+### 📄 Il modale documento — e Impostazioni chiude
+- Ultimo `.overlay` fatto a mano della pagina. Passato a `<Modal>` (520px): footer vero con **Annulla / Carica** (l'«Annulla» non c'era), campi da `field.css`, etichette `.f-field`/`.f-label` come negli altri due modali della pagina.
+- **13 `style=` in riga spariti dal markup**: larghezze, gap, margini e `flex` erano scritti a mano accanto a ogni tag — impossibile ritoccare una misura senza rileggere l'HTML. Adesso sono otto regole (`.dc-row`, `.dc-grow`, `.dc-lang`, `.dc-inline`, `.dc-fname`, `.dc-hint`, `#dc-nval`, `#dc-nunit`).
+- L'etichetta e il campo «nome file» si nascondevano **separatamente**, con due `style.display` da tenere allineati a mano in due punti del codice. Ora sono un `.f-field` solo (`#dc-nom-box`) e la riga da scrivere e' una.
+- ✅ **Impostazioni e' una pagina CHIUSA**: `.overlay`, `.modal`, `.m-close`, `.f-lab` e `.f-input` non esistono piu' li'. 24 righe di guscio ridisegnato in meno, tutte e tre le finestre (piantina, team, documento) sul guscio condiviso.
+
+## 📌 12/09/2026 — Conversione dei modali CHIUSA + cinque guasti silenziosi
+
+**Il filo della giornata**: ogni guasto trovato oggi era invisibile perche' il
+ripiego somigliava al funzionamento normale — un'icona grigia al posto
+dell'anteprima, un bottone che cambia solo il testo, un numero tondo, sette
+trattini da 2px, una notifica push di troppo. Tre su cinque nascevano dalla
+stessa causa: **due copie della stessa cosa, corretta in una sola**.
+
+### 🎛️ Documenti: sei colonne e due piani di colore
+- **Sei colonne fisse** al posto di `auto-fill, minmax(190px, 1fr)`. Su uno schermo largo l'auto-fill ne infilava otto o nove e la prima pagina di un A4 diventava un francobollo illeggibile — che e' proprio quello per cui l'anteprima esiste. Sei e' il numero in cui il menu si riconosce ancora. Poi 4 / 3 / 2 sulla scala 1279 · 1023 · 640.
+- **Le card erano `--c-card`, lo stesso colore della `.section` che le contiene**: a separarle c'era solo un bordo. Passate a `--c-bg`, come le card del Team nella stessa pagina.
+- **Le pastiglie filtro erano trasparenti**, quindi anche loro si confondevano col pannello. Fondo pieno `--c-bg` e bordo da `color-mix` sul testo (non `--c-line`, che su certi temi sparisce). Cambiate per Team e Documenti insieme: e' lo stesso controllo in due tab, tenerne una versione piu' scura dell'altra sarebbe stata una divergenza in piu' da ricordare.
+- La pagina ha ora due piani soli: il pannello chiaro, e tutto quello che ci sta sopra.
+- 🗑️ **Il cestino a due tempi anche qui**: la × e' diventata l'icona del bidone, e soprattutto e' arrivata la guardia «**uno solo armato alla volta**», la stessa di Assets e Ordini. Qui mancava: ogni bottone si armava per conto suo e restava armato 3 secondi, quindi con sei card in riga ci si poteva ritrovare due o tre cestini pronti a scattare e un click distratto cancellava un documento che non si stava guardando. Un click ovunque fuori dal cestino lo disarma.
+
+### 🎟️ «Usa buono» — e Marketing chiude
+- Ultimo `.overlay` fatto a mano della pagina, e il piu' piccolo: 12 righe. `<Modal>` a 420px, footer vero con **Annulla / Incassa** (l'«Annulla» non c'era), i due `style=` inline diventati `.gcu-info` e `#gc-use-amount`.
+- ✅ **Marketing e' una pagina CHIUSA**: via `.overlay`, `.modal`, `.m-close`, `.m-save`. Restano `.f-lab`, `.f-input` e `.m-err`, che non sono il guscio ma etichette, campi e messaggi dentro le scatole condivise.
+- 🐛 **Trovato per caso togliendo `.m-save`**: la regola `.m-save.confirm` (il rosso scuro del secondo tempo) non agganciava piu' niente. Il bottone «Invia a tutti» della newsletter era passato a `.md-btn` in una conversione precedente, quindi da allora il secondo tempo cambiava **solo il testo** e non diventava rosso — su un'azione che manda una mail a tutta la lista. Ora la regola e' `.md-btn-primary.confirm`.
+- E' il secondo guasto della giornata dello stesso tipo: una cosa corretta in un posto e rimasta rotta nell'altro, invisibile perche' il ripiego somigliava al funzionamento normale.
+
+### 🎁 Card buono regalo: chi, quando, e dove sono finiti i soldi
+- Destinatario, offrente e scadenza erano a **0.82rem**, piu' piccoli di una nota a margine — ed e' l'informazione per cui si apre la pagina. Portati a 0.95rem con piu' aria fra le righe.
+- **«Usato 3 volte» si fermava li'**: per sapere QUANDO e QUANTO bisognava aprire la tabella su Supabase. L'API contava le righe del ledger e buttava via tutto il resto. Ora `GET /api/admin/gift-cards` rende anche `redemptions` (importo, data-ora, nota, tipo) e la card mostra il registro subito sotto il conteggio, rientrato con un filetto corallo che lo lega alla riga da cui dipende.
+- **Data E ora**: un buono speso due volte lo stesso giorno darebbe due righe identiche.
+- Il registro e' alto al massimo 7.5rem e scorre: un buono usato quindici volte non allunga la card e non sfalsa la griglia.
+- ⚠️ **Ripiego per i clienti non migrati**: se il `select` ricco fallisce (mancano `note`/`kind`/`created_by`) si ricade sul solo `gift_card_id`, cioe' sul conteggio di prima. Senza, un errore avrebbe azzerato anche il numero di utilizzi — un dato che c'e' sempre stato.
+- **Icone al posto delle etichette**: «Per», «Da parte di», «Scade il», «Usato» erano quattro parole ripetute su ogni card per introdurre quattro dati che si riconoscono da soli. Ora un'icona a larghezza fissa (regalo · persona · calendario · ciclo) e il dato in grassetto — e i quattro valori si incolonnano senza dipendere da quanto e' lunga l'etichetta tradotta, che in nederlandese e spagnolo cambia parecchio.
+- ⚠️ **Le icone non parlano agli screen reader**: ogni riga porta il `title` e un `.sr-only` con l'etichetta vera. Un'icona muta e' un'informazione tolta a chi non la vede.
+- 🖱️ **Via il bottone «Usa», e' la CARD ad aprire il modale**: era un bottone da 0.78rem schiacciato fra interruttore, matita e cestino — il bersaglio piu' piccolo per l'azione piu' frequente della pagina. Ora la card usabile e' `role="button"`, risponde a Invio e Spazio, e si solleva al passaggio del mouse; quella esaurita, scaduta o non pagata resta inerte.
+- ⚠️ **L'ordine dei controlli nel gestore e' obbligato**: matita, cestino e interruttore stanno DENTRO la card, quindi il `closest("[data-use]")` li prenderebbe tutti. La card va controllata per ultima, dopo un `return` esplicito su ognuno degli altri.
+
+### 💸 Rimborso — e Ordini chiude
+- Terzo guscio della raccolta: non `.overlay` come gli altri ma `.rf-overlay`, tutto suo, con **19 righe** di CSS che ridisegnavano fondo, scatola, titolo, campo e bottoni.
+- ✅ `<Modal>` a 420px. Resta solo la riga «€ [importo] [Tutto]», l'unica cosa davvero propria di questo modale: campo da `field.css`, «Tutto» da `button.css`, «Annulla / Rimborsa» dal footer condiviso.
+- **«Annulla» era ROSSO PIENO** (`--c-red`), grande quanto «Rimborsa»: i due bottoni si somigliavano e quello che sembrava piu' pericoloso era quello che non faceva niente. Ora e' la coppia neutra/accento di ogni altro modale.
+- **Via lo z-index 1000.** Non risolveva nessun conflitto: in Ordini non c'era niente fra 400 e 1000: era solo un «il piu' alto possibile». Ora il guscio sta a 400 come tutti, e il toast a 2000 resta sopra — che e' giusto, perche' annuncia l'esito del rimborso mentre la finestra e' ancora aperta.
+- ✅ **Ordini e' una pagina CHIUSA.**
+
+### 🧟 «Aggiungi cliente»: non era da convertire, era da seppellire
+- Ultimo `.overlay` di Clienti — solo che **non si apriva piu'**. Il pulsante «+ Cliente» chiama `apriNuovo()`, che apre il modale unificato `#ed-overlay`; in tutta la pagina non esisteva un solo `add("is-open")` su `#overlay`. Residuo di quando aggiungi e modifica erano due finestre.
+- Sepolti: 32 righe di markup, 9 costanti, `chiudiModale()`, `salva()` (~35 righe con una POST che non partiva mai), i listener, e ~45 righe di CSS (`.overlay`, `.modal`, `.m-close`, `.m-actions`, `.m-save`, `.m-cancel`, `.m-msg`, `.modal input`, `.tel-prefix`).
+- ✅ **Clienti e' una pagina CHIUSA.**
+
+### 🔎 Il confronto prima di cancellare: tre cose erano andate perse
+Prima di buttare `salva()` l'ho confrontata riga per riga con il salvataggio vivo. Il codice morto era piu' completo in tre punti, e nessuno se n'era accorto perche' il modale che li conteneva non si apriva:
+1. 🐛 **Invio non salvava piu'.** Nel morto premere Invio in uno dei quattro campi salvava; nel vivo non c'era nessun `keydown`. Rimesso.
+2. 🐛 **Lo spinner era sparito.** Il morto metteva `.is-loading` sul bottone durante la scrittura, il vivo faceva solo `disabled = true`: su rete lenta il bottone si spegneva e basta. Rimesso.
+3. 🐛 **Il prefisso telefonico non si spostava piu'.** Scrivendo «+33 6…» o «0033…» nel campo numero, il morto riconosceva il prefisso, lo metteva nella tendina e ripuliva il numero. Il vivo no. Rimesso su `#ed-phone`.
+- 🐛 **Client e server in disaccordo**: «almeno email o telefono» era controllato dal client SOLO in creazione, ma il server lo pretende su ogni scrittura. Svuotando i due campi di un cliente esistente si otteneva un `400` con il messaggio **in francese** mostrato grezzo, qualunque fosse la lingua dell'admin. Ora il controllo vale sempre, e l'errore e' tradotto.
+- 🧹 **Tolta `POST /api/admin/clients`**: senza chiamanti una volta sepolto il modale (l'unico altro uso dell'endpoint, in Prenotazioni, e' una PATCH). Erano 29 righe di API esposta con una copia dei controlli da tenere allineata a quelli della PATCH — che li ha tutti: nome obbligatorio, email o telefono, formato email. La DELETE continua a funzionare: l'`X-Method-Override` diventa un DELETE vero nel middleware, prima del dispatch.
+- **La lezione**: un modale morto non e' innocuo. Ha continuato a ricevere correzioni che il modale vivo non ha mai avuto.
+
+### 🍽️ Lunch: il terzo modale a due colonne
+- Stessa forma del modale piatto, gia' convertito: `<Modal width="940px">`, corpo che NON scorre, le due colonne che scorrono ognuna per conto suo, footer con l'interruttore «Attivo» a sinistra e la coppia di bottoni a destra.
+- Invece di riscrivere le regole, ho **aggiunto `#lu-overlay` ai selettori del modale piatto**: sono lo stesso problema (due colonne dentro una finestra da 940px), e tenerli in due blocchi separati vuol dire che la prossima correzione ne tocca uno solo. Vale anche per la deroga 760/761.
+- I due `style=` in riga sono diventati `.lu-f-nome` e `.lu-combo-hint`.
+- ⚠️ **Il campo prezzo va riportato a 110px con l'ID**: dentro `.md-box` field.css da' `width: 100%` a tutti i campi, e il prezzo si stendeva su tutta la colonna. Stessa trappola gia' vista nella piantina e nel modale documento — quando un campo ha una larghezza SUA, il selettore deve batterla.
+- 🧹 `.m-msg:empty { display: none }`: con `flex: 1` uno span d'errore vuoto si prendeva tutto lo spazio libero del footer.
+- Verificato prima di toccarlo (regola nuova): il modale e' VIVO — lo aprono il «+» sul filtro Lunch e la matita sulle card.
+
+### 🍷 Menù: l'ultimo modale, e il guscio vecchio esce dal motore
+- Quarto e ultimo `.overlay` fatto a mano. Convertito come i suoi due fratelli, aggiungendo `#mn-overlay` agli stessi selettori: le regole delle due colonne sono ora **una sola**, condivisa da piatto, lunch e menu.
+- 🐛 **La trappola vera stava nel JS, non nel CSS.** La scelta immagine e' un evento `window` (`imgpick:pick`) che arriva a TUTTE le pagine in ascolto: ogni modale si difende con una guardia «sono io quello aperto?». Quella del menu era `mnOverlay.classList.contains("is-open")` — una classe che dopo la conversione non esiste piu'. Sarebbe rimasta `false` per sempre: scegliere una foto dalla libreria non avrebbe fatto niente, **in silenzio**. Ora e' `mnOverlay.hidden`.
+- 🔀 **Riordinati i tre bottoni**: era «Salva bozza · Annulla · Salva», cioe' l'unico bottone che BUTTA VIA il lavoro incastrato fra i due che lo salvano. Ora «Annulla · Salva bozza · Salva»: le due azioni che conservano stanno insieme a destra.
+- L'ultimo `style=` in riga e' diventato `.mn-add-course`.
+
+### 🏁 Il guscio dei modali: conversione CHIUSA
+- Con Menù **nessun modale admin usa piu' il guscio fatto a mano**. Spariti da tutte le pagine `.overlay`, `.modal`, `.m-close`, `.m-actions`, `.m-cancel`, `.m-save`.
+- Tolto anche il **blocco di compatibilita' in fondo a `modal.css`**: sei regole con `!important` che servivano a tenere in riga i modali non ancora convertiti battendo gli stili scoped delle pagine. Non aggancia piu' niente, e gli `!important` erano il prezzo di far convivere due gusci.
+- Resta fuori solo **ImagePicker**, che non e' mai stato un `.overlay`: ha un guscio suo (`.imgpick-*`) ed e' un COMPONENTE, quindi convertirlo tocca tutte le pagine che lo usano.
+- 🧹 Codice morto segnalato e non toccato: `.m-actions` / `.m-cancel` in `reservations.astro`.
+
+### 📊 L'istogramma della Home era piatto — una riga di CSS
+- Enzo: «normalmente dovresti vedere degli istogrammi, giusto?». Si: c'erano sette trattini da 2px al posto delle barre.
+- 🐛 `.st-bars` aveva **`align-items: flex-end`**. In flexbox quello fa restringere ogni colonna sul proprio contenuto, quindi `.st-bar` non era piu' alta 110px ma «auto» — e **una percentuale contro un genitore alto «auto» vale `auto`**. L'`height: 73%` della barra dentro diventava `auto`, cioe' zero, e restava solo il `min-height: 2px`. Le barre non erano mai state disegnate.
+- ✅ `align-items: stretch` (il default). La barra si appoggia in basso col `justify-content: flex-end` che `.st-bar` ha gia': il `flex-end` sul contenitore non serviva a quello e rompeva tutto il resto.
+- Verificato in un browser vero (Playwright) prima e dopo, sugli stessi dati: **2 2 2 2 2 2 2** px → **2 2 74 74 110 2 2** px.
+
+### 🇮🇹 «Jeu, Ven, Sam, Dim» in un admin italiano
+- Le etichette dell'asse erano due array **francesi scritti a mano** (`GIORNI_FR`, `MESI_FR`) dentro il calcolo lato server. Un ristoratore italiano vedeva i giorni in francese sul grafico della Home e su tutta la pagina Statistiche.
+- ✅ Ora le da' `Intl` dalla lingua globale dell'admin. Si toglie il punto e si alza l'iniziale, cosi' restano identiche a come erano disegnate. **In francese l'output e' lo stesso di prima** (Lun Mar Mer Jeu Ven Sam Dim): nessun cliente attuale vede cambiare niente. Solo i mesi passano da «Jan Fév» a «Janv Févr», che e' la forma di Intl.
+- Anche la «T» di trimestre era fissa: adesso e' una chiave nelle 5 lingue (T / Q / T / K / T).
+
+### ♊ Le statistiche erano DUE copie identiche di 180 righe
+- `src/pages/api/admin/stats.ts` e `src/lib/admin/calcolaStats.ts` contenevano lo stesso calcolo, con in cima il commento: «⚠️ Copia FEDELE… se cambi il calcolo lì, aggiornalo anche qui (e viceversa)».
+- Le ho confrontate riga per riga: **non erano ancora divergenti**, differivano solo per i commenti e per l'involucro (risposta JSON contro valore di ritorno). Ma e' la terza duplicazione della giornata, e le altre due erano gia' divergenti: l'anteprima PDF (corretta in Assets, rotta in Impostazioni) e il rosso del secondo tempo su «Invia a tutti».
+- ✅ L'endpoint ora **importa** `calcolaStats`: da 206 righe a 37, e non fa piu' nessun calcolo. La localizzazione delle etichette e' arrivata gratis su tutti e due i posti — se fossero rimaste due copie, l'avrei messa in una sola.
+- **Un commento che dice «ricordati di aggiornare anche l'altro» non e' una protezione: e' la descrizione di un guasto che deve ancora succedere.**
+
+### 🔢 «1000 recensioni tonde» — non era un limite di Google, era il nostro
+- Enzo: «nella scheda vedo 1138 recensioni, nel filtro Tutte ne vedo 1000. E' un limite o un errore?». Un errore.
+- 🐛 `GET /api/admin/google/reviews` faceva `select(...)` **senza `range`**, e **PostgREST rende al massimo 1000 righe per richiesta**, senza errore e senza avviso. Il numero tondo era il segnale. Il progetto conosceva gia' la trappola — `ordiniPagati` in `calcolaStats` pagina proprio per questo — ma qui non era stata applicata. Ora legge a pagine di 1000.
+- 🐛 **La stessa trappola faceva un danno peggiore altrove**: prima di ogni sync si caricano gli id delle recensioni gia' note per capire quali sono NUOVE e mandare la notifica push al ristoratore. Anche quella `select` era troncata a 1000: oltre quella soglia delle recensioni vecchie risultavano nuove. **Con 1138 recensioni stava gia' succedendo.** Paginata anche quella.
+- 🔇 Terzo punto, preventivo: il giro su Google si fermava a **40 pagine (2000 recensioni)** e buttava via il resto in silenzio. Alzato a 200 pagine (10 000) e, se il tetto viene toccato, adesso lo scrive nei log invece di sparire.
+- ⚠️ Il numero mostrato potrebbe restare un filo sotto i 1138: la scheda conta il totale dichiarato da Google, la lista conta le recensioni che l'API ci consegna davvero. Se dopo un nuovo sync resta una differenza piccola e NON tonda, e' quello — non un troncamento.
+
 ## 📌 10/09/2026 — Varianti visibili nella card Ordini
 
 ### 🍕 Le pastiglie sotto il nome del piatto
@@ -847,13 +1203,16 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - Estratta `renderSpx(days)` dalla IIFE e agganciata all'evento: la tile si ridisegna **con i dati dell'evento**, senza un secondo fetch.
 - Lezione: quando la stessa lista vive in due posti, il posto che la SCRIVE deve annunciarlo e il posto che la MOSTRA deve ascoltare. Un render dentro una IIFE non e' richiamabile da nessuno.
 
-### 📧 Email al ristoratore: pastiglie anche li
+### 📧 Email: pastiglie in TUTTE, e una funzione sola
 - La mail «Nuovo ordine» mostrava `Bruschette al pomodoro — test1` su una riga sola, esattamente il problema che avevamo appena tolto dalla card.
 - Ora nome del piatto grande, e **sotto le pastiglie**: corallo la variante, grigia il supplemento. Stessa gerarchia della card Ordini.
 - **Niente flex nelle email**: sono `span` `inline-block` con `border-radius:999px`, che si mettono in fila da soli. Outlook desktop squadra gli angoli e pazienza — la pastiglia si legge lo stesso, ed e la stessa forma gia usata dal badge «PAGATO» e dai bottoni di queste mail.
 - **Il filetto sta sempre in fondo al blocco del piatto**: se ci sono le pastiglie e la loro riga a portarlo, altrimenti quella del nome. Prima il `↳` del supplemento cadeva SOTTO la linea, attaccato visivamente al piatto successivo.
 - **Ordini vecchi**: senza `base_name` si ripiega sulla parentesi come prima. Nessuna migrazione, vecchi e nuovi nella stessa mail.
 - `OrdineNotifica.items` ha ora `base_name?` e `variant_label?` **accanto** a `name`, mai al suo posto.
+- **11/09** — fatto anche per la mail al CLIENTE (conferma) e per quella del **lien de paiement**: li la variante era ancora inline nel nome.
+- Le tre email avevano **tre copie** della stessa riga d'ordine. Ora una funzione sola, `righeOrdineHtml(piatti, tema, skin)`: cambia la pelle (`SKIN_CLIENTE` 15px con margini, `SKIN_CUCINA` 19px a tutta larghezza), non la logica. La regola «ordini nuovi con `base_name`, vecchi con la stringa concatenata» sta in **un posto solo** — era il modo sicuro di non correggerne due su tre.
+- **Resta fuori**: la mail «ordine modificato», che disegna un diff (barrato / +verde / freccia) su `ch.lines`, righe che non portano `base_name`. E la riga in **testo semplice** (`• 2× nome`), dove la stringa concatenata va benissimo.
 
 ### 🔴 Menu: pallino col numero di varianti accanto al nome
 - Nella lista piatti un piatto con formati non si distingueva da uno senza: bisognava aprirlo per scoprirlo.
@@ -979,6 +1338,7 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - **Conversioni CSS di massa**: `box-shadow` multi-riga sfuggono alle regex per-riga; l'ordine delle replace conta (il testo nuovo può contenere l'ancora → assert prima); i fallback JS (meta theme-color) NON si convertono in var(); gli **attributi SVG non supportano var()** → passare da `style=`.
 - **Tema chiaro su motore nato scuro**: serviva il token texte principal; i bianchi su sfondi SEMANTICI restano fissi; le tinte di sfondo del vetro non scalano con lo slider ombre.
 - Secret in 2 posti si disallinea (job «succeeded» ma 401) → rotazione. checkOrigin ≠ WAF (rebuild per astro.config).
+- ⚠️ **PostgREST tronca a 1000 righe**: una `select()` senza `.range()` ne rende al massimo mille, SENZA errore e senza avviso — il numero tondo e' l'unico indizio. Ogni lettura che puo' superare la soglia va fatta a pagine (schema: `ordiniPagati` in `calcolaStats.ts`).
 - Storage senza metadati → tabella sidecar path-keyed best-effort. Log estesi = insert ricco + retry basico, retrocompatibili.
 - Ancore python: substring/indentazioni → includere la riga precedente; marker univoci; assert fallito = niente scritto.
 - **Stripe pigro = errori silenziosi**: senza `STRIPE_SECRET_KEY` (dev) la creazione di un lien de paiement fallisce e l'email parte senza bottone → far sempre RISALIRE l'errore all'UI (toast) invece del solo `console.error`. Stesso ragionamento per Resend.
@@ -992,6 +1352,7 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 
 - **MAI secret/chiavi in chat** (se succede → rotazione immediata). Git SOLO dal terminale di Enzo (Mac o Cursor, è lo stesso), comandi senza `cd`: generico `git -C <repo> add -A && git -C <repo> commit -m "..." && git -C <repo> push`. `npx astro check` SOLO dal Mac (VM = binari macOS → Exec format error).
 - Cowork: device_bash sul mount `/sessions/<id>/mnt/MOODD-Admin`; stage/commit files coi path REALI `/Users/moodd/Developer/...`; niente DELETE sul device (`mv` in `_to_delete/`, svuota Enzo). Bridge: 502 → aspettare; uno stage può perdere un file (ricontare, ristagliare); staged stantia → `rm` prima di ristagliare.
+- ⚠️ **esbuild NON vede le variabili non dichiarate**: sostituendo le due righe che definivano `const lb` e lasciando la terza che lo usava, il file compilava e la vista Settimana/Mese moriva a runtime (ReferenceError, lista vuota e filtri bloccati). Dopo ogni patch che TOGLIE una dichiarazione, controllare a mano che il nome non sia usato altrove (`grep "nome\."`). Solo `astro check` lo prende, e lo lancia Enzo.
 - Patch: python heredoc con ancore esatte + `assert count==1` (fallito = nulla scritto). File nuovi: `cat > file <<'EOF'` via device_bash, o Write→SendUserFile→device_commit_files. Verifica sintassi: stage fresco → estrazione `<script>` → esbuild nel container.
 - Enzo: non-expert dev, rispondere in ITALIANO, comandi passo-passo espliciti. Conferma prima di toccare file. Admin UI in FRANCESE.
 - Diario aggiornato a ogni sessione; push a fine giro; migrazioni le lancia Enzo dal SQL Editor.

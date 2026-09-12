@@ -7,6 +7,7 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
@@ -130,8 +131,6 @@ const varianti = boot.features.includes("variants");
       @media (max-width: 640px) { #mn-float-left { display: none; } }
       .add-btn { background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent); font-size: 1.05rem; padding: 0.55rem 1.6rem; }
       .add-btn:hover { background: transparent; color: var(--c-accent); }
-      .sec-btn { background: transparent; color: var(--c-muted); border: 1px solid var(--c-line); font-size: 1.05rem; padding: 0.55rem 1.4rem; }
-      .sec-btn:hover { color: var(--c-accent); border-color: var(--c-accent); }
 
       /* Icone cibo/bevanda */
       .k-ico {
@@ -246,19 +245,14 @@ const varianti = boot.features.includes("variants");
       .i-strike { text-decoration: line-through; text-decoration-thickness: 2px; opacity: 0.55; }
       .i-table-lab { font-size: 0.55rem; color: var(--c-muted); font-family: var(--font-body); text-transform: uppercase; letter-spacing: 0.06em; line-height: 1.4; }
 
-      .sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+      /* L'interruttore e' il componente condiviso (src/styles/switch.css):
+         qui resta solo quello che e' davvero di questa pagina. */
       .i-switches { display: inline-flex; align-items: center; gap: 1.15rem; }
       .switch.sw-sold input:checked + .track { background: #c0453b; }
-      .sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
-      .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track { position: absolute; inset: 0; cursor: pointer; border-radius: 999px; background: var(--c-line); transition: background 0.2s; }
-      .switch .track::before {
-        content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%;
-        left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(17px); background: var(--c-bg); }
+      /* Nelle righe della lista l'etichetta sta SOTTO e minuscola: e' un'altra
+         cosa dal `.sw-wrap` condiviso (in riga), percio' ha un nome suo. */
+      .i-sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+      .i-sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
 
       .i-btn {
         width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -277,40 +271,38 @@ const varianti = boot.features.includes("variants");
       .k-btn.is-active:hover { color: var(--c-bg); border-color: var(--c-accent); }
 
       /* --- Modali --- */
-      .overlay {
-        position: fixed; inset: 0; z-index: 300; display: none;
-        background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        align-items: flex-start; justify-content: center; padding: 4vh 1rem; overflow-y: auto;
-      }
-      .overlay.is-open { display: flex; }
-      .modal { width: 100%; max-width: 620px; background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem; position: relative; }
-      /* Modali: header (h2) e footer (azioni) fissi, scroll interno al corpo.
-         Nei modali a 2 colonne scorre solo la colonna con contenuto lungo. */
-      .modal { max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
-      .modal > h2 { flex: 0 0 auto; }
-      .modal > .m-actions { flex: 0 0 auto; margin-top: auto; background: var(--c-bg); }
-      /* Dish/Lunch: le colonne scrollano da sole */
-      .modal-dish .m-cols, #lu-overlay .m-cols { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow: hidden; }
-      .modal-dish .m-col, #lu-overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
+      /* Il guscio fatto a mano (.overlay / .modal / .m-close / .m-actions /
+         .m-cancel / .m-save) NON C'E' PIU': i quattro modali della pagina
+         (piatto, sezioni, lunch, menu) stanno tutti su <Modal> + modal.css.
+         Menu e' l'ULTIMA pagina: il guscio vecchio esce dal motore. */
+      /* Piatto, sul guscio condiviso: il corpo NON scorre, scorrono le due
+         colonne ognuna per conto suo (come Agenda e Nuova prenotazione). */
+      #overlay .md-body, #lu-overlay .md-body, #mn-overlay .md-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      #overlay .m-cols, #lu-overlay .m-cols, #mn-overlay .m-cols { flex: 1 1 auto; min-height: 0; align-items: stretch; overflow: hidden; margin-bottom: 0; }
+      #overlay .m-col, #lu-overlay .m-col, #mn-overlay .m-col { min-height: 0; overflow-y: auto; padding-right: 0.4rem; }
+      /* Il footer porta gli interruttori a sinistra e i bottoni a destra. */
+      #overlay .md-foot, #lu-overlay .md-foot, #mn-overlay .md-foot { justify-content: flex-start; gap: 1rem 1.2rem; }
+      #overlay .md-foot .m-btns, #lu-overlay .md-foot .m-btns, #mn-overlay .md-foot .m-btns { margin-left: auto; }
+      @media (min-width: 761px) { #overlay .md-box, #lu-overlay .md-box, #mn-overlay .md-box { height: 88vh; max-height: 88vh; } }
       /* 760/761: stessa coppia del modale Nuova prenotazione. La domanda e' la
          stessa (due colonne dentro un modale largo ~940px diventano scomode),
          quindi la soglia deve essere una sola in tutto il motore. */
       @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) {
         /* display:block: le due colonne diventano blocchi in flusso normale
            (impilati, impossibile la sovrapposizione del grid). */
-        .modal-dish .m-cols, #lu-overlay .m-cols, #mn-overlay .m-cols { display: block; overflow-y: auto; }
-        .modal-dish .m-col, #lu-overlay .m-col, #mn-overlay .m-col { overflow: visible; }
+        #overlay .md-body, #lu-overlay .md-body, #mn-overlay .md-body { overflow-y: auto; }
+        #overlay .m-cols, #lu-overlay .m-cols, #mn-overlay .m-cols { display: block; overflow: visible; }
+        #overlay .m-col, #lu-overlay .m-col, #mn-overlay .m-col { overflow: visible; }
       }
-      /* Sezioni: la lista scrolla, header (titolo+hint) e footer (aggiungi) restano */
-      #sec-overlay #sec-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-      #sec-overlay .sec-add, #sec-overlay #sec-msg { flex: 0 0 auto; }
-      .modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.25rem; }
-      .m-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .m-close:hover { color: var(--c-text); }
-      /* Modale "Gestisci le sezioni": più largo e centrato verticalmente */
-      #sec-overlay .modal { max-width: 860px; margin: auto; }
-      #overlay .modal-dish { margin: auto; }
-      #lu-overlay .modal { max-width: 940px; margin: auto; }
+      /* Sezioni: il corpo del guscio scorre da solo, l'aggiunta sta nel footer
+         e occupa tutta la riga (non e' una coppia di bottoni). */
+      #sec-overlay .md-foot { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+      .sec-save-row { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.6rem; }
+      .sec-dirty { margin-right: auto; color: var(--c-accent); font-size: 0.82rem; font-weight: 700; }
+      .sec-dirty[hidden] { display: none; }
+      .sec-save-row .md-btn:first-of-type { margin-left: auto; }
+      .sec-dirty:not([hidden]) ~ .md-btn:first-of-type { margin-left: 0; }
+      .sec-hint { display: block; margin-bottom: 0.9rem; line-height: 1.5; }
       #mn-overlay .modal { max-width: 940px; margin: auto; }
       .mn-corso { margin-bottom: 0.8rem; }
       .mn-corso-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
@@ -334,7 +326,6 @@ const varianti = boot.features.includes("variants");
       .sm-draft { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-bg); background: var(--c-accent); border-radius: 999px; padding: 0.1rem 0.5rem; vertical-align: middle; margin-left: 0.4rem; }
 
       /* Modale piatto a 2 colonne + tab */
-      .modal-dish { max-width: 940px; }
       .m-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.8rem; align-items: start; margin-bottom: 0.4rem; }
       @media (max-width: 760px), (orientation: portrait) and (max-width: 1024px) { .m-cols { grid-template-columns: 1fr; gap: 0.8rem; } }
       .m-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
@@ -380,35 +371,26 @@ const varianti = boot.features.includes("variants");
         display: flex; align-items: center; justify-content: center; color: var(--c-muted);
       }
       .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .f-img-btn { font-size: 0.95rem; padding: 0.45rem 1.2rem; }
 
       .m-toggles { display: flex; gap: 2rem; margin: 0.4rem 0 1.2rem; }
       .m-toggle { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
       .tl-short { display: none; }
-      .m-toggle .switch { width: 44px; height: 24px; }
-      .m-toggle .switch .track::before { width: 18px; height: 18px; }
-      .m-toggle .switch input:checked + .track::before { transform: translateX(20px); }
+      /* Misura via le variabili del componente, non riscrivendo le regole. */
+      .m-toggle .switch { --sw-w: 44px; --sw-h: 24px; --sw-k: 18px; }
       .m-badges { flex-wrap: wrap; gap: 1.1rem 1.6rem; margin-top: 0.2rem; }
       .m-sublabel { display: block; margin-bottom: 0.4rem; }
+      .mn-add-course { margin-top: 0.6rem; }
       .m-sep { border-top: 1px solid var(--c-line); margin: 0.7rem 0 0.9rem; }
 
       /* Varianti del piatto (#71): riusa .lu-block / .mn-corso-* / .m-toggle / .i-del */
       .f-hint { margin: 0 0 0.8rem; color: var(--c-muted); font-size: 0.78rem; line-height: 1.45; }
       .m-states { flex-wrap: wrap; gap: 0.9rem 1.4rem; }
 
-      .m-actions { display: flex; align-items: center; justify-content: flex-end; gap: 1rem 1.2rem; border-top: 1px solid var(--c-line); padding-top: 1.2rem; flex-wrap: wrap; }
       .m-btns { display: flex; align-items: center; gap: 0.6rem; flex-shrink: 0; }
-      .m-cancel { background: transparent; border: 1px solid var(--c-line); color: var(--c-muted); font-family: var(--font-body); font-size: 0.85rem; padding: 0.6rem 1.4rem; cursor: pointer; border-radius: 999px; }
-      .m-cancel:hover { color: var(--c-text); border-color: var(--c-text); }
-      .m-save {
-        background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.05em;
-        padding: 0.6rem 2rem; cursor: pointer; border-radius: 999px;
-        transition: background 0.2s, color 0.2s;
-      }
-      .m-save:hover:not(:disabled) { background: transparent; color: var(--c-accent); }
-      .m-save:disabled { opacity: 0.5; cursor: not-allowed; }
       .m-msg { color: #ff6b6b; font-size: 0.85rem; flex: 1; }
+      /* Vuoto non deve occupare la riga: con `flex: 1` uno span vuoto si
+         prende tutto lo spazio libero del footer. */
+      .m-msg:empty { display: none; }
 
       /* --- Modale sezioni --- */
       .sec-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
@@ -429,21 +411,30 @@ const varianti = boot.features.includes("variants");
       .sec-trad-act { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.3rem; }
       .sec-count { color: var(--c-muted); font-size: 0.75rem; white-space: nowrap; min-width: 4.5rem; text-align: right; }
       .sec-kind { display: inline-flex; gap: 0.3rem; }
-      .s-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; }
-      .s-drag:active { cursor: grabbing; }
-      .sec-row.dragging { opacity: 0.65; outline: 1px dashed var(--c-accent); background: var(--c-card); }
+      /* Riordino a frecce: una colonnina su/giu' a sinistra della riga.
+         Al posto del trascinamento, che su tablet e telefono era un terno al
+         lotto e non diceva mai fin dove si poteva arrivare: una freccia
+         spenta lo dice da sola. */
+      /* Due cerchi affiancati, la stessa impronta di tutti gli altri bottoni
+         della riga (.i-btn, 34px): stesso bersaglio per il dito, e niente
+         forma nuova da imparare. */
+      .s-move { display: flex; gap: 0.35rem; flex-shrink: 0; }
+      .s-mv svg { width: 15px; height: 15px; display: block; }
+      .s-mv:disabled { opacity: 0.3; cursor: default; }
+      .s-mv:disabled:hover { border-color: var(--c-line); color: var(--c-text); }
+      /* Dito e non mouse: la domanda non e' quanto e' largo lo schermo ma con
+         cosa si tocca — un tablet in orizzontale e' largo come un portatile.
+         Il nome scende su una riga sua invece di essere schiacciato. */
+      @media (pointer: coarse) {
+        .sec-row { flex-wrap: wrap; }
+        .sec-row input[type="text"] { flex: 1 1 160px; }
+      }
       .i-drag { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; font-size: 1.05rem; flex-shrink: 0; }
       .i-drag:active { cursor: grabbing; }
       #list[data-mode="search"] .i-drag { display: none; }
       .item.dragging { opacity: 0.65; outline: 1px dashed var(--c-accent); }
-      .sec-add { display: flex; gap: 0.5rem; margin-top: 1rem; border-top: 1px solid var(--c-line); padding-top: 1rem; align-items: center; }
-      .sec-add input { flex: 1; }
-      .sec-addbtn {
-        background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
-        font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
-        padding: 0.45rem 1.4rem; cursor: pointer; border-radius: 999px;
-      }
-      .sec-addbtn:hover { background: var(--c-accent); color: var(--c-bg); }
+      .sec-add { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+      .sec-add input { flex: 1 1 180px; min-width: 0; }
 
       /* --- Lunch: card formule --- */
       .lu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0.9rem; align-items: start; }
@@ -468,7 +459,7 @@ const varianti = boot.features.includes("variants");
       .lu-combo:last-child { border-bottom: none; }
       .lu-combo b { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-text); font-weight: 400; }
       .lu-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.85rem; margin-top: auto; }
-      .lu-actions .sw-wrap { margin-right: auto; }
+      .lu-actions .i-sw-wrap { margin-right: auto; }
       .sm-card { padding: 0; gap: 0; overflow: hidden; }
       .sm-photo { width: 100%; aspect-ratio: 16 / 9; background: rgba(255, 255, 255, 0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); overflow: hidden; }
       .sm-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -510,7 +501,11 @@ const varianti = boot.features.includes("variants");
       .lu-chip-free { border-style: dashed; }
       .lu-combo-row { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.45rem; }
       .lu-combo-lab { flex: 1; font-size: 0.9rem; }
-      .lu-combo-row input { width: 110px; text-align: right; }
+      /* L'ID batte la larghezza piena che field.css da' ai campi del modale:
+         il prezzo e' un numero corto, non una riga da riempire. */
+      #lu-overlay .lu-combo-row input { width: 110px; text-align: right; }
+      .lu-f-nome { flex: 2; }
+      .lu-combo-hint { margin-bottom: 0.55rem; }
 
       /* --- Datepicker custom (brand), come Réglages — z sopra l'overlay (300) --- */
       #lu-from, #lu-to { cursor: pointer; }
@@ -545,10 +540,10 @@ const varianti = boot.features.includes("variants");
         .m-states { flex-wrap: nowrap; gap: 0.9rem; }
         .m-states .tl-full { display: none; }
         .m-states .tl-short { display: inline; }
-        .f-img-btn .tl-full { display: none; }
-        .f-img-btn .tl-short { display: inline; }
-        /* Meno spazio verticale tra gli switch e i bottoni Annulla/Salva. */
-        .m-actions { row-gap: 0.5rem; padding-top: 0.9rem; }
+        /* «Carica una foto» → «Foto»: il bottone e' `.btn` condiviso, la
+           label corta resta una cosa di questa pagina. */
+        .btn .tl-full { display: none; }
+        .btn .tl-short { display: inline; }
 
         /* Card piatto riorganizzata su griglia:
            r1: handle · nome+descrizione · edit
@@ -604,11 +599,8 @@ const varianti = boot.features.includes("variants");
     </div>
 
     <!-- Modale piatto -->
-    <div class="overlay" id="overlay">
-      <div class="modal modal-dish">
-        <button class="m-close" id="m-close" aria-label={t("common.close")}>×</button>
-        <h2 id="m-title">{t("menu.addDish")}</h2>
-        <div class="m-cols">
+    <Modal id="overlay" title={t("menu.addDish")} titleId="m-title" width="940px">
+      <div class="m-cols">
 
           <!-- COLONNA SINISTRA: foto · categoria · titoli+prezzo · badge -->
           <div class="m-col">
@@ -617,9 +609,9 @@ const varianti = boot.features.includes("variants");
                 <span class="f-label">{t("menu.photoOpt")}</span>
                 <div class="f-img-row">
                   <span class="f-img-prev" id="f-img-prev"></span>
-                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-up"><span class="tl-full">{t("cli.uploadPhoto")}</span><span class="tl-short">{t("cli.uploadPhotoShort")}</span></button>
-                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-lib">{t("menu.library")}</button>
-                  <button type="button" class="pill sec-btn f-img-btn" id="f-img-del" style="display: none">{t("ord.remove")}</button>
+                  <button type="button" class="btn" id="f-img-up"><span class="tl-full">{t("cli.uploadPhoto")}</span><span class="tl-short">{t("cli.uploadPhotoShort")}</span></button>
+                  <button type="button" class="btn" id="f-img-lib">{t("menu.library")}</button>
+                  <button type="button" class="btn btn-danger" id="f-img-del" style="display: none">{t("ord.remove")}</button>
                   <input type="file" id="f-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
                   <span class="f-label" id="f-img-state"></span>
                 </div>
@@ -682,7 +674,7 @@ const varianti = boot.features.includes("variants");
               <div class="m-pane" data-pane="var" style="display: none">
                 <p class="f-hint">{t("menu.variantsHint")}</p>
                 <div id="f-vars"></div>
-                <button type="button" class="pill sec-btn" id="f-var-add" style="margin-top: 0.6rem">+ {t("menu.variantAdd")}</button>
+                <button type="button" class="btn" id="f-var-add" style="margin-top: 0.6rem">+ {t("menu.variantAdd")}</button>
               </div>
             )}
             <div class="m-pane" data-pane="alg" style="display: none">
@@ -715,8 +707,8 @@ const varianti = boot.features.includes("variants");
             </div>
           </div>
 
-        </div>
-        <div class="m-actions">
+      </div>
+      <Fragment slot="foot">
           <div class="m-toggles m-states">
             <label class="m-toggle">
               <span class="switch"><input type="checkbox" id="f-av" checked /><span class="track"></span></span>
@@ -733,144 +725,140 @@ const varianti = boot.features.includes("variants");
           </div>
           <span class="m-msg" id="m-msg"></span>
           <div class="m-btns">
-            <button class="m-cancel" id="m-cancel">{t("common.cancel")}</button>
-            <button class="m-save" id="m-save">{t("common.save")}</button>
+            <button class="md-btn" id="m-cancel">{t("common.cancel")}</button>
+            <button class="md-btn md-btn-primary" id="m-save">{t("common.save")}</button>
           </div>
-        </div>
-      </div>
-    </div>
+      </Fragment>
+    </Modal>
 
     <!-- Modale sezioni -->
-    <div class="overlay" id="sec-overlay">
-      <div class="modal">
-        <button class="m-close" id="sec-close" aria-label={t("common.close")}>×</button>
-        <h2>{t("menu.manageSections")}</h2>
-        <p class="f-label" style="margin-bottom: 0.8rem">{t("menu.sectionsHint")}</p>
-        <div id="sec-list"></div>
-        <datalist id="cat-std-list"></datalist>
+    <Modal id="sec-overlay" title={t("menu.manageSections")} width="1000px">
+      <p class="f-label sec-hint">{t("menu.sectionsHint")}</p>
+      <div id="sec-list"></div>
+      <datalist id="cat-std-list"></datalist>
+      <Fragment slot="foot">
         <div class="sec-add">
           <span class="sec-kind" id="sec-kind"></span>
           <input type="text" id="sec-new" list="cat-std-list" placeholder={t("menu.newSectionPh")} maxlength="60" />
-          <button class="sec-addbtn" id="sec-addbtn">{t("common.add")}</button>
+          <button class="md-btn" id="sec-addbtn">{t("common.add")}</button>
         </div>
         <span class="m-msg" id="sec-msg"></span>
-      </div>
-    </div>
+        <div class="sec-save-row">
+          <span class="sec-dirty" id="sec-dirty" hidden>{t("menu.unsavedChanges")}</span>
+          <button type="button" class="md-btn" id="sec-undo">{t("common.cancel")}</button>
+          <button type="button" class="md-btn md-btn-primary" id="sec-save" disabled>{t("common.save")}</button>
+        </div>
+      </Fragment>
+    </Modal>
 
     <!-- Modale lunch -->
-    <div class="overlay" id="lu-overlay">
-      <div class="modal">
-        <button class="m-close" id="lu-close" aria-label={t("common.close")}>×</button>
-        <h2 id="lu-title">{t("menu.addLunch")}</h2>
-        <div class="m-cols">
-          <div class="m-col">
-            <div class="f-row">
-              <div class="f-field" style="flex: 2">
-                <span class="f-label" id="lu-name-lab">{t("home.name")}</span>
-                <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
-              </div>
-            </div>
-            <div id="lu-names-extra"></div>
-            <div class="f-row">
-              <div class="f-field">
-                <span class="f-label">{t("menu.composition")}</span>
-                <div class="luf-courses" id="lu-courses"></div>
-              </div>
-            </div>
-            <div class="f-row">
-              <div class="f-field">
-                <span class="f-label">{t("menu.dateFrom")}</span>
-                <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
-              </div>
-              <div class="f-field">
-                <span class="f-label">{t("menu.dateTo")}</span>
-                <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
-              </div>
+    <Modal id="lu-overlay" title={t("menu.addLunch")} titleId="lu-title" width="940px">
+      <div class="m-cols">
+        <div class="m-col">
+          <div class="f-row">
+            <div class="f-field lu-f-nome">
+              <span class="f-label" id="lu-name-lab">{t("home.name")}</span>
+              <input type="text" id="lu-name" maxlength="60" placeholder={t("tab.menu.lunch")} />
             </div>
           </div>
-          <div class="m-col">
-            <div id="lu-items"></div>
-            <div class="lu-block">
-              <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
-              <p class="f-label" style="margin-bottom: 0.55rem">{t("menu.comboEmptyHint")}</p>
-              <div id="lu-combos"></div>
+          <div id="lu-names-extra"></div>
+          <div class="f-row">
+            <div class="f-field">
+              <span class="f-label">{t("menu.composition")}</span>
+              <div class="luf-courses" id="lu-courses"></div>
+            </div>
+          </div>
+          <div class="f-row">
+            <div class="f-field">
+              <span class="f-label">{t("menu.dateFrom")}</span>
+              <input type="text" id="lu-from" placeholder={t("menu.noLimit")} readonly />
+            </div>
+            <div class="f-field">
+              <span class="f-label">{t("menu.dateTo")}</span>
+              <input type="text" id="lu-to" placeholder={t("menu.noLimit")} readonly />
             </div>
           </div>
         </div>
-        <div class="m-actions">
-          <label class="m-toggle" style="margin-right:auto">
-            <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
-            {t("menu.active")}
-          </label>
-          <span class="m-msg" id="lu-msg"></span>
-          <button class="m-cancel" id="lu-cancel">{t("common.cancel")}</button>
-          <button class="m-save" id="lu-save">{t("common.save")}</button>
+        <div class="m-col">
+          <div id="lu-items"></div>
+          <div class="lu-block">
+            <div class="lu-block-tit">{t("menu.pricePerCombo")}</div>
+            <p class="f-label lu-combo-hint">{t("menu.comboEmptyHint")}</p>
+            <div id="lu-combos"></div>
+          </div>
         </div>
       </div>
-    </div>
+      <Fragment slot="foot">
+        <label class="m-toggle">
+          <span class="switch"><input type="checkbox" id="lu-active" checked /><span class="track"></span></span>
+          {t("menu.active")}
+        </label>
+        <span class="m-msg" id="lu-msg"></span>
+        <div class="m-btns">
+          <button class="md-btn" id="lu-cancel" data-md-close>{t("common.cancel")}</button>
+          <button class="md-btn md-btn-primary" id="lu-save">{t("common.save")}</button>
+        </div>
+      </Fragment>
+    </Modal>
 
     <!-- Modale menù (set menu / prix fixe) -->
-    <div class="overlay" id="mn-overlay">
-      <div class="modal modal-dish">
-        <button class="m-close" id="mn-close" aria-label={t("common.close")}>×</button>
-        <h2 id="mn-title">{t("menu.addMenu")}</h2>
-        <div class="m-cols">
-          <div class="m-col">
-            <div class="f-row">
-              <div class="f-field">
-                <span class="f-label">{t("menu.photoOpt")}</span>
-                <div class="f-img-row">
-                  <span class="f-img-prev" id="mn-img-prev"></span>
-                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-up"><span class="tl-full">{t("cli.uploadPhoto")}</span><span class="tl-short">{t("cli.uploadPhotoShort")}</span></button>
-                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-lib">{t("menu.library")}</button>
-                  <button type="button" class="pill sec-btn f-img-btn" id="mn-img-del" style="display: none">{t("ord.remove")}</button>
-                  <input type="file" id="mn-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
-                  <span class="f-label" id="mn-img-state"></span>
-                </div>
-              </div>
-            </div>
-            <div id="mn-langs"></div>
-            <div class="f-row">
-              <div class="f-field">
-                <span class="f-label">{t("menu.menuPrice")}</span>
-                <input type="number" id="mn-price" min="0" step="0.01" inputmode="decimal" />
-              </div>
-              <div class="f-field">
-                <span class="f-label">{t("menu.wineSupp")}</span>
-                <input type="number" id="mn-wine" min="0" step="0.01" inputmode="decimal" />
-              </div>
-            </div>
-            <div class="f-row">
-              <div class="f-field">
-                <span class="f-label">{t("menu.dateFrom")}</span>
-                <input type="text" id="mn-from" placeholder={t("menu.noLimit")} readonly />
-              </div>
-              <div class="f-field">
-                <span class="f-label">{t("menu.dateTo")}</span>
-                <input type="text" id="mn-to" placeholder={t("menu.noLimit")} readonly />
+    <Modal id="mn-overlay" title={t("menu.addMenu")} titleId="mn-title" width="940px">
+      <div class="m-cols">
+        <div class="m-col">
+          <div class="f-row">
+            <div class="f-field">
+              <span class="f-label">{t("menu.photoOpt")}</span>
+              <div class="f-img-row">
+                <span class="f-img-prev" id="mn-img-prev"></span>
+                <button type="button" class="btn" id="mn-img-up"><span class="tl-full">{t("cli.uploadPhoto")}</span><span class="tl-short">{t("cli.uploadPhotoShort")}</span></button>
+                <button type="button" class="btn" id="mn-img-lib">{t("menu.library")}</button>
+                <button type="button" class="btn btn-danger" id="mn-img-del" style="display: none">{t("ord.remove")}</button>
+                <input type="file" id="mn-img-file" accept=".jpg,.jpeg,.png,.webp,.gif" style="display: none" />
+                <span class="f-label" id="mn-img-state"></span>
               </div>
             </div>
           </div>
-          <div class="m-col">
-            <span class="f-label m-sublabel">{t("menu.coursesTitle")}</span>
-            <div id="mn-corsi"></div>
-            <button type="button" class="pill sec-btn" id="mn-add-course" style="margin-top: 0.6rem">+ {t("menu.addCourse")}</button>
+          <div id="mn-langs"></div>
+          <div class="f-row">
+            <div class="f-field">
+              <span class="f-label">{t("menu.menuPrice")}</span>
+              <input type="number" id="mn-price" min="0" step="0.01" inputmode="decimal" />
+            </div>
+            <div class="f-field">
+              <span class="f-label">{t("menu.wineSupp")}</span>
+              <input type="number" id="mn-wine" min="0" step="0.01" inputmode="decimal" />
+            </div>
+          </div>
+          <div class="f-row">
+            <div class="f-field">
+              <span class="f-label">{t("menu.dateFrom")}</span>
+              <input type="text" id="mn-from" placeholder={t("menu.noLimit")} readonly />
+            </div>
+            <div class="f-field">
+              <span class="f-label">{t("menu.dateTo")}</span>
+              <input type="text" id="mn-to" placeholder={t("menu.noLimit")} readonly />
+            </div>
           </div>
         </div>
-        <div class="m-actions">
-          <label class="m-toggle" style="margin-right:auto">
-            <span class="switch"><input type="checkbox" id="mn-active" checked /><span class="track"></span></span>
-            {t("menu.active")}
-          </label>
-          <span class="m-msg" id="mn-msg"></span>
-          <div class="m-btns">
-            <button class="m-cancel" id="mn-draft">{t("menu.saveDraft")}</button>
-            <button class="m-cancel" id="mn-cancel">{t("common.cancel")}</button>
-            <button class="m-save" id="mn-save">{t("common.save")}</button>
-          </div>
+        <div class="m-col">
+          <span class="f-label m-sublabel">{t("menu.coursesTitle")}</span>
+          <div id="mn-corsi"></div>
+          <button type="button" class="btn mn-add-course" id="mn-add-course">+ {t("menu.addCourse")}</button>
         </div>
       </div>
-    </div>
+      <Fragment slot="foot">
+        <label class="m-toggle">
+          <span class="switch"><input type="checkbox" id="mn-active" checked /><span class="track"></span></span>
+          {t("menu.active")}
+        </label>
+        <span class="m-msg" id="mn-msg"></span>
+        <div class="m-btns">
+          <button class="md-btn" id="mn-cancel" data-md-close>{t("common.cancel")}</button>
+          <button class="md-btn" id="mn-draft">{t("menu.saveDraft")}</button>
+          <button class="md-btn md-btn-primary" id="mn-save">{t("common.save")}</button>
+        </div>
+      </Fragment>
+    </Modal>
 
     <div class="toast" id="toast"></div>
 
@@ -1025,9 +1013,9 @@ const varianti = boot.features.includes("variants");
             ${alg}
             ${prezzoHTML(it)}
             <span class="i-switches">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("nav.menu")}</span></span>
-              <span class="sw-wrap sw-cmd"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.cmdShort")}</span></span>
-              <span class="sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.soldShort")}</span></span>
+              <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("nav.menu")}</span></span>
+              <span class="i-sw-wrap sw-cmd"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.cmdShort")}</span></span>
+              <span class="i-sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.soldShort")}</span></span>
             </span>
             <span class="i-acts"><button class="i-btn i-edit" title="${tr("common.edit")}">✎</button><button class="i-btn i-del" title="${tr("common.delete")}">${ICO_TRASH}</button></span>
           </div>`;
@@ -1231,6 +1219,9 @@ const varianti = boot.features.includes("variants");
         stateEl.style.display = "none";
         renderTabs();
         renderList();
+        // La fotografia PRIMA del disegno: `cats` arriva dal server, quindi e'
+        // la nuova base di confronto. Dopo, il bottone Salva nascerebbe acceso.
+        fotografaSezioni();
         renderSezioni();
         return true;
       }
@@ -1304,7 +1295,7 @@ const varianti = boot.features.includes("variants");
       const mTabs = document.getElementById("m-tabs") as HTMLDivElement;
       function mostraTab(tab: string) {
         mTabs.querySelectorAll<HTMLElement>(".m-tab").forEach((x) => x.classList.toggle("is-on", x.dataset.tab === tab));
-        document.querySelectorAll<HTMLElement>(".modal-dish .m-pane").forEach((pane) => {
+        document.querySelectorAll<HTMLElement>("#overlay .m-pane").forEach((pane) => {
           pane.style.display = pane.dataset.pane === tab ? "" : "none";
         });
       }
@@ -1342,7 +1333,7 @@ const varianti = boot.features.includes("variants");
         window.dispatchEvent(new CustomEvent("imgpick:open"));
       });
       window.addEventListener("imgpick:pick", (e) => {
-        if (!overlay.classList.contains("is-open")) return; // modale piatto chiuso
+        if (overlay.hidden) return; // modale piatto chiuso
         imgUrl = (e as CustomEvent<{ url: string }>).detail.url;
         renderFotoPrev();
         fImgState.textContent = "";
@@ -1466,11 +1457,11 @@ const varianti = boot.features.includes("variants");
         fAlg.querySelectorAll<HTMLInputElement>("input").forEach((cb) => {
           cb.checked = !!it?.allergens?.includes(Number(cb.value));
         });
-        overlay.classList.add("is-open");
+        overlay.hidden = false;
         fName.focus();
       }
       function chiudiModale() {
-        overlay.classList.remove("is-open");
+        overlay.hidden = true;
         editId = null;
       }
 
@@ -1698,10 +1689,65 @@ const varianti = boot.features.includes("variants");
       const secMsg = document.getElementById("sec-msg") as HTMLSpanElement;
       const secKind = document.getElementById("sec-kind") as HTMLSpanElement;
 
+      const ICO_SU =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 15 12 9 18 15"/></svg>';
+      const ICO_GIU =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+
+      // ---- Modifiche in sospeso -------------------------------------------
+      // Ordine, livello, nome e tipo si cambiano SOLO in memoria: il server lo
+      // si sente una volta sola, premendo Salva. Prima ogni freccia era una
+      // PATCH + un ricaricamento completo del menu: secondi di attesa per
+      // spostare una riga di un posto.
+      type BaseSez = { name: string; kind: string; parent_id: string | null };
+      let secBase = new Map<string, BaseSez>(); // com'erano all'apertura
+      let secOrdineBase: string[] = [];
+
+      function fotografaSezioni() {
+        secBase = new Map(cats.map((c) => [c.id, { name: c.name, kind: c.kind, parent_id: c.parent_id ?? null }]));
+        secOrdineBase = cats.map((c) => c.id);
+      }
+      /** Sezioni con nome o tipo cambiati rispetto alla fotografia. */
+      function sezioniModificate(): Cat[] {
+        return cats.filter((c) => {
+          const b = secBase.get(c.id);
+          return !!b && (b.name !== c.name || b.kind !== c.kind);
+        });
+      }
+      function ordineModificato(): boolean {
+        if (cats.length !== secOrdineBase.length) return true;
+        return cats.some((c, i) => c.id !== secOrdineBase[i] || (secBase.get(c.id)?.parent_id ?? null) !== (c.parent_id ?? null));
+      }
+      function secSporco(): boolean {
+        return ordineModificato() || sezioniModificate().length > 0;
+      }
+
+      /** Quante righe occupa il nodo `i` col suo sotto-albero. */
+      function bloccoSezione(i: number): number {
+        const d = cats[i].depth ?? 0;
+        let n = 1;
+        while (i + n < cats.length && (cats[i + n].depth ?? 0) > d) n++;
+        return n;
+      }
+      /** Indice del fratello precedente (stesso parent), o -1. */
+      function fratelloPrima(i: number): number {
+        const d = cats[i].depth ?? 0;
+        let j = i - 1;
+        while (j >= 0 && (cats[j].depth ?? 0) > d) j--; // salta il sotto-albero del vicino
+        if (j < 0) return -1;
+        return (cats[j].parent_id ?? null) === (cats[i].parent_id ?? null) ? j : -1;
+      }
+      /** Indice del fratello successivo (stesso parent), o -1. */
+      function fratelloDopo(i: number): number {
+        const j = i + bloccoSezione(i);
+        if (j >= cats.length) return -1;
+        return (cats[j].parent_id ?? null) === (cats[i].parent_id ?? null) ? j : -1;
+      }
+
       function renderSezioni() {
         const soloUnaLingua = PUB.langs.length <= 1;
         secList.innerHTML = cats
-          .map((c) => {
+          .map((c, i) => {
             const depth = c.depth ?? 0;
             const tree = depth > 0 ? `<span class="s-tree">${"—".repeat(depth)}</span>` : "";
             const bloccaDel = (c.count > 0 || (c.children ?? 0) > 0);
@@ -1717,7 +1763,10 @@ const varianti = boot.features.includes("variants");
               : "";
             return `
           <div class="sec-row${depth > 0 ? " is-sub" : ""}" data-id="${c.id}" data-name="${esc(c.name)}" data-parent="${c.parent_id ?? ""}" data-depth="${depth}" style="padding-left:${depth * 1.4}rem">
-            <span class="i-btn s-drag" title="${tr("menu.dragReorder")}">⠿</span>
+            <span class="s-move">
+              <button class="i-btn s-mv s-up" ${fratelloPrima(i) < 0 ? "disabled" : ""} title="${tr("menu.moveUp")}" aria-label="${tr("menu.moveUp")}">${ICO_SU}</button>
+              <button class="i-btn s-mv s-down" ${fratelloDopo(i) < 0 ? "disabled" : ""} title="${tr("menu.moveDown")}" aria-label="${tr("menu.moveDown")}">${ICO_GIU}</button>
+            </span>
             ${tree}
             <button class="i-btn k-btn s-kfood${c.kind === "food" ? " is-active" : ""}" title="${tr("menu.foodKind")}">${ICO_FOOD}</button>
             <button class="i-btn k-btn s-kdrink${c.kind === "drink" ? " is-active" : ""}" title="${tr("menu.drinkKind")}">${ICO_DRINK}</button>
@@ -1732,6 +1781,7 @@ const varianti = boot.features.includes("variants");
           })
           .join("");
         renderNuovaKind();
+        aggiornaSalvaSezioni();
       }
       // Form "aggiungi": mostra il parent selezionato (sotto-sezione) o normale.
       function renderNuovaKind() {
@@ -1791,12 +1841,14 @@ const varianti = boot.features.includes("variants");
 
         if (t.closest(".s-kfood") || t.closest(".s-kdrink")) {
           const kind = t.closest(".s-kdrink") ? "drink" : "food";
-          if (cats[idx].kind !== kind && (await putCategoria(id, { kind }))) {
-            await caricaTutto();
-          }
+          if (cats[idx].kind !== kind) { cats[idx].kind = kind; renderSezioni(); }
           return;
         }
         if (t.closest(".s-del")) {
+          // Elimina e Aggiungi passano dal server e finiscono con un
+          // ricaricamento: le modifiche in sospeso vanno messe al sicuro
+          // prima, o il ricaricamento se le porterebbe via.
+          if (!(await salvaSezioni())) return;
           const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
           if (!res.ok) {
             const j = await res.json();
@@ -1815,28 +1867,9 @@ const varianti = boot.features.includes("variants");
           secNew.focus();
           return;
         }
-        // Rientra (indent): mette la sezione sotto la sorella precedente
-        if (t.closest(".s-in")) {
-          const c = cats[idx];
-          const cd = c.depth ?? 0;
-          let sorella: Cat | null = null;
-          for (let k = idx - 1; k >= 0; k--) {
-            const dk = cats[k].depth ?? 0;
-            if (dk < cd) break;            // risalito oltre: nessuna sorella
-            if (dk === cd) { sorella = cats[k]; break; }
-          }
-          if (!sorella) { secMsg.textContent = tr("menu.indentTitle"); return; }
-          if (await putCategoria(id, { parent_id: sorella.id })) await caricaTutto();
-          return;
-        }
-        // Esci (outdent): risale di un livello (parent = nonno)
-        if (t.closest(".s-out")) {
-          const c = cats[idx];
-          const parent = cats.find((x) => x.id === c.parent_id);
-          const nonno = parent ? (parent.parent_id ?? null) : null;
-          if (await putCategoria(id, { parent_id: nonno })) await caricaTutto();
-          return;
-        }
+        // Rientra (indent) / esci (outdent): in memoria, come le frecce.
+        if (t.closest(".s-in")) { rientraSezione(id); return; }
+        if (t.closest(".s-out")) { esciSezione(id); return; }
       });
 
       // Rinomina: Enter o perdita di focus
@@ -1845,87 +1878,165 @@ const varianti = boot.features.includes("variants");
           (e.target as HTMLInputElement).blur();
         }
       });
-      secList.addEventListener("focusout", async (e) => {
+      secList.addEventListener("focusout", (e) => {
         const t = e.target as HTMLInputElement;
         if (!t.classList.contains("s-name")) return;
         const row = t.closest(".sec-row") as HTMLElement;
         const vecchio = row.dataset.name!;
         const nuovo = t.value.trim();
         if (!nuovo || nuovo === vecchio) { t.value = vecchio; return; }
+        const c = cats.find((x) => x.id === row.dataset.id);
+        if (!c) return;
         secMsg.textContent = "";
-        const stdRen = trovaStd(nuovo);
-        const campiRen: Record<string, unknown> = { name: nuovo };
-        if (stdRen) campiRen.name_i18n = i18nStd(stdRen);
-        if (await putCategoria(row.dataset.id!, campiRen)) {
-          if (attiva === vecchio) attiva = nuovo;
-          toast(tr("menu.sectionRenamed"));
-          await caricaTutto();
-        } else {
-          t.value = vecchio;
-        }
+        c.name = nuovo;
+        row.dataset.name = nuovo; // o al prossimo giro si confronta col vecchio
+        aggiornaSalvaSezioni();
       });
 
-      // Drag & drop per riordinare le sezioni (mouse + dito)
-      let dragRow: HTMLElement | null = null;
-      let dragBlock: HTMLElement[] = []; // il nodo + il suo sotto-albero (righe contigue)
-      secList.addEventListener("pointerdown", (e) => {
-        const handle = (e.target as HTMLElement).closest(".s-drag");
-        if (!handle) return;
-        e.preventDefault();
-        dragRow = handle.closest(".sec-row") as HTMLElement;
-        const d0 = Number(dragRow.dataset.depth ?? "0");
-        const all = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
-        const start = all.indexOf(dragRow);
-        dragBlock = [dragRow];
-        for (let k = start + 1; k < all.length; k++) {
-          if (Number(all[k].dataset.depth ?? "0") > d0) dragBlock.push(all[k]);
-          else break;
-        }
-        dragBlock.forEach((r) => r.classList.add("dragging"));
-      });
-      document.addEventListener("pointermove", (e) => {
-        if (!dragRow) return;
-        e.preventDefault();
-        const rows = [...secList.querySelectorAll<HTMLElement>(".sec-row")].filter((r) => !dragBlock.includes(r));
-        const dopo = rows.find((r) => {
-          const rect = r.getBoundingClientRect();
-          return e.clientY < rect.top + rect.height / 2;
-        });
-        // sposta l'intero blocco (nodo + sotto-albero) mantenendo l'ordine interno
-        for (const r of dragBlock) {
-          if (dopo) secList.insertBefore(r, dopo);
-          else secList.appendChild(r);
-        }
-      });
-      document.addEventListener("pointerup", async () => {
-        if (!dragRow) return;
-        dragBlock.forEach((r) => r.classList.remove("dragging"));
-        dragRow = null;
-        dragBlock = [];
-        const righe = [...secList.querySelectorAll<HTMLElement>(".sec-row")];
-        const ordine = righe.map((r) => r.dataset.id!);
-        if (JSON.stringify(ordine) === JSON.stringify(cats.map((c) => c.id))) return;
-        // manda id + parent (invariato) per non appiattire l'albero
-        const nodes = righe.map((r) => ({ id: r.dataset.id!, parent_id: r.dataset.parent || null }));
-        const res = await fetch("/api/admin/categories", {
-          method: "PATCH",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ nodes }),
-        });
-        if (!res.ok) {
-          const j = await res.json();
-          secMsg.textContent = j.error ?? tr("menu.reorderFailed");
-          renderSezioni();
-        } else {
+      // Riordino a frecce. Si sposta di UN POSTO FRA I FRATELLI, portandosi
+      // dietro il sotto-albero: cosi' una sezione non puo' cambiare padre per
+      // sbaglio, che col trascinamento succedeva di continuo.
+      /** Manda tutte le modifiche in sospeso. `false` = qualcosa e' fallito. */
+      async function salvaSezioni(): Promise<boolean> {
+        if (!secSporco()) return true;
+        const btn = document.getElementById("sec-save") as HTMLButtonElement | null;
+        if (btn) btn.disabled = true;
+        try {
+          // Prima i nomi: i piatti sono legati alla sezione per NOME, e la
+          // PATCH dell'ordine tocca gli stessi piatti. Invertire l'ordine
+          // significherebbe cercarli con un nome che non esiste piu'.
+          for (const c of sezioniModificate()) {
+            const b = secBase.get(c.id)!;
+            const campi: Record<string, unknown> = {};
+            if (b.name !== c.name) {
+              campi.name = c.name;
+              const std = trovaStd(c.name);
+              if (std) campi.name_i18n = i18nStd(std);
+            }
+            if (b.kind !== c.kind) campi.kind = c.kind;
+            if (!(await putCategoria(c.id, campi))) return false;
+            if (attiva === b.name) attiva = c.name;
+          }
+          if (ordineModificato()) {
+            const nodes = cats.map((c) => ({ id: c.id, parent_id: c.parent_id ?? null }));
+            const res = await fetch("/api/admin/categories", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ nodes }),
+            });
+            if (!res.ok) {
+              const j = await res.json();
+              secMsg.textContent = j.error ?? tr("menu.reorderFailed");
+              return false;
+            }
+          }
           toast(tr("menu.orderSaved"));
-          await caricaTutto();
+          await caricaTutto(); // riallinea con la verita' del server
+          fotografaSezioni();
+          return true;
+        } finally {
+          if (btn) btn.disabled = false;
+          aggiornaSalvaSezioni();
         }
+      }
+
+      /** Il bottone Salva si accende solo se c'e' qualcosa da salvare. */
+      function aggiornaSalvaSezioni() {
+        const btn = document.getElementById("sec-save") as HTMLButtonElement | null;
+        const nota = document.getElementById("sec-dirty") as HTMLElement | null;
+        const sporco = secSporco();
+        if (btn) btn.disabled = !sporco;
+        if (nota) nota.hidden = !sporco;
+      }
+
+      /** Butta via le modifiche in sospeso e rimette quelle del server. */
+      async function annullaSezioni() {
+        if (!secSporco()) return;
+        secMsg.textContent = "";
+        await caricaTutto();
+        fotografaSezioni();
+        aggiornaSalvaSezioni();
+      }
+
+      function spostaSezione(id: string, verso: -1 | 1) {
+        const i = cats.findIndex((c) => c.id === id);
+        if (i < 0) return;
+        const mio = bloccoSezione(i); // il nodo + il suo sotto-albero
+        if (verso < 0) {
+          const j = fratelloPrima(i);
+          if (j < 0) return;
+          // j sta PRIMA di i: togliere il blocco non sposta j.
+          cats.splice(j, 0, ...cats.splice(i, mio));
+        } else {
+          const j = fratelloDopo(i);
+          if (j < 0) return;
+          const suo = bloccoSezione(j); // quanto occupa il fratello che scavalco
+          const blocco = cats.splice(i, mio);
+          // tolto il mio blocco, il fratello occupa i .. i+suo-1: gli vado dopo.
+          cats.splice(i + suo, 0, ...blocco);
+        }
+        secMsg.textContent = "";
+        renderSezioni(); // in memoria: si salva con «Salva»
+      }
+
+      /** Rientra: la sezione diventa figlia della sorella che la precede. */
+      function rientraSezione(id: string) {
+        const i = cats.findIndex((c) => c.id === id);
+        if (i < 0) return;
+        const j = fratelloPrima(i);
+        if (j < 0) { secMsg.textContent = tr("menu.indentTitle"); return; }
+        const mio = bloccoSezione(i);
+        if ((cats[j].depth ?? 0) + 1 + profonditaBlocco(i) > MAX_DEPTH_UI) {
+          secMsg.textContent = tr("menu.indentTitle");
+          return;
+        }
+        cats[i].parent_id = cats[j].id;
+        for (let k = i; k < i + mio; k++) cats[k].depth = (cats[k].depth ?? 0) + 1;
+        // La posizione e' gia' giusta: il blocco segue la sorella, quindi ne
+        // diventa l'ultimo figlio senza spostare niente.
+        secMsg.textContent = "";
+        renderSezioni();
+      }
+
+      /** Esce: la sezione risale di un livello e si mette dopo il vecchio padre. */
+      function esciSezione(id: string) {
+        const i = cats.findIndex((c) => c.id === id);
+        if (i < 0) return;
+        const padre = cats.findIndex((x) => x.id === cats[i].parent_id);
+        if (padre < 0) return;
+        const mio = bloccoSezione(i);
+        const nonno = cats[padre].parent_id ?? null;
+        const blocco = cats.splice(i, mio);
+        for (const c of blocco) c.depth = (c.depth ?? 0) - 1;
+        blocco[0].parent_id = nonno;
+        // Dopo la fine del sotto-albero del vecchio padre, o l'ordine
+        // in profondita' si rompe (finirebbe in mezzo ai suoi ex fratelli).
+        cats.splice(padre + bloccoSezione(padre), 0, ...blocco);
+        secMsg.textContent = "";
+        renderSezioni();
+      }
+
+      /** Di quanti livelli scende il sotto-albero sotto il nodo `i`. */
+      function profonditaBlocco(i: number): number {
+        const d = cats[i].depth ?? 0;
+        let max = 0;
+        const n = bloccoSezione(i);
+        for (let k = i + 1; k < i + n; k++) max = Math.max(max, (cats[k].depth ?? 0) - d);
+        return max;
+      }
+
+      secList.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest(".s-mv") as HTMLButtonElement | null;
+        if (!b || b.disabled) return;
+        const id = (b.closest(".sec-row") as HTMLElement | null)?.dataset.id;
+        if (id) spostaSezione(id, b.classList.contains("s-up") ? -1 : 1);
       });
 
       (document.getElementById("sec-addbtn") as HTMLButtonElement).addEventListener("click", async () => {
         secMsg.textContent = "";
         const name = secNew.value.trim();
         if (!name) { secMsg.textContent = tr("menu.nameRequired"); return; }
+        if (!(await salvaSezioni())) return;
         const stdNew = trovaStd(name);
         const res = await fetch("/api/admin/categories", {
           method: "POST",
@@ -2011,7 +2122,7 @@ const varianti = boot.features.includes("variants");
             ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
             <div class="lu-combos">${combos}</div>
             <div class="lu-actions">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+              <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="lu-act" ${l.active ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.active")}</span></span>
               <button class="i-btn lu-edit" title="${tr("common.edit")}">✎</button>
               <button class="i-btn i-del lu-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
             </div>
@@ -2212,11 +2323,11 @@ const varianti = boot.features.includes("variants");
         renderLuCourses();
         renderLuItems();
         renderLuCombos();
-        luOverlay.classList.add("is-open");
+        luOverlay.hidden = false;
       }
       function chiudiLunchModale() {
         dpChiudi();
-        luOverlay.classList.remove("is-open");
+        luOverlay.hidden = true;
         lunchEditId = null;
       }
 
@@ -2477,9 +2588,8 @@ const varianti = boot.features.includes("variants");
         }
       }
 
-      (document.getElementById("lu-close") as HTMLButtonElement).addEventListener("click", chiudiLunchModale);
-      (document.getElementById("lu-cancel") as HTMLButtonElement).addEventListener("click", chiudiLunchModale);
-      luOverlay.addEventListener("click", (e) => { if (e.target === luOverlay) chiudiLunchModale(); });
+      // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+      luOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiLunchModale));
       luSave.addEventListener("click", salvaLunch);
 
       // Azioni sulle card lunch (delega)
@@ -2595,7 +2705,7 @@ const varianti = boot.features.includes("variants");
               ${portate ? `<div class="lu-courses">${portate}</div>` : ""}
               <div class="lu-combos">${prezzo}${vino}</div>
               <div class="lu-actions">
-                <span class="sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="sw-lab">${tr("menu.active")}</span></span>
+                <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="sm-act" ${m.active ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.active")}</span></span>
                 <button class="i-btn sm-edit" title="${tr("common.edit")}">✎</button>
                 <button class="i-btn i-del sm-del" title="${tr("common.delete")}">${ICO_TRASH}</button>
               </div>
@@ -2832,7 +2942,7 @@ const varianti = boot.features.includes("variants");
         window.dispatchEvent(new CustomEvent("imgpick:open"));
       });
       window.addEventListener("imgpick:pick", (e) => {
-        if (!mnOverlay.classList.contains("is-open")) return;
+        if (mnOverlay.hidden) return; // modale menu chiuso
         mnImgUrl = (e as CustomEvent<{ url: string }>).detail.url;
         renderMnFotoPrev();
         mnImgState.textContent = "";
@@ -2902,12 +3012,12 @@ const varianti = boot.features.includes("variants");
           ? m.courses.map((c) => ({ category: c.category ?? "", name: c.name ?? "", name_i18n: { ...(c.name_i18n ?? {}) }, mode: c.mode === "and" ? "and" : "choice", items: [...(c.items ?? [])], customs: (c.customs ?? []).map((cu) => ({ name_i18n: { ...(cu.name_i18n ?? {}) } })), hide: c.hide ?? (m?.hide_items ?? false), src: ((c.items?.length ?? 0) ? "menu" : ((c.customs?.length ?? 0) ? "free" : "menu")) as "menu" | "free" }))
           : [{ category: "", name: "", name_i18n: {}, mode: "choice", items: [], customs: [], hide: false, src: "menu" as "menu" | "free" }];
         renderMnCorsi();
-        mnOverlay.classList.add("is-open");
+        mnOverlay.hidden = false;
         mnNomeDef().focus();
       }
       function chiudiMenuModale() {
         dpChiudi();
-        mnOverlay.classList.remove("is-open");
+        mnOverlay.hidden = true;
         menuEditId = null;
       }
 
@@ -3011,9 +3121,8 @@ const varianti = boot.features.includes("variants");
         }
       }
 
-      (document.getElementById("mn-close") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
-      (document.getElementById("mn-cancel") as HTMLButtonElement).addEventListener("click", chiudiMenuModale);
-      mnOverlay.addEventListener("click", (e) => { if (e.target === mnOverlay) chiudiMenuModale(); });
+      // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+      mnOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiMenuModale));
       mnSave.addEventListener("click", () => salvaSetMenu(false));
       mnDraft.addEventListener("click", () => salvaSetMenu(true));
 
@@ -3150,19 +3259,39 @@ const varianti = boot.features.includes("variants");
         });
         (document.getElementById("sec-btn") as HTMLButtonElement).addEventListener("click", () => {
           secMsg.textContent = "";
+          fotografaSezioni();
           renderSezioni();
-          secOverlay.classList.add("is-open");
+          secOverlay.hidden = false;
         });
-        (document.getElementById("m-close") as HTMLButtonElement).addEventListener("click", chiudiModale);
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        overlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiModale));
         (document.getElementById("m-cancel") as HTMLButtonElement).addEventListener("click", chiudiModale);
-        (document.getElementById("sec-close") as HTMLButtonElement).addEventListener("click", () => secOverlay.classList.remove("is-open"));
+        // Chiusura. Con modifiche in sospeso lo SFONDO non chiude: un click
+        // storto fuori dal modale butterebbe via il lavoro senza dire niente.
+        // La × chiude lo stesso, ma annullando in modo esplicito.
+        secOverlay.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", async () => {
+            if (secSporco()) {
+              if (el.classList.contains("md-back")) { secMsg.textContent = tr("menu.unsavedChanges"); return; }
+              await annullaSezioni();
+            }
+            secOverlay.hidden = true;
+          });
+        });
+        (document.getElementById("sec-save") as HTMLButtonElement).addEventListener("click", () => { void salvaSezioni(); });
+        // Annulla = butta via le modifiche E chiude: e' il «lascia perdere»,
+        // non un «ripulisci il modulo e restaci dentro».
+        (document.getElementById("sec-undo") as HTMLButtonElement).addEventListener("click", async () => {
+          await annullaSezioni();
+          secOverlay.hidden = true;
+        });
         mSave.addEventListener("click", salvaModale);
-        overlay.addEventListener("click", (e) => { if (e.target === overlay) chiudiModale(); });
-        secOverlay.addEventListener("click", (e) => { if (e.target === secOverlay) secOverlay.classList.remove("is-open"); });
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape") {
             if (dpAperto()) { dpChiudi(); return; }
-            chiudiModale(); chiudiLunchModale(); secOverlay.classList.remove("is-open");
+            chiudiModale(); chiudiLunchModale();
+            if (!secOverlay.hidden && secSporco()) { secMsg.textContent = tr("menu.unsavedChanges"); }
+            else secOverlay.hidden = true;
           }
         });
 

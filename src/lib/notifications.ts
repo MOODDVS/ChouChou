@@ -164,6 +164,69 @@ function separaItems(o: OrdineNotifica) {
 }
 
 /**
+ * Righe dell'ordine con le PASTIGLIE sotto il nome del piatto.
+ *
+ * Una sola funzione per tutte le email (cliente, lien de paiement,
+ * ristoratore): cambia la pelle, non la logica. Prima ogni email aveva la sua
+ * copia e la variante finiva inline nel nome in due posti su tre.
+ *
+ * Ordini NUOVI: `base_name` e `variant_label` arrivano gia separati.
+ * Ordini VECCHI: c'e' solo `name` concatenato, si ripiega sulla parentesi del
+ * supplemento come si e' sempre fatto. Nessuna migrazione, convivono.
+ */
+type SkinRighe = {
+  padX: string;       // padding orizzontale della cella
+  font: string;       // corpo del nome del piatto
+  fontPrezzo: string;
+  peso: string;       // font-weight del nome
+  cls: string;        // classe per il responsive delle email ("em-pad") o ""
+  fam: string;        // font-family esplicita (client di posta pignoli) o ""
+  gap: string;        // spazio fra «2×» e il nome
+};
+
+function righeOrdineHtml(piatti: OrdineNotifica["items"], tema: TemaEmail, sk: SkinRighe): string {
+  // Niente flex nelle email: span inline-block, che vanno in fila da soli.
+  // Corallo = la variante (cambia il prezzo), grigio = il supplemento.
+  const pastiglia = (testo: string, forte: boolean) =>
+    `<span style="display:inline-block;border:1px solid ${forte ? tema.accent : tema.border};border-radius:999px;padding:3px 12px;margin:8px 6px 0 0;color:${forte ? tema.accent : tema.muted};font-size:13px;font-weight:${forte ? "bold" : "normal"};line-height:1.3;${sk.fam}">${testo}</span>`;
+
+  const cls = sk.cls ? ` class="${sk.cls}"` : "";
+  return piatti
+    .map((i) => {
+      const match = i.name.match(/^(.*?)\s*\((.+)\)\s*$/);
+      const nuovo = !!i.base_name;
+      const nomeBase = nuovo ? (i.base_name as string) : match ? match[1] : i.name;
+      const suppl = nuovo ? i.notes || "" : match ? match[2] : "";
+      const pastiglie =
+        (i.variant_label ? pastiglia(esc(i.variant_label), true) : "") +
+        (suppl ? pastiglia(esc(suppl), false) : "");
+      // Il filetto sta SEMPRE in fondo al blocco del piatto: con le pastiglie
+      // e' la loro riga a portarlo, altrimenti quella del nome. Prima il
+      // supplemento cadeva SOTTO la linea, attaccato al piatto successivo.
+      const bordo = `border-bottom:1px solid ${tema.border};`;
+      const pad = pastiglie ? `14px ${sk.padX} 0` : `14px ${sk.padX}`;
+      const bordoNome = pastiglie ? "" : bordo;
+      return `
+      <tr>
+        <td${cls} style="padding:${pad};${bordoNome}color:${tema.title};font-size:${sk.font};font-weight:${sk.peso};${sk.fam}">${i.qty}×${sk.gap}${esc(nomeBase)}</td>
+        <td${cls} style="padding:${pad};${bordoNome}color:${tema.title};font-size:${sk.fontPrezzo};text-align:right;white-space:nowrap;vertical-align:top;${sk.fam}">${euro(i.price_cents * i.qty)}</td>
+      </tr>${pastiglie ? `<tr><td colspan="2"${cls} style="padding:0 ${sk.padX} 12px;${bordo}">${pastiglie}</td></tr>` : ""}`;
+    })
+    .join("");
+}
+
+/** Pelle delle email al CLIENTE (conferma, lien de paiement). */
+const SKIN_CLIENTE: SkinRighe = {
+  padX: "24px", font: "15px", fontPrezzo: "15px", peso: "normal",
+  cls: "", fam: "font-family:Arial,Helvetica,sans-serif;", gap: " ",
+};
+/** Pelle del ticket al RISTORATORE: piu grande, senza margini laterali. */
+const SKIN_CUCINA: SkinRighe = {
+  padX: "0", font: "19px", fontPrezzo: "16px", peso: "bold",
+  cls: "em-pad", fam: "", gap: "&nbsp;&nbsp;",
+};
+
+/**
  * Invia tutte le notifiche per un ordine confermato.
  * Non lancia mai eccezioni verso l'esterno: non fa mai fallire il webhook.
  */
@@ -405,15 +468,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   const dati = await datiRistorante();
   const tema = await temaEmail();
 
-  const righeHtml = piatti
-    .map(
-      (i) => `
-      <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
-      </tr>`
-    )
-    .join("");
+  const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CLIENTE);
 
   const noteHtml = noteCliente
     ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
@@ -794,15 +849,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   const dati = await datiRistorante();
   const tema = await temaEmail();
 
-  const righeHtml = piatti
-    .map(
-      (i) => `
-      <tr>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;font-family:Arial,Helvetica,sans-serif;">${i.qty}× ${esc(i.name)}</td>
-        <td style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.title};font-size:15px;text-align:right;white-space:nowrap;font-family:Arial,Helvetica,sans-serif;">${euro(i.price_cents * i.qty)}</td>
-      </tr>`
-    )
-    .join("");
+  const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CLIENTE);
   const noteHtml = noteCliente
     ? `<tr><td colspan="2" style="padding:14px 24px;border-bottom:1px solid ${tema.border};color:${tema.text};font-size:13px;font-family:Arial,Helvetica,sans-serif;"><strong style="color:${tema.title};">${t.note} :</strong> ${esc(noteCliente)}</td></tr>`
     : "";
@@ -896,36 +943,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
 
-  // Pastiglia: niente flex nelle email, sono span inline-block che vanno in
-  // fila da soli. Il corallo e' la variante (cambia il prezzo), il grigio il
-  // supplemento — stessa gerarchia della card Ordini nell'admin.
-  const pastiglia = (testo: string, forte: boolean) =>
-    `<span style="display:inline-block;border:1px solid ${forte ? tema.accent : tema.border};border-radius:999px;padding:3px 12px;margin:8px 6px 0 0;color:${forte ? tema.accent : tema.muted};font-size:13px;font-weight:${forte ? "bold" : "normal"};line-height:1.3;">${testo}</span>`;
-
-  const righeHtml = piatti
-    .map((i) => {
-      // Ordini NUOVI: nome base ed etichetta variante arrivano gia separati.
-      // Ordini VECCHI: c'e' solo `name` concatenato, si ripiega sulla parentesi
-      // del supplemento come prima.
-      const match = i.name.match(/^(.*?)\s*\((.+)\)\s*$/);
-      const nuovo = !!i.base_name;
-      const nomeBase = nuovo ? (i.base_name as string) : match ? match[1] : i.name;
-      const suppl = nuovo ? i.notes || "" : match ? match[2] : "";
-      const pastiglie =
-        (i.variant_label ? pastiglia(esc(i.variant_label), true) : "") +
-        (suppl ? pastiglia(esc(suppl), false) : "");
-      // Il filetto sta SEMPRE in fondo al blocco del piatto: se ci sono le
-      // pastiglie e' la loro riga a portarlo, altrimenti quella del nome.
-      const bordo = `border-bottom:1px solid ${tema.border};`;
-      const pad = pastiglie ? "14px 0 0" : "14px 0";
-      const bordoNome = pastiglie ? "" : bordo;
-      return `
-      <tr>
-        <td class="em-pad" style="padding:${pad};${bordoNome}color:${tema.title};font-size:19px;font-weight:bold;">${i.qty}×&nbsp;&nbsp;${esc(nomeBase)}</td>
-        <td class="em-pad" style="padding:${pad};${bordoNome}color:${tema.title};font-size:16px;text-align:right;white-space:nowrap;vertical-align:top;">${euro(i.price_cents * i.qty)}</td>
-      </tr>${pastiglie ? `<tr><td colspan="2" class="em-pad" style="padding:0 0 12px;${bordo}">${pastiglie}</td></tr>` : ""}`;
-    })
-    .join("");
+  const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
 
   const noteHtml = noteCliente
     ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:4px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:15px;"><strong style="color:${tema.title};">${k.note} :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`

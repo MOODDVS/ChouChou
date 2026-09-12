@@ -88,29 +88,32 @@ const t = adminT(lang);
   .spf .sp-sv-pill.is-cmd { background: rgba(93, 85, 85, 0.25); color: var(--c-muted); border-color: var(--c-line); }
   .spf .sp-del { background: none; border: none; color: var(--c-muted); font-size: 1.25rem; cursor: pointer; line-height: 1; padding: 0 0.2rem; }
   .spf .sp-del:hover { color: #ff6b6b; }
-  .spf .sp-add { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.6rem; }
-  .spf .sp-servs-wrap { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem; }
+  /* Il `gap` base tiene unite le righe di una stessa cosa (i due orari, le due
+     date). L'aria in piu' si mette SOLO dove comincia una sezione nuova, con
+     un margine: un gap piu grande dappertutto avrebbe slegato anche le righe
+     che devono restare insieme. */
+  .spf .sp-add { border-top: 1px solid var(--c-line); padding-top: 1.25rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .spf .sp-add > .sp-dates { margin-top: 0.55rem; }
+  .spf .sp-add > .spf-hours { margin-top: 1.1rem; }
+  /* Ultima riga (nota + Aggiungi): e' la conclusione, si stacca dal resto. */
+  .spf .sp-add > div:last-of-type { margin-top: 1.2rem; }
+  .spf .sp-servs-wrap { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 1.1rem; }
   .spf .sp-servs { display: flex; flex-wrap: wrap; gap: 0.5rem 1.3rem; }
   .spf .sp-sv {
     display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
     font-size: 0.86rem; color: var(--c-muted); user-select: none;
   }
   .spf .sp-sv.is-on { color: var(--c-text); }
-  .spf .sp-sw {
-    position: relative; width: 40px; height: 20px; border-radius: 999px;
-    background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box;
-    transition: background 0.15s, border-color 0.15s; flex-shrink: 0;
-  }
-  .spf .sp-sv.is-on .sp-sw { border-color: var(--c-accent); }
-  .spf .sp-sw::before {
-    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-    border-radius: 50%; background: #8f8781; transition: transform 0.15s, background 0.15s;
-  }
-  .spf .sp-sv.is-on .sp-sw { background: var(--c-accent); }
-  .spf .sp-sv.is-on .sp-sw::before { transform: translateX(20px); background: var(--c-bg); }
+  /* L'interruttore e' il componente condiviso (.switch in styles/switch.css):
+     qui lo stato NON e' un checkbox ma la classe `is-on` messa dal JS sulla
+     riga, perche' a essere cliccabile e' tutta la riga del servizio. Per
+     questo `.switch` riceve `is-on` insieme al genitore. */
   .spf .sp-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
   .spf .sp-dates { flex-wrap: nowrap; }
-  .spf .spf-hours { flex-direction: column; gap: 0.6rem; }
+  .spf .spf-hours { display: flex; flex-direction: column; gap: 0.6rem; }
+  /* Continuato / Spezzato decide la forma di quello che viene dopo: un filo
+     d'aria in piu' sotto lo rende una scelta, non un'altra riga del gruppo. */
+  .spf .spf-hours > .sp-row:first-child { margin-bottom: 0.35rem; }
   .spf .sp-dates input { flex: 1; min-width: 0; cursor: pointer; }
   /* Gli orari si stringono invece di andare a capo, a QUALSIASI larghezza:
      questo form vive dentro un modale, e la larghezza della FINESTRA non dice
@@ -118,13 +121,16 @@ const t = adminT(lang);
      tiene alla loro taglia naturale quando lo spazio c'e'. */
   .spf .sp-row input[type="time"] { flex: 1 1 auto; min-width: 0; max-width: 8rem; }
   .spf .spf-note { flex: 1; min-width: 140px; }
+  /* Corallo PIENO come ogni altro bottone d'azione dell'admin (il «+ Ordine»,
+     il «Salva» dei modali, l'«Aggiungi» degli eventi locali): era l'unico
+     rimasto in versione contornata. */
   .spf .sp-addbtn {
-    background: transparent; border: 1px solid var(--c-accent); color: var(--c-accent);
+    background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg);
     font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.05em;
     padding: 0.45rem 1.5rem; cursor: pointer; border-radius: 999px;
-    transition: background 0.2s, color 0.2s;
+    transition: filter 0.2s;
   }
-  .spf .sp-addbtn:hover { background: var(--c-accent); color: var(--c-bg); }
+  .spf .sp-addbtn:hover { filter: brightness(1.08); }
   .spf .hint { color: var(--c-muted); font-size: 0.8rem; }
   .spf .band-label { min-width: 3rem; color: var(--c-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
   .spf .msg { font-size: 0.9rem; }
@@ -450,7 +456,7 @@ const t = adminT(lang);
               .map((sv) => {
                 const tok = `${sv.key}|${hhmm(sv.da)}-${hhmm(sv.a)}`;
                 const ore = tok.split("|")[1].replace("-", "–");
-                return `<span class="sp-sv${servSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="sp-sw"></span>${esc(nomeServizio(sv.key, LANG))} · ${ore}</span>`;
+                return `<span class="sp-sv${servSel.has(tok) ? " is-on" : ""}" data-tok="${tok}"><span class="switch switch-sm${servSel.has(tok) ? " is-on" : ""}"><span class="track"></span></span>${esc(nomeServizio(sv.key, LANG))} · ${ore}</span>`;
               })
               .join("")
           : `<span class="hint">${tr("set.hor.noServiceConfig")}</span>`;

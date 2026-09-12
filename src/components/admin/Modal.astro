@@ -1,0 +1,58 @@
+---
+/**
+ * MODALE ADMIN — il guscio, uno solo per tutta l'applicazione.
+ *
+ * Struttura e misure stanno in `src/styles/modal.css` (classi .md-*),
+ * importato una volta da AdminHead: qui c'e' solo il markup, cosi' non
+ * va riscritto a ogni pagina.
+ *
+ *   <Modal id="obuy-overlay" titleId="obuy-title" width="600px">
+ *     ...contenuto...
+ *     <Fragment slot="foot">
+ *       <button class="md-btn" data-md-close>Annulla</button>
+ *       <button class="md-btn md-btn-primary">Paga</button>
+ *     </Fragment>
+ *   </Modal>
+ *
+ * - `title` per un titolo fisso, `titleId` quando lo scrive il JS.
+ * - `width` finisce in --md-w: la larghezza si cambia li, non con una
+ *   classe nuova per ogni misura.
+ * - Chiusura: la pagina aggancia `[data-md-close]` (sfondo, ×, Annulla).
+ *   Il guscio non porta JS proprio, cosi' ogni pagina resta padrona del
+ *   suo stato (reset dei campi, blocco dello scroll, ...).
+ */
+import { adminLang } from "../../lib/admin/adminLang";
+import { adminT } from "../../i18n/admin";
+
+interface Props {
+  id: string;
+  title?: string;
+  titleId?: string;
+  /** Larghezza massima della scatola (default 600px). */
+  width?: string;
+  /** Classi extra sul .md-box (rare: preferire `width`). */
+  boxClass?: string;
+}
+
+const { id, title, titleId, width, boxClass } = Astro.props;
+const lang = await adminLang();
+const t = adminT(lang);
+const conFoot = Astro.slots.has("foot");
+---
+
+<div class="md-overlay" id={id} hidden>
+  <div class="md-back" data-md-close></div>
+  <div
+    class={boxClass ? `md-box ${boxClass}` : "md-box"}
+    role="dialog"
+    aria-modal="true"
+    style={width ? `--md-w:${width}` : undefined}
+  >
+    <div class="md-head">
+      <h2 class="md-title" id={titleId}>{title}</h2>
+      <button type="button" class="md-x" data-md-close aria-label={t("common.close")}>×</button>
+    </div>
+    <div class="md-body"><slot /></div>
+    {conFoot && <div class="md-foot"><slot name="foot" /></div>}
+  </div>
+</div>

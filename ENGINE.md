@@ -160,3 +160,290 @@ Le variabili CSS **non funzionano dentro `@media`** (`@media (max-width: var(--b
 **Stato della conversione (08/09)**: famiglia **FAB + isola nav** ✅ chiusa in blocco — `fab.css`, `savebar.css`, `AdminNav`, `AdminHead`, `AdminHeader`, `clients`, `index`, `menu`, `orders`, `reservations`. ✅ `google` (560×2 → 640, 999/1000 → 1023/1024, `.g-split` 1000 → 1023). ✅ `clients` (le larghezze delle colonne non stanno piu nei `@media`: le calcola il JS in `--grid-cols`, perche il set visibile dipende anche da una preferenza dell'utente). ✅ `menu` (780 → 760). ✅ `agenda` (tre soglie **tolte**, non convertite: 1024, 520, 720 — legate al contenuto; 780 → 760). ✅ `stats` (1024 → 1023, 560 → 640, `.rkpi-grid` passata a `auto-fit`). ✅ `marketing` (stesso trattamento di `agenda`: `.mtabs` scorrevoli legati al contenuto, `520` e `720` **tolti** passando a `auto-fit`). ✅ `assets` (il `1024` dei tab **tolto**, non convertito). ✅ `super` (1080 → 1024, 560×2 → 640). ✅ `print` (non aveva **nessun** `@media`: era gia legata al contenuto). ✅ `login` e `reset-password` (860 → 900). ✅ `SpecialDaysForm` (soglia **tolta**: gli orari si stringono da soli) e `TileGoogle` (560 → **759**, in coppia con `--cols: 1`). ✅ `settings` (1024 **tolto**, 1100 → 1279, 700×2 · 620 · 560 → 640).
 
 **La conversione è CHIUSA.** Nessuna deviazione residua nel motore: restano solo i valori della scala (640/641, 900/901, 1023/1024, 1279/1280), le eccezioni dichiarate qui sopra e i due `@media (pointer: coarse)` di `settings`, che non sono soglie di larghezza. Le altre in `moodd-admin-avanzamento.md`.
+
+## Modali — la struttura unica (decisa 11/09/2026)
+
+Riferimento visivo: il modale d'acquisto della pagina **Stampa**. Ogni modale
+dell'admin deve avere questa forma, e la forma sta in **un posto solo**.
+
+**Dove vive.** `src/styles/modal.css` (classi `.md-*`), importato una volta da
+`AdminHead` → vale su ogni pagina admin. Il guscio in markup è
+`src/components/admin/Modal.astro`.
+
+```
+.md-overlay            fondo scuro + centratura
+  .md-back             sfondo cliccabile (chiude)
+  .md-box              la scatola, angoli 16px
+    .md-head           titolo + ×, filetto sotto  — MAI scorre
+    .md-body           il contenuto               — scorre lui
+    .md-foot           i bottoni, filetto sopra   — MAI scorre
+```
+
+**Header e footer restano fermi per COSTRUZIONE, non con `position: sticky`**:
+la scatola è un flex in colonna, loro sono `flex: 0 0 auto`, il corpo è l'unico
+con `overflow-y: auto` (e `min-height: 0`, senza il quale un flex item non
+scende sotto il suo contenuto e spinge fuori header e footer). Niente z-index
+da governare, niente filetti che sbavano sugli angoli arrotondati.
+
+**Larghezza**: si cambia con `--md-w` sul `.md-box` (default 600px), MAI con una
+classe nuova per ogni misura → `<Modal width="900px">`.
+
+**Bottoni**: `.md-btn` e `.md-btn.md-btn-primary`. La coppia «annulla /
+conferma» è sempre la stessa.
+
+**Le uniche cose che cambiano per formato** (tutto il resto è identico):
+
+| | Titolo | Header | Body | Footer |
+|---|---|---|---|---|
+| desktop | 1.5rem | 1.4/1.6/1rem | 1.3/1.6rem | 1/1.6/1.4rem |
+| tablet ≤1023 | 1.3rem | 1.05/1.25/0.85rem | 1.05/1.25rem | 0.85/1.25/1.05rem |
+| mobile ≤640 | 1.12rem | 0.85/1/0.7rem | 0.9/1rem | 0.7/1/0.85rem |
+
+**Chiusura**: la pagina aggancia `[data-md-close]` (sfondo, ×, Annulla). Il
+guscio non porta JS proprio, così ogni pagina resta padrona del suo stato
+(reset dei campi, blocco dello scroll del body).
+
+**Le regole `.md-*` non hanno `!important`**: sono la base. Una pagina che deve
+deviare lo fa col suo `<style>` scoped, che vince nella cascata.
+
+✅ **La conversione è FINITA (12/09/2026).** Nessun modale admin usa più il
+guscio fatto a mano: `.overlay`, `.modal`, `.m-close`, `.m-actions`, `.m-save`
+sono spariti da tutte le pagine, e con loro il blocco di compatibilità in fondo
+a `modal.css` — che era pieno di `!important` per battere gli stili scoped.
+Resta fuori solo `ImagePicker`, che ha un guscio TUTTO SUO (`.imgpick-*`), mai
+stato `.overlay`.
+
+⚠️ **Il secondo inciampo di ogni conversione**: le pagine hanno regole
+agganciate a `.modal` — tipicamente `.modal input, .modal textarea { … }`. Un
+modale convertito non ha più quella classe (è `.md-box`), e i suoi campi
+tornano al bianco di sistema. Finché convivono le due forme, quei selettori
+vanno scritti **in coppia**: `.modal input, .md-box input { … }`. Succede anche
+ai controlli «c'è un modale aperto?» — vedi sotto.
+
+⚠️ **Finché convivono due meccaniche** (`.is-open` sui vecchi, `hidden` sui
+nuovi), ogni controllo del tipo «c'è un modale aperto?» deve guardare
+**entrambe**: `document.querySelector(".overlay.is-open, .md-overlay:not([hidden])")`.
+In Prenotazioni quel controllo ferma il refresh automatico della lista:
+dimenticarlo significa ricaricare la pagina sotto le mani di chi sta
+compilando un modale.
+
+**Pagine FINITE** (nessun `.overlay` rimasto, CSS del guscio vecchio tolto):
+TUTTE: `reservations` · `assets` · `marketing` · `settings` · `orders` ·
+`clients` · `index` · `agenda` · `menu`.
+Chiudere una pagina vuol dire anche togliere `.overlay`, `.modal`, `.m-close`,
+`.m-actions` e il ramo `.overlay.is-open` dei controlli «modale aperto».
+
+**Convertiti altrove**: `print` (acquisto) · `index` (Tuiles, Giorni speciali,
+Note) · `agenda` (evento) · `orders` (nuovo ordine) · `clients` (attività
+cliente, modifica/aggiungi) · `menu` (piatto, sezioni) · `super` (nuovo utente)
+· `settings` (piantina della sala, contatto team, documento — pagina CHIUSA).
+**Da fare**: solo `ImagePicker` (265 righe, guscio proprio `.imgpick-*`).
+E' l'unico che e' un COMPONENTE: si converte una volta e cambia in ogni pagina
+che lo usa, quindi va riprovato in tutte.
+
+🧹 **Codice morto rimasto** (non urgente): `.m-actions` / `.m-cancel` in
+`reservations.astro` non aggancia piu' niente.
+
+⚠️ **Prima di convertire un modale, controllare che sia VIVO.** L'«aggiungi
+cliente» di Clienti non si apriva piu' da quando creazione e modifica sono la
+stessa finestra: nessuno chiamava `add("is-open")`. Convertirlo sarebbe stato
+lavoro su codice morto. Il controllo e' una riga: cercare chi lo APRE, non chi
+lo chiude.
+`google` non e' in elenco: non ha modali, il pannello e' in pagina.
+
+⚠️ **Anteprima PDF**: la fa `src/lib/admin/pdfThumb.ts`, importata dalle
+pagine. pdf.js sta nel progetto (`import()` dinamico, servito da 'self'): la
+CSP dell'admin blocca qualsiasi `<script>` da CDN, e il ripiego sull'icona e'
+silenzioso — un'anteprima che non c'e' non e' distinguibile da un PDF
+protetto. Se serve una miniatura da un'altra pagina, si importa il modulo:
+**non si ricopia la funzione**, perche' e' esattamente cosi' che il guasto e'
+sopravvissuto alla prima correzione.
+
+⚠️ **Se il modale ha riquadri flottanti** (`position: fixed`) — la piantina ha
+i due pannelli che seguono il tavolo selezionato — il loro `z-index` va portato
+**sopra il 400 del `.md-overlay`**. Il guscio vecchio stava a 300 e un 60
+bastava: convertendo, quei pannelli spariscono dietro il modale.
+
+⚠️ **Se il contenuto deve riempire la finestra invece di adattarsi** (una
+piantina, una tela), non basta dare l'altezza al `.md-box`: il `.md-body` va
+messo a `display: flex; flex-direction: column` e il figlio a
+`flex: 1 1 auto; min-height: 0`. Altrimenti il figlio resta alto quanto il suo
+contenuto e ogni `height: 100%` o container query dentro di lui misura zero.
+
+## Interruttori — il componente unico (deciso 11/09/2026)
+
+**Dove vive.** `src/styles/switch.css`, importato una volta da `AdminHead` →
+vale su ogni pagina admin. Non c'è un componente `.astro`: la struttura è tre
+tag, il valore sta tutto nel CSS.
+
+```html
+<label class="switch">
+  <input type="checkbox" />
+  <span class="track"></span>
+</label>
+```
+
+Con etichetta: `<span class="sw-wrap"><label class="switch">…</label><span class="sw-lab">Attivo</span></span>`
+
+**Se lo stato non è un checkbox** — succede dove è cliccabile la riga intera —
+si mette `is-on` sul `.switch`: fa esattamente quello che fa `input:checked`.
+
+**Misura**: `--sw-w` / `--sw-h` / `--sw-k` sul `.switch`, MAI una classe nuova
+per ogni taglia. `.switch-sm` (40×22) è l'unica scorciatoia, per le liste fitte.
+
+**Le tre cose che erano disegnate male e qui sono risolte:**
+
+1. **La pallina si centra con `top: 50%` + `translateY(-50%)`**, non con un
+   `top` fisso: era quello a farla sembrare storta appena l'altezza cambiava.
+2. **Lo spento ha il fondo PIENO**, ricavato dal colore del testo mescolato al
+   fondo (`color-mix`). Un token fisso (`--c-line`, `--c-input`) sparisce
+   appena il cliente cambia tema — ed è esattamente quello che era successo.
+   Niente bordo: il bordo lo faceva sembrare un campo da compilare.
+3. **L'input copre tutto l'interruttore** (`inset: 0`), non `width: 0`: il
+   tocco prende ovunque, bordi compresi.
+
+⚠️ **La conversione è IN CORSO, una pagina alla volta.** Le pagine non ancora
+passate hanno la loro copia di `.switch` nel `<style>` scoped, che vince nella
+cascata: si toglie quella copia e la pagina eredita il componente.
+Fatti: **Home** (tile Tuiles), **SpecialDaysForm** (servizi) e
+**reservations** (`.sv-switch`).
+**Se l'interruttore è un `<button role="switch">`** — dove la riga non ha una
+label propria e il bottone È il comando — lo stato lo porta `aria-checked`, che
+serve già all'accessibilità: il componente lo legge direttamente, senza
+duplicarlo in una classe che sarebbe una seconda verità da tenere allineata.
+
+Fatti: **Home** (tile Tuiles), **SpecialDaysForm** (servizi),
+**reservations** (`.sv-switch`) e **clients** (`.afl-sw`, i due permessi).
+Da fare: `agenda`, `google`, `marketing`, `menu`, `settings`, `super`,
+`orders`.
+
+## Campi — il componente unico (deciso 11/09/2026)
+
+**Dove vive.** `src/styles/field.css`, importato una volta da `AdminHead` →
+vale su ogni pagina admin.
+
+**Dentro un modale del guscio condiviso non serve nessuna classe**: `input`,
+`textarea` e `select` dentro `.md-box` prendono la grafica da soli. Fuori dai
+modali si mette `.fld` sul campo.
+
+```
+fondo    var(--c-card)   — lo stesso delle card (riga prenotazione, tile, sezioni)
+bordo    nessuno         — 1px transparent, diventa corallo sul focus
+angoli   6px
+```
+
+**Il fondo è quello delle card, e non è un caso**: una casella da riempire e una
+card sono tutte e due un piano rialzato rispetto al fondo, quindi devono stare
+alla stessa altezza. Cambiando tema si muovono insieme.
+
+**Il bordo a riposo è `1px solid transparent`, non `border: 0`**: così quando
+prende il fuoco e diventa corallo l'altezza non salta di due pixel.
+
+⚠️ **Il selettore dei modali è volutamente lungo** (`.md-overlay .md-box …`).
+Le pagine si erano scritte le loro copie con la stessa specificità (`.md-box
+input { … }`): chi vince dipenderebbe dall'ordine in cui il bundle le mette,
+cioè dal caso. Con un selettore più forte «uguale in ogni modale» è vero
+davvero, e le copie locali si tolgono con calma pagina per pagina — finché ci
+sono non fanno danno, sono codice morto. Tolte in `clients`.
+
+⚠️ **Mai la scorciatoia `background`**, solo `background-color`: la scorciatoia
+azzererebbe la freccia disegnata dei `select`.
+
+⚠️ **Il corpo del testo resta 0.95rem anche su mobile.** Sotto i 16px Safari
+iOS ingrandisce la pagina al primo tocco nel campo e il modale finisce fuori
+schermo: lì rimpicciolire fa danno.
+
+⚠️ **Checkbox, radio, file, range, color e hidden sono esclusi** dal selettore:
+hanno una grafica loro. Fra questi c'è anche l'input invisibile di `.switch`,
+che senza l'esclusione si sarebbe ritrovato un fondo.
+
+## Bottoni — il componente unico (deciso 11/09/2026)
+
+**Dove vive.** `src/styles/button.css`, importato una volta da `AdminHead`.
+
+`.btn` è il bottone d'azione DENTRO un modale o una scheda: «Carica una foto»,
+«Libreria», «Rimuovi», «+ Aggiungi una variante». Neutro: non chiede
+l'attenzione che spetta al bottone di conferma.
+
+```html
+<button type="button" class="btn">Carica una foto</button>
+<button type="button" class="btn btn-danger">Rimuovi</button>
+<button type="button" class="btn btn-sm">+ Variante</button>
+```
+
+**Non sostituisce `.md-btn`** di `modal.css`: quello è la coppia «annulla /
+conferma» del footer. `.btn` è tutto il resto, che ogni pagina si era
+riscritto a modo suo (`.ed-pill`, `.sec-btn`, `.f-img-btn`, `.ed-upl`,
+`.pill`, `.m-ghost`…).
+
+Fondo `--c-card` come i campi — bottone e casella sono tutti e due un piano
+rialzato sul fondo del modale. `.btn-danger` è grigio a riposo e rosso solo al
+passaggio: rosso fisso sembra un allarme sempre acceso.
+
+**Regola dei colori nel footer**: UN SOLO bottone corallo per modale, ed è la
+conferma. Se un'azione facoltativa sta in mezzo al form, è `.btn`.
+
+**Ordine dei bottoni**: azioni leggere a sinistra, conferma in fondo a destra.
+Non è solo estetica — in Newsletter «Invia a tutti» stava dove negli altri
+modali c'è «Annulla».
+
+## Test unitari (decisi 11/09/2026)
+
+`tests/*.test.mjs`, lanciati con `node --test tests/<file>.test.mjs`. Nessuna
+dipendenza: solo `node:test` e `node:assert`.
+
+⚠️ **Le funzioni sotto test si copiano VERBATIM dal codice vero.** Riscriverle
+«equivalenti» fa passare il test su codice rotto: è successo con `esc()` nella
+pagina Ordini, dove lo stub faceva `String(x)` e il codice vero no.
+
+Servono per la logica pura: nomi di file, calcoli di finestre e capienza,
+macchine a stati (il cestino a due tempi). Non sostituiscono `astro check`,
+che resta l'unico a vedere gli identificatori non dichiarati.
+
+⚠️ **Un modulo che lancia all'import non e' testabile.** `db.ts` pretende
+SUPABASE_URL e SUPABASE_SERVICE_KEY e lancia se mancano; Astro gliele passa,
+vitest no (Vite espone a `import.meta.env` solo le `VITE_*`). `slots.ts` lo
+importava in cima, e `slots.test.ts` — **16 test** — non e' partito per mesi
+senza che nessuno se ne accorgesse: vitest segnava «0 test», non un errore
+rosso. Il client Supabase ora si carica dentro la funzione che lo usa.
+Regola: un file di calcolo puro non importa `./db` in cima.
+
+⚠️ **«0 test» in un file va letto come un fallimento**, non come «non c'e'
+niente da fare».
+
+## Letture dal database — le mille righe (decisa 12/09/2026)
+
+**PostgREST rende al massimo 1000 righe per richiesta.** Una `select()` senza
+`.range()` si ferma lì **senza errore e senza avviso**: il dato arriva
+troncato e sembra completo. L'unico indizio è un numero tondo.
+
+Ogni lettura che può superare la soglia va fatta a pagine. Lo schema è
+`ordiniPagati` in `src/lib/admin/calcolaStats.ts`:
+
+```ts
+const PAGINA = 1000;
+const tutti: Riga[] = [];
+for (let da = 0; ; da += PAGINA) {
+  const { data, error } = await supabaseAdmin.from("t").select("…").range(da, da + PAGINA - 1);
+  if (error) break;
+  tutti.push(...(data ?? []));
+  if (!data || data.length < PAGINA) break;
+}
+```
+
+Vale anche per le letture che sembrano «di servizio»: l'insieme degli id già
+noti delle recensioni Google era troncato, e oltre le mille recensioni faceva
+risultare NUOVE delle recensioni vecchie — con notifica push al ristoratore.
+
+## Una cosa sola, in un posto solo
+
+Tre guasti della sessione del 12/09 avevano la stessa forma: **due copie della
+stessa logica, corretta in una sola**. L'anteprima PDF (giusta in Assets, rotta
+in Impostazioni per settimane), il rosso del secondo tempo su «Invia a tutti»
+(la regola CSS puntava a una classe sparita in una conversione precedente), e
+le statistiche (due file gemelli da 180 righe, non ancora divergenti).
+
+⚠️ **Un commento che dice «se cambi qui, aggiorna anche là» non è una
+protezione: è la descrizione di un guasto che deve ancora succedere.** Se una
+funzione serve a due pagine, va in `src/lib/admin/` e la si importa.
+

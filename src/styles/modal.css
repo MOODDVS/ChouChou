@@ -1,35 +1,103 @@
 /* ============================================================
-   Regole CONDIVISE per TUTTI i modali admin su MOBILE (≤640px).
-   Importato una sola volta da AdminHead → vale su ogni pagina
-   (clienti, piatti, sezioni, ordini, prenotazioni, ...).
-   Rende coerenti: titolo, padding interno e bottoni del footer.
-   `!important` perché deve prevalere sugli stili scoped delle
-   singole pagine (Astro aggiunge un attributo cid → 0,2,0).
-   Il modale info-cliente (.modal-act) è escluso: ha un layout
-   sticky con margini propri.
-   ============================================================ */
-@media (max-width: 640px) {
-  /* Padding interno ridotto */
-  .modal:not(.modal-act) { padding: 1.15rem !important; }
-  /* Titolo più piccolo */
-  .modal:not(.modal-act) h2 { font-size: 1.3rem !important; margin-bottom: 0.9rem !important; }
-  /* Bottoni footer piccoli e della STESSA dimensione (Annulla = Salva) */
-  .m-actions .m-cancel,
-  .m-actions .m-save {
-    font-family: var(--font-body) !important;
-    font-size: 0.85rem !important;
-    letter-spacing: 0 !important;
-    padding: 0.5rem 1.2rem !important;
-    border-radius: 999px !important;
-  }
+   MODALE ADMIN — LA STRUTTURA UNICA (.md-*)
+   ------------------------------------------------------------
+   Riferimento: il modale d'acquisto della pagina Stampa.
 
-  /* Modale "Nuovo ordine" (usa classi nc-*): stesso trattamento. */
-  .nc-modal { padding: 1.15rem !important; }
-  .nc-modal h2 { font-size: 1.3rem !important; margin-bottom: 0.9rem !important; }
-  .nc-nav .nc-nav-btn {
-    font-family: var(--font-body) !important;
-    font-size: 0.85rem !important;
-    letter-spacing: 0 !important;
-    padding: 0.5rem 1.1rem !important;
-  }
+     .md-overlay            fondo scuro + centratura
+       .md-back             lo sfondo cliccabile (chiude)
+       .md-box              la scatola, angoli arrotondati
+         .md-head           titolo + ×, filetto sotto  — MAI scorre
+         .md-body           il contenuto               — scorre lui
+         .md-foot           i bottoni, filetto sopra   — MAI scorre
+
+   Header e footer restano fermi PER COSTRUZIONE, non con
+   `position: sticky`: la scatola e' un flex in colonna, loro sono
+   `flex: 0 0 auto` e il corpo e' l'unico con `overflow-y: auto`.
+   Niente z-index da gestire, niente bordi che sbavano sugli angoli.
+
+   Larghezza: si cambia con --md-w sul .md-box (default 600px),
+   non con una classe nuova per ogni misura.
+
+   ⚠️ Queste regole NON hanno `!important`: sono la base. Se una
+   pagina deve deviare lo fa col suo <style> scoped, che vince.
+   ============================================================ */
+.md-overlay { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.md-overlay[hidden] { display: none; }
+.md-back { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+
+.md-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--md-w, 600px), 100%);
+  max-height: min(90vh, 100%);
+  background: var(--c-bg);
+  border: 1px solid var(--c-line);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
+
+.md-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.4rem 1.6rem 1rem; border-bottom: 1px solid var(--c-line); }
+.md-title { font-family: var(--font-title); font-size: 1.5rem; letter-spacing: 0.02em; color: var(--c-text); margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.md-x { flex: 0 0 auto; background: none; border: 0; padding: 0; color: var(--c-muted); font-size: 1.5rem; line-height: 1; cursor: pointer; transition: color 0.15s; }
+.md-x:hover { color: var(--c-accent); }
+
+/* min-height:0 — senza, un flex item non scende sotto il suo contenuto e
+   il corpo non scorre: spinge fuori header e footer. */
+.md-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 1.3rem 1.6rem; }
+
+.md-foot { flex: 0 0 auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 0.7rem; padding: 1rem 1.6rem 1.4rem; border-top: 1px solid var(--c-line); }
+
+/* Bottoni del footer: la coppia «annulla / conferma» e' sempre la stessa. */
+.md-btn { font-family: var(--font-title); letter-spacing: 0.04em; font-size: 0.95rem; padding: 0.6rem 1.4rem; border-radius: 999px; cursor: pointer; border: 1px solid var(--c-line); background: transparent; color: var(--c-text); transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s; }
+.md-btn:hover:not(:disabled) { border-color: var(--c-accent); color: var(--c-accent); }
+.md-btn-primary { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
+.md-btn-primary:hover:not(:disabled) { filter: brightness(1.08); color: var(--c-bg); border-color: var(--c-accent); }
+.md-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ------------------------------------------------------------
+   VARIANTE «post-it» (.md-nota) — solo i COLORI cambiano.
+   Il modale Note ha il fondo corallo da sempre: e' la sua identita',
+   si legge come un foglietto attaccato al frigo. La struttura pero'
+   e' quella di tutti gli altri. Questa e' l'unica deviazione
+   ammessa, e vive qui: se un domani serve un secondo modale
+   colorato, si riusa questa classe invece di reinventarla.
+   ------------------------------------------------------------ */
+.md-box.md-nota { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-brown); }
+.md-nota .md-head { border-bottom-color: color-mix(in srgb, var(--c-bg) 25%, transparent); }
+.md-nota .md-foot { border-top-color: color-mix(in srgb, var(--c-bg) 25%, transparent); }
+.md-nota .md-title { color: var(--c-brown); }
+.md-nota .md-x { color: color-mix(in srgb, var(--c-bg) 55%, transparent); }
+.md-nota .md-x:hover { color: var(--c-brown); }
+
+/* TABLET (<=1023px, 1024 = iPad orizzontale e sta col desktop):
+   titolo piu' piccolo, header e footer piu' bassi. */
+@media (max-width: 1023px) {
+  .md-title { font-size: 1.3rem; }
+  .md-head { padding: 1.05rem 1.25rem 0.85rem; }
+  .md-body { padding: 1.05rem 1.25rem; }
+  .md-foot { padding: 0.85rem 1.25rem 1.05rem; }
+}
+
+/* MOBILE (<=640px): ancora un gradino. */
+@media (max-width: 640px) {
+  .md-overlay { padding: 0.85rem; }
+  .md-box { max-height: min(94vh, 100%); }
+  .md-title { font-size: 1.12rem; }
+  .md-x { font-size: 1.35rem; }
+  .md-head { padding: 0.85rem 1rem 0.7rem; }
+  .md-body { padding: 0.9rem 1rem; }
+  .md-foot { padding: 0.7rem 1rem 0.85rem; }
+  .md-btn { font-family: var(--font-body); font-size: 0.85rem; letter-spacing: 0; padding: 0.5rem 1.2rem; }
+}
+
+/* ============================================================
+   Il blocco di compatibilità per il guscio VECCHIO (.modal,
+   .m-actions, .m-cancel, .m-save su mobile) è stato TOLTO il
+   12/09/2026: non c'è più un solo modale admin che lo usi.
+   Serviva a tenere allineati i modali non ancora convertiti, ed
+   era pieno di `!important` per battere gli stili scoped delle
+   pagine. Adesso la misura la danno le regole `.md-*` qui sopra,
+   senza forzature.
+   ============================================================ */

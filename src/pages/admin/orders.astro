@@ -11,6 +11,7 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
+import Modal from "../../components/admin/Modal.astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
@@ -174,22 +175,60 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
       /* --- Card ordine --- */
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; }
-      .card { position: relative; background: var(--c-card); border: 1px solid var(--c-line); border-radius: 2px; padding: 1.25rem; box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))); }
+      /* La card dell'ordine e' uno SCONTRINO STRAPPATO: mezzi cerchi vuoti
+         sopra e sotto. Le tacche sono un `mask`, quindi sono buchi VERI —
+         si vede il fondo della pagina attraverso, non un finto dentello
+         dipinto del colore dello sfondo (che si smaschererebbe appena il
+         cliente cambia tema).
+         Due conseguenze obbligate, non scelte estetiche:
+          · via il `border`, perche' un bordo tagliato dal mask lascia
+            mozziconi di linea sui denti;
+          · l'ombra passa da `box-shadow` a `drop-shadow`, che segue la
+            SAGOMA dentellata invece del rettangolo. */
+      .card {
+        --tk-r: 6px;    /* raggio delle tacche */
+        --tk-s: 18px;   /* passo fra una tacca e l'altra */
+        position: relative;
+        background: var(--c-card);
+        border: 0;
+        border-radius: 3px;
+        padding: 1.45rem 1.25rem;  /* sopra e sotto: spazio per i denti */
+        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+        -webkit-mask:
+          radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 51% repeat-x,
+          radial-gradient(var(--tk-r) at 50% 100%, #0000 98%, #000) 50% 100% / var(--tk-s) 51% repeat-x;
+        mask:
+          radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 51% repeat-x,
+          radial-gradient(var(--tk-r) at 50% 100%, #0000 98%, #000) 50% 100% / var(--tk-s) 51% repeat-x;
+      }
       /* --- Aura « ritardo ritiro »: alone pulsante DIETRO la card ---
          Comincia 5 min dopo l'ora di ritiro (bianco), 10 min → arancione,
          15 min → rosso. L'alone è uno pseudo-elemento z-index:-1 col box-shadow
          animato (da soft a forte e ritorno): più tardi = più intenso e più rapido. */
-      @keyframes ncAura1 { 0%, 100% { box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.22); } 50% { box-shadow: 0 0 15px 3px rgba(255, 255, 255, 0.58); } }
-      @keyframes ncAura2 { 0%, 100% { box-shadow: 0 0 7px 1px rgba(255, 146, 38, 0.28); } 50% { box-shadow: 0 0 19px 4px rgba(255, 146, 38, 0.68); } }
-      @keyframes ncAura3 { 0%, 100% { box-shadow: 0 0 9px 2px rgba(237, 28, 36, 0.32); } 50% { box-shadow: 0 0 23px 6px rgba(237, 28, 36, 0.78); } }
-      .card.nc-late::after { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: 3px; pointer-events: none; }
-      .card.nc-late-1::after { animation: ncAura1 1.8s ease-in-out infinite; }
-      .card.nc-late-2::after { animation: ncAura2 1.5s ease-in-out infinite; }
-      .card.nc-late-3::after { animation: ncAura3 1.1s ease-in-out infinite; }
+      /* L'alone «ritardo ritiro» era uno pseudo-elemento dietro la card con un
+         box-shadow animato. Col mask non funziona piu': il mask ritaglia anche
+         i figli, alone compreso. Ora e' un secondo `drop-shadow` sulla card
+         stessa — e cosi' l'alone segue i denti dello scontrino invece di
+         disegnare un rettangolo attorno a una forma che rettangolo non e'. */
+      @keyframes ncAura1 {
+        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 3px rgba(255,255,255,.25)); }
+        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 9px rgba(255,255,255,.6)); }
+      }
+      @keyframes ncAura2 {
+        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 4px rgba(255,146,38,.3)); }
+        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 12px rgba(255,146,38,.7)); }
+      }
+      @keyframes ncAura3 {
+        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 5px rgba(237,28,36,.35)); }
+        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 14px rgba(237,28,36,.8)); }
+      }
+      .card.nc-late-1 { animation: ncAura1 1.8s ease-in-out infinite; }
+      .card.nc-late-2 { animation: ncAura2 1.5s ease-in-out infinite; }
+      .card.nc-late-3 { animation: ncAura3 1.1s ease-in-out infinite; }
       @media (prefers-reduced-motion: reduce) {
-        .card.nc-late-1::after { animation: none; box-shadow: 0 0 12px 3px rgba(255, 255, 255, 0.45); }
-        .card.nc-late-2::after { animation: none; box-shadow: 0 0 15px 4px rgba(255, 146, 38, 0.55); }
-        .card.nc-late-3::after { animation: none; box-shadow: 0 0 18px 5px rgba(237, 28, 36, 0.62); }
+        .card.nc-late-1 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 8px rgba(255,255,255,.45)); }
+        .card.nc-late-2 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 9px rgba(255,146,38,.55)); }
+        .card.nc-late-3 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 11px rgba(237,28,36,.62)); }
       }
       /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
          bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
@@ -215,8 +254,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .tag-cancel { border: 1px solid #ff6b6b; color: #ff6b6b; background: transparent; border-radius: 999px; padding: 0.32rem 0.8rem; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.16); }
       .name { font-weight: 700; margin-bottom: 0.4rem; }
       .badge { display: inline-block; margin-left: 0.5rem; padding: 0.1rem 0.45rem; border: 1px solid var(--c-line); color: var(--c-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
-      .row { font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.2rem; }
-      .row a { color: var(--c-text); text-decoration: none; }
+      /* L'icona sostituisce l'etichetta «Email :» / «Tel :»: l'indirizzo e il
+         numero si riconoscono da soli, la parola era solo rumore ripetuto su
+         ogni card. L'etichetta resta come aria-label per i lettori di schermo. */
+      .row { display: flex; align-items: center; gap: 0.45rem; font-size: 0.85rem; color: var(--c-muted); margin-bottom: 0.25rem; min-width: 0; }
+      .row a { color: var(--c-text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .row-ico { flex: 0 0 auto; display: inline-flex; color: var(--c-muted); }
+      .row-ico svg { width: 14px; height: 14px; display: block; }
 
       .items { border-top: 1px solid var(--c-line); margin-top: 0.9rem; padding-top: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
       .item { display: flex; gap: 0.6rem; align-items: baseline; font-size: 1.15rem; }
@@ -248,6 +292,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
       .actions button:disabled { opacity: 0.5; cursor: wait; }
+      /* Il testo dei bottoni non va MAI a capo: quando la card si stringe si
+         accorcia con «…». Un bottone che diventa alto il doppio allunga tutta
+         la riga e fa saltare l'altezza della card. L'etichetta sta in uno
+         span perche il troncamento non si applica al testo nudo dentro un
+         flex — il testo finisce in un item anonimo, non raggiungibile. */
+      .actions button { min-width: 0; display: inline-flex; align-items: center; justify-content: center; }
+      .actions .b-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       /* .actions .btn-done: specificita' > `.actions button` per non farsi azzerare il background */
       .actions .btn-done { flex: 1; border: 1px solid var(--c-accent); background: var(--c-accent); color: var(--c-bg); font-weight: 700; border-radius: 8px; }
       .btn-done:hover { filter: brightness(1.08); }
@@ -279,6 +330,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Footer card (annullata / terminata): tag a sinistra + bottone a destra,
          centrati verticalmente sulla stessa riga, ancorati in basso. */
       .card-foot { position: absolute; left: 0.9rem; right: 0.9rem; bottom: 0.9rem; z-index: 2; height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+      /* Un annullato puo avere DUE azioni (Rimborsa + Rimetti in corso):
+         stanno insieme a destra, la pastiglia resta a sinistra. */
+      .cf-acts { display: flex; align-items: center; gap: 0.6rem; }
+      .cf-acts:empty { display: none; }
       /* Rollback : rond doré, dans le footer «terminée» */
       .btn-rollback {
         flex: 0 0 auto;
@@ -342,35 +397,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .btn-resend { flex: 1; border: 1px solid rgba(255, 255, 255, 0.65); color: var(--c-text); white-space: nowrap; }
       .btn-resend:hover { background: var(--c-text); color: var(--c-bg); border-color: var(--c-text); }
       @media (max-width: 640px) { .nc-add { bottom: calc(1.25rem + 72px); } }
-      .nc-overlay {
-        position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: none;
-        align-items: center; justify-content: center; z-index: 1000; padding: 3vh 1rem; overflow-y: auto;
-        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-      }
-      .nc-overlay.is-open { display: flex; }
-      .nc-modal {
-        background: var(--c-bg); border: 1px solid var(--c-line); padding: 1.75rem;
-        width: 100%; max-width: 960px; position: relative; margin: auto;
-      }
-      .nc-modal h2 { font-family: var(--font-title); font-size: 1.6rem; letter-spacing: 0.04em; margin-bottom: 1.2rem; }
-      .nc-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; color: var(--c-muted); font-size: 1.6rem; cursor: pointer; line-height: 1; }
-      .nc-close:hover { color: var(--c-text); }
+      /* Guscio, titolo, × e bottoni: classi .md-* in src/styles/modal.css.
+         Qui resta solo cio' che e' proprio del modale ordine. */
+      /* Lo stepper sta FERMO sotto il titolo, come header di secondo livello:
+         al 3° step si deve poter tornare al 1° senza risalire il carrello.
+         Percio' il corpo e' un flex in colonna e la barra sta nel pannello. */
+      #nc-overlay .md-body { display: flex; flex-direction: column; overflow: hidden; }
+      #nc-overlay .nc-steps { flex: 0 0 auto; }
+      #nc-overlay .nc-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+      /* «Indietro» a sinistra, il resto a destra (il footer e' flex-end). */
+      #nc-overlay .md-foot #nc-prev { margin-right: auto; }
       .nc-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 1.6rem; }
       /* le colonne non devono MAI allargarsi oltre il modale (min-width:auto
          della grid): senza questo le pillole categorie sfondano il layout */
       .nc-grid > * { min-width: 0; }
       @media (max-width: 760px) { .nc-grid { grid-template-columns: 1fr; } }
-      /* Desktop: modale nuovo ordine a dimensione FISSA (80% del viewport in
-         largh. e alt.). Non si ingrandisce col contenuto: scroll interno nel
-         pannello (menu/carrello lunghi scorrono, il modale resta 80x80). */
+      /* Desktop: dimensione FISSA (80% del viewport). Non si ingrandisce col
+         contenuto: menu e carrello lunghi scorrono dentro, il modale resta
+         80x80 — altrimenti aggiungendo piatti la scatola cresce sotto le mani. */
       @media (min-width: 761px) {
-        .nc-modal {
-          width: 80vw; max-width: 80vw;
-          height: 80vh; max-height: 80vh;
-          display: flex; flex-direction: column;
-        }
-        .nc-modal h2, .nc-steps, .nc-nav { flex: 0 0 auto; }
-        .nc-panel { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+        #nc-overlay .md-box { --md-w: 80vw; height: 80vh; max-height: 80vh; }
         .nc-items { max-height: none; }
         /* Colonna menu (sinistra) sticky: resta in vista mentre il carrello scorre. */
         .nc-panel[data-panel="1"] .nc-grid > div:first-child {
@@ -384,11 +430,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-step.is-on { color: var(--c-accent); border-color: var(--c-accent); }
       .nc-step.done { color: var(--c-text); border-color: var(--c-accent); }
       .nc-panel { min-height: 300px; }
-      .nc-nav { display: flex; justify-content: space-between; gap: 0.8rem; margin-top: 1.5rem; }
-      .nc-nav-btn { padding: 0.7rem 1.7rem; border-radius: 10px; cursor: pointer; font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em; background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text); transition: border-color 0.15s, color 0.15s; }
-      .nc-nav-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .nc-nav-next { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
-      .nc-nav-next:hover { background: transparent; color: var(--c-accent); }
       .nc-recap { display: flex; flex-direction: column; margin-bottom: 0.6rem; }
       .nc-recap-row { display: flex; justify-content: space-between; gap: 1rem; color: var(--c-text); font-size: 0.95rem; padding: 0.4rem 0; border-bottom: 1px solid color-mix(in srgb, var(--c-line) 55%, transparent); }
       .nc-lab { display: block; font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; margin: 0.9rem 0 0.4rem; }
@@ -456,21 +497,27 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-svcs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
       .nc-dates { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
       .nc-pay { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.2rem 0 0.5rem; }
+      /* Icona sopra, etichetta piccola sotto, tutto centrato: in riga il
+         marchio Stripe (che e' largo) mandava «Link di pagamento» su due righe
+         e i tre bottoni non si somigliavano piu'. Impilati sono tutti uguali. */
       .nc-pay button {
-        flex: 1 1 140px; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-        padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
-        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
+        flex: 1 1 120px; display: inline-flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 0.5rem;
+        min-height: 76px; padding: 0.8rem 0.5rem; border-radius: 10px; cursor: pointer;
+        /* Font del CORPO e peso normale: il titolo (Quicksand) qui e'
+           caricato solo in 700, quindi «non in grassetto» si ottiene
+           cambiando famiglia, non peso. */
+        font-family: var(--font-body); font-weight: 400; font-size: 0.72rem; letter-spacing: 0.02em;
+        text-align: center; line-height: 1.25;
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         transition: border-color 0.15s, color 0.15s;
       }
-      .nc-pay button svg { height: 16px; width: auto; flex: none; }
+      .nc-pay button svg { height: 18px; width: auto; max-width: 100%; flex: none; }
+      /* Il marchio Stripe e' una scritta, non un simbolo: alla stessa altezza
+         degli altri due sembrerebbe il doppio piu grande. */
+      .nc-pay-link svg { height: 13px; }
       .nc-pay button:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .nc-pay button:disabled { opacity: 0.6; cursor: wait; }
-      .nc-pay-link { padding: 0.7rem 0.5rem; border-radius: 10px; cursor: pointer;
-        font-family: var(--font-title); font-size: 0.95rem; letter-spacing: 0.03em;
-        background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
-        transition: border-color 0.15s, color 0.15s; }
-      .nc-pay-link:hover { border-color: var(--c-accent); color: var(--c-accent); }
       /* Metodo di pagamento SELEZIONATO */
       .nc-pay-btn.is-on { border-color: var(--c-accent); color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 12%, transparent); }
       /* Più aria tra le sezioni (carrello / lingua / pagamento) */
@@ -522,9 +569,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-cart-empty { color: var(--c-muted); font-size: 0.85rem; padding: 0.4rem 0; }
       .nc-cline { border-bottom: 1px solid var(--c-line); padding-bottom: 1rem; }
       .nc-cline-top {
-        display: flex; justify-content: space-between; gap: 0.8rem;
+        display: flex; justify-content: space-between; align-items: baseline; gap: 0.8rem;
         font-weight: 700; margin-bottom: 0.5rem; color: var(--c-text); font-size: 0.95rem;
       }
+      /* A cedere e' il nome, mai il prezzo: la pastiglia va a capo con lui. */
+      .nc-cline-nome { min-width: 0; }
+      .nc-cline-nome .v-chip { vertical-align: 1px; }
+      .nc-cline-prezzo { flex: 0 0 auto; white-space: nowrap; }
+      .nc-recap-row .v-chip { vertical-align: 1px; }
       .nc-cline-controls { display: flex; align-items: center; gap: 0.5rem; }
       .nc-cline-controls button {
         width: 30px; height: 30px; border: 1px solid var(--c-line); background: transparent;
@@ -553,14 +605,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-mod-line.add { color: #2e9e5b; font-weight: 600; }
       .nc-mod-line.rem { color: #d9534f; font-weight: 600; }
       .nc-mod-none { color: var(--c-muted); font-size: 0.9rem; }
-      .nc-send {
-        background: var(--c-accent); color: var(--c-bg);
-        border: 2px solid var(--c-accent); font-family: var(--font-title); font-size: 1rem;
-        letter-spacing: 0.05em; padding: 0.7rem 1.7rem; border-radius: 999px; cursor: pointer;
-        transition: background 0.2s, color 0.2s;
-      }
-      .nc-send:hover { background: transparent; color: var(--c-accent); }
-      .nc-send:disabled { opacity: 0.6; cursor: wait; }
       .nc-toast {
         position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-200%);
         z-index: 2000; background: #2e9e6b; color: #fff; font-weight: 700; font-size: 0.9rem;
@@ -570,25 +614,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .nc-toast.err { background: #b3261e; }
       .nc-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
-      .rf-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.62); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
-      .rf-overlay.is-open { display: flex; }
-      .rf-modal { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 14px; padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0, 0, 0, calc(0.6 * var(--sh, 0.15))); }
-      .rf-title { font-family: var(--font-title); font-size: 1.4rem; margin: 0 0 0.3rem; color: var(--c-accent); }
+      /* Rimborso: guscio, campi e bottoni sono i condivisi. Qui resta solo la
+         riga «€ [importo] [Tutto]», che e' l'unica cosa propria del modale.
+         Spariti anche i 1000 di z-index: il guscio sta a 400 come ogni altro
+         modale, e il toast a 2000 resta sopra — com'e' giusto, perche'
+         annuncia l'esito del rimborso mentre la finestra e' ancora aperta. */
       .rf-sub { color: var(--c-muted); font-size: 0.9rem; margin: 0 0 1.1rem; }
-      .rf-label { display: block; font-size: 0.8rem; color: var(--c-muted); margin-bottom: 0.4rem; }
       .rf-inputrow { display: flex; align-items: center; gap: 0.5rem; }
       .rf-euro { color: var(--c-muted); font-size: 1.2rem; }
-      .rf-amount { flex: 0 1 170px; background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); font-size: 1.15rem; padding: 0.6rem 0.7rem; border-radius: 8px; }
-      .rf-all { background: transparent; border: 2px solid var(--c-accent); color: var(--c-accent); font-weight: 700; padding: 0.55rem 1.05rem; border-radius: 8px; cursor: pointer; white-space: nowrap; transition: background 0.15s, color 0.15s; }
-      .rf-all:hover { background: var(--c-accent); color: var(--c-bg); }
-      .rf-msg { min-height: 1.1rem; font-size: 0.85rem; margin: 0.7rem 0 0; color: #ff8a8f; }
+      /* L'importo non prende tutta la riga: e' un numero corto, e accanto
+         deve starci «Tutto». */
+      #rf-amount { flex: 0 1 170px; font-size: 1.15rem; }
+      .rf-msg { min-height: 1.1rem; font-size: 0.85rem; margin: 0.9rem 0 0; color: #ff8a8f; }
       .rf-msg.ok { color: #2e9e6b; }
-      .rf-actions { display: flex; gap: 0.7rem; margin-top: 1.3rem; }
-      .rf-actions button { flex: 1; font-family: var(--font-title); font-size: 1rem; padding: 0.6rem; cursor: pointer; border-radius: 8px; }
-      .rf-cancel { background: var(--c-red); border: 1px solid var(--c-red); color: #fff; font-weight: 700; }
-      .rf-cancel:hover { filter: brightness(1.08); }
-      .rf-confirm { background: var(--c-accent); border: 1px solid var(--c-accent); color: var(--c-bg); font-weight: 700; }
-      .rf-confirm:disabled { opacity: 0.5; cursor: wait; }
+      .rf-msg:empty { display: none; }
 
       /* --- Sezione terminati/annullati --- */
       .done-title {
@@ -709,33 +748,26 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     </div>
 
     <!-- Modale Remboursement -->
-    <div class="rf-overlay" id="rf-overlay" role="dialog" aria-modal="true" aria-labelledby="rf-title">
-      <div class="rf-modal">
-        <h2 class="rf-title" id="rf-title">{t("ord.refundTitle")}</h2>
-        <p class="rf-sub" id="rf-sub"></p>
-        <label class="rf-label" for="rf-amount">{t("ord.refundAmount")}</label>
-        <div class="rf-inputrow">
-          <span class="rf-euro">€</span>
-          <input class="rf-amount" id="rf-amount" type="number" inputmode="decimal" min="0" step="0.01" />
-          <button class="rf-all" type="button" id="rf-all">{t("ord.all")}</button>
-        </div>
-        <p class="rf-msg" id="rf-msg"></p>
-        <div class="rf-actions">
-          <button class="rf-cancel" type="button" id="rf-cancel">{t("common.cancel")}</button>
-          <button class="rf-confirm" type="button" id="rf-confirm">{t("ord.refund")}</button>
-        </div>
+    <Modal id="rf-overlay" title={t("ord.refundTitle")} titleId="rf-title" width="420px">
+      <p class="rf-sub" id="rf-sub"></p>
+      <label class="nc-lab" for="rf-amount">{t("ord.refundAmount")}</label>
+      <div class="rf-inputrow">
+        <span class="rf-euro">€</span>
+        <input id="rf-amount" type="number" inputmode="decimal" min="0" step="0.01" />
+        <button class="btn" type="button" id="rf-all">{t("ord.all")}</button>
       </div>
-    </div>
+      <p class="rf-msg" id="rf-msg"></p>
+      <Fragment slot="foot">
+        <button class="md-btn" type="button" id="rf-cancel" data-md-close>{t("common.cancel")}</button>
+        <button class="md-btn md-btn-primary" type="button" id="rf-confirm">{t("ord.refund")}</button>
+      </Fragment>
+    </Modal>
 
     <!-- Nouvelle commande (manuale con link di pagamento) -->
     <button class="fab-add fab-pill" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
-    <div class="nc-overlay" id="nc-overlay" role="dialog" aria-modal="true">
-      <div class="nc-modal">
-        <button class="nc-close" id="nc-close" aria-label={t("common.close")}>×</button>
-        <h2 id="nc-title">{t("ord.newOrder")}</h2>
-
-        {/* Stepper: Prodotti → Ritiro → Cliente → Pagamento */}
-        <div class="nc-steps" id="nc-steps">
+    <Modal id="nc-overlay" title={t("ord.newOrder")} titleId="nc-title" width="960px">
+      {/* Stepper: Prodotti → Ritiro → Cliente → Pagamento */}
+      <div class="nc-steps" id="nc-steps">
           <span class="nc-step is-on" data-s="1">{t("ord.step1")}</span>
           <span class="nc-step" data-s="2">{t("ord.step2")}</span>
           <span class="nc-step" data-s="3">{t("ord.step3")}</span>
@@ -821,15 +853,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           </div>
         </div>
 
-        {/* Navigazione */}
-        <div class="nc-nav">
-          <button type="button" class="nc-nav-btn" id="nc-prev">{t("mk.prev")}</button>
-          <button type="button" class="nc-nav-btn nc-nav-next" id="nc-next">{t("mk.next")}</button>
-          {/* Conferma: nel footer, a destra; compare al 3° step dopo la scelta del metodo */}
-          <button type="button" class="nc-send" id="nc-send" style="display:none">{t("ord.createSend")}</button>
-        </div>
-      </div>
-    </div>
+      {/* Navigazione: Indietro a sinistra, Avanti/Conferma a destra. */}
+      <Fragment slot="foot">
+        <button type="button" class="md-btn" id="nc-prev">{t("mk.prev")}</button>
+        <button type="button" class="md-btn" id="nc-cancel" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="nc-next">{t("mk.next")}</button>
+        {/* Conferma: compare al 3° step dopo la scelta del metodo */}
+        <button type="button" class="md-btn md-btn-primary" id="nc-send" style="display:none">{t("ord.createSend")}</button>
+      </Fragment>
+    </Modal>
     <div class="nc-toast" id="nc-toast"></div>
 
     <AdminNav current="orders" />
@@ -879,8 +911,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         payment_method?: string | null;
       };
 
-      function esc(s: string): string {
-        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      // Accetta anche null/undefined: un ordine creato dall'admin puo' non
+      // avere email (il modale chiede nome + telefono, non l'indirizzo), e
+      // `null.replace` faceva morire TUTTO il disegno della lista.
+      function esc(s: unknown): string {
+        return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       }
       function euro(cents: number): string {
         return (cents / 100).toLocaleString(LOC, { style: "currency", currency: "EUR" });
@@ -910,6 +945,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       const ICON_BIN = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`;
 
       // Matita (modifica ordine).
+      // Contatti della card: un'icona al posto di «Email :» / «Tel :».
+      // Stesso tratto delle altre (24, stroke 1.8, currentColor).
+      const ICON_MAIL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><path d="m3 6.5 9 6 9-6"/></svg>`;
+      const ICON_PHONE = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 2.5h-2A2.1 2.1 0 0 0 2.5 4.8a19.5 19.5 0 0 0 16.7 16.7 2.1 2.1 0 0 0 2.3-2.1v-2a1.4 1.4 0 0 0-1.2-1.4 13 13 0 0 1-2.8-.7 1.4 1.4 0 0 0-1.5.3l-.9.9a16 16 0 0 1-6.1-6.1l.9-.9a1.4 1.4 0 0 0 .3-1.5 13 13 0 0 1-.7-2.8 1.4 1.4 0 0 0-1.4-1.2Z"/></svg>`;
       const ICON_PENCIL = `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
       // Rollback : freccia curva «annulla/rimetti in corso» (viewBox 0 0 512 512).
       const ICON_ROLLBACK = `<svg viewBox="0 0 512 512" aria-hidden="true" fill="currentColor"><path d="M125.7 160H176c17.7 0 32 14.3 32 32s-14.3 32-32 32H48c-17.7 0-32-14.3-32-32V64c0-17.7 14.3-32 32-32s32 14.3 32 32v51.2L97.6 97.6c87.5-87.5 229.3-87.5 316.8 0s87.5 229.3 0 316.8-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3-163.8-62.5-226.3 0L125.7 160z"/></svg>`;
@@ -942,8 +981,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const note = o.items.find((i) => i.id === "note");
         const piatti = o.items.filter((i) => i.id !== "note");
 
+        // Email e telefono: la riga compare solo se il dato c'e'. Un ordine
+        // creato a mano puo' avere solo il telefono.
+        const email = o.customer_email
+          ? `<p class="row"><span class="row-ico">${ICON_MAIL}</span><a href="mailto:${esc(o.customer_email)}" aria-label="${tr("ord.emailLabel")}">${esc(o.customer_email)}</a></p>`
+          : "";
         const phone = o.customer_phone
-          ? `<p class="row">${tr("ord.telLabel")} : <a href="tel:${esc(o.customer_phone)}">${esc(o.customer_phone)}</a></p>`
+          ? `<p class="row"><span class="row-ico">${ICON_PHONE}</span><a href="tel:${esc(o.customer_phone)}" aria-label="${tr("ord.telLabel")}">${esc(o.customer_phone)}</a></p>`
           : "";
         const langBadge = o.lang ? `<span class="badge">${esc(o.lang)}</span>` : "";
 
@@ -1002,13 +1046,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const actions =
           o.status === "paid"
             ? `<div class="actions">
-                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done">✓ ${tr("ord.terminee")}</button>
+                 <button class="btn-done" type="button" data-id="${o.id}" data-act="done" title="${tr("ord.terminee")}"><span class="b-lab">✓ ${tr("ord.terminee")}</span></button>
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`
             : o.status === "pending"
               ? `<div class="actions">
-                   <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}">${tr("ord.resendShort")}</button>
+                   <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}"><span class="b-lab">${tr("ord.resendShort")}</span></button>
                    <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                  </div>`
@@ -1037,11 +1081,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           isStripe && residuo > 0
             ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
             : "";
+        // Rimettere in corso un ordine annullato: SOLO se non e' stato
+        // rimborsato. Quel denaro e' uscito davvero, e riportare l'ordine a
+        // «pagato» lo farebbe rientrare negli incassi del giorno e nelle
+        // statistiche. ⚠️ Al cliente e' gia partita l'email di annullamento e
+        // NON gliene arriva una nuova: va avvisato a voce.
+        const rollbackAnnullato =
+          refunded === 0
+            ? `<button class="btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="${tr("ord.putBack")}" aria-label="${tr("ord.putBack")}">${ICON_ROLLBACK}</button>`
+            : "";
         // Footer ordine annullato: pillola "Annullato" (rossa) a sinistra +
-        // eventuale bottone Rimborsa a destra, centrati verticalmente (come done-foot).
+        // Rimborsa e/o Rimetti in corso a destra, centrati verticalmente.
         const cancelFoot =
           o.status === "cancelled"
-            ? `<div class="card-foot"><span class="tag tag-cancel">${tr("ord.annulee")}</span>${refundBtn}</div>`
+            ? `<div class="card-foot"><span class="tag tag-cancel">${tr("ord.annulee")}</span><span class="cf-acts">${refundBtn}${rollbackAnnullato}</span></div>`
             : "";
 
         // Barra stato rimborso (ordine annullato pagato con Stripe), a tutta
@@ -1083,7 +1136,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <span class="ct-right">${stampaBtn}${badgeOk}${badgeKo}<span class="total">${euro(o.total_cents)}</span></span>
             </div>
             <p class="name">${esc(o.customer_name)}${langBadge}</p>
-            <p class="row">${tr("ord.emailLabel")} : <a href="mailto:${esc(o.customer_email)}">${esc(o.customer_email)}</a></p>
+            ${email}
             ${phone}
             <div class="items">${itemsHTML}</div>
             ${noteHTML}
@@ -1371,13 +1424,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         async function caricaGiorno(iso: string) {
           try {
             const res = await fetch(`/api/admin/orders?date=${encodeURIComponent(iso)}`, { headers });
-            if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
+            if (!res.ok) { mostraStato(tr("sup.load.error")); return; }
             const j = await res.json();
             ordiniGiorno = (j.orders as Order[]) ?? [];
             giornoView = iso;
             render();
-          } catch {
-            stateEl.textContent = tr("common.netErr");
+          } catch (e) {
+            console.error("[ordini] caricaGiorno()", e);
+            mostraStato(tr("common.netErr"));
           }
         }
         oggiBtn?.addEventListener("click", tornaOggi);
@@ -1502,10 +1556,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               body: JSON.stringify({ id, status }),
             });
             if (!r.ok) throw new Error();
-            const ord = ordini.find((o) => o.id === id);
-            if (ord) ord.status = status;
+            // Le liste sono DUE: `ordini` (oggi, live) e `ordiniGiorno` (il
+            // giorno consultato col datepicker). `render()` disegna quella
+            // giusta, ma qui si aggiornava solo `ordini`: guardando un altro
+            // giorno la card non si spostava e il nuovo stato si vedeva solo
+            // ricaricando la pagina.
+            for (const lista of [ordini, ordiniGiorno]) {
+              const ord = lista.find((o) => o.id === id);
+              if (ord) ord.status = status;
+            }
             resetConfirm();
             render();
+            // E comunque si ricontrolla col server. La firma va AZZERATA:
+            // `carica(true)` ridisegna solo se la firma cambia, e quella della
+            // copia appena modificata a mano e' gia identica a quella del
+            // server — quindi senza questo l'aggiornamento verrebbe saltato.
+            firmaOrdini = "";
+            void carica(true);
+            if (giornoView) void caricaGiorno(giornoView);
           } catch {
             btn.textContent = tr("ord.errShort");
             setTimeout(() => {
@@ -1608,12 +1676,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             resetConfirm();
             confirmId = id;
             btn.classList.add("confirm");
-            btn.innerHTML = tr("ord.cancelQ");
+            btn.innerHTML = `<span class="b-lab">${tr("ord.cancelQ")}</span>`;
             confirmTimer = window.setTimeout(resetConfirm, 4000);
           }
         });
 
-        // Card TERMINÉE : rollback (→ paid) + ristampa ticket (predisposta).
+        // Griglia degli SPENTI (terminati E annullati): rollback (→ paid),
+        // rimborso e ristampa ticket. Il rollback vale per entrambi gli stati
+        // — su un annullato il bottone c'e' solo se non e' stato rimborsato
+        // (vedi `rollbackAnnullato` in cardHTML).
         gridDoneEl.addEventListener("click", (e) => {
           const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-act]");
           if (!btn || btn.disabled) return;
@@ -1636,7 +1707,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const rfAmount = document.getElementById("rf-amount") as HTMLInputElement;
         const rfMsg = document.getElementById("rf-msg") as HTMLParagraphElement;
         const rfConfirm = document.getElementById("rf-confirm") as HTMLButtonElement;
-        const rfCancel = document.getElementById("rf-cancel") as HTMLButtonElement;
         const rfAll = document.getElementById("rf-all") as HTMLButtonElement;
         let rfId = "";
         let rfResiduo = 0;
@@ -1650,17 +1720,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           rfAmount.value = (rfResiduo / 100).toFixed(2);
           rfAmount.max = (rfResiduo / 100).toFixed(2);
           rfConfirm.disabled = false;
-          rfOverlay.classList.add("is-open");
+          rfOverlay.hidden = false;
           rfAmount.focus();
           rfAmount.select();
         }
         function chiudiRimborso() {
-          rfOverlay.classList.remove("is-open");
+          rfOverlay.hidden = true;
         }
-        rfCancel.addEventListener("click", chiudiRimborso);
-        rfOverlay.addEventListener("click", (e) => {
-          if (e.target === rfOverlay) chiudiRimborso();
-        });
+        // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
+        rfOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", chiudiRimborso));
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !rfOverlay.hidden) chiudiRimborso(); });
         rfAll.addEventListener("click", () => {
           rfAmount.value = (rfResiduo / 100).toFixed(2);
         });
@@ -1719,11 +1788,20 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         // `silenzioso = true` → aggiornamento in background: niente messaggio di
         // caricamento e si ridisegna SOLO se qualcosa è cambiato. Così un nuovo
         // ordine appare da solo, senza ricaricare la pagina e senza lampeggìo.
+        /** Mostra un messaggio al posto della lista. `render()` nasconde questo
+            elemento quando ci sono ordini da disegnare: se poi qualcosa va
+            storto, scriverci dentro senza RIACCENDERLO lascia la pagina muta —
+            ed e' esattamente cosi' che un errore e' rimasto invisibile. */
+        function mostraStato(testo: string) {
+          stateEl.textContent = testo;
+          stateEl.style.display = "block";
+        }
+
         async function carica(silenzioso = false) {
           try {
             const res = await fetch("/api/admin/orders", { headers });
             if (!res.ok) {
-              if (!silenzioso) stateEl.textContent = tr("sup.load.error");
+              if (!silenzioso) mostraStato(tr("sup.load.error"));
               return;
             }
             const json = await res.json();
@@ -1733,8 +1811,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             firmaOrdini = firma;
             ordini = list;
             render();
-          } catch {
-            if (!silenzioso) stateEl.textContent = tr("common.netErr");
+          } catch (e) {
+            // Anche l'aggiornamento silenzioso LOGGA: un errore dentro render()
+            // arrivava qui e spariva, e la lista restava vuota senza spiegazioni.
+            console.error("[ordini] carica()", e);
+            if (!silenzioso) mostraStato(tr("common.netErr"));
           }
         }
 
@@ -1757,7 +1838,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             firmaOrdini = firmaDa(list);
             render();
             ssrOk = true;
-          } catch {
+          } catch (e) {
+            console.error("[ordini] primo render da SSR", e);
             ssrOk = false;
           }
         }
@@ -1818,7 +1900,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         type RigaCart = { voce: VoceMenu; qty: number; variant?: string; label?: string; price: number };
         const ncCart = new Map<string, RigaCart>();
         const ncKey = (id: string, variant?: string) => (variant ? `${id}|${variant}` : id);
+        // Testo piatto: serve come CHIAVE (riepilogo, confronto delle modifiche)
+        // e per i posti dove l'HTML non si puo' mettere.
         const ncNome = (r: RigaCart) => (r.label ? `${r.voce.name} — ${r.label}` : r.voce.name);
+        // Da mostrare: nome + PASTIGLIA corallo, la stessa `.v-chip` della card
+        // ordine. Il trattino non c'e' piu': la variante si riconosce dal
+        // colore, come ovunque nell'admin.
+        const ncNomeHTML = (r: RigaCart) =>
+          esc(r.voce.name) + (r.label ? ` <span class="v-chip">${esc(r.label)}</span>` : "");
         /** Formati ORDINABILI di un piatto (esclude spenti ed esauriti). */
         function ncVarianti(v: VoceMenu) {
           return leggiVariantiDb(v.variants).filter((x) => x.orderable && !x.sold_out);
@@ -1934,7 +2023,7 @@ let ncLang: string = NC_LANG_DEFAULT;
                 .map((r) => {
                   const k = ncKey(r.voce.id, r.variant);
                   return `<div class="nc-cline">
-                       <div class="nc-cline-top"><span>${esc(ncNome(r))}</span><span>${euro(r.price * r.qty)}</span></div>
+                       <div class="nc-cline-top"><span class="nc-cline-nome">${ncNomeHTML(r)}</span><span class="nc-cline-prezzo">${euro(r.price * r.qty)}</span></div>
                        <div class="nc-cline-controls">
                          <button type="button" data-meno="${esc(k)}" aria-label="${tr("ord.less")}">−</button>
                          <span class="nc-cline-qty">${r.qty}</span>
@@ -1986,7 +2075,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-prenom") as HTMLInputElement).placeholder = tr("ord.firstNameReq");
           (document.getElementById("nc-tel") as HTMLInputElement).placeholder = tr("ord.phoneReq");
           ncRenderCart();
-          ncOverlay.classList.add("is-open");
+          ncOverlay.hidden = false;
           // Data = oggi, pillole resettate, poi carico gli slot di quella data.
           ncDate = isoOggi();
           document.querySelectorAll<HTMLElement>("#nc-dates [data-date]").forEach((b) => b.classList.toggle("is-on", b.dataset.date === "today"));
@@ -2077,7 +2166,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           // e non si puo' bloccare la modifica per un dato mai raccolto.
           (document.getElementById("nc-prenom") as HTMLInputElement).placeholder = tr("ord.firstName");
           (document.getElementById("nc-tel") as HTMLInputElement).placeholder = tr("ord.phone");
-          ncOverlay.classList.add("is-open");
+          ncOverlay.hidden = false;
           // Data + orario dal pickup_time
           const dayKey = dayKeyBrussels(o.pickup_time);
           const hhmm = oraBrussels(o.pickup_time);
@@ -2151,7 +2240,7 @@ let ncLang: string = NC_LANG_DEFAULT;
             });
             const j = (await res.json()) as { error?: string };
             if (!res.ok) throw new Error(j.error || tr("ord.createFailed"));
-            ncOverlay.classList.remove("is-open");
+            ncOverlay.hidden = true;
             ncToast(tr("ord.orderUpdated"));
             void carica(true);
           } catch (e2) {
@@ -2161,10 +2250,8 @@ let ncLang: string = NC_LANG_DEFAULT;
           }
         }
         (document.getElementById("nc-add") as HTMLButtonElement).addEventListener("click", () => void apriNc());
-        (document.getElementById("nc-close") as HTMLButtonElement).addEventListener("click", () => ncOverlay.classList.remove("is-open"));
-        ncOverlay.addEventListener("click", (e) => {
-          if (e.target === ncOverlay) ncOverlay.classList.remove("is-open");
-        });
+        // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
+        ncOverlay.querySelectorAll("[data-md-close]").forEach((el) => el.addEventListener("click", () => { ncOverlay.hidden = true; }));
         (document.getElementById("nc-cats") as HTMLDivElement).addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".nc-pill") as HTMLElement | null;
           if (!b || !b.dataset.cat) return;
@@ -2569,7 +2656,7 @@ let ncLang: string = NC_LANG_DEFAULT;
             });
             const j = (await res.json()) as { error?: string };
             if (!res.ok) throw new Error(j.error || tr("ord.createFailed"));
-            ncOverlay.classList.remove("is-open");
+            ncOverlay.hidden = true;
             ncToast(payment === "link" ? tr("ord.orderCreated") : tr("ord.orderPaid"));
             void carica(true);
           } catch (e2) {
@@ -2607,7 +2694,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           const box = document.getElementById("nc-recap") as HTMLDivElement;
           const righe = [...ncCart.values()];
           box.innerHTML = righe.length
-            ? righe.map((r) => `<div class="nc-recap-row"><span>${r.qty}× ${esc(ncNome(r))}</span><span>${euro(r.price * r.qty)}</span></div>`).join("")
+            ? righe.map((r) => `<div class="nc-recap-row"><span>${r.qty}× ${ncNomeHTML(r)}</span><span>${euro(r.price * r.qty)}</span></div>`).join("")
             : `<div class="nc-cart-empty">${tr("ord.cartEmpty")}</div>`;
           const tot = righe.reduce((t, r) => t + r.price * r.qty, 0);
           (document.getElementById("nc-total-2") as HTMLElement).textContent = euro(tot);
