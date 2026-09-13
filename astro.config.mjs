@@ -17,6 +17,13 @@ export default defineConfig({
   // autenticato via Bearer token (non via cookie), quindi non è esposto a CSRF,
   // e gli endpoint pubblici sono non autenticati e già inviano JSON.
   security: { checkOrigin: false },
+  // Astro 7 ha cambiato il default di `compressHTML` da `true` a `"jsx"`:
+  // con le regole JSX gli spazi FRA elementi inline spariscono, e
+  // `<span>ciao</span> <em>mondo</em>` diventa «ciaomondo». Qui si dichiara
+  // il comportamento di sempre: un aggiornamento del motore non deve
+  // cambiare la spaziatura di pagine che nessuno ha toccato.
+  // ⚠️ Questo file e' `merge=ours`: il merge del motore NON lo porta.
+  compressHTML: true,
   integrations: [react()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {
