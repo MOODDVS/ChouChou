@@ -385,6 +385,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
@@ -426,10 +427,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         const contentEl = document.getElementById("content") as HTMLDivElement;
         const periodsEl = document.getElementById("periods") as HTMLDivElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).

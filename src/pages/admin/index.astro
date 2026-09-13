@@ -554,6 +554,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -822,10 +823,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         /** Larghezza "stretta": una colonna sola, quindi niente riordino. */
         const stretto = () => colonne() === 1;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).

@@ -1186,6 +1186,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { SERVIZI_WIDGET, nomeServizio, LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { CLIENT } from "../../config/client";
@@ -1803,10 +1805,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         const userEmail = document.getElementById("user-email") as HTMLSpanElement;
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const session = sessionData.session;
@@ -2157,7 +2156,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           svFutDisarma();
           const dataDel = b.dataset.date ?? "";
           const key = b.dataset.k ?? "";
-          void (async () => {
+          void conAttesa(b, async () => {
             try {
               await fetch(`/api/admin/service-closures?date=${dataDel}&service_key=${key}`, {
                 method: "POST",
@@ -2173,7 +2172,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               aggiornaChiusureUI();
             }
             void svFutureCarica();
-          })();
+          });
         });
         // Sfondo e × del guscio condiviso: un solo aggancio, [data-md-close].
         svOverlay.querySelectorAll("[data-md-close]").forEach((el) =>
@@ -2640,7 +2639,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           znFutDisarma();
           const dataDel = b.dataset.date ?? "";
           const zona = b.dataset.z ?? "";
-          void (async () => {
+          void conAttesa(b, async () => {
             try {
               await fetch(`/api/admin/zone-closures?date=${dataDel}&zone=${encodeURIComponent(zona)}`, {
                 method: "POST",
@@ -2656,7 +2655,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               aggiornaChiusureUI();
             }
             void znFutureCarica();
-          })();
+          });
         });
         znOverlay.addEventListener("click", (e) => {
           if (!(e.target as HTMLElement).closest("[data-date]")) znFutDisarma();
@@ -3122,14 +3121,21 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           rmReason.focus();
         });
         (document.getElementById("rm-back") as HTMLElement).addEventListener("click", rmMostraScelte);
-        (document.getElementById("rm-confirm-cancel") as HTMLElement).addEventListener("click", () => {
+        // Il modale resta aperto finche' il server non ha risposto, con la
+        // rotella sul bottone: chiuderlo subito lasciava la lista invariata per
+        // qualche secondo, e sembrava che non fosse successo niente.
+        (document.getElementById("rm-confirm-cancel") as HTMLElement).addEventListener("click", async (ev) => {
           const id = rmId;
           const reason = rmReason.value.trim();
+          if (!id) { chiudiRm(); return; }
+          await conAttesa(ev.currentTarget as HTMLElement, () => cambiaStato(id, "cancelled", reason || undefined));
           chiudiRm();
-          if (id) void cambiaStato(id, "cancelled", reason || undefined);
         });
-        (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", () => {
-          const id = rmId; chiudiRm(); if (id) void eliminaResa(id);
+        (document.getElementById("rm-delete") as HTMLElement).addEventListener("click", async (ev) => {
+          const id = rmId;
+          if (!id) { chiudiRm(); return; }
+          await conAttesa(ev.currentTarget as HTMLElement, () => eliminaResa(id));
+          chiudiRm();
         });
 
         // ---- Modale No-show: storico cliente + notifica facoltativa + blocco ----

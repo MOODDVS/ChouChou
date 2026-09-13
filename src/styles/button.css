@@ -73,3 +73,60 @@
   font-size: 0.8rem;
   padding: 0.42rem 0.9rem;
 }
+
+/* ============================================================
+   LOADER DENTRO IL BOTTONE — `.is-loading`
+   ------------------------------------------------------------
+   Si mette sul bottone che ha appena fatto partire una richiesta:
+   l'etichetta sparisce e al suo posto gira una rotella, finche'
+   la risposta non torna.
+
+     btn.classList.add("is-loading");
+     try { … } finally { btn.classList.remove("is-loading"); }
+
+   Un bottone soltanto `disabled` non dice niente: su rete lenta
+   (o con un PDF da 10 MB) sembra semplicemente che il click non
+   sia stato registrato, e si riclicca.
+
+   Era riscritto identico in SEI pagine (agenda, assets, clients,
+   marketing, menu, settings). Sta qui perche' AdminHead importa
+   questo foglio in ogni pagina admin.
+
+   `:not(.fab-add)`: il FAB e' gia' `position: fixed`, metterlo
+   `relative` lo staccherebbe dall'angolo dello schermo.
+   ============================================================ */
+
+.is-loading {
+  color: transparent !important;
+  pointer-events: none;
+}
+.is-loading:not(.fab-add) {
+  position: relative;
+}
+.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent);
+  border-top-color: var(--c-bg);
+  animation: btnspin 0.7s linear infinite;
+}
+@keyframes btnspin {
+  to { transform: rotate(360deg); }
+}
+
+/* Bottoni tondi piccoli (cestini, 34px): rotella ridotta, o sborda. */
+.is-loading-sm::after {
+  width: 13px;
+  height: 13px;
+  border-width: 2px;
+}
+
+/* Chi non tollera le animazioni vede una rotella ferma, non un lampeggio. */
+@media (prefers-reduced-motion: reduce) {
+  .is-loading::after { animation-duration: 3s; }
+}

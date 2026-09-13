@@ -246,16 +246,14 @@ const plabel = (slug: string, fallback: string) => {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { collegaLogout } from "../../lib/admin/logout";
 
       (async () => {
         const app = document.getElementById("app") as HTMLDivElement;
         const userEmail = document.getElementById("user-email") as HTMLSpanElement | null;
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement | null;
 
-        logoutBtn?.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         const { data: sessionData } = await supabaseBrowser.auth.getSession();
         const session = sessionData.session;

@@ -421,15 +421,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       @media (max-width: 640px) {
         .f-row { grid-template-columns: 1fr; }
       }
-      /* Loader dentro i bottoni di salvataggio */
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
     <AdminHead />
   </head>
@@ -972,6 +963,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { isSuperUser } from "../../lib/admin/superAdmin";
   import { CLIENT } from "../../config/client";
@@ -1058,10 +1051,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const emptyEl = document.getElementById("empty") as HTMLDivElement;
         const toastEl = document.getElementById("toast") as HTMLDivElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).
@@ -2182,15 +2172,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               setTimeout(() => { del.classList.remove("confirm"); del.textContent = "×"; }, 3000);
               return;
             }
-            try {
-              const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              if (!res.ok) { toast(tr("us.delErr"), true); return; }
-              if (draftId === row.dataset.id) draftId = null;
-              toast(tr("mk.draftDeleted"));
-              void caricaProgrammate();
-            } catch {
-              toast(tr("res.connErr"), true);
-            }
+            await conAttesa(del, async () => {
+              try {
+                const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                if (!res.ok) { toast(tr("us.delErr"), true); return; }
+                if (draftId === row.dataset.id) draftId = null;
+                toast(tr("mk.draftDeleted"));
+                void caricaProgrammate();
+              } catch {
+                toast(tr("res.connErr"), true);
+              }
+            });
             return;
           }
           const r = draftsCache.find((x) => x.id === row.dataset.id);
@@ -2243,14 +2235,16 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             setTimeout(() => { b.classList.remove("confirm"); b.textContent = "×"; }, 3000);
             return;
           }
-          try {
-            const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast(tr("us.delErr"), true); return; }
-            toast(tr("mk.scheduledDeleted"));
-            void caricaProgrammate();
-          } catch {
-            toast(tr("res.connErr"), true);
-          }
+          await conAttesa(b, async () => {
+            try {
+              const res = await fetch("/api/admin/newsletter-schedule?id=" + row.dataset.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("mk.scheduledDeleted"));
+              void caricaProgrammate();
+            } catch {
+              toast(tr("res.connErr"), true);
+            }
+          });
         });
 
         // ---------- Acquisto crediti (Stripe MOODD) ----------
@@ -2672,17 +2666,19 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             if (cpDelPending === id) {
               window.clearTimeout(cpDelTimer);
               cpDelPending = null;
-              try {
-                const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-                if (!res.ok) {
-                  toast(tr("us.delErr"), true);
-                  return;
+              await conAttesa(del, async () => {
+                try {
+                  const res = await fetch(`/api/admin/coupons?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                  if (!res.ok) {
+                    toast(tr("us.delErr"), true);
+                    return;
+                  }
+                  toast(tr("mk.couponDeleted"));
+                  await caricaCoupons();
+                } catch {
+                  toast(tr("res.connErr"), true);
                 }
-                toast(tr("mk.couponDeleted"));
-                await caricaCoupons();
-              } catch {
-                toast(tr("res.connErr"), true);
-              }
+              });
               return;
             }
             cpDelPending = id;
@@ -3345,13 +3341,15 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             if (gcDelPending === id) {
               window.clearTimeout(gcDelTimer);
               gcDelPending = null;
-              try {
-                const res = await fetch(`/api/admin/gift-cards?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-                if (!res.ok) { toast(tr("us.delErr"), true); return; }
-                toast(tr("mk.giftDeleted"));
-                giftCards = giftCards.filter((x) => x.id !== id);
-                gcRender();
-              } catch { toast(tr("res.connErr"), true); }
+              await conAttesa(delB, async () => {
+                try {
+                  const res = await fetch(`/api/admin/gift-cards?id=${id}`, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                  if (!res.ok) { toast(tr("us.delErr"), true); return; }
+                  toast(tr("mk.giftDeleted"));
+                  giftCards = giftCards.filter((x) => x.id !== id);
+                  gcRender();
+                } catch { toast(tr("res.connErr"), true); }
+              });
               return;
             }
             gcDelPending = id;

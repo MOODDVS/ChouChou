@@ -734,6 +734,13 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 
 ## 🔻 DA RIPRENDERE (priorità)
 
+- **⬆️ ASTRO 7 SUI QUATTRO CLIENTI — da fare (motore già su `main`, 12/09).** Nell'ordine, per ogni cliente:
+  1. `cd /Users/moodd/Developer/MOODD-Admin && ./scripts/sync-clienti.sh` (merge `engine/main`);
+  2. **a mano** in `astro.config.mjs`: `compressHTML: true,` — il file è `merge=ours`, il merge NON lo porta. Al 12/09 nessuno dei quattro ce l'ha, e i quattro file sono diversi fra loro (ChouChou senza sitemap, EducazioneNapoletana con `integrations` su più righe);
+  3. `npm install` **dopo** il merge, mai prima;
+  4. `npm run build` — è il controllo che conta: il compilatore Rust è più severo e le pagine pubbliche dei clienti non sono mai passate sotto Astro 7.
+  - ⚠️ Se una pagina cliente usa `Astro` solo nel template (mai nel frontmatter, commenti esclusi) il build passa ma la pagina muore a runtime: vedi ENGINE.md, «Astro 7 — `Astro` va nominato nel frontmatter».
+
 - **Primo cliente vero con SETUP.md** («presto il nuovo cliente»): repo clone + Supabase nuovo (#1-42 in ordine, o file all-in-one) + bucket + env con CRON_SECRET nuovo + deploy + 2 job pg_cron + Général/permessi/tema.
 - **🔔 PUSH ADMIN — ✅ Fasi 1-3 FATTE (27/07), live su La Molisana.** Resta la **Fase 4**: composer messaggi MOODD ai ristoratori (Réglages super).
 - **🎁 BONS CADEAUX — Step B**: uso del buono ONLINE al checkout (scala il saldo, Stripe incassa il resto; colonne `gift_card_*` su orders già pronte). Poi **Step C**: acquisto del buono dal cliente sul sito pubblico.
@@ -1049,6 +1056,51 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 - **13 `style=` in riga spariti dal markup**: larghezze, gap, margini e `flex` erano scritti a mano accanto a ogni tag — impossibile ritoccare una misura senza rileggere l'HTML. Adesso sono otto regole (`.dc-row`, `.dc-grow`, `.dc-lang`, `.dc-inline`, `.dc-fname`, `.dc-hint`, `#dc-nval`, `#dc-nunit`).
 - L'etichetta e il campo «nome file» si nascondevano **separatamente**, con due `style.display` da tenere allineati a mano in due punti del codice. Ora sono un `.f-field` solo (`#dc-nom-box`) e la riga da scrivere e' una.
 - ✅ **Impostazioni e' una pagina CHIUSA**: `.overlay`, `.modal`, `.m-close`, `.f-lab` e `.f-input` non esistono piu' li'. 24 righe di guscio ridisegnato in meno, tutte e tre le finestre (piantina, team, documento) sul guscio condiviso.
+
+## 📌 12/09/2026 — Astro 7, e tre attese che sembravano guasti
+
+**Il filo della giornata**: il motore e' passato ad **Astro 7**, e mentre lo
+provavamo sono venute fuori tre cose che l'utente legge come «non funziona» ma
+che non sono guasti: sono **attese senza segnale**. Il rimedio e' sempre lo
+stesso — niente rete fra un clic e il suo effetto visibile.
+
+### 🚀 Astro 6.4.8 → 7.3.2
+- `npx @astrojs/upgrade`: astro 7.3.2, `@astrojs/node` 11.1.5, `@astrojs/react` 6.0.5, `@astrojs/sitemap` 3.7.4, `@astrojs/check` 0.9.10.
+- Otto delle dieci rotture dichiarate non ci riguardavano (niente `src/fetch.ts`, md/mdx, remark/rehype, `@astrojs/db`, `getContainerRenderer`, `astro:transitions`, blocco `experimental`, blocco `vite`). Node 22.23.2 contro `engines: >=22.12.0`.
+- `compressHTML: true` messo a mano in `astro.config.mjs`: la 7 ha cambiato il default. ⚠️ Quel file e' `merge=ours`, quindi va ripetuto in **ogni cliente**.
+- **Build da 4,58s a 1,27s.** `astro check`: 0 errori, gli stessi 19 hint di prima su 233 file. 39 test verdi.
+
+### 🐛 «Astro is not defined» — il compilatore Rust e' piu' severo
+- In dev la prima pagina admin moriva con `ReferenceError: Astro is not defined` in `AdminHead.astro:69`. Build, check e test erano tutti passati.
+- Riprodotto compilando un caso minimo con `@astrojs/compiler-rs` 0.4.0: **il binding `Astro` dentro il componente viene creato solo se il FRONTMATTER lo nomina.** Usarlo unicamente nel template (`nonce={Astro.locals.cspNonce}`) genera un riferimento a una variabile mai dichiarata.
+- ⚠️ Nominarlo in un **commento** non basta: il compilatore analizza il codice, non il testo. Erano quindi rotti **tre** file, non uno — `AdminHead`, `login` e `reset-password`; gli ultimi due sono la prima pagina che si apre.
+- ✅ `const nonce = Astro.locals.cspNonce;` nel frontmatter, `nonce={nonce}` nel tag. Scansionati tutti i `.astro` dei cinque repo: nel motore non ne resta nessuno, e le copie dei clienti arrivano col merge (quei percorsi non sono `merge=ours`).
+
+### 🚪 Il logout sembrava rotto, a intermittenza
+- Enzo: «il bottone di logout non funziona… oppure ci mette tantissimo».
+- 🐛 In **13 pagine**, copiate identiche: `await supabaseBrowser.auth.signOut()` e poi il redirect. `signOut()` revoca la sessione su tutti i dispositivi e per farlo fa un giro di rete: quell'`await` lo mette DAVANTI all'uscita. Rete buona → istantaneo; rete lenta → secondi di bottone immobile. Intermittente, quindi mai notato.
+- ✅ Unica implementazione in `src/lib/admin/logout.ts`, con l'ordine rovesciato: revoca globale in sottofondo (`fetch` con `keepalive`, sopravvive al cambio pagina), sessione locale tolta subito senza rete (`scope: "local"`), redirect immediato. Due reti di sicurezza: tetto di 1,2s e pulizia a mano della chiave `sb-…-auth-token` — senza quella, uscendo di corsa, il login rispedirebbe dentro.
+- Stesso `await` bloccante corretto anche nel reset password.
+
+### ⏳ Il PDF da 530 KB che «non si carica»
+- La rotella aggiunta al bottone «Carica» ha fatto vedere dov'era il tempo: **non nell'upload**.
+- 🐛 La sequenza era: carica il PDF → **aspetta la miniatura** → mandala → aggiorna → chiudi. Ma il documento e' gia' salvato dopo la prima chiamata. Dentro l'attesa c'era il download di `pdfjs-dist` (enorme, e in dev pure da ottimizzare) piu' il rendering su canvas.
+- ✅ La miniatura parte quando si **sceglie** il file (mentre si sceglie la categoria, pdf.js si carica), il modale si chiude appena il documento e' salvato, la miniatura sostituisce l'icona quando e' pronta. Stessa correzione in Assets → Documenti, dove ora corre in parallelo all'upload.
+
+### 🔄 `.is-loading` e `conAttesa()` — il bottone che dice di stare lavorando
+- Lo spinner `.is-loading` era riscritto identico in **sei pagine**, e mancava proprio dove serviva di piu'. Spostato in `src/styles/button.css` (importato da `AdminHead`), tenuta la variante corretta `:not(.fab-add)` e aggiunto `prefers-reduced-motion`.
+- Enzo: «ci vorrebbe un loader anche quando si cancella, un ristoratore proverà piu' volte a cliccarci sopra come un pazzo». Esattamente: il cestino a due tempi non aiuta, perche' il secondo tap parte e poi non succede piu' niente di visibile — e cinque click impazienti erano **cinque DELETE partite davvero**.
+- ✅ `src/lib/admin/attesa.ts`: `conAttesa(btn, lavoro)` mette la rotella, disabilita e **ignora i click successivi**. Misura il bottone e usa `.is-loading-sm` (13px) sui cestini tondi da 34px.
+- Applicato a **tutte** le cancellazioni dell'admin: documenti, team e tavoli della piantina (Impostazioni); documenti e immagini (Assets); piatti, lunch, menu' fissi e sezioni (Menu); buoni sconto, buoni regalo e newsletter programmate (Marketing); prenotazioni e chiusure future; agenda; risposte, post e foto (Google); utenti (super admin).
+- In **Prenotazioni** il modale non si chiude piu' subito: restava la lista invariata per qualche secondo e sembrava che il click non fosse servito a niente.
+- In Google tolti due `disabled = true` fatti a mano: `conAttesa` li ripristina anche quando qualcosa va storto, cosa che in un ramo non succedeva.
+
+### 🧪 Smoke test Astro 7 — tutti e cinque passati
+1. cancellazione di un documento (la sostituzione di `context.request` nel middleware, il punto piu' rischioso) ✅
+2. modale in Menu + «Libreria» (nonce CSP e import dinamici) ✅
+3. login admin (cookie SSR + firma JWT) ✅
+4. form di contatto pubblico su demo01 (l'unica isola React, `@astrojs/react` 6) ✅
+5. upload di un PDF (pdf.js, worker, sessioni su filesystem) ✅
 
 ## 📌 12/09/2026 — Conversione dei modali CHIUSA + cinque guasti silenziosi
 

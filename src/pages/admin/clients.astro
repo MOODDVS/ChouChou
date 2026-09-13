@@ -513,15 +513,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .c-name { font-size: 0.9rem; }
         .c-total { font-size: 0.88rem; }
       }
-      /* Loader dentro i bottoni di salvataggio */
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
     <AdminHead />
   </head>
@@ -663,6 +654,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
@@ -878,10 +871,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           campo.value = sep.resto;
         });
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).
@@ -1514,14 +1504,16 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
             name: del.dataset.name ?? "",
             orders: del.dataset.orders ?? "0",
           });
-          try {
-            const res = await fetch("/api/admin/clients?" + params.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast(tr("us.delErr"), true); return; }
-            toast(tr("cli.clientDeleted"));
-            await carica();
-          } catch {
-            toast(tr("res.connErr"), true);
-          }
+          await conAttesa(del, async () => {
+            try {
+              const res = await fetch("/api/admin/clients?" + params.toString(), { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("cli.clientDeleted"));
+              await carica();
+            } catch {
+              toast(tr("res.connErr"), true);
+            }
+          });
         });
 
         // ---- Modale MODIFICA cliente (matita): dati + foto ----

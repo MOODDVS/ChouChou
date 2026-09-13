@@ -573,15 +573,6 @@ const varianti = boot.features.includes("variants");
         .i-alg { grid-column: 3 / 5; grid-row: 2; justify-self: start; }
         .i-switches { grid-column: 2 / 4; grid-row: 3; justify-self: start; gap: 1.15rem; }
       }
-      /* Loader dentro i bottoni di salvataggio */
-      .is-loading { position: relative; color: transparent !important; pointer-events: none; }
-      .is-loading::after {
-        content: ""; position: absolute; inset: 0; margin: auto;
-        width: 18px; height: 18px; border-radius: 50%;
-        border: 2px solid color-mix(in srgb, var(--c-bg) 30%, transparent); border-top-color: var(--c-bg);
-        animation: btnspin 0.7s linear infinite;
-      }
-      @keyframes btnspin { to { transform: rotate(360deg); } }
     </style>
     <AdminHead />
   </head>
@@ -893,6 +884,8 @@ const varianti = boot.features.includes("variants");
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
 
@@ -1850,19 +1843,23 @@ const varianti = boot.features.includes("variants");
           if (cats[idx].kind !== kind) { cats[idx].kind = kind; renderSezioni(); }
           return;
         }
-        if (t.closest(".s-del")) {
+        const sDel = t.closest(".s-del") as HTMLElement | null;
+        if (sDel) {
           // Elimina e Aggiungi passano dal server e finiscono con un
           // ricaricamento: le modifiche in sospeso vanno messe al sicuro
-          // prima, o il ricaricamento se le porterebbe via.
-          if (!(await salvaSezioni())) return;
-          const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-          if (!res.ok) {
-            const j = await res.json();
-            secMsg.textContent = j.error ?? tr("home.deleteFailed");
-          } else {
-            toast(tr("menu.sectionDeleted"));
-            await caricaTutto();
-          }
+          // prima, o il ricaricamento se le porterebbe via. Sono due giri di
+          // rete: senza rotella il bottone resta muto per tutti e due.
+          await conAttesa(sDel, async () => {
+            if (!(await salvaSezioni())) return;
+            const res = await fetch("/api/admin/categories?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+            if (!res.ok) {
+              const j = await res.json();
+              secMsg.textContent = j.error ?? tr("home.deleteFailed");
+            } else {
+              toast(tr("menu.sectionDeleted"));
+              await caricaTutto();
+            }
+          });
           return;
         }
         // "+ sotto": prepara il form per creare una sotto-sezione sotto questa
@@ -2614,14 +2611,16 @@ const varianti = boot.features.includes("variants");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
-          try {
-            const res = await fetch("/api/admin/lunch?id=" + l.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast(tr("us.delErr"), true); return; }
-            toast(tr("menu.lunchDeleted"));
-            await caricaLunches();
-          } catch {
-            toast(tr("res.connErr"), true);
-          }
+          await conAttesa(del, async () => {
+            try {
+              const res = await fetch("/api/admin/lunch?id=" + l.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("menu.lunchDeleted"));
+              await caricaLunches();
+            } catch {
+              toast(tr("res.connErr"), true);
+            }
+          });
         }
       });
       listEl.addEventListener("change", async (e) => {
@@ -3148,12 +3147,14 @@ const varianti = boot.features.includes("variants");
             setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
             return;
           }
-          try {
-            const res = await fetch("/api/admin/set-menus?id=" + m.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-            if (!res.ok) { toast(tr("us.delErr"), true); return; }
-            toast(tr("menu.setMenuDeleted"));
-            await caricaSetMenus();
-          } catch { toast(tr("res.connErr"), true); }
+          await conAttesa(del, async () => {
+            try {
+              const res = await fetch("/api/admin/set-menus?id=" + m.id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+              if (!res.ok) { toast(tr("us.delErr"), true); return; }
+              toast(tr("menu.setMenuDeleted"));
+              await caricaSetMenus();
+            } catch { toast(tr("res.connErr"), true); }
+          });
         }
       });
       listEl.addEventListener("change", async (e) => {
@@ -3182,10 +3183,7 @@ const varianti = boot.features.includes("variants");
         const userEmail = document.getElementById("user-email") as HTMLSpanElement;
         const logoutBtn = document.getElementById("logout-btn") as HTMLButtonElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // Sblocco IMMEDIATO con la sessione locale (nessuna rete). getUser()
         // gira in background solo per validare il token (revoca → login).
@@ -3319,14 +3317,16 @@ const varianti = boot.features.includes("variants");
               setTimeout(() => { del.classList.remove("confirm"); del.innerHTML = ICO_TRASH; }, 3000);
               return;
             }
-            try {
-              const res = await fetch("/api/admin/menu?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
-              if (!res.ok) { toast(tr("us.delErr"), true); return; }
-              toast(tr("menu.dishDeleted"));
-              await caricaTutto();
-            } catch {
-              toast(tr("res.connErr"), true);
-            }
+            await conAttesa(del, async () => {
+              try {
+                const res = await fetch("/api/admin/menu?id=" + id, { method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" } });
+                if (!res.ok) { toast(tr("us.delErr"), true); return; }
+                toast(tr("menu.dishDeleted"));
+                await caricaTutto();
+              } catch {
+                toast(tr("res.connErr"), true);
+              }
+            });
           }
         });
 

@@ -433,6 +433,54 @@ conferma. Se un'azione facoltativa sta in mezzo al form, è `.btn`.
 Non è solo estetica — in Newsletter «Invia a tutti» stava dove negli altri
 modali c'è «Annulla».
 
+### `.is-loading` — la rotella dentro il bottone (12/09/2026)
+
+Stesso foglio, stessa disponibilità ovunque. Si mette sul bottone che ha appena
+fatto partire una richiesta: l'etichetta sparisce, al suo posto gira una rotella.
+
+```ts
+btn.classList.add("is-loading");
+try { … } finally { btn.classList.remove("is-loading"); }
+```
+
+⚠️ **`disabled` da solo non è un segnale.** Un bottone spento sembra un click
+che non è stato registrato: chi lo usa riclicca. Vale per ogni attesa che possa
+superare il mezzo secondo — un upload, un invio, un salvataggio su rete mobile.
+
+Era riscritto identico in sei pagine (agenda, assets, clients, marketing, menu,
+settings) e mancava proprio dove serviva di più, il caricamento di un PDF da
+10 MB nei Documenti. `:not(.fab-add)` c'è perché il FAB è già `position: fixed`.
+
+**Per le cancellazioni si usa `conAttesa()`** (`src/lib/admin/attesa.ts`), che
+mette la rotella, disabilita il bottone e — soprattutto — **ignora i click
+successivi** finché la richiesta è in volo:
+
+```ts
+await conAttesa(del, async () => {
+  const res = await fetch(…, { method: "POST", headers: { …, "X-Method-Override": "DELETE" } });
+  …
+});
+```
+
+Il cestino a due tempi non basta: il secondo tap parte, e da lì in poi non
+succede più niente di visibile. Tre secondi in sala diventano cinque click e
+cinque DELETE. `conAttesa` misura il bottone e usa la rotella piccola
+(`.is-loading-sm`) sui cestini tondi da 34px.
+
+Coperte **tutte** le cancellazioni dell'admin (12/09): documenti, team e tavoli
+della piantina in Impostazioni; documenti e immagini in Assets; clienti; piatti,
+lunch, menù fissi e sezioni in Menu; buoni sconto, buoni regalo e newsletter
+programmate in Marketing; prenotazioni e chiusure future in Prenotazioni;
+agenda; risposte, post e foto in Google; utenti nel super admin.
+
+Due note di merito:
+
+- in **Prenotazioni** il modale non si chiude più subito: resta aperto con la
+  rotella finché il server non ha risposto. Chiuderlo prima lasciava la lista
+  invariata per qualche secondo, e sembrava che non fosse successo niente;
+- in **Menu**, cancellare una sezione sono DUE giri di rete (prima salva le
+  modifiche in sospeso, poi elimina): è il punto dove l'attesa è più lunga.
+
 ## Test unitari (decisi 11/09/2026)
 
 `tests/*.test.mjs`, lanciati con `node --test tests/<file>.test.mjs`. Nessuna
@@ -493,3 +541,49 @@ le statistiche (due file gemelli da 180 righe, non ancora divergenti).
 protezione: è la descrizione di un guasto che deve ancora succedere.** Se una
 funzione serve a due pagine, va in `src/lib/admin/` e la si importa.
 
+Quarto caso, 12/09: la **disconnessione**, quattro righe copiate in 13 pagine.
+`supabaseBrowser.auth.signOut()` revoca la sessione su tutti i dispositivi e per
+farlo fa un giro di rete; il codice lo *aspettava* prima di andare al login. Con
+la rete lenta il bottone restava immobile per secondi e sembrava rotto — guasto
+intermittente, quindi invisibile. Ora tutto sta in `src/lib/admin/logout.ts`:
+revoca globale in sottofondo (`fetch` con `keepalive`, sopravvive al cambio
+pagina), sessione locale tolta subito senza rete, redirect immediato.
+
+👉 La regola generale che ne esce: **niente rete tra un clic e il suo effetto
+visibile.** Se il server deve sapere qualcosa, glielo si dice in sottofondo.
+
+Stesso giorno, stessa forma, terzo posto: il **caricamento di un PDF**. Il
+documento era salvato dopo la prima chiamata, ma il modale restava aperto ad
+aspettare la miniatura — cioe' il download di pdf.js e il disegno della pagina.
+Per chi guardava era il caricamento a essere lentissimo, e un PDF da 530 KB
+sembrava rotto. Ora la miniatura parte quando si SCEGLIE il file (mentre si
+sceglie la categoria, pdf.js si carica), il modale si chiude appena il
+documento e' salvato, e la miniatura sostituisce l'icona quando e' pronta.
+
+👉 Corollario: **quello che e' cosmetico non sta sul percorso critico.** Se il
+lavoro e' finito, l'interfaccia lo dice subito; il resto arriva dopo.
+
+
+## Astro 7 — `Astro` va nominato nel frontmatter (scoperto 12/09/2026)
+
+Dalla 7 il compilatore è scritto in Rust, ed è molto più severo di quello
+vecchio: **crea il binding `Astro` dentro il componente solo se il frontmatter
+lo nomina davvero.** Se `Astro` compare unicamente nel template, il file
+compila, `astro check` passa, `npm run build` passa — e a runtime la pagina
+muore con `ReferenceError: Astro is not defined`.
+
+Il nostro caso: `nonce={Astro.locals.cspNonce}` sui `<script is:inline>` di
+`AdminHead`, `login` e `reset-password`. Nominarlo in un *commento* del
+frontmatter non basta: il compilatore analizza il codice, non il testo.
+
+✅ La forma sicura, sempre:
+
+```astro
+---
+const nonce = Astro.locals.cspNonce;   // letto nel frontmatter
+---
+<script is:inline nonce={nonce}>…</script>
+```
+
+Per trovarli tutti: cercare i `.astro` in cui `Astro` compare nel template ma
+non nel frontmatter (commenti esclusi). Al 12/09 nel motore sono zero.

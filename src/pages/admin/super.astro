@@ -731,6 +731,8 @@ const prI18n = {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
@@ -744,10 +746,7 @@ const prI18n = {
         const rowsEl = document.getElementById("rows") as HTMLDivElement;
         const toastEl = document.getElementById("toast") as HTMLDivElement;
 
-        logoutBtn.addEventListener("click", async () => {
-          await supabaseBrowser.auth.signOut();
-          window.location.replace("/admin/login");
-        });
+        collegaLogout(logoutBtn);
 
         // --- Onglets (Design | Réglages) : l'onglet ouvert est mémorisé ---
         const supTabs = document.getElementById("sup-tabs") as HTMLDivElement | null;
@@ -1717,16 +1716,18 @@ const prI18n = {
             if (usDelPending === id) {
               window.clearTimeout(usDelTimer);
               usDelPending = null;
-              try {
-                const res = await fetch(`/api/admin/users?id=${id}`, {
-                  method: "POST",
-                  headers: { ...headers, "X-Method-Override": "DELETE" },
-                });
-                const j = await res.json();
-                if (!res.ok) { toast(j.error ?? tr("us.delErr"), true); return; }
-                toast(tr("us.deleted"));
-                await usCarica();
-              } catch { toast(tr("common.netErr"), true); }
+              await conAttesa(del, async () => {
+                try {
+                  const res = await fetch(`/api/admin/users?id=${id}`, {
+                    method: "POST",
+                    headers: { ...headers, "X-Method-Override": "DELETE" },
+                  });
+                  const j = await res.json();
+                  if (!res.ok) { toast(j.error ?? tr("us.delErr"), true); return; }
+                  toast(tr("us.deleted"));
+                  await usCarica();
+                } catch { toast(tr("common.netErr"), true); }
+              });
               return;
             }
             usDelPending = id;
