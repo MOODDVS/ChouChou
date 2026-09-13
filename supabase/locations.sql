@@ -132,6 +132,13 @@ declare
   moderno boolean := current_setting('server_version_num')::int >= 150000;
   vuoto   constant text := '00000000-0000-0000-0000-000000000000';
 begin
+  -- Guardia come al punto 2: una tabella assente non deve far abortire la
+  -- migrazione a meta', lasciando le colonne aggiunte e i vincoli no.
+  if to_regclass('public.service_closures') is null
+     or to_regclass('public.zone_closures') is null then
+    raise notice 'salto i vincoli: chiusure di servizio/zona assenti';
+    return;
+  end if;
   if moderno then
     execute 'create unique index if not exists service_closures_sede_date_key
                on public.service_closures (location_id, date, service_key) nulls not distinct';
@@ -204,6 +211,37 @@ create table if not exists public.location_settings (
 
 alter table public.location_settings enable row level security;
 grant select, insert, update, delete on public.location_settings to service_role;
+
+-- 5c. SEGRETI per sede — tabella SEPARATA, di proposito.
+--
+--     450 Gradi sono tre societa' con tre conti: ogni sede incassa sul
+--     suo Stripe. La chiave quindi non puo' piu' stare nell'ambiente
+--     (una per installazione), deve stare per sede.
+--
+--     ⚠️ Perche' non dentro `location_config`: quella e' la chiave/valore
+--     generica, e prima o poi esistera' una lettura «dammi tutta la
+--     configurazione di questa sede» che finisce nell'admin. Il giorno
+--     che qualcuno la usa senza pensarci, le chiavi Stripe partono verso
+--     il browser. Tenendole qui, quella lettura non le vede proprio:
+--     l'unico codice che tocca questa tabella e' la fabbrica del client
+--     Stripe, lato server.
+--
+--     Chiavi previste: stripe_secret_key, stripe_webhook_secret.
+--     (`resend_from` NON e' un segreto e sta in location_config.)
+--
+--     Sede assente o chiave assente = si ripiega sull'ambiente, cioe' il
+--     comportamento di oggi per tutti e quattro i clienti attuali.
+create table if not exists public.location_secrets (
+  location_id uuid not null references public.locations(id) on delete cascade,
+  key         text not null,
+  value       text not null,
+  updated_at  timestamptz not null default now(),
+  primary key (location_id, key)
+);
+
+alter table public.location_secrets enable row level security;
+-- Nessuna policy, e nessun grant ad anon/authenticated: solo service key.
+grant select, insert, update, delete on public.location_secrets to service_role;
 
 -- ------------------------------------------------------------
 -- 6. DOCUMENTI — la separazione sta nel percorso, non nella chiave
