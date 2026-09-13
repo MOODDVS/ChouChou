@@ -26,6 +26,10 @@ dal motore).
 - [ ] Disattiva «Automatically expose new tables» (i GRANT li fanno le migrazioni).
 - [ ] SQL Editor → lancia **TUTTE le migrazioni di `MIGRATIONS.md` in ordine**
       (idempotenti). Include la #51 `lunch_hide_by_course.sql`.
+- [ ] **Dopo le migrazioni**: `notify pgrst, 'reload schema';` nel SQL Editor.
+      PostgREST tiene in cache la struttura del database: finché non la
+      rilegge, una tabella appena creata risponde `PGRST205 Could not find
+      the table … in the schema cache`, come se non esistesse.
 - [ ] Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
 - [ ] Authentication → crea l'utente del cliente; verifica accesso super admin
       `admin@moodd.online`.

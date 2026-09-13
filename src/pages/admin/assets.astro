@@ -13,7 +13,6 @@ import Modal from "../../components/admin/Modal.astro";
 import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -156,7 +155,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       /* --- Modale modifica immagine ---
          Il guscio sta in src/styles/modal.css (.md-*): era l'unico modale
          della pagina, quindi qui non resta niente del vecchio. */
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.3rem; }
       .ed-prev {
         border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
         display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; min-height: 90px;

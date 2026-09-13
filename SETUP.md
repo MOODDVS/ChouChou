@@ -60,7 +60,11 @@ fuso orario…) si configura DALL'ADMIN in Admin → Général, senza codice.
 2. Disattiva «Automatically expose new tables» (le migrazioni fanno i GRANT).
 3. SQL Editor → lancia **TUTTE le migrazioni di `supabase/MIGRATIONS.md`
    NELL'ORDINE dei numeri**. Sono idempotenti: rilanciarne una non fa danni.
-4. Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
+4. **Dopo le migrazioni**, sempre nel SQL Editor: `notify pgrst, 'reload schema';`
+   PostgREST tiene in cache la struttura del database. Finché non la rilegge,
+   una tabella appena creata dà `PGRST205 Could not find the table … in the
+   schema cache`: sembra che la migrazione non sia passata, e invece è passata.
+5. Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
 5. Authentication → crea l'utente del cliente (email+password) e verifica che
    `admin@moodd.online` possa accedere (super admin, hardcoded nel motore).
 

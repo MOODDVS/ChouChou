@@ -19,18 +19,12 @@ import "../../styles/modal.css";   // guscio condiviso dei modali (.md-*)
 import "../../styles/switch.css";  // interruttore condiviso (.switch)
 import "../../styles/field.css";   // campi condivisi (.md-box input, .fld)
 import "../../styles/button.css";  // bottoni d'azione condivisi (.btn)
+import "../../styles/fab.css";     // pulsante fisso in basso a destra (.fab-add .fab-pill)
 
 const boot = await caricaBootAdmin();
 // App installata col marchio del cliente: vale solo se l'icona c'e' davvero
 // (caricaBootAdmin ripiega gia' su "restohub" se manca, qui e' solo leggibilita').
 const marchioCliente = boot.pwaBrand === "client" && !!boot.appIcon;
-// FAB condiviso: pulsante d'azione fisso in basso a destra, identico su ogni
-// pagina admin. Definito qui (fondo <head>) così vince sempre nella cascata.
-const FAB_CSS =
-  ".fab-add{position:fixed;right:1.5rem;bottom:1.25rem;z-index:90;display:inline-flex;align-items:center;box-sizing:border-box;background:var(--c-accent);color:var(--c-bg);border:1px solid var(--c-accent);font-family:var(--font-title);font-size:1.05rem;letter-spacing:.05em;padding:.9rem 1.5rem;border-radius:999px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,calc(.45*var(--sh,.15)));transition:background .2s,color .2s,transform .15s,border-color .2s}" +
-  ".fab-add .fab-plus{font-size:1.2rem;line-height:1;margin-right:.35rem}" +
-  ".fab-add:hover{background:var(--c-hover);border-color:var(--c-hover);transform:scale(.94)}" +
-  "@media(max-width:640px){.fab-add{bottom:calc(1.25rem + 72px)}}";
 // Placeholder piu' chiari: 40% del colore testo mescolato col fondo, cosi'
 // si distinguono nettamente dai campi compilati (in qualsiasi tema).
 // :where() = specificita' 0 -> le regole ::placeholder specifiche delle
@@ -44,7 +38,7 @@ const PLACEHOLDER_CSS =
 const LAYOUT_CSS =
   "main{flex:1;width:100%;padding:2rem 1.5rem 8rem}" +
   "@media(max-width:640px){main{padding:1.25rem 1rem 8rem}}";
-const css = cssTema(boot.theme) + FAB_CSS + PLACEHOLDER_CSS + LAYOUT_CSS;
+const css = cssTema(boot.theme) + PLACEHOLDER_CSS + LAYOUT_CSS;
 
 const hex = (v: string | undefined): string =>
   typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v : "";

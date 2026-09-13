@@ -17,7 +17,6 @@ import { adminLang } from "../../lib/admin/adminLang";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -662,8 +661,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-row .v { text-align: right; min-width: 0; overflow-wrap: anywhere; }
       .dt-row .v a { color: var(--c-text); }
       .f-row { display: flex; gap: 0.8rem; margin-bottom: 0.9rem; }
+      /* Come in Menu: specializzazione per i campi in riga sopra la regola
+         condivisa di field.css, non una sua copia. */
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 0; }
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       /* ⚠️ Questi stili erano agganciati a `.modal`: i modali del guscio
          condiviso sono `.md-box` e senza questi selettori i campi tornano
          al bianco di sistema. */

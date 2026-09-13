@@ -365,6 +365,42 @@ Da fare: `agenda`, `google`, `marketing`, `menu`, `settings`, `super`,
 
 ## Campi — il componente unico (deciso 11/09/2026)
 
+### L'intorno del campo: etichetta, riga, nota (13/09/2026)
+
+`field.css` vestiva la **casella** ma non quello che ci sta intorno. `.f-field`
+e `.f-label` erano riscritte dentro cinque pagine, e in un modale nuovo non
+esistevano affatto: l'etichetta usciva grande come il testo e senza spazio fra
+un campo e l'altro. Adesso stanno nel foglio condiviso.
+
+```html
+<div class="f-field">
+  <label class="f-label" for="x">Nome</label>
+  <input type="text" id="x" />
+</div>
+<p class="f-note">Spiegazione che si attacca al campo di sopra.</p>
+
+<div class="f-line">
+  <div class="f-field">…</div>
+  <div class="f-field">…</div>
+</div>
+```
+
+`.f-line` mette lo spazio sotto **lui**, non i campi: due campi affiancati ne
+accumulerebbero due. Sotto i 520px vanno a capo da soli.
+
+⚠️ In `agenda` esistono gia' `.f-row` e `.f-hint` con un altro significato
+(griglia 1fr 1fr, nota da 0.72rem). I nomi condivisi sono `.f-line` e `.f-note`
+apposta, per non scontrarsi con quelli.
+
+⚠️ `menu` e `reservations` tengono un `.f-field` proprio: li' i campi stanno in
+riga, si dividono lo spazio e non hanno margine sotto. **Non e' una copia della
+regola condivisa, e' una specializzazione sopra di essa** — e nel file c'e'
+scritto, cosi' la prossima pulizia non la scambia per debito.
+
+Restano da migrare i modali che si sono scritti la loro riga di campi
+(`dc-row` in Impostazioni, `us-frow` nel super, `ed-row` in Clienti): si fanno
+quando si tocca quel modale, non tutti insieme.
+
 **Dove vive.** `src/styles/field.css`, importato una volta da `AdminHead` →
 vale su ogni pagina admin.
 
@@ -432,6 +468,28 @@ conferma. Se un'azione facoltativa sta in mezzo al form, è `.btn`.
 **Ordine dei bottoni**: azioni leggere a sinistra, conferma in fondo a destra.
 Non è solo estetica — in Newsletter «Invia a tutti» stava dove negli altri
 modali c'è «Annulla».
+
+### `.ibtn` — la coppia modifica / elimina (13/09/2026)
+
+Tondo, 34px, una sola icona. E' quello in fondo a ogni card e a ogni riga.
+
+```html
+<button type="button" class="ibtn" title="Modifica">✎</button>
+<button type="button" class="ibtn ibtn-danger" title="Elimina">🗑</button>
+```
+
+`.ibtn-danger.confirm` e' il secondo tempo della cancellazione: la pillola si
+allarga per contenere «Confermare?». Si usa insieme a `conAttesa()`.
+
+⚠️ Era riscritto in **otto pagine** con otto nomi diversi — `.i-btn` (Google),
+`.dc-btn` (Impostazioni), `.b-edit` (Prenotazioni), `.ntile-btn` (Home),
+`.loc-btn`, `.r-del`, `.i-del`… tutti da 34px e tutti leggermente diversi nel
+bordo. **Al 13/09 e' convertito solo il super admin**: le altre si convertono
+quando si tocca quella pagina, come per i messaggi d'errore delle API.
+
+👉 **Ordine nella riga azioni**: lo stato a sinistra (l'interruttore
+attiva/disattiva), le azioni a destra. Si legge da «che cos'e' questo oggetto»
+a «che cosa posso farci».
 
 ### `.is-loading` — la rotella dentro il bottone (12/09/2026)
 
@@ -632,3 +690,56 @@ un'iniezione nel filtro, non un valore sbagliato.
 e **scavalca la RLS**. Sotto al codice non c'è nessuna rete di sicurezza, e un
 filtro dimenticato non dà errore — dà le righe di un'altra società. È il
 contrario del guasto di Astro 7, che almeno faceva morire la pagina.
+
+## FAB — il pulsante in basso a destra (unificato 13/09/2026)
+
+**Dove vive.** `src/styles/fab.css`, importato una volta da `AdminHead` →
+vale su ogni pagina admin. **Non va importato dalle singole pagine.**
+
+```html
+<button class="fab-add fab-pill" type="button"><span class="fab-plus">+</span>Sede</button>
+```
+
+`.fab-add` è **solo posizionamento**, `.fab-pill` è **solo il look**. La
+divisione serve a Prenotazioni, che ha tre pulsanti fissi con posizioni proprie
+(`.fab`, `.fab-serv`, `.fab-zone`) e lo stesso aspetto degli altri.
+
+⚠️ **Fino a oggi ce n'erano due copie.** `AdminHead` stampava un `FAB_CSS`
+inline che ridefiniva `.fab-add` col look completo, in contraddizione con
+questo foglio; vinceva quella inline perché stava in fondo al `<head>`. Otto
+pagine importavano `fab.css` e due no — e su quelle due il FAB **si comportava
+diversamente sui tablet**, perché la regola `@media (max-width: 1023px)` che
+lo solleva sopra la navbar non le raggiungeva. Nessuno l'aveva notato: il
+pulsante c'era, era solo nel posto sbagliato su metà degli schermi.
+
+👉 Quinto caso della stessa forma in due giorni. Vale la pena ripeterlo: **se
+una cosa serve a tutte le pagine, si importa da `AdminHead` e basta.** Una
+seconda definizione «per sicurezza, così vince nella cascata» non è una
+sicurezza: è il guasto che aspetta il suo turno.
+
+## Messaggi d'errore delle API admin — nella lingua dell'admin
+
+L'admin parla cinque lingue, ma le API rispondono in **francese**: 603 stringhe
+d'errore in 52 endpoint, scritte quando l'admin era solo francese. Non è un
+guasto — la richiesta fallisce correttamente — ma un ristoratore italiano legge
+una pastiglia rossa in francese, e l'applicazione sembra di qualcun altro.
+
+La macchina per farlo bene c'è già e non costa niente:
+
+```ts
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
+return json({ error: await msg("loc.err.needOne") }, 400);
+```
+
+`adminLang()` legge `app_config.admin_lang`, che è **globale** (la sceglie il
+super) e sta nella cache di `adminBoot`: zero query in più. Quindi il server sa
+già in che lingua rispondere, e non serve far tradurre al client.
+
+⚠️ Se una funzione di validazione deve segnalare un errore, **rende la chiave
+i18n**, non la frase: chi risponde traduce. Così la validazione resta pura e
+non ha bisogno di sapere la lingua.
+
+Al 13/09/2026 l'unico endpoint convertito è `locations.ts`. Gli altri 51
+restano in francese: da fare quando si tocca ognuno, non tutti insieme.

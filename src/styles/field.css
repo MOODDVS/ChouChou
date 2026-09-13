@@ -113,3 +113,158 @@ select.fld {
   .md-overlay .md-box select,
   select.fld { padding-right: 2.2rem; }
 }
+
+/* ============================================================
+   L'INTORNO DEL CAMPO — etichetta, riga, nota
+   ------------------------------------------------------------
+   `field.css` vestiva la CASELLA ma non quello che ci sta intorno:
+   `.f-field` e `.f-label` erano riscritte dentro cinque pagine
+   (assets, clients, menu, reservations, settings) e nei modali nuovi
+   non esistevano affatto — l'etichetta usciva grande come il testo e
+   senza spaziatura fra un campo e l'altro. Adesso stanno qui.
+
+     <div class="f-field">
+       <label class="f-label" for="x">Nome</label>
+       <input type="text" id="x" />
+     </div>
+     <p class="f-note">Spiegazione che si attacca al campo di sopra.</p>
+
+   Campi affiancati:
+     <div class="f-line">
+       <div class="f-field">…</div>
+       <div class="f-field">…</div>
+     </div>
+
+   ⚠️ In agenda `.f-row` e `.f-hint` esistono gia' con un altro
+   significato (griglia 1fr 1fr, nota da 0.72rem): i nomi qui sono
+   `.f-line` e `.f-note` per non scontrarsi con quelli.
+   ============================================================ */
+
+.f-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  margin-bottom: 0.9rem;
+}
+
+.f-label {
+  font-size: 0.72rem;
+  color: var(--c-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  display: block;
+}
+
+/* Riga di campi affiancati: lo spazio sotto lo mette la RIGA, non i
+   campi, o due campi vicini ne accumulerebbero due. Sotto i 520px
+   vanno a capo da soli (flex-wrap) e tornano larghi. */
+.f-line {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.9rem;
+}
+.f-line > .f-field {
+  flex: 1 1 200px;
+  margin-bottom: 0;
+}
+
+/* Nota esplicativa. `.hint` e' quella libera (sta dove vuole);
+   `.f-note` si attacca al campo di sopra, annullando il suo margine. */
+.hint {
+  color: var(--c-muted);
+  font-size: 0.8rem;
+}
+.f-note {
+  color: var(--c-muted);
+  font-size: 0.8rem;
+  margin: -0.55rem 0 0.9rem;
+}
+
+/* ============================================================
+   CAMPO FOTO — anteprima + azioni, uguale in ogni modale
+   ------------------------------------------------------------
+     <span class="f-label">Foto (facoltativa)</span>
+     <div class="f-img-row">
+       <span class="f-img-prev" id="…"></span>     ← foto o icona
+       <button type="button" class="btn">Carica una foto</button>
+       <button type="button" class="btn">Libreria</button>
+       <button type="button" class="btn btn-danger">Rimuovi</button>
+       <input type="file" accept=".jpg,.jpeg,.png,.webp" hidden />
+       <span class="f-label">stato</span>
+     </div>
+
+   Il riquadro vuoto mostra l'icona «immagine» (`.ph-ico`), non un
+   punto interrogativo: dice che cosa ci va, non che manca qualcosa.
+
+   Era riscritto in tre pagine con tre misure diverse (Menu e Agenda
+   64px identiche, Marketing 52px). Le prime due ora vengono da qui.
+   ⚠️ Marketing tiene la sua, piu' piccola e con `--c-input`: e' una
+   specializzazione, ed e' annotata nel file.
+   ============================================================ */
+
+.f-img-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.f-img-prev {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1px solid var(--c-line);
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-muted);
+}
+.f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.f-img-prev svg { width: 22px; height: 22px; }
+
+/* Icona «immagine» del riquadro vuoto. */
+.ph-ico {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   CAMPO TELEFONO — prefisso con bandiera + numero
+   ------------------------------------------------------------
+     <div class="f-tel">
+       <select aria-label="Prefisso">…</select>   ← opzioniPrefisso()
+       <input type="tel" placeholder="455 12 34 56" />
+     </div>
+
+   Il comportamento sta in `src/lib/prefissi.ts` e si aggancia in una
+   riga: `collegaPrefissoTel(select, input)`. Digitando o incollando
+   «+33 6…» (o «0033…») il select passa da solo alla Francia e
+   nell'input resta la sola parte locale. Per salvare:
+   `telefonoCompleto(select.value, input.value)`.
+
+   Il select tiene la sua larghezza: bandiera + indicativo sono corti
+   e fissi, e il numero deve prendersi tutto il resto.
+   ============================================================ */
+
+.f-tel {
+  display: flex;
+  gap: 0.5rem;
+}
+.f-tel > select {
+  flex: 0 0 auto;
+  width: 126px;
+}
+.f-tel > input {
+  flex: 1;
+  min-width: 0;
+}

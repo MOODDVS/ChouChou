@@ -1,5 +1,19 @@
-/* FAB condiviso: pulsante d'azione fisso in basso a destra, uguale su tutte
-   le pagine admin (agenda, clienti, ordini, ...). */
+/* ============================================================
+   FAB — pulsante d'azione fisso in basso a destra, uguale su
+   TUTTE le pagine admin (agenda, clienti, ordini, sedi...).
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale ovunque. Non va
+   importato di nuovo dalle singole pagine.
+
+   ⚠️ Fino al 13/09/2026 questo foglio aveva un GEMELLO: AdminHead
+   stampava un `FAB_CSS` inline che ridefiniva `.fab-add` con il
+   look completo, mentre qui `.fab-add` è solo posizionamento e il
+   look sta in `.fab-pill`. Le due si contraddicevano e vinceva
+   quella inline, perché stava in fondo al <head>. Risultato:
+   otto pagine importavano questo foglio e due no, e su quelle due
+   il FAB si comportava diversamente sui tablet (la regola a 1023px
+   qui sotto non le raggiungeva). Ora la definizione è una sola.
+   ============================================================ */
 /* .fab-add: SOLO posizionamento (destra, in basso). Il look è tutto in .fab-pill. */
 .fab-add {
   position: fixed;

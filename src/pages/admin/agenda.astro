@@ -15,7 +15,6 @@ import { adminT } from "../../i18n/admin";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -199,10 +198,6 @@ const pubLangsJson = JSON.stringify({
       }
       /* Il messaggio d'errore spinge i bottoni a destra e resta a sinistra. */
       #overlay .md-foot .m-err { margin-right: auto; }
-      .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
-      .f-img-prev { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
-      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .f-img-prev svg { width: 22px; height: 22px; }
       .ev-lang { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }
       .ev-lang:first-child { border-top: none; padding-top: 0; margin-top: 0; }
       #f-langs { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }

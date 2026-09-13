@@ -734,6 +734,12 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 
 ## 🔻 DA RIPRENDERE (priorità)
 
+- **🏢 MULTI-SEDE — in corso sul branch `multi-sede` (13/09/2026).** ⚠️ **L'ordine è: prima il MOTORE, poi il cliente.** Il repo `450Gradi` non esiste ancora e nascerà da un clone del motore (`NUOVO_PROGETTO.md` §1): finché RestoHub non è multi-sede completo, clonarlo vorrebbe dire portarsi dietro un lavoro a metà e poi rifarlo due volte.
+  - Fatti: passo 1 (schema, `locations.sql` = migrazione #73), passo 2 (`sedeRegole.ts` + `sede.ts` + 11 test), passo 3 (tab Sedi nel super admin).
+  - Restano: passo 4 (la sede nella sessione + permessi), passo 5 (le ~30 API che passano a `leggi()`), passo 6 (`menu_sold_out` e il sito pubblico).
+  - Il Supabase di **450 Gradi è già pronto** (migrazioni fino alla #73, tre sedi, tre chiavi Stripe ristrette in `location_secrets`): serve quando si passa al cliente, non adesso.
+  - ⚠️ Per sviluppare il motore, il database di sviluppo deve avere **tutte** le migrazioni del motore, #73 compresa. Vedi la nota qui sotto sul progetto di sviluppo.
+
 - **✅ ASTRO 7 — FATTO OVUNQUE (13/09/2026).** Motore su `main` il 12/09, i quattro clienti il 13/09: merge, `compressHTML: true` a mano in ogni `astro.config.mjs` (il file è `merge=ours`), `npm install`, `npm run build`. **Tutti e quattro verdi**, build fra 1,17 e 1,28 s — compresa EducazioneNapoletana, l'unica con un blocco `vite` (`optimizeDeps.include` per React), che era il candidato più probabile a rompersi con rolldown-vite. Lockfile invariati: l'unico file committato per cliente è `astro.config.mjs`.
   - ⚠️ **Sul server Hostinger va rifatto `npm install`**: 21 pacchetti aggiunti, 88 rimossi.
   - ⚠️ Se in futuro una pagina cliente usa `Astro` solo nel template (mai nel frontmatter, commenti esclusi) il build passa ma la pagina muore a runtime: vedi ENGINE.md, «Astro 7 — `Astro` va nominato nel frontmatter». Scansionati i quattro repo dopo il merge: zero file a rischio.

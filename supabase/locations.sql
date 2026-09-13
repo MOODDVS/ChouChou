@@ -43,10 +43,15 @@ create table if not exists public.locations (
   company_name       text    not null default '', -- societa' che fattura qui
   company_vat        text    not null default '',
   google_location    text,                        -- "accounts/../locations/.." della SUA scheda
+  image_url          text,                        -- foto o logo della sede (bucket `brand`, cartella sedi/)
   sort_order         integer not null default 0,
   active             boolean not null default true,
   created_at         timestamptz not null default now()
 );
+
+-- Aggiunta dopo la prima esecuzione: chi aveva gia' lanciato questo file
+-- (450 Gradi, 13/09) lo rilancia e si prende solo la colonna nuova.
+alter table public.locations add column if not exists image_url text;
 
 create index if not exists locations_order_idx on public.locations (sort_order, name);
 

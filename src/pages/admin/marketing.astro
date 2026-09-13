@@ -14,7 +14,6 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { SITE_PAGES } from "../../config/sitePages";
@@ -353,6 +352,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .m-foot-row .m-err { margin-right: auto; }
       .m-foot-row .m-err:empty { display: none; }
       .m-err { color: #ff6b6b; font-size: 0.85rem; }
+      /* Specializzazione locale sopra .f-img-row/.f-img-prev di field.css:
+         qui l'anteprima e' piu' piccola (52px). Non e' una copia. */
       .f-img-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
       .f-img-prev { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-input); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; color: var(--c-muted); }
       .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }

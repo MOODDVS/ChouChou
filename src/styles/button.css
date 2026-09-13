@@ -130,3 +130,84 @@
 @media (prefers-reduced-motion: reduce) {
   .is-loading::after { animation-duration: 3s; }
 }
+
+/* ============================================================
+   BOTTONE-ICONA — la coppia «modifica / elimina» delle righe
+   ------------------------------------------------------------
+   Tondo, 34px, una sola icona dentro. E' quello che sta in fondo
+   a ogni card e a ogni riga di elenco.
+
+     <button type="button" class="ibtn"        title="Modifica">✎</button>
+     <button type="button" class="ibtn ibtn-danger" title="Elimina">🗑</button>
+
+   `.ibtn-danger` e' il cestino: rosso spento a riposo, pieno al
+   passaggio. Con `.confirm` (secondo tempo della cancellazione)
+   diventa una pillola scura con la parola «Confermare?» dentro —
+   la stessa guardia a due tocchi di `conAttesa` e dei cestini.
+
+   ⚠️ Era riscritto in OTTO pagine con otto nomi diversi (`.i-btn`
+   in Google, `.dc-btn` in Impostazioni, `.b-edit` in Prenotazioni,
+   `.ntile-btn` nella Home…), tutti da 34px e tutti leggermente
+   diversi nel bordo. Le pagine si convertono quando le si tocca,
+   non tutte insieme.
+   ============================================================ */
+
+.ibtn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--c-card);
+  /* Bordo piu' marcato del vecchio --c-line: un bottone d'azione deve
+     leggersi come un bottone anche a riposo. */
+  border: 1px solid color-mix(in srgb, var(--c-text) 32%, var(--c-bg));
+  border-radius: 50%;
+  color: var(--c-text);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.ibtn:hover:not(:disabled) {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.ibtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ibtn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Cestino: rosso spento finche' non lo si sfiora. */
+.ibtn-danger {
+  background: rgba(237, 28, 36, 0.25);
+  border-color: rgba(237, 28, 36, 0.35);
+  color: #ffffff;
+}
+.ibtn-danger:hover:not(:disabled) {
+  background: rgba(237, 28, 36, 0.55);
+  border-color: #ed1c24;
+  color: #ffffff;
+}
+
+/* Secondo tempo: la pillola si allarga per contenere la parola. */
+.ibtn-danger.confirm {
+  background: #a3320f;
+  border-color: #a3320f;
+  color: #fff;
+  width: auto;
+  padding: 0 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+}

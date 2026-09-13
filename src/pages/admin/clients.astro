@@ -13,7 +13,6 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaClienti } from "../../lib/admin/caricaClienti";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -412,13 +411,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
         .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
       }
-      .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
-      .ed-telrow { display: flex; gap: 0.5rem; }
-      .ed-telrow input { flex: 1; min-width: 0; }
       /* Solo la misura e il posto nella riga: la grafica del campo (fondo,
          bordo, angoli, freccia) arriva da field.css. */
-      .ed-prefix { flex: 0 0 auto; width: 126px; }
       .ed-langs { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
       .ed-lang-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
@@ -621,8 +615,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       </div>
       <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
       <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
-        <span class="ed-telrow">
-          <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
+        <span class="f-tel">
+          <select id="ed-prefix" aria-label={t("cli.dialCode")}></select>
           <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
         </span>
       </div>
@@ -656,7 +650,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
-      import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { PREFISSI, separaPrefisso, collegaPrefissoTel } from "../../lib/prefissi";
       import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -861,15 +855,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           costruisciEdLingue();
         });
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto e
-        // spostato nella tendina, numero ripulito. Stava solo sul modale
-        // «aggiungi» che nessuno apriva piu': qui e' sul modale vero.
-        (document.getElementById("ed-phone") as HTMLInputElement).addEventListener("input", (e) => {
-          const campo = e.target as HTMLInputElement;
-          const sep = separaPrefisso(campo.value);
-          if (!sep) return;
-          edPrefixEl().value = sep.dial;
-          campo.value = sep.resto;
-        });
+        // spostato nella tendina, numero ripulito. Il comportamento sta in
+        // prefissi.ts: qui c'era una seconda copia, con una differenza —
+        // non controllava che il prefisso fosse fra le opzioni del select.
+        collegaPrefissoTel(edPrefixEl(), document.getElementById("ed-phone") as HTMLInputElement);
 
         collegaLogout(logoutBtn);
 
