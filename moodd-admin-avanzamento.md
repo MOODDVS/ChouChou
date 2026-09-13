@@ -734,6 +734,13 @@ Resta la **Fase 4** (non fatta): composer di messaggi MOODD ai ristoratori in R�
 
 ## 🔻 DA RIPRENDERE (priorità)
 
+- **⬆️ ASTRO 7 SUI QUATTRO CLIENTI — da fare (motore già su `main`, 12/09).** Nell'ordine, per ogni cliente:
+  1. `cd /Users/moodd/Developer/MOODD-Admin && ./scripts/sync-clienti.sh` (merge `engine/main`);
+  2. **a mano** in `astro.config.mjs`: `compressHTML: true,` — il file è `merge=ours`, il merge NON lo porta. Al 12/09 nessuno dei quattro ce l'ha, e i quattro file sono diversi fra loro (ChouChou senza sitemap, EducazioneNapoletana con `integrations` su più righe);
+  3. `npm install` **dopo** il merge, mai prima;
+  4. `npm run build` — è il controllo che conta: il compilatore Rust è più severo e le pagine pubbliche dei clienti non sono mai passate sotto Astro 7.
+  - ⚠️ Se una pagina cliente usa `Astro` solo nel template (mai nel frontmatter, commenti esclusi) il build passa ma la pagina muore a runtime: vedi ENGINE.md, «Astro 7 — `Astro` va nominato nel frontmatter».
+
 - **Primo cliente vero con SETUP.md** («presto il nuovo cliente»): repo clone + Supabase nuovo (#1-42 in ordine, o file all-in-one) + bucket + env con CRON_SECRET nuovo + deploy + 2 job pg_cron + Général/permessi/tema.
 - **🔔 PUSH ADMIN — ✅ Fasi 1-3 FATTE (27/07), live su La Molisana.** Resta la **Fase 4**: composer messaggi MOODD ai ristoratori (Réglages super).
 - **🎁 BONS CADEAUX — Step B**: uso del buono ONLINE al checkout (scala il saldo, Stripe incassa il resto; colonne `gift_card_*` su orders già pronte). Poi **Step C**: acquisto del buono dal cliente sul sito pubblico.
