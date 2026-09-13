@@ -587,3 +587,48 @@ const nonce = Astro.locals.cspNonce;   // letto nel frontmatter
 
 Per trovarli tutti: cercare i `.astro` in cui `Astro` compare nel template ma
 non nel frontmatter (commenti esclusi). Al 12/09 nel motore sono zero.
+
+## Multi-sede — il filtro passa da un punto solo (deciso 13/09/2026)
+
+**Dove vive.** `src/lib/admin/sedeRegole.ts` (le regole, senza un solo import)
+e `src/lib/admin/sede.ts` (l'applicazione). I test sono in `tests/sede.test.mjs`
+e girano **sulla funzione vera**, non su una copia: è il motivo per cui le
+regole stanno in un file che non importa niente.
+
+**La regola di fondo**: `location_id` NULL significa «vale per tutte le sedi».
+Le righe che esistono oggi sono tutte a NULL, quindi per un cliente con un
+punto solo la verità è già nel dato e non serve nessun filtro.
+
+`CLASSIFICA` dice a chi appartiene ogni tabella — `marchio`, `sede`, `mista` —
+e una tabella che non è lì dentro **lancia un errore**, non passa non filtrata.
+Un test scorre `src/` e verifica che ogni tabella davvero letta sia dichiarata.
+
+```ts
+const ambito = await ambitoDi({ sedeUtente, sedeScelta });
+const { data } = await leggi("orders", ambito, "id, total_cents").order("created_at");
+```
+
+`leggi`, `inserisci`, `aggiorna` e `cancella` restituiscono query che il filtro
+ce l'hanno **già dentro**. Non è una convenzione da ricordare: non esiste un
+modo di ottenerle senza. `aggiorna` e `cancella` sono filtrati come le letture —
+passando l'id di una riga di un altro punto, quella riga non viene toccata.
+
+⚠️ **Tre cose da non confondere, perché si somigliano e non sono la stessa.**
+
+1. **NULL in una riga** («vale per tutte le sedi») non è **la richiesta di
+   tutte le sedi**. Hanno due nomi diversi apposta: `"marchio"` e
+   `{ modo: "tutte" }`. Se si scrivessero uguale, una query a cui per sbaglio
+   non arriva la sede diventerebbe indistinguibile da un aggregato legittimo.
+2. **L'aggregato si chiede per nome**, con `tutteLeSedi()`, mai lasciando vuoto
+   un parametro. Leggendo il codice si deve vedere che qualcuno l'ha chiesto.
+3. **La sede arriva dalla sessione**, da `app_metadata` dentro il JWT firmato,
+   **mai da un parametro mandato dal client**: quello lo sceglie il browser.
+
+**E l'id di sede si valida sempre** (`sede(id)` lo fa): finisce dentro
+un'espressione di filtro PostgREST, che è testo. Un id non validato è
+un'iniezione nel filtro, non un valore sbagliato.
+
+👉 Il motivo di tutta questa disciplina: `supabaseAdmin` usa la service role key
+e **scavalca la RLS**. Sotto al codice non c'è nessuna rete di sicurezza, e un
+filtro dimenticato non dà errore — dà le righe di un'altra società. È il
+contrario del guasto di Astro 7, che almeno faceva morire la pagina.
