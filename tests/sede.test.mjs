@@ -391,3 +391,38 @@ test("lo stato del punto comanda sulla carta del gruppo, anche per rimettere in 
   assert.equal(piatto.sold_out, true);
   assert.deepEqual(piatto.variants.map((v) => v.sold_out), [false, true]);
 });
+
+/* ============================================================
+   La rete 4: l'elenco SQL che riattribuisce lo storico
+   ------------------------------------------------------------
+   `assegna_storico_sede()` riempie `location_id` dove e' NULL, e
+   l'elenco delle tabelle su cui lavora sta nel SQL — cioe' fuori
+   da `CLASSIFICA`, dove nessun compilatore lo guarda.
+
+   ⚠️ I due modi di sbagliare non si somigliano:
+   - una tabella «sede» DIMENTICATA nel SQL resta a NULL, e dopo
+     l'accensione sparisce da ogni punto. Sintomo visibile.
+   - una tabella «mista» AGGIUNTA per sbaglio e' molto peggio: li'
+     NULL vuol dire «vale per tutte le sedi». Riempirla trasforma
+     in silenzio il menu del gruppo nel menu di un punto solo, e
+     non lo segnala niente.
+   ============================================================ */
+test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
+  const sql = readFileSync("supabase/locations.sql", "utf8");
+  const m = /create or replace function public\.tabelle_di_sede\(\)[\s\S]*?select array\[([\s\S]*?)\]::text\[\]/.exec(sql);
+  assert.ok(m, "funzione `tabelle_di_sede()` non trovata in locations.sql");
+  const nelSql = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+
+  // Nate DOPO il multi-sede: `location_id` e' NOT NULL, non possono
+  // avere righe storiche orfane e non vanno nell'elenco.
+  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out"];
+  const attese = di("sede").filter((t) => !SENZA_STORICO.includes(t)).sort();
+
+  assert.deepEqual(nelSql, attese,
+    `l'elenco SQL non combacia con CLASSIFICA.\n  solo nel SQL: ${nelSql.filter((t) => !attese.includes(t))}\n  solo in CLASSIFICA: ${attese.filter((t) => !nelSql.includes(t))}`);
+
+  // E nessuna mista/marchio ci si e' infilata: e' l'errore silenzioso.
+  for (const t of nelSql) {
+    assert.equal(CLASSIFICA[t], "sede", `${t} e' «${CLASSIFICA[t]}», non «sede»: riempirla cancellerebbe il senso di NULL`);
+  }
+});

@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { supabaseAdmin } from "./db";
 import { inviaPushRecensione } from "./push";
+import { multiSedeAttivo } from "./admin/sede";
 
 /**
  * Google Business Profile — collegamento OAuth per-cliente (livello 2).
@@ -944,6 +945,53 @@ const K_COUNT = "google_review_count";
 const K_SYNCED = "google_reviews_synced_at";
 
 /**
+ * DI CHI SONO LE RECENSIONI DI QUESTA SCHEDA.
+ *
+ * `google_reviews` e' una tabella «sede»: tre societa', tre schede Google,
+ * tre flussi. Ma Google non sa niente di sedi — quello che lega una
+ * recensione a un punto e' la SCHEDA da cui arriva.
+ *
+ * ⚠️ Prima questa funzione non esisteva e il sync scriveva senza
+ * `location_id`: le recensioni gia' in tabella sopravvivevano (un upsert
+ * non tocca le colonne che non gli passi), ma ogni recensione NUOVA
+ * nasceva orfana e spariva da ogni punto. Il travaso dello storico
+ * ripara il passato; senza questa riga, il futuro si rompeva di nuovo.
+ *
+ * Due fonti, in ordine, e nessuna delle due e' un'ipotesi:
+ *  1. la sede che dichiara QUESTA scheda in `location_config.google_location`
+ *     (e' cosi' dal pezzo 6 in poi: una scheda per punto);
+ *  2. finche' la scheda e' ancora una sola per installazione, la sede a cui
+ *     appartengono le recensioni GIA' in tabella — cioe' la risposta che il
+ *     super admin ha dato accendendo il multi-sede.
+ * Se non si sa, si rende null e la recensione resta orfana: comparira' nel
+ * prossimo conteggio invece di essere attribuita a caso.
+ */
+async function sedeDelleRecensioni(path: string): Promise<string | null> {
+  try {
+    if (!(await multiSedeAttivo())) return null; // sede unica: NULL e' la verita'
+
+    const { data: dichiarata } = await supabaseAdmin
+      .from("location_config")
+      .select("location_id")
+      .eq("key", K_LOCATION)
+      .eq("value", path)
+      .maybeSingle();
+    const id = (dichiarata as { location_id?: string } | null)?.location_id;
+    if (id) return id;
+
+    const { data: gia } = await supabaseAdmin
+      .from("google_reviews")
+      .select("location_id")
+      .not("location_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return (gia as { location_id?: string } | null)?.location_id ?? null;
+  } catch {
+    return null; // migrazione non ancora lanciata: com'era prima
+  }
+}
+
+/**
  * Sincronizza le recensioni da Google nel Supabase del cliente (upsert).
  * Riusata da /api/admin/google/sync (manuale) e dal cron orario.
  */
@@ -997,6 +1045,7 @@ export async function sincronizzaRecensioni(): Promise<{
 
   let dbError = "";
   if (reviews.length) {
+    const sedeRec = await sedeDelleRecensioni(loc.path);
     const righe = reviews.map((r) => ({
       review_id: r.reviewId,
       name: r.name,
@@ -1009,6 +1058,13 @@ export async function sincronizzaRecensioni(): Promise<{
       reply_comment: r.replyComment,
       reply_time: r.replyTime || null,
       synced_at: nowISO,
+      // ⚠️ La colonna entra nel payload SOLO se la sede si sa. Un upsert
+      // aggiorna quello che gli passi: mettendo `location_id: null` quando
+      // non si sa, ogni sync CANCELLEREBBE l'attribuzione di tutte le
+      // recensioni gia' assegnate — l'opposto di quello che serve. Non
+      // sapendo, si tace: le righe vecchie restano dove sono e le nuove
+      // nascono orfane, e come tali compaiono nel conteggio.
+      ...(sedeRec ? { location_id: sedeRec } : {}),
     }));
     const { error: upErr } = await supabaseAdmin.from("google_reviews").upsert(righe, { onConflict: "review_id" });
     if (upErr) dbError = upErr.message;

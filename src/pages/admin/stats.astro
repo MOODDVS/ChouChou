@@ -9,7 +9,7 @@ import "../../styles/filters.css";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { calcolaStats } from "../../lib/admin/calcolaStats";
-import { ambitoDiRichiesta } from "../../lib/admin/sede";
+import { ambitoDiRichiesta, sediVisibili } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 
@@ -22,10 +22,21 @@ export const prerender = false;
 // periodo di default ("day") sul server. Altrimenti ssrStats resta null → la
 // pagina calcola lato client come prima.
 let ssrStats: unknown = null;
+// «Tutte le sedi» esiste SOLO qui, e solo in Finanze e Prenotazioni (deciso
+// 14/09/2026). Non e' nel selettore dell'header: li' si sceglie dove si
+// lavora, e in aggregato non si puo' scrivere. Statistiche invece e' di sola
+// lettura, quindi l'aggregato non ha nessun verso pericoloso — e guardare i
+// tre punti insieme e' esattamente quello che il gruppo vuole fare qui.
+let piuSedi = false;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrStats = await calcolaStats("day", await ambitoDiRichiesta(Astro.request, staff));
+  if (staff) {
+    ssrStats = await calcolaStats("day", await ambitoDiRichiesta(Astro.request, staff));
+    // Chi e' legato a un punto vede solo il suo: `sediVisibili` ne rende una,
+    // la pastiglia non compare, e il server rifiuterebbe comunque l'aggregato.
+    piuSedi = (await sediVisibili(staff)).length > 1;
+  }
 } catch {
   ssrStats = null;
 }
@@ -247,6 +258,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           <button class="rh-filter" data-p="month">{t("res.month")}</button>
           <button class="rh-filter" data-p="ytd">{t("st.pYear")}</button>
           <button class="rh-filter" data-p="all">{t("ord.total")}</button>
+          {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
+          {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
@@ -343,6 +356,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             <button class="rh-filter" data-g="90">{t("st.rFil90")}</button>
             <button class="rh-filter" data-g="180">{t("st.rFil180")}</button>
             <button class="rh-filter" data-g="365">{t("st.rFil365")}</button>
+            {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
+            {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
           </div>
           <div class="state" id="r-state">{t("sup.loading")}</div>
           <div class="state" id="r-empty" style="display:none">{t("st.rNoData")}</div>
@@ -445,6 +460,22 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         });
 
         let headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
+
+        // ---- «Tutte le sedi»: l'AGGREGATO -----------------------------------
+        // Stato unico per i due tab: chi lo accende in Finanze lo ritrova in
+        // Prenotazioni, che e' come lo si usa davvero (si guarda il gruppo,
+        // non una pagina).
+        //
+        // ⚠️ Viaggia SOLO nell'header `x-sede` della singola richiesta, mai
+        // nel cookie: l'aggregato non si ricorda apposta. E' un modo di
+        // guardare, non un posto dove si lavora — riaprendo l'admin domani si
+        // riparte dal proprio punto, non da una vista in cui non si puo'
+        // scrivere. Il server lo concede solo a chi non e' legato a una sede.
+        let tutteSedi = false;
+        const hdr = () => (tutteSedi ? { ...headers, "x-sede": "tutte" } : headers);
+        function segnaTutte() {
+          document.querySelectorAll(".rh-tutte").forEach((b) => b.classList.toggle("is-on", tutteSedi));
+        }
 
         // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
         // una volta sola al caricamento, un tab lasciato aperto continuava a
@@ -563,7 +594,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             if (datiIniziali) {
               s = datiIniziali; // dati già pronti dal server (SSR)
             } else {
-              const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
+              const res = await fetch("/api/admin/stats?period=" + periodo, { headers: hdr() });
               if (!res.ok) {
                 stateEl.textContent = tr("sup.load.error");
                 stateEl.style.display = "block";
@@ -584,9 +615,21 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         periodsEl.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
-          if (!t || t.dataset.p === periodo) return;
+          if (!t) return;
+          // ⚠️ Prima del resto: la pastiglia delle sedi sta nella stessa riga
+          // ma e' un'ALTRA dimensione. Senza questo ramo finirebbe nel codice
+          // del periodo, che leggerebbe un `data-p` inesistente e metterebbe
+          // `periodo` a undefined.
+          if (t.classList.contains("rh-tutte")) {
+            tutteSedi = !tutteSedi;
+            segnaTutte();
+            carica();
+            if (rLoaded) void caricaResa();
+            return;
+          }
+          if (t.dataset.p === periodo) return;
           periodo = t.dataset.p!;
-          periodsEl.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
+          periodsEl.querySelectorAll(".rh-filter:not(.rh-tutte)").forEach((b) => b.classList.toggle("is-on", b === t));
           carica();
         });
 
@@ -923,7 +966,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           rState.style.display = "block"; rState.textContent = tr("sup.loading");
           rEmpty.style.display = "none"; rContent.style.display = "none";
           try {
-            const res = await fetch("/api/admin/stats-reservations?giorni=" + rDays, { headers });
+            const res = await fetch("/api/admin/stats-reservations?giorni=" + rDays, { headers: hdr() });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error || tr("res.connErr"));
             rDati = j.stats as RStats;
@@ -938,9 +981,19 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         rPeriods.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
-          if (!t || Number(t.dataset.g) === rDays) return;
+          if (!t) return;
+          // Stessa ragione del tab Finanze: senza questo ramo `rDays`
+          // diventerebbe NaN e la richiesta partirebbe senza giorni.
+          if (t.classList.contains("rh-tutte")) {
+            tutteSedi = !tutteSedi;
+            segnaTutte();
+            void caricaResa();
+            carica();
+            return;
+          }
+          if (Number(t.dataset.g) === rDays) return;
           rDays = Number(t.dataset.g);
-          rPeriods.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
+          rPeriods.querySelectorAll(".rh-filter:not(.rh-tutte)").forEach((b) => b.classList.toggle("is-on", b === t));
           void caricaResa();
         });
 

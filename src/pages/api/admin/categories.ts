@@ -2,8 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 
 export const prerender = false;
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 const MAX_DEPTH = 3; // radice=0, poi -, --, --- (3 sotto-livelli)
 
@@ -62,13 +71,13 @@ export const GET: APIRoute = async ({ request }) => {
 
   const ambito = await ambitoDiRichiesta(request, staff);
   const cats = await leggiCategorie();
-  if (!cats) return json({ error: "Lecture impossible" }, 500);
+  if (!cats) return json({ error: await msg("cat.err.read") }, 500);
 
   // ⚠️ Il conteggio e' FILTRATO, le scritture piu' sotto no. Non e' una
   // dimenticanza: il numero accanto alla sezione deve essere quello delle
   // righe che si vedono nella lista, altrimenti «Pizze (24)» sopra 22 righe.
   const { data: righe, error: errItems } = await leggi("menu_items", ambito, "category");
-  if (errItems) return json({ error: "Lecture impossible" }, 500);
+  if (errItems) return json({ error: await msg("cat.err.read") }, 500);
   const conteggi = new Map<string, number>();
   for (const r of righe ?? []) conteggi.set(r.category, (conteggi.get(r.category) ?? 0) + 1);
 
@@ -93,25 +102,25 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("cat.err.body") }, 400);
   }
   const name = String(body.name ?? "").trim().slice(0, 60);
-  if (!name) return json({ error: "Nom requis" }, 400);
+  if (!name) return json({ error: await msg("cat.err.name") }, 400);
   const kind = body.kind === "drink" ? "drink" : "food";
 
   let parent_id: string | null = null;
   let depth = 0;
   const pid = String(body.parent_id ?? "").trim();
   if (pid) {
-    if (!/^[0-9a-f-]{36}$/i.test(pid)) return json({ error: "Parent invalide" }, 400);
+    if (!/^[0-9a-f-]{36}$/i.test(pid)) return json({ error: await msg("cat.err.parent") }, 400);
     const { data: parent } = await supabaseAdmin
       .from("menu_categories")
       .select("id, depth")
       .eq("id", pid)
       .maybeSingle();
-    if (!parent) return json({ error: "Section parente introuvable" }, 400);
+    if (!parent) return json({ error: await msg("cat.err.parentNotFound") }, 400);
     depth = Number((parent as { depth?: number }).depth ?? 0) + 1;
-    if (depth > MAX_DEPTH) return json({ error: `Profondeur max ${MAX_DEPTH} atteinte` }, 400);
+    if (depth > MAX_DEPTH) return json({ error: await msg("cat.err.depth") }, 400);
     parent_id = pid;
   }
 
@@ -140,8 +149,8 @@ export const POST: APIRoute = async ({ request }) => {
       .single();
   }
   if (ins.error) {
-    if (ins.error.code === "23505") return json({ error: "Cette section existe déjà" }, 400);
-    return json({ error: "Création impossible" }, 500);
+    if (ins.error.code === "23505") return json({ error: await msg("cat.err.dup") }, 400);
+    return json({ error: await msg("cat.err.create") }, 500);
   }
   return json({ category: ins.data });
 };
@@ -156,29 +165,29 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("cat.err.body") }, 400);
   }
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("cat.err.id") }, 400);
 
   const cats = await leggiCategorie();
-  if (!cats) return json({ error: "Lecture impossible" }, 500);
+  if (!cats) return json({ error: await msg("cat.err.read") }, 500);
   const attuale = cats.find((c) => c.id === id);
-  if (!attuale) return json({ error: "Section introuvable" }, 404);
+  if (!attuale) return json({ error: await msg("cat.err.notFound") }, 404);
 
   const campi: Record<string, unknown> = {};
   if ("name" in body) {
     const name = String(body.name ?? "").trim().slice(0, 60);
-    if (!name) return json({ error: "Nom requis" }, 400);
+    if (!name) return json({ error: await msg("cat.err.name") }, 400);
     campi.name = name;
   }
   if ("sort_order" in body) {
     const n = Math.floor(Number(body.sort_order));
-    if (!Number.isFinite(n) || n < 0 || n > 999) return json({ error: "Ordre invalide" }, 400);
+    if (!Number.isFinite(n) || n < 0 || n > 999) return json({ error: await msg("cat.err.order") }, 400);
     campi.sort_order = n;
   }
   if ("kind" in body) {
-    if (body.kind !== "food" && body.kind !== "drink") return json({ error: "Type invalide" }, 400);
+    if (body.kind !== "food" && body.kind !== "drink") return json({ error: await msg("cat.err.kind") }, 400);
     campi.kind = body.kind;
   }
   if ("name_i18n" in body) {
@@ -190,17 +199,17 @@ export const PUT: APIRoute = async ({ request }) => {
   if ("parent_id" in body) {
     const nuovoPid = body.parent_id ? String(body.parent_id).trim() : null;
     if (nuovoPid) {
-      if (!/^[0-9a-f-]{36}$/i.test(nuovoPid)) return json({ error: "Parent invalide" }, 400);
-      if (nuovoPid === id) return json({ error: "Parent invalide" }, 400);
+      if (!/^[0-9a-f-]{36}$/i.test(nuovoPid)) return json({ error: await msg("cat.err.parent") }, 400);
+      if (nuovoPid === id) return json({ error: await msg("cat.err.parent") }, 400);
       const parent = cats.find((c) => c.id === nuovoPid);
-      if (!parent) return json({ error: "Section parente introuvable" }, 400);
+      if (!parent) return json({ error: await msg("cat.err.parentNotFound") }, 400);
       // no cicli: il nuovo parent non deve stare nel sotto-albero del nodo
       const discendenti = new Set<string>();
       const raccogli = (pid: string) => {
         for (const c of cats) if (c.parent_id === pid) { discendenti.add(c.id); raccogli(c.id); }
       };
       raccogli(id);
-      if (discendenti.has(nuovoPid)) return json({ error: "Déplacement invalide (cycle)" }, 400);
+      if (discendenti.has(nuovoPid)) return json({ error: await msg("cat.err.cycle") }, 400);
       const nuovoDepth = parent.depth + 1;
       // altezza del sotto-albero del nodo (0 se foglia)
       let altezza = 0;
@@ -209,7 +218,7 @@ export const PUT: APIRoute = async ({ request }) => {
         for (const c of cats) if (c.parent_id === pid) misura(c.id, d + 1);
       };
       misura(id, 0);
-      if (nuovoDepth + altezza > MAX_DEPTH) return json({ error: `Profondeur max ${MAX_DEPTH} dépassée` }, 400);
+      if (nuovoDepth + altezza > MAX_DEPTH) return json({ error: await msg("cat.err.depth") }, 400);
       campi.parent_id = nuovoPid;
       campi.depth = nuovoDepth;
       // ricalcola depth dei discendenti
@@ -226,7 +235,7 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
-  if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
+  if (Object.keys(campi).length === 0) return json({ error: await msg("cat.err.nothing") }, 400);
 
   let errUpd = (await supabaseAdmin.from("menu_categories").update(campi).eq("id", id)).error;
   if (errUpd && String(errUpd.message ?? "").includes("name_i18n")) {
@@ -235,8 +244,8 @@ export const PUT: APIRoute = async ({ request }) => {
     errUpd = (await supabaseAdmin.from("menu_categories").update(campiSenza).eq("id", id)).error;
   }
   if (errUpd) {
-    if (errUpd.code === "23505") return json({ error: "Cette section existe déjà" }, 400);
-    return json({ error: "Modification impossible" }, 500);
+    if (errUpd.code === "23505") return json({ error: await msg("cat.err.dup") }, 400);
+    return json({ error: await msg("cat.err.update") }, 500);
   }
   for (const u of subtreeUpdates) {
     await supabaseAdmin.from("menu_categories").update({ depth: u.depth }).eq("id", u.id);
@@ -253,7 +262,7 @@ export const PUT: APIRoute = async ({ request }) => {
     // degli altri due resterebbero attaccati a una sezione che non esiste
     // piu' e sparirebbero dalla loro lista senza essere stati cancellati.
     const { error: errItems } = await supabaseAdmin.from("menu_items").update(aggiornaPiatti).eq("category", attuale.name);
-    if (errItems) return json({ error: "Plats non synchronisés" }, 500);
+    if (errItems) return json({ error: await msg("cat.err.sync") }, 500);
   }
   return json({ ok: true });
 };
@@ -269,7 +278,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("cat.err.body") }, 400);
   }
 
   // Normalizza in una lista di nodi { id, parent_id }
@@ -279,17 +288,17 @@ export const PATCH: APIRoute = async ({ request }) => {
   } else if (Array.isArray(body.order)) {
     nodes = body.order.map((id) => ({ id: String(id), parent_id: null }));
   } else {
-    return json({ error: "Ordre requis" }, 400);
+    return json({ error: await msg("cat.err.orderReq") }, 400);
   }
-  if (nodes.length === 0) return json({ error: "Ordre requis" }, 400);
-  if (nodes.some((n) => !/^[0-9a-f-]{36}$/i.test(n.id))) return json({ error: "Id invalide" }, 400);
-  if (new Set(nodes.map((n) => n.id)).size !== nodes.length) return json({ error: "Doublons" }, 400);
+  if (nodes.length === 0) return json({ error: await msg("cat.err.orderReq") }, 400);
+  if (nodes.some((n) => !/^[0-9a-f-]{36}$/i.test(n.id))) return json({ error: await msg("cat.err.id") }, 400);
+  if (new Set(nodes.map((n) => n.id)).size !== nodes.length) return json({ error: await msg("cat.err.dupList") }, 400);
 
   const cats = await leggiCategorie();
-  if (!cats) return json({ error: "Lecture impossible" }, 500);
+  if (!cats) return json({ error: await msg("cat.err.read") }, 500);
   const perId = new Map(cats.map((c) => [c.id, c.name]));
   if (nodes.length !== cats.length || nodes.some((n) => !perId.has(n.id))) {
-    return json({ error: "Liste incomplète" }, 400);
+    return json({ error: await msg("cat.err.listPart") }, 400);
   }
 
   // Calcola depth da parent, valida parent-prima-dei-figli e profondità max
@@ -298,12 +307,12 @@ export const PATCH: APIRoute = async ({ request }) => {
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
     if (n.parent_id === null) { depthDi.set(n.id, 0); continue; }
-    if (!perId.has(n.parent_id)) return json({ error: "Parent inconnu" }, 400);
-    if (n.parent_id === n.id) return json({ error: "Parent invalide" }, 400);
+    if (!perId.has(n.parent_id)) return json({ error: await msg("cat.err.parentUnknown") }, 400);
+    if (n.parent_id === n.id) return json({ error: await msg("cat.err.parent") }, 400);
     const pPos = posizione.get(n.parent_id);
-    if (pPos === undefined || pPos >= i) return json({ error: "Parent après enfant" }, 400);
+    if (pPos === undefined || pPos >= i) return json({ error: await msg("cat.err.parentAfter") }, 400);
     const d = (depthDi.get(n.parent_id) ?? 0) + 1;
-    if (d > MAX_DEPTH) return json({ error: `Profondeur max ${MAX_DEPTH} dépassée` }, 400);
+    if (d > MAX_DEPTH) return json({ error: await msg("cat.err.depth") }, 400);
     depthDi.set(n.id, d);
   }
 
@@ -334,7 +343,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       .from("menu_categories")
       .upsert(righe.map((r) => ({ id: r.id, name: r.name, kind: r.kind, sort_order: r.sort_order })), { onConflict: "id" });
   }
-  if (up.error) return json({ error: "Enregistrement impossible" }, 500);
+  if (up.error) return json({ error: await msg("cat.err.save") }, 500);
 
   // I piatti portano l'ordine della loro sezione per NOME: si toccano solo
   // quelli delle sezioni che hanno cambiato posto, e in parallelo.
@@ -346,7 +355,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       supabaseAdmin.from("menu_items").update({ category_order: perNome.get(nome)! }).eq("category", nome)
     )
   );
-  if (esiti.some((r) => r.error)) return json({ error: "Plats non synchronisés" }, 500);
+  if (esiti.some((r) => r.error)) return json({ error: await msg("cat.err.sync") }, 500);
   return json({ ok: true });
 };
 
@@ -356,21 +365,21 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("cat.err.id") }, 400);
 
   const { data: cat, error: errCur } = await supabaseAdmin
     .from("menu_categories")
     .select("name")
     .eq("id", id)
     .single();
-  if (errCur || !cat) return json({ error: "Section introuvable" }, 404);
+  if (errCur || !cat) return json({ error: await msg("cat.err.notFound") }, 404);
 
   // Ha sotto-categorie?
   const { count: nFigli } = await supabaseAdmin
     .from("menu_categories")
     .select("id", { count: "exact", head: true })
     .eq("parent_id", id);
-  if ((nFigli ?? 0) > 0) return json({ error: "Section avec sous-catégories : supprime-les d'abord" }, 400);
+  if ((nFigli ?? 0) > 0) return json({ error: await msg("cat.err.hasKids") }, 400);
 
   // ⚠️ Controllo GLOBALE: una sezione vuota QUI puo' essere piena altrove, e
   // cancellarla lascerebbe i piatti degli altri punti agganciati al nulla.
@@ -378,7 +387,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     .from("menu_items")
     .select("id", { count: "exact", head: true })
     .eq("category", cat.name);
-  if (errCount) return json({ error: "Vérification impossible" }, 500);
+  if (errCount) return json({ error: await msg("cat.err.check") }, 500);
   if ((count ?? 0) > 0) {
     // Distinzione che evita un messaggio incomprensibile: la lista davanti
     // all'utente e' vuota, quindi va detto che i piatti sono di un altro punto.
@@ -399,6 +408,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   }
 
   const { error } = await supabaseAdmin.from("menu_categories").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("cat.err.delete") }, 500);
   return json({ ok: true });
 };

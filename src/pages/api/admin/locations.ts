@@ -119,9 +119,40 @@ function campiDa(body: Record<string, unknown>, parziale: boolean): Record<strin
   return out;
 }
 
+/**
+ * Lo storico senza sede, tabella per tabella.
+ *
+ * ⚠️ Perche' esiste: la migrazione #73 AGGIUNGE `location_id` ma non la
+ * riempie — quando gira, le sedi non ci sono ancora. Accendendo il
+ * multi-sede senza riattribuire, ordini, prenotazioni e TAVOLI di prima
+ * non comparirebbero piu' da nessun punto: il filtro e' `location_id =
+ * <id>`, e NULL non lo soddisfa.
+ *
+ * Database indietro con le migrazioni (funzione assente) = mappa vuota,
+ * cioe' nessuna domanda e nessun travaso: non e' un errore da mostrare.
+ */
+async function contaStorico(): Promise<Record<string, number>> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc("storico_senza_sede");
+    if (error || !data) return {};
+    const out: Record<string, number> = {};
+    for (const r of data as { tabella: string; n: number }[]) out[r.tabella] = Number(r.n);
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const no = await soloSuper(request);
   if (no) return no;
+
+  // ---- quante righe non hanno ancora una sede ----
+  // Il super admin lo chiede PRIMA di accendere l'interruttore, per sapere
+  // quanto storico sta per attribuire e a chi. Sola lettura.
+  if (new URL(request.url).searchParams.get("storico") === "1") {
+    return json({ storico: await contaStorico() });
+  }
 
   const { data, error } = await supabaseAdmin
     .from("locations")
@@ -189,10 +220,33 @@ export const PATCH: APIRoute = async ({ request }) => {
     const acceso = String(body.multi) === "on";
     // Acceso senza sedi non vuol dire niente, e lascerebbe l'admin con un
     // selettore vuoto: meglio dirlo adesso che scoprirlo dopo.
+    let assegnate = 0;
     if (acceso) {
       const { count } = await supabaseAdmin
         .from("locations").select("id", { count: "exact", head: true }).eq("active", true);
       if (!count) return json({ error: await msg("loc.err.needOne") }, 400);
+
+      // ---- lo storico di prima va a una sede ----
+      // La sede la SCEGLIE il super admin, e non si indovina: sono societa'
+      // diverse, quindi attribuire incassi passati al punto sbagliato non e'
+      // un dettaglio grafico. L'interfaccia chiede solo se c'e' davvero
+      // qualcosa da spostare; se la chiede, arriva qui dentro.
+      const orfane = Object.values(await contaStorico()).reduce((t, n) => t + n, 0);
+      if (orfane > 0) {
+        const sedeStorico = testo(body.storico_sede, 40);
+        if (!RE_UUID.test(sedeStorico)) {
+          return json({ error: await msg("loc.err.storicoSede"), storico: await contaStorico() }, 400);
+        }
+        const { data, error: errRpc } = await supabaseAdmin.rpc("assegna_storico_sede", {
+          sede: sedeStorico,
+        });
+        if (errRpc) return json({ error: await msg("loc.err.storicoKo") }, 500);
+        // La funzione rende UNA riga { assegnate, saltate }.
+        const riga = (Array.isArray(data) ? data[0] : data) as
+          | { assegnate?: number; saltate?: number }
+          | null;
+        assegnate = Number(riga?.assegnate ?? 0);
+      }
     }
     const { error } = await supabaseAdmin
       .from("app_config")
@@ -200,7 +254,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (error) return json({ error: await msg(erroreDb("multi", error)) }, 500);
     invalidaAppConfig();
     scordaSedi();
-    return json({ ok: true, multi: acceso });
+    return json({ ok: true, multi: acceso, assegnate });
   }
 
   const id = testo(body.id, 40);

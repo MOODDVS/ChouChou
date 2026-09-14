@@ -1000,7 +1000,20 @@ const varianti = boot.features.includes("variants");
       function variantiHTML(it: Item): string {
         if (!FEAT_VARIANTI) return "";
         const n = it.variants?.length ?? 0;
-        return n ? `<span class="i-vars" title="${n} ${esc(tr("menu.variants"))}">${n}</span>` : "";
+        if (!n) return "";
+        const pallino = `<span class="i-vars" title="${n} ${esc(tr("menu.variants"))}">${n}</span>`;
+        // ⚠️ Il pallino dice QUANTI formati ci sono, non se si possono
+        // vendere. Con «40 cm» finita e «30 cm» disponibile il piatto
+        // sembrava a posto: nessun badge, l'interruttore Esaurito della riga
+        // spento (e' del piatto intero), e l'unico modo di accorgersene era
+        // aprire il modale. Qui si dice QUALE formato e' finito.
+        const finiti = (it.variants ?? []).filter((v) => v.sold_out === true);
+        if (!finiti.length) return pallino;
+        const nome = (v: { label_i18n?: Record<string, string>; key: string }) =>
+          v.label_i18n?.[PUB.def] || Object.values(v.label_i18n ?? {})[0] || v.key;
+        const testo = finiti.length === 1 ? nome(finiti[0]) : `${nome(finiti[0])} +${finiti.length - 1}`;
+        const titolo = finiti.map(nome).join(", ");
+        return `${pallino}<span class="i-soldout" title="${esc(tr("menu.soldOut"))} : ${esc(titolo)}">⛔ ${esc(testo)}</span>`;
       }
       /** Pastiglia «solo qui»: il piatto e' di QUESTO punto e non del gruppo.
        *  Serve prima di tutto prima di cancellare: senza, un piatto condiviso
@@ -1024,7 +1037,7 @@ const varianti = boot.features.includes("variants");
           <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}"${indent ? ` style="margin-left:${indent}rem"` : ""}>
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
-            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${variantiHTML(it)}${sedeHTML(it)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
+            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${variantiHTML(it)}${sedeHTML(it)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout i-sold-piatto">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
             <span class="i-switches">
@@ -3523,9 +3536,14 @@ const varianti = boot.features.includes("variants");
             if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
             if (campo === "sold_out") {
               const nameEl = row.querySelector(".i-name");
-              const pill = nameEl?.querySelector(".i-soldout");
+              // ⚠️ `.i-sold-piatto` e non `.i-soldout`: da quando i FORMATI
+              // finiti hanno la loro pastiglia, nella riga ce ne sono due, e
+              // la prima e' quella del formato. Cercando la classe generica,
+              // spegnere l'esaurito del piatto avrebbe cancellato il badge
+              // del formato — che e' un'altra cosa e resta vera.
+              const pill = nameEl?.querySelector(".i-sold-piatto");
               if (t.checked && !pill && nameEl) {
-                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
+                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout i-sold-piatto">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
               } else if (!t.checked && pill) {
                 pill.remove();
               }

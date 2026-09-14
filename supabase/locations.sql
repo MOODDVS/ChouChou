@@ -410,3 +410,101 @@ create table if not exists public.menu_sold_out (
 
 alter table public.menu_sold_out enable row level security;
 grant select, insert, update, delete on public.menu_sold_out to service_role;
+
+-- ------------------------------------------------------------
+-- 11. LO STORICO ORFANO (deciso 14/09/2026)
+--
+--     La sezione 2 AGGIUNGE `location_id` ma non la riempie: quando
+--     gira, le sedi non esistono ancora. Quindi ogni riga creata prima
+--     resta a NULL — e per una tabella «sede» il filtro e'
+--     `location_id = <id>`, che NULL non soddisfa. Risultato: acceso il
+--     multi-sede, tutto lo storico sparisce da OGNI punto e riappare
+--     solo nell'aggregato.
+--
+--     Non e' un fastidio estetico. Fra le tabelle colpite ci sono i
+--     TAVOLI: il ristorante si ritroverebbe il piano sala vuoto e le
+--     prenotazioni non assegnabili.
+--
+--     ⚠️ Si toccano SOLO le tabelle «sede». Sulle MISTE (menu_items,
+--     special_days, popups, team) NULL vuol dire «vale per tutte le
+--     sedi» ed e' un valore legittimo: riempirlo qui trasformerebbe il
+--     menu del gruppo nel menu di un punto solo. Sulle tabelle di
+--     MARCHIO NULL e' l'unico valore possibile. L'elenco qui sotto deve
+--     restare uguale a `CLASSIFICA` in `src/lib/admin/sedeRegole.ts`:
+--     un test lo verifica.
+-- ------------------------------------------------------------
+create or replace function public.tabelle_di_sede()
+returns text[] language sql immutable as $$
+  -- Le tabelle «sede» che possono avere righe storiche a NULL.
+  -- Escluse quelle nate dopo (location_config, location_settings,
+  -- location_secrets, menu_sold_out): li' `location_id` e' NOT NULL.
+  select array[
+    'admin_docs_meta', 'admin_notes', 'agenda_events', 'gift_card_redemptions',
+    'google_reviews', 'orders', 'print_orders', 'push_subscriptions',
+    'reservations', 'restaurant_tables', 'service_closures', 'zone_closures'
+  ]::text[];
+$$;
+
+-- Quante righe orfane, tabella per tabella. Sola lettura: la usa il
+-- super admin per DIRE quante ne sta per spostare prima di chiedere.
+create or replace function public.storico_senza_sede()
+returns table(tabella text, n bigint)
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare t text; c bigint;
+begin
+  foreach t in array public.tabelle_di_sede() loop
+    if to_regclass('public.' || t) is null then continue; end if;
+    execute format('select count(*) from public.%I where location_id is null', t) into c;
+    if c > 0 then tabella := t; n := c; return next; end if;
+  end loop;
+end $$;
+
+-- Assegna lo storico orfano a una sede. IDEMPOTENTE: tocca solo i NULL,
+-- quindi la seconda volta non fa niente.
+--
+-- ⚠️ `service_closures` e `zone_closures` hanno un indice unico per
+-- (sede, data, servizio). Se qualcuno ha spento e riacceso il multi, una
+-- chiusura scritta a NULL nel frattempo puo' scontrarsi con una gia'
+-- assegnata: quelle righe si SALTANO invece di far morire tutto il
+-- travaso, e il conteggio le riporta.
+create or replace function public.assegna_storico_sede(sede uuid)
+returns table(assegnate bigint, saltate bigint)
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare t text; n bigint; r record;
+begin
+  assegnate := 0; saltate := 0;
+  if sede is null then
+    raise exception 'assegna_storico_sede: sede obbligatoria';
+  end if;
+  if not exists (select 1 from public.locations where id = sede) then
+    raise exception 'assegna_storico_sede: sede inesistente %', sede;
+  end if;
+
+  foreach t in array public.tabelle_di_sede() loop
+    if to_regclass('public.' || t) is null then continue; end if;
+    begin
+      execute format('update public.%I set location_id = %L where location_id is null', t, sede);
+      get diagnostics n = row_count;
+      assegnate := assegnate + n;
+    exception when unique_violation then
+      -- Una riga sola fa fallire tutto il blocco: si ripassa riga per
+      -- riga e si salta quella che si scontra.
+      for r in execute format('select ctid from public.%I where location_id is null', t) loop
+        begin
+          execute format('update public.%I set location_id = %L where ctid = %L', t, sede, r.ctid);
+          assegnate := assegnate + 1;
+        exception when unique_violation then
+          saltate := saltate + 1;
+        end;
+      end loop;
+    end;
+  end loop;
+  return next;
+end $$;
+
+revoke all on function public.tabelle_di_sede() from public;
+revoke all on function public.storico_senza_sede() from public;
+revoke all on function public.assegna_storico_sede(uuid) from public;
+grant execute on function public.tabelle_di_sede() to service_role;
+grant execute on function public.storico_senza_sede() to service_role;
+grant execute on function public.assegna_storico_sede(uuid) to service_role;

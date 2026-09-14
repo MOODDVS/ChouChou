@@ -932,7 +932,7 @@ async function caricaMenu(){
     fr:[it.name, it.description_fr||it.description||""],
     it:[it.name, it.description||""],
     en:[it.name, it.description_en||it.description||""],
-    p:(it.price_cents||0)/100, alg:[], off:false
+    p:(it.price_cents||0)/100, alg:[], off:!!it.is_sold_out
    });
   });});
   // Filtri = solo categorie di PRIMO livello (root), in ordine di comparsa

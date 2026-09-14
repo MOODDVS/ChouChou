@@ -960,5 +960,10 @@ già in che lingua rispondere, e non serve far tradurre al client.
 i18n**, non la frase: chi risponde traduce. Così la validazione resta pura e
 non ha bisogno di sapere la lingua.
 
-Al 13/09/2026 l'unico endpoint convertito è `locations.ts`. Gli altri 51
-restano in francese: da fare quando si tocca ognuno, non tutti insieme.
+Convertiti: `locations.ts` (13/09), `categories.ts` (14/09, 26 messaggi).
+Gli altri restano in francese: da fare quando si tocca ognuno, non tutti
+insieme.
+
+⚠️ Quando un messaggio **sceglie fra due chiavi**, si traduce DOPO aver
+scelto — `await msg(cond ? "a" : "b")`, non un ternario fra due `await msg`.
+Altrimenti si leggono due volte lingua e dizionario per stampare una frase.

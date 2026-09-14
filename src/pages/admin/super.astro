@@ -40,6 +40,7 @@ const supI18n = {
     active: t("loc.active"), confirm: t("common.confirm"), del: t("common.delete"),
     imgErr: t("as.uploadFailed"), sending: t("mk.upload"),
     multiOn: t("loc.multiOn"), multiOff: t("loc.multiOff"),
+    stCount: t("loc.st.count"), stDone: t("loc.st.done"),
     sedeTutte: t("us.sedeTutte"),
     netErr: t("common.netErr"),
   },
@@ -50,6 +51,15 @@ const supI18n = {
     )
   ) as Record<string, string>,
   featureLabels: { variants: t("menu.variants") } as Record<string, string>,
+  // Nomi delle tabelle nel conteggio dello storico: parole del mestiere
+  // («ordini», «tavoli»), non i nomi delle tabelle. Sta qui e non dentro
+  // `loc` perche' quello e' un dizionario di sole stringhe.
+  stTabLabels: Object.fromEntries(
+    ["orders", "reservations", "restaurant_tables", "service_closures", "zone_closures",
+     "agenda_events", "admin_notes", "google_reviews", "push_subscriptions",
+     "admin_docs_meta", "gift_card_redemptions", "print_orders"]
+      .map((k) => [k, t("loc.st.t." + k)])
+  ) as Record<string, string>,
   pwaNoIcon: t("sup.pwa.noIcon"),
   pwaNomeCliente: CLIENT.nome,
   pwaReinstall: t("sup.pwa.reinstall"),
@@ -129,6 +139,9 @@ const prI18n = {
       .pane[hidden] { display: none; }
 
       /* ---- Établissements (multi-sede) ---- */
+      .st-conteggi { background: var(--c-input); border: 1px solid var(--c-line); border-radius: 9px; padding: 0.7rem 0.75rem; margin-top: 0.9rem; }
+      .st-conteggi b { color: var(--c-text); font-weight: 700; }
+      .st-avviso { display: flex; gap: 0.55rem; align-items: flex-start; margin: 0.9rem 0 0; padding: 0.65rem 0.75rem; border: 1px solid color-mix(in srgb, var(--c-accent) 50%, transparent); border-radius: 9px; font-size: 0.85rem; color: var(--c-accent); }
       .loc-multi { display: flex; flex-direction: column; gap: 0.35rem; margin: 0 0 1.6rem; }
       .loc-multi-hint { margin: 0; }
       /* Quattro colonne fisse, come la griglia dei Documenti: `auto-fill`
@@ -896,6 +909,25 @@ const prI18n = {
       </Fragment>
     </Modal>
 
+    <!-- Lo storico di prima del multi-sede. Compare SOLO se c'e' davvero
+         qualcosa da attribuire: su un'installazione nuova non c'e', e una
+         domanda che ha sempre la stessa risposta si impara a saltare. -->
+    <Modal id="st-overlay" title={t("loc.st.title")} width="560px">
+      <p>{t("loc.st.intro")}</p>
+      <p class="note">{t("loc.st.why")}</p>
+      <div class="f-field">
+        <label class="f-label" for="st-sede">{t("loc.st.which")}</label>
+        <select id="st-sede"></select>
+      </div>
+      <p class="note st-conteggi" id="st-conteggi"></p>
+      <p class="st-avviso">⚠ {t("loc.st.warn")}</p>
+      <Fragment slot="foot">
+        <span class="loc-err" id="st-err"></span>
+        <button type="button" class="md-btn" id="st-cancel">{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="st-go">{t("loc.st.go")}</button>
+      </Fragment>
+    </Modal>
+
     <ImagePicker />
 
     <div class="toast" id="toast"></div>
@@ -991,6 +1023,8 @@ const prI18n = {
           on?: string; off?: string;
           pageLabels?: Record<string, string>; tabLabels?: Record<string, string>;
           featureLabels?: Record<string, string>;
+          /** Nomi delle tabelle nel conteggio dello storico senza sede. */
+          stTabLabels?: Record<string, string>;
           pwaNoIcon?: string; pwaReinstall?: string; pwaNomeCliente?: string;
           /** Testi del pannello Établissements (multi-sede). */
           loc?: Record<string, string>;
@@ -2253,21 +2287,109 @@ const prI18n = {
           }
         }));
 
+        // ---- LO STORICO DI PRIMA DEL MULTI-SEDE ----------------------------
+        // La migrazione aggiunge `location_id` ma non la riempie: quando gira,
+        // le sedi non esistono ancora. Accendendo l'interruttore senza
+        // attribuire quelle righe, ordini, prenotazioni e TAVOLI di prima
+        // spariscono da ogni punto — il filtro e' `location_id = <id>`, e NULL
+        // non lo soddisfa. Qui si chiede a chi appartengono.
+        const stOverlay = document.getElementById("st-overlay") as HTMLDivElement;
+        const stSede = document.getElementById("st-sede") as HTMLSelectElement;
+        const stConteggi = document.getElementById("st-conteggi") as HTMLElement;
+        const stErr = document.getElementById("st-err") as HTMLElement;
+
+        /** Accende davvero l'interruttore. `sedeStorico` solo quando serve. */
+        async function accendiMulti(acceso: boolean, sedeStorico?: string): Promise<boolean> {
+          const res = await fetch("/api/admin/locations", {
+            method: "PATCH", headers,
+            body: JSON.stringify({
+              multi: acceso ? "on" : "off",
+              ...(sedeStorico ? { storico_sede: sedeStorico } : {}),
+            }),
+          });
+          const j = await res.json();
+          if (!res.ok) { toast(j.error ?? "", true); return false; }
+          const n = Number(j.assegnate ?? 0);
+          // Non e' una sede salvata: e' una funzione accesa.
+          toast(
+            acceso && n > 0
+              ? (L.stDone ?? "").replace("{n}", String(n))
+              : ((acceso ? L.multiOn : L.multiOff) ?? "")
+          );
+          // ⚠️ RICARICA, come fa il selettore dell'header quando si cambia
+          // sede. Questo interruttore cambia l'AMBITO di tutta l'applicazione
+          // mentre la pagina resta aperta, e due cose ne dipendono:
+          //  - il selettore delle sedi nell'header, che nasce lato server e
+          //    altrimenti compare (o sparisce) solo al prossimo caricamento;
+          //  - il poller degli ordini della barra, che tiene un elenco di id
+          //    «gia' visti» costruito con l'ambito di PRIMA. Spegnendo il
+          //    multi, il filtro sparisce e gli ordini che erano invisibili
+          //    ricompaiono tutti insieme: il poller non li ha mai visti e
+          //    suona come se fossero arrivati adesso. Un ordine fantasma, in
+          //    sala, e' qualcuno che va a cercare una borsa che non c'e'.
+          setTimeout(() => location.reload(), 1600);
+          return true;
+        }
+
         locMulti.addEventListener("change", async () => {
           const acceso = locMulti.checked;
           try {
-            const res = await fetch("/api/admin/locations", {
-              method: "PATCH", headers, body: JSON.stringify({ multi: acceso ? "on" : "off" }),
-            });
-            const j = await res.json();
-            if (!res.ok) { locMulti.checked = !acceso; toast(j.error ?? "", true); return; }
-            // Non e' una sede salvata: e' una funzione accesa.
-            toast((acceso ? L.multiOn : L.multiOff) ?? "");
+            // Spegnere non chiede niente: senza filtro si rivede tutto.
+            if (!acceso) {
+              if (!(await accendiMulti(false))) locMulti.checked = true;
+              return;
+            }
+            const rs = await fetch("/api/admin/locations?storico=1", { headers });
+            const storico = rs.ok ? ((await rs.json()).storico ?? {}) : {};
+            const righe = Object.entries(storico as Record<string, number>)
+              .filter(([, n]) => Number(n) > 0);
+            const attive = sedi.filter((x) => x.active !== false);
+
+            // Niente da attribuire, oppure una sede sola: nessuna domanda.
+            // Chiedere dove non c'e' scelta e' un ostacolo, non una cautela.
+            if (righe.length === 0 || attive.length <= 1) {
+              const sola = righe.length > 0 && attive.length === 1 ? attive[0].id : undefined;
+              if (!(await accendiMulti(true, sola))) locMulti.checked = false;
+              return;
+            }
+
+            // Piu' sedi E dello storico: si chiede, una volta sola.
+            stErr.textContent = "";
+            stSede.innerHTML = attive
+              .map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`)
+              .join("");
+            stConteggi.innerHTML =
+              `${esc(L.stCount ?? "")} ` +
+              righe
+                .map(([t2, n]) => `<b>${Number(n).toLocaleString(document.documentElement.lang || "fr")}</b> ${esc(SUP.stTabLabels?.[t2] ?? t2)}`)
+                .join(" · ");
+            stOverlay.hidden = false;
           } catch {
             locMulti.checked = !acceso;
             toast(L.netErr ?? "", true);
           }
         });
+
+        // Annullare rimette l'interruttore com'era: non si e' attivato niente.
+        document.getElementById("st-cancel")?.addEventListener("click", () => {
+          stOverlay.hidden = true;
+          locMulti.checked = false;
+        });
+        const stGo = document.getElementById("st-go") as HTMLButtonElement | null;
+        stGo?.addEventListener("click", () => conAttesa(stGo, async () => {
+          stErr.textContent = "";
+          try {
+            if (await accendiMulti(true, stSede.value)) {
+              stOverlay.hidden = true;
+              await locCarica();
+            } else {
+              locMulti.checked = false;
+              stOverlay.hidden = true;
+            }
+          } catch {
+            stErr.textContent = L.netErr ?? "";
+          }
+        }));
 
         // Cestino a due tempi, UNO SOLO armato alla volta: stessa guardia
         // di Documenti e Ordini.

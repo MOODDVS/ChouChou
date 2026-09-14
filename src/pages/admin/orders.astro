@@ -545,6 +545,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          ogni formato ha la sua riga rientrata. Si sceglie dalla lista, senza
          un modale in mezzo. */
       .nc-item-head { border-bottom: none; font-weight: 700; }
+      /* Piatto finito in QUESTO punto: si vede ma non si aggiunge. Sparire
+         sarebbe peggio — il ristoratore lo cercherebbe credendolo un guasto. */
+      .nc-item.is-off .n, .nc-item.is-off .p { opacity: 0.45; }
+      .nc-soldout { flex: none; display: inline-flex; align-items: center; margin-left: 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .nc-item-var { padding-left: 1.6rem; border-bottom: none; }
       /* Dopo l'ULTIMA variante la linea torna piena: separa il piatto dal
          successivo. (Stessa specificita della regola dopo: conta l'ordine.) */
@@ -1886,6 +1890,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         type VoceMenu = {
           id: string; name: string; category: string; price_cents: number;
           available: boolean; orderable?: boolean;
+          /** Esaurito IN QUESTO PUNTO: l'API lo rende gia' sovrapposto. */
+          sold_out?: boolean;
           discount_type?: string | null; discount_value?: number | null;
           variants?: unknown;
         };
@@ -1909,8 +1915,31 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         function ncVarianti(v: VoceMenu) {
           return leggiVariantiDb(v.variants).filter((x) => x.orderable && !x.sold_out);
         }
+        /** Il piatto e' ordinabile ADESSO, in questo punto?
+         *
+         *  ⚠️ Due modi di essere finito, e vanno guardati tutti e due: il
+         *  piatto segnato esaurito, e il piatto che ha formati ma nessuno
+         *  ancora disponibile. Nel secondo caso `ncAggiungi` mandava una riga
+         *  senza formato e il server la rifiutava con un 409 alla fine, dopo
+         *  aver composto tutto l'ordine. */
+        function ncFinito(v: VoceMenu): boolean {
+          if (v.sold_out === true) return true;
+          const tutti = leggiVariantiDb(v.variants).filter((x) => x.orderable);
+          return tutti.length > 0 && ncVarianti(v).length === 0;
+        }
         /** Aggiunge (o incrementa) una riga. Unico punto che scrive nel carrello. */
         function ncAggiungi(voce: VoceMenu, variantKey?: string) {
+          // ⚠️ Il controllo sta QUI e non solo nella lista: al carrello si
+          // arriva anche dalle pastiglie «piatti preferiti» del cliente, che
+          // ripropongono quello che ha ordinato l'ultima volta — e l'ultima
+          // volta la burrata c'era. Senza questa riga il rifiuto arrivava dal
+          // server a ordine finito. (La MODIFICA di un ordine gia' esistente
+          // non passa di qui: ricostruisce il carrello scrivendoci dentro, e
+          // deve poterlo fare anche con un piatto finito stasera.)
+          if (ncFinito(voce)) {
+            ncToast(`${voce.name} — ${tr("menu.soldOut")}`, true);
+            return;
+          }
           const disp = ncVarianti(voce);
           // Piatto CON formati e nessuna chiave (preferito vecchio, senza
           // variante salvata): si prende il primo disponibile invece di mandare
@@ -2002,6 +2031,10 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-items") as HTMLDivElement).innerHTML = ncMenu
             .filter((v) => v.category === ncCat)
             .map((v) => {
+              // Finito qui: si vede, con la pastiglia, e il «+» non c'e'.
+              if (ncFinito(v)) {
+                return `<div class="nc-item is-off"><span class="n">${esc(v.name)}</span><span class="nc-soldout">${esc(tr("menu.soldOut"))}</span><span class="p">${euro(ncPrezzo(v))}</span></div>`;
+              }
               const va = ncVarianti(v);
               // Piatto SENZA formati: riga singola, identica a prima.
               if (!va.length) {
