@@ -137,6 +137,13 @@ const DIZIONARIO: Dizionario = {
   "hdr.install":    { fr: "Installer l'application", en: "Install the app", it: "Installa l'app", nl: "App installeren", es: "Instalar la app" },
   "hdr.installHint":{ fr: "Sur iPhone/iPad : appuyez sur « Partager » puis « Sur l'écran d'accueil ». Sur ordinateur/Android, utilisez le bouton d'installation du navigateur.", en: "On iPhone/iPad: tap « Share » then « Add to Home Screen ». On desktop/Android, use the browser install button.", it: "Su iPhone/iPad: tocca « Condividi » poi « Aggiungi a Home ». Su computer/Android, usa il pulsante d'installazione del browser.", nl: "Op iPhone/iPad: tik op « Deel » en dan « Zet op beginscherm ». Op desktop/Android: gebruik de installatieknop van de browser.", es: "En iPhone/iPad: pulsa « Compartir » y luego « Añadir a pantalla de inicio ». En ordenador/Android, usa el botón de instalación del navegador." },
   "hdr.logout":     { fr: "Déconnexion",   en: "Log out",     it: "Disconnetti",    nl: "Afmelden",        es: "Cerrar sesión" },
+  "us.sedeTutte":   { fr: "Tous les établissements", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los establecimientos" },
+  "us.sedeHint":    { fr: "Lié à un établissement, cet utilisateur ne voit que le sien. Laisse « tous » pour le propriétaire.", en: "Tied to one location, this user only sees that one. Leave «all» for the owner.", it: "Legato a una sede, questo utente vede solo la sua. Lascia «tutte» per il proprietario.", nl: "Gekoppeld aan één vestiging ziet deze gebruiker alleen die. Laat «alle» staan voor de eigenaar.", es: "Vinculado a un establecimiento, este usuario solo ve el suyo. Deja «todos» para el propietario." },
+  "hdr.sede":       { fr: "Établissement",  en: "Location",    it: "Sede",          nl: "Vestiging",       es: "Establecimiento" },
+  "hdr.sedePick":   { fr: "Changer d'établissement", en: "Switch location", it: "Cambia sede", nl: "Van vestiging wisselen", es: "Cambiar de establecimiento" },
+  // Non e' piu' una voce del selettore (vedi AdminHeader): e' l'etichetta
+  // del FILTRO negli elenchi e nelle statistiche.
+  "hdr.sedeTutte":  { fr: "Tous les établissements", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los establecimientos" },
   "hdr.time":       { fr: "Heure actuelle", en: "Current time", it: "Ora attuale",   nl: "Huidige tijd",    es: "Hora actual" },
 
   // ===== Pagina Réglages (super admin) =====
@@ -151,6 +158,8 @@ const DIZIONARIO: Dizionario = {
   // ===== Multi-sede (super admin → Établissements) =====
   "loc.intro":      { fr: "Un seul back-office pour plusieurs établissements. Chaque établissement a son adresse, ses horaires, sa société et son compte Stripe ; la carte, les clients et les campagnes restent communs.", en: "One back-office for several locations. Each location has its own address, hours, company and Stripe account; the menu, customers and campaigns stay shared.", it: "Un solo pannello per più sedi. Ogni sede ha indirizzo, orari, società e conto Stripe propri; menu, clienti e campagne restano in comune.", nl: "Eén back-office voor meerdere vestigingen. Elke vestiging heeft een eigen adres, openingsuren, vennootschap en Stripe-account; menukaart, klanten en campagnes blijven gedeeld.", es: "Un solo panel para varios establecimientos. Cada uno tiene su dirección, horarios, sociedad y cuenta Stripe; la carta, los clientes y las campañas siguen siendo comunes." },
   "loc.multi":      { fr: "Activer le multi-établissement", en: "Enable multi-location", it: "Attiva il multi-sede", nl: "Multi-vestiging inschakelen", es: "Activar multiestablecimiento" },
+  "loc.multiOn":    { fr: "Multi-établissement activé", en: "Multi-location enabled", it: "Multi-sede attivato", nl: "Multi-vestiging ingeschakeld", es: "Multiestablecimiento activado" },
+  "loc.multiOff":   { fr: "Multi-établissement désactivé", en: "Multi-location disabled", it: "Multi-sede disattivato", nl: "Multi-vestiging uitgeschakeld", es: "Multiestablecimiento desactivado" },
   "loc.multiHint":  { fr: "Éteint, tout fonctionne comme aujourd'hui : un seul établissement, aucun filtre.", en: "Off, everything works as today: a single location, no filtering.", it: "Spento, tutto funziona come oggi: una sola sede, nessun filtro.", nl: "Uit werkt alles zoals vandaag: één vestiging, geen filter.", es: "Apagado, todo funciona como hoy: un solo establecimiento, sin filtro." },
   "loc.add":        { fr: "Établissement", en: "Location", it: "Sede", nl: "Vestiging", es: "Establecimiento" },
   "loc.new":        { fr: "Nouvel établissement", en: "New location", it: "Nuova sede", nl: "Nieuwe vestiging", es: "Nuevo establecimiento" },
@@ -160,17 +169,13 @@ const DIZIONARIO: Dizionario = {
   "loc.nameHint":   { fr: "Court : il apparaît dans le sélecteur en haut de chaque page.", en: "Keep it short: it shows in the picker at the top of every page.", it: "Corto: compare nel selettore in cima a ogni pagina.", nl: "Kort houden: het verschijnt in de keuzelijst bovenaan elke pagina.", es: "Corto: aparece en el selector en la parte superior de cada página." },
   "loc.slug":       { fr: "Slug", en: "Slug", it: "Slug", nl: "Slug", es: "Slug" },
   "loc.slugHint":   { fr: "Écrit tout seul à partir du nom : il part dans les adresses du site public. Une fois l'établissement en ligne, ne le change plus — les liens existants cesseraient de fonctionner.", en: "Written automatically from the name: it goes into the public site URLs. Once the location is live, leave it alone — existing links would stop working.", it: "Si scrive da solo dal nome: finisce negli indirizzi del sito pubblico. Quando la sede è online non toccarlo più, o i link esistenti smettono di funzionare.", nl: "Wordt automatisch uit de naam afgeleid: het komt in de adressen van de publieke site. Zodra de vestiging online staat, laat je het staan — bestaande links werken dan niet meer.", es: "Se escribe solo a partir del nombre: va en las direcciones del sitio público. Cuando el establecimiento esté en línea, no lo cambies o los enlaces existentes dejarán de funcionar." },
-  "loc.address":    { fr: "Adresse", en: "Address", it: "Indirizzo", nl: "Adres", es: "Dirección" },
-  "loc.postcode":   { fr: "Code postal", en: "Postcode", it: "CAP", nl: "Postcode", es: "Código postal" },
-  "loc.city":       { fr: "Commune", en: "Town", it: "Comune", nl: "Gemeente", es: "Municipio" },
-  "loc.phone":      { fr: "Téléphone", en: "Phone", it: "Telefono", nl: "Telefoon", es: "Teléfono" },
-  "loc.email":      { fr: "E-mail de l'établissement", en: "Location e-mail", it: "Email della sede", nl: "E-mail van de vestiging", es: "Correo del establecimiento" },
-  "loc.timezone":   { fr: "Fuseau horaire", en: "Time zone", it: "Fuso orario", nl: "Tijdzone", es: "Zona horaria" },
-  "loc.company":    { fr: "Société", en: "Company", it: "Società", nl: "Vennootschap", es: "Sociedad" },
-  "loc.vat":        { fr: "N° de TVA", en: "VAT number", it: "Partita IVA", nl: "Btw-nummer", es: "N.º de IVA" },
-  "loc.companyHint":{ fr: "C'est ce qui figure sur les reçus de cet établissement.", en: "This is what appears on this location's receipts.", it: "È quello che compare sulle ricevute di questa sede.", nl: "Dit staat op de bonnen van deze vestiging.", es: "Es lo que figura en los recibos de este establecimiento." },
   "loc.image":      { fr: "Photo de l'établissement", en: "Location photo", it: "Foto della sede", nl: "Foto van de vestiging", es: "Foto del establecimiento" },
   "loc.imageHint":  { fr: "Elle sert à reconnaître l'établissement d'un coup d'œil : dans le sélecteur en haut, sur les fiches et sur les commandes. Sans photo, ce sont les initiales.", en: "It is there to recognise the location at a glance: in the picker at the top, on the cards and on orders. Without a photo, the initials are used.", it: "Serve a riconoscere la sede a colpo d'occhio: nel selettore in alto, sulle schede e sugli ordini. Senza foto restano le iniziali.", nl: "Ze dient om de vestiging in één oogopslag te herkennen: in de keuzelijst bovenaan, op de fiches en op bestellingen. Zonder foto blijven de initialen.", es: "Sirve para reconocer el establecimiento de un vistazo: en el selector de arriba, en las fichas y en los pedidos. Sin foto quedan las iniciales." },
+  // Le etichette della scheda Google restano: il selettore si sposta in
+  // Intégrations (per sede), non sparisce. Indirizzo, telefono, email,
+  // societa' e IVA invece se ne sono andati per sempre da qui — in Général
+  // hanno gia' le loro (`set.gen.*`), e due etichette per lo stesso campo
+  // sono l'inizio di due campi diversi.
   "loc.gNone":      { fr: "— Aucune fiche —", en: "— No listing —", it: "— Nessuna scheda —", nl: "— Geen vermelding —", es: "— Sin ficha —" },
   "loc.gNoConn":    { fr: "Google n'est pas connecté (onglet Integrations).", en: "Google is not connected (Integrations tab).", it: "Google non è collegato (scheda Integrazioni).", nl: "Google is niet verbonden (tabblad Integraties).", es: "Google no está conectado (pestaña Integraciones)." },
   "loc.google":     { fr: "Fiche Google", en: "Google listing", it: "Scheda Google", nl: "Google-vermelding", es: "Ficha de Google" },
@@ -1096,6 +1101,10 @@ const DIZIONARIO: Dizionario = {
   "menu.visibleShort":  { fr: "Visi.", en: "Vis.", it: "Visi.", nl: "Zicht.", es: "Vis." },
   "menu.orderableShort":{ fr: "Comm.", en: "Ord.", it: "Ordi.", nl: "Best.", es: "Ped." },
   "menu.soldShort":     { fr: "Épuisé", en: "Sold", it: "Esaur.", nl: "Op", es: "Agot." },
+  // Multi-sede: a chi appartiene il piatto / il formato.
+  "menu.allLocations":  { fr: "Tous les points", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los puntos" },
+  "menu.allLocationsShort": { fr: "Tous", en: "All", it: "Tutte", nl: "Alle", es: "Todos" },
+  "menu.onlyHere":      { fr: "Ici seulement", en: "Here only", it: "Solo qui", nl: "Alleen hier", es: "Solo aquí" },
   "menu.drinkWord":     { fr: "boisson", en: "drink", it: "bevanda", nl: "drank", es: "bebida" },
   "menu.menusSoon":     { fr: "Section « Menus » — bientôt.", en: "« Menus » section — coming soon.", it: "Sezione « Menù » — a breve.", nl: "Sectie « Menu's » — binnenkort.", es: "Sección « Menús » — próximamente." },
   "menu.noDishFound":   { fr: "Aucun plat trouvé.", en: "No dish found.", it: "Nessun piatto trovato.", nl: "Geen gerecht gevonden.", es: "No se encontró ningún plato." },
@@ -1624,6 +1633,7 @@ const DIZIONARIO: Dizionario = {
   "set.hor.activeServices": { fr: "Services actifs ce jour", en: "Services active that day", it: "Servizi attivi quel giorno", nl: "Actieve diensten die dag", es: "Servicios activos ese día" },
   "set.hor.noServiceHint": { fr: "Aucun service activé = jour ouvert seulement pour commander (pas de réservations).", en: "No service enabled = day open for ordering only (no reservations).", it: "Nessun servizio attivo = giorno aperto solo per ordinare (niente prenotazioni).", nl: "Geen dienst ingeschakeld = dag enkel open om te bestellen (geen reserveringen).", es: "Ningún servicio activado = día abierto solo para pedir (sin reservas)." },
   "set.hor.notePh": { fr: "Note (ex. Vacances d'été)", en: "Note (e.g. Summer holidays)", it: "Nota (es. Vacanze estive)", nl: "Notitie (bijv. Zomervakantie)", es: "Nota (ej. Vacaciones de verano)" },
+  "sd.tutte": { fr: "Tous les établissements", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los establecimientos" },
   "set.hor.noSpecialDays": { fr: "Aucun jour spécial programmé.", en: "No special day scheduled.", it: "Nessun giorno speciale programmato.", nl: "Geen speciale dag gepland.", es: "Ningún día especial programado." },
   "set.hor.ordersOnly": { fr: "Commandes seules", en: "Orders only", it: "Solo ordini", nl: "Alleen bestellingen", es: "Solo pedidos" },
   "set.hor.noServiceConfig": { fr: "Aucun service configuré (onglet Réservations).", en: "No service configured (Reservations tab).", it: "Nessun servizio configurato (scheda Prenotazioni).", nl: "Geen dienst geconfigureerd (tabblad Reserveringen).", es: "Ningún servicio configurado (pestaña Reservas)." },

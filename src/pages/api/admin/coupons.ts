@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { normalizzaCodice } from "../../../lib/coupons";
@@ -135,6 +136,7 @@ function valida(b: CouponInput): { errore?: string; valori?: Record<string, unkn
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const { data, error } = await supabaseAdmin
     .from("coupons")
@@ -144,9 +146,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   // Conteggio utilizzi: ordini pagati con un coupon_id.
   const usi = new Map<string, number>();
-  const { data: ordini } = await supabaseAdmin
-    .from("orders")
-    .select("coupon_id")
+  const { data: ordini } = await leggi("orders", ambito, "coupon_id")
     .eq("status", "paid")
     .not("coupon_id", "is", null);
   for (const o of ordini ?? []) {

@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { leggi, type Ambito } from "./sede";
 import { supabaseAdmin } from "../db";
 import { TIMEZONE } from "../slots";
 import { adminLang } from "./adminLang";
@@ -38,13 +39,11 @@ function inizioPeriodo(p: Periodo): string | null {
   }
 }
 
-async function ordiniPagati(daISO: string | null): Promise<RigaOrdine[] | null> {
+async function ordiniPagati(daISO: string | null, ambito: Ambito): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
   for (let da = 0; ; da += PAGINA) {
-    let q = supabaseAdmin
-      .from("orders")
-      .select("pickup_time, total_cents, items")
+    let q = leggi("orders", ambito, "pickup_time, total_cents, items")
       .in("status", ["paid", "done"])
       .order("pickup_time", { ascending: true })
       .range(da, da + PAGINA - 1);
@@ -167,8 +166,8 @@ async function serieDi(
   return { kind: "quarter", series };
 }
 
-export async function calcolaStats(p: Periodo) {
-  const ordini = await ordiniPagati(inizioPeriodo(p));
+export async function calcolaStats(p: Periodo, ambito: Ambito) {
+  const ordini = await ordiniPagati(inizioPeriodo(p), ambito);
   if (ordini === null) return null;
 
   let revenue = 0;

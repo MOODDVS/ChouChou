@@ -691,6 +691,225 @@ e **scavalca la RLS**. Sotto al codice non c'è nessuna rete di sicurezza, e un
 filtro dimenticato non dà errore — dà le righe di un'altra società. È il
 contrario del guasto di Astro 7, che almeno faceva morire la pagina.
 
+### Due assi, non una scala di ruoli (deciso 13/09/2026)
+
+Verrebbe naturale, col multi-sede, aggiungere un ruolo «manager» fra `admin` e
+`user`. **Non si fa.** Sono due domande indipendenti:
+
+| | dove vive | risponde a |
+|---|---|---|
+| `role` (`super` / `admin` / `user`) | `app_metadata.role` | **cosa** puoi fare |
+| sede | `app_metadata.location_id` | **dove** puoi farlo |
+
+Un «manager» non e' un ruolo: e' un `admin` con una sede addosso. Impilare i
+due assi in una scala sola li schiaccia da matrice 2×2 a riga, e le caselle che
+restano fuori arrivano subito: il contabile del gruppo (solo Statistiche, ma
+tutte e tre le sedi) non ha piu' un posto, e un responsabile a cui non vuoi
+dare il Marketing richiederebbe un quinto livello.
+
+E il timore che sta dietro alla richiesta — «un responsabile non deve toccare
+la roba del marchio» — **non si risolve con un permesso, e' gia' risolto dalla
+forma della scrittura**: `sedeDaScrivere` non rende mai `null` per un ambito di
+sede. Chi e' legato a un punto scrive righe di quel punto e basta. Non e' un
+controllo che qualcuno puo' dimenticare di mettere: e' che la scrittura non ha
+la forma per fare il danno.
+
+⚠️ Quello che manca davvero e che **non c'entra col multi-sede**: gli
+interruttori delle pagine in Réglages sono **globali per l'installazione**, non
+per persona, e `user` significa «admin meno `PAGINE_SOLO_ADMIN`», una lista
+fissa nel codice. Permessi per utente servirebbero anche a un ristorante con un
+locale solo. Lavoro suo, da fare dopo.
+
+### Chi installa e chi possiede (deciso 13/09, rivisto il 14/09/2026)
+
+La scheda **Sedi** vive in `/admin/super`, dove il ristoratore non entra. Ne
+segue una regola secca su dove va ogni campo:
+
+> Nel modale della sede sta quello che **MOODD installa** — nome, slug, foto,
+> fuso, ordine, chiavi Stripe. In Réglages → Général e in Intégrations sta
+> quello che **il ristoratore possiede**.
+
+E su quest'ultimo, la regola e' ancora piu' semplice:
+
+> **Con una sede selezionata, Général e' tutto suo.** Ogni sede ha la sua
+> scheda, come se fosse un ristorante solo — perche' e' esattamente quello che
+> e'.
+
+⚠️ **Si era provata la strada opposta e non regge.** L'idea era: condiviso per
+difetto, con un'eccezione per campo (una catena cliccabile accanto a ogni
+etichetta). Cade su un fatto: un gruppo non e' per forza un marchio. Puo'
+avere tre nomi, tre loghi e tre identita' diverse, quindi **non esiste nessun
+elenco di «cose che di sicuro valgono per tutti»** che sia vero anche per il
+cliente dopo. E l'asimmetria degli errori decide da sola: dividere un campo
+che poteva restare condiviso costa riscrivere «Belgio» tre volte; NON dividere
+un campo che andava diviso cambia l'indirizzo di un punto e lo cambia a tutti,
+in silenzio. Fra una scocciatura e un guasto invisibile si sceglie sempre la
+scocciatura.
+
+**Come sta in piedi, in pratica.** `app_config` sono i valori
+dell'INSTALLAZIONE; `location_config` quelli della sede, stessa forma
+chiave/valore e le stesse chiavi (`company_street`, `public_phone`, …), cosi'
+Général non impara niente di nuovo.
+
+- **In lettura** i due strati si sovrappongono, e serve a una cosa sola: una
+  sede che non ha ancora salvato niente parte con i campi gia' pieni invece
+  che con un modulo vuoto.
+- **In scrittura** non si sovrappone niente: con una sede selezionata tutto
+  quello che si salva finisce in `location_config`. A sede unica — i quattro
+  clienti di oggi — si scrive `app_config`, come e' sempre stato.
+
+⚠️ E il rovescio della chiave/valore: una chiave scritta male non esplode,
+**ricade** sul valore dell'installazione. `company_steet` non da' errore,
+rende l'indirizzo di un altro. La difesa e' la whitelist `CHIAVI_GENERAL` che
+`settings.ts` ha gia': la scrittura per sede ci deve passare dentro.
+
+**A che livello sta ogni scheda** (deciso 14/09/2026). La scelta e' per SCHEDA,
+non per campo — di una scheda si sa cosa contiene, e non cambia da cliente a
+cliente:
+
+| Scheda | Livello | Perche' |
+|---|---|---|
+| Général | sede | indirizzo, societa', IVA, IBAN: di quel punto |
+| Horaires | sede | un posto fisico ha i suoi orari |
+| Réservations | sede | zone, tavoli, servizi: di quella sala |
+| Cuisine | sede | la cucina e' del punto |
+| Notifications | sede | i numeri del brief sono di quel punto |
+| Liens | **gruppo** | un solo sito pubblico → un solo Facebook |
+| Team | **gruppo** | una sola pagina squadra sul sito (tabella `team`, «mista») |
+| Documents | sede | contratti, fatture, documenti legali **di una societa'** |
+
+⚠️ Su Documents la tentazione e' metterlo al gruppo, ed e' sbagliato in modo
+pericoloso: quella scheda contiene `contrat / facture / recu / legal`, e 450
+Gradi sono tre societa' con tre partite IVA. Il generatore della lettera di
+disdetta che vive li' dentro firma con `company_name` e `company_vat` della
+configurazione attiva — condividendo i documenti si disdice il contratto di un
+punto con la partita IVA di un altro. Non da' errore: parte e basta.
+
+🔜 **Resta aperto**: il sito pubblico e' UNO e deve mostrare un logo, un nome e
+una favicon. Ora che Général e' per sede, quell'identita' non ha piu' nessuno
+che la scrive quando il multi e' acceso. Si decide al pezzo 6 — il candidato e'
+la sede principale (la prima per `sort_order`), che e' gia' il ripiego naturale
+di tutto il resto.
+
+### `app_metadata` si riscrive per intero (13/09/2026)
+
+`supabaseAdmin.auth.admin.updateUserById` **non fonde** `app_metadata`: quello
+che non rimandi sparisce. Il ruolo e la sede dell'utente vivono lì dentro tutti
+e due, quindi una PUT che manda solo `{ role }` cancella la sede senza dire
+niente — nessun errore, nessuna riga rossa, solo un responsabile che da domani
+vede tutte le sedi.
+
+Quindi: **prima si rilegge, poi si fonde a mano**, e lo si fa ogni volta che si
+tocca `app_metadata`, non solo nel ramo che cambia la sede.
+
+```ts
+if (sede !== undefined || patch.app_metadata) {
+  const { data: chi } = await supabaseAdmin.auth.admin.getUserById(id);
+  const attuale = (chi?.user?.app_metadata ?? {}) as Record<string, unknown>;
+  patch.app_metadata = {
+    ...attuale,
+    ...(patch.app_metadata ?? {}),
+    ...(sede !== undefined ? { location_id: sede } : {}),
+  };
+}
+```
+
+Stessa famiglia di guasti del filtro dimenticato: silenzioso, e si vede solo
+quando qualcuno legge dei dati che non gli appartengono.
+
+### `leggi()` non deve cancellare i tipi (14/09/2026)
+
+`applicaFiltro` lavora su un'interfaccia ridotta — `Query`, solo `eq` e `or` —
+apposta, per poterla provare nei test con un costruttore finto. Ma le funzioni
+di `sede.ts` **non devono rendere quella**: se lo fanno, il tipo vero della
+query si perde e `data` diventa `any` (o peggio `unknown`) in cinquantacinque
+file. Cioe' niente controlli proprio dove il filtro di sede puo' sbagliare.
+
+⚠️ E il tipo giusto **non** si ottiene cosi':
+
+```ts
+type Tabella = ReturnType<typeof supabaseAdmin.from>;   // ← NO
+```
+
+Quella scrittura risolve il generico al suo vincolo e rende un costruttore in
+cui `data` e' `unknown`. Provato: da 14 errori a 88. Si ricava invece da
+CHIAMATE CAMPIONE, funzioni mai eseguite che esistono solo perche' `typeof`
+possa guardarle:
+
+```ts
+const TABELLA_CAMPIONE = "nessuna";                     // variabile, non stringa:
+function _qLettura() {                                  // il test che scandisce src/
+  return supabaseAdmin.from(TABELLA_CAMPIONE).select("*"); // cerca .from("...")
+}
+type QLettura = ReturnType<typeof _qLettura>;
+```
+
+⚠️ Corollario: **non annotare a mano i parametri dei callback** (`.then((r: {…})`).
+Adesso che il tipo vero c'e', un'annotazione scritta a mano lo SOVRASCRIVE e
+rompe quello che segue. Si lascia dedurre.
+
+### Il test che si sarebbe svuotato da solo (14/09/2026)
+
+«Ogni tabella letta nel codice e' classificata» cercava `supabaseAdmin.from("x")`.
+Ma il passo 5 sostituisce proprio quella forma con `leggi(...)` — quindi **a ogni
+file convertito la rete perdeva una maglia**, e a conversione finita il test
+sarebbe passato controllando zero tabelle. Verde, e inutile.
+
+👉 La regola: quando si introduce un passaggio obbligato che SOSTITUISCE la forma
+che un test cerca, il test va esteso nello stesso momento. Un controllo che
+smette di controllare non fallisce — e' questo che lo rende pericoloso.
+
+### Menu: la definizione è del gruppo, lo stato è del punto (14/09/2026)
+
+450 Gradi: tre pizzerie, tre società, **un menu solo**. Ma due cose non sono
+uguali nei tre punti, e sono cose diverse fra loro:
+
+| | Cos'è | Dove vive | Default |
+|---|---|---|---|
+| «Stockel fa la pizza in teglia» | **definizione** — esiste o non esiste | `location_id` dentro l'oggetto formato, nel jsonb `menu_items.variants` | **solo questa sede** |
+| «Il piatto è solo di Stockel» | **definizione** | `menu_items.location_id` (tabella *mista*) | **tutte le sedi** |
+| «Oggi la burrata è finita» | **stato** — cambia dieci volte a settimana | `menu_sold_out (location_id, item_id, sold_out, variants_off[])` | riga assente = vale la carta del gruppo |
+
+Tre regole che ne discendono, e che è facile sbagliare:
+
+1. **Riga di `menu_sold_out` presente = comanda lei, anche quando dice `false`.**
+   Se fosse solo additiva («può esaurire, non può ripristinare»), un punto non
+   potrebbe mai rimettere in vendita ciò che il gruppo ha spento.
+
+2. **Lo stato del punto deve passare anche dal CHECKOUT**, non solo dalla
+   vetrina. Nascondere un piatto nel menu e poi accettarne il pagamento vuol
+   dire incassare per qualcosa che quella cucina non ha. Per questo
+   `applicaStatoSede` sta dentro `piattiPerOrdine`, non nei due chiamanti:
+   così nessuno dei due può dimenticarsene.
+
+3. **⚠️ Rimandare indietro la lista dei formati CANCELLA quelli che non si
+   vedono.** Da dentro Stockel si vedono i formati di Stockel e quelli di
+   tutti; salvando, il PUT rilegge i formati degli altri punti e li rimette
+   in coda. Senza quella fusione, ogni salvataggio da un punto avrebbe
+   cancellato in silenzio i formati degli altri due.
+
+Il default opposto fra piatto («tutte») e formato («solo qui») non è una
+svista: il menu del gruppo è lo stesso, quindi il piatto condiviso è la
+norma; un formato aggiunto stando dentro un punto è quasi sempre la cosa
+che quel punto fa e gli altri no. In entrambi i casi il verso dell'errore
+decide: dividere per sbaglio costa una riscrittura, non dividere cambia
+tre ristoranti insieme.
+
+### Sezioni del menu: filtrate in lettura, MAI in scrittura (14/09/2026)
+
+`menu_categories` è del **marchio**, e i piatti ci si agganciano **per nome**.
+Quindi in `api/admin/categories.ts` convivono due comportamenti opposti, e
+sono giusti tutti e due:
+
+- il **conteggio** nella GET è filtrato — altrimenti si legge «Pizze (24)»
+  sopra 22 righe;
+- il **rinomino** e il **riordino** propagano ai piatti **senza filtro** —
+  rinominare «Pizze» solo per il punto da cui si scrive lascerebbe i piatti
+  degli altri due agganciati a una sezione che non esiste più, e
+  sparirebbero dalla loro lista senza essere stati cancellati;
+- il controllo «sezione vuota» prima di eliminare è **globale**, e quando è
+  vuota *qui* ma piena altrove il messaggio lo dice, invece di mentire.
+
 ## FAB — il pulsante in basso a destra (unificato 13/09/2026)
 
 **Dove vive.** `src/styles/fab.css`, importato una volta da `AdminHead` →

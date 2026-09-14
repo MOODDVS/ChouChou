@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "./db";
+import { leggi, aggiorna, ambitoPubblico } from "./admin/sede";
 import { TIMEZONE } from "./slots";
 import { emailRappelResa, type ResaEmail } from "./notifications";
 
@@ -28,9 +28,9 @@ export async function eseguiRappelReservations(force = false): Promise<EsitoRapp
 
   // Candidate : confirmées, pas encore rappelées, sur aujourd'hui ou demain
   // (une résa dans les 3 h tombe forcément dans cette fenêtre de dates).
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select("id,date,heure,service_key,people,zone,first_name,last_name,phone,email,lang,cancel_token,status,created_at,reminder_sent_at")
+  // Cron: nessuna richiesta, nessuna sede scelta. Vedi `ambitoPubblico`.
+  const ambito = await ambitoPubblico();
+  const { data, error } = await leggi("reservations", ambito, "id,date,heure,service_key,people,zone,first_name,last_name,phone,email,lang,cancel_token,status,created_at,reminder_sent_at")
     .eq("status", "confirmed")
     .is("reminder_sent_at", null)
     .in("date", [aujourdHui, demain]);
@@ -61,10 +61,7 @@ export async function eseguiRappelReservations(force = false): Promise<EsitoRapp
     const ok = await emailRappelResa(dest);
     // Marque comme envoyé même si l'email échoue : évite de spammer à chaque
     // passage du cron. (Un échec Resend est loggé côté notifications.)
-    await supabaseAdmin
-      .from("reservations")
-      .update({ reminder_sent_at: now.toISO() })
-      .eq("id", r.id);
+    await aggiorna("reservations", ambito, { reminder_sent_at: now.toISO() }).eq("id", r.id);
     if (ok) sent++;
   }
 

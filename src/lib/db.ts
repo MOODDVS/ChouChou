@@ -1,6 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
-import { prezzoEffettivo, leggiVariantiDb, haVarianti, type DiscountType } from "./pricing";
+import { prezzoEffettivo, variantiDelPunto, haVarianti, type DiscountType } from "./pricing";
+// ⚠️ `leggi` e non `supabaseAdmin.from`: `menu_items` e' «mista», quindi il
+// filtro rende il piatto del gruppo E quello di questo punto.
+import { leggi, type Ambito } from "./admin/sede";
 import { i18nPulito } from "./i18nMenu";
+import { applicaStatoSede } from "./menuStato";
 
 // Ri-esportato per comodità: il server legge il menu da qui.
 // NB: le isole React devono importarlo da "./i18nMenu", non da db.ts
@@ -125,9 +129,10 @@ function leggiVarianti(
   applicabile: boolean,
   type: unknown,
   value: unknown,
-  soloOrdinabili: boolean
+  soloOrdinabili: boolean,
+  ambito: Ambito,
 ): Variante[] {
-  return leggiVariantiDb(raw)
+  return variantiDelPunto(raw, ambito)
     .filter((v) => !soloOrdinabili || v.orderable)
     .map((v) => {
       const eff = applicabile
@@ -144,16 +149,16 @@ function leggiVarianti(
     });
 }
 
-function raggruppa(data: any[], online: boolean): MenuCategoria[] {
+function raggruppa(data: any[], online: boolean, ambito: Ambito): MenuCategoria[] {
   const gruppi: MenuCategoria[] = [];
   const indiceCategoria = new Map<string, number>();
 
   for (const riga of data) {
     const applicabile = online || riga.discount_scope === "all";
-    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online);
+    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online, ambito);
     // Un piatto con formati, ma nessun formato ordinabile, sparisce dal
     // menu take-away (come un piatto con orderable = false).
-    if (online && haVarianti(riga.variants) && varianti.length === 0) continue;
+    if (online && haVarianti(riga.variants, ambito) && varianti.length === 0) continue;
     const base = applicabile
       ? prezzoEffettivo(riga.price_cents, riga.discount_type, riga.discount_value)
       : riga.price_cents;
@@ -333,11 +338,12 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
  *  così il sito continua a funzionare col prezzo unico. */
 type RisultatoPiatti = { data: any[] | null; error: { message?: string } | null };
 
-async function leggiPiatti(soloOrdinabili: boolean): Promise<RisultatoPiatti> {
+async function leggiPiatti(soloOrdinabili: boolean, ambito: Ambito): Promise<RisultatoPiatti> {
   // La lista di colonne è una variabile (serve per il ripiego), quindi
   // supabase-js non può inferire la forma della riga: si tipizza a mano.
   const query = async (campi: string): Promise<RisultatoPiatti> => {
-    let q = supabaseAdmin.from("menu_items").select(campi).eq("available", true);
+    // `menu_items` e' «mista»: il piatto del gruppo E quello di questo punto.
+    let q = leggi("menu_items", ambito, campi).eq("available", true);
     if (soloOrdinabili) q = q.eq("orderable", true);
     return (await q
       .order("category_order", { ascending: true })
@@ -346,31 +352,35 @@ async function leggiPiatti(soloOrdinabili: boolean): Promise<RisultatoPiatti> {
   return await conRipiegoColonne(MENU_SELECT, query);
 }
 
+// L'ESAURITO DI QUESTO PUNTO sta in `menuStato.ts`: lo usano anche il
+// checkout e l'admin, e una regola con tre copie e' una regola che diverge.
+// Vedi `applicaStatoSede` per il perche' non stia dentro `menu_items`.
+
 /**
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
  */
-export async function getMenu(): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(false);
+export async function getMenu(ambito: Ambito): Promise<MenuCategoria[]> {
+  const { data, error } = await leggiPiatti(false, ambito);
   if (error || !data) {
     throw new Error("Impossibile leggere il menu da Supabase");
   }
   const nascosti = await piattiNascostiDaLunch();
   const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(visibili, false), await mappaCategorie());
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), false, ambito), await mappaCategorie());
 }
 
 /**
  * Menu TAKE-AWAY: solo piatti ordinabili (available = true AND orderable = true).
  * Usata in /order.
  */
-export async function getMenuOrderable(): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(true);
+export async function getMenuOrderable(ambito: Ambito): Promise<MenuCategoria[]> {
+  const { data, error } = await leggiPiatti(true, ambito);
   if (error || !data) {
     throw new Error("Impossibile leggere il menu ordinabile da Supabase");
   }
   const nascosti = await piattiNascostiDaLunch();
   const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(visibili, true), await mappaCategorie());
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), await mappaCategorie());
 }
 

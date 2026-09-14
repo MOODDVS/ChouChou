@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
 import { getMenuOrderable } from "../../lib/db";
+// Multi-sede: quale punto sta guardando il sito (segnaposto, pezzo 8).
+import { ambitoPubblico } from "../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -9,7 +11,7 @@ export const prerender = false;
 // sensibile: il menu e' gia' pubblico sulla pagina /order.
 export const GET: APIRoute = async () => {
   try {
-    const menu = await getMenuOrderable();
+    const menu = await getMenuOrderable(await ambitoPubblico());
     return new Response(JSON.stringify({ menu }), {
       headers: {
         "content-type": "application/json; charset=utf-8",

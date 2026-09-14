@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi } from "../../../../lib/admin/sede";
+import type { Ambito } from "../../../../lib/admin/sedeRegole";
 import { supabaseAdmin } from "../../../../lib/db";
 import { accessToken, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
 import type { FMMenu, FMLabel } from "../../../../lib/googleBusiness";
@@ -23,7 +25,10 @@ async function preludio(request: Request) {
   if (!token) return { err: json({ error: "Google non collegato" }, 400) };
   const loc = await locationSalvata();
   if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
-  return { token, path: loc.path };
+  // ⚠️ La SCHEDA Google e' ancora una sola per installazione: tre pizzerie,
+  // tre schede, e' il pezzo 6. Il MENU invece e' gia' quello del punto — su
+  // una scheda sbagliata si spingerebbero i piatti della societa' accanto.
+  return { token, path: loc.path, ambito: await ambitoDiRichiesta(request, staff) };
 }
 
 type RigaMenu = {
@@ -46,11 +51,11 @@ async function linguaDefault(): Promise<string> {
   }
 }
 
-async function leggiMenuRH(): Promise<RigaMenu[]> {
+async function leggiMenuRH(ambito: Ambito): Promise<RigaMenu[]> {
   const cols = "category, category_order, sort_order, name, name_i18n, description_fr, desc_i18n, price_cents, available";
   const base = "category, category_order, sort_order, name, description_fr, price_cents, available";
   const q = (sel: string) =>
-    supabaseAdmin.from("menu_items").select(sel)
+    leggi("menu_items", ambito, sel)
       .order("category_order", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
@@ -108,7 +113,7 @@ export const GET: APIRoute = async ({ request }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const lang = await linguaDefault();
-  const sezioni = raggruppa(await leggiMenuRH(), lang);
+  const sezioni = raggruppa(await leggiMenuRH(p.ambito!), lang);
   const tot = sezioni.reduce((n, s) => n + s.items.length, 0);
   const stato = await leggiFoodMenuStato(p.token!, p.path!);
   return json({
@@ -124,7 +129,7 @@ export const POST: APIRoute = async ({ request }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const lang = await linguaDefault();
-  const sezioni = raggruppa(await leggiMenuRH(), lang);
+  const sezioni = raggruppa(await leggiMenuRH(p.ambito!), lang);
   if (!sezioni.length) return json({ error: "Nessun piatto con prezzo da sincronizzare" }, 400);
   const menus = costruisciPayload(sezioni, lang);
   const { ok, error } = await spingiFoodMenu(p.token!, p.path!, menus);

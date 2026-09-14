@@ -1,6 +1,7 @@
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../db";
 import { configGiornoEffettiva } from "../schedule";
+import type { Ambito } from "./sede";
 import { TIMEZONE, aggiornaTimezone } from "../slots";
 
 // Dati "oggi" per l'admin (endpoint /api/admin/today + SSR caricaHomeData):
@@ -24,10 +25,10 @@ function bande(cfg: NonNullable<CfgGiorno>): { open: string; close: string }[] {
   return b;
 }
 
-export async function caricaToday() {
+export async function caricaToday(ambito: Ambito) {
   await aggiornaTimezone();
   const ora = DateTime.now().setZone(TIMEZONE);
-  const config = await configGiornoEffettiva(ora);
+  const config = await configGiornoEffettiva(ora, ambito);
   const hm = ora.toFormat("HH:mm");
 
   let closesAt: string | null = null;
@@ -37,7 +38,7 @@ export async function caricaToday() {
 
   let reopen: { in_days: number; heure: string } | null = null;
   for (let d = 0; d <= 21 && !reopen; d++) {
-    const cfg = d === 0 ? config : await configGiornoEffettiva(ora.plus({ days: d }));
+    const cfg = d === 0 ? config : await configGiornoEffettiva(ora.plus({ days: d }), ambito);
     for (const b of cfg ? bande(cfg) : []) {
       if (d === 0 && b.open <= hm) continue;
       reopen = { in_days: d, heure: b.open };

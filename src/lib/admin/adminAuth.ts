@@ -73,6 +73,10 @@ export interface StaffUser {
   role?: string;
   /** Vecchio flag booleano, tenuto per retrocompatibilità. */
   is_super?: boolean;
+  /** Multi-sede: la sede a cui questo utente è legato (app_metadata,
+   *  scrivibile solo con la service key). NULL = le vede tutte.
+   *  Viaggia FIRMATA dentro il JWT: il browser non può cambiarla. */
+  location_id?: string | null;
 }
 
 // ============================================================
@@ -177,6 +181,8 @@ async function verificaLocale(token: string, opts: { ignoraScadenza?: boolean } 
     email: typeof payload.email === "string" ? payload.email : null,
     role: typeof payload.app_metadata?.role === "string" ? payload.app_metadata.role : undefined,
     is_super: payload.app_metadata?.is_super === true,
+    location_id:
+      typeof payload.app_metadata?.location_id === "string" ? payload.app_metadata.location_id : null,
   };
 }
 
@@ -214,6 +220,8 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
       email: data.user.email ?? null,
       role: (data.user.app_metadata as { role?: string } | undefined)?.role,
       is_super: (data.user.app_metadata as { is_super?: boolean } | undefined)?.is_super === true,
+      location_id:
+        (data.user.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
     };
   }
 

@@ -68,6 +68,7 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   admin_docs_meta: "sede",      // tre societa', tre set di contratti
   gift_card_redemptions: "sede", // la carta e' del marchio, l'uso registra DOVE
   print_orders: "sede",         // ha un indirizzo di consegna e una fattura
+  menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
   location_secrets: "sede",
@@ -91,6 +92,11 @@ export type Ambito =
   | { modo: "sede"; id: string }
   | { modo: "tutte" };
 
+/** Il valore che il selettore dell'header manda per chiedere l'aggregato.
+ *  Una parola, non un id: cosi' non si confonde mai con una sede vera, e un
+ *  cookie vuoto o corrotto non diventa per sbaglio «tutte». */
+export const CHIESTA_TUTTE = "tutte";
+
 /** Installazione a sede unica: lo stato di tutti i clienti al 13/09/2026. */
 export const SEDE_UNICA: Ambito = { modo: "unica" };
 
@@ -104,6 +110,9 @@ export function tutteLeSedi(): Ambito {
  *  PostgREST (`.or(...)`), che e' testo — un id non validato sarebbe
  *  un'iniezione nel filtro. */
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Sede che non esiste: filtra tutto via senza lanciare. Si usa quando
+ *  l'utente e' legato a una sede sparita — meglio il vuoto che i dati altrui. */
+export const NESSUNA_SEDE = "00000000-0000-0000-0000-000000000000";
 export function sede(id: string): Ambito {
   if (!RE_UUID.test(id)) throw new Error(`Id di sede non valido: ${JSON.stringify(id)}`);
   return { modo: "sede", id };
@@ -168,6 +177,52 @@ export function sedeDaScrivere(
   if (ambito.modo === "unica") return null; // sede unica: NULL e' la verita'
   if (appartenenza === "mista" && condivisa) return null;
   return ambito.id;
+}
+
+/**
+ * QUALE SEDE, per questa richiesta. Funzione pura: prende quello che si sa e
+ * rende l'ambito. Tutta la parte che legge il database sta in `sede.ts`.
+ *
+ * ⚠️ `sedeChiesta` arriva dal CLIENT (il selettore nell'header). Non e' un
+ * ordine, e' una richiesta: vale solo per chi ha diritto di vedere piu' sedi,
+ * e solo se e' una sede che esiste davvero. Un utente legato a una sede resta
+ * sulla sua qualunque cosa mandi — e' proprio il tentativo da cui ci si
+ * difende, e non deve nemmeno dare errore: semplicemente non ha effetto.
+ *
+ * Chi vede tutte le sedi e non ne ha scelta una ottiene **la prima**, non
+ * l'aggregato: «tutte» si chiede con `tutteLeSedi()` e si vede nel codice.
+ */
+export function scegliSede(opz: {
+  /** Interruttore `multi_location`. Spento = nessun filtro, come oggi. */
+  multiAttivo: boolean;
+  /** Id delle sedi ATTIVE, in ordine. Vuoto = niente da separare. */
+  sedi: string[];
+  /** `app_metadata.location_id` dell'utente. Null = le vede tutte. */
+  sedeUtente?: string | null;
+  /** Sede selezionata nell'header (cookie o header HTTP). */
+  sedeChiesta?: string | null;
+}): Ambito {
+  if (!opz.multiAttivo) return SEDE_UNICA;
+  if (opz.sedi.length === 0) return SEDE_UNICA;
+
+  const sua = opz.sedeUtente ?? null;
+  if (sua) {
+    // Legato a una sede: la sua, sempre. Se quella sede non esiste piu' (o e'
+    // stata disattivata, o l'id e' malformato) NON si ripiega su un'altra:
+    // si filtra su una sede che non esiste, quindi non si vede niente. Un
+    // responsabile rimasto senza sede deve vedere il vuoto, mai i dati di
+    // un altro punto.
+    if (!RE_UUID.test(sua)) return sede(NESSUNA_SEDE);
+    return opz.sedi.includes(sua) ? sede(sua) : sede(NESSUNA_SEDE);
+  }
+
+  const chiesta = opz.sedeChiesta ?? null;
+  // L'aggregato si CHIEDE. Arriva fin qui solo come parola intera, non come
+  // parametro mancante: una sede dimenticata da' `opz.sedi[0]`, non «tutte».
+  // E vale soltanto per chi non e' legato a un punto — chi lo e' non arriva
+  // nemmeno qui, si e' fermato al ramo sopra.
+  if (chiesta === CHIESTA_TUTTE) return tutteLeSedi();
+  return sede(chiesta && opz.sedi.includes(chiesta) ? chiesta : opz.sedi[0]);
 }
 
 /** Costruttore di query, ridotto a quello che serve qui. Tenerlo minimo

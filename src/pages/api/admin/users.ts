@@ -13,6 +13,23 @@ export const prerender = false;
 
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RUOLI = ["super", "admin", "user"];
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Sede da legare all'utente (multi-sede). "" o assente = nessuna sede, cioè
+ * le vede TUTTE — è il caso del proprietario e di ogni cliente a sede unica.
+ * Rende `undefined` se il campo non è stato mandato affatto (PATCH parziale),
+ * `null` per «nessuna», l'id se valido. Lancia se l'id non esiste.
+ */
+async function sedeDaBody(v: unknown): Promise<string | null | undefined> {
+  if (v === undefined) return undefined;
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  if (!RE_UUID.test(s)) throw new Error("Établissement inconnu.");
+  const { data } = await supabaseAdmin.from("locations").select("id").eq("id", s).maybeSingle();
+  if (!data) throw new Error("Établissement inconnu.");
+  return s;
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -49,6 +66,7 @@ export const GET: APIRoute = async ({ request }) => {
     last_sign_in_at: u.last_sign_in_at ?? null,
     is_moodd: isSuper(u.email),
     role: ruoloDi({ email: u.email, app_metadata: u.app_metadata as Record<string, unknown> }),
+    location_id: (u.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
     };
   });
   users.sort((a, b) => a.email.localeCompare(b.email));
@@ -59,7 +77,7 @@ export const POST: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string };
+  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string; location_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -71,6 +89,9 @@ export const POST: APIRoute = async ({ request }) => {
   const last_name = String(body.last_name ?? "").trim().slice(0, 60);
   if (!RE_EMAIL.test(email)) return json({ error: "Email invalide." }, 400);
   const role = RUOLI.includes(String(body.role)) ? String(body.role) : "admin";
+  let sede: string | null | undefined;
+  try { sede = await sedeDaBody(body.location_id); } catch (e) { return json({ error: (e as Error).message }, 400); }
+  const appMeta: Record<string, unknown> = { role, location_id: sede ?? null };
   const meta = { first_name, last_name, full_name: `${first_name} ${last_name}`.trim() };
 
   // Password fornita → creazione diretta (accesso immediato).
@@ -82,7 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
       password,
       email_confirm: true, // niente email di verifica: l'accesso è immediato
       user_metadata: meta,
-      app_metadata: { role }, // ruolo scrivibile SOLO con la service key
+      app_metadata: appMeta, // ruolo e sede scrivibili SOLO con la service key
     });
     if (error) {
       const msg = String(error.message ?? "");
@@ -105,7 +126,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   // Il ruolo va in app_metadata dopo l'invito (non impostabile via inviteUserByEmail).
   if (data.user?.id) {
-    await supabaseAdmin.auth.admin.updateUserById(data.user.id, { app_metadata: { role } });
+    await supabaseAdmin.auth.admin.updateUserById(data.user.id, { app_metadata: appMeta });
   }
   return json({ ok: true, id: data.user?.id, mode: "invited" }, 201);
 };
@@ -114,7 +135,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string };
+  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string; location_id?: string };
   try {
     body = await request.json();
   } catch {
@@ -141,6 +162,23 @@ export const PUT: APIRoute = async ({ request }) => {
       return json({ error: "Impossible de retirer son propre rôle." }, 409);
     }
     patch.app_metadata = { role: ruolo };
+  }
+  // ⚠️ `app_metadata` si riscrive per intero: quello che non si rimanda sparisce.
+  // Si rilegge SEMPRE quello che c'è e si fonde a mano — anche quando cambia solo
+  // il ruolo, o la sede verrebbe cancellata di nascosto (e viceversa).
+  try {
+    const sede = await sedeDaBody(body.location_id);
+    if (sede !== undefined || patch.app_metadata) {
+      const { data: chi } = await supabaseAdmin.auth.admin.getUserById(body.id);
+      const attuale = (chi?.user?.app_metadata ?? {}) as Record<string, unknown>;
+      patch.app_metadata = {
+        ...attuale,
+        ...(patch.app_metadata ?? {}),
+        ...(sede !== undefined ? { location_id: sede } : {}),
+      } as Record<string, string>;
+    }
+  } catch (e) {
+    return json({ error: (e as Error).message }, 400);
   }
   if (body.email !== undefined) {
     const em = String(body.email).trim().toLowerCase();

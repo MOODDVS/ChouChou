@@ -2,6 +2,7 @@ import { DateTime } from "luxon";
 import { supabaseAdmin } from "../db";
 import { caricaResaGiorno } from "./caricaResaGiorno";
 import { caricaToday } from "./caricaToday";
+import { leggi, type Ambito } from "./sede";
 import { TIMEZONE } from "../slots";
 
 // Pre-carica lato server (SSR, Fase 2) le 5 isole principali della Accueil,
@@ -21,44 +22,40 @@ const MENU_SELECT =
 // dati. Quindi si prova con, e si ripiega senza.
 const MENU_SELECT_HOME = MENU_SELECT + ", sold_out";
 
-function menuOrdinato(sel: string) {
-  return supabaseAdmin
-    .from("menu_items")
-    .select(sel)
+function menuOrdinato(sel: string, ambito: Ambito) {
+  return leggi("menu_items", ambito, sel)
     .order("category_order", { ascending: true })
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 }
 
-async function caricaMenuHome(): Promise<{ data: unknown[] | null }> {
-  const res = await menuOrdinato(MENU_SELECT_HOME);
+async function caricaMenuHome(ambito: Ambito): Promise<{ data: unknown[] | null }> {
+  const res = await menuOrdinato(MENU_SELECT_HOME, ambito);
   if (!res.error) return { data: res.data as unknown[] | null };
-  return { data: (await menuOrdinato(MENU_SELECT)).data as unknown[] | null };
+  return { data: (await menuOrdinato(MENU_SELECT, ambito)).data as unknown[] | null };
 }
 const ORDERS_SELECT =
   "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at";
 
-export async function caricaHomeData() {
+export async function caricaHomeData(ambito: Ambito) {
   const oggi = DateTime.now().setZone(TIMEZONE);
   const oggiKey = oggi.toISODate() ?? "";
   const soglia = oggi.minus({ days: 7 }).startOf("day").toISO();
 
   const [ordersRes, resa, todayCfg, menuRes, catsRes, itemsCount] = await Promise.all([
-    supabaseAdmin
-      .from("orders")
-      .select(ORDERS_SELECT)
+    leggi("orders", ambito, ORDERS_SELECT)
       .in("status", ["paid", "done", "cancelled"])
       .gte("pickup_time", soglia)
       .order("pickup_time", { ascending: true }),
-    caricaResaGiorno(oggiKey),
-    caricaToday(),
-    caricaMenuHome(),
+    caricaResaGiorno(oggiKey, ambito),
+    caricaToday(ambito),
+    caricaMenuHome(ambito),
     supabaseAdmin
       .from("menu_categories")
       .select("id, name, sort_order, kind")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
-    supabaseAdmin.from("menu_items").select("category"),
+    leggi("menu_items", ambito, "category"),
   ]);
 
   // Categorie con conteggio piatti (come /api/admin/categories)

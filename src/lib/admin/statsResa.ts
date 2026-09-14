@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../db";
+import { leggi, type Ambito } from "./sede";
 
 // ============================================================
 // Statistiche PRENOTAZIONI aggregate del ristorante (tab "Prenotazioni"
@@ -64,16 +64,14 @@ function nTavoli(tables: unknown): number {
   return 1; // ogni prenotazione occupa almeno un tavolo
 }
 
-export async function calcolaStatsResa(giorni: number): Promise<ResaStats> {
+export async function calcolaStatsResa(giorni: number, ambito: Ambito): Promise<ResaStats> {
   const oggi = new Date();
   const to = oggi.toISOString().slice(0, 10);
   const fromD = new Date(oggi);
   fromD.setDate(fromD.getDate() - (giorni - 1));
   const from = fromD.toISOString().slice(0, 10);
 
-  const { data } = await supabaseAdmin
-    .from("reservations")
-    .select("date, heure, service_key, people, status, source, created_at, seated_at, table_minutes, spent_cents, tables, birthday, special_event")
+  const { data } = await leggi("reservations", ambito, "date, heure, service_key, people, status, source, created_at, seated_at, table_minutes, spent_cents, tables, birthday, special_event")
     .gte("date", from)
     .lte("date", to);
 

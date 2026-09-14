@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../db";
+import { leggi, tutteLeSedi, type Ambito } from "./sede";
 
 // Pre-carica lato server (SSR, Fase 2) la lista clienti della pagina
 // /admin/clients: UNIONE degli ordini reali (paid/done, aggregati per email)
@@ -60,13 +61,11 @@ function chiave(email: string, phone: string, name: string): string {
   return email.toLowerCase() || phone || name.toLowerCase();
 }
 
-async function ordiniIncassati(): Promise<RigaOrdine[] | null> {
+async function ordiniIncassati(ambito: Ambito): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, created_at")
+    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at")
       .in("status", ["paid", "done"])
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
@@ -77,13 +76,11 @@ async function ordiniIncassati(): Promise<RigaOrdine[] | null> {
   return tutti;
 }
 
-async function prenotazioniAttive(): Promise<RigaResa[]> {
+async function prenotazioniAttive(ambito: Ambito): Promise<RigaResa[]> {
   const PAGINA = 1000;
   const tutti: RigaResa[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at")
+    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, status, created_at")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
@@ -129,10 +126,16 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
 }
 
 export async function caricaClienti(): Promise<{ count: number; clients: Cliente[] } | { error: string }> {
+  // ⚠️ AGGREGATO, chiesto per nome. Il cliente e' del MARCHIO — `clients` e'
+  // classificata cosi' — e le sedi «si vedono fra loro»: la sua storia di
+  // spesa e di visite deve essere INTERA, non quella che ha lasciato a un
+  // punto solo. Filtrando per sede, Stockel vedrebbe un cliente da 40 € che
+  // in realta' ne ha spesi 300 nel gruppo, e lo tratterebbe di conseguenza.
+  const ambito = tutteLeSedi();
   const [ordini, manuali, rese] = await Promise.all([
-    ordiniIncassati(),
+    ordiniIncassati(ambito),
     clientiManuali(),
-    prenotazioniAttive(),
+    prenotazioniAttive(ambito),
   ]);
   if (ordini === null || manuali === null) return { error: "Lecture impossible" };
 

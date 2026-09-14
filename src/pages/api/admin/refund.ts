@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
 import { stripe } from "../../../lib/stripe";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
@@ -18,6 +18,7 @@ function json(body: unknown, status = 200): Response {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: { id?: string; amount_cents?: number; difference?: boolean };
   try {
@@ -38,9 +39,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Montant invalide" }, 400);
   }
 
-  const { data: ord, error } = await supabaseAdmin
-    .from("orders")
-    .select("id, total_cents, refunded_cents, stripe_session_id, status")
+  const { data: ord, error } = await leggi("orders", ambito, "id, total_cents, refunded_cents, stripe_session_id, status")
     .eq("id", id)
     .maybeSingle();
   if (error || !ord) return json({ error: "Commande introuvable" }, 404);
@@ -56,9 +55,7 @@ export const POST: APIRoute = async ({ request }) => {
   const isDiff = body.difference === true;
   let refundDue = 0;
   if (isDiff) {
-    const { data: d50, error: e50 } = await supabaseAdmin
-      .from("orders")
-      .select("refund_due_cents")
+    const { data: d50, error: e50 } = await leggi("orders", ambito, "refund_due_cents")
       .eq("id", id)
       .maybeSingle();
     if (e50) return json({ error: "Migration orders_modifica_diff.sql (#50) à lancer sur Supabase" }, 500);
@@ -101,7 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Differenza saldata: sgonfio (o azzero) refund_due_cents cosi' il bottone
   // "Rembourser la difference" sparisce dalla card.
   if (isDiff) upd.refund_due_cents = Math.max(0, refundDue - daRimborsare);
-  await supabaseAdmin.from("orders").update(upd).eq("id", id);
+  await aggiorna("orders", ambito, upd).eq("id", id);
 
   return json({ ok: true, refunded_cents: nuovoTotale, amount: daRimborsare, refund_id: refund.id });
 };

@@ -262,3 +262,151 @@ grant select, insert, update, delete on public.location_secrets to service_role;
 --    scritto dal super admin: non lo crea questa migrazione. Assente o
 --    'off' = installazione a sede unica, che e' lo stato di tutti oggi.
 -- ------------------------------------------------------------
+
+-- ------------------------------------------------------------
+-- 8. SNELLIMENTO di `locations` (deciso 13/09/2026)
+--
+--    La scheda Sedi vive in /admin/super, dove il ristoratore NON entra.
+--    Indirizzo, telefono, email, ragione sociale e IVA sono suoi: li
+--    cambia lui, quindi devono stare in Réglages → Général, non qui.
+--    Stessa cosa per la scheda Google, che si sceglie in Intégrations.
+--
+--    Di conseguenza quelle colonne non hanno piu' nessuno che le scrive:
+--    se restassero sarebbero il doppione che stiamo togliendo, solo
+--    spostato nel database. Vanno in `location_config` con le STESSE
+--    chiavi che Général usa gia' (`company_street`, `public_phone`, …),
+--    cosi' la pagina non impara niente di nuovo: legge `app_config` e ci
+--    sovrappone la riga della sede. Riga assente = vale il marchio.
+--
+--    `locations` resta l'IDENTITA' della sede: nome, slug, foto, fuso,
+--    ordine, attiva. Il fuso resta una colonna di proposito — non e' un
+--    dato di mestiere, decide come si calcola ogni data, e se ripiegasse
+--    in silenzio su un valore sbagliato sbaglierebbero slot e chiusure.
+--
+--    Prima TRAVASA quello che e' gia' stato scritto, poi lascia cadere le
+--    colonne. Idempotente: la seconda volta le colonne non ci sono piu' e
+--    il blocco non fa niente.
+-- ------------------------------------------------------------
+do $$
+declare
+  coppie constant text[][] := array[
+    ['address',      'company_street'],
+    ['postcode',     'company_zip'],
+    ['city',         'company_city'],
+    ['phone',        'public_phone'],
+    ['email',        'public_email'],
+    ['company_name', 'company_name'],
+    ['company_vat',  'company_vat'],
+    ['google_location', 'google_location']
+  ];
+  colonna text;
+  chiave  text;
+  i       int;
+begin
+  if to_regclass('public.locations') is null or to_regclass('public.location_config') is null then
+    raise notice 'salto lo snellimento: locations/location_config assenti';
+    return;
+  end if;
+  for i in 1 .. array_length(coppie, 1) loop
+    colonna := coppie[i][1];
+    chiave  := coppie[i][2];
+    if exists (
+      select 1 from information_schema.columns
+       where table_schema = 'public' and table_name = 'locations' and column_name = colonna
+    ) then
+      -- Solo i valori davvero scritti: una stringa vuota non e' una
+      -- sovrascrittura, e' l'assenza di sovrascrittura.
+      execute format(
+        'insert into public.location_config (location_id, key, value)
+           select id, %L, %I from public.locations
+            where %I is not null and btrim(%I) <> %L
+         on conflict (location_id, key) do nothing',
+        chiave, colonna, colonna, colonna, ''
+      );
+      execute format('alter table public.locations drop column %I', colonna);
+    end if;
+  end loop;
+end $$;
+
+-- ------------------------------------------------------------
+-- 9. Il FUSO in un posto solo (deciso 14/09/2026)
+--
+--    La sezione 8 aveva lasciato `timezone` come colonna di `locations`,
+--    col ragionamento che e' strutturale e non un dato di mestiere.
+--    Il ragionamento cade nel momento in cui Réglages → Général diventa
+--    per sede: da li' il fuso si scrive in `location_config.timezone`, e
+--    la colonna diventa una SECONDA sorgente per lo stesso fatto. Due
+--    sorgenti che dicono ore diverse non danno errore — danno slot
+--    sbagliati, e nessuno sa quale delle due ha vinto.
+--
+--    Quindi: travaso e via. Chi non ha ancora scritto niente ricade sul
+--    fuso dell'installazione (`app_config.timezone`), che e' il valore
+--    giusto per un gruppo tutto nello stesso paese.
+--
+--    Idempotente: la seconda volta la colonna non c'e' piu'.
+-- ------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.locations') is null or to_regclass('public.location_config') is null then
+    raise notice 'salto il fuso: locations/location_config assenti';
+    return;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'locations' and column_name = 'timezone'
+  ) then
+    -- Solo i fusi DIVERSI da quello dell'installazione: copiare anche gli
+    -- uguali riempirebbe `location_config` di righe che non dicono niente
+    -- e che poi nessuno sa se sono una scelta o un residuo.
+    insert into public.location_config (location_id, key, value)
+      select l.id, 'timezone', l.timezone
+        from public.locations l
+       where coalesce(btrim(l.timezone), '') <> ''
+         and l.timezone is distinct from (
+               select c.value from public.app_config c where c.key = 'timezone'
+             )
+      on conflict (location_id, key) do nothing;
+    alter table public.locations drop column timezone;
+  end if;
+end $$;
+
+-- ------------------------------------------------------------
+-- 10. MENU — cosa e' del gruppo e cosa del punto (deciso 14/09/2026)
+--
+--     La carta e' UNA per tutte le sedi. Tre cose pero' sono del punto:
+--
+--     a) IL PIATTO INTERO puo' essere di una sede sola — il dolce che fa
+--        solo Schaerbeek. Non serve niente di nuovo: `menu_items` ha gia'
+--        `location_id` (sezione 2) ed e' classificata «mista», quindi
+--        NULL = di tutti, id = di quel punto. Serve solo l'interruttore
+--        nel modale del piatto.
+--
+--     b) IL FORMATO (la «variante») puo' essere di una sede sola — la
+--        pizza in teglia che fa solo Stockel. I formati NON sono righe:
+--        sono un array JSON dentro `menu_items.variants`. Quindi la sede
+--        se la porta dentro il formato stesso, con la stessa regola:
+--        `{"key":"teglia", …, "location_id":"<uuid>"}`; campo assente =
+--        vale per tutti. Nessuna tabella nuova, nessuna colonna nuova.
+--        Il filtro vive in `variantiDelPunto()` (src/lib/pricing.ts), che
+--        e' gia' il punto di verita' condiviso fra sito, checkout e admin.
+--
+--     c) L'ESAURITO e' un'altra cosa, ed e' per questo che ha una tabella
+--        sua. Non e' una DEFINIZIONE ma uno STATO: cambia dieci volte a
+--        settimana, lo tocca chi sta in cucina, e non deve entrare nella
+--        carta. Se stesse dentro `menu_items`, ogni «finita la burrata»
+--        sarebbe una modifica al menu del GRUPPO.
+--
+--        Riga assente = disponibile. `variants_off` tiene i formati finiti
+--        (la burrata e' finita solo nel formato grande).
+-- ------------------------------------------------------------
+create table if not exists public.menu_sold_out (
+  location_id  uuid not null references public.locations(id) on delete cascade,
+  item_id      uuid not null references public.menu_items(id) on delete cascade,
+  sold_out     boolean not null default true,
+  variants_off text[]  not null default '{}',
+  updated_at   timestamptz not null default now(),
+  primary key (location_id, item_id)
+);
+
+alter table public.menu_sold_out enable row level security;
+grant select, insert, update, delete on public.menu_sold_out to service_role;

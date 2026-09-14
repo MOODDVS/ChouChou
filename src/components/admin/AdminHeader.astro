@@ -6,6 +6,8 @@ import { CLIENT } from "../../config/client";
 import { aggiornaTimezone } from "../../lib/slots";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { sediVisibili, ambitoDiRichiesta } from "../../lib/admin/sede";
 const TZ_RISTO = await aggiornaTimezone();
 // Stessa lettura in cache di AdminHead: lingua + favicon del brand, 0 query in piu'.
 const boot = await caricaBootAdmin();
@@ -14,13 +16,75 @@ const t = adminT(lang);
 const dateLocale = ADMIN_LOCALE[lang];
 // Logo dell'header deciso dal SERVER: niente lampo del logo di default.
 const logoSrc = boot.logo || CLIENT.logoAdmin;
+
+// ---- Multi-sede: dove sto lavorando ----
+// L'utente si legge dal cookie di sessione (`mdd_at`), lo stesso che il
+// middleware usa per sbarrare le pagine admin: qui serve per sapere se e' un
+// utente legato a UNA sede — in quel caso non c'e' niente da scegliere.
+// `sediVisibili` rende [] quando il multi-sede e' spento: i quattro clienti
+// attuali non vedono alcun selettore, e il markup non esiste proprio.
+const staffSede = await verificaTokenLocale(Astro.cookies.get("mdd_at")?.value ?? "");
+const sediHdr = await sediVisibili(staffSede);
+const ambitoHdr = await ambitoDiRichiesta(Astro.request, staffSede);
+const sedeAttiva =
+  ambitoHdr.modo === "sede" ? (sediHdr.find((s) => s.id === ambitoHdr.id) ?? null) : null;
+// ⚠️ Qui NON c'e' «tutte le sedi», ed e' una scelta (13/09/2026). Questo
+// comando risponde a «dove sto lavorando», e l'aggregato non e' un posto dove
+// si lavora: e' un modo di guardare. Mettercelo creava uno stato in cui meta'
+// dell'applicazione non puo' fare niente — in «tutte» non si crea un ordine,
+// una prenotazione o una chiusura, perche' nessuno sa dove metterli.
+// L'aggregato vive dove ha senso: come FILTRO negli elenchi e nelle
+// statistiche, che lo chiedono per la singola richiesta con l'header
+// `x-sede: tutte`, senza toccare il contesto globale.
+const inizialiSede = (n: string) =>
+  n.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
 ---
 
 <header class="ah-header" data-tz={TZ_RISTO} data-locale={dateLocale}>
   <div class="ah-left">
-    <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
-      <img id="ah-logo" src={logoSrc} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
-    </a>
+    {/* Multi-sede: il riquadro della sede PRENDE IL POSTO del logo — una cosa
+        sola in alto a sinistra, non due. Il ritorno alla home resta nella nav.
+        Senza multi-sede (i quattro clienti attuali) il logo e' quello di prima. */}
+    {sediHdr.length === 0 && (
+      <a href="/admin" class="ah-brand" aria-label={CLIENT.nome + " — Accueil"}>
+        <img id="ah-logo" src={logoSrc} data-default={CLIENT.logoAdmin} alt={CLIENT.nome} />
+      </a>
+    )}
+    {sediHdr.length > 0 && (
+      <div class="ah-sede" id="ah-sede">
+        <button
+          type="button"
+          id="ah-sede-btn"
+          class={"ah-sede-btn" + (sediHdr.length < 2 ? " ah-sede-fisso" : "")}
+          aria-haspopup={sediHdr.length > 1 ? "true" : undefined}
+          aria-expanded="false"
+          disabled={sediHdr.length < 2}
+          title={sediHdr.length > 1 ? t("hdr.sedePick") : t("hdr.sede")}
+        >
+          <span class="sede-avatar">
+            {sedeAttiva?.image_url
+              ? <img src={sedeAttiva.image_url} alt="" />
+              : inizialiSede(sedeAttiva?.name ?? "")}
+          </span>
+          <span class="ah-sede-nome">{sedeAttiva?.name ?? t("hdr.sede")}</span>
+          {sediHdr.length > 1 && (
+            <svg class="ah-sede-chev" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+          )}
+        </button>
+        {sediHdr.length > 1 && (
+          <div class="ah-sede-menu" id="ah-sede-menu" hidden>
+            {sediHdr.map((s) => (
+              <button type="button" class={"ah-sede-voce" + (s.id === sedeAttiva?.id ? " is-on" : "")} data-sede={s.id}>
+                <span class="sede-avatar sede-avatar-sm">
+                  {s.image_url ? <img src={s.image_url} alt="" /> : inizialiSede(s.name)}
+                </span>
+                <span>{s.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
     <div class="ah-date">
       <svg class="ah-date-ico" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -134,6 +198,49 @@ const logoSrc = boot.logo || CLIENT.logoAdmin;
 </style>
 
 <script>
+  // ---- Selettore della sede ----
+  // La scelta viaggia in un cookie, e poi si ricarica: il filtro si applica
+  // lato server, non ridisegnando la pagina a mano.
+  //
+  // ⚠️ `Path=/` e NON `Path=/admin` come `mdd_at`. Le pagine stanno sotto
+  // /admin ma le API stanno sotto /api/admin, e un cookie con Path=/admin a
+  // /api/admin NON arriva: l'header mostrava la sede giusta e le API
+  // continuavano a rispondere con la prima. Guasto silenzioso da manuale —
+  // nessun errore, solo i dati di un altro punto. Qui dentro c'e' l'id di una
+  // sede o la parola «tutte»: niente di segreto, niente da proteggere.
+  (() => {
+    const btn = document.getElementById("ah-sede-btn") as HTMLButtonElement | null;
+    const menu = document.getElementById("ah-sede-menu") as HTMLElement | null;
+    if (!btn || !menu) return;
+    // ⚠️ Cookie vecchio, scritto quando questo cookie aveva Path=/admin.
+    // Resta accanto a quello nuovo: STESSO NOME, percorso piu' specifico, e il
+    // browser manda prima il piu' specifico — quindi vince lui, per sempre, e
+    // il selettore si blocca sull'ultima scelta fatta con la versione vecchia.
+    // Si cancella al caricamento, cosi' chi e' rimasto incastrato si sblocca
+    // da solo senza doversi ripulire i cookie a mano.
+    const secure = location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `mdd_sede=; Path=/admin; Max-Age=0; SameSite=Lax${secure}`;
+
+    const chiudi = () => { menu.hidden = true; btn.setAttribute("aria-expanded", "false"); };
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const apri = menu.hidden;
+      menu.hidden = !apri;
+      btn.setAttribute("aria-expanded", apri ? "true" : "false");
+    });
+    document.addEventListener("click", (e) => {
+      if (!menu.contains(e.target as Node) && !btn.contains(e.target as Node)) chiudi();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") chiudi(); });
+    menu.addEventListener("click", (e) => {
+      const v = (e.target as HTMLElement).closest("[data-sede]") as HTMLElement | null;
+      if (!v?.dataset.sede) return;
+      document.cookie = `mdd_sede=; Path=/admin; Max-Age=0; SameSite=Lax${secure}`;
+      document.cookie = `mdd_sede=${encodeURIComponent(v.dataset.sede)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
+      location.reload();
+    });
+  })();
+
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
 
   // Registra il service worker: richiesto da Chrome (Android) per

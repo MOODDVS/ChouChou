@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
+// Multi-sede: il cron passa su TUTTI i punti.
+import { aggiorna, tutteLeSedi } from "../../../lib/admin/sede";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../../lib/db";
 import { TIMEZONE } from "../../../lib/slots";
 
 export const prerender = false;
@@ -26,6 +27,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const GET: APIRoute = async ({ request, url }) => {
+  // ⚠️ AGGREGATO, chiesto per nome. Il cron passa su TUTTI i punti: e' un
+  // lavoro di manutenzione del gruppo, non di una sede.
+  const ambito = tutteLeSedi();
   if (!CRON_SECRET) return json({ error: "CRON_SECRET non configurato" }, 503);
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
   if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
@@ -36,9 +40,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const sogliaISO = soglia.toISO();
   if (!sogliaISO) return json({ error: "Data non valida" }, 500);
 
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .update({ status: "done" })
+  const { data, error } = await aggiorna("orders", ambito, { status: "done" })
     .eq("status", "paid")
     .lt("pickup_time", sogliaISO)
     .select("id");

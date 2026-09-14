@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -59,10 +60,14 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
+  const ambito = await ambitoDiRichiesta(request, staff);
   const cats = await leggiCategorie();
   if (!cats) return json({ error: "Lecture impossible" }, 500);
 
-  const { data: righe, error: errItems } = await supabaseAdmin.from("menu_items").select("category");
+  // ⚠️ Il conteggio e' FILTRATO, le scritture piu' sotto no. Non e' una
+  // dimenticanza: il numero accanto alla sezione deve essere quello delle
+  // righe che si vedono nella lista, altrimenti «Pizze (24)» sopra 22 righe.
+  const { data: righe, error: errItems } = await leggi("menu_items", ambito, "category");
   if (errItems) return json({ error: "Lecture impossible" }, 500);
   const conteggi = new Map<string, number>();
   for (const r of righe ?? []) conteggi.set(r.category, (conteggi.get(r.category) ?? 0) + 1);
@@ -242,6 +247,11 @@ export const PUT: APIRoute = async ({ request }) => {
   if ("name" in campi) aggiornaPiatti.category = campi.name;
   if ("sort_order" in campi) aggiornaPiatti.category_order = campi.sort_order;
   if (Object.keys(aggiornaPiatti).length > 0) {
+    // ⚠️ SENZA filtro di sede, e deve restare cosi'. Le sezioni sono del
+    // gruppo e i piatti ci si agganciano per NOME: rinominando «Pizze» in
+    // «Le nostre pizze» solo per il punto da cui si sta scrivendo, i piatti
+    // degli altri due resterebbero attaccati a una sezione che non esiste
+    // piu' e sparirebbero dalla loro lista senza essere stati cancellati.
     const { error: errItems } = await supabaseAdmin.from("menu_items").update(aggiornaPiatti).eq("category", attuale.name);
     if (errItems) return json({ error: "Plats non synchronisés" }, 500);
   }
@@ -328,6 +338,8 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   // I piatti portano l'ordine della loro sezione per NOME: si toccano solo
   // quelli delle sezioni che hanno cambiato posto, e in parallelo.
+  // Anche qui senza filtro, per la stessa ragione del rinomino: l'ordine
+  // della sezione e' del gruppo.
   const perNome = new Map(righe.map((r) => [r.name, r.sort_order]));
   const esiti = await Promise.all(
     ordineCambiato.map((nome) =>
@@ -360,12 +372,31 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     .eq("parent_id", id);
   if ((nFigli ?? 0) > 0) return json({ error: "Section avec sous-catégories : supprime-les d'abord" }, 400);
 
+  // ⚠️ Controllo GLOBALE: una sezione vuota QUI puo' essere piena altrove, e
+  // cancellarla lascerebbe i piatti degli altri punti agganciati al nulla.
   const { count, error: errCount } = await supabaseAdmin
     .from("menu_items")
     .select("id", { count: "exact", head: true })
     .eq("category", cat.name);
   if (errCount) return json({ error: "Vérification impossible" }, 500);
-  if ((count ?? 0) > 0) return json({ error: "Section non vide : déplace ou supprime d'abord ses plats" }, 400);
+  if ((count ?? 0) > 0) {
+    // Distinzione che evita un messaggio incomprensibile: la lista davanti
+    // all'utente e' vuota, quindi va detto che i piatti sono di un altro punto.
+    const ambito = await ambitoDiRichiesta(request, staff);
+    // `leggi` rende righe, non un conteggio: qui ne bastano una.
+    const { data: qui } = await leggi("menu_items", ambito, "id")
+      .eq("category", cat.name)
+      .limit(1);
+    return json(
+      {
+        error:
+          ambito.modo === "sede" && (qui ?? []).length === 0
+            ? "Section utilisée par un autre point de vente : impossible de la supprimer ici"
+            : "Section non vide : déplace ou supprime d'abord ses plats",
+      },
+      400
+    );
+  }
 
   const { error } = await supabaseAdmin.from("menu_categories").delete().eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);

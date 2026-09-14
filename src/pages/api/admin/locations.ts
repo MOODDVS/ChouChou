@@ -28,9 +28,11 @@ const CHIAVE_MULTI = "multi_location";
  *  un caso da ignorare: e' un errore, e va detto. */
 const SEGRETI = ["stripe_secret_key", "stripe_webhook_secret"];
 
-const SELECT =
-  "id, name, slug, address, postcode, city, phone, email, timezone, " +
-  "company_name, company_vat, google_location, image_url, sort_order, active, created_at";
+// `locations` e' l'IDENTITA' della sede e basta. Indirizzo, telefono, email,
+// ragione sociale, IVA e scheda Google NON stanno qui: sono dati del
+// ristoratore, si scrivono da Réglages → Général e da Intégrations, e vivono
+// in `location_config` con le stesse chiavi che quelle pagine usano gia'.
+const SELECT = "id, name, slug, image_url, sort_order, active, created_at";
 
 const RE_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -84,10 +86,6 @@ const testo = (v: unknown, max: number): string => String(v ?? "").trim().slice(
  *  solo le chiavi arrivate davvero, il resto della riga resta com'e'. */
 function campiDa(body: Record<string, unknown>, parziale: boolean): Record<string, unknown> | string {
   const out: Record<string, unknown> = {};
-  const metti = (chiave: string, valore: unknown, max: number) => {
-    if (parziale && body[chiave] === undefined) return;
-    out[chiave] = testo(valore, max);
-  };
 
   if (!parziale || body.name !== undefined) {
     const name = testo(body.name, 60);
@@ -101,21 +99,10 @@ function campiDa(body: Record<string, unknown>, parziale: boolean): Record<strin
     }
     out.slug = slug;
   }
-  metti("address", body.address, 120);
-  metti("postcode", body.postcode, 12);
-  metti("city", body.city, 60);
-  metti("phone", body.phone, 30);
-  metti("email", body.email, 120);
-  metti("company_name", body.company_name, 120);
-  metti("company_vat", body.company_vat, 30);
-
-  if (!parziale || body.timezone !== undefined) {
-    out.timezone = testo(body.timezone, 40) || "Europe/Brussels";
-  }
-  if (!parziale || body.google_location !== undefined) {
-    const g = testo(body.google_location, 200);
-    out.google_location = g || null;
-  }
+  // Il fuso NON sta qui: sta in Réglages → Général, per sede, come tutto il
+  // resto di quella scheda. Averlo anche qui voleva dire due sorgenti per la
+  // stessa ora — e due sorgenti che non concordano non danno errore, danno
+  // slot sbagliati.
   // Foto della sede: URL reso da /api/admin/upload, quindi gia' nel nostro
   // storage. Si accetta solo quello — un indirizzo qualunque farebbe
   // caricare al browser del ristoratore un'immagine di terzi.

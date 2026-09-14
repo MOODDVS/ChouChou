@@ -6,6 +6,8 @@ import { nomeServizio } from "../reservationI18n";
 import { adminLang } from "./adminLang";
 import type { AdminLang } from "../../i18n/admin";
 import { caricaToday } from "./caricaToday";
+// Cron: nessuna richiesta HTTP, quindi nessuna sede scelta. Vedi `ambitoPubblico`.
+import { ambitoPubblico, leggi } from "./sede";
 import { TIMEZONE, aggiornaTimezone } from "../slots";
 import { temaEmail, type TemaEmail } from "../temaBrand";
 import { datiRistorante } from "../ristorante";
@@ -197,6 +199,9 @@ function intestazione(tema: TemaEmail, testo: string): string {
 
 // ---------------------------------------------------------------- invio
 export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; reason: string }> {
+  // Cron: nessuna richiesta, nessuna sede scelta. Il brief e' di UN punto —
+  // i suoi ordini, le sue prenotazioni, le sue note. Vedi `ambitoPubblico`.
+  const ambito = await ambitoPubblico();
   await aggiornaTimezone();
   const ora = DateTime.now().setZone(TIMEZONE);
   const oggiISO = ora.toISODate() ?? "";
@@ -229,34 +234,26 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
   const aIeri = ieri.endOf("day").toUTC().toISO() ?? "";
 
   const [ordIeriRes, resaIeriRes, clientiIeriRes, notesRes, today] = await Promise.all([
-    supabaseAdmin
-      .from("orders")
-      .select("total_cents, items")
+    leggi("orders", ambito, "total_cents, items")
       .in("status", ["paid", "done"])
       .gte("pickup_time", daIeri)
       .lte("pickup_time", aIeri),
-    supabaseAdmin
-      .from("reservations")
-      .select("status, people, heure, first_name, last_name")
+    leggi("reservations", ambito, "status, people, heure, first_name, last_name")
       .eq("date", ieriISO),
     supabaseAdmin.from("clients").select("id").gte("created_at", daIeri).lte("created_at", aIeri),
-    supabaseAdmin
-      .from("admin_notes")
-      .select("content, tags, done")
+    leggi("admin_notes", ambito, "content, tags, done")
       .eq("done", false)
       .order("created_at", { ascending: false })
       .limit(6)
       .then((r) =>
         r.error && String(r.error.message ?? "").includes("tags")
-          ? supabaseAdmin
-              .from("admin_notes")
-              .select("content, done")
+          ? leggi("admin_notes", ambito, "content, done")
               .eq("done", false)
               .order("created_at", { ascending: false })
               .limit(6)
           : r
       ),
-    caricaToday(),
+    caricaToday(ambito),
   ]);
 
   const ordIeri = (ordIeriRes.data ?? []) as { total_cents: number | null; items: unknown }[];
@@ -279,9 +276,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
   const nuoviClienti = (clientiIeriRes.data ?? []).length;
 
   // ---------------- dati OGGI ----------------
-  const { data: resaOggiData } = await supabaseAdmin
-    .from("reservations")
-    .select("status, people, heure, service_key, first_name, last_name")
+  const { data: resaOggiData } = await leggi("reservations", ambito, "status, people, heure, service_key, first_name, last_name")
     .eq("date", oggiISO)
     .in("status", ["confirmed", "seated"]);
   const resaOggi = (resaOggiData ?? []) as (Resa & { service_key: string | null })[];

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../lib/db";
+// Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
+import { leggi, aggiorna, tutteLeSedi } from "../../lib/admin/sede";
 import { stripe } from "../../lib/stripe";
 
 // Annullamento PUBBLICO di un ordine manuale non ancora pagato.
@@ -19,11 +20,14 @@ function json(body: unknown, status = 200): Response {
 
 // GET ?token= → riepilogo minimo per la pagina di conferma
 export const GET: APIRoute = async ({ url }) => {
+  // ⚠️ AGGREGATO, chiesto per nome. L'ordine si trova con il suo token di
+  // annullo, che e' un segreto: il token E' l'autorizzazione. Filtrare per
+  // sede non protegge niente in piu' e romperebbe l'annullo di ogni punto
+  // che non sia il primo — il cliente clicca il link e non succede niente.
+  const ambito = tutteLeSedi();
   const token = url.searchParams.get("token") ?? "";
   if (!RE_UUID.test(token)) return json({ error: "invalid" }, 404);
-  const { data } = await supabaseAdmin
-    .from("orders")
-    .select("status, pickup_time, total_cents, customer_name, lang")
+  const { data } = await leggi("orders", ambito, "status, pickup_time, total_cents, customer_name, lang")
     .eq("cancel_token", token)
     .maybeSingle();
   if (!data) return json({ error: "invalid" }, 404);
@@ -39,6 +43,11 @@ export const GET: APIRoute = async ({ url }) => {
 // POST { token } → annulla (solo pending) + fa scadere la sessione Stripe,
 // così il link di pagamento non può più incassare un ordine annullato.
 export const POST: APIRoute = async ({ request }) => {
+  // ⚠️ AGGREGATO, chiesto per nome. L'ordine si trova con il suo token di
+  // annullo, che e' un segreto: il token E' l'autorizzazione. Filtrare per
+  // sede non protegge niente in piu' e romperebbe l'annullo di ogni punto
+  // che non sia il primo — il cliente clicca il link e non succede niente.
+  const ambito = tutteLeSedi();
   let body: { token?: string } = {};
   try {
     body = await request.json();
@@ -48,18 +57,14 @@ export const POST: APIRoute = async ({ request }) => {
   const token = String(body.token ?? "");
   if (!RE_UUID.test(token)) return json({ error: "invalid" }, 404);
 
-  const { data: ordine } = await supabaseAdmin
-    .from("orders")
-    .select("id, status, stripe_session_id")
+  const { data: ordine } = await leggi("orders", ambito, "id, status, stripe_session_id")
     .eq("cancel_token", token)
     .maybeSingle();
   if (!ordine) return json({ error: "invalid" }, 404);
   if (ordine.status === "cancelled") return json({ ok: true }); // idempotente
   if (ordine.status !== "pending") return json({ error: "paid" }, 409);
 
-  const { error } = await supabaseAdmin
-    .from("orders")
-    .update({ status: "cancelled" })
+  const { error } = await aggiorna("orders", ambito, { status: "cancelled" })
     .eq("id", ordine.id)
     .eq("status", "pending");
   if (error) return json({ error: "server" }, 500);

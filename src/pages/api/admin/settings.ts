@@ -5,6 +5,12 @@ import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
+// Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
+// eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
+import {
+  ambitoDiRichiesta, leggiConfig, scriviConfig,
+  leggiOrari, scriviOrari, assicuraOrariSede,
+} from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -24,6 +30,16 @@ interface GiornoInput {
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
+/**
+ * A che livello vive ogni SCHEDA di Réglages (deciso 14/09/2026).
+ *
+ *   Général · Horaires · Réservations · Cuisine · Notifications → della SEDE
+ *   Liens · Team · Documents                                    → del GRUPPO
+ *
+ * La regola e' per scheda, non per campo: si sa cosa contiene una scheda, e
+ * non cambia da cliente a cliente. Gli orari sono di un posto fisico; i link
+ * sono di un sito, e il sito e' uno solo anche quando i punti sono tre.
+ */
 const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
 
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
@@ -103,39 +119,36 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data: days, error } = await supabaseAdmin
-    .from("settings")
-    .select(
-      "day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes"
-    )
-    .order("day_of_week", { ascending: true });
-
-  if (error || !days) {
+  const ambito = await ambitoDiRichiesta(request, staff);
+  let days;
+  try {
+    days = await leggiOrari(ambito);
+  } catch {
     return json({ error: "Lecture impossible" }, 500);
   }
-
-  const { data: cfgRows } = await supabaseAdmin
-    .from("app_config")
-    .select("key, value")
-    .in("key", [
-      "kitchen_email",
-      "orders_closed",
-      "daily_brief_enabled",
-      "daily_brief_hour",
-      "daily_brief_email",
-      // legacy: durée/créneau globali e délai in ore, solo per il prefill
-      "reservation_hold_minutes",
-      "reservation_slot_minutes",
-      "reservation_min_notice_hours",
-      ...CHIAVI_LINK.map((k) => "link_" + k),
-      ...CHIAVI_GENERAL,
-      ...CHIAVI_RESA,
-    ]);
-  const cfg = new Map((cfgRows ?? []).map((r) => [r.key, r.value ?? ""]));
+  const { valori: cfg, marchio } = await leggiConfig(ambito, [
+    "kitchen_email",
+    "orders_closed",
+    "daily_brief_enabled",
+    "daily_brief_hour",
+    "daily_brief_email",
+    // legacy: durée/créneau globali e délai in ore, solo per il prefill
+    "reservation_hold_minutes",
+    "reservation_slot_minutes",
+    "reservation_min_notice_hours",
+    ...CHIAVI_LINK.map((k) => "link_" + k),
+    ...CHIAVI_GENERAL,
+    ...CHIAVI_RESA,
+  ]);
+  // I link si leggono dal GRUPPO, non dallo strato della sede: e' il livello
+  // in cui vivono. Cosi' un'eventuale riga di sede rimasta indietro non
+  // copre il valore vero — verrebbe mostrata e non riscritta mai piu'.
   const links: Record<string, string> = {};
-  for (const k of CHIAVI_LINK) links[k] = cfg.get("link_" + k) ?? "";
+  for (const k of CHIAVI_LINK) links[k] = marchio.get("link_" + k) ?? "";
   const general: Record<string, string> = {};
   for (const k of CHIAVI_GENERAL) general[k] = cfg.get(k) ?? "";
+  // Il fuso si legge dal livello installazione — vedi la nota nel PUT.
+  general.timezone = marchio.get("timezone") ?? "";
   const reservations: Record<string, string> = {};
   for (const k of CHIAVI_RESA) reservations[k] = cfg.get(k) ?? "";
   reservations["reservation_hold_minutes"] = cfg.get("reservation_hold_minutes") ?? "";
@@ -181,40 +194,34 @@ export const PATCH: APIRoute = async ({ request }) => {
   }
 
   // Ora d'invio dell'email quotidienne (HH:MM, fuso del ristorante)
+  const ambito = await ambitoDiRichiesta(request, staff);
+
   if (vuoleBriefOra) {
     const ora = String(body.daily_brief_hour).trim();
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(ora)) return json({ error: "Heure invalide" }, 400);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "daily_brief_hour", value: ora }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { daily_brief_hour: ora });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
   }
 
   // Destinatario dell'email quotidienne (vuoto = default réservations)
   if (vuoleBriefEmail) {
     const em = String(body.daily_brief_email).trim();
     if (em && !RE_EMAIL.test(em)) return json({ error: `Email invalide : ${em}` }, 400);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "daily_brief_email", value: em }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { daily_brief_email: em });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
   }
 
   // Toggle email "Votre journée" (récap quotidiano delle 9h00)
   if (vuoleBrief) {
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "daily_brief_enabled", value: body.daily_brief_enabled ? "1" : "0" }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { daily_brief_enabled: body.daily_brief_enabled ? "1" : "0" });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
   }
 
   // Toggle chiusura ordini online (app_config.orders_closed = "1"/"0").
   // Può arrivare assieme a prep_time_minutes: scegliere un tempo riapre.
   if (vuoleChiusura) {
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "orders_closed", value: body.orders_closed ? "1" : "0" }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { orders_closed: body.orders_closed ? "1" : "0" });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
   }
 
   if (vuolePrep) {
@@ -223,10 +230,15 @@ export const PATCH: APIRoute = async ({ request }) => {
       return json({ error: "Préparation invalide (0–240 min)" }, 400);
     }
 
-    const { error } = await supabaseAdmin
-      .from("settings")
-      .update({ prep_time_minutes: prep })
-      .gte("day_of_week", 0); // tutti i giorni (PostgREST vuole un filtro)
+    // Con una sede selezionata i sette giorni devono esistere prima di
+    // poterli aggiornare: vedi `assicuraOrariSede`.
+    const manca = await assicuraOrariSede(ambito);
+    if (manca) return json({ error: "Enregistrement impossible" }, 500);
+
+    const tabella = ambito.modo === "sede" ? "location_settings" : "settings";
+    let q = supabaseAdmin.from(tabella).update({ prep_time_minutes: prep }).gte("day_of_week", 0);
+    if (ambito.modo === "sede") q = q.eq("location_id", ambito.id);
+    const { error } = await q;
 
     if (error) return json({ error: "Enregistrement impossible" }, 500);
   }
@@ -238,6 +250,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambitoPut = await ambitoDiRichiesta(request, staff);
 
   let body: {
     days?: GiornoInput[];
@@ -246,6 +259,7 @@ export const PUT: APIRoute = async ({ request }) => {
     kitchen_email?: string;
     links?: Record<string, string>;
     general?: Record<string, string>;
+
     reservations?: Record<string, string>;
   };
   try {
@@ -475,57 +489,65 @@ export const PUT: APIRoute = async ({ request }) => {
     }
   }
 
-  // --- Salvataggio: una update per giorno ---
-  for (const g of body.days) {
-    const { error } = await supabaseAdmin
-      .from("settings")
-      .update({
-        lunch_active: g.lunch_active,
-        lunch_open: g.lunch_active ? g.lunch_open : null,
-        lunch_close: g.lunch_active ? g.lunch_close : null,
-        dinner_active: g.dinner_active,
-        dinner_open: g.dinner_active ? g.dinner_open : null,
-        dinner_close: g.dinner_active ? g.dinner_close : null,
-        prep_time_minutes: prep,
-        slot_duration_minutes: slot,
-      })
-      .eq("day_of_week", g.day_of_week);
-    if (error) {
-      return json({ error: "Enregistrement impossible" }, 500);
-    }
-  }
+  // --- Salvataggio: i sette giorni, dove vanno per questo ambito ---
+  const errOrari = await scriviOrari(
+    ambitoPut,
+    body.days.map((g) => ({
+      day_of_week: g.day_of_week,
+      lunch_active: g.lunch_active,
+      lunch_open: g.lunch_active ? g.lunch_open : null,
+      lunch_close: g.lunch_active ? g.lunch_close : null,
+      dinner_active: g.dinner_active,
+      dinner_open: g.dinner_active ? g.dinner_open : null,
+      dinner_close: g.dinner_active ? g.dinner_close : null,
+      prep_time_minutes: prep,
+      slot_duration_minutes: slot,
+    })),
+  );
+  if (errOrari) return json({ error: "Enregistrement impossible" }, 500);
 
+  // ⚠️ Una scrittura sola per gruppo, non una per chiave: con una sede
+  // attiva ogni scrittura deve sapere il valore del marchio per decidere se
+  // e' un'eccezione o un ritorno all'eredita', e chiederlo trenta volte
+  // sarebbe trenta letture.
   if (email) {
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "kitchen_email", value: email });
-    if (error) {
-      return json({ error: "Email cuisine non enregistrée" }, 500);
-    }
+    const err = await scriviConfig(ambitoPut, { kitchen_email: email });
+    if (err) return json({ error: "Email cuisine non enregistrée" }, 500);
   }
 
-  for (const [key, value] of linkPuliti) {
-    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
-    if (error) {
-      return json({ error: "Liens non enregistrés" }, 500);
-    }
+  // Liens: del GRUPPO. Un solo sito pubblico per tutte le sedi, quindi un
+  // solo Facebook, un solo TripAdvisor.
+  if (linkPuliti.length > 0) {
+    const err = await scriviConfig(ambitoPut, Object.fromEntries(linkPuliti), "gruppo");
+    if (err) return json({ error: "Liens non enregistrés" }, 500);
   }
 
-  for (const [key, value] of generalPulito) {
-    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
-    if (error) {
-      return json({ error: "Informations générales non enregistrées" }, 500);
+  if (generalPulito.length > 0) {
+    // ⚠️ UNA eccezione dentro Général, e non e' «questo campo e' condiviso»
+    // (il ragionamento che abbiamo scartato): e' che il CODICE ne supporta
+    // uno solo. `TIMEZONE` in `slots.ts` e' una variabile di modulo mutabile,
+    // letta da venti file, condivisa fra tutte le richieste del processo.
+    // Salvare un fuso per sede darebbe un'impostazione che non fa niente —
+    // peggio che non averla. Resta uno per installazione finche' quel
+    // refactor non e' fatto (vedi il backlog).
+    const fuso = generalPulito.filter(([k]) => k === "timezone");
+    const resto = generalPulito.filter(([k]) => k !== "timezone");
+    if (fuso.length > 0) {
+      const err = await scriviConfig(ambitoPut, Object.fromEntries(fuso), "gruppo");
+      if (err) return json({ error: "Informations générales non enregistrées" }, 500);
+    }
+    if (resto.length > 0) {
+      const err = await scriviConfig(ambitoPut, Object.fromEntries(resto));
+      if (err) return json({ error: "Informations générales non enregistrées" }, 500);
     }
   }
   // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
   // svuotare la cache di boot così il logo nuovo si vede al primo reload.
   if (generalPulito.length > 0) { cacheDel(CACHE_ADMIN_BOOT); cacheDel("public:favicon"); }
 
-  for (const [key, value] of resaPulito) {
-    const { error } = await supabaseAdmin.from("app_config").upsert({ key, value });
-    if (error) {
-      return json({ error: "Réservations non enregistrées" }, 500);
-    }
+  if (resaPulito.length > 0) {
+    const err = await scriviConfig(ambitoPut, Object.fromEntries(resaPulito));
+    if (err) return json({ error: "Réservations non enregistrées" }, 500);
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito

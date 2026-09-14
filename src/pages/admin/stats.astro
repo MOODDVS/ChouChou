@@ -9,6 +9,7 @@ import "../../styles/filters.css";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { calcolaStats } from "../../lib/admin/calcolaStats";
+import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 
@@ -24,7 +25,7 @@ let ssrStats: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrStats = await calcolaStats("day");
+  if (staff) ssrStats = await calcolaStats("day", await ambitoDiRichiesta(Astro.request, staff));
 } catch {
   ssrStats = null;
 }

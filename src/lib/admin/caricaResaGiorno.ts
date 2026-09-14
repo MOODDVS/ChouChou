@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../db";
+import { leggi, aggiorna, type Ambito } from "./sede";
 import { appConfigIn } from "../appConfigCache";
 import { postiDalPlan } from "../planSalle";
 
@@ -29,11 +29,9 @@ export interface ResaGiorno {
   missing?: boolean;
 }
 
-export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
+export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<ResaGiorno> {
   const [reseQ, cfgQ, chQ, zchQ, spQ] = await Promise.all([
-    supabaseAdmin
-      .from("reservations")
-      .select("*")
+    leggi("reservations", ambito, "*")
       .eq("date", date)
       .order("heure", { ascending: true })
       .order("created_at", { ascending: true }),
@@ -46,18 +44,16 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         "timezone",
         "service_closures_permanent",
         "zone_closures_permanent",
-      ]),
-    supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
-    supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
-    supabaseAdmin
-      .from("special_days")
-      .select("type, services")
+      ], ambito),
+    leggi("service_closures", ambito, "service_key, reason").eq("date", date),
+    leggi("zone_closures", ambito, "zone, reason").eq("date", date),
+    leggi("special_days", ambito, "type, services")
       .lte("date_from", date)
       .gte("date_to", date)
       .then(async (r) => {
         // Migrazione #33 non ancora lanciata: senza la colonna (= tutti)
         if (r.error && String(r.error.message ?? "").includes("services")) {
-          return supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date);
+          return leggi("special_days", ambito, "type").lte("date_from", date).gte("date_to", date);
         }
         return r;
       }),
@@ -87,7 +83,7 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
       const arr = JSON.parse(m.get("reservation_services") || "[]");
       if (Array.isArray(arr)) services = arr;
     } catch { /* vuoto */ }
-    const planPosti = await postiDalPlan(m.get("reservation_plan_mode"));
+    const planPosti = await postiDalPlan(m.get("reservation_plan_mode"), ambito);
     try {
       const arr = JSON.parse(m.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
@@ -160,14 +156,12 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
             void offMin;
             const durata = holdDiKey(r.service_key ?? null) + (Number((r as { extra_minutes?: number }).extra_minutes) || 0);
             r.table_minutes = durata;
-            return supabaseAdmin.from("reservations").update({ status: "done", table_minutes: durata }).eq("id", r.id);
+            return aggiorna("reservations", ambito, { status: "done", table_minutes: durata }).eq("id", r.id);
           })
         );
         // Migrazione #27 non ancora lanciata: si chiude senza durata
         if (esiti.some((e) => e.error && String(e.error.message ?? "").includes("table_minutes"))) {
-          await supabaseAdmin
-            .from("reservations")
-            .update({ status: "done" })
+          await aggiorna("reservations", ambito, { status: "done" })
             .in("id", daChiudere.map((r) => r.id));
         }
         for (const r of daChiudere) r.status = "done"; // riflesso subito nella risposta

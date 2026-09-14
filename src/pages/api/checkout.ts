@@ -1,11 +1,16 @@
 import type { APIRoute } from "astro";
+// Multi-sede: l'ordine nasce in un PUNTO. Segnaposto fino al pezzo 8.
+import { leggi, inserisci, aggiorna } from "../../lib/admin/sede";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
+// Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
+import { applicaStatoSede } from "../../lib/menuStato";
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
@@ -98,7 +103,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Config effettiva: orari settimanali + giorni speciali (special_days).
   // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
-  const config = await configGiornoEffettiva(ora);
+  const ambitoPub = await ambitoPubblico();
+  const config = await configGiornoEffettiva(ora, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }
@@ -116,12 +122,19 @@ export const POST: APIRoute = async ({ request }) => {
   const { data: piatti, error: errMenu } = await conRipiegoColonne(
     CAMPI,
     async (campi) =>
-      (await supabaseAdmin.from("menu_items").select(campi).in("id", ids)) as unknown as RisultatoQuery
+      (await leggi("menu_items", ambitoPub, campi).in("id", ids)) as unknown as RisultatoQuery
   );
 
   if (errMenu || !piatti) {
     return err(503, "Impossibile leggere il menu");
   }
+
+  // L'esaurito di QUESTO punto: il menu e' del gruppo, «finito» no. Senza
+  // questo passaggio si incassa per un piatto che questa cucina non ha.
+  const piattiPunto = await applicaStatoSede(
+    piatti as unknown as Record<string, unknown>[],
+    ambitoPub,
+  );
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: {
@@ -142,7 +155,7 @@ export const POST: APIRoute = async ({ request }) => {
   const lineeCoupon: LineaCoupon[] = [];
 
   for (const richiesto of body.items) {
-    const piatto = piatti.find((p) => p.id === richiesto.id);
+    const piatto = piattiPunto.find((p) => p.id === richiesto.id) as any;
     if (!piatto || !piatto.available || piatto.sold_out === true) {
       return err(409, "Un piatto selezionato non è più disponibile");
     }
@@ -162,8 +175,8 @@ export const POST: APIRoute = async ({ request }) => {
     // formati, sceglierne uno è OBBLIGATORIO e il prezzo è quello del formato:
     // dal browser arriva solo la chiave, il prezzo lo decide il server.
     let variante = null as ReturnType<typeof trovaVariante>;
-    if (haVarianti(piatto.variants)) {
-      variante = trovaVariante(piatto.variants, richiesto.variant, true);
+    if (haVarianti(piatto.variants, ambitoPub)) {
+      variante = trovaVariante(piatto.variants, richiesto.variant, true, ambitoPub);
       if (!variante) {
         return err(409, "Le format choisi n'est plus disponible");
       }
@@ -271,9 +284,7 @@ export const POST: APIRoute = async ({ request }) => {
     datiOrdine.coupon_discount_cents = scontoCents;
   }
 
-  const { data: ordine, error: errInsert } = await supabaseAdmin
-    .from("orders")
-    .insert(datiOrdine)
+  const { data: ordine, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
     .select("id")
     .single();
 
@@ -294,9 +305,7 @@ export const POST: APIRoute = async ({ request }) => {
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }
           : undefined,
     });
-    await supabaseAdmin
-      .from("orders")
-      .update({ stripe_session_id: url })
+    await aggiorna("orders", ambitoPub, { stripe_session_id: url })
       .eq("id", ordine.id);
 
     return new Response(JSON.stringify({ url }), {

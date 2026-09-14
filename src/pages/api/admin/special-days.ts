@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, inserisci, cancella } from "../../../lib/admin/sede";
 import { TIMEZONE } from "../../../lib/slots";
 
 export const prerender = false;
@@ -38,16 +38,23 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let { data, error } = await supabaseAdmin
-    .from("special_days")
-    .select("id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note, services")
+  // `special_days` e' «mista»: da una sede si vedono i SUOI giorni speciali E
+  // quelli che valgono per tutte — Natale chiude tutti, i lavori chiudono uno.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  let { data, error } = await leggi(
+    "special_days",
+    ambito,
+    "id, location_id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note, services",
+  )
     .gte("date_to", oggiISO())
     .order("date_from", { ascending: true });
   // Migrazione #33 non ancora lanciata: si rilegge senza la colonna services
   if (error && String(error.message ?? "").includes("services")) {
-    const retry = await supabaseAdmin
-      .from("special_days")
-      .select("id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note")
+    const retry = await leggi(
+      "special_days",
+      ambito,
+      "id, location_id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note",
+    )
       .gte("date_to", oggiISO())
       .order("date_from", { ascending: true });
     data = retry.data as typeof data;
@@ -73,6 +80,8 @@ export const POST: APIRoute = async ({ request }) => {
     dinner_close?: string | null;
     note?: string;
     services?: string[] | null;
+    /** Multi-sede: «vale per tutte le sedi». Assente = solo questa. */
+    tutte?: boolean;
   };
   try {
     body = await request.json();
@@ -115,9 +124,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Evita sovrapposizioni con altri giorni speciali (fonte di confusione).
-  const { data: overlap, error: errOv } = await supabaseAdmin
-    .from("special_days")
-    .select("id")
+  // La sovrapposizione si cerca solo fra i giorni che valgono QUI: quello di
+  // un'altra sede non si sovrappone a niente, e bloccarlo sarebbe un errore
+  // che il ristoratore non potrebbe nemmeno capire — non vede quella riga.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const { data: overlap, error: errOv } = await leggi("special_days", ambito, "id")
     .lte("date_from", to)
     .gte("date_to", from)
     .limit(1);
@@ -147,11 +158,14 @@ export const POST: APIRoute = async ({ request }) => {
     note: String(body.note ?? "").slice(0, 200),
   };
   if (services !== null) riga.services = services;
-  let ins = await supabaseAdmin.from("special_days").insert(riga);
+  // «Vale per tutte le sedi»: la scelta di chi crea. Natale chiude tutti, i
+  // lavori in sala chiudono un punto solo.
+  const tutte = body.tutte === true;
+  let ins = await inserisci("special_days", ambito, riga, tutte);
   // Migrazione #33 non ancora lanciata: si salva senza la colonna
   if (ins.error && String(ins.error.message ?? "").includes("services")) {
     delete riga.services;
-    ins = await supabaseAdmin.from("special_days").insert(riga);
+    ins = await inserisci("special_days", ambito, riga, tutte);
   }
   if (ins.error) return json({ error: "Enregistrement impossible" }, 500);
 
@@ -166,7 +180,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const id = url.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
 
-  const { error } = await supabaseAdmin.from("special_days").delete().eq("id", id);
+  const { error } = await cancella("special_days", await ambitoDiRichiesta(request, staff)).eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);
 
   return json({ ok: true });

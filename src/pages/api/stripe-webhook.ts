@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+// Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
+import { aggiorna, tutteLeSedi } from "../../lib/admin/sede";
 import { stripe } from "../../lib/stripe";
 import { supabaseAdmin } from "../../lib/db";
 import { inviaNotifiche } from "../../lib/notifications";
@@ -9,6 +11,11 @@ export const prerender = false;
 const WEBHOOK_SECRET = import.meta.env.STRIPE_WEBHOOK_SECRET;
 
 export const POST: APIRoute = async ({ request }) => {
+  // ⚠️ AGGREGATO, chiesto per nome. Stripe chiama con l'id della sessione e
+  // non sa niente di sedi. L'ordine da aggiornare e' quello, e puo' essere di
+  // qualsiasi punto: filtrando, il pagamento di due sedi su tre resterebbe
+  // per sempre «in attesa». La firma dell'evento e' l'autorizzazione.
+  const ambito = tutteLeSedi();
   if (!WEBHOOK_SECRET) {
     console.error("STRIPE_WEBHOOK_SECRET mancante");
     return new Response("Webhook non configurato", { status: 500 });
@@ -57,9 +64,7 @@ export const POST: APIRoute = async ({ request }) => {
     // qui NON si tocca lo stato ne' si rimandano le email di conferma: si azzera
     // solo la differenza dovuta e si registra il momento del pagamento.
     if (session.metadata?.supplement === "1" && orderId) {
-      const { error: eSup } = await supabaseAdmin
-        .from("orders")
-        .update({ supplement_due_cents: 0, supplement_paid_at: new Date().toISOString() })
+      const { error: eSup } = await aggiorna("orders", ambito, { supplement_due_cents: 0, supplement_paid_at: new Date().toISOString() })
         .eq("id", orderId);
       if (eSup) console.error("Errore aggiornamento supplemento:", eSup);
       else console.log(`Supplemento ordine ${orderId} pagato`);
@@ -76,9 +81,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // --- 2. Idempotenza: aggiorna SOLO se ancora 'pending' ---
     // Se l'evento arriva due volte, la seconda non fa nulla (status già 'paid').
-    const { data: aggiornato, error } = await supabaseAdmin
-      .from("orders")
-      .update({
+    const { data: aggiornato, error } = await aggiorna("orders", ambito, {
         status: "paid",
         stripe_session_id: session.id, // l'id pulito cs_test_..., non l'URL
       })

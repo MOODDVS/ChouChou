@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { ambitoDiRichiesta, leggi, type Ambito } from "../../../lib/admin/sede";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
@@ -68,15 +69,13 @@ function chiave(email: string, phone: string, name: string): string {
 }
 
 /** Ordini per il dettaglio attività (tutti i campi utili), a pagine di 1000. */
-async function ordiniDettaglio(): Promise<
+async function ordiniDettaglio(ambito: Ambito): Promise<
   { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, created_at, status")
+    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at, status")
       .in("status", ["paid", "done"])
       .order("created_at", { ascending: false })
       .range(da, da + PAGINA - 1);
@@ -88,15 +87,13 @@ async function ordiniDettaglio(): Promise<
 }
 
 /** Prenotazioni per il dettaglio attività, a pagine di 1000. */
-async function prenotazioniDettaglio(): Promise<
+async function prenotazioniDettaglio(ambito: Ambito): Promise<
   { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("first_name, last_name, email, phone, date, heure, people, zone, status")
+    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, date, heure, people, zone, status")
       .order("date", { ascending: false })
       .range(da, da + PAGINA - 1);
     if (error) return tutti;
@@ -107,13 +104,11 @@ async function prenotazioniDettaglio(): Promise<
 }
 
 /** Legge TUTTI gli ordini incassati (paid/done), a pagine di 1000. */
-async function ordiniIncassati(): Promise<RigaOrdine[] | null> {
+async function ordiniIncassati(ambito: Ambito): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, created_at")
+    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at")
       .in("status", ["paid", "done"])
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
@@ -135,13 +130,11 @@ interface RigaResa {
 
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
  *  tabella `reservations` non esiste ancora, torna una lista vuota. */
-async function prenotazioniAttive(): Promise<RigaResa[]> {
+async function prenotazioniAttive(ambito: Ambito): Promise<RigaResa[]> {
   const PAGINA = 1000;
   const tutti: RigaResa[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at")
+    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, status, created_at")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
@@ -191,11 +184,12 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   // Dettaglio: tutta l'attività (ordini + prenotazioni) di un cliente
   const activityKey = (url.searchParams.get("activity") ?? "").trim();
   if (activityKey) {
-    const [ordini, rese] = await Promise.all([ordiniDettaglio(), prenotazioniDettaglio()]);
+    const [ordini, rese] = await Promise.all([ordiniDettaglio(ambito), prenotazioniDettaglio(ambito)]);
     const attivita: { type: string; when: string; label: string; status: string; amount_cents: number | null }[] = [];
     for (const o of ordini) {
       const k = chiave((o.customer_email ?? "").trim(), (o.customer_phone ?? "").trim(), (o.customer_name ?? "").trim());
@@ -224,9 +218,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const [ordini, manuali, rese] = await Promise.all([
-    ordiniIncassati(),
+    ordiniIncassati(ambito),
     clientiManuali(),
-    prenotazioniAttive(),
+    prenotazioniAttive(ambito),
   ]);
   if (ordini === null || manuali === null) return json({ error: "Lecture impossible" }, 500);
 
@@ -447,6 +441,7 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
   const orders = Number(url.searchParams.get("orders") ?? "0");
@@ -474,9 +469,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     const conds: string[] = [];
     if (email) conds.push(`email.eq.${email}`);
     if (phone) conds.push(`phone.eq.${phone}`);
-    const { data: pr } = await supabaseAdmin
-      .from("reservations")
-      .select("id")
+    const { data: pr } = await leggi("reservations", ambito, "id")
       .or(conds.join(","))
       .limit(1);
     haPrenotazioni = !!(pr && pr.length);

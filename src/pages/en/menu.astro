@@ -9,6 +9,8 @@
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../../layouts/Layout.astro";
 import { getMenu } from "../../lib/db";
+// Multi-sede: quale punto sta guardando il sito (segnaposto, pezzo 8).
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { etichettaVariante } from "../../lib/pricing";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n/ui";
 
@@ -16,7 +18,7 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const en = lang === "en";
 
-const menu = await getMenu();
+const menu = await getMenu(await ambitoPubblico());
 
 const HERO_FOTO = "/la-molisana-home-foto-01.webp";
 

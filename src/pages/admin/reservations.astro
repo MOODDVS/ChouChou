@@ -12,6 +12,7 @@ import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
+import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { aggiornaTimezone } from "../../lib/slots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
@@ -36,7 +37,7 @@ let ssrResa: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrResa = await caricaResaGiorno(ssrGiorno);
+  if (staff) ssrResa = await caricaResaGiorno(ssrGiorno, await ambitoDiRichiesta(Astro.request, staff));
 } catch {
   ssrResa = null;
 }

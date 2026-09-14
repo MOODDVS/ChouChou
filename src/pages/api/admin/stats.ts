@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { calcolaStats, type Periodo } from "../../../lib/admin/calcolaStats";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
@@ -31,7 +32,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const p = (url.searchParams.get("period") ?? "day") as Periodo;
   if (!PERIODI.includes(p)) return json({ error: "Période invalide" }, 400);
 
-  const stats = await calcolaStats(p);
+  const stats = await calcolaStats(p, await ambitoDiRichiesta(request, staff));
   if (!stats) return json({ error: "Lecture impossible" }, 500);
   return json(stats);
 };

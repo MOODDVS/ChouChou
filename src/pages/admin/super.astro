@@ -10,7 +10,6 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Modal from "../../components/admin/Modal.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
-import { opzioniPrefisso } from "../../lib/prefissi";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT, LINGUE_ADMIN } from "../../i18n/admin";
 import { PAGINE_ADMIN, TABS_ADMIN } from "../../lib/admin/superAdmin";
@@ -40,7 +39,8 @@ const supI18n = {
     stripe: t("loc.stripe"), webhook: t("loc.webhook"),
     active: t("loc.active"), confirm: t("common.confirm"), del: t("common.delete"),
     imgErr: t("as.uploadFailed"), sending: t("mk.upload"),
-    gNone: t("loc.gNone"), gEmpty: t("gg.pickEmpty"), gErr: t("gg.pickErr"), gNoConn: t("loc.gNoConn"),
+    multiOn: t("loc.multiOn"), multiOff: t("loc.multiOff"),
+    sedeTutte: t("us.sedeTutte"),
     netErr: t("common.netErr"),
   },
   pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
@@ -158,16 +158,6 @@ const prI18n = {
       }
       .loc-slug { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.04em; }
 
-      /* Righe d'informazione: icona in una colonna fissa, testo allineato
-         sempre alla stessa ascissa. */
-      .loc-info { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }
-      .loc-info li {
-        display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 0.55rem;
-        align-items: start; font-size: 0.84rem; color: var(--c-muted); line-height: 1.45;
-      }
-      .loc-info strong { color: var(--c-text); font-weight: 600; }
-      .loc-ico { width: 14px; height: 14px; margin-top: 0.18rem; fill: none; stroke: var(--c-accent); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-
       /* Pastiglia di stato: dice SE il segreto c'e', mai che cosa.
          Verde quando c'e' — il corallo e' l'accento dell'interfaccia, non
          un giudizio, e qui serve dire «a posto». */
@@ -199,21 +189,10 @@ const prI18n = {
       .loc-spacer { flex: 1; }
       /* Pastiglia della sede: foto se c'e', iniziali se no. Stessa forma
          ovunque comparira' — schede, selettore dell'header, ordini. */
-      .loc-avatar {
-        width: 56px; height: 56px; flex: none;
-        display: inline-flex; align-items: center; justify-content: center;
-        border-radius: 8px; overflow: hidden;
-        background: color-mix(in srgb, var(--c-accent) 22%, var(--c-bg));
-        border: 1px solid color-mix(in srgb, var(--c-text) 16%, var(--c-bg));
-        color: var(--c-text);
-        font-family: var(--font-title); font-size: 1.1rem; font-weight: 700;
-        letter-spacing: 0.06em; text-transform: uppercase;
-      }
-      .loc-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
       /* Modale: il grosso arriva da field.css (.f-field/.f-label/.f-line/.f-note).
          Qui resta solo quello che e' davvero di questa scheda. */
-      #loc-overlay .f-line > .loc-cap { flex: 0 0 120px; }
+      #loc-overlay .loc-cap { max-width: 120px; }
       #loc-overlay .md-foot { justify-content: flex-start; gap: 1.1rem; }
       #loc-overlay .md-foot .md-btn { margin-left: auto; }
       #loc-overlay .md-foot .md-btn + .md-btn { margin-left: 0; }
@@ -534,10 +513,10 @@ const prI18n = {
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>{t("sup.title")}</h1>
         <div class="tabs" id="sup-tabs">
           <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>{t("sup.tab.design")}</button>
+          <button type="button" data-t="sedi"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>{t("sup.tab.sedi")}</button>
           <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("sup.tab.users")}</button>
           <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("sup.tab.reglages")}</button>
           <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("sup.tab.integrations")}</button>
-          <button type="button" data-t="sedi"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>{t("sup.tab.sedi")}</button>
           <button type="button" data-t="print"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>{t("sup.tab.print")}</button>
         </div>
 
@@ -839,6 +818,14 @@ const prI18n = {
           <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
         </div>
         <p class="note us-sotto" id="us-role-hint"></p>
+
+        <!-- Sede: compare SOLO se il multi-sede e' acceso. Su un cliente a
+             sede unica il campo non esiste proprio, non e' un campo vuoto. -->
+        <div class="f-field" id="us-sede-box" hidden>
+          <label class="f-label" for="us-sede">{t("hdr.sede")}</label>
+          <select id="us-sede"><option value=""></option></select>
+        </div>
+        <p class="f-note" id="us-sede-hint" hidden>{t("us.sedeHint")}</p>
       <Fragment slot="foot">
         <span class="us-err" id="us-err"></span>
         <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
@@ -879,58 +866,15 @@ const prI18n = {
       </div>
       <p class="f-note">{t("loc.slugHint")}<br /><span class="loc-url" id="loc-url"></span></p>
 
-      <div class="f-field">
-        <label class="f-label" for="loc-address">{t("loc.address")}</label>
-        <input type="text" id="loc-address" maxlength="120" autocomplete="off" />
+      <!-- Indirizzo, telefono, email, societa' e IVA NON stanno qui: sono dati
+           del ristoratore, e questa scheda lui non la vede. Si scrivono da
+           Réglages → Général, sulla sede scelta in alto. La scheda Google si
+           sceglie da Intégrations, per lo stesso motivo. Qui resta l'identita'
+           della sede: com'e' fatta e dove sta nel sito. -->
+      <div class="f-field loc-cap">
+        <label class="f-label" for="loc-order">{t("loc.order")}</label>
+        <input type="number" id="loc-order" min="0" max="999" />
       </div>
-      <div class="f-line">
-        <div class="f-field loc-cap">
-          <label class="f-label" for="loc-postcode">{t("loc.postcode")}</label>
-          <input type="text" id="loc-postcode" maxlength="12" autocomplete="off" />
-        </div>
-        <div class="f-field">
-          <label class="f-label" for="loc-city">{t("loc.city")}</label>
-          <input type="text" id="loc-city" maxlength="60" autocomplete="off" />
-        </div>
-      </div>
-
-      <div class="f-line">
-        <div class="f-field">
-          <label class="f-label" for="loc-phone">{t("loc.phone")}</label>
-          <span class="f-tel">
-            <select id="loc-prefix" aria-label={t("cli.dialCode")} set:html={opzioniPrefisso(CLIENT.paese)}></select>
-            <input type="tel" id="loc-phone" autocomplete="off" placeholder="455 12 34 56" />
-          </span>
-        </div>
-        <div class="f-field">
-          <label class="f-label" for="loc-email">{t("loc.email")}</label>
-          <input type="text" id="loc-email" maxlength="120" autocomplete="off" />
-        </div>
-      </div>
-
-      <div class="f-line">
-        <div class="f-field">
-          <label class="f-label" for="loc-company">{t("loc.company")}</label>
-          <input type="text" id="loc-company" maxlength="120" autocomplete="off" />
-        </div>
-        <div class="f-field">
-          <label class="f-label" for="loc-vat">{t("loc.vat")}</label>
-          <input type="text" id="loc-vat" maxlength="30" autocomplete="off" />
-        </div>
-      </div>
-      <p class="f-note">{t("loc.companyHint")}</p>
-
-      <div class="f-line">
-        <div class="f-field">
-          <label class="f-label" for="loc-google">{t("loc.google")}</label>
-          <select id="loc-google"><option value=""></option></select>
-        </div>
-        <div class="f-field loc-cap">
-          <label class="f-label" for="loc-order">{t("loc.order")}</label>
-          <input type="number" id="loc-order" min="0" max="999" />
-        </div>
-      </div>
-      <p class="f-note">{t("loc.googleHint")} <span id="loc-google-state"></span></p>
 
       <!-- Segreti: si scrivono, non si rileggono mai. Il segnale accanto
            all'etichetta dice solo SE c'e' qualcosa, non che cosa. -->
@@ -963,7 +907,6 @@ const prI18n = {
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
-      import { separaPrefisso, telefonoCompleto, collegaPrefissoTel } from "../../lib/prefissi";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { adminT, type AdminLang } from "../../i18n/admin";
@@ -1800,7 +1743,26 @@ const prI18n = {
         let usDelPending: string | null = null;
         let usDelTimer: number | undefined;
         let usEditId: string | null = null;
-        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }[] = [];
+        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }[] = [];
+
+        // ---- Sede dell'utente (multi-sede) ----
+        // L'elenco arriva dalla stessa API delle Sedi, gia' caricata da questo
+        // pannello: nessuna chiamata in piu'.
+        const usSedeBox = document.getElementById("us-sede-box") as HTMLElement | null;
+        const usSedeHint = document.getElementById("us-sede-hint") as HTMLElement | null;
+        const usSedeSel = document.getElementById("us-sede") as HTMLSelectElement | null;
+        function usRiempiSedi(scelta: string) {
+          if (!usSedeBox || !usSedeSel) return;
+          // Multi-sede spento (o nessuna sede): il campo non serve a niente.
+          const attivo = locMulti.checked && sedi.length > 0;
+          usSedeBox.hidden = !attivo;
+          if (usSedeHint) usSedeHint.hidden = !attivo;
+          if (!attivo) return;
+          usSedeSel.innerHTML =
+            `<option value="">${esc(L.sedeTutte ?? "")}</option>` +
+            sedi.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+          usSedeSel.value = scelta;
+        }
 
         function usData(iso: string | null): string {
           if (!iso) return tr("us.never");
@@ -1819,14 +1781,16 @@ const prI18n = {
             const res = await fetch("/api/admin/users", { headers });
             if (!res.ok) { usList.innerHTML = `<p class="note">${tr("us.loadErr")}</p>`; return; }
             const j = (await res.json()) as {
-              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean }[];
+              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean; location_id?: string | null }[];
             };
             usCache = j.users ?? [];
             usList.innerHTML = (j.users ?? [])
               .map((u) => `
                 <div class="us-row" data-uid="${u.id}">
                   <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : '<span class="us-tag role-admin">ADMIN</span>'}</span>
-                  <span class="us-cell" title="${u.email}">${u.email}</span>
+                  <span class="us-cell" title="${u.email}">${u.email}${
+                    u.location_id ? `<span class="us-tag role-user">${esc(sedi.find((s) => s.id === u.location_id)?.name ?? "?")}</span>` : ""
+                  }</span>
                   <span class="us-cell dim">${usData(u.created_at)}</span>
                   <span class="us-cell dim">${usData(u.last_sign_in_at)}</span>
                   <span class="us-acts">
@@ -1845,7 +1809,7 @@ const prI18n = {
           if (usPass) usPass.value = usPwd();
         });
 
-        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }) {
+        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }) {
           usEditId = u?.id ?? null;
           if (usErr) usErr.textContent = "";
           if (usFname) usFname.value = u?.first_name ?? "";
@@ -1859,6 +1823,7 @@ const prI18n = {
           if (hint) hint.textContent = u ? tr("us.editHint") : tr("us.newHint");
           if (passLab) passLab.textContent = u ? tr("us.passOpt") : tr("us.pass");
           usSetRuolo(u?.role ?? "admin");
+          usRiempiSedi(u?.location_id ?? "");
           usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
           });
@@ -1893,6 +1858,9 @@ const prI18n = {
               last_name: usLname?.value.trim() ?? "",
             };
             corpo.role = usRuoloSel();
+            // Si manda solo se il campo esiste: su un cliente a sede unica
+            // non deve arrivare all'API nemmeno come stringa vuota.
+            if (usSedeBox && !usSedeBox.hidden) corpo.location_id = usSedeSel?.value ?? "";
             if (usEditId) corpo.id = usEditId;
             if (password) corpo.password = password;
             const res = await fetch("/api/admin/users", {
@@ -1980,8 +1948,6 @@ const prI18n = {
           }
         });
 
-        void usCarica();
-
         temaResetEl.addEventListener("click", () => {
           tema = {};
           renderTema();
@@ -2041,18 +2007,11 @@ const prI18n = {
         const locTitle = document.getElementById("loc-title") as HTMLHeadingElement;
         const locErr = document.getElementById("loc-err") as HTMLSpanElement;
         const locSave = document.getElementById("loc-save") as HTMLButtonElement;
-        // Icone delle righe: una per tipo di dato, in una colonna fissa.
-        const I_PIN = '<svg class="loc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>';
-        const I_TEL = '<svg class="loc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" /></svg>';
-        const I_MAIL = '<svg class="loc-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2" /><polyline points="2 6 12 13 22 6" /></svg>';
-        const I_SOC = '<svg class="loc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18" /><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" /><path d="M15 21V11h2a2 2 0 0 1 2 2v8" /><line x1="9" y1="7" x2="11" y2="7" /><line x1="9" y1="11" x2="11" y2="11" /><line x1="9" y1="15" x2="11" y2="15" /></svg>';
         const LOC_MATITA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>';
         const LOC_CESTINO = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>';
 
         interface Sede {
-          id: string; name: string; slug: string; address: string; postcode: string;
-          city: string; phone: string; email: string; timezone: string;
-          company_name: string; company_vat: string; google_location: string | null;
+          id: string; name: string; slug: string;
           image_url: string | null;
           sort_order: number; active: boolean;
         }
@@ -2072,8 +2031,8 @@ const prI18n = {
          *  sta riconoscendo una sede. */
         function avatar(s: { name: string; image_url?: string | null }): string {
           return s.image_url
-            ? `<span class="loc-avatar"><img src="${esc(s.image_url)}" alt="" loading="lazy" /></span>`
-            : `<span class="loc-avatar">${esc(iniziali(s.name))}</span>`;
+            ? `<span class="sede-avatar"><img src="${esc(s.image_url)}" alt="" loading="lazy" /></span>`
+            : `<span class="sede-avatar">${esc(iniziali(s.name))}</span>`;
         }
 
         const esc = (s: unknown) =>
@@ -2084,13 +2043,6 @@ const prI18n = {
         function pastiglia(idSede: string, chiave: string, etichetta: string): string {
           const c = segreti[idSede]?.[chiave] === true;
           return `<span class="loc-chip${c ? " is-set" : ""}">${esc(etichetta)} · ${esc(c ? L.secretSet : L.secretNone)}</span>`;
-        }
-
-        /** Una riga d'informazione. Vuota = non si stampa: una card con
-         *  un'icona e niente accanto sembra un dato perso. */
-        function riga(ico: string, testo: string, grezzo = false): string {
-          if (!testo) return "";
-          return `<li>${ico}<span>${grezzo ? testo : esc(testo)}</span></li>`;
         }
 
         function locRender() {
@@ -2110,14 +2062,6 @@ const prI18n = {
                   <span class="loc-slug">/${esc(s.slug)}</span>
                 </span>
               </div>
-              <ul class="loc-info">
-                ${riga(I_PIN, [s.address, [s.postcode, s.city].filter(Boolean).join(" ")].filter(Boolean).join(" — "))}
-                ${riga(I_TEL, s.phone)}
-                ${riga(I_MAIL, s.email)}
-                ${riga(I_SOC, s.company_name || s.company_vat
-                  ? `<strong>${esc(s.company_name)}</strong>${s.company_vat ? " · " + esc(s.company_vat) : ""}`
-                  : "", true)}
-              </ul>
               <div class="loc-chips">
                 ${pastiglia(s.id, "stripe_secret_key", "Stripe")}
                 ${pastiglia(s.id, "stripe_webhook_secret", "Webhook")}
@@ -2158,20 +2102,7 @@ const prI18n = {
           locTitle.textContent = (s ? L.edit : L.neu) ?? "";
           campo("loc-name").value = s?.name ?? "";
           campo("loc-slug").value = s?.slug ?? "";
-          campo("loc-address").value = s?.address ?? "";
-          campo("loc-postcode").value = s?.postcode ?? "";
-          campo("loc-city").value = s?.city ?? "";
-          const telSalvato = s?.phone ?? "";
-          const sepTel = separaPrefisso(telSalvato);
-          locPrefix.value = sepTel?.dial ?? PREFISSO_SEDE;
-          campo("loc-phone").value = sepTel ? sepTel.resto : telSalvato;
-          campo("loc-email").value = s?.email ?? "";
-          campo("loc-company").value = s?.company_name ?? "";
-          campo("loc-vat").value = s?.company_vat ?? "";
-          const schedaScelta = s?.google_location ?? "";
           mostraUrl();
-          riempiSchede(schedaScelta);
-          void caricaSchedeGoogle().then(() => riempiSchede(locGoogle.value || schedaScelta));
           locImgUrl = s?.image_url ?? null;
           disegnaFoto();
           (document.getElementById("loc-img-state") as HTMLSpanElement).textContent = "";
@@ -2214,59 +2145,6 @@ const prI18n = {
           campo("loc-slug").value = sluggifica(campo("loc-name").value);
           mostraUrl();
         });
-
-        // ---- Telefono: prefisso con bandiera, riconoscimento del + ----
-        // Tutto il comportamento arriva da prefissi.ts. In `locations.phone`
-        // il numero sta INTERO ("+32 494 21 87 13"): si scompone all'apertura
-        // e si ricompone al salvataggio, cosi' il database non sa niente di
-        // come e' fatto il modale.
-        const locPrefix = document.getElementById("loc-prefix") as HTMLSelectElement;
-        /** Prefisso di partenza per una sede nuova: quello che il SERVER ha
-         *  gia' selezionato in base al paese del cliente (`opzioniPrefisso`).
-         *  Si legge da qui invece di rifare il calcolo: una fonte sola. */
-        const PREFISSO_SEDE = locPrefix.value;
-        collegaPrefissoTel(locPrefix, campo("loc-phone"));
-
-        // ---- Scheda Google ----
-        // Il percorso `accounts/…/locations/…` non si copia a mano da nessuna
-        // parte: lo conosce l'account Google collegato. Si legge UNA volta
-        // (la chiamata gira su piu' pagine dell'API di Google) e si riusa per
-        // tutte le sedi.
-        const locGoogle = document.getElementById("loc-google") as HTMLSelectElement;
-        const locGoogleState = document.getElementById("loc-google-state") as HTMLSpanElement;
-        type GScheda = { path: string; title: string; address: string };
-        let gSchede: GScheda[] | null = null;
-        let gSchedeErr = "";
-
-        async function caricaSchedeGoogle() {
-          if (gSchede) return;
-          try {
-            const res = await fetch("/api/admin/google/locations", { headers });
-            const j = await res.json();
-            if (!j.connected) { gSchede = []; gSchedeErr = L.gNoConn ?? ""; return; }
-            gSchede = (j.sedi ?? []) as GScheda[];
-            gSchedeErr = j.error ? `${L.gErr ?? ""} ${j.error}` : "";
-          } catch {
-            gSchede = [];
-            gSchedeErr = L.netErr ?? "";
-          }
-        }
-
-        function riempiSchede(scelta: string) {
-          const opzioni = [`<option value="">${esc(L.gNone ?? "—")}</option>`];
-          for (const s of gSchede ?? []) {
-            const etichetta = [s.title || s.path, s.address].filter(Boolean).join(" — ");
-            opzioni.push(`<option value="${esc(s.path)}">${esc(etichetta)}</option>`);
-          }
-          // Una scheda salvata che non e' nell'elenco (Google scollegato, o
-          // account cambiato) NON si perde: resta come opzione sua.
-          if (scelta && !(gSchede ?? []).some((s) => s.path === scelta)) {
-            opzioni.push(`<option value="${esc(scelta)}">${esc(scelta)}</option>`);
-          }
-          locGoogle.innerHTML = opzioni.join("");
-          locGoogle.value = scelta;
-          locGoogleState.textContent = gSchedeErr || (gSchede && gSchede.length === 0 ? (L.gEmpty ?? "") : "");
-        }
 
         // ---- Foto della sede ----
         const locImgUp = document.getElementById("loc-img-up") as HTMLButtonElement;
@@ -2342,14 +2220,6 @@ const prI18n = {
           const corpo: Record<string, unknown> = {
             name: campo("loc-name").value.trim(),
             slug: campo("loc-slug").value.trim().toLowerCase(),
-            address: campo("loc-address").value.trim(),
-            postcode: campo("loc-postcode").value.trim(),
-            city: campo("loc-city").value.trim(),
-            phone: telefonoCompleto(locPrefix.value, campo("loc-phone").value) ?? "",
-            email: campo("loc-email").value.trim(),
-            company_name: campo("loc-company").value.trim(),
-            company_vat: campo("loc-vat").value.trim(),
-            google_location: locGoogle.value.trim(),
             image_url: locImgUrl,
             sort_order: Number(campo("loc-order").value || 0),
             active: campo("loc-active").checked,
@@ -2391,7 +2261,8 @@ const prI18n = {
             });
             const j = await res.json();
             if (!res.ok) { locMulti.checked = !acceso; toast(j.error ?? "", true); return; }
-            toast(L.saved ?? "");
+            // Non e' una sede salvata: e' una funzione accesa.
+            toast((acceso ? L.multiOn : L.multiOff) ?? "");
           } catch {
             locMulti.checked = !acceso;
             toast(L.netErr ?? "", true);
@@ -2470,7 +2341,10 @@ const prI18n = {
           });
         });
 
-        void locCarica();
+        // Prima le sedi, poi gli utenti: la riga utente mostra il nome della sua
+        // sede, e senza l'elenco gia' pronto mostrerebbe "?" a seconda di chi
+        // dei due risponde per primo.
+        void locCarica().then(() => usCarica());
       })();
     </script>
 

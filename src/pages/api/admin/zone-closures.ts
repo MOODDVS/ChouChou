@@ -1,7 +1,10 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import {
+  ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
+} from "../../../lib/admin/sede";
+import { aggiornaTimezone } from "../../../lib/slots";
 
 export const prerender = false;
 
@@ -13,11 +16,14 @@ export const prerender = false;
 //                                    (app_config zone_closures_permanent)
 // DELETE ?date=&zone=              → riapre
 
-/** Lista delle sections chiuse «jusqu'à réouverture» (app_config, mai bloccante). */
-async function leggiPermanenti(): Promise<string[]> {
+const K_PERM = "zone_closures_permanent";
+
+/** Lista delle sections chiuse «jusqu'à réouverture» (mai bloccante).
+ *  Configurazione, quindi per sede: le sale sono di quel punto. */
+async function leggiPermanenti(ambito: Ambito): Promise<string[]> {
   try {
-    const { data } = await supabaseAdmin.from("app_config").select("value").eq("key", "zone_closures_permanent").maybeSingle();
-    const arr = JSON.parse(String(data?.value || "[]"));
+    const { valori } = await leggiConfig(ambito, [K_PERM]);
+    const arr = JSON.parse(String(valori.get(K_PERM) || "[]"));
     return Array.isArray(arr) ? arr.map((z) => String(z).trim()).filter((z) => z && z.length <= 60) : [];
   } catch { return []; }
 }
@@ -35,26 +41,18 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
+  const ambito = await ambitoDiRichiesta(request, staff);
+
   // Tutte le chiusure da oggi in poi (fuso del ristorante)
   if (url.searchParams.get("future") === "1") {
-    let tz = "Europe/Brussels";
-    try {
-      const { data: cfg } = await supabaseAdmin.from("app_config").select("value").eq("key", "timezone").single();
-      const v = String(cfg?.value ?? "");
-      if (v) {
-        new Intl.DateTimeFormat("en", { timeZone: v });
-        tz = v;
-      }
-    } catch { /* default */ }
+    const tz = await aggiornaTimezone();
     const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
-    // Storico limitato a 90 giorni: le chiusure più vecchie si eliminano da sole
+    // Storico a 90 giorni, ma solo di QUESTA sede: vedi service-closures.
     try {
       const limite = new Date(Date.parse(oggi) - 90 * 86400000).toISOString().slice(0, 10);
-      await supabaseAdmin.from("zone_closures").delete().lt("date", limite);
+      await cancella("zone_closures", ambito).lt("date", limite);
     } catch { /* mai bloccante */ }
-    const { data, error } = await supabaseAdmin
-      .from("zone_closures")
-      .select("date, zone, reason")
+    const { data, error } = await leggi("zone_closures", ambito, "date, zone, reason")
       .gte("date", oggi)
       .order("date", { ascending: true });
     if (error) return json({ closures: [], missing: true });
@@ -64,8 +62,8 @@ export const GET: APIRoute = async ({ request, url }) => {
   const date = url.searchParams.get("date") ?? "";
   if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
 
-  const permanent = await leggiPermanenti();
-  const { data, error } = await supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date);
+  const permanent = await leggiPermanenti(ambito);
+  const { data, error } = await leggi("zone_closures", ambito, "zone, reason").eq("date", date);
   // Tabella non ancora creata (migrazione #23): nessuna chiusura, non rotta
   if (error) return json({ closures: [], permanent, missing: true });
   return json({ closures: data ?? [], permanent });
@@ -86,12 +84,11 @@ export const POST: APIRoute = async ({ request }) => {
   if (body.permanent_zone !== undefined) {
     const zona = String(body.permanent_zone ?? "").trim().slice(0, 60);
     if (!zona) return json({ error: "Section invalide" }, 400);
-    const lista = await leggiPermanenti();
+    const ambitoPerm = await ambitoDiRichiesta(request, staff);
+    const lista = await leggiPermanenti(ambitoPerm);
     const nuova = body.closed ? [...new Set([...lista, zona])] : lista.filter((z) => z !== zona);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "zone_closures_permanent", value: JSON.stringify(nuova) }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambitoPerm, { [K_PERM]: JSON.stringify(nuova) });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
     invalidaAppConfig();
     return json({ ok: true, permanent: nuova });
   }
@@ -101,9 +98,12 @@ export const POST: APIRoute = async ({ request }) => {
   if (!zone || zone.length > 60) return json({ error: "Section invalide" }, 400);
   const reason = body.reason === "full" ? "full" : "closed";
 
-  const { error } = await supabaseAdmin
-    .from("zone_closures")
-    .upsert({ date, zone, reason }, { onConflict: "date,zone" });
+  const { error } = await salva(
+    "zone_closures",
+    await ambitoDiRichiesta(request, staff),
+    { date, zone, reason },
+    "date,zone",
+  );
   if (error) {
     return json({ error: "Enregistrement impossible — migration supabase/zone_closures.sql à lancer ?" }, 500);
   }
@@ -119,7 +119,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const zone = (url.searchParams.get("zone") ?? "").trim();
   if (!zone) return json({ error: "Section invalide" }, 400);
 
-  const { error } = await supabaseAdmin.from("zone_closures").delete().eq("date", date).eq("zone", zone);
+  const { error } = await cancella("zone_closures", await ambitoDiRichiesta(request, staff))
+    .eq("date", date)
+    .eq("zone", zone);
   if (error) return json({ error: "Suppression impossible" }, 500);
   return json({ ok: true });
 };

@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+// Multi-sede: i piatti del punto che il sito sta mostrando.
+import { leggi, ambitoPubblico } from "../../lib/admin/sede";
 import { supabaseAdmin } from "../../lib/db";
 
 export const prerender = false;
@@ -23,6 +25,7 @@ function json(body: unknown): Response {
 }
 
 export const GET: APIRoute = async () => {
+  const ambito = await ambitoPubblico();
   try {
     const SEL = "id, name, name_i18n, desc_i18n, image_url, courses, price_cents, wine_supplement_cents, date_from, date_to, active, hide_items, is_draft, sort_order, created_at";
     let res: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin
@@ -57,9 +60,9 @@ export const GET: APIRoute = async () => {
     }
     const nomiPiatti = new Map<string, { name: string; name_i18n: Record<string, string> }>();
     if (ids.size) {
-      let ri: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin.from("menu_items").select("id, name, name_i18n").in("id", [...ids]);
+      let ri: { data: unknown[] | null; error: { message?: string } | null } = await leggi("menu_items", ambito, "id, name, name_i18n").in("id", [...ids]);
       if (ri.error && /name_i18n/i.test(ri.error.message ?? "")) {
-        ri = await supabaseAdmin.from("menu_items").select("id, name").in("id", [...ids]);
+        ri = await leggi("menu_items", ambito, "id, name").in("id", [...ids]);
       }
       for (const r of (ri.data as { id: string; name: string; name_i18n?: Record<string, string> | null }[] | null) ?? []) {
         nomiPiatti.set(r.id, { name: r.name, name_i18n: r.name_i18n ?? {} });

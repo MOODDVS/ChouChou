@@ -1,4 +1,6 @@
 import type { APIRoute } from "astro";
+// Multi-sede: i piatti del punto che il sito sta mostrando.
+import { leggi, ambitoPubblico } from "../../lib/admin/sede";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { prezzoEffettivo } from "../../lib/pricing";
@@ -37,6 +39,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  const ambito = await ambitoPubblico();
   let body: Body;
   try {
     body = await request.json();
@@ -65,9 +68,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Costruisce le righe carrello leggendo i prezzi REALI dal DB.
   const ids = items.map((i) => i.id);
-  const { data: piatti } = await supabaseAdmin
-    .from("menu_items")
-    .select("id, category, price_cents, discount_type, discount_value, available")
+  const { data: piatti } = await leggi("menu_items", ambito, "id, category, price_cents, discount_type, discount_value, available")
     .in("id", ids);
 
   const linee: LineaCoupon[] = [];

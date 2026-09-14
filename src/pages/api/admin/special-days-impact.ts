@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../lib/notifications";
 
@@ -23,12 +23,11 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
   const from = url.searchParams.get("from") ?? "";
   const to = url.searchParams.get("to") || from;
   if (!RE_DATE.test(from) || !RE_DATE.test(to)) return json({ error: "Dates invalides" }, 400);
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select("id, date, heure, service_key, people, first_name, last_name")
+  const { data, error } = await leggi("reservations", ambito, "id, date, heure, service_key, people, first_name, last_name")
     .gte("date", from)
     .lte("date", to)
     .eq("status", "confirmed")
@@ -41,6 +40,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
   let body: { from?: string; to?: string };
   try {
     body = await request.json();
@@ -51,9 +51,7 @@ export const POST: APIRoute = async ({ request }) => {
   const to = String(body.to || from);
   if (!RE_DATE.test(from) || !RE_DATE.test(to)) return json({ error: "Dates invalides" }, 400);
 
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select(CAMPI)
+  const { data, error } = await leggi("reservations", ambito, CAMPI)
     .gte("date", from)
     .lte("date", to)
     .eq("status", "confirmed");
@@ -62,9 +60,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!rows.length) return json({ ok: true, cancelled: 0 });
 
   const ids = rows.map((r) => r.id);
-  const { error: upErr } = await supabaseAdmin
-    .from("reservations")
-    .update({ status: "cancelled" })
+  const { error: upErr } = await aggiorna("reservations", ambito, { status: "cancelled" })
     .in("id", ids);
   if (upErr) return json({ error: "Annulation impossible" }, 500);
 

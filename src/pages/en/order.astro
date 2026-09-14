@@ -11,6 +11,8 @@ import { getMenuOrderable, supabaseAdmin } from "../../lib/db";
 import { getLangFromUrl, useTranslations } from "../../i18n/ui";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../../lib/schedule";
+// Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
+import { ambitoPubblico } from "../../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const tr = useTranslations(lang);
@@ -21,8 +23,10 @@ const en = lang === "en";
 // con sotto la prossima riapertura ("Nous serons ouverts demain dès 11:00").
 let chiusoOggi = false;
 let riapertura = "";
+// Fuori dal try: serve anche al menu, piu' sotto.
+const ambitoPub = await ambitoPubblico();
 try {
-  const cfg = await configGiornoEffettiva(DateTime.now());
+  const cfg = await configGiornoEffettiva(DateTime.now(), ambitoPub);
   if (cfg) {
     const midi = cfg.lunch_active && cfg.lunch_open && cfg.lunch_close;
     const soir = cfg.dinner_active && cfg.dinner_open && cfg.dinner_close;
@@ -35,7 +39,7 @@ try {
     const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : "");
     for (let i = 1; i <= 7; i++) {
       const giorno = oggi.plus({ days: i });
-      const c = await configGiornoEffettiva(giorno);
+      const c = await configGiornoEffettiva(giorno, ambitoPub);
       if (!c) continue;
       let ora = "";
       if (c.lunch_active && c.lunch_open && c.lunch_close) ora = hhmm(c.lunch_open);
@@ -72,7 +76,7 @@ try {
 }
 
 // Solo piatti ordinabili in take-away (available = true AND orderable = true).
-const menu = ordiniChiusi ? [] : await getMenuOrderable();
+const menu = ordiniChiusi ? [] : await getMenuOrderable(ambitoPub);
 
 const HERO_FOTO = "/slideshow/slide-02.webp";
 

@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import {
+  ambitoDiRichiesta, leggi, aggiorna, leggiConfig, type Ambito,
+} from "../../../lib/admin/sede";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../lib/notifications";
 import { assegnaTavoli } from "../../../lib/planSalle";
@@ -23,11 +25,10 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-async function leggiSezioni(): Promise<Zone[]> {
-  const { data } = await supabaseAdmin
-    .from("app_config").select("value").eq("key", "reservation_zones").maybeSingle();
+async function leggiSezioni(ambito: Ambito): Promise<Zone[]> {
+  const { valori } = await leggiConfig(ambito, ["reservation_zones"]);
   try {
-    const raw = JSON.parse(String((data as { value?: unknown } | null)?.value ?? "[]")) as unknown;
+    const raw = JSON.parse(valori.get("reservation_zones") || "[]") as unknown;
     if (!Array.isArray(raw)) return [];
     return raw
       .map((z) => ({ name: String((z as { name?: unknown }).name ?? ""), seats: Math.floor(Number((z as { seats?: unknown }).seats)) || 0 }))
@@ -37,24 +38,22 @@ async function leggiSezioni(): Promise<Zone[]> {
   }
 }
 
-async function planModeOn(): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from("app_config").select("value").eq("key", "reservation_plan_mode").maybeSingle();
-  return String((data as { value?: unknown } | null)?.value ?? "") === "1";
+async function planModeOn(ambito: Ambito): Promise<boolean> {
+  const { valori } = await leggiConfig(ambito, ["reservation_plan_mode"]);
+  return valori.get("reservation_plan_mode") === "1";
 }
 
 // GET ?date=&zone=  -> { reservations, sections, plan_mode }
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
   const date = url.searchParams.get("date") ?? "";
   const zone = url.searchParams.get("zone") ?? "";
   if (!RE_DATE.test(date) || !zone) return json({ error: "Paramètres invalides" }, 400);
 
-  const zones = await leggiSezioni();
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .select("id, heure, service_key, people, zone, first_name, last_name")
+  const zones = await leggiSezioni(ambito);
+  const { data, error } = await leggi("reservations", ambito, "id, heure, service_key, people, zone, first_name, last_name")
     .eq("date", date)
     .eq("status", "confirmed")
     .order("heure", { ascending: true });
@@ -73,13 +72,14 @@ export const GET: APIRoute = async ({ request, url }) => {
       return { name: z.name, seats: z.seats, booked, free: Math.max(0, z.seats - booked) };
     });
 
-  return json({ reservations: affected, sections, plan_mode: await planModeOn() });
+  return json({ reservations: affected, sections, plan_mode: await planModeOn(ambito) });
 };
 
 // POST { date, zone, decisions:[{id, action:"move"|"cancel"|"recontact", toZone?}] }
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
   let body: { date?: string; zone?: string; decisions?: { id?: string; action?: string; toZone?: string }[] };
   try {
     body = await request.json();
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const ids = decisions.map((d) => String(d.id ?? "")).filter(Boolean);
   const CAMPI = "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
-  const { data, error } = await supabaseAdmin.from("reservations").select(CAMPI).in("id", ids);
+  const { data, error } = await leggi("reservations", ambito, CAMPI).in("id", ids);
   if (error) return json({ error: "Lecture impossible" }, 500);
   type Full = ResaEmail & { review_email_id?: string | null };
   const byId = new Map<string, Full>();
@@ -104,7 +104,7 @@ export const POST: APIRoute = async ({ request }) => {
     const r = byId.get(String(d.id ?? ""));
     if (!r) continue;
     if (d.action === "move" && d.toZone) {
-      await supabaseAdmin.from("reservations").update({ zone: d.toZone }).eq("id", r.id);
+      await aggiorna("reservations", ambito, { zone: d.toZone }).eq("id", r.id);
       const combo = await assegnaTavoli({
         date: r.date,
         heure: String(r.heure).slice(0, 5),
@@ -112,18 +112,18 @@ export const POST: APIRoute = async ({ request }) => {
         zone: d.toZone,
         people: Math.floor(Number(r.people)) || 1,
         excludeId: r.id,
-      });
-      const { error: tErr } = await supabaseAdmin.from("reservations").update({ tables: combo ? combo.ids : null }).eq("id", r.id);
+      }, ambito);
+      const { error: tErr } = await aggiorna("reservations", ambito, { tables: combo ? combo.ids : null }).eq("id", r.id);
       if (tErr) { /* migrazione #37 assente: si ignora */ }
       moved++;
     } else if (d.action === "cancel") {
-      await supabaseAdmin.from("reservations").update({ status: "cancelled" }).eq("id", r.id);
-      try { await supabaseAdmin.from("reservations").update({ tables: null }).eq("id", r.id); } catch { /* #37 assente */ }
+      await aggiorna("reservations", ambito, { status: "cancelled" }).eq("id", r.id);
+      try { await aggiorna("reservations", ambito, { tables: null }).eq("id", r.id); } catch { /* #37 assente */ }
       await emailChiusuraResa(r);
       if (r.review_email_id) await annullaEmailReview(r.review_email_id);
       cancelled++;
     } else if (d.action === "recontact") {
-      const { error: rErr } = await supabaseAdmin.from("reservations").update({ recontact: true }).eq("id", r.id);
+      const { error: rErr } = await aggiorna("reservations", ambito, { recontact: true }).eq("id", r.id);
       if (rErr) { /* migrazione #43 non lanciata */ }
       recontact++;
     }

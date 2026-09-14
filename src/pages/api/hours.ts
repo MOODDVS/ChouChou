@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../../lib/schedule";
+// Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { TIMEZONE } from "../../lib/slots";
 import type { ConfigGiorno } from "../../lib/slots";
 
@@ -30,6 +32,7 @@ function json(body: unknown): Response {
 // Il front-end formatta testo e nomi dei giorni nella lingua scelta.
 export const GET: APIRoute = async () => {
   try {
+    const ambitoPub = await ambitoPubblico();
     const now = DateTime.now().setZone(TIMEZONE);
 
     // --- Settimana (lun-dom): prossima occorrenza di ogni giorno entro 7 gg ---
@@ -40,12 +43,12 @@ export const GET: APIRoute = async () => {
         const d = now.plus({ days: i });
         if (d.weekday === dow) { day = d; break; }
       }
-      const c = await configGiornoEffettiva(day);
+      const c = await configGiornoEffettiva(day, ambitoPub);
       week.push({ dow, date: day.toFormat("yyyy-MM-dd"), ranges: rangesOf(c) });
     }
 
     // --- Stato di oggi ---
-    const cfg = await configGiornoEffettiva(now);
+    const cfg = await configGiornoEffettiva(now, ambitoPub);
     const oggi = rangesOf(cfg);
     const nowMin = now.hour * 60 + now.minute;
     const current = oggi.find((r) => toMin(r.open) <= nowMin && nowMin < toMin(r.close));
@@ -56,7 +59,7 @@ export const GET: APIRoute = async () => {
 
     for (let i = 1; i <= 7; i++) {
       const g = now.plus({ days: i });
-      const c = await configGiornoEffettiva(g);
+      const c = await configGiornoEffettiva(g, ambitoPub);
       const r = rangesOf(c);
       if (r.length) {
         return json({ open: false, next: { when: i === 1 ? "tomorrow" : "day", date: g.toFormat("yyyy-MM-dd"), time: r[0].open }, week });

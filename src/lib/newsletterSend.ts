@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
 import { Resend } from "resend";
 import { supabaseAdmin } from "./db";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
@@ -107,7 +108,7 @@ interface Profilo {
 
 /** Rubrica con profilo per email: ordini incassati + prenotazioni + clienti
  *  manuali, meno i nascosti e i disiscritti. */
-async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: number }> {
+async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>; esclusi: number }> {
   const profili = new Map<string, Profilo>();
   const nascosti = new Set<string>();
   const prendi = (e: string): Profilo => {
@@ -121,9 +122,7 @@ async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: numb
 
   const PAGINA = 1000;
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_email, total_cents, created_at")
+    const { data, error } = await leggi("orders", ambito, "customer_email, total_cents, created_at")
       .in("status", ["paid", "done"])
       .range(da, da + PAGINA - 1);
     if (error) break;
@@ -139,9 +138,7 @@ async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: numb
   }
 
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("email, lang, created_at, spent_cents, status")
+    const { data, error } = await leggi("reservations", ambito, "email, lang, created_at, spent_cents, status")
       .neq("status", "cancelled")
       .range(da, da + PAGINA - 1);
     if (error) break;
@@ -211,13 +208,13 @@ function filtra(profili: Map<string, Profilo>, lang: LinguaNews, group: GruppoNe
 }
 
 export async function destinatariSegmento(lang: LinguaNews, group: GruppoNews): Promise<{ lista: string[]; esclusi: number }> {
-  const { profili, esclusi } = await rubrica();
+  const { profili, esclusi } = await rubrica(tutteLeSedi());
   return { lista: filtra(profili, lang, group), esclusi };
 }
 
 /** Conteggi per OGNI combinazione lingua×gruppo (pillole del modale) + opted-out. */
 export async function contatoriSegmenti(): Promise<{ counts: Record<string, Record<string, number>>; esclusi: number }> {
-  const { profili, esclusi } = await rubrica();
+  const { profili, esclusi } = await rubrica(tutteLeSedi());
   const counts: Record<string, Record<string, number>> = {};
   for (const l of LINGUE) {
     counts[l] = {};

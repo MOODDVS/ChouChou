@@ -1,5 +1,7 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import {
+  ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella, leggiConfig, scriviConfig, type Ambito,
+} from "../../../lib/admin/sede";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
@@ -44,6 +46,7 @@ function num(v: unknown, min: number, max: number, fallback: number): number {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   // ?assign=1 -> ANTEPRIMA assegnazione per il modale admin: quali tavoli
   // riceverebbe una prenotazione a questi date/heure/people/zone (dry-run,
@@ -63,12 +66,12 @@ export const GET: APIRoute = async ({ request, url }) => {
       zone: (url.searchParams.get("zone") ?? "").trim() || null,
       people,
       excludeId: /^[0-9a-f-]{36}$/i.test(exclude) ? exclude : undefined,
-    });
+    }, ambito);
     return json({ proposal });
   }
 
   const zone = (url.searchParams.get("zone") ?? "").trim();
-  let q = supabaseAdmin.from("restaurant_tables").select(SELECT).order("created_at", { ascending: true });
+  let q = leggi("restaurant_tables", ambito, SELECT).order("created_at", { ascending: true });
   if (zone) q = q.eq("zone", zone);
   const { data, error } = await q;
   if (error) return json({ error: "Lecture impossible" }, 500);
@@ -80,11 +83,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let autoTables = true;
   let priority: string[] = [];
   try {
-    const { data: cfg } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_decor", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
-    const m = new Map((cfg ?? []).map((r) => [r.key, r.value ?? ""]));
+    const { valori: m } = await leggiConfig(ambito, ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_decor", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
     planMode = m.get("reservation_plan_mode") === "1";
     autoTables = (m.get("reservation_auto_tables") ?? "1") !== "0";
     const aree = JSON.parse(m.get("reservation_plan_areas") || "{}") as Record<string, unknown>;
@@ -104,25 +103,24 @@ export const GET: APIRoute = async ({ request, url }) => {
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
-async function salvaMappa(chiave: string, zone: string, valore: unknown | null): Promise<boolean> {
+async function salvaMappa(chiave: string, zone: string, valore: unknown | null, ambito: Ambito): Promise<boolean> {
   let mappa: Record<string, unknown> = {};
   try {
-    const { data: cfg } = await supabaseAdmin.from("app_config").select("value").eq("key", chiave).maybeSingle();
-    mappa = JSON.parse(cfg?.value || "{}") as Record<string, unknown>;
+    const { valori } = await leggiConfig(ambito, [chiave]);
+    mappa = JSON.parse(valori.get(chiave) || "{}") as Record<string, unknown>;
   } catch { mappa = {}; }
   if (valore !== null) mappa[zone] = valore;
   else delete mappa[zone];
-  const { error } = await supabaseAdmin
-    .from("app_config")
-    .upsert({ key: chiave, value: JSON.stringify(mappa) }, { onConflict: "key" });
-  if (!error) invalidaAppConfig();
-  return !error;
+  const err = await scriviConfig(ambito, { [chiave]: JSON.stringify(mappa) });
+  if (!err) invalidaAppConfig();
+  return !err;
 }
 
 // PUT — salva/cancella l'AREA (perimetro) di una section: { zone, area | null }
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: { zone?: unknown; area?: unknown; priority?: unknown };
   try {
@@ -139,10 +137,8 @@ export const PUT: APIRoute = async ({ request }) => {
       : null;
     if (!grezzi || grezzi.length > 20) return json({ error: "Priorité invalide" }, 400);
     const priority = grezzi.map((z) => String(z).trim().slice(0, 60)).filter(Boolean);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "reservation_zone_priority", value: JSON.stringify(priority) }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { reservation_zone_priority: JSON.stringify(priority) });
+    if (err) return json({ error: "Enregistrement impossible" }, 500);
     invalidaAppConfig();
     return json({ ok: true, priority });
   }
@@ -173,7 +169,7 @@ export const PUT: APIRoute = async ({ request }) => {
       }
       links.push(ids);
     }
-    const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null);
+    const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null, ambito);
     if (!ok) return json({ error: "Enregistrement impossible" }, 500);
     return json({ ok: true, links });
   }
@@ -190,7 +186,7 @@ export const PUT: APIRoute = async ({ request }) => {
       const color = ["white", "black", "brown"].includes(String(o.color)) ? String(o.color) : "brown";
       decor.push({ id, type, color, x: num(o.x, 0, 1000, 0), y: num(o.y, 0, 600, 0), w: num(o.w, 4, 1000, 40), h: num(o.h, 4, 600, 40) });
     }
-    const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null);
+    const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null, ambito);
     if (!ok) return json({ error: "Enregistrement impossible" }, 500);
     return json({ ok: true, decor });
   }
@@ -204,7 +200,7 @@ export const PUT: APIRoute = async ({ request }) => {
     });
   }
 
-  const ok = await salvaMappa("reservation_plan_areas", zone, area);
+  const ok = await salvaMappa("reservation_plan_areas", zone, area, ambito);
   if (!ok) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true, area });
 };
@@ -212,6 +208,7 @@ export const PUT: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
@@ -235,7 +232,7 @@ export const POST: APIRoute = async ({ request }) => {
     w: num(body.w, 20, 600, 100),
     h: num(body.h, 20, 500, 100),
   };
-  const { data, error } = await supabaseAdmin.from("restaurant_tables").insert(riga).select(SELECT).single();
+  const { data, error } = await inserisci("restaurant_tables", ambito, riga).select(SELECT).single();
   if (error || !data) return json({ error: "Création impossible" }, 500);
   return json({ table: data }, 201);
 };
@@ -243,6 +240,7 @@ export const POST: APIRoute = async ({ request }) => {
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
@@ -271,9 +269,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if ("h" in body) campi.h = num(body.h, 20, 500, 100);
   if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
 
-  const { data, error } = await supabaseAdmin
-    .from("restaurant_tables")
-    .update(campi)
+  const { data, error } = await aggiorna("restaurant_tables", ambito, campi)
     .eq("id", id)
     .select(SELECT)
     .single();
@@ -284,11 +280,12 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
 
-  const { error } = await supabaseAdmin.from("restaurant_tables").delete().eq("id", id);
+  const { error } = await cancella("restaurant_tables", ambito).eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);
   return json({ ok: true });
 };

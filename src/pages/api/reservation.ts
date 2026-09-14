@@ -1,6 +1,11 @@
 import type { APIRoute } from "astro";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { supabaseAdmin } from "../../lib/db";
+// Multi-sede. `leggi` e' gia' il nome di una variabile locale in questo
+// file, quindi l'importazione e' rinominata invece di rinominare la sua.
+import {
+  ambitoPubblico, leggi as leggiTab, inserisci, aggiorna, leggiOrari, type Ambito,
+} from "../../lib/admin/sede";
 import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSalle";
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 import {
@@ -33,11 +38,11 @@ async function programmaReview(r: {
   last_name: string;
   email: string;
   lang: string;
-}): Promise<void> {
+}, ambito: Ambito): Promise<void> {
   try {
     const emailId = await emailReviewResa(r);
     if (!emailId) return;
-    await supabaseAdmin.from("reservations").update({ review_email_id: emailId }).eq("id", r.id);
+    await aggiorna("reservations", ambito, { review_email_id: emailId }).eq("id", r.id);
   } catch {
     /* nessun blocco */
   }
@@ -115,7 +120,7 @@ interface WidgetConfig {
 }
 
 /** Legge la configurazione réservations da app_config. */
-async function leggiConfig(): Promise<WidgetConfig> {
+async function leggiConfig(ambito: Ambito): Promise<WidgetConfig> {
   const { data } = await appConfigIn([
       "reservation_services",
       "reservation_zones",
@@ -133,7 +138,7 @@ async function leggiConfig(): Promise<WidgetConfig> {
       "reservation_options_enabled",
       "reservation_options",
       "timezone",
-    ]);
+    ], ambito);
   const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
 
   const holdLeg = clamp(intOf(m.get("reservation_hold_minutes")), 15, 360, 90);
@@ -172,8 +177,8 @@ async function leggiConfig(): Promise<WidgetConfig> {
   // Zones + capienza totale (plan de salle attivo → posti dai tavoli disegnati)
   const zones: WidgetConfig["zones"] = [];
   let capacity = 0;
-  const planPosti = await postiDalPlan(m.get("reservation_plan_mode"));
-  const planMaxIns = await maxInsiemePerZona(m.get("reservation_plan_mode"));
+  const planPosti = await postiDalPlan(m.get("reservation_plan_mode"), ambito);
+  const planMaxIns = await maxInsiemePerZona(m.get("reservation_plan_mode"), ambito);
   try {
     const arr = JSON.parse(m.get("reservation_zones") || "[]");
     if (Array.isArray(arr)) {
@@ -249,9 +254,9 @@ async function leggiConfig(): Promise<WidgetConfig> {
 
 /** Service e sections chiusi «jusqu'à réouverture» (app_config).
  *  Contano come chiusi OGNI giorno finché il ristoratore non riapre. */
-async function chiusurePermanenti(): Promise<{ svc: string[]; zone: string[] }> {
+async function chiusurePermanenti(ambito: Ambito): Promise<{ svc: string[]; zone: string[] }> {
   try {
-    const { data } = await appConfigIn(["service_closures_permanent", "zone_closures_permanent"]);
+    const { data } = await appConfigIn(["service_closures_permanent", "zone_closures_permanent"], ambito);
     const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
     const leggi = (k: string): string[] => {
       try {
@@ -271,19 +276,16 @@ async function chiusurePermanenti(): Promise<{ svc: string[]; zone: string[] }> 
  *  { aperto:true, ranges:null }        → special ouvert senza orari (si usano i services)
  *  null                                → nessun jour spécial (giorno normale) */
 async function specialeDelGiorno(
-  date: string
+  date: string,
+  ambito: Ambito,
 ): Promise<{ chiuso: boolean; aperto: boolean; ranges: [number, number][] | null; servizi: string[] | null } | null> {
   try {
-    let { data, error } = await supabaseAdmin
-      .from("special_days")
-      .select("type, lunch_open, lunch_close, dinner_open, dinner_close, services")
+    let { data, error } = await leggiTab("special_days", ambito, "type, lunch_open, lunch_close, dinner_open, dinner_close, services")
       .lte("date_from", date)
       .gte("date_to", date);
     // Migrazione #33 non ancora lanciata: senza la colonna (= tutti i servizi)
     if (error && String(error.message ?? "").includes("services")) {
-      const retry = await supabaseAdmin
-        .from("special_days")
-        .select("type, lunch_open, lunch_close, dinner_open, dinner_close")
+      const retry = await leggiTab("special_days", ambito, "type, lunch_open, lunch_close, dinner_open, dinner_close")
         .lte("date_from", date)
         .gte("date_to", date);
       data = retry.data as typeof data;
@@ -318,9 +320,10 @@ function svAttivoSpeciale(key: string, from: string, to: string, lista: string[]
 }
 
 export const GET: APIRoute = async ({ url }) => {
+  const ambito = await ambitoPubblico();
   // ---- Config ----
   if (url.searchParams.get("config")) {
-    const config = await leggiConfig();
+    const config = await leggiConfig(ambito);
     return json({ config });
   }
 
@@ -328,9 +331,7 @@ export const GET: APIRoute = async ({ url }) => {
   const token = url.searchParams.get("token") ?? "";
   if (token) {
     if (!RE_UUID.test(token)) return json({ error: "lienInvalide" }, 404);
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select(CAMPI_EMAIL + ", status")
+    const { data, error } = await leggiTab("reservations", ambito, CAMPI_EMAIL + ", status")
       .eq("cancel_token", token)
       .maybeSingle();
     const riga = (data ?? null) as unknown as ({ status?: string } & Record<string, unknown>) | null;
@@ -348,31 +349,25 @@ export const GET: APIRoute = async ({ url }) => {
     const ultimo = `${month}-${String(nGiorni).padStart(2, "0")}`;
 
     const [orari, speciali, cfg, rese, chiusureSv] = await Promise.all([
-      supabaseAdmin.from("settings").select("day_of_week, lunch_active, dinner_active"),
-      supabaseAdmin
-        .from("special_days")
-        .select("type, date_from, date_to, services")
+      leggiOrari(ambito).then((d) => ({ data: d })),
+      leggiTab("special_days", ambito, "type, date_from, date_to, services")
         .lte("date_from", ultimo)
         .gte("date_to", primo)
         .then(async (r) => {
           // Migrazione #33 non ancora lanciata: si rilegge senza la colonna
           if (r.error && String(r.error.message ?? "").includes("services")) {
-            return supabaseAdmin
-              .from("special_days")
-              .select("type, date_from, date_to")
+            return leggiTab("special_days", ambito, "type, date_from, date_to")
               .lte("date_from", ultimo)
               .gte("date_to", primo);
           }
           return r;
         }),
-      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "reservation_auto_accept"]),
-      supabaseAdmin
-        .from("reservations")
-        .select("date, service_key, people")
+      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "reservation_auto_accept"], ambito),
+      leggiTab("reservations", ambito, "date, service_key, people")
         .gte("date", primo)
         .lte("date", ultimo)
         .in("status", ["confirmed", "seated"]),
-      supabaseAdmin.from("service_closures").select("date, service_key").gte("date", primo).lte("date", ultimo),
+      leggiTab("service_closures", ambito, "date, service_key").gte("date", primo).lte("date", ultimo),
     ]);
 
     const apertoSett = new Map<number, boolean>();
@@ -397,8 +392,8 @@ export const GET: APIRoute = async ({ url }) => {
     // Auto-accept spento: si accetta tutto → la capienza non rende "complet"
     // (capienza 0 = il calcolo dei giorni pieni sotto viene saltato)
     const mAutoAccept = (cfgMap.get("reservation_auto_accept") ?? "1") !== "0";
-    const permM = await chiusurePermanenti();
-    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
+    const permM = await chiusurePermanenti(ambito);
+    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"), ambito);
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
@@ -473,9 +468,7 @@ export const GET: APIRoute = async ({ url }) => {
 
   // Modifica: esclude la prenotazione stessa dal calcolo disponibilità
   const excl = url.searchParams.get("exclude") ?? "";
-  let dayQ = supabaseAdmin
-    .from("reservations")
-    .select("heure, people, zone, service_key, extra_minutes")
+  let dayQ = leggiTab("reservations", ambito, "heure, people, zone, service_key, extra_minutes")
     .eq("date", date)
     .in("status", ["confirmed", "seated"]);
   if (excl && RE_UUID.test(excl)) dayQ = dayQ.neq("cancel_token", excl);
@@ -486,9 +479,9 @@ export const GET: APIRoute = async ({ url }) => {
   let zoneClosures: string[] = [];
   try {
     const [ch, zch, permD] = await Promise.all([
-      supabaseAdmin.from("service_closures").select("service_key").eq("date", date),
-      supabaseAdmin.from("zone_closures").select("zone").eq("date", date),
-      chiusurePermanenti(),
+      leggiTab("service_closures", ambito, "service_key").eq("date", date),
+      leggiTab("zone_closures", ambito, "zone").eq("date", date),
+      chiusurePermanenti(ambito),
     ]);
     if (!ch.error && ch.data) serviceClosures = ch.data.map((r) => String(r.service_key)).filter(Boolean);
     if (!zch.error && zch.data) zoneClosures = zch.data.map((r) => String(r.zone)).filter(Boolean);
@@ -500,7 +493,7 @@ export const GET: APIRoute = async ({ url }) => {
   }
 
   // Jour spécial "ouvert": il widget adatta i services alle sue fasce orarie
-  const speciale = await specialeDelGiorno(date);
+  const speciale = await specialeDelGiorno(date, ambito);
 
   return json({
     reservations: (data ?? []).map((r) => ({
@@ -522,7 +515,8 @@ export const GET: APIRoute = async ({ url }) => {
 // excludeToken: in modifica, ignora la prenotazione stessa nel calcolo.
 async function verificaCreneau(
   cfg: WidgetConfig,
-  p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number; excludeToken?: string }
+  p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number; excludeToken?: string },
+  ambito: Ambito,
 ): Promise<string | null> {
   // Plan de salle attivo: nessuna combinazione di tavoli per questo numero
   // di persone → il créneau non è accettabile (l'admin invece bypassa).
@@ -541,16 +535,13 @@ async function verificaCreneau(
   if (diff < 0 || slotMin < sog) return "creneauPris";
 
   // Giorno aperto? (special fermé > special ouvert > horaire hebdo)
-  const speciale = await specialeDelGiorno(p.date);
+  const speciale = await specialeDelGiorno(p.date, ambito);
   if (speciale?.chiuso) return "creneauPris";
   const dow = new Date(p.date + "T12:00:00").getDay();
   if (!speciale?.aperto) {
     try {
-      const { data: sett } = await supabaseAdmin
-        .from("settings")
-        .select("lunch_active, dinner_active")
-        .eq("day_of_week", dow)
-        .maybeSingle();
+      const giorni = await leggiOrari(ambito);
+      const sett = giorni.find((g) => g.day_of_week === dow);
       if (sett && !sett.lunch_active && !sett.dinner_active) return "creneauPris";
     } catch { /* senza orari: nessun blocco */ }
   }
@@ -572,19 +563,17 @@ async function verificaCreneau(
     }
   }
 
-  let dayQ = supabaseAdmin
-    .from("reservations")
-    .select("heure, people, zone, service_key, extra_minutes")
+  let dayQ = leggiTab("reservations", ambito, "heure, people, zone, service_key, extra_minutes")
     .eq("date", p.date)
     .in("status", ["confirmed", "seated"]);
   if (p.excludeToken && RE_UUID.test(p.excludeToken)) dayQ = dayQ.neq("cancel_token", p.excludeToken);
 
   const [chiusrv, chzone, day] = await Promise.all([
-    supabaseAdmin.from("service_closures").select("service_key").eq("date", p.date),
-    supabaseAdmin.from("zone_closures").select("zone").eq("date", p.date),
+    leggiTab("service_closures", ambito, "service_key").eq("date", p.date),
+    leggiTab("zone_closures", ambito, "zone").eq("date", p.date),
     dayQ,
   ]);
-  const perm = await chiusurePermanenti();
+  const perm = await chiusurePermanenti(ambito);
   const svcClosed = [...new Set([...(chiusrv.data ?? []).map((r) => String(r.service_key)), ...perm.svc])];
   const zoneClosed = [...new Set([...(chzone.data ?? []).map((r) => String(r.zone)), ...perm.zone])];
   if (p.service_key && svcClosed.includes(p.service_key)) return "creneauPris";
@@ -704,6 +693,7 @@ function leggiCampi(body: Record<string, unknown>) {
 // Conferma automatica (status confirmed, source web, cancel_token).
 // ============================================================
 export const POST: APIRoute = async ({ request }) => {
+  const ambito = await ambitoPubblico();
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -719,23 +709,23 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false, error: "erreurEnvoi" }, 403);
   }
 
-  const cfg = await leggiConfig();
+  const cfg = await leggiConfig(ambito);
   const errC = await verificaCreneau(cfg, {
     date: riga.date,
     heure: riga.heure,
     service_key: riga.service_key,
     zone: riga.zone,
     people: riga.people,
-  });
+  }, ambito);
   if (errC) return json({ ok: false, error: errC }, 409);
 
   // Auto-accept spento → la richiesta nasce PENDING (conferma il ristoratore)
   const base: Record<string, unknown> = { ...riga, status: cfg.autoAccept ? "confirmed" : "pending" };
 
   // Insert (fallback senza `source` se la migrazione #21 non è lanciata)
-  let ins = await supabaseAdmin.from("reservations").insert({ ...base, source: "web" }).select(CAMPI_EMAIL).single();
+  let ins = await inserisci("reservations", ambito, { ...base, source: "web" }).select(CAMPI_EMAIL).single();
   if (ins.error && ins.error.message.includes("source")) {
-    ins = await supabaseAdmin.from("reservations").insert(base).select(CAMPI_EMAIL).single();
+    ins = await inserisci("reservations", ambito, base).select(CAMPI_EMAIL).single();
   }
   if (ins.error || !ins.data) return json({ ok: false, error: "erreurEnvoi" }, 500);
 
@@ -750,7 +740,7 @@ export const POST: APIRoute = async ({ request }) => {
       service_key: riga.service_key,
       zone: riga.zone,
       people: riga.people,
-    });
+    }, ambito);
   }
 
   // Email al cliente (conferma O « demande reçue ») + notifica ristorante.
@@ -771,7 +761,7 @@ export const POST: APIRoute = async ({ request }) => {
       last_name: resa.last_name,
       email: resa.email,
       lang: resa.lang,
-    });
+    }, ambito);
   }
 
   return json({ ok: true, id: resa.id, cancel_token: resa.cancel_token, pending: !cfg.autoAccept });
@@ -783,6 +773,7 @@ export const POST: APIRoute = async ({ request }) => {
 // sé stessa; re-invia la conferma aggiornata. 409 se il créneau è pieno.
 // ============================================================
 export const PUT: APIRoute = async ({ request }) => {
+  const ambito = await ambitoPubblico();
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -794,9 +785,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
 
   // La prenotazione deve esistere ed essere confermata
-  const { data: attuale } = await supabaseAdmin
-    .from("reservations")
-    .select("id, status")
+  const { data: attuale } = await leggiTab("reservations", ambito, "id, status")
     .eq("cancel_token", token)
     .maybeSingle();
   if (!attuale || (attuale.status !== "confirmed" && attuale.status !== "pending")) return json({ ok: false, error: "lienInvalide" }, 404);
@@ -809,7 +798,7 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ ok: false, error: "erreurEnvoi" }, 403);
   }
 
-  const cfg = await leggiConfig();
+  const cfg = await leggiConfig(ambito);
   const errC = await verificaCreneau(cfg, {
     date: riga.date,
     heure: riga.heure,
@@ -817,21 +806,17 @@ export const PUT: APIRoute = async ({ request }) => {
     zone: riga.zone,
     people: riga.people,
     excludeToken: token,
-  });
+  }, ambito);
   if (errC) return json({ ok: false, error: errC }, 409);
 
-  let upd = await supabaseAdmin
-    .from("reservations")
-    .update({ ...riga, client_action_at: new Date().toISOString(), reminder_sent_at: null })
+  let upd = await aggiorna("reservations", ambito, { ...riga, client_action_at: new Date().toISOString(), reminder_sent_at: null })
     .eq("cancel_token", token)
     .in("status", ["confirmed", "pending"])
     .select(CAMPI_EMAIL)
     .single();
   // Migrazione client_action_at non ancora lanciata: si modifica senza il campo
   if (upd.error && String(upd.error.message ?? "").includes("client_action_at")) {
-    upd = await supabaseAdmin
-      .from("reservations")
-      .update({ ...riga, reminder_sent_at: null })
+    upd = await aggiorna("reservations", ambito, { ...riga, reminder_sent_at: null })
       .eq("cancel_token", token)
       .in("status", ["confirmed", "pending"])
       .select(CAMPI_EMAIL)
@@ -848,7 +833,7 @@ export const PUT: APIRoute = async ({ request }) => {
       service_key: riga.service_key,
       zone: riga.zone,
       people: riga.people,
-    });
+    }, ambito);
   }
 
   // Email aggiornata al cliente: conferma, o « demande reçue » se pending
@@ -867,6 +852,7 @@ export const PUT: APIRoute = async ({ request }) => {
 // status → cancelled; annulla l'email recensione programmata. Idempotente.
 // ============================================================
 export const DELETE: APIRoute = async ({ request }) => {
+  const ambito = await ambitoPubblico();
   let body: Record<string, unknown> = {};
   try {
     body = await request.json();
@@ -877,18 +863,14 @@ export const DELETE: APIRoute = async ({ request }) => {
   if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
 
   const stamp = new Date().toISOString();
-  let upd = await supabaseAdmin
-    .from("reservations")
-    .update({ status: "cancelled", client_action_at: stamp })
+  let upd = await aggiorna("reservations", ambito, { status: "cancelled", client_action_at: stamp })
     .eq("cancel_token", token)
     .in("status", ["confirmed", "pending"])
     .select("*")
     .maybeSingle();
   // Migrazione client_action_at non ancora lanciata: si annulla senza il campo
   if (upd.error && String(upd.error.message ?? "").includes("client_action_at")) {
-    upd = await supabaseAdmin
-      .from("reservations")
-      .update({ status: "cancelled" })
+    upd = await aggiorna("reservations", ambito, { status: "cancelled" })
       .eq("cancel_token", token)
       .in("status", ["confirmed", "pending"])
       .select("*")
@@ -901,7 +883,7 @@ export const DELETE: APIRoute = async ({ request }) => {
   const emailId = String((upd.data as { review_email_id?: string | null }).review_email_id ?? "");
   if (emailId) {
     void annullaEmailReview(emailId);
-    void supabaseAdmin.from("reservations").update({ review_email_id: null }).eq("id", upd.data.id);
+    void aggiorna("reservations", ambito, { review_email_id: null }).eq("id", upd.data.id);
   }
 
   // Push all'admin: prenotazione annullata dal cliente
