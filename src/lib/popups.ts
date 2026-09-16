@@ -1,7 +1,7 @@
 import { DateTime } from "luxon";
 import { cacheOr } from "./cache";
 import { TIMEZONE } from "./slots";
-import { leggi, ambitoPubblico } from "./admin/sede";
+import { leggi, ambitoPubblico, type Ambito } from "./admin/sede";
 import { scegliPopup, titoloPopup, type RigaPopup } from "./popupRegole";
 
 /**
@@ -48,13 +48,22 @@ interface RigaPopupPiena extends RigaPopup {
   max_shows: number;
 }
 
-export async function popupPerPagina(slug: string, lang: string = "fr"): Promise<PopupPubblico | null> {
+export async function popupPerPagina(
+  slug: string,
+  lang: string = "fr",
+  ambitoDato?: Ambito,
+): Promise<PopupPubblico | null> {
   try {
     // ⚠️ LA SEDE STA NELLA CHIAVE DI CACHE. `popups` e' «mista»: il risultato
     // dipende dal punto, e una chiave sola servirebbe per 60 secondi il
     // pop-up di Stockel a chi guarda Jourdan. Stessa trappola gia' pagata su
     // `cfg:all:<id>` e `sched:settings:<id>`.
-    const ambito = await ambitoPubblico();
+    // ⚠️ La sede la passa CHI DISEGNA LA PAGINA, che sa da quale punto la sta
+    // disegnando. Il ripiego resta per un sito a punto unico, dove non c'e'
+    // niente da scegliere. Un pop-up e' l'unica cosa del sito che parla al
+    // visitatore senza che lui l'abbia chiesta: mostrare quello di un altro
+    // punto non da' errore, annuncia una serata nel quartiere sbagliato.
+    const ambito = ambitoDato ?? (await ambitoPubblico());
     const chiave = `popups:attivi:${ambito.modo === "sede" ? ambito.id : ambito.modo}`;
     const data = await cacheOr(chiave, async () => {
       const { data: righe, error } = await leggi(

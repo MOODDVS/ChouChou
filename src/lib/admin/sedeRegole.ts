@@ -111,6 +111,44 @@ export type Ambito =
  *  cookie vuoto o corrotto non diventa per sbaglio «tutte». */
 export const CHIESTA_TUTTE = "tutte";
 
+/** I due nomi con cui una richiesta puo' dire il suo punto. */
+export const HEADER_SEDE = "x-sede";
+export const PARAM_SEDE = "sede";
+
+/**
+ * COME UNA RICHIESTA PUBBLICA DICE IL SUO PUNTO.
+ *
+ * Due strade, che sono la stessa cosa detta in due posti diversi:
+ *   - l'header `x-sede`, per le chiamate `fetch` del sito;
+ *   - `?sede=`, per quello che un header non ce l'ha — una pagina aperta dal
+ *     browser, un iframe incorporato, un link condiviso.
+ *
+ * ⚠️ E MAI IL COOKIE. Il cookie della sede vive su `Path=/` e viaggia anche
+ * verso le pagine pubbliche: leggendolo qui, un super admin che apre il sito
+ * vero si troverebbe gli orari della sede selezionata nell'admin, e non
+ * capirebbe perche'. Una richiesta DICE quale punto vuole; non lo si indovina
+ * da quello che il browser si porta dietro.
+ *
+ * ⚠️ E mai l'aggregato: «tutte le sedi» non e' un posto dove si ordina.
+ *
+ * Rende la stringa grezza: chi chiama la verifica contro le sedi ATTIVE.
+ * Qui non si puo' — questo file non legge niente, ed e' per questo che si
+ * puo' provare.
+ */
+export function sedeDettaDa(request: { headers: { get(n: string): string | null }; url: string }): string {
+  const h = (request.headers.get(HEADER_SEDE) ?? "").trim();
+  const grezza = h || paramDa(request.url);
+  return grezza === CHIESTA_TUTTE ? "" : grezza;
+}
+
+function paramDa(url: string): string {
+  try {
+    return (new URL(url).searchParams.get(PARAM_SEDE) ?? "").trim();
+  } catch {
+    return ""; // URL malformato: nessuna sede detta, si ripieghera'
+  }
+}
+
 /** Installazione a sede unica: lo stato di tutti i clienti al 13/09/2026. */
 export const SEDE_UNICA: Ambito = { modo: "unica" };
 

@@ -4,7 +4,7 @@ import { supabaseAdmin } from "../../lib/db";
 // Multi-sede. `leggi` e' gia' il nome di una variabile locale in questo
 // file, quindi l'importazione e' rinominata invece di rinominare la sua.
 import {
-  ambitoPubblico, ambitoPubblicoChiesto, leggi as leggiTab, inserisci, aggiorna, leggiOrari, type Ambito,
+  ambitoPubblicoChiesto, tutteLeSedi, leggi as leggiTab, inserisci, aggiorna, leggiOrari, type Ambito,
 } from "../../lib/admin/sede";
 import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSalle";
 import { capienzaDelleZone, zoneDaConfig } from "../../lib/salaRegole";
@@ -339,7 +339,12 @@ export const GET: APIRoute = async ({ url, request }) => {
   const token = url.searchParams.get("token") ?? "";
   if (token) {
     if (!RE_UUID.test(token)) return json({ error: "lienInvalide" }, 404);
-    const { data, error } = await leggiTab("reservations", ambito, CAMPI_EMAIL + ", status")
+    // ⚠️ SU TUTTE LE SEDI, come il PUT e il DELETE — ed e' anzi il PRIMO
+    // punto in cui il cliente sbatte: clicca «modifier» nel promemoria, la
+    // pagina chiede qui i suoi dati, e filtrando sulla sede del sito due
+    // clienti su tre si vedevano rispondere «lien invalide» prima ancora di
+    // vedere il modulo. Il token e' l'autorizzazione.
+    const { data, error } = await leggiTab("reservations", tutteLeSedi(), CAMPI_EMAIL + ", status")
       .eq("cancel_token", token)
       .maybeSingle();
     const riga = (data ?? null) as unknown as ({ status?: string } & Record<string, unknown>) | null;
@@ -701,7 +706,8 @@ function leggiCampi(body: Record<string, unknown>) {
 // Conferma automatica (status confirmed, source web, cancel_token).
 // ============================================================
 export const POST: APIRoute = async ({ request }) => {
-  const ambito = await ambitoPubblico();
+  // Il cliente ha scelto un punto sul sito: la prenotazione nasce li'.
+  const ambito = await ambitoPubblicoChiesto(request);
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -781,7 +787,6 @@ export const POST: APIRoute = async ({ request }) => {
 // sé stessa; re-invia la conferma aggiornata. 409 se il créneau è pieno.
 // ============================================================
 export const PUT: APIRoute = async ({ request }) => {
-  const ambito = await ambitoPubblico();
   let body: Record<string, unknown>;
   try {
     body = await request.json();
@@ -792,11 +797,22 @@ export const PUT: APIRoute = async ({ request }) => {
   const token = String(body.token ?? "");
   if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
 
-  // La prenotazione deve esistere ed essere confermata
-  const { data: attuale } = await leggiTab("reservations", ambito, "id, status")
+  // ⚠️ SI CERCA SU TUTTE LE SEDI, e la sede la dice poi la RIGA.
+  //
+  // Chi arriva qui ha cliccato «modifier» nella sua email: non ha scelto
+  // nessun punto sul sito, e non deve doverlo fare. Fino al 16/09/2026 la
+  // ricerca era filtrata su `ambitoPubblico()`, cioe' la PRIMA sede: un
+  // cliente di Stockel o di Jourdan si vedeva rispondere «lien invalide» su
+  // una prenotazione che esisteva benissimo. Nessun errore nei log, solo un
+  // link che non funziona per due clienti su tre.
+  //
+  // Il `cancel_token` e' un uuid non indovinabile: e' LUI l'autorizzazione,
+  // come per l'annullamento di un ordine.
+  const { data: attuale } = await leggiTab("reservations", tutteLeSedi(), "id, status, location_id")
     .eq("cancel_token", token)
     .maybeSingle();
   if (!attuale || (attuale.status !== "confirmed" && attuale.status !== "pending")) return json({ ok: false, error: "lienInvalide" }, 404);
+  const ambito = ambitoDiRiga(attuale.location_id as string | null);
 
   const { valido, riga } = leggiCampi(body);
   if (!valido) return json({ ok: false, error: "champsInvalides" }, 400);
@@ -860,7 +876,6 @@ export const PUT: APIRoute = async ({ request }) => {
 // status → cancelled; annulla l'email recensione programmata. Idempotente.
 // ============================================================
 export const DELETE: APIRoute = async ({ request }) => {
-  const ambito = await ambitoPubblico();
   let body: Record<string, unknown> = {};
   try {
     body = await request.json();
@@ -869,6 +884,15 @@ export const DELETE: APIRoute = async ({ request }) => {
   }
   const token = String(body.token ?? "");
   if (!RE_UUID.test(token)) return json({ ok: false, error: "lienInvalide" }, 404);
+
+  // Stessa ragione del PUT: il link «annuler» arriva da un'email, e il token
+  // e' l'autorizzazione. Filtrando sulla prima sede, due clienti su tre non
+  // riuscivano ad annullare.
+  const { data: trovata } = await leggiTab("reservations", tutteLeSedi(), "id, location_id")
+    .eq("cancel_token", token)
+    .maybeSingle();
+  if (!trovata) return json({ ok: false, error: "lienInvalide" }, 404);
+  const ambito = ambitoDiRiga(trovata.location_id as string | null);
 
   const stamp = new Date().toISOString();
   let upd = await aggiorna("reservations", ambito, { status: "cancelled", client_action_at: stamp })

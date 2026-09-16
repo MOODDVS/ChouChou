@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 // Multi-sede: i piatti del punto che il sito sta mostrando.
-import { leggi, ambitoPubblico } from "../../lib/admin/sede";
+import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { supabaseAdmin } from "../../lib/db";
 
 export const prerender = false;
@@ -24,8 +24,10 @@ function json(body: unknown): Response {
   });
 }
 
-export const GET: APIRoute = async () => {
-  const ambito = await ambitoPubblico();
+export const GET: APIRoute = async ({ request }) => {
+  // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
+  // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
+  const ambito = await ambitoPubblicoChiesto(request);
   try {
     const SEL = "id, name, name_i18n, desc_i18n, image_url, courses, price_cents, wine_supplement_cents, date_from, date_to, active, hide_items, is_draft, sort_order, created_at";
     let res: { data: unknown[] | null; error: { message?: string } | null } = await supabaseAdmin

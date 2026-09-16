@@ -5,13 +5,18 @@
 import ReservationWidget from "../components/ReservationWidget.astro";
 import { CLIENT } from "../config/client";
 import { datiRistorante } from "../lib/ristorante";
-import { ambitoPubblico } from "../lib/admin/sede";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 export const prerender = false;
 
+// ⚠️ UN CLIENTE MULTI-SEDE INCORPORA QUESTA PAGINA UNA VOLTA PER PUNTO,
+// con `?sede=<id>` nell'URL dell'iframe. Da li' arriva il telefono giusto
+// nel messaggio d'errore, e da li' il widget porta il punto a ogni chiamata.
+// Senza, si ripiega come sempre: e' il caso di un sito a punto unico.
+const sedeChiesta = Astro.url.searchParams.get("sede") ?? "";
 let telWidget = CLIENT.telefono;
 try {
-  const dati = await datiRistorante(await ambitoPubblico());
+  const dati = await datiRistorante(await ambitoPubblicoChiesto(Astro.request));
   if (dati.tel) telWidget = dati.tel;
 } catch { /* fallback config */ }
 ---
@@ -39,6 +44,6 @@ try {
     </style>
   </head>
   <body>
-    <ReservationWidget telWidget={telWidget} />
+    <ReservationWidget telWidget={telWidget} sede={sedeChiesta} />
   </body>
 </html>

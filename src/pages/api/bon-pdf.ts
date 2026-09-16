@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { supabaseAdmin } from "../../lib/db";
 import { datiRistorante } from "../../lib/ristorante";
-import { ambitoPubblico } from "../../lib/admin/sede";
+import { ambitoDiRiga } from "../../lib/admin/sede";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { euroPdf, pulisciPdf, hexPdf, inchiostroPdf, suFondoPdf, tintaPdf } from "../../lib/pdfTesto";
 import { temaEmail } from "../../lib/temaBrand";
@@ -45,13 +45,24 @@ export const GET: APIRoute = async ({ url }) => {
 
   const { data, error } = await supabaseAdmin
     .from("gift_cards")
-    .select("code, initial_cents, balance_cents, expires_at, recipient_name, sender_name, message, paid, recipient_lang")
+    .select("code, initial_cents, balance_cents, expires_at, recipient_name, sender_name, message, paid, recipient_lang, sold_at_location")
     .eq("pay_token", t)
     .maybeSingle();
   if (error || !data) return new Response("Bon introuvable", { status: 404 });
   if (data.paid === false) return new Response("Bon non encore payé", { status: 402 });
 
-  const dati = await datiRistorante(await ambitoPubblico());
+  // ⚠️ LA SEDE LA DICE IL BUONO, non la richiesta e non il ripiego.
+  //
+  // Questo PDF si apre con un token e basta: nessuno «sceglie un punto»
+  // aprendolo. Il punto giusto e' quello che l'ha VENDUTO — e' il suo
+  // indirizzo e il suo telefono che il cliente deve trovarsi in mano quando
+  // va a spendere il buono. Con `ambitoPubblico()` un buono venduto a
+  // Jourdan usciva con la via di Schaerbeek: nessun errore, e il cliente si
+  // presentava nel posto sbagliato.
+  //
+  // Vecchio (senza `sold_at_location`) o installazione a punto unico:
+  // `ambitoDiRiga(null)` rende SEDE_UNICA, cioe' il comportamento di sempre.
+  const dati = await datiRistorante(ambitoDiRiga((data as { sold_at_location?: string | null }).sold_at_location ?? null));
   const rlPdf = norm5Pdf((data as { recipient_lang?: unknown }).recipient_lang);
   let lng: LangPdf;
   if (rlPdf) lng = rlPdf;

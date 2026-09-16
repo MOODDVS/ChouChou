@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 // Multi-sede: i piatti del punto che il sito sta mostrando.
-import { leggi, ambitoPubblico } from "../../lib/admin/sede";
+import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { prezzoEffettivo } from "../../lib/pricing";
@@ -39,7 +39,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const POST: APIRoute = async ({ request }) => {
-  const ambito = await ambitoPubblico();
+  // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
+  // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
+  const ambito = await ambitoPubblicoChiesto(request);
   let body: Body;
   try {
     body = await request.json();
@@ -88,12 +90,8 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const now = DateTime.now().setZone(TIMEZONE);
-    // ⚠️ `ambitoPubblico()` rende ancora la PRIMA sede (pezzo 8, sito
-    // pubblico). Finche' resta cosi', un codice riservato a Jourdan o a
-    // Stockel verra' RIFIUTATO anche a chi ordina da li': il sito non sa
-    // ancora da quale punto si sta ordinando. Il giorno che il pezzo 8
-    // arriva, questa riga comincia a funzionare da sola — l'ambito che
-    // arriva qui e' gia' quello giusto per costruzione.
+    // L'ambito e' quello che il cliente ha scelto sul sito: un codice
+    // riservato a un punto vale li' e basta.
   const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, ambito, lang);
   if (ris.error) return json({ ok: false, error: ris.error });
 

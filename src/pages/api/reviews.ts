@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { cacheOr } from "../../lib/cache";
-import { ambitoPubblico, leggiConfig } from "../../lib/admin/sede";
+import { ambitoPubblicoChiesto, leggiConfig } from "../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -22,7 +22,7 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     // Voto e recensioni del PUNTO che il sito sta mostrando. La chiave di
     // cache contiene gia' il Place ID, quindi si separa da sola.
-    const cfg = await leggiConfig(await ambitoPubblico(), ["google_place_id"]);
+    const cfg = await leggiConfig(await ambitoPubblicoChiesto(request), ["google_place_id"]);
     const placeId = (cfg.valori.get("google_place_id") ?? "").trim();
     if (!placeId || !KEY) return json({ configured: false, avis: [] });
 

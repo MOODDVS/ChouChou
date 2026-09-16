@@ -13,6 +13,8 @@ import {
   pagamentoOnlinePronto,
   type Ambito,
   type Fonte,
+  sedeDettaDa,
+  HEADER_SEDE,
 } from "./sedeRegole";
 import type { StaffUser } from "./adminAuth";
 
@@ -116,7 +118,9 @@ export function scordaSedi(): void {
  *  le API sotto /api/admin, e un cookie di /admin a /api/admin non arriva. */
 export const COOKIE_SEDE = "mdd_sede";
 /** Header equivalente, per le chiamate fatte dal JS dell'admin. */
-export const HEADER_SEDE = "x-sede";
+// `HEADER_SEDE` vive in `sedeRegole.ts` insieme alla regola che lo legge:
+// qui si riesporta perche' l'admin lo importa da questo file da sempre.
+export { HEADER_SEDE };
 
 /** La sede CHIESTA dalla richiesta: header se c'è, altrimenti cookie.
  *  E' solo una richiesta — chi decide se vale è `scegliSede`. */
@@ -159,13 +163,18 @@ export async function ambitoDiRichiesta(
 /**
  * L'ambito per una richiesta PUBBLICA (sito, slot, checkout).
  *
- * ⚠️ SEGNAPOSTO, da sostituire al pezzo 8. Il sito pubblico dira' quale
- * punto scegliendo dallo slug nell'URL; finche' quel lavoro non c'e', un
- * cliente multi-sede vede il PRIMO punto. E' deterministico e sbagliato in
- * modo visibile — mostra sempre lo stesso — invece che silenzioso e sbagliato
- * in modo variabile, che e' quello che succederebbe lasciando `SEDE_UNICA`:
- * li' `special_days` e' «mista», il filtro sparisce, e la chiusura di un
- * punto chiuderebbe anche gli altri.
+ * ⚠️ NON E' PIU' IL PERCORSO NORMALE (dal 16/09/2026, pezzo 8). Ogni
+ * endpoint pubblico passa da `ambitoPubblicoChiesto()`, e la richiesta dice
+ * il suo punto. Questo resta il RIPIEGO per chi non dice niente: un sito a
+ * punto unico — cioe' i quattro clienti di oggi, per i quali `elencoSedi()`
+ * e' vuoto e qui si rende `SEDE_UNICA`, cioe' nessun filtro, cioe' esattamente
+ * il comportamento di sempre.
+ *
+ * Su un'installazione multi-sede rende la PRIMA sede, e resta una scelta a
+ * caso travestita da valore predefinito: se ci si finisce, vuol dire che
+ * qualcuno ha dimenticato di dire da dove sta ordinando. E' comunque meglio
+ * di `SEDE_UNICA`, che li' toglierebbe il filtro: `special_days` e' «mista»,
+ * e la chiusura di un punto chiuderebbe anche gli altri due.
  *
  * Per i quattro clienti a sede unica rende `SEDE_UNICA`, cioe' niente filtro,
  * cioe' esattamente il comportamento di oggi.
@@ -198,8 +207,12 @@ export async function ambitoPubblico(): Promise<Ambito> {
  * `ambitoPubblico()` restera' il ripiego per chi non dice niente.
  */
 export async function ambitoPubblicoChiesto(request: Request): Promise<Ambito> {
-  const chiesta = (request.headers.get(HEADER_SEDE) ?? "").trim();
-  if (chiesta && chiesta !== CHIESTA_TUTTE) {
+  const chiesta = sedeDettaDa(request);
+  if (chiesta) {
+    // ⚠️ Deve esistere ed essere ATTIVA (`elencoSedi` rende solo quelle).
+    // Non e' un controllo di sicurezza — scegliere una pizzeria non e' un
+    // privilegio — e' un controllo di sanita': un id storto qui vorrebbe dire
+    // un ordine che non appartiene a nessuno. Non si trova: si ripiega.
     const sedi = await elencoSedi();
     if (sedi.some((s) => s.id === chiesta)) return sede_(chiesta);
   }

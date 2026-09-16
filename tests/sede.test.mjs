@@ -993,6 +993,12 @@ test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
     // e' `demo01`. Se un giorno ne rinasce una, va ridichiarata qui.
     "src/pages/demo01/order-confirm.astro":
       "la pagina di ritorno da Stripe ha l'id di sessione, che e' l'autorizzazione",
+    "src/pages/api/reservation.ts":
+      "i link «modifier» e «annuler» arrivano da un'email: il cliente non ha " +
+      "scelto nessun punto sul sito e non deve doverlo fare. Il cancel_token e' " +
+      "un uuid non indovinabile ed e' LUI l'autorizzazione; la sede la dice poi " +
+      "la riga trovata. Filtrando, due clienti su tre si vedevano rispondere " +
+      "«lien invalide» su una prenotazione che esisteva",
     "src/pages/api/cron/auto-complete-orders.ts":
       "il cron non nasce da una richiesta e non ha nessuna sede scelta: e' manutenzione del gruppo",
     "src/pages/api/admin/coupons.ts":

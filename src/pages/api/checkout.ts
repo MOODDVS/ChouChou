@@ -8,7 +8,7 @@ import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
 import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
-import { ambitoPubblico } from "../../lib/admin/sede";
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
@@ -104,7 +104,9 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Config effettiva: orari settimanali + giorni speciali (special_days).
   // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
-  const ambitoPub = await ambitoPubblico();
+  // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
+  // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
+  const ambitoPub = await ambitoPubblicoChiesto(request);
   const config = await configGiornoEffettiva(ora, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
@@ -252,12 +254,8 @@ export const POST: APIRoute = async ({ request }) => {
     if (!coupon) {
       return err(409, testiCoupon(lang).nonValido);
     }
-    // ⚠️ `ambitoPubblico()` rende ancora la PRIMA sede (pezzo 8, sito
-    // pubblico). Finche' resta cosi', un codice riservato a Jourdan o a
-    // Stockel verra' RIFIUTATO anche a chi ordina da li': il sito non sa
-    // ancora da quale punto si sta ordinando. Il giorno che il pezzo 8
-    // arriva, questa riga comincia a funzionare da sola — l'ambito che
-    // arriva qui e' gia' quello giusto per costruzione.
+    // L'ambito e' quello che il cliente ha scelto sul sito: un codice
+    // riservato a un punto vale li' e basta.
     const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, ambitoPub, lang);
     if (ris.error) return err(409, ris.error);
     const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email, supabaseAdmin, lang);
@@ -302,9 +300,8 @@ export const POST: APIRoute = async ({ request }) => {
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
     const url = await creaCheckoutSession({
-      // Chi incassa: la sede del sito pubblico, la stessa con cui l'ordine
-      // e' stato appena inserito. Al pezzo 8 `ambitoPubblico()` smettera'
-      // di essere un segnaposto e questo diventera' giusto da solo.
+      // Chi incassa: il punto che il cliente ha scelto, lo stesso con cui
+      // l'ordine e' stato appena inserito.
       ambito: ambitoPub,
       voci,
       orderId: ordine.id,

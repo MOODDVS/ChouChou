@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
-import { ambitoPubblico } from "../../lib/admin/sede";
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { TIMEZONE } from "../../lib/slots";
 import type { ConfigGiorno } from "../../lib/slots";
 
@@ -30,9 +30,9 @@ function json(body: unknown): Response {
 //  chiuso     -> { open:false, next:{when,date,time}|null, week }
 //  week = 7 giorni (lun-dom), ognuno { dow, date, ranges:[{open,close}] }.
 // Il front-end formatta testo e nomi dei giorni nella lingua scelta.
-export const GET: APIRoute = async () => {
+export const GET: APIRoute = async ({ request }) => {
   try {
-    const ambitoPub = await ambitoPubblico();
+    const ambitoPub = await ambitoPubblicoChiesto(request);
     const now = DateTime.now().setZone(TIMEZONE);
 
     // --- Settimana (lun-dom): prossima occorrenza di ogni giorno entro 7 gg ---
