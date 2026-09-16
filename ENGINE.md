@@ -9,8 +9,8 @@ passa da `src/config/client.ts` e da Réglages → Général (app_config).
 
 | Motore (identico per tutti) | Per-cliente |
 |---|---|
-| `src/pages/admin/**` (pannello) | `src/pages/**` pubbliche (home, menu, order…) |
-| `src/pages/api/**` (tutte le API) | `src/components/**` pubblici (Layout, Header, Footer…) |
+| `src/pages/admin/**` (pannello) | `src/pages/**` vetrina (home, menu, order…) — **nel motore non ci sono più: c'è `demo01`** |
+| `src/pages/api/**` (tutte le API) | `src/components/**` vetrina (Layout, Header, Footer…) — **idem** |
 | `src/components/admin/**` | `src/i18n/**` |
 | `src/lib/**` + `src/lib/admin/**` | `public/**` (loghi, icone, foto, manifest.json) |
 | `supabase/*.sql` (migrazioni) | `src/config/client.ts` (brand) |
@@ -30,10 +30,68 @@ cambiare, e le regole che lo governano. **Design, markup, testi e resa del
 sito pubblico sono del cliente**: il motore fornisce i dati, non decide come
 si vedono.
 
-Il repo del motore contiene comunque un sito pubblico completo, ma serve solo
-come **punto di partenza** per il clone di un nuovo cliente. Attenzione: la
-protezione `ours` scatta solo quando ENTRAMBI i lati hanno modificato lo
-stesso file — finché un cliente non tocca `Header.astro` o `OrderApp.tsx`,
+### Il motore non ha un sito (deciso 16/09/2026)
+
+Il motore è **l'admin e le API**. Punto.
+
+Fino a oggi il repo conteneva anche un sito pubblico completo — che era quello
+di un cliente vero, testi e fotografie comprese — tenuto come «punto di
+partenza» per il clone. Ventuno pagine che nessun altro cliente avrebbe usato
+così, degli slot immagine che puntavano a fotografie mai state in questo repo,
+e a ogni aggiornamento del motore quelle pagine venivano spinte addosso a tutti.
+Un motore che ha un sito non è un motore: è un sito con dentro un pannello.
+
+**Il cliente porta il suo sito.** Il motore deve essere pronto ad accoglierlo,
+e questo vuol dire due cose precise: non avere un sito proprio da cui il
+cliente debba ripulire, e dichiarare il contratto che il sito deve rispettare.
+
+### I DEMO non sono un modello da clonare
+
+`demo01` — e i prossimi — sono **vetrine di dimostrazione**. Vivono su
+`restohub.moodd.online` per far vedere un caso reale a chi guarda, e
+**non vanno installate con un cliente**. Al clone si cancellano, tutte insieme:
+
+    src/pages/demo01/        src/components/demo01/        src/layouts/Demo01Layout.astro
+
+Non deve restare niente che le cerchi. Due reti in `tests/motore.test.mjs` lo
+difendono: nessun file fuori dai demo li importa, e il motore non prende
+decisioni in base al nome di un demo. La seconda è nata da un difetto vero —
+il checkout aveva scritto dentro `source === "demo01" ? "/demo01" : undefined`,
+e il prefisso del sito ora lo dice la configurazione (`public_site_base`,
+letta solo da `lib/basePubblica.ts`).
+
+### Il contratto: cosa deve avere il sito di un cliente
+
+L'admin, Stripe e le email generano link verso queste rotte. Senza, un
+pagamento riuscito finisce su un 404 e una recensione non si può lasciare:
+
+| Rotta | Chi ci manda |
+|---|---|
+| `/order-confirm?session_id=…` | Stripe, dopo il pagamento |
+| `/order-cancel` | Stripe, se il cliente rinuncia |
+| `/feedback?…` | l'email di richiesta recensione |
+| `/menu`, `/order`, … | il sito stesso (libere, vedi `config/sitePages.ts`) |
+
+Se il sito sta sotto un prefisso (`/demo01`), va scritto in
+Réglages → `public_site_base`: tutti i link di ritorno lo useranno.
+
+Le rotte che il motore fornisce già — e che non vanno riscritte — sono
+dichiarate in `tests/motore.test.mjs`: la coming soon, il manifest, le pagine
+legali, l'annullamento di ordine e prenotazione, il widget da incorporare.
+
+### I mattoni riutilizzabili restano
+
+In `src/components/` restano i pezzi neutri che un sito cliente può montare:
+`OrderApp`, `SlotPicker`, `ReservationWidget`, `SitePopup`, `LegalDoc`,
+`ContactForm`, `CookieBanner`.
+
+⚠️ **`OrderApp` e `SlotPicker` non sono montati da nessuna pagina del motore.**
+È una scelta consapevole: restano come implementazione di riferimento del
+flusso d'ordine, ma nessuna pagina li esercita, quindi possono rompersi senza
+che niente diventi rosso. Chi li tocca li prova a mano.
+
+Attenzione al merge: la protezione `ours` scatta solo quando ENTRAMBI i lati
+hanno modificato lo stesso file — finché un cliente non tocca `OrderApp.tsx`,
 le modifiche del motore gli arrivano lo stesso.
 
 **L'eccezione consapevole è `OrderApp.tsx`.** Non è design: è il flusso

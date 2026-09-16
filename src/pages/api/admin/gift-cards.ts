@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { ambitoDiRichiesta, inserisci, type Ambito } from "../../../lib/admin/sede";
+import { ambitoDiRichiesta, inserisci, elencoSedi, type Ambito } from "../../../lib/admin/sede";
+import { sedeDiVendita, contoDeiBuoni } from "../../../lib/buoniRegole";
 import { normalizzaCodice } from "../../../lib/coupons";
 import { datiRistorante } from "../../../lib/ristorante";
 import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
@@ -18,6 +19,9 @@ export const prerender = false;
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 // Alfabeto senza caratteri ambigui (niente 0/O, 1/I)
 const ALF = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+// Colonne arrivate dopo il primo rilascio: su un cliente non ancora migrato
+// non esistono, e un insert che le nomina fallisce tutto. Ordine indifferente.
+const GIOVANI = ["sender_lang", "recipient_lang", "sold_at_location"] as const;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -29,7 +33,7 @@ function json(body: unknown, status = 200): Response {
 /**
  * Prefisso del codice: le 5 iniziali del nome del ristorante (Réglages →
  * Général, fallback client.ts), accenti tolti, solo A-Z0-9.
- * Es. « La Molisana » → LAMOL. Fallback: BON.
+ * Es. « Bella Napoli » → BELLA. Fallback: BON.
  */
 async function prefissoCodice(ambito: Ambito): Promise<string> {
   try {
@@ -115,6 +119,14 @@ export const GET: APIRoute = async ({ request }) => {
     .order("created_at", { ascending: false });
   if (error) return json({ error: "Lecture impossible" }, 500);
 
+  // I nomi dei punti, per dire DOVE e' stato venduto e DOVE speso. Vuoto =
+  // installazione a punto unico: allora non si chiede nemmeno la colonna
+  // `location_id` del registro, che su un cliente non migrato non esiste e
+  // farebbe fallire tutta la lettura.
+  const sedi = await elencoSedi();
+  const nomiSede = new Map(sedi.map((s) => [s.id, s.name]));
+  const multi = sedi.length > 0;
+
   // Righe del ledger dei riscatti: non solo QUANTE volte, ma QUANDO e quanto.
   // Il conteggio da solo diceva «usato 3 volte» e si fermava li': per sapere
   // dove fossero finiti i soldi bisognava aprire la tabella su Supabase.
@@ -125,6 +137,7 @@ export const GET: APIRoute = async ({ request }) => {
     note: string | null;
     kind: string | null;
     created_by: string | null;
+    location_id?: string | null;
   };
   // ⚠️ Gli UTILIZZI si leggono SENZA filtro, ed e' una scelta. Il buono e'
   // del marchio: si compra in un punto e si spende in un altro. Filtrando,
@@ -135,7 +148,7 @@ export const GET: APIRoute = async ({ request }) => {
   let red: Riscatto[] = [];
   const ricco = await supabaseAdmin
     .from("gift_card_redemptions")
-    .select("gift_card_id, amount_cents, created_at, note, kind, created_by")
+    .select("gift_card_id, amount_cents, created_at, note, kind, created_by" + (multi ? ", location_id" : ""))
     .order("created_at", { ascending: false });
   if (ricco.error) {
     // Cliente non migrato (mancano note/kind/created_by): si torna al solo
@@ -150,7 +163,11 @@ export const GET: APIRoute = async ({ request }) => {
       created_by: null,
     }));
   } else {
-    red = (ricco.data ?? []) as Riscatto[];
+    // `as unknown as`: la select e' costruita a runtime (la colonna della
+    // sede si chiede solo se ci sono sedi), quindi supabase-js non puo'
+    // dedurne le colonne e rende un tipo d'errore generico. Il controllo sui
+    // nomi delle colonne resta nella stringa qui sopra, che e' letterale.
+    red = (ricco.data ?? []) as unknown as Riscatto[];
   }
 
   const usi = new Map<string, Riscatto[]>();
@@ -162,9 +179,39 @@ export const GET: APIRoute = async ({ request }) => {
   }
   const cards = (data ?? []).map((c) => {
     const lista = usi.get(c.id) ?? [];
-    return { ...c, uses: lista.length, redemptions: lista };
+    // Il nome lo attacca il server: il client non ha l'elenco delle sedi, e
+    // farglielo chiedere a parte vorrebbe dire due letture per una etichetta.
+    const conSede = multi
+      ? lista.map((r) => ({ ...r, location_name: r.location_id ? (nomiSede.get(r.location_id) ?? "") : "" }))
+      : lista;
+    const vendutoA = multi && c.sold_at_location ? (nomiSede.get(c.sold_at_location) ?? "") : "";
+    return { ...c, uses: lista.length, redemptions: conSede, sold_at_name: vendutoA };
   });
-  return json({ cards });
+
+  // IL CONTO FRA LE SOCIETA'. Si calcola qui perche' qui ci sono gia' le due
+  // liste INTERE — ed e' l'unico modo di averle intere: una chiamata a parte
+  // rischierebbe di ricevere i riscatti filtrati sul punto selezionato, e il
+  // conto tornerebbe sbagliato senza dare errore.
+  const conto = multi
+    ? contoDeiBuoni({
+        buoni: (data ?? []).map((c) => ({
+          id: c.id, code: c.code, initial_cents: c.initial_cents,
+          paid: c.paid, sold_at_location: c.sold_at_location,
+        })),
+        riscatti: red.map((r) => ({
+          gift_card_id: r.gift_card_id, amount_cents: r.amount_cents,
+          location_id: r.location_id ?? null,
+        })),
+      })
+    : null;
+
+  return json({
+    cards,
+    conto: conto && {
+      ...conto,
+      quote: conto.quote.map((q) => ({ ...q, nome: q.id ? (nomiSede.get(q.id) ?? "") : "" })),
+    },
+  });
 };
 
 export const POST: APIRoute = async ({ request }) => {
@@ -177,6 +224,17 @@ export const POST: APIRoute = async ({ request }) => {
     body = await request.json();
   } catch {
     return json({ error: "Corps invalide" }, 400);
+  }
+
+  // ⚠️ L'AGGREGATO NON VENDE E NON RISCATTA. Con «toutes les adresses»
+  // selezionata nell'header non esiste un punto: non c'e' una societa' che
+  // incassa, non c'e' uno Stripe da cui far uscire il link, non c'e' un
+  // posto da scrivere nel registro. Fino al 16/09/2026 questo ramo passava
+  // lo stesso: il pagamento finiva sul conto del .env e il riscatto moriva
+  // con un 500. Meglio dirlo prima, una volta sola per tutti i rami.
+  const amb = await ambitoDiRichiesta(request, staff);
+  if (amb.modo === "tutte") {
+    return json({ error: "Choisis une adresse d'abord.", code: "no_sede" }, 409);
   }
 
   // --- Riscatto manuale (servizio in sala) ---
@@ -208,7 +266,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (e2) return json({ error: "Enregistrement impossible" }, 500);
     if (!upd) return json({ error: "Solde modifié entre-temps, réessaie." }, 409);
 
-    await inserisci("gift_card_redemptions", await ambitoDiRichiesta(request, staff), {
+    await inserisci("gift_card_redemptions", amb, {
       gift_card_id: card.id,
       amount_cents: amount,
       kind: "manual",
@@ -235,14 +293,14 @@ export const POST: APIRoute = async ({ request }) => {
     const site = (import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     let url: string;
     try {
-      const dati = await datiRistorante(await ambitoDiRichiesta(request, staff));
+      const dati = await datiRistorante(amb);
       url = await creaCheckoutBon({
         // ⚠️ I buoni regalo sono del MARCHIO: la riga non ha una sede, quindi
         // il conto e' quello della sede selezionata da chi crea il buono.
         // Con tre societa' resta una domanda aperta — chi incassa un buono
         // comprato online, e chi ci rimette quando viene speso altrove: e'
         // una scelta contabile, non tecnica.
-        ambito: await ambitoDiRichiesta(request, staff),
+        ambito: amb,
         giftCardId: card.id,
         code: card.code,
         valueCents: card.initial_cents,
@@ -254,7 +312,7 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ error: e instanceof Error ? e.message : "Stripe indisponible" }, 502);
     }
     await supabaseAdmin.from("gift_cards").update({ stripe_session_id: url }).eq("id", card.id);
-    await emailBonCadeau({ ...(card as unknown as BonEmail), pay_url: url, paid: false }, "offrant", offr, await ambitoDiRichiesta(request, staff));
+    await emailBonCadeau({ ...(card as unknown as BonEmail), pay_url: url, paid: false }, "offrant", offr, amb);
     return json({ ok: true, sent_to: offr });
   }
 
@@ -293,11 +351,15 @@ export const POST: APIRoute = async ({ request }) => {
     paid: pagamento !== "link",
     paid_at: pagamento !== "link" ? new Date().toISOString() : null,
     created_by: email,
+    // CHI INCASSA. Non e' «a chi appartiene il buono» — quello e' il marchio
+    // e resta NULL. E' la societa' che prende i soldi, ed e' la stessa da
+    // cui esce il link Stripe qui sotto: conto e cassa non possono divergere.
+    sold_at_location: sedeDiVendita(amb),
   };
 
   // Codice: quello dato dall'utente, oppure auto (con qualche tentativo se collide).
   const dato = txt(body.code, 40);
-  const pfx = dato ? "" : await prefissoCodice(await ambitoDiRichiesta(request, staff));
+  const pfx = dato ? "" : await prefissoCodice(amb);
   const tentativi = dato ? [dato] : [generaCodice(pfx), generaCodice(pfx), generaCodice(pfx)];
   let ultimoErr = "Enregistrement impossible";
   for (const code of tentativi) {
@@ -308,13 +370,22 @@ export const POST: APIRoute = async ({ request }) => {
       .insert({ ...meta, code, code_norm })
       .select("id, code, pay_token")
       .single();
-    // Migrazione #70 non ancora lanciata: si riprova senza le colonne lingua
-    if (error && /sender_lang|recipient_lang/.test(error.message || "")) {
-      const metaNoLang: Record<string, unknown> = { ...meta };
-      delete metaNoLang.sender_lang; delete metaNoLang.recipient_lang;
+    // COLONNE GIOVANI non ancora migrate su questo cliente (#70 le lingue,
+    // sezione 12 di locations.sql il punto di vendita): si riprova senza.
+    // Meglio un buono senza la sua etichetta che nessun buono.
+    //
+    // ⚠️ Si toglie SOLO la colonna che l'errore nomina, una per giro.
+    // Toglierle tutte insieme costerebbe le lingue a ogni cliente che non
+    // ha ancora lanciato la sezione 12 — cioe' oggi tutti — e nessuno se ne
+    // accorgerebbe: il buono si crea lo stesso, solo in francese.
+    const ridotto: Record<string, unknown> = { ...meta };
+    for (let giro = 0; giro < 3 && error; giro++) {
+      const mancante = GIOVANI.find((c) => (error?.message || "").includes(c) && c in ridotto);
+      if (!mancante) break;
+      delete ridotto[mancante];
       ({ data, error } = await supabaseAdmin
         .from("gift_cards")
-        .insert({ ...metaNoLang, code, code_norm })
+        .insert({ ...ridotto, code, code_norm })
         .select("id, code, pay_token")
         .single());
     }
@@ -325,9 +396,9 @@ export const POST: APIRoute = async ({ request }) => {
       let payError: string | null = null;
       if (pagamento === "link") {
         try {
-          const dati = await datiRistorante(await ambitoDiRichiesta(request, staff));
+          const dati = await datiRistorante(amb);
           payUrl = await creaCheckoutBon({
-            ambito: await ambitoDiRichiesta(request, staff),
+            ambito: amb,
             giftCardId: data.id,
             code: data.code,
             valueCents: value,
@@ -351,14 +422,15 @@ export const POST: APIRoute = async ({ request }) => {
       };
       const destEmail = meta.recipient_email;
       const offrEmail = txt(body.sender_email, 200);
-      // ⚠️ I buoni sono del MARCHIO: la riga non ha una sede. Quindi il punto
-      // lo dice chi sta creando il buono — e la notifica al ristoratore
-      // arriva al responsabile di QUEL punto, non a un indirizzo di gruppo.
-      const ambBon = await ambitoDiRichiesta(request, staff);
-      if (body.send_recipient && destEmail) void emailBonCadeau(bon, "destinataire", destEmail, ambBon);
-      if (body.send_sender && offrEmail) void emailBonCadeau(bon, "offrant", offrEmail, ambBon);
+      // ⚠️ La RIGA e' del marchio (`location_id` resta NULL): il buono si
+      // spende ovunque. Il PUNTO lo dice chi sta creando il buono, ed e'
+      // scritto in `sold_at_location` — chi ha incassato. Per lo stesso
+      // motivo la notifica al ristoratore arriva al responsabile di QUEL
+      // punto, non a un indirizzo di gruppo.
+      if (body.send_recipient && destEmail) void emailBonCadeau(bon, "destinataire", destEmail, amb);
+      if (body.send_sender && offrEmail) void emailBonCadeau(bon, "offrant", offrEmail, amb);
       // Notifica al ristoratore (lingua admin), sempre alla creazione.
-      void emailBonRistoratore(bon, ambBon);
+      void emailBonRistoratore(bon, amb);
       return json({ ok: true, id: data.id, code: data.code, pay_url: payUrl, pay_error: payError }, 201);
     }
     if (error?.code === "23505") { ultimoErr = "Ce code existe déjà."; continue; }

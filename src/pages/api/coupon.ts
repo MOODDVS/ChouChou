@@ -88,7 +88,13 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const now = DateTime.now().setZone(TIMEZONE);
-  const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, lang);
+    // ⚠️ `ambitoPubblico()` rende ancora la PRIMA sede (pezzo 8, sito
+    // pubblico). Finche' resta cosi', un codice riservato a Jourdan o a
+    // Stockel verra' RIFIUTATO anche a chi ordina da li': il sito non sa
+    // ancora da quale punto si sta ordinando. Il giorno che il pezzo 8
+    // arriva, questa riga comincia a funzionare da sola — l'ambito che
+    // arriva qui e' gia' quello giusto per costruzione.
+  const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, ambito, lang);
   if (ris.error) return json({ ok: false, error: ris.error });
 
   const limite = await verificaLimitiUso(coupon as CouponRow, body.email ?? "", supabaseAdmin, lang);

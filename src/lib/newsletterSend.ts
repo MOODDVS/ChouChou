@@ -8,6 +8,12 @@ import { appConfigIn } from "./appConfigCache";
 import { CLIENT } from "../config/client";
 import { statoQuota } from "./admin/newsletterQuota";
 import { linksSocial, type LinkSocial } from "./links";
+// I SEGMENTI e il profilo sono regole pure: vivono in `newsletterRegole.ts`
+// e hanno i loro test. Qui resta l'invio, che un test non puo' provare.
+import {
+  filtraRubrica, parseSegment, LINGUE, GRUPPI,
+  type LinguaNews, type GruppoNews, type Profilo,
+} from "./newsletterRegole";
 import { temaEmail, type TemaEmail } from "./temaBrand";
 
 // Motore d'invio della newsletter, condiviso tra:
@@ -23,6 +29,10 @@ const SITE_URL = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL 
 const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+
+// Riesportati: /api/admin/newsletter e il cron li importano da qui da sempre.
+export { parseSegment, LINGUE, GRUPPI };
+export type { LinguaNews, GruppoNews };
 
 export function resendPronto(): boolean {
   return Boolean(resend && RESEND_FROM);
@@ -80,36 +90,6 @@ export function tokenDisiscrizione(email: string): string {
 // ---------------------------------------------------------------------------
 // Rubrica + SEGMENTI
 // ---------------------------------------------------------------------------
-
-// La LINGUA è primaria: una newsletter FR va al pubblico FR (coi SUOI
-// nouveaux/top50/…), una EN al pubblico EN. fr = lingua del sito fr o
-// SCONOSCIUTA (default del sito); en = tutte le altre (en, nl, it, …).
-export type LinguaNews = "tous" | "fr" | "en";
-export const LINGUE: LinguaNews[] = ["tous", "fr", "en"];
-export type GruppoNews = "tous" | "nouveaux" | "top50" | "resa" | "commande";
-export const GRUPPI: GruppoNews[] = ["tous", "nouveaux", "top50", "resa", "commande"];
-
-/** Segment salvato/trasmesso come "lingua:gruppo" (es. "fr:top50"). */
-export function parseSegment(s: string): { lang: LinguaNews; group: GruppoNews } {
-  const [a, b] = String(s ?? "").split(":");
-  let lang: LinguaNews = (LINGUE as string[]).includes(a) ? (a as LinguaNews) : "tous";
-  let group: GruppoNews = (GRUPPI as string[]).includes(b ?? "") ? (b as GruppoNews) : "tous";
-  // Valori vecchi senza ":" (es. "top50")
-  if (!b && a && (GRUPPI as string[]).includes(a)) {
-    group = a as GruppoNews;
-    lang = "tous";
-  }
-  return { lang, group };
-}
-
-interface Profilo {
-  first: string | null; // prima attività (come il badge "New" della pagina Clients)
-  spesa: number; // ordini pagati + additions delle prenotazioni (cents)
-  ordini: boolean;
-  rese: boolean;
-  lang: string; // lingua dell'ULTIMA prenotazione (widget: fr, en, …)
-  langAt: string;
-}
 
 /** Rubrica con profilo per email: ordini incassati + prenotazioni + clienti
  *  manuali, meno i nascosti e i disiscritti. */
@@ -185,36 +165,9 @@ async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>;
   return { profili, esclusi };
 }
 
-function filtra(profili: Map<string, Profilo>, lang: LinguaNews, group: GruppoNews): string[] {
-  let tutti = [...profili.entries()];
-  // 1) LINGUA (primaria): fr = fr o sconosciuta · en = tutte le altre
-  if (lang === "fr") tutti = tutti.filter(([, p]) => !p.lang || p.lang === "fr");
-  else if (lang === "en") tutti = tutti.filter(([, p]) => Boolean(p.lang) && p.lang !== "fr");
-  // 2) GRUPPO, dentro la lingua scelta (il top 50 è il top 50 di QUELLA lingua)
-  switch (group) {
-    case "nouveaux": {
-      // Stesso criterio del badge "New" della pagina Clients: prima attività < 14 giorni
-      const soglia = Date.now() - 14 * 86400000;
-      return tutti.filter(([, p]) => p.first && Date.parse(p.first) > soglia).map(([e]) => e);
-    }
-    case "top50":
-      return tutti
-        .filter(([, p]) => p.spesa > 0)
-        .sort((a, b) => b[1].spesa - a[1].spesa)
-        .slice(0, 50)
-        .map(([e]) => e);
-    case "resa":
-      return tutti.filter(([, p]) => p.rese).map(([e]) => e);
-    case "commande":
-      return tutti.filter(([, p]) => p.ordini).map(([e]) => e);
-    default:
-      return tutti.map(([e]) => e);
-  }
-}
-
 export async function destinatariSegmento(lang: LinguaNews, group: GruppoNews): Promise<{ lista: string[]; esclusi: number }> {
   const { profili, esclusi } = await rubrica(tutteLeSedi());
-  return { lista: filtra(profili, lang, group), esclusi };
+  return { lista: filtraRubrica(profili, lang, group), esclusi };
 }
 
 /** Conteggi per OGNI combinazione lingua×gruppo (pillole del modale) + opted-out. */
@@ -223,7 +176,7 @@ export async function contatoriSegmenti(): Promise<{ counts: Record<string, Reco
   const counts: Record<string, Record<string, number>> = {};
   for (const l of LINGUE) {
     counts[l] = {};
-    for (const g of GRUPPI) counts[l][g] = filtra(profili, l, g).length;
+    for (const g of GRUPPI) counts[l][g] = filtraRubrica(profili, l, g).length;
   }
   return { counts, esclusi };
 }

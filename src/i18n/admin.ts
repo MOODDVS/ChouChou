@@ -1635,6 +1635,25 @@ const DIZIONARIO: Dizionario = {
   // Registro dei riscatti mostrato sotto «Usato N volte».
   "mk.gcLogTitle":   { fr: "Utilisations", en: "Redemptions", it: "Utilizzi", nl: "Gebruik", es: "Usos" },
   "mk.gcLogManual":  { fr: "en salle", en: "in room", it: "in sala", nl: "in de zaal", es: "en sala" },
+  // Multi-sede: il buono e' del gruppo, ma i soldi li incassa un punto e ne
+  // serve un altro. Etichette mostrate solo se c'e' piu' di una sede.
+  "mk.gcSoldAt":     { fr: "Vendu à", en: "Sold at", it: "Venduto a", nl: "Verkocht bij", es: "Vendido en" },
+  "mk.gcUsedAt":     { fr: "Utilisé à", en: "Used at", it: "Usato a", nl: "Gebruikt bij", es: "Usado en" },
+  // Coupon: in quali punti vale il codice (solo se c'e' piu' di una sede).
+  "mk.couponWhere":  { fr: "Adresses concernées", en: "Locations", it: "Sedi interessate", nl: "Betrokken vestigingen", es: "Direcciones incluidas" },
+  "mk.couponWhereHint": { fr: "Sans choix, le code est valable partout. La réduction sort de la caisse de l'adresse qui sert le client.", en: "With no choice, the code works everywhere. The discount comes out of the till of the location serving the customer.", it: "Senza scelta, il codice vale ovunque. Lo sconto esce dalla cassa della sede che serve il cliente.", nl: "Zonder keuze geldt de code overal. De korting gaat uit de kassa van de vestiging die de klant bedient.", es: "Sin elección, el código vale en todas partes. El descuento sale de la caja de la dirección que atiende al cliente." },
+  "mk.couponAll":    { fr: "Toutes", en: "All", it: "Tutte", nl: "Alle", es: "Todas" },
+  // Releve' contabile dei buoni (PDF per il contabile).
+  "mk.gcReport":     { fr: "Relevé comptable", en: "Accounting statement", it: "Estratto contabile", nl: "Boekhoudkundig overzicht", es: "Extracto contable" },
+  "mk.gcReportIntro": { fr: "Un PDF des mouvements de bons cadeaux pour ton comptable : ce qui a été vendu, ce qui a été utilisé, et ce qu'il reste à honorer.", en: "A PDF of gift card movements for your accountant: what was sold, what was redeemed, and what is left to honour.", it: "Un PDF dei movimenti dei buoni per il tuo contabile: cosa è stato venduto, cosa è stato usato e cosa resta da onorare.", nl: "Een PDF met de bewegingen van cadeaubonnen voor je boekhouder: wat verkocht is, wat gebruikt is en wat nog open staat.", es: "Un PDF de los movimientos de bonos para tu contable: lo vendido, lo usado y lo que queda por honrar." },
+  "mk.gcReportSede": { fr: "Le relevé ne contient que les mouvements de l'adresse sélectionnée.", en: "The statement only covers the selected location.", it: "L’estratto contiene solo i movimenti della sede selezionata.", nl: "Het overzicht bevat alleen de bewegingen van de gekozen vestiging.", es: "El extracto solo contiene los movimientos de la dirección seleccionada." },
+  "mk.gcReportGet":  { fr: "Télécharger le PDF", en: "Download the PDF", it: "Scarica il PDF", nl: "Download de pdf", es: "Descargar el PDF" },
+  "mk.gcReportErr":  { fr: "Relevé impossible", en: "Could not build the statement", it: "Estratto impossibile", nl: "Overzicht mislukt", es: "No se pudo generar el extracto" },
+  "mk.gcBalance":    { fr: "Bons entre adresses", en: "Gift cards between locations", it: "Buoni fra le sedi", nl: "Bonnen tussen vestigingen", es: "Bonos entre direcciones" },
+  "mk.gcBalanceHelp": { fr: "Positif : a encaissé plus qu'il n'a servi, donc il doit au groupe.", en: "Positive: collected more than it served, so it owes the group.", it: "Positivo: ha incassato piu' di quanto ha servito, quindi deve al gruppo.", nl: "Positief: meer geïnd dan geserveerd, dus schuld aan de groep.", es: "Positivo: ha cobrado más de lo que ha servido, así que debe al grupo." },
+  "mk.gcNoSede":     { fr: "sans adresse", en: "no location", it: "senza sede", nl: "zonder vestiging", es: "sin dirección" },
+  "mk.gcInconsist":  { fr: "Bons utilisés au-delà de leur valeur :", en: "Gift cards used beyond their value:", it: "Buoni usati oltre il loro valore:", nl: "Bonnen boven hun waarde gebruikt:", es: "Bonos usados por encima de su valor:" },
+  "mk.giftNoSede":   { fr: "Choisis une adresse avant de créer ou d'utiliser un bon.", en: "Pick a location before creating or using a gift card.", it: "Scegli una sede prima di creare o usare un buono.", nl: "Kies eerst een vestiging om een bon te maken of te gebruiken.", es: "Elige una dirección antes de crear o usar una tarjeta regalo." },
   "mk.use":          { fr: "Utiliser", en: "Use", it: "Usa", nl: "Gebruiken", es: "Usar" },
   "mk.giftsLoadErr": { fr: "Chargement des bons impossible", en: "Could not load gift cards", it: "Impossibile caricare i buoni", nl: "Cadeaubonnen laden mislukt", es: "No se pudieron cargar las tarjetas regalo" },
   "mk.previousPurchases": { fr: "Achats précédents", en: "Previous purchases", it: "Acquisti precedenti", nl: "Vorige aankopen", es: "Compras anteriores" },

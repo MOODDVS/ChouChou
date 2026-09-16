@@ -6,6 +6,12 @@
 //    per decidere su quale pagina mostrare il pop-up.
 //
 // Ogni cliente adatta QUESTA lista alle pagine reali del suo sito.
+//
+// ⚠️ NEL MOTORE questa lista e' un DEFAULT convenzionale, non la descrizione
+// di pagine che esistono qui: dal 16/09/2026 il motore non ha un sito. Le
+// rotte qui sotto sono quelle che quasi ogni ristorante ha, e le chiavi sono
+// stabili perche' finiscono dentro i pop-up gia' salvati: si adattano al
+// momento del clone, non si cancellano.
 // - `k`     : chiave stabile (non cambiarla: è salvata nei pop-up esistenti).
 // - `path`  : rotta pubblica in lingua di default ("/", "/menu", "/events"…).
 //             Le versioni /en, /it… sono derivate automaticamente dal prefisso.

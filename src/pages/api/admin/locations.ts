@@ -240,7 +240,7 @@ export const GET: APIRoute = async ({ request }) => {
   // l'ereditarieta' e' una bugia: un Place ID e una scheda Google
   // identificano UN'ATTIVITA' FISICA, e tre pizzerie non possono averne una
   // sola. Senza questa distinzione il pannello avrebbe mostrato tutte e tre
-  // le sedi come «configurate» con il dato di La Molisana, che e' il vecchio
+  // le sedi come «configurate» con il dato del primo cliente, che e' il vecchio
   // valore rimasto a livello di marchio.
   const placeIds: Record<string, string> = {};
   const google: Record<string, string> = {};

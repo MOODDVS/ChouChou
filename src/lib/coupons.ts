@@ -7,6 +7,7 @@
 // ============================================================
 import type { DateTime } from "luxon";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Ambito } from "./admin/sedeRegole";
 
 export type Lang = "fr" | "en" | "it" | "nl" | "es";
 
@@ -32,6 +33,21 @@ export interface CouponRow {
   combine_with_promo: "stack" | "exclude" | "block";
   new_customers_only: boolean;
   active: boolean;
+  /**
+   * LE SEDI in cui questo codice vale. Vuoto o assente = tutte.
+   *
+   * ⚠️ NON si chiama `location_id` e non e' una colonna su cui si filtra.
+   * `coupons` resta «marchio» in CLASSIFICA: il codice esiste per tutto il
+   * gruppo, e' la sua VALIDITA' a essere ristretta. Se la tabella diventasse
+   * di sede, il responsabile di un punto non vedrebbe piu' i codici del
+   * gruppo e ne creerebbe di doppi con lo stesso nome.
+   *
+   * ⚠️ E non e' `location_id` nemmeno perche' le sedi possono essere DUE su
+   * tre: «Jourdan e Stockel ma non Schaerbeek» non si scrive con una colonna
+   * sola, e con due societa' su tre che pagano lo sconto la differenza e'
+   * denaro vero.
+   */
+  locations?: string[] | null;
 }
 
 // Una riga di carrello vista dal coupon: prezzo UNITARIO effettivo (già
@@ -68,6 +84,7 @@ export interface TestiCoupon {
   nonValido: string;
   nonOggi: string;
   nonOra: string;
+  nonQuiSede: string;
   minSpesa: (importo: string) => string;
   nonCumulabile: string;
   nonSiApplica: string;
@@ -82,6 +99,7 @@ const TXT_COUPON: Record<Lang, TestiCoupon> = {
     nonValido: "Code promo non valide.",
     nonOggi: "Ce code n'est pas valable aujourd'hui.",
     nonOra: "Ce code n'est pas valable en ce moment.",
+    nonQuiSede: "Ce code n'est pas valable à cette adresse.",
     minSpesa: (v) => `Minimum ${v} de commande pour ce code.`,
     nonCumulabile: "Code non cumulable avec une promotion en cours.",
     nonSiApplica: "Ce code ne s'applique pas à votre panier.",
@@ -95,6 +113,7 @@ const TXT_COUPON: Record<Lang, TestiCoupon> = {
     nonValido: "Invalid promo code.",
     nonOggi: "This code isn't valid today.",
     nonOra: "This code isn't valid right now.",
+    nonQuiSede: "This code isn't valid at this location.",
     minSpesa: (v) => `Minimum order of ${v} for this code.`,
     nonCumulabile: "Code can't be combined with an ongoing promotion.",
     nonSiApplica: "This code doesn't apply to your cart.",
@@ -108,6 +127,7 @@ const TXT_COUPON: Record<Lang, TestiCoupon> = {
     nonValido: "Codice promo non valido.",
     nonOggi: "Questo codice non è valido oggi.",
     nonOra: "Questo codice non è valido in questo momento.",
+    nonQuiSede: "Questo codice non è valido in questa sede.",
     minSpesa: (v) => `Ordine minimo di ${v} per questo codice.`,
     nonCumulabile: "Codice non cumulabile con una promozione in corso.",
     nonSiApplica: "Questo codice non si applica al tuo carrello.",
@@ -121,6 +141,7 @@ const TXT_COUPON: Record<Lang, TestiCoupon> = {
     nonValido: "Ongeldige kortingscode.",
     nonOggi: "Deze code is vandaag niet geldig.",
     nonOra: "Deze code is op dit moment niet geldig.",
+    nonQuiSede: "Deze code is niet geldig in deze vestiging.",
     minSpesa: (v) => `Minimaal ${v} bestellen voor deze code.`,
     nonCumulabile: "Code niet combineerbaar met een lopende actie.",
     nonSiApplica: "Deze code geldt niet voor je winkelmandje.",
@@ -134,6 +155,7 @@ const TXT_COUPON: Record<Lang, TestiCoupon> = {
     nonValido: "Código promocional no válido.",
     nonOggi: "Este código no es válido hoy.",
     nonOra: "Este código no es válido en este momento.",
+    nonQuiSede: "Este código no es válido en esta dirección.",
     minSpesa: (v) => `Pedido mínimo de ${v} para este código.`,
     nonCumulabile: "Código no acumulable con una promoción en curso.",
     nonSiApplica: "Este código no se aplica a tu carrito.",
@@ -155,14 +177,46 @@ export function testiCoupon(lang: string | null | undefined): TestiCoupon {
  * clamp. I limiti d'uso (per cliente / globale / nuovi clienti) sono in
  * verificaLimitiUso() perché richiedono query sugli ordini.
  */
+/**
+ * IL CODICE VALE IN QUESTO PUNTO?
+ *
+ * Funzione pura, e volutamente permissiva su tutto quello che non e' una
+ * sede precisa: un elenco vuoto vuol dire «tutte», un'installazione a punto
+ * unico non ha confini da rispettare, e l'aggregato e' una lettura
+ * dell'admin, non un ordine da pagare.
+ *
+ * ⚠️ La domanda arriva dall'AMBITO DELLA RICHIESTA, cioe' dal punto in cui
+ * il cliente sta ordinando. Non dal coupon, non dall'header dell'admin.
+ */
+export function couponValePer(coupon: Pick<CouponRow, "locations">, ambito: Ambito): boolean {
+  const scelte = (coupon.locations ?? []).filter(Boolean);
+  if (scelte.length === 0) return true;      // nessuna scelta = tutte le sedi
+  if (ambito.modo !== "sede") return true;   // punto unico, o lettura aggregata
+  return scelte.includes(ambito.id);
+}
+
+/**
+ * ⚠️ `ambito` E' OBBLIGATORIO, e sta prima di `lang` apposta: messo in
+ * fondo e facoltativo, sarebbe stato dimenticato in un punto di chiamata su
+ * due, e uno sconto riservato a una societa' sarebbe uscito dalla cassa
+ * delle altre due senza che niente desse errore. Cosi' invece il
+ * compilatore indica ogni chiamata che non lo passa.
+ */
 export function calcolaScontoCoupon(
   coupon: CouponRow,
   linee: LineaCoupon[],
   now: DateTime,
+  ambito: Ambito,
   lang: string = "fr"
 ): RisultatoSconto {
   if (!coupon.active) {
     return { discount_cents: 0, error: testiCoupon(lang).nonValido };
+  }
+
+  // La sede prima della programmazione: «non vale qui» e' piu' utile di
+  // «non vale oggi» a chi sta ordinando dal punto sbagliato.
+  if (!couponValePer(coupon, ambito)) {
+    return { discount_cents: 0, error: testiCoupon(lang).nonQuiSede };
   }
 
   // ---- Programmazione (sempre / date / giorni+ore) ----

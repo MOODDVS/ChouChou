@@ -1,0 +1,152 @@
+/**
+ * IL CONFINE DEL MOTORE (deciso 16/09/2026).
+ *
+ * Il motore e' l'ADMIN e le API. Non ha un sito.
+ *
+ * I DEMO — oggi `demo01`, domani altri — sono vetrine di dimostrazione che
+ * vivono su restohub.moodd.online per far vedere un caso reale. NON sono
+ * un modello da clonare e NON devono finire nell'installazione di un
+ * cliente: al clone si cancellano le loro cartelle, e non deve restare
+ * niente che le cerchi.
+ *
+ * Il cliente porta il SUO sito. Il motore deve essere pronto ad accoglierlo,
+ * il che vuol dire due cose precise:
+ *   - non avere un sito proprio da cui il cliente debba ripulire;
+ *   - dichiarare il CONTRATTO che il sito del cliente deve rispettare.
+ *
+ * Queste reti difendono esattamente questo. Non provano una funzione: se
+ * diventano rosse vuol dire che il motore ha ricominciato a essere anche un
+ * sito, e quel confine non si perde con un errore — si perde con un file in
+ * piu' alla volta, finche' nessuno sa piu' dove passa.
+ */
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+
+/** Tutti i file sotto una cartella, ricorsivamente. */
+function tuttiIFile(dir, acc = []) {
+  for (const n of readdirSync(dir)) {
+    const p = `${dir}/${n}`;
+    if (statSync(p).isDirectory()) tuttiIFile(p, acc);
+    else acc.push(p);
+  }
+  return acc;
+}
+
+const CODICE = tuttiIFile("src").filter((f) => /\.(ts|tsx|astro|mjs)$/.test(f));
+
+/** Le cartelle dei demo: si cancellano al clone, tutte insieme. */
+const DEMO = [
+  "src/pages/demo01",
+  "src/components/demo01",
+  "src/layouts/Demo01Layout.astro",
+];
+const dentroUnDemo = (f) => DEMO.some((d) => f === d || f.startsWith(d + "/"));
+
+/* ============================================================
+   I DEMO SI STACCANO
+   ============================================================ */
+
+test("niente, fuori dai demo, importa da un demo", () => {
+  // Se un file del motore importasse da `demo01`, cancellare la cartella al
+  // clone romperebbe la compilazione del cliente — e il messaggio parlerebbe
+  // di un demo che quel cliente non ha mai visto.
+  const colpevoli = [];
+  for (const f of CODICE) {
+    if (dentroUnDemo(f)) continue;
+    const src = readFileSync(f, "utf8");
+    for (const m of src.matchAll(/^\s*import\s[^;]*?["']([^"']+)["']/gm)) {
+      if (/demo01|Demo01/i.test(m[1])) colpevoli.push(`${f} -> ${m[1]}`);
+    }
+  }
+  assert.deepEqual(colpevoli, [], `import verso un demo dal motore:\n  ${colpevoli.join("\n  ")}`);
+});
+
+test("il motore non nomina un demo in una DECISIONE", () => {
+  // ⚠️ Fino al 16/09/2026 il checkout aveva scritto dentro
+  // `source === "demo01" ? "/demo01" : undefined`. Un demo nominato nel
+  // motore vuol dire che il secondo demo si aggiunge toccando il motore, e
+  // che togliendoli per un cliente resta una stringa morta che nessuno sa
+  // piu' a cosa serviva. Il prefisso lo dice la configurazione.
+  //
+  // Nei COMMENTI il nome va bene: e' un esempio, non una decisione.
+  const senzaCommenti = (t) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, " ").split("\n").filter((r) => !/^\s*(\/\/|\*)/.test(r)).join("\n");
+  const colpevoli = [];
+  for (const f of CODICE) {
+    if (dentroUnDemo(f)) continue;
+    if (/^src\/config\//.test(f)) continue; // file per-cliente, non motore
+    const src = senzaCommenti(readFileSync(f, "utf8"));
+    if (/["'`]\/?demo\d+["'`]/.test(src)) colpevoli.push(f);
+  }
+  assert.deepEqual(colpevoli.sort(), [], `il motore decide in base al nome di un demo: ${colpevoli.join(", ")}`);
+});
+
+/* ============================================================
+   IL MOTORE NON HA UN SITO
+   ============================================================ */
+
+/**
+ * Le uniche rotte pubbliche del motore, e perche' esistono.
+ *
+ * ⚠️ Non sono un sito: sono il CONTRATTO. L'admin, Stripe e le email
+ * generano link verso queste rotte, quindi devono esistere sull'installazione
+ * di ogni cliente. Aggiungerne una qui vuol dire aggiungerla a ogni cliente:
+ * si fa apposta, non per abitudine.
+ */
+const ROTTE_DEL_MOTORE = {
+  "src/pages/index.astro": "coming soon brand-aware: un'installazione senza sito non deve dare un 404",
+  "src/pages/en/index.astro": "reindirizza alla coming soon",
+  "src/pages/manifest.webmanifest.ts": "manifest PWA, generato dai dati del cliente",
+  "src/pages/legal/privacy.astro": "testo legale generico, linkato dal widget di prenotazione",
+  "src/pages/legal/terms.astro": "idem",
+  "src/pages/order/cancel.astro": "l'admin manda questo link al cliente: annulla col token dell'ordine",
+  "src/pages/reservation/cancel.astro": "le email di prenotazione mandano qui: annulla col token",
+  "src/pages/reservation-embed.astro": "il widget di prenotazione da mettere in un iframe",
+  "src/pages/reservation-test.astro": "banco di prova del widget, per chi installa",
+};
+
+test("fuori da admin, API e demo il motore ha solo le sue rotte dichiarate", () => {
+  // ⚠️ Il 16/09/2026 qui dentro c'erano VENTUNO pagine vetrina di un cliente
+  // vero — testi e fotografie comprese — tenute come «punto di partenza».
+  // Nessun altro cliente le avrebbe mai usate cosi', e intanto ogni modifica
+  // del motore gliele spingeva addosso. Un motore che ha un sito non e' un
+  // motore: e' un sito con dentro un pannello.
+  const pubbliche = tuttiIFile("src/pages")
+    .filter((f) => !f.startsWith("src/pages/admin/"))
+    .filter((f) => !f.startsWith("src/pages/api/"))
+    .filter((f) => !/^src\/pages\/demo\d+\//.test(f));
+  const nonDichiarate = pubbliche.filter((f) => !ROTTE_DEL_MOTORE[f]);
+  assert.deepEqual(
+    nonDichiarate.sort(),
+    [],
+    `rotte pubbliche non dichiarate (il motore sta ridiventando un sito):\n  ${nonDichiarate.join("\n  ")}`,
+  );
+
+  const morte = Object.keys(ROTTE_DEL_MOTORE).filter((f) => !pubbliche.includes(f));
+  assert.deepEqual(morte.sort(), [], `dichiarate ma non esistono piu': ${morte.join(", ")}`);
+});
+
+test("nessuna pagina del motore passa da un layout di sito", () => {
+  // `layouts/Layout.astro` era il guscio del sito vetrina: intestazione,
+  // menu di navigazione, piede. Se ricompare, e' ricomparso un sito.
+  const conLayout = CODICE.filter((f) => !dentroUnDemo(f))
+    .filter((f) => /layouts\/Layout(\.astro)?["']/.test(readFileSync(f, "utf8")));
+  assert.deepEqual(conLayout.sort(), []);
+});
+
+/* ============================================================
+   IL PREFISSO DEL SITO SI LEGGE IN UN POSTO SOLO
+   ============================================================ */
+
+test("dove vive il sito pubblico lo dice un file solo", () => {
+  // Erano tre letture della stessa chiave — admin, email, checkout — e due
+  // erano gia' divergenti: una rendeva `undefined`, l'altra `""`.
+  const letture = CODICE.filter((f) => f !== "src/lib/basePubblica.ts")
+    .filter((f) => /public_site_base/.test(readFileSync(f, "utf8")));
+  assert.deepEqual(
+    letture.sort(),
+    [],
+    `leggono public_site_base fuori da lib/basePubblica.ts: ${letture.join(", ")}`,
+  );
+});

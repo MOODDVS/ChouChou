@@ -3,6 +3,7 @@ import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from "../../../lib/stripe";
+import { basePubblicaOpz } from "../../../lib/basePubblica";
 import { calcolaSlotGiorno, TIMEZONE } from "../../../lib/slots";
 import { configGiornoEffettiva } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
@@ -21,26 +22,6 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-// Base pubblica del sito per gli URL di ritorno Stripe (es. "/demo01").
-// app_config "public_site_base"; vuoto/assente = sito alla radice ("").
-// Serve perché i link di pagamento generati dall'admin devono riportare
-// il cliente alla conferma del SITO giusto (non alla root sbagliata).
-async function basePubblica(): Promise<string | undefined> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "public_site_base")
-      .maybeSingle();
-    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
-    if (!v) return undefined;
-    const b = (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
-    return b || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 // GET /api/admin/orders
@@ -354,7 +335,7 @@ export const POST: APIRoute = async ({ request }) => {
       // sede selezionata nell'header: si sta rimandando il link di un ordine
       // che esiste gia', e deve incassare dove ha sempre dovuto incassare.
       const contoOrd = ambitoDiRiga(ord.location_id as string | null);
-      const payUrl = await creaCheckoutSession({ ambito: contoOrd, voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblica() });
+      const payUrl = await creaCheckoutSession({ ambito: contoOrd, voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblicaOpz(contoOrd) });
       await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", rid);
       void emailLienPaiement({
         // Stessa sede dell'incasso: l'email porta indirizzo e telefono del
@@ -512,7 +493,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     // Ordine appena inserito con questo ambito: stesso conto. (Non puo'
     // essere l'aggregato: `inserisci` lo avrebbe gia' rifiutato.)
-    const payUrl = await creaCheckoutSession({ ambito, voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
+    const payUrl = await creaCheckoutSession({ ambito, voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblicaOpz(ambito) });
     await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", orderId);
     void emailLienPaiement({
       location_id: ambito.modo === "sede" ? ambito.id : null,
@@ -833,7 +814,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (isLink) {
     const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
-      const payUrl = await creaCheckoutSession({ ambito: conto, voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
+      const payUrl = await creaCheckoutSession({ ambito: conto, voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblicaOpz(conto) });
       await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", id);
       void emailLienPaiement({
         ...notif,
@@ -873,7 +854,7 @@ export const PUT: APIRoute = async ({ request }) => {
           numero,
           siteUrl,
           lang: lang === "en" ? "en" : "fr",
-          returnBase: await basePubblica(),
+          returnBase: await basePubblicaOpz(conto),
         });
       } catch (e) {
         console.error("[modifica ordine] supplemento Stripe error:", e);

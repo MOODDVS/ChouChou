@@ -988,12 +988,18 @@ test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
       "l'ordine si trova con il suo cancel_token, che e' un segreto: il token E' l'autorizzazione",
-    "src/pages/order-confirm.astro":
+    // ⚠️ Le versioni radice e /en non ci sono piu' (16/09/2026): le pagine
+    // vetrina di un cliente sono uscite dal motore, e il sito di riferimento
+    // e' `demo01`. Se un giorno ne rinasce una, va ridichiarata qui.
+    "src/pages/demo01/order-confirm.astro":
       "la pagina di ritorno da Stripe ha l'id di sessione, che e' l'autorizzazione",
-    "src/pages/en/order-confirm.astro": "idem, versione inglese",
-    "src/pages/demo01/order-confirm.astro": "idem, versione del template demo",
     "src/pages/api/cron/auto-complete-orders.ts":
       "il cron non nasce da una richiesta e non ha nessuna sede scelta: e' manutenzione del gruppo",
+    "src/pages/api/admin/coupons.ts":
+      "il numero di utilizzi DEVE contare quello che il limite fa rispettare, e il " +
+      "limite (verificaLimitiUso) conta gli ordini di tutte le sedi: il coupon e' del " +
+      "marchio. Con la sede selezionata l'admin mostrava «40 / 100» su un codice gia' " +
+      "esaurito a 100 — un numero e' peggio di nessun numero quando e' sbagliato",
     "src/pages/api/admin/clients.ts":
       "il cliente e' del MARCHIO: la sua spesa e le sue visite sono quelle del gruppo, " +
       "non quelle che ha lasciato a un punto solo",
@@ -1077,6 +1083,12 @@ const SCAVALCANO = {
   // Storage che filtra CANCELLA i file che non vede. La ragione resta
   // scritta nel file; qui non serve piu', e una voce che non serve piu' e'
   // una voce che qualcuno leggera' come se fosse ancora vera.
+  "src/pages/api/admin/gift-cards-pdf.ts":
+    "releve' contabile: legge i riscatti INTERI apposta, perche' la meta' " +
+    "interessante e' quello che e' successo ALTROVE (i nostri buoni onorati " +
+    "da un'altra societa'). Filtrando, quella riga sarebbe sempre zero — e " +
+    "uno zero sembra un dato, non un buco. Il taglio per sede lo fa " +
+    "`relevePunto`, che ha i suoi test",
   "src/pages/api/admin/locations.ts":
     "e' il pannello che amministra le sedi: guardarle tutte e' il suo mestiere",
   "src/pages/api/admin/push.ts":

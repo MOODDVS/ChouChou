@@ -4,6 +4,8 @@ import { supabaseAdmin } from "../../lib/db";
 import { datiRistorante } from "../../lib/ristorante";
 import { ambitoPubblico } from "../../lib/admin/sede";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
+import { euroPdf, pulisciPdf, hexPdf, inchiostroPdf, suFondoPdf, tintaPdf } from "../../lib/pdfTesto";
+import { temaEmail } from "../../lib/temaBrand";
 
 export const prerender = false;
 
@@ -11,24 +13,15 @@ export const prerender = false;
 // GET /api/bon-pdf?t=<pay_token>
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function euro(c: number): string {
-  return (Math.round(Number(c) || 0) / 100).toFixed(2).replace(".", ",") + " EUR";
-}
+// `euro` e `pulisci` vivono in `lib/pdfTesto.ts`: le usa anche il releve'
+// contabile dei buoni. Due copie della stessa regola divergono sempre.
+const euro = euroPdf;
+const pulisci = pulisciPdf;
 
 function fmtData(d: string | null): string {
   return d ? String(d).split("-").reverse().join("/") : "";
 }
 
-/** pdf-lib (font standard) non gestisce i caratteri fuori WinAnsi: si ripulisce. */
-function pulisci(s: string): string {
-  return String(s ?? "")
-    .normalize("NFC")
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[–—]/g, "-")
-    .replace(/ /g, " ")
-    .replace(/[^\x20-\xFF]/g, "");
-}
 
 type LangPdf = "fr" | "en" | "it" | "nl" | "es";
 const LANGS_PDF: LangPdf[] = ["fr", "en", "it", "nl", "es"];
@@ -68,7 +61,16 @@ export const GET: APIRoute = async ({ url }) => {
   const page = doc.addPage([595.28, 841.89]); // A4
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg = await doc.embedFont(StandardFonts.Helvetica);
-  const oro = rgb(0.874, 0.671, 0.306);
+  // ⚠️ I COLORI SONO QUELLI DEL CLIENTE (Réglages → Thème). Fino al
+  // 16/09/2026 erano tre costanti scritte a mano — il tema di UN cliente —
+  // e ogni ristorante mandava ai suoi clienti un buono regalo con i colori
+  // di un altro. Non dava errore: si vedeva solo aprendo il PDF.
+  const tema = await temaEmail();
+  const c = (x: { r: number; g: number; b: number }) => rgb(x.r, x.g, x.b);
+  const banda = c(hexPdf(tema.card));
+  const sullaBanda = c(suFondoPdf(tema.card));
+  const oro = c(inchiostroPdf(tema.accent)); // sulla carta bianca
+  const oroSullaBanda = c(hexPdf(tema.accent));
   const scuro = rgb(0.137, 0.122, 0.126);
   const grigio = rgb(0.45, 0.43, 0.42);
   const W = 595.28;
@@ -80,14 +82,14 @@ export const GET: APIRoute = async ({ url }) => {
   };
 
   // Fascia superiore
-  page.drawRectangle({ x: 0, y: 731, width: W, height: 111, color: scuro });
-  centra(dati.nome, 785, 22, bold, rgb(1, 1, 1));
-  centra(T.bonCadeau, 757, 11, reg, oro);
+  page.drawRectangle({ x: 0, y: 731, width: W, height: 111, color: banda });
+  centra(dati.nome, 785, 22, bold, sullaBanda);
+  centra(T.bonCadeau, 757, 11, reg, oroSullaBanda);
 
   // Riquadro del codice
   page.drawRectangle({
     x: 60, y: 520, width: W - 120, height: 165,
-    borderColor: oro, borderWidth: 2, color: rgb(0.99, 0.97, 0.93),
+    borderColor: oro, borderWidth: 2, color: c(tintaPdf(tema.accent)),
   });
   centra(T.votreCode, 645, 10, reg, grigio);
   centra(data.code, 605, 26, bold, scuro);

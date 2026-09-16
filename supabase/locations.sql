@@ -519,3 +519,89 @@ revoke all on function public.assegna_storico_sede(uuid) from public;
 grant execute on function public.tabelle_di_sede() to service_role;
 grant execute on function public.storico_senza_sede() to service_role;
 grant execute on function public.assegna_storico_sede(uuid) to service_role;
+
+-- ------------------------------------------------------------
+-- 12. I BUONI REGALO — chi ha incassato e chi ha servito
+--     (deciso 16/09/2026)
+--
+--     Il buono si compra ovunque e si spende ovunque: e' la decisione del
+--     cliente, e resta tale. Quindi `gift_cards` NON diventa una tabella
+--     di sede — se lo diventasse, un buono comprato a Jourdan risulterebbe
+--     inesistente a Stockel, e il cliente si sentirebbe dire che il suo
+--     codice non esiste senza che nessun errore compaia da nessuna parte.
+--
+--     Ma con tre societa' il denaro attraversa un confine: chi vende
+--     incassa, chi serve consegna, e non sono la stessa persona giuridica.
+--     Servono due fatti, non uno:
+--
+--       gift_cards.sold_at_location          — CHI HA INCASSATO
+--       gift_card_redemptions.location_id    — CHI HA SERVITO (gia' c'e',
+--                                              sezione 2, tabella «sede»)
+--
+--     ⚠️ Il nome `sold_at_location` e' deliberatamente DIVERSO da
+--     `location_id`. Ovunque altrove `location_id` vuol dire «di chi e'
+--     questa riga» ed e' la colonna su cui si filtra. Qui la domanda e'
+--     un'altra — «chi ha preso i soldi» — e la risposta non deve MAI
+--     diventare un filtro. Due domande diverse, due nomi diversi: cosi'
+--     nessuna macchina generica, e nessuno che passi di qui fra un anno,
+--     puo' scambiarle. La `location_id` che la sezione 2 ha aggiunto a
+--     `gift_cards` resta a NULL: il buono e' del marchio.
+--
+--     NULLABLE e senza travaso: i buoni gia' venduti non hanno un punto
+--     di vendita ricostruibile, e inventarlo sarebbe peggio del vuoto.
+--     Compariranno nel conto sotto «senza sede», che e' la verita'.
+--
+--     `on delete restrict`: cancellare una sede non deve portarsi via il
+--     buono di un cliente che non c'entra niente.
+-- ------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.gift_cards') is null or to_regclass('public.locations') is null then
+    raise notice 'salto i buoni: gift_cards/locations assenti';
+    return;
+  end if;
+  alter table public.gift_cards
+    add column if not exists sold_at_location uuid
+      references public.locations(id) on delete restrict;
+  create index if not exists gift_cards_sold_at_idx
+    on public.gift_cards (sold_at_location);
+end $$;
+
+-- ------------------------------------------------------------
+-- 13. I COUPON — in quali punti vale un codice (deciso 16/09/2026)
+--
+--     Un codice promo puo' valere in tutti e tre i punti, in due, o in uno
+--     solo. Con tre societa' non e' un dettaglio di presentazione: lo
+--     sconto lo paga la cassa di chi serve, e un codice pensato per
+--     Stockel che funziona anche a Jourdan e' denaro che esce da una
+--     societa' che non ha deciso niente.
+--
+--     ⚠️ Un ARRAY e non una colonna `location_id`, e il motivo e' «due su
+--     tre»: «Jourdan e Stockel ma non Schaerbeek» non si scrive con una
+--     colonna sola. Il modello NULL-o-un-id, che regge tutto il resto del
+--     multi-sede, qui non basta — ed e' l'unico posto in cui non basta.
+--
+--     ⚠️ `coupons` resta «marchio» in CLASSIFICA: la riga e' del gruppo, e'
+--     la sua VALIDITA' a essere ristretta. Se diventasse di sede, il
+--     responsabile di un punto non vedrebbe piu' i codici del gruppo e ne
+--     creerebbe di doppi con lo stesso nome — e `code_norm` e' unico, cosi'
+--     il secondo fallirebbe con un errore che non spiega niente.
+--
+--     VUOTO o NULL = tutte le sedi. E' anche lo stato di tutti i coupon che
+--     esistono oggi, quindi non serve nessun travaso: continuano a valere
+--     ovunque, che e' quello che valevano ieri.
+--
+--     Niente chiave esterna: Postgres non sa mettere un `references` su un
+--     elemento di array. Se una sede viene cancellata, il suo id resta
+--     nell'elenco come un valore che non corrisponde a niente — e
+--     `couponValePer` lo tratta per quello che e': un punto che non e'
+--     questo. Il codice continua a valere dove valeva.
+-- ------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.coupons') is null then
+    raise notice 'salto i coupon: tabella assente';
+    return;
+  end if;
+  alter table public.coupons add column if not exists locations uuid[];
+end $$;

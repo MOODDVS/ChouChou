@@ -9,6 +9,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import ImagePicker from "../../components/admin/ImagePicker.astro";
 import "../../styles/filters.css";
 import "../../styles/savebar.css";
+import "../../styles/datepicker.css";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -576,8 +577,8 @@ const t = adminT(lang);
                 <input type="text" id="p-title" maxlength="58" />
               </div>
               <div class="p-field p-dates" data-when="EVENT OFFER">
-                <div><label class="p-lab">{t("gg.postStart")}</label><input type="date" id="p-start" /></div>
-                <div><label class="p-lab">{t("gg.postEnd")}</label><input type="date" id="p-end" /></div>
+                <div><label class="p-lab">{t("gg.postStart")}</label><input type="text" class="f-date" id="p-start" readonly data-pair="p-end" /></div>
+                <div><label class="p-lab">{t("gg.postEnd")}</label><input type="text" class="f-date" id="p-end" readonly /></div>
               </div>
 
               <div class="p-field">
@@ -684,11 +685,15 @@ const t = adminT(lang);
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { creaDatepicker } from "../../lib/admin/datepicker";
       import { preparaFotoGoogle, GOOGLE_LATO_MIN } from "../../lib/admin/imageCompress";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
       const LOC = ADMIN_LOCALE[LANG] ?? "fr-BE";
+      // Il calendario del marchio. Uno per la pagina: il pannello e' uno solo
+      // e si sposta sul campo che lo chiede.
+      const dp = creaDatepicker({ loc: LOC, dow: tr("res.dowInitials").split(",") });
 
       type Rec = {
         review_id: string;
@@ -1083,6 +1088,15 @@ const t = adminT(lang);
           const stateEl = document.getElementById("p-state") as HTMLElement | null;
           const gv = (id: string) => (document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? "";
           const sv = (id: string, v: string) => { const e = document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (e) e.value = v; };
+          // ⚠️ Le date del post si leggono da `data-iso`, non da `value`:
+          // `value` e' la data SCRITTA (31/12/2026), che a Google non serve e
+          // in un confronto metterebbe dicembre prima di gennaio.
+          const gd = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.dataset.iso ?? "";
+          const pStart = document.getElementById("p-start") as HTMLInputElement | null;
+          const pEnd = document.getElementById("p-end") as HTMLInputElement | null;
+          // Un post puo' annunciare qualcosa di gia' cominciato: il passato serve.
+          if (pStart) dp.collega(pStart, true);
+          if (pEnd) dp.collega(pEnd, true);
           const escP = (x: unknown) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const ICO_TRASH = '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
 
@@ -1163,7 +1177,7 @@ const t = adminT(lang);
             if (msg) msg.textContent = "";
             const body = { tipo: pType, lang: postLang, summary: gv("p-summary"), photo: pPhoto,
               ctaType: gv("p-cta-type"), ctaUrl: gv("p-cta-url"), title: gv("p-title"),
-              startDate: gv("p-start"), endDate: gv("p-end"), couponCode: gv("p-coupon"),
+              startDate: gd("p-start"), endDate: gd("p-end"), couponCode: gv("p-coupon"),
               redeemUrl: gv("p-redeem"), terms: gv("p-terms") };
             pubBtn.disabled = true; const orig = pubBtn.textContent; pubBtn.textContent = tr("gg.postPublishing");
             try {
@@ -1171,7 +1185,11 @@ const t = adminT(lang);
               const j = await r.json();
               if (!r.ok) throw new Error(j.error || tr("res.connErr"));
               toast(tr("gg.postDone"));
-              ["p-summary", "p-title", "p-start", "p-end", "p-cta-url", "p-coupon", "p-redeem", "p-terms"].forEach((id) => sv(id, ""));
+              ["p-summary", "p-title", "p-cta-url", "p-coupon", "p-redeem", "p-terms"].forEach((id) => sv(id, ""));
+              // Svuotare le date vuol dire togliere anche `data-iso`: lasciarlo
+              // manderebbe a Google la data del post precedente.
+              if (pStart) dp.metti(pStart, "");
+              if (pEnd) dp.metti(pEnd, "");
               pPhoto = ""; renderPhoto();
               await loadPosts();
             } catch (e) { if (msg) msg.textContent = (e as Error).message; }
@@ -1280,7 +1298,7 @@ const t = adminT(lang);
           function renderSpecial() {
             if (!specialEl) return;
             specialEl.innerHTML = fiSpecial.map((sp, i) => {
-              const head = `<div class="fi-sp-head"><input type="date" class="fi-sp-date" data-i="${i}" value="${esc(sp.date)}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
+              const head = `<div class="fi-sp-head"><input type="text" class="fi-sp-date f-date" readonly data-i="${i}" data-iso="${esc(sp.date)}" value="${esc(dp.fmt(sp.date))}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
               if (sp.closed) return `<div class="fi-sp">${head}</div>`;
               const ranges = sp.ranges.map((r, ri) => `<div class="fi-range"><input type="time" class="fi-spr-a" data-i="${i}" data-ri="${ri}" value="${esc(r.a)}" /><span>\u2013</span><input type="time" class="fi-spr-b" data-i="${i}" data-ri="${ri}" value="${esc(r.b)}" /><button type="button" class="fi-r-del fi-spr-del" data-i="${i}" data-ri="${ri}">\u00d7</button></div>`).join("") + `<button type="button" class="fi-r-add fi-spr-add" data-i="${i}">+ ${tr("gg.ficheAddRange")}</button>`;
               return `<div class="fi-sp">${head}<div class="fi-ranges">${ranges}</div></div>`;
@@ -1309,10 +1327,16 @@ const t = adminT(lang);
             if (del) { const d = Number(del.dataset.d), ri = Number(del.dataset.ri); fiHours[d].ranges.splice(ri, 1); renderDays(); }
           });
 
+          // ⚠️ `delega` e non `collega`: `renderSpecial()` rifà l'HTML di tutta
+          // la lista a ogni modifica, e dei listener attaccati ai singoli
+          // campi morirebbero al primo ridisegno — il calendario smetterebbe
+          // di aprirsi senza che niente dia errore. Il contenitore invece
+          // resta sempre lo stesso.
+          if (specialEl) dp.delega(specialEl, ".fi-sp-date", true);
+
           specialEl?.addEventListener("input", (e) => {
             const t = e.target as HTMLInputElement; const i = Number(t.dataset.i);
             if (!fiSpecial[i]) return;
-            if (t.classList.contains("fi-sp-date")) { fiSpecial[i].date = t.value; return; }
             const ri = Number(t.dataset.ri);
             if (Number.isNaN(ri) || !fiSpecial[i].ranges[ri]) return;
             if (t.classList.contains("fi-spr-a")) fiSpecial[i].ranges[ri].a = t.value;
@@ -1320,6 +1344,13 @@ const t = adminT(lang);
           });
           specialEl?.addEventListener("change", (e) => {
             const t = e.target as HTMLInputElement;
+            // La data arriva con un `change` (il calendario lo emette apposta):
+            // un campo in sola lettura non produce nessun `input`.
+            if (t.classList.contains("fi-sp-date")) {
+              const i = Number(t.dataset.i);
+              if (fiSpecial[i]) fiSpecial[i].date = t.dataset.iso ?? "";
+              return;
+            }
             if (!t.classList.contains("fi-sp-open")) return;
             const i = Number(t.dataset.i);
             fiSpecial[i].closed = !t.checked;

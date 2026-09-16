@@ -21,7 +21,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { CLASSIFICA } from "../src/lib/admin/sedeRegole.ts";
 
 const API = readFileSync("src/pages/api/admin/settings.ts", "utf8");
@@ -191,4 +191,99 @@ test("i documenti si separano per PERCORSO, non per colonna", () => {
   assert.match(docs, /radiceDocs\(ambito\)/);
   const regole = readFileSync("src/lib/admin/sedeRegole.ts", "utf8");
   assert.match(regole, /return ambito\.modo === "sede" \? `sedi\/\$\{ambito\.id\}\/` : "";/);
+});
+
+
+/* ============================================================
+   IL CALENDARIO E' UNO SOLO, ED E' QUELLO DEL MARCHIO
+   ============================================================ */
+
+/** Campi data nativi ancora in giro, con la ragione. Vuoto e' l'obiettivo,
+ *  ed e' lo stato dal 16/09/2026: gli ultimi tre erano in `google.astro`. */
+const DATE_NATIVE = {};
+
+test("i campi data usano il calendario del marchio, non quello del browser", () => {
+  // `<input type="date">` apre il datepicker del SISTEMA: fondo grigio,
+  // tipografia del browser, «Clear»/«Today» in inglese qualunque lingua
+  // abbia scelto l'utente. In mezzo a una pagina brandizzata si vede subito,
+  // e non e' un bug che qualcuno segnalera': e' solo brutto, e resta.
+  const cartella = "src/pages/admin";
+  const colpevoli = readdirSync(cartella)
+    .filter((f) => f.endsWith(".astro"))
+    .filter((f) => {
+      const src = readFileSync(`${cartella}/${f}`, "utf8")
+        // I fogli di stile NOMINANO `input[type="date"]` per vestirlo: quello
+        // e' un selettore, non un campo. Via il <style> prima di guardare.
+        .replace(/<style[\s\S]*?<\/style>/g, " ");
+      return /<input[^>]*type=["']date["']/.test(src);
+    })
+    .filter((f) => !DATE_NATIVE[f]);
+  assert.deepEqual(colpevoli.sort(), [], `campi data nativi non dichiarati: ${colpevoli.join(", ")}`);
+});
+
+test("le date si leggono da `data-iso`, mai dal testo scritto", () => {
+  // Il campo del calendario brand mostra 31/12/2026 e tiene 2026-12-31 in
+  // `data-iso`. Confrontare o salvare il TESTO non da' errore: mette
+  // dicembre prima di gennaio, e la data arriva al database in un formato
+  // che nessuno rilegge.
+  const src = readFileSync("src/pages/admin/marketing.astro", "utf8");
+  for (const campo of ["cpDs", "cpDe", "grFrom", "grTo"]) {
+    assert.ok(
+      !new RegExp(`${campo}\\.value\\s*[|>=<]`).test(src),
+      `${campo}.value usato come dato: serve ${campo}.dataset.iso`,
+    );
+  }
+});
+
+
+/* ============================================================
+   UN CALENDARIO SOLO, NON UNO PER PAGINA
+   ============================================================ */
+
+/** Pagine che hanno ancora la LORO copia del calendario. Da migrare a
+ *  `lib/admin/datepicker.ts`: qui non si aggiunge niente, si toglie. */
+const CALENDARIO_COPIATO = [
+  "src/pages/admin/agenda.astro",
+  "src/pages/admin/index.astro",
+  "src/pages/admin/menu.astro",
+  "src/pages/admin/orders.astro",
+  "src/pages/admin/reservations.astro",
+  "src/pages/admin/settings.astro",
+  "src/components/admin/SpecialDaysForm.astro",
+];
+
+test("nessuna pagina nuova si scrive il suo calendario", () => {
+  // Lo STILE era gia' stato unificato in styles/datepicker.css, e il commento
+  // in cima a quel foglio racconta com'era finita: «5-6 duplicati, alcune
+  // vecchie e disallineate». Il COMPORTAMENTO era rimasto copiato in otto
+  // file, e la copia numero nove stava per nascere in google.astro.
+  //
+  // Copie della stessa regola non danno errore: divergono. Una impara a
+  // guardare nel passato e le altre no, e chi legge non sa quale sia quella
+  // giusta — lo sono tutte, ognuna per la sua pagina.
+  const cartelle = ["src/pages/admin", "src/components/admin"];
+  const copie = [];
+  for (const c of cartelle) {
+    for (const f of readdirSync(c).filter((x) => x.endsWith(".astro"))) {
+      const src = readFileSync(`${c}/${f}`, "utf8");
+      // Il segno di una copia: si costruisce il proprio pannello.
+      if (/className\s*=\s*["']dp-panel["']/.test(src)) copie.push(`${c}/${f}`);
+    }
+  }
+  const nuove = copie.filter((f) => !CALENDARIO_COPIATO.includes(f));
+  assert.deepEqual(nuove.sort(), [], `calendari copiati non dichiarati: ${nuove.join(", ")}`);
+
+  const migrate = CALENDARIO_COPIATO.filter((f) => !copie.includes(f));
+  assert.deepEqual(migrate.sort(), [], `gia' migrate, togliere dall'elenco: ${migrate.join(", ")}`);
+});
+
+test("chi usa il calendario condiviso legge la data, non il testo", () => {
+  for (const f of ["src/pages/admin/marketing.astro", "src/pages/admin/google.astro"]) {
+    const src = readFileSync(f, "utf8");
+    assert.match(src, /creaDatepicker\(/, `${f} non usa il calendario condiviso`);
+    assert.ok(
+      !/<input[^>]*class=["'][^"']*\bf-date\b[^"']*["'][^>]*type=["']date["']/.test(src),
+      `${f} mescola il campo brand con quello nativo`,
+    );
+  }
 });

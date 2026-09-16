@@ -27,6 +27,7 @@ import { TIMEZONE } from "./slots";
 // perche' a runtime non lo direbbe nessuno.
 import { ambitoDiRiga, type Ambito } from "./admin/sede";
 import { appConfigEq, appConfigIn } from "./appConfigCache";
+import { basePubblica } from "./basePubblica";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 // RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
@@ -1943,24 +1944,12 @@ function siteBase(): string {
   return SITE_URL.replace(/\/$/, "");
 }
 
-/** Prefisso del sito pubblico del cliente (es. "/demo01"), letto da
- *  app_config "public_site_base". Vuoto se assente (sito alla radice).
- *  Serve perché i link "modifier / annuler" nelle email di prenotazione
- *  devono puntare al SITO giusto, non alla root del dominio. */
-async function basePubblicaResa(ambito: Ambito): Promise<string> {
-  try {
-    const { data } = await appConfigEq("public_site_base", ambito);
-    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
-    if (!v) return "";
-    return (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
-  } catch {
-    return "";
-  }
-}
+// Il prefisso del sito pubblico vive in `lib/basePubblica.ts`: lo leggono
+// anche i link di pagamento dell'admin e il checkout.
 
 /** Base pubblica completa per i link cliente delle prenotazioni. */
 async function siteBaseResa(ambito: Ambito): Promise<string> {
-  return siteBase() + (await basePubblicaResa(ambito));
+  return siteBase() + (await basePubblica(ambito));
 }
 
 /** Blocco MAPPA per l'email di conferma: mappa statica Google (immagine)

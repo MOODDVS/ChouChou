@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
+import { leggi, elencoSedi, tutteLeSedi } from "../../../lib/admin/sede";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { normalizzaCodice } from "../../../lib/coupons";
@@ -16,6 +16,7 @@ const KIND_VALIDI = ["always", "dates", "weekly"];
 const COMBINE_VALIDI = ["stack", "exclude", "block"];
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
+const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface CouponInput {
   id?: string;
@@ -37,6 +38,7 @@ interface CouponInput {
   combine_with_promo?: string;
   new_customers_only?: boolean;
   active?: boolean;
+  locations?: string[] | null;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -104,6 +106,14 @@ function valida(b: CouponInput): { errore?: string; valori?: Record<string, unkn
     ? Array.from(new Set(b.categories.map((c) => String(c).trim()).filter(Boolean)))
     : [];
 
+  // LE SEDI in cui il codice vale. Vuoto = tutte, ed e' il valore di tutti i
+  // coupon esistenti. Si validano gli uuid perche' finiscono in un array
+  // Postgres: un valore storto farebbe fallire l'insert con un errore di
+  // sintassi SQL che non dice niente a chi sta compilando un modulo.
+  const locations = Array.isArray(b.locations)
+    ? Array.from(new Set(b.locations.map((x) => String(x).trim().toLowerCase()).filter((x) => RE_UUID.test(x))))
+    : [];
+
   const combine_with_promo = COMBINE_VALIDI.includes(b.combine_with_promo ?? "")
     ? b.combine_with_promo!
     : "stack";
@@ -129,6 +139,7 @@ function valida(b: CouponInput): { errore?: string; valori?: Record<string, unkn
       combine_with_promo,
       new_customers_only: b.new_customers_only === true,
       active: b.active !== false,
+      locations,
     },
   };
 }
@@ -136,17 +147,27 @@ function valida(b: CouponInput): { errore?: string; valori?: Record<string, unkn
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  const ambito = await ambitoDiRichiesta(request, staff);
-
   const { data, error } = await supabaseAdmin
     .from("coupons")
     .select("*")
     .order("created_at", { ascending: false });
   if (error) return json({ error: "Lecture impossible" }, 500);
 
-  // Conteggio utilizzi: ordini pagati con un coupon_id.
+  // ⚠️ IL CONTEGGIO E' DI TUTTO IL GRUPPO, e deve restarlo.
+  //
+  // Fino al 16/09/2026 qui c'era l'ambito della richiesta, cioe' la sede
+  // selezionata nell'header. Ma il limite d'uso lo fa rispettare
+  // `verificaLimitiUso`, che conta gli ordini di TUTTE le sedi: l'admin
+  // mostrava un numero e il motore ne applicava un altro. Un codice da 100
+  // usato 40 volte a Schaerbeek, 35 a Jourdan e 25 a Stockel appariva come
+  // «40 / 100» ed era gia' esaurito — e il ristoratore, convinto di averne
+  // 60, non capiva perche' i clienti si vedessero rifiutare il codice.
+  //
+  // Stesso guasto della pagina Clienti, che mostrava i totali del gruppo e
+  // mezzo secondo dopo quelli di un punto. Due conti della stessa cosa
+  // divergono sempre; quello giusto e' quello che decide.
   const usi = new Map<string, number>();
-  const { data: ordini } = await leggi("orders", ambito, "coupon_id")
+  const { data: ordini } = await leggi("orders", tutteLeSedi(), "coupon_id")
     .eq("status", "paid")
     .not("coupon_id", "is", null);
   for (const o of ordini ?? []) {
@@ -154,7 +175,11 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   const coupons = (data ?? []).map((c) => ({ ...c, uses: usi.get(c.id) ?? 0 }));
-  return json({ coupons });
+  // L'elenco dei punti viaggia con i coupon: serve a disegnare le caselle
+  // del modale e le etichette delle schede, e una chiamata a parte
+  // vorrebbe dire due letture per una riga di testo.
+  const sedi = (await elencoSedi()).map((s) => ({ id: s.id, name: s.name }));
+  return json({ coupons, sedi });
 };
 
 export const POST: APIRoute = async ({ request }) => {

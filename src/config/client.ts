@@ -19,7 +19,9 @@ export const CLIENT = {
   logoLogin: "/icon-192.png",
   /** Pagina condizioni/privacy linkata dal widget di prenotazione
    *  (per lingua; le lingue non elencate usano "en", poi "fr"). */
-  privacyUrl: { fr: "/privacy", en: "/en/privacy" } as Record<string, string>,
+  // ⚠️ `/legal/privacy`, non `/privacy`: le pagine vetrina di un cliente non
+  // stanno piu' nel motore (16/09/2026), quella legale generica si'.
+  privacyUrl: { fr: "/legal/privacy", en: "/legal/privacy" } as Record<string, string>,
   /** Paese del ristorante (ISO): default dei prefissi telefonici. */
   paese: "BE",
   /** Fallback de Admin → Général. */

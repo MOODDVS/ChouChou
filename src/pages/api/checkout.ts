@@ -9,6 +9,7 @@ import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblico } from "../../lib/admin/sede";
+import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
@@ -251,7 +252,13 @@ export const POST: APIRoute = async ({ request }) => {
     if (!coupon) {
       return err(409, testiCoupon(lang).nonValido);
     }
-    const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, lang);
+    // ⚠️ `ambitoPubblico()` rende ancora la PRIMA sede (pezzo 8, sito
+    // pubblico). Finche' resta cosi', un codice riservato a Jourdan o a
+    // Stockel verra' RIFIUTATO anche a chi ordina da li': il sito non sa
+    // ancora da quale punto si sta ordinando. Il giorno che il pezzo 8
+    // arriva, questa riga comincia a funzionare da sola — l'ambito che
+    // arriva qui e' gia' quello giusto per costruzione.
+    const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, ambitoPub, lang);
     if (ris.error) return err(409, ris.error);
     const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email, supabaseAdmin, lang);
     if (limite) return err(409, limite);
@@ -303,7 +310,9 @@ export const POST: APIRoute = async ({ request }) => {
       orderId: ordine.id,
       siteUrl,
       lang,
-      returnBase: (body as { source?: string }).source === "demo01" ? "/demo01" : undefined,
+      // ⚠️ Il prefisso del sito viene dalla CONFIGURAZIONE, non dal nome di
+      // un demo scritto qui dentro. Vedi `lib/basePubblica.ts`.
+      returnBase: await basePubblicaOpz(ambitoPub),
       discount:
         scontoCents > 0
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }

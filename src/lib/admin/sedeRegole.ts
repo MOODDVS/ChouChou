@@ -46,6 +46,12 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   lunch_menus: "marchio",
   set_menus: "marchio",
   coupons: "marchio",
+  // ⚠️ IL BUONO SI COMPRA OVUNQUE E SI SPENDE OVUNQUE, ed e' per questo che
+  // e' «marchio»: filtrandolo, un buono comprato a Jourdan risulterebbe
+  // inesistente a Stockel e il cliente si sentirebbe dire che il suo codice
+  // non esiste — senza nessun errore, da nessuna parte. CHI HA INCASSATO si
+  // sa lo stesso: sta in `sold_at_location`, che ha un altro nome apposta
+  // perche' non e' una colonna su cui si filtra (vedi `buoniRegole.ts`).
   gift_cards: "marchio",
   gift_card_orders: "marchio",
   newsletter_log: "marchio",
