@@ -118,7 +118,20 @@ nel bundle del browser.
 
 ## Checklist nuovo cliente
 
-1. **Clona** il repo engine e crea il repo del cliente.
+0. **Da quale ramo.** Finché `multi-sede` non è dentro `main`, un cliente
+   nuovo si clona da **`multi-sede`**: è lì che vive il motore con le sedi, e
+   un cliente clonato da `main` non le avrebbe. Il tag `single-location`
+   segna l'ultimo motore a sede unica, prima di tutto questo: è un archivio,
+   non un punto di partenza — non ha le correzioni venute dopo.
+
+1. **Clona** il repo engine e crea il repo del cliente. Poi **cancella i
+   demo**, che sono vetrine di MOODD e non vanno installate da un cliente:
+
+       rm -rf src/pages/demo01 src/components/demo01 src/layouts/Demo01Layout.astro
+
+   Non deve restare niente che li cerchi (`tests/motore.test.mjs` lo
+   verifica). ⚠️ Il motore **non ha un sito**: il clone ti dà l'admin, le API
+   e le rotte funzionali, non delle pagine vetrina da ripulire.
 2. **`src/config/client.ts`** — nome, claim, loghi, telefono, email,
    indirizzo, firma email, social di fallback.
 3. **`public/`** — loghi SVG, `favicon.svg/ico`, `apple-touch-icon.png`,
@@ -134,8 +147,19 @@ nel bundle del browser.
 8. **Stripe MOODD** — `MOODD_STRIPE_SECRET_KEY` (crediti newsletter,
    incassati da MOODD; nessun webhook).
 9. **Resend** — verifica il dominio del cliente (SPF/DKIM), poi `RESEND_FROM`.
-10. **Sito pubblico** — design e pagine per-cliente.
-11. **Super admin** — l'utente `admin@moodd.online` (in
+10. **Sito pubblico** — design e pagine per-cliente, da zero. Le rotte che
+    l'admin, Stripe e le email si aspettano sono nella tabella «Il contratto»
+    più sopra: senza `/order-confirm` un pagamento riuscito finisce su un 404.
+    Se il sito sta sotto un prefisso, va scritto in `public_site_base`.
+
+11. **Multi-sede (solo se ne ha più di uno)** — lancia `supabase/locations.sql`
+    e crea le sedi da `/admin/super` → Sedi. ⚠️ Un cliente con UN punto solo
+    **non deve creare nessuna sede**: tabella `locations` vuota vuol dire
+    nessun filtro, cioè esattamente il comportamento di sempre. La sede si
+    crea il giorno che ne arriva una seconda.
+    Sul sito, ogni chiamata al motore porta il punto: header `x-sede` o
+    `?sede=<id>` (vedi `reservation-embed.astro`).
+12. **Super admin** — l'utente `admin@moodd.online` (in
     `src/lib/admin/superAdmin.ts`) va creato in Supabase Auth; da
     `/admin/super` decide quali pagine vede il cliente.
 
