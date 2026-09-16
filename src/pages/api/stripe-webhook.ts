@@ -1,14 +1,38 @@
 import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
-import { aggiorna, tutteLeSedi } from "../../lib/admin/sede";
-import { stripe } from "../../lib/stripe";
+import Stripe from "stripe";
+import { aggiorna, tutteLeSedi, segretiDOgniSede } from "../../lib/admin/sede";
 import { supabaseAdmin } from "../../lib/db";
 import { inviaNotifiche } from "../../lib/notifications";
 import { inviaPushOrdine } from "../../lib/push";
+import { ambitoDiRiga } from "../../lib/admin/sede";
 
 export const prerender = false;
 
-const WEBHOOK_SECRET = import.meta.env.STRIPE_WEBHOOK_SECRET;
+/**
+ * ⚠️ UN SOLO INDIRIZZO, PIU' CHIAVI DI FIRMA.
+ *
+ * Tre societa' = tre conti Stripe = tre webhook, e ognuno firma con la SUA
+ * chiave. Ma la firma va verificata PRIMA di poter leggere il corpo, quindi
+ * nell'istante in cui serve la chiave non si sa ancora di chi sia l'evento:
+ * e' il caso rovesciato rispetto a tutto il resto del multi-sede.
+ *
+ * Si provano tutte le chiavi di firma note. Quella che verifica dice anche da
+ * quale conto arriva l'evento — l'informazione si ricava dalla prova, non va
+ * chiesta a nessuno. Sono tre HMAC su qualche kB: niente.
+ *
+ * ⚠️ NON si mette la sede nell'URL (`/api/stripe-webhook/<slug>`), che pure
+ * sarebbe piu' esplicito nel pannello di Stripe. Lo slug si puo' cambiare
+ * dall'admin, e il giorno che qualcuno lo cambia i tre indirizzi registrati
+ * su Stripe puntano nel vuoto: i pagamenti riescono, gli ordini restano «in
+ * attesa» per sempre e nessun errore lo dice. Un indirizzo solo, uguale per
+ * tutti e tre i conti, non si rompe rinominando niente.
+ *
+ * ⚠️ `Stripe.webhooks` e' STATICO: verificare una firma e' crittografia pura
+ * e non ha bisogno di nessuna chiave API. Quindi qui non si costruisce
+ * nessun client, e un gruppo che tiene tutte le chiavi nel database (niente
+ * `STRIPE_SECRET_KEY` nel `.env`) funziona lo stesso.
+ */
 
 export const POST: APIRoute = async ({ request }) => {
   // ⚠️ AGGREGATO, chiesto per nome. Stripe chiama con l'id della sessione e
@@ -16,8 +40,9 @@ export const POST: APIRoute = async ({ request }) => {
   // qualsiasi punto: filtrando, il pagamento di due sedi su tre resterebbe
   // per sempre «in attesa». La firma dell'evento e' l'autorizzazione.
   const ambito = tutteLeSedi();
-  if (!WEBHOOK_SECRET) {
-    console.error("STRIPE_WEBHOOK_SECRET mancante");
+  const chiaviFirma = await segretiDOgniSede("stripe_webhook_secret");
+  if (chiaviFirma.length === 0) {
+    console.error("Nessuna chiave di firma webhook: ne' STRIPE_WEBHOOK_SECRET nel .env, ne' in nessuna sede");
     return new Response("Webhook non configurato", { status: 500 });
   }
 
@@ -30,13 +55,24 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // --- 1. Verifica la firma Stripe (passo 10 del brief) ---
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(payload, signature, WEBHOOK_SECRET);
-  } catch (e) {
-    console.error("Firma webhook non valida:", e);
+  let event: Stripe.Event | null = null;
+  let conto = "ambiente";
+  for (const c of chiaviFirma) {
+    try {
+      event = Stripe.webhooks.constructEvent(payload, signature, c.valore);
+      conto = c.ambito.modo === "sede" ? c.ambito.id : "ambiente";
+      break;
+    } catch {
+      // Non e' questa chiave: si prova la prossima. Non si registra niente —
+      // con piu' conti i tentativi falliti sono la normalita', e un log per
+      // ognuno renderebbe illeggibili i guasti veri.
+    }
+  }
+  if (!event) {
+    console.error(`Firma webhook non valida (provate ${chiaviFirma.length} chiavi)`);
     return new Response("Firma non valida", { status: 400 });
   }
+  console.log(`[stripe-webhook] ${event.type} — conto: ${conto}`);
 
   // Ci interessa solo il completamento del checkout.
   if (event.type === "checkout.session.completed") {
@@ -87,7 +123,8 @@ export const POST: APIRoute = async ({ request }) => {
       })
       .eq("id", orderId)
       .eq("status", "pending") // <-- chiave dell'idempotenza
-      .select("id, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang")
+      // `location_id` serve alla notifica push: dice a QUALE pizzeria suona.
+      .select("id, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang, location_id")
       .maybeSingle();
 
     if (error) {
@@ -99,6 +136,9 @@ export const POST: APIRoute = async ({ request }) => {
         console.log(`Ordine ${orderId} confermato: pending -> paid`);
         // Notifiche: numero ordine breve dai primi 8 caratteri dell'UUID.
         await inviaNotifiche({
+          // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e
+          // cucina a cui arriva il ticket.
+          location_id: aggiornato.location_id ?? null,
           numero: orderId.slice(0, 8),
           customer_name: aggiornato.customer_name,
           customer_email: aggiornato.customer_email,
@@ -109,11 +149,14 @@ export const POST: APIRoute = async ({ request }) => {
           lang: aggiornato.lang === "en" ? "en" : "fr",
         });
         // Push all'admin: nuova commande payée
+        // ⚠️ La sede la dice la RIGA, non la richiesta: Stripe non sa niente
+        // di sedi (per questo la lettura qui sopra usa l'aggregato). Senza,
+        // un ordine di Stockel farebbe squillare anche Jourdan e Schaerbeek.
         void inviaPushOrdine({
           numero: orderId.slice(0, 8),
           customer_name: aggiornato.customer_name,
           total_cents: aggiornato.total_cents,
-        });
+        }, ambitoDiRiga(aggiornato.location_id));
         // Registra (o completa) il cliente nella tabella `clients`.
         // Mai bloccante: un errore qui non deve far fallire il webhook.
         await registraCliente({

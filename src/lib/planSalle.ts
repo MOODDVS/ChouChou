@@ -1,4 +1,6 @@
 import { leggi, aggiorna, type Ambito } from "./admin/sede";
+import { scegliCombinazione, minutiDi, type TavoliAssegnati } from "./salaRegole";
+export { scegliCombinazione, type TavoliAssegnati };
 import { appConfigIn, appConfigEq } from "./appConfigCache";
 
 /**
@@ -67,13 +69,6 @@ export async function maxInsiemePerZona(planMode: string | undefined, ambito: Am
 // FASE 2 — Assegnazione automatica dei tavoli alla prenotazione
 // ------------------------------------------------------------------
 
-export type TavoliAssegnati = { ids: string[]; names: string[]; zone: string };
-
-function minutiDi(hhmm: string): number {
-  const m = /^(\d{2}):(\d{2})/.exec(hhmm);
-  return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
-}
-
 /**
  * Sceglie i tavoli per una prenotazione: la combinazione LIBERA piu' piccola
  * che basta (tavolo singolo, oppure finestra contigua di una catena di
@@ -82,55 +77,6 @@ function minutiDi(hhmm: string): number {
  * Ritorna null se nessuna combinazione libera basta (l'admin puo' bypassare:
  * in quel caso la prenotazione resta senza tavoli).
  */
-function scegliCombinazione(
-  tavoli: { id: string; zone: string; name: string; seats: number }[],
-  legami: Record<string, unknown>,
-  occupati: Set<string>,
-  zonaPref: string | null,
-  zoneChiuse: string[],
-  people: number,
-  priorita: string[]
-): TavoliAssegnati | null {
-  const perId = new Map(tavoli.map((t) => [t.id, t]));
-  let zone = zonaPref
-    ? [zonaPref]
-    : [...new Set(tavoli.map((t) => t.zone))].filter((z) => !zoneChiuse.includes(z));
-  // Priorità di riempimento (modale Sections): con "Indifférent" si prova
-  // PRIMA la section in cima alla lista; senza priorità configurata vince la
-  // combinazione globale con meno posti sprecati.
-  const conPrio = !zonaPref && priorita.length > 0;
-  if (conPrio) {
-    const idx = (z: string) => { const i = priorita.indexOf(z); return i === -1 ? 999 : i; };
-    zone = [...zone].sort((a, b) => idx(a) - idx(b));
-  }
-
-  let best: { ids: string[]; somma: number; zone: string } | null = null;
-  const prova = (ids: string[], z: string) => {
-    if (ids.some((id) => occupati.has(id) || !perId.has(id))) return;
-    const somma = ids.reduce((t, id) => t + (perId.get(id)?.seats ?? 0), 0);
-    if (somma < people) return;
-    if (!best || somma < best.somma || (somma === best.somma && ids.length < best.ids.length)) {
-      best = { ids, somma, zone: z };
-    }
-  };
-
-  for (const z of zone) {
-    for (const t of tavoli) if (t.zone === z) prova([t.id], z);
-    const gruppi = Array.isArray(legami[z]) ? (legami[z] as unknown[]) : [];
-    for (const g of gruppi) {
-      if (!Array.isArray(g)) continue;
-      const catena = (g as unknown[]).map(String);
-      for (let da = 0; da < catena.length; da++) {
-        for (let a = da + 2; a <= catena.length; a++) prova(catena.slice(da, a), z);
-      }
-    }
-    // Con priorità: appena una section (in ordine) ha una combinazione, stop
-    if (conPrio && best) break;
-  }
-  if (!best) return null;
-  const b = best as { ids: string[]; somma: number; zone: string };
-  return { ids: b.ids, names: b.ids.map((id) => perId.get(id)?.name ?? "?"), zone: b.zone };
-}
 
 /**
  * Assegna i tavoli a una (potenziale) prenotazione. Autonoma: legge da sola

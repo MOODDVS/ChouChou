@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { supabaseAdmin } from "../../lib/db";
 import { datiRistorante } from "../../lib/ristorante";
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 
 export const prerender = false;
@@ -57,7 +58,7 @@ export const GET: APIRoute = async ({ url }) => {
   if (error || !data) return new Response("Bon introuvable", { status: 404 });
   if (data.paid === false) return new Response("Bon non encore payé", { status: 402 });
 
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(await ambitoPubblico());
   const rlPdf = norm5Pdf((data as { recipient_lang?: unknown }).recipient_lang);
   let lng: LangPdf;
   if (rlPdf) lng = rlPdf;

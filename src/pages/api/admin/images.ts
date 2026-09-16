@@ -39,6 +39,11 @@ async function mappaUsi(): Promise<Map<string, Uso[]>> {
     arr.push(uso);
     usi.set(url, arr);
   };
+  // ⚠️ SENZA filtro di sede, apposta. La bibliothèque Assets descrive il
+  // BUCKET, che e' uno solo per installazione: qui si risponde a «chi usa
+  // questa foto», e la risposta deve comprendere gli altri punti. Filtrando,
+  // un'immagine usata da Jourdan risulterebbe «Libre» guardando da Stockel,
+  // e la si cancellerebbe.
   const [piatti, pops, eventi] = await Promise.all([
     supabaseAdmin.from("menu_items").select("name, image_url").not("image_url", "is", null),
     supabaseAdmin.from("popups").select("title, title_en, image_url").not("image_url", "is", null),
@@ -75,13 +80,19 @@ function pulisciNome(nome: string): string | null {
 }
 
 /** Dopo rinomina/sostituzione: aggiorna i riferimenti al nuovo URL. */
+// ⚠️ Anche qui senza filtro: rinominando un file l'URL vecchio smette di
+// esistere per TUTTI. Aggiornando solo le righe della sede attiva, gli altri
+// due punti resterebbero con il riferimento a un file che non c'e' piu'.
 async function aggiornaRiferimenti(vecchio: string, nuovo: string): Promise<void> {
   await supabaseAdmin.from("menu_items").update({ image_url: nuovo }).eq("image_url", vecchio);
   await supabaseAdmin.from("popups").update({ image_url: nuovo }).eq("image_url", vecchio);
 }
 
 /** URL delle foto dei contatti Team E dei CLIENTI: esclusi dalla
- *  bibliothèque (sono avatar privati, non asset riutilizzabili). */
+ *  bibliothèque (sono avatar privati, non asset riutilizzabili).
+ *  ⚠️ Elenco GLOBALE: un avatar privato resta privato anche se la persona
+ *  e' di un altro punto. Filtrando, la foto del cameriere di Stockel
+ *  comparirebbe fra gli asset riutilizzabili di Schaerbeek. */
 async function fotoTeam(): Promise<Set<string>> {
   const escluse = new Set<string>();
   try {

@@ -4,6 +4,8 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { datiRistorante } from "../../../lib/ristorante";
 import { adminLang } from "../../../lib/admin/adminLang";
+import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
+import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
@@ -30,6 +32,7 @@ export const prerender = false;
 // DELETE ?cat=&name= → elimina (client: POST + X-Method-Override)
 
 const BUCKET = "documents";
+
 const CATS = ["contrat", "facture", "recu", "legal", "autre"];
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -212,11 +215,9 @@ function metaDalBody(body: Record<string, unknown>, cat: string): Meta {
  * Serve a NON perderla: `resiliation_at` non arriva mai dal modulo — non e' un
  * campo da compilare, e' la traccia di un'azione compiuta (la lettera partita).
  */
-async function resiliationDi(path: string): Promise<string | null> {
+async function resiliationDi(path: string, ambito: Ambito): Promise<string | null> {
   try {
-    const { data } = await supabaseAdmin
-      .from("admin_docs_meta")
-      .select("resiliation_at")
+    const { data } = await leggi("admin_docs_meta", ambito, "resiliation_at")
       .eq("path", path)
       .maybeSingle();
     return (data as { resiliation_at?: string | null } | null)?.resiliation_at ?? null;
@@ -234,20 +235,26 @@ async function resiliationDi(path: string): Promise<string | null> {
  * scadenza e preavviso — cancellava la data della disdetta inviata: il registro
  * di un atto formale perso per un'operazione di manutenzione.
  */
-async function salvaMeta(path: string, meta: Meta, resiliation?: string | null) {
+async function salvaMeta(path: string, meta: Meta, ambito: Ambito, resiliation?: string | null) {
   try {
-    const resil = resiliation !== undefined ? resiliation : await resiliationDi(path);
+    const resil = resiliation !== undefined ? resiliation : await resiliationDi(path, ambito);
     // La riga si cancella solo se non resta NIENTE da ricordare: la disdetta
     // da sola basta a tenerla in vita.
     if (!meta.email && !meta.expires && !meta.notice_value && !resil) {
       await supabaseAdmin.from("admin_docs_meta").delete().eq("path", path);
       return;
     }
+    // ⚠️ `onConflict` resta su `path` da solo: la chiave primaria e' quella, e
+    // il percorso porta gia' la sede dentro di se'. `location_id` si scrive
+    // comunque, cosi' la riga sa di chi e' anche senza guardare il testo del
+    // percorso — e la lettura puo' filtrarla come tutte le altre.
+    const location_id = sedeDaScrivere("admin_docs_meta", ambito);
     const riga: Record<string, unknown> = {
       path,
       ...meta,
       resiliation_at: resil,
       updated_at: new Date().toISOString(),
+      ...(location_id ? { location_id } : {}),
     };
     let { error } = await supabaseAdmin.from("admin_docs_meta").upsert(riga, { onConflict: "path" });
     // Migrazioni non lanciate: si riprova senza la colonna che manca, invece di
@@ -266,15 +273,17 @@ async function salvaMeta(path: string, meta: Meta, resiliation?: string | null) 
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const radice = radiceDocs(ambito);
 
   // Metadati (se la #40 è lanciata)
   const metaMap = new Map<string, Meta>();
   try {
     const BASE = "path, email, expires, notice_value, notice_unit, resiliation_at";
-    let res = await supabaseAdmin.from("admin_docs_meta").select(BASE + ", lang");
+    let res = await leggi("admin_docs_meta", ambito, BASE + ", lang");
     // #72 non lanciata: senza il ripiego la lista perderebbe TUTTI i metadati.
     if (res.error && String(res.error.message ?? "").includes("lang")) {
-      res = await supabaseAdmin.from("admin_docs_meta").select(BASE);
+      res = await leggi("admin_docs_meta", ambito, BASE);
     }
     const righe = (res.data ?? []) as unknown as (Meta & { path: string })[];
     for (const r of righe) metaMap.set(r.path, r);
@@ -286,19 +295,19 @@ export const GET: APIRoute = async ({ request }) => {
   for (const cat of CATS) {
     const { data, error } = await supabaseAdmin.storage
       .from(BUCKET)
-      .list(cat, { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
+      .list(radice + cat, { limit: 1000, sortBy: { column: "created_at", order: "desc" } });
     if (error) continue; // cartella non ancora creata
     const files = (data ?? []).filter((f) => !!f.name);
     const nascosti = new Set(files.filter((f) => f.name.startsWith(".")).map((f) => f.name));
     for (const f of files) {
       if (f.name.startsWith(".")) continue;
-      const meta = metaMap.get(`${cat}/${f.name}`);
+      const meta = metaMap.get(`${radice}${cat}/${f.name}`);
       documents.push({
         cat,
         name: f.name,
-        url: supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${cat}/${f.name}`).data.publicUrl,
+        url: supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${f.name}`).data.publicUrl,
         thumb_url: nascosti.has(thumbDi(f.name))
-          ? supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${cat}/${thumbDi(f.name)}`).data.publicUrl
+          ? supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${thumbDi(f.name)}`).data.publicUrl
           : null,
         size: Number((f.metadata as Record<string, unknown> | null)?.size ?? 0),
         created_at: f.created_at ?? "",
@@ -318,6 +327,8 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const radice = radiceDocs(ambito);
 
   let body: Record<string, unknown>;
   try {
@@ -340,7 +351,7 @@ export const POST: APIRoute = async ({ request }) => {
       const { data } = await supabaseAdmin
         .from("admin_docs_meta")
         .select("email, expires, notice_value, notice_unit, lang")
-        .eq("path", `contrat/${name}`)
+        .eq("path", `${radice}contrat/${name}`)
         .maybeSingle();
       meta = data;
       if (!meta) {
@@ -349,7 +360,7 @@ export const POST: APIRoute = async ({ request }) => {
         const r2 = await supabaseAdmin
           .from("admin_docs_meta")
           .select("email, expires, notice_value, notice_unit")
-          .eq("path", `contrat/${name}`)
+          .eq("path", `${radice}contrat/${name}`)
           .maybeSingle();
         meta = r2.data;
       }
@@ -359,7 +370,7 @@ export const POST: APIRoute = async ({ request }) => {
     const dest = String(meta?.email ?? "").trim();
     if (!dest) return json({ error: "Email de référence manquante — modifie le document et ajoute-la" }, 400);
 
-    const dati = await datiRistorante();
+    const dati = await datiRistorante(ambito);
     const { data: cfg } = await supabaseAdmin
       .from("app_config")
       .select("key, value")
@@ -400,7 +411,7 @@ export const POST: APIRoute = async ({ request }) => {
       await supabaseAdmin
         .from("admin_docs_meta")
         .update({ resiliation_at: adesso, updated_at: adesso })
-        .eq("path", `contrat/${name}`);
+        .eq("path", `${radice}contrat/${name}`);
     } catch {
       /* senza #40 aggiornata: l'email è comunque partita */
     }
@@ -420,7 +431,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: "Aperçu invalide" }, 400);
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
-      .upload(`${cat}/${thumbDi(name)}`, bytes, { contentType: "image/webp", upsert: true });
+      .upload(`${radice}${cat}/${thumbDi(name)}`, bytes, { contentType: "image/webp", upsert: true });
     if (error) return json({ error: "Enregistrement impossible" }, 500);
     return json({ ok: true });
   }
@@ -441,18 +452,20 @@ export const POST: APIRoute = async ({ request }) => {
   const fileName = `${Date.now()}-${nome}`;
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
-    .upload(`${cat}/${fileName}`, bytes, { contentType: "application/pdf", upsert: false });
+    .upload(`${radice}${cat}/${fileName}`, bytes, { contentType: "application/pdf", upsert: false });
   if (error) return json({ error: "Téléversement impossible" }, 500);
 
-  await salvaMeta(`${cat}/${fileName}`, metaDalBody(body, cat));
+  await salvaMeta(`${radice}${cat}/${fileName}`, metaDalBody(body, cat), ambito);
 
-  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${cat}/${fileName}`).data.publicUrl;
+  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${cat}/${fileName}`).data.publicUrl;
   return json({ ok: true, name: fileName, url }, 201);
 };
 
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const radice = radiceDocs(ambito);
 
   let body: Record<string, unknown>;
   try {
@@ -475,40 +488,41 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (nuovaCat !== cat || nuovoNome !== name) {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
-      .move(`${cat}/${name}`, `${nuovaCat}/${nuovoNome}`);
+      .move(`${radice}${cat}/${name}`, `${radice}${nuovaCat}/${nuovoNome}`);
     if (error) return json({ error: "Ce nom existe déjà ou déplacement impossible" }, 409);
     // L'anteprima segue il PDF (se non esiste, l'errore si ignora)
-    await supabaseAdmin.storage.from(BUCKET).move(`${cat}/${thumbDi(name)}`, `${nuovaCat}/${thumbDi(nuovoNome)}`);
+    await supabaseAdmin.storage.from(BUCKET).move(`${radice}${cat}/${thumbDi(name)}`, `${radice}${nuovaCat}/${thumbDi(nuovoNome)}`);
     // La vecchia riga metadati si elimina (la nuova si scrive sotto) — ma la
     // data della disdetta va LETTA PRIMA e riportata: il percorso cambia, e
     // quel dato non torna dal modulo.
-    resilPrec = await resiliationDi(`${cat}/${name}`);
+    resilPrec = await resiliationDi(`${radice}${cat}/${name}`, ambito);
     try {
-      await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${cat}/${name}`);
+      await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${radice}${cat}/${name}`);
     } catch {
       /* senza metadati */
     }
   }
 
-  await salvaMeta(`${nuovaCat}/${nuovoNome}`, metaDalBody(body, nuovaCat), resilPrec);
+  await salvaMeta(`${radice}${nuovaCat}/${nuovoNome}`, metaDalBody(body, nuovaCat), ambito, resilPrec);
 
-  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${nuovaCat}/${nuovoNome}`).data.publicUrl;
+  const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(`${radice}${nuovaCat}/${nuovoNome}`).data.publicUrl;
   return json({ ok: true, cat: nuovaCat, name: nuovoNome, url });
 };
 
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const radice = radiceDocs(await ambitoDiRichiesta(request, staff));
 
   const cat = url.searchParams.get("cat") ?? "";
   if (!catValida(cat)) return json({ error: "Catégorie invalide" }, 400);
   const name = url.searchParams.get("name") ?? "";
   if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
 
-  const { error } = await supabaseAdmin.storage.from(BUCKET).remove([`${cat}/${name}`, `${cat}/${thumbDi(name)}`]);
+  const { error } = await supabaseAdmin.storage.from(BUCKET).remove([`${radice}${cat}/${name}`, `${radice}${cat}/${thumbDi(name)}`]);
   if (error) return json({ error: "Suppression impossible" }, 500);
   try {
-    await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${cat}/${name}`);
+    await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${radice}${cat}/${name}`);
   } catch {
     /* senza metadati */
   }

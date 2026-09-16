@@ -32,13 +32,14 @@ const t = adminT(lang);
     />
     <style is:global>
       :root {
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -961,6 +962,10 @@ const t = adminT(lang);
             if (res.status === 409 && j.needChoice) { notready.style.display = "block"; dash.style.display = "none"; return; }
             if (!res.ok) throw new Error(j.error || "");
             if (j.reviewError) toast(`${tr("gg.reviewErr")} ${j.reviewError}`, true);
+            // ⚠️ La scheda puo' fallire da sola: le recensioni arrivano e il
+            // pannello business resta vuoto. Va detto, o si guarda il vuoto
+            // per mezz'ora senza niente da leggere.
+            else if (j.schedaError) toast(`${tr("gg.ficheErr")} ${j.schedaError}`, true);
             else toast(tr("gg.synced"));
             await carica();
           } catch (e) {

@@ -62,14 +62,15 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
     />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -202,6 +203,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .rbar-val { fill: var(--c-text); font-size: 11px; font-family: var(--font-body); }
       .hb-row { display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 0.7rem; margin-bottom: 0.5rem; }
       .hb-k { font-size: 0.85rem; color: var(--c-text); }
+      /* Sotto il nome del punto: il dato secondario (ordini, coperti). */
+      .hb-sub { display: block; font-size: 0.7rem; color: var(--c-muted); }
       .hb-bar { position: relative; height: 22px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 6px; overflow: hidden; }
       .hb-fill { position: absolute; inset: 0 auto 0 0; background: var(--c-accent); }
       .hb-val { font-family: var(--font-title); font-size: 1rem; min-width: 3rem; text-align: right; color: var(--c-text); }
@@ -279,6 +282,12 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
               <div class="stat-big" id="s-peak">—</div>
               <div class="stat-sub" id="s-peak-sub"></div>
             </div>
+          </div>
+          <!-- Solo in aggregato: un totale senza la ripartizione dice al
+               gruppo quanto ha incassato, non se una delle tre va male. -->
+          <div class="top" id="s-sedi-box" style="display:none">
+            <div class="top-title">{t("st.bySede")}</div>
+            <div id="s-sedi"></div>
           </div>
           <div class="chart">
             <div class="chart-title" id="c-title">{t("st.byHour")}</div>
@@ -385,6 +394,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             </div>
 
             <div class="two-cols">
+              <div class="top" id="r-sedi-box" style="display:none"><div class="top-title">{t("st.bySede")}</div><div id="r-sedi"></div></div>
               <div class="top"><div class="top-title">{t("st.rBySource")}</div><div id="r-src"></div></div>
               <div class="top"><div class="top-title">{t("st.rCoversSvc")}</div><div id="r-svc"></div></div>
             </div>
@@ -418,6 +428,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         series_kind: string;
         series: { label: string; count: number }[];
         top: { name: string; qty: number; cents: number }[];
+        /** Solo in aggregato: il totale diviso per punto. */
+        perSede?: { id: string | null; nome: string; orders: number; revenue_cents: number; avg_cents: number }[];
       };
 
       const NOMI_PERIODO: Record<string, string> = {
@@ -490,6 +502,24 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         let periodo = "day";
 
         function render(s: Stats) {
+          // Ripartizione per punto: c'e' solo in aggregato, e allora la si
+          // mostra; tornando su una sede il blocco sparisce invece di restare
+          // appeso con i numeri di prima.
+          const boxSedi = document.getElementById("s-sedi-box") as HTMLElement;
+          if (s.perSede?.length) {
+            boxSedi.style.display = "";
+            rHbars(
+              "s-sedi",
+              s.perSede.map((x) => ({
+                k: x.nome || tr("st.noSede"),
+                sub: `${nfInt.format(x.orders)} ${tr("nav.orders").toLowerCase()} · ${euro(x.avg_cents)}`,
+                v: x.revenue_cents,
+              })),
+              euro,
+            );
+          } else {
+            boxSedi.style.display = "none";
+          }
           (document.getElementById("s-rev") as HTMLElement).textContent = euro(s.revenue_cents);
           (document.getElementById("s-avg") as HTMLElement).textContent =
             s.orders > 0 ? `${tr("st.avgBasket")} : ${euro(s.avg_cents)}` : "";
@@ -862,6 +892,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           perOra: { ora: string; n: number }[];
           perFonte: { fonte: string; n: number }[];
           copertiServizio: { servizio: string; coperti: number }[];
+          /** Solo in aggregato: il totale diviso per punto. */
+          perSede?: { id: string | null; nome: string; pren: number; coperti: number }[];
         };
         const rState = document.getElementById("r-state") as HTMLElement;
         const rEmpty = document.getElementById("r-empty") as HTMLElement;
@@ -923,11 +955,17 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           });
           box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${b}</svg>`;
         }
-        function rHbars(boxId: string, rows: { k: string; v: number; c?: string }[]): void {
+        // `fmt` serve a non duplicare il componente: le finanze mostrano euro,
+        // le prenotazioni numeri interi, ma la barra e' la stessa.
+        function rHbars(
+          boxId: string,
+          rows: { k: string; v: number; c?: string; sub?: string }[],
+          fmt: (n: number) => string = (n) => nfInt.format(n),
+        ): void {
           const box = document.getElementById(boxId); if (!box) return;
           if (!rows.length) { box.innerHTML = `<p class="state" style="padding:1rem 0">${tr("st.noData")}</p>`; return; }
           const max = Math.max(1, ...rows.map((r) => r.v));
-          box.innerHTML = rows.map((r) => `<div class="hb-row"><span class="hb-k">${esc(r.k)}</span><div class="hb-bar"><div class="hb-fill" style="width:${Math.max(4, Math.round((r.v / max) * 100))}%;background:${r.c || "var(--c-accent)"}"></div></div><span class="hb-val">${nfInt.format(r.v)}</span></div>`).join("");
+          box.innerHTML = rows.map((r) => `<div class="hb-row"><span class="hb-k">${esc(r.k)}${r.sub ? `<span class="hb-sub">${esc(r.sub)}</span>` : ""}</span><div class="hb-bar"><div class="hb-fill" style="width:${Math.max(4, Math.round((r.v / max) * 100))}%;background:${r.c || "var(--c-accent)"}"></div></div><span class="hb-val">${esc(fmt(r.v))}</span></div>`).join("");
         }
         const FONTE_LAB: Record<string, string> = { web: tr("st.srcWeb"), phone: tr("st.srcPhone"), walkin: tr("st.srcWalkin"), google: tr("st.srcGoogle"), altro: tr("st.srcOther") };
         const SVC_LAB: Record<string, string> = { midi: tr("st.svMidi"), soir: tr("st.svSoir") };
@@ -957,6 +995,17 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           ], d.serie.map((x) => fmtJour(x.date)));
           rBars("r-week", d.perGiorno, [0, 1, 2, 3, 4, 5, 6].map((i) => giornoNome(i, "short")), "var(--c-accent)");
           rBars("r-hours", d.perOra.map((o) => o.n), d.perOra.map((o) => o.ora.slice(0, 2)), "var(--c-accent)");
+          const boxResaSedi = document.getElementById("r-sedi-box") as HTMLElement;
+          if (d.perSede?.length) {
+            boxResaSedi.style.display = "";
+            rHbars("r-sedi", d.perSede.map((x) => ({
+              k: x.nome || tr("st.noSede"),
+              sub: `${nfInt.format(x.coperti)} ${tr("st.rCovers").toLowerCase()}`,
+              v: x.pren,
+            })));
+          } else {
+            boxResaSedi.style.display = "none";
+          }
           rHbars("r-src", d.perFonte.map((f) => ({ k: FONTE_LAB[f.fonte] ?? f.fonte, v: f.n })));
           rHbars("r-svc", d.copertiServizio.map((x) => ({ k: SVC_LAB[x.servizio] ?? x.servizio, v: x.coperti, c: x.servizio === "midi" ? "#7fa6ae" : "var(--c-accent)" })));
         }

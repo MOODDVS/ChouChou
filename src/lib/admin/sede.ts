@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "../db";
-import { cacheOr, cacheDel } from "../cache";
+import { cacheOr, cacheDel, cacheDelPrefisso } from "../cache";
+import { decifra } from "../segreti";
 import {
   CHIESTA_TUTTE,
   SEDE_UNICA as SEDE_UNICA_,
@@ -8,7 +9,10 @@ import {
   sedeDaScrivere,
   applicaFiltro,
   scegliSede,
+  scegliSegreto,
+  pagamentoOnlinePronto,
   type Ambito,
+  type Fonte,
 } from "./sedeRegole";
 import type { StaffUser } from "./adminAuth";
 
@@ -22,6 +26,10 @@ export {
   applicaFiltro,
   sedeDaScrivere,
   scegliSede,
+  scegliSegreto,
+  pagamentoOnlinePronto,
+  SegretoIlleggibile,
+  type Fonte,
   NESSUNA_SEDE,
   CLASSIFICA,
   type Ambito,
@@ -45,7 +53,6 @@ export {
  * importa niente e si prova con dei test senza database.
  */
 
-const CACHE_MULTI = "sede:multi";
 const CACHE_SEDI = "sede:elenco";
 
 export interface Sede {
@@ -58,23 +65,26 @@ export interface Sede {
   image_url: string | null;
 }
 
-/** Interruttore `multi_location` in app_config. Assente o "off" = sede
- *  unica, che e' lo stato di tutti i clienti oggi. */
+/**
+ * ⚠️ L'INTERRUTTORE `multi_location` NON ESISTE PIU' (deciso 15/09/2026).
+ *
+ * Era un secondo asse che diceva la stessa cosa dell'elenco delle sedi, con
+ * in piu' la possibilita' di contraddirla: tre sedi nel database e
+ * l'interruttore spento voleva dire tre punti che il codice non separava —
+ * e nessuno se ne accorgeva, perche' non dava errore. Ora la verita' e' una
+ * sola ed e' `elencoSedi()`:
+ *
+ *   nessuna sede  -> nessun filtro (lo stato dei clienti non ancora migrati)
+ *   una sede      -> tutto e' suo, e il selettore non compare
+ *   due o piu'    -> si sceglie nell'header
+ *
+ * `multiSedeAttivo()` resta come SCORCIATOIA di lettura — «questa
+ * installazione separa i dati?» — perche' si legge meglio di
+ * `(await elencoSedi()).length > 0` sparso in giro. Ma non legge piu'
+ * nessuna chiave: guarda le sedi.
+ */
 export async function multiSedeAttivo(): Promise<boolean> {
-  return cacheOr(CACHE_MULTI, async () => {
-    try {
-      const { data } = await supabaseAdmin
-        .from("app_config")
-        .select("value")
-        .eq("key", "multi_location")
-        .maybeSingle();
-      return String(data?.value ?? "").trim().toLowerCase() === "on";
-    } catch {
-      // Tabella o chiave assenti: sede unica. Mai "tutte", mai un errore
-      // che lascia la pagina senza dati.
-      return false;
-    }
-  });
+  return (await elencoSedi()).length > 0;
 }
 
 /** Le sedi attive, in ordine. Vuoto = installazione a sede unica. */
@@ -95,9 +105,9 @@ export async function elencoSedi(): Promise<Sede[]> {
   });
 }
 
-/** Da chiamare dopo aver cambiato l'interruttore o le sedi. */
+/** Da chiamare dopo aver creato, modificato o disattivato una sede: e'
+ *  l'elenco che decide tutto, quindi la sua cache va buttata. */
 export function scordaSedi(): void {
-  cacheDel(CACHE_MULTI);
   cacheDel(CACHE_SEDI);
 }
 
@@ -138,9 +148,8 @@ export async function ambitoDiRichiesta(
   request: Request,
   staff: StaffUser | null,
 ): Promise<Ambito> {
-  const [multi, sedi] = await Promise.all([multiSedeAttivo(), elencoSedi()]);
+  const sedi = await elencoSedi();
   return scegliSede({
-    multiAttivo: multi,
     sedi: sedi.map((s) => s.id),
     sedeUtente: staff?.location_id ?? null,
     sedeChiesta: sedeChiestaDa(request),
@@ -162,17 +171,68 @@ export async function ambitoDiRichiesta(
  * cioe' esattamente il comportamento di oggi.
  */
 export async function ambitoPubblico(): Promise<Ambito> {
-  if (!(await multiSedeAttivo())) return SEDE_UNICA_;
   const sedi = await elencoSedi();
   if (sedi.length === 0) return SEDE_UNICA_;
   return sede_(sedi[0].id);
 }
 
+/**
+ * L'ambito pubblico quando CHI CHIAMA sa gia' di quale punto parla.
+ *
+ * Serve all'admin che interroga un endpoint pubblico: la tile «Evenements
+ * locaux» della home chiede a `/api/reservation?month=` quali giorni sono
+ * chiusi, e con `ambitoPubblico()` le risposte erano sempre della PRIMA
+ * sede — con Stockel selezionato, il pallino «aperto/chiuso» diceva gli
+ * orari di Schaerbeek. Nessun errore, solo un'informazione falsa.
+ *
+ * ⚠️ SOLO L'HEADER `x-sede`, MAI IL COOKIE. Il cookie della sede vive su
+ * `Path=/` e quindi viaggia anche verso le pagine pubbliche: leggendolo qui,
+ * un super admin che apre il sito vero si troverebbe a vedere gli orari
+ * della sede che aveva selezionato nell'admin, e non capirebbe perche'. Una
+ * richiesta dice quale punto vuole; non lo si indovina da quello che il
+ * browser si porta dietro.
+ *
+ * ⚠️ E mai l'aggregato: «tutte le sedi» non e' un posto dove si prenota.
+ *
+ * Al pezzo 8 il sito pubblico passera' di qui con la sede del suo URL, e
+ * `ambitoPubblico()` restera' il ripiego per chi non dice niente.
+ */
+export async function ambitoPubblicoChiesto(request: Request): Promise<Ambito> {
+  const chiesta = (request.headers.get(HEADER_SEDE) ?? "").trim();
+  if (chiesta && chiesta !== CHIESTA_TUTTE) {
+    const sedi = await elencoSedi();
+    if (sedi.some((s) => s.id === chiesta)) return sede_(chiesta);
+  }
+  return ambitoPubblico();
+}
+
+/**
+ * L'AMBITO DI UNA RIGA CHE SI HA GIA' IN MANO.
+ *
+ * Serve dove l'evento non nasce da una richiesta dell'admin ma da un dato:
+ * il webhook Stripe ha l'ordine, il cron ha la prenotazione. La sede non si
+ * chiede al cookie, si legge dalla riga.
+ *
+ * ⚠️ `location_id` nullo rende `SEDE_UNICA`, cioe' NESSUN filtro — quindi la
+ * notifica arriva a tutti. E' voluto: su un'installazione a sede unica e'
+ * esatto, e in un gruppo una riga rimasta senza sede (storico non ancora
+ * travasato) e' meglio che faccia squillare tre telefoni piuttosto che
+ * nessuno. Un ordine non notificato e' un cliente che aspetta.
+ */
+export function ambitoDiRiga(location_id: string | null | undefined): Ambito {
+  return location_id ? sede_(location_id) : SEDE_UNICA_;
+}
+
 /** Le sedi che questo utente può vedere. Una sola se è legato a una sede,
- *  tutte altrimenti. Serve all'header per sapere se mostrare il selettore. */
+ *  tutte altrimenti. Serve all'header per sapere se mostrare il selettore.
+ *
+ *  ⚠️ Con UNA sede sola rende l'elenco vuoto, quindi il selettore non
+ *  compare: un menu a tendina con una voce sola non e' una scelta, e'
+ *  un elemento in piu' da capire. Il ristorante singolo non deve nemmeno
+ *  accorgersi che il multi-sede esiste. */
 export async function sediVisibili(staff: StaffUser | null): Promise<Sede[]> {
-  if (!(await multiSedeAttivo())) return [];
   const sedi = await elencoSedi();
+  if (sedi.length <= 1) return [];
   const sua = staff?.location_id ?? null;
   return sua ? sedi.filter((s) => s.id === sua) : sedi;
 }
@@ -523,4 +583,194 @@ export async function assicuraOrariSede(ambito: Ambito): Promise<string | null> 
     .from("location_settings")
     .upsert(mancanti, { onConflict: "location_id,day_of_week" });
   return e2 ? e2.message : null;
+}
+
+// ============================================================
+// SEGRETI DELLA SEDE — le chiavi con cui si incassa
+// ============================================================
+//
+// Tre pizzerie, tre societa', tre conti Stripe, UN solo deploy: nel `.env`
+// ci sta una chiave sola, quindi le altre due devono stare da qualche parte
+// che sappia distinguerle. Stanno in `location_secrets`, cifrate (vedi
+// `segreti.ts`), una riga per (sede, chiave).
+//
+// ⚠️ SEDE ASSENTE O RIGA ASSENTE = SI RIPIEGA SULL'AMBIENTE. Non e' una
+// comodita': e' il comportamento dei quattro clienti a sede unica di oggi,
+// che continuano a pagare con la chiave nel loro `.env` senza che nessuno
+// tocchi niente. E resta anche il paracadute di un gruppo: una sede a cui
+// non hanno ancora messo la chiave incassa sul conto del `.env` invece di
+// mostrare un errore di pagamento al cliente davanti alla cassa.
+//
+// ⚠️⚠️ E' IL DATO A DECIDERE IL CONTO, NON LA RICHIESTA. Il rimborso di un
+// ordine deve uscire dal conto che l'ha incassato, cioe' dalla sede scritta
+// NELLA RIGA (`ambitoDiRiga(ordine.location_id)`) — non dalla sede
+// selezionata nell'header di chi sta guardando. Sono due cose che quasi
+// sempre coincidono, e il giorno che non coincidono ci sono dei soldi che
+// escono dal conto sbagliato di una societa' che non c'entra.
+
+/** Le chiavi che possono vivere per sede. Elenco chiuso: l'API dei segreti
+ *  non ne accetta altre, e ogni voce ha il suo ripiego nell'ambiente. */
+export const CHIAVI_SEGRETE = ["stripe_secret_key", "stripe_webhook_secret"] as const;
+
+// Il ripiego nell'ambiente, chiave per chiave. ⚠️ Scritte per esteso, non
+// costruite con `import.meta.env[nome]`: Vite sostituisce `import.meta.env.X`
+// guardando il testo, e un accesso calcolato non lo sostituisce affatto —
+// renderebbe `undefined` nel build, cioe' pagamenti che funzionano in `dev` e
+// non in produzione. `process.env` regge l'accesso calcolato e fa da rete.
+const DA_AMBIENTE: Record<string, string | undefined> = {
+  stripe_secret_key: import.meta.env.STRIPE_SECRET_KEY,
+  stripe_webhook_secret: import.meta.env.STRIPE_WEBHOOK_SECRET,
+};
+
+/** ⚠️ Esportata, ma solo per chiedere SE il ripiego esiste (`!== ""`). Il
+ *  valore non deve uscire da qui: il pannello Sedi mostra lo stato, non le
+ *  chiavi. */
+export function segretoDAmbiente(chiave: string): string {
+  const scritto = DA_AMBIENTE[chiave];
+  if (scritto) return String(scritto).trim();
+  return String(process.env[chiave.toUpperCase()] ?? "").trim();
+}
+
+const CACHE_SEGRETO = "sede:segreto";
+
+/**
+ * Il valore di un segreto QUI: quello della sede se c'e', altrimenti quello
+ * dell'ambiente. Rende `""` se non c'e' ne' l'uno ne' l'altro — chi chiama
+ * decide se e' un errore (incassare) o no (verificare una firma).
+ *
+ * La cache dura quanto le altre (60 s) e si butta scrivendo: una chiave
+ * ruotata deve valere subito, non dopo mezzo minuto di pagamenti falliti.
+ *
+ * ⚠️⚠️ RIGA ASSENTE E RIGA ILLEGGIBILE NON SONO LA STESSA COSA, e la prima
+ * versione di questa funzione le trattava uguale (corretto il 15/09/2026,
+ * prima di andare in produzione).
+ *
+ *   assente    = nessuno ha configurato questa sede -> vale l'ambiente. E'
+ *                una CONFIGURAZIONE, ed e' il caso dei clienti a sede unica.
+ *   illeggibile = qualcuno ha messo una chiave qui, e non riusciamo a
+ *                aprirla: `SECRETS_KEY` cambiata, backup ripristinato altrove,
+ *                riga manomessa. E' un GUASTO.
+ *
+ * Ripiegare sull'ambiente nel secondo caso vuol dire incassare sul conto
+ * sbagliato in silenzio — il pagamento riesce, il cliente e' contento, e i
+ * soldi di una societa' finiscono su un'altra. Meglio un pagamento che si
+ * rifiuta e un messaggio che dice cosa e' successo.
+ */
+/** Quello che c'e' scritto per QUESTA sede, gia' decifrato.
+ *  `null` = nessuna riga. `""` = riga che non si apre. Due cose diverse, e
+ *  la cache deve ricordarsi quale delle due. */
+async function segretoDellaSede(ambito: Ambito, chiave: string): Promise<string | null> {
+  if (ambito.modo !== "sede") return null;
+  return cacheOr<string | null>(`${CACHE_SEGRETO}:${ambito.id}:${chiave}`, async () => {
+    try {
+      const { data } = await supabaseAdmin
+        .from("location_secrets")
+        .select("value")
+        .eq("location_id", ambito.id)
+        .eq("key", chiave)
+        .maybeSingle();
+      if (!data) return null;
+      return decifra(String((data as { value?: unknown }).value ?? ""));
+    } catch {
+      return null; // migrazione #73 non lanciata: vale l'ambiente
+    }
+  });
+}
+
+export async function leggiSegreto(ambito: Ambito, chiave: string): Promise<string> {
+  if (ambito.modo !== "sede") return segretoDAmbiente(chiave);
+  // La regola sta in `sedeRegole.ts`, pura e con i suoi test.
+  return scegliSegreto(await segretoDellaSede(ambito, chiave), segretoDAmbiente(chiave), chiave);
+}
+
+/**
+ * DA DOVE viene il segreto che si userebbe qui — non quanto vale.
+ *
+ * Serve a decidere se mostrare o no il link di pagamento: li' non interessa
+ * la chiave, interessa se le due meta' di un conto Stripe vengono dallo
+ * stesso posto. Una riga che non si apre rende "nessuna": non e' una chiave
+ * su cui si possa incassare.
+ */
+export async function fonteSegreto(ambito: Ambito, chiave: string): Promise<Fonte> {
+  const suo = await segretoDellaSede(ambito, chiave);
+  if (suo) return "sede";
+  if (suo === "") return "nessuna"; // riga presente e illeggibile: rotta
+  return segretoDAmbiente(chiave) ? "ambiente" : "nessuna";
+}
+
+/** Si puo' offrire un link di pagamento in questa sede? Vedi la nota lunga
+ *  su `pagamentoOnlinePronto` in `sedeRegole.ts`. */
+export async function pagamentoOnlineAttivo(ambito: Ambito): Promise<boolean> {
+  const [chiave, firma] = await Promise.all([
+    fonteSegreto(ambito, "stripe_secret_key"),
+    fonteSegreto(ambito, "stripe_webhook_secret"),
+  ]);
+  return pagamentoOnlinePronto(chiave, firma);
+}
+
+/**
+ * Lo stesso segreto per OGNI sede che ce l'ha, con l'ambiente in testa.
+ *
+ * Serve al webhook di Stripe, che e' il caso rovesciato: la firma va
+ * verificata PRIMA di poter leggere il corpo, quindi non si sa ancora di
+ * quale sede sia l'evento. Si prova ogni chiave di firma: quella che
+ * verifica dice anche da quale conto arriva. Sono tre HMAC su qualche
+ * migliaio di byte — meno di un millisecondo.
+ */
+export async function segretiDOgniSede(
+  chiave: string,
+): Promise<{ ambito: Ambito; valore: string }[]> {
+  const fuori: { ambito: Ambito; valore: string }[] = [];
+  const amb = segretoDAmbiente(chiave);
+  if (amb) fuori.push({ ambito: SEDE_UNICA_, valore: amb });
+  for (const s of await elencoSedi()) {
+    // ⚠️ Una sede illeggibile non ferma le altre. Qui si sta verificando la
+    // firma di un evento gia' arrivato: far morire tutto vorrebbe dire che
+    // la chiave rotta di UNA sede blocca gli ordini di tutte e tre.
+    let v = "";
+    try {
+      v = await leggiSegreto(sede_(s.id), chiave);
+    } catch (e) {
+      console.error(`[segreti] sede ${s.id}:`, e instanceof Error ? e.message : e);
+      continue;
+    }
+    // Senza riga sua `leggiSegreto` rende l'ambiente: gia' in elenco.
+    if (v && v !== amb) fuori.push({ ambito: sede_(s.id), valore: v });
+  }
+  return fuori;
+}
+
+/** Da chiamare dopo aver scritto o cancellato un segreto. */
+export function scordaSegreti(sedeId?: string): void {
+  cacheDelPrefisso(sedeId ? `${CACHE_SEGRETO}:${sedeId}` : CACHE_SEGRETO);
+}
+
+/**
+ * L'AMBITO DI UNA RIGA CHE SI HA SOLO PER ID.
+ *
+ * Gemella di `ambitoDiRiga`, per quando il `location_id` non ce l'hai gia'
+ * in mano: lo va a leggere. Serve dove la lettura principale era stata
+ * scritta prima delle sedi e non seleziona quella colonna — il rimborso,
+ * l'annullo, il supplemento — e dove riscrivere la SELECT vorrebbe dire
+ * romperla sui clienti che non hanno ancora lanciato la migrazione #73.
+ *
+ * ⚠️ Riga assente, colonna assente o errore rendono `SEDE_UNICA`, cioe' il
+ * valore dell'ambiente. E' il ripiego giusto: su un'installazione a sede
+ * unica e' esatto, e altrove e' il conto storico — quello su cui quell'ordine
+ * e' stato incassato prima che le sedi esistessero.
+ */
+export async function cercaAmbito(
+  tabella: string,
+  id: string,
+  ambito: Ambito,
+): Promise<Ambito> {
+  try {
+    const { data, error } = await leggi(tabella, ambito, "location_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) return SEDE_UNICA_;
+    return ambitoDiRiga((data as { location_id?: string | null }).location_id ?? null);
+  } catch {
+    return SEDE_UNICA_;
+  }
 }

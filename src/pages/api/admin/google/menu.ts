@@ -23,12 +23,12 @@ async function preludio(request: Request) {
   if (!staff) return { err: nonAutorizzato() };
   const token = await accessToken();
   if (!token) return { err: json({ error: "Google non collegato" }, 400) };
-  const loc = await locationSalvata();
+  // Scheda e menu vengono ora dallo STESSO punto: si spingono i piatti di
+  // Stockel sulla scheda di Stockel.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const loc = await locationSalvata(ambito);
   if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
-  // ⚠️ La SCHEDA Google e' ancora una sola per installazione: tre pizzerie,
-  // tre schede, e' il pezzo 6. Il MENU invece e' gia' quello del punto — su
-  // una scheda sbagliata si spingerebbero i piatti della societa' accanto.
-  return { token, path: loc.path, ambito: await ambitoDiRichiesta(request, staff) };
+  return { token, path: loc.path, ambito };
 }
 
 type RigaMenu = {

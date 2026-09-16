@@ -3,6 +3,7 @@ import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { supabaseAdmin } from "../lib/db";
 import { linksSocial } from "../lib/links";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblico } from "../lib/admin/sede";
 import { cacheOr } from "../lib/cache";
 
 const lang = getLangFromUrl(Astro.url);
@@ -11,7 +12,7 @@ const en = lang === "en";
 
 // Contatti da Réglages → Général (app_config), con ripiego su client.ts:
 // il ristoratore li cambia dall'admin senza toccare il codice.
-const risto = await datiRistorante();
+const risto = await datiRistorante(await ambitoPubblico());
 const EMAIL = risto.email;
 const PHONE_DISPLAY = risto.tel;
 const PHONE_TEL = risto.telLink;

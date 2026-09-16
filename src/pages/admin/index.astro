@@ -66,14 +66,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --c-brown: var(--c-bg);
         --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
@@ -870,6 +871,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const token = session.access_token ?? "";
         let headers = { Authorization: `Bearer ${token}` };
 
+        /** La sede selezionata nell'header, per le chiamate agli endpoint
+         *  PUBBLICI: quelli non guardano il cookie apposta (vedi
+         *  `ambitoPubblicoChiesto`), quindi glielo si passa a mano.
+         *  Nessuna sede selezionata = niente header = comportamento di sempre. */
+        function hSede(): Record<string, string> {
+          const m = /(?:^|;\s*)mdd_sede=([^;]*)/.exec(document.cookie);
+          const v = m ? decodeURIComponent(m[1]).trim() : "";
+          return v && v !== "tutte" ? { "x-sede": v } : {};
+        }
+
         // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
         // una volta sola al caricamento, un tab lasciato aperto continuava a
         // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
@@ -1016,7 +1027,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           let tagOk = false;
           try {
             const mesi = [...new Set(futuri.map(([d]) => d.slice(0, 7)))];
-            const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((r) => r.json())));
+            // ⚠️ `/api/reservation` e' PUBBLICA, e da sola risponderebbe per la
+            // sede del sito — cioe' sempre la prima. Qui si sta guardando la
+            // sede selezionata nell'header, e glielo si dice.
+            const risp = await Promise.all(
+              mesi.map((m) => fetch("/api/reservation?month=" + m, { headers: hSede() }).then((r) => r.json())),
+            );
             for (const rr of risp) for (const d of rr.closed ?? []) chiusi.add(d);
             tagOk = true;
           } catch { /* niente tag */ }

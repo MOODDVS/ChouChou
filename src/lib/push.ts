@@ -1,5 +1,11 @@
 import webpush from "web-push";
 import { supabaseAdmin } from "./db";
+// ⚠️ L'ambito NON e' opzionale in nessuna di queste funzioni, ed e' una
+// scelta. Un parametro con un default e' un parametro che si dimentica — e'
+// gia' successo con `appConfigIn`, dove un ambito mancante dava il valore del
+// marchio invece dei dati della sede, in silenzio. Qui dimenticarlo farebbe
+// squillare i telefoni di tre ristoranti per un ordine che ne riguarda uno.
+import { leggi, type Ambito } from "./admin/sede";
 import { adminLang } from "./admin/adminLang";
 import type { AdminLang } from "../i18n/admin";
 
@@ -26,15 +32,13 @@ export interface PushMsg {
 // Ripulisce le subscription scadute (404/410). Best-effort: non lancia mai.
 export interface PushEsito { sent: number; found: number; errors: string[] }
 
-export async function inviaPush(msg: PushMsg): Promise<PushEsito> {
+export async function inviaPush(msg: PushMsg, ambito: Ambito): Promise<PushEsito> {
   const errors: string[] = [];
   if (!configura()) {
     console.warn("VAPID non configurato: salto le notifiche push");
     return { sent: 0, found: 0, errors: ["VAPID non configuré"] };
   }
-  const { data, error } = await supabaseAdmin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth");
+  const { data, error } = await leggi("push_subscriptions", ambito, "id, endpoint, p256dh, auth");
   if (error) return { sent: 0, found: 0, errors: ["DB: " + error.message] };
   const subs = (data ?? []) as { id: string; endpoint: string; p256dh: string; auth: string }[];
   const payload = JSON.stringify(msg);
@@ -58,6 +62,9 @@ export async function inviaPush(msg: PushMsg): Promise<PushEsito> {
     })
   );
   if (morti.length) {
+    // Senza filtro, apposta: un endpoint che Apple o Google dichiarano morto
+    // (404/410) va tolto e basta, di qualunque punto sia. Gli id vengono
+    // comunque da una lettura gia' filtrata.
     try { await supabaseAdmin.from("push_subscriptions").delete().in("id", morti); } catch { /* best-effort */ }
   }
   return { sent: inviati, found: subs.length, errors };
@@ -103,7 +110,7 @@ export interface ResaPushInfo {
 }
 
 // kind: "new" (confermata) | "demande" (in attesa) | "modif" | "annul"
-export async function inviaPushResa(kind: "new" | "demande" | "modif" | "annul", r: ResaPushInfo): Promise<PushEsito> {
+export async function inviaPushResa(kind: "new" | "demande" | "modif" | "annul", r: ResaPushInfo, ambito: Ambito): Promise<PushEsito> {
   const L = await tradPush();
   const parti = String(r.date ?? "").split("-");
   const quando = parti.length === 3 ? `${parti[2]}/${parti[1]}` : String(r.date ?? "");
@@ -114,7 +121,7 @@ export async function inviaPushResa(kind: "new" | "demande" | "modif" | "annul",
     kind === "demande" ? L.resaDemande :
     kind === "modif" ? L.resaModif :
     L.resaAnnul;
-  return inviaPush({ title, body, url: "/admin/reservations" });
+  return inviaPush({ title, body, url: "/admin/reservations" }, ambito);
 }
 
 export interface OrdinePushInfo {
@@ -123,12 +130,12 @@ export interface OrdinePushInfo {
   total_cents: number;
 }
 
-export async function inviaPushOrdine(o: OrdinePushInfo): Promise<PushEsito> {
+export async function inviaPushOrdine(o: OrdinePushInfo, ambito: Ambito): Promise<PushEsito> {
   const L = await tradPush();
   const nome = String(o.customer_name ?? "").trim() || L.client;
   const tot = (Number(o.total_cents ?? 0) / 100).toFixed(2).replace(".", ",");
   const body = `${nome} · ${tot} € · #${o.numero}`;
-  return inviaPush({ title: L.ordre, body, url: "/admin/orders" });
+  return inviaPush({ title: L.ordre, body, url: "/admin/orders" }, ambito);
 }
 
 
@@ -139,7 +146,7 @@ export interface RecensionePushInfo {
 }
 
 /** Notifica all'admin: nuova/e recensione/i Google. */
-export async function inviaPushRecensione(info: RecensionePushInfo): Promise<PushEsito> {
+export async function inviaPushRecensione(info: RecensionePushInfo, ambito: Ambito): Promise<PushEsito> {
   const L = await tradPush();
   const n = Math.max(1, Number(info.count) || 1);
   if (n > 1) {
@@ -148,7 +155,7 @@ export async function inviaPushRecensione(info: RecensionePushInfo): Promise<Pus
       body: L.avisMultiBody(n),
       url: "/admin/google",
       tag: "google-review",
-    });
+    }, ambito);
   }
   const r = Math.max(0, Math.min(5, Math.round(Number(info.rating) || 0)));
   const stelle = "★".repeat(r) + "☆".repeat(5 - r);
@@ -158,7 +165,7 @@ export async function inviaPushRecensione(info: RecensionePushInfo): Promise<Pus
     body: `${stelle} · ${nome}`,
     url: "/admin/google",
     tag: "google-review",
-  });
+  }, ambito);
 }
 
 export interface ContattoPushInfo {
@@ -168,12 +175,12 @@ export interface ContattoPushInfo {
 }
 
 /** Notifica all'admin: qualcuno ha scritto dal form di contatto del sito. */
-export async function inviaPushContatto(info: ContattoPushInfo): Promise<PushEsito> {
+export async function inviaPushContatto(info: ContattoPushInfo, ambito: Ambito): Promise<PushEsito> {
   const L = await tradPush();
   const nome = String(info.nome ?? "").trim().slice(0, 60) || L.client;
   const extra = (String(info.oggetto ?? "").trim() || String(info.messaggio ?? "").trim()).slice(0, 80);
   const body = extra ? `${nome} · ${extra}` : nome;
-  return inviaPush({ title: L.msg, body, url: "/admin", tag: "contact" });
+  return inviaPush({ title: L.msg, body, url: "/admin", tag: "contact" }, ambito);
 }
 
 export interface PushDettaglio { host: string; ok: boolean; code?: number }
@@ -186,11 +193,10 @@ export interface PushDettaglio { host: string; ok: boolean; code?: number }
  */
 export async function inviaPushConDettagli(
   msg: PushMsg,
+  ambito: Ambito,
 ): Promise<{ sent: number; found: number; puliti: number; dettagli: PushDettaglio[] }> {
   if (!configura()) return { sent: 0, found: 0, puliti: 0, dettagli: [] };
-  const { data, error } = await supabaseAdmin
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth");
+  const { data, error } = await leggi("push_subscriptions", ambito, "id, endpoint, p256dh, auth");
   if (error) return { sent: 0, found: 0, puliti: 0, dettagli: [] };
   const subs = (data ?? []) as { id: string; endpoint: string; p256dh: string; auth: string }[];
   const payload = JSON.stringify(msg);
@@ -213,6 +219,9 @@ export async function inviaPushConDettagli(
     }),
   );
   if (morti.length) {
+    // Senza filtro, apposta: un endpoint che Apple o Google dichiarano morto
+    // (404/410) va tolto e basta, di qualunque punto sia. Gli id vengono
+    // comunque da una lettura gia' filtrata.
     try { await supabaseAdmin.from("push_subscriptions").delete().in("id", morti); } catch { /* best-effort */ }
   }
   return { sent, found: subs.length, puliti: morti.length, dettagli };

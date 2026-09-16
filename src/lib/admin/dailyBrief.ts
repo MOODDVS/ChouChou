@@ -1,13 +1,11 @@
 import { Resend } from "resend";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../db";
 import { CLIENT } from "../../config/client";
 import { nomeServizio } from "../reservationI18n";
 import { adminLang } from "./adminLang";
 import type { AdminLang } from "../../i18n/admin";
 import { caricaToday } from "./caricaToday";
-// Cron: nessuna richiesta HTTP, quindi nessuna sede scelta. Vedi `ambitoPubblico`.
-import { ambitoPubblico, leggi } from "./sede";
+import { elencoSedi, leggi, leggiConfig, scriviConfig, sede, SEDE_UNICA, type Ambito } from "./sede";
 import { TIMEZONE, aggiornaTimezone } from "../slots";
 import { temaEmail, type TemaEmail } from "../temaBrand";
 import { datiRistorante } from "../ristorante";
@@ -77,9 +75,12 @@ function eventiAnno(anno: number): [string, string][] {
 }
 
 // ---------------------------------------------------------------- helpers
-async function config(chiavi: string[]): Promise<Map<string, string>> {
-  const { data } = await supabaseAdmin.from("app_config").select("key, value").in("key", chiavi);
-  return new Map((data ?? []).map((r) => [r.key, r.value ?? ""]));
+/** ⚠️ La configurazione del brief e' DELLA SEDE, con l'installazione come
+ *  punto di partenza: `leggiConfig` ricade su `app_config` finche' un punto
+ *  non scrive il suo. Cosi' un gruppo puo' mandare il recap di Stockel al
+ *  responsabile di Stockel, e chi non tocca niente resta com'e' sempre stato. */
+async function config(ambito: Ambito, chiavi: string[]): Promise<Map<string, string>> {
+  return (await leggiConfig(ambito, chiavi)).valori;
 }
 
 /**
@@ -198,17 +199,18 @@ function intestazione(tema: TemaEmail, testo: string): string {
 }
 
 // ---------------------------------------------------------------- invio
-export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; reason: string }> {
-  // Cron: nessuna richiesta, nessuna sede scelta. Il brief e' di UN punto —
-  // i suoi ordini, le sue prenotazioni, le sue note. Vedi `ambitoPubblico`.
-  const ambito = await ambitoPubblico();
+/**
+ * Il recap di UN punto: i suoi ordini, le sue prenotazioni, le sue note,
+ * al suo indirizzo. Chi decide quali punti e' `eseguiDailyBrief`, in fondo.
+ */
+async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: boolean; reason: string }> {
   await aggiornaTimezone();
   const ora = DateTime.now().setZone(TIMEZONE);
   const oggiISO = ora.toISODate() ?? "";
   const ieri = ora.minus({ days: 1 });
   const ieriISO = ieri.toISODate() ?? "";
 
-  const cfg = await config([
+  const cfg = await config(ambito, [
     "daily_brief_enabled",
     "daily_brief_hour",
     "daily_brief_email",
@@ -240,7 +242,11 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
       .lte("pickup_time", aIeri),
     leggi("reservations", ambito, "status, people, heure, first_name, last_name")
       .eq("date", ieriISO),
-    supabaseAdmin.from("clients").select("id").gte("created_at", daIeri).lte("created_at", aIeri),
+    // ⚠️ I clienti sono del MARCHIO — uno che ordina a Schaerbeek e prenota a
+    // Stockel e' una persona sola, e la sua scheda mostra la spesa di tutto il
+    // gruppo. Quindi «nuovi clienti» qui e' un numero del gruppo, uguale nei
+    // tre recap. E' voluto: dividerlo vorrebbe dire inventare tre rubriche.
+    leggi("clients", ambito, "id").gte("created_at", daIeri).lte("created_at", aIeri),
     leggi("admin_notes", ambito, "content, tags, done")
       .eq("done", false)
       .order("created_at", { ascending: false })
@@ -309,7 +315,7 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
 
   // ---------------- HTML (tema del cliente) ----------------
   const tema = await temaEmail();
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const logo = (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) || dati.logo || LOGO_URL;
   const wordmark = `${SITE_URL}/restohub/wordmark${tema.isDark ? "-negative" : ""}.png`;
   const danger = tema.isDark ? "#ff8a8f" : "#c0392b";
@@ -498,9 +504,46 @@ export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; 
     return { sent: false, reason: "invio Resend fallito" };
   }
 
-  await supabaseAdmin
-    .from("app_config")
-    .upsert({ key: "daily_brief_last_sent", value: oggiISO }, { onConflict: "key" });
+  // ⚠️ Anche il «gia' inviata oggi» e' della sede. Fosse rimasto una chiave
+  // sola del marchio, il primo punto che manda il suo recap spegnerebbe
+  // quello degli altri due per tutta la giornata.
+  await scriviConfig(ambito, { daily_brief_last_sent: oggiISO });
 
   return { sent: true, reason: "inviata a " + dest };
+}
+
+/**
+ * IL RECAP E' DI UN PUNTO, QUINDI SE NE MANDA UNO PER PUNTO.
+ *
+ * ⚠️ Fino al 16/09/2026 qui c'era `ambitoPubblico()`, che rende la PRIMA
+ * sede: con tre pizzerie il cron ne raccontava una e le altre due non
+ * esistevano. Nessun errore — il cron rispondeva «sent: true» e sembrava a
+ * posto. Un'email che non parte non lascia traccia da nessuna parte.
+ *
+ * Un totale di tre ristoranti non l'avrebbe sistemato: non dice a nessuno
+ * com'e' andata la SUA serata, ed e' la serata l'unica cosa su cui il
+ * responsabile di un punto puo' fare qualcosa stamattina.
+ *
+ * Senza sedi (i clienti a sede unica) il giro e' di uno: `SEDE_UNICA`, cioe'
+ * nessun filtro, cioe' esattamente il comportamento di sempre.
+ */
+export async function eseguiDailyBrief(force = false): Promise<{ sent: boolean; reason: string }> {
+  const sedi = await elencoSedi();
+  if (sedi.length === 0) return briefDiUnaSede(SEDE_UNICA, force);
+
+  const esiti: string[] = [];
+  let inviate = 0;
+  for (const s of sedi) {
+    // ⚠️ Un punto che fallisce non ferma gli altri: sono tre ristoranti
+    // diversi, e il recap di Jourdan non deve dipendere dalla casella email
+    // di Stockel.
+    try {
+      const e = await briefDiUnaSede(sede(s.id), force);
+      if (e.sent) inviate++;
+      esiti.push(`${s.name}: ${e.reason}`);
+    } catch (err) {
+      esiti.push(`${s.name}: errore (${err instanceof Error ? err.message : "?"})`);
+    }
+  }
+  return { sent: inviate > 0, reason: `${inviate}/${sedi.length} — ${esiti.join(" · ")}` };
 }

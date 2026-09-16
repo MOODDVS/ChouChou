@@ -6,6 +6,7 @@
 // Il logo NON si ripete qui: c'è già nell'header del sito.
 import Layout from "../layouts/Layout.astro";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblico } from "../lib/admin/sede";
 
 export const prerender = false;
 
@@ -22,7 +23,7 @@ const langRaw = (url.searchParams.get("lang") ?? "fr").toLowerCase();
 const pathEn = url.pathname.split("/")[1] === "en";
 const lang = pathEn ? "en" : (LANGS.includes(langRaw) ? langRaw : "fr");
 
-const dati = await datiRistorante();
+const dati = await datiRistorante(await ambitoPubblico());
 const brand = dati.nome;
 
 type Cats = { food: string; service: string; atmosphere: string };

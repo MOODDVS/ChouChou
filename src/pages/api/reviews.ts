@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../lib/db";
 import { cacheOr } from "../../lib/cache";
+import { ambitoPubblico, leggiConfig } from "../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -20,12 +20,10 @@ interface Rev { auteur: string; note: number; texte: string; quand: string; phot
 // si pagano). { configured, avis, rating, count, maps_url }.
 export const GET: APIRoute = async ({ request }) => {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "google_place_id")
-      .maybeSingle();
-    const placeId = String(data?.value ?? "").trim();
+    // Voto e recensioni del PUNTO che il sito sta mostrando. La chiave di
+    // cache contiene gia' il Place ID, quindi si separa da sola.
+    const cfg = await leggiConfig(await ambitoPubblico(), ["google_place_id"]);
+    const placeId = (cfg.valori.get("google_place_id") ?? "").trim();
     if (!placeId || !KEY) return json({ configured: false, avis: [] });
 
     const info = await cacheOr(

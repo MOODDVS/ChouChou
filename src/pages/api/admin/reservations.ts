@@ -523,7 +523,13 @@ async function programmaReview(
   ambito: Ambito,
 ): Promise<void> {
   try {
-    const emailId = await emailReviewResa(r);
+    // ⚠️ `r` e' ristretto e non porta `location_id`, ma l'ambito qui c'e':
+    // e' la sede a cui la prenotazione appartiene. Senza, l'invito a lasciare
+    // una recensione porterebbe il nome e il link di un altro punto.
+    const emailId = await emailReviewResa({
+      ...r,
+      location_id: ambito.modo === "sede" ? ambito.id : null,
+    });
     if (!emailId) return;
     // Colonna assente (migrazione #24 non lanciata): si ignora l'errore
     await aggiorna("reservations", ambito, { review_email_id: emailId }).eq("id", r.id);

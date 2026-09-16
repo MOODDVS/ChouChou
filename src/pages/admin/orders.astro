@@ -7,7 +7,7 @@
 // In testata: bottoni rapidi tempo di preparazione
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
-import { ambitoDiRichiesta, leggi } from "../../lib/admin/sede";
+import { ambitoDiRichiesta, leggi, pagamentoOnlineAttivo } from "../../lib/admin/sede";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
@@ -39,10 +39,23 @@ export const prerender = false;
 // Stessa query di GET /api/admin/orders. Se il cookie manca/è scaduto o c'è un
 // errore, ssrOrders resta null e il client carica come prima (nessun rischio).
 let ssrOrders: unknown[] | null = null;
+
+// LINK DI PAGAMENTO — si offre solo se questa sede puo' davvero incassare.
+//
+// ⚠️ Parte da `true`: se qualcosa qui sotto non riesce (cookie scaduto,
+// database lento) il bottone resta com'e' sempre stato. Un bottone di troppo
+// da' un errore leggibile quando lo si preme; un bottone che sparisce senza
+// motivo e' una telefonata.
+//
+// La pagina si ricarica quando si cambia sede (vedi AdminHeader), quindi
+// questo valore non puo' restare indietro rispetto al selettore.
+let pagaOnline = true;
+
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
   if (staff) {
+    pagaOnline = await pagamentoOnlineAttivo(await ambitoDiRichiesta(Astro.request, staff));
     const soglia = DateTime.now()
       .setZone(await aggiornaTimezone())
       .minus({ days: 7 })
@@ -83,14 +96,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --c-red: #ed1c24;
         --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
@@ -850,7 +864,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <div class="nc-pay">
                 <button type="button" class="nc-pay-btn" id="nc-cash" data-pay="cash">{t("ord.payCash")}</button>
                 <button type="button" class="nc-pay-btn" id="nc-card" data-pay="card">{t("ord.payCard")}</button>
-                <button type="button" class="nc-pay-btn nc-pay-link" id="nc-link" data-pay="link">{t("ord.payLinkShort")}</button>
+                <button
+                  type="button"
+                  class="nc-pay-btn nc-pay-link"
+                  id="nc-link"
+                  data-pay="link"
+                  data-off={pagaOnline ? undefined : "1"}
+                  style={pagaOnline ? undefined : "display:none"}
+                >{t("ord.payLinkShort")}</button>
               </div>
             </div>
           </div>
@@ -2090,7 +2111,10 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-title") as HTMLElement).textContent = tr("ord.newOrder");
           (document.getElementById("nc-pay-lab") as HTMLElement).style.display = "";
           (document.querySelector(".nc-pay") as HTMLElement).style.display = "";
-          (document.getElementById("nc-link") as HTMLElement).style.display = "";
+          // ⚠️ `data-off` viene dal server e dice che qui non si incassa: il
+          // reset del modale non deve farlo riapparire.
+          const ncLk = document.getElementById("nc-link") as HTMLElement;
+          ncLk.style.display = ncLk.dataset.off === "1" ? "none" : "";
           mostraStep(1);
           for (const id of ["nc-prenom", "nc-nom", "nc-email", "nc-tel", "nc-note"])
             (document.getElementById(id) as HTMLInputElement).value = "";

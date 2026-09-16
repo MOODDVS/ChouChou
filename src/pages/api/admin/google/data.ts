@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { accessToken, locationSalvata, leggiPerformance } from "../../../../lib/googleBusiness";
+import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -18,7 +19,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
   const token = await accessToken();
   if (!token) return json({ error: "Google non collegato" }, 400);
-  const loc = await locationSalvata();
+  const loc = await locationSalvata(await ambitoDiRichiesta(request, staff));
   if (!loc?.path) return json({ error: "Scheda Google non configurata" }, 400);
 
   let giorni = parseInt(url.searchParams.get("giorni") || "30", 10);

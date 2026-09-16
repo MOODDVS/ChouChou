@@ -41,6 +41,6 @@ export const CLIENT = {
 /** Identità del prodotto (footer admin). NON cambia da cliente a cliente. */
 export const PRODOTTO = {
   nome: "RestoHub",
-  versione: "v3.0",
+  versione: "v4.0",
   copyright: "©2026 - All rights reserved MOODD",
 };

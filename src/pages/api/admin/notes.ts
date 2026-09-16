@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -31,15 +31,12 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .select(SELECT)
+  const ambito = await ambitoDiRichiesta(request, staff);
+  let { data, error } = await leggi("admin_notes", ambito, SELECT)
     .order("done", { ascending: true })
     .order("created_at", { ascending: false });
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .select(SELECT_BASE)
+    const retry = await leggi("admin_notes", ambito, SELECT_BASE)
       .order("done", { ascending: true })
       .order("created_at", { ascending: false });
     data = retry.data as typeof data;
@@ -54,6 +51,7 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
@@ -68,7 +66,7 @@ export const POST: APIRoute = async ({ request }) => {
   const delId = String(body.delete_id ?? "");
   if (delId) {
     if (!/^[0-9a-f-]{36}$/i.test(delId)) return json({ error: "Id invalide" }, 400);
-    const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", delId);
+    const { error } = await cancella("admin_notes", ambito).eq("id", delId);
     if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
     return json({ ok: true });
   }
@@ -78,17 +76,13 @@ export const POST: APIRoute = async ({ request }) => {
   const author = (staff.email ?? "").slice(0, 120) || null;
   const tags = leggiTags(body.tags);
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .insert({ content: content.slice(0, MAX_LEN), author, tags: tags.length ? tags : null })
-    .select(SELECT)
-    .single();
+  let { data, error } = await inserisci("admin_notes", ambito, {
+    content: content.slice(0, MAX_LEN), author, tags: tags.length ? tags : null,
+  }).select(SELECT).single();
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .insert({ content: content.slice(0, MAX_LEN), author })
-      .select(SELECT_BASE)
-      .single();
+    const retry = await inserisci("admin_notes", ambito, {
+      content: content.slice(0, MAX_LEN), author,
+    }).select(SELECT_BASE).single();
     data = retry.data as typeof data;
     error = retry.error;
   }
@@ -101,6 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
@@ -121,16 +116,12 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .update(campi)
+  let { data, error } = await aggiorna("admin_notes", ambito, campi)
     .eq("id", id)
     .select(SELECT)
     .single();
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .update(campi)
+    const retry = await aggiorna("admin_notes", ambito, campi)
       .eq("id", id)
       .select(SELECT_BASE)
       .single();
@@ -146,11 +137,12 @@ export const PUT: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
 
-  const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", id);
+  const { error } = await cancella("admin_notes", ambito).eq("id", id);
   if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
   return json({ ok: true });
 };

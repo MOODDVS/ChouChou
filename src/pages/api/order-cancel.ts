@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
-import { leggi, aggiorna, tutteLeSedi } from "../../lib/admin/sede";
-import { stripe } from "../../lib/stripe";
+import { leggi, aggiorna, tutteLeSedi, cercaAmbito } from "../../lib/admin/sede";
+import { stripeDi } from "../../lib/stripe";
 
 // Annullamento PUBBLICO di un ordine manuale non ancora pagato.
 // Identificato dal cancel_token (email "Annuler ma commande").
@@ -73,7 +73,11 @@ export const POST: APIRoute = async ({ request }) => {
   const m = /cs_(?:test|live)_[A-Za-z0-9]+/.exec(String(ordine.stripe_session_id ?? ""));
   if (m) {
     try {
-      await stripe.checkout.sessions.expire(m[0]);
+      // La sessione da far scadere vive nel conto che l'aveva creata: quello
+      // della sede dell'ordine. Con la chiave di un'altra societa' Stripe
+      // risponderebbe «no such checkout session» e il link resterebbe vivo.
+      const sp = await stripeDi(await cercaAmbito("orders", String(ordine.id), ambito));
+      await sp.checkout.sessions.expire(m[0]);
     } catch {
       /* già scaduta o pagata nel frattempo: non bloccante */
     }

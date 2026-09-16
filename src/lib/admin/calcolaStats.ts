@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
-import { leggi, type Ambito } from "./sede";
+import { ripartisciOrdini, conNomi } from "./statsRegole";
+import { leggi, elencoSedi, type Ambito } from "./sede";
 import { supabaseAdmin } from "../db";
 import { TIMEZONE } from "../slots";
 import { adminLang } from "./adminLang";
@@ -42,8 +43,12 @@ function inizioPeriodo(p: Periodo): string | null {
 async function ordiniPagati(daISO: string | null, ambito: Ambito): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
+  // `location_id` si chiede SOLO nell'aggregato: e' l'unico caso in cui serve,
+  // ed e' anche l'unico in cui la colonna esiste di sicuro (l'aggregato si
+  // ottiene solo a multi-sede acceso, che presuppone la migrazione #73).
+  const CAMPI = "pickup_time, total_cents, items" + (ambito.modo === "tutte" ? ", location_id" : "");
   for (let da = 0; ; da += PAGINA) {
-    let q = leggi("orders", ambito, "pickup_time, total_cents, items")
+    let q = leggi("orders", ambito, CAMPI)
       .in("status", ["paid", "done"])
       .order("pickup_time", { ascending: true })
       .range(da, da + PAGINA - 1);
@@ -166,6 +171,13 @@ async function serieDi(
   return { kind: "quarter", series };
 }
 
+/** Incasso e ordini per punto: la regola sta in `statsRegole.ts`, pura e
+ *  provata. Qui resta solo il nome del punto, che va letto. */
+async function ripartisciPerSede(ordini: RigaOrdine[]) {
+  const nomi = new Map((await elencoSedi()).map((x) => [x.id, x.name]));
+  return conNomi(ripartisciOrdini(ordini as { total_cents: number; location_id?: string | null }[]), nomi);
+}
+
 export async function calcolaStats(p: Periodo, ambito: Ambito) {
   const ordini = await ordiniPagati(inizioPeriodo(p), ambito);
   if (ordini === null) return null;
@@ -202,6 +214,7 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
   const { kind, series } = await serieDi(p, ordini, ADMIN_LOCALE[lang] ?? "fr-BE", adminT(lang)("stats.quarterShort"));
 
   return {
+    ...(ambito.modo === "tutte" ? { perSede: await ripartisciPerSede(ordini) } : {}),
     period: p,
     orders: ordini.length,
     revenue_cents: revenue,

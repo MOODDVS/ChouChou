@@ -80,9 +80,24 @@ KITCHEN_EMAIL=…             # fallback email cucina
 CRON_SECRET=…               # NUOVO per ogni cliente: openssl rand -hex 24
 PUBLIC_SITE_URL=https://www.dominiocliente.be
 STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET   # solo quando si attivano gli ordini
+SECRETS_KEY=…               # NUOVO per ogni cliente: openssl rand -base64 32
 ```
 
 Mai riusare il CRON_SECRET di un altro cliente. Mai incollare secret in chat.
+
+**`SECRETS_KEY`** cifra le chiavi Stripe salvate per sede nel database
+(`location_secrets`). Serve solo a un gruppo con piu' societa', ma conviene
+metterla sempre: senza, il super admin **rifiuta** di registrare una chiave di
+sede — un segreto in chiaro nel database e' peggio di un segreto assente,
+perche' funziona. Cambiarla rende illeggibili i segreti gia' salvati: vanno
+riscritti dal pannello Sedi.
+
+**Un gruppo con piu' sedi** (tre pizzerie, tre societa', un sito solo) mette
+`STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET` nel `.env` solo come ripiego:
+le chiavi vere stanno in Super admin → Sedi, una per punto. Il webhook resta
+**un indirizzo solo** — `https://…/api/stripe-webhook`, registrato uguale in
+tutti e tre i conti Stripe: il motore prova le chiavi di firma e riconosce da
+solo da quale conto arriva l'evento.
 
 ## 5. Deploy (Hostinger)
 

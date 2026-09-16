@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { accessToken, nomeRecensione, rispondiRecensione, eliminaRisposta } from "../../../../lib/googleBusiness";
+import { ambitoDiRichiesta, aggiorna } from "../../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -32,15 +32,14 @@ export const POST: APIRoute = async ({ request }) => {
 
   const token = await accessToken();
   if (!token) return json({ error: "Google non collegato" }, 400);
-  const name = await nomeRecensione(reviewId);
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const name = await nomeRecensione(reviewId, ambito);
   if (!name) return json({ error: "Avis introuvable" }, 404);
 
   const ok = await rispondiRecensione(token, name, comment);
   if (!ok) return json({ error: "Publication de la réponse impossible" }, 502);
 
-  await supabaseAdmin
-    .from("google_reviews")
-    .update({ reply_comment: comment, reply_time: new Date().toISOString() })
+  await aggiorna("google_reviews", ambito, { reply_comment: comment, reply_time: new Date().toISOString() })
     .eq("review_id", reviewId);
   return json({ ok: true });
 };
@@ -54,15 +53,14 @@ export const DELETE: APIRoute = async ({ request, url }) => {
 
   const token = await accessToken();
   if (!token) return json({ error: "Google non collegato" }, 400);
-  const name = await nomeRecensione(reviewId);
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const name = await nomeRecensione(reviewId, ambito);
   if (!name) return json({ error: "Avis introuvable" }, 404);
 
   const ok = await eliminaRisposta(token, name);
   if (!ok) return json({ error: "Suppression de la réponse impossible" }, 502);
 
-  await supabaseAdmin
-    .from("google_reviews")
-    .update({ reply_comment: null, reply_time: null })
+  await aggiorna("google_reviews", ambito, { reply_comment: null, reply_time: null })
     .eq("review_id", reviewId);
   return json({ ok: true });
 };

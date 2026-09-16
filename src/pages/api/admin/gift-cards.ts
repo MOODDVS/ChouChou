@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, inserisci, type Ambito } from "../../../lib/admin/sede";
 import { normalizzaCodice } from "../../../lib/coupons";
 import { datiRistorante } from "../../../lib/ristorante";
 import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
@@ -30,9 +31,9 @@ function json(body: unknown, status = 200): Response {
  * Général, fallback client.ts), accenti tolti, solo A-Z0-9.
  * Es. « La Molisana » → LAMOL. Fallback: BON.
  */
-async function prefissoCodice(): Promise<string> {
+async function prefissoCodice(ambito: Ambito): Promise<string> {
   try {
-    const dati = await datiRistorante();
+    const dati = await datiRistorante(ambito);
     const n = String(dati.nome ?? "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -125,6 +126,12 @@ export const GET: APIRoute = async ({ request }) => {
     kind: string | null;
     created_by: string | null;
   };
+  // ⚠️ Gli UTILIZZI si leggono SENZA filtro, ed e' una scelta. Il buono e'
+  // del marchio: si compra in un punto e si spende in un altro. Filtrando,
+  // la cronologia non tornerebbe mai con il saldo — 50 € caricati, 20 spesi
+  // a Jourdan, e Stockel vedrebbe «nessun utilizzo» su un buono da 30.
+  // Stessa ragione della scheda cliente, che mostra la spesa dell'intero
+  // gruppo. La SCRITTURA invece e' per sede: registra DOVE e' stato usato.
   let red: Riscatto[] = [];
   const ricco = await supabaseAdmin
     .from("gift_card_redemptions")
@@ -201,7 +208,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (e2) return json({ error: "Enregistrement impossible" }, 500);
     if (!upd) return json({ error: "Solde modifié entre-temps, réessaie." }, 409);
 
-    await supabaseAdmin.from("gift_card_redemptions").insert({
+    await inserisci("gift_card_redemptions", await ambitoDiRichiesta(request, staff), {
       gift_card_id: card.id,
       amount_cents: amount,
       kind: "manual",
@@ -228,8 +235,14 @@ export const POST: APIRoute = async ({ request }) => {
     const site = (import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     let url: string;
     try {
-      const dati = await datiRistorante();
+      const dati = await datiRistorante(await ambitoDiRichiesta(request, staff));
       url = await creaCheckoutBon({
+        // ⚠️ I buoni regalo sono del MARCHIO: la riga non ha una sede, quindi
+        // il conto e' quello della sede selezionata da chi crea il buono.
+        // Con tre societa' resta una domanda aperta — chi incassa un buono
+        // comprato online, e chi ci rimette quando viene speso altrove: e'
+        // una scelta contabile, non tecnica.
+        ambito: await ambitoDiRichiesta(request, staff),
         giftCardId: card.id,
         code: card.code,
         valueCents: card.initial_cents,
@@ -241,7 +254,7 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ error: e instanceof Error ? e.message : "Stripe indisponible" }, 502);
     }
     await supabaseAdmin.from("gift_cards").update({ stripe_session_id: url }).eq("id", card.id);
-    await emailBonCadeau({ ...(card as unknown as BonEmail), pay_url: url, paid: false }, "offrant", offr);
+    await emailBonCadeau({ ...(card as unknown as BonEmail), pay_url: url, paid: false }, "offrant", offr, await ambitoDiRichiesta(request, staff));
     return json({ ok: true, sent_to: offr });
   }
 
@@ -284,7 +297,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Codice: quello dato dall'utente, oppure auto (con qualche tentativo se collide).
   const dato = txt(body.code, 40);
-  const pfx = dato ? "" : await prefissoCodice();
+  const pfx = dato ? "" : await prefissoCodice(await ambitoDiRichiesta(request, staff));
   const tentativi = dato ? [dato] : [generaCodice(pfx), generaCodice(pfx), generaCodice(pfx)];
   let ultimoErr = "Enregistrement impossible";
   for (const code of tentativi) {
@@ -312,8 +325,9 @@ export const POST: APIRoute = async ({ request }) => {
       let payError: string | null = null;
       if (pagamento === "link") {
         try {
-          const dati = await datiRistorante();
+          const dati = await datiRistorante(await ambitoDiRichiesta(request, staff));
           payUrl = await creaCheckoutBon({
+            ambito: await ambitoDiRichiesta(request, staff),
             giftCardId: data.id,
             code: data.code,
             valueCents: value,
@@ -337,10 +351,14 @@ export const POST: APIRoute = async ({ request }) => {
       };
       const destEmail = meta.recipient_email;
       const offrEmail = txt(body.sender_email, 200);
-      if (body.send_recipient && destEmail) void emailBonCadeau(bon, "destinataire", destEmail);
-      if (body.send_sender && offrEmail) void emailBonCadeau(bon, "offrant", offrEmail);
+      // ⚠️ I buoni sono del MARCHIO: la riga non ha una sede. Quindi il punto
+      // lo dice chi sta creando il buono — e la notifica al ristoratore
+      // arriva al responsabile di QUEL punto, non a un indirizzo di gruppo.
+      const ambBon = await ambitoDiRichiesta(request, staff);
+      if (body.send_recipient && destEmail) void emailBonCadeau(bon, "destinataire", destEmail, ambBon);
+      if (body.send_sender && offrEmail) void emailBonCadeau(bon, "offrant", offrEmail, ambBon);
       // Notifica al ristoratore (lingua admin), sempre alla creazione.
-      void emailBonRistoratore(bon);
+      void emailBonRistoratore(bon, ambBon);
       return json({ ok: true, id: data.id, code: data.code, pay_url: payUrl, pay_error: payError }, 201);
     }
     if (error?.code === "23505") { ultimoErr = "Ce code existe déjà."; continue; }

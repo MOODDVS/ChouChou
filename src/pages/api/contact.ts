@@ -4,6 +4,7 @@ import { datiRistorante } from "../../lib/ristorante";
 import { temaEmail } from "../../lib/temaBrand";
 import { adminLang } from "../../lib/admin/adminLang";
 import { inviaPushContatto } from "../../lib/push";
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { CLIENT } from "../../config/client";
 import { Resend } from "resend";
 
@@ -161,7 +162,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Prénom per il saluto (prima parola del nome).
   const prenom = nome.split(/\s+/)[0] || nome;
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(await ambitoPubblico());
   const from = await mittenteForm();
   const tema = await temaEmail();
   const logoEmail =
@@ -307,7 +308,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Notifica push all'admin: qualcuno ha contattato il ristorante dal form.
     // Best-effort (come le altre notifiche): non blocca la risposta.
-    void inviaPushContatto({ nome, oggetto, messaggio });
+    void inviaPushContatto({ nome, oggetto, messaggio }, await ambitoPubblico());
 
     // 2) Ringraziamento al cliente (se fallisce, l'operazione resta ok)
     const { error: errC } = await resend.emails.send({

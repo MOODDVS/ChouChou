@@ -1,7 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { sedeDaAttribuire, campoSede, schedaValida } from "./googleRegole";
+export { schedaValida };
 import { supabaseAdmin } from "./db";
 import { inviaPushRecensione } from "./push";
-import { multiSedeAttivo } from "./admin/sede";
+import { multiSedeAttivo, ambitoDiRiga, leggiConfig, scriviConfig, elencoSedi, leggi, type Ambito } from "./admin/sede";
 
 /**
  * Google Business Profile — collegamento OAuth per-cliente (livello 2).
@@ -239,26 +241,28 @@ export async function listaSedi(token: string): Promise<{ sedi: GSede[]; error: 
   return { sedi, error: "" };
 }
 
-/** Salva esplicitamente la sede scelta dall'utente. */
-export async function salvaLocation(path: string, title: string): Promise<void> {
-  await supabaseAdmin.from("app_config").upsert(
-    [
-      { key: K_LOCATION, value: path },
-      { key: K_LOCATION_TITLE, value: title },
-    ],
-    { onConflict: "key" }
-  );
+/**
+ * LA SCHEDA GOOGLE DI UN PUNTO.
+ *
+ * ⚠️ Una scheda per sede, ma una sola AUTORIZZAZIONE per installazione.
+ * Google Business Profile e' fatto cosi': un account gestisce piu' «locations»
+ * — e' esattamente il caso di 450 Gradi, tre societa' sotto un conto solo.
+ * Quindi il token OAuth resta in `app_config` (non appartiene a nessun punto),
+ * mentre QUALE scheda sia di questo punto sta in `location_config`, accanto
+ * all'indirizzo: e' un fatto di identita' della sede.
+ *
+ * `leggiConfig` sovrappone i due piani da sola — sede se c'e', installazione
+ * altrimenti — quindi a sede unica il comportamento e' identico a prima.
+ */
+export async function salvaLocation(path: string, title: string, ambito: Ambito): Promise<void> {
+  await scriviConfig(ambito, { [K_LOCATION]: path, [K_LOCATION_TITLE]: title });
 }
 
-/** Sede attualmente salvata (null se nessuna scelta). */
-export async function locationSalvata(): Promise<{ path: string; title: string } | null> {
-  const { data } = await supabaseAdmin
-    .from("app_config")
-    .select("key,value")
-    .in("key", [K_LOCATION, K_LOCATION_TITLE]);
-  const map = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, String(r.value ?? "")]));
-  const p = map.get(K_LOCATION);
-  return p ? { path: p, title: map.get(K_LOCATION_TITLE) ?? "" } : null;
+/** Scheda salvata per questo punto (null se non ne ha ancora una). */
+export async function locationSalvata(ambito: Ambito): Promise<{ path: string; title: string } | null> {
+  const cfg = await leggiConfig(ambito, [K_LOCATION, K_LOCATION_TITLE]);
+  const p = (cfg.valori.get(K_LOCATION) ?? "").trim();
+  return p ? { path: p, title: cfg.valori.get(K_LOCATION_TITLE) ?? "" } : null;
 }
 
 /** Scheda Google (fiche) completa: dati profilo per il pannello a sinistra. */
@@ -289,12 +293,25 @@ async function logoScheda(token: string, path: string): Promise<string> {
   return chosen ? String(chosen.googleUrl || chosen.thumbnailUrl || "") : "";
 }
 
-/** Dettagli della scheda dal Business Information API v1 (owner-managed). */
-export async function dettagliScheda(token: string, path: string): Promise<GScheda | null> {
+/**
+ * Dettagli della scheda dal Business Information API v1 (owner-managed).
+ *
+ * ⚠️ Rende anche il PERCHE' di un fallimento. Prima rendeva solo `null`, e chi
+ * chiamava scriveva `if (scheda) …`: se Google rifiutava una scheda — non
+ * verificata, in attesa, o su cui il conto non ha il ruolo giusto — il
+ * pannello di QUEL punto restava vuoto e non lo diceva nessuno. Con tre
+ * pizzerie si vede: due hanno la mappa e una no, e non c'e' niente da
+ * guardare per capire perche'. Un lavoro «best-effort» che fallisce senza
+ * lasciare traccia e' un lavoro che nessuno sistemera' mai.
+ */
+export async function dettagliScheda(
+  token: string,
+  path: string,
+): Promise<{ scheda: GScheda | null; error: string }> {
   // path v4 = accounts/{a}/locations/{l}; v1 vuole solo "locations/{l}"
   const locName = path.split("/").slice(-2).join("/");
   const mask = "title,storefrontAddress,phoneNumbers,websiteUri,regularHours,categories,latlng,profile";
-  const { data } = await gGetErr<{
+  const { data, error: errScheda } = await gGetErr<{
     title?: string;
     storefrontAddress?: { addressLines?: string[]; locality?: string; postalCode?: string; administrativeArea?: string };
     phoneNumbers?: { primaryPhone?: string };
@@ -304,7 +321,7 @@ export async function dettagliScheda(token: string, path: string): Promise<GSche
     latlng?: { latitude?: number; longitude?: number };
     profile?: { description?: string };
   }>(token, `https://mybusinessbusinessinformation.googleapis.com/v1/${locName}?readMask=${mask}`);
-  if (!data) return null;
+  if (!data) return { scheda: null, error: errScheda || "Fiche illisible" };
 
   const a = data.storefrontAddress;
   const address = a
@@ -319,7 +336,7 @@ export async function dettagliScheda(token: string, path: string): Promise<GSche
     byDay[di].push(`${hm(p.openTime)}\u2013${hm(p.closeTime)}`);
   }
   const logo = await logoScheda(token, path);
-  return {
+  return { scheda: {
     title: String(data.title ?? ""),
     address,
     phone: String(data.phoneNumbers?.primaryPhone ?? ""),
@@ -330,7 +347,7 @@ export async function dettagliScheda(token: string, path: string): Promise<GSche
     lat: typeof data.latlng?.latitude === "number" ? data.latlng.latitude : null,
     lng: typeof data.latlng?.longitude === "number" ? data.latlng.longitude : null,
     hours: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ d, ranges: byDay[d] })),
-  };
+  }, error: "" };
 }
 
 // ============================================================
@@ -992,27 +1009,53 @@ async function sedeDelleRecensioni(path: string): Promise<string | null> {
 }
 
 /**
+ * La sede che dichiara GIA' questa scheda, se c'e'. `null` = libera.
+ *
+ * ⚠️ Non usa `maybeSingle()`: con due sedi sullo stesso percorso la query
+ * rende due righe e `maybeSingle` fallisce, cioe' proprio nel caso che
+ * questa funzione esiste per scoprire risponderebbe «nessuna».
+ */
+export async function sedeConLaScheda(path: string): Promise<string | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("location_config")
+      .select("location_id")
+      .eq("key", K_LOCATION)
+      .eq("value", path)
+      .limit(1);
+    const riga = (data ?? [])[0] as { location_id?: string } | undefined;
+    return riga?.location_id ?? null;
+  } catch {
+    return null; // migrazione non lanciata: non c'e' niente da separare
+  }
+}
+
+/**
  * Sincronizza le recensioni da Google nel Supabase del cliente (upsert).
  * Riusata da /api/admin/google/sync (manuale) e dal cron orario.
  */
-export async function sincronizzaRecensioni(): Promise<{
+export async function sincronizzaRecensioni(ambito: Ambito): Promise<{
   stato: "non_collegato" | "nessuna_scheda" | "scelta_richiesta" | "ok";
   location?: string;
   synced?: number;
   average?: number;
   total?: number;
   reviewError?: string;
+  /** ⚠️ Google ha rifiutato la SCHEDA (non le recensioni): il pannello
+   *  business di questo punto resta vuoto, e questo dice perche'. */
+  schedaError?: string;
 }> {
   const token = await accessToken();
   if (!token) return { stato: "non_collegato" };
+  let schedaError = "";
 
   // Sede: prima quella scelta esplicitamente; poi auto-selezione se ce n'e' 1
   // sola; altrimenti serve che l'utente scelga (picker) -> "scelta_richiesta".
-  let loc = await locationSalvata();
+  let loc = await locationSalvata(ambito);
   if (!loc) {
     const auto = await scopriLocation(token);
     if (auto) {
-      await salvaLocation(auto.path, auto.title);
+      await salvaLocation(auto.path, auto.title, ambito);
       loc = auto;
     } else {
       const { sedi } = await listaSedi(token);
@@ -1045,7 +1088,14 @@ export async function sincronizzaRecensioni(): Promise<{
 
   let dbError = "";
   if (reviews.length) {
-    const sedeRec = await sedeDelleRecensioni(loc.path);
+    // La sede la sa gia' il chiamante: la scheda appartiene a QUESTO punto.
+    // `sedeDelleRecensioni` resta come ripiego per l'installazione che non ha
+    // ancora dichiarato la scheda sede per sede.
+    const sedeRec = sedeDaAttribuire({
+      ambito,
+      dichiarata: await sedeDelleRecensioni(loc.path),
+      multiSede: await multiSedeAttivo(),
+    });
     const righe = reviews.map((r) => ({
       review_id: r.reviewId,
       name: r.name,
@@ -1064,7 +1114,7 @@ export async function sincronizzaRecensioni(): Promise<{
       // recensioni gia' assegnate — l'opposto di quello che serve. Non
       // sapendo, si tace: le righe vecchie restano dove sono e le nuove
       // nascono orfane, e come tali compaiono nel conteggio.
-      ...(sedeRec ? { location_id: sedeRec } : {}),
+      ...campoSede(sedeRec),
     }));
     const { error: upErr } = await supabaseAdmin.from("google_reviews").upsert(righe, { onConflict: "review_id" });
     if (upErr) dbError = upErr.message;
@@ -1076,26 +1126,39 @@ export async function sincronizzaRecensioni(): Promise<{
       if (nuove.length) {
         // la piu' recente per create_time → autore/voto da mostrare
         const ultima = [...nuove].sort((a, b) => String(b.createTime).localeCompare(String(a.createTime)))[0];
-        void inviaPushRecensione({ author: ultima.author, rating: ultima.rating, count: nuove.length });
+        // La sede e' quella della SCHEDA da cui arriva la recensione: un
+        // avviso per Stockel non deve suonare a Jourdan.
+        void inviaPushRecensione(
+          { author: ultima.author, rating: ultima.rating, count: nuove.length },
+          ambitoDiRiga(sedeRec),
+        );
       }
     }
   }
 
-  await supabaseAdmin.from("app_config").upsert(
-    [
-      { key: K_RATING, value: String(average || "") },
-      { key: K_COUNT, value: String(total || reviews.length) },
-      { key: K_SYNCED, value: nowISO },
-    ],
-    { onConflict: "key" }
-  );
+  // Voto, numero di recensioni e ultimo sync sono della SCHEDA, quindi del
+  // punto: `scriviConfig` li mette in `location_config` dentro una sede e in
+  // `app_config` a sede unica. Senza questo, tre pizzerie si sovrascriverebbero
+  // il voto a vicenda ogni ora, e la tile della home mostrerebbe quello
+  // dell'ultimo sync arrivato.
+  await scriviConfig(ambito, {
+    [K_RATING]: String(average || ""),
+    [K_COUNT]: String(total || reviews.length),
+    [K_SYNCED]: nowISO,
+  });
 
-  // Dettagli scheda (fiche) per il pannello business — best-effort.
-  const scheda = await dettagliScheda(token, loc.path);
+  // Dettagli scheda (fiche) per il pannello business.
+  //
+  // ⚠️ Un fallimento qui NON blocca le recensioni — sono due cose diverse e
+  // una scheda illeggibile non deve far perdere un sync — ma si DICE. Il
+  // pannello vuoto di un punto solo, senza spiegazione, e' il guasto che si
+  // guarda per mezz'ora prima di capire che Google sta rifiutando la scheda.
+  const { scheda, error: errScheda } = await dettagliScheda(token, loc.path);
   if (scheda) {
-    await supabaseAdmin
-      .from("app_config")
-      .upsert([{ key: K_PROFILE, value: JSON.stringify(scheda) }], { onConflict: "key" });
+    await scriviConfig(ambito, { [K_PROFILE]: JSON.stringify(scheda) });
+  } else if (errScheda) {
+    console.error(`[google] scheda illeggibile per ${loc.path}: ${errScheda}`);
+    schedaError = errScheda;
   }
 
   return {
@@ -1105,13 +1168,47 @@ export async function sincronizzaRecensioni(): Promise<{
     average,
     total,
     reviewError: error || (dbError ? `DB: ${dbError}` : undefined),
+    schedaError,
   };
 }
 
+/**
+ * SINCRONIZZA TUTTI I PUNTI, uno per uno. La usa il cron orario.
+ *
+ * ⚠️ Un punto che fallisce NON deve fermare gli altri: se la scheda di
+ * Stockel da' errore, Jourdan e Schaerbeek devono comunque aggiornarsi.
+ * Per questo il `try` sta DENTRO il ciclo e l'esito si accumula invece di
+ * propagarsi. A sede unica il ciclo fa un giro solo, com'e' sempre stato.
+ */
+export async function sincronizzaTutteLeSedi(): Promise<{
+  sedi: { sede: string; stato: string; synced?: number; errore?: string }[];
+}> {
+  if (!(await multiSedeAttivo())) {
+    const r = await sincronizzaRecensioni(ambitoDiRiga(null));
+    return { sedi: [{ sede: "", stato: r.stato, synced: r.synced, errore: r.reviewError }] };
+  }
+  const esiti: { sede: string; stato: string; synced?: number; errore?: string }[] = [];
+  for (const s of await elencoSedi()) {
+    try {
+      const r = await sincronizzaRecensioni(ambitoDiRiga(s.id));
+      esiti.push({ sede: s.name, stato: r.stato, synced: r.synced, errore: r.reviewError });
+    } catch (e) {
+      esiti.push({ sede: s.name, stato: "errore", errore: e instanceof Error ? e.message : "" });
+    }
+  }
+  return { sedi: esiti };
+}
+
 /** Nome-risorsa v4 di una recensione a partire dal suo id (per rispondere). */
-export async function nomeRecensione(reviewId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin.from("google_reviews").select("name").eq("review_id", reviewId).maybeSingle();
-  const name = String(data?.name ?? "").trim();
+export async function nomeRecensione(reviewId: string, ambito: Ambito): Promise<string | null> {
+  // ⚠️ FILTRATO. Rispondere e' un atto PUBBLICO firmato dal ristorante: senza
+  // il filtro, il responsabile di Stockel potrebbe rispondere a una recensione
+  // di Jourdan, e la risposta comparirebbe su Google a nome di un'altra
+  // societa'. Qui l'id arriva dal browser.
+  const { data } = await leggi("google_reviews", ambito, "name")
+    .eq("review_id", reviewId)
+    .maybeSingle();
+  const name = String((data as { name?: unknown } | null)?.name ?? "").trim();
   return name || null;
 }
 

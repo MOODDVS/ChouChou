@@ -1,4 +1,5 @@
-import { leggi, type Ambito } from "./sede";
+import { leggi, elencoSedi, type Ambito } from "./sede";
+import { ripartisciPrenotazioni, conNomi, STATI_ATTIVI } from "./statsRegole";
 
 // ============================================================
 // Statistiche PRENOTAZIONI aggregate del ristorante (tab "Prenotazioni"
@@ -28,9 +29,16 @@ export interface ResaStats {
   perOra: { ora: string; n: number }[];
   perFonte: { fonte: string; n: number }[];       // fonte = chiave (web/phone/walkin/google/…)
   copertiServizio: { servizio: string; coperti: number }[]; // servizio = service_key
+  /** Solo nell'AGGREGATO: il totale diviso per punto. Assente dentro una
+   *  sede, dove la ripartizione sarebbe una riga sola. `nome` vuoto =
+   *  righe senza sede, che non si nascondono apposta. */
+  perSede?: { id: string | null; nome: string; pren: number; coperti: number }[];
 }
 
-const ATTIVI = new Set(["confirmed", "seated", "done", "noshow"]);
+// ⚠️ UN elenco solo, condiviso con la ripartizione: il totale grande e le
+// quote per punto devono contare esattamente le stesse righe, o la somma non
+// torna e nessuno sa quale dei due numeri credere.
+const ATTIVI = new Set(STATI_ATTIVI);
 
 interface Riga {
   date: string;
@@ -71,7 +79,10 @@ export async function calcolaStatsResa(giorni: number, ambito: Ambito): Promise<
   fromD.setDate(fromD.getDate() - (giorni - 1));
   const from = fromD.toISOString().slice(0, 10);
 
-  const { data } = await leggi("reservations", ambito, "date, heure, service_key, people, status, source, created_at, seated_at, table_minutes, spent_cents, tables, birthday, special_event")
+  // `location_id` solo nell'aggregato: e' l'unico caso in cui serve.
+  const CAMPI = "date, heure, service_key, people, status, source, created_at, seated_at, table_minutes, spent_cents, tables, birthday, special_event"
+    + (ambito.modo === "tutte" ? ", location_id" : "");
+  const { data } = await leggi("reservations", ambito, CAMPI)
     .gte("date", from)
     .lte("date", to);
 
@@ -187,5 +198,13 @@ export async function calcolaStatsResa(giorni: number, ambito: Ambito): Promise<
     perOra: [...perOra.entries()].map(([ora, n]) => ({ ora, n })).sort((a, b) => a.ora.localeCompare(b.ora)),
     perFonte: [...perFonte.entries()].map(([fonte, n]) => ({ fonte, n })).sort((a, b) => b.n - a.n),
     copertiServizio: [...copServizio.entries()].map(([servizio, coperti]) => ({ servizio, coperti })).sort((a, b) => b.coperti - a.coperti),
+    ...(ambito.modo === "tutte" ? { perSede: await ripartisci(righe) } : {}),
   };
+}
+
+/** Prenotazioni e coperti per punto: la regola sta in `statsRegole.ts`,
+ *  pura e provata. Qui resta solo il nome del punto. */
+async function ripartisci(righe: Riga[]) {
+  const nomi = new Map((await elencoSedi()).map((x) => [x.id, x.name]));
+  return conNomi(ripartisciPrenotazioni(righe as { status?: string | null; people?: number | null; location_id?: string | null }[]), nomi);
 }

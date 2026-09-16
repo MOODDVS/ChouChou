@@ -3,6 +3,8 @@ import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
 import { Resend } from "resend";
 import { supabaseAdmin } from "./db";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
+import { SEDE_UNICA } from "./admin/sede";
+import { appConfigIn } from "./appConfigCache";
 import { CLIENT } from "../config/client";
 import { statoQuota } from "./admin/newsletterQuota";
 import { linksSocial, type LinkSocial } from "./links";
@@ -35,10 +37,15 @@ function esc(s: string): string {
  *  Resend, altrimenti l'invio viene rifiutato da Resend. */
 export async function mittenteNewsletter(): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["newsletter_from_email", "newsletter_from_name", "email_from_name", "restaurant_name"]);
+    // ⚠️ SEDE_UNICA, cioe' i valori dell'installazione, e non e' una
+    // scorciatoia: la newsletter e' del MARCHIO. Va a tutta la rubrica del
+    // gruppo, e un cliente che ordina a Schaerbeek e prenota a Stockel e' una
+    // persona sola che ne riceve una copia sola — quindi il mittente non puo'
+    // essere quello di un punto scelto a caso fra i tre.
+    const { data } = await appConfigIn(
+      ["newsletter_from_email", "newsletter_from_name", "email_from_name", "restaurant_name"],
+      SEDE_UNICA,
+    );
     const m = new Map((data ?? []).map((r) => [r.key as string, String(r.value ?? "").trim()]));
     const v = m.get("newsletter_from_email") ?? "";
     const nome = m.get("newsletter_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
@@ -53,10 +60,8 @@ export async function mittenteNewsletter(): Promise<string> {
  *  poi l'icona del sito). URL salvati dall'admin nel bucket "brand". */
 async function logoNewsletter(isDark: boolean): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["brand_logo", "brand_logo_negative"]);
+    // Il logo e' del marchio per definizione: vedi la nota qui sopra.
+    const { data } = await appConfigIn(["brand_logo", "brand_logo_negative"], SEDE_UNICA);
     const map = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
     const pos = map.get("brand_logo") || "";
     const neg = map.get("brand_logo_negative") || "";
@@ -334,7 +339,12 @@ export function htmlNewsletter(
 /** Un solo invio di test all'email dello staff. */
 export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<boolean> {
   if (!resend || !RESEND_FROM) return false;
-  const dati = await datiRistorante();
+  // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
+  // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
+  // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
+  // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
+  // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
+  const dati = await datiRistorante(SEDE_UNICA);
   const tema = await temaEmail();
   const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
   try {
@@ -367,7 +377,12 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
   if (!resend || !RESEND_FROM) {
     return { ok: false, error: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)", status: 500 };
   }
-  const dati = await datiRistorante();
+  // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
+  // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
+  // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
+  // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
+  // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
+  const dati = await datiRistorante(SEDE_UNICA);
   const quota = await statoQuota();
   const tema = await temaEmail();
   const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);

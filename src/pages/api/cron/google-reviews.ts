@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { segretoUguale } from "../../../lib/cronAuth";
-import { sincronizzaRecensioni } from "../../../lib/googleBusiness";
+import { sincronizzaTutteLeSedi } from "../../../lib/googleBusiness";
 
 export const prerender = false;
 
@@ -22,6 +22,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
   if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
 
-  const r = await sincronizzaRecensioni();
+  // Tutti i punti, non piu' uno: ogni sede ha la sua scheda Google.
+  const r = await sincronizzaTutteLeSedi();
   return json({ ok: true, ...r });
 };

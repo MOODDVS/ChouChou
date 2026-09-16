@@ -31,14 +31,35 @@ const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // Link gestiti dal tab "Liens" (salvati in app_config come link_<chiave>)
 /**
- * A che livello vive ogni SCHEDA di Réglages (deciso 14/09/2026).
+ * A CHE LIVELLO VIVE OGNI SCHEDA di Réglages (deciso 14/09/2026,
+ * corretto il 16/09 — vedi la nota in fondo).
  *
- *   Général · Horaires · Réservations · Cuisine · Notifications → della SEDE
- *   Liens · Team · Documents                                    → del GRUPPO
+ *   Général       SEDE    indirizzo, telefono, email, mittenti: sono di un
+ *                         posto fisico. UNA eccezione dentro: `timezone`.
+ *   Horaires      SEDE    gli orari sono di una porta che apre e chiude
+ *   Réservations  SEDE    sezioni, servizi, capienza: sono di una sala
+ *   Cuisine       SEDE    l'email della cucina e' di quella cucina
+ *   Notifications SEDE    il recap arriva al responsabile di quel punto
+ *   Liens         GRUPPO  un solo sito pubblico, quindi un solo Facebook
+ *   Team          MISTA   il personale e' del punto, ma qualcuno gira: il
+ *                         default e' «solo qui», con l'interruttore per dire
+ *                         «in tutte le sedi»
+ *   Documents     SEDE    tre societa', tre set di contratti. Si separano
+ *                         per PERCORSO nel bucket, non per colonna
  *
- * La regola e' per scheda, non per campo: si sa cosa contiene una scheda, e
- * non cambia da cliente a cliente. Gli orari sono di un posto fisico; i link
- * sono di un sito, e il sito e' uno solo anche quando i punti sono tre.
+ * La regola e' per SCHEDA, non per campo: si sa cosa contiene una scheda, e
+ * non cambia da cliente a cliente. La strada del campo — condiviso per
+ * difetto, con una catena cliccabile accanto a ogni etichetta — era stata
+ * provata e non regge: un gruppo puo' avere tre nomi, tre loghi e tre
+ * identita' diverse, quindi non esiste nessun elenco di «campi che valgono
+ * di sicuro per tutti» che sia vero anche per il cliente dopo.
+ *
+ * ⚠️ NOTA DEL 16/09/2026. Questo commento diceva «Liens · Team · Documents →
+ * del GRUPPO», e per Team e Documents era FALSO: `team` e' mista con default
+ * sede (vedi `team.ts`), e i documenti si separano per sede da sempre (vedi
+ * `radiceDocs`). Il codice era giusto, la mappa no — e una mappa sbagliata e'
+ * peggio di nessuna mappa, perche' si legge invece di andare a guardare.
+ * L'elenco qui sopra ora e' verificato da un test contro `CLASSIFICA`.
  */
 const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
 

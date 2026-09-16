@@ -6,6 +6,7 @@ import Layout from "../layouts/Layout.astro";
 import ReservationWidget from "../components/ReservationWidget.astro";
 import { CLIENT } from "../config/client";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblico } from "../lib/admin/sede";
 
 export const prerender = false;
 
@@ -13,7 +14,7 @@ export const prerender = false;
 // fallback sul config statico del cliente.
 let telWidget = CLIENT.telefono;
 try {
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(await ambitoPubblico());
   if (dati.tel) telWidget = dati.tel;
 } catch { /* fallback config */ }
 ---

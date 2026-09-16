@@ -295,6 +295,10 @@ export const POST: APIRoute = async ({ request }) => {
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
     const url = await creaCheckoutSession({
+      // Chi incassa: la sede del sito pubblico, la stessa con cui l'ordine
+      // e' stato appena inserito. Al pezzo 8 `ambitoPubblico()` smettera'
+      // di essere un segnaposto e questo diventera' giusto da solo.
+      ambito: ambitoPub,
       voci,
       orderId: ordine.id,
       siteUrl,

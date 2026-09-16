@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -17,6 +17,8 @@ const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 
 interface PopupInput {
   id?: string;
+  /** Multi-sede: questo pop-up vale per tutte le sedi. */
+  all_locations?: boolean;
   title?: string;
   body?: string;
   image_url?: string;
@@ -156,9 +158,7 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
-    .from("popups")
-    .select("*")
+  const { data, error } = await leggi("popups", await ambitoDiRichiesta(request, staff), "*")
     .order("created_at", { ascending: false });
   if (error) return json({ error: "Lecture impossible" }, 500);
   return json({ popups: data ?? [] });
@@ -178,9 +178,11 @@ export const POST: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
-  const { data, error } = await supabaseAdmin
-    .from("popups")
-    .insert(v.valori!)
+  // Default: vale per TUTTE le sedi. Il pop-up e' comunicazione del marchio
+  // sull'unico sito; quello di un punto solo («Stockel chiuso per lavori»)
+  // e' il caso raro, e lo si dice con l'interruttore.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const { data, error } = await inserisci("popups", ambito, v.valori!, body.all_locations !== false)
     .select("id")
     .single();
   if (error) return json({ error: "Enregistrement impossible" }, 500);
@@ -199,11 +201,11 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   if (!body.id) return json({ error: "id manquant" }, 400);
 
+  const ambito = await ambitoDiRichiesta(request, staff);
+
   // Toggle rapido attivo/spento: solo { id, active }
   if (body.title === undefined && typeof body.active === "boolean") {
-    const { error } = await supabaseAdmin
-      .from("popups")
-      .update({ active: body.active })
+    const { error } = await aggiorna("popups", ambito, { active: body.active })
       .eq("id", body.id);
     if (error) return json({ error: "Enregistrement impossible" }, 500);
     return json({ ok: true });
@@ -212,10 +214,11 @@ export const PUT: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
-  const { error } = await supabaseAdmin
-    .from("popups")
-    .update(v.valori!)
-    .eq("id", body.id);
+  const campi = { ...v.valori! } as Record<string, unknown>;
+  if ("all_locations" in body && ambito.modo === "sede") {
+    campi.location_id = body.all_locations !== false ? null : ambito.id;
+  }
+  const { error } = await aggiorna("popups", ambito, campi).eq("id", body.id);
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true });
 };
@@ -227,7 +230,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const id = url.searchParams.get("id");
   if (!id) return json({ error: "id manquant" }, 400);
 
-  const { error } = await supabaseAdmin.from("popups").delete().eq("id", id);
+  const { error } = await cancella("popups", await ambitoDiRichiesta(request, staff)).eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);
   return json({ ok: true });
 };

@@ -50,14 +50,15 @@ const pubLangsJson = JSON.stringify({
     />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --font-title: "Quicksand", system-ui, sans-serif;
         --font-body: "Nunito Sans", system-ui, sans-serif;
       }
@@ -475,6 +476,17 @@ const pubLangsJson = JSON.stringify({
             </span>
           </div>
           <p class="f-hint">{t("ag.rsvpHint")}</p>
+
+          <!-- Multi-sede: compare solo dentro un punto (lo accende lo script).
+               ⚠️ Spuntato di default: l'agenda e' del MARCHIO. Si toglie la
+               spunta per la serata che fa un punto solo. -->
+          <div class="f-row" id="f-allloc-wrap" style="align-items:center;margin-top:1.2rem;display:none">
+            <span class="sw-wrap">
+              <label class="switch"><input type="checkbox" id="f-allloc" checked /><span class="track"></span></label>
+              <span class="sw-lab">{t("ag.allLoc")}</span>
+            </span>
+          </div>
+          <p class="f-hint" id="f-allloc-hint" style="display:none">{t("ag.allLocHint")}</p>
           <label class="f-lab" for="f-rsvp-max">{t("ag.rsvpMax")}</label>
           <input type="number" class="f-input" id="f-rsvp-max" min="1" placeholder={t("ag.rsvpMaxPh")} />
 
@@ -511,6 +523,8 @@ const pubLangsJson = JSON.stringify({
       type LinkExt = { label: string; url: string };
       type Evento = {
         id: string;
+        /** Di quale punto e' questo evento. `null` = di tutto il gruppo. */
+        location_id?: string | null;
         title: string;
         title_i18n?: Record<string, string> | null;
         body_i18n?: Record<string, string> | null;
@@ -630,7 +644,9 @@ const pubLangsJson = JSON.stringify({
           try {
             const res = await fetch("/api/admin/agenda", { headers: await authFresh() });
             if (!res.ok) throw new Error();
-            eventi = ((await res.json()) as { events: Evento[] }).events;
+            const dati = (await res.json()) as { events: Evento[]; sede?: string | null };
+            eventi = dati.events;
+            sedeAttiva = dati.sede ?? null;
             stateEl.style.display = "none";
             render();
           } catch {
@@ -659,6 +675,12 @@ const pubLangsJson = JSON.stringify({
         const deWrap = document.getElementById("de-wrap") as HTMLDivElement;
         const fLinks = document.getElementById("f-links") as HTMLDivElement;
         const fRsvp = document.getElementById("f-rsvp") as HTMLInputElement;
+        const fAllLoc = document.getElementById("f-allloc") as HTMLInputElement;
+        const fAllLocWrap = document.getElementById("f-allloc-wrap") as HTMLElement;
+        const fAllLocHint = document.getElementById("f-allloc-hint") as HTMLElement;
+        /** La sede selezionata nell'header, detta dal server. `null` = nessun
+         *  punto selezionato, e allora non c'e' niente da scegliere. */
+        let sedeAttiva: string | null = null;
         const fActive = document.getElementById("f-active") as HTMLInputElement;
         // Lingue del sito pubblico (per titolo/descrizione tradotti).
         type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
@@ -806,6 +828,14 @@ const pubLangsJson = JSON.stringify({
           fLinks.innerHTML = "";
           (ev?.links ?? []).forEach((l) => addLinkRow(l.label, l.url));
           fRsvp.checked = ev?.rsvp ?? false;
+          // ⚠️ Un evento NUOVO parte spuntato: l'agenda e' del marchio. Uno
+          // esistente mostra quello che e' davvero (`location_id` nullo = di
+          // tutti), non il default — altrimenti riaprire e salvare senza
+          // toccare niente sposterebbe un evento di sede su tutte.
+          const mostraLoc = sedeAttiva !== null;
+          fAllLocWrap.style.display = mostraLoc ? "" : "none";
+          fAllLocHint.style.display = mostraLoc ? "" : "none";
+          fAllLoc.checked = ev ? (ev.location_id ?? null) === null : true;
           fActive.checked = ev ? ev.active : true;
           overlay.hidden = false;
         }
@@ -1050,6 +1080,9 @@ const pubLangsJson = JSON.stringify({
             date_end: dateMode() === "range" ? fDe.dataset.iso || null : null,
             links,
             rsvp: fRsvp.checked,
+            // Si manda solo dentro un punto: fuori non c'e' niente da dividere,
+            // e l'API non deve nemmeno vedere il campo.
+            ...(sedeAttiva ? { all_locations: fAllLoc.checked } : {}),
             active: draft ? false : fActive.checked,
           };
           mSave.disabled = true;

@@ -3,7 +3,7 @@
 // Card in stile La Molisana: claim, titolo Marcellus, ora di ritiro
 // in evidenza oro, righe dell'ordine e totale.
 import Layout from "../../layouts/Layout.astro";
-import { supabaseAdmin } from "../../lib/db";
+import { leggi, tutteLeSedi } from "../../lib/admin/sede";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../../i18n/ui";
 
 const lang = getLangFromUrl(Astro.url);
@@ -23,9 +23,15 @@ interface Ordine {
 let ordine: Ordine | null = null;
 
 if (sessionId) {
-  const { data } = await supabaseAdmin
-    .from("orders")
-    .select("id, status, pickup_time, customer_name, items, total_cents")
+  // ⚠️ AGGREGATO, chiesto per nome. L'ordine si trova con l'id della sessione
+  // Stripe, che e' un segreto lungo e monouso: l'id E' l'autorizzazione.
+  // Filtrando per sede, il cliente di due punti su tre tornerebbe da Stripe
+  // dopo aver pagato e troverebbe «ordine non trovato».
+  const { data } = await leggi(
+    "orders",
+    tutteLeSedi(),
+    "id, status, pickup_time, customer_name, items, total_cents",
+  )
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   ordine = data as Ordine | null;

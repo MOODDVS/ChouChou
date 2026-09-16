@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { ambitoDiRichiesta, leggi, aggiorna } from "../../../lib/admin/sede";
-import { stripe } from "../../../lib/stripe";
+import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/admin/sede";
+import { stripeDi } from "../../../lib/stripe";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
 export const prerender = false;
@@ -67,10 +67,26 @@ export const POST: APIRoute = async ({ request }) => {
   const daRimborsare = amount === null ? tetto : Math.min(amount, tetto);
   if (daRimborsare <= 0) return json({ error: "Montant invalide" }, 400);
 
+  // ⚠️⚠️ IL RIMBORSO ESCE DAL CONTO CHE HA INCASSATO, cioe' dalla sede
+  // scritta NELL'ORDINE — non da quella selezionata nell'header di chi sta
+  // premendo il bottone. Sono due cose che quasi sempre coincidono; il giorno
+  // che non coincidono, sono soldi che escono dal conto di una societa' che
+  // non c'entra, e il payment_intent non si troverebbe nemmeno.
+  // ⚠️ Il messaggio d'errore arriva fino allo schermo: dice quale chiave
+  // manca e dove metterla. Non contiene nessun segreto, e chi sta guardando
+  // questa pagina e' l'unico che puo' risolvere il problema.
+  let motivo = "";
+  const sp = await stripeDi(await cercaAmbito("orders", id, ambito)).catch((e) => {
+    motivo = e instanceof Error ? e.message : "";
+    console.error("[refund] client Stripe:", e);
+    return null;
+  });
+  if (!sp) return json({ error: motivo || "Stripe non configuré pour cet établissement" }, 500);
+
   // Recupera il payment_intent dalla sessione di checkout salvata sull'ordine.
   let paymentIntent: string | null = null;
   try {
-    const session = await stripe.checkout.sessions.retrieve(ord.stripe_session_id);
+    const session = await sp.checkout.sessions.retrieve(ord.stripe_session_id);
     paymentIntent =
       typeof session.payment_intent === "string"
         ? session.payment_intent
@@ -83,7 +99,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Crea il rimborso su Stripe.
   let refund: { id: string };
   try {
-    refund = await stripe.refunds.create({ payment_intent: paymentIntent, amount: daRimborsare });
+    refund = await sp.refunds.create({ payment_intent: paymentIntent, amount: daRimborsare });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     return json({ error: msg ? `Remboursement refusé : ${msg}` : "Remboursement impossible" }, 502);

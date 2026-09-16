@@ -61,7 +61,6 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   restaurant_tables: "sede",
   service_closures: "sede",
   zone_closures: "sede",
-  agenda_events: "sede",
   admin_notes: "sede",
   google_reviews: "sede",       // tre schede Google, tre flussi
   push_subscriptions: "sede",
@@ -77,6 +76,15 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   menu_items: "mista",          // il piatto e' del marchio; l'esaurito no (tabella a parte)
   special_days: "mista",        // Natale chiude tutti; i lavori chiudono uno
   popups: "mista",
+  // ⚠️ L'AGENDA E' DEL MARCHIO, con l'eccezione possibile (deciso 16/09/2026).
+  // Era «sede»: ogni punto vedeva solo i suoi eventi, e una serata annunciata
+  // dal gruppo andava scritta tre volte. Ora il default e' «tutte le sedi»
+  // (come i pop-up), e resta la possibilita' di un evento di un punto solo —
+  // la degustazione che fa solo Stockel. Il default lo decide chi crea, in
+  // `api/admin/agenda.ts`, e la direzione dell'errore: un evento del gruppo
+  // che compare ovunque e' quello che ci si aspetta, uno di sede dimenticato
+  // su tutte si vede subito e si corregge.
+  agenda_events: "mista",
   team: "mista",                // il personale e' del punto, ma qualcuno gira
 };
 
@@ -116,6 +124,26 @@ export const NESSUNA_SEDE = "00000000-0000-0000-0000-000000000000";
 export function sede(id: string): Ambito {
   if (!RE_UUID.test(id)) throw new Error(`Id di sede non valido: ${JSON.stringify(id)}`);
   return { modo: "sede", id };
+}
+
+/**
+ * LA CARTELLA DEI DOCUMENTI di questo punto, dentro il bucket.
+ *
+ * I documenti si separano nel PERCORSO e non in una colonna: la loro lista
+ * si costruisce leggendo lo Storage, e un file senza riga di metadati — la
+ * maggioranza, visto che i metadati servono ai contratti — non avrebbe
+ * nessuna sede da cui farsi filtrare. Il percorso invece c'e' sempre.
+ *
+ * ⚠️ Si usa l'ID, non lo slug, anche se in un bucket lo slug si leggerebbe
+ * meglio. Lo slug e' MODIFICABILE dal super admin: il giorno che qualcuno
+ * corregge «schaerbek» in «schaerbeek», tutti i documenti di quel punto
+ * resterebbero in una cartella che il codice non guarda piu'. L'id non
+ * cambia mai.
+ *
+ * Sede unica: stringa vuota, cioe' esattamente i percorsi di oggi.
+ */
+export function radiceDocs(ambito: Ambito): string {
+  return ambito.modo === "sede" ? `sedi/${ambito.id}/` : "";
 }
 
 /** Il filtro da applicare, descritto e non ancora applicato: cosi' si
@@ -193,16 +221,21 @@ export function sedeDaScrivere(
  * l'aggregato: «tutte» si chiede con `tutteLeSedi()` e si vede nel codice.
  */
 export function scegliSede(opz: {
-  /** Interruttore `multi_location`. Spento = nessun filtro, come oggi. */
-  multiAttivo: boolean;
-  /** Id delle sedi ATTIVE, in ordine. Vuoto = niente da separare. */
+  /** Id delle sedi ATTIVE, in ordine.
+   *
+   *  ⚠️ VUOTO = nessun filtro, cioe' il comportamento di sempre. E' lo stato
+   *  di un'installazione che non ha ancora la sua sede, e non e' un ripiego:
+   *  e' la verita'. Fino al 15/09/2026 c'era anche un interruttore
+   *  `multi_location`, ed era un secondo asse che diceva la stessa cosa —
+   *  con la possibilita' di contraddirla: sedi create e interruttore spento
+   *  voleva dire tre punti nel database e nessun filtro nel codice. Adesso
+   *  la verita' e' una sola, ed e' QUESTO elenco. */
   sedi: string[];
   /** `app_metadata.location_id` dell'utente. Null = le vede tutte. */
   sedeUtente?: string | null;
   /** Sede selezionata nell'header (cookie o header HTTP). */
   sedeChiesta?: string | null;
 }): Ambito {
-  if (!opz.multiAttivo) return SEDE_UNICA;
   if (opz.sedi.length === 0) return SEDE_UNICA;
 
   const sua = opz.sedeUtente ?? null;
@@ -240,4 +273,75 @@ export function applicaFiltro<T extends Query>(q: T, tabella: string, ambito: Am
   if (f.tipo === "nessuno") return q;
   if (f.tipo === "sede") return q.eq("location_id", f.valore) as T;
   return q.or(f.espressione) as T;
+}
+
+// ============================================================
+// SEGRETI — assente e illeggibile sono due cose diverse
+// ============================================================
+
+export class SegretoIlleggibile extends Error {
+  constructor(chiave: string) {
+    super(
+      `Segreto «${chiave}» di questa sede illeggibile: SECRETS_KEY non e' quella ` +
+        `con cui era stato salvato. Riscrivilo da Super admin > Sedi.`,
+    );
+    this.name = "SegretoIlleggibile";
+  }
+}
+
+/**
+ * Che valore vale, visto quello che c'e' nel database e quello che c'e'
+ * nell'ambiente. Funzione pura: sta qui per potersi provare senza database,
+ * perche' la regola che decide su quale conto arrivano i soldi non puo'
+ * dipendere da un test che nessuno riesce a scrivere.
+ *
+ * ⚠️ `letto` ha TRE stati, non due:
+ *
+ *   null  = non c'e' nessuna riga. Nessuno ha configurato questa sede, e
+ *           vale l'ambiente. E' una CONFIGURAZIONE — e' il caso normale di
+ *           un'installazione a sede unica.
+ *   ""    = la riga c'e' ma non si apre (SECRETS_KEY cambiata, backup
+ *           ripristinato altrove, riga manomessa). E' un GUASTO.
+ *   testo = la chiave della sede.
+ *
+ * La prima versione univa i primi due (scritta e corretta il 15/09/2026,
+ * prima del rilascio). Ripiegare sull'ambiente quando la riga non si apre
+ * vuol dire incassare sul conto sbagliato IN SILENZIO: il pagamento riesce,
+ * il cliente e' contento, e i soldi di una societa' finiscono su un'altra.
+ * Un pagamento che si rifiuta dicendo perche' e' molto meglio.
+ */
+export function scegliSegreto(
+  letto: string | null,
+  ambiente: string,
+  chiave: string,
+): string {
+  if (letto === null) return ambiente;
+  if (letto === "") throw new SegretoIlleggibile(chiave);
+  return letto;
+}
+
+/** Da dove viene un segreto: dalla sede, dall'ambiente, o da nessuna parte. */
+export type Fonte = "sede" | "ambiente" | "nessuna";
+
+/**
+ * Si puo' incassare online QUI?
+ *
+ * Servono due cose, e devono venire DALLO STESSO POSTO: la chiave con cui si
+ * incassa e il segreto con cui si verifica la firma dell'evento che dice
+ * «pagato». Sono le due meta' di un conto Stripe.
+ *
+ * ⚠️ Mezze configurazioni. Chiave della sede + firma dell'ambiente vuol dire
+ * che l'evento arriva firmato dal conto della sede e viene verificato con il
+ * segreto di un altro: non verifica, e l'ordine resta «in attesa» per sempre.
+ * Il cliente ha pagato davvero — i soldi sono su Stripe — ma in cucina non
+ * arriva niente e nessuno se ne accorge finche' non chiama.
+ *
+ * Meglio non offrire il link di pagamento che offrirlo e incassare nel vuoto.
+ * Il ristoratore vede solo contanti e bancomat, e continua a lavorare; chi
+ * puo' rimediare (il super admin) lo legge nel pannello Sedi, dove le due
+ * righe sono corallo.
+ */
+export function pagamentoOnlinePronto(chiave: Fonte, firma: Fonte): boolean {
+  if (chiave === "nessuna" || firma === "nessuna") return false;
+  return chiave === firma;
 }

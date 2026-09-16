@@ -1,6 +1,7 @@
 import { leggi, aggiorna, type Ambito } from "./sede";
 import { appConfigIn } from "../appConfigCache";
 import { postiDalPlan } from "../planSalle";
+import { capienzaDelleZone, zoneDaConfig } from "../salaRegole";
 
 // Carica le prenotazioni di un giorno + la configurazione + le chiusure, nella
 // forma esatta attesa dalla pagina /admin/reservations. UNICA fonte di verità:
@@ -84,20 +85,15 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
       if (Array.isArray(arr)) services = arr;
     } catch { /* vuoto */ }
     const planPosti = await postiDalPlan(m.get("reservation_plan_mode"), ambito);
-    try {
-      const arr = JSON.parse(m.get("reservation_zones") || "[]");
-      if (Array.isArray(arr)) {
-        zones = arr.map((z: { name?: string }) => String(z.name ?? "")).filter(Boolean);
-        for (const z of arr as { name?: string; seats?: unknown }[]) {
-          const nome = String(z.name ?? "");
-          const n = planPosti ? Math.floor(planPosti.get(nome.trim()) ?? 0) : Math.floor(Number(z.seats));
-          if (nome && Number.isFinite(n) && n > 0) {
-            zoneSeats[nome] = n;
-            capacity += n;
-          }
-        }
-      }
-    } catch { /* vuoto */ }
+    // ⚠️ La regola sta in `salaRegole.ts`, una volta sola: qui e nel widget
+    // pubblico era scritta due volte, e le due copie divergevano gia'.
+    const conf = zoneDaConfig(m.get("reservation_zones"));
+    zones = (Array.isArray(conf) ? conf : [])
+      .map((z: { name?: unknown }) => String(z?.name ?? "").trim())
+      .filter(Boolean);
+    const cap = capienzaDelleZone(conf, planPosti);
+    for (const z of cap.zones) zoneSeats[z.name] = z.seats;
+    capacity = cap.capienza;
     const vTz = m.get("timezone") ?? "";
     if (vTz) {
       try {

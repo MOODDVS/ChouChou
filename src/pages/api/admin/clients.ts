@@ -1,5 +1,8 @@
 import type { APIRoute } from "astro";
-import { ambitoDiRichiesta, leggi, type Ambito } from "../../../lib/admin/sede";
+import { leggi, tutteLeSedi, type Ambito } from "../../../lib/admin/sede";
+import {
+  uniscoClienti, chiaveCliente as chiave, type RigaOrdine, type RigaResa, type RigaCliente,
+} from "../../../lib/admin/clientiRegole";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
@@ -18,54 +21,11 @@ const normLangCli = (v: unknown): string | null => {
 // POST → aggiunge un cliente manuale (name, email, phone).
 // Chiave cliente = email (minuscolo); fallback telefono, poi nome.
 
-interface RigaOrdine {
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  total_cents: number;
-  created_at: string;
-}
-
-interface RigaCliente {
-  id: string;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  hidden: boolean;
-  photo_url?: string | null;
-  blocked?: boolean | null;
-  created_at?: string | null;
-  lang?: string | null;
-}
-
-interface Cliente {
-  id: string | null; // id nella tabella `clients` se manuale, altrimenti null
-  name: string;
-  email: string;
-  phone: string;
-  orders: number;
-  reservations: number;
-  noshows: number;
-  total_cents: number;
-  last_order: string | null;
-  first_activity: string | null; // PRIMA attività in assoluto (per il tag New)
-  manual: boolean;
-  photo_url?: string | null;
-  blocked?: boolean;
-  newsletter_optout?: boolean;
-  lang?: string | null; // lingua del cliente (dalla prenotazione più recente)
-  key?: string; // chiave di aggregazione (per il dettaglio attività)
-}
-
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-function chiave(email: string, phone: string, name: string): string {
-  return email.toLowerCase() || phone || name.toLowerCase();
 }
 
 /** Ordini per il dettaglio attività (tutti i campi utili), a pagine di 1000. */
@@ -117,15 +77,6 @@ async function ordiniIncassati(ambito: Ambito): Promise<RigaOrdine[] | null> {
     if (!data || data.length < PAGINA) break;
   }
   return tutti;
-}
-
-interface RigaResa {
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  status: string | null;
-  created_at: string | null;
 }
 
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
@@ -184,7 +135,18 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  const ambito = await ambitoDiRichiesta(request, staff);
+  // ⚠️⚠️ AGGREGATO, chiesto per nome. Il cliente e' del MARCHIO: bloccato a
+  // Schaerbeek e' bloccato ovunque, la newsletter e' una sola, un buono
+  // comprato qui si spende la'. La sua storia di spesa e di visite deve
+  // essere INTERA, o Stockel vede un cliente da 40 € che nel gruppo ne ha
+  // spesi 300 e lo tratta di conseguenza.
+  //
+  // Fino al 16/09/2026 qui c'era `ambitoDiRichiesta`, mentre la prima
+  // pittura sul server usava l'aggregato: la pagina compariva con i totali
+  // del gruppo e mezzo secondo dopo si riscriveva con quelli di un punto.
+  // Chi vuole «solo il mio punto» ha le Statistiche, che sono per sede
+  // apposta — e lo dicono.
+  const ambito = tutteLeSedi();
 
   // Dettaglio: tutta l'attività (ordini + prenotazioni) di un cliente
   const activityKey = (url.searchParams.get("activity") ?? "").trim();
@@ -224,105 +186,18 @@ export const GET: APIRoute = async ({ request, url }) => {
   ]);
   if (ordini === null || manuali === null) return json({ error: "Lecture impossible" }, 500);
 
-  const mappa = new Map<string, Cliente>();
-
-  // 0) Chiavi dei clienti nascosti ("cancellati" dall'admin): vanno
-  //    esclusi sia come record manuali sia come aggregato degli ordini.
-  const nascosti = new Set<string>();
-  for (const m of manuali) {
-    if (!m.hidden) continue;
-    const k = chiave((m.email ?? "").trim(), (m.phone ?? "").trim(), (m.name ?? "").trim());
-    if (k) nascosti.add(k);
-  }
-
-  // 1) Aggregazione dagli ordini (ordine cronologico → l'ultimo vince sui dati).
-  for (const o of ordini) {
-    const email = (o.customer_email ?? "").trim();
-    const phone = (o.customer_phone ?? "").trim();
-    const name = (o.customer_name ?? "").trim();
-    const key = chiave(email, phone, name);
-    if (!key || nascosti.has(key)) continue;
-
-    let c = mappa.get(key);
-    if (!c) {
-      c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: o.created_at, first_activity: o.created_at, manual: false };
-      mappa.set(key, c);
-    }
-    c.orders += 1;
-    c.total_cents += o.total_cents;
-    if (o.created_at >= (c.last_order ?? "")) c.last_order = o.created_at;
-    if (!c.first_activity || o.created_at < c.first_activity) c.first_activity = o.created_at;
-    if (name) c.name = name;
-    if (phone) c.phone = phone;
-    if (email) c.email = email;
-  }
-
-  // 1b) Prenotazioni: conteggio per cliente (e creazione se ha SOLO prenotato).
-  for (const r of rese) {
-    const email = (r.email ?? "").trim();
-    const phone = (r.phone ?? "").trim();
-    const name = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim();
-    const key = chiave(email, phone, name);
-    if (!key || nascosti.has(key)) continue;
-
-    let c = mappa.get(key);
-    if (!c) {
-      c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: false };
-      mappa.set(key, c);
-    }
-    // Annullata: il cliente resta in lista ma non conta come résa
-    if (r.status !== "cancelled") c.reservations += 1;
-    if (r.status === "noshow") c.noshows += 1;
-    if (r.created_at && (!c.first_activity || r.created_at < c.first_activity)) c.first_activity = r.created_at;
-    if (name && !c.name) c.name = name;
-    if (phone && !c.phone) c.phone = phone;
-    if (email && !c.email) c.email = email;
-  }
-
-  // 2) Fusione dei clienti manuali (aggiungono contatti o completano i dati).
-  for (const m of manuali) {
-    if (m.hidden) continue;
-    const email = (m.email ?? "").trim();
-    const phone = (m.phone ?? "").trim();
-    const name = (m.name ?? "").trim();
-    const key = chiave(email, phone, name);
-    if (!key) continue;
-
-    const esistente = mappa.get(key);
-    if (esistente) {
-      esistente.id = m.id;
-      esistente.manual = true;
-      if (m.photo_url) esistente.photo_url = m.photo_url;
-      if (m.blocked) esistente.blocked = true;
-      if (m.created_at && (!esistente.first_activity || m.created_at < esistente.first_activity))
-        esistente.first_activity = m.created_at;
-      // Il record `clients` è il dato CURATO (modale admin): prevale
-      // sull'aggregazione da ordini/prenotazioni (prima riempiva solo i
-      // buchi → modificare il cognome dal modale non si vedeva mai).
-      if (name) esistente.name = name;
-      if (email) esistente.email = email;
-      if (phone) esistente.phone = phone;
-      if (m.lang) esistente.lang = m.lang; // il dato curato (modale) prevale
-    } else {
-      mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked), lang: m.lang ?? null,
-      });
-    }
-  }
-
-  // Newsletter: chi prenota/ordina/è aggiunto a mano è OPT-IN per default;
-  // opt-out = presenza in newsletter_optout (stessa fonte del link email).
+  // ⚠️ L'unione sta in `clientiRegole.ts`, una volta sola. Era copiata qui e
+  // in `caricaClienti.ts` — novantasette righe da tenere allineate a mano — e
+  // le due copie leggevano con ambiti diversi: la pagina si disegnava con i
+  // totali del gruppo e mezzo secondo dopo si riscriveva con quelli di un
+  // punto solo.
+  let optout: string[] = [];
   try {
-    const { data: optout } = await supabaseAdmin.from("newsletter_optout").select("email");
-    const setOptout = new Set((optout ?? []).map((r) => String(r.email ?? "").toLowerCase()));
-    for (const c of mappa.values()) {
-      if (c.email && setOptout.has(c.email.toLowerCase())) c.newsletter_optout = true;
-    }
+    const { data } = await supabaseAdmin.from("newsletter_optout").select("email");
+    optout = (data ?? []).map((r) => String(r.email ?? ""));
   } catch { /* tabella assente: tutti opt-in */ }
 
-  const clienti = [...mappa.entries()]
-    .map(([k, c]) => ({ ...c, key: k }))
-    .sort((a, b) => b.total_cents - a.total_cents);
+  const clienti = uniscoClienti({ ordini, rese, manuali, optout });
   return json({ count: clienti.length, clients: clienti });
 };
 
@@ -441,7 +316,13 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  const ambito = await ambitoDiRichiesta(request, staff);
+  // ⚠️ AGGREGATO anche qui, e per un motivo preciso: sotto si controlla se il
+  // cliente ha ancora prenotazioni prima di cancellarlo davvero. Filtrando
+  // per sede, uno con prenotazioni a Jourdan cancellato da Stockel
+  // risulterebbe senza attivita', verrebbe eliminato per davvero, e
+  // l'aggregazione (che guarda il gruppo) lo farebbe riapparire subito. E'
+  // il bug «serve cancellare due volte», in versione multi-sede.
+  const ambito = tutteLeSedi();
 
   const id = url.searchParams.get("id") ?? "";
   const orders = Number(url.searchParams.get("orders") ?? "0");

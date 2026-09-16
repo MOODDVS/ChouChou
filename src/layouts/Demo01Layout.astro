@@ -5,6 +5,7 @@
 import Demo01Header from "../components/demo01/Demo01Header.astro";
 import Demo01Footer from "../components/demo01/Demo01Footer.astro";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblico } from "../lib/admin/sede";
 import { supabaseAdmin } from "../lib/db";
 import { CLIENT } from "../config/client";
 
@@ -19,7 +20,7 @@ const nome = String(cfgName?.value ?? "").trim() || CLIENT.nome;
 const favicon = String(cfgFav?.value ?? "").trim() || "/favicon.svg";
 
 let dati = { nome, tel: "", telLink: "", email: "", indirizzo: "" };
-try { const d = await datiRistorante(); dati = { ...d, nome }; } catch { /* fallback */ }
+try { const d = await datiRistorante(await ambitoPubblico()); dati = { ...d, nome }; } catch { /* fallback */ }
 ---
 <!doctype html>
 <html lang={lang}>

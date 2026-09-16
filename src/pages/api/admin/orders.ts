@@ -8,7 +8,7 @@ import { configGiornoEffettiva } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
 // quindi l'importazione e' rinominata invece di rinominare le loro.
 import {
-  ambitoDiRichiesta, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
+  ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
 } from "../../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
 import { applicaStatoSede } from "../../../lib/menuStato";
@@ -350,9 +350,16 @@ export const POST: APIRoute = async ({ request }) => {
     const siteUrlR = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
       const langR: "fr" | "en" = ord.lang === "en" ? "en" : "fr";
-      const payUrl = await creaCheckoutSession({ voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblica() });
+      // ⚠️ Il conto e' quello dell'ORDINE (`ord` e' letto con `*`), non la
+      // sede selezionata nell'header: si sta rimandando il link di un ordine
+      // che esiste gia', e deve incassare dove ha sempre dovuto incassare.
+      const contoOrd = ambitoDiRiga(ord.location_id as string | null);
+      const payUrl = await creaCheckoutSession({ ambito: contoOrd, voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblica() });
       await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", rid);
       void emailLienPaiement({
+        // Stessa sede dell'incasso: l'email porta indirizzo e telefono del
+        // punto dove l'ordine e' stato preso.
+        location_id: ord.location_id as string | null,
         numero: rid.slice(0, 8),
         customer_name: String(ord.customer_name ?? ""),
         customer_email: String(ord.customer_email ?? ""),
@@ -394,6 +401,15 @@ export const POST: APIRoute = async ({ request }) => {
   // persona (walk-in). Se presente deve comunque essere valida.
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   if (payment === "link" && !emailOk) return json({ error: "Email requise pour le lien de paiement" }, 400);
+
+  // ⚠️ Il bottone nascosto e' un suggerimento, non un controllo. Chi manda la
+  // richiesta e' il browser, e il browser puo' mandare qualunque cosa — un
+  // vecchio schermo aperto da stamattina, per esempio. Senza questo, un
+  // ordine `link` su una sede non configurata verrebbe creato, l'email
+  // partirebbe, e il cliente pagherebbe su un conto che non e' il suo.
+  if (payment === "link" && !(await pagamentoOnlineAttivo(ambito))) {
+    return json({ error: "Paiement en ligne non configuré pour cet établissement" }, 409);
+  }
   if (email && !emailOk) return json({ error: "Email invalide" }, 400);
   if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: "Créneau invalide" }, 400);
   if (!items.length) return json({ error: "Panier vide" }, 400);
@@ -478,6 +494,8 @@ export const POST: APIRoute = async ({ request }) => {
   // conferma + recensione al cliente solo se ha lasciato l'email (guardie interne).
   if (paidSurPlace) {
     void inviaNotifiche({
+      // L'ordine e' appena stato inserito con questo ambito.
+      location_id: ambito.modo === "sede" ? ambito.id : null,
       numero: orderId.slice(0, 8),
       customer_name: nome,
       customer_email: email,
@@ -492,9 +510,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
-    const payUrl = await creaCheckoutSession({ voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
+    // Ordine appena inserito con questo ambito: stesso conto. (Non puo'
+    // essere l'aggregato: `inserisci` lo avrebbe gia' rifiutato.)
+    const payUrl = await creaCheckoutSession({ ambito, voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
     await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", orderId);
     void emailLienPaiement({
+      location_id: ambito.modo === "sede" ? ambito.id : null,
       numero: orderId.slice(0, 8),
       customer_name: nome,
       customer_email: email,
@@ -538,6 +559,12 @@ export const PATCH: APIRoute = async ({ request }) => {
     return json({ error: "Statut invalide" }, 400);
   }
 
+  // ⚠️ La sede dell'ORDINE, non quella selezionata: l'email di annullamento
+  // porta l'indirizzo e il telefono del punto dove il cliente aveva ordinato.
+  // `SEL_ANN` non seleziona `location_id` (non puo': su un cliente senza la
+  // migrazione #73 la colonna non esiste), quindi si legge a parte.
+  const contoAnn = await cercaAmbito("orders", id, ambito);
+
   // Leggo l'ordine PRIMA di aggiornarlo: serve lo stato/metodo precedenti per
   // decidere l'email di annullamento (rimborso online / in cassa / non pagato).
   const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method";
@@ -574,6 +601,9 @@ export const PATCH: APIRoute = async ({ request }) => {
     else refundMode = "online";
 
     const notif = {
+      // La sede del FATTO: l'email dice l'indirizzo del punto dove l'ordine
+      // e' stato preso, non di quello selezionato adesso nell'header.
+      location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
       numero: String(prima.id).slice(0, 8),
       customer_name: String(prima.customer_name ?? ""),
       customer_email: String(prima.customer_email ?? ""),
@@ -747,8 +777,16 @@ export const PUT: APIRoute = async ({ request }) => {
     return json({ error: "Modification impossible" }, 500);
   }
 
+  // ⚠️ Il conto su cui incassare e l'indirizzo che va nell'email sono quelli
+  // dell'ORDINE, non della sede selezionata da chi sta modificando.
+  // `SEL_FULL` non seleziona `location_id` (e non puo': su un cliente senza
+  // la migrazione #73 quella colonna non esiste ancora), quindi si legge a
+  // parte, tollerando l'assenza.
+  const conto = await cercaAmbito("orders", id, ambito);
+
   const numero = id.slice(0, 8);
   const notif = {
+    location_id: conto.modo === "sede" ? conto.id : null,
     numero,
     customer_name: nome,
     customer_email: email,
@@ -795,7 +833,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (isLink) {
     const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
-      const payUrl = await creaCheckoutSession({ voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
+      const payUrl = await creaCheckoutSession({ ambito: conto, voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
       await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", id);
       void emailLienPaiement({
         ...notif,
@@ -829,6 +867,7 @@ export const PUT: APIRoute = async ({ request }) => {
       const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
       try {
         payUrl = await creaCheckoutSupplemento({
+          ambito: conto,
           orderId: id,
           diffCents: newSupp,
           numero,

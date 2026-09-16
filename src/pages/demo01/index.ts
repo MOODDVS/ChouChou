@@ -3,6 +3,7 @@ import rawHtml from "./_page.html?raw";
 import { supabaseAdmin } from "../../lib/db";
 import { SITE_IMAGE_SLOTS } from "../../config/siteImageSlots";
 import { datiRistorante } from "../../lib/ristorante";
+import { ambitoPubblico } from "../../lib/admin/sede";
 import { linksSocial } from "../../lib/links";
 
 // TEMPLATE demo01 — landing one-page, servita a /demo01. Hero a carousel (3
@@ -60,7 +61,7 @@ export const GET: APIRoute = async () => {
   // Dati ristorante (Reglages > General).
   let dati = { nome: "", tel: "", telLink: "", email: "", indirizzo: "" };
   try {
-    dati = await datiRistorante();
+    dati = await datiRistorante(await ambitoPubblico());
   } catch {
     /* fallback vuoto */
   }

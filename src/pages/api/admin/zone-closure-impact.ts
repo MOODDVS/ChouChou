@@ -92,7 +92,10 @@ export const POST: APIRoute = async ({ request }) => {
   if (!decisions.length) return json({ ok: true, moved: 0, cancelled: 0, recontact: 0 });
 
   const ids = decisions.map((d) => String(d.id ?? "")).filter(Boolean);
-  const CAMPI = "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
+  // ⚠️ `location_id` nel select, altrimenti l'email di chiusura parte con i
+  // dati del marchio: `ambitoDiRiga(undefined)` rende SEDE_UNICA, che e' un
+  // ripiego giusto per un cliente a sede unica e sbagliato per un gruppo.
+  const CAMPI = "id, location_id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
   const { data, error } = await leggi("reservations", ambito, CAMPI).in("id", ids);
   if (error) return json({ error: "Lecture impossible" }, 500);
   type Full = ResaEmail & { review_email_id?: string | null };

@@ -1,5 +1,6 @@
 import type { APIRoute } from "astro";
 import { inviaFeedbackCliente } from "../../lib/notifications";
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -41,7 +42,14 @@ export const POST: APIRoute = async ({ request }) => {
 
   if (!message) return json({ error: "Message requis" }, 400);
 
-  const ok = await inviaFeedbackCliente({ rating, message, name, email, phone, order, food, service, atmosphere });
+  // ⚠️ Di quale punto e' questo parere: decide a quale cucina arriva e con
+  // che intestazione. Lo dice la pagina da cui arriva (header `x-sede`); chi
+  // non lo dice prende la sede del sito, cioe' il comportamento di prima.
+  const ambitoFb = await ambitoPubblicoChiesto(request);
+  const ok = await inviaFeedbackCliente({
+    location_id: ambitoFb.modo === "sede" ? ambitoFb.id : null,
+    rating, message, name, email, phone, order, food, service, atmosphere,
+  });
   if (!ok) return json({ error: "Envoi impossible" }, 502);
   return json({ ok: true });
 };

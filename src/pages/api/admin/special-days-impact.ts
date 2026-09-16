@@ -10,8 +10,11 @@ export const prerender = false;
 // POST { from, to } -> le annulla e invia a ogni cliente l'email di chiusura.
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+// ⚠️ `location_id` nel select, altrimenti l'email di chiusura parte con i
+// dati del marchio: `ambitoDiRiga(undefined)` rende SEDE_UNICA, che e' un
+// ripiego giusto per un cliente a sede unica e sbagliato per un gruppo.
 const CAMPI =
-  "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
+  "id, location_id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

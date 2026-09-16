@@ -34,6 +34,18 @@ function rgba(hex: string, a: number): string {
   return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
 }
 
+/**
+ * ⚠️ IL TEMA RESTA DEL MARCHIO, di proposito (deciso 16/09/2026).
+ *
+ * Tutto il resto delle email e' passato «per sede» — nome, indirizzo,
+ * telefono, mittente, destinatario — perche' sono dati di un posto fisico.
+ * I colori no: sono l'identita' visiva, e 450 Gradi e' un marchio solo anche
+ * se sono tre societa'. Tre email con tre palette diverse non sarebbero tre
+ * pizzerie, sarebbero tre ristoranti.
+ *
+ * Se un giorno servisse per sede, e' una riga: `admin_theme` si legge con
+ * `appConfigEq(chiave, ambito)` e l'ereditarieta' dal marchio c'e' gia'.
+ */
 export async function temaEmail(): Promise<TemaEmail> {
   const t: Record<string, string> = { ...TEMA_DEFAULT };
   try {

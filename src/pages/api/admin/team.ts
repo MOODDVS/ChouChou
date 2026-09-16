@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
 export const prerender = false;
@@ -27,6 +27,8 @@ const CATEGORIE = [
 
 interface TeamInput {
   id?: string;
+  /** Multi-sede: questo persona vale per tutte le sedi. */
+  all_locations?: boolean;
   name?: string;
   category?: string;
   role?: string;
@@ -83,9 +85,9 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data, error } = await supabaseAdmin
-    .from("team")
-    .select("*")
+  // `team` e' «mista»: si vede il personale di QUESTO punto e quello che vale
+  // per tutti (il direttore che gira fra le tre pizzerie).
+  const { data, error } = await leggi("team", await ambitoDiRichiesta(request, staff), "*")
     .order("category", { ascending: true })
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
@@ -107,7 +109,15 @@ export const POST: APIRoute = async ({ request }) => {
   const v = valida(body);
   if (v.errore) return json({ error: v.errore }, 400);
 
-  const { data, error } = await supabaseAdmin.from("team").insert(v.valori!).select("id").single();
+  // ⚠️ Default: di QUESTA sede, non di tutte — l'opposto del menu. Un
+  // cameriere lavora in un locale; chi gira fra i tre e' l'eccezione, e la
+  // dichiara con l'interruttore. Sbagliare per difetto costa riscrivere una
+  // scheda; sbagliare per eccesso mette una faccia sulla pagina «squadra» di
+  // due ristoranti in cui non ha mai lavorato.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const { data, error } = await inserisci("team", ambito, v.valori!, body.all_locations === true)
+    .select("id")
+    .single();
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   return json({ ok: true, id: data.id }, 201);
 };
@@ -124,9 +134,11 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   if (!body.id) return json({ error: "id manquant" }, 400);
 
+  const ambito = await ambitoDiRichiesta(request, staff);
+
   // Toggle rapido attivo/nascosto: solo { id, active }
   if (body.name === undefined && typeof body.active === "boolean") {
-    const { error } = await supabaseAdmin.from("team").update({ active: body.active }).eq("id", body.id);
+    const { error } = await aggiorna("team", ambito, { active: body.active }).eq("id", body.id);
     if (error) return json({ error: "Enregistrement impossible" }, 500);
     return json({ ok: true });
   }
@@ -135,10 +147,16 @@ export const PUT: APIRoute = async ({ request }) => {
   if (v.errore) return json({ error: v.errore }, 400);
 
   // Foto precedente: se tolta o sostituita, il file va eliminato dallo Storage
-  const { data: prima } = await supabaseAdmin.from("team").select("photo_url").eq("id", body.id).maybeSingle();
-  const vecchiaFoto = prima?.photo_url ?? null;
+  const { data: prima } = await leggi("team", ambito, "photo_url").eq("id", body.id).maybeSingle();
+  const vecchiaFoto = (prima as { photo_url?: string | null } | null)?.photo_url ?? null;
 
-  const { error } = await supabaseAdmin.from("team").update(v.valori!).eq("id", body.id);
+  // L'ambito si cambia solo se il modale lo dice: un salvataggio che non
+  // parla di sedi non deve spostare la persona da un punto all'altro.
+  const campi = { ...v.valori! } as Record<string, unknown>;
+  if ("all_locations" in body && ambito.modo === "sede") {
+    campi.location_id = body.all_locations === true ? null : ambito.id;
+  }
+  const { error } = await aggiorna("team", ambito, campi).eq("id", body.id);
   if (error) return json({ error: "Enregistrement impossible" }, 500);
   if (vecchiaFoto && vecchiaFoto !== (v.valori!.photo_url || null)) {
     await eliminaFotoStorage(vecchiaFoto);
@@ -153,8 +171,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const id = url.searchParams.get("id");
   if (!id) return json({ error: "id manquant" }, 400);
 
-  const { data: prima } = await supabaseAdmin.from("team").select("photo_url").eq("id", id).maybeSingle();
-  const { error } = await supabaseAdmin.from("team").delete().eq("id", id);
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const { data: prima } = await leggi("team", ambito, "photo_url").eq("id", id).maybeSingle();
+  const { error } = await cancella("team", ambito).eq("id", id);
   if (error) return json({ error: "Suppression impossible" }, 500);
   await eliminaFotoStorage(prima?.photo_url ?? null);
   return json({ ok: true });

@@ -1,5 +1,4 @@
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../db";
 import { caricaResaGiorno } from "./caricaResaGiorno";
 import { caricaToday } from "./caricaToday";
 import { leggi, type Ambito } from "./sede";
@@ -50,9 +49,13 @@ export async function caricaHomeData(ambito: Ambito) {
     caricaResaGiorno(oggiKey, ambito),
     caricaToday(ambito),
     caricaMenuHome(ambito),
-    supabaseAdmin
-      .from("menu_categories")
-      .select("id, name, sort_order, kind")
+    // ⚠️ `leggi` anche qui, non `supabaseAdmin.from`. Le sezioni del menu
+    // sono del MARCHIO, quindi il filtro non c'e' e il risultato e' identico:
+    // il punto e' che si vede a colpo d'occhio che la decisione e' stata
+    // presa, invece di dover andare a controllare la classificazione. Una
+    // lettura nuda accanto a cinque filtrate sembra una dimenticanza, e un
+    // giorno qualcuno la "sistema" nel verso sbagliato.
+    leggi("menu_categories", ambito, "id, name, sort_order, kind")
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true }),
     leggi("menu_items", ambito, "category"),

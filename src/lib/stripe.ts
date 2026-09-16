@@ -3,6 +3,7 @@ import Stripe from "stripe";
 // (src/i18n/ui.ts, file per-cliente): il motore la legge invece di dare per
 // scontato che sia il francese e che l'unica altra lingua sia l'inglese.
 import { defaultLang } from "../i18n/ui";
+import { leggiSegreto, type Ambito } from "./admin/sede";
 
 /** Prefisso di lingua negli URL del sito pubblico: la lingua di default sta
  *  alla radice, le altre sotto /<lingua>. Stessa regola di getLocalizedUrl(). */
@@ -11,34 +12,47 @@ function prefissoLingua(lang: string | undefined): string {
   return !l || l === defaultLang ? "" : `/${l}`;
 }
 
-const STRIPE_SECRET_KEY = import.meta.env.STRIPE_SECRET_KEY;
-
 /**
- * Client Stripe lato SERVER, creato in modo PIGRO alla prima vera chiamata.
- * Cosi' il motore parte anche SENZA STRIPE_SECRET_KEY nel .env (template,
- * clienti senza ordini online): l'errore arriva solo se si usa davvero
- * Stripe (checkout, rimborso, link di pagamento).
- * Usa la secret key: solo in endpoint API / codice server, mai nel browser.
+ * IL CLIENT STRIPE E' PER SEDE — perche' il conto e' della SOCIETA'.
+ *
+ * Tre pizzerie a Bruxelles, tre societa' diverse, un solo sito e un solo
+ * deploy. La chiave segreta non puo' piu' essere una costante del `.env`:
+ * sceglierne una a caso vorrebbe dire incassare su un'altra societa', e non
+ * lo scoprirebbe nessuno fino al commercialista.
+ *
+ * ⚠️ L'ambito che conta e' QUELLO DEL DATO. Chi incassa lo decide l'ordine
+ * (`ambitoDiRiga(ordine.location_id)`), non la sede selezionata nell'header
+ * da chi sta guardando lo schermo. Vedi la nota lunga in `admin/sede.ts`.
+ *
+ * ⚠️ Niente piu' `export const stripe`: era un Proxy sincrono, e con le
+ * chiavi nel database la costruzione e' diventata asincrona. Ma il motivo
+ * vero e' un altro — un oggetto globale gia' pronto e' un oggetto che si usa
+ * senza dire di chi e', ed e' esattamente l'errore che questo pezzo esiste
+ * per rendere impossibile. Adesso il conto si nomina, sempre.
  */
-let _stripe: Stripe | null = null;
+const CLIENTI = new Map<string, Stripe>();
 
-function clientStripe(): Stripe {
-  if (!_stripe) {
-    if (!STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY mancante nel file .env");
-    _stripe = new Stripe(STRIPE_SECRET_KEY);
+export async function stripeDi(ambito: Ambito): Promise<Stripe> {
+  const chiave = await leggiSegreto(ambito, "stripe_secret_key");
+  if (!chiave) {
+    throw new Error(
+      ambito.modo === "sede"
+        ? "Chiave Stripe mancante: mettila in Super admin > Sedi, oppure STRIPE_SECRET_KEY nel .env"
+        : "STRIPE_SECRET_KEY mancante nel file .env",
+    );
   }
-  return _stripe;
+  // ⚠️ La mappa e' indicizzata sulla CHIAVE, non sull'id della sede: cosi'
+  // una chiave ruotata produce da sola un client nuovo, senza che nessuno si
+  // ricordi di svuotare niente. (Il segreto ha gia' la sua cache da 60 s in
+  // `leggiSegreto`, quindi qui non si legge il database a ogni chiamata.)
+  let c = CLIENTI.get(chiave);
+  if (!c) {
+    if (CLIENTI.size > 20) CLIENTI.clear(); // tetto: mai crescere all'infinito
+    c = new Stripe(chiave);
+    CLIENTI.set(chiave, c);
+  }
+  return c;
 }
-
-// Proxy: stessa interfaccia di prima (`stripe.checkout...`), zero modifiche
-// negli altri file; l'istanza vera nasce al primo accesso a una proprieta'.
-export const stripe = new Proxy({} as Stripe, {
-  get(_t, prop) {
-    const c = clientStripe() as unknown as Record<string | symbol, unknown>;
-    const v = c[prop];
-    return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(c) : v;
-  },
-});
 
 /** Una riga d'ordine già validata e con prezzo letto dal DB. */
 export interface VoceCheckout {
@@ -48,6 +62,10 @@ export interface VoceCheckout {
 }
 
 interface CreaSessioneInput {
+  /** ⚠️ Di CHI e' l'incasso. Obbligatorio apposta: un parametro facoltativo
+   *  e' un parametro dimenticato, e qui dimenticarlo vuol dire i soldi di
+   *  una societa' sul conto di un'altra. */
+  ambito: Ambito;
   voci: VoceCheckout[];
   orderId: string;
   siteUrl: string;
@@ -67,6 +85,7 @@ interface CreaSessioneInput {
  * Ritorna l'URL a cui reindirizzare il browser per pagare.
  */
 export async function creaCheckoutSession({
+  ambito,
   voci,
   orderId,
   siteUrl,
@@ -74,12 +93,13 @@ export async function creaCheckoutSession({
   returnBase,
   discount,
 }: CreaSessioneInput): Promise<string> {
+  const sp = await stripeDi(ambito);
   const prefix = prefissoLingua(lang);
 
   // Sconto coupon → coupon Stripe monouso applicato alla sessione.
   let discounts: { coupon: string }[] | undefined;
   if (discount && discount.amount_cents > 0) {
-    const c = await stripe.coupons.create({
+    const c = await sp.coupons.create({
       amount_off: discount.amount_cents,
       currency: "eur",
       duration: "once",
@@ -88,7 +108,7 @@ export async function creaCheckoutSession({
     discounts = [{ coupon: c.id }];
   }
 
-  const session = await stripe.checkout.sessions.create({
+  const session = await sp.checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
     line_items: voci.map((v) => ({
@@ -117,6 +137,8 @@ export async function creaCheckoutSession({
  * `metadata.gift_card_id` permette al webhook di marcarlo come pagato.
  */
 export async function creaCheckoutBon(opts: {
+  /** ⚠️ Di CHI e' l'incasso: vedi la nota su `CreaSessioneInput.ambito`. */
+  ambito: Ambito;
   giftCardId: string;
   code: string;
   valueCents: number;
@@ -130,7 +152,7 @@ export async function creaCheckoutBon(opts: {
   if (opts.shippingCents && opts.shippingCents > 0) {
     voci.push({ name: "Frais d'envoi", amount: opts.shippingCents });
   }
-  const session = await stripe.checkout.sessions.create({
+  const session = await (await stripeDi(opts.ambito)).checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
     line_items: voci.map((v) => ({
@@ -153,6 +175,8 @@ export async function creaCheckoutBon(opts: {
  * ne' rimandare le email di conferma (l'ordine e' gia' 'paid').
  */
 export async function creaCheckoutSupplemento(opts: {
+  /** ⚠️ Di CHI e' l'incasso: vedi la nota su `CreaSessioneInput.ambito`. */
+  ambito: Ambito;
   orderId: string;
   diffCents: number;
   numero: string;
@@ -170,7 +194,7 @@ export async function creaCheckoutSupplemento(opts: {
     es: (n) => `Pedido #${n} — suplemento`,
   };
   const label = (SUPPL[String(opts.lang ?? "")] ?? SUPPL.fr)(opts.numero);
-  const session = await stripe.checkout.sessions.create({
+  const session = await (await stripeDi(opts.ambito)).checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
     line_items: [

@@ -232,6 +232,13 @@ grant select, insert, update, delete on public.location_settings to service_role
 --     Stripe, lato server.
 --
 --     Chiavi previste: stripe_secret_key, stripe_webhook_secret.
+--
+--     ⚠️ `value` e' CIFRATO (AES-256-GCM, vedi src/lib/segreti.ts), con una
+--     chiave madre che resta nel .env (`SECRETS_KEY`). Un database non e' un
+--     posto piu' sicuro di un file: e' replicato, finisce nei backup e si
+--     esporta dal pannello. Un valore senza il prefisso `v1.` e' in chiaro:
+--     scritto prima della cifratura, si rilegge com'e' e diventa cifrato
+--     alla prima riscrittura.
 --     (`resend_from` NON e' un segreto e sta in location_config.)
 --
 --     Sede assente o chiave assente = si ripiega sull'ambiente, cioe' il
@@ -426,7 +433,7 @@ grant select, insert, update, delete on public.menu_sold_out to service_role;
 --     prenotazioni non assegnabili.
 --
 --     ⚠️ Si toccano SOLO le tabelle «sede». Sulle MISTE (menu_items,
---     special_days, popups, team) NULL vuol dire «vale per tutte le
+--     special_days, popups, team, agenda_events) NULL vuol dire «vale per tutte le
 --     sedi» ed e' un valore legittimo: riempirlo qui trasformerebbe il
 --     menu del gruppo nel menu di un punto solo. Sulle tabelle di
 --     MARCHIO NULL e' l'unico valore possibile. L'elenco qui sotto deve
@@ -439,7 +446,11 @@ returns text[] language sql immutable as $$
   -- Escluse quelle nate dopo (location_config, location_settings,
   -- location_secrets, menu_sold_out): li' `location_id` e' NOT NULL.
   select array[
-    'admin_docs_meta', 'admin_notes', 'agenda_events', 'gift_card_redemptions',
+    -- ⚠️ `agenda_events` NON c'e' piu' (16/09/2026): e' diventata «mista»,
+    -- quindi NULL vuol dire «evento di tutto il gruppo» ed e' un valore
+    -- legittimo. Riempirlo trasformerebbe il calendario del marchio nel
+    -- calendario di un punto solo.
+    'admin_docs_meta', 'admin_notes', 'gift_card_redemptions',
     'google_reviews', 'orders', 'print_orders', 'push_subscriptions',
     'reservations', 'restaurant_tables', 'service_closures', 'zone_closures'
   ]::text[];

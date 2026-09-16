@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
-import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
-import { scordaSedi } from "../../../lib/admin/sede";
+import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
+import { cifra, cifraturaPronta } from "../../../lib/segreti";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
 
@@ -14,8 +14,9 @@ export const prerender = false;
 // GET    → { multi, locations: [...], secrets: { <id>: { stripe_secret_key: bool, … } } }
 //          ⚠️ dei segreti si dice SOLO se ci sono. Il valore non esce mai da qui.
 // POST   → crea una sede { name, slug, … }
-// PATCH  → { multi: "on"|"off" }            accende/spegne il multi-sede
-//          { id, ...campi }                 modifica la scheda
+// PATCH  → { id, ...campi }                 modifica la scheda
+//          { storico_sede }                 assegna lo storico orfano a una sede
+//          { id, place_id }                 Place ID Google della sede
 //          { id, secret_key, secret_value } scrive un segreto (sola scrittura)
 // DELETE ?id= → elimina (il client manda POST + X-Method-Override)
 //
@@ -23,10 +24,13 @@ export const prerender = false;
 // nella migrazione #73. E' voluto — cancellare una sede con i suoi ordini
 // dentro non e' un'operazione, e' una perdita.
 
-const CHIAVE_MULTI = "multi_location";
 /** Gli unici segreti che questa API accetta. Una chiave sconosciuta non e'
- *  un caso da ignorare: e' un errore, e va detto. */
-const SEGRETI = ["stripe_secret_key", "stripe_webhook_secret"];
+ *  un caso da ignorare: e' un errore, e va detto.
+ *
+ *  ⚠️ L'elenco NON e' scritto qui: e' lo stesso che `sede.ts` usa per sapere
+ *  su quale variabile d'ambiente ripiegare. Due elenchi separati vorrebbero
+ *  dire una chiave che si scrive e che nessuno rilegge mai. */
+const SEGRETI: readonly string[] = CHIAVI_SEGRETE;
 
 // `locations` e' l'IDENTITA' della sede e basta. Indirizzo, telefono, email,
 // ragione sociale, IVA e scheda Google NON stanno qui: sono dati del
@@ -137,10 +141,74 @@ async function contaStorico(): Promise<Record<string, number>> {
     if (error || !data) return {};
     const out: Record<string, number> = {};
     for (const r of data as { tabella: string; n: number }[]) out[r.tabella] = Number(r.n);
+    // ⚠️ I DOCUMENTI si contano nello Storage, non nella tabella. In
+    // `admin_docs_meta` c'e' una riga solo per i file che hanno una scadenza
+    // o un referente: annunciare «3 documenti» e poi spostarne dodici e'
+    // peggio che non dire il numero. Quello che si sposta sono i file.
+    const file = await contaFileDocumenti();
+    if (file > 0) out.admin_docs_meta = file;
+    else delete out.admin_docs_meta;
     return out;
   } catch {
     return {};
   }
+}
+
+/**
+ * I DOCUMENTI GIA' CARICATI, spostati nella cartella della sede.
+ *
+ * I documenti non si separano con una colonna ma con il PERCORSO nel bucket
+ * (`sedi/<id>/contrat/…`): la lista si costruisce leggendo lo Storage, e un
+ * file senza riga di metadati non avrebbe nessuna sede da cui farsi
+ * filtrare. Quindi accendendo il multi-sede i file di prima vanno spostati,
+ * o sparirebbero dalla pagina Documenti di tutti i punti.
+ *
+ * ⚠️ Lo Storage non lo puo' fare l'SQL: `assegna_storico_sede` sposta le
+ * RIGHE, i file li sposta questo. E l'ordine conta — prima il file, poi la
+ * riga: se si ferma a meta', restano dei metadati che puntano a un file
+ * gia' spostato (si perde una scadenza) invece di un file che nessuno
+ * trova piu'.
+ *
+ * Mai bloccante: un errore qui non deve impedire l'accensione.
+ */
+/** Quanti PDF ci sono nelle cartelle di categoria alla radice del bucket,
+ *  cioe' quanti file lo spostamento andra' a toccare. Le anteprime
+ *  (`.thumb-…`) non si contano: seguono il loro PDF. */
+async function contaFileDocumenti(): Promise<number> {
+  let n = 0;
+  for (const cat of ["contrat", "facture", "recu", "legal", "autre"]) {
+    try {
+      const { data } = await supabaseAdmin.storage.from("documents").list(cat, { limit: 1000 });
+      n += (data ?? []).filter((f) => f.name && f.id !== null && !f.name.startsWith(".")).length;
+    } catch {
+      /* cartella assente */
+    }
+  }
+  return n;
+}
+
+async function spostaDocumenti(sedeId: string): Promise<number> {
+  const BUCKET = "documents";
+  const CATS = ["contrat", "facture", "recu", "legal", "autre"];
+  let spostati = 0;
+  for (const cat of CATS) {
+    try {
+      const { data } = await supabaseAdmin.storage.from(BUCKET).list(cat, { limit: 1000 });
+      for (const f of data ?? []) {
+        // `list()` rende anche le cartelle: hanno `id` nullo e non sono file.
+        if (!f.name || f.id === null) continue;
+        const da = `${cat}/${f.name}`;
+        const a = `sedi/${sedeId}/${cat}/${f.name}`;
+        const { error } = await supabaseAdmin.storage.from(BUCKET).move(da, a);
+        if (error) continue;
+        spostati++;
+        await supabaseAdmin.from("admin_docs_meta").update({ path: a }).eq("path", da);
+      }
+    } catch {
+      /* cartella assente o bucket non creato: niente da spostare */
+    }
+  }
+  return spostati;
 }
 
 export const GET: APIRoute = async ({ request }) => {
@@ -161,6 +229,33 @@ export const GET: APIRoute = async ({ request }) => {
     .order("name", { ascending: true });
   if (error) return json({ error: await msg(erroreDb("GET", error)) }, 500);
 
+  // Place ID e scheda Google di ogni sede. Non sono segreti: si rileggono e
+  // si mostrano. La scheda si mostra CON IL SUO NOME — «collegata» non dice
+  // niente quando l'errore possibile e' aver collegato la pizzeria sbagliata.
+  //
+  // ⚠️⚠️ E SI DICE ANCHE SE IL VALORE E' SUO O EREDITATO DAL MARCHIO.
+  // `leggiConfig` ricade su `app_config` quando la sede non ha scritto
+  // niente — ed e' giusto, e' il modo in cui una sede nuova parte con i
+  // campi pieni invece che con un modulo vuoto. Ma per QUESTI due dati
+  // l'ereditarieta' e' una bugia: un Place ID e una scheda Google
+  // identificano UN'ATTIVITA' FISICA, e tre pizzerie non possono averne una
+  // sola. Senza questa distinzione il pannello avrebbe mostrato tutte e tre
+  // le sedi come «configurate» con il dato di La Molisana, che e' il vecchio
+  // valore rimasto a livello di marchio.
+  const placeIds: Record<string, string> = {};
+  const google: Record<string, string> = {};
+  const propri: Record<string, string[]> = {};
+  try {
+    for (const r of (data ?? []) as { id: string }[]) {
+      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title"]);
+      const v = (c.valori.get("google_place_id") ?? "").trim();
+      if (v) placeIds[r.id] = v;
+      const g = (c.valori.get("google_location_title") ?? "").trim();
+      if (g) google[r.id] = g;
+      propri[r.id] = [...c.sovrascritte];
+    }
+  } catch { /* migrazione non lanciata */ }
+
   // Dei segreti si dice soltanto SE ci sono: mai il valore, nemmeno un pezzo.
   // Questa e' l'unica API che tocca `location_secrets`, ed e' anche il motivo
   // per cui quella tabella e' separata da `location_config`: la lettura
@@ -177,15 +272,42 @@ export const GET: APIRoute = async ({ request }) => {
     /* tabella assente: nessun segreto impostato */
   }
 
-  let multi = false;
-  try {
-    const { data: cfg } = await supabaseAdmin
-      .from("app_config").select("value").eq("key", CHIAVE_MULTI).maybeSingle();
-    multi = String(cfg?.value ?? "").trim().toLowerCase() === "on";
-  } catch { /* chiave assente: spento */ }
+  // Lo storico rimasto senza sede: il pannello ci mette un avviso. E' uno
+  // STATO, non un evento — quindi si vede finche' c'e', invece di comparire
+  // solo nell'istante in cui qualcuno tocca un interruttore.
+  const storico = await contaStorico();
 
-  return json({ multi, locations: data ?? [], secrets: impostati });
+  // ⚠️ Si dice se la CIFRATURA e' possibile, non se i segreti ci sono: il
+  // pannello lo scrive accanto ai campi PRIMA che qualcuno incolli una
+  // chiave. Un avviso che arriva dopo il salvataggio e' un avviso che arriva
+  // quando la chiave e' gia' negli appunti di qualcuno.
+  // ⚠️ Si dice SE l'ambiente ha un ripiego, mai quale. Serve alla scheda per
+  // distinguere «non configurata» da «eredita dal .env»: sono due cose
+  // diverse, e la prima e' un pagamento che fallira'.
+  const ambiente: Record<string, boolean> = {};
+  for (const k of CHIAVI_SEGRETE) ambiente[k] = segretoDAmbiente(k) !== "";
+
+  return json({
+    locations: data ?? [], secrets: impostati, placeIds, google, propri, storico,
+    cifratura: cifraturaPronta(), ambiente,
+  });
 };
+
+/**
+ * Assegna lo storico orfano a una sede: righe (SQL) + file (Storage).
+ * Rende quante righe ha spostato, o `null` se il database ha rifiutato.
+ *
+ * ⚠️ Prima le RIGHE, poi i FILE. Fermandosi a meta' restano dei documenti
+ * ancora nella cartella vecchia — si rivedono e si rispostano — invece di
+ * righe che puntano a file spostati, che sarebbe una scadenza persa.
+ */
+async function travasaStorico(sedeId: string): Promise<number | null> {
+  const { data, error } = await supabaseAdmin.rpc("assegna_storico_sede", { sede: sedeId });
+  if (error) return null;
+  await spostaDocumenti(sedeId);
+  const riga = (Array.isArray(data) ? data[0] : data) as { assegnate?: number } | null;
+  return Number(riga?.assegnate ?? 0);
+}
 
 export const POST: APIRoute = async ({ request }) => {
   const no = await soloSuper(request);
@@ -205,7 +327,27 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: await msg(chiave) }, chiave === "loc.err.slugDup" ? 409 : 500);
   }
   scordaSedi();
-  return json({ ok: true, location: data }, 201);
+
+  // ⚠️ LA PRIMA SEDE PRENDE LO STORICO, senza chiedere niente.
+  //
+  // Da questo istante il filtro e' acceso: `scegliSede` vede un elenco non
+  // piu' vuoto e comincia a separare. Se lo storico restasse a `location_id`
+  // NULL sparirebbe da subito — ordini, prenotazioni e TAVOLI compresi — e
+  // il ristoratore se ne accorgerebbe aprendo il piano sala vuoto.
+  //
+  // Non c'e' niente da chiedere perche' non c'e' niente da scegliere: la
+  // sede e' una sola. La domanda serve solo quando le sedi sono gia' piu' di
+  // una, e allora la si fa dal pannello Sedi.
+  let assegnate = 0;
+  try {
+    const { count } = await supabaseAdmin
+      .from("locations").select("id", { count: "exact", head: true });
+    if ((count ?? 0) === 1) {
+      assegnate = (await travasaStorico(String((data as { id: string }).id))) ?? 0;
+    }
+  } catch { /* mai bloccante: la sede e' creata comunque */ }
+
+  return json({ ok: true, location: data, assegnate }, 201);
 };
 
 export const PATCH: APIRoute = async ({ request }) => {
@@ -215,50 +357,42 @@ export const PATCH: APIRoute = async ({ request }) => {
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: await msg("loc.err.body") }, 400); }
 
-  // ---- interruttore multi-sede ----
-  if (body.multi !== undefined) {
-    const acceso = String(body.multi) === "on";
-    // Acceso senza sedi non vuol dire niente, e lascerebbe l'admin con un
-    // selettore vuoto: meglio dirlo adesso che scoprirlo dopo.
-    let assegnate = 0;
-    if (acceso) {
-      const { count } = await supabaseAdmin
-        .from("locations").select("id", { count: "exact", head: true }).eq("active", true);
-      if (!count) return json({ error: await msg("loc.err.needOne") }, 400);
-
-      // ---- lo storico di prima va a una sede ----
-      // La sede la SCEGLIE il super admin, e non si indovina: sono societa'
-      // diverse, quindi attribuire incassi passati al punto sbagliato non e'
-      // un dettaglio grafico. L'interfaccia chiede solo se c'e' davvero
-      // qualcosa da spostare; se la chiede, arriva qui dentro.
-      const orfane = Object.values(await contaStorico()).reduce((t, n) => t + n, 0);
-      if (orfane > 0) {
-        const sedeStorico = testo(body.storico_sede, 40);
-        if (!RE_UUID.test(sedeStorico)) {
-          return json({ error: await msg("loc.err.storicoSede"), storico: await contaStorico() }, 400);
-        }
-        const { data, error: errRpc } = await supabaseAdmin.rpc("assegna_storico_sede", {
-          sede: sedeStorico,
-        });
-        if (errRpc) return json({ error: await msg("loc.err.storicoKo") }, 500);
-        // La funzione rende UNA riga { assegnate, saltate }.
-        const riga = (Array.isArray(data) ? data[0] : data) as
-          | { assegnate?: number; saltate?: number }
-          | null;
-        assegnate = Number(riga?.assegnate ?? 0);
-      }
+  // ---- TRAVASO DELLO STORICO a una sede ----
+  //
+  // ⚠️ Non e' piu' legato a un interruttore (15/09/2026): l'interruttore non
+  // esiste, la verita' e' quante sedi ci sono. Questo resta perche' lo
+  // storico orfano e' uno STATO che puo' esistere — un database dove le sedi
+  // sono state create prima che il codice le separasse — e va potuto
+  // risolvere quando lo si incontra, non solo in un istante preciso.
+  //
+  // Creando la PRIMA sede il travaso e' automatico (vedi POST): li' non c'e'
+  // niente da chiedere, lo storico e' per forza suo.
+  if (body.storico_sede !== undefined) {
+    const sedeStorico = testo(body.storico_sede, 40);
+    if (!RE_UUID.test(sedeStorico)) {
+      return json({ error: await msg("loc.err.storicoSede"), storico: await contaStorico() }, 400);
     }
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: CHIAVE_MULTI, value: acceso ? "on" : "off" }, { onConflict: "key" });
-    if (error) return json({ error: await msg(erroreDb("multi", error)) }, 500);
-    invalidaAppConfig();
-    scordaSedi();
-    return json({ ok: true, multi: acceso, assegnate });
+    const assegnate = await travasaStorico(sedeStorico);
+    if (assegnate === null) return json({ error: await msg("loc.err.storicoKo") }, 500);
+    return json({ ok: true, assegnate });
   }
+
 
   const id = testo(body.id, 40);
   if (!RE_UUID.test(id)) return json({ error: await msg("loc.err.notFound") }, 400);
+
+  // ---- Place ID di Google (livello 1, sola lettura) ----
+  // Identifica UN'ATTIVITA' FISICA: tre pizzerie, tre Place ID. Sta qui e
+  // non piu' in Integrazioni perche' e' un dato del PUNTO, come l'indirizzo.
+  if (body.place_id !== undefined) {
+    const placeId = String(body.place_id).trim().slice(0, 200);
+    if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
+      return json({ error: await msg("loc.err.placeId") }, 400);
+    }
+    const err = await scriviConfig(ambitoDiRiga(id), { google_place_id: placeId });
+    if (err) return json({ error: await msg(erroreDb("place", { message: err })) }, 500);
+    return json({ ok: true });
+  }
 
   // ---- scrittura di un segreto (chiave Stripe): SOLA SCRITTURA ----
   // Non c'e' nessun percorso per rileggerlo. Chi lo perde lo rigenera su
@@ -272,13 +406,25 @@ export const PATCH: APIRoute = async ({ request }) => {
       const { error } = await supabaseAdmin
         .from("location_secrets").delete().eq("location_id", id).eq("key", chiave);
       if (error) return json({ error: await msg("loc.err.delete") }, 500);
+      scordaSegreti(id);
       return json({ ok: true, impostato: false });
     }
+
+    // ⚠️ SI RIFIUTA DI SCRIVERE SENZA `SECRETS_KEY`. La tentazione e' di
+    // salvare in chiaro «per non bloccare l'utente»: sarebbe il guasto
+    // peggiore di tutti, perche' riesce. Il ristoratore vede la spunta verde,
+    // il pagamento funziona, e la chiave con cui si incassa resta leggibile
+    // a chiunque apra un backup. Meglio un errore che dice cosa fare.
+    if (!cifraturaPronta()) return json({ error: await msg("loc.err.noCrypto") }, 500);
+
     const { error } = await supabaseAdmin
       .from("location_secrets")
-      .upsert({ location_id: id, key: chiave, value: valore, updated_at: new Date().toISOString() },
+      .upsert({ location_id: id, key: chiave, value: cifra(valore), updated_at: new Date().toISOString() },
               { onConflict: "location_id,key" });
     if (error) return json({ error: await msg(erroreDb("secret", error)) }, 500);
+    // La chiave nuova deve valere SUBITO: la cache dei segreti dura 60 s, e
+    // mezzo minuto di pagamenti sul conto vecchio non si recupera.
+    scordaSegreti(id);
     return json({ ok: true, impostato: true });
   }
 
@@ -316,5 +462,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     );
   }
   scordaSedi();
+  scordaSegreti(id);
   return json({ ok: true });
 };

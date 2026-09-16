@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { sincronizzaRecensioni } from "../../../../lib/googleBusiness";
+import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -18,7 +19,9 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const r = await sincronizzaRecensioni();
+  // Sincronizzazione a mano dalla pagina Google: il punto e' quello scelto
+  // nell'header, non tutti.
+  const r = await sincronizzaRecensioni(await ambitoDiRichiesta(request, staff));
   if (r.stato === "non_collegato") return json({ error: "Google non collegato" }, 400);
   if (r.stato === "scelta_richiesta") return json({ error: "Plusieurs fiches: choisis la bonne", needChoice: true }, 409);
   if (r.stato === "nessuna_scheda") return json({ error: "Aucune fiche Google trouvée pour ce compte" }, 400);
@@ -29,5 +32,9 @@ export const POST: APIRoute = async ({ request }) => {
     rating: r.average,
     count: r.total,
     reviewError: r.reviewError ?? "",
+    // ⚠️ Separato dalle recensioni apposta: una scheda che Google rifiuta
+    // lascia il pannello business vuoto ma il sync riesce lo stesso. Senza
+    // questo, il punto con il pannello vuoto non aveva niente da dire.
+    schedaError: r.schedaError ?? "",
   });
 };

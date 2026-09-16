@@ -1,7 +1,7 @@
-import { supabaseAdmin } from "./db";
 import { DateTime } from "luxon";
 import { cacheOr } from "./cache";
 import { TIMEZONE } from "./slots";
+import { leggi, ambitoPubblico } from "./admin/sede";
 
 /**
  * Pop-up di comunicazione (admin Marketing → Pop-up) valido ADESSO
@@ -57,13 +57,18 @@ interface RigaPopup {
 
 export async function popupPerPagina(slug: string, lang: string = "fr"): Promise<PopupPubblico | null> {
   try {
-    // Cache 60s: una sola query per TUTTE le pagine del sito
-    const data = await cacheOr("popups:attivi", async () => {
-      const { data: righe, error } = await supabaseAdmin
-        .from("popups")
-        .select(
-          "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, title_i18n, body_i18n, btn1_label_i18n, btn2_label_i18n, position, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
-        )
+    // ⚠️ LA SEDE STA NELLA CHIAVE DI CACHE. `popups` e' «mista»: il risultato
+    // dipende dal punto, e una chiave sola servirebbe per 60 secondi il
+    // pop-up di Stockel a chi guarda Jourdan. Stessa trappola gia' pagata su
+    // `cfg:all:<id>` e `sched:settings:<id>`.
+    const ambito = await ambitoPubblico();
+    const chiave = `popups:attivi:${ambito.modo === "sede" ? ambito.id : ambito.modo}`;
+    const data = await cacheOr(chiave, async () => {
+      const { data: righe, error } = await leggi(
+        "popups",
+        ambito,
+        "id, title, body, image_url, btn1_label, btn1_url, btn2_label, btn2_url, title_en, body_en, btn1_label_en, btn2_label_en, title_i18n, body_i18n, btn1_label_i18n, btn2_label_i18n, position, max_shows, pages, schedule_kind, date_start, date_end, days, hour_start, hour_end"
+      )
         .eq("active", true)
         .order("created_at", { ascending: false });
       if (error || !righe) throw new Error("popups illeggibili");

@@ -4,9 +4,10 @@ import { supabaseAdmin } from "../../lib/db";
 // Multi-sede. `leggi` e' gia' il nome di una variabile locale in questo
 // file, quindi l'importazione e' rinominata invece di rinominare la sua.
 import {
-  ambitoPubblico, leggi as leggiTab, inserisci, aggiorna, leggiOrari, type Ambito,
+  ambitoPubblico, ambitoPubblicoChiesto, leggi as leggiTab, inserisci, aggiorna, leggiOrari, type Ambito,
 } from "../../lib/admin/sede";
 import { postiDalPlan, maxInsiemePerZona, assegnaESalva } from "../../lib/planSalle";
+import { capienzaDelleZone, zoneDaConfig } from "../../lib/salaRegole";
 import { SERVIZI_WIDGET } from "../../lib/reservationI18n";
 import {
   inviaNotificheResa,
@@ -20,6 +21,7 @@ import {
 } from "../../lib/notifications";
 import { registraCliente } from "../../lib/registraCliente";
 import { inviaPushResa } from "../../lib/push";
+import { ambitoDiRiga } from "../../lib/admin/sede";
 import { appConfigIn } from "../../lib/appConfigCache";
 
 export const prerender = false;
@@ -27,8 +29,11 @@ export const prerender = false;
 const RE_UUID = /^[0-9a-f-]{36}$/i;
 
 /** Campi restituiti dall'insert/update per comporre le email. */
+// ⚠️ `location_id` in testa: e' da qui che ogni email ricava il punto — nome,
+// indirizzo, telefono, mittente e cucina a cui arriva la notifica. Toglierlo
+// non da' nessun errore, da' l'indirizzo giusto di un'altra pizzeria.
 const CAMPI_EMAIL =
-  "id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, notes, high_chair, quiet, business, company, birthday, special_event";
+  "id, location_id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, notes, high_chair, quiet, business, company, birthday, special_event";
 
 /** Programma l'email recensione e salva l'id Resend (best-effort). */
 async function programmaReview(r: {
@@ -40,7 +45,13 @@ async function programmaReview(r: {
   lang: string;
 }, ambito: Ambito): Promise<void> {
   try {
-    const emailId = await emailReviewResa(r);
+    // ⚠️ `r` e' ristretto e non porta `location_id`, ma l'ambito qui c'e':
+    // e' la sede a cui la prenotazione appartiene. Senza, l'invito a lasciare
+    // una recensione porterebbe il nome e il link di un altro punto.
+    const emailId = await emailReviewResa({
+      ...r,
+      location_id: ambito.modo === "sede" ? ambito.id : null,
+    });
     if (!emailId) return;
     await aggiorna("reservations", ambito, { review_email_id: emailId }).eq("id", r.id);
   } catch {
@@ -179,20 +190,15 @@ async function leggiConfig(ambito: Ambito): Promise<WidgetConfig> {
   let capacity = 0;
   const planPosti = await postiDalPlan(m.get("reservation_plan_mode"), ambito);
   const planMaxIns = await maxInsiemePerZona(m.get("reservation_plan_mode"), ambito);
-  try {
-    const arr = JSON.parse(m.get("reservation_zones") || "[]");
-    if (Array.isArray(arr)) {
-      for (const z of arr) {
-        const name = String(z.name ?? "").trim();
-        const seats = planPosti ? Math.floor(planPosti.get(name) ?? 0) : intOf(z.seats);
-        if (name && Number.isFinite(seats) && seats > 0) {
-          zones.push({ name, seats, max_ins: planMaxIns ? planMaxIns.get(name) ?? 0 : undefined });
-          capacity += seats;
-        }
-      }
+  // ⚠️ Stessa regola del pannello, dallo stesso posto: vedi la nota lunga su
+  // `capienzaDelleZone`. Qui si aggiunge solo il massimo per insieme, che
+  // viene dal piano e non dalla configurazione.
+  {
+    const cap = capienzaDelleZone(zoneDaConfig(m.get("reservation_zones")), planPosti);
+    for (const z of cap.zones) {
+      zones.push({ ...z, max_ins: planMaxIns ? planMaxIns.get(z.name) ?? 0 : undefined });
     }
-  } catch {
-    /* nessuna section */
+    capacity = cap.capienza;
   }
 
   // Délai minimo (minuti; fallback ore×60)
@@ -319,8 +325,10 @@ function svAttivoSpeciale(key: string, from: string, to: string, lista: string[]
   return lista.includes(`${key}|${from}-${to}`) || lista.includes(key);
 }
 
-export const GET: APIRoute = async ({ url }) => {
-  const ambito = await ambitoPubblico();
+export const GET: APIRoute = async ({ url, request }) => {
+  // ⚠️ Chi sa di quale punto parla lo dice nell'header `x-sede` (la home
+  // dell'admin lo fa). Gli altri prendono la sede del sito, come sempre.
+  const ambito = await ambitoPubblicoChiesto(request);
   // ---- Config ----
   if (url.searchParams.get("config")) {
     const config = await leggiConfig(ambito);
@@ -750,7 +758,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (cfg.autoAccept) void inviaNotificheResa(resa);
   else void inviaNotificheDemandeResa(resa);
   // Push all'admin: nuova prenotazione (o nuova demande)
-  void inviaPushResa(cfg.autoAccept ? "new" : "demande", resa);
+  void inviaPushResa(cfg.autoAccept ? "new" : "demande", resa, ambitoDiRiga((resa as { location_id?: string | null }).location_id));
   // Registra la persona nella rubrica `clients` (come il webhook per gli ordini)
   void registraCliente({ name: `${resa.first_name} ${resa.last_name}`.trim(), email: resa.email, phone: resa.phone, lang: resa.lang });
   if (cfg.autoAccept) {
@@ -840,7 +848,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (attuale.status === "pending") void inviaNotificheDemandeResa(upd.data as unknown as ResaEmail);
   else void inviaConfermaResa(upd.data as unknown as ResaEmail);
   // Push all'admin: prenotazione modificata dal cliente
-  void inviaPushResa("modif", upd.data as unknown as ResaEmail);
+  void inviaPushResa("modif", upd.data as unknown as ResaEmail, ambitoDiRiga((upd.data as { location_id?: string | null }).location_id));
   // Email al ristorante: avviso di modifica dal cliente
   void emailNotificaModificaResa(upd.data as unknown as ResaEmail);
 
@@ -887,7 +895,7 @@ export const DELETE: APIRoute = async ({ request }) => {
   }
 
   // Push all'admin: prenotazione annullata dal cliente
-  void inviaPushResa("annul", upd.data as unknown as ResaEmail);
+  void inviaPushResa("annul", upd.data as unknown as ResaEmail, ambitoDiRiga((upd.data as { location_id?: string | null }).location_id));
   // Email al ristorante: avviso di annullo dal cliente
   void emailNotificaAnnulloResa(upd.data as unknown as ResaEmail);
   return json({ ok: true });

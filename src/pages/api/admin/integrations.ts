@@ -125,13 +125,12 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   // --- Google Business : Place ID ---
-  if (body.google_place_id !== undefined) {
-    const placeId = String(body.google_place_id).trim().slice(0, 200);
-    if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
-      return json({ error: "Place ID invalide." }, 400);
-    }
-    upserts.push({ key: K_GPLACE, value: placeId });
-  }
+  // ⚠️ NON si scrive piu' da qui (15/09/2026). Il Place ID identifica UN
+  // esercizio fisico, quindi e' un dato della SEDE e si imposta nella sua
+  // scheda (Sedi → matita), che lo salva in `location_config`. La chiave
+  // resta LEGGIBILE in `app_config` perche' `leggiConfig` ci ripiega: le
+  // installazioni a sede unica di oggi continuano a funzionare senza
+  // toccare niente.
 
   // --- Search Console : "sc-domain:exemple.be" ou une URL https ---
   if (body.gsc_site !== undefined) {

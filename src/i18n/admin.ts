@@ -157,10 +157,9 @@ const DIZIONARIO: Dizionario = {
 
   // ===== Multi-sede (super admin → Établissements) =====
   "loc.intro":      { fr: "Un seul back-office pour plusieurs établissements. Chaque établissement a son adresse, ses horaires, sa société et son compte Stripe ; la carte, les clients et les campagnes restent communs.", en: "One back-office for several locations. Each location has its own address, hours, company and Stripe account; the menu, customers and campaigns stay shared.", it: "Un solo pannello per più sedi. Ogni sede ha indirizzo, orari, società e conto Stripe propri; menu, clienti e campagne restano in comune.", nl: "Eén back-office voor meerdere vestigingen. Elke vestiging heeft een eigen adres, openingsuren, vennootschap en Stripe-account; menukaart, klanten en campagnes blijven gedeeld.", es: "Un solo panel para varios establecimientos. Cada uno tiene su dirección, horarios, sociedad y cuenta Stripe; la carta, los clientes y las campañas siguen siendo comunes." },
-  "loc.multi":      { fr: "Activer le multi-établissement", en: "Enable multi-location", it: "Attiva il multi-sede", nl: "Multi-vestiging inschakelen", es: "Activar multiestablecimiento" },
-  "loc.multiOn":    { fr: "Multi-établissement activé", en: "Multi-location enabled", it: "Multi-sede attivato", nl: "Multi-vestiging ingeschakeld", es: "Multiestablecimiento activado" },
-  "loc.multiOff":   { fr: "Multi-établissement désactivé", en: "Multi-location disabled", it: "Multi-sede disattivato", nl: "Multi-vestiging uitgeschakeld", es: "Multiestablecimiento desactivado" },
   // --- Storico senza sede: la domanda che compare accendendo il multi ---
+  "loc.st.orfano":  { fr: "Des données n'appartiennent à aucun établissement", en: "Some data belongs to no location", it: "Ci sono dati che non appartengono a nessuna sede", nl: "Sommige gegevens horen bij geen enkele vestiging", es: "Hay datos que no pertenecen a ningún establecimiento" },
+  "loc.st.assegna": { fr: "Attribuer à un établissement", en: "Assign to a location", it: "Assegna a una sede", nl: "Toewijzen aan een vestiging", es: "Asignar a un establecimiento" },
   "loc.st.title":   { fr: "Activer le multi-établissement", en: "Enable multi-location", it: "Attiva il multi-sede", nl: "Multi-vestiging inschakelen", es: "Activar multiestablecimiento" },
   "loc.st.intro":   { fr: "Désormais chaque commande, réservation, fermeture et table appartient à un établissement.", en: "From now on every order, reservation, closure and table belongs to a location.", it: "Da adesso ogni ordine, prenotazione, chiusura e tavolo appartiene a una sede.", nl: "Vanaf nu hoort elke bestelling, reservering, sluiting en tafel bij een vestiging.", es: "Desde ahora cada pedido, reserva, cierre y mesa pertenece a un establecimiento." },
   "loc.st.why":     { fr: "La base contient des lignes créées avant l'existence des établissements. Sans établissement, elles n'apparaîtraient plus dans aucun point de vente.", en: "The database holds rows created before the locations existed. With no location they would no longer appear in any point of sale.", it: "Nel database ci sono righe create prima che le sedi esistessero. Senza una sede non comparirebbero più in nessun punto vendita.", nl: "De database bevat rijen van vóór het bestaan van de vestigingen. Zonder vestiging zouden ze in geen enkel verkooppunt meer verschijnen.", es: "La base contiene filas creadas antes de que existieran los establecimientos. Sin establecimiento ya no aparecerían en ningún punto de venta." },
@@ -184,7 +183,6 @@ const DIZIONARIO: Dizionario = {
   "loc.st.t.admin_docs_meta":   { fr: "documents", en: "documents", it: "documenti", nl: "documenten", es: "documentos" },
   "loc.st.t.gift_card_redemptions": { fr: "bons utilisés", en: "gift cards redeemed", it: "buoni riscossi", nl: "ingewisselde bonnen", es: "bonos canjeados" },
   "loc.st.t.print_orders":      { fr: "commandes d'impression", en: "print orders", it: "ordini di stampa", nl: "drukorders", es: "pedidos de impresión" },
-  "loc.multiHint":  { fr: "Éteint, tout fonctionne comme aujourd'hui : un seul établissement, aucun filtre.", en: "Off, everything works as today: a single location, no filtering.", it: "Spento, tutto funziona come oggi: una sola sede, nessun filtro.", nl: "Uit werkt alles zoals vandaag: één vestiging, geen filter.", es: "Apagado, todo funciona como hoy: un solo establecimiento, sin filtro." },
   "loc.add":        { fr: "Établissement", en: "Location", it: "Sede", nl: "Vestiging", es: "Establecimiento" },
   "loc.new":        { fr: "Nouvel établissement", en: "New location", it: "Nuova sede", nl: "Nieuwe vestiging", es: "Nuevo establecimiento" },
   "loc.edit":       { fr: "Modifier l'établissement", en: "Edit location", it: "Modifica la sede", nl: "Vestiging bewerken", es: "Editar el establecimiento" },
@@ -208,8 +206,14 @@ const DIZIONARIO: Dizionario = {
   "loc.active":     { fr: "Actif", en: "Active", it: "Attiva", nl: "Actief", es: "Activo" },
   "loc.stripe":     { fr: "Clé Stripe de cet établissement", en: "This location's Stripe key", it: "Chiave Stripe di questa sede", nl: "Stripe-sleutel van deze vestiging", es: "Clave Stripe de este establecimiento" },
   "loc.webhook":    { fr: "Secret du webhook Stripe", en: "Stripe webhook secret", it: "Segreto del webhook Stripe", nl: "Geheim van de Stripe-webhook", es: "Secreto del webhook de Stripe" },
+  "loc.st.daEnv":   { fr: "du .env", en: "from .env", it: "dal .env", nl: "uit .env", es: "del .env" },
+  "loc.st.manca":   { fr: "manquante", en: "missing", it: "mancante", nl: "ontbreekt", es: "falta" },
+  "loc.st.nonColl": { fr: "non reliée", en: "not linked", it: "non collegata", nl: "niet gekoppeld", es: "no vinculada" },
+  "loc.st.daMarchio": { fr: "du groupe", en: "from the group", it: "dal marchio", nl: "van de groep", es: "del grupo" },
+  "loc.st.conf":    { fr: "configuré", en: "configured", it: "configurato", nl: "geconfigureerd", es: "configurado" },
   "loc.secretSet":  { fr: "définie", en: "set", it: "impostata", nl: "ingesteld", es: "definida" },
   "loc.secretNone": { fr: "vide", en: "empty", it: "vuota", nl: "leeg", es: "vacía" },
+  "loc.cifraKo":    { fr: "SECRETS_KEY absente du .env : impossible d'enregistrer une clé tant qu'on ne peut pas la chiffrer.", en: "SECRETS_KEY missing from .env: no key can be saved until it can be encrypted.", it: "SECRETS_KEY assente dal .env: non si registra nessuna chiave finché non si può cifrarla.", nl: "SECRETS_KEY ontbreekt in .env: er kan geen sleutel worden opgeslagen zolang die niet versleuteld kan worden.", es: "SECRETS_KEY ausente del .env: no se guarda ninguna clave mientras no se pueda cifrar." },
   "loc.secretHint": { fr: "Elle ne se relit jamais, ici ni ailleurs. Pour la remplacer, colle la nouvelle ; pour la retirer, enregistre le champ vide.", en: "It is never read back, here or anywhere. To replace it, paste the new one; to remove it, save the field empty.", it: "Non si rilegge mai, né qui né altrove. Per sostituirla incolla la nuova; per toglierla, salva il campo vuoto.", nl: "Ze wordt nooit teruggelezen, hier noch elders. Plak de nieuwe om ze te vervangen; sla het veld leeg op om ze te verwijderen.", es: "Nunca se vuelve a leer, ni aquí ni en otro sitio. Para sustituirla, pega la nueva; para quitarla, guarda el campo vacío." },
   "loc.secretPh":   { fr: "Coller la clé (rk_live_…)", en: "Paste the key (rk_live_…)", it: "Incolla la chiave (rk_live_…)", nl: "Plak de sleutel (rk_live_…)", es: "Pega la clave (rk_live_…)" },
   "loc.saved":      { fr: "Établissement enregistré", en: "Location saved", it: "Sede salvata", nl: "Vestiging opgeslagen", es: "Establecimiento guardado" },
@@ -229,6 +233,7 @@ const DIZIONARIO: Dizionario = {
   "loc.err.notFound": { fr: "Établissement introuvable", en: "Location not found", it: "Sede non trovata", nl: "Vestiging niet gevonden", es: "Establecimiento no encontrado" },
   "loc.err.needOne":  { fr: "Ajoute d'abord au moins un établissement", en: "Add at least one location first", it: "Aggiungi prima almeno una sede", nl: "Voeg eerst minstens één vestiging toe", es: "Añade primero al menos un establecimiento" },
   "loc.err.secret":   { fr: "Clé inconnue", en: "Unknown key", it: "Chiave sconosciuta", nl: "Onbekende sleutel", es: "Clave desconocida" },
+  "loc.err.noCrypto": { fr: "SECRETS_KEY absente du .env : impossible d'enregistrer une clé sans la chiffrer. Génère 32 octets en base64 et redémarre le serveur.", en: "SECRETS_KEY missing from .env: a key cannot be stored without encrypting it. Generate 32 bytes in base64 and restart the server.", it: "SECRETS_KEY assente dal .env: una chiave non si registra senza cifrarla. Genera 32 byte in base64 e riavvia il server.", nl: "SECRETS_KEY ontbreekt in .env: een sleutel kan niet worden opgeslagen zonder versleuteling. Genereer 32 bytes in base64 en herstart de server.", es: "SECRETS_KEY ausente del .env: no se puede guardar una clave sin cifrarla. Genera 32 bytes en base64 y reinicia el servidor." },
   "loc.err.nothing":  { fr: "Rien à modifier", en: "Nothing to change", it: "Niente da modificare", nl: "Niets te wijzigen", es: "Nada que modificar" },
   "loc.err.delete":   { fr: "Suppression impossible", en: "Could not delete", it: "Eliminazione impossibile", nl: "Verwijderen mislukt", es: "No se pudo eliminar" },
   // --- Sezioni del menu (api/admin/categories.ts). L'admin parla 5 lingue:
@@ -262,6 +267,14 @@ const DIZIONARIO: Dizionario = {
   // Multi-sede: vuota QUI, ma piena in un altro punto. Senza questa frase il
   // messaggio «non vuota» davanti a una lista vuota sembra un guasto.
   "cat.err.otherLoc":  { fr: "Section utilisée par un autre point de vente : impossible de la supprimer ici", en: "Section used by another location: it cannot be deleted here", it: "Sezione usata da un'altra sede: non si può eliminare da qui", nl: "Sectie in gebruik bij een andere vestiging: hier niet te verwijderen", es: "Sección utilizada por otro punto de venta: no se puede eliminar aquí" },
+  "loc.err.placeId":  { fr: "Place ID invalide", en: "Invalid Place ID", it: "Place ID non valido", nl: "Ongeldige Place ID", es: "Place ID no v\u00e1lido" },
+  "loc.sezPagamenti": { fr: "Paiements", en: "Payments", it: "Pagamenti", nl: "Betalingen", es: "Pagos" },
+  "loc.sezGoogle":    { fr: "Google", en: "Google", it: "Google", nl: "Google", es: "Google" },
+  // Campo segreto GIA' impostato: pallini al posto del suggerimento. Il valore
+  // non si rilegge mai — questi sono un segnaposto, non il contenuto.
+  "loc.secretSetPh":  { fr: "••••••••••••••••", en: "••••••••••••••••", it: "••••••••••••••••", nl: "••••••••••••••••", es: "••••••••••••••••" },
+  "loc.placeId":      { fr: "Place ID de l\u2019\u00e9tablissement", en: "Business Place ID", it: "Place ID dell\u2019attivit\u00e0", nl: "Place ID van de zaak", es: "Place ID del negocio" },
+  "loc.placeIdHint":  { fr: "Permet d\u2019afficher la note et les avis Google de ce point de vente.", en: "Shows this location\u2019s Google rating and reviews.", it: "Permette di mostrare valutazione e recensioni Google di questo punto vendita.", nl: "Toont de Google-score en -reviews van deze vestiging.", es: "Permite mostrar la valoraci\u00f3n y las rese\u00f1as de Google de este punto de venta." },
   "loc.err.linked":   { fr: "Cet établissement a des données liées : désactive-le au lieu de le supprimer", en: "This location has linked data: deactivate it instead of deleting it", it: "Questa sede ha dati collegati: disattivala invece di eliminarla", nl: "Deze vestiging heeft gekoppelde gegevens: schakel ze uit in plaats van ze te verwijderen", es: "Este establecimiento tiene datos vinculados: desactívalo en lugar de eliminarlo" },
   "print.intro":      { fr: "Catalogue des produits imprimables que le restaurant peut commander à MOODD. Prix par lot, sans TVA, propres à ce client. Active un produit pour qu'il apparaisse (plus tard) dans la page Print du client.", en: "Catalogue of printable products the restaurant can order from MOODD. Prices per batch, VAT excluded, specific to this client. Enable a product so it appears (later) on the client's Print page.", it: "Catalogo dei prodotti stampabili che il ristorante può ordinare a MOODD. Prezzi per lotto, IVA esclusa, specifici per questo cliente. Attiva un prodotto perché appaia (più avanti) nella pagina Print del cliente.", nl: "Catalogus van afdrukbare producten die het restaurant bij MOODD kan bestellen. Prijzen per partij, excl. btw, specifiek voor deze klant. Activeer een product zodat het (later) op de Print-pagina van de klant verschijnt.", es: "Catálogo de productos imprimibles que el restaurante puede pedir a MOODD. Precios por lote, sin IVA, propios de este cliente. Activa un producto para que aparezca (más adelante) en la página Print del cliente." },
   "print.col.qty":    { fr: "Quantité (lot)", en: "Quantity (batch)", it: "Quantità (lotto)", nl: "Aantal (partij)", es: "Cantidad (lote)" },
@@ -321,11 +334,11 @@ const DIZIONARIO: Dizionario = {
     fr: "Couleurs", en: "Colors", it: "Colori", nl: "Kleuren", es: "Colores",
   },
   "sup.tema.reset": {
-    fr: "Revenir aux couleurs MOODD",
-    en: "Reset to MOODD colors",
-    it: "Torna ai colori MOODD",
-    nl: "Terug naar MOODD-kleuren",
-    es: "Volver a los colores MOODD",
+    fr: "Revenir aux couleurs RestoHub",
+    en: "Reset to RestoHub colors",
+    it: "Torna ai colori RestoHub",
+    nl: "Terug naar RestoHub-kleuren",
+    es: "Volver a los colores RestoHub",
   },
 
   // ----- Sezione Lingua dell'admin -----
@@ -1165,6 +1178,8 @@ const DIZIONARIO: Dizionario = {
   "menu.orderableShort":{ fr: "Comm.", en: "Ord.", it: "Ordi.", nl: "Best.", es: "Ped." },
   "menu.soldShort":     { fr: "Épuisé", en: "Sold", it: "Esaur.", nl: "Op", es: "Agot." },
   // Multi-sede: a chi appartiene il piatto / il formato.
+  "ag.allLoc":          { fr: "Pour tous les points", en: "For all locations", it: "Per tutte le sedi", nl: "Voor alle vestigingen", es: "Para todos los puntos" },
+  "ag.allLocHint":      { fr: "Décoche pour un événement qui n'a lieu que dans ce point de vente.", en: "Uncheck for an event that only happens at this location.", it: "Togli la spunta per un evento che si fa solo in questa sede.", nl: "Vink uit voor een evenement dat alleen in deze vestiging plaatsvindt.", es: "Desmarca para un evento que solo se celebra en este establecimiento." },
   "menu.allLocations":  { fr: "Tous les points", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los puntos" },
   "menu.allLocationsShort": { fr: "Tous", en: "All", it: "Tutte", nl: "Alle", es: "Todos" },
   "menu.onlyHere":      { fr: "Ici seulement", en: "Here only", it: "Solo qui", nl: "Alleen hier", es: "Solo aquí" },
@@ -1250,6 +1265,10 @@ const DIZIONARIO: Dizionario = {
   "st.rFil90":        { fr: "3 mois", en: "3 months", it: "3 mesi", nl: "3 maanden", es: "3 meses" },
   "st.rFil180":       { fr: "6 mois", en: "6 months", it: "6 mesi", nl: "6 maanden", es: "6 meses" },
   // Statistiche: l'aggregato dei punti (solo qui, e solo Finanze/Prenotazioni).
+  "st.bySede":      { fr: "Par point de vente", en: "By location", it: "Per sede", nl: "Per vestiging", es: "Por punto de venta" },
+  // Righe rimaste senza sede: NON si nascondono — se ricompaiono vuol dire
+  // che una scrittura ha smesso di mettere `location_id`.
+  "st.noSede":      { fr: "Sans établissement", en: "No location", it: "Senza sede", nl: "Zonder vestiging", es: "Sin establecimiento" },
   "st.allLocations": { fr: "Tous les points", en: "All locations", it: "Tutte le sedi", nl: "Alle vestigingen", es: "Todos los puntos" },
   "st.rFil365":       { fr: "1 an", en: "1 year", it: "1 anno", nl: "1 jaar", es: "1 año" },
   "st.rSecOverview":  { fr: "Aperçu", en: "Overview", it: "Panoramica", nl: "Overzicht", es: "Resumen" },
@@ -2089,10 +2108,18 @@ const DIZIONARIO: Dizionario = {
   "gg.pickTitle":     { fr: "Choisis la fiche du restaurant", en: "Choose the restaurant\u2019s profile", it: "Scegli la scheda del ristorante", nl: "Kies de vermelding van het restaurant", es: "Elige la ficha del restaurante" },
   "gg.pickHint":      { fr: "Ton compte Google g\u00e8re plusieurs fiches. S\u00e9lectionne celle de ce restaurant.", en: "Your Google account manages several profiles. Select the one for this restaurant.", it: "Il tuo account Google gestisce pi\u00f9 schede. Seleziona quella di questo ristorante.", nl: "Je Google-account beheert meerdere vermeldingen. Selecteer die van dit restaurant.", es: "Tu cuenta de Google gestiona varias fichas. Selecciona la de este restaurante." },
   "gg.pickChoose":    { fr: "Utiliser cette fiche", en: "Use this profile", it: "Usa questa scheda", nl: "Deze vermelding gebruiken", es: "Usar esta ficha" },
+  // La scelta della scheda e' passata nel modale della sede (15/09/2026):
+  // quello che appartiene a un punto si modifica nella sua scheda.
+  "gg.pickInSede":    { fr: "La fiche de chaque \u00e9tablissement se choisit dans sa fiche (onglet \u00c9tablissements).", en: "Each location\u2019s profile is chosen in its own card (Locations tab).", it: "La scheda di ogni sede si sceglie nella sua scheda (tab Sedi).", nl: "De vermelding van elke vestiging kies je in haar eigen kaart (tabblad Vestigingen).", es: "La ficha de cada establecimiento se elige en su propia ficha (pesta\u00f1a Establecimientos)." },
+  "gg.inSedeNew":     { fr: "Enregistre d\u2019abord l\u2019\u00e9tablissement, puis choisis sa fiche Google.", en: "Save the location first, then choose its Google profile.", it: "Salva prima la sede, poi scegli la sua scheda Google.", nl: "Sla eerst de vestiging op en kies daarna de Google-vermelding.", es: "Guarda primero el establecimiento y luego elige su ficha de Google." },
+  "gg.notLinked":     { fr: "Google n\u2019est pas connect\u00e9 : fais-le dans Int\u00e9grations.", en: "Google is not connected: do it in Integrations.", it: "Google non \u00e8 collegato: fallo in Integrazioni.", nl: "Google is niet verbonden: doe dat in Integraties.", es: "Google no est\u00e1 conectado: hazlo en Integraciones." },
+  "gg.noneYet":       { fr: "Aucune fiche choisie pour cet \u00e9tablissement.", en: "No profile chosen for this location.", it: "Nessuna scheda scelta per questa sede.", nl: "Nog geen vermelding gekozen voor deze vestiging.", es: "Ninguna ficha elegida para este establecimiento." },
+  "gg.saved":         { fr: "Fiche Google enregistr\u00e9e", en: "Google profile saved", it: "Scheda Google salvata", nl: "Google-vermelding opgeslagen", es: "Ficha de Google guardada" },
   "gg.pickCurrent":   { fr: "Fiche actuelle", en: "Current profile", it: "Scheda attuale", nl: "Huidige vermelding", es: "Ficha actual" },
   "gg.pickEmpty":     { fr: "Aucune fiche trouv\u00e9e pour ce compte Google.", en: "No profile found for this Google account.", it: "Nessuna scheda trovata per questo account Google.", nl: "Geen vermelding gevonden voor dit Google-account.", es: "No se encontr\u00f3 ninguna ficha para esta cuenta de Google." },
   "gg.pickErr":       { fr: "R\u00e9ponse de Google\u00a0:", en: "Google responded:", it: "Google ha risposto:", nl: "Google antwoordde:", es: "Google respondi\u00f3:" },
   "gg.reviewErr":     { fr: "Avis indisponibles \u2014 Google\u00a0:", en: "Reviews unavailable \u2014 Google:", it: "Recensioni non disponibili \u2014 Google:", nl: "Reviews niet beschikbaar \u2014 Google:", es: "Rese\u00f1as no disponibles \u2014 Google:" },
+  "gg.ficheErr":  { fr: "Google refuse la fiche de cet établissement :", en: "Google is refusing this location’s listing:", it: "Google rifiuta la scheda di questa sede:", nl: "Google weigert de vermelding van deze vestiging:", es: "Google rechaza la ficha de este establecimiento:" },
   "gg.notReadyTitle": { fr: "Avis Google bient\u00f4t disponibles", en: "Google reviews coming soon", it: "Recensioni Google in arrivo", nl: "Google-reviews binnenkort beschikbaar", es: "Rese\u00f1as de Google pr\u00f3ximamente" },
   "gg.notReadyHint":  { fr: "La fiche Google est en cours de configuration par MOODD. Reviens bient\u00f4t.", en: "Your Google profile is being set up by MOODD. Check back soon.", it: "La scheda Google \u00e8 in fase di configurazione da parte di MOODD. Torna a breve.", nl: "Je Google-vermelding wordt door MOODD ingesteld. Kom binnenkort terug.", es: "MOODD est\u00e1 configurando tu ficha de Google. Vuelve pronto." },
 };
