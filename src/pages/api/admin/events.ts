@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggiConfig } from "../../../lib/admin/sede";
 import { codicePaese } from "../../../lib/festivitaRegole";
 
 export const prerender = false;
@@ -51,13 +52,17 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     // Il paese viaggia con gli eventi perche' serve alla STESSA tile: e' lui
     // a decidere quali feste e ricorrenze mostrare. Un fetch invece di due.
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", [CHIAVE, "company_country"]);
-    const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
-    const events = pulisci(JSON.parse(m.get(CHIAVE) || "[]")) ?? [];
-    return json({ events, paese: codicePaese(m.get("company_country") ?? "") });
+    //
+    // ⚠️ `leggiConfig(ambito, ...)`, non una lettura diretta di `app_config`.
+    // Reglages → General SCRIVE con `scriviConfig(ambito, ...)`: con le sedi
+    // attive il paese finisce in `location_config` della sede, e chi legge
+    // `app_config` a mano non lo trova mai. Per un cliente a sede unica le
+    // due strade danno lo stesso risultato, quindi il difetto si vedeva solo
+    // dove c'erano piu' sedi — cioe' dove costa di piu'.
+    const ambito = await ambitoDiRichiesta(request, staff);
+    const cfg = await leggiConfig(ambito, [CHIAVE, "company_country"]);
+    const events = pulisci(JSON.parse(cfg.valori.get(CHIAVE) || "[]")) ?? [];
+    return json({ events, paese: codicePaese(cfg.valori.get("company_country") ?? "") });
   } catch {
     return json({ events: [], paese: "" });
   }
