@@ -345,7 +345,10 @@ const t = adminT(lang);
       .fi-day-sw { display: inline-flex; align-items: center; gap: .5rem; font-size: .82rem; color: var(--c-muted); cursor: pointer; }
       .fi-ranges { display: flex; flex-direction: column; gap: .4rem; flex: 1; min-width: 200px; }
       .fi-range { display: flex; align-items: center; gap: .4rem; }
-      .fi-range input[type=time], .fi-sp input[type=time], .fi-sp input[type=date] { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 6px; padding: .4rem .55rem; font-size: .85rem; font-family: var(--font-body); }
+      /* .fi-sp-date e' un input[type=text]: il datepicker brandizzato ha
+         sostituito il campo data nativo, e il vecchio selettore
+         input[type=date] non lo prende piu'. */
+      .fi-range input[type=time], .fi-sp input[type=time], .fi-sp .fi-sp-date { background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); border-radius: 6px; padding: .4rem .55rem; font-size: .85rem; font-family: var(--font-body); }
       .fi-r-del, .fi-sp-del { background: none; border: none; color: var(--c-muted); cursor: pointer; font-size: 1.15rem; line-height: 1; }
       .fi-r-del:hover, .fi-sp-del:hover { color: #ff8a8f; }
       .fi-r-add { background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 999px; padding: .25rem .8rem; font-size: .78rem; cursor: pointer; align-self: flex-start; }
@@ -1298,7 +1301,7 @@ const t = adminT(lang);
           function renderSpecial() {
             if (!specialEl) return;
             specialEl.innerHTML = fiSpecial.map((sp, i) => {
-              const head = `<div class="fi-sp-head"><input type="text" class="f-input fi-sp-date f-date" readonly data-i="${i}" data-iso="${esc(sp.date)}" value="${esc(dp.fmt(sp.date))}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
+              const head = `<div class="fi-sp-head"><input type="text" class="fi-sp-date f-date" readonly data-i="${i}" data-iso="${esc(sp.date)}" value="${esc(dp.fmt(sp.date))}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
               if (sp.closed) return `<div class="fi-sp">${head}</div>`;
               const ranges = sp.ranges.map((r, ri) => `<div class="fi-range"><input type="time" class="fi-spr-a" data-i="${i}" data-ri="${ri}" value="${esc(r.a)}" /><span>\u2013</span><input type="time" class="fi-spr-b" data-i="${i}" data-ri="${ri}" value="${esc(r.b)}" /><button type="button" class="fi-r-del fi-spr-del" data-i="${i}" data-ri="${ri}">\u00d7</button></div>`).join("") + `<button type="button" class="fi-r-add fi-spr-add" data-i="${i}">+ ${tr("gg.ficheAddRange")}</button>`;
               return `<div class="fi-sp">${head}<div class="fi-ranges">${ranges}</div></div>`;
