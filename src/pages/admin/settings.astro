@@ -12,6 +12,7 @@ import Modal from "../../components/admin/Modal.astro";
 import { LINGUE_WIDGET as LINGUE_ELENCO } from "../../lib/reservationI18n";
 // Elenco fusi orari: uno solo per tutto l'admin (lo usa anche la scheda sede).
 import { opzioniFuso } from "../../lib/fusi";
+import { opzioniPaese } from "../../lib/prefissi";
 
 // Tab "Liens": social + recensioni Google (icone piatte, currentColor)
 const LNK = [
@@ -1007,8 +1008,8 @@ const t = adminT(lang);
               <input type="text" id="g-city" placeholder="Bruxelles" />
             </div>
             <div class="field">
-              <label for="g-country">{t("set.gen.country")}</label>
-              <input type="text" id="g-country" placeholder={t("set.gen.countryPh")} />
+              <label for="g-country">{t("set.gen.country")}<span class="lab-hint">{t("set.gen.countryHint")}</span></label>
+              <select id="g-country" class="tz-select" set:html={opzioniPaese("", lang, t("set.gen.countryNone"))}></select>
             </div>
             <div class="field">
               <label for="g-tz">{t("set.gen.timezone")}<span class="lab-hint">{t("set.gen.timezoneHint")}</span></label>
@@ -1636,6 +1637,7 @@ const t = adminT(lang);
       import { isSuperUser } from "../../lib/admin/superAdmin";
       import { SERVIZI_WIDGET, nomeServizio, TESTI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../../lib/reservationI18n";
       import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { codicePaese } from "../../lib/festivitaRegole";
       import { generaIconaPWA, PWA_ICONA_LATO } from "../../lib/admin/imageCompress";
       import { generaAnteprimaPdf } from "../../lib/admin/pdfThumb";
       import { CLIENT as CLIENTE_CFG } from "../../config/client";
@@ -3795,6 +3797,13 @@ const t = adminT(lang);
         gEls.forEach((el, k) => {
           el.value = dati.general?.[k] ?? "";
         });
+        // Il campo «Paese» era libero: dentro ci possono essere «Belgique»,
+        // «Belgium», «België»… Su un <select> un valore che non e' fra le
+        // opzioni NON da' errore: lascia la tendina sulla prima voce, e al
+        // primo salvataggio scriverebbe QUEL paese. Da qui si passa sempre
+        // per codicePaese(), che rende "" quando non riconosce.
+        const gPaese = gEls.get("company_country");
+        if (gPaese) gPaese.value = codicePaese(String(dati.general?.company_country ?? ""));
         const nfPubEmail = document.getElementById("nf-pubemail") as HTMLInputElement | null;
         if (nfPubEmail) nfPubEmail.value = dati.general?.public_email ?? "";
         for (const k of BRAND_CHIAVI) brandVal[k] = String(dati.general?.[k] ?? "");

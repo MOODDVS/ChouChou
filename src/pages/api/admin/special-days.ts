@@ -1,7 +1,9 @@
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { ambitoDiRichiesta, leggi, inserisci, cancella } from "../../../lib/admin/sede";
+import { ambitoDiRichiesta, leggi, leggiConfig, inserisci, cancella } from "../../../lib/admin/sede";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { codicePaese, prossimeFestivita } from "../../../lib/festivitaRegole";
 import { TIMEZONE } from "../../../lib/slots";
 
 export const prerender = false;
@@ -62,7 +64,23 @@ export const GET: APIRoute = async ({ request }) => {
   }
 
   if (error) return json({ error: "Lecture impossible" }, 500);
-  return json({ days: data ?? [] });
+
+  // Festivita' del paese configurato: PROMEMORIA, non orari. Non sono righe
+  // di `special_days` e non chiudono niente — una pizzeria lavora il 1° maggio.
+  // Viaggiano con i giorni speciali perche' la tile della home li disegna
+  // insieme, in ordine di data; se qualcosa qui sotto va storto la home deve
+  // continuare a mostrare i giorni speciali, che sono il dato vero.
+  let feste: { data: string; nome: string }[] = [];
+  try {
+    const cfg = await leggiConfig(ambito, ["company_country"]);
+    const paese = codicePaese(cfg.valori.get("company_country") ?? "");
+    const lang = await adminLang();
+    feste = prossimeFestivita(paese, oggiISO(), 4).map((f) => ({ data: f.data, nome: f.nome[lang] ?? f.nome.fr }));
+  } catch {
+    feste = [];
+  }
+
+  return json({ days: data ?? [], festivita: feste });
 };
 
 // POST /api/admin/special-days — crea un giorno speciale

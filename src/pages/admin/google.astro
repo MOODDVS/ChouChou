@@ -383,12 +383,12 @@ const t = adminT(lang);
         .fi-sec[data-sec="orari"] { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; align-items: start; }
         .fi-sec[data-sec="orari"] .fi-block { margin: 0; }
       }
-      .switch { position: relative; width: 38px; height: 21px; flex-shrink: 0; display: inline-block; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track { position: absolute; inset: 0; cursor: pointer; border-radius: 999px; background: var(--c-line); transition: background 0.2s; }
-      .switch .track::before { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; left: 3px; top: 3px; background: var(--c-muted); transition: transform 0.2s, background 0.2s; }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translateX(17px); background: var(--c-bg); }
+      /* Lo switch NON si ridefinisce qui: vale `styles/switch.css`, caricato da
+         AdminHead. La copia locale che stava qui dipingeva lo spento con
+         --c-line (un token di BORDO) e centrava la pallina con un top fisso:
+         su un tema chiaro di bordi lo spento diventava una pastiglia pallida
+         e la pallina sembrava storta. Misura: la si regola con --sw-*. */
+      .switch { --sw-w: 38px; --sw-h: 21px; --sw-k: 15px; }
 
       /* ===== Tab DATA (statistiche) ===== */
       /* auto-FIT, non auto-fill: i KPI sono da 5 a 8 (tre compaiono solo se il
@@ -1298,7 +1298,7 @@ const t = adminT(lang);
           function renderSpecial() {
             if (!specialEl) return;
             specialEl.innerHTML = fiSpecial.map((sp, i) => {
-              const head = `<div class="fi-sp-head"><input type="text" class="fi-sp-date f-date" readonly data-i="${i}" data-iso="${esc(sp.date)}" value="${esc(dp.fmt(sp.date))}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
+              const head = `<div class="fi-sp-head"><input type="text" class="f-input fi-sp-date f-date" readonly data-i="${i}" data-iso="${esc(sp.date)}" value="${esc(dp.fmt(sp.date))}" /><label class="fi-day-sw"><span class="switch"><input type="checkbox" class="fi-sp-open" data-i="${i}" ${sp.closed ? "" : "checked"} /><span class="track"></span></span>${sp.closed ? tr("gg.ficheClosed") : tr("gg.ficheOpen")}</label><button type="button" class="fi-sp-del" data-i="${i}">\u00d7</button></div>`;
               if (sp.closed) return `<div class="fi-sp">${head}</div>`;
               const ranges = sp.ranges.map((r, ri) => `<div class="fi-range"><input type="time" class="fi-spr-a" data-i="${i}" data-ri="${ri}" value="${esc(r.a)}" /><span>\u2013</span><input type="time" class="fi-spr-b" data-i="${i}" data-ri="${ri}" value="${esc(r.b)}" /><button type="button" class="fi-r-del fi-spr-del" data-i="${i}" data-ri="${ri}">\u00d7</button></div>`).join("") + `<button type="button" class="fi-r-add fi-spr-add" data-i="${i}">+ ${tr("gg.ficheAddRange")}</button>`;
               return `<div class="fi-sp">${head}<div class="fi-ranges">${ranges}</div></div>`;

@@ -215,6 +215,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
       .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
       .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
+      .spx-b.fest { background: rgba(214, 158, 46, 0.18); color: #e8b964; }
       /* Grigia: il piatto e' fuori dal sito. Rossa (.closed) = esaurito ma
          ancora a menu — stessa famiglia di pastiglie dei giorni speciali. */
       .spx-b.hid { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
@@ -1259,24 +1260,39 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
           if (!wrap) return;
           type SpxDay = { type: string; date_from: string; date_to: string; note?: string | null };
+          type SpxFesta = { data: string; nome: string };
           const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
           const escSpx = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
           const MAX = 4;
 
+          // Le festivita' arrivano con lo stesso GET dei giorni speciali e
+          // restano qui: `spf:loaded` porta solo i giorni, e senza questa
+          // variabile sparirebbero al primo aggiungi/cancella del form.
+          let feste: SpxFesta[] = [];
+
           function renderSpx(days: SpxDay[]): void {
             if (!wrap) return;
-            if (!days.length) {
+            if (!days.length && !feste.length) {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
               return;
             }
+            // Prima i giorni speciali, poi le feste. NON mescolati per data:
+            // un giorno speciale e' una decisione presa (chiudo, apro, orario
+            // ridotto), una festa e' solo un promemoria — e quattro feste
+            // vicine non devono poter nascondere la chiusura di agosto.
+            const righeDays = days.map((sp) => {
+              const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
+              const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
+              const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
+              return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
+            });
+            const righeFeste = feste.map(
+              (f) => `<div class="spx-row"><span class="spx-b fest">${tr("home.tagHoliday")}</span><span class="spx-date">${fd(f.data)}</span><span class="spx-note">${escSpx(f.nome)}</span></div>`,
+            );
+            const tutte = [...righeDays, ...righeFeste];
             wrap.innerHTML =
-              days.slice(0, MAX).map((sp) => {
-                const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
-                const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
-                const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
-                return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
-              }).join("") +
-              (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} ${tr("home.more")}…</div>` : "");
+              tutte.slice(0, MAX).join("") +
+              (tutte.length > MAX ? `<div class="spx-more">+ ${tutte.length - MAX} ${tr("home.more")}…</div>` : "");
           }
 
           document.addEventListener("spf:loaded", (e) => {
@@ -1288,7 +1304,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             try {
               const res = await fetch("/api/admin/special-days", { headers });
               if (!res.ok) throw new Error();
-              renderSpx((((await res.json()) as { days: SpxDay[] }).days) ?? []);
+              const j = (await res.json()) as { days: SpxDay[]; festivita?: SpxFesta[] };
+              feste = j.festivita ?? [];
+              renderSpx(j.days ?? []);
             } catch {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
             }
