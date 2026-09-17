@@ -2,6 +2,19 @@
 
 Tutte idempotenti (`create table if not exists`, `add column if not exists`,
 `on conflict do nothing`): rilanciarle non fa danni. SQL Editor di Supabase.
+
+## Cliente nuovo, o dubbio su cosa è stato lanciato → `TUTTO.sql`
+
+`supabase/TUTTO.sql` è **tutte le migrazioni in un file solo**, nell'ordine di
+questa tabella: si incolla nell'SQL Editor e si esegue. Vale sia per un
+Supabase appena creato, sia per «non ricordo se avevo lanciato la #57» —
+essendo idempotenti, quelle già applicate non fanno niente.
+
+⚠️ **È generato, non si modifica a mano.** Quando aggiungi una migrazione:
+crea il `.sql`, aggiungi la riga qui sotto, poi `node scripts/genera-tutto.mjs`.
+`tests/migrazioni.test.mjs` lo ricalcola e lo confronta, quindi se te ne
+dimentichi il test diventa rosso — prima che un cliente nuovo si prenda uno
+schema a metà, che è un guasto che si manifesta settimane dopo.
 NB: se l'insert su `storage.buckets` è bloccato dal SQL Editor, crea i bucket
 dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `documents`.
 

@@ -12,7 +12,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrazioni": "node scripts/genera-tutto.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^11.1.5",
