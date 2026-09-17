@@ -968,6 +968,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         async function renderEventi(): Promise<void> {
           const box = document.getElementById("spx-evts") as HTMLElement | null;
           if (!box) return;
+
           // Feste legali PRIMA, ricorrenze dopo: se cadono lo stesso giorno
           // (in Germania la festa del papa' E' l'Ascensione) vince la festa
           // legale e la riga resta una sola.
@@ -1017,6 +1018,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           } catch { /* niente tag */ }
 
           const escEv = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          // Senza paese non ci sono feste — restano solo gli eventi del locale.
+          // Se non c'e' nemmeno quelli la tile resterebbe muta e sembrerebbe
+          // rotta invece che da configurare, quindi lo si dice.
+          if (!futuri.length) {
+            box.innerHTML = paeseEventi ? "" : `<div class="spx-empty">${tr("home.noCountry")}</div>`;
+            return;
+          }
           box.innerHTML = futuri
             .map(([d, nome, loc]) => {
               const dt = new Date(d + "T12:00:00");

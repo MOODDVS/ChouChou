@@ -656,6 +656,7 @@ const DIZIONARIO: Dizionario = {
   "home.open":        { fr: "Ouverte", en: "Open", it: "Aperta", nl: "Open", es: "Abierta" },
   "home.allVisible":  { fr: "Aucun — tout est visible", en: "None — everything is visible", it: "Nessuno — tutto è visibile", nl: "Geen — alles is zichtbaar", es: "Ninguno — todo es visible" },
   "home.noSpecialDays": { fr: "Aucun jour spécial à venir", en: "No upcoming special days", it: "Nessun giorno speciale in arrivo", nl: "Geen speciale dagen op komst", es: "Sin días especiales próximos" },
+  "home.noCountry":   { fr: "Choisis le pays dans Réglages → Général pour voir les jours fériés", en: "Pick the country in Settings → General to see public holidays", it: "Scegli il paese in Impostazioni → Generale per vedere le festività", nl: "Kies het land in Instellingen → Algemeen om de feestdagen te zien", es: "Elige el país en Ajustes → General para ver los festivos" },
   "home.photos":      { fr: "Photos", en: "Photos", it: "Foto", nl: "Foto's", es: "Fotos" },
 
   // Note (modale + anteprima)
