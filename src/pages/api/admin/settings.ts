@@ -61,7 +61,17 @@ const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
  * peggio di nessuna mappa, perche' si legge invece di andare a guardare.
  * L'elenco qui sopra ora e' verificato da un test contro `CLASSIFICA`.
  */
-const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp", "google_review"];
+// ⚠️ `google_review` NON sta piu' qui (17/09). I link sono del MARCHIO — un
+// gruppo ha un sito, un Instagram, un Facebook — ma il link «lascia una
+// recensione» e' di UNA SCHEDA GOOGLE, e tre societa' hanno tre schede. Con
+// un link solo, il cliente che ha cenato a Schaerbeek lasciava la recensione
+// a Stockel: la recensione arrivava davvero, solo al posto sbagliato, e
+// nessuno se ne accorgeva guardando l'admin.
+// Adesso e' un campo di Général, che si scrive sulla sede selezionata in alto.
+// La chiave resta `link_google_review`: nessuna migrazione, e per un cliente
+// a sede unica il valore di prima continua a valere (il livello marchio e' il
+// ripiego quando la sede non ha il suo).
+const CHIAVI_LINK = ["facebook", "instagram", "youtube", "tiktok", "linkedin", "x", "foursquare", "tripadvisor", "thefork", "yelp"];
 
 // Informazioni del tab "Général" (salvate in app_config con la loro chiave)
 const CHIAVI_GENERAL = [

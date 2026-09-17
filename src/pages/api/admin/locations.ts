@@ -244,12 +244,17 @@ export const GET: APIRoute = async ({ request }) => {
   // valore rimasto a livello di marchio.
   const placeIds: Record<string, string> = {};
   const google: Record<string, string> = {};
+  const reviewUrls: Record<string, string> = {};
   const propri: Record<string, string[]> = {};
   try {
     for (const r of (data ?? []) as { id: string }[]) {
-      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title"]);
+      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title", "link_google_review"]);
       const v = (c.valori.get("google_place_id") ?? "").trim();
       if (v) placeIds[r.id] = v;
+      // Il link «lascia una recensione» e' di una SCHEDA, e le schede sono
+      // tre: con un link solo chi ha cenato a Schaerbeek recensisce Stockel.
+      const rv = (c.valori.get("link_google_review") ?? "").trim();
+      if (rv) reviewUrls[r.id] = rv;
       const g = (c.valori.get("google_location_title") ?? "").trim();
       if (g) google[r.id] = g;
       propri[r.id] = [...c.sovrascritte];
@@ -288,7 +293,7 @@ export const GET: APIRoute = async ({ request }) => {
   for (const k of CHIAVI_SEGRETE) ambiente[k] = segretoDAmbiente(k) !== "";
 
   return json({
-    locations: data ?? [], secrets: impostati, placeIds, google, propri, storico,
+    locations: data ?? [], secrets: impostati, placeIds, reviewUrls, google, propri, storico,
     cifratura: cifraturaPronta(), ambiente,
   });
 };
@@ -384,6 +389,21 @@ export const PATCH: APIRoute = async ({ request }) => {
   // ---- Place ID di Google (livello 1, sola lettura) ----
   // Identifica UN'ATTIVITA' FISICA: tre pizzerie, tre Place ID. Sta qui e
   // non piu' in Integrazioni perche' e' un dato del PUNTO, come l'indirizzo.
+  // Link «lascia una recensione»: e' l'indirizzo pubblico della stessa scheda
+  // Google del Place ID qui sopra, e sta accanto a lui per quello. La chiave
+  // resta `link_google_review`, la stessa che l'email di recensione legge con
+  // l'ambito della RIGA: nessuna migrazione, e per un cliente a sede unica il
+  // valore di marchio continua a fare da ripiego.
+  if (body.review_url !== undefined) {
+    const url = String(body.review_url).trim().slice(0, 500);
+    if (url && !/^https:\/\//.test(url)) {
+      return json({ error: "Lien invalide : il doit commencer par https://" }, 400);
+    }
+    const err = await scriviConfig(ambitoDiRiga(id), { link_google_review: url });
+    if (err) return json({ error: await msg(erroreDb("review", { message: err })) }, 500);
+    return json({ ok: true });
+  }
+
   if (body.place_id !== undefined) {
     const placeId = String(body.place_id).trim().slice(0, 200);
     if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {

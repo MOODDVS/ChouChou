@@ -39,7 +39,7 @@ const supI18n = {
     secretSet: t("loc.secretSet"), secretNone: t("loc.secretNone"),
     secretPh: t("loc.secretPh"), secretSetPh: t("loc.secretSetPh"),
     cifraKo: t("loc.cifraKo"),
-    stDaEnv: t("loc.st.daEnv"), stManca: t("loc.st.manca"),
+    stDaEnv: t("loc.st.daEnv"), stManca: t("loc.st.manca"), reviewShort: t("loc.reviewShort"),
     stNonColl: t("loc.st.nonColl"), stConf: t("loc.st.conf"),
     stDaMarchio: t("loc.st.daMarchio"),
     stPlace: t("loc.placeId"),
@@ -964,6 +964,12 @@ const prI18n = {
         </div>
       </div>
       <p class="f-note" id="loc-place-res">{t("loc.placeIdHint")}</p>
+
+      <div class="f-field">
+        <label class="f-label" for="loc-greview">{t("loc.reviewUrl")}</label>
+        <input type="url" id="loc-greview" placeholder="https://g.page/r/.../review" autocomplete="off" />
+      </div>
+      <p class="f-note">{t("loc.reviewUrlHint")}</p>
 
       <div class="f-field">
         <span class="f-label">{t("gg.pickTitle")}</span>
@@ -2049,6 +2055,7 @@ const prI18n = {
         let segreti: Record<string, Record<string, boolean>> = {};
         // Place ID per sede: non e' un segreto, si rilegge e si mostra.
         let placeIds: Record<string, string> = {};
+        let reviewUrls: Record<string, string> = {};
         // Titolo della scheda Google collegata a ogni sede, e se il .env ha
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
@@ -2127,6 +2134,7 @@ const prI18n = {
                 ${riga("Webhook", ...statoSegreto(s.id, "stripe_webhook_secret"))}
                 ${riga("Google Business", ...statoGoogle(s.id, "google_location_title", schedeGoogle[s.id] ?? "", String(L.stNonColl ?? "")))}
                 ${riga("Place ID", ...statoGoogle(s.id, "google_place_id", placeIds[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
+                ${riga(L.reviewShort ?? "", ...statoGoogle(s.id, "link_google_review", reviewUrls[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
               </ul>
               <div class="loc-actions">
                 <span class="sw-wrap">
@@ -2174,6 +2182,7 @@ const prI18n = {
             const av = document.getElementById("loc-cifra") as HTMLElement | null;
             if (av) av.hidden = j.cifratura !== false;
             placeIds = j.placeIds ?? {};
+            reviewUrls = j.reviewUrls ?? {};
             schedeGoogle = j.google ?? {};
             ripiego = j.ambiente ?? {};
             propri = j.propri ?? {};
@@ -2226,6 +2235,7 @@ const prI18n = {
           segna(campo("loc-stripe"), cStripe, String(L.secretPh ?? ""));
           segna(campo("loc-hook"), cHook, "whsec_…");
           campo("loc-place").value = s ? (placeIds[s.id] ?? "") : "";
+          campo("loc-greview").value = s ? (reviewUrls[s.id] ?? "") : "";
           (document.getElementById("loc-place-res") as HTMLElement).textContent = L.placeHint ?? "";
           void gSedeStato();
           locOverlay.hidden = false;
@@ -2437,6 +2447,12 @@ const prI18n = {
             await fetch("/api/admin/locations", {
               method: "PATCH", headers,
               body: JSON.stringify({ id, place_id: campo("loc-place").value.trim() }),
+            });
+            // Il link recensioni si manda SEMPRE, anche vuoto: vuoto vuol dire
+            // «toglilo». I segreti no — la' vuoto vuol dire «non cambiare».
+            await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({ id, review_url: campo("loc-greview").value.trim() }),
             });
             for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
               const v = campo(idCampo).value.trim();

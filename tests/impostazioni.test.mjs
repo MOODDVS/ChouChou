@@ -287,3 +287,49 @@ test("chi usa il calendario condiviso legge la data, non il testo", () => {
     );
   }
 });
+
+// ============================================================
+// Il link «lascia una recensione» e' di una SCHEDA GOOGLE, non del marchio.
+// Tre societa' = tre schede = tre link. Con un link solo, chi ha cenato a
+// Schaerbeek lascia la recensione a Stockel: arriva davvero, al posto
+// sbagliato, e dall'admin non si capisce perche'. Per questo sta in Général
+// (che si salva sulla sede scelta in alto) e NON nei Liens, che il GET legge
+// apposta dal livello del marchio.
+// ============================================================
+test("il link recensioni Google sta in Général, non nei Liens", () => {
+  const lista = API.match(/const CHIAVI_LINK = \[([^\]]*)\]/);
+  assert.ok(lista, "CHIAVI_LINK non e' piu' riconoscibile in settings.ts");
+  assert.ok(
+    !lista[1].includes("google_review"),
+    "google_review e' tornato fra i link: quelli si leggono dal marchio, e il link della scheda Google e' di UNA sede",
+  );
+
+  // Si scrive dalla scheda della sede in /admin/super, accanto al Place ID:
+  // e' l'indirizzo pubblico della stessa scheda Google, ed e' configurazione
+  // che si mette una volta, non un campo del ristoratore.
+  const sup = readFileSync("src/pages/admin/super.astro", "utf8");
+  assert.ok(sup.includes('id="loc-greview"'), "manca il campo nella modale della sede");
+  assert.ok(sup.includes("review_url:"), "il campo non viene salvato: resterebbe sempre vuoto");
+
+  const api = readFileSync("src/pages/api/admin/locations.ts", "utf8");
+  assert.ok(
+    /body\.review_url !== undefined[\s\S]{0,400}link_google_review/.test(api),
+    "la PATCH non scrive `link_google_review`: e' la chiave che l'email di recensione legge",
+  );
+  assert.ok(
+    /scriviConfig\(ambitoDiRiga\(id\), \{ link_google_review/.test(api),
+    "il link va scritto sulla SEDE della riga, non a livello di marchio",
+  );
+});
+
+test("chi legge il link recensioni puo' dire di quale sede", () => {
+  const links = readFileSync("src/lib/links.ts", "utf8");
+  assert.ok(
+    /export async function linkGoogleReview\(ambito\?: Ambito\)/.test(links),
+    "linkGoogleReview deve accettare un ambito: senza, un gruppo manda tutti sulla stessa scheda",
+  );
+  assert.ok(
+    !/from\("app_config"\)[\s\S]{0,200}link_google_review/.test(links),
+    "linkGoogleReview legge app_config a mano: scavalca lo strato delle sedi",
+  );
+});

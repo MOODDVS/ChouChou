@@ -163,7 +163,30 @@ const nonce = Astro.locals.cspNonce;
         color: var(--c-text); font-family: var(--font-body); font-size: 1rem; padding: .8rem .9rem;
         margin-bottom: 1.1rem; transition: border-color .15s, background .15s;
       }
-      input:focus { outline: none; border-color: var(--c-accent); background: var(--c-card); }
+      /* Al focus cambia SOLO il bordo. Qui c'era `background: var(--c-card)`,
+         che e' il fondo scuro delle schede: su un campo chiaro con testo
+         scuro (--c-input #f1f1f1 / --c-text #333) rendeva illeggibile quello
+         che stavi scrivendo, e proprio nel campo su cui avevi il cursore. */
+      input:focus {
+        outline: none;
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+      }
+      /* Riempimento automatico del browser: dipinge un suo fondo (lilla su
+         Chrome/Brave) e ignora il tema. Il box-shadow interno lo copre —
+         `background` non basta, il browser la scavalca. */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--c-text);
+        -webkit-box-shadow: 0 0 0 1000px var(--c-input) inset;
+        box-shadow: 0 0 0 1000px var(--c-input) inset;
+        caret-color: var(--c-text);
+      }
+      input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0 1000px var(--c-input) inset, 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+        box-shadow: 0 0 0 1000px var(--c-input) inset, 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+      }
       .pw-wrap { position: relative; margin-bottom: 1.1rem; }
       .pw-wrap input { margin-bottom: 0; padding-right: 2.7rem; }
       .pw-eye { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); background: none; border: none; padding: .3rem; cursor: pointer; color: var(--c-muted); display: flex; align-items: center; }

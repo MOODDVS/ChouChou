@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "./db";
 import { CLIENT } from "../config/client";
 import { cacheOr } from "./cache";
+import { appConfigEq } from "./appConfigCache";
+import type { Ambito } from "./admin/sede";
 
 /**
  * Link social e recensioni del ristorante, gestiti dall'admin
@@ -89,18 +91,27 @@ export async function linksSocial(): Promise<LinkSocial[]> {
   }
 }
 
-/** Link "Laisser un avis" della scheda Google Business ("" se non impostato). */
-export async function linkGoogleReview(): Promise<string> {
+/**
+ * Link "Laisser un avis" della scheda Google Business ("" se non impostato).
+ *
+ * ⚠️ E' DI UNA SCHEDA GOOGLE, QUINDI DI UNA SEDE. Tre societa' hanno tre
+ * schede: senza `ambito` si prende quello del marchio, e il cliente che ha
+ * cenato a Schaerbeek lascia la recensione a Stockel — arriva davvero, solo
+ * al posto sbagliato, e guardando l'admin non si capisce perche'.
+ *
+ * L'argomento e' FACOLTATIVO apposta: le pagine pubbliche dei clienti sono
+ * loro (merge=ours) e non si aggiornano da sole. Senza argomento fanno quello
+ * che facevano — il valore del marchio — che per un cliente a sede unica e'
+ * esattamente il valore giusto. Chi ha piu' sedi passa l'ambito.
+ */
+export async function linkGoogleReview(ambito?: Ambito): Promise<string> {
   try {
-    return await cacheOr("links:google_review", async () => {
-      const { data, error } = await supabaseAdmin
-        .from("app_config")
-        .select("value")
-        .eq("key", "link_google_review")
-        .maybeSingle();
-      if (error) throw error;
-      return String(data?.value ?? "").trim();
-    });
+    // Nessuna cache in piu' qui: `appConfigEq` ha gia' la sua, tenuta PER SEDE
+    // e svuotata a ogni salvataggio da `invalidaAppConfig()`. Un secondo
+    // strato con una chiave sua sopravviverebbe a quell'invalidazione e
+    // servirebbe il link vecchio dopo che il ristoratore l'ha corretto.
+    const { data } = await appConfigEq("link_google_review", ambito);
+    return String(data?.value ?? "").trim();
   } catch {
     return "";
   }
