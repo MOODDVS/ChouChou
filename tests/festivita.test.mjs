@@ -17,6 +17,7 @@ import {
   codicePaese,
   paeseHaFestivita,
   PAESI_CON_FESTIVITA,
+  ricorrenze,
 } from "../src/lib/festivitaRegole.ts";
 
 const LINGUE = ["fr", "en", "it", "nl", "es"];
@@ -157,4 +158,66 @@ test("quello che non si riconosce resta vuoto, non diventa un paese a caso", () 
   assert.equal(codicePaese("   "), "");
   assert.equal(codicePaese(undefined), "");
   assert.equal(codicePaese("Belgiqu"), "", "un refuso non deve indovinare");
+});
+
+// ---------- Ricorrenze commerciali ----------
+test("la festa del papa' non e' lo stesso giorno in tutta Europa", () => {
+  const papa = (p, a) => ricorrenze(p, a).find((f) => f.chiave === "papa")?.data;
+  // San Giuseppe, 19 marzo
+  assert.equal(papa("IT", 2026), "2026-03-19");
+  assert.equal(papa("ES", 2026), "2026-03-19");
+  assert.equal(papa("PT", 2026), "2026-03-19");
+  // Germania: Vatertag = Ascensione (Pasqua +39)
+  assert.equal(papa("DE", 2026), "2026-05-14");
+  // Francia e Paesi Bassi: 3a domenica di giugno · Belgio: 2a
+  assert.equal(papa("FR", 2026), "2026-06-21");
+  assert.equal(papa("NL", 2026), "2026-06-21");
+  assert.equal(papa("BE", 2026), "2026-06-14");
+  // Lussemburgo: 1a domenica di ottobre
+  assert.equal(papa("LU", 2026), "2026-10-04");
+});
+
+test("la festa della mamma segue la regola del paese", () => {
+  const mamma = (p, a) => ricorrenze(p, a).find((f) => f.chiave === "mamma")?.data;
+  assert.equal(mamma("BE", 2026), "2026-05-10", "2a domenica di maggio");
+  assert.equal(mamma("IT", 2026), "2026-05-10");
+  assert.equal(mamma("ES", 2026), "2026-05-03", "1a domenica di maggio");
+  assert.equal(mamma("LU", 2026), "2026-06-14", "2a domenica di giugno");
+  // Francia: ultima domenica di maggio = 31/05/2026
+  assert.equal(mamma("FR", 2026), "2026-05-31");
+});
+
+test("in Francia la festa della mamma scivola a giugno quando cade di Pentecoste", () => {
+  // Si cerca un anno in cui l'ultima domenica di maggio E' Pentecoste
+  // (Pasqua +49) e si verifica che la data slitti alla 1a di giugno.
+  const mamma = (a) => ricorrenze("FR", a).find((f) => f.chiave === "mamma")?.data;
+  let trovato = 0;
+  for (let a = 2024; a <= 2060; a++) {
+    const d = mamma(a);
+    if (d.startsWith(`${a}-06`)) { trovato++; assert.equal(d, ricorrenze("FR", a).find((f) => f.chiave === "mamma").data); }
+  }
+  assert.ok(trovato > 0, "in 37 anni la regola deve scattare almeno una volta");
+});
+
+test("San Nicola solo dove porta i regali", () => {
+  for (const p of ["BE", "NL", "LU"]) {
+    assert.ok(ricorrenze(p, 2026).some((f) => f.chiave === "sanNicola"), p);
+  }
+  for (const p of ["FR", "IT", "ES", "PT", "DE"]) {
+    assert.ok(!ricorrenze(p, 2026).some((f) => f.chiave === "sanNicola"), p);
+  }
+});
+
+test("le ricorrenze sono ordinate, con nome in cinque lingue, e [] se il paese non c'e'", () => {
+  for (const paese of PAESI_CON_FESTIVITA) {
+    const r = ricorrenze(paese, 2026);
+    assert.ok(r.length >= 7, paese);
+    const date = r.map((f) => f.data);
+    assert.deepEqual(date, [...date].sort(), `${paese} non ordinato`);
+    for (const f of r) for (const l of LINGUE) {
+      assert.ok(f.nome?.[l], `${paese}/${f.chiave}: manca ${l}`);
+    }
+  }
+  assert.deepEqual(ricorrenze("CH", 2026), []);
+  assert.deepEqual(ricorrenze("BE", NaN), []);
 });

@@ -215,7 +215,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .spx-b { flex: 0 0 auto; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.16rem 0.5rem; border-radius: 999px; font-weight: 800; }
       .spx-b.open { background: rgba(0, 113, 83, 0.3); color: #58c9a3; }
       .spx-b.closed { background: rgba(237, 28, 36, 0.18); color: #ff8a8f; }
-      .spx-b.fest { background: rgba(214, 158, 46, 0.18); color: #e8b964; }
       /* Grigia: il piatto e' fuori dal sito. Rossa (.closed) = esaurito ma
          ancora a menu — stessa famiglia di pastiglie dei giorni speciali. */
       .spx-b.hid { background: rgba(255, 255, 255, 0.09); color: var(--c-muted); }
@@ -560,6 +559,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { collegaLogout } from "../../lib/admin/logout";
       import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { festivita, ricorrenze } from "../../lib/festivitaRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -947,61 +947,39 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
         })();
 
-        // ---------- Événements du pays (calcolo locale, nessuna API) ----------
-        // Feste ufficiali belghe + date commerciali utili a un ristorante.
-        // Le feste mobili derivano dalla Pasqua (algoritmo di Gauss).
+        // ---------- Événements du pays ----------
+        // Feste legali + ricorrenze commerciali del PAESE scelto in Réglages →
+        // Général, piu' gli eventi del locale. Le date non si calcolano piu'
+        // qui: stavano scritte a mano e erano quelle belghe, quindi un cliente
+        // francese vedeva il 21 luglio e non il 14. Adesso vengono da
+        // `festivitaRegole.ts`, che e' puro e ha la sua rete di prove.
         let eventiLocali: { date: string; label: string; yearly: boolean }[] = [];
+        let paeseEventi = "";
         async function caricaEventiLocali(): Promise<void> {
           try {
             const res = await fetch("/api/admin/events", { headers });
-            if (res.ok) eventiLocali = (((await res.json()) as { events?: typeof eventiLocali }).events ?? []);
+            if (res.ok) {
+              const j = (await res.json()) as { events?: typeof eventiLocali; paese?: string };
+              eventiLocali = j.events ?? [];
+              paeseEventi = j.paese ?? "";
+            }
           } catch { /* niente eventi locali */ }
         }
         async function renderEventi(): Promise<void> {
           const box = document.getElementById("spx-evts") as HTMLElement | null;
           if (!box) return;
-          const pasqua = (anno: number): Date => {
-            const a = anno % 19, b = Math.floor(anno / 100), c = anno % 100;
-            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-            const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
-            const m = Math.floor((a + 11 * h + 22 * l) / 451);
-            const mese = Math.floor((h + l - 7 * m + 114) / 31);
-            const giorno = ((h + l - 7 * m + 114) % 31) + 1;
-            return new Date(anno, mese - 1, giorno);
-          };
-          const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          const somma = (d: Date, gg: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + gg);
-          const nDomenica = (anno: number, mese0: number, n: number): Date => {
-            const primo = new Date(anno, mese0, 1);
-            const off = (7 - primo.getDay()) % 7; // prima domenica
-            return new Date(anno, mese0, 1 + off + (n - 1) * 7);
-          };
+          // Feste legali PRIMA, ricorrenze dopo: se cadono lo stesso giorno
+          // (in Germania la festa del papa' E' l'Ascensione) vince la festa
+          // legale e la riga resta una sola.
           const eventiAnno = (anno: number): [string, string][] => {
-            const P = pasqua(anno);
-            const ev: [Date, string][] = [
-              [new Date(anno, 0, 1), tr("hol.newyear")],
-              [new Date(anno, 1, 14), tr("hol.valentine")],
-              [somma(P, -47), tr("hol.mardigras")],
-              [P, tr("hol.easter")],
-              [somma(P, 1), tr("hol.eastermon")],
-              [new Date(anno, 4, 1), tr("hol.labour")],
-              [nDomenica(anno, 4, 2), tr("hol.mothers")],
-              [somma(P, 39), tr("hol.ascension")],
-              [somma(P, 49), tr("hol.pentecost")],
-              [somma(P, 50), tr("hol.pentecostmon")],
-              [nDomenica(anno, 5, 2), tr("hol.fathers")],
-              [new Date(anno, 6, 21), tr("hol.belgiannat")],
-              [new Date(anno, 7, 15), tr("hol.assumption")],
-              [new Date(anno, 9, 31), tr("hol.halloween")],
-              [new Date(anno, 10, 1), tr("hol.toussaint")],
-              [new Date(anno, 10, 11), tr("hol.armistice")],
-              [new Date(anno, 11, 6), tr("hol.stnicolas")],
-              [new Date(anno, 11, 24), tr("hol.xmaseve")],
-              [new Date(anno, 11, 25), tr("hol.xmas")],
-              [new Date(anno, 11, 31), tr("hol.nyeve")],
-            ];
-            return ev.map(([d, n]) => [iso(d), n]);
+            const visti = new Set<string>();
+            const out: [string, string][] = [];
+            for (const f of [...festivita(paeseEventi, anno), ...ricorrenze(paeseEventi, anno)]) {
+              if (visti.has(f.data)) continue;
+              visti.add(f.data);
+              out.push([f.data, f.nome[LANG] ?? f.nome.fr]);
+            }
+            return out;
           };
           const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
           const anno = Number(oggiBx.slice(0, 4));
@@ -1260,39 +1238,29 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const wrap = document.getElementById("spx-list") as HTMLDivElement | null;
           if (!wrap) return;
           type SpxDay = { type: string; date_from: string; date_to: string; note?: string | null };
-          type SpxFesta = { data: string; nome: string };
           const fd = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
           const escSpx = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
           const MAX = 4;
 
-          // Le festivita' arrivano con lo stesso GET dei giorni speciali e
-          // restano qui: `spf:loaded` porta solo i giorni, e senza questa
-          // variabile sparirebbero al primo aggiungi/cancella del form.
-          let feste: SpxFesta[] = [];
-
           function renderSpx(days: SpxDay[]): void {
             if (!wrap) return;
-            if (!days.length && !feste.length) {
+            if (!days.length) {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
               return;
             }
-            // Prima i giorni speciali, poi le feste. NON mescolati per data:
-            // un giorno speciale e' una decisione presa (chiudo, apro, orario
-            // ridotto), una festa e' solo un promemoria — e quattro feste
-            // vicine non devono poter nascondere la chiusura di agosto.
-            const righeDays = days.map((sp) => {
+            // SOLO i giorni speciali del ristoratore. Le feste del calendario
+            // stanno gia' in «Prossimi eventi» qui sotto (eventiAnno), con la
+            // loro grafica: ripeterle qui era una doppia riga per lo stesso
+            // fatto, e rubava i posti alle chiusure vere.
+            const righe = days.map((sp) => {
               const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
               const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
               const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
               return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
             });
-            const righeFeste = feste.map(
-              (f) => `<div class="spx-row"><span class="spx-b fest">${tr("home.tagHoliday")}</span><span class="spx-date">${fd(f.data)}</span><span class="spx-note">${escSpx(f.nome)}</span></div>`,
-            );
-            const tutte = [...righeDays, ...righeFeste];
             wrap.innerHTML =
-              tutte.slice(0, MAX).join("") +
-              (tutte.length > MAX ? `<div class="spx-more">+ ${tutte.length - MAX} ${tr("home.more")}…</div>` : "");
+              righe.slice(0, MAX).join("") +
+              (righe.length > MAX ? `<div class="spx-more">+ ${righe.length - MAX} ${tr("home.more")}…</div>` : "");
           }
 
           document.addEventListener("spf:loaded", (e) => {
@@ -1304,9 +1272,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             try {
               const res = await fetch("/api/admin/special-days", { headers });
               if (!res.ok) throw new Error();
-              const j = (await res.json()) as { days: SpxDay[]; festivita?: SpxFesta[] };
-              feste = j.festivita ?? [];
-              renderSpx(j.days ?? []);
+              renderSpx((((await res.json()) as { days: SpxDay[] }).days) ?? []);
             } catch {
               wrap.innerHTML = `<div class="spx-empty">${tr("home.unavail")}</div>`;
             }

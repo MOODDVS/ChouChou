@@ -71,6 +71,17 @@ const NOMI: Record<string, NomiFesta> = {
   portugalPT:  { fr: "Jour du Portugal",       en: "Portugal Day",        it: "Festa del Portogallo", nl: "Dag van Portugal",   es: "Día de Portugal" },
   repubblicaPT:{ fr: "Implantation de la République", en: "Republic Day", it: "Proclamazione della Repubblica", nl: "Dag van de Republiek", es: "Implantación de la República" },
   restauracaoPT:{ fr: "Restauration de l'Indépendance", en: "Restoration of Independence", it: "Restaurazione dell'Indipendenza", nl: "Herstel van de Onafhankelijkheid", es: "Restauración de la Independencia" },
+
+  // Ricorrenze NON legali ma commerciali: per un ristorante San Valentino
+  // vale piu' dell'Armistizio, quindi stanno nello stesso calendario.
+  valentino:   { fr: "Saint-Valentin",          en: "Valentine's Day",     it: "San Valentino",        nl: "Valentijnsdag",      es: "San Valentín" },
+  martediGrasso:{ fr: "Mardi Gras",             en: "Mardi Gras",          it: "Martedì Grasso",       nl: "Vastenavond",        es: "Martes de Carnaval" },
+  mamma:       { fr: "Fête des Mères",          en: "Mother's Day",        it: "Festa della Mamma",    nl: "Moederdag",          es: "Día de la Madre" },
+  papa:        { fr: "Fête des Pères",          en: "Father's Day",        it: "Festa del Papà",       nl: "Vaderdag",           es: "Día del Padre" },
+  halloween:   { fr: "Halloween",               en: "Halloween",           it: "Halloween",            nl: "Halloween",          es: "Halloween" },
+  sanNicola:   { fr: "Saint-Nicolas",           en: "Saint Nicholas",      it: "San Nicola",           nl: "Sinterklaas",        es: "San Nicolás" },
+  vigiliaNatale:{ fr: "Réveillon de Noël",      en: "Christmas Eve",       it: "Vigilia di Natale",    nl: "Kerstavond",         es: "Nochebuena" },
+  sanSilvestro:{ fr: "Réveillon du Nouvel An",  en: "New Year's Eve",      it: "San Silvestro",        nl: "Oudjaar",            es: "Nochevieja" },
 };
 
 // ============================================================
@@ -297,4 +308,73 @@ export function codicePaese(grezzo: string): string {
     if (nomi.includes(s)) return code;
   }
   return "";
+}
+
+// ============================================================
+// RICORRENZE — non sono feste legali, ma per un ristorante contano di piu'.
+// Anche queste cambiano col paese, e non di poco: la festa del papa' e' il
+// 19 marzo in Italia, Spagna e Portogallo (San Giuseppe), la terza domenica
+// di giugno in Francia, l'Ascensione in Germania. Cablarle sul Belgio voleva
+// dire mandare l'avviso nel giorno sbagliato a chiunque non fosse belga.
+//
+// Fonti: mappr.co (festa del papa' per paese), fete-des-meres.info
+// (Lussemburgo), Wikipedia FR per la regola francese della festa della mamma.
+// ============================================================
+
+/** L'n-esima domenica del mese (mese 1-12, n a partire da 1). */
+function nDomenica(anno: number, mese: number, n: number): string {
+  const primo = new Date(Date.UTC(anno, mese - 1, 1));
+  const off = (7 - primo.getUTCDay()) % 7;
+  return iso(new Date(Date.UTC(anno, mese - 1, 1 + off + (n - 1) * 7)));
+}
+
+/** L'ultima domenica del mese. */
+function ultimaDomenica(anno: number, mese: number): string {
+  const ultimo = new Date(Date.UTC(anno, mese, 0));
+  return iso(new Date(Date.UTC(anno, mese - 1, ultimo.getUTCDate() - ultimo.getUTCDay())));
+}
+
+function festaDellaMamma(paese: string, anno: number): string {
+  if (paese === "FR") {
+    // Legge francese: ultima domenica di maggio, MA se cade di Pentecoste
+    // si sposta alla prima domenica di giugno.
+    const ultima = ultimaDomenica(anno, 5);
+    return ultima === piuGiorni(pasqua(anno), 49) ? nDomenica(anno, 6, 1) : ultima;
+  }
+  if (paese === "ES" || paese === "PT") return nDomenica(anno, 5, 1);
+  if (paese === "LU") return nDomenica(anno, 6, 2);
+  return nDomenica(anno, 5, 2); // BE, IT, DE, NL
+}
+
+function festaDelPapa(paese: string, anno: number): string {
+  if (paese === "IT" || paese === "ES" || paese === "PT") return iso(new Date(Date.UTC(anno, 2, 19)));
+  if (paese === "DE") return piuGiorni(pasqua(anno), 39); // Vatertag = Ascensione
+  if (paese === "LU") return nDomenica(anno, 10, 1);
+  if (paese === "FR" || paese === "NL") return nDomenica(anno, 6, 3);
+  return nDomenica(anno, 6, 2); // BE
+}
+
+/**
+ * Ricorrenze commerciali del paese, in ordine di data.
+ * Paese senza tabella delle festivita' → [], come `festivita()`.
+ */
+export function ricorrenze(paese: string, anno: number): Festa[] {
+  const p = (paese || "").toUpperCase();
+  if (!paeseHaFestivita(p) || !Number.isInteger(anno)) return [];
+  const dom = pasqua(anno);
+  const out: Festa[] = [
+    { data: iso(new Date(Date.UTC(anno, 1, 14))), chiave: "valentino", nome: NOMI.valentino },
+    { data: piuGiorni(dom, -47), chiave: "martediGrasso", nome: NOMI.martediGrasso },
+    { data: festaDellaMamma(p, anno), chiave: "mamma", nome: NOMI.mamma },
+    { data: festaDelPapa(p, anno), chiave: "papa", nome: NOMI.papa },
+    { data: iso(new Date(Date.UTC(anno, 9, 31))), chiave: "halloween", nome: NOMI.halloween },
+    { data: iso(new Date(Date.UTC(anno, 11, 24))), chiave: "vigiliaNatale", nome: NOMI.vigiliaNatale },
+    { data: iso(new Date(Date.UTC(anno, 11, 31))), chiave: "sanSilvestro", nome: NOMI.sanSilvestro },
+  ];
+  // San Nicola porta i regali ai bambini solo qui: altrove e' un giorno come
+  // un altro, e annunciarlo farebbe sembrare il pannello sbagliato.
+  if (p === "BE" || p === "NL" || p === "LU") {
+    out.push({ data: iso(new Date(Date.UTC(anno, 11, 6))), chiave: "sanNicola", nome: NOMI.sanNicola });
+  }
+  return out.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
 }

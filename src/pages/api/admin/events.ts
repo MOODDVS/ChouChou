@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { codicePaese } from "../../../lib/festivitaRegole";
 
 export const prerender = false;
 
@@ -48,15 +49,17 @@ export const GET: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
 
   try {
+    // Il paese viaggia con gli eventi perche' serve alla STESSA tile: e' lui
+    // a decidere quali feste e ricorrenze mostrare. Un fetch invece di due.
     const { data } = await supabaseAdmin
       .from("app_config")
-      .select("value")
-      .eq("key", CHIAVE)
-      .maybeSingle();
-    const events = pulisci(JSON.parse(data?.value ?? "[]")) ?? [];
-    return json({ events });
+      .select("key, value")
+      .in("key", [CHIAVE, "company_country"]);
+    const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
+    const events = pulisci(JSON.parse(m.get(CHIAVE) || "[]")) ?? [];
+    return json({ events, paese: codicePaese(m.get("company_country") ?? "") });
   } catch {
-    return json({ events: [] });
+    return json({ events: [], paese: "" });
   }
 };
 

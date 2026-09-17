@@ -706,7 +706,6 @@ const DIZIONARIO: Dizionario = {
   "home.more":         { fr: "en plus", en: "more", it: "in più", nl: "meer", es: "más" },
   "home.tagOpen":      { fr: "Ouvert", en: "Open", it: "Aperto", nl: "Open", es: "Abierto" },
   "home.tagClosed":    { fr: "Fermé", en: "Closed", it: "Chiuso", nl: "Gesloten", es: "Cerrado" },
-  "home.tagHoliday": { fr: "Férié", en: "Holiday", it: "Festa", nl: "Feestdag", es: "Festivo" },
   "home.noLocalEvents":{ fr: "Aucun événement local pour le moment.", en: "No local event yet.", it: "Ancora nessun evento locale.", nl: "Nog geen lokaal evenement.", es: "Aún no hay eventos locales." },
   "home.yearlyShort":  { fr: "chaque année", en: "every year", it: "ogni anno", nl: "elk jaar", es: "cada año" },
   "home.noneUpcomingM":{ fr: "Aucun à venir", en: "None upcoming", it: "Nessuno in arrivo", nl: "Geen op komst", es: "Ninguno próximo" },
@@ -725,27 +724,8 @@ const DIZIONARIO: Dizionario = {
   "home.ordersWord":   { fr: "commandes", en: "orders", it: "ordini", nl: "bestellingen", es: "pedidos" },
   "home.avisGoogle":   { fr: "avis Google", en: "Google reviews", it: "recensioni Google", nl: "Google-recensies", es: "reseñas de Google" },
 
-  // ----- Accueil : feste del paese (calendario eventi) -----
-  "hol.newyear":      { fr: "Nouvel An", en: "New Year's Day", it: "Capodanno", nl: "Nieuwjaar", es: "Año Nuevo" },
-  "hol.valentine":    { fr: "Saint-Valentin", en: "Valentine's Day", it: "San Valentino", nl: "Valentijnsdag", es: "San Valentín" },
-  "hol.mardigras":    { fr: "Mardi Gras", en: "Mardi Gras", it: "Martedì Grasso", nl: "Vastenavond", es: "Martes de Carnaval" },
-  "hol.easter":       { fr: "Pâques", en: "Easter", it: "Pasqua", nl: "Pasen", es: "Pascua" },
-  "hol.eastermon":    { fr: "Lundi de Pâques", en: "Easter Monday", it: "Lunedì dell'Angelo", nl: "Paasmaandag", es: "Lunes de Pascua" },
-  "hol.labour":       { fr: "Fête du Travail", en: "Labour Day", it: "Festa del Lavoro", nl: "Dag van de Arbeid", es: "Día del Trabajo" },
-  "hol.mothers":      { fr: "Fête des Mères", en: "Mother's Day", it: "Festa della Mamma", nl: "Moederdag", es: "Día de la Madre" },
-  "hol.ascension":    { fr: "Ascension", en: "Ascension Day", it: "Ascensione", nl: "Hemelvaart", es: "Ascensión" },
-  "hol.pentecost":    { fr: "Pentecôte", en: "Pentecost", it: "Pentecoste", nl: "Pinksteren", es: "Pentecostés" },
-  "hol.pentecostmon": { fr: "Lundi de Pentecôte", en: "Whit Monday", it: "Lunedì di Pentecoste", nl: "Pinkstermaandag", es: "Lunes de Pentecostés" },
-  "hol.fathers":      { fr: "Fête des Pères", en: "Father's Day", it: "Festa del Papà", nl: "Vaderdag", es: "Día del Padre" },
-  "hol.belgiannat":   { fr: "Fête nationale belge", en: "Belgian National Day", it: "Festa nazionale belga", nl: "Belgische nationale feestdag", es: "Fiesta Nacional de Bélgica" },
-  "hol.assumption":   { fr: "Assomption", en: "Assumption Day", it: "Assunzione", nl: "Onze-Lieve-Vrouw-Hemelvaart", es: "Asunción" },
-  "hol.halloween":    { fr: "Halloween", en: "Halloween", it: "Halloween", nl: "Halloween", es: "Halloween" },
-  "hol.toussaint":    { fr: "Toussaint", en: "All Saints' Day", it: "Ognissanti", nl: "Allerheiligen", es: "Todos los Santos" },
-  "hol.armistice":    { fr: "Armistice", en: "Armistice Day", it: "Armistizio", nl: "Wapenstilstand", es: "Armisticio" },
-  "hol.stnicolas":    { fr: "Saint-Nicolas", en: "Saint Nicholas", it: "San Nicola", nl: "Sinterklaas", es: "San Nicolás" },
-  "hol.xmaseve":      { fr: "Réveillon de Noël", en: "Christmas Eve", it: "Vigilia di Natale", nl: "Kerstavond", es: "Nochebuena" },
-  "hol.xmas":         { fr: "Noël", en: "Christmas", it: "Natale", nl: "Kerstmis", es: "Navidad" },
-  "hol.nyeve":        { fr: "Réveillon du Nouvel An", en: "New Year's Eve", it: "Capodanno (vigilia)", nl: "Oudjaar", es: "Nochevieja" },
+  // Le feste del calendario eventi non stanno piu' qui: nomi e date
+  // vengono da `lib/festivitaRegole.ts`, che li tiene insieme per paese.
 
   // ===== Pagina Commandes =====
   "common.cancel": { fr: "Annuler", en: "Cancel", it: "Annulla", nl: "Annuleren", es: "Cancelar" },
