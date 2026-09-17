@@ -150,3 +150,83 @@ test("dove vive il sito pubblico lo dice un file solo", () => {
     `leggono public_site_base fuori da lib/basePubblica.ts: ${letture.join(", ")}`,
   );
 });
+
+// ============================================================
+// UN INTERRUTTORE SOLO (17/09/2026)
+//
+// `styles/switch.css` e' il componente, importato da AdminHead su ogni pagina
+// admin. Una pagina che se ne riscrive uno nel proprio <style> VINCE nella
+// cascata — arriva dopo — e quindi resta indietro in silenzio: la correzione
+// fatta nel file comune non la raggiunge, e nessuno se ne accorge finche' un
+// cliente con un tema diverso non vede lo spento sbiadito.
+//
+// E' successo davvero: google.astro aveva una copia vecchia che dipingeva lo
+// spento con --c-line, un token di BORDO, e su un tema con i bordi chiari
+// diventava una pastiglia pallida. settings e super avevano lo stesso vizio.
+//
+// La misura si dice con le variabili (--sw-w / --sw-h / --sw-k), che non sono
+// una ridefinizione: sono il modo previsto per cambiare taglia.
+// ============================================================
+test("nessuna pagina admin si riscrive l'interruttore in casa", () => {
+  const cartella = "src/pages/admin";
+  const colpevoli = [];
+  for (const f of readdirSync(cartella).filter((x) => x.endsWith(".astro"))) {
+    const src = readFileSync(`${cartella}/${f}`, "utf8");
+    // Si guarda solo il CSS: `.switch` nel markup e nel JS e' l'uso, non la
+    // ridefinizione. Il segno di una copia locale e' ridisegnare la pista.
+    if (/\.switch\s+(?:input\s*\+\s*)?\.track\s*(?:::before\s*)?\{/.test(src)) colpevoli.push(f);
+  }
+  assert.deepEqual(
+    colpevoli,
+    [],
+    "queste pagine ridisegnano `.switch .track` nel loro <style>: vincono su styles/switch.css e non riceveranno le correzioni fatte li'. Per cambiare misura si usano --sw-w / --sw-h / --sw-k.",
+  );
+});
+
+// ============================================================
+// UN TOAST SOLO (17/09/2026)
+//
+// Stessa storia dell'interruttore, con una conseguenza peggiore: c'erano nove
+// copie e TRE aspetti diversi, e in alcune pagine la differenza fra «salvato»
+// e «non salvato» era il colore del BORDO — un filo di un pixel, in basso,
+// per due secondi. Chi salvava non si accorgeva che il salvataggio era
+// fallito. Adesso: fondo verde se riuscito, fondo rosso se fallito, testo
+// bianco, ovunque.
+//
+// Due vocabolari (`show`/`err` e `is-visible`/`is-error`) sono diventati uno:
+// `is-on`, `is-ok`, `is-error`, piu' `is-sopra` per il rimborso, che deve
+// stare sopra il modale aperto.
+// ============================================================
+test("nessuna pagina admin si riscrive il toast in casa", () => {
+  const cartella = "src/pages/admin";
+  const colpevoli = [];
+  for (const f of readdirSync(cartella).filter((x) => x.endsWith(".astro"))) {
+    const src = readFileSync(`${cartella}/${f}`, "utf8");
+    if (/^\s*\.[a-z-]*toast[^{]*\{/mi.test(src)) colpevoli.push(f);
+  }
+  assert.deepEqual(
+    colpevoli,
+    [],
+    "queste pagine ridefiniscono il toast nel loro <style>: vincono su styles/toast.css, e la differenza fra riuscito e fallito torna a dipendere dalla pagina",
+  );
+});
+
+test("il toast usa un vocabolario solo", () => {
+  const cartella = "src/pages/admin";
+  const AMMESSE = new Set(["toast", "is-on", "is-ok", "is-error", "is-sopra"]);
+  const sbagliate = [];
+  for (const f of readdirSync(cartella).filter((x) => x.endsWith(".astro"))) {
+    for (const riga of readFileSync(`${cartella}/${f}`, "utf8").split("\n")) {
+      if (!/toast/i.test(riga)) continue;
+      if (!/className\s*=\s*"toast|classList\.(add|remove|toggle)\(/.test(riga)) continue;
+      for (const m of riga.matchAll(/"([a-z][a-z0-9-]*)"/g)) {
+        const c = m[1];
+        if (c === "toast" || AMMESSE.has(c)) continue;
+        // parole che non sono classi (chiavi i18n, id, messaggi) hanno il punto
+        if (c.includes(".") || c.includes(" ")) continue;
+        if (/^(ok|err|show|is-visible|hidden|active)$/.test(c)) sbagliate.push(`${f}: "${c}"`);
+      }
+    }
+  }
+  assert.deepEqual(sbagliate, [], "classi del vecchio vocabolario ancora in uso sul toast");
+});

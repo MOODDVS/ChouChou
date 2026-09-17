@@ -1,6 +1,9 @@
 import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
-import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
+import { sessioneRiconosciuta, claimsDaToken } from "./lib/admin/adminAuth";
+import { caricaBootAdmin } from "./lib/admin/adminBoot";
+import { ruoloDi, PAGINE_ADMIN } from "./lib/admin/superAdmin";
+import { chiavePagina, puoVederePagina } from "./lib/admin/permessiRegole";
 
 /**
  * Host canonico: forza il www.
@@ -182,6 +185,43 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
     const token = context.cookies.get("mdd_at")?.value ?? "";
     if (!(await sessioneRiconosciuta(token))) {
       return context.redirect("/admin/login", 302);
+    }
+
+    // ---- PERMESSI: qui, non nel browser ----------------------------------
+    // Prima il ruolo era un suggerimento: la nav nascondeva i link e
+    // `settings`/`super` si difendevano dentro uno <script>, cioe' DOPO aver
+    // mandato la pagina. Chi scriveva /admin/stats riceveva il fatturato del
+    // giorno gia' calcolato dal server e incollato nell'HTML.
+    //
+    // Questo e' l'unico punto da cui passano tutte le pagine admin: la
+    // decisione sta qui, e la regola che la prende e' pura e provata.
+    //
+    // ⚠️ Se i dati della sessione non sono leggibili (JWKS irraggiungibile,
+    // token strano) NON si blocca: `sessioneRiconosciuta` e' gia' passata, e
+    // trasformare un problema di rete in «non hai il permesso» chiuderebbe
+    // fuori il proprietario dal suo admin. Chiudere la porta e' meglio che
+    // lasciarla aperta, ma non se la chiave e' il meteo.
+    const chiave = chiavePagina(pathname);
+    if (chiave) {
+      const staff = await claimsDaToken(token);
+      if (staff) {
+        let nascoste: string[] = [];
+        try {
+          nascoste = (await caricaBootAdmin()).hiddenPages;
+        } catch {
+          nascoste = [];
+        }
+        const ok = puoVederePagina(chiave, {
+          ruolo: ruoloDi(staff),
+          pagineUtente: staff.pages,
+          nascoste,
+          tutte: PAGINE_ADMIN.map((pg) => pg.key),
+        });
+        // Rimandato alla home, non al login: e' loggato, semplicemente quella
+        // pagina non e' sua. Un redirect al login sembrerebbe una sessione
+        // scaduta e lo farebbe riaccedere all'infinito.
+        if (!ok) return context.redirect("/admin", 302);
+      }
     }
   }
   return next();

@@ -218,9 +218,6 @@ const t = adminT(lang);
       .fiche-desc { font-size: .84rem; color: var(--c-muted); line-height: 1.5; padding-top: .6rem; border-top: 1px solid var(--c-line); margin-top: .1rem; white-space: pre-wrap; }
 
       /* Toast */
-      .toast { position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(1rem); background: var(--c-text); color: var(--c-bg); padding: .7rem 1.2rem; border-radius: 999px; font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 200; }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { background: #d33; color: #fff; }
       /* ---- Tab POST ---- */
       .p-compose { background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.5rem; }
       .p-types { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
@@ -763,9 +760,9 @@ const t = adminT(lang);
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
         }
 
         let recensioni: Rec[] = [];

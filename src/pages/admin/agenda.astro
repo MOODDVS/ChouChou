@@ -348,15 +348,6 @@ const pubLangsJson = JSON.stringify({
       .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
 
       /* Toast */
-      .toast {
-        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
-        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
-        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { border-color: #ed1c24; }
 
       @media (max-width: 640px) {
         .f-row { grid-template-columns: 1fr; }
@@ -591,9 +582,9 @@ const pubLangsJson = JSON.stringify({
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
         }
 
         // ---------- Lista ----------

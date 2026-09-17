@@ -291,23 +291,17 @@ const prI18n = {
       }
       .subrow.is-off { opacity: 0.6; }
       .subrow-name { font-size: 0.85rem; white-space: nowrap; }
-      .subrow .switch { width: 34px; height: 19px; }
-      .subrow .switch .track::before { width: 13px; height: 13px; left: 3px; }
-      .subrow .switch input:checked + .track::before { transform: translate(15px, -50%); }
+      /* Taglia ridotta della riga annidata: si dice con le variabili del
+         componente, non riscrivendo pallina e spostamento — erano tre numeri
+         da tenere d'accordo a mano, e uno sbagliato faceva uscire la pallina. */
+      .subrow .switch { --sw-w: 34px; --sw-h: 19px; --sw-k: 13px; }
 
-      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track {
-        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-line); transition: background 0.2s;
-      }
-      .switch .track::before {
-        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 50%;
-        transform: translateY(-50%);
-        border-radius: 50%; background: #fff; transition: transform 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translate(20px, -50%); }
+      /* L'interruttore NON si ridefinisce qui: vale `styles/switch.css`,
+         importato da AdminHead. La copia che stava qui dipingeva lo spento con
+         --c-line, che e' un token di BORDO: su un tema con i bordi chiari
+         diventava una pastiglia pallida invece che uno spento pieno.
+         Le misure di questa pagina sono gia' quelle del componente
+         (46 x 26, pallina 20), quindi non serve nemmeno una variabile. */
 
       .note { color: var(--c-muted); font-size: 0.8rem; margin-top: 1.2rem; line-height: 1.6; }
 
@@ -446,6 +440,7 @@ const prI18n = {
       #us-overlay .md-foot .us-err { margin-right: auto; }
       .us-err { color: #ff6b6b; font-size: 0.82rem; }
       .us-err:empty { display: none; }
+      .us-pagine { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem; }
       .us-roles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
       .us-role {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted);
@@ -558,15 +553,6 @@ const prI18n = {
       .publang-row.is-off .publang-set { visibility: hidden; }
       .publang-sep { border: none; border-top: 1px solid var(--c-line); margin: 2.4rem 0 1.6rem; }
 
-      .toast {
-        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
-        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
-        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { border-color: #ed1c24; }
 
     </style>
     <AdminHead />
@@ -880,6 +866,15 @@ const prI18n = {
         </div>
         <p class="note us-sotto" id="us-role-hint"></p>
 
+        <!-- PAGINE: solo per «utente». Per super e admin il blocco non esiste
+             proprio — non e' un elenco disabilitato, che farebbe credere che
+             si possa togliere qualcosa al proprietario. -->
+        <div id="us-pagine-box" hidden>
+          <label class="us-lab">{t("us.pages")}</label>
+          <div class="us-pagine" id="us-pagine"></div>
+          <p class="note us-sotto">{t("us.pagesHint")}</p>
+        </div>
+
         <!-- Sede: compare SOLO se il multi-sede e' acceso. Su un cliente a
              sede unica il campo non esiste proprio, non e' un campo vuoto. -->
         <div class="f-field" id="us-sede-box" hidden>
@@ -1020,6 +1015,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+      import { PAGINE_SOLO_ADMIN as SOLO_ADMIN } from "../../lib/admin/permessiRegole";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
       (async () => {
@@ -1086,9 +1082,9 @@ const prI18n = {
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2200);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2200);
         }
 
         // Testi tradotti passati dal server (JSON in pagina).
@@ -1758,11 +1754,42 @@ const prI18n = {
         function usRuoloSel(): string {
           return (usRoles?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.role ?? "admin";
         }
+        // ---- Pagine permesse (solo ruolo "user") ------------------------
+        // La stessa forma dei bottoni del ruolo: non si inventa un controllo
+        // nuovo per una cosa che e' ancora «scegli fra queste voci».
+        const usPagineBox = document.getElementById("us-pagine-box") as HTMLElement | null;
+        const usPagine = document.getElementById("us-pagine") as HTMLElement | null;
+        function usDisegnaPagine(scelte: string[] | null) {
+          if (!usPagine) return;
+          // `null` = mai deciso → si mostra spuntato il default storico, cosi'
+          // chi apre il modale vede quello che quell'utente vede DAVVERO.
+          const attive = new Set(scelte ?? PAGINE_ADMIN.filter((pg) => !SOLO_ADMIN.includes(pg.key)).map((pg) => pg.key));
+          // ⚠️ `SUP` e non `L`, e un escape locale: `L` ed `esc` sono
+          // dichiarati PIU' SOTTO in questo stesso script, e una `const` non
+          // esiste prima della sua riga. Usarli qui non darebbe un errore di
+          // compilazione: darebbe un ReferenceError all'apertura del modale,
+          // cioe' un modale che non si apre piu' e nessuno sa perche'.
+          const escP = (v: unknown) =>
+            String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
+          usPagine.innerHTML = PAGINE_ADMIN.map((pg) =>
+            `<button type="button" class="us-role${attive.has(pg.key) ? " is-on" : ""}" data-pagina="${pg.key}">${escP(SUP.pageLabels?.[pg.key] ?? pg.label)}</button>`
+          ).join("");
+        }
+        usPagine?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("[data-pagina]") as HTMLButtonElement | null;
+          if (b) b.classList.toggle("is-on");
+        });
+        function usPagineScelte(): string[] {
+          return [...(usPagine?.querySelectorAll<HTMLElement>("[data-pagina].is-on") ?? [])]
+            .map((b) => b.dataset.pagina ?? "");
+        }
+
         function usSetRuolo(r: string) {
           usRoles?.querySelectorAll<HTMLElement>(".us-role").forEach((b) =>
             b.classList.toggle("is-on", b.dataset.role === r)
           );
           if (usRoleHint) usRoleHint.textContent = RUOLO_TESTO[r] ?? "";
+          if (usPagineBox) usPagineBox.hidden = r !== "user";
         }
         usRoles?.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".us-role") as HTMLButtonElement | null;
@@ -1846,7 +1873,7 @@ const prI18n = {
           if (usPass) usPass.value = usPwd();
         });
 
-        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }) {
+        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null; pages?: string[] | null }) {
           usEditId = u?.id ?? null;
           if (usErr) usErr.textContent = "";
           if (usFname) usFname.value = u?.first_name ?? "";
@@ -1860,6 +1887,9 @@ const prI18n = {
           if (hint) hint.textContent = u ? tr("us.editHint") : tr("us.newHint");
           if (passLab) passLab.textContent = u ? tr("us.passOpt") : tr("us.pass");
           usSetRuolo(u?.role ?? "admin");
+          // Prima di usSetRuolo il blocco e' nascosto: si disegna comunque,
+          // cosi' se poi si passa a «utente» le caselle sono gia' quelle sue.
+          usDisegnaPagine(u?.pages ?? null);
           usRiempiSedi(u?.location_id ?? "");
           usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
@@ -1895,6 +1925,9 @@ const prI18n = {
               last_name: usLname?.value.trim() ?? "",
             };
             corpo.role = usRuoloSel();
+            // Solo per «utente»: per gli altri l'API le ignora comunque, ma
+            // mandarle darebbe l'idea che contino.
+            if (corpo.role === "user") corpo.pages = usPagineScelte();
             // Si manda solo se il campo esiste: su un cliente a sede unica
             // non deve arrivare all'API nemmeno come stringa vuota.
             if (usSedeBox && !usSedeBox.hidden) corpo.location_id = usSedeSel?.value ?? "";

@@ -431,15 +431,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .ed-lang-piu:hover { color: var(--c-text); border-color: var(--c-text); }
 
       /* Toast */
-      .toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
-        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      }
-      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
       /* Modulo ORDINI disattivato dal super admin: via colonna ordini (lista) e tab/statistiche ordini (modale) */
       .no-orders .c-orders, .no-orders .th[data-sort="orders"], .no-orders .act-tab[data-tab="order"] { display: none; }
@@ -1069,7 +1060,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         function toast(msg: string, err = false) {
           toastEl.textContent = msg;
-          toastEl.className = "toast show" + (err ? " err" : "");
+          toastEl.className = "toast is-on" + (err ? " is-error" : "");
           clearTimeout(tCancella);
           tCancella = window.setTimeout(() => (toastEl.className = "toast"), 2600);
         }

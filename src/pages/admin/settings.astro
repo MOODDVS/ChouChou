@@ -569,22 +569,13 @@ const t = adminT(lang);
       .day-row[data-mode="continu"] .band-label { visibility: hidden; }
       .day-row[data-mode="continu"] .band-soir { display: none; }
 
-      /* Switch */
-      .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track {
-        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box;
-        transition: background 0.2s, border-color 0.2s;
-      }
-      .switch input:checked + .track { border-color: var(--c-accent); }
-      .switch .track::before {
-        content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
-        left: 2px; top: 50%; transform: translateY(-50%);
-        background: var(--c-muted); transition: transform 0.2s, background 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translate(20px, -50%); background: #fff; }
+      /* L'interruttore NON si ridefinisce qui: vale `styles/switch.css`,
+         importato da AdminHead. La copia che stava qui faceva lo spento con
+         un fondo chiaro PIU' un bordo, e la pallina color --c-muted sopra:
+         su certi temi spento e acceso si somigliavano troppo, e il bordo lo
+         faceva sembrare un campo da compilare.
+         Qui serve solo dire la misura, che e' piu' piccola del default. */
+      .switch { --sw-w: 44px; --sw-h: 24px; --sw-k: 18px; }
 
       input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);

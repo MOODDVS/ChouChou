@@ -440,10 +440,20 @@ label propria e il bottone È il comando — lo stato lo porta `aria-checked`, c
 serve già all'accessibilità: il componente lo legge direttamente, senza
 duplicarlo in una classe che sarebbe una seconda verità da tenere allineata.
 
-Fatti: **Home** (tile Tuiles), **SpecialDaysForm** (servizi),
-**reservations** (`.sv-switch`) e **clients** (`.afl-sw`, i due permessi).
-Da fare: `agenda`, `google`, `marketing`, `menu`, `settings`, `super`,
-`orders`.
+Fatti **tutti** (17/09/2026). Le ultime tre sono state `google`, `settings`
+e `super`, che avevano ancora la loro copia nel `<style>` scoped e quindi
+vincevano sulla cascata: la correzione dello spento fatta in `switch.css` non
+le raggiungeva, e si e' visto su 450 Gradi — tema diverso, spento sbiadito.
+
+Chi ha bisogno di una taglia diversa la dichiara con le **variabili**
+(`--sw-w` / `--sw-h` / `--sw-k`), che non sono una ridefinizione ma il modo
+previsto: `google` 38×21, `settings` e `menu` 44×24, la riga annidata di
+`super` 34×19.
+
+⚠️ Una rete in `tests/motore.test.mjs` fallisce se una pagina admin torna a
+ridisegnare `.switch .track` in casa propria. Non e' pedanteria: quel difetto
+non si vede sul tema di chi scrive il codice, si vede sul tema di un cliente,
+mesi dopo.
 
 ## Campi — il componente unico (deciso 11/09/2026)
 

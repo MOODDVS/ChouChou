@@ -622,15 +622,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-mod-line.add { color: #2e9e5b; font-weight: 600; }
       .nc-mod-line.rem { color: #d9534f; font-weight: 600; }
       .nc-mod-none { color: var(--c-muted); font-size: 0.9rem; }
-      .nc-toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-200%);
-        z-index: 2000; background: #2e9e6b; color: #fff; font-weight: 700; font-size: 0.9rem;
-        padding: 0.7rem 1.4rem; border-radius: 999px; box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15)));
-        transition: transform 0.35s ease, opacity 0.35s ease; pointer-events: none;
-        opacity: 0; visibility: hidden;
-      }
-      .nc-toast.err { background: #b3261e; }
-      .nc-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+      /* Il toast e' quello condiviso (styles/toast.css). Qui serve solo che
+         stia SOPRA il modale del rimborso, mentre la finestra e' ancora
+         aperta: e' la variante `is-sopra`. Prima era un componente a parte
+         (.nc-toast) per quella sola differenza di posizione. */
       /* Rimborso: guscio, campi e bottoni sono i condivisi. Qui resta solo la
          riga «€ [importo] [Tutto]», che e' l'unica cosa propria del modale.
          Spariti anche i 1000 di z-index: il guscio sta a 400 come ogni altro
@@ -886,7 +881,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <button type="button" class="md-btn md-btn-primary" id="nc-send" style="display:none">{t("ord.createSend")}</button>
       </Fragment>
     </Modal>
-    <div class="nc-toast" id="nc-toast"></div>
+    <div class="toast is-sopra" id="nc-toast"></div>
 
     <AdminNav current="orders" />
 
@@ -1903,10 +1898,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         let ncToastTimer = 0;
         function ncToast(msg: string, err = false) {
           ncToastEl.textContent = msg;
-          ncToastEl.classList.toggle("err", err);
-          ncToastEl.classList.add("show");
+          ncToastEl.classList.toggle("is-error", err);
+          ncToastEl.classList.add("is-on");
           window.clearTimeout(ncToastTimer);
-          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("show"), 3500);
+          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("is-on"), 3500);
         }
         type VoceMenu = {
           id: string; name: string; category: string; price_cents: number;

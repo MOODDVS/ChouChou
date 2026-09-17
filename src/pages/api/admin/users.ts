@@ -1,7 +1,8 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuper, isSuperUser, ruoloDi } from "../../../lib/admin/superAdmin";
+import { isSuper, isSuperUser, ruoloDi, PAGINE_ADMIN } from "../../../lib/admin/superAdmin";
+import { pulisciPagine } from "../../../lib/admin/permessiRegole";
 
 export const prerender = false;
 
@@ -67,6 +68,8 @@ export const GET: APIRoute = async ({ request }) => {
     is_moodd: isSuper(u.email),
     role: ruoloDi({ email: u.email, app_metadata: u.app_metadata as Record<string, unknown> }),
     location_id: (u.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
+    // null = nessuno ha deciso → vale il default del ruolo (vedi permessiRegole)
+    pages: (u.app_metadata as { pages?: string[] } | undefined)?.pages ?? null,
     };
   });
   users.sort((a, b) => a.email.localeCompare(b.email));
@@ -77,7 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string; location_id?: string };
+  let body: { email?: string; password?: string; first_name?: string; last_name?: string; role?: string; location_id?: string; pages?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -91,7 +94,11 @@ export const POST: APIRoute = async ({ request }) => {
   const role = RUOLI.includes(String(body.role)) ? String(body.role) : "admin";
   let sede: string | null | undefined;
   try { sede = await sedeDaBody(body.location_id); } catch (e) { return json({ error: (e as Error).message }, 400); }
-  const appMeta: Record<string, unknown> = { role, location_id: sede ?? null };
+  // Le pagine valgono SOLO per il ruolo "user": a un admin le caselle non si
+  // applicano, e salvarle lo stesso vorrebbe dire che cambiando ruolo da
+  // admin a utente si riattivano scelte fatte mesi prima e dimenticate.
+  const pagine = role === "user" ? pulisciPagine(body.pages, PAGINE_ADMIN.map((pg) => pg.key)) : null;
+  const appMeta: Record<string, unknown> = { role, location_id: sede ?? null, pages: pagine };
   const meta = { first_name, last_name, full_name: `${first_name} ${last_name}`.trim() };
 
   // Password fornita → creazione diretta (accesso immediato).
@@ -135,7 +142,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const g = await soloSuper(request);
   if (g instanceof Response) return g;
 
-  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string; location_id?: string };
+  let body: { id?: string; password?: string; first_name?: string; last_name?: string; email?: string; role?: string; location_id?: string; pages?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -147,7 +154,10 @@ export const PUT: APIRoute = async ({ request }) => {
     password?: string;
     email?: string;
     user_metadata?: Record<string, string>;
-    app_metadata?: Record<string, string>;
+    // `unknown` e non `string`: `pages` e' un array. Restringerlo a stringhe
+    // era gia' una semplificazione — `location_id` puo' essere null — e con
+    // le pagine diventa falsa.
+    app_metadata?: Record<string, unknown>;
   } = {};
   if (body.role !== undefined) {
     const ruolo = String(body.role);
@@ -168,14 +178,27 @@ export const PUT: APIRoute = async ({ request }) => {
   // il ruolo, o la sede verrebbe cancellata di nascosto (e viceversa).
   try {
     const sede = await sedeDaBody(body.location_id);
-    if (sede !== undefined || patch.app_metadata) {
+    const pagineChieste = body.pages !== undefined;
+    if (sede !== undefined || pagineChieste || patch.app_metadata) {
       const { data: chi } = await supabaseAdmin.auth.admin.getUserById(body.id);
       const attuale = (chi?.user?.app_metadata ?? {}) as Record<string, unknown>;
+      // Il ruolo che questo utente AVRA' dopo la modifica: se non lo si sta
+      // cambiando e' quello di adesso.
+      const ruoloFinale = String((patch.app_metadata as { role?: string } | undefined)?.role ?? attuale.role ?? "admin");
+      // Le caselle esistono solo per "user". Chi diventa admin le perde: se
+      // restassero, un domani rimesso a "user" si ritroverebbe permessi
+      // decisi mesi prima e dimenticati da tutti.
+      const pagine = ruoloFinale !== "user"
+        ? null
+        : pagineChieste
+          ? pulisciPagine(body.pages, PAGINE_ADMIN.map((pg) => pg.key))
+          : ((attuale.pages as string[] | undefined) ?? null);
       patch.app_metadata = {
         ...attuale,
         ...(patch.app_metadata ?? {}),
         ...(sede !== undefined ? { location_id: sede } : {}),
-      } as Record<string, string>;
+        pages: pagine,
+      };
     }
   } catch (e) {
     return json({ error: (e as Error).message }, 400);
