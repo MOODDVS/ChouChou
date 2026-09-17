@@ -23,6 +23,7 @@ import { registraCliente } from "../../lib/registraCliente";
 import { inviaPushResa } from "../../lib/push";
 import { ambitoDiRiga } from "../../lib/admin/sede";
 import { appConfigIn } from "../../lib/appConfigCache";
+import { sorgenteDaRef } from "../../lib/sorgenteRegole";
 
 export const prerender = false;
 
@@ -737,7 +738,12 @@ export const POST: APIRoute = async ({ request }) => {
   const base: Record<string, unknown> = { ...riga, status: cfg.autoAccept ? "confirmed" : "pending" };
 
   // Insert (fallback senza `source` se la migrazione #21 non è lanciata)
-  let ins = await inserisci("reservations", ambito, { ...base, source: "web" }).select(CAMPI_EMAIL).single();
+  // Provenienza dichiarata dal link (?ref=google sulla scheda Google Business).
+  // `sorgenteDaRef` e' un filtro su elenco chiuso, non una lettura: il `ref`
+  // arriva dal browser e un valore fuori dal `check` della colonna non farebbe
+  // una riga sbagliata, farebbe fallire l'insert — prenotazione persa.
+  const source = sorgenteDaRef(body.ref);
+  let ins = await inserisci("reservations", ambito, { ...base, source }).select(CAMPI_EMAIL).single();
   if (ins.error && ins.error.message.includes("source")) {
     ins = await inserisci("reservations", ambito, base).select(CAMPI_EMAIL).single();
   }

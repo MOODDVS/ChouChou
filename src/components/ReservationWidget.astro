@@ -282,6 +282,7 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
 </div>
 
 <script>
+      import { CHIAVE_REF } from "../lib/sorgenteRegole";
       import { TESTI_WIDGET, SERVIZI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../lib/reservationI18n";
       import { PREFISSI } from "../lib/prefissi";
       import { CLIENT } from "../config/client";
@@ -707,6 +708,18 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
           birthday?: boolean; special_event?: boolean;
         };
         let resaMod: ResaMod | null = null;
+
+        // ---- Provenienza: ?ref=... ----
+        // Il ref va RICORDATO per tutta la visita. Da Google si atterra spesso
+        // sulla home e si clicca «Prenota» dopo: leggendolo solo qui si
+        // misurerebbe un quinto delle prenotazioni Google invece di quasi
+        // tutte. sessionStorage e non localStorage: e' di QUESTA visita, non
+        // di questo browser per sempre.
+        const refUrl = new URLSearchParams(location.search).get("ref") ?? "";
+        if (refUrl) { try { sessionStorage.setItem(CHIAVE_REF, refUrl); } catch { /* privata */ } }
+        let refVisita = refUrl;
+        if (!refVisita) { try { refVisita = sessionStorage.getItem(CHIAVE_REF) ?? ""; } catch { refVisita = ""; } }
+
         const tk = new URLSearchParams(location.search).get("token") ?? "";
         if (tk) {
           try {
@@ -975,6 +988,9 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
               special_event: $("rw-opt-event").classList.contains("is-on"),
               notes: ($("rw-f-notes") as HTMLTextAreaElement).value.trim(),
             };
+            // Solo alla CREAZIONE: una modifica non cambia da dove arrivava
+            // il cliente la prima volta.
+            if (!modifyToken && refVisita) payload.ref = refVisita;
             if (modifyToken) payload.token = modifyToken;
             // ⚠️ La modifica (PUT) NON manda la sede: la prenotazione esiste
             // gia' e il suo punto lo dice la riga, trovata col token. Mandarla

@@ -884,6 +884,8 @@ const DIZIONARIO: Dizionario = {
   "res.notesPh": { fr: "Notes…", en: "Notes…", it: "Note…", nl: "Notities…", es: "Notas…" },
   "res.srcPhone": { fr: "Par téléphone", en: "By phone", it: "Per telefono", nl: "Telefonisch", es: "Por teléfono" },
   "res.srcWeb": { fr: "Depuis le site", en: "From the website", it: "Dal sito", nl: "Via de website", es: "Desde el sitio web" },
+  "res.srcInstagram": { fr: "Depuis Instagram", en: "From Instagram", it: "Da Instagram", nl: "Via Instagram", es: "Desde Instagram" },
+  "res.srcQr": { fr: "Depuis le site (QR)", en: "From the website (QR)", it: "Dal sito (QR)", nl: "Via de website (QR)", es: "Desde el sitio web (QR)" },
   "res.srcGoogle": { fr: "Via Google", en: "Via Google", it: "Tramite Google", nl: "Via Google", es: "Vía Google" },
   "res.origin": { fr: "Origine", en: "Origin", it: "Origine", nl: "Herkomst", es: "Origen" },
   "res.hour": { fr: "Heure", en: "Time", it: "Ora", nl: "Uur", es: "Hora" },
