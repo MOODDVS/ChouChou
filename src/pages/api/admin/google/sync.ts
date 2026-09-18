@@ -1,6 +1,8 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { sincronizzaRecensioni } from "../../../../lib/googleBusiness";
+import { sincronizzaRecensioni, erroreGoogle } from "../../../../lib/googleBusiness";
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
 export const prerender = false;
@@ -22,9 +24,10 @@ export const POST: APIRoute = async ({ request }) => {
   // Sincronizzazione a mano dalla pagina Google: il punto e' quello scelto
   // nell'header, non tutti.
   const r = await sincronizzaRecensioni(await ambitoDiRichiesta(request, staff));
-  if (r.stato === "non_collegato") return json({ error: "Google non collegato" }, 400);
-  if (r.stato === "scelta_richiesta") return json({ error: "Plusieurs fiches: choisis la bonne", needChoice: true }, 409);
-  if (r.stato === "nessuna_scheda") return json({ error: "Aucune fiche Google trouvée pour ce compte" }, 400);
+  if (r.stato === "non_collegato") return json({ error: await erroreGoogle(r.motivo ?? "mai") }, 400);
+  const t = adminT(await adminLang());
+  if (r.stato === "scelta_richiesta") return json({ error: t("gg.err.scelta"), needChoice: true }, 409);
+  if (r.stato === "nessuna_scheda") return json({ error: t("gg.err.nessuna") }, 400);
   return json({
     ok: true,
     location: r.location,

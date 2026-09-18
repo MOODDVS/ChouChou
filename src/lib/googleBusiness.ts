@@ -1077,6 +1077,10 @@ export async function sedeConLaScheda(path: string): Promise<string | null> {
  */
 export async function sincronizzaRecensioni(ambito: Ambito): Promise<{
   stato: "non_collegato" | "nessuna_scheda" | "scelta_richiesta" | "ok";
+  /** Quando `stato` e' "non_collegato": PERCHE'. Mai collegato e scaduto
+   *  portano a due azioni diverse, e chiamare entrambi «non collegato»
+   *  manda il ristoratore a cercare un pulsante gia' premuto. */
+  motivo?: StatoGoogle;
   location?: string;
   synced?: number;
   average?: number;
@@ -1086,8 +1090,8 @@ export async function sincronizzaRecensioni(ambito: Ambito): Promise<{
    *  business di questo punto resta vuoto, e questo dice perche'. */
   schedaError?: string;
 }> {
-  const token = await accessToken();
-  if (!token) return { stato: "non_collegato" };
+  const { token, stato: motivo } = await tokenGoogle();
+  if (!token) return { stato: "non_collegato", motivo };
   let schedaError = "";
 
   // Sede: prima quella scelta esplicitamente; poi auto-selezione se ce n'e' 1
