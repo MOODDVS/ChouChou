@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { accessToken, listaSedi, salvaLocation, locationSalvata, sincronizzaRecensioni, sedeConLaScheda } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, listaSedi, salvaLocation, locationSalvata, sincronizzaRecensioni, sedeConLaScheda } from "../../../../lib/googleBusiness";
 import { schedaValida, schedaLibera } from "../../../../lib/googleRegole";
 import { ambitoDiRiga, elencoSedi } from "../../../../lib/admin/sede";
 
@@ -41,8 +41,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const token = await accessToken();
-  if (!token) return json({ connected: false, sedi: [], current: null, error: "" });
+  // Qui `connected:false` non basta piu': la pagina deve poter dire «scaduto,
+  // ricollega» invece di «non collegato», che manda a cercare un pulsante gia'
+  // premuto una settimana fa.
+  const { token, stato } = await tokenGoogle();
+  if (!token) return json({ connected: false, stato, sedi: [], current: null, error: stato === "mai" ? "" : await erroreGoogle(stato) });
 
   const { ambito, errore } = await sedeChiesta(url.searchParams.get("sede"));
   if (errore) return json({ error: errore }, 400);
@@ -68,8 +71,8 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: "Fiche invalide" }, 400);
   }
 
-  const token = await accessToken();
-  if (!token) return json({ error: "Google non collegato" }, 400);
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return json({ error: await erroreGoogle(sttoken) }, 400);
 
   const { ambito, errore } = await sedeChiesta(body.sede);
   if (errore) return json({ error: errore }, 400);

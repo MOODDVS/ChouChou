@@ -3,7 +3,7 @@ import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi } from "../../../../lib/admin/sede";
 import type { Ambito } from "../../../../lib/admin/sedeRegole";
 import { supabaseAdmin } from "../../../../lib/db";
-import { accessToken, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
 import type { FMMenu, FMLabel } from "../../../../lib/googleBusiness";
 
 export const prerender = false;
@@ -21,8 +21,8 @@ function json(body: unknown, status = 200): Response {
 async function preludio(request: Request) {
   const staff = await verificaStaff(request);
   if (!staff) return { err: nonAutorizzato() };
-  const token = await accessToken();
-  if (!token) return { err: json({ error: "Google non collegato" }, 400) };
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
   // Scheda e menu vengono ora dallo STESSO punto: si spingono i piatti di
   // Stockel sulla scheda di Stockel.
   const ambito = await ambitoDiRichiesta(request, staff);

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { accessToken, locationSalvata, leggiScheda, aggiornaScheda, leggiIndirizzoRaw, GIORNI_ENUM } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, locationSalvata, leggiScheda, aggiornaScheda, leggiIndirizzoRaw, GIORNI_ENUM } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
 export const prerender = false;
@@ -18,8 +18,8 @@ function json(body: unknown, status = 200): Response {
 async function preludio(request: Request) {
   const staff = await verificaStaff(request);
   if (!staff) return { err: nonAutorizzato() };
-  const token = await accessToken();
-  if (!token) return { err: json({ error: "Google non collegato" }, 400) };
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
   const loc = await locationSalvata(await ambitoDiRichiesta(request, staff));
   if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
   return { token, path: loc.path };

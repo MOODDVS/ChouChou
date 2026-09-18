@@ -88,3 +88,51 @@ export function schedaLibera(opz: {
   // Riassegnare alla STESSA sede e' un salvataggio, non un conflitto.
   return opz.ambito.modo === "sede" && opz.giaDi === opz.ambito.id;
 }
+
+// ============================================================
+// STATO DEL COLLEGAMENTO GOOGLE (18/09/2026)
+//
+// Prima c'erano due bugie opposte, e nessuna delle due era un errore:
+//  - `accessToken()` rendeva `null` sia quando non si era MAI collegato sia
+//    quando il token era morto, e tutte le API rispondevano «Google non
+//    collegato»: il ristoratore pensava di non aver mai cliccato il pulsante;
+//  - `integrations.ts` diceva «collegato» perche' la STRINGA del token era
+//    nel database, anche se Google l'aveva revocata da giorni.
+//
+// ⚠️ PERCHE' SUCCEDE DAVVERO, E SPESSO. Finche' l'app OAuth resta in
+// «Testing», Google emette refresh token che scadono dopo SETTE GIORNI. Non
+// e' una scadenza che si rinnova usandola: e' un muro. L'unico rimedio vero e'
+// pubblicare l'app e farla verificare — questo codice non lo evita, lo rende
+// visibile.
+// ============================================================
+
+export type StatoGoogle =
+  | "spento"    // niente GOOGLE_CLIENT_ID/SECRET: la funzione non e' attiva
+  | "mai"       // nessun refresh token salvato: non si e' mai collegato
+  | "scaduto"   // c'era, Google l'ha rifiutato: va ricollegato
+  | "incerto"   // non si e' potuto chiedere (rete): NON dire che e' scaduto
+  | "ok";
+
+/**
+ * Perche' Google ha rifiutato il rinnovo.
+ *
+ * ⚠️ Solo `invalid_grant` vuol dire «ricollegati». Un 500 di Google o una rete
+ * che cade NON sono una revoca: dirlo manderebbe il ristoratore a rifare il
+ * collegamento per un raffreddore, e la volta dopo che succede davvero non ci
+ * crederebbe piu'.
+ */
+export function classificaErroreToken(stato: number, corpo: string): StatoGoogle {
+  const testo = String(corpo ?? "");
+  if (stato === 400 || stato === 401) {
+    if (/invalid_grant|token has been expired or revoked/i.test(testo)) return "scaduto";
+    // 400 con un altro errore (client sbagliato, parametro mancante) non e'
+    // colpa del ristoratore e non si risolve ricollegando.
+    return "incerto";
+  }
+  return "incerto";
+}
+
+/** Il collegamento va rifatto dall'utente? */
+export function daRicollegare(s: StatoGoogle): boolean {
+  return s === "mai" || s === "scaduto";
+}

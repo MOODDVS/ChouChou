@@ -21,6 +21,8 @@ import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import {
   schedaValida, sedeDaAttribuire, campoSede, schedaLibera,
+  classificaErroreToken,
+  daRicollegare,
 } from "../src/lib/googleRegole.ts";
 import { sede, SEDE_UNICA, tutteLeSedi, CLASSIFICA } from "../src/lib/admin/sedeRegole.ts";
 
@@ -249,5 +251,57 @@ test("l'errore della scheda arriva fino allo schermo", () => {
   const riga = /"gg\.ficheErr":[^\n]*/.exec(i18n)[0];
   for (const l of ["fr", "en", "it", "nl", "es"]) {
     assert.match(riga, new RegExp(`\\b${l}:`), `manca la lingua ${l}`);
+  }
+});
+
+// ============================================================
+// STATO DEL COLLEGAMENTO (18/09/2026)
+//
+// Finche' l'app OAuth resta in «Testing», Google revoca il refresh token dopo
+// SETTE GIORNI. Prima il motore aveva due bugie opposte, e nessuna era un
+// errore: le API dicevano «Google non collegato» (e il ristoratore pensava di
+// non aver mai premuto il pulsante), mentre Integrazioni diceva «collegato»
+// perche' la stringa del token era ancora nel database.
+// ============================================================
+test("solo invalid_grant vuol dire «ricollegati»", () => {
+  assert.equal(classificaErroreToken(400, '{"error":"invalid_grant"}'), "scaduto");
+  assert.equal(classificaErroreToken(400, '{"error_description":"Token has been expired or revoked."}'), "scaduto");
+  assert.equal(classificaErroreToken(401, '{"error":"invalid_grant"}'), "scaduto");
+});
+
+test("un guaio di Google non e' una revoca", () => {
+  // Mandare a ricollegare per un 500 o una rete caduta vuol dire che la volta
+  // che scade davvero nessuno ci crede piu'.
+  assert.equal(classificaErroreToken(500, "Internal Error"), "incerto");
+  assert.equal(classificaErroreToken(503, ""), "incerto");
+  assert.equal(classificaErroreToken(400, '{"error":"invalid_client"}'), "incerto",
+    "client sbagliato: non e' colpa del ristoratore e non si risolve ricollegando");
+  assert.equal(classificaErroreToken(0, ""), "incerto");
+});
+
+test("«da ricollegare» sono solo due stati", () => {
+  assert.equal(daRicollegare("mai"), true);
+  assert.equal(daRicollegare("scaduto"), true);
+  assert.equal(daRicollegare("ok"), false);
+  assert.equal(daRicollegare("incerto"), false, "una rete caduta non manda nessuno a ricollegare");
+  assert.equal(daRicollegare("spento"), false, "senza credenziali non c'e' niente da collegare");
+});
+
+test("Integrazioni non dice piu' «collegato» solo perche' la stringa c'e'", () => {
+  const src = readFileSync("src/pages/api/admin/integrations.ts", "utf8");
+  assert.ok(
+    !/connected:\s*Boolean\(c\[K_GTOKEN\]\)/.test(src),
+    "connected torna a essere «il token e' nel database», che e' vero anche quando Google l'ha revocato",
+  );
+  assert.ok(/connected:\s*statoG === "ok"/.test(src), "connected deve venire da una risposta di Google");
+});
+
+test("nessuna API di Google risponde piu' con la frase fissa in francese", () => {
+  for (const f of readdirSync("src/pages/api/admin/google").filter((x) => x.endsWith(".ts"))) {
+    const src = readFileSync(`src/pages/api/admin/google/${f}`, "utf8");
+    assert.ok(
+      !src.includes('"Google non collegato"'),
+      `${f}: dice «non collegato» anche quando il collegamento e' scaduto, e in una lingua sola`,
+    );
   }
 });

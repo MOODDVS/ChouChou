@@ -1,7 +1,9 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { sedeDaAttribuire, campoSede, schedaValida } from "./googleRegole";
+import { sedeDaAttribuire, campoSede, schedaValida, classificaErroreToken, type StatoGoogle } from "./googleRegole";
 export { schedaValida };
 import { supabaseAdmin } from "./db";
+import { adminLang } from "./admin/adminLang";
+import { adminT } from "../i18n/admin";
 import { inviaPushRecensione } from "./push";
 import { multiSedeAttivo, ambitoDiRiga, leggiConfig, scriviConfig, elencoSedi, leggi, type Ambito } from "./admin/sede";
 
@@ -109,16 +111,25 @@ export async function salvaTokenDaCode(code: string): Promise<{ ok: boolean; err
   }
 }
 
-/** Access token fresco a partire dal refresh token salvato (null se non collegato). */
-export async function accessToken(): Promise<string | null> {
-  if (!googleConfigurato()) return null;
+/**
+ * Access token fresco, E il motivo quando non si puo' avere.
+ *
+ * ⚠️ «Non ho un token» non e' una cosa sola. Puo' voler dire che la funzione
+ * e' spenta, che nessuno si e' mai collegato, che Google ha revocato il
+ * permesso, o che in questo momento non si riesce a chiedere. Prima erano
+ * tutte `null`, e l'admin diceva sempre «Google non collegato»: il ristoratore
+ * che si era collegato una settimana prima pensava di non aver mai cliccato il
+ * pulsante, e nessuno andava a cercare la causa vera.
+ */
+export async function tokenGoogle(): Promise<{ token: string | null; stato: StatoGoogle }> {
+  if (!googleConfigurato()) return { token: null, stato: "spento" };
   const { data } = await supabaseAdmin
     .from("app_config")
     .select("value")
     .eq("key", K_REFRESH)
     .maybeSingle();
   const refresh = String(data?.value ?? "").trim();
-  if (!refresh) return null;
+  if (!refresh) return { token: null, stato: "mai" };
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -130,12 +141,42 @@ export async function accessToken(): Promise<string | null> {
         grant_type: "refresh_token",
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Il corpo dice se e' una revoca o un guaio passeggero: vedi
+      // classificaErroreToken in googleRegole.ts.
+      const corpo = await res.text().catch(() => "");
+      return { token: null, stato: classificaErroreToken(res.status, corpo) };
+    }
     const j = (await res.json()) as { access_token?: string };
-    return j.access_token ?? null;
+    return j.access_token ? { token: j.access_token, stato: "ok" } : { token: null, stato: "incerto" };
   } catch {
-    return null;
+    // Rete caduta: NON e' «scaduto». Dirlo manderebbe a ricollegare per niente.
+    return { token: null, stato: "incerto" };
   }
+}
+
+/** Access token fresco (null se non si puo' avere). Chi ha bisogno di sapere
+ *  PERCHE' usa `tokenGoogle()`. */
+export async function accessToken(): Promise<string | null> {
+  return (await tokenGoogle()).token;
+}
+
+/**
+ * Il messaggio da rendere quando non c'e' un token, nella lingua dell'admin.
+ * Quattro stati, quattro frasi: «ricollega» e «non ti sei mai collegato» sono
+ * due azioni diverse, e «Google non risponde» non e' colpa di nessuno.
+ */
+export async function erroreGoogle(stato: StatoGoogle): Promise<string> {
+  const chiave =
+    stato === "scaduto" ? "gg.err.scaduto" :
+    stato === "spento" ? "gg.err.spento" :
+    stato === "incerto" ? "gg.err.incerto" : "gg.err.mai";
+  return adminT(await adminLang())(chiave);
+}
+
+/** Lo stato del collegamento, per l'admin. */
+export async function statoGoogle(): Promise<StatoGoogle> {
+  return (await tokenGoogle()).stato;
 }
 
 /** Scollega: cancella il refresh token salvato. */

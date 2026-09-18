@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { serviceAccountEmail, searchConsolePronto } from "../../../lib/searchConsole";
+import { statoGoogle } from "../../../lib/googleBusiness";
 
 export const prerender = false;
 
@@ -54,6 +55,8 @@ export const GET: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
 
   const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE, K_NL_QUOTA]);
+  // Una chiamata sola a Google per sapere se il permesso vale ancora.
+  const statoG = await statoGoogle();
   const mode = MODI.includes(c[K_MODE]) ? c[K_MODE] : "moodd";
   return json({
     resa: {
@@ -66,7 +69,13 @@ export const GET: APIRoute = async ({ request }) => {
     },
     google: {
       place_id: c[K_GPLACE] ?? "",
-      connected: Boolean(c[K_GTOKEN]),
+      // ⚠️ `connected` era `Boolean(token nel database)`: diceva «collegato»
+      // anche quando Google l'aveva revocato da giorni. La stringa c'e', il
+      // permesso no — e finche' l'app OAuth resta in «Testing» Google li
+      // revoca ogni SETTE GIORNI. Adesso si chiede a Google, e si distingue
+      // «scaduto» (ricollega) da «non risponde» (riprova).
+      connected: statoG === "ok",
+      stato: statoG,
       // la connessione OAuth è possibile solo con le credenziali MOODD configurate
       oauth_ready: Boolean(
         (import.meta.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID) &&

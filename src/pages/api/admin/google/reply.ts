@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { accessToken, nomeRecensione, rispondiRecensione, eliminaRisposta } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, nomeRecensione, rispondiRecensione, eliminaRisposta } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta, aggiorna } from "../../../../lib/admin/sede";
 
 export const prerender = false;
@@ -30,8 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!reviewId) return json({ error: "reviewId manquant" }, 400);
   if (!comment) return json({ error: "Réponse vide" }, 400);
 
-  const token = await accessToken();
-  if (!token) return json({ error: "Google non collegato" }, 400);
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return json({ error: await erroreGoogle(sttoken) }, 400);
   const ambito = await ambitoDiRichiesta(request, staff);
   const name = await nomeRecensione(reviewId, ambito);
   if (!name) return json({ error: "Avis introuvable" }, 404);
@@ -51,8 +51,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const reviewId = url.searchParams.get("reviewId") ?? "";
   if (!reviewId) return json({ error: "reviewId manquant" }, 400);
 
-  const token = await accessToken();
-  if (!token) return json({ error: "Google non collegato" }, 400);
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return json({ error: await erroreGoogle(sttoken) }, 400);
   const ambito = await ambitoDiRichiesta(request, staff);
   const name = await nomeRecensione(reviewId, ambito);
   if (!name) return json({ error: "Avis introuvable" }, 404);
