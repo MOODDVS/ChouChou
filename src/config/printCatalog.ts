@@ -94,6 +94,14 @@ export const PRINT_DEFAULTS: PrintProduct[] = [
       { qty: 1000, price_cents: 14000 },
     ],
   },
+  {
+    slug: "lunch",
+    label: "Le Lunch",
+    route: "/print/lunch",
+    visible: true,
+    meta: { format: "A5", pages: "1", paper: "170 g/m²", color: "Quadrichromie" },
+    tiers: [],
+  },
 ];
 
 const SLUG_RE = /^[a-z0-9-]{1,40}$/;

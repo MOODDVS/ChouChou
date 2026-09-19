@@ -1,0 +1,194 @@
+---
+// PAGINA /print/lunch — foglio A5 del LUNCH della settimana (sito pubblico).
+// Riprende i dati dal tab Lunch dell'admin (getLunchAttivo): portate, piatti,
+// periodo (dalle date) e formule/prezzi (dalle combinazioni). Stile Chouchou.
+// Formato A5 + abbondanza 3mm + segni di taglio (paged.js), bottone download.
+// SOLO SITO PUBBLICO — nessun file del motore RH toccato.
+export const prerender = false;
+
+import { getLunchAttivo, type LunchPiatto } from "../../lib/lunch";
+
+const lunch = await getLunchAttivo();
+
+const LAB: Record<string, string> = { entree: "Entrée", plat: "Plat", dessert: "Dessert" };
+const PART: Record<string, string> = { entree: "entrée", plat: "plat", dessert: "dessert" };
+
+function prezzo(cents: number): string {
+  const e = cents / 100;
+  return Number.isInteger(e) ? `${e} €` : `${e.toFixed(2).replace(".", ",")} €`;
+}
+const nomeEn = (p: LunchPiatto) => (p.name_i18n?.en ?? p.description_en ?? "").trim();
+
+// Periodo "Du 22 au 26 septembre 2026"
+function fmtRange(from: string | null, to: string | null): string | null {
+  if (!from || !to) return null;
+  const loc = "fr-FR";
+  const d1 = new Date(from + "T12:00:00");
+  const d2 = new Date(to + "T12:00:00");
+  const sameMY = d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
+  const jour = (d: Date) => d.toLocaleDateString(loc, { day: "numeric" });
+  const moisAn = (d: Date) => d.toLocaleDateString(loc, { month: "long", year: "numeric" });
+  const complet = (d: Date) => d.toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+  return sameMY ? `Du ${jour(d1)} au ${jour(d2)} ${moisAn(d2)}` : `Du ${complet(d1)} au ${complet(d2)}`;
+}
+const periodo = lunch ? fmtRange(lunch.date_from, lunch.date_to) : null;
+
+// Portate presenti (con almeno un piatto)
+const portate = lunch ? lunch.courses.filter((c) => (lunch.piatti[c] ?? []).length > 0) : [];
+const hasLunch = portate.length > 0;
+
+// Formule: raggruppate per prezzo (es. "Entrée & plat, ou plat & dessert — 32 €")
+function joinParts(parts: string[]): string {
+  const w = parts.map((p) => PART[p] ?? p);
+  const s = w.length <= 1 ? w.join("") : w.slice(0, -1).join(", ") + " & " + w[w.length - 1];
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+type Formule = { text: string; price: number };
+let formules: Formule[] = [];
+if (lunch && lunch.combos.length) {
+  const byPrice = new Map<number, string[]>();
+  for (const c of lunch.combos) {
+    if (!byPrice.has(c.price_cents)) byPrice.set(c.price_cents, []);
+    byPrice.get(c.price_cents)!.push(joinParts(c.parts));
+  }
+  formules = [...byPrice.entries()].sort((a, b) => a[0] - b[0]).map(([price, labels]) => ({ text: labels.join(", ou "), price }));
+}
+---
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Comptoir Chouchou — Le Lunch (PDF)</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <style is:inline>
+    :root{
+      --navy:#353c4e; --mag:#ed2289; --ivory:#f7f4ee; --grey:#8a8f9b;
+      --ft:"Quicksand",system-ui,sans-serif; --fb:"Lato",system-ui,sans-serif; --fs:"Birthstone",cursive;
+    }
+    *{box-sizing:border-box}
+    @page{ size:148mm 210mm; bleed:3mm; marks:crop cross; margin:0; }
+    html,body{margin:0;padding:0;background:#fff;color:var(--navy);font-family:var(--fb);
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+    .sheet{position:relative;width:148mm;height:210mm;overflow:hidden;}
+    .frame{position:absolute;inset:7mm;border:1.4px solid rgba(237,34,137,.4);pointer-events:none;}
+    .inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;
+      text-align:center;padding:15mm 16mm 12mm;}
+
+    .logo{display:block;width:56mm;height:auto;margin:0 auto;}
+    .title{font-family:var(--fs);color:var(--mag);font-size:60px;line-height:.8;margin:7mm 0 0;}
+    .serve{font-family:var(--ft);font-weight:700;color:var(--navy);font-size:12px;letter-spacing:.06em;
+      text-transform:uppercase;margin:4mm 0 1.5mm;}
+    .period{font-family:var(--fb);font-style:italic;color:var(--grey);font-size:12px;margin:0;}
+    .sep{width:26mm;height:2px;background:var(--mag);border-radius:2px;margin:6mm auto;}
+
+    .courses{display:flex;flex-direction:column;gap:6mm;margin:1mm 0 auto;width:100%;}
+    .course .lab{font-family:var(--ft);font-weight:700;color:var(--mag);font-size:12px;
+      letter-spacing:.22em;text-transform:uppercase;margin:0 0 2mm;}
+    .plat{margin-bottom:2mm;}
+    .plat:last-child{margin-bottom:0;}
+    .dish{font-family:var(--ft);font-weight:500;color:var(--navy);font-size:15.5px;line-height:1.25;margin:0;}
+    .desc{font-family:var(--fb);color:var(--grey);font-size:11px;line-height:1.4;margin:1.5mm auto 0;max-width:112mm;}
+    .empty{font-family:var(--ft);color:var(--navy);font-size:14px;margin:8mm 0 auto;}
+
+    .formules{margin-top:7mm;background:var(--mag);border-radius:3mm;padding:6mm;width:100%;}
+    .formules .f{display:flex;justify-content:center;align-items:baseline;gap:3mm;flex-wrap:wrap;margin:1.5mm 0;}
+    .formules .fp{font-family:var(--fb);color:#fff;font-size:12.5px;}
+    .formules .fpz{font-family:var(--ft);font-weight:700;color:#fff;font-size:14px;}
+
+    .foot{margin-top:5mm;font-family:var(--fb);color:var(--grey);font-size:9.5px;}
+    .foot b{color:var(--navy);font-weight:700;}
+  </style>
+
+  <!-- Stili anteprima/bottone: foglio IGNORATO da paged.js -->
+  <style is:inline data-pagedjs-ignore="true">
+    .dl-btn{position:fixed;right:20px;bottom:20px;z-index:99999;border:none;cursor:pointer;
+      background:#ed2289;color:#fff;font-family:"Quicksand",system-ui,sans-serif;font-weight:700;
+      font-size:15px;padding:13px 22px;border-radius:999px;box-shadow:0 8px 24px rgba(237,34,137,.4);}
+    @media screen{
+      html,html body{background:#e7e5e0 !important;}
+      .pagedjs_pages{padding:26px 0 96px;}
+      .pagedjs_pages .pagedjs_page{margin:0 auto 22px !important;background:#fff !important;
+        box-shadow:0 10px 34px rgba(53,60,78,.18) !important;}
+      body.no-paged{max-width:154mm;margin:0 auto;padding:14px 8px 96px;background:#fff;}
+    }
+    @media print{ .dl-btn{display:none !important;} }
+  </style>
+</head>
+<body class="no-paged">
+
+  <section class="sheet">
+    <div class="frame"></div>
+    <div class="inner">
+      <img class="logo" src="/SVG/chouchou-navy.svg" alt="Comptoir Chouchou" width="294" height="95" />
+      <h1 class="title">le lunch</h1>
+      <p class="serve">Servi du mardi midi au vendredi midi</p>
+      {periodo && <p class="period">{periodo}</p>}
+
+      <div class="sep"></div>
+
+      {hasLunch ? (
+        <div class="courses">
+          {portate.map((c) => (
+            <div class="course">
+              <p class="lab">{LAB[c] ?? c}</p>
+              {(lunch!.piatti[c] ?? []).map((p) => (
+                <div class="plat">
+                  <p class="dish">{p.name}</p>
+                  {nomeEn(p) && <p class="desc">{nomeEn(p)}</p>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="empty">Le lunch de la semaine sera bientôt disponible.</p>
+      )}
+
+      {formules.length ? (
+        <div class="formules">
+          {formules.map((f) => (
+            <div class="f"><span class="fp">{f.text}</span><span class="fpz">{prezzo(f.price)}</span></div>
+          ))}
+        </div>
+      ) : (
+        <div class="formules">
+          <div class="f"><span class="fp">Entrée &amp; plat, ou plat &amp; dessert</span><span class="fpz">32,00 €</span></div>
+          <div class="f"><span class="fp">Entrée, plat &amp; dessert</span><span class="fpz">37,00 €</span></div>
+        </div>
+      )}
+
+      <p class="foot"><b>Comptoir Chouchou</b> · Mont-Saint-Guibert · www.comptoirchouchou.be</p>
+    </div>
+  </section>
+
+  <script is:inline>
+    function addBtn() {
+      if (document.getElementById("dlpdf")) return;
+      var b = document.createElement("button");
+      b.id = "dlpdf"; b.className = "dl-btn"; b.type = "button";
+      b.textContent = "⬇  Télécharger le PDF";
+      b.addEventListener("click", function () { window.print(); });
+      document.body.appendChild(b);
+    }
+    window.PagedConfig = {
+      auto: true,
+      before: function () { return (document.fonts && document.fonts.ready) || Promise.resolve(); },
+      after: function () { document.body.classList.remove("no-paged"); addBtn(); }
+    };
+    setTimeout(function () {
+      if (!document.querySelector(".pagedjs_page")) { document.body.classList.remove("no-paged"); addBtn(); }
+    }, 12000);
+  </script>
+  <script is:inline src="/vendor/paged.polyfill.min.js"></script>
+</body>
+</html>
