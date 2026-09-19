@@ -1,0 +1,71 @@
+---
+// Banda "labels et distinctions" (home): Collège Culinaire de Belgique,
+// Euro-Toques, Gault&Millau. Piccola animazione d'entrata allo scroll
+// (stesso pattern reveal degli altri blocchi della home).
+---
+<section class="labels" aria-label="Labels et distinctions">
+  <div class="labels-in">
+    <img class="lbl" src="/logo-ccb.webp" alt="Le Collège Culinaire de Belgique" loading="lazy" decoding="async" />
+    <img class="lbl" src="/logo_eurotoques.webp" alt="Euro-Toques" loading="lazy" decoding="async" />
+    <img class="lbl lbl-gm" src="/gaultmillau-logo.webp" alt="Gault&Millau" loading="lazy" decoding="async" />
+  </div>
+</section>
+
+<style>
+  .labels {
+    padding: clamp(1.8rem, 4vw, 3.2rem) 1.25rem;
+    background: #fff;
+  }
+  .labels-in {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(2rem, 7vw, 5.5rem);
+    flex-wrap: wrap;
+  }
+  .lbl {
+    height: 58px;
+    width: auto;
+    max-width: 210px;
+    object-fit: contain;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+  }
+  .lbl-gm { height: 30px; }
+  .lbl:nth-child(1) { transition-delay: 0.05s; }
+  .lbl:nth-child(2) { transition-delay: 0.18s; }
+  .lbl:nth-child(3) { transition-delay: 0.31s; }
+  .labels.in-view .lbl {
+    opacity: 1;
+    transform: none;
+  }
+  @media (max-width: 640px) {
+    .lbl { height: 46px; }
+    .lbl-gm { height: 26px; }
+    .labels-in { gap: 2.2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lbl { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<script>
+  const sezione = document.querySelector(".labels");
+  if (sezione) {
+    const oss = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            sezione.classList.add("in-view");
+            oss.disconnect();
+          }
+        }
+      },
+      { threshold: 0.25 }
+    );
+    oss.observe(sezione);
+  }
+</script>

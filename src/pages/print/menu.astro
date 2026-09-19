@@ -287,6 +287,9 @@ const teaHead = (s: BevSub) => {
     .cover-carte{font-family:var(--font-title);font-weight:700;color:var(--mag);
       font-size:30px;letter-spacing:.03em;margin-top:2mm;}
     .cover-sup{margin-top:auto;text-align:center;width:100%;}
+    .cover-badges{display:flex;align-items:center;justify-content:center;gap:8mm;margin:0 0 7mm;}
+    .cover-badges img{height:11mm;width:auto;max-width:34mm;object-fit:contain;display:block;}
+    .cover-badges img:nth-child(3){height:6.5mm;max-width:24mm;}
     .cover-sup .sh{font-family:var(--font-title);font-weight:700;color:var(--mag);font-size:12.5px;margin:0 0 6px;}
     .cover-sup .sub{font-family:var(--font-title);font-weight:700;color:var(--navy);font-size:12px;margin:8px 0 3px;}
     .cover-sup .lst{font-family:var(--font-body);color:var(--navy);font-size:10px;line-height:1.5;max-width:110mm;margin:0 auto;}
@@ -426,6 +429,11 @@ const teaHead = (s: BevSub) => {
       </div>
       <div class="cover-carte">LA CARTE</div>
       <div class="cover-sup">
+        <div class="cover-badges">
+          <img src="/logo-ccb.webp" alt="CCB" />
+          <img src="/logo_eurotoques.webp" alt="Euro-Toques" />
+          <img src="/gaultmillau-logo.webp" alt="Gault&Millau" />
+        </div>
         <p class="sh">Fournisseurs et producteurs locaux et belges</p>
         <p class="sub">Boissons :</p>
         <p class="lst">Domaine W, Domaine de Glabais, Domaine du Chenoy, Bertinchamps, Brasserie de L'Orne, Brasserie 3D, Tea Bo, Dada Gin, Ritchie</p>

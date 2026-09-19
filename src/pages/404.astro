@@ -1,0 +1,152 @@
+---
+// PAGINA 404 — pagina non trovata (sito pubblico ChouChou).
+// Design Chouchou: fondo navy con bagliore magenta, "404" magenta,
+// script "Oups...", messaggio e due bottoni (accueil + carte).
+// Bilingue: FR di default, EN se l'URL è sotto /en/. noindex.
+// Nessun file del motore RH toccato.
+export const prerender = false;
+
+import Layout from "../layouts/Layout.astro";
+import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
+
+const lang = getLangFromUrl(Astro.url);
+const en = lang === "en";
+
+const T = en
+  ? {
+      script: "Oups…",
+      title: "This page doesn't exist",
+      text: "The page you're looking for has moved or never existed. Let's get you back to something delicious.",
+      home: "Back to home",
+      menu: "See the menu",
+    }
+  : {
+      script: "Oups…",
+      title: "Cette page n'existe pas",
+      text: "La page que vous cherchez a été déplacée, ou n'a jamais existé. Revenons vers quelque chose de gourmand.",
+      home: "Retour à l'accueil",
+      menu: "Voir la carte",
+    };
+
+const HOME = getLocalizedUrl("/", lang);
+const CARTE = getLocalizedUrl("/menu", lang);
+---
+
+<Layout title={`404 — ${T.title}`} noindex={true}>
+  <section class="nf">
+    <div class="nf__bg" aria-hidden="true"></div>
+    <div class="nf__glow" aria-hidden="true"></div>
+    <div class="nf__inner">
+      <p class="nf__script">{T.script}</p>
+      <div class="nf__code">404</div>
+      <h1 class="nf__title">{T.title}</h1>
+      <p class="nf__text">{T.text}</p>
+      <div class="nf__actions">
+        <a class="nf__btn nf__btn--primary" href={HOME}>{T.home}</a>
+        <a class="nf__btn nf__btn--ghost" href={CARTE}>{T.menu}</a>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .nf {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #23283a;
+    padding: 8rem 1.5rem 5rem;
+  }
+  .nf__bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(120% 90% at 50% -10%, #3f4762 0%, transparent 55%),
+      linear-gradient(180deg, #353c4e 0%, #23283a 60%, #1c2030 100%);
+  }
+  .nf__glow {
+    position: absolute;
+    left: 50%;
+    top: 42%;
+    width: 70vw;
+    max-width: 620px;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(237, 34, 137, 0.35) 0%, rgba(237, 34, 137, 0) 68%);
+    filter: blur(10px);
+    pointer-events: none;
+  }
+  .nf__inner {
+    position: relative;
+    text-align: center;
+    max-width: 620px;
+  }
+  .nf__script {
+    font-family: var(--font-script, "Birthstone", cursive);
+    color: var(--mag, #ed2289);
+    font-size: clamp(2.6rem, 8vw, 4.4rem);
+    line-height: 1;
+    margin: 0 0 -0.4rem;
+  }
+  .nf__code {
+    font-family: var(--font-title, "Quicksand", sans-serif);
+    font-weight: 700;
+    color: var(--mag, #ed2289);
+    font-size: clamp(5.5rem, 22vw, 11rem);
+    line-height: 0.95;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  .nf__title {
+    font-family: var(--font-title, "Quicksand", sans-serif);
+    font-weight: 600;
+    color: var(--ivory, #f7f4ee);
+    font-size: clamp(1.4rem, 4.5vw, 2rem);
+    margin: 0.6rem 0 0;
+  }
+  .nf__text {
+    font-family: var(--font-body, "Lato", sans-serif);
+    color: rgba(247, 244, 238, 0.8);
+    font-size: clamp(1rem, 2.4vw, 1.12rem);
+    line-height: 1.6;
+    max-width: 32rem;
+    margin: 1rem auto 2.2rem;
+  }
+  .nf__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    justify-content: center;
+  }
+  .nf__btn {
+    display: inline-block;
+    text-decoration: none;
+    font-family: var(--font-title, "Quicksand", sans-serif);
+    font-weight: 700;
+    font-size: 1rem;
+    padding: 0.85rem 1.6rem;
+    border-radius: 999px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .nf__btn--primary {
+    background: var(--mag, #ed2289);
+    color: #fff;
+    box-shadow: 0 10px 26px rgba(237, 34, 137, 0.4);
+  }
+  .nf__btn--primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(237, 34, 137, 0.5);
+  }
+  .nf__btn--ghost {
+    background: transparent;
+    color: var(--ivory, #f7f4ee);
+    border: 1.5px solid rgba(247, 244, 238, 0.4);
+  }
+  .nf__btn--ghost:hover {
+    border-color: var(--ivory, #f7f4ee);
+    transform: translateY(-2px);
+  }
+</style>
