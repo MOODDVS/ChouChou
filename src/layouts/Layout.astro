@@ -32,7 +32,8 @@ const description =
     ? "Comptoir Chouchou, restaurant and grocery in Mont-Saint-Guibert, Walloon Brabant. Creative, homemade cuisine in tune with the seasons. Book your table."
     : "Comptoir Chouchou, restaurant et épicerie à Mont-Saint-Guibert, en Brabant wallon. Cuisine créative et faite maison, au fil des saisons. Réservez votre table.");
 
-const siteUrl = (process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://example.com").replace(/\/$/, "");
+const siteUrl = (Astro.site?.href ?? process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "https://www.comptoirchouchou.be").replace(/\/$/, "");
+const supabaseOrigin = (import.meta.env.PUBLIC_SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
 const ogImage = ogImageProp
   ? (ogImageProp.startsWith("http") ? ogImageProp : new URL(ogImageProp, siteUrl).href)
   : `${siteUrl}/og-image.jpg`;
@@ -68,6 +69,8 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} />}
+    <slot name="head" />
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
