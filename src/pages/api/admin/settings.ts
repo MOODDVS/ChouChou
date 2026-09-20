@@ -559,28 +559,18 @@ export const PUT: APIRoute = async ({ request }) => {
   // Liens: del GRUPPO. Un solo sito pubblico per tutte le sedi, quindi un
   // solo Facebook, un solo TripAdvisor.
   if (linkPuliti.length > 0) {
-    const err = await scriviConfig(ambitoPut, Object.fromEntries(linkPuliti), "gruppo");
+    const err = await scriviConfig(ambitoPut, Object.fromEntries(linkPuliti));
     if (err) return json({ error: await msg("err.linksSave") }, 500);
   }
 
   if (generalPulito.length > 0) {
-    // ⚠️ UNA eccezione dentro Général, e non e' «questo campo e' condiviso»
-    // (il ragionamento che abbiamo scartato): e' che il CODICE ne supporta
-    // uno solo. `TIMEZONE` in `slots.ts` e' una variabile di modulo mutabile,
-    // letta da venti file, condivisa fra tutte le richieste del processo.
-    // Salvare un fuso per sede darebbe un'impostazione che non fa niente —
-    // peggio che non averla. Resta uno per installazione finche' quel
-    // refactor non e' fatto (vedi il backlog).
-    const fuso = generalPulito.filter(([k]) => k === "timezone");
-    const resto = generalPulito.filter(([k]) => k !== "timezone");
-    if (fuso.length > 0) {
-      const err = await scriviConfig(ambitoPut, Object.fromEntries(fuso), "gruppo");
-      if (err) return json({ error: await msg("err.generalSave") }, 500);
-    }
-    if (resto.length > 0) {
-      const err = await scriviConfig(ambitoPut, Object.fromEntries(resto));
-      if (err) return json({ error: await msg("err.generalSave") }, 500);
-    }
+    // ⚠️ Qui non si separa piu' niente a mano. Il fuso resta uno per
+    // installazione — `TIMEZONE` in `slots.ts` e' una variabile di modulo
+    // condivisa da tutte le richieste, e un fuso per sede sarebbe
+    // un'impostazione che non fa niente — ma a saperlo e' `CLASSIFICA_CONFIG`,
+    // non questa riga. `scriviConfig` manda ogni chiave dove deve andare.
+    const err = await scriviConfig(ambitoPut, Object.fromEntries(generalPulito));
+    if (err) return json({ error: await msg("err.generalSave") }, 500);
   }
   // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
   // svuotare la cache di boot così il logo nuovo si vede al primo reload.

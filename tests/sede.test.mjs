@@ -1413,52 +1413,22 @@ test("le SELECT che alimentano le email chiedono location_id", () => {
 
    ⚠️ Scrivere per sede e leggere per marchio non da' nessun errore: da' un
    valore vecchio, sempre plausibile. Per questo serve una rete.
-
-   L'elenco cresce man mano che si classificano le altre chiavi.
    ============================================================ */
-const CHIAVI_DI_SEDE = ["orders_closed"];
+/* ⚠️ QUI C'ERA una rete con UNA chiave sola — `CHIAVI_DI_SEDE =
+   ["orders_closed"]` — e un commento che diceva «l'elenco cresce man mano che
+   si classificano le altre chiavi». Il 20/09/2026 sono state classificate
+   tutte e 81, e la rete si e' spostata in `tests/config.test.mjs`, dove
+   guarda tutte le chiavi di sede invece di una, risolve anche quelle passate
+   come costanti (`K_LOCATION`) e distingue `app_config` da `location_config`.
 
-/* ⚠️ `timezone` DEVE entrare in questo elenco, ma non ancora: oggi in
-   `slots.ts` il fuso e' una VARIABILE GLOBALE del modulo (`TIMEZONE`,
-   riempita da `aggiornaTimezone()`), quindi non c'e' nessun ambito da
-   passare — va prima sfilata di li' e fatta viaggiare di mano in mano.
-   Finche' resta globale, un gruppo su due fusi calcola gli orari
-   prenotabili con quello sbagliato, e nessun errore lo dice.
-   Metterla qui adesso renderebbe la rete rossa senza che nessuno possa
-   farla tornare verde in una riga: sarebbe un promemoria travestito da
-   prova. Il promemoria e' questo commento. */
+   Un elenco che qualcuno deve ricordarsi di allungare non e' una rete: e' un
+   promemoria travestito da prova. Questa invece parte dalla classifica, e una
+   chiave nuova ci finisce dentro da sola.
 
-test("le chiavi di sede non si leggono da app_config a mano", () => {
-  const file = [];
-  (function scorri(dir) {
-    for (const nome of readdirSync(dir)) {
-      const p = join(dir, nome);
-      if (statSync(p).isDirectory()) scorri(p);
-      else if (/\.(ts|astro)$/.test(nome)) file.push(p);
-    }
-  })("src");
-
-  // I guardiani dello strato: sono LORO a parlare con app_config.
-  const AMMESSI = ["src/lib/admin/sede.ts", "src/lib/appConfigCache.ts", "src/lib/admin/adminBoot.ts"];
-
-  const colpevoli = [];
-  for (const f of file) {
-    if (AMMESSI.includes(f.replace(/\\/g, "/"))) continue;
-    const testo = readFileSync(f, "utf8");
-    for (const m of testo.matchAll(/from\("app_config"\)([\s\S]{0,300})/g)) {
-      for (const k of CHIAVI_DI_SEDE) {
-        if (new RegExp(`["'\`]${k}["'\`]`).test(m[1])) {
-          colpevoli.push(`${f} → ${k}`);
-        }
-      }
-    }
-  }
-  assert.deepEqual(
-    colpevoli.sort(),
-    [],
-    `chiavi di SEDE lette dal marchio: scritte con scriviConfig(ambito), rilette senza. Usa leggiConfig(ambito) o appConfigEq(chiave, ambito).\n  ${colpevoli.join("\n  ")}`,
-  );
-});
+   Anche `timezone` aveva il suo commento-promemoria qui. Adesso e' una riga
+   di `CLASSIFICA_CONFIG` che dice «marchio», col motivo accanto: il codice ne
+   supporta uno solo. Il giorno che `TIMEZONE` smette di essere una variabile
+   globale, quella riga diventa "sede" e la rete indica da sola i posti. */
 
 test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
   for (const f of ["src/pages/api/checkout.ts", "src/lib/admin/caricaToday.ts"]) {

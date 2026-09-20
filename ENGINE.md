@@ -1002,6 +1002,67 @@ sono giusti tutti e due:
 - il controllo «sezione vuota» prima di eliminare è **globale**, e quando è
   vuota *qui* ma piena altrove il messaggio lo dice, invece di mentire.
 
+
+### Le CHIAVI di app_config — la stessa domanda, un piano piu' sotto (20/09/2026)
+
+`CLASSIFICA` risponde per le TABELLE, e `app_config` la dichiara «marchio» —
+giustamente: *e'* il livello marchio. Ma dentro ci sono settanta cose diverse,
+e quella riga non dice niente su cosa contengono.
+
+Il guasto che ne nasce e' sempre lo stesso: **scritta per sede, riletta per
+marchio.** `scriviConfig` salva in `location_config` quando c'e' una sede
+selezionata; chi rilegge con `from("app_config")` prende il valore
+dell'installazione e non lo sa. Nessun errore, nessun log. L'abbiamo trovato
+tre volte a mano — `events.ts`, `link_google_review`, `orders_closed` — e tre
+volte per caso.
+
+`CLASSIFICA_CONFIG` in `sedeRegole.ts` risponde una chiave alla volta:
+
+- **`sede`** — puo' essere diversa da un punto all'altro (ragione sociale,
+  IVA, orari della sala, scheda Google, cucina chiusa). **Ogni lettura deve
+  passare un ambito.** Leggerla grezza e' il guasto.
+- **`marchio`** — uguale per tutta l'installazione (lingua dell'admin, tema,
+  lingue pubbliche, quota newsletter, token OAuth Google). Leggerla grezza va
+  bene.
+- **`utente`** — appartiene a chi guarda, non a un punto: il layout della home.
+
+Le chiavi generate a runtime (`link_facebook`, `site_hero_1`,
+`home_layout:<id>`) si classificano per prefisso. ⚠️ **L'elenco esplicito
+vince sul prefisso**: `link_google_review` porta il prefisso dei link ed e' di
+sede — senza quella precedenza, chi mangia a Schaerbeek lascia la recensione
+sulla scheda di Stockel.
+
+**Una chiave non dichiarata LANCIA**, in scrittura. E' l'unico momento in cui
+qualcuno sta guardando: dopo, la chiave vive in una tabella e nessuno si
+chiede piu' se vada letta con un ambito.
+
+**Chi scrive non sceglie piu' il livello.** `scriviConfig` aveva un parametro
+`livello`, e i chiamanti lo passavano a mano: i link social «gruppo», il fuso
+«gruppo», tutto il resto implicitamente «sede». Due sorgenti di verita' per la
+stessa domanda, e chi aggiungeva un campo doveva indovinare. Il parametro non
+c'e' piu': decide la classifica, e `scriviConfig` manda ogni chiave dove deve
+andare — anche mescolate nello stesso salvataggio.
+
+⚠️ **Il fuso orario e' «marchio» perche' il codice ne supporta uno solo**, non
+perche' sia giusto. `TIMEZONE` in `slots.ts` e' una variabile di modulo
+mutabile, condivisa da tutte le richieste del processo. La classifica dice la
+verita' di oggi, non quella che vorremmo: il giorno che quel refactor si fa,
+la riga diventa `"sede"` e la rete indica da sola tutti i posti da sistemare.
+
+**Le eccezioni sono dichiarate, non tollerate.** `tests/config.test.mjs` tiene
+l'elenco dei posti che leggono una chiave di sede senza ambito, con il motivo,
+e una terza prova fallisce se un'eccezione non serve piu' — o resterebbe li'
+per sempre. Oggi sono due categorie: login e reset-password, dove una sede non
+esiste ancora, e il sito pubblico, che non ha ancora un selettore di sede.
+
+Trovati mentre si scriveva la classifica: la lettera di disdetta contratti
+usciva con la ragione sociale e l'IVA del marchio invece che della sede (un
+documento legale sbagliato); il form di contatto del sito mandava il messaggio
+alla casella del marchio invece che del punto; `assicuraLocation` in
+`googleBusiness.ts` leggeva la scheda Google a livello marchio — non la
+chiamava piu' nessuno, ma restava esportata, pronta per il primo che la
+riusava.
+
 ## FAB — il pulsante in basso a destra (unificato 13/09/2026)
 
 **Dove vive.** `src/styles/fab.css`, importato una volta da `AdminHead` →

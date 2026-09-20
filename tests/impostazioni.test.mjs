@@ -22,7 +22,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { CLASSIFICA } from "../src/lib/admin/sedeRegole.ts";
+import { CLASSIFICA, appartenenzaConfig } from "../src/lib/admin/sedeRegole.ts";
 
 const API = readFileSync("src/pages/api/admin/settings.ts", "utf8");
 const PAGINA = readFileSync("src/pages/admin/settings.astro", "utf8");
@@ -98,22 +98,41 @@ test("le schede che hanno una TABELLA combaciano con CLASSIFICA", () => {
    COSA SI SCRIVE DOVE
    ============================================================ */
 
-test("i link si salvano per il GRUPPO, e si vede nella chiamata", () => {
-  assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(linkPuliti\), "gruppo"\)/);
+test("i link si salvano per il GRUPPO — e adesso a saperlo e' la CHIAVE", () => {
+  // ⚠️ Fino al 20/09/2026 questa prova guardava la chiamata: `scriviConfig(…,
+  // "gruppo")`. Era il chiamante a scegliere il livello, e chi aggiungeva un
+  // campo doveva indovinare. Adesso lo dice `CLASSIFICA_CONFIG`, una volta.
+  assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(linkPuliti\)\)/);
+  for (const k of ["facebook", "instagram", "tripadvisor"]) {
+    assert.equal(appartenenzaConfig("link_" + k), "marchio", `link_${k} dovrebbe essere del marchio`);
+  }
+  // ⚠️ L'eccezione che paga tre schede Google: porta il prefisso dei link ed
+  // e' di sede. Senza, chi mangia a Schaerbeek recensisce Stockel.
+  assert.equal(appartenenzaConfig("link_google_review"), "sede");
 });
 
 test("Général si salva per SEDE, tranne il fuso orario", () => {
+  // Una sola chiamata, senza separare niente a mano: `scriviConfig` manda
+  // ogni chiave dove deve andare, anche mescolate nello stesso salvataggio.
+  assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(generalPulito\)\)/);
+  assert.doesNotMatch(API, /const fuso = generalPulito\.filter/,
+    "la separazione a mano e' tornata: adesso decide CLASSIFICA_CONFIG");
+  for (const k of ["company_name", "company_vat", "restaurant_name", "public_phone", "brand_logo"]) {
+    assert.equal(appartenenzaConfig(k), "sede", `${k} dovrebbe essere di sede`);
+  }
   // ⚠️ E l'eccezione NON e' «questo campo e' condiviso» (il ragionamento
   // scartato): e' che il CODICE ne supporta uno solo. `TIMEZONE` in
   // `slots.ts` e' una variabile di modulo mutabile, letta da venti file e
   // condivisa fra tutte le richieste del processo. Un fuso per sede darebbe
   // un'impostazione che non fa niente — peggio che non averla.
-  assert.match(API, /const fuso = generalPulito\.filter\(\(\[k\]\) => k === "timezone"\);/);
-  assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(fuso\), "gruppo"\)/);
-  assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(resto\)\)/,
-    "il resto di Général non si salva piu' per sede");
-  assert.match(API, /TIMEZONE.*variabile di modulo mutabile/s,
-    "il motivo dell'eccezione non e' piu' scritto: senza, sembra una scelta di prodotto");
+  assert.equal(appartenenzaConfig("timezone"), "marchio");
+  const REGOLE = readFileSync("src/lib/admin/sedeRegole.ts", "utf8");
+  assert.match(REGOLE, /TIMEZONE.*variabile di modulo/s,
+    "il motivo non e' piu' scritto accanto alla riga: senza, sembra una scelta di prodotto");
+  // ⚠️ L'icona sta col PANNELLO, che e' uno: era «sede», e il risultato era
+  // una favicon salvata su una sede che adminBoot non avrebbe mai riletto.
+  assert.equal(appartenenzaConfig("brand_favicon"), "marchio");
+  assert.equal(appartenenzaConfig("brand_app_icon"), "marchio");
 });
 
 test("Cuisine, Réservations e Notifiche si salvano per SEDE", () => {
@@ -127,10 +146,14 @@ test("Cuisine, Réservations e Notifiche si salvano per SEDE", () => {
   ]) {
     assert.match(API, chiamata, `manca o e' cambiata: ${chiamata}`);
   }
-  // ⚠️ Nessuna di queste passa "gruppo": il livello predefinito di
-  // `scriviConfig` e' «sede», ed e' quello che serve.
-  const gruppo = [...API.matchAll(/scriviConfig\([\s\S]{0,120}?"gruppo"\)/g)].length;
-  assert.equal(gruppo, 2, `le scritture di GRUPPO devono restare due (link e fuso), trovate ${gruppo}`);
+  // ⚠️ NESSUNA sceglie piu' il livello a mano. Il parametro non esiste piu':
+  // c'erano due chiamate «gruppo» (link e fuso) e tutte le altre implicite —
+  // due verita' sulla stessa domanda, e chi aggiungeva un campo indovinava.
+  const gruppo = [...API.matchAll(/scriviConfig\([\s\S]{0,160}?"gruppo"\)/g)].length;
+  assert.equal(gruppo, 0, `qualcuno sceglie ancora il livello a mano: ${gruppo} chiamate`);
+  for (const k of ["kitchen_email", "orders_closed", "daily_brief_hour", "reservation_zones"]) {
+    assert.equal(appartenenzaConfig(k), "sede", `${k} dovrebbe essere di sede`);
+  }
 });
 
 test("gli orari si scrivono con scriviOrari, che sdoppia da solo", () => {

@@ -1,10 +1,9 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../lib/db";
 import { datiRistorante } from "../../lib/ristorante";
 import { temaEmail } from "../../lib/temaBrand";
 import { adminLang } from "../../lib/admin/adminLang";
 import { inviaPushContatto } from "../../lib/push";
-import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { ambitoPubblicoChiesto, leggiConfig, type Ambito } from "../../lib/admin/sede";
 import { CLIENT } from "../../config/client";
 import { Resend } from "resend";
 
@@ -14,13 +13,14 @@ const TO_FALLBACK = CLIENT.email;
 
 /** Destinatari del form: admin Réglages → Général → "Emails du formulaire
  *  de contact" (fallback sull'indirizzo storico se non impostato). */
-async function destinatariContact(): Promise<string[]> {
+async function destinatariContact(ambito: Ambito): Promise<string[]> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["contact_emails", "public_email"]);
-    const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
+    // ⚠️ Con l'ambito, non grezzo: il form del sito di Schaerbeek deve
+    // arrivare a Schaerbeek. Letto a livello marchio, il messaggio di un
+    // cliente finiva nella casella di un'altra societa' — e chi l'aspettava
+    // non riceveva niente, senza nessun errore da nessuna parte.
+    const cfg = await leggiConfig(ambito, ["contact_emails", "public_email"]);
+    const m = new Map([...cfg.valori].map(([k, v]) => [k, String(v ?? "").trim()]));
     const lista = (m.get("contact_emails") ?? "").split(",").map((e) => e.trim()).filter(Boolean);
     if (lista.length > 0) return lista;
     const pub = m.get("public_email") ?? "";
@@ -33,13 +33,10 @@ async function destinatariContact(): Promise<string[]> {
 /** Mittente delle email del form: "Nome mittente <email verificata>", con nome
  *  ed email dai Reglages (email_from_name + newsletter_from_email). Fallback su
  *  FROM (RESEND_FROM / config) se non configurati. */
-async function mittenteForm(): Promise<string> {
+async function mittenteForm(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["contact_from_name", "contact_from_email", "email_from_name", "public_email", "newsletter_from_email", "restaurant_name"]);
-    const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
+    const cfg = await leggiConfig(ambito, ["contact_from_name", "contact_from_email", "email_from_name", "public_email", "newsletter_from_email", "restaurant_name"]);
+    const m = new Map([...cfg.valori].map(([k, v]) => [k, String(v ?? "").trim()]));
     const nome = m.get("contact_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
     const email = m.get("contact_from_email") || m.get("public_email") || m.get("newsletter_from_email") || "";
     if (email) return `${nome} <${email}>`;
@@ -166,7 +163,7 @@ export const POST: APIRoute = async ({ request }) => {
   // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
   const ambitoPub = await ambitoPubblicoChiesto(request);
   const dati = await datiRistorante(ambitoPub);
-  const from = await mittenteForm();
+  const from = await mittenteForm(ambitoPub);
   const tema = await temaEmail();
   const logoEmail =
     (tema.isDark ? dati.logoNeg || dati.logoPos : dati.logoPos || dati.logoNeg) ||
@@ -299,7 +296,7 @@ export const POST: APIRoute = async ({ request }) => {
     // 1) Messaggio al ristorante
     const { error: errR } = await resend.emails.send({
       from,
-      to: await destinatariContact(),
+      to: await destinatariContact(ambitoPub),
       bcc: BCC,
       replyTo: email,
       subject: oggetto ? R.subjectLine(oggetto) : R.subjectFallback(dati.nome),

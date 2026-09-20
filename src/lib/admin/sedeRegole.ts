@@ -389,3 +389,184 @@ export function pagamentoOnlinePronto(chiave: Fonte, firma: Fonte): boolean {
   if (chiave === "nessuna" || firma === "nessuna") return false;
   return chiave === firma;
 }
+
+/* ============================================================
+   LE CHIAVI DI app_config — la stessa domanda, un piano piu' sotto
+   ============================================================ */
+
+/**
+ * `CLASSIFICA` sopra risponde per le TABELLE. Ma `app_config` e' una tabella
+ * sola che contiene settanta cose diverse, e classificarla tutta «marchio»
+ * (com'e', giustamente: e' il livello marchio) non dice niente su cosa c'e'
+ * dentro. La domanda vera si fa una chiave alla volta.
+ *
+ * ⚠️ IL GUASTO CHE QUESTA CLASSIFICA ESISTE PER FERMARE. `scriviConfig`
+ * salva in `location_config` quando c'e' una sede selezionata; chi rilegge
+ * facendo `from("app_config")` a mano prende il valore dell'INSTALLAZIONE e
+ * non lo sa. Nessun errore, nessun log: il ristoratore chiude la cucina, il
+ * bottone diventa rosso, e gli ordini continuano ad arrivare. L'abbiamo
+ * trovato tre volte a mano — `events.ts`, `link_google_review`,
+ * `orders_closed` — e tre volte non c'era niente da leggere nei log.
+ *
+ * - `sede`  : PUO' essere diversa da un punto all'altro. Ogni lettura deve
+ *             passare un ambito (`leggiConfig` / `appConfigEq(k, ambito)`).
+ *             Leggerla grezza e' il guasto qui sopra.
+ * - `marchio`: uguale per tutta l'installazione. Leggerla grezza va bene.
+ * - `utente` : appartiene a CHI GUARDA, non a un punto (il layout della
+ *             home). Non ha niente a che vedere con le sedi.
+ *
+ * Una chiave che non sta qui NON e' un caso non previsto: e' un errore, e
+ * `scriviConfig` lancia. Dichiararla costa una riga e costringe a farsi la
+ * domanda mentre si scrive la funzione, non sei mesi dopo in produzione.
+ */
+export type ApparCfg = "marchio" | "sede" | "utente";
+
+/** Famiglie di chiavi generate a runtime (`link_facebook`, `site_hero_1`,
+ *  `home_layout:<id utente>`): si classificano per prefisso, una volta.
+ *  ⚠️ L'elenco esplicito VINCE sul prefisso — serve per `link_google_review`,
+ *  che porta il prefisso dei link ma e' di sede (tre schede Google). */
+export const FAMIGLIE_CONFIG: { prefisso: string; appartenenza: ApparCfg }[] = [
+  { prefisso: "link_", appartenenza: "marchio" },      // social: un solo sito pubblico
+  { prefisso: "site_", appartenenza: "marchio" },      // immagini del sito: idem
+  { prefisso: "home_layout:", appartenenza: "utente" },
+];
+
+export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
+  // --- DELLA SEDE ---------------------------------------------------
+  // Scheda «Général»: tre societa' vuol dire tre ragioni sociali, tre IVA,
+  // tre indirizzi, tre insegne. La scelta sta nella SCHEDA, non nel campo.
+  company_name: "sede",
+  company_street: "sede",
+  company_zip: "sede",
+  company_city: "sede",
+  company_country: "sede",
+  company_vat: "sede",
+  company_iban: "sede",
+  restaurant_name: "sede",
+  public_phone: "sede",
+  public_email: "sede",
+  contact_emails: "sede",
+  whatsapp_number: "sede",
+  kitchen_email: "sede",
+  brand_logo: "sede",
+  brand_logo_negative: "sede",
+  brand_logo_mono: "sede",
+  // Mittenti: la mail di conferma di Stockel dice «Stockel», non il gruppo.
+  newsletter_from_name: "sede",
+  newsletter_from_email: "sede",
+  email_from_name: "sede",
+  contact_from_name: "sede",
+  contact_from_email: "sede",
+  order_from_name: "sede",
+  order_from_email: "sede",
+  reservation_from_name: "sede",
+  reservation_from_email: "sede",
+  reservation_notify_email: "sede",
+  // La sala e' un posto fisico: tutto quello che la descrive e' del punto.
+  reservation_zones: "sede",
+  reservation_zone_choice: "sede",
+  reservation_zone_priority: "sede",
+  reservation_services: "sede",
+  reservation_plan_mode: "sede",
+  reservation_plan_areas: "sede",
+  reservation_plan_decor: "sede",
+  reservation_plan_links: "sede",
+  reservation_auto_accept: "sede",
+  reservation_auto_tables: "sede",
+  reservation_max_people: "sede",
+  reservation_hold_minutes: "sede",
+  reservation_slot_minutes: "sede",
+  reservation_min_notice_hours: "sede",
+  reservation_min_notice_minutes: "sede",
+  reservation_corner_style: "sede",
+  reservation_languages: "sede",
+  reservation_options: "sede",
+  reservation_options_enabled: "sede",
+  service_closures_permanent: "sede",
+  zone_closures_permanent: "sede",
+  orders_closed: "sede",         // la cucina chiusa e' di UNA cucina
+  custom_events: "sede",         // chiusure e date decise dal ristoratore
+  // Google: tre schede, tre valutazioni, tre sincronizzazioni.
+  google_place_id: "sede",
+  google_location: "sede",
+  google_location_title: "sede",
+  google_profile: "sede",
+  google_rating: "sede",
+  google_review_count: "sede",
+  google_reviews_synced_at: "sede",
+  link_google_review: "sede",    // ⚠️ vince sul prefisso "link_"
+  // Il riassunto del giorno parla di UN servizio.
+  daily_brief_enabled: "sede",
+  daily_brief_email: "sede",
+  daily_brief_hour: "sede",
+  daily_brief_last_sent: "sede",
+
+  // --- DEL MARCHIO --------------------------------------------------
+  admin_lang: "marchio",         // la sceglie il super, vale per il pannello
+  admin_theme: "marchio",
+  admin_features: "marchio",
+  admin_pages_hidden: "marchio",
+  admin_tabs_hidden: "marchio",
+  pwa_brand: "marchio",
+  public_languages: "marchio",
+  public_lang_default: "marchio",
+  // ⚠️ L'icona sta col PANNELLO e col SITO, non con la societa'. Il pannello
+  // e' uno (adminBoot la legge senza ambito, e non ne ha uno da passare) e il
+  // sito pubblico e' uno. Erano "sede" per un momento, e il risultato era una
+  // favicon salvata su Schaerbeek che nessuno avrebbe mai riletto. I LOGHI
+  // invece restano di sede: finiscono nelle email e sulle pagine del punto.
+  brand_favicon: "marchio",
+  brand_app_icon: "marchio",
+  public_site_base: "marchio",   // un solo sito pubblico per i tre punti
+  gsc_site: "marchio",           // una Search Console per quel sito
+  // ⚠️ IL FUSO E' «marchio» PERCHE' IL CODICE NE SUPPORTA UNO SOLO, non
+  // perche' sia giusto. `TIMEZONE` in `slots.ts` e' una variabile di modulo
+  // mutabile, condivisa da tutte le richieste del processo: un fuso per sede
+  // sarebbe un'impostazione che non fa niente — peggio che non averla. Vedi
+  // il commento in `settings.ts`, dove il campo viene salvato. Il giorno che
+  // quel refactor si fa, questa riga diventa "sede" e la rete in
+  // tests/config.test.mjs indica da sola tutti i posti da sistemare.
+  timezone: "marchio",
+  // ⚠️ UN SOLO conto Google, tre schede sotto: il refresh token e' del conto.
+  google_oauth_refresh: "marchio",
+  // Widget di prenotazione esterno: e' il sito che lo incorpora, non il punto.
+  resa_mode: "marchio",
+  resa_provider: "marchio",
+  resa_url: "marchio",
+  resa_embed: "marchio",
+  newsletter_monthly_quota: "marchio", // la quota e' dell'abbonamento MOODD
+  print_catalog: "marchio",            // il catalogo stampe e' di MOODD
+};
+
+/**
+ * A chi appartiene una chiave di configurazione. Lancia se non e' dichiarata.
+ *
+ * ⚠️ L'elenco esplicito si guarda PRIMA delle famiglie, o `link_google_review`
+ * diventerebbe «marchio» come gli altri `link_` — ed e' esattamente l'errore
+ * per cui un cliente che ha mangiato a Schaerbeek lasciava la recensione
+ * sulla scheda di Stockel.
+ */
+export function appartenenzaConfig(chiave: string): ApparCfg {
+  const esplicita = CLASSIFICA_CONFIG[chiave];
+  if (esplicita) return esplicita;
+  for (const f of FAMIGLIE_CONFIG) if (chiave.startsWith(f.prefisso)) return f.appartenenza;
+  throw new Error(
+    `Chiave di configurazione "${chiave}" non classificata in CLASSIFICA_CONFIG ` +
+    `(src/lib/admin/sedeRegole.ts). Dichiarala come "marchio", "sede" o "utente" ` +
+    `prima di scriverla: da questo dipende se va letta con un ambito.`
+  );
+}
+
+/** true se la chiave puo' cambiare da una sede all'altra — cioe' se leggerla
+ *  senza ambito rende il valore sbagliato. E' la domanda che conta. */
+export function configDiSede(chiave: string): boolean {
+  return appartenenzaConfig(chiave) === "sede";
+}
+
+/** Dove va scritta una chiave, con una sede selezionata.
+ *  `marchio` e `utente` vanno sempre in `app_config`: salvarle per sede
+ *  vorrebbe dire tre lingue dell'admin e tre temi, e chi le rilegge (adminBoot)
+ *  non passa nessun ambito — quindi non le vedrebbe mai. */
+export function tabellaConfig(chiave: string, ambito: Ambito): "app_config" | "location_config" {
+  return ambito.modo === "sede" && configDiSede(chiave) ? "location_config" : "app_config";
+}

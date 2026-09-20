@@ -15,6 +15,8 @@ import {
   type Fonte,
   sedeDettaDa,
   HEADER_SEDE,
+  tabellaConfig,
+  appartenenzaConfig,
 } from "./sedeRegole";
 import type { StaffUser } from "./adminAuth";
 
@@ -34,8 +36,14 @@ export {
   type Fonte,
   NESSUNA_SEDE,
   CLASSIFICA,
+  CLASSIFICA_CONFIG,
+  FAMIGLIE_CONFIG,
+  appartenenzaConfig,
+  configDiSede,
+  tabellaConfig,
   type Ambito,
   type Appartenenza,
+  type ApparCfg,
 } from "./sedeRegole";
 
 /**
@@ -440,26 +448,48 @@ export async function leggiConfig(ambito: Ambito, chiavi: string[]): Promise<Con
  * a nessuno, e nessuno capirebbe perche'. Le copie identiche sono il modo
  * in cui l'ereditarieta' muore in silenzio.
  */
-/** A che livello vive un gruppo di impostazioni. Lo decide la SCHEDA che le
- *  contiene, una volta, nel codice — non l'utente campo per campo. */
-export type Livello = "sede" | "gruppo";
-
+/**
+ * ⚠️ NON c'e' piu' un parametro «livello» (tolto 20/09/2026). C'era, e i
+ * chiamanti lo passavano a mano: i link social «gruppo», il fuso «gruppo»,
+ * tutto il resto implicitamente «sede». Due sorgenti di verita' — il
+ * chiamante e la natura della chiave — e chi aggiungeva un campo doveva
+ * indovinare quale valesse. Adesso decide `CLASSIFICA_CONFIG`, una volta.
+ */
 export async function scriviConfig(
   ambito: Ambito,
   coppie: Record<string, string>,
-  livello: Livello = "sede",
 ): Promise<string | null> {
   const chiavi = Object.keys(coppie);
   if (chiavi.length === 0) return null;
 
-  // Sede unica, o roba che vale per tutto il gruppo: `app_config`.
-  if (livello === "gruppo" || ambito.modo !== "sede") {
+  // ⚠️ Ogni chiave passa da `appartenenzaConfig`, che LANCIA se non e'
+  // dichiarata in CLASSIFICA_CONFIG. Sembra severo per una scrittura, ma e'
+  // il solo momento in cui qualcuno sta guardando: da qui in poi la chiave
+  // vive in una tabella e nessuno si chiede piu' se vada letta con un ambito.
+  for (const k of chiavi) appartenenzaConfig(k);
+
+  // Sede unica (o aggregato): non esiste nessun `location_config` in cui
+  // scrivere, tutto va nel valore dell'installazione.
+  if (ambito.modo !== "sede") {
     const righe = chiavi.map((key) => ({ key, value: coppie[key] }));
     const { error } = await supabaseAdmin.from("app_config").upsert(righe, { onConflict: "key" });
     return error ? error.message : null;
   }
 
-  // Livello «sede»: con una sede selezionata tutto quello che si salva e' suo.
+  // Con una sede selezionata NON tutto quello che si salva e' suo: la lingua
+  // dell'admin, il tema, le lingue pubbliche sono dell'installazione. Chi le
+  // rilegge (adminBoot) non passa nessun ambito — se finissero in
+  // `location_config` verrebbero scritte e non lette mai piu'. Silenzioso.
+  const diSede = chiavi.filter((k) => tabellaConfig(k, ambito) === "location_config");
+  const diMarchio = chiavi.filter((k) => !diSede.includes(k));
+  if (diMarchio.length) {
+    const righe = diMarchio.map((key) => ({ key, value: coppie[key] }));
+    const { error } = await supabaseAdmin.from("app_config").upsert(righe, { onConflict: "key" });
+    if (error) return error.message;
+  }
+  if (diSede.length === 0) return null;
+
+  // Quello che resta e' DI QUESTA SEDE.
   //
   // ⚠️ La scelta sta nella SCHEDA, non nel campo (deciso 14/09/2026). Si era
   // provata la strada del campo — condiviso per difetto, con una catena
@@ -473,7 +503,7 @@ export async function scriviConfig(
   //
   // `app_config` resta i valori dell'INSTALLAZIONE: `leggiConfig` li mostra
   // come punto di partenza a una sede che non ha ancora salvato niente.
-  const righe = chiavi.map((key) => ({ location_id: ambito.id, key, value: coppie[key] }));
+  const righe = diSede.map((key) => ({ location_id: ambito.id, key, value: coppie[key] }));
   const { error } = await supabaseAdmin
     .from("location_config")
     .upsert(righe, { onConflict: "location_id,key" });

@@ -819,23 +819,11 @@ export async function scopriLocation(token: string): Promise<{ path: string; tit
   return { path: sedi[0].path, title: sedi[0].title };
 }
 
-/** Location salvata in app_config; se manca la scopre e la salva. null = non trovata. */
-export async function assicuraLocation(token: string): Promise<{ path: string; title: string } | null> {
-  const { data } = await supabaseAdmin.from("app_config").select("key,value").in("key", [K_LOCATION, K_LOCATION_TITLE]);
-  const map = new Map((data ?? []).map((r: { key: string; value: unknown }) => [r.key, String(r.value ?? "")]));
-  const salvata = map.get(K_LOCATION);
-  if (salvata) return { path: salvata, title: map.get(K_LOCATION_TITLE) ?? "" };
-  const scoperta = await scopriLocation(token);
-  if (!scoperta) return null;
-  await supabaseAdmin.from("app_config").upsert(
-    [
-      { key: K_LOCATION, value: scoperta.path },
-      { key: K_LOCATION_TITLE, value: scoperta.title },
-    ],
-    { onConflict: "key" }
-  );
-  return scoperta;
-}
+// ⚠️ Qui c'era `assicuraLocation(token)`: leggeva e scriveva la scheda Google
+// in `app_config` senza ambito. Non la chiamava piu' nessuno — `locationSalvata`
+// e `salvaLocation` la sostituiscono, e prendono l'ambito — ma restava
+// esportata, pronta a rendere la scheda di un'altra sede al primo che la
+// riusava. Tolta il 20/09/2026.
 
 type ReviewApi = {
   reviewId?: string;

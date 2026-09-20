@@ -142,7 +142,9 @@ test("nessuna pagina del motore passa da un layout di sito", () => {
 test("dove vive il sito pubblico lo dice un file solo", () => {
   // Erano tre letture della stessa chiave — admin, email, checkout — e due
   // erano gia' divergenti: una rendeva `undefined`, l'altra `""`.
-  const letture = CODICE.filter((f) => f !== "src/lib/basePubblica.ts")
+  // ⚠️ `sedeRegole.ts` NOMINA la chiave per classificarla (marchio o sede),
+  // e nominarla non e' leggerla: e' un file puro, senza database.
+  const letture = CODICE.filter((f) => f !== "src/lib/basePubblica.ts" && f !== "src/lib/admin/sedeRegole.ts")
     .filter((f) => /public_site_base/.test(readFileSync(f, "utf8")));
   assert.deepEqual(
     letture.sort(),

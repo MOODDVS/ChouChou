@@ -4,7 +4,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { datiRistorante } from "../../../lib/ristorante";
 import { adminLang } from "../../../lib/admin/adminLang";
-import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
+import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
 import { adminT } from "../../../i18n/admin";
@@ -380,11 +380,12 @@ export const POST: APIRoute = async ({ request }) => {
     if (!dest) return json({ error: await msg("err.refEmail") }, 400);
 
     const dati = await datiRistorante(ambito);
-    const { data: cfg } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["company_name", "company_vat"]);
-    const m = new Map((cfg ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
+    // ⚠️ `leggiConfig(ambito, …)`, non `app_config` grezzo: tre sedi vuol dire
+    // tre ragioni sociali e tre partite IVA. Letta a livello marchio, la
+    // lettera di disdetta di Schaerbeek usciva con l'IVA di un'altra societa'
+    // — un documento legale sbagliato, senza nessun errore da nessuna parte.
+    const cfg = await leggiConfig(ambito, ["company_name", "company_vat"]);
+    const m = new Map([...cfg.valori].map(([k, v]) => [k, String(v ?? "").trim()]));
     const societa = m.get("company_name") || dati.nome;
     const scadIso = String(meta?.expires ?? "");
     const nv = Number(meta?.notice_value ?? 0);
