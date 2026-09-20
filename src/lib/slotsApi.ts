@@ -25,7 +25,7 @@ export async function slotsDelMese(
   mese: string,
   ambito: Ambito,
 ): Promise<{ closed: string[] } | { errore: string }> {
-  if (!/^\d{4}-\d{2}$/.test(mese)) return { errore: "Mois invalide" };
+  if (!/^\d{4}-\d{2}$/.test(mese)) return { errore: "err.month" };
   const [anno, m] = mese.split("-").map(Number);
   const primo = DateTime.fromObject({ year: anno, month: m, day: 1 }, { zone: TIMEZONE });
   const closed: string[] = [];
@@ -60,7 +60,7 @@ export async function slotsDelGiorno(
 
   const config = await configGiornoEffettiva(ora, ambito);
   // Niente ripiego: se il database non risponde o la riga manca, lo si dice.
-  if (!config) return { errore: "Configurazione orari non disponibile" };
+  if (!config) return { errore: "err.hoursConfig" };
 
   const { lunch, dinner } = calcolaSlotGiorno(ora, config);
 

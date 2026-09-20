@@ -5,6 +5,8 @@ import { SERVIZI_WIDGET, LINGUE_WIDGET } from "../../../lib/reservationI18n";
 import { cacheDel } from "../../../lib/cache";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { CACHE_ADMIN_BOOT } from "../../../lib/admin/adminBoot";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
@@ -13,6 +15,14 @@ import {
 } from "../../../lib/admin/sede";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Riga oraria di un giorno, come viaggia tra admin e API.
 // Due fasce: Midi (lunch_*) e Soir (dinner_*).
@@ -155,7 +165,7 @@ export const GET: APIRoute = async ({ request }) => {
   try {
     days = await leggiOrari(ambito);
   } catch {
-    return json({ error: "Lecture impossible" }, 500);
+    return json({ error: await msg("err.read") }, 500);
   }
   const { valori: cfg, marchio } = await leggiConfig(ambito, [
     "kitchen_email",
@@ -212,7 +222,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const vuoleChiusura = typeof body.orders_closed === "boolean";
@@ -221,7 +231,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   const vuoleBriefOra = typeof body.daily_brief_hour === "string";
   const vuoleBriefEmail = typeof body.daily_brief_email === "string";
   if (!vuoleChiusura && !vuolePrep && !vuoleBrief && !vuoleBriefOra && !vuoleBriefEmail) {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   // Ora d'invio dell'email quotidienne (HH:MM, fuso del ristorante)
@@ -229,9 +239,9 @@ export const PATCH: APIRoute = async ({ request }) => {
 
   if (vuoleBriefOra) {
     const ora = String(body.daily_brief_hour).trim();
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(ora)) return json({ error: "Heure invalide" }, 400);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(ora)) return json({ error: await msg("err.time") }, 400);
     const err = await scriviConfig(ambito, { daily_brief_hour: ora });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
   }
 
   // Destinatario dell'email quotidienne (vuoto = default réservations)
@@ -239,39 +249,39 @@ export const PATCH: APIRoute = async ({ request }) => {
     const em = String(body.daily_brief_email).trim();
     if (em && !RE_EMAIL.test(em)) return json({ error: `Email invalide : ${em}` }, 400);
     const err = await scriviConfig(ambito, { daily_brief_email: em });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
   }
 
   // Toggle email "Votre journée" (récap quotidiano delle 9h00)
   if (vuoleBrief) {
     const err = await scriviConfig(ambito, { daily_brief_enabled: body.daily_brief_enabled ? "1" : "0" });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
   }
 
   // Toggle chiusura ordini online (app_config.orders_closed = "1"/"0").
   // Può arrivare assieme a prep_time_minutes: scegliere un tempo riapre.
   if (vuoleChiusura) {
     const err = await scriviConfig(ambito, { orders_closed: body.orders_closed ? "1" : "0" });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
   }
 
   if (vuolePrep) {
     const prep = Math.floor(Number(body.prep_time_minutes));
     if (!Number.isFinite(prep) || prep < 0 || prep > 240) {
-      return json({ error: "Préparation invalide (0–240 min)" }, 400);
+      return json({ error: await msg("err.prep") }, 400);
     }
 
     // Con una sede selezionata i sette giorni devono esistere prima di
     // poterli aggiornare: vedi `assicuraOrariSede`.
     const manca = await assicuraOrariSede(ambito);
-    if (manca) return json({ error: "Enregistrement impossible" }, 500);
+    if (manca) return json({ error: await msg("err.save") }, 500);
 
     const tabella = ambito.modo === "sede" ? "location_settings" : "settings";
     let q = supabaseAdmin.from(tabella).update({ prep_time_minutes: prep }).gte("day_of_week", 0);
     if (ambito.modo === "sede") q = q.eq("location_id", ambito.id);
     const { error } = await q;
 
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
   }
 
   return json({ ok: true });
@@ -296,20 +306,20 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   // --- Validazione ---
   if (!Array.isArray(body.days) || body.days.length !== 7) {
-    return json({ error: "7 jours requis" }, 400);
+    return json({ error: await msg("err.days7") }, 400);
   }
   const prep = Math.floor(Number(body.prep_time_minutes));
   const slot = Math.floor(Number(body.slot_duration_minutes));
   if (!Number.isFinite(prep) || prep < 0 || prep > 240) {
-    return json({ error: "Préparation invalide (0–240 min)" }, 400);
+    return json({ error: await msg("err.prep") }, 400);
   }
   if (!Number.isFinite(slot) || slot < 5 || slot > 120) {
-    return json({ error: "Durée créneau invalide (5–120 min)" }, 400);
+    return json({ error: await msg("err.slotLen") }, 400);
   }
   // Più indirizzi separati da virgola: valido ciascuno, salvo normalizzato.
   const listaEmail = String(body.kitchen_email ?? "")
@@ -370,16 +380,16 @@ export const PUT: APIRoute = async ({ request }) => {
         try {
           zone = JSON.parse(v);
         } catch {
-          return json({ error: "Sections invalides" }, 400);
+          return json({ error: await msg("err.sections") }, 400);
         }
         if (!Array.isArray(zone) || zone.length > 20) {
-          return json({ error: "Sections invalides (max 20)" }, 400);
+          return json({ error: await msg("err.sections20") }, 400);
         }
         const pulite: { name: string; seats: number }[] = [];
         for (const z of zone) {
           const name = String(z.name ?? "").trim();
           const seats = Math.floor(Number(z.seats));
-          if (!name) return json({ error: "Chaque section doit avoir un nom" }, 400);
+          if (!name) return json({ error: await msg("err.sectionName") }, 400);
           if (!Number.isFinite(seats) || seats < 1 || seats > 500) {
             return json({ error: `Couverts invalides pour « ${name} » (1–500)` }, 400);
           }
@@ -390,32 +400,32 @@ export const PUT: APIRoute = async ({ request }) => {
       if (k === "reservation_hold_minutes" && v) {
         const n = Math.floor(Number(v));
         if (!Number.isFinite(n) || n < 15 || n > 360) {
-          return json({ error: "Durée d'occupation invalide (15–360 min)" }, 400);
+          return json({ error: await msg("err.occupancy") }, 400);
         }
       }
       if (k === "reservation_slot_minutes" && v) {
         const n = Math.floor(Number(v));
         if (!Number.isFinite(n) || n < 10 || n > 120) {
-          return json({ error: "Créneau de réservation invalide (10–120 min)" }, 400);
+          return json({ error: await msg("err.resSlot") }, 400);
         }
       }
       if (k === "reservation_zone_choice" && v && v !== "0" && v !== "1") {
-        return json({ error: "Valeur invalide (choix de section)" }, 400);
+        return json({ error: await msg("err.valSection") }, 400);
       }
       if ((k === "reservation_auto_accept" || k === "reservation_auto_tables" || k === "reservation_options_enabled") && v && v !== "0" && v !== "1") {
-        return json({ error: "Valeur invalide (interrupteur)" }, 400);
+        return json({ error: await msg("err.valSwitch") }, 400);
       }
       if (k === "reservation_corner_style" && v && v !== "rounded" && v !== "square") {
-        return json({ error: "Valeur invalide (style des angles)" }, 400);
+        return json({ error: await msg("err.valCorners") }, 400);
       }
       if (k === "reservation_languages" && v) {
         let lista: unknown;
         try {
           lista = JSON.parse(v);
         } catch {
-          return json({ error: "Langues invalides" }, 400);
+          return json({ error: await msg("err.langs") }, 400);
         }
-        if (!Array.isArray(lista)) return json({ error: "Langues invalides" }, 400);
+        if (!Array.isArray(lista)) return json({ error: await msg("err.langs") }, 400);
         const validi = new Set<string>(LINGUE_WIDGET.map((l) => l.code));
         const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && validi.has(c)));
         scelte.add("fr"); // il francese resta sempre attivo
@@ -426,9 +436,9 @@ export const PUT: APIRoute = async ({ request }) => {
         try {
           lista = JSON.parse(v);
         } catch {
-          return json({ error: "Options invalides" }, 400);
+          return json({ error: await msg("err.options") }, 400);
         }
-        if (!Array.isArray(lista)) return json({ error: "Options invalides" }, 400);
+        if (!Array.isArray(lista)) return json({ error: await msg("err.options") }, 400);
         const OPZIONI_VALIDE = ["high_chair", "quiet", "business", "birthday", "special_event"];
         const scelte = new Set<string>(lista.filter((c): c is string => typeof c === "string" && OPZIONI_VALIDE.includes(c)));
         v = JSON.stringify(OPZIONI_VALIDE.filter((c) => scelte.has(c)));
@@ -436,13 +446,13 @@ export const PUT: APIRoute = async ({ request }) => {
       if (k === "reservation_min_notice_minutes" && v) {
         const n = Math.floor(Number(v));
         if (!Number.isFinite(n) || n < 0 || n > 4320) {
-          return json({ error: "Délai minimum invalide (0–4320 minutes)" }, 400);
+          return json({ error: await msg("err.minDelay") }, 400);
         }
       }
       if (k === "reservation_max_people" && v) {
         const n = Math.floor(Number(v));
         if (!Number.isFinite(n) || n < 1 || n > 100) {
-          return json({ error: "Personnes maximum invalide (1–100)" }, 400);
+          return json({ error: await msg("err.maxPeople") }, 400);
         }
       }
       if (k === "reservation_services" && v) {
@@ -450,16 +460,16 @@ export const PUT: APIRoute = async ({ request }) => {
         try {
           lista = JSON.parse(v);
         } catch {
-          return json({ error: "Services invalides" }, 400);
+          return json({ error: await msg("err.services") }, 400);
         }
         if (!Array.isArray(lista) || lista.length > 5) {
-          return json({ error: "Services invalides (max 5)" }, 400);
+          return json({ error: await msg("err.services5") }, 400);
         }
         const RE_ORA = /^\d{2}:\d{2}$/;
         const puliti: { key: string; from: string; to: string; hold: number; slot: number; days: number[] }[] = [];
         for (const sv of lista) {
           const key = String((sv as { key?: unknown }).key ?? "").trim();
-          if (!SERVIZI_WIDGET[key]) return json({ error: "Service inconnu" }, 400);
+          if (!SERVIZI_WIDGET[key]) return json({ error: await msg("err.serviceUnknown") }, 400);
           const from = String((sv as { from?: unknown }).from ?? "");
           const to = String((sv as { to?: unknown }).to ?? "");
           if (!RE_ORA.test(from) || !RE_ORA.test(to) || from >= to) {
@@ -468,11 +478,11 @@ export const PUT: APIRoute = async ({ request }) => {
           // Durée d'occupation e créneau propri di ogni service
           const hold = Math.floor(Number((sv as { hold?: unknown }).hold));
           if (!Number.isFinite(hold) || hold < 15 || hold > 360) {
-            return json({ error: `Durée d'occupation invalide pour « ${SERVIZI_WIDGET[key].fr} » (15–360 min)` }, 400);
+            return json({ error: `${await msg("err.occupancyFor")} « ${SERVIZI_WIDGET[key].fr} »` }, 400);
           }
           const slot = Math.floor(Number((sv as { slot?: unknown }).slot));
           if (!Number.isFinite(slot) || slot < 10 || slot > 120) {
-            return json({ error: `Créneau invalide pour « ${SERVIZI_WIDGET[key].fr} » (10–120 min)` }, 400);
+            return json({ error: `${await msg("err.slotFor")} « ${SERVIZI_WIDGET[key].fr} »` }, 400);
           }
           // Giorni di applicazione (0=dim … 6=sam). Assenti/vuoti = tutti i giorni.
           const giorniRaw = (sv as { days?: unknown }).days;
@@ -499,7 +509,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const visti = new Set<number>();
   for (const g of body.days) {
     if (typeof g.day_of_week !== "number" || g.day_of_week < 0 || g.day_of_week > 6 || visti.has(g.day_of_week)) {
-      return json({ error: "Jour invalide ou dupliqué" }, 400);
+      return json({ error: await msg("err.dayDup") }, 400);
     }
     visti.add(g.day_of_week);
     const nome = NOMI[g.day_of_week];
@@ -535,7 +545,7 @@ export const PUT: APIRoute = async ({ request }) => {
       slot_duration_minutes: slot,
     })),
   );
-  if (errOrari) return json({ error: "Enregistrement impossible" }, 500);
+  if (errOrari) return json({ error: await msg("err.save") }, 500);
 
   // ⚠️ Una scrittura sola per gruppo, non una per chiave: con una sede
   // attiva ogni scrittura deve sapere il valore del marchio per decidere se
@@ -543,14 +553,14 @@ export const PUT: APIRoute = async ({ request }) => {
   // sarebbe trenta letture.
   if (email) {
     const err = await scriviConfig(ambitoPut, { kitchen_email: email });
-    if (err) return json({ error: "Email cuisine non enregistrée" }, 500);
+    if (err) return json({ error: await msg("err.kitchenEmail") }, 500);
   }
 
   // Liens: del GRUPPO. Un solo sito pubblico per tutte le sedi, quindi un
   // solo Facebook, un solo TripAdvisor.
   if (linkPuliti.length > 0) {
     const err = await scriviConfig(ambitoPut, Object.fromEntries(linkPuliti), "gruppo");
-    if (err) return json({ error: "Liens non enregistrés" }, 500);
+    if (err) return json({ error: await msg("err.linksSave") }, 500);
   }
 
   if (generalPulito.length > 0) {
@@ -565,11 +575,11 @@ export const PUT: APIRoute = async ({ request }) => {
     const resto = generalPulito.filter(([k]) => k !== "timezone");
     if (fuso.length > 0) {
       const err = await scriviConfig(ambitoPut, Object.fromEntries(fuso), "gruppo");
-      if (err) return json({ error: "Informations générales non enregistrées" }, 500);
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
     if (resto.length > 0) {
       const err = await scriviConfig(ambitoPut, Object.fromEntries(resto));
-      if (err) return json({ error: "Informations générales non enregistrées" }, 500);
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
     }
   }
   // brand_favicon fa parte di "général" ed è letta in SSR da AdminHead/AdminHeader:
@@ -578,7 +588,7 @@ export const PUT: APIRoute = async ({ request }) => {
 
   if (resaPulito.length > 0) {
     const err = await scriviConfig(ambitoPut, Object.fromEntries(resaPulito));
-    if (err) return json({ error: "Réservations non enregistrées" }, 500);
+    if (err) return json({ error: await msg("err.resSave") }, 500);
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito

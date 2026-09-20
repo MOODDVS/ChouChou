@@ -3,7 +3,7 @@ import { colpisci, ipClient } from "./lib/rateLimit";
 import { sessioneRiconosciuta, claimsDaToken } from "./lib/admin/adminAuth";
 import { caricaBootAdmin } from "./lib/admin/adminBoot";
 import { ruoloDi, PAGINE_ADMIN } from "./lib/admin/superAdmin";
-import { chiavePagina, puoVederePagina } from "./lib/admin/permessiRegole";
+import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi } from "./lib/admin/permessiRegole";
 
 /**
  * Host canonico: forza il www.
@@ -178,9 +178,51 @@ const securityHeaders = defineMiddleware(async (context, next) => {
  * sessioneRiconosciuta). Solo pagine (GET/HEAD) e mai login/reset-password.
  */
 const PUBBLICHE_ADMIN = new Set(["/admin/login", "/admin/reset-password"]);
+
+/** Cosa serve per decidere: ruolo, pagine dell'utente, pagine spente. */
+async function contestoPermessi(token: string) {
+  const staff = await claimsDaToken(token);
+  if (!staff) return null;
+  let nascoste: string[] = [];
+  try {
+    nascoste = (await caricaBootAdmin()).hiddenPages;
+  } catch {
+    nascoste = [];
+  }
+  return {
+    ruolo: ruoloDi(staff),
+    pagineUtente: staff.pages,
+    nascoste,
+    tutte: PAGINE_ADMIN.map((pg) => pg.key),
+  };
+}
+
 const authGuardAdmin = defineMiddleware(async (context, next) => {
   const { pathname } = new URL(context.request.url);
   const m = context.request.method;
+
+  // ---- LE API ----------------------------------------------------------
+  // Chiudere le pagine non bastava: /admin/stats era sbarrata e
+  // /api/admin/stats rispondeva lo stesso a chiunque avesse fatto il login.
+  // Qui si risponde 403 e non si redirige: chi chiama e' del codice, non un
+  // browser che naviga, e un 302 verso una pagina HTML lo farebbe impazzire.
+  // L'autenticazione resta di `verificaStaff` dentro ogni API: qui si decide
+  // solo SE quell'utente puo' chiedere questa cosa.
+  if (pathname.startsWith("/api/admin/")) {
+    const chiave = chiaveApi(pathname);
+    if (chiave) {
+      const ctx = await contestoPermessi(context.cookies.get("mdd_at")?.value ?? "");
+      // Nessun contesto leggibile: non si blocca. Il 401 lo dara' l'API.
+      if (ctx && !puoChiamareApi(chiave, ctx)) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        });
+      }
+    }
+    return next();
+  }
+
   if ((m === "GET" || m === "HEAD") && (pathname === "/admin" || pathname.startsWith("/admin/")) && !PUBBLICHE_ADMIN.has(pathname.replace(/\/$/, ""))) {
     const token = context.cookies.get("mdd_at")?.value ?? "";
     if (!(await sessioneRiconosciuta(token))) {
@@ -203,20 +245,9 @@ const authGuardAdmin = defineMiddleware(async (context, next) => {
     // lasciarla aperta, ma non se la chiave e' il meteo.
     const chiave = chiavePagina(pathname);
     if (chiave) {
-      const staff = await claimsDaToken(token);
-      if (staff) {
-        let nascoste: string[] = [];
-        try {
-          nascoste = (await caricaBootAdmin()).hiddenPages;
-        } catch {
-          nascoste = [];
-        }
-        const ok = puoVederePagina(chiave, {
-          ruolo: ruoloDi(staff),
-          pagineUtente: staff.pages,
-          nascoste,
-          tutte: PAGINE_ADMIN.map((pg) => pg.key),
-        });
+      const ctx = await contestoPermessi(token);
+      if (ctx) {
+        const ok = puoVederePagina(chiave, ctx);
         // Rimandato alla home, non al login: e' loggato, semplicemente quella
         // pagina non e' sua. Un redirect al login sembrerebbe una sessione
         // scaduta e lo farebbe riaccedere all'infinito.

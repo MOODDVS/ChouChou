@@ -7,7 +7,17 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Lingue valide per il cliente (stesse del widget prenotazioni).
 const LINGUE_CLI = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
@@ -184,7 +194,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     clientiManuali(),
     prenotazioniAttive(ambito),
   ]);
-  if (ordini === null || manuali === null) return json({ error: "Lecture impossible" }, 500);
+  if (ordini === null || manuali === null) return json({ error: await msg("err.read") }, 500);
 
   // ⚠️ L'unione sta in `clientiRegole.ts`, una volta sola. Era copiata qui e
   // in `caricaClienti.ts` — novantasette righe da tenere allineate a mano — e
@@ -230,15 +240,15 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const name = (body.name ?? "").trim();
   const email = (body.email ?? "").trim();
   const phone = (body.phone ?? "").trim();
-  if (!name) return json({ error: "Le nom est obligatoire" }, 400);
-  if (!email && !phone) return json({ error: "Renseignez au moins un email ou un téléphone" }, 400);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Email invalide" }, 400);
+  if (!name) return json({ error: await msg("err.nameRequired") }, 400);
+  if (!email && !phone) return json({ error: await msg("err.emailOrPhone") }, 400);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: await msg("err.email") }, 400);
 
   const patch: Record<string, unknown> = {
     name,
@@ -285,7 +295,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
       : await supabaseAdmin.from("clients").insert(patch).select("id").single();
   }
-  if (esito.error) return json({ error: "Enregistrement impossible" }, 500);
+  if (esito.error) return json({ error: await msg("err.save") }, 500);
 
   // Foto tolta o sostituita → il vecchio file sparisce dallo Storage
   // (dopo l'update: la riga non la referenzia più, la guardia passa)
@@ -330,7 +340,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const phone = (url.searchParams.get("phone") ?? "").trim();
   const name = (url.searchParams.get("name") ?? "").trim();
 
-  if (!id && !email && !phone && !name) return json({ error: "Client non identifiable" }, 400);
+  if (!id && !email && !phone && !name) return json({ error: await msg("err.clientUnknown") }, 400);
 
   // Foto del cliente: va eliminata definitivamente in entrambi i casi
   let fotoDaEliminare: string | null = null;
@@ -360,7 +370,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   // Manuale puro, SENZA nessuna attività (né ordini né prenotazioni): eliminazione vera.
   if (id && !haAttivita) {
     const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
-    if (error) return json({ error: "Suppression impossible" }, 500);
+    if (error) return json({ error: await msg("err.delete") }, 500);
     await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
@@ -371,7 +381,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     if (upd.error && String(upd.error.message ?? "").includes("photo_url")) {
       upd = await supabaseAdmin.from("clients").update({ hidden: true }).eq("id", id);
     }
-    if (upd.error) return json({ error: "Suppression impossible" }, 500);
+    if (upd.error) return json({ error: await msg("err.delete") }, 500);
     await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
@@ -383,6 +393,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     phone: phone || null,
     hidden: true,
   });
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

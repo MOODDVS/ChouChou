@@ -4,7 +4,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggiConfig } from "../../../lib/admin/sede";
 import { codicePaese } from "../../../lib/festivitaRegole";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Eventi LOCALI del ristorante (festa del quartiere, brocante, ricorrenze
 // del locale...): promemoria mostrati nella tile "Jours spéciaux" della
@@ -76,15 +86,15 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const events = pulisci(body.events);
-  if (events === null) return json({ error: "Liste invalide" }, 400);
+  if (events === null) return json({ error: await msg("err.list") }, 400);
 
   const { error } = await supabaseAdmin
     .from("app_config")
     .upsert({ key: CHIAVE, value: JSON.stringify(events) }, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true, events });
 };

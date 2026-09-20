@@ -6,7 +6,17 @@ import { supabaseAdmin } from "../../../../lib/db";
 import { tokenGoogle, erroreGoogle, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
 import type { FMMenu, FMLabel } from "../../../../lib/googleBusiness";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET  /api/admin/google/menu  -> anteprima menu RestoHub + stato menu Google
 // POST /api/admin/google/menu  -> spinge il menu RestoHub su Google (Food Menus)
@@ -27,7 +37,7 @@ async function preludio(request: Request) {
   // Stockel sulla scheda di Stockel.
   const ambito = await ambitoDiRichiesta(request, staff);
   const loc = await locationSalvata(ambito);
-  if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
+  if (!loc?.path) return { err: json({ error: await msg("err.googleNotLinked") }, 400) };
   return { token, path: loc.path, ambito };
 }
 
@@ -130,7 +140,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (p.err) return p.err;
   const lang = await linguaDefault();
   const sezioni = raggruppa(await leggiMenuRH(p.ambito!), lang);
-  if (!sezioni.length) return json({ error: "Nessun piatto con prezzo da sincronizzare" }, 400);
+  if (!sezioni.length) return json({ error: await msg("err.noPricedDish") }, 400);
   const menus = costruisciPayload(sezioni, lang);
   const { ok, error } = await spingiFoodMenu(p.token!, p.path!, menus);
   if (!ok) return json({ error: error || "Sincronizzazione impossibile" }, 502);

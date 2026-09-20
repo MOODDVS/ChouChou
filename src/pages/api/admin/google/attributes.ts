@@ -4,7 +4,17 @@ import { tokenGoogle, erroreGoogle, locationSalvata, leggiAttributi, aggiornaAtt
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 import type { AttrType } from "../../../../lib/googleBusiness";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET  /api/admin/google/attributes?lang=fr  -> gruppi di attributi + valori correnti
 // PUT  /api/admin/google/attributes           -> salva gli attributi modificati
@@ -22,7 +32,7 @@ async function preludio(request: Request) {
   const { token: token, stato: sttoken } = await tokenGoogle();
   if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
   const loc = await locationSalvata(await ambitoDiRichiesta(request, staff));
-  if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
+  if (!loc?.path) return { err: json({ error: await msg("err.googleNotLinked") }, 400) };
   return { token, path: loc.path };
 }
 
@@ -42,8 +52,8 @@ export const PUT: APIRoute = async ({ request }) => {
   if (p.err) return p.err;
 
   let b: { items?: unknown };
-  try { b = await request.json(); } catch { return json({ error: "Corps invalide" }, 400); }
-  if (!Array.isArray(b.items)) return json({ error: "Rien à mettre à jour" }, 400);
+  try { b = await request.json(); } catch { return json({ error: await msg("err.body") }, 400); }
+  if (!Array.isArray(b.items)) return json({ error: await msg("err.nothing") }, 400);
 
   const items: { id: string; type: AttrType; bool?: boolean | null; enumVal?: string | null; set?: string[]; unset?: string[]; urls?: string[] }[] = [];
   for (const raw of b.items as Record<string, unknown>[]) {
@@ -60,9 +70,9 @@ export const PUT: APIRoute = async ({ request }) => {
     else if (type === "URL") it.urls = Array.isArray(raw.urls) ? (raw.urls as unknown[]).map(String).filter(Boolean) : [];
     items.push(it);
   }
-  if (!items.length) return json({ error: "Rien à mettre à jour" }, 400);
+  if (!items.length) return json({ error: await msg("err.nothing") }, 400);
 
   const { ok, error, notApplied, resp } = await aggiornaAttributi(p.token!, p.path!, items);
-  if (!ok) return json({ error: error || "Mise à jour impossible" }, 502);
+  if (!ok) return json({ error: error || await msg("err.update") }, 502);
   return json({ ok: true, notApplied: notApplied ?? [], resp });
 };

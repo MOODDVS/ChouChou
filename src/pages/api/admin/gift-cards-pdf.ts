@@ -8,7 +8,17 @@ import { relevePunto, type BuonoDelReleve, type RiscattoDelReleve } from "../../
 import { euroPdf, pulisciPdf, hexPdf, inchiostroPdf, suFondoPdf } from "../../../lib/pdfTesto";
 import { temaEmail } from "../../../lib/temaBrand";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 /**
  * RELEVE' CONTABILE DEI BUONI REGALO — PDF.
@@ -73,13 +83,13 @@ export const GET: APIRoute = async ({ request }) => {
   const oggi = new Date().toISOString().slice(0, 10);
   const da = RE_DATA.test(url.searchParams.get("from") ?? "") ? url.searchParams.get("from")! : oggi.slice(0, 4) + "-01-01";
   const a = RE_DATA.test(url.searchParams.get("to") ?? "") ? url.searchParams.get("to")! : oggi;
-  if (da > a) return json({ error: "Période invalide." }, 400);
+  if (da > a) return json({ error: await msg("err.period") }, 400);
   const lng = norm5(url.searchParams.get("lang"));
   const t = T[lng];
 
   const ambito = await ambitoDiRichiesta(request, staff);
   if (ambito.modo === "tutte") {
-    return json({ error: "Choisis une adresse d'abord.", code: "no_sede" }, 409);
+    return json({ error: await msg("err.pickAddress"), code: "no_sede" }, 409);
   }
   const punto = ambito.modo === "sede" ? ambito.id : null;
 
@@ -97,7 +107,7 @@ export const GET: APIRoute = async ({ request }) => {
     supabaseAdmin.from("gift_cards").select("id, code, initial_cents, paid, payment_method, sold_at_location, created_at"),
     supabaseAdmin.from("gift_card_redemptions").select("gift_card_id, amount_cents, kind, location_id, created_at"),
   ]);
-  if (carte.error || riscatti.error) return json({ error: "Lecture impossible" }, 500);
+  if (carte.error || riscatti.error) return json({ error: await msg("err.read") }, 500);
 
   const rel = relevePunto({
     buoni: (carte.data ?? []) as unknown as BuonoDelReleve[],

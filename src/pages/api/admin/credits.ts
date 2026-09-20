@@ -4,7 +4,17 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { CLIENT } from "../../../config/client";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Acquisto crediti newsletter — pagato sullo Stripe di MOODD
 // (MOODD_STRIPE_SECRET_KEY), SEPARATO da quello del ristorante.
@@ -35,24 +45,24 @@ function json(body: unknown, status = 200): Response {
 
 /** Verifica una sessione su Stripe e, se pagata, attiva i crediti. */
 async function verificaEAccredita(sessionId: string): Promise<{ ok: boolean; credits?: number; errore?: string }> {
-  if (!moodd) return { ok: false, errore: "Stripe MOODD non configuré" };
+  if (!moodd) return { ok: false, errore: "err.stripeMoodd" };
 
   const { data: riga } = await supabaseAdmin
     .from("newsletter_credits")
     .select("id, credits, status")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
-  if (!riga) return { ok: false, errore: "Achat introuvable" };
+  if (!riga) return { ok: false, errore: "err.purchaseNotFound" };
   if (riga.status === "paid") return { ok: true, credits: riga.credits }; // già accreditato
 
   let session: Stripe.Checkout.Session;
   try {
     session = await moodd.checkout.sessions.retrieve(sessionId);
   } catch {
-    return { ok: false, errore: "Session Stripe introuvable" };
+    return { ok: false, errore: "err.stripeSessionNotFound" };
   }
   if (session.payment_status !== "paid") {
-    return { ok: false, errore: "Paiement non confirmé" };
+    return { ok: false, errore: "err.paymentUnconfirmed" };
   }
 
   // Idempotenza: aggiorna solo se ancora pending
@@ -61,24 +71,24 @@ async function verificaEAccredita(sessionId: string): Promise<{ ok: boolean; cre
     .update({ status: "paid" })
     .eq("id", riga.id)
     .eq("status", "pending");
-  if (error) return { ok: false, errore: "Enregistrement impossible" };
+  if (error) return { ok: false, errore: "err.save" };
   return { ok: true, credits: riga.credits };
 }
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!moodd) return json({ error: "MOODD_STRIPE_SECRET_KEY manquante" }, 500);
+  if (!moodd) return json({ error: await msg("err.stripeKeyMissing") }, 500);
 
   let body: { pack?: string };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const pack = PACKS[body.pack ?? ""];
-  if (!pack) return json({ error: "Pack inconnu" }, 400);
+  if (!pack) return json({ error: await msg("err.packUnknown") }, 400);
 
   const base = SITE_URL.replace(/\/$/, "");
   let session: Stripe.Checkout.Session;
@@ -105,9 +115,9 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (e) {
     console.error("[credits] Stripe MOODD error:", e);
-    return json({ error: "Création du paiement impossible" }, 502);
+    return json({ error: await msg("err.paymentCreate") }, 502);
   }
-  if (!session.url) return json({ error: "Stripe n'a pas renvoyé d'URL" }, 502);
+  if (!session.url) return json({ error: await msg("err.stripeNoUrl") }, 502);
 
   // Riga pending: permette la verifica al ritorno e la "guarigione" dopo
   const { error } = await supabaseAdmin.from("newsletter_credits").insert({
@@ -117,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
     stripe_session_id: session.id,
     status: "pending",
   });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true, url: session.url });
 };
@@ -130,12 +140,12 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.session_id) return json({ error: "session_id manquant" }, 400);
+  if (!body.session_id) return json({ error: await msg("err.sessionId") }, 400);
 
   const esito = await verificaEAccredita(body.session_id);
-  if (!esito.ok) return json({ error: esito.errore }, 409);
+  if (!esito.ok) return json({ error: await msg(esito.errore ?? "err.save") }, 409);
   return json({ ok: true, credits: esito.credits });
 };
 

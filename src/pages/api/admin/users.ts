@@ -4,7 +4,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuper, isSuperUser, ruoloDi, PAGINE_ADMIN } from "../../../lib/admin/superAdmin";
 import { pulisciPagine } from "../../../lib/admin/permessiRegole";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Utenti dell'admin (Supabase Auth) — riservato al SUPER ADMIN MOODD.
 // GET    → elenco utenti (email, creazione, ultimo accesso)
@@ -26,9 +36,9 @@ async function sedeDaBody(v: unknown): Promise<string | null | undefined> {
   if (v === undefined) return undefined;
   const s = String(v ?? "").trim();
   if (!s) return null;
-  if (!RE_UUID.test(s)) throw new Error("Établissement inconnu.");
+  if (!RE_UUID.test(s)) throw new Error("err.locationUnknown");
   const { data } = await supabaseAdmin.from("locations").select("id").eq("id", s).maybeSingle();
-  if (!data) throw new Error("Établissement inconnu.");
+  if (!data) throw new Error("err.locationUnknown");
   return s;
 }
 
@@ -43,7 +53,7 @@ function json(body: unknown, status = 200): Response {
 async function soloSuper(request: Request): Promise<{ email: string } | Response> {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
+  if (!isSuperUser(staff)) return json({ error: await msg("err.super") }, 403);
   return { email: staff.email ?? "" };
 }
 
@@ -52,7 +62,7 @@ export const GET: APIRoute = async ({ request }) => {
   if (g instanceof Response) return g;
 
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
 
   const users = (data?.users ?? []).map((u) => {
     const m = (u.user_metadata ?? {}) as { first_name?: string; last_name?: string; full_name?: string };
@@ -84,16 +94,16 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
   const first_name = String(body.first_name ?? "").trim().slice(0, 60);
   const last_name = String(body.last_name ?? "").trim().slice(0, 60);
-  if (!RE_EMAIL.test(email)) return json({ error: "Email invalide." }, 400);
+  if (!RE_EMAIL.test(email)) return json({ error: await msg("err.email") }, 400);
   const role = RUOLI.includes(String(body.role)) ? String(body.role) : "admin";
   let sede: string | null | undefined;
-  try { sede = await sedeDaBody(body.location_id); } catch (e) { return json({ error: (e as Error).message }, 400); }
+  try { sede = await sedeDaBody(body.location_id); } catch (e) { return json({ error: await msg((e as Error).message) }, 400); }
   // Le pagine valgono SOLO per il ruolo "user": a un admin le caselle non si
   // applicano, e salvarle lo stesso vorrebbe dire che cambiando ruolo da
   // admin a utente si riattivano scelte fatte mesi prima e dimenticate.
@@ -104,7 +114,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Password fornita → creazione diretta (accesso immediato).
   // Password vuota → INVITO via email: l'utente sceglie la sua password.
   if (password) {
-    if (password.length < 8) return json({ error: "Mot de passe : 8 caractères minimum." }, 400);
+    if (password.length < 8) return json({ error: await msg("err.password8") }, 400);
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -113,9 +123,9 @@ export const POST: APIRoute = async ({ request }) => {
       app_metadata: appMeta, // ruolo e sede scrivibili SOLO con la service key
     });
     if (error) {
-      const msg = String(error.message ?? "");
-      if (/already/i.test(msg)) return json({ error: "Cet email a déjà un accès." }, 409);
-      return json({ error: "Création impossible" }, 500);
+      const dettaglio = String(error.message ?? "");
+      if (/already/i.test(dettaglio)) return json({ error: await msg("err.emailHasAccess") }, 409);
+      return json({ error: await msg("err.create") }, 500);
     }
     return json({ ok: true, id: data.user?.id, mode: "created" }, 201);
   }
@@ -127,9 +137,9 @@ export const POST: APIRoute = async ({ request }) => {
     redirectTo: `${base}/admin/reset-password`,
   });
   if (error) {
-    const msg = String(error.message ?? "");
-    if (/already|registered|exist/i.test(msg)) return json({ error: "Cet email a déjà un accès." }, 409);
-    return json({ error: "Invitation impossible" }, 500);
+    const dettaglio = String(error.message ?? "");
+    if (/already|registered|exist/i.test(dettaglio)) return json({ error: await msg("err.emailHasAccess") }, 409);
+    return json({ error: await msg("err.invite") }, 500);
   }
   // Il ruolo va in app_metadata dopo l'invito (non impostabile via inviteUserByEmail).
   if (data.user?.id) {
@@ -146,9 +156,9 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.id) return json({ error: "id manquant" }, 400);
+  if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
 
   const patch: {
     password?: string;
@@ -161,15 +171,15 @@ export const PUT: APIRoute = async ({ request }) => {
   } = {};
   if (body.role !== undefined) {
     const ruolo = String(body.role);
-    if (!RUOLI.includes(ruolo)) return json({ error: "Rôle inconnu." }, 400);
+    if (!RUOLI.includes(ruolo)) return json({ error: await msg("err.roleUnknown") }, 400);
     // Non ci si declassa da soli, e l'accesso MOODD resta sempre super
     const { data: chi } = await supabaseAdmin.auth.admin.getUserById(body.id);
     const mail = chi?.user?.email ?? "";
     if (ruolo !== "super" && isSuper(mail)) {
-      return json({ error: "L'accès MOODD reste toujours super admin." }, 409);
+      return json({ error: await msg("err.mooddAccessRole") }, 409);
     }
     if (ruolo !== "super" && mail.toLowerCase() === g.email.toLowerCase()) {
-      return json({ error: "Impossible de retirer son propre rôle." }, 409);
+      return json({ error: await msg("err.ownRole") }, 409);
     }
     patch.app_metadata = { role: ruolo };
   }
@@ -201,16 +211,17 @@ export const PUT: APIRoute = async ({ request }) => {
       };
     }
   } catch (e) {
-    return json({ error: (e as Error).message }, 400);
+    // `sedeDaBody` lancia una CHIAVE, non una frase: qui si traduce.
+    return json({ error: await msg((e as Error).message) }, 400);
   }
   if (body.email !== undefined) {
     const em = String(body.email).trim().toLowerCase();
-    if (!RE_EMAIL.test(em)) return json({ error: "Email invalide." }, 400);
+    if (!RE_EMAIL.test(em)) return json({ error: await msg("err.email") }, 400);
     patch.email = em;
   }
   if (body.password !== undefined) {
     const password = String(body.password);
-    if (password.length < 8) return json({ error: "Mot de passe : 8 caractères minimum." }, 400);
+    if (password.length < 8) return json({ error: await msg("err.password8") }, 400);
     patch.password = password;
   }
   if (body.first_name !== undefined || body.last_name !== undefined) {
@@ -218,10 +229,10 @@ export const PUT: APIRoute = async ({ request }) => {
     const last_name = String(body.last_name ?? "").trim().slice(0, 60);
     patch.user_metadata = { first_name, last_name, full_name: `${first_name} ${last_name}`.trim() };
   }
-  if (!patch.password && !patch.user_metadata && !patch.email && !patch.app_metadata) return json({ error: "Rien à modifier" }, 400);
+  if (!patch.password && !patch.user_metadata && !patch.email && !patch.app_metadata) return json({ error: await msg("err.nothing") }, 400);
 
   const { error } = await supabaseAdmin.auth.admin.updateUserById(body.id, patch);
-  if (error) return json({ error: "Modification impossible" }, 500);
+  if (error) return json({ error: await msg("err.update") }, 500);
   return json({ ok: true });
 };
 
@@ -230,17 +241,17 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (g instanceof Response) return g;
 
   const id = url.searchParams.get("id") ?? "";
-  if (!id) return json({ error: "id manquant" }, 400);
+  if (!id) return json({ error: await msg("err.idMissing") }, 400);
 
   // Protezioni: mai eliminare sé stessi né l'accesso super admin MOODD
   const { data: info } = await supabaseAdmin.auth.admin.getUserById(id);
   const target = info?.user?.email ?? "";
-  if (isSuper(target)) return json({ error: "L'accès MOODD ne peut pas être supprimé." }, 409);
+  if (isSuper(target)) return json({ error: await msg("err.mooddAccessDelete") }, 409);
   if (target.toLowerCase() === g.email.toLowerCase()) {
-    return json({ error: "Impossible de supprimer son propre accès." }, 409);
+    return json({ error: await msg("err.ownAccess") }, 409);
   }
 
   const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

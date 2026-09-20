@@ -1030,8 +1030,8 @@ sicurezza: è il guasto che aspetta il suo turno.
 
 ## Messaggi d'errore delle API admin — nella lingua dell'admin
 
-L'admin parla cinque lingue, ma le API rispondono in **francese**: 603 stringhe
-d'errore in 52 endpoint, scritte quando l'admin era solo francese. Non è un
+Fino al 20/09 l'admin parlava cinque lingue e le API rispondevano in **francese**: 603 stringhe
+d'errore in 52 endpoint, scritte quando l'admin era solo francese. Non era un
 guasto — la richiesta fallisce correttamente — ma un ristoratore italiano legge
 una pastiglia rossa in francese, e l'applicazione sembra di qualcun altro.
 
@@ -1052,9 +1052,31 @@ già in che lingua rispondere, e non serve far tradurre al client.
 i18n**, non la frase: chi risponde traduce. Così la validazione resta pura e
 non ha bisogno di sapere la lingua.
 
-Convertiti: `locations.ts` (13/09), `categories.ts` (14/09, 26 messaggi).
-Gli altri restano in francese: da fare quando si tocca ognuno, non tutti
-insieme.
+**Fatto (20/09): tutte le API admin.** 598 messaggi in 52 endpoint, più
+`slotsApi.ts`. Non più «quando si tocca ognuno»: erano 550 letterali per 227
+frasi diverse, cioè la stessa frase riscritta decine di volte, e convertirli
+uno alla volta voleva dire 227 traduzioni scritte 550 volte.
+
+UN letterale francese = UNA chiave nello spazio condiviso **`err.*`**:
+«Corps invalide» compariva in 48 punti e non ha 48 traduzioni diverse. Gli
+spazi per modulo (`loc.err.*`, `cat.err.*`) restano per i messaggi che
+appartengono davvero a un solo endpoint.
+
+I messaggi sono stati anche **normalizzati**: niente punto finale. Prima
+«Montant invalide» e «Montant invalide.» erano due stringhe diverse nello
+stesso pannello.
+
+⚠️ **Il modo in cui questo si rompe è silenzioso.** `adminT` restituisce la
+CHIAVE quando la riga manca: nessun errore, nessun log, solo un toast rosso
+che dice `err.body`. Per questo `tests/i18nApi.test.mjs` fallisce se una
+chiave usata non ha la sua riga, se una riga non ha tutte e 5 le lingue, se
+resta un letterale accentato in posizione `error:`, o se un file usa `msg()`
+senza dichiararla e importarla.
+
+⚠️ Una `const msg` locale **nasconde** la funzione: la chiamata diventa
+«msg non è una funzione», a runtime, dentro un ramo d'errore raro che nessuno
+prova. Cinque punti erano già così dopo la conversione. Il locale si chiama
+`dettaglio`, e la rete lo controlla.
 
 ⚠️ Quando un messaggio **sceglie fra due chiavi**, si traduce DOPO aver
 scelto — `await msg(cond ? "a" : "b")`, non un ternario fra due `await msg`.

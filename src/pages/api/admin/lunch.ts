@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // LUNCH (tab Lunch della pagina Menu admin) — formules del mezzogiorno.
 // GET          → { lunches: [...] } (missing: true se la #38 non è lanciata)
@@ -160,19 +170,19 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const courses = pulisciCourses(body.courses ?? ["plat"]);
-  if (!courses) return json({ error: "Portate invalides" }, 400);
+  if (!courses) return json({ error: await msg("err.courses") }, 400);
   const items = pulisciItems(body.items, courses);
-  if (!items) return json({ error: "Plats invalides" }, 400);
+  if (!items) return json({ error: await msg("err.dishes") }, 400);
   const combos = pulisciCombos(body.combos, courses);
-  if (!combos || !combos.length) return json({ error: "Ajoutez au moins une combinaison avec un prix" }, 400);
+  if (!combos || !combos.length) return json({ error: await msg("err.needCombo") }, 400);
   const df = pulisciData(body.date_from);
   const dt = pulisciData(body.date_to);
-  if (df === undefined || dt === undefined) return json({ error: "Dates invalides" }, 400);
-  if (df && dt && df > dt) return json({ error: "La date de fin précède le début" }, 400);
+  if (df === undefined || dt === undefined) return json({ error: await msg("err.dates") }, 400);
+  if (df && dt && df > dt) return json({ error: await msg("err.endBeforeStart") }, 400);
 
   const nameI18n = pulisciI18n(body.name_i18n);
   const riga: Record<string, unknown> = {
@@ -195,7 +205,7 @@ export const POST: APIRoute = async ({ request }) => {
     ({ data, error } = await supabaseAdmin.from("lunch_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
-    return json({ error: "Création impossible — migration supabase/lunch_menus.sql à lancer ?" }, 500);
+    return json({ error: await msg("err.migrLunch") }, 500);
   }
   return json({ lunch: data }, 201);
 };
@@ -208,17 +218,17 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const id = String(body.id ?? "");
-  if (!RE_UUID.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!RE_UUID.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // Le portate servono anche per validare items/combos: se non arrivano nel
   // body si leggono dalla riga esistente.
   let courses: string[] | null = null;
   if (body.courses !== undefined) {
     courses = pulisciCourses(body.courses);
-    if (!courses) return json({ error: "Portate invalides" }, 400);
+    if (!courses) return json({ error: await msg("err.courses") }, 400);
   } else {
     const { data: cur } = await supabaseAdmin.from("lunch_menus").select("courses").eq("id", id).maybeSingle();
     courses = pulisciCourses(cur?.courses ?? ["plat"]) ?? ["plat"];
@@ -229,32 +239,32 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.name !== undefined) campi.name = String(body.name ?? "").trim().slice(0, 60) || "Lunch";
   if (body.items !== undefined) {
     const items = pulisciItems(body.items, courses);
-    if (!items) return json({ error: "Plats invalides" }, 400);
+    if (!items) return json({ error: await msg("err.dishes") }, 400);
     campi.items = items;
   }
   if (body.combos !== undefined) {
     const combos = pulisciCombos(body.combos, courses);
-    if (!combos || !combos.length) return json({ error: "Ajoutez au moins une combinaison avec un prix" }, 400);
+    if (!combos || !combos.length) return json({ error: await msg("err.needCombo") }, 400);
     campi.combos = combos;
   }
   if (body.date_from !== undefined) {
     const df = pulisciData(body.date_from);
-    if (df === undefined) return json({ error: "Dates invalides" }, 400);
+    if (df === undefined) return json({ error: await msg("err.dates") }, 400);
     campi.date_from = df;
   }
   if (body.date_to !== undefined) {
     const dt = pulisciData(body.date_to);
-    if (dt === undefined) return json({ error: "Dates invalides" }, 400);
+    if (dt === undefined) return json({ error: await msg("err.dates") }, 400);
     campi.date_to = dt;
   }
   if (campi.date_from && campi.date_to && String(campi.date_from) > String(campi.date_to)) {
-    return json({ error: "La date de fin précède le début" }, 400);
+    return json({ error: await msg("err.endBeforeStart") }, 400);
   }
   if (body.active !== undefined) campi.active = Boolean(body.active);
   if (body.name_i18n !== undefined) campi.name_i18n = pulisciI18n(body.name_i18n) ?? {};
   if (body.hide_items !== undefined) campi.hide_items = Boolean(body.hide_items);
   if (body.hide_by_course !== undefined) campi.hide_by_course = pulisciHideByCourse(body.hide_by_course);
-  if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
+  if (!Object.keys(campi).length) return json({ error: await msg("err.nothing") }, 400);
 
   let { data, error } = await supabaseAdmin
     .from("lunch_menus")
@@ -274,7 +284,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       .select(SELECT_BASE)
       .single());
   }
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   return json({ lunch: data });
 };
 
@@ -283,9 +293,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id") ?? "";
-  if (!RE_UUID.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!RE_UUID.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await supabaseAdmin.from("lunch_menus").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

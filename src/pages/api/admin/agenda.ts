@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // CRUD degli eventi/agenda del ristorante (admin RestoHub → Agenda).
 // GET    → elenco (data crescente)
@@ -147,15 +157,15 @@ function mancaI18n(err: { message?: string } | null): boolean {
 /** Valida e normalizza i campi di un evento. */
 function valida(b: EventoInput): { errore?: string; valori?: Record<string, unknown> } {
   const title = (b.title ?? "").trim();
-  if (!title) return { errore: "Le titre est obligatoire" };
+  if (!title) return { errore: "err.titleRequired" };
 
   const date_start = (b.date_start ?? "").trim();
-  if (!RE_DATA.test(date_start)) return { errore: "Date de début obligatoire" };
+  if (!RE_DATA.test(date_start)) return { errore: "err.dateStartRequired" };
 
   let date_end: string | null = (b.date_end ?? "")?.toString().trim() || null;
   if (date_end !== null) {
-    if (!RE_DATA.test(date_end)) return { errore: "Date de fin invalide" };
-    if (date_end < date_start) return { errore: "La date de fin précède le début" };
+    if (!RE_DATA.test(date_end)) return { errore: "err.dateEnd" };
+    if (date_end < date_start) return { errore: "err.endBeforeStart" };
     if (date_end === date_start) date_end = null; // un solo giorno
   }
 
@@ -185,7 +195,7 @@ export const GET: APIRoute = async ({ request }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
   const { data, error } = await leggi("agenda_events", ambito, "*")
     .order("date_start", { ascending: true });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   // `sede` dice alla pagina se c'e' un punto selezionato: senza, l'interruttore
   // «vale per tutte le sedi» non ha senso e non si mostra. Stessa forma di
   // `/api/admin/menu`.
@@ -200,11 +210,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   const ambito = await ambitoDiRichiesta(request, staff);
   // ⚠️ `!== false`: senza dire niente, l'evento e' del GRUPPO. E' il contrario
@@ -222,7 +232,7 @@ export const POST: APIRoute = async ({ request }) => {
     delete senza.rsvp_max;
     ins = await inserisci("agenda_events", ambito, senza, perTutte).select("id").single();
   }
-  if (ins.error || !ins.data) return json({ error: "Enregistrement impossible" }, 500);
+  if (ins.error || !ins.data) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true, id: ins.data.id }, 201);
 };
 
@@ -234,9 +244,9 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.id) return json({ error: "id manquant" }, 400);
+  if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
 
   const ambito = await ambitoDiRichiesta(request, staff);
 
@@ -244,12 +254,12 @@ export const PUT: APIRoute = async ({ request }) => {
   if (body.title === undefined && typeof body.active === "boolean") {
     const { error } = await aggiorna("agenda_events", ambito, { active: body.active })
       .eq("id", body.id);
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   // Cambiare l'ambito di un evento gia' esistente: si scrive `location_id`
   // a mano, perche' `aggiorna` non lo tocca (filtra e basta).
@@ -267,7 +277,7 @@ export const PUT: APIRoute = async ({ request }) => {
     delete senza.rsvp_max;
     upd = (await aggiorna("agenda_events", ambito, senza).eq("id", body.id)).error;
   }
-  if (upd) return json({ error: "Enregistrement impossible" }, 500);
+  if (upd) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };
 
@@ -276,9 +286,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id");
-  if (!id) return json({ error: "id manquant" }, 400);
+  if (!id) return json({ error: await msg("err.idMissing") }, 400);
 
   const { error } = await cancella("agenda_events", await ambitoDiRichiesta(request, staff)).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

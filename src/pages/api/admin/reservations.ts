@@ -10,6 +10,8 @@ import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowRes
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 /** Id tavoli validi (uuid) da un body: max 8, [] -> null. */
 function tavoliDalBody(v: unknown): string[] | null {
   if (!Array.isArray(v)) return null;
@@ -31,6 +33,14 @@ function registraClienteResa(r: { first_name?: string; last_name?: string; email
 }
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Réservations (admin) — V1 semplice.
 // GET ?date=YYYY-MM-DD → prenotazioni del giorno (tutte, ordinate per ora)
@@ -184,7 +194,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (url.searchParams.get("client_stats") === "1") {
     const email = (url.searchParams.get("client_email") ?? "").trim().toLowerCase();
     const phone = (url.searchParams.get("client_phone") ?? "").trim();
-    if (!email && !phone) return json({ error: "Client manquant" }, 400);
+    if (!email && !phone) return json({ error: await msg("err.clientMissing") }, 400);
 
     type RigaStat = {
       id: string;
@@ -378,7 +388,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
 
   // Stessa logica del render lato server (SSR): fonte unica in caricaResaGiorno.
   return json(await caricaResaGiorno(date, ambito));
@@ -414,16 +424,16 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const date = String(body.date ?? "");
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const heure = String(body.heure ?? "");
-  if (!/^\d{2}:\d{2}$/.test(heure)) return json({ error: "Heure invalide" }, 400);
+  if (!/^\d{2}:\d{2}$/.test(heure)) return json({ error: await msg("err.time") }, 400);
   const people = Math.floor(Number(body.people));
   if (!Number.isFinite(people) || people < 1 || people > 100) {
-    return json({ error: "Personnes invalide (1–100)" }, 400);
+    return json({ error: await msg("err.people") }, 400);
   }
   const langCliente = normLang(body.lang);
 
@@ -499,7 +509,7 @@ export const POST: APIRoute = async ({ request }) => {
         return json({ reservation: d2 });
       }
     }
-    return json({ error: "Création impossible" }, 500);
+    return json({ error: await msg("err.create") }, 500);
   }
   await assegnaESalva(String((data as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people }, ambito);
   if (body.tables !== undefined && Array.isArray(body.tables)) {
@@ -568,16 +578,16 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // Solo i campi presenti nel body vengono modificati
   const upd: Record<string, unknown> = {};
   let statoPrima = ""; // per la transizione Demande (pending) -> Confirmée
   if (body.status !== undefined) {
-    if (!STATI.includes(body.status)) return json({ error: "Statut invalide" }, 400);
+    if (!STATI.includes(body.status)) return json({ error: await msg("err.status") }, 400);
     upd.status = body.status;
     if (body.status === "confirmed") {
       const { data: pv } = await leggi("reservations", ambito, "status").eq("id", id).maybeSingle();
@@ -634,16 +644,16 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
   }
   if (body.date !== undefined) {
-    if (!RE_DATA.test(String(body.date))) return json({ error: "Date invalide" }, 400);
+    if (!RE_DATA.test(String(body.date))) return json({ error: await msg("err.date") }, 400);
     upd.date = body.date;
   }
   if (body.heure !== undefined) {
-    if (!/^\d{2}:\d{2}$/.test(String(body.heure))) return json({ error: "Heure invalide" }, 400);
+    if (!/^\d{2}:\d{2}$/.test(String(body.heure))) return json({ error: await msg("err.time") }, 400);
     upd.heure = body.heure;
   }
   if (body.people !== undefined) {
     const n = Math.floor(Number(body.people));
-    if (!Number.isFinite(n) || n < 1 || n > 100) return json({ error: "Personnes invalide (1–100)" }, 400);
+    if (!Number.isFinite(n) || n < 1 || n > 100) return json({ error: await msg("err.people") }, 400);
     upd.people = n;
   }
   if (body.service_key !== undefined) {
@@ -669,7 +679,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       upd.spent_cents = null;
     } else {
       const n = Math.round(Number(body.spent_cents));
-      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) return json({ error: "Montant invalide" }, 400);
+      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) return json({ error: await msg("err.amount") }, 400);
       upd.spent_cents = n;
     }
   }
@@ -678,11 +688,11 @@ export const PATCH: APIRoute = async ({ request }) => {
     upd.company = Boolean(body.business) ? String(body.company ?? "").trim() : "";
   }
   if (body.source !== undefined) {
-    if (body.source !== "walkin" && body.source !== "phone") return json({ error: "Origine invalide" }, 400);
+    if (body.source !== "walkin" && body.source !== "phone") return json({ error: await msg("err.origin") }, 400);
     upd.source = body.source;
   }
   if (body.tables !== undefined && Array.isArray(body.tables)) upd.tables = tavoliDalBody(body.tables);
-  if (!Object.keys(upd).length) return json({ error: "Rien à modifier" }, 400);
+  if (!Object.keys(upd).length) return json({ error: await msg("err.nothing") }, 400);
 
   let { data, error } = await aggiorna("reservations", ambito, upd)
     .eq("id", id)
@@ -738,7 +748,7 @@ export const PATCH: APIRoute = async ({ request }) => {
         .single());
     }
   }
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   // Annullata o no-show: l'email recensione programmata non deve partire
   if (upd.status === "cancelled" || upd.status === "noshow") {
     const emailId = String((data as { review_email_id?: string | null }).review_email_id ?? "");
@@ -811,7 +821,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // Se c'era una email-recensione programmata, annullala prima di eliminare.
   try {
@@ -825,6 +835,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   }
 
   const { error } = await cancella("reservations", ambito).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

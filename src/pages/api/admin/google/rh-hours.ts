@@ -4,7 +4,17 @@ import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 // tre punti, tre schede, tre orari.
 import { ambitoDiRichiesta, leggiOrari, leggi } from "../../../../lib/admin/sede";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET /api/admin/google/rh-hours
 // Orari di RestoHub nel formato dell'editor Google:
@@ -51,7 +61,7 @@ export const GET: APIRoute = async ({ request }) => {
     ambito,
     "date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close",
   );
-  if (set.error || !set.data) return json({ error: "Orari RestoHub illeggibili" }, 502);
+  if (set.error || !set.data) return json({ error: await msg("err.rhHours") }, 502);
 
   // --- Orari settimanali ---
   const byDow = new Map<number, {

@@ -15,7 +15,17 @@ import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from ".
 import { applicaStatoSede } from "../../../lib/menuStato";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -224,7 +234,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (princ.error) [princ, pend] = await leggiOrdini(CAMPI_BASE);
 
   if (princ.error) {
-    return json({ error: "Lecture impossible" }, 500);
+    return json({ error: await msg("err.read") }, 500);
   }
 
   // Nota: `select` con stringa variabile (fallback #50) fa perdere a TS il tipo
@@ -314,20 +324,20 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   // ---- RINVIO email di pagamento (ordine pending): sessione Stripe NUOVA
   // (il vecchio link può essere scaduto: 24h) + stessa email col riepilogo.
   if (body.resend_id) {
     const rid = String(body.resend_id);
-    if (!/^[0-9a-f-]{36}$/i.test(rid)) return json({ error: "Id invalide" }, 400);
+    if (!/^[0-9a-f-]{36}$/i.test(rid)) return json({ error: await msg("err.id") }, 400);
     const { data: ord } = await leggi("orders", ambito, "*").eq("id", rid).maybeSingle();
-    if (!ord || ord.status !== "pending") return json({ error: "Commande introuvable ou déjà payée" }, 404);
+    if (!ord || ord.status !== "pending") return json({ error: await msg("err.orderNotFoundOrPaid") }, 404);
     const vociR: VoceCheckout[] = ((ord.items ?? []) as { name: string; qty: number; price_cents: number }[])
       .filter((i) => i.qty > 0)
       .map((i) => ({ name: i.name, price_cents: i.price_cents, qty: i.qty }));
-    if (!vociR.length) return json({ error: "Commande vide" }, 409);
+    if (!vociR.length) return json({ error: await msg("err.orderEmpty") }, 409);
     const siteUrlR = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
       const langR: "fr" | "en" = ord.lang === "en" ? "en" : "fr";
@@ -357,7 +367,7 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ ok: true });
     } catch (e) {
       console.error("[rinvio email ordine] Stripe error:", e);
-      return json({ error: "Erreur Stripe" }, 502);
+      return json({ error: await msg("err.stripe") }, 502);
     }
   }
 
@@ -375,13 +385,13 @@ export const POST: APIRoute = async ({ request }) => {
   // richiamare il cliente se qualcosa non va col ritiro. Il cognome no: al
   // banco spesso non lo si chiede. (La MODIFICA non li impone: gli ordini
   // presi dal sito pubblico possono non avere il telefono.)
-  if (!String(body.first_name ?? "").trim()) return json({ error: "Prénom requis" }, 400);
-  if (!String(body.phone ?? "").trim()) return json({ error: "Téléphone requis" }, 400);
-  if (!nome) return json({ error: "Nom requis" }, 400);
+  if (!String(body.first_name ?? "").trim()) return json({ error: await msg("err.firstNameRequired") }, 400);
+  if (!String(body.phone ?? "").trim()) return json({ error: await msg("err.phoneRequired") }, 400);
+  if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
   // Email obbligatoria SOLO per il link di pagamento; facoltativa se pagato di
   // persona (walk-in). Se presente deve comunque essere valida.
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  if (payment === "link" && !emailOk) return json({ error: "Email requise pour le lien de paiement" }, 400);
+  if (payment === "link" && !emailOk) return json({ error: await msg("err.emailForPayLink") }, 400);
 
   // ⚠️ Il bottone nascosto e' un suggerimento, non un controllo. Chi manda la
   // richiesta e' il browser, e il browser puo' mandare qualunque cosa — un
@@ -389,11 +399,11 @@ export const POST: APIRoute = async ({ request }) => {
   // ordine `link` su una sede non configurata verrebbe creato, l'email
   // partirebbe, e il cliente pagherebbe su un conto che non e' il suo.
   if (payment === "link" && !(await pagamentoOnlineAttivo(ambito))) {
-    return json({ error: "Paiement en ligne non configuré pour cet établissement" }, 409);
+    return json({ error: await msg("err.payNotConfigured") }, 409);
   }
-  if (email && !emailOk) return json({ error: "Email invalide" }, 400);
-  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: "Créneau invalide" }, 400);
-  if (!items.length) return json({ error: "Panier vide" }, 400);
+  if (email && !emailOk) return json({ error: await msg("err.email") }, 400);
+  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: await msg("err.slot") }, 400);
+  if (!items.length) return json({ error: await msg("err.cartEmpty") }, 400);
 
   // Data del ritiro: oggi (default) o un giorno futuro. Le date passate/non valide
   // vengono rifiutate. Per oggi si usa l'ora corrente (filtra gli slot passati),
@@ -402,29 +412,29 @@ export const POST: APIRoute = async ({ request }) => {
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: "Date invalide" }, 400);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
     const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
-    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: "Date invalide" }, 400);
+    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   // Créneau valido per QUELLA data (stessa fonte del sito: /api/slots)
   const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
-  if (!config) return json({ error: "Horaires indisponibles" }, 503);
+  if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config);
-  if (![...lunch, ...dinner].includes(slot)) return json({ error: "Créneau plus disponible" }, 409);
+  if (![...lunch, ...dinner].includes(slot)) return json({ error: await msg("err.slotGone") }, 409);
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi
   const ids = items.map((i) => String(i.id ?? ""));
   const { data: piatti, error: errMenu } = await piattiPerOrdine(ids, ambito);
-  if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
+  if (errMenu || !piatti) return json({ error: await msg("err.menuUnreadable") }, 503);
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
-    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
     itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
@@ -452,11 +462,11 @@ export const POST: APIRoute = async ({ request }) => {
   // Migrazione #29 non ancora lanciata: senza source l'ordine sparirebbe
   // dalla lista (pending non manuale) → meglio rifiutare chiaramente.
   if (ins.error && String(ins.error.message ?? "").includes("source")) {
-    return json({ error: "Migration orders_source.sql (#29) à lancer sur Supabase" }, 500);
+    return json({ error: await msg("err.migr29") }, 500);
   }
   // Migrazione #49 mancante: il check lang in ('fr','en') rifiuta it/nl/es.
   if (ins.error && String(ins.error.message ?? "").toLowerCase().includes("lang")) {
-    return json({ error: "Migration orders_manual_payment.sql (#49) à lancer (langues + paiement)" }, 500);
+    return json({ error: await msg("err.migr49") }, 500);
   }
   // Migrazione #49 (payment_method) assente: si crea comunque l'ordine, senza il metodo.
   if (ins.error && String(ins.error.message ?? "").includes("payment_method")) {
@@ -467,7 +477,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (ins.error && String(ins.error.message ?? "").includes("cancel_token")) {
     ins = await inserisciRiga("orders", ambito, datiOrdine).select("id").single();
   }
-  if (ins.error || !ins.data) return json({ error: "Création impossible" }, 500);
+  if (ins.error || !ins.data) return json({ error: await msg("err.create") }, 500);
   const orderId = ins.data.id as string;
   const cancelToken = (ins.data as { cancel_token?: string | null }).cancel_token ?? null;
 
@@ -513,7 +523,7 @@ export const POST: APIRoute = async ({ request }) => {
     // Sessione Stripe fallita: niente ordine fantasma in lista
     console.error("[ordine manuale] Stripe error:", e);
     await cancella("orders", ambito).eq("id", orderId);
-    return json({ error: "Erreur Stripe: paiement impossible à créer" }, 502);
+    return json({ error: await msg("err.stripeCreate") }, 502);
   }
 };
 
@@ -529,15 +539,15 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const status = String(body.status ?? "");
   if (!["paid", "done", "cancelled"].includes(status)) {
-    return json({ error: "Statut invalide" }, 400);
+    return json({ error: await msg("err.status") }, 400);
   }
 
   // ⚠️ La sede dell'ORDINE, non quella selezionata: l'email di annullamento
@@ -567,8 +577,8 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (status !== "cancelled") q = q.neq("status", "pending");
   const { data, error } = await q.select("id").maybeSingle();
 
-  if (error) return json({ error: "Modification impossible" }, 500);
-  if (!data) return json({ error: "Commande introuvable" }, 404);
+  if (error) return json({ error: await msg("err.update") }, 500);
+  if (!data) return json({ error: await msg("err.orderNotFound") }, 404);
 
   // Email di annullamento al cliente (solo alla transizione verso "cancelled").
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
@@ -633,11 +643,11 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requete invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // L'ordine deve esistere ed essere ATTIVO (paid o pending). Leggo anche gli
   // importi/pagamento per gestire la differenza. Le colonne #50 (supplement/
@@ -655,10 +665,10 @@ export const PUT: APIRoute = async ({ request }) => {
   }
   const ord = sel.data as Record<string, unknown> | null;
   const errOrd = sel.error;
-  if (errOrd) return json({ error: "Lecture impossible" }, 500);
-  if (!ord) return json({ error: "Commande introuvable" }, 404);
+  if (errOrd) return json({ error: await msg("err.read") }, 500);
+  if (!ord) return json({ error: await msg("err.orderNotFound") }, 404);
   if (ord.status !== "paid" && ord.status !== "pending") {
-    return json({ error: "Seules les commandes actives sont modifiables" }, 409);
+    return json({ error: await msg("err.onlyActiveOrders") }, 409);
   }
   const isLink = ord.status === "pending";
 
@@ -668,25 +678,25 @@ export const PUT: APIRoute = async ({ request }) => {
   const email = String(body.email ?? "").trim();
   const slot = String(body.slot ?? "");
   const items = Array.isArray(body.items) ? body.items : [];
-  if (!nome) return json({ error: "Nom requis" }, 400);
+  if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  if (isLink && !emailOk) return json({ error: "Email requise pour le lien de paiement" }, 400);
-  if (email && !emailOk) return json({ error: "Email invalide" }, 400);
-  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: "Creneau invalide" }, 400);
-  if (!items.length) return json({ error: "Panier vide" }, 400);
+  if (isLink && !emailOk) return json({ error: await msg("err.emailForPayLink") }, 400);
+  if (email && !emailOk) return json({ error: await msg("err.email") }, 400);
+  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: await msg("err.slot") }, 400);
+  if (!items.length) return json({ error: await msg("err.cartEmpty") }, 400);
 
   // Data del ritiro (stessa logica del POST).
   const oraNow = DateTime.now().setZone(TIMEZONE);
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: "Date invalide" }, 400);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
     const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
-    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: "Date invalide" }, 400);
+    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
-  if (!config) return json({ error: "Horaires indisponibles" }, 503);
+  if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
   const { lunch, dinner } = calcolaSlotGiorno(ora, config);
   // Orario originale dell'ordine (fuso ristorante): se lo staff NON lo cambia,
   // va accettato anche se ormai e' passato (quindi non piu' tra i disponibili).
@@ -699,21 +709,21 @@ export const PUT: APIRoute = async ({ request }) => {
   const dataScelta = dStr || oraNow.toFormat("yyyy-MM-dd");
   const slotInvariato = slot === origSlot && dataScelta === origDate;
   if (!slotInvariato && ![...lunch, ...dinner].includes(slot)) {
-    return json({ error: "Creneau plus disponible" }, 409);
+    return json({ error: await msg("err.slotGone") }, 409);
   }
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi.
   const ids = items.map((i) => String(i.id ?? ""));
   const { data: piatti, error: errMenu } = await piattiPerOrdine(ids, ambito);
-  if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
+  if (errMenu || !piatti) return json({ error: await msg("err.menuUnreadable") }, 503);
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
     const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
-    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
     itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
@@ -747,15 +757,15 @@ export const PUT: APIRoute = async ({ request }) => {
   // di scrivere, per non lasciare un ordine modificato senza traccia della
   // differenza (il rimborso/supplemento resterebbe invisibile).
   if (paidOnline && delta !== 0 && migMancante) {
-    return json({ error: "Migration orders_modifica_diff.sql (#50) a lancer sur Supabase" }, 500);
+    return json({ error: await msg("err.migr50") }, 500);
   }
 
   const { error: errUpd } = await aggiornaRighe("orders", ambito, aggiorna).eq("id", id);
   if (errUpd) {
     if (String(errUpd.message ?? "").toLowerCase().includes("lang")) {
-      return json({ error: "Migration orders_manual_payment.sql (#49) a lancer (langues + paiement)" }, 500);
+      return json({ error: await msg("err.migr49") }, 500);
     }
-    return json({ error: "Modification impossible" }, 500);
+    return json({ error: await msg("err.update") }, 500);
   }
 
   // ⚠️ Il conto su cui incassare e l'indirizzo che va nell'email sono quelli
@@ -823,7 +833,7 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     } catch (e) {
       console.error("[modifica ordine] Stripe error:", e);
-      return json({ error: "Erreur Stripe: lien de paiement non regenere" }, 502);
+      return json({ error: await msg("err.stripeRelink") }, 502);
     }
     return json({ ok: true, id });
   }
@@ -858,7 +868,7 @@ export const PUT: APIRoute = async ({ request }) => {
         });
       } catch (e) {
         console.error("[modifica ordine] supplemento Stripe error:", e);
-        return json({ error: "Erreur Stripe: lien de supplement non cree" }, 502);
+        return json({ error: await msg("err.stripeExtra") }, 502);
       }
     }
     void inviaModificaOrdine(notif, {

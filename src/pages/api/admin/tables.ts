@@ -6,7 +6,17 @@ import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 /** Tavoli massimi in UNA combinazione (liaison) e combinazioni per section.
  *  Erano 8 e 40, applicati scartando in silenzio: con tavoli da 2 il tetto
@@ -56,7 +66,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const heure = url.searchParams.get("heure") ?? "";
     const people = Math.floor(Number(url.searchParams.get("people")));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure) || !Number.isFinite(people) || people < 1) {
-      return json({ error: "Paramètres invalides" }, 400);
+      return json({ error: await msg("err.params") }, 400);
     }
     const exclude = url.searchParams.get("exclude") ?? "";
     const proposal = await assegnaTavoli({
@@ -74,7 +84,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let q = leggi("restaurant_tables", ambito, SELECT).order("created_at", { ascending: true });
   if (zone) q = q.eq("zone", zone);
   const { data, error } = await q;
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
 
   let area: number[][] | null = null;
   let links: unknown = [];
@@ -126,7 +136,7 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   // Priorità di riempimento: { priority: ["Interieur", "Terrasse", …] }.
   // Ordine con cui l'assegnazione tavoli riempie le sections quando il
@@ -135,16 +145,16 @@ export const PUT: APIRoute = async ({ request }) => {
     const grezzi = Array.isArray((body as { priority?: unknown }).priority)
       ? ((body as { priority: unknown[] }).priority)
       : null;
-    if (!grezzi || grezzi.length > 20) return json({ error: "Priorité invalide" }, 400);
+    if (!grezzi || grezzi.length > 20) return json({ error: await msg("err.priority") }, 400);
     const priority = grezzi.map((z) => String(z).trim().slice(0, 60)).filter(Boolean);
     const err = await scriviConfig(ambito, { reservation_zone_priority: JSON.stringify(priority) });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
     invalidaAppConfig();
     return json({ ok: true, priority });
   }
 
   const zone = String(body.zone ?? "").trim().slice(0, 60);
-  if (!zone) return json({ error: "Section obligatoire" }, 400);
+  if (!zone) return json({ error: await msg("err.sectionRequired") }, 400);
 
   // Liaisons: { zone, links: [["id","id"], …] } (validate e salvate a parte).
   // I limiti sono una difesa contro valori assurdi, non una regola di sala:
@@ -158,19 +168,19 @@ export const PUT: APIRoute = async ({ request }) => {
     }
     const links: string[][] = [];
     for (const g of grezzi) {
-      if (!Array.isArray(g)) return json({ error: "Liaison invalide" }, 400);
+      if (!Array.isArray(g)) return json({ error: await msg("err.linkBad") }, 400);
       const ids = g.map((x) => String(x)).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
-      if (ids.length !== g.length) return json({ error: "Liaison invalide" }, 400);
+      if (ids.length !== g.length) return json({ error: await msg("err.linkBad") }, 400);
       if (ids.length < 2) {
-        return json({ error: "Une liaison doit contenir au moins 2 tables" }, 400);
+        return json({ error: await msg("err.link2") }, 400);
       }
       if (ids.length > MAX_TAVOLI_LIAISON) {
-        return json({ error: `Une liaison dépasse le maximum de ${MAX_TAVOLI_LIAISON} tables` }, 400);
+        return json({ error: `${await msg("err.linkMax")} (${MAX_TAVOLI_LIAISON})` }, 400);
       }
       links.push(ids);
     }
     const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null, ambito);
-    if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+    if (!ok) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, links });
   }
 
@@ -187,13 +197,13 @@ export const PUT: APIRoute = async ({ request }) => {
       decor.push({ id, type, color, x: num(o.x, 0, 1000, 0), y: num(o.y, 0, 600, 0), w: num(o.w, 4, 1000, 40), h: num(o.h, 4, 600, 40) });
     }
     const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null, ambito);
-    if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+    if (!ok) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, decor });
   }
 
   let area: number[][] | null = null;
   if (Array.isArray(body.area)) {
-    if (body.area.length < 3 || body.area.length > 80) return json({ error: "Zone invalide (3–80 points)" }, 400);
+    if (body.area.length < 3 || body.area.length > 80) return json({ error: await msg("err.zonePoints") }, 400);
     area = (body.area as unknown[]).map((pt) => {
       const p2 = Array.isArray(pt) ? pt : [0, 0];
       return [num(p2[0], 0, 1000, 0), num(p2[1], 0, 600, 0)];
@@ -201,7 +211,7 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   const ok = await salvaMappa("reservation_plan_areas", zone, area, ambito);
-  if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+  if (!ok) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true, area });
 };
 
@@ -214,12 +224,12 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const zone = String(body.zone ?? "").trim().slice(0, 60);
   const name = String(body.name ?? "").trim().slice(0, 12);
-  if (!zone || !name) return json({ error: "Section et nom obligatoires" }, 400);
+  if (!zone || !name) return json({ error: await msg("err.sectionAndName") }, 400);
   const shape = FORME.includes(String(body.shape)) ? String(body.shape) : "square";
 
   const riga = {
@@ -233,7 +243,7 @@ export const POST: APIRoute = async ({ request }) => {
     h: num(body.h, 20, 500, 100),
   };
   const { data, error } = await inserisci("restaurant_tables", ambito, riga).select(SELECT).single();
-  if (error || !data) return json({ error: "Création impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.create") }, 500);
   return json({ table: data }, 201);
 };
 
@@ -246,34 +256,34 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const campi: Record<string, unknown> = {};
   if ("name" in body) {
     const nome = String(body.name ?? "").trim().slice(0, 12);
-    if (!nome) return json({ error: "Nom obligatoire" }, 400);
+    if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
     campi.name = nome;
   }
   if ("seats" in body) campi.seats = num(body.seats, 1, 30, 4);
   if ("shape" in body) {
-    if (!FORME.includes(String(body.shape))) return json({ error: "Forme invalide" }, 400);
+    if (!FORME.includes(String(body.shape))) return json({ error: await msg("err.shape") }, 400);
     campi.shape = String(body.shape);
   }
   if ("x" in body) campi.x = num(body.x, 0, 1000, 0);
   if ("y" in body) campi.y = num(body.y, 0, 600, 0);
   if ("w" in body) campi.w = num(body.w, 20, 600, 100);
   if ("h" in body) campi.h = num(body.h, 20, 500, 100);
-  if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
+  if (Object.keys(campi).length === 0) return json({ error: await msg("err.nothing") }, 400);
 
   const { data, error } = await aggiorna("restaurant_tables", ambito, campi)
     .eq("id", id)
     .select(SELECT)
     .single();
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   return json({ table: data });
 };
 
@@ -283,9 +293,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await cancella("restaurant_tables", ambito).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

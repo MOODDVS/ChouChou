@@ -8,7 +8,17 @@ import { datiRistorante } from "../../../lib/ristorante";
 import { emailBonCadeau, emailBonRistoratore, type BonEmail } from "../../../lib/notifications";
 import { creaCheckoutBon } from "../../../lib/stripe";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // CRUD dei buoni regalo (admin Marketing → Bons cadeaux) + riscatto manuale.
 // GET    → elenco buoni (con saldo)
@@ -117,7 +127,7 @@ export const GET: APIRoute = async ({ request }) => {
     .from("gift_cards")
     .select("*")
     .order("created_at", { ascending: false });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
 
   // I nomi dei punti, per dire DOVE e' stato venduto e DOVE speso. Vuoto =
   // installazione a punto unico: allora non si chiede nemmeno la colonna
@@ -223,7 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // ⚠️ L'AGGREGATO NON VENDE E NON RISCATTA. Con «toutes les adresses»
@@ -234,25 +244,25 @@ export const POST: APIRoute = async ({ request }) => {
   // con un 500. Meglio dirlo prima, una volta sola per tutti i rami.
   const amb = await ambitoDiRichiesta(request, staff);
   if (amb.modo === "tutte") {
-    return json({ error: "Choisis une adresse d'abord.", code: "no_sede" }, 409);
+    return json({ error: await msg("err.pickAddress"), code: "no_sede" }, 409);
   }
 
   // --- Riscatto manuale (servizio in sala) ---
   if (body.action === "redeem") {
-    if (!body.id) return json({ error: "id manquant" }, 400);
+    if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
     const amount = intPos(body.amount_cents);
-    if (!amount) return json({ error: "Montant invalide." }, 400);
+    if (!amount) return json({ error: await msg("err.amount") }, 400);
 
     const { data: card, error: e1 } = await supabaseAdmin
       .from("gift_cards")
       .select("id, active, expires_at, balance_cents")
       .eq("id", body.id)
       .maybeSingle();
-    if (e1) return json({ error: "Lecture impossible" }, 500);
-    if (!card) return json({ error: "Bon introuvable." }, 404);
-    if (!card.active) return json({ error: "Bon désactivé." }, 409);
-    if (card.expires_at && String(card.expires_at) < oggiISO()) return json({ error: "Bon expiré." }, 409);
-    if (amount > card.balance_cents) return json({ error: "Montant supérieur au solde." }, 409);
+    if (e1) return json({ error: await msg("err.read") }, 500);
+    if (!card) return json({ error: await msg("err.voucherNotFound") }, 404);
+    if (!card.active) return json({ error: await msg("err.voucherOff") }, 409);
+    if (card.expires_at && String(card.expires_at) < oggiISO()) return json({ error: await msg("err.voucherExpired") }, 409);
+    if (amount > card.balance_cents) return json({ error: await msg("err.overBalance") }, 409);
 
     // Optimistic lock: scala il saldo solo se non è cambiato dalla lettura.
     const nuovo = card.balance_cents - amount;
@@ -263,8 +273,8 @@ export const POST: APIRoute = async ({ request }) => {
       .eq("balance_cents", card.balance_cents)
       .select("id")
       .maybeSingle();
-    if (e2) return json({ error: "Enregistrement impossible" }, 500);
-    if (!upd) return json({ error: "Solde modifié entre-temps, réessaie." }, 409);
+    if (e2) return json({ error: await msg("err.save") }, 500);
+    if (!upd) return json({ error: await msg("err.balanceChanged") }, 409);
 
     await inserisci("gift_card_redemptions", amb, {
       gift_card_id: card.id,
@@ -278,17 +288,17 @@ export const POST: APIRoute = async ({ request }) => {
 
   // --- Rinvio del lien de paiement all'offrant ---
   if (body.action === "resend_link") {
-    if (!body.id) return json({ error: "id manquant" }, 400);
+    if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
     const { data: card, error: e0 } = await supabaseAdmin
       .from("gift_cards")
       .select("id, code, initial_cents, shipping_cents, paid, payment_method, sender_email, sender_name, recipient_name, message, expires_at, pay_token, ship, ship_address, ship_zip, ship_city, ship_country, sender_lang")
       .eq("id", body.id)
       .maybeSingle();
-    if (e0) return json({ error: "Lecture impossible" }, 500);
-    if (!card) return json({ error: "Bon introuvable." }, 404);
-    if (card.paid !== false) return json({ error: "Bon déjà payé." }, 409);
+    if (e0) return json({ error: await msg("err.read") }, 500);
+    if (!card) return json({ error: await msg("err.voucherNotFound") }, 404);
+    if (card.paid !== false) return json({ error: await msg("err.voucherPaid") }, 409);
     const offr = txt(body.sender_email, 200) ?? card.sender_email;
-    if (!offr) return json({ error: "Aucune adresse email pour l'offrant." }, 400);
+    if (!offr) return json({ error: await msg("err.noGiverEmail") }, 400);
 
     const site = (import.meta.env.PUBLIC_SITE_URL ?? process.env.PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
     let url: string;
@@ -318,8 +328,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   // --- Creazione buono ---
   const value = intPos(body.value_cents);
-  if (!value) return json({ error: "La valeur est obligatoire." }, 400);
-  if (value > 100000000) return json({ error: "Valeur trop élevée." }, 400);
+  if (!value) return json({ error: await msg("err.valueRequired") }, 400);
+  if (value > 100000000) return json({ error: await msg("err.valueTooHigh") }, 400);
 
   const expires = body.expires_at && RE_DATA.test(body.expires_at) ? body.expires_at : null;
   // Metodo di pagamento: cash/card = incassato subito · link = in attesa
@@ -433,10 +443,10 @@ export const POST: APIRoute = async ({ request }) => {
       void emailBonRistoratore(bon, amb);
       return json({ ok: true, id: data.id, code: data.code, pay_url: payUrl, pay_error: payError }, 201);
     }
-    if (error?.code === "23505") { ultimoErr = "Ce code existe déjà."; continue; }
-    return json({ error: "Enregistrement impossible" }, 500);
+    if (error?.code === "23505") { ultimoErr = "err.codeTaken"; continue; }
+    return json({ error: await msg("err.save") }, 500);
   }
-  return json({ error: ultimoErr }, 409);
+  return json({ error: await msg(ultimoErr) }, 409);
 };
 
 export const PUT: APIRoute = async ({ request }) => {
@@ -447,14 +457,14 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.id) return json({ error: "id manquant" }, 400);
+  if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
 
   // Toggle rapido attivo/pausa
   if (body.value_cents === undefined && body.expires_at === undefined && typeof body.active === "boolean") {
     const { error } = await supabaseAdmin.from("gift_cards").update({ active: body.active }).eq("id", body.id);
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
   }
 
@@ -486,12 +496,12 @@ export const PUT: APIRoute = async ({ request }) => {
     .select("initial_cents, balance_cents, paid")
     .eq("id", body.id)
     .maybeSingle();
-  if (!att) return json({ error: "Bon introuvable." }, 404);
+  if (!att) return json({ error: await msg("err.voucherNotFound") }, 404);
   const intatto = att.initial_cents === att.balance_cents;
 
   const nuovoVal = Math.floor(Number(body.value_cents) || 0);
   if (nuovoVal > 0 && nuovoVal !== att.initial_cents) {
-    if (!intatto) return json({ error: "Bon déjà utilisé : la valeur ne peut plus être modifiée." }, 409);
+    if (!intatto) return json({ error: await msg("err.voucherUsed") }, 409);
     patch.initial_cents = nuovoVal;
     patch.balance_cents = nuovoVal;
   }
@@ -499,7 +509,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const nuovoCode = txt(body.code, 40);
   if (nuovoCode) {
     const cn = normalizzaCodice(nuovoCode);
-    if (!cn) return json({ error: "Code invalide." }, 400);
+    if (!cn) return json({ error: await msg("err.code") }, 400);
     patch.code = nuovoCode;
     patch.code_norm = cn;
   }
@@ -521,8 +531,8 @@ export const PUT: APIRoute = async ({ request }) => {
     ({ error } = await supabaseAdmin.from("gift_cards").update(patchNoLang).eq("id", body.id));
   }
   if (error) {
-    if (error.code === "23505") return json({ error: "Ce code existe déjà." }, 409);
-    return json({ error: "Enregistrement impossible" }, 500);
+    if (error.code === "23505") return json({ error: await msg("err.codeTaken") }, 409);
+    return json({ error: await msg("err.save") }, 500);
   }
   return json({ ok: true });
 };
@@ -531,8 +541,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const id = url.searchParams.get("id");
-  if (!id) return json({ error: "id manquant" }, 400);
+  if (!id) return json({ error: await msg("err.idMissing") }, 400);
   const { error } = await supabaseAdmin.from("gift_cards").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

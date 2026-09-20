@@ -3,7 +3,17 @@ import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
 import { tokenGoogle, erroreGoogle, locationSalvata, listaMedia, caricaMedia, eliminaMedia } from "../../../../lib/googleBusiness";
 import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET    -> foto della scheda { logo, cover, gallery[] }
 // POST   -> carica una foto { url, category }  (LOGO | COVER | ADDITIONAL)
@@ -22,7 +32,7 @@ async function preludio(request: Request) {
   const { token: token, stato: sttoken } = await tokenGoogle();
   if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
   const loc = await locationSalvata(await ambitoDiRichiesta(request, staff));
-  if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
+  if (!loc?.path) return { err: json({ error: await msg("err.googleNotLinked") }, 400) };
   return { token, path: loc.path };
 }
 
@@ -46,11 +56,11 @@ async function handlePost(request: Request) {
 
   const override = request.headers.get("X-Method-Override");
   let b: Record<string, unknown>;
-  try { b = await request.json(); } catch { return json({ error: "Corps invalide" }, 400); }
+  try { b = await request.json(); } catch { return json({ error: await msg("err.body") }, 400); }
 
   if (override === "DELETE") {
     const name = String(b.name ?? "");
-    if (!name.startsWith(`${p.path}/media/`)) return json({ error: "Foto non valida" }, 400);
+    if (!name.startsWith(`${p.path}/media/`)) return json({ error: await msg("err.photoBad") }, 400);
     const { ok, error } = await eliminaMedia(p.token!, name);
     if (!ok) return json({ error: error || "Eliminazione impossibile" }, 502);
     return json({ ok: true });
@@ -58,8 +68,8 @@ async function handlePost(request: Request) {
 
   const url = String(b.url ?? "").trim();
   const category = String(b.category ?? "").trim().toUpperCase();
-  if (!/^https?:\/\//i.test(url)) return json({ error: "URL foto non valido" }, 400);
-  if (!CAT_OK.includes(category)) return json({ error: "Categoria non valida" }, 400);
+  if (!/^https?:\/\//i.test(url)) return json({ error: await msg("err.photoUrl") }, 400);
+  if (!CAT_OK.includes(category)) return json({ error: await msg("err.category") }, 400);
   const { ok, error } = await caricaMedia(p.token!, p.path!, url, category);
   if (!ok) return json({ error: error || "Caricamento impossibile" }, 502);
   return json({ ok: true });

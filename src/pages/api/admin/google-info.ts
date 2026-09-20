@@ -3,7 +3,17 @@ import { cacheOr } from "../../../lib/cache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Scheda Google del ristorante per la tile dell'Accueil (livello 1: lettura).
 // Place ID per-cliente (app_config), chiave Places di MOODD (env).
@@ -160,6 +170,6 @@ export const GET: APIRoute = async ({ request }) => {
     } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
     return json({ configured: true, ...info, avis: avisOut });
   } catch {
-    return json({ configured: true, error: "Google indisponible" }, 200);
+    return json({ configured: true, error: await msg("err.googleDown") }, 200);
   }
 };

@@ -168,7 +168,10 @@ test("la sede di un utente si verifica contro l'elenco vero", () => {
   const u = api("users.ts");
   assert.match(u, /async function sedeDaBody\(/);
   assert.match(u, /\.from\("locations"\)\.select\("id"\)\.eq\("id", s\)/);
-  assert.match(u, /throw new Error\("Établissement inconnu\."\)/);
+  // Lancia una CHIAVE i18n, non una frase: il gestore traduce nella lingua
+  // dell'admin. Vedi ENGINE.md, «Messaggi d'errore delle API admin».
+  assert.match(u, /throw new Error\("err\.locationUnknown"\)/);
+  assert.match(u, /catch \(e\) \{ return json\(\{ error: await msg\(\(e as Error\)\.message\) \}, 400\); \}/);
   // Vuoto = nessuna sede = vede tutto. `undefined` = non tocca niente.
   assert.match(u, /if \(v === undefined\) return undefined;/);
   assert.match(u, /if \(!s\) return null;/);

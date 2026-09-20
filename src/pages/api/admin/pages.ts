@@ -2,11 +2,20 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
-import { isAdminLang, type AdminLang } from "../../../i18n/admin";
+import { adminT, isAdminLang, type AdminLang } from "../../../i18n/admin";
+import { adminLang } from "../../../lib/admin/adminLang";
 import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CHIAVE_PWA_MARCHIO, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Visibilità di pagine E tab dell'admin per gli utenti NON super (MOODD).
 // - admin_pages_hidden : array JSON di chiavi pagina (es. ["stats","marketing"])
@@ -66,21 +75,21 @@ export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   if (!isSuperUser(staff)) {
-    return json({ error: "Réservé à l'administrateur MOODD" }, 403);
+    return json({ error: await msg("err.superMoodd") }, 403);
   }
 
   let body: { hidden?: string[]; hiddenTabs?: string[]; features?: string[]; theme?: Record<string, string>; lang?: string; publicLangs?: string[]; publicLangDefault?: string; pwaBrand?: string };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // hidden è opzionale: aggiornato solo se presente (come theme, hiddenTabs, lang).
   // Così un salvataggio della sola lingua non tocca la visibilità delle pagine.
   let hidden: string[] | null = null;
   if (body.hidden !== undefined) {
-    if (!Array.isArray(body.hidden)) return json({ error: "Liste invalide" }, 400);
+    if (!Array.isArray(body.hidden)) return json({ error: await msg("err.list") }, 400);
     hidden = [...new Set(body.hidden.filter((k) => VALIDE.includes(k)))];
   }
 
@@ -98,7 +107,7 @@ export const PUT: APIRoute = async ({ request }) => {
   let theme: Record<string, string> | null = null;
   if (body.theme !== undefined) {
     if (typeof body.theme !== "object" || body.theme === null || Array.isArray(body.theme)) {
-      return json({ error: "Thème invalide" }, 400);
+      return json({ error: await msg("err.theme") }, 400);
     }
     theme = {};
     for (const k of TEMA_CHIAVI) {
@@ -117,7 +126,7 @@ export const PUT: APIRoute = async ({ request }) => {
   let pwaBrand: string | null = null;
   if (body.pwaBrand !== undefined) {
     if (body.pwaBrand !== "restohub" && body.pwaBrand !== "client") {
-      return json({ error: "Marque PWA invalide" }, 400);
+      return json({ error: await msg("err.pwaBrand") }, 400);
     }
     pwaBrand = body.pwaBrand;
   }
@@ -125,7 +134,7 @@ export const PUT: APIRoute = async ({ request }) => {
   // lang opzionale: se presente e valida, aggiorna la lingua globale dell'admin.
   let lang: AdminLang | null = null;
   if (body.lang !== undefined) {
-    if (!isAdminLang(body.lang)) return json({ error: "Langue invalide" }, 400);
+    if (!isAdminLang(body.lang)) return json({ error: await msg("err.lang") }, 400);
     lang = body.lang;
   }
 
@@ -134,10 +143,10 @@ export const PUT: APIRoute = async ({ request }) => {
   let publicLangs: string[] | null = null;
   let publicDefault: string | null = null;
   if (body.publicLangs !== undefined) {
-    if (!Array.isArray(body.publicLangs)) return json({ error: "Langues publiques invalides" }, 400);
+    if (!Array.isArray(body.publicLangs)) return json({ error: await msg("err.publicLangs") }, 400);
     const set = new Set(body.publicLangs.filter((c) => PUBLIC_LANG_CODES.includes(c)));
     publicLangs = PUBLIC_LANG_CODES.filter((c) => set.has(c)); // ordine canonico
-    if (!publicLangs.length) return json({ error: "Au moins une langue publique" }, 400);
+    if (!publicLangs.length) return json({ error: await msg("err.onePublicLang") }, 400);
     // predefinita: quella passata se valida e attiva, altrimenti FR se attivo, altrimenti la prima
     const richiesta = typeof body.publicLangDefault === "string" ? body.publicLangDefault : "";
     publicDefault = publicLangs.includes(richiesta)
@@ -159,7 +168,7 @@ export const PUT: APIRoute = async ({ request }) => {
     const { error } = await supabaseAdmin
       .from("app_config")
       .upsert(upserts, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
   }
 
   // Invalida subito la cache di boot (lingua + tema + favicon + lingue pubbliche,

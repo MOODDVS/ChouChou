@@ -3,7 +3,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // CRUD della rubrica Team (Réglages → Team).
 // GET    → elenco completo (per categoria, poi ordine/nome)
@@ -58,7 +68,7 @@ function txt(v: unknown, max = 300): string | null {
 
 function valida(b: TeamInput): { errore?: string; valori?: Record<string, unknown> } {
   const name = (b.name ?? "").trim().slice(0, 120);
-  if (!name) return { errore: "Le nom est obligatoire." };
+  if (!name) return { errore: "err.nameRequired" };
 
   const category = CATEGORIE.includes(b.category ?? "") ? b.category! : "direction";
 
@@ -91,7 +101,7 @@ export const GET: APIRoute = async ({ request }) => {
     .order("category", { ascending: true })
     .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   return json({ team: data ?? [] });
 };
 
@@ -103,11 +113,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   // ⚠️ Default: di QUESTA sede, non di tutte — l'opposto del menu. Un
   // cameriere lavora in un locale; chi gira fra i tre e' l'eccezione, e la
@@ -118,7 +128,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { data, error } = await inserisci("team", ambito, v.valori!, body.all_locations === true)
     .select("id")
     .single();
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true, id: data.id }, 201);
 };
 
@@ -130,21 +140,21 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.id) return json({ error: "id manquant" }, 400);
+  if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
 
   const ambito = await ambitoDiRichiesta(request, staff);
 
   // Toggle rapido attivo/nascosto: solo { id, active }
   if (body.name === undefined && typeof body.active === "boolean") {
     const { error } = await aggiorna("team", ambito, { active: body.active }).eq("id", body.id);
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   // Foto precedente: se tolta o sostituita, il file va eliminato dallo Storage
   const { data: prima } = await leggi("team", ambito, "photo_url").eq("id", body.id).maybeSingle();
@@ -157,7 +167,7 @@ export const PUT: APIRoute = async ({ request }) => {
     campi.location_id = body.all_locations === true ? null : ambito.id;
   }
   const { error } = await aggiorna("team", ambito, campi).eq("id", body.id);
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   if (vecchiaFoto && vecchiaFoto !== (v.valori!.photo_url || null)) {
     await eliminaFotoStorage(vecchiaFoto);
   }
@@ -169,12 +179,12 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id");
-  if (!id) return json({ error: "id manquant" }, 400);
+  if (!id) return json({ error: await msg("err.idMissing") }, 400);
 
   const ambito = await ambitoDiRichiesta(request, staff);
   const { data: prima } = await leggi("team", ambito, "photo_url").eq("id", id).maybeSingle();
   const { error } = await cancella("team", ambito).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   await eliminaFotoStorage(prima?.photo_url ?? null);
   return json({ ok: true });
 };

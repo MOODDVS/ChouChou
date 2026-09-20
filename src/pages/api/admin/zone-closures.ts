@@ -6,7 +6,17 @@ import {
 } from "../../../lib/admin/sede";
 import { aggiornaTimezone } from "../../../lib/slots";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Chiusure di SECTION per giorno (admin Réservations).
 // GET    ?date=YYYY-MM-DD          → { closures: [{ zone, reason }], permanent: [zone…] }
@@ -60,7 +70,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
 
   const permanent = await leggiPermanenti(ambito);
   const { data, error } = await leggi("zone_closures", ambito, "zone, reason").eq("date", date);
@@ -77,25 +87,25 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Chiusura PERMANENTE: { permanent_zone, closed: true|false }
   if (body.permanent_zone !== undefined) {
     const zona = String(body.permanent_zone ?? "").trim().slice(0, 60);
-    if (!zona) return json({ error: "Section invalide" }, 400);
+    if (!zona) return json({ error: await msg("err.section") }, 400);
     const ambitoPerm = await ambitoDiRichiesta(request, staff);
     const lista = await leggiPermanenti(ambitoPerm);
     const nuova = body.closed ? [...new Set([...lista, zona])] : lista.filter((z) => z !== zona);
     const err = await scriviConfig(ambitoPerm, { [K_PERM]: JSON.stringify(nuova) });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
     invalidaAppConfig();
     return json({ ok: true, permanent: nuova });
   }
   const date = String(body.date ?? "");
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const zone = String(body.zone ?? "").trim();
-  if (!zone || zone.length > 60) return json({ error: "Section invalide" }, 400);
+  if (!zone || zone.length > 60) return json({ error: await msg("err.section") }, 400);
   const reason = body.reason === "full" ? "full" : "closed";
 
   const { error } = await salva(
@@ -105,7 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
     "date,zone",
   );
   if (error) {
-    return json({ error: "Enregistrement impossible — migration supabase/zone_closures.sql à lancer ?" }, 500);
+    return json({ error: await msg("err.migrZoneClosures") }, 500);
   }
   return json({ ok: true });
 };
@@ -115,13 +125,13 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const zone = (url.searchParams.get("zone") ?? "").trim();
-  if (!zone) return json({ error: "Section invalide" }, 400);
+  if (!zone) return json({ error: await msg("err.section") }, 400);
 
   const { error } = await cancella("zone_closures", await ambitoDiRichiesta(request, staff))
     .eq("date", date)
     .eq("zone", zone);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

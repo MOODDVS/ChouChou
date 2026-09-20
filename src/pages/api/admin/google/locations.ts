@@ -4,6 +4,8 @@ import { tokenGoogle, erroreGoogle, listaSedi, salvaLocation, locationSalvata, s
 import { schedaValida, schedaLibera } from "../../../../lib/googleRegole";
 import { ambitoDiRiga, elencoSedi } from "../../../../lib/admin/sede";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 /**
  * QUALE PUNTO sta scegliendo la sua scheda.
  *
@@ -19,11 +21,19 @@ async function sedeChiesta(v: unknown): Promise<{ ambito: ReturnType<typeof ambi
   const id = String(v ?? "").trim();
   if (!id) return { ambito: ambitoDiRiga(null) };
   const esiste = (await elencoSedi()).some((s) => s.id === id);
-  if (!esiste) return { ambito: ambitoDiRiga(null), errore: "Établissement inconnu" };
+  if (!esiste) return { ambito: ambitoDiRiga(null), errore: "err.locationUnknown" };
   return { ambito: ambitoDiRiga(id) };
 }
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET  /api/admin/google/locations  -> elenca tutte le schede (account × location)
 //                                       accessibili col token + la sede attuale.
@@ -62,13 +72,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const path = String(body.path ?? "").trim();
   const title = String(body.title ?? "").trim();
   // formato v4 atteso: accounts/{id}/locations/{id}
   if (!schedaValida(path)) {
-    return json({ error: "Fiche invalide" }, 400);
+    return json({ error: await msg("err.listingBad") }, 400);
   }
 
   const { token: token, stato: sttoken } = await tokenGoogle();
@@ -85,7 +95,7 @@ export const POST: APIRoute = async ({ request }) => {
   // che non e' sua — a volte. Le tre schede si scelgono a mano da un elenco
   // in cui i nomi si assomigliano tutti: e' un errore che si fa.
   if (!schedaLibera({ giaDi: await sedeConLaScheda(path), ambito })) {
-    return json({ error: "Cette fiche est déjà liée à un autre établissement" }, 409);
+    return json({ error: await msg("err.listingLinked") }, 409);
   }
 
   await salvaLocation(path, title, ambito);

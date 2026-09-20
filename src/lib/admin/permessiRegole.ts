@@ -107,3 +107,127 @@ export function pulisciPagine(grezzo: unknown, tutte: string[]): string[] | null
   }
   return out;
 }
+
+// ============================================================
+// LE API (20/09/2026)
+//
+// Chiudere le pagine non basta: /admin/stats era sbarrata e
+// /api/admin/stats rispondeva lo stesso a chiunque avesse fatto il login.
+// Una serratura sulla porta e la finestra aperta.
+//
+// ⚠️ NEL DUBBIO SI LASCIA APERTO. Bloccare per sbaglio un'API che serve a
+// una pagina permessa rompe l'admin per tutti, subito; lasciarla aperta e'
+// il comportamento di oggi. Percio' ogni voce qui sotto e' una DECISIONE, e
+// `PAGINA_APERTA` non e' una svista ma una riga scritta apposta.
+//
+// ⚠️ Le API che la HOME chiama restano aperte anche quando i dati sono di
+// un'altra pagina: le tile sono legate alla loro pagina con
+// `data-admin-page` e spariscono da sole: se la tile non c'e', la chiamata
+// non parte. Quelle di cui non ho potuto verificare il chiamante sono
+// aperte per prudenza, ed e' segnato.
+// ============================================================
+
+/** L'API e' di chiunque abbia fatto il login. */
+export const PAGINA_APERTA = PAGINA_HOME;
+
+export const API_PAGINA: Record<string, string> = {
+  // --- Ordini -----------------------------------------------------------
+  "orders": "orders",
+  "refund": "orders",
+  // --- Prenotazioni -----------------------------------------------------
+  "reservations": "reservations",
+  "service-closures": "reservations",
+  "zone-closures": "reservations",
+  "zone-closure-impact": "reservations",
+  // --- Clienti ----------------------------------------------------------
+  "clients": "clients",
+  // --- Menu -------------------------------------------------------------
+  "menu": "menu",
+  "categories": "menu",
+  "lunch": "menu",
+  "set-menus": "menu",
+  // --- Statistiche (il fatturato: la ragione per cui esiste questa mappa)
+  "stats": "stats",
+  "stats-reservations": "stats",
+  "traffic": "stats",
+  // --- Marketing --------------------------------------------------------
+  "coupons": "marketing",
+  "popups": "marketing",
+  "newsletter": "marketing",
+  "newsletter-schedule": "marketing",
+  "credits": "marketing",
+  "gift-cards": "marketing",
+  "gift-cards-pdf": "marketing",
+  "gift-cards-shop": "marketing",
+  // --- Assets -----------------------------------------------------------
+  "images": "assets",
+  // --- Stampa -----------------------------------------------------------
+  "print-catalog": "print",
+  "print-order": "print",
+  // --- Agenda -----------------------------------------------------------
+  "agenda": "agenda",
+  // --- Réglages ---------------------------------------------------------
+  "settings": "settings",
+  "docs": "settings",
+  "team": "settings",
+  "tables": "settings",
+  "site-images": "settings",
+  // --- Solo MOODD -------------------------------------------------------
+  "users": "super",
+  "locations": "super",
+  "integrations": "super",
+  "google-place": "super",
+  // --- Scheda Google ----------------------------------------------------
+  // "google" NON e' in PAGINE_ADMIN: oggi quella pagina non si puo' spegnere
+  // e queste restano aperte (una chiave sconosciuta non blocca). Il giorno
+  // che la si aggiunge all'elenco, si chiudono da sole senza toccare nulla.
+  "google/attributes": "google",
+  "google/data": "google",
+  "google/locations": "google",
+  "google/media": "google",
+  "google/menu": "google",
+  "google/posts": "google",
+  "google/profile": "google",
+  "google/reply": "google",
+  "google/reviews": "google",
+  "google/rh-hours": "google",
+  "google/sync": "google",
+  "google-info": "google",
+  // --- Aperte, e ognuna per una ragione ---------------------------------
+  "today": PAGINA_APERTA,          // la home ne ha bisogno sempre
+  "notes": PAGINA_APERTA,          // tile Notes: nessun data-admin-page
+  "home-layout": PAGINA_APERTA,    // layout PERSONALE di chi guarda
+  "pages": PAGINA_APERTA,          // e' AdminNav a chiederla, per sapere cosa mostrare
+  "search-console": PAGINA_APERTA, // tile Visibilite': nessun data-admin-page
+  "events": PAGINA_APERTA,         // eventi del locale, tile «Prossimi eventi»
+  "special-days": PAGINA_APERTA,   // orari: li legge anche la home
+  "special-days-impact": PAGINA_APERTA,
+  "slots": PAGINA_APERTA,
+  "push": PAGINA_APERTA,           // notifiche del dispositivo di chi guarda
+  "upload": PAGINA_APERTA,         // caricamento immagini, usato da piu' pagine
+  "documents": PAGINA_APERTA,      // chiamata dalla home: chiamante non verificato
+};
+
+/** Dal percorso al nome dell'API. "" se non e' un'API admin. */
+export function chiaveApi(pathname: string): string {
+  const m = String(pathname || "").replace(/\/+$/, "").match(/^\/api\/admin\/(.+)$/);
+  return m ? m[1].toLowerCase() : "";
+}
+
+/**
+ * Puo' chiamare questa API?
+ *
+ * ⚠️ Un'API SCONOSCIUTA e' permessa, come per le pagine: una nuova non deve
+ * nascere bloccata. Una rete in tests/permessi.test.mjs fallisce se un file
+ * sotto pages/api/admin non e' in `API_PAGINA`, cosi' la dimenticanza si
+ * paga subito e non in produzione.
+ */
+export function puoChiamareApi(
+  chiave: string,
+  ctx: Parameters<typeof pagineConsentite>[0],
+): boolean {
+  if (!chiave) return true;
+  const pagina = API_PAGINA[chiave];
+  if (!pagina) return true;
+  return puoVederePagina(pagina, ctx);
+}

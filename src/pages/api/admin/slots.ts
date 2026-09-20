@@ -2,8 +2,18 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { slotsDelMese, slotsDelGiorno } from "../../../lib/slotsApi";
 import { ambitoDiRichiesta } from "../../../lib/admin/sede";
+import { adminT } from "../../../i18n/admin";
+import { adminLang } from "../../../lib/admin/adminLang";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), {
@@ -25,9 +35,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   const mese = url.searchParams.get("month");
   if (mese) {
     const r = await slotsDelMese(mese, ambito);
-    return "errore" in r ? json({ error: r.errore }, 400) : json(r);
+    return "errore" in r ? json({ error: await msg(r.errore) }, 400) : json(r);
   }
 
   const r = await slotsDelGiorno(url.searchParams.get("date"), ambito);
-  return "errore" in r ? json({ error: r.errore }, 503) : json(r);
+  return "errore" in r ? json({ error: await msg(r.errore) }, 503) : json(r);
 };

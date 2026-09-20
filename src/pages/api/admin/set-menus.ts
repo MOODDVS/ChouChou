@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // SET MENUS (tab « Menù » della pagina Menu admin) — menu à prix fixe.
 // GET          → { menus: [...] } (missing: true se la tabella non è creata)
@@ -115,17 +125,17 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const courses = pulisciCourses(body.courses);
-  if (!courses) return json({ error: "Portate invalides" }, 400);
+  if (!courses) return json({ error: await msg("err.courses") }, 400);
   const price = pulisciCents(body.price_cents, 0) ?? 0;
   const wine = pulisciCents(body.wine_supplement_cents, null);
   const df = pulisciData(body.date_from);
   const dt = pulisciData(body.date_to);
-  if (df === undefined || dt === undefined) return json({ error: "Dates invalides" }, 400);
-  if (df && dt && df > dt) return json({ error: "La date de fin précède le début" }, 400);
+  if (df === undefined || dt === undefined) return json({ error: await msg("err.dates") }, 400);
+  if (df && dt && df > dt) return json({ error: await msg("err.endBeforeStart") }, 400);
 
   const riga: Record<string, unknown> = {
     name: String(body.name ?? "").trim().slice(0, 60) || "Menu",
@@ -148,7 +158,7 @@ export const POST: APIRoute = async ({ request }) => {
     ({ data, error } = await supabaseAdmin.from("set_menus").insert(riga).select(SELECT_BASE).single());
   }
   if (error || !data) {
-    return json({ error: error?.message ?? "Création impossible — migration supabase/set_menus.sql à lancer ?" }, 500);
+    return json({ error: error?.message ?? (await msg("err.migrSetMenus")) }, 500);
   }
   return json({ menu: data }, 201);
 };
@@ -161,10 +171,10 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const id = String(body.id ?? "");
-  if (!RE_UUID.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!RE_UUID.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const campi: Record<string, unknown> = {};
   if (body.name !== undefined) campi.name = String(body.name ?? "").trim().slice(0, 60) || "Menu";
@@ -173,29 +183,29 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.image_url !== undefined) campi.image_url = body.image_url ? String(body.image_url).slice(0, 500) : null;
   if (body.courses !== undefined) {
     const courses = pulisciCourses(body.courses);
-    if (!courses) return json({ error: "Portate invalides" }, 400);
+    if (!courses) return json({ error: await msg("err.courses") }, 400);
     campi.courses = courses;
   }
   if (body.price_cents !== undefined) campi.price_cents = pulisciCents(body.price_cents, 0) ?? 0;
   if (body.wine_supplement_cents !== undefined) campi.wine_supplement_cents = pulisciCents(body.wine_supplement_cents, null);
   if (body.date_from !== undefined) {
     const df = pulisciData(body.date_from);
-    if (df === undefined) return json({ error: "Dates invalides" }, 400);
+    if (df === undefined) return json({ error: await msg("err.dates") }, 400);
     campi.date_from = df;
   }
   if (body.date_to !== undefined) {
     const dt = pulisciData(body.date_to);
-    if (dt === undefined) return json({ error: "Dates invalides" }, 400);
+    if (dt === undefined) return json({ error: await msg("err.dates") }, 400);
     campi.date_to = dt;
   }
   if (campi.date_from && campi.date_to && String(campi.date_from) > String(campi.date_to)) {
-    return json({ error: "La date de fin précède le début" }, 400);
+    return json({ error: await msg("err.endBeforeStart") }, 400);
   }
   if (body.active !== undefined) campi.active = Boolean(body.active);
   if (body.hide_items !== undefined) campi.hide_items = Boolean(body.hide_items);
   if (body.is_draft !== undefined) campi.is_draft = Boolean(body.is_draft);
   if (body.sort_order !== undefined) campi.sort_order = pulisciCents(body.sort_order, 0) ?? 0;
-  if (!Object.keys(campi).length) return json({ error: "Rien à modifier" }, 400);
+  if (!Object.keys(campi).length) return json({ error: await msg("err.nothing") }, 400);
 
   let { data, error } = await supabaseAdmin
     .from("set_menus")
@@ -222,9 +232,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id") ?? "";
-  if (!RE_UUID.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!RE_UUID.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await supabaseAdmin.from("set_menus").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

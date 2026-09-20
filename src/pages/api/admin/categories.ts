@@ -398,10 +398,11 @@ export const DELETE: APIRoute = async ({ request, url }) => {
       .limit(1);
     return json(
       {
-        error:
+        error: await msg(
           ambito.modo === "sede" && (qui ?? []).length === 0
-            ? "Section utilisée par un autre point de vente : impossible de la supprimer ici"
-            : "Section non vide : déplace ou supprime d'abord ses plats",
+            ? "err.sectionUsedElsewhere"
+            : "err.sectionNotEmpty"
+        ),
       },
       400
     );

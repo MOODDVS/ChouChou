@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Bibliothèque d'images (admin → Images) : tutte le immagini caricate
 // nei bucket Storage `menu` (foto dei piatti) e `popups` (pop-up e
@@ -185,11 +195,11 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const bucketParam = url.searchParams.get("bucket") ?? "";
   const name = url.searchParams.get("name") ?? "";
   if (!(BUCKETS as readonly string[]).includes(bucketParam)) {
-    return json({ error: "Bucket invalide" }, 400);
+    return json({ error: await msg("err.bucket") }, 400);
   }
   const bucket = bucketParam as Bucket;
   if (!name || name.includes("..") || name.startsWith("/")) {
-    return json({ error: "Nom invalide" }, 400);
+    return json({ error: await msg("err.name") }, 400);
   }
 
   // Un'immagine ancora utilizzata da un piatto o un pop-up non si elimina
@@ -200,11 +210,11 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     return json({ error: `Image utilisée par : ${dove.map((u) => u.label).join(", ")}` }, 409);
   }
   if (escluse.has(publicUrl)) {
-    return json({ error: "Photo d'un contact (Team) ou d'un client — gérée depuis sa fiche" }, 409);
+    return json({ error: await msg("err.photoContact") }, 409);
   }
 
   const { error } = await supabaseAdmin.storage.from(bucket).remove([name]);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };
 
@@ -218,26 +228,26 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const bucketParam = body.bucket ?? "";
   const name = body.name ?? "";
   if (!(BUCKETS as readonly string[]).includes(bucketParam)) {
-    return json({ error: "Bucket invalide" }, 400);
+    return json({ error: await msg("err.bucket") }, 400);
   }
   const bucket = bucketParam as Bucket;
   if (!name || name.includes("..") || name.startsWith("/")) {
-    return json({ error: "Nom invalide" }, 400);
+    return json({ error: await msg("err.name") }, 400);
   }
   const nuovoNome = pulisciNome(body.new_name ?? "");
-  if (!nuovoNome) return json({ error: "Nouveau nom invalide" }, 400);
+  if (!nuovoNome) return json({ error: await msg("err.newName") }, 400);
 
   const vecchioUrl = supabaseAdmin.storage.from(bucket).getPublicUrl(name).data.publicUrl;
 
   // Le foto dei contatti Team non si toccano da qui
   if ((await fotoTeam()).has(vecchioUrl)) {
-    return json({ error: "Photo d'un contact (Team) ou d'un client — gérée depuis sa fiche" }, 409);
+    return json({ error: await msg("err.photoContact") }, 409);
   }
 
   // --- Sostituzione con la versione compressa ---
@@ -247,16 +257,16 @@ export const PATCH: APIRoute = async ({ request }) => {
     try {
       bytes = Buffer.from(body.data, "base64");
     } catch {
-      return json({ error: "Fichier illisible" }, 400);
+      return json({ error: await msg("err.fileUnreadable") }, 400);
     }
-    if (bytes.length === 0) return json({ error: "Fichier vide" }, 400);
-    if (bytes.length > 4 * 1024 * 1024) return json({ error: "Fichier trop lourd (max 4 Mo)" }, 400);
+    if (bytes.length === 0) return json({ error: await msg("err.fileEmpty") }, 400);
+    if (bytes.length > 4 * 1024 * 1024) return json({ error: await msg("err.fileTooBig4") }, 400);
 
     const sovrascrive = nuovoNome === name;
     const { error: errUp } = await supabaseAdmin.storage
       .from(bucket)
       .upload(nuovoNome, bytes, { contentType: TIPI[ext], upsert: sovrascrive });
-    if (errUp) return json({ error: "Ce nom existe déjà ou téléversement impossible" }, 409);
+    if (errUp) return json({ error: await msg("err.nameTakenUpload") }, 409);
 
     if (!sovrascrive) {
       const nuovoUrl = supabaseAdmin.storage.from(bucket).getPublicUrl(nuovoNome).data.publicUrl;
@@ -270,7 +280,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   // --- Semplice rinomina ---
   if (nuovoNome === name) return json({ ok: true, name, url: vecchioUrl });
   const { error: errMove } = await supabaseAdmin.storage.from(bucket).move(name, nuovoNome);
-  if (errMove) return json({ error: "Ce nom existe déjà ou renommage impossible" }, 409);
+  if (errMove) return json({ error: await msg("err.nameTakenRename") }, 409);
   const nuovoUrl = supabaseAdmin.storage.from(bucket).getPublicUrl(nuovoNome).data.publicUrl;
   await aggiornaRiferimenti(vecchioUrl, nuovoUrl);
   return json({ ok: true, name: nuovoNome, url: nuovoUrl });

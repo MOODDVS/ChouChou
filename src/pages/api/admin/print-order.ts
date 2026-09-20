@@ -7,7 +7,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { CLIENT } from "../../../config/client";
 import { K_PRINT_CATALOG, PRINT_DEFAULTS, normalizzaCatalogo, type PrintProduct } from "../../../config/printCatalog";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Ordine di prodotti STAMPATI acquistati dal ristoratore presso MOODD.
 // Pagato sullo Stripe di MOODD (MOODD_STRIPE_SECRET_KEY), come i buoni fisici.
@@ -108,26 +118,26 @@ async function avvisaMoodd(o: { label: string; qty: number; amount_cents: number
 
 /** Verifica una sessione su Stripe e, se pagata, conferma l'ordine. */
 async function verificaEConferma(sessionId: string, ambito: Ambito): Promise<{ ok: boolean; label?: string; qty?: number; errore?: string }> {
-  if (!moodd) return { ok: false, errore: "Stripe MOODD non configuré" };
+  if (!moodd) return { ok: false, errore: "err.stripeMoodd" };
 
   const { data: riga } = await leggi("print_orders", ambito, "id, product_label, qty, amount_cents, buyer_email, status")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
-  if (!riga) return { ok: false, errore: "Commande introuvable" };
+  if (!riga) return { ok: false, errore: "err.orderNotFound" };
   if (riga.status === "paid") return { ok: true, label: riga.product_label, qty: riga.qty };
 
   let session: Stripe.Checkout.Session;
   try {
     session = await moodd.checkout.sessions.retrieve(sessionId);
   } catch {
-    return { ok: false, errore: "Session Stripe introuvable" };
+    return { ok: false, errore: "err.stripeSessionNotFound" };
   }
-  if (session.payment_status !== "paid") return { ok: false, errore: "Paiement non confirmé" };
+  if (session.payment_status !== "paid") return { ok: false, errore: "err.paymentUnconfirmed" };
 
   const { error } = await aggiorna("print_orders", ambito, { status: "paid", paid_at: new Date().toISOString() })
     .eq("id", riga.id)
     .eq("status", "pending");
-  if (error) return { ok: false, errore: "Enregistrement impossible" };
+  if (error) return { ok: false, errore: "err.save" };
 
   await avvisaMoodd({ label: riga.product_label, qty: riga.qty, amount_cents: riga.amount_cents, buyer: riga.buyer_email });
   return { ok: true, label: riga.product_label, qty: riga.qty };
@@ -137,24 +147,24 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
-  if (!moodd) return json({ error: "MOODD_STRIPE_SECRET_KEY manquante" }, 500);
+  if (!moodd) return json({ error: await msg("err.stripeKeyMissing") }, 500);
 
   let body: { slug?: string; qty?: number };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const slug = String(body.slug ?? "").trim();
   const qty = Math.floor(Number(body.qty));
-  if (!slug || !Number.isFinite(qty) || qty <= 0) return json({ error: "Requête invalide" }, 400);
+  if (!slug || !Number.isFinite(qty) || qty <= 0) return json({ error: await msg("err.request") }, 400);
 
   const catalogo = await leggiCatalogo();
   const prodotto = catalogo.find((p) => p.slug === slug && p.visible);
-  if (!prodotto) return json({ error: "Produit indisponible" }, 404);
+  if (!prodotto) return json({ error: await msg("err.productGone") }, 404);
   const tier = prodotto.tiers.find((t) => t.qty === qty);
-  if (!tier) return json({ error: "Quantité indisponible" }, 400);
+  if (!tier) return json({ error: await msg("err.qtyGone") }, 400);
 
   const base = SITE_URL.replace(/\/$/, "");
   let session: Stripe.Checkout.Session;
@@ -182,9 +192,9 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (e) {
     console.error("[print-order] Stripe MOODD error:", e);
-    return json({ error: "Création du paiement impossible" }, 502);
+    return json({ error: await msg("err.paymentCreate") }, 502);
   }
-  if (!session.url) return json({ error: "Stripe n'a pas renvoyé d'URL" }, 502);
+  if (!session.url) return json({ error: await msg("err.stripeNoUrl") }, 502);
 
   const { error } = await inserisci("print_orders", ambito, {
     product_slug: prodotto.slug,
@@ -198,7 +208,7 @@ export const POST: APIRoute = async ({ request }) => {
   });
   if (error) {
     console.error("[print-order] insert print_orders FALLITO:", error.message ?? error, error.details ?? "", error.hint ?? "", error.code ?? "");
-    return json({ error: "Enregistrement impossible" }, 500);
+    return json({ error: await msg("err.save") }, 500);
   }
 
   return json({ ok: true, url: session.url });
@@ -213,12 +223,12 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.session_id) return json({ error: "session_id manquant" }, 400);
+  if (!body.session_id) return json({ error: await msg("err.sessionId") }, 400);
 
   const esito = await verificaEConferma(body.session_id, ambito);
-  if (!esito.ok) return json({ error: esito.errore }, 409);
+  if (!esito.ok) return json({ error: await msg(esito.errore ?? "err.save") }, 409);
   return json({ ok: true, label: esito.label, qty: esito.qty });
 };
 

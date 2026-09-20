@@ -4,6 +4,8 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, aggiorna, cancella, salva } from "../../../lib/admin/sede";
 import { sedeDaScrivere, type Ambito } from "../../../lib/admin/sedeRegole";
 import { applicaStato, statiDelPunto } from "../../../lib/menuStato";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 // ⚠️ Le regole del menu stanno in `menuRegole.ts`, pure e con i loro test:
 // qui c'e' solo il pezzo che parla con il database.
 import {
@@ -12,6 +14,14 @@ import {
 } from "../../../lib/menuRegole";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 const SELECT_BASE =
   "id, category, category_order, sort_order, name, description_fr, description_en, image_url, allergens, price_cents, available, orderable, discount_type, discount_value, discount_scope, is_bestseller, is_vegan, is_spicy, is_suggestion, is_seasonal";
@@ -42,8 +52,8 @@ async function conRipiego(
     const c: Record<string, unknown> = { ...campi };
     for (const e of escluse) delete c[e];
     ultimo = await esegui(sel, c);
-    const msg = String(ultimo.error?.message ?? "");
-    const colpevole = ultimo.error ? COLONNE_NUOVE.find((k) => !escluse.has(k) && msg.includes(k)) : undefined;
+    const dettaglio = String(ultimo.error?.message ?? "");
+    const colpevole = ultimo.error ? COLONNE_NUOVE.find((k) => !escluse.has(k) && dettaglio.includes(k)) : undefined;
     if (!colpevole) return { ...ultimo, escluse: [...escluse] };
     escluse.add(colpevole);
   }
@@ -90,27 +100,27 @@ function validaCampi(
 
   if (!parziale || "name" in body) {
     const name = String(body.name ?? "").trim();
-    if (!name) return { errore: "Nom requis" };
+    if (!name) return { errore: "err.nameRequired" };
     campi.name = name.slice(0, 120);
   }
   if (!parziale || "category" in body) {
     const cat = String(body.category ?? "").trim();
-    if (!cat) return { errore: "Catégorie requise" };
+    if (!cat) return { errore: "err.categoryRequired" };
     campi.category = cat.slice(0, 60);
   }
   if (!parziale || "price_cents" in body) {
     const n = Math.round(Number(body.price_cents));
-    if (!Number.isFinite(n) || n < 0 || n > 100000) return { errore: "Prix invalide" };
+    if (!Number.isFinite(n) || n < 0 || n > 100000) return { errore: "err.price" };
     campi.price_cents = n;
   }
   if ("category_order" in body) {
     const n = Math.floor(Number(body.category_order));
-    if (!Number.isFinite(n) || n < 0 || n > 999) return { errore: "Ordre catégorie invalide" };
+    if (!Number.isFinite(n) || n < 0 || n > 999) return { errore: "err.categoryOrder" };
     campi.category_order = n;
   }
   if ("sort_order" in body) {
     const n = Math.floor(Number(body.sort_order));
-    if (!Number.isFinite(n) || n < 0 || n > 9999) return { errore: "Position invalide" };
+    if (!Number.isFinite(n) || n < 0 || n > 9999) return { errore: "err.position" };
     campi.sort_order = n;
   }
   if ("description_fr" in body) {
@@ -138,15 +148,15 @@ function validaCampi(
   }
   if ("image_url" in body) {
     const v = String(body.image_url ?? "").trim();
-    if (v && !/^https:\/\/\S+$/i.test(v)) return { errore: "Photo invalide" };
+    if (v && !/^https:\/\/\S+$/i.test(v)) return { errore: "err.photoBad" };
     campi.image_url = v ? v.slice(0, 500) : null;
   }
   if ("allergens" in body) {
     const arr = body.allergens;
-    if (!Array.isArray(arr)) return { errore: "Allergènes invalides" };
+    if (!Array.isArray(arr)) return { errore: "err.allergens" };
     const puliti = [...new Set(arr.map((x) => Math.floor(Number(x))))];
     if (puliti.some((n) => !Number.isFinite(n) || n < 1 || n > 14)) {
-      return { errore: "Allergènes invalides (1–14)" };
+      return { errore: "err.allergens114" };
     }
     campi.allergens = puliti.sort((a, b) => a - b);
   }
@@ -167,24 +177,24 @@ function validaCampi(
   if ("discount_type" in body) {
     const t = body.discount_type;
     if (t !== null && t !== "" && t !== "fixed" && t !== "percent") {
-      return { errore: "Type de réduction invalide" };
+      return { errore: "err.discountType" };
     }
     campi.discount_type = t === "fixed" || t === "percent" ? t : null;
   }
   if ("discount_value" in body) {
     const v = Math.round(Number(body.discount_value));
-    if (!Number.isFinite(v) || v < 0 || v > 100000) return { errore: "Valeur de réduction invalide" };
+    if (!Number.isFinite(v) || v < 0 || v > 100000) return { errore: "err.discountValue" };
     campi.discount_value = v;
   }
   if ("discount_scope" in body) {
     if (body.discount_scope !== "all" && body.discount_scope !== "online") {
-      return { errore: "Application de la réduction invalide" };
+      return { errore: "err.discountScope" };
     }
     campi.discount_scope = body.discount_scope;
   }
   // Coerenza: percentuale sensata; senza tipo, valore a zero
   if (campi.discount_type === "percent" && Number(campi.discount_value ?? 0) > 99) {
-    return { errore: "Pourcentage invalide (1–99)" };
+    return { errore: "err.percent199" };
   }
   if ("discount_type" in campi && campi.discount_type === null) {
     campi.discount_value = 0;
@@ -224,7 +234,7 @@ async function scriviStatoPunto(
     updated_at: new Date().toISOString(),
   };
   const { error } = await salva("menu_sold_out", ambito, riga, "item_id");
-  return error ? "Statut du point non enregistré" : null;
+  return error ? "err.soldOutSave" : null;
 }
 
 /** La riga del piatto come la deve vedere l'admin di QUESTO punto: con
@@ -246,7 +256,7 @@ export const GET: APIRoute = async ({ request }) => {
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
   const res = await conRipiego(async (sel) => (await ordina(sel)) as Risultato);
-  if (res.error) return json({ error: "Lecture impossible" }, 500);
+  if (res.error) return json({ error: await msg("err.read") }, 500);
 
   let items = (res.data as Record<string, unknown>[]) ?? [];
   if (ambito.modo === "sede") {
@@ -268,12 +278,12 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const { errore, campi } = validaCampi(body, false, ambito);
-  if (errore) return json({ error: errore }, 400);
-  if (!campi) return json({ error: "Requête invalide" }, 400);
+  if (errore) return json({ error: await msg(errore) }, 400);
+  if (!campi) return json({ error: await msg("err.request") }, 400);
 
   // Default sensati se non forniti
   if (!("available" in campi)) campi.available = true;
@@ -294,18 +304,18 @@ export const POST: APIRoute = async ({ request }) => {
 
   // La sezione deve esistere; l'ordine viene dal registro sezioni
   const ord = await ordineCategoria(campi.category as string);
-  if (ord === null) return json({ error: "Section inconnue" }, 400);
+  if (ord === null) return json({ error: await msg("err.sectionUnknown") }, 400);
   campi.category_order = ord;
 
   const res = await conRipiego(
     async (sel, c) => (await supabaseAdmin.from("menu_items").insert(c).select(sel).single()) as Risultato,
     campi
   );
-  if (res.error || !res.data) return json({ error: "Création impossible" }, 500);
+  if (res.error || !res.data) return json({ error: await msg("err.create") }, 500);
   const persi = campiPersi(res, campi);
   if (persi.length) {
     return json(
-      { error: `Base de données incomplète : colonne(s) ${persi.join(", ")} absente(s). Le plat est créé, pas ces champs. Appliquer les migrations.` },
+      { error: `${await msg("err.colsMissingDish")} (${persi.join(", ")})` },
       409
     );
   }
@@ -317,7 +327,7 @@ export const POST: APIRoute = async ({ request }) => {
     statoChiesto(body, null, ambito),
     creato
   );
-  if (errStato) return json({ error: errStato }, 500);
+  if (errStato) return json({ error: await msg(errStato) }, 500);
   return json({ item: ambito.modo === "sede" ? perIlPunto(creato, ambito, await statiDelPunto(ambito, [String(creato.id)])) : creato });
 };
 
@@ -347,15 +357,15 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { errore, campi } = validaCampi(body, true, ambito);
-  if (errore) return json({ error: errore }, 400);
-  if (!campi) return json({ error: "Requête invalide" }, 400);
+  if (errore) return json({ error: await msg(errore) }, 400);
+  if (!campi) return json({ error: await msg("err.request") }, 400);
 
   if ("all_locations" in body && ambito.modo === "sede") {
     campi.location_id = sedeDaScrivere("menu_items", ambito, body.all_locations !== false);
@@ -381,12 +391,12 @@ export const PUT: APIRoute = async ({ request }) => {
   const cambi = statoChiesto(body, variantiChieste, ambito);
   const soloStato = Object.keys(campi).length === 0;
   if (soloStato && cambi.sold_out === undefined && cambi.variants_off === undefined) {
-    return json({ error: "Rien à modifier" }, 400);
+    return json({ error: await msg("err.nothing") }, 400);
   }
 
   if ("category" in campi) {
     const ord = await ordineCategoria(campi.category as string);
-    if (ord === null) return json({ error: "Section inconnue" }, 400);
+    if (ord === null) return json({ error: await msg("err.sectionUnknown") }, 400);
     campi.category_order = ord;
   }
 
@@ -396,7 +406,7 @@ export const PUT: APIRoute = async ({ request }) => {
     const res = await conRipiego(async (sel) =>
       (await leggi("menu_items", ambito, sel).eq("id", id).maybeSingle()) as Risultato
     );
-    if (res.error || !res.data) return json({ error: "Plat introuvable" }, 404);
+    if (res.error || !res.data) return json({ error: await msg("err.dishNotFound") }, 404);
     riga = res.data as Record<string, unknown>;
   } else {
     const res = await conRipiego(
@@ -404,11 +414,11 @@ export const PUT: APIRoute = async ({ request }) => {
         (await aggiorna("menu_items", ambito, c).eq("id", id).select(sel).single()) as Risultato,
       campi
     );
-    if (res.error || !res.data) return json({ error: "Modification impossible" }, 500);
+    if (res.error || !res.data) return json({ error: await msg("err.update") }, 500);
     const persi = campiPersi(res, campi);
     if (persi.length) {
       return json(
-        { error: `Base de données incomplète : colonne(s) ${persi.join(", ")} absente(s). Le reste est enregistré, pas ces champs. Appliquer les migrations.` },
+        { error: `${await msg("err.colsMissingRest")} (${persi.join(", ")})` },
         409
       );
     }
@@ -416,7 +426,7 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   const errStato = await scriviStatoPunto(id, ambito, cambi, riga);
-  if (errStato) return json({ error: errStato }, 500);
+  if (errStato) return json({ error: await msg(errStato) }, 500);
 
   return json({
     item:
@@ -437,27 +447,27 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const category = String(body.category ?? "").trim();
   const order = body.order;
-  if (!category) return json({ error: "Section requise" }, 400);
-  if (!Array.isArray(order) || order.length === 0) return json({ error: "Ordre requis" }, 400);
-  if (order.some((id) => !/^[0-9a-f-]{36}$/i.test(String(id)))) return json({ error: "Id invalide" }, 400);
-  if (new Set(order).size !== order.length) return json({ error: "Doublons dans l'ordre" }, 400);
+  if (!category) return json({ error: await msg("err.sectionRequired") }, 400);
+  if (!Array.isArray(order) || order.length === 0) return json({ error: await msg("err.sortRequired") }, 400);
+  if (order.some((id) => !/^[0-9a-f-]{36}$/i.test(String(id)))) return json({ error: await msg("err.id") }, 400);
+  if (new Set(order).size !== order.length) return json({ error: await msg("err.sortDup") }, 400);
 
   // L'ordine deve contenere ESATTAMENTE i piatti della sezione VISIBILI da
   // qui: un piatto di un altro punto non e' nella lista e non deve esserci.
   const { data: righe, error: errItems } = await leggi("menu_items", ambito, "id").eq("category", category);
-  if (errItems || !righe) return json({ error: "Lecture impossible" }, 500);
+  if (errItems || !righe) return json({ error: await msg("err.read") }, 500);
   const attuali = new Set(righe.map((r) => String(r.id)));
   if (order.length !== attuali.size || order.some((id) => !attuali.has(id))) {
-    return json({ error: "Liste incomplète" }, 400);
+    return json({ error: await msg("err.listIncomplete") }, 400);
   }
 
   for (let i = 0; i < order.length; i++) {
     const { error } = await aggiorna("menu_items", ambito, { sort_order: i + 1 }).eq("id", order[i]);
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
   }
   return json({ ok: true });
 };
@@ -469,12 +479,12 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // `cancella` filtra: l'id di un piatto di un altro punto non trova niente.
   // Le righe di `menu_sold_out` se ne vanno da sole (on delete cascade).
   const { error } = await cancella("menu_items", ambito).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
 
   return json({ ok: true });
 };

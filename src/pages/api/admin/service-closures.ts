@@ -5,7 +5,17 @@ import {
 } from "../../../lib/admin/sede";
 import { aggiornaTimezone } from "../../../lib/slots";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Chiusure di servizio per giorno (admin Réservations).
 // GET    ?date=YYYY-MM-DD                → { closures: [{ service_key, reason }], permanent: [key…] }
@@ -65,7 +75,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
 
   const permanent = await leggiPermanenti(ambito);
   const { data, error } = await leggi("service_closures", ambito, "service_key, reason")
@@ -83,25 +93,25 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Chiusura PERMANENTE: { permanent_key, closed: true|false }
   if (body.permanent_key !== undefined) {
     const key = String(body.permanent_key ?? "");
-    if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
+    if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
     const ambitoPerm = await ambitoDiRichiesta(request, staff);
     const lista = await leggiPermanenti(ambitoPerm);
     const nuova = body.closed ? [...new Set([...lista, key])] : lista.filter((k) => k !== key);
     const err = await scriviConfig(ambitoPerm, { [K_PERM]: JSON.stringify(nuova) });
-    if (err) return json({ error: "Enregistrement impossible" }, 500);
+    if (err) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, permanent: nuova });
   }
 
   const date = String(body.date ?? "");
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const key = String(body.service_key ?? "");
-  if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
+  if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
   const reason = body.reason === "closed" ? "closed" : "full";
 
   const { error } = await salva(
@@ -111,7 +121,7 @@ export const POST: APIRoute = async ({ request }) => {
     "date,service_key",
   );
   if (error) {
-    return json({ error: "Enregistrement impossible — migration supabase/service_closures.sql à lancer ?" }, 500);
+    return json({ error: await msg("err.migrServiceClosures") }, 500);
   }
   return json({ ok: true });
 };
@@ -121,13 +131,13 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const key = url.searchParams.get("service_key") ?? "";
-  if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
+  if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
 
   const { error } = await cancella("service_closures", await ambitoDiRichiesta(request, staff))
     .eq("date", date)
     .eq("service_key", key);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

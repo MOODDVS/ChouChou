@@ -12,7 +12,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import {
   chiavePagina,
   pagineConsentite,
@@ -21,6 +21,9 @@ import {
   pulisciPagine,
   PAGINE_SOLO_ADMIN,
   PAGINE_SOLO_SUPER,
+  API_PAGINA,
+  chiaveApi,
+  puoChiamareApi,
 } from "../src/lib/admin/permessiRegole.ts";
 
 const TUTTE = ["orders", "reservations", "clients", "menu", "stats", "marketing", "assets", "print", "agenda", "settings"];
@@ -130,5 +133,79 @@ test("la sessione porta le pagine firmate, non il browser", () => {
   assert.ok(
     /payload\.app_metadata\?\.pages/.test(auth),
     "le pagine non vengono lette da app_metadata del JWT: se arrivassero dal corpo della richiesta, un utente potrebbe darsele da solo",
+  );
+});
+
+// ============================================================
+// LE API (20/09/2026)
+// Chiudere le pagine non bastava: /admin/stats era sbarrata e
+// /api/admin/stats rispondeva lo stesso. Una serratura sulla porta e la
+// finestra aperta.
+// ============================================================
+test("ogni API admin e' nella mappa", () => {
+  // Il rischio di una mappa e' che resti indietro: un file nuovo non elencato
+  // nascerebbe APERTO, in silenzio. Qui la dimenticanza costa un test rosso.
+  const radice = "src/pages/api/admin";
+  const trovate = [];
+  (function scorri(dir, prefisso) {
+    for (const n of readdirSync(dir)) {
+      const p = `${dir}/${n}`;
+      if (statSync(p).isDirectory()) scorri(p, `${prefisso}${n}/`);
+      else if (n.endsWith(".ts")) trovate.push(prefisso + n.replace(/\.ts$/, ""));
+    }
+  })(radice, "");
+
+  const mancanti = trovate.filter((k) => !(k in API_PAGINA)).sort();
+  assert.deepEqual(
+    mancanti,
+    [],
+    `API non classificate: resterebbero aperte a chiunque senza che nessuno lo decida.\n  ${mancanti.join("\n  ")}`,
+  );
+
+  const fantasmi = Object.keys(API_PAGINA).filter((k) => !trovate.includes(k)).sort();
+  assert.deepEqual(fantasmi, [], "la mappa elenca API che non esistono piu'");
+});
+
+test("il fatturato non si legge senza la pagina Statistiche", () => {
+  const ctx = { ruolo: "user", pagineUtente: ["orders", "reservations"], nascoste: [], tutte: TUTTE };
+  for (const api of ["stats", "stats-reservations", "traffic"]) {
+    assert.equal(puoChiamareApi(api, ctx), false, api);
+  }
+  assert.equal(puoChiamareApi("orders", ctx), true, "le sue pagine restano sue");
+});
+
+test("le API di MOODD sono solo di MOODD", () => {
+  for (const ruolo of ["admin", "user"]) {
+    for (const api of ["users", "locations", "integrations"]) {
+      assert.equal(puoChiamareApi(api, { ruolo, pagineUtente: null, nascoste: [], tutte: TUTTE }), false, `${ruolo}/${api}`);
+    }
+  }
+  assert.equal(puoChiamareApi("users", { ruolo: "super", nascoste: [], tutte: TUTTE }), true);
+});
+
+test("cio' che serve alla home resta aperto a chiunque", () => {
+  // Una tile legata a una pagina sparisce da sola (data-admin-page), quindi
+  // non chiama niente. Ma queste non hanno una pagina: bloccarle romperebbe
+  // la dashboard di un utente che ha tutto il diritto di vederla.
+  const ctx = { ruolo: "user", pagineUtente: [], nascoste: [], tutte: TUTTE };
+  for (const api of ["today", "notes", "pages", "home-layout", "search-console", "events", "push", "upload"]) {
+    assert.equal(puoChiamareApi(api, ctx), true, api);
+  }
+});
+
+test("dal percorso al nome dell'API, anche nelle sottocartelle", () => {
+  assert.equal(chiaveApi("/api/admin/stats"), "stats");
+  assert.equal(chiaveApi("/api/admin/google/reviews"), "google/reviews");
+  assert.equal(chiaveApi("/api/admin/stats/"), "stats");
+  assert.equal(chiaveApi("/api/reservation"), "");
+  assert.equal(chiaveApi("/admin/stats"), "");
+});
+
+test("il middleware chiude anche la finestra, e con un 403", () => {
+  const mw = readFileSync("src/middleware.ts", "utf8");
+  assert.ok(mw.includes("puoChiamareApi"), "le API non vengono controllate");
+  assert.ok(
+    /puoChiamareApi[\s\S]{0,300}status:\s*403/.test(mw),
+    "il controllo non porta a un 403: a un'API si risponde, non si redirige — un 302 verso una pagina HTML manderebbe in confusione chi chiama",
   );
 });

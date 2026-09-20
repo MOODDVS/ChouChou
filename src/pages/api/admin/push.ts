@@ -5,7 +5,7 @@ import { inviaPushConDettagli, type PushDettaglio } from "../../../lib/push";
 import { ambitoDiRichiesta, cancella } from "../../../lib/admin/sede";
 import { sedeDaScrivere } from "../../../lib/admin/sedeRegole";
 import { adminLang } from "../../../lib/admin/adminLang";
-import type { AdminLang } from "../../../i18n/admin";
+import { adminT, type AdminLang } from "../../../i18n/admin";
 
 // Corpo della notifica di TEST nella lingua admin (fallback FR).
 const TEST_BODY: Record<AdminLang, string> = {
@@ -17,6 +17,14 @@ const TEST_BODY: Record<AdminLang, string> = {
 };
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -34,7 +42,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   if (body.test) {
     const lang = await adminLang();
@@ -61,7 +69,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const sub = body.subscription;
   if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
-    return json({ error: "Subscription invalide" }, 400);
+    return json({ error: await msg("err.subscription") }, 400);
   }
   const email = (staff as { email?: string }).email ?? null;
   // ⚠️ `onConflict` resta su `endpoint` da solo, NON su (location_id, endpoint):
@@ -73,7 +81,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { error } = await supabaseAdmin
     .from("push_subscriptions")
     .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, user_email: email, ...(location_id ? { location_id } : {}) }, { onConflict: "endpoint" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };
 

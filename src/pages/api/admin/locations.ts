@@ -58,14 +58,14 @@ async function msg(chiave: string): Promise<string> {
  *  quale fosse bisognava indovinare. Il ripiego silenzioso e' il guasto.
  */
 function erroreDb(dove: string, err: { message?: string; code?: string } | null): string {
-  const msg = String(err?.message ?? "");
-  console.error(`[locations] ${dove}: ${err?.code ?? "?"} ${msg}`);
+  const dettaglio = String(err?.message ?? "");
+  console.error(`[locations] ${dove}: ${err?.code ?? "?"} ${dettaglio}`);
   // 42703 = colonna inesistente, 42P01 = tabella inesistente: quasi sempre
   // una migrazione non lanciata su QUESTO cliente.
-  if (err?.code === "42703" || err?.code === "42P01" || /column .* does not exist|relation .* does not exist/i.test(msg)) {
+  if (err?.code === "42703" || err?.code === "42P01" || /column .* does not exist|relation .* does not exist/i.test(dettaglio)) {
     return "loc.err.migrazione";
   }
-  if (msg.includes("locations_slug_key")) return "loc.err.slugDup";
+  if (dettaglio.includes("locations_slug_key")) return "loc.err.slugDup";
   return "common.saveErr";
 }
 
@@ -397,7 +397,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (body.review_url !== undefined) {
     const url = String(body.review_url).trim().slice(0, 500);
     if (url && !/^https:\/\//.test(url)) {
-      return json({ error: "Lien invalide : il doit commencer par https://" }, 400);
+      return json({ error: await msg("err.linkHttpsBad") }, 400);
     }
     const err = await scriviConfig(ambitoDiRiga(id), { link_google_review: url });
     if (err) return json({ error: await msg(erroreDb("review", { message: err })) }, 500);

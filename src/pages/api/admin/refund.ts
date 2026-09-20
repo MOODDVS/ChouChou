@@ -3,7 +3,17 @@ import { ambitoDiRichiesta, cercaAmbito, leggi, aggiorna } from "../../../lib/ad
 import { stripeDi } from "../../../lib/stripe";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -24,11 +34,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // amount_cents facoltativo: assente/null → rimborso totale del residuo.
   const amount =
@@ -36,18 +46,18 @@ export const POST: APIRoute = async ({ request }) => {
       ? null
       : Math.round(Number(body.amount_cents));
   if (amount !== null && (!Number.isFinite(amount) || amount <= 0)) {
-    return json({ error: "Montant invalide" }, 400);
+    return json({ error: await msg("err.amount") }, 400);
   }
 
   const { data: ord, error } = await leggi("orders", ambito, "id, total_cents, refunded_cents, stripe_session_id, status")
     .eq("id", id)
     .maybeSingle();
-  if (error || !ord) return json({ error: "Commande introuvable" }, 404);
-  if (!ord.stripe_session_id) return json({ error: "Pas de paiement Stripe à rembourser" }, 400);
+  if (error || !ord) return json({ error: await msg("err.orderNotFound") }, 404);
+  if (!ord.stripe_session_id) return json({ error: await msg("err.noStripePayment") }, 400);
 
   const giaRimborsato = ord.refunded_cents ?? 0;
   const residuo = (ord.total_cents ?? 0) - giaRimborsato;
-  if (residuo <= 0) return json({ error: "Commande déjà entièrement remboursée" }, 400);
+  if (residuo <= 0) return json({ error: await msg("err.alreadyRefunded") }, 400);
 
   // Modalità "differenza" (bottone dopo una modifica al ribasso): l'importo da
   // rendere è quello tracciato in refund_due_cents, che può superare il totale
@@ -58,14 +68,14 @@ export const POST: APIRoute = async ({ request }) => {
     const { data: d50, error: e50 } = await leggi("orders", ambito, "refund_due_cents")
       .eq("id", id)
       .maybeSingle();
-    if (e50) return json({ error: "Migration orders_modifica_diff.sql (#50) à lancer sur Supabase" }, 500);
+    if (e50) return json({ error: await msg("err.migr50") }, 500);
     refundDue = Number((d50 as { refund_due_cents?: number } | null)?.refund_due_cents ?? 0);
-    if (refundDue <= 0) return json({ error: "Aucune différence à rembourser" }, 400);
+    if (refundDue <= 0) return json({ error: await msg("err.noDiff") }, 400);
   }
 
   const tetto = isDiff ? refundDue : residuo;
   const daRimborsare = amount === null ? tetto : Math.min(amount, tetto);
-  if (daRimborsare <= 0) return json({ error: "Montant invalide" }, 400);
+  if (daRimborsare <= 0) return json({ error: await msg("err.amount") }, 400);
 
   // ⚠️⚠️ IL RIMBORSO ESCE DAL CONTO CHE HA INCASSATO, cioe' dalla sede
   // scritta NELL'ORDINE — non da quella selezionata nell'header di chi sta
@@ -81,7 +91,7 @@ export const POST: APIRoute = async ({ request }) => {
     console.error("[refund] client Stripe:", e);
     return null;
   });
-  if (!sp) return json({ error: motivo || "Stripe non configuré pour cet établissement" }, 500);
+  if (!sp) return json({ error: motivo || (await msg("err.stripeLocation")) }, 500);
 
   // Recupera il payment_intent dalla sessione di checkout salvata sull'ordine.
   let paymentIntent: string | null = null;
@@ -92,17 +102,17 @@ export const POST: APIRoute = async ({ request }) => {
         ? session.payment_intent
         : (session.payment_intent as { id?: string } | null)?.id ?? null;
   } catch {
-    return json({ error: "Session Stripe introuvable" }, 502);
+    return json({ error: await msg("err.stripeSessionNotFound") }, 502);
   }
-  if (!paymentIntent) return json({ error: "Paiement introuvable" }, 400);
+  if (!paymentIntent) return json({ error: await msg("err.paymentNotFound") }, 400);
 
   // Crea il rimborso su Stripe.
   let refund: { id: string };
   try {
     refund = await sp.refunds.create({ payment_intent: paymentIntent, amount: daRimborsare });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "";
-    return json({ error: msg ? `Remboursement refusé : ${msg}` : "Remboursement impossible" }, 502);
+    const dettaglio = e instanceof Error ? e.message : "";
+    return json({ error: dettaglio ? `${await msg("err.refundRefused")} : ${dettaglio}` : await msg("err.refund") }, 502);
   }
 
   const nuovoTotale = giaRimborsato + daRimborsare;

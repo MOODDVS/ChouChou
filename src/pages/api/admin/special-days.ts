@@ -4,7 +4,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, cancella } from "../../../lib/admin/sede";
 import { TIMEZONE } from "../../../lib/slots";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 const RE_DATA = /^\d{4}-\d{2}-\d{2}$/;
 const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -61,7 +71,7 @@ export const GET: APIRoute = async ({ request }) => {
     error = retry.error;
   }
 
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
 
   return json({ days: data ?? [] });
 };
@@ -87,19 +97,19 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const type = body.type === "open" ? "open" : body.type === "closed" ? "closed" : null;
-  if (!type) return json({ error: "Type invalide" }, 400);
+  if (!type) return json({ error: await msg("err.type") }, 400);
 
   const from = String(body.date_from ?? "");
   const to = String(body.date_to ?? from);
   if (!RE_DATA.test(from) || !RE_DATA.test(to)) {
-    return json({ error: "Dates invalides" }, 400);
+    return json({ error: await msg("err.dates") }, 400);
   }
-  if (to < from) return json({ error: "Fin avant début" }, 400);
-  if (to < oggiISO()) return json({ error: "Dates déjà passées" }, 400);
+  if (to < from) return json({ error: await msg("err.endBeforeStart") }, 400);
+  if (to < oggiISO()) return json({ error: await msg("err.datesPast") }, 400);
 
   let lunch_open: string | null = null;
   let lunch_close: string | null = null;
@@ -110,16 +120,16 @@ export const POST: APIRoute = async ({ request }) => {
     lunch_open = body.lunch_open ?? null;
     lunch_close = body.lunch_close ?? null;
     if (!lunch_open || !lunch_close || !fasciaValida(lunch_open, lunch_close)) {
-      return json({ error: "Heures d'ouverture invalides" }, 400);
+      return json({ error: await msg("err.openHours") }, 400);
     }
     dinner_open = body.dinner_open ?? null;
     dinner_close = body.dinner_close ?? null;
     if (dinner_open || dinner_close) {
       if (!dinner_open || !dinner_close || !fasciaValida(dinner_open, dinner_close)) {
-        return json({ error: "Heures du soir invalides" }, 400);
+        return json({ error: await msg("err.eveningHours") }, 400);
       }
       if (lunch_close >= dinner_open) {
-        return json({ error: "Midi et Soir se chevauchent" }, 400);
+        return json({ error: await msg("err.lunchDinnerOverlap") }, 400);
       }
     }
   }
@@ -133,9 +143,9 @@ export const POST: APIRoute = async ({ request }) => {
     .lte("date_from", to)
     .gte("date_to", from)
     .limit(1);
-  if (errOv) return json({ error: "Vérification impossible" }, 500);
+  if (errOv) return json({ error: await msg("err.check") }, 500);
   if (overlap && overlap.length > 0) {
-    return json({ error: "Chevauchement avec un jour spécial existant" }, 400);
+    return json({ error: await msg("err.sdOverlap") }, 400);
   }
 
   // Servizi attivi (solo "ouvert"): token "key|HH:MM-HH:MM".
@@ -168,7 +178,7 @@ export const POST: APIRoute = async ({ request }) => {
     delete riga.services;
     ins = await inserisci("special_days", ambito, riga, tutte);
   }
-  if (ins.error) return json({ error: "Enregistrement impossible" }, 500);
+  if (ins.error) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true });
 };
@@ -179,10 +189,10 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await cancella("special_days", await ambitoDiRichiesta(request, staff)).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
 
   return json({ ok: true });
 };

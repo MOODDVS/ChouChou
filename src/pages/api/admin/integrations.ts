@@ -5,7 +5,17 @@ import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { serviceAccountEmail, searchConsolePronto } from "../../../lib/searchConsole";
 import { statoGoogle } from "../../../lib/googleBusiness";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Integrazioni di terzi (Réglages → Integrations). SOLO super admin:
 // il codice incollato finisce nel sito pubblico del cliente.
@@ -100,13 +110,13 @@ export const GET: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
+  if (!isSuperUser(staff)) return json({ error: await msg("err.super") }, 403);
 
   let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string; newsletter_quota?: number };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Salvataggio PARZIALE: ogni bottone "Enregistrer" tocca solo i suoi campi.
@@ -119,11 +129,11 @@ export const PUT: APIRoute = async ({ request }) => {
     const mode = MODI.includes(String(body.mode)) ? String(body.mode) : "moodd";
     const url = String(body.url ?? "").trim().slice(0, 500);
     if (mode === "link" && url && !/^https:\/\//i.test(url)) {
-      return json({ error: "Le lien doit commencer par https://" }, 400);
+      return json({ error: await msg("err.linkHttps") }, 400);
     }
-    if (mode === "link" && !url) return json({ error: "Ajoute le lien de réservation." }, 400);
+    if (mode === "link" && !url) return json({ error: await msg("err.addResLink") }, 400);
     if (mode === "embed" && !String(body.embed ?? "").trim()) {
-      return json({ error: "Colle le code du widget." }, 400);
+      return json({ error: await msg("err.pasteWidget") }, 400);
     }
     upserts.push(
       { key: K_MODE, value: mode },
@@ -145,7 +155,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (body.gsc_site !== undefined) {
     const gscSite = String(body.gsc_site).trim().slice(0, 300);
     if (gscSite && !/^sc-domain:[a-z0-9.-]+$/i.test(gscSite) && !/^https:\/\//i.test(gscSite)) {
-      return json({ error: "Site Search Console invalide : sc-domain:exemple.be ou https://…" }, 400);
+      return json({ error: await msg("err.scSite") }, 400);
     }
     upserts.push({ key: K_GSC_SITE, value: gscSite });
   }
@@ -154,13 +164,13 @@ export const PUT: APIRoute = async ({ request }) => {
   if (body.newsletter_quota !== undefined) {
     const n = Math.floor(Number(body.newsletter_quota));
     if (!Number.isFinite(n) || n < 0 || n > 1000000) {
-      return json({ error: "Quota newsletter invalide (0 – 1 000 000)." }, 400);
+      return json({ error: await msg("err.nlQuota") }, 400);
     }
     upserts.push({ key: K_NL_QUOTA, value: String(n) });
   }
 
-  if (!upserts.length) return json({ error: "Rien à enregistrer" }, 400);
+  if (!upserts.length) return json({ error: await msg("err.nothingSave") }, 400);
   const { error } = await supabaseAdmin.from("app_config").upsert(upserts, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };

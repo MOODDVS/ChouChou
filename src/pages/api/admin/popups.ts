@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // CRUD dei pop-up di comunicazione (admin Marketing → Pop-up).
 // GET    → elenco completo (più recente in alto)
@@ -75,13 +85,13 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
   const btn1_label_i18n = pulisciI18n(b.btn1_label_i18n);
   const btn2_label_i18n = pulisciI18n(b.btn2_label_i18n);
   if (!Object.keys(title_i18n).length) {
-    return { errore: "Remplissez le titre dans au moins une langue" };
+    return { errore: "err.titleOneLang" };
   }
 
   const pages = Array.isArray(b.pages)
     ? b.pages.filter((p) => PAGINE_VALIDE.includes(p))
     : [];
-  if (pages.length === 0) return { errore: "Choisissez au moins une page" };
+  if (pages.length === 0) return { errore: "err.pickPage" };
 
   const kind = KIND_VALIDI.includes(b.schedule_kind ?? "") ? b.schedule_kind! : "always";
 
@@ -91,9 +101,9 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
     date_start = (b.date_start ?? "").trim() || null;
     date_end = (b.date_end ?? "").trim() || null;
     if (!date_start || !date_end || !RE_DATA.test(date_start) || !RE_DATA.test(date_end)) {
-      return { errore: "Dates de début et de fin obligatoires" };
+      return { errore: "err.datesStartEnd" };
     }
-    if (date_start > date_end) return { errore: "La date de fin précède le début" };
+    if (date_start > date_end) return { errore: "err.endBeforeStart" };
   }
 
   let days: number[] | null = null;
@@ -103,20 +113,20 @@ function valida(b: PopupInput): { errore?: string; valori?: Record<string, unkno
     days = Array.isArray(b.days)
       ? b.days.map(Number).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
       : [];
-    if (days.length === 0) return { errore: "Choisissez au moins un jour" };
+    if (days.length === 0) return { errore: "err.pickDay" };
     hour_start = (b.hour_start ?? "").trim() || null;
     hour_end = (b.hour_end ?? "").trim() || null;
     if (!hour_start || !hour_end || !RE_ORA.test(hour_start) || !RE_ORA.test(hour_end)) {
-      return { errore: "Heures de début et de fin obligatoires (HH:MM)" };
+      return { errore: "err.hoursStartEnd" };
     }
-    if (hour_start >= hour_end) return { errore: "L'heure de fin précède le début" };
+    if (hour_start >= hour_end) return { errore: "err.endTimeBeforeStart" };
   }
 
   const urlOk = (u: string) => u === "" || u === "#reserver" || /^https?:\/\//.test(u) || u.startsWith("/");
   const btn1_url = (b.btn1_url ?? "").trim();
   const btn2_url = (b.btn2_url ?? "").trim();
   if (!urlOk(btn1_url) || !urlOk(btn2_url)) {
-    return { errore: "Les liens doivent commencer par https://, / ou être #reserver" };
+    return { errore: "err.popupLinks" };
   }
 
   const max_shows = Math.min(10, Math.max(1, Math.floor(Number(b.max_shows ?? 3)) || 3));
@@ -160,7 +170,7 @@ export const GET: APIRoute = async ({ request }) => {
 
   const { data, error } = await leggi("popups", await ambitoDiRichiesta(request, staff), "*")
     .order("created_at", { ascending: false });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   return json({ popups: data ?? [] });
 };
 
@@ -172,11 +182,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   // Default: vale per TUTTE le sedi. Il pop-up e' comunicazione del marchio
   // sull'unico sito; quello di un punto solo («Stockel chiuso per lavori»)
@@ -185,7 +195,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { data, error } = await inserisci("popups", ambito, v.valori!, body.all_locations !== false)
     .select("id")
     .single();
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true, id: data.id }, 201);
 };
 
@@ -197,9 +207,9 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!body.id) return json({ error: "id manquant" }, 400);
+  if (!body.id) return json({ error: await msg("err.idMissing") }, 400);
 
   const ambito = await ambitoDiRichiesta(request, staff);
 
@@ -207,19 +217,19 @@ export const PUT: APIRoute = async ({ request }) => {
   if (body.title === undefined && typeof body.active === "boolean") {
     const { error } = await aggiorna("popups", ambito, { active: body.active })
       .eq("id", body.id);
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
   }
 
   const v = valida(body);
-  if (v.errore) return json({ error: v.errore }, 400);
+  if (v.errore) return json({ error: await msg(v.errore) }, 400);
 
   const campi = { ...v.valori! } as Record<string, unknown>;
   if ("all_locations" in body && ambito.modo === "sede") {
     campi.location_id = body.all_locations !== false ? null : ambito.id;
   }
   const { error } = await aggiorna("popups", ambito, campi).eq("id", body.id);
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };
 
@@ -228,9 +238,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id");
-  if (!id) return json({ error: "id manquant" }, 400);
+  if (!id) return json({ error: await msg("err.idMissing") }, 400);
 
   const { error } = await cancella("popups", await ambitoDiRichiesta(request, staff)).eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

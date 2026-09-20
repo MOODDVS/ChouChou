@@ -7,11 +7,20 @@ import { adminLang } from "../../../lib/admin/adminLang";
 import { ambitoDiRichiesta, leggi } from "../../../lib/admin/sede";
 import { sedeDaScrivere, radiceDocs, type Ambito } from "../../../lib/admin/sedeRegole";
 
+import { adminT } from "../../../i18n/admin";
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 const RESEND_FROM = import.meta.env.RESEND_FROM;
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Documents della pagina ADMIN (tab Documents): PDF classificati per
 // CATEGORIA in cartelle del bucket `documents` (contrat/ facture/ recu/
@@ -334,17 +343,17 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const cat = String(body.cat ?? "");
-  if (!catValida(cat)) return json({ error: "Catégorie invalide" }, 400);
+  if (!catValida(cat)) return json({ error: await msg("err.category") }, 400);
 
   // ---- Richiesta FORMALE di résiliation del contratto (email al référent) ----
   if (body.resiliation === true) {
-    if (cat !== "contrat") return json({ error: "Réservé aux contrats" }, 400);
+    if (cat !== "contrat") return json({ error: await msg("err.contractsOnly") }, 400);
     const name = String(body.name ?? "");
-    if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
-    if (!resend || !RESEND_FROM) return json({ error: "Resend non configuré" }, 500);
+    if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
+    if (!resend || !RESEND_FROM) return json({ error: await msg("err.resend") }, 500);
 
     let meta: Record<string, unknown> | null = null;
     try {
@@ -368,7 +377,7 @@ export const POST: APIRoute = async ({ request }) => {
       meta = null;
     }
     const dest = String(meta?.email ?? "").trim();
-    if (!dest) return json({ error: "Email de référence manquante — modifie le document et ajoute-la" }, 400);
+    if (!dest) return json({ error: await msg("err.refEmail") }, 400);
 
     const dati = await datiRistorante(ambito);
     const { data: cfg } = await supabaseAdmin
@@ -404,7 +413,7 @@ export const POST: APIRoute = async ({ request }) => {
         html,
       });
     } catch {
-      return json({ error: "Envoi impossible" }, 502);
+      return json({ error: await msg("err.send") }, 502);
     }
     const adesso = new Date().toISOString();
     try {
@@ -421,39 +430,39 @@ export const POST: APIRoute = async ({ request }) => {
   // ---- Anteprima (webp) di un PDF esistente ----
   if (body.thumb !== undefined) {
     const name = String(body.name ?? "");
-    if (!nomeValido(name) || !name.endsWith(".pdf")) return json({ error: "Nom invalide" }, 400);
+    if (!nomeValido(name) || !name.endsWith(".pdf")) return json({ error: await msg("err.name") }, 400);
     let bytes: Buffer;
     try {
       bytes = Buffer.from(String(body.thumb ?? ""), "base64");
     } catch {
-      return json({ error: "Aperçu illisible" }, 400);
+      return json({ error: await msg("err.previewUnreadable") }, 400);
     }
-    if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: "Aperçu invalide" }, 400);
+    if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: await msg("err.previewBad") }, 400);
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
       .upload(`${radice}${cat}/${thumbDi(name)}`, bytes, { contentType: "image/webp", upsert: true });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    if (error) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true });
   }
 
   // ---- Upload del PDF (+ metadati contratto) ----
   const nome = pulisciNome(String(body.filename ?? ""));
-  if (!nome) return json({ error: "Nom invalide (PDF uniquement)" }, 400);
+  if (!nome) return json({ error: await msg("err.namePdf") }, 400);
   let bytes: Buffer;
   try {
     bytes = Buffer.from(String(body.data ?? ""), "base64");
   } catch {
-    return json({ error: "Fichier illisible" }, 400);
+    return json({ error: await msg("err.fileUnreadable") }, 400);
   }
-  if (bytes.length === 0) return json({ error: "Fichier vide" }, 400);
-  if (bytes.length > 10 * 1024 * 1024) return json({ error: "Fichier trop lourd (max 10 Mo)" }, 400);
+  if (bytes.length === 0) return json({ error: await msg("err.fileEmpty") }, 400);
+  if (bytes.length > 10 * 1024 * 1024) return json({ error: await msg("err.fileTooBig10") }, 400);
 
   // Timestamp nel nome: niente collisioni (rinominabile dopo)
   const fileName = `${Date.now()}-${nome}`;
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(`${radice}${cat}/${fileName}`, bytes, { contentType: "application/pdf", upsert: false });
-  if (error) return json({ error: "Téléversement impossible" }, 500);
+  if (error) return json({ error: await msg("err.upload") }, 500);
 
   await salvaMeta(`${radice}${cat}/${fileName}`, metaDalBody(body, cat), ambito);
 
@@ -471,17 +480,17 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const cat = String(body.cat ?? "");
-  if (!catValida(cat)) return json({ error: "Catégorie invalide" }, 400);
+  if (!catValida(cat)) return json({ error: await msg("err.category") }, 400);
   const name = String(body.name ?? "");
-  if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
+  if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
 
   const nuovaCat = body.new_cat !== undefined ? String(body.new_cat) : cat;
-  if (!catValida(nuovaCat)) return json({ error: "Catégorie invalide" }, 400);
+  if (!catValida(nuovaCat)) return json({ error: await msg("err.category") }, 400);
   const nuovoNome = body.new_name !== undefined ? pulisciNome(String(body.new_name)) : name;
-  if (!nuovoNome) return json({ error: "Nouveau nom invalide (.pdf obligatoire)" }, 400);
+  if (!nuovoNome) return json({ error: await msg("err.newNamePdf") }, 400);
 
   // Spostamento file (nome e/o categoria cambiati)
   let resilPrec: string | null | undefined;
@@ -489,7 +498,7 @@ export const PATCH: APIRoute = async ({ request }) => {
     const { error } = await supabaseAdmin.storage
       .from(BUCKET)
       .move(`${radice}${cat}/${name}`, `${radice}${nuovaCat}/${nuovoNome}`);
-    if (error) return json({ error: "Ce nom existe déjà ou déplacement impossible" }, 409);
+    if (error) return json({ error: await msg("err.nameTakenMove") }, 409);
     // L'anteprima segue il PDF (se non esiste, l'errore si ignora)
     await supabaseAdmin.storage.from(BUCKET).move(`${radice}${cat}/${thumbDi(name)}`, `${radice}${nuovaCat}/${thumbDi(nuovoNome)}`);
     // La vecchia riga metadati si elimina (la nuova si scrive sotto) — ma la
@@ -515,12 +524,12 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const radice = radiceDocs(await ambitoDiRichiesta(request, staff));
 
   const cat = url.searchParams.get("cat") ?? "";
-  if (!catValida(cat)) return json({ error: "Catégorie invalide" }, 400);
+  if (!catValida(cat)) return json({ error: await msg("err.category") }, 400);
   const name = url.searchParams.get("name") ?? "";
-  if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
+  if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
 
   const { error } = await supabaseAdmin.storage.from(BUCKET).remove([`${radice}${cat}/${name}`, `${radice}${cat}/${thumbDi(name)}`]);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   try {
     await supabaseAdmin.from("admin_docs_meta").delete().eq("path", `${radice}${cat}/${name}`);
   } catch {

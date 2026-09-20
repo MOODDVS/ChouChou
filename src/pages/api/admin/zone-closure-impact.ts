@@ -6,7 +6,17 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { emailChiusuraResa, annullaEmailReview, type ResaEmail } from "../../../lib/notifications";
 import { assegnaTavoli } from "../../../lib/planSalle";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Impatto della chiusura di una SECTION (Fermeture exceptionnelle) sulle
 // prenotazioni di quel giorno, e applicazione delle decisioni:
@@ -50,14 +60,14 @@ export const GET: APIRoute = async ({ request, url }) => {
   const ambito = await ambitoDiRichiesta(request, staff);
   const date = url.searchParams.get("date") ?? "";
   const zone = url.searchParams.get("zone") ?? "";
-  if (!RE_DATE.test(date) || !zone) return json({ error: "Paramètres invalides" }, 400);
+  if (!RE_DATE.test(date) || !zone) return json({ error: await msg("err.params") }, 400);
 
   const zones = await leggiSezioni(ambito);
   const { data, error } = await leggi("reservations", ambito, "id, heure, service_key, people, zone, first_name, last_name")
     .eq("date", date)
     .eq("status", "confirmed")
     .order("heure", { ascending: true });
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   type Row = { id: string; heure: string; service_key: string | null; people: number; zone: string | null; first_name: string; last_name: string };
   const rows = (data ?? []) as unknown as Row[];
 
@@ -84,10 +94,10 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const date = String(body.date ?? "");
-  if (!RE_DATE.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATE.test(date)) return json({ error: await msg("err.date") }, 400);
   const decisions = Array.isArray(body.decisions) ? body.decisions : [];
   if (!decisions.length) return json({ ok: true, moved: 0, cancelled: 0, recontact: 0 });
 
@@ -97,7 +107,7 @@ export const POST: APIRoute = async ({ request }) => {
   // ripiego giusto per un cliente a sede unica e sbagliato per un gruppo.
   const CAMPI = "id, location_id, date, heure, service_key, people, zone, first_name, last_name, phone, email, lang, cancel_token, review_email_id";
   const { data, error } = await leggi("reservations", ambito, CAMPI).in("id", ids);
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   type Full = ResaEmail & { review_email_id?: string | null };
   const byId = new Map<string, Full>();
   for (const r of (data ?? []) as unknown as Full[]) byId.set(r.id, r);
