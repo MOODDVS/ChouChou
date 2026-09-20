@@ -228,7 +228,12 @@ test("ogni lettura di configurazione dichiara il suo ambito", () => {
       }
       trovate++;
       const chiamata = testo.slice(m.index, i);
-      if (!/\bambito\b|\bSEDE_UNICA\b/.test(chiamata)) {
+      // `ambito\w*`: i file usano nomi diversi per la stessa cosa —
+      // `ambito`, `ambitoPub`, `ambitoOrdine`. Chiedere la parola esatta
+      // rendeva rossa una chiamata CORRETTA solo perche' la variabile aveva
+      // un suffisso, e una rete che punisce il codice giusto e' una rete che
+      // qualcuno prima o poi disattiva.
+      if (!/\bambito\w*\b|\bSEDE_UNICA\b/.test(chiamata)) {
         senzaAmbito.push(`${f}:${testo.slice(0, m.index).split("\n").length}`);
       }
     }
@@ -1391,4 +1396,83 @@ test("le SELECT che alimentano le email chiedono location_id", () => {
   const rappel = readFileSync("src/lib/rappelReservations.ts", "utf8");
   assert.match(rappel, /interface RowResa \{[\s\S]{0,400}location_id: string \| null;/);
   assert.match(rappel, /location_id: r\.location_id/);
+});
+
+/* ============================================================
+   CHIAVI DI CONFIGURAZIONE CHE SONO DELLA SEDE (20/09/2026)
+
+   `CLASSIFICA` dice di che livello e' una TABELLA. Ma `app_config` e' una
+   tabella sola, del marchio, in cui vivono chiavi di natura diversa: il tema
+   e' dell'installazione, «cucina chiusa» e' di UNA porta che chiude.
+
+   Il guasto trovato su 450 Gradi: il bottone «Fermer» SCRIVE con
+   `scriviConfig(ambito)` — quindi in `location_config` della sede — mentre
+   `checkout.ts` e `caricaToday.ts` LEGGEVANO `app_config` a mano, cioe' il
+   marchio. Risultato: cucina chiusa che continuava a ricevere ordini, con il
+   ristoratore che vedeva il pulsante rosso e si credeva protetto.
+
+   ⚠️ Scrivere per sede e leggere per marchio non da' nessun errore: da' un
+   valore vecchio, sempre plausibile. Per questo serve una rete.
+
+   L'elenco cresce man mano che si classificano le altre chiavi.
+   ============================================================ */
+const CHIAVI_DI_SEDE = ["orders_closed"];
+
+/* ⚠️ `timezone` DEVE entrare in questo elenco, ma non ancora: oggi in
+   `slots.ts` il fuso e' una VARIABILE GLOBALE del modulo (`TIMEZONE`,
+   riempita da `aggiornaTimezone()`), quindi non c'e' nessun ambito da
+   passare — va prima sfilata di li' e fatta viaggiare di mano in mano.
+   Finche' resta globale, un gruppo su due fusi calcola gli orari
+   prenotabili con quello sbagliato, e nessun errore lo dice.
+   Metterla qui adesso renderebbe la rete rossa senza che nessuno possa
+   farla tornare verde in una riga: sarebbe un promemoria travestito da
+   prova. Il promemoria e' questo commento. */
+
+test("le chiavi di sede non si leggono da app_config a mano", () => {
+  const file = [];
+  (function scorri(dir) {
+    for (const nome of readdirSync(dir)) {
+      const p = join(dir, nome);
+      if (statSync(p).isDirectory()) scorri(p);
+      else if (/\.(ts|astro)$/.test(nome)) file.push(p);
+    }
+  })("src");
+
+  // I guardiani dello strato: sono LORO a parlare con app_config.
+  const AMMESSI = ["src/lib/admin/sede.ts", "src/lib/appConfigCache.ts", "src/lib/admin/adminBoot.ts"];
+
+  const colpevoli = [];
+  for (const f of file) {
+    if (AMMESSI.includes(f.replace(/\\/g, "/"))) continue;
+    const testo = readFileSync(f, "utf8");
+    for (const m of testo.matchAll(/from\("app_config"\)([\s\S]{0,300})/g)) {
+      for (const k of CHIAVI_DI_SEDE) {
+        if (new RegExp(`["'\`]${k}["'\`]`).test(m[1])) {
+          colpevoli.push(`${f} → ${k}`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(
+    colpevoli.sort(),
+    [],
+    `chiavi di SEDE lette dal marchio: scritte con scriviConfig(ambito), rilette senza. Usa leggiConfig(ambito) o appConfigEq(chiave, ambito).\n  ${colpevoli.join("\n  ")}`,
+  );
+});
+
+test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
+  for (const f of ["src/pages/api/checkout.ts", "src/lib/admin/caricaToday.ts"]) {
+    const src = readFileSync(f, "utf8");
+    assert.ok(
+      /appConfigEq\("orders_closed",\s*ambito/.test(src),
+      `${f}: la chiusura della cucina va letta con l'ambito, altrimenti il bottone «Fermer» di una sede non ferma niente`,
+    );
+  }
+  // E nel checkout l'ambito deve essere calcolato PRIMA del controllo:
+  // sotto, leggerebbe il marchio e lascerebbe passare l'ordine.
+  const co = readFileSync("src/pages/api/checkout.ts", "utf8");
+  assert.ok(
+    co.indexOf("ambitoPubblicoChiesto(request)") < co.indexOf('appConfigEq("orders_closed"'),
+    "in checkout.ts l'ambito si calcola dopo il controllo di chiusura: il controllo leggerebbe il marchio",
+  );
 });

@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../db";
 import { configGiornoEffettiva } from "../schedule";
+import { appConfigEq } from "../appConfigCache";
 import type { Ambito } from "./sede";
 import { TIMEZONE, aggiornaTimezone } from "../slots";
 
@@ -46,13 +46,12 @@ export async function caricaToday(ambito: Ambito) {
     }
   }
 
+  // ⚠️ CON L'AMBITO. Il bottone «Fermer» scrive per sede: leggendo
+  // `app_config` a mano la tile mostrava lo stato del marchio, cioe' quasi
+  // sempre «aperta», su una cucina che il ristoratore aveva appena chiuso.
   let ordersClosed = false;
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "orders_closed")
-      .maybeSingle();
+    const { data } = await appConfigEq("orders_closed", ambito);
     ordersClosed = data?.value === "1";
   } catch {
     /* config assente: cucina considerata aperta */

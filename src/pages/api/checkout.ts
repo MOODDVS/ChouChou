@@ -9,6 +9,7 @@ import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
@@ -89,13 +90,17 @@ export const POST: APIRoute = async ({ request }) => {
     es: "Los pedidos en línea están cerrados temporalmente. Inténtalo más tarde.",
   };
 
+  // ⚠️ L'AMBITO SI CALCOLA PRIMA DEL CONTROLLO DI CHIUSURA.
+  // Stava sotto, e la chiusura leggeva `app_config` a mano: il bottone
+  // «Fermer» SCRIVE per sede (`scriviConfig(ambito)`), quindi su un gruppo il
+  // valore finisce in `location_config` e qui non si vedeva mai. Una cucina
+  // chiusa continuava a ricevere ordini, e il ristoratore vedeva il pulsante
+  // rosso pensando di essere protetto.
+  const ambitoPub = await ambitoPubblicoChiesto(request);
+
   // Servizio chiuso dall'admin (bottone "Fermer" nella pagina Commandes):
   // blocco anche lato server, per chi avesse la pagina già aperta.
-  const { data: cfgChiusura } = await supabaseAdmin
-    .from("app_config")
-    .select("value")
-    .eq("key", "orders_closed")
-    .maybeSingle();
+  const { data: cfgChiusura } = await appConfigEq("orders_closed", ambitoPub);
   if (cfgChiusura?.value === "1") {
     return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
   }
@@ -106,7 +111,7 @@ export const POST: APIRoute = async ({ request }) => {
   // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
   // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
   // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
-  const ambitoPub = await ambitoPubblicoChiesto(request);
+  // (calcolato piu' sopra: serve gia' al controllo di chiusura)
   const config = await configGiornoEffettiva(ora, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
