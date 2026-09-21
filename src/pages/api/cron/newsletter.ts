@@ -2,7 +2,8 @@ import type { APIRoute } from "astro";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
-import { TIMEZONE, aggiornaTimezone } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
+import { SEDE_UNICA } from "../../../lib/admin/sede";
 import { inviaNewsletter, parseSegment } from "../../../lib/newsletterSend";
 
 export const prerender = false;
@@ -48,11 +49,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
   if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
 
-  try {
-    await aggiornaTimezone();
-  } catch {
-    // fuso di fallback
-  }
+  // Fuso dell'INSTALLAZIONE: e' lo stesso con cui `newsletter-schedule.ts`
+  // ha calcolato l'ora di invio. I due devono concordare, o una newsletter
+  // programmata per le 9 partirebbe a un'altra ora.
+  const fuso = await fusoDi(SEDE_UNICA);
 
   const { data, error } = await supabaseAdmin
     .from("newsletter_schedule")
@@ -60,7 +60,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     .eq("active", true);
   if (error) return json({ checked: 0, reason: "migration #39 non lanciata?" });
 
-  const ora = DateTime.now().setZone(TIMEZONE);
+  const ora = DateTime.now().setZone(fuso);
   const results: { id: string; sent?: number; error?: string }[] = [];
 
   for (const r of (data ?? []) as Riga[]) {
@@ -76,7 +76,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
     // Anti-doppione: già inviata oggi (giorno locale del ristorante)
     if (r.last_sent_at) {
-      const ultima = DateTime.fromISO(r.last_sent_at).setZone(TIMEZONE);
+      const ultima = DateTime.fromISO(r.last_sent_at).setZone(fuso);
       if (ultima.hasSame(ora, "day")) continue;
     }
 

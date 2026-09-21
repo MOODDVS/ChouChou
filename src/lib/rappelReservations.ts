@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
-import { leggi, aggiorna, tutteLeSedi } from "./admin/sede";
-import { TIMEZONE } from "./slots";
+import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, SEDE_UNICA } from "./admin/sede";
+import { fusoDi } from "./fuso";
 import { emailRappelResa, type ResaEmail } from "./notifications";
 
 // Rappel client ~3 h avant la réservation.
@@ -25,7 +25,12 @@ interface RowResa {
 export interface EsitoRappel { sent: number; checked: number; reason?: string }
 
 export async function eseguiRappelReservations(force = false): Promise<EsitoRappel> {
-  const now = DateTime.now().setZone(TIMEZONE);
+  // ⚠️ La finestra di date si calcola nel fuso dell'INSTALLAZIONE: serve solo
+  // a restringere la query a «oggi o domani», e un'ora di scarto ai bordi non
+  // fa danno. L'ora della singola prenotazione invece si legge nel fuso della
+  // SUA sede, sotto: li' un'ora di scarto e' un promemoria mandato nel
+  // momento sbagliato.
+  const now = DateTime.now().setZone(await fusoDi(SEDE_UNICA));
   const aujourdHui = now.toISODate();
   const demain = now.plus({ days: 1 }).toISODate();
 
@@ -52,13 +57,16 @@ export async function eseguiRappelReservations(force = false): Promise<EsitoRapp
 
   for (const r of righe) {
     // Jour de la RÉSA vs jour de la PRISE de réservation (fuseau local).
+    // ⚠️ «Locale» vuol dire DI QUESTA SEDE. La lettura e' sull'aggregato, e
+    // la sede la puo' dire solo la riga — come per l'indirizzo nell'email.
+    const fuso = await fusoDi(ambitoDiRiga(r.location_id ?? null));
     const jourResa = r.date;
-    const jourPrise = DateTime.fromISO(r.created_at).setZone(TIMEZONE).toISODate();
+    const jourPrise = DateTime.fromISO(r.created_at).setZone(fuso).toISODate();
     if (!jourResa || !jourPrise) continue;
     if (jourResa <= jourPrise) continue; // réservée le jour même → aucun rappel
 
     // Heure exacte de la résa (locale) et écart avec maintenant.
-    const quand = DateTime.fromISO(`${r.date}T${r.heure}`, { zone: TIMEZONE });
+    const quand = DateTime.fromISO(`${r.date}T${r.heure}`, { zone: fuso });
     if (!quand.isValid) continue;
     const restant = quand.diff(now, "hours").hours;
     if (restant <= 0) continue;                       // déjà passée

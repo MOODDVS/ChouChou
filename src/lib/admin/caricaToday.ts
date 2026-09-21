@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../schedule";
 import { appConfigEq } from "../appConfigCache";
 import type { Ambito } from "./sede";
-import { TIMEZONE, aggiornaTimezone } from "../slots";
+import { fusoDi } from "../fuso";
 
 // Dati "oggi" per l'admin (endpoint /api/admin/today + SSR caricaHomeData):
 //   - config       → config oraria effettiva di oggi (come prima)
@@ -26,8 +26,7 @@ function bande(cfg: NonNullable<CfgGiorno>): { open: string; close: string }[] {
 }
 
 export async function caricaToday(ambito: Ambito) {
-  await aggiornaTimezone();
-  const ora = DateTime.now().setZone(TIMEZONE);
+  const ora = DateTime.now().setZone(await fusoDi(ambito));
   const config = await configGiornoEffettiva(ora, ambito);
   const hm = ora.toFormat("HH:mm");
 

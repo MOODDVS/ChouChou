@@ -448,6 +448,12 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   contact_emails: "sede",
   whatsapp_number: "sede",
   kitchen_email: "sede",
+  // ⚠️ Era "marchio" fino al 21/09/2026, non perche' fosse giusto ma perche'
+  // il codice ne supportava uno solo: `TIMEZONE` era una variabile globale
+  // del modulo. Tolta di li' (vedi `fuso.ts`), la riga dice la verita': il
+  // fuso e' di un posto fisico. La rete in tests/config.test.mjs ha indicato
+  // da sola i diciannove file da sistemare.
+  timezone: "sede",
   brand_logo: "sede",
   brand_logo_negative: "sede",
   brand_logo_mono: "sede",
@@ -519,14 +525,6 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   brand_app_icon: "marchio",
   public_site_base: "marchio",   // un solo sito pubblico per i tre punti
   gsc_site: "marchio",           // una Search Console per quel sito
-  // ⚠️ IL FUSO E' «marchio» PERCHE' IL CODICE NE SUPPORTA UNO SOLO, non
-  // perche' sia giusto. `TIMEZONE` in `slots.ts` e' una variabile di modulo
-  // mutabile, condivisa da tutte le richieste del processo: un fuso per sede
-  // sarebbe un'impostazione che non fa niente — peggio che non averla. Vedi
-  // il commento in `settings.ts`, dove il campo viene salvato. Il giorno che
-  // quel refactor si fa, questa riga diventa "sede" e la rete in
-  // tests/config.test.mjs indica da sola tutti i posti da sistemare.
-  timezone: "marchio",
   // ⚠️ UN SOLO conto Google, tre schede sotto: il refresh token e' del conto.
   google_oauth_refresh: "marchio",
   // Widget di prenotazione esterno: e' il sito che lo incorpora, non il punto.

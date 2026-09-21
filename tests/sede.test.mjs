@@ -1425,10 +1425,11 @@ test("le SELECT che alimentano le email chiedono location_id", () => {
    promemoria travestito da prova. Questa invece parte dalla classifica, e una
    chiave nuova ci finisce dentro da sola.
 
-   Anche `timezone` aveva il suo commento-promemoria qui. Adesso e' una riga
-   di `CLASSIFICA_CONFIG` che dice «marchio», col motivo accanto: il codice ne
-   supporta uno solo. Il giorno che `TIMEZONE` smette di essere una variabile
-   globale, quella riga diventa "sede" e la rete indica da sola i posti. */
+   Anche `timezone` aveva il suo commento-promemoria qui, e il 21/09/2026 e'
+   stato mantenuto: girata la variabile globale, la riga di
+   `CLASSIFICA_CONFIG` e' passata da "marchio" a "sede" e la rete ha elencato
+   da sola i diciannove file da aprire. Le prove stanno in
+   `tests/fuso.test.mjs`. */
 
 test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
   for (const f of ["src/pages/api/checkout.ts", "src/lib/admin/caricaToday.ts"]) {

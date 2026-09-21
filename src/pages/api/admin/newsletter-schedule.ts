@@ -2,7 +2,8 @@ import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { TIMEZONE, aggiornaTimezone } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
+import { SEDE_UNICA } from "../../../lib/admin/sede";
 import { parseSegment } from "../../../lib/newsletterSend";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -111,11 +112,11 @@ export const POST: APIRoute = async ({ request }) => {
   const heure = Math.round(Number(body.heure));
   if (!Number.isFinite(heure) || heure < 0 || heure > 23) return json({ error: await msg("err.time") }, 400);
 
-  try {
-    await aggiornaTimezone();
-  } catch {
-    // fuso di fallback
-  }
+  // ⚠️ Fuso dell'INSTALLAZIONE: la newsletter e' del marchio (una lista, un
+  // calendario) e l'ora programmata e' una sola. Con sedi in fusi diversi
+  // non esiste un «alle 9» che valga per tutte: si sceglie quello di casa, e
+  // lo si dice, invece di lasciarlo decidere a una variabile globale.
+  const fuso = await fusoDi(SEDE_UNICA);
 
   const riga: Record<string, unknown> = {
     subject,
@@ -136,7 +137,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (sendDate) {
     // Una tantum: data+ora locali del ristorante → UTC
     if (!RE_DATA.test(sendDate)) return json({ error: await msg("err.date") }, 400);
-    const dt = DateTime.fromISO(`${sendDate}T${String(heure).padStart(2, "0")}:00:00`, { zone: TIMEZONE });
+    const dt = DateTime.fromISO(`${sendDate}T${String(heure).padStart(2, "0")}:00:00`, { zone: fuso });
     if (!dt.isValid) return json({ error: await msg("err.date") }, 400);
     if (dt <= DateTime.now()) return json({ error: await msg("err.datePast") }, 400);
     riga.send_at = dt.toUTC().toISO();

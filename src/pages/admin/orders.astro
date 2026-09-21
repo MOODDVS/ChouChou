@@ -15,7 +15,7 @@ import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Modal from "../../components/admin/Modal.astro";
 import { DateTime } from "luxon";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
-import { aggiornaTimezone } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { opzioniPrefisso } from "../../lib/prefissi";
@@ -55,15 +55,16 @@ try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
   if (staff) {
-    pagaOnline = await pagamentoOnlineAttivo(await ambitoDiRichiesta(Astro.request, staff));
+    const ambitoOrd = await ambitoDiRichiesta(Astro.request, staff);
+    pagaOnline = await pagamentoOnlineAttivo(ambitoOrd);
     const soglia = DateTime.now()
-      .setZone(await aggiornaTimezone())
+      .setZone(await fusoDi(ambitoOrd))
       .minus({ days: 7 })
       .startOf("day")
       .toISO();
     const { data } = await leggi(
       "orders",
-      await ambitoDiRichiesta(Astro.request, staff),
+      ambitoOrd,
       "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id, payment_method",
     )
       .in("status", ["paid", "done", "cancelled"])

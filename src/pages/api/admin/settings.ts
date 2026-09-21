@@ -44,8 +44,8 @@ const RE_ORA = /^([01]\d|2[0-3]):[0-5]\d$/;
  * A CHE LIVELLO VIVE OGNI SCHEDA di Réglages (deciso 14/09/2026,
  * corretto il 16/09 — vedi la nota in fondo).
  *
- *   Général       SEDE    indirizzo, telefono, email, mittenti: sono di un
- *                         posto fisico. UNA eccezione dentro: `timezone`.
+ *   Général       SEDE    indirizzo, telefono, email, mittenti, fuso: sono
+ *                         di un posto fisico. Nessuna eccezione.
  *   Horaires      SEDE    gli orari sono di una porta che apre e chiude
  *   Réservations  SEDE    sezioni, servizi, capienza: sono di una sala
  *   Cuisine       SEDE    l'email della cucina e' di quella cucina
@@ -188,8 +188,6 @@ export const GET: APIRoute = async ({ request }) => {
   for (const k of CHIAVI_LINK) links[k] = marchio.get("link_" + k) ?? "";
   const general: Record<string, string> = {};
   for (const k of CHIAVI_GENERAL) general[k] = cfg.get(k) ?? "";
-  // Il fuso si legge dal livello installazione — vedi la nota nel PUT.
-  general.timezone = marchio.get("timezone") ?? "";
   const reservations: Record<string, string> = {};
   for (const k of CHIAVI_RESA) reservations[k] = cfg.get(k) ?? "";
   reservations["reservation_hold_minutes"] = cfg.get("reservation_hold_minutes") ?? "";
@@ -564,11 +562,11 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   if (generalPulito.length > 0) {
-    // ⚠️ Qui non si separa piu' niente a mano. Il fuso resta uno per
-    // installazione — `TIMEZONE` in `slots.ts` e' una variabile di modulo
-    // condivisa da tutte le richieste, e un fuso per sede sarebbe
-    // un'impostazione che non fa niente — ma a saperlo e' `CLASSIFICA_CONFIG`,
-    // non questa riga. `scriviConfig` manda ogni chiave dove deve andare.
+    // ⚠️ Qui non si separa piu' niente a mano: `scriviConfig` manda ogni
+    // chiave dove deve andare, e a saperlo e' `CLASSIFICA_CONFIG`. Il fuso ha
+    // smesso di essere l'eccezione il 21/09/2026, quando `TIMEZONE` ha
+    // smesso di essere una variabile globale: adesso e' di sede come il resto
+    // della scheda.
     const err = await scriviConfig(ambitoPut, Object.fromEntries(generalPulito));
     if (err) return json({ error: await msg("err.generalSave") }, 500);
   }

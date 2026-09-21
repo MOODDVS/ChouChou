@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
-import { calcolaSlotGiorno, TIMEZONE } from "./slots";
+import { calcolaSlotGiorno } from "./slots";
+import { fusoDi } from "./fuso";
 import { configGiornoEffettiva } from "./schedule";
 import type { Ambito } from "./admin/sede";
 
@@ -27,7 +28,8 @@ export async function slotsDelMese(
 ): Promise<{ closed: string[] } | { errore: string }> {
   if (!/^\d{4}-\d{2}$/.test(mese)) return { errore: "err.month" };
   const [anno, m] = mese.split("-").map(Number);
-  const primo = DateTime.fromObject({ year: anno, month: m, day: 1 }, { zone: TIMEZONE });
+  const fuso = await fusoDi(ambito);
+  const primo = DateTime.fromObject({ year: anno, month: m, day: 1 }, { zone: fuso });
   const closed: string[] = [];
   if (primo.isValid) {
     const nGiorni = primo.daysInMonth ?? 31;
@@ -46,13 +48,14 @@ export async function slotsDelGiorno(
   data: string | null,
   ambito: Ambito,
 ): Promise<{ lunch: string[]; dinner: string[]; closed: boolean } | { errore: string }> {
-  const adesso = DateTime.now().setZone(TIMEZONE);
+  const fuso = await fusoDi(ambito);
+  const adesso = DateTime.now().setZone(fuso);
 
   // Oggi = si filtrano gli slot gia' passati; un giorno FUTURO = inizio
   // giornata. Date passate o non valide ripiegano su oggi.
   let ora = adesso;
   if (data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    const d = DateTime.fromISO(data, { zone: TIMEZONE });
+    const d = DateTime.fromISO(data, { zone: fuso });
     if (d.isValid && d.startOf("day") >= adesso.startOf("day")) {
       ora = d.hasSame(adesso, "day") ? adesso : d.startOf("day");
     }
@@ -62,7 +65,7 @@ export async function slotsDelGiorno(
   // Niente ripiego: se il database non risponde o la riga manca, lo si dice.
   if (!config) return { errore: "err.hoursConfig" };
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
 
   // Giorno CHIUSO: ne' pranzo ne' cena attivi. Diverso da «aperto ma slot
   // gia' passati», dove `closed` e' falso e le liste possono essere vuote.

@@ -4,7 +4,7 @@ import { caricaToday } from "./caricaToday";
 import { leggi, type Ambito } from "./sede";
 import { pagineConsentite } from "./permessiRegole";
 import { puo, type ContestoPermessi } from "./permessi";
-import { TIMEZONE } from "../slots";
+import { fusoDi } from "../fuso";
 
 // Pre-carica lato server (SSR, Fase 2) le 5 isole principali della Accueil,
 // nella STESSA forma restituita dai rispettivi endpoint /api/admin/*:
@@ -52,7 +52,7 @@ const ORDERS_SELECT =
   "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at";
 
 export async function caricaHomeData(ambito: Ambito, ctx: ContestoPermessi) {
-  const oggi = DateTime.now().setZone(TIMEZONE);
+  const oggi = DateTime.now().setZone(await fusoDi(ambito));
   const oggiKey = oggi.toISODate() ?? "";
   const soglia = oggi.minus({ days: 7 }).startOf("day").toISO();
 

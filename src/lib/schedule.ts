@@ -1,7 +1,8 @@
 import type { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 import { cacheOr } from "./cache";
-import { TIMEZONE, type ConfigGiorno, aggiornaTimezone } from "./slots";
+import { type ConfigGiorno } from "./slots";
+import { fusoDi } from "./fuso";
 import { leggiOrari, applicaFiltro, type Ambito } from "./admin/sede";
 
 /**
@@ -84,8 +85,7 @@ export async function configGiornoEffettiva(
   ora: DateTime,
   ambito: Ambito,
 ): Promise<ConfigGiorno | null> {
-  await aggiornaTimezone();
-  const oggi = ora.setZone(TIMEZONE);
+  const oggi = ora.setZone(await fusoDi(ambito));
   const dayOfWeek = oggi.weekday === 7 ? 0 : oggi.weekday;
   const iso = oggi.toFormat("yyyy-MM-dd");
 

@@ -6,7 +6,7 @@ import { adminLang } from "./admin/adminLang";
 import { caricaBootAdmin } from "./admin/adminBoot";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
-import { TIMEZONE } from "./slots";
+import { fusoDi } from "./fuso";
 // ⚠️⚠️ OGNI EMAIL E' DI UN PUNTO (16/09/2026).
 //
 // Il nome, l'indirizzo, il telefono, il mittente e il destinatario di una
@@ -166,12 +166,14 @@ const TXT = {
   },
 } as const;
 
-/** Ora di ritiro formattata in HH:mm (Europe/Brussels). */
-function oraRitiro(iso: string): string {
+/** Ora di ritiro formattata in HH:mm, nel fuso DELLA SEDE.
+ *  ⚠️ Prima leggeva la variabile globale `TIMEZONE`: l'ora scritta al
+ *  cliente era quella dell'ultima sede che aveva toccato quella variabile. */
+function oraRitiro(iso: string, fuso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: TIMEZONE,
+    timeZone: fuso,
   });
 }
 
@@ -369,6 +371,7 @@ const TXT_ANN = {
 async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
   if (!resend || !from) return;
@@ -378,7 +381,7 @@ async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promis
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const giorno = new Date(o.pickup_time).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   const pickupVal = `${giorno} · ${ora}`;
   const importo = euro(opts.refund_cents ?? o.total_cents);
@@ -484,6 +487,7 @@ export async function inviaAnnullaOrdine(o: OrdineNotifica, opts: AnnullaOpts): 
 async function emailCliente(o: OrdineNotifica): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
@@ -493,7 +497,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   if (!o.customer_email?.trim()) return; // ordine pagato di persona senza email
   const t = pick5(TXT, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -678,6 +682,7 @@ async function emailModificaCliente(
 ): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
@@ -687,7 +692,7 @@ async function emailModificaCliente(
   if (!o.customer_email?.trim()) return;
   const t = pick5(TXT_MOD, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -872,6 +877,7 @@ const TXT_PAY = {
 export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; cancel_url?: string | null }): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
@@ -880,7 +886,7 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
   }
   const t = pick5(TXT_PAY, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
@@ -968,6 +974,7 @@ const K_TXT = {
 async function emailCucina(o: OrdineNotifica): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const dest = await kitchenEmail(ambito);
   const from = await ordineFromEmail(ambito);
@@ -976,7 +983,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const tema = await temaEmail();
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
@@ -1049,6 +1056,9 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
     console.warn("SLACK_WEBHOOK_URL non configurato: salto Slack");
     return;
   }
+  // ⚠️ La sede viene DAL FATTO, come in tutte le altre notifiche: l'ora di
+  // ritiro nel messaggio Slack e' quella del punto che deve preparare.
+  const fuso = await fusoDi(ambitoDiRiga(o.location_id));
   const { piatti, noteCliente } = separaItems(o);
   const k = K_TXT[await adminLang().catch(() => "fr" as const)] ?? K_TXT.fr;
   try {
@@ -1060,7 +1070,7 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
       `*${k.client}:* ${o.customer_name}\n` +
       `*${k.phone}:* ${o.customer_phone ?? "—"}\n` +
       `*${k.email}:* ${o.customer_email}\n` +
-      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time)}\n` +
+      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso)}\n` +
       `*${k.payment}:* ${k.paid} ✅\n\n` +
       `*${k.order}:*\n${righe}${notaRiga}\n\n` +
       `*${k.total}:* ${euro(o.total_cents)}`;
@@ -1143,6 +1153,7 @@ const TXT_REVIEW = {
 async function emailReview(o: OrdineNotifica): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await ordineFromEmail(ambito);
   if (!resend || !from) return;
@@ -1180,7 +1191,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
 
   // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
   const quando = DateTime.fromISO(o.pickup_time)
-    .setZone(TIMEZONE)
+    .setZone(fuso)
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
@@ -1450,6 +1461,7 @@ export async function inviaFeedbackCliente(fb: {
 export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   if (!resend || !RESEND_FROM) return null;
   const email = r.email.trim();
@@ -1467,7 +1479,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   if (!reviewUrl) return null;
 
   // 11:30 del giorno dopo la prenotazione; se è già passato, niente email.
-  const quando = DateTime.fromISO(r.date, { zone: TIMEZONE })
+  const quando = DateTime.fromISO(r.date, { zone: fuso })
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
   if (quando <= DateTime.now()) return null;
@@ -1592,10 +1604,10 @@ const LOCALE_RESA: Record<LinguaWidget, string> = {
 };
 
 /** Data leggibile (es. "vendredi 18 juillet 2026") nella lingua del cliente. */
-function fmtDataResa(iso: string, lang: LinguaWidget): string {
+function fmtDataResa(iso: string, lang: LinguaWidget, fuso: string): string {
   try {
     return new Intl.DateTimeFormat(LOCALE_RESA[lang] ?? "fr-FR", {
-      timeZone: TIMEZONE,
+      timeZone: fuso,
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -1983,6 +1995,7 @@ function mapsBlocco(tema: TemaEmail, indirizzo: string, lang: string): string {
 async function emailConfermaResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from) {
@@ -1998,7 +2011,7 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
@@ -2068,6 +2081,7 @@ const TXT_RAPPEL: Record<LinguaWidget, { subject: (n: string) => string; title: 
 export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from) {
@@ -2083,7 +2097,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
@@ -2124,6 +2138,7 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
 async function emailDemandeResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from) {
@@ -2139,7 +2154,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
@@ -2193,6 +2208,7 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
 export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
@@ -2207,7 +2223,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const tema = await temaEmail();
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
@@ -2261,6 +2277,7 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
 export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
@@ -2275,7 +2292,7 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   const tema = await temaEmail();
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
@@ -2446,6 +2463,7 @@ function guscioResaRisto(o: {
 async function emailNotificaResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
@@ -2456,7 +2474,7 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
   const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2501,6 +2519,7 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
 export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
@@ -2511,7 +2530,7 @@ export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
   const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2824,6 +2843,7 @@ export async function emailBonRistoratore(bon: BonEmail, ambito: Ambito): Promis
 export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const dest = await resaNotifyEmail(ambito);
   const from = await resaFromEmail(ambito);
@@ -2834,7 +2854,7 @@ export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
   const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2975,6 +2995,7 @@ const TXT_NOSHOW: Record<string, TxtNoShow> = {
 export async function emailNoShowResa(r: ResaEmail): Promise<void> {
   // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
   const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
 
   const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
@@ -2989,7 +3010,7 @@ export async function emailNoShowResa(r: ResaEmail): Promise<void> {
   const nome = r.first_name.trim() || r.last_name.trim() || "";
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");

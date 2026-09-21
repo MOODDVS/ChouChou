@@ -4,7 +4,7 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import {
   ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
 } from "../../../lib/admin/sede";
-import { aggiornaTimezone } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -55,7 +55,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   // Tutte le chiusure da oggi in poi (fuso del ristorante)
   if (url.searchParams.get("future") === "1") {
-    const tz = await aggiornaTimezone();
+    const tz = await fusoDi(ambito);
     const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
     // Storico a 90 giorni, ma solo di QUESTA sede: vedi service-closures.
     try {

@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 import { ripartisciOrdini, conNomi } from "./statsRegole";
 import { leggi, elencoSedi, type Ambito } from "./sede";
 import { supabaseAdmin } from "../db";
-import { TIMEZONE } from "../slots";
+import { fusoDi } from "../fuso";
 import { adminLang } from "./adminLang";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 
@@ -29,8 +29,8 @@ interface Bucket {
   count: number;
 }
 
-function inizioPeriodo(p: Periodo): string | null {
-  const ora = DateTime.now().setZone(TIMEZONE);
+function inizioPeriodo(p: Periodo, fuso: string): string | null {
+  const ora = DateTime.now().setZone(fuso);
   switch (p) {
     case "day": return ora.startOf("day").toISO();
     case "week": return ora.startOf("week").toISO(); // lunedì
@@ -112,10 +112,11 @@ async function serieDi(
   p: Periodo,
   ordini: RigaOrdine[],
   loc: string,
-  trim: string
+  trim: string,
+  fuso: string
 ): Promise<{ kind: string; series: Bucket[] }> {
-  const ora = DateTime.now().setZone(TIMEZONE);
-  const dt = (o: RigaOrdine) => DateTime.fromISO(o.pickup_time).setZone(TIMEZONE);
+  const ora = DateTime.now().setZone(fuso);
+  const dt = (o: RigaOrdine) => DateTime.fromISO(o.pickup_time).setZone(fuso);
 
   if (p === "day") {
     const { minH, maxH } = await fasciaApertura();
@@ -179,7 +180,12 @@ async function ripartisciPerSede(ordini: RigaOrdine[]) {
 }
 
 export async function calcolaStats(p: Periodo, ambito: Ambito) {
-  const ordini = await ordiniPagati(inizioPeriodo(p), ambito);
+  // ⚠️ Letto UNA volta e passato giu'. Prima ogni funzione qui dentro leggeva
+  // la stessa variabile globale: sembrava gratis, e infatti lo era — il
+  // prezzo era che nessuna di queste funzioni si poteva provare con un fuso
+  // diverso, e che due sedi non potevano averne due.
+  const fuso = await fusoDi(ambito);
+  const ordini = await ordiniPagati(inizioPeriodo(p, fuso), ambito);
   if (ordini === null) return null;
 
   let revenue = 0;
@@ -188,7 +194,7 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
 
   for (const o of ordini) {
     revenue += o.total_cents;
-    const h = DateTime.fromISO(o.pickup_time).setZone(TIMEZONE).hour;
+    const h = DateTime.fromISO(o.pickup_time).setZone(fuso).hour;
     if (h >= 0 && h < 24) perOra[h]++;
     for (const it of o.items ?? []) {
       if (!it || it.qty <= 0 || it.id === "note") continue;
@@ -211,7 +217,7 @@ export async function calcolaStats(p: Periodo, ambito: Ambito) {
     .slice(0, 5);
 
   const lang = await adminLang();
-  const { kind, series } = await serieDi(p, ordini, ADMIN_LOCALE[lang] ?? "fr-BE", adminT(lang)("stats.quarterShort"));
+  const { kind, series } = await serieDi(p, ordini, ADMIN_LOCALE[lang] ?? "fr-BE", adminT(lang)("stats.quarterShort"), fuso);
 
   return {
     ...(ambito.modo === "tutte" ? { perSede: await ripartisciPerSede(ordini) } : {}),

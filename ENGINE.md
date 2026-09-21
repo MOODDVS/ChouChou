@@ -1063,6 +1063,54 @@ alla casella del marchio invece che del punto; `assicuraLocation` in
 chiamava piu' nessuno, ma restava esportata, pronta per il primo che la
 riusava.
 
+## Il fuso orario — una variabile globale, diciannove file (21/09/2026)
+
+Il fuso stava in `slots.ts` come **`export let TIMEZONE`**: una variabile di
+modulo mutabile, riempita al primo accesso da `aggiornaTimezone()` e condivisa
+da tutte le richieste del processo. Diciannove file la importavano e la
+leggevano senza passare niente.
+
+Era comoda — si importava e basta — ed e' esattamente per questo che era
+pericolosa. ⚠️ **Con una sede sola non si vedeva niente.** Con due sedi in
+fusi diversi, la richiesta di una cambiava il valore sotto i piedi a quella
+dell'altra gia' partita, e il risultato non era un errore: era un **orario
+sbagliato ma plausibile** — un'ora di ritiro nell'email, uno slot
+prenotabile, un giorno speciale sparito la sera prima. Nessuno l'avrebbe
+collegato alla richiesta di un'altra persona.
+
+**Adesso il fuso viaggia di mano in mano.** `fusoDi(ambito)` in `lib/fuso.ts`
+lo legge — da `appConfigEq`, quindi dalla cache di `app_config` con
+`location_config` della sede sovrapposto, come ogni altra chiave; il fuso era
+l'unica che si era fatta la sua strada. Chi calcola lo riceve come argomento.
+
+⚠️ **`fuso` e' OBBLIGATORIO in `calcolaSlot`**, non ha un valore di default.
+Un default rimetterebbe lo stesso guasto in forma piu' educata: chi dimentica
+di passarlo calcolerebbe gli orari di Bruxelles per una sede che sta altrove,
+senza che niente lo dica. Cosi' invece non compila. E `calcolaSlot` si
+dichiarava «PURA: nessun I/O» mentre leggeva una globale: adesso lo e'.
+
+**Tre lavori restano sul fuso dell'INSTALLAZIONE**, con il motivo scritto
+accanto e una rete che controlla che il motivo ci sia ancora: la newsletter e
+la sua programmazione (una lista, un calendario, un'ora sola — con sedi in
+fusi diversi non esiste un «alle 9» che valga per tutte), la quota newsletter
+(un abbonamento, un contatore, e tre «mesi correnti» darebbero tre conteggi
+della stessa quota) e il cron che chiude gli ordini vecchi (passa su tutte le
+sedi insieme, la soglia e' una). Sono scelte dichiarate, non un ripiego.
+
+**Il promemoria in `sede.test.mjs` era diventato una riga di codice.** Prima
+di questo lavoro `timezone` era classificata `"marchio"` — non perche' fosse
+giusto, ma perche' il codice ne supportava uno solo — con un commento che
+diceva «il giorno che quel refactor si fa, questa riga diventa "sede" e la
+rete indica da sola i posti da sistemare». E' andata cosi': girata la riga,
+`tests/config.test.mjs` ha elencato i file da aprire.
+
+**Trovato per strada:** in `special-days.ts` l'ambito serviva alla validazione
+delle date ma era dichiarato a meta' funzione, dopo l'uso. Non un errore di
+compilazione — un `ReferenceError` a runtime, dentro un ramo che scatta solo
+con una data passata. E' la terza volta in questo progetto che una `const`
+dichiarata sotto il suo uso passa inosservata.
+
+
 ## I permessi — la porta, non il cartello (20–21/09/2026)
 
 Prima di questo lavoro il ruolo era **un suggerimento**. La nav nascondeva i

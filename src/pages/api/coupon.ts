@@ -4,7 +4,7 @@ import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { prezzoEffettivo } from "../../lib/pricing";
-import { TIMEZONE } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false, error: L.carrelloVuoto });
   }
 
-  const now = DateTime.now().setZone(TIMEZONE);
+  const now = DateTime.now().setZone(await fusoDi(ambito));
     // L'ambito e' quello che il cliente ha scelto sul sito: un codice
     // riservato a un punto vale li' e basta.
   const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, ambito, lang);

@@ -1,6 +1,6 @@
 import { DateTime } from "luxon";
 import { cacheOr } from "./cache";
-import { TIMEZONE } from "./slots";
+import { fusoDi } from "./fuso";
 import { leggi, ambitoPubblico, type Ambito } from "./admin/sede";
 import { scegliPopup, titoloPopup, type RigaPopup } from "./popupRegole";
 
@@ -77,7 +77,7 @@ export async function popupPerPagina(
       return righe;
     });
 
-    const ora = DateTime.now().setZone(TIMEZONE);
+    const ora = DateTime.now().setZone(await fusoDi(ambito));
     const oggi = ora.toISODate() ?? "";
     const hhmm = ora.toFormat("HH:mm");
     const giorno = ora.weekday % 7; // luxon: 1=lundi…7=dimanche → 0=dimanche…6=samedi

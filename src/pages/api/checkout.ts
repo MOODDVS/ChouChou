@@ -5,7 +5,8 @@ import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
-import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
+import { calcolaSlotGiorno } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import { configGiornoEffettiva } from "../../lib/schedule";
 // Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
@@ -105,7 +106,8 @@ export const POST: APIRoute = async ({ request }) => {
     return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
   }
 
-  const ora = DateTime.now().setZone(TIMEZONE);
+  const fuso = await fusoDi(ambitoPub);
+  const ora = DateTime.now().setZone(fuso);
 
   // Config effettiva: orari settimanali + giorni speciali (special_days).
   // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
@@ -117,7 +119,7 @@ export const POST: APIRoute = async ({ request }) => {
     return err(503, "Configurazione orari non disponibile");
   }
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   const slotValidi = [...lunch, ...dinner];
   if (!slotValidi.includes(body.slot)) {
     return err(409, "Orario di ritiro non più disponibile");

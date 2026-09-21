@@ -3,7 +3,7 @@ import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import {
   ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
 } from "../../../lib/admin/sede";
-import { aggiornaTimezone } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -56,9 +56,9 @@ export const GET: APIRoute = async ({ request, url }) => {
 
   // Tutte le chiusure da oggi in poi (fuso del ristorante)
   if (url.searchParams.get("future") === "1") {
-    // Il fuso si legge da `aggiornaTimezone`, non da una copia locale: era la
-    // terza lettura a mano della stessa chiave.
-    const tz = await aggiornaTimezone();
+    // Il fuso si legge con l'ambito, non da una copia locale: era la terza
+    // lettura a mano della stessa chiave, e dal 21/09 e' anche di QUESTA sede.
+    const tz = await fusoDi(ambito);
     const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
     // Storico limitato a 90 giorni: le chiusure più vecchie si eliminano da
     // sole — ma solo quelle di QUESTA sede, o si farebbe pulizia in casa

@@ -111,7 +111,7 @@ test("i link si salvano per il GRUPPO — e adesso a saperlo e' la CHIAVE", () =
   assert.equal(appartenenzaConfig("link_google_review"), "sede");
 });
 
-test("Général si salva per SEDE, tranne il fuso orario", () => {
+test("Général si salva per SEDE — fuso compreso, da oggi", () => {
   // Una sola chiamata, senza separare niente a mano: `scriviConfig` manda
   // ogni chiave dove deve andare, anche mescolate nello stesso salvataggio.
   assert.match(API, /scriviConfig\(ambitoPut, Object\.fromEntries\(generalPulito\)\)/);
@@ -120,15 +120,14 @@ test("Général si salva per SEDE, tranne il fuso orario", () => {
   for (const k of ["company_name", "company_vat", "restaurant_name", "public_phone", "brand_logo"]) {
     assert.equal(appartenenzaConfig(k), "sede", `${k} dovrebbe essere di sede`);
   }
-  // ⚠️ E l'eccezione NON e' «questo campo e' condiviso» (il ragionamento
-  // scartato): e' che il CODICE ne supporta uno solo. `TIMEZONE` in
-  // `slots.ts` e' una variabile di modulo mutabile, letta da venti file e
-  // condivisa fra tutte le richieste del processo. Un fuso per sede darebbe
-  // un'impostazione che non fa niente — peggio che non averla.
-  assert.equal(appartenenzaConfig("timezone"), "marchio");
-  const REGOLE = readFileSync("src/lib/admin/sedeRegole.ts", "utf8");
-  assert.match(REGOLE, /TIMEZONE.*variabile di modulo/s,
-    "il motivo non e' piu' scritto accanto alla riga: senza, sembra una scelta di prodotto");
+  // ⚠️ IL FUSO ERA L'ECCEZIONE DI QUESTA SCHEDA, e non perche' fosse giusto:
+  // perche' il codice ne supportava uno solo — `TIMEZONE` in `slots.ts` era
+  // una variabile di modulo condivisa fra tutte le richieste. Tolta di li' il
+  // 21/09/2026, l'eccezione e' sparita: il fuso e' di un posto fisico come
+  // l'indirizzo. Le prove del refactor stanno in tests/fuso.test.mjs.
+  assert.equal(appartenenzaConfig("timezone"), "sede");
+  assert.doesNotMatch(API, /UNA eccezione dentro/,
+    "la mappa in settings.ts promette ancora un'eccezione che non c'e' piu'");
   // ⚠️ L'icona sta col PANNELLO, che e' uno: era «sede», e il risultato era
   // una favicon salvata su una sede che adminBoot non avrebbe mai riletto.
   assert.equal(appartenenzaConfig("brand_favicon"), "marchio");

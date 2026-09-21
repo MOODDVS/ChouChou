@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { DateTime } from "luxon";
-import { calcolaSlot, TIMEZONE, type OrariApertura } from "./slots";
+import { calcolaSlot, FUSO_DEFAULT, type OrariApertura } from "./slots";
 
 /** Helper: costruisce un DateTime in Europe/Brussels a partire da "YYYY-MM-DD HH:mm". */
 function brussels(s: string): DateTime {
-  return DateTime.fromFormat(s, "yyyy-MM-dd HH:mm", { zone: TIMEZONE });
+  return DateTime.fromFormat(s, "yyyy-MM-dd HH:mm", { zone: FUSO_DEFAULT });
 }
 
 /** Config "aperto" di base: 11:30–22:30, riusabile nei test. */
@@ -17,6 +17,7 @@ const apertoStandard: OrariApertura = {
 describe("calcolaSlot", () => {
   it("ritorna [] se oggi è in giorniChiusura", () => {
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:00"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -28,6 +29,7 @@ describe("calcolaSlot", () => {
 
   it("ritorna [] se is_open è false", () => {
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:00"),
       orariApertura: { ...apertoStandard, is_open: false },
       tempoPrep: 30,
@@ -40,6 +42,7 @@ describe("calcolaSlot", () => {
   it("ritorna [] se è troppo tardi (ora + prep >= chiusura - margine)", () => {
     // 22:10 + 30min prep = 22:40, oltre l'ultimo slot (22:15)
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 22:10"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -52,6 +55,7 @@ describe("calcolaSlot", () => {
   it("primo slot = arrotondamento superiore di (ora + prep) a durataSlot (15 min)", () => {
     // 19:05 + 30min = 19:35 -> arrotonda su a 19:45
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:05"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -64,6 +68,7 @@ describe("calcolaSlot", () => {
   it("se (ora + prep) è già un multiplo esatto, non arrotonda oltre", () => {
     // 19:15 + 30min = 19:45 -> resta 19:45
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:15"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -75,6 +80,7 @@ describe("calcolaSlot", () => {
 
   it("ultimo slot = chiusura - 15 min", () => {
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:00"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -87,6 +93,7 @@ describe("calcolaSlot", () => {
   it("genera gli slot al passo corretto (durataSlot = 30)", () => {
     // 19:00 + 30min = 19:30 -> primo slot 19:30, passo 30, ultimo 22:00
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 19:00"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -102,6 +109,7 @@ describe("calcolaSlot", () => {
   it("se si ordina prima dell'apertura, parte dall'apertura + prep", () => {
     // Ordine alle 09:00, apertura 11:30, prep 30 -> primo slot 12:00
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: brussels("2026-06-01 09:00"),
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -119,6 +127,7 @@ describe("calcolaSlot", () => {
       { zone: "utc" }
     );
     const slots = calcolaSlot({
+      fuso: FUSO_DEFAULT,
       oraCorrente: inputUTC,
       orariApertura: apertoStandard,
       tempoPrep: 30,
@@ -146,7 +155,7 @@ describe("calcolaSlotGiorno (due fasce)", () => {
 
   it("entrambi i servizi attivi: ritorna slot sia per pranzo che per cena", () => {
     // Ordine al mattino presto: pranzo parte da 12:00 (apertura+prep), cena da 19:00.
-    const r = calcolaSlotGiorno(brussels("2026-06-01 09:00"), base);
+    const r = calcolaSlotGiorno(brussels("2026-06-01 09:00"), base, FUSO_DEFAULT);
     expect(r.lunch[0]).toBe("12:00");
     expect(r.lunch[r.lunch.length - 1]).toBe("14:00"); // 14:30 - 15min margine -> 14:15, ultimo multiplo 14:00
     expect(r.dinner[0]).toBe("19:00");
@@ -158,7 +167,7 @@ describe("calcolaSlotGiorno (due fasce)", () => {
       ...base,
       lunch_active: false,
       dinner_active: false,
-    });
+    }, FUSO_DEFAULT);
     expect(r.lunch).toEqual([]);
     expect(r.dinner).toEqual([]);
   });
@@ -167,7 +176,7 @@ describe("calcolaSlotGiorno (due fasce)", () => {
     const r = calcolaSlotGiorno(brussels("2026-06-01 09:00"), {
       ...base,
       dinner_active: false,
-    });
+    }, FUSO_DEFAULT);
     expect(r.lunch.length).toBeGreaterThan(0);
     expect(r.dinner).toEqual([]);
   });
@@ -176,7 +185,7 @@ describe("calcolaSlotGiorno (due fasce)", () => {
     const r = calcolaSlotGiorno(brussels("2026-06-01 09:00"), {
       ...base,
       lunch_active: false,
-    });
+    }, FUSO_DEFAULT);
     expect(r.lunch).toEqual([]);
     expect(r.dinner.length).toBeGreaterThan(0);
   });
@@ -185,7 +194,7 @@ describe("calcolaSlotGiorno (due fasce)", () => {
     const r = calcolaSlotGiorno(brussels("2026-06-01 09:00"), {
       ...base,
       exceptional_closures: ["2026-06-01"],
-    });
+    }, FUSO_DEFAULT);
     expect(r.lunch).toEqual([]);
     expect(r.dinner).toEqual([]);
   });
@@ -196,14 +205,14 @@ describe("calcolaSlotGiorno (due fasce)", () => {
       lunch_active: true,
       lunch_open: null,
       lunch_close: null,
-    });
+    }, FUSO_DEFAULT);
     expect(r.lunch).toEqual([]);
     expect(r.dinner.length).toBeGreaterThan(0);
   });
 
   it("nel pomeriggio (dopo il pranzo): pranzo vuoto, cena ancora disponibile", () => {
     // Alle 16:00 il pranzo è già finito (chiude 14:30), la cena no.
-    const r = calcolaSlotGiorno(brussels("2026-06-01 16:00"), base);
+    const r = calcolaSlotGiorno(brussels("2026-06-01 16:00"), base, FUSO_DEFAULT);
     expect(r.lunch).toEqual([]);
     expect(r.dinner[0]).toBe("19:00");
   });

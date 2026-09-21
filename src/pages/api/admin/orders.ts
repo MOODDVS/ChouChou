@@ -4,7 +4,8 @@ import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from "../../../lib/stripe";
 import { basePubblicaOpz } from "../../../lib/basePubblica";
-import { calcolaSlotGiorno, TIMEZONE } from "../../../lib/slots";
+import { calcolaSlotGiorno } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 import { configGiornoEffettiva } from "../../../lib/schedule";
 // Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
 // quindi l'importazione e' rinominata invece di rinominare le loro.
@@ -43,6 +44,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   // Polling toast "Nouvelle commande": gli ultimi ordini PAGATI (per created_at).
   // Il client tiene gli ID già visti e avvisa sui NUOVI. Non si usa più un
@@ -81,7 +83,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   // pallino verde nel datepicker di consultazione).
   const monthParam = url.searchParams.get("month");
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-    const start = DateTime.fromISO(monthParam + "-01", { zone: TIMEZONE });
+    const start = DateTime.fromISO(monthParam + "-01", { zone: fuso });
     if (!start.isValid) return json({ days: [] });
     const daM = start.startOf("month").toISO();
     const aM = start.endOf("month").toISO();
@@ -92,7 +94,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     for (const r of (data ?? []) as Array<{ pickup_time: string; status: string; source?: string | null }>) {
       const ok = ["paid", "done", "cancelled"].includes(r.status) || (r.status === "pending" && r.source === "manual");
       if (!ok) continue;
-      const d = DateTime.fromISO(r.pickup_time).setZone(TIMEZONE).toISODate();
+      const d = DateTime.fromISO(r.pickup_time).setZone(fuso).toISODate();
       if (d) giorni.add(d);
     }
     return json({ days: [...giorni] });
@@ -181,10 +183,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ top_items: top, lang });
   }
 
-  // Soglia: 7 giorni fa a mezzanotte, fuso Europe/Brussels, in ISO completo
+  // Soglia: 7 giorni fa a mezzanotte, nel fuso DELLA SEDE, in ISO completo
   // (pickup_time è timestamptz, quindi confronto con un istante ISO).
   const soglia = DateTime.now()
-    .setZone(TIMEZONE)
+    .setZone(fuso)
     .minus({ days: 7 })
     .startOf("day")
     .toISO();
@@ -195,7 +197,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let daISO: string | null = null;
   let aISO: string | null = null;
   if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    const d = DateTime.fromISO(dateParam, { zone: TIMEZONE });
+    const d = DateTime.fromISO(dateParam, { zone: fuso });
     if (d.isValid) {
       daISO = d.startOf("day").toISO();
       aISO = d.endOf("day").toISO();
@@ -307,6 +309,7 @@ export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   let body: {
     first_name?: string;
@@ -408,19 +411,19 @@ export const POST: APIRoute = async ({ request }) => {
   // Data del ritiro: oggi (default) o un giorno futuro. Le date passate/non valide
   // vengono rifiutate. Per oggi si usa l'ora corrente (filtra gli slot passati),
   // per un giorno futuro l'inizio giornata.
-  const oraNow = DateTime.now().setZone(TIMEZONE);
+  const oraNow = DateTime.now().setZone(fuso);
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
-    const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
+    const d = DateTime.fromISO(dStr, { zone: fuso });
     if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   // Créneau valido per QUELLA data (stessa fonte del sito: /api/slots)
   const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   if (![...lunch, ...dinner].includes(slot)) return json({ error: await msg("err.slotGone") }, 409);
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi
@@ -627,6 +630,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
   const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   let body: {
     id?: string;
@@ -686,25 +690,25 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!items.length) return json({ error: await msg("err.cartEmpty") }, 400);
 
   // Data del ritiro (stessa logica del POST).
-  const oraNow = DateTime.now().setZone(TIMEZONE);
+  const oraNow = DateTime.now().setZone(fuso);
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
-    const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
+    const d = DateTime.fromISO(dStr, { zone: fuso });
     if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
   if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   // Orario originale dell'ordine (fuso ristorante): se lo staff NON lo cambia,
   // va accettato anche se ormai e' passato (quindi non piu' tra i disponibili).
   const origSlot = ord.pickup_time
-    ? DateTime.fromISO(String(ord.pickup_time)).setZone(TIMEZONE).toFormat("HH:mm")
+    ? DateTime.fromISO(String(ord.pickup_time)).setZone(fuso).toFormat("HH:mm")
     : "";
   const origDate = ord.pickup_time
-    ? DateTime.fromISO(String(ord.pickup_time)).setZone(TIMEZONE).toFormat("yyyy-MM-dd")
+    ? DateTime.fromISO(String(ord.pickup_time)).setZone(fuso).toFormat("yyyy-MM-dd")
     : "";
   const dataScelta = dStr || oraNow.toFormat("yyyy-MM-dd");
   const slotInvariato = slot === origSlot && dataScelta === origDate;

@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { ambitoDiRichiesta, leggi, inserisci, cancella } from "../../../lib/admin/sede";
-import { TIMEZONE } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -39,8 +39,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function oggiISO(): string {
-  return DateTime.now().setZone(TIMEZONE).toFormat("yyyy-MM-dd");
+/** Oggi nel fuso DI QUESTA SEDE. ⚠️ Decide se un giorno speciale e' «passato»:
+ *  a cavallo della mezzanotte, il fuso sbagliato lo fa sparire dall'elenco un
+ *  giorno prima — o rifiuta una data che e' ancora buona. */
+function oggiISO(fuso: string): string {
+  return DateTime.now().setZone(fuso).toFormat("yyyy-MM-dd");
 }
 
 // GET /api/admin/special-days — giorni speciali attuali e futuri
@@ -51,12 +54,13 @@ export const GET: APIRoute = async ({ request }) => {
   // `special_days` e' «mista»: da una sede si vedono i SUOI giorni speciali E
   // quelli che valgono per tutte — Natale chiude tutti, i lavori chiudono uno.
   const ambito = await ambitoDiRichiesta(request, staff);
+  const oggi = oggiISO(await fusoDi(ambito));
   let { data, error } = await leggi(
     "special_days",
     ambito,
     "id, location_id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note, services",
   )
-    .gte("date_to", oggiISO())
+    .gte("date_to", oggi)
     .order("date_from", { ascending: true });
   // Migrazione #33 non ancora lanciata: si rilegge senza la colonna services
   if (error && String(error.message ?? "").includes("services")) {
@@ -65,7 +69,7 @@ export const GET: APIRoute = async ({ request }) => {
       ambito,
       "id, location_id, type, date_from, date_to, lunch_open, lunch_close, dinner_open, dinner_close, note",
     )
-      .gte("date_to", oggiISO())
+      .gte("date_to", oggi)
       .order("date_from", { ascending: true });
     data = retry.data as typeof data;
     error = retry.error;
@@ -100,6 +104,13 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: await msg("err.request") }, 400);
   }
 
+  // ⚠️ L'ambito si prende QUI, non a meta' funzione: serve gia' alla
+  // validazione delle date, e `const` dichiarata dopo l'uso non e' un errore
+  // di compilazione — e' un ReferenceError a runtime, dentro un ramo che
+  // scatta solo con una data passata. Ci siamo gia' cascati due volte.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const oggi = oggiISO(await fusoDi(ambito));
+
   const type = body.type === "open" ? "open" : body.type === "closed" ? "closed" : null;
   if (!type) return json({ error: await msg("err.type") }, 400);
 
@@ -109,7 +120,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: await msg("err.dates") }, 400);
   }
   if (to < from) return json({ error: await msg("err.endBeforeStart") }, 400);
-  if (to < oggiISO()) return json({ error: await msg("err.datesPast") }, 400);
+  if (to < oggi) return json({ error: await msg("err.datesPast") }, 400);
 
   let lunch_open: string | null = null;
   let lunch_close: string | null = null;
@@ -138,7 +149,6 @@ export const POST: APIRoute = async ({ request }) => {
   // La sovrapposizione si cerca solo fra i giorni che valgono QUI: quello di
   // un'altra sede non si sovrappone a niente, e bloccarlo sarebbe un errore
   // che il ristoratore non potrebbe nemmeno capire — non vede quella riga.
-  const ambito = await ambitoDiRichiesta(request, staff);
   const { data: overlap, error: errOv } = await leggi("special_days", ambito, "id")
     .lte("date_from", to)
     .gte("date_to", from)

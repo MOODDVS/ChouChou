@@ -3,12 +3,11 @@
 // data-tz: fuso del ristorante (app_config.timezone) esposto al client —
 // orologio, data e formattazioni delle pagine admin lo leggono da qui.
 import { CLIENT } from "../../config/client";
-import { aggiornaTimezone } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT, ADMIN_LOCALE } from "../../i18n/admin";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { sediVisibili, ambitoDiRichiesta } from "../../lib/admin/sede";
-const TZ_RISTO = await aggiornaTimezone();
 // Stessa lettura in cache di AdminHead: lingua + favicon del brand, 0 query in piu'.
 const boot = await caricaBootAdmin();
 const lang = boot.lang;
@@ -36,6 +35,12 @@ const sedeAttiva =
 // L'aggregato vive dove ha senso: come FILTRO negli elenchi e nelle
 // statistiche, che lo chiedono per la singola richiesta con l'header
 // `x-sede: tutte`, senza toccare il contesto globale.
+// ⚠️ Il fuso si legge QUI, dopo l'ambito, non in cima al file: `data-tz` va
+// al browser e decide orologio, date e formattazioni di tutte le pagine
+// admin. Letto prima di sapere quale sede si sta guardando sarebbe quello
+// dell'installazione — e tutta l'interfaccia mostrerebbe l'ora di un'altra.
+const TZ_RISTO = await fusoDi(ambitoHdr);
+
 const inizialiSede = (n: string) =>
   n.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
 ---

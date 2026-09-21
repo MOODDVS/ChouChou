@@ -29,9 +29,10 @@ const UNA_SEDE = { modo: "sede", id: "11111111-1111-1111-1111-111111111111" };
    LE ECCEZIONI — dichiarate, non tollerate in silenzio
 
    Ogni riga e' un posto che legge una chiave DI SEDE senza ambito, con il
-   motivo. L'elenco deve solo accorciarsi: quando il sito pubblico avra' il
-   selettore di sede e `TIMEZONE` non sara' piu' una variabile globale, qui
-   resteranno soltanto login e reset-password — dove una sede non esiste.
+   motivo. L'elenco deve solo accorciarsi, e lo sta facendo: il 21/09/2026 se
+   n'e' andata quella di `slots.ts` (il fuso non e' piu' una variabile
+   globale). Quando il sito pubblico avra' il selettore di sede resteranno
+   soltanto login e reset-password — dove una sede non esiste ancora.
    ------------------------------------------------------------------ */
 const SENZA_AMBITO_AMMESSE = {
   // Nessuno e' ancora entrato: non c'e' nessuna sede da scegliere, e quello

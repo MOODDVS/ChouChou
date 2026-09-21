@@ -6,7 +6,7 @@ import { adminLang } from "./adminLang";
 import type { AdminLang } from "../../i18n/admin";
 import { caricaToday } from "./caricaToday";
 import { elencoSedi, leggi, leggiConfig, scriviConfig, sede, SEDE_UNICA, type Ambito } from "./sede";
-import { TIMEZONE, aggiornaTimezone } from "../slots";
+import { fusoDi } from "../fuso";
 import { temaEmail, type TemaEmail } from "../temaBrand";
 import { datiRistorante } from "../ristorante";
 
@@ -204,8 +204,9 @@ function intestazione(tema: TemaEmail, testo: string): string {
  * al suo indirizzo. Chi decide quali punti e' `eseguiDailyBrief`, in fondo.
  */
 async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: boolean; reason: string }> {
-  await aggiornaTimezone();
-  const ora = DateTime.now().setZone(TIMEZONE);
+  // Il recap e' di UN punto: la sua giornata comincia nel SUO fuso.
+  const fuso = await fusoDi(ambito);
+  const ora = DateTime.now().setZone(fuso);
   const oggiISO = ora.toISODate() ?? "";
   const ieri = ora.minus({ days: 1 });
   const ieriISO = ieri.toISODate() ?? "";
@@ -434,7 +435,7 @@ async function briefDiUnaSede(ambito: Ambito, force: boolean): Promise<{ sent: b
   let blocEvento = "";
   if (prossimoEv) {
     const [dEv, nomeEv] = prossimoEv;
-    const giorni = Math.round(DateTime.fromISO(dEv, { zone: TIMEZONE }).diff(ora.startOf("day"), "days").days);
+    const giorni = Math.round(DateTime.fromISO(dEv, { zone: fuso }).diff(ora.startOf("day"), "days").days);
     if (giorni <= 60) {
       const quando =
         giorni === 0 ? B.motAujourdhui : giorni === 1 ? B.motDemain : B.dansNGiorni(giorni, DateTime.fromISO(dEv).setLocale(LOC).toFormat("cccc d LLLL"));

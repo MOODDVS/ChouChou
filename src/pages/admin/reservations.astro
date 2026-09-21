@@ -13,7 +13,8 @@ import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
 import { ambitoDiRichiesta } from "../../lib/admin/sede";
-import { aggiornaTimezone } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
+import { FUSO_DEFAULT } from "../../lib/slots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT } from "../../i18n/admin";
@@ -29,15 +30,22 @@ export const prerender = false;
 // (stesso default del client al primo render). Se il cookie di sessione è
 // valido, carichiamo il giorno GIÀ sul server → la lista arriva coi dati.
 // Altrimenti ssrResa resta null e il client carica come prima (nessun rischio).
+// ⚠️ L'ordine conta. «Oggi» dipende dal fuso, il fuso dipende dalla sede, e
+// la sede si sa solo dopo aver letto il cookie: quindi prima lo staff, poi
+// l'ambito, poi il giorno. Prima era rovesciato — con `aggiornaTimezone()`
+// non si notava, perche' la variabile globale non chiedeva niente a nessuno.
 const pDateSSR = Astro.url.searchParams.get("date") ?? "";
+const tokenResa = Astro.cookies.get("mdd_at")?.value ?? "";
+const staffResa = tokenResa ? await verificaTokenLocale(tokenResa) : null;
+const ambitoResa = staffResa ? await ambitoDiRichiesta(Astro.request, staffResa) : null;
 const ssrGiorno = /^\d{4}-\d{2}-\d{2}$/.test(pDateSSR)
   ? pDateSSR
-  : new Intl.DateTimeFormat("en-CA", { timeZone: await aggiornaTimezone() }).format(new Date());
+  : new Intl.DateTimeFormat("en-CA", {
+      timeZone: ambitoResa ? await fusoDi(ambitoResa) : FUSO_DEFAULT,
+    }).format(new Date());
 let ssrResa: unknown = null;
 try {
-  const token = Astro.cookies.get("mdd_at")?.value ?? "";
-  const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrResa = await caricaResaGiorno(ssrGiorno, await ambitoDiRichiesta(Astro.request, staff));
+  if (staffResa && ambitoResa) ssrResa = await caricaResaGiorno(ssrGiorno, ambitoResa);
 } catch {
   ssrResa = null;
 }
