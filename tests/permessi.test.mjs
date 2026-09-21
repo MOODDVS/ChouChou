@@ -222,9 +222,12 @@ test("il middleware chiude anche la finestra, e con un 403", () => {
 
    ⚠️ Il dato non era generico. `ORDERS_SELECT` porta `customer_name`,
    `customer_email`, `customer_phone`: un utente senza la pagina «Commandes»
-   — che quindi la tile non la vedeva nemmeno, perche' AdminNav la rimuove —
    trovava nel sorgente della pagina i clienti del giorno con nome, email e
    telefono. Nessun errore, nessun log: bastava guardare il sorgente.
+
+   ⚠️ E qui avevo scritto «tanto la tile non la vedeva nemmeno». Era FALSO:
+   `/api/admin/pages` non guardava le caselle del singolo utente, quindi la
+   tile restava li' a prometterla. Vedi la prova qui sotto.
 
    La home e' l'unica pagina con questo problema, ed e' per costruzione: e'
    sempre permessa (PAGINA_HOME) e mette insieme dati di pagine che chi
@@ -308,4 +311,41 @@ test("le statistiche non si chiedono a chi riceverebbe un 403", () => {
   // sta leggendo quella stessa pagina.
   assert.match(HOME_DATA, /pagine: pagineConsentite\(ctx\)/);
   assert.match(HOME_PAGINA, /ssrHome\.pagine\.includes\("stats"\)/);
+});
+
+test("cio' che si NASCONDE e' cio' che non si puo' vedere, non solo cio' che il super ha spento", () => {
+  // ⚠️ IL BUCO TROVATO SU 450 GRADI (21/09/2026). `/api/admin/pages` rende
+  // `hidden`, e AdminNav ci toglie le voci della nav e le tile della home.
+  // Quel `hidden` era `admin_pages_hidden` piu' — solo per il ruolo «user» —
+  // settings e stats. Le caselle del modale utente non entravano MAI in quel
+  // calcolo: chi aveva spuntato solo «Menu» vedeva lo stesso Commandes e
+  // Réservations, e cliccandole tornava in home senza capire perche'.
+  //
+  // La porta era chiusa e il cartello diceva ancora «aperto».
+  const API = readFileSync("src/pages/api/admin/pages.ts", "utf8");
+  assert.match(API, /pagineConsentite\(await contestoDiStaff\(staff\)\)/,
+    "hidden non si calcola piu' dai permessi veri di chi chiede");
+  assert.doesNotMatch(API, /ruolo === "user" \? \[\.\.\.new Set\(\[\.\.\.hidden, \.\.\.PAGINE_SOLO_ADMIN\]\)\]/,
+    "e' tornato il calcolo che ignora le caselle del singolo utente");
+  // Al super la lista grezza: la sua pagina Réglages mostra e RISALVA quegli
+  // interruttori, e non deve risalvare scelte che non ha fatto lui.
+  assert.match(API, /isSuperUser\(staff\)\s*\n?\s*\?\s*hidden/,
+    "il super deve ricevere admin_pages_hidden com'e', o Réglages si riscrive da solo");
+});
+
+test("nascosto e vietato dicono la stessa cosa, per ogni pagina", () => {
+  // La nav si fida di `hidden`, il middleware di `puoVederePagina`. Se i due
+  // divergono, l'interfaccia mostra una porta che non si apre — o peggio,
+  // nasconde una pagina che invece funziona.
+  const TUTTE = ["orders", "reservations", "clients", "menu", "stats", "marketing", "assets", "print", "agenda", "settings"];
+  const ctx = { ruolo: "user", pagineUtente: ["menu"], nascoste: [], tutte: TUTTE };
+  const consentite = new Set(pagineConsentite(ctx));
+  const nascoste = TUTTE.filter((k) => !consentite.has(k));
+  assert.deepEqual(nascoste.sort(), ["agenda", "assets", "clients", "marketing", "orders", "print", "reservations", "settings", "stats"]);
+  for (const k of nascoste) {
+    assert.equal(puoVederePagina(k, ctx), false, `${k}: nascosta ma apribile`);
+  }
+  for (const k of consentite) {
+    assert.equal(puoVederePagina(k, ctx), true, `${k}: visibile ma vietata`);
+  }
 });

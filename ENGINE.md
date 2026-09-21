@@ -1165,10 +1165,23 @@ chi guarda puo' non avere. `caricaHomeData` pre-caricava cinque isole lato
 server e le incollava nell'HTML senza passare da nessun controllo.
 
 Il dato non era generico: `ORDERS_SELECT` porta `customer_name`,
-`customer_email`, `customer_phone`. Un utente senza la pagina «Commandes» —
-che quindi la tile non la vedeva nemmeno, perche' AdminNav la rimuove — aveva
-nel sorgente della pagina i clienti del giorno con nome, email e telefono.
-Nessun errore, nessun log: bastava guardare il sorgente.
+`customer_email`, `customer_phone`. Un utente senza la pagina «Commandes»
+aveva nel sorgente della pagina i clienti del giorno con nome, email e
+telefono. Nessun errore, nessun log: bastava guardare il sorgente.
+
+⚠️ **Qui il 21/09 avevo scritto che «la tile non la vedeva nemmeno, perche'
+AdminNav la rimuove». Era falso**, e l'ha trovato il primo giro di prove su
+450 Gradi. `/api/admin/pages` calcolava `hidden` dalle sole pagine spente dal
+super, piu' `settings` e `stats` per il ruolo «user»: le caselle del singolo
+utente non entravano mai in quel calcolo. Quindi chi aveva spuntato solo
+«Menu» vedeva lo stesso le voci Commandes e Réservations nella nav e le loro
+tile in home — cliccarle non portava da nessuna parte, ma l'interfaccia
+prometteva pagine che non c'erano: sembrava rotta invece che chiusa.
+
+Adesso `hidden` e' il complemento di `pagineConsentite(ctx)`: ruolo, caselle
+del modale utente e pagine spente per l'installazione, tutto dallo stesso
+posto. Al super si continua a dare la lista grezza, perche' la sua pagina
+Réglages mostra e risalva quegli interruttori.
 
 Adesso `caricaHomeData(ambito, ctx)` prende il contesto dei permessi, e
 **un'isola vietata non si legge nemmeno dal database**. Toglierla solo dalla

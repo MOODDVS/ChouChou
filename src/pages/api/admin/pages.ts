@@ -1,11 +1,13 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { isSuperUser, ruoloDi, PAGINE_SOLO_ADMIN, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
+import { isSuperUser, ruoloDi, PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, PUBLIC_LANG_CODES, PUBLIC_LANG_DEFAULT, tabDaDipendenze } from "../../../lib/admin/superAdmin";
 import { adminT, isAdminLang, type AdminLang } from "../../../i18n/admin";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { CHIAVE_ADMIN_LANG, CHIAVE_FEATURES, CHIAVE_PWA_MARCHIO, CACHE_ADMIN_BOOT, caricaBootAdmin } from "../../../lib/admin/adminBoot";
 import { cacheDel } from "../../../lib/cache";
+import { pagineConsentite } from "../../../lib/admin/permessiRegole";
+import { contestoDiStaff } from "../../../lib/admin/permessi";
 
 export const prerender = false;
 
@@ -57,10 +59,24 @@ export const GET: APIRoute = async ({ request }) => {
   const logo = boot.logo;
   const lang = boot.lang;
   const publicLang = { langs: boot.publicLangs, def: boot.publicLangDefault };
-  // Ruolo "user": in più delle pagine spente in Réglages, mai Admin né Statistiques.
+  // ⚠️ `hidden` NON e' piu' solo quello che il super ha spento (21/09/2026).
+  // E' il complemento di cio' che QUESTA persona puo' vedere: ruolo, caselle
+  // del suo modale utente e pagine spente per l'installazione, tutto insieme.
+  //
+  // Prima erano le pagine spente dal super piu' — per il ruolo "user" —
+  // settings e stats. Le caselle del singolo utente non entravano mai qui,
+  // quindi chi aveva spuntato solo «Menu» vedeva lo stesso le voci Commandes
+  // e Réservations nella nav e le loro tile in home. Cliccarle non portava da
+  // nessuna parte (il middleware rimandava indietro), ma l'interfaccia
+  // prometteva pagine che non c'erano: sembrava rotta invece che chiusa.
+  //
+  // Al SUPER si da' la lista GREZZA: la sua pagina Réglages mostra e risalva
+  // quegli interruttori, e non deve risalvare scelte che non ha fatto lui.
   const ruolo = ruoloDi(staff);
-  const hiddenRuolo =
-    ruolo === "user" ? [...new Set([...hidden, ...PAGINE_SOLO_ADMIN])] : hidden;
+  const consentite = new Set(pagineConsentite(await contestoDiStaff(staff)));
+  const hiddenRuolo = isSuperUser(staff)
+    ? hidden
+    : PAGINE_ADMIN.map((pg) => pg.key).filter((k) => !consentite.has(k));
   // Tab che dipendono da una pagina spenta (es. Statistiques → Réservations):
   // si nascondono da soli, senza che il super debba spegnerli a mano.
   // Al SUPER si dà la lista grezza: la sua pagina Réglages mostra e risalva
