@@ -15,6 +15,7 @@
  */
 import { caricaBootAdmin, cssTema } from "../../lib/admin/adminBoot";
 import { CLIENT } from "../../config/client";
+import Fonts from "../Fonts.astro";
 import "../../styles/modal.css";   // guscio condiviso dei modali (.md-*)
 import "../../styles/switch.css";  // interruttore condiviso (.switch)
 import "../../styles/toast.css";   // toast condiviso (.toast)
@@ -93,4 +94,4 @@ const nonce = Astro.locals.cspNonce;
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
 {/* Font handwriting per il saluto header (desktop/tablet). */}
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Homemade+Apple&display=swap" />
+    <Fonts mano />

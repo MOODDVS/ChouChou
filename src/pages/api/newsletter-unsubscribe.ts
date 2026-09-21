@@ -24,17 +24,22 @@ function pagina(titolo: string, testo: string): Response {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
   <title>${titolo} — ${CLIENT.nome}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;700&display=swap" />
+  <!-- ⚠️ Niente Google Fonts qui, e non e' solo velocita'. Questa pagina la
+       apre chi si CANCELLA da una newsletter: mandare il suo IP a Google nel
+       momento esatto in cui chiede di non essere piu' tracciato sarebbe il
+       posto peggiore per farlo. E' una pagina di due righe: i caratteri di
+       sistema bastano, e arrivano senza nessuna richiesta di rete.
+       Le altre pagine usano i font serviti dal dominio (vedi Fonts.astro),
+       ma questa e' una stringa HTML in un'API e non puo' usare quel
+       componente. -->
   <style>
-    body { margin: 0; background: #231f20; color: #fff; font-family: "Nunito Sans", sans-serif;
+    body { margin: 0; background: #231f20; color: #fff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: 1.5rem; }
     .box { max-width: 460px; }
-    .claim { font-family: "Marcellus", serif; letter-spacing: 0.3em; text-transform: uppercase; font-size: 0.7rem; color: #dfab4e; margin: 0 0 1rem; }
-    h1 { font-family: "Marcellus", serif; font-weight: 400; font-size: 1.8rem; margin: 0 0 0.8rem; }
+    .claim { font-family: Georgia, "Times New Roman", serif; letter-spacing: 0.3em; text-transform: uppercase; font-size: 0.7rem; color: #dfab4e; margin: 0 0 1rem; }
+    h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: 1.8rem; margin: 0 0 0.8rem; }
     p { color: #b3aca6; line-height: 1.7; margin: 0 0 1.8rem; }
-    a { display: inline-block; font-family: "Marcellus", serif; font-size: 0.85rem; font-weight: 700;
+    a { display: inline-block; font-family: Georgia, "Times New Roman", serif; font-size: 0.85rem; font-weight: 700;
       letter-spacing: 0.16em; text-transform: uppercase; color: #fff; text-decoration: none;
       border: 2px solid rgba(255,255,255,0.9); padding: 12px 30px; transition: background .2s, color .2s; }
     a:hover { background: #fff; color: #231f20; }

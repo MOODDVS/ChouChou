@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from "astro/config";
+import { defineConfig, fontProviders } from "astro/config";
 import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
@@ -30,6 +30,78 @@ export default defineConfig({
   // cambiare la spaziatura di pagine che nessuno ha toccato.
   // ⚠️ Questo file e' `merge=ours`: va messo a mano anche in OGNI cliente.
   compressHTML: true,
+  /**
+   * I FONT, SCARICATI UNA VOLTA IN BUILD E SERVITI DA QUI (21/09/2026).
+   *
+   * Prima ogni pagina — ventitre' file, admin compreso — aveva le sue due
+   * righe `preconnect` piu' un foglio di stile da fonts.googleapis.com. Sono
+   * due handshake verso un terzo prima che il browser possa disegnare una
+   * lettera, e stanno sul percorso critico: e' il pezzo piu' grosso dell'LCP
+   * di un sito vetrina su mobile.
+   *
+   * ⚠️ E non e' solo velocita'. Un foglio servito da Google porta l'IP del
+   * visitatore a Google a ogni visita: in Germania un tribunale l'ha gia'
+   * giudicata una violazione del GDPR. Un ristorante belga con una pagina
+   * privacy non dovrebbe farlo, e cosi' non lo fa piu'.
+   *
+   * Astro li scarica in build, li serve dal dominio del cliente e genera i
+   * ripieghi metrici — che e' anche cio' che toglie il salto del testo
+   * quando il font arriva (CLS).
+   *
+   * ⚠️ Questo file e' `merge=ours`: questo blocco va messo A MANO in OGNI
+   * cliente, e ogni cliente ci aggiunge le SUE famiglie. Vedi PRESTAZIONI.md.
+   */
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: "Nunito Sans",
+      cssVariable: "--font-body",
+      weights: [400, 600, 700, 800, 900],
+      styles: ["normal"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Quicksand",
+      cssVariable: "--font-title",
+      weights: [500, 600, 700],
+      styles: ["normal"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      // Titoli del widget di prenotazione e delle pagine pubbliche del motore.
+      provider: fontProviders.google(),
+      name: "Marcellus",
+      cssVariable: "--font-serif",
+      weights: [400],
+      styles: ["normal"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      // Titoloni maiuscoli (widget prenotazione, demo).
+      provider: fontProviders.google(),
+      name: "Bebas Neue",
+      cssVariable: "--font-display",
+      weights: [400],
+      styles: ["normal"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      // Firma a mano del saluto in home. Un peso solo, e non e' critica:
+      // non si precarica (vedi Fonts.astro).
+      provider: fontProviders.google(),
+      name: "Homemade Apple",
+      cssVariable: "--font-mano",
+      weights: [400],
+      styles: ["normal"],
+      subsets: ["latin"],
+      display: "swap",
+    },
+  ],
   integrations: [react(), sitemap()],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {

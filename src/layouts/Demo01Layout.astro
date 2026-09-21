@@ -8,6 +8,7 @@ import { datiRistorante } from "../lib/ristorante";
 import { ambitoPubblico } from "../lib/admin/sede";
 import { supabaseAdmin } from "../lib/db";
 import { CLIENT } from "../config/client";
+import Fonts from "../components/Fonts.astro";
 
 interface Props { title: string; lang?: string; }
 const { title, lang = "fr" } = Astro.props;
@@ -30,9 +31,7 @@ try { const d = await datiRistorante(await ambitoPubblico()); dati = { ...d, nom
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
     <link rel="icon" href={favicon} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Marcellus&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <Fonts vetrina />
     <style is:global>
       :root { --bg:#0d0d0d; --panel:#141414; --panel2:#1a1a1a; --cream:#f7f1e6; --muted:#b8a894; --accent:#e23b2e; --accent2:#c02c20; --green:#46a860; --line:rgba(247,241,230,.12); --title:"Bebas Neue",system-ui,sans-serif; --disp:"Marcellus",Georgia,serif; --body:"Nunito Sans",system-ui,sans-serif; --maxw:1440px; }
       * { box-sizing:border-box; margin:0; padding:0; }

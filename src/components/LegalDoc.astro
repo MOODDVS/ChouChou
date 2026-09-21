@@ -2,6 +2,7 @@
 // Pagina legale RestoHub (Termini, Privacy, ...) — standalone, brand RestoHub,
 // con selettore lingua (5 lingue). Il contenuto arriva da src/lib/legal.
 import { AZIENDA, LEGAL_LANGS, type LegalDoc, type LegalLang } from "../lib/legal/legalContent";
+import Fonts from "./Fonts.astro";
 interface Props { doc: LegalDoc; current: LegalLang; }
 const { doc, current } = Astro.props;
 const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
@@ -12,9 +13,7 @@ const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{tabTitle}</title>
     <link rel="icon" type="image/svg+xml" href="/restohub/icon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Quicksand:wght@500;600;700&display=swap" />
+    <Fonts />
     <style>
       :root {
         --petrol: #002d34; --coral: #dd5851; --bg: #f4f6f6; --card: #ffffff;

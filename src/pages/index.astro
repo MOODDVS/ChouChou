@@ -12,6 +12,7 @@ import { adminT } from "../i18n/admin";
 import { TEMA_DEFAULT } from "../lib/admin/superAdmin";
 import { cacheOr } from "../lib/cache";
 import { linksSocial } from "../lib/links";
+import Fonts from "../components/Fonts.astro";
 
 export const prerender = false;
 
@@ -93,12 +94,7 @@ const cAccent = col("accent");
     <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content={cBg} />
     <link rel="icon" href={faviconHref} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito+Sans:wght@400;700&display=swap"
-    />
+    <Fonts />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {

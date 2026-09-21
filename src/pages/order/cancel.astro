@@ -3,6 +3,7 @@
 // link di pagamento). Standalone, stile di /reservation/cancel. Legge ?token=,
 // mostra il riepilogo, chiede conferma e chiama POST /api/order-cancel.
 import { CLIENT } from "../../config/client";
+import Fonts from "../../components/Fonts.astro";
 ---
 
 <!doctype html>
@@ -12,12 +13,7 @@ import { CLIENT } from "../../config/client";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Annulation — {CLIENT.nome}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Marcellus&family=Nunito+Sans:wght@400;600;700&display=swap"
-    />
+    <Fonts vetrina />
     <style is:global>
       :root { --font-body: "Nunito Sans", system-ui, sans-serif; }
       * { box-sizing: border-box; }
