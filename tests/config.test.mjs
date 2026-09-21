@@ -13,6 +13,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { SONO_IL_MOTORE } from "./ambiente.mjs";
 import { join } from "node:path";
 import {
   CLASSIFICA_CONFIG,
@@ -150,7 +151,7 @@ test("una chiave DI SEDE non si legge mai senza ambito, fuori dalle eccezioni di
   assert.deepEqual(colpevoli, [], "letture a livello marchio di una chiave che cambia per sede");
 });
 
-test("le eccezioni dichiarate esistono ancora davvero", () => {
+test.skipIf(!SONO_IL_MOTORE)("le eccezioni dichiarate esistono ancora davvero", () => {
   // ⚠️ Una rete che protegge un'eccezione gia' sparita e' un'eccezione che
   // nessuno togliera' mai piu' dall'elenco. Se il posto e' stato sistemato,
   // la riga qui sopra deve andarsene.

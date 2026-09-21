@@ -22,6 +22,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+// ⚠️ Perche' alcune prove di questo file si saltano nei clienti: tests/ambiente.mjs.
+import { SONO_IL_MOTORE } from "./ambiente.mjs";
 
 /** Tutti i file sotto una cartella, ricorsivamente. */
 function tuttiIFile(dir, acc = []) {
@@ -106,7 +108,30 @@ const ROTTE_DEL_MOTORE = {
   "src/pages/reservation-test.astro": "banco di prova del widget, per chi installa",
 };
 
-test("fuori da admin, API e demo il motore ha solo le sue rotte dichiarate", () => {
+test("il motore si riconosce, e un cliente non si spaccia per il motore", () => {
+  // ⚠️ QUESTA NON SI SALTA MAI, ed e' la contropartita dei tre `skipIf`.
+  //
+  // Il marcatore e' `src/pages/demo01`. Se un giorno sparisse anche dal
+  // motore, i tre `skipIf` qui sotto si accenderebbero DA SOLI e tre reti
+  // del confine smetterebbero di girare senza che niente lo dica: il modo
+  // peggiore di perdere una rete, perche' resta scritta.
+  //
+  // Il controincrocio e' `site:` in astro.config.mjs, che nel motore e'
+  // ancora il segnaposto e in ogni cliente e' il suo dominio.
+  const site = (readFileSync("astro.config.mjs", "utf8").match(/site:\s*"([^"]+)"/) || [])[1] || "";
+  const segnaposto = /example\.com/.test(site);
+  if (segnaposto) {
+    assert.ok(SONO_IL_MOTORE,
+      "site e' ancora il segnaposto ma demo01 non c'e' piu': tre reti del confine si stanno saltando in silenzio");
+  } else {
+    // E questo messaggio e' per il cliente che ha tenuto il demo: spiega in
+    // una riga perche' le tre prove qui sotto gli sono diventate rosse.
+    assert.ok(!SONO_IL_MOTORE,
+      `questo repo ha un dominio suo (${site}) ma tiene src/pages/demo01: al clone si cancella, e finche' c'e' le reti del confine del motore girano anche qui`);
+  }
+});
+
+test.skipIf(!SONO_IL_MOTORE)("fuori da admin, API e demo il motore ha solo le sue rotte dichiarate", () => {
   // ⚠️ Il 16/09/2026 qui dentro c'erano VENTUNO pagine vetrina di un cliente
   // vero — testi e fotografie comprese — tenute come «punto di partenza».
   // Nessun altro cliente le avrebbe mai usate cosi', e intanto ogni modifica
@@ -127,7 +152,7 @@ test("fuori da admin, API e demo il motore ha solo le sue rotte dichiarate", () 
   assert.deepEqual(morte.sort(), [], `dichiarate ma non esistono piu': ${morte.join(", ")}`);
 });
 
-test("nessuna pagina del motore passa da un layout di sito", () => {
+test.skipIf(!SONO_IL_MOTORE)("nessuna pagina del motore passa da un layout di sito", () => {
   // `layouts/Layout.astro` era il guscio del sito vetrina: intestazione,
   // menu di navigazione, piede. Se ricompare, e' ricomparso un sito.
   const conLayout = CODICE.filter((f) => !dentroUnDemo(f))
