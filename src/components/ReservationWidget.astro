@@ -285,6 +285,7 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       import { CHIAVE_REF } from "../lib/sorgenteRegole";
       import { TESTI_WIDGET, SERVIZI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../lib/reservationI18n";
       import { PREFISSI } from "../lib/prefissi";
+      import { urlConSede } from "../lib/sedeUrl";
       import { CLIENT } from "../config/client";
 
       // ⚠️ IL PUNTO VIAGGIA CON OGNI CHIAMATA.
@@ -294,8 +295,9 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       // Vuoto = sede unica, ed e' il caso dei clienti di oggi: la stringa non
       // si aggiunge nemmeno, e l'URL resta quello di sempre.
       const SEDE = (document.getElementById("rw") as HTMLElement | null)?.dataset.sede || "";
-      const conSede = (u: string): string =>
-        SEDE ? u + (u.includes("?") ? "&" : "?") + "sede=" + encodeURIComponent(SEDE) : u;
+      // ⚠️ La regola (quale parametro, come si attacca) sta in lib/sedeUrl,
+      // un posto solo: qui si lega soltanto alla sede DI QUESTO widget.
+      const conSede = (u: string): string => urlConSede(u, SEDE);
 
       type Servizio = { key: string; from: string; to: string; hold: number; slot: number; days: number[] };
       type Zona = { name: string; seats: number; max_ins?: number };

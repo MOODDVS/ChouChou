@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "../i18n/ui";
+import { urlConSede } from "../lib/sedeUrl";
 
 interface SlotPickerProps {
   onSelect?: (slot: string | null) => void;
   lang?: "fr" | "en";
+  /** Il punto da cui si ritira. Vuoto = punto unico (vedi lib/sedeUrl). */
+  sede?: string;
 }
 
 type Stato = "loading" | "ok" | "chiuso" | "errore";
@@ -13,7 +16,8 @@ type Stato = "loading" | "ok" | "chiuso" | "errore";
 // bottone per mostrarli/nasconderli tutti.
 const SLOT_VISIBILI = 12;
 
-export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
+export default function SlotPicker({ onSelect, lang = "fr", sede = "" }: SlotPickerProps) {
+  const conSede = (u: string) => urlConSede(u, sede);
   const t = useTranslations(lang);
 
   const [stato, setStato] = useState<Stato>("loading");
@@ -26,7 +30,8 @@ export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
 
     async function caricaSlots() {
       try {
-        const res = await fetch("/api/slots");
+        // ⚠️ Gli orari di ritiro sono di UN punto: senza sede erano quelli del primo.
+        const res = await fetch(conSede("/api/slots"));
         if (!res.ok) {
           if (attivo) setStato("errore");
           return;
@@ -50,7 +55,7 @@ export default function SlotPicker({ onSelect, lang = "fr" }: SlotPickerProps) {
     return () => {
       attivo = false;
     };
-  }, []);
+  }, [sede]); // ⚠️ `sede`: se la pagina cambia punto, gli orari vanno richiesti di nuovo.
 
   function scegli(slot: string) {
     const nuovo = slot === selezionato ? null : slot;

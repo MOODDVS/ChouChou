@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
+import { urlConSede } from "../lib/sedeUrl";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -128,6 +129,9 @@ interface OrderAppProps {
    *  Anche quando è true, la foto compare solo sui piatti che ne hanno una:
    *  niente riquadri vuoti a spezzare le righe. Default: nessuna foto. */
   foto?: boolean;
+  /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
+   *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
+  sede?: string;
 }
 
 type Vista = "menu" | "checkout";
@@ -159,7 +163,10 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, sede = "" }: OrderAppProps) {
+  // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
+  // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
+  const conSede = (u: string) => urlConSede(u, sede);
   // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
   // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
   // Boissons = tutte le bevande (category_order >= 9)
@@ -423,7 +430,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setCouponLoading(true);
     setCouponMsg(null);
     try {
-      const res = await fetch("/api/coupon", {
+      const res = await fetch(conSede("/api/coupon"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -470,7 +477,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setInvio(true);
     setErroreCheckout(null);
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await fetch(conSede("/api/checkout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -649,7 +656,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
             {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
                 che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
                 che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} />
+            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
               <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />

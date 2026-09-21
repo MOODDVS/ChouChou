@@ -112,6 +112,88 @@ function senzaCommenti(t) {
 }
 
 /* ============================================================
+   E IL BROWSER DEVE DIRLO
+   ============================================================ */
+
+/**
+ * Le prove qui sopra guardano il SERVER: nessun endpoint pubblico si sceglie
+ * la sede da solo. Ma un endpoint che CHIEDE il punto e un browser che non lo
+ * DICE danno lo stesso risultato di prima — il ripiego, cioe' la prima sede.
+ *
+ * ⚠️ Il 21/09/2026 era esattamente cosi': `ReservationWidget` mandava la sede
+ * a ogni chiamata, `OrderApp`, `SlotPicker` e `ContactForm` no. Il server era
+ * pronto da giorni, e nessuna prova se ne accorgeva: si prenotava nel punto
+ * giusto e si ordinava nel primo.
+ */
+
+/** Chi il punto lo chiede alla richiesta: letto dagli endpoint, non a mano. */
+const ENDPOINT_DI_SEDE = readdirSync("src/pages/api")
+  .filter((f) => f.endsWith(".ts"))
+  .filter((f) => /ambitoPubblicoChiesto\(/.test(readFileSync(`src/pages/api/${f}`, "utf8")))
+  .map((f) => f.replace(/\.ts$/, ""));
+
+/** I componenti del fronte pubblico (quelli di `admin/` non c'entrano). */
+const COMPONENTI_PUBBLICI = readdirSync("src/components")
+  .filter((f) => /\.(astro|tsx)$/.test(f))
+  .map((f) => `src/components/${f}`);
+
+/** Chiamate che il punto NON lo mandano, e hanno ragione. */
+const TACCIONO_APPOSTA = {
+  "src/components/ReservationWidget.astro": [
+    // La modifica (PUT) di una prenotazione che esiste gia': la sua sede sta
+    // nella riga, e il token e' l'autorizzazione. Mandare un punto qui
+    // vorrebbe dire poter spostare una prenotazione cambiando un URL.
+    'modifyToken ? "/api/reservation"',
+  ],
+};
+
+test("gli endpoint di sede esistono (le due prove qui sotto non girano a vuoto)", () => {
+  assert.ok(ENDPOINT_DI_SEDE.includes("checkout"), "checkout non chiede piu' il punto alla richiesta");
+  assert.ok(ENDPOINT_DI_SEDE.length >= 4, `letti solo ${ENDPOINT_DI_SEDE.length} endpoint di sede`);
+  assert.ok(COMPONENTI_PUBBLICI.length >= 4, "non si leggono piu' i componenti pubblici");
+});
+
+test("il browser dice il punto a ogni chiamata che lo chiede", () => {
+  const muti = [];
+  for (const f of COMPONENTI_PUBBLICI) {
+    const src = readFileSync(f, "utf8");
+    const scuse = TACCIONO_APPOSTA[f] ?? [];
+    // ⚠️ La finestra prende anche un pezzo DOPO l'URL: le scuse dichiarate
+    // sono frammenti di codice veri, virgolette comprese.
+    for (const m of src.matchAll(/(.{0,40})"\/api\/([a-z-]+)[^"\n]*"?/g)) {
+      const [intero, prima, nome] = m;
+      if (!ENDPOINT_DI_SEDE.includes(nome)) continue;
+      if (prima.includes("conSede(")) continue;
+      if (scuse.some((v) => intero.includes(v))) continue;
+      muti.push(`${f}: /api/${nome}`);
+    }
+  }
+  assert.deepEqual(muti.sort(), [],
+    "una chiamata senza sede finisce sulla PRIMA: menu falso, ordine e incasso nel punto sbagliato");
+});
+
+test("le scuse dichiarate esistono ancora", () => {
+  const morte = [];
+  for (const [f, scuse] of Object.entries(TACCIONO_APPOSTA)) {
+    const src = readFileSync(f, "utf8");
+    for (const v of scuse) if (!src.includes(v)) morte.push(`${f}: ${v}`);
+  }
+  assert.deepEqual(morte, [], "dichiarate mute ma non esistono piu': toglile dall'elenco");
+});
+
+test("la regola di come si attacca il punto sta in un posto solo", () => {
+  // Ogni componente si tiene la SUA `conSede(u)` legata alla propria sede —
+  // e' un'associazione. Il parametro e il modo di attaccarlo no: due copie
+  // di quella riga sono due copie che prima o poi divergono.
+  const L = readFileSync("src/lib/sedeUrl.ts", "utf8");
+  assert.match(L, /PARAM_SEDE/, "sedeUrl non usa piu' la costante del parametro");
+  const aMano = COMPONENTI_PUBBLICI.filter((f) =>
+    /encodeURIComponent\(\s*(SEDE|sede)\s*\)/.test(readFileSync(f, "utf8")),
+  );
+  assert.deepEqual(aMano, [], "questo componente si riscrive la regola invece di usare urlConSede");
+});
+
+/* ============================================================
    DOVE LA SEDE LA DICE IL DATO, NON LA RICHIESTA
    ============================================================ */
 

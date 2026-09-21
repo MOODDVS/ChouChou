@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent, ChangeEvent } from "react";
+import { urlConSede } from "../lib/sedeUrl";
 
 type Stato = "idle" | "invio" | "ok" | "errore";
 
@@ -18,7 +19,10 @@ interface Labels {
   privacyHref: string;  // "/privacy" oppure "/en/privacy"
 }
 
-export default function ContactForm({ t, lang = "fr" }: { t: Labels; lang?: "fr" | "en" }) {
+// ⚠️ Anche il modulo contatti ha un punto: il messaggio arriva nella casella
+// di QUELLA sede. Senza, finiva sempre in quella della prima.
+export default function ContactForm({ t, lang = "fr", sede = "" }: { t: Labels; lang?: "fr" | "en"; sede?: string }) {
+  const conSede = (u: string) => urlConSede(u, sede);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -32,7 +36,7 @@ export default function ContactForm({ t, lang = "fr" }: { t: Labels; lang?: "fr"
     if (!accettato) return; // sicurezza: non invia senza consenso
     setStato("invio");
     try {
-      const res = await fetch("/api/contact", {
+      const res = await fetch(conSede("/api/contact"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome, email, telefono, oggetto, messaggio, lang }),
