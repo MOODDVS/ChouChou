@@ -1,8 +1,7 @@
 import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
-import { sessioneRiconosciuta, claimsDaToken } from "./lib/admin/adminAuth";
-import { caricaBootAdmin } from "./lib/admin/adminBoot";
-import { ruoloDi, PAGINE_ADMIN } from "./lib/admin/superAdmin";
+import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
+import { contestoDaToken } from "./lib/admin/permessi";
 import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi } from "./lib/admin/permessiRegole";
 
 /**
@@ -180,22 +179,11 @@ const securityHeaders = defineMiddleware(async (context, next) => {
 const PUBBLICHE_ADMIN = new Set(["/admin/login", "/admin/reset-password"]);
 
 /** Cosa serve per decidere: ruolo, pagine dell'utente, pagine spente. */
-async function contestoPermessi(token: string) {
-  const staff = await claimsDaToken(token);
-  if (!staff) return null;
-  let nascoste: string[] = [];
-  try {
-    nascoste = (await caricaBootAdmin()).hiddenPages;
-  } catch {
-    nascoste = [];
-  }
-  return {
-    ruolo: ruoloDi(staff),
-    pagineUtente: staff.pages,
-    nascoste,
-    tutte: PAGINE_ADMIN.map((pg) => pg.key),
-  };
-}
+// ⚠️ Il contesto si costruisce in `lib/admin/permessi.ts`, non qui. Ne
+// esisteva una copia in questo file e una nell'SSR della home: due copie
+// della stessa domanda, e la risposta sbagliata non da' nessun errore — da'
+// dati che chi guarda non doveva vedere.
+const contestoPermessi = contestoDaToken;
 
 const authGuardAdmin = defineMiddleware(async (context, next) => {
   const { pathname } = new URL(context.request.url);

@@ -1063,6 +1063,69 @@ alla casella del marchio invece che del punto; `assicuraLocation` in
 chiamava piu' nessuno, ma restava esportata, pronta per il primo che la
 riusava.
 
+## I permessi — la porta, non il cartello (20–21/09/2026)
+
+Prima di questo lavoro il ruolo era **un suggerimento**. La nav nascondeva i
+link nel browser, `settings` e `super` si difendevano dentro uno `<script>` —
+cioe' dopo che la pagina era gia' stata mandata — e delle 48 API sotto
+`/api/admin/` solo cinque controllavano chi chiamava. Un «utente» che
+scriveva `/admin/stats` a mano riceveva il fatturato del giorno gia' calcolato
+dal server e incollato nell'HTML.
+
+**La regola sta in `permessiRegole.ts`** (puro, senza database): quali pagine
+vede un ruolo, `API_PAGINA` che lega ogni endpoint alla sua pagina,
+`puoVederePagina` e `puoChiamareApi`.
+
+**Chi la applica sono due**, e usano lo stesso contesto:
+
+- il **middleware**, per ogni richiesta: `/admin/<pagina>` non permessa →
+  redirect su `/admin`; `/api/admin/*` non permessa → **403 JSON**, mai un
+  redirect (un redirect a una `fetch` arriva come HTML dove il client aspetta
+  JSON, e il messaggio d'errore parla di parsing invece che di permessi);
+- **l'SSR della home**, per decidere cosa mettere nell'HTML.
+
+⚠️ **NEL DUBBIO SI LASCIA APERTO.** Una pagina o un'API sconosciuta e'
+permessa: una pagina nuova non deve nascere bloccata, e se le claims non si
+leggono (JWKS irraggiungibile) non si blocca niente. La severita' sta
+altrove: una rete fallisce se un file sotto `pages/api/admin` non e' in
+`API_PAGINA`, cosi' la dimenticanza si paga in `npm test` e non in produzione.
+
+### La porta chiusa e la finestra aperta (21/09/2026)
+
+Chiuse le API, restava la home. E' l'unica pagina con questo problema, ed e'
+per costruzione: e' **sempre permessa**, e mette insieme dati di pagine che
+chi guarda puo' non avere. `caricaHomeData` pre-caricava cinque isole lato
+server e le incollava nell'HTML senza passare da nessun controllo.
+
+Il dato non era generico: `ORDERS_SELECT` porta `customer_name`,
+`customer_email`, `customer_phone`. Un utente senza la pagina «Commandes» —
+che quindi la tile non la vedeva nemmeno, perche' AdminNav la rimuove — aveva
+nel sorgente della pagina i clienti del giorno con nome, email e telefono.
+Nessun errore, nessun log: bastava guardare il sorgente.
+
+Adesso `caricaHomeData(ambito, ctx)` prende il contesto dei permessi, e
+**un'isola vietata non si legge nemmeno dal database**. Toglierla solo dalla
+risposta chiuderebbe la falla lo stesso, ma lascerebbe il server a
+interrogare Supabase per righe che butta via — e chi tocca il file dopo non
+avrebbe modo di accorgersi che quel `.data` non doveva uscire di li'.
+
+⚠️ **I due rami della home devono concordare anche quando rifiutano.** Con
+SSR le isole arrivano dall'HTML, senza SSR dalle `fetch`. Un'isola assente
+non e' un'isola vuota: e' un rifiuto, e `fakeRes` rende `ok: false`
+esattamente come farebbe un 403. Altrimenti la stessa pagina si comporta in
+due modi diversi a seconda di quale ramo e' partito — e
+`(await res.json()).orders` esplode su `undefined`.
+
+Le altre pagine (orders, clients, menu, stats) pre-caricano i dati della
+**loro** pagina, e il middleware ci arriva prima: li' non serve niente.
+
+**Il contesto si costruisce in un posto solo**, `lib/admin/permessi.ts`. Ne
+erano nate due copie — una nel middleware, una che stava per nascere nell'SSR
+— e due copie della stessa domanda sono il modo in cui si smette di sapere
+quale risponde. Qui la risposta sbagliata non da' nessun errore: da' dati che
+chi guarda non doveva vedere.
+
+
 ## FAB — il pulsante in basso a destra (unificato 13/09/2026)
 
 **Dove vive.** `src/styles/fab.css`, importato una volta da `AdminHead` →

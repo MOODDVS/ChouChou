@@ -22,6 +22,7 @@ import TileSearchConsole from "../../components/admin/home/TileSearchConsole.ast
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
+import { contestoDiStaff } from "../../lib/admin/permessi";
 import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
@@ -40,7 +41,15 @@ let ssrHome: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrHome = await caricaHomeData(await ambitoDiRichiesta(Astro.request, staff));
+  // ⚠️ Il contesto dei permessi va passato, non dedotto qui: e' lo STESSO
+  // che usa il middleware per decidere se un'API risponde. Due copie di
+  // quella decisione e i dati nell'HTML direbbero una cosa e le API un'altra.
+  if (staff) {
+    ssrHome = await caricaHomeData(
+      await ambitoDiRichiesta(Astro.request, staff),
+      await contestoDiStaff(staff),
+    );
+  }
 } catch {
   ssrHome = null;
 }
@@ -1292,7 +1301,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // presenti, i tile principali appaiono all'istante senza fetch; le
           // statistiche (3) partono subito ma si attendono solo al momento
           // dell'uso, così non bloccano i primi tile. Senza SSR → come prima.
-          const fakeRes = (obj: any) => ({ ok: true, json: async () => obj });
+          // ⚠️ Un'isola ASSENTE non e' un'isola vuota: e' un rifiuto. L'SSR
+          // non manda quello che chi guarda non puo' vedere, ed e' esattamente
+          // quello che farebbe l'API con un 403 — quindi qui si risponde
+          // `ok: false`, e i due rami si comportano uguale.
+          const fakeRes = (obj: any) =>
+            obj === undefined || obj === null
+              ? { ok: false, json: async () => ({}) }
+              : { ok: true, json: async () => obj };
           let ssrHome: any = null;
           try {
             const raw = document.getElementById("ssr-home")?.textContent?.trim();
@@ -1310,9 +1326,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             resToday = fakeRes(ssrHome.today);
             resMenu = fakeRes(ssrHome.menu);
             resCats = fakeRes(ssrHome.categories);
-            const pSD = fetch("/api/admin/stats?period=day", { headers });
-            const pSM = fetch("/api/admin/stats?period=month", { headers });
-            const pSW = fetch("/api/admin/stats?period=week", { headers });
+            // Le statistiche restano lato client. Se chi guarda non ha la
+            // pagina, l'API risponde 403: chiederle tre volte per poi buttare
+            // via la risposta fa sembrare rotto quello che funziona.
+            const vedeStats = !Array.isArray(ssrHome.pagine) || ssrHome.pagine.includes("stats");
+            const negato = () => Promise.resolve(new Response("{}", { status: 403 }));
+            const pSD = vedeStats ? fetch("/api/admin/stats?period=day", { headers }) : negato();
+            const pSM = vedeStats ? fetch("/api/admin/stats?period=month", { headers }) : negato();
+            const pSW = vedeStats ? fetch("/api/admin/stats?period=week", { headers }) : negato();
             const lazy = (p: Promise<Response>) => ({
               ok: true,
               json: async () => {

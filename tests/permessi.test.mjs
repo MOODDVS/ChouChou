@@ -22,6 +22,7 @@ import {
   PAGINE_SOLO_ADMIN,
   PAGINE_SOLO_SUPER,
   API_PAGINA,
+  PAGINA_APERTA,
   chiaveApi,
   puoChiamareApi,
 } from "../src/lib/admin/permessiRegole.ts";
@@ -208,4 +209,103 @@ test("il middleware chiude anche la finestra, e con un 403", () => {
     /puoChiamareApi[\s\S]{0,300}status:\s*403/.test(mw),
     "il controllo non porta a un 403: a un'API si risponde, non si redirige — un 302 verso una pagina HTML manderebbe in confusione chi chiama",
   );
+});
+
+/* ============================================================
+   L'SSR DELLA HOME — la porta chiusa e la finestra aperta (21/09/2026)
+   ============================================================
+
+   Le API sotto /api/admin/ rispondono 403 a chi non ha quella pagina. Ma la
+   home PRE-CARICA cinque isole lato server e le incolla nell'HTML, e quel
+   percorso non passava dal middleware: la porta era chiusa e la finestra
+   aperta.
+
+   ⚠️ Il dato non era generico. `ORDERS_SELECT` porta `customer_name`,
+   `customer_email`, `customer_phone`: un utente senza la pagina «Commandes»
+   — che quindi la tile non la vedeva nemmeno, perche' AdminNav la rimuove —
+   trovava nel sorgente della pagina i clienti del giorno con nome, email e
+   telefono. Nessun errore, nessun log: bastava guardare il sorgente.
+
+   La home e' l'unica pagina con questo problema, ed e' per costruzione: e'
+   sempre permessa (PAGINA_HOME) e mette insieme dati di pagine che chi
+   guarda puo' non avere. Le altre (orders, clients, menu, stats) pre-caricano
+   i dati della LORO pagina, e il middleware ci arriva prima. */
+
+const HOME_DATA = readFileSync("src/lib/admin/caricaHomeData.ts", "utf8");
+const HOME_PAGINA = readFileSync("src/pages/admin/index.astro", "utf8");
+
+test("l'SSR della home chiede i permessi di chi guarda", () => {
+  assert.match(HOME_DATA, /caricaHomeData\(ambito: Ambito, ctx: ContestoPermessi\)/,
+    "caricaHomeData non riceve piu' il contesto: l'SSR torna a servire tutto a tutti");
+  assert.match(HOME_PAGINA, /await contestoDiStaff\(staff\)/,
+    "la home non passa piu' il contesto a caricaHomeData");
+});
+
+test("un'isola vietata non si legge NEMMENO dal database", () => {
+  // ⚠️ Toglierla solo dalla risposta chiuderebbe la falla lo stesso, ma
+  // lascerebbe il server a interrogare il database per righe che butta via —
+  // e chi tocca il file dopo non avrebbe modo di accorgersi che quel `.data`
+  // non doveva uscire di li'.
+  for (const [chi, query] of [
+    ["vedeOrdini", /vedeOrdini\s*\n?\s*\?\s*leggi\("orders"/],
+    ["vedeResa", /vedeResa \? caricaResaGiorno\(/],
+    ["vedeMenu", /vedeMenu \? caricaMenuHome\(/],
+    ["vedeMenu", /vedeMenu\s*\n?\s*\?\s*leggi\("menu_categories"/],
+    ["vedeMenu", /vedeMenu \? leggi\("menu_items"/],
+  ]) {
+    assert.match(HOME_DATA, query, `la lettura non e' piu' condizionata a ${chi}`);
+  }
+  // E non finisce nemmeno nella risposta.
+  assert.match(HOME_DATA, /\.\.\.\(vedeOrdini \? \{ orders:/);
+  assert.match(HOME_DATA, /\.\.\.\(vedeResa \? \{ resa \}/);
+  assert.match(HOME_DATA, /\.\.\.\(vedeMenu \? \{ menu:/);
+});
+
+test("le isole della home e le API rispondono alla STESSA pagina", () => {
+  // ⚠️ La rete che conta. Se un giorno `/api/admin/orders` passasse sotto
+  // un'altra pagina e l'SSR restasse su «orders», la home servirebbe dati
+  // che l'API rifiuta — e il guasto sarebbe di nuovo invisibile.
+  const ISOLE = [
+    ["orders", "orders"],
+    ["reservations", "reservations"],
+    ["menu", "menu"],
+    ["categories", "menu"],
+  ];
+  for (const [api, pagina] of ISOLE) {
+    assert.equal(API_PAGINA[api], pagina, `l'API ${api} non e' piu' sotto la pagina «${pagina}»`);
+    assert.match(HOME_DATA, new RegExp(`puo\\(ctx, "${pagina}"\\)`),
+      `l'SSR della home non guarda piu' la pagina «${pagina}»`);
+  }
+  // `today` resta aperta: e' lo stato della cucina, la home ne ha sempre bisogno.
+  assert.equal(API_PAGINA["today"], PAGINA_APERTA);
+  assert.match(HOME_DATA, /caricaToday\(ambito\),/, "today dev'essere incondizionata");
+});
+
+test("un'isola assente vale come un 403, non come un'isola vuota", () => {
+  // I due rami della home — con SSR e senza — devono dire la stessa cosa
+  // anche quando rifiutano. `fakeRes(undefined)` che rendesse `ok: true`
+  // farebbe esplodere `(await res.json()).orders` su `undefined`.
+  assert.match(HOME_PAGINA, /obj === undefined \|\| obj === null\s*\n?\s*\?\s*\{ ok: false/,
+    "fakeRes tratta di nuovo un'isola assente come un'isola vuota");
+});
+
+test("il contesto dei permessi si costruisce in UN posto solo", () => {
+  // ⚠️ Ce n'erano due: una nel middleware, una che stava per nascere
+  // nell'SSR. Due copie della stessa domanda, e la risposta sbagliata qui
+  // non da' nessun errore: da' dati che chi guarda non doveva vedere.
+  const MID = readFileSync("src/middleware.ts", "utf8");
+  assert.doesNotMatch(MID, /async function contestoPermessi\(/,
+    "il middleware si e' ricostruito il contesto per conto suo");
+  assert.match(MID, /import \{ contestoDaToken \} from ".\/lib\/admin\/permessi"/);
+  const PERMESSI = readFileSync("src/lib/admin/permessi.ts", "utf8");
+  assert.match(PERMESSI, /export async function contestoDiStaff\(/);
+  assert.match(PERMESSI, /export async function contestoDaToken\(/);
+});
+
+test("le statistiche non si chiedono a chi riceverebbe un 403", () => {
+  // Tre 403 in console a ogni caricamento fanno sembrare rotto quello che
+  // funziona. `pagine` nell'SSR non e' un segreto: sono i permessi di chi
+  // sta leggendo quella stessa pagina.
+  assert.match(HOME_DATA, /pagine: pagineConsentite\(ctx\)/);
+  assert.match(HOME_PAGINA, /ssrHome\.pagine\.includes\("stats"\)/);
 });
