@@ -79,8 +79,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         --c-line: #244a52;
         --c-card: #16424b;
         --c-brown: var(--c-bg);
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
@@ -413,7 +411,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       @media (max-width: 640px) {
         .home-hello { display: block; text-align: center; margin: 0.15rem 0 1.1rem; font-family: var(--font-title); font-size: 1.25rem; line-height: 1.1; color: var(--c-muted); letter-spacing: 0.02em; }
         .home-hello strong { color: var(--c-text); font-weight: 700; }
-        .home-hello .hh-word { display: inline-block; font-family: "Homemade Apple", cursive; font-weight: 400; font-size: 0.95em; line-height: 1; vertical-align: -0.04em; margin-right: 0.2em; transition: opacity 0.35s ease, transform 0.35s ease; }
+        .home-hello .hh-word { display: inline-block; font-family: var(--font-mano); font-weight: 400; font-size: 0.95em; line-height: 1; vertical-align: -0.04em; margin-right: 0.2em; transition: opacity 0.35s ease, transform 0.35s ease; }
       }
       .org-fab {
         position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;

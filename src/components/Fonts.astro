@@ -40,16 +40,27 @@ import Font from "astro/components/Font.astro";
 interface Props {
   /** `false` sulle pagine dove i titoli non sono nel primo schermo. */
   titoli?: boolean;
-  /** Marcellus + Bebas Neue: widget di prenotazione e pagine pubbliche. */
+  /** Precarica anche Marcellus e Bebas Neue: widget di prenotazione, vetrina. */
   vetrina?: boolean;
-  /** La firma a mano (`--font-mano`), solo dove viene usata davvero. */
-  mano?: boolean;
 }
-const { titoli = true, vetrina = false, mano = false } = Astro.props;
+const { titoli = true, vetrina = false } = Astro.props;
 ---
 
+{/*
+  ⚠️ TUTTE le famiglie, su OGNI pagina — e non e' spreco.
+
+  Un `@font-face` non scarica niente: dichiara soltanto dove sta il file, e
+  il browser lo prende solo quando un elemento usa davvero quel carattere.
+  Quello che costa e' il `preload`, ed e' l'unica cosa che qui si decide
+  pagina per pagina.
+
+  La prima versione emetteva solo le famiglie chieste, e sarebbe stata un
+  guasto silenzioso: `--font-serif` non esisteva sulle pagine admin, ma
+  `settings.astro` e `ReservationWidget` usano Marcellus. Il testo sarebbe
+  ricaduto su Georgia senza che niente lo dicesse.
+*/}
 <Font cssVariable="--font-body" preload />
 <Font cssVariable="--font-title" preload={titoli} />
-{vetrina && <Font cssVariable="--font-serif" preload />}
-{vetrina && <Font cssVariable="--font-display" preload />}
-{mano && <Font cssVariable="--font-mano" />}
+<Font cssVariable="--font-serif" preload={vetrina} />
+<Font cssVariable="--font-display" preload={vetrina} />
+<Font cssVariable="--font-mano" />

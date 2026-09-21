@@ -100,7 +100,7 @@ const cAccent = col("accent");
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         min-height: 100vh; display: flex; align-items: center; justify-content: center;
-        font-family: "Nunito Sans", system-ui, sans-serif;
+        font-family: var(--font-body);
         text-align: center; padding: 2rem;
       }
       .box { max-width: 520px; }
@@ -109,7 +109,7 @@ const cAccent = col("accent");
          spostamento VERTICALE che fa saltare la pagina, e quello si riserva:
          120px sempre, e `object-fit: contain` tiene le proporzioni dentro. */
       .logo { width: auto; height: 120px; max-width: 280px; margin: 0 auto 1.8rem; display: block; object-fit: contain; }
-      h1 { font-family: "Quicksand", system-ui, sans-serif; font-weight: 700; font-size: 2.4rem; letter-spacing: 0.01em; }
+      h1 { font-family: var(--font-title); font-weight: 700; font-size: 2.4rem; letter-spacing: 0.01em; }
       .riga { width: 64px; height: 3px; margin: 1.1rem auto 1.3rem; }
       p { font-size: 0.95rem; line-height: 1.7; }
       .contact { margin-top: 2.2rem; }

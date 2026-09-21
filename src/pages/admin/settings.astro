@@ -59,8 +59,6 @@ const t = adminT(lang);
         --c-muted: #86a0a4;
         --c-line: #244a52;
         --c-card: #16424b;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -331,7 +329,7 @@ const t = adminT(lang);
       .rw-lang-it.is-on { color: var(--c-accent); font-weight: 700; }
       .rw.rw--square { --rw-rpill: 0px; --rw-rbox: 0px; border-radius: 0; }
       .rw-claim { color: var(--c-accent); font-size: 0.68rem; letter-spacing: 0.35em; text-transform: uppercase; text-align: center; margin: 0 0 0.35rem; }
-      .rw-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: var(--c-text); font-size: 1.45rem; text-align: center; margin: 0 0 1.2rem; }
+      .rw-title { font-family: var(--font-serif); font-weight: 400; color: var(--c-text); font-size: 1.45rem; text-align: center; margin: 0 0 1.2rem; }
       .rw-f { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; min-width: 0; }
       .rw-acc { border-bottom: 1px solid var(--c-line); padding-bottom: 0.35rem; margin-bottom: 0.35rem; }
       .rw-acc-head {
@@ -417,7 +415,7 @@ const t = adminT(lang);
       .rw-sep { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 0.3rem; }
       .rw-btn {
         width: 100%; margin-top: 0.4rem; background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
-        font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.12em;
+        font-family: var(--font-serif); text-transform: uppercase; letter-spacing: 0.12em;
         font-size: 0.95rem; padding: 0.8rem 0; cursor: pointer; transition: background 0.2s, color 0.2s;
         border-radius: var(--rw-rbox);
       }
@@ -487,12 +485,12 @@ const t = adminT(lang);
       /* --- Step 3 : merci --- */
       .rw-done { display: flex; flex-direction: column; align-items: center; gap: 0.7rem; text-align: center; padding: 0.8rem 0 0.2rem; }
       .rw-done-ico { width: 54px; height: 54px; fill: none; stroke: var(--c-accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-      .rw-done-title { font-family: "Marcellus", Georgia, serif; font-weight: 400; color: var(--c-text); font-size: 1.35rem; margin: 0; }
+      .rw-done-title { font-family: var(--font-serif); font-weight: 400; color: var(--c-text); font-size: 1.35rem; margin: 0; }
       .rw-done-msg { color: var(--c-muted); font-size: 0.88rem; line-height: 1.6; margin: 0; max-width: 320px; }
       .rw-done-recap { color: var(--c-accent); font-size: 0.85rem; font-weight: 700; margin: 0; }
       .rw-done-new {
         margin-top: 0.5rem; width: 100%; background: transparent; border: 1px solid var(--c-line); color: var(--c-muted);
-        font-family: "Marcellus", Georgia, serif; text-transform: uppercase; letter-spacing: 0.1em;
+        font-family: var(--font-serif); text-transform: uppercase; letter-spacing: 0.1em;
         font-size: 0.82rem; padding: 0.7rem 0; border-radius: var(--rw-rbox); cursor: pointer;
         transition: color 0.2s, border-color 0.2s;
       }

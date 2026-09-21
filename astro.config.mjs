@@ -3,6 +3,7 @@ import { defineConfig, fontProviders } from "astro/config";
 import node from "@astrojs/node";
 import react from "@astrojs/react";
 import sitemap from "@astrojs/sitemap";
+import { inSitemap } from "./src/lib/seo/sitemapRegole";
 
 // https://astro.build/config
 export default defineConfig({
@@ -56,7 +57,13 @@ export default defineConfig({
       provider: fontProviders.google(),
       name: "Nunito Sans",
       cssVariable: "--font-body",
-      weights: [400, 600, 700, 800, 900],
+      // ⚠️ NIENTE 800, e non e' una svista. Prima le pagine chiedevano a Google
+      // `Nunito+Sans:wght@400;600;700;900`: l'800 non esisteva, e le 39 regole
+      // `font-weight: 800` del pannello finivano sul 900 (per la regola di
+      // accostamento CSS: sopra il 500 si cerca prima verso l'alto). Dichiarare
+      // l'800 sul serio le fa dimagrire tutte. Se serve davvero, si cambiano
+      // prima le 39 regole.
+      weights: [400, 600, 700, 900],
       styles: ["normal"],
       subsets: ["latin", "latin-ext"],
       display: "swap",
@@ -65,7 +72,16 @@ export default defineConfig({
       provider: fontProviders.google(),
       name: "Quicksand",
       cssVariable: "--font-title",
-      weights: [500, 600, 700],
+      // ⚠️ UN PESO SOLO, ed e' voluto. Le pagine del pannello chiedevano a
+      // Google `Quicksand:wght@700` e basta: c'era una faccia sola, quindi
+      // QUALSIASI peso — anche i `font-weight: 500` e `600` scritti nel CSS —
+      // ricadeva sul 700. Tutti i titoli erano in grassetto per questo.
+      //
+      // Dichiarando 500/600/700 sul serio, il 21/09/2026, ognuna di quelle
+      // regole ha finalmente trovato la faccia che chiedeva: i titoli sono
+      // diventati piu' magri in tutto il pannello. Il CSS non era cambiato di
+      // una virgola — era cambiato cosa il browser aveva in mano.
+      weights: [700],
       styles: ["normal"],
       subsets: ["latin", "latin-ext"],
       display: "swap",
@@ -102,7 +118,10 @@ export default defineConfig({
       display: "swap",
     },
   ],
-  integrations: [react(), sitemap()],
+  // ⚠️ `sitemap()` NUDO mette in sitemap ogni pagina che il progetto sa
+  // costruire — pannello compreso: erano 15 URL `/admin/` su 29, tutti
+  // 302 al login. Le regole stanno in `src/lib/seo/sitemapRegole.ts`.
+  integrations: [react(), sitemap({ filter: inSitemap })],
   outDir: "./build", // <-- a livello root: build finale in ./build/server/entry.mjs
   build: {
     // Inietta il CSS dei componenti direttamente nell'HTML invece di servirlo

@@ -21,7 +21,10 @@ function fileAstro(dir, fuori = []) {
 const ASTRO = fileAstro("src");
 const CONFIG = readFileSync("astro.config.mjs", "utf8");
 const senzaCommenti = (t) =>
-  t.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/<!--[\s\S]*?-->/g, " ");
+  t
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/^[ \t]*\/\/.*$/gm, " ");
 
 test("nessuno chiede piu' i font a Google a ogni visita", () => {
   // ⚠️ Due ragioni, e la seconda non e' tecnica.
@@ -171,4 +174,110 @@ test("la ricetta per i clienti esiste e dice cosa il merge NON porta", () => {
   const R = readFileSync("PRESTAZIONI.md", "utf8");
   assert.match(R, /merge=ours/, "la ricetta non avverte piu' che il merge non porta il blocco font");
   assert.match(R, /Immagine/, "la ricetta non spiega piu' il componente immagine");
+});
+
+/* ------------------------------------------------------------------ *
+ * I FONT: chi scrive il nome a mano li spegne, e nessuno se ne accorge
+ * ------------------------------------------------------------------ */
+
+// Astro non registra le famiglie col loro nome: le registra con un nome
+// CON HASH — `Quicksand-062645fc554f8359` — e l'unico modo per arrivarci e'
+// la variabile dichiarata in `astro.config.mjs`. Quindi `font-family:
+// "Quicksand"` non e' piu' «la stessa cosa scritta diversamente»: e' un nome
+// senza nessun `@font-face`, e il testo ricade sul font di sistema.
+//
+// ⚠️ E' gia' successo, il 21/09/2026: dopo il passaggio ai font locali
+// diciannove file ridichiaravano `--font-title: "Quicksand", …` dentro il
+// proprio `<style>`. La loro vinceva sulla regola di Astro, e TUTTI i titoli
+// del pannello hanno smesso di essere in grassetto. `npm test`, `astro check`
+// e `npm run build` erano tutti verdi: se ne e' accorto il cliente, a occhio.
+const BLOCCO_FONT = CONFIG.slice(CONFIG.indexOf("fonts: ["));
+const FAMIGLIE = [...BLOCCO_FONT.matchAll(/name:\s*"([^"]+)",[\s\S]{0,120}?cssVariable:\s*"(--font-[a-z]+)"/g)]
+  .map(([, nome, variabile]) => ({ nome, variabile }));
+
+test("astro.config dichiara le famiglie con nome e variabile", () => {
+  // Se questa lista si svuota le due prove qui sotto passerebbero a vuoto.
+  assert.ok(FAMIGLIE.length >= 5, `lette solo ${FAMIGLIE.length} famiglie in astro.config.mjs`);
+});
+
+// ⚠️ Solo i file AGGANCIATI al sistema font di Astro. Un cliente puo' avere
+// pagine pubbliche sue, ancora coi <link> di Google e coi nomi scritti a mano:
+// li' il nome letterale FUNZIONA, e queste prove girano anche nei repo dei
+// clienti. Il guasto e' mescolare le due cose nello stesso file.
+const AGGANCIATI = ASTRO.filter((f) => {
+  if (f.endsWith("components/Fonts.astro")) return false; // e' lui a spiegarlo
+  const t = readFileSync(f, "utf8");
+  return /<Fonts\b/.test(t) || /AdminHead/.test(t) || /var\(--font-[a-z]+\)/.test(t);
+});
+
+test("i file agganciati ai font del motore sono tanti quanti sembrano", () => {
+  // Senza questa, le due prove qui sotto potrebbero passare su zero file.
+  assert.ok(AGGANCIATI.length >= 20, `solo ${AGGANCIATI.length} file agganciati`);
+});
+
+test("nessuno scrive a mano il nome di una famiglia dichiarata", () => {
+  const colpevoli = [];
+  for (const f of AGGANCIATI) {
+    const testo = senzaCommenti(readFileSync(f, "utf8"));
+    for (const { nome } of FAMIGLIE) {
+      if (testo.includes(`"${nome}"`)) colpevoli.push(`${f}: "${nome}"`);
+    }
+  }
+  assert.deepEqual(colpevoli, [],
+    "il nome letterale non ha nessun @font-face: si usa var(--font-…)");
+});
+
+test("nessuna pagina ridichiara una variabile dei font", () => {
+  // Il `<style>` della pagina vince su quello iniettato da Astro. Ridichiarare
+  // la variabile — anche col valore «giusto» — significa sostituire il nome
+  // con hash con uno che non esiste.
+  const colpevoli = [];
+  for (const f of AGGANCIATI) {
+    const testo = senzaCommenti(readFileSync(f, "utf8"));
+    for (const { variabile } of FAMIGLIE) {
+      if (new RegExp(`${variabile}\\s*:`).test(testo)) colpevoli.push(`${f}: ${variabile}`);
+    }
+  }
+  assert.deepEqual(colpevoli, [],
+    "la variabile la definisce Astro: la pagina la legge, non la riscrive");
+});
+
+test("ogni pagina che usa un font ha i font", () => {
+  // Una variabile non definita non e' un errore: `font-family: var(--font-serif)`
+  // senza nessuna dichiarazione e' semplicemente il font di sistema. Silenzioso.
+  const scoperte = [];
+  for (const f of AGGANCIATI) {
+    if (!/src[/\\](pages|layouts)[/\\]/.test(f)) continue;
+    const testo = readFileSync(f, "utf8");
+    if (!/var\(--font-[a-z]+\)/.test(testo)) continue;
+    if (/<Fonts\b|AdminHead|Layout\b/.test(testo)) continue;
+    scoperte.push(f);
+  }
+  assert.deepEqual(scoperte, [], "usa var(--font-…) ma nessuno dichiara le famiglie");
+});
+
+test("i pesi dichiarati sono quelli che c'erano, non quelli che sembrano giusti", () => {
+  // ⚠️ IL SECONDO GUASTO DEL 21/09/2026, e il CSS non c'entrava niente.
+  //
+  // Prima le pagine chiedevano a Google `Quicksand:wght@700`: UNA faccia sola.
+  // Per la regola di accostamento CSS, quando il peso chiesto non esiste il
+  // browser prende il piu' vicino — e col 700 solo, QUALSIASI peso diventava
+  // 700. I `font-weight: 500` e `600` sparsi nel pannello non avevano mai
+  // fatto niente: i titoli erano in grassetto per assenza di alternative.
+  //
+  // Dichiarando 500/600/700 «per completezza» ognuna di quelle regole ha
+  // trovato la sua faccia, e tutti i titoli sono dimagriti. Stessa storia per
+  // Nunito Sans: le 39 regole `font-weight: 800` finivano sul 900, perche'
+  // l'800 non era mai stato scaricato.
+  //
+  // Quindi: questi elenchi NON si allargano per simmetria. Aggiungere un peso
+  // e' un cambio di resa su tutto il pannello, e va visto a occhio.
+  const pesi = Object.fromEntries(
+    [...BLOCCO_FONT.matchAll(/name:\s*"([^"]+)",[\s\S]{0,900}?weights:\s*\[([^\]]*)\]/g)]
+      .map(([, nome, lista]) => [nome, lista.split(",").map((n) => Number(n.trim()))]),
+  );
+  assert.deepEqual(pesi["Quicksand"], [700],
+    "Quicksand con piu' di un peso: i titoli del pannello si smagriscono");
+  assert.deepEqual(pesi["Nunito Sans"], [400, 600, 700, 900],
+    "l'800 di Nunito Sans non e' mai esistito: le 39 regole font-weight:800 contavano sul 900");
 });

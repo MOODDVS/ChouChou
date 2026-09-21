@@ -93,5 +93,6 @@ const nonce = Astro.locals.cspNonce;
 <meta name="apple-mobile-web-app-title" content={marchioCliente ? CLIENT.nome : "RestoHub"} />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="mobile-web-app-capable" content="yes" />
-{/* Font handwriting per il saluto header (desktop/tablet). */}
-    <Fonts mano />
+{/* I font del pannello: Fonts.astro dichiara tutte le famiglie e decide
+    da solo cosa precaricare. */}
+<Fonts />

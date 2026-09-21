@@ -19,7 +19,7 @@ const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
       :root {
         --petrol: #002d34; --coral: #dd5851; --bg: #f4f6f6; --card: #ffffff;
         --text: #223a3e; --muted: #6b7c7e; --line: #e3e7e7;
-        --brand: "Quicksand", system-ui, sans-serif; --body: "Nunito Sans", system-ui, sans-serif;
+        --brand: var(--font-title); --body: var(--font-body);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.7; }

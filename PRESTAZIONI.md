@@ -42,9 +42,104 @@ Non deve comparire nulla da `fonts.gstatic.com`.
 ⚠️ `preload` solo sui font del primo schermo. Un precaricamento di troppo ruba
 banda al vero LCP, e il browser lo scrive in console.
 
+### ⚠️ Il nome della famiglia non si scrive piu' a mano
+
+Astro NON registra la famiglia col suo nome: la registra con un nome **con
+hash** — `Quicksand-062645fc554f8359` — e l'unico modo per arrivarci e' la
+variabile dichiarata in `cssVariable`.
+
+```css
+font-family: "Quicksand", system-ui, sans-serif;  /* ❌ nessun @font-face: font di sistema */
+font-family: var(--font-title);                   /* ✅ */
+```
+
+Vale anche per le RIDICHIARAZIONI: `:root { --font-title: "Quicksand", … }`
+dentro lo `<style>` di una pagina vince su quella iniettata da Astro e spegne
+il font su tutta la pagina.
+
+**E' successo davvero**, il 21/09/2026: dopo il passaggio ai font locali,
+diciannove pagine del pannello ridichiaravano `--font-title` e `--font-body`
+col nome letterale. Tutti i titoli hanno smesso di essere in grassetto.
+`npm test`, `astro check` e `npm run build` erano **tutti verdi**: se n'e'
+accorto il cliente, a occhio. Adesso lo tengono tre prove in
+`tests/prestazioni.test.mjs`.
+
+Le prove guardano solo i file **agganciati** al sistema (quelli con `<Fonts>`,
+`AdminHead` o un `var(--font-…)`): una pagina pubblica del cliente ancora coi
+`<link>` di Google e i nomi a mano e' coerente con se stessa e resta verde. Il
+guasto e' mescolare le due cose nello stesso file.
+
+⚠️ Fuori dal controllo: `src/pages/demo01/_page.html` e' HTML grezzo servito
+da `index.ts`, non passa da Astro e quindi chiede ancora i font a Google. E'
+la pagina della demo, che i clienti cancellano.
+
+### ⚠️ I pesi: copiare quelli che il cliente chiedeva, non «quelli giusti»
+
+Quando il peso chiesto dal CSS non esiste, il browser **non rinuncia**: prende
+la faccia piu' vicina. Quindi l'elenco dei `weights` decide la resa piu' del
+CSS.
+
+Le pagine del pannello chiedevano `Quicksand:wght@700` — **una faccia sola**.
+Ogni `font-weight: 500` e `600` scritto nel CSS ricadeva sul 700, e i titoli
+erano in grassetto per questo. Dichiarando 500/600/700 «per completezza»,
+ognuna di quelle regole ha trovato la sua faccia e **tutti i titoli del
+pannello si sono smagriti**, senza che il CSS cambiasse di una virgola.
+
+Stessa cosa con Nunito Sans: le 39 regole `font-weight: 800` finivano sul 900,
+perche' l'800 non era mai stato scaricato.
+
+**Regola per ogni cliente:** leggere i `<link>` che si stanno togliendo e
+copiare *esattamente* quei pesi in `weights`. Se un elenco sembra incompleto,
+lo e' di proposito — allargarlo e' un cambio di resa su tutto il sito, e va
+guardato a occhio prima.
+
 ---
 
-## 2. Le immagini — il mattone c'e', le immagini stanno nei clienti
+## 2. SEO tecnico — FATTO nel motore, due righe da riportare
+
+**Il guasto:** `sitemap()` era senza filtro, e una sitemap comprende ogni
+pagina che il progetto sa costruire. Risultato: **15 URL `/admin/` su 29**.
+Ogni cliente diceva a Google «indicizza il mio pannello», e quegli URL
+rispondono 302 al login — in Search Console diventano errori «Pagina con
+reindirizzamento». Su 5 clienti, 4 non avevano nemmeno `Disallow: /admin`.
+
+Le regole ora stanno in `src/lib/seo/sitemapRegole.ts`, che **il merge porta**.
+Quello che il merge NON porta sono le due righe che le agganciano:
+
+**a) `astro.config.mjs`** (`merge=ours`):
+
+```js
+import { inSitemap } from "./src/lib/seo/sitemapRegole";
+// ...
+integrations: [react(), sitemap({ filter: inSitemap })],
+```
+
+**b) `public/robots.txt`** (`public/**` e' `merge=ours`):
+
+```
+Disallow: /admin
+Disallow: /reservation-embed
+Disallow: /reservation-test
+```
+
+(Piu' `Disallow: /demo01` se il cliente tiene il template dimostrativo. Il
+filtro in `sitemapRegole.ts` NON lo nomina di proposito: il motore non decide
+in base al nome di un demo, e c'e' una prova che lo impedisce.)
+
+⚠️ **Non allargare i prefissi.** `/order/cancel` e `/reservation/cancel` stanno
+fuori dalla sitemap, ma `Disallow: /order` spegnerebbe la pagina d'ordine e
+`Disallow: /reservation` quella delle prenotazioni: in robots.txt un prefisso
+non ha confini di parola. C'e' una prova che lo controlla.
+
+Controlla anche che `site:` in `astro.config.mjs` e la riga `Sitemap:` di
+`robots.txt` puntino allo **stesso** dominio del cliente.
+
+**Come si verifica:** `npm run build`, poi
+`grep -c admin build/client/sitemap-0.xml` deve dare `0`.
+
+---
+
+## 3. Le immagini — il mattone c'e', le immagini stanno nei clienti
 
 Misurato il 21/09/2026: **125 immagini nei cinque siti, 28 con le dimensioni.**
 Le altre 97 fanno saltare la pagina quando atterrano. E' il CLS, uno dei tre
@@ -76,7 +171,7 @@ grep -rn '<img' src --include='*.astro' | grep -v width=
 
 ---
 
-## 3. La cache degli asset statici — NON si puo' fare nel motore
+## 4. La cache degli asset statici — NON si puo' fare nel motore
 
 Va detto chiaro perche' e' la voce che PageSpeed segnala piu' spesso
 («Serve static assets with an efficient cache policy»).
@@ -101,7 +196,7 @@ sostituirne uno con lo stesso nome deve poter arrivare al visitatore.
 
 ---
 
-## 4. Quello che NON abbiamo fatto, e perche'
+## 5. Quello che NON abbiamo fatto, e perche'
 
 - **Togliere React.** `ContactForm.tsx` non lo usa nessuna pagina, quindi
   react e react-dom entrano nella build e non vengono mai serviti a un
@@ -119,11 +214,15 @@ sostituirne uno con lo stesso nome deve poter arrivare al visitatore.
 
 ---
 
-## 5. L'ordine in cui conviene farlo, su un sito cliente
+## 6. L'ordine in cui conviene farlo, su un sito cliente
 
 1. I font (punto 1) — e' il pezzo piu' grosso dell'LCP.
-2. L'immagine principale in cima alla home: `<Immagine … primaria />`.
-3. Le altre immagini, con le dimensioni (punto 2).
-4. La cache degli asset sull'hosting (punto 3).
+2. Il filtro sitemap e robots.txt (punto 2) — due righe, e finche' mancano il
+   cliente sta consegnando il pannello a Google.
+3. L'immagine principale in cima alla home: `<Immagine … primaria />`.
+4. Le altre immagini, con le dimensioni (punto 3).
+5. La cache degli asset sull'hosting (punto 4).
 
-Poi si misura, non prima: PageSpeed su mobile, e si guarda LCP e CLS.
+Poi si misura, non prima: PageSpeed su mobile, e si guarda LCP e CLS. Per il
+SEO, Search Console: le pagine escluse come «Pagina con reindirizzamento»
+devono scendere a zero nelle settimane dopo.

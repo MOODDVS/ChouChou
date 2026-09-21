@@ -1,12 +1,19 @@
 User-agent: *
 Allow: /
 
+# Il PANNELLO non e' un sito: risponde 302 al login, e non ha niente da
+# fare in ricerca sul dominio del ristorante.
+Disallow: /admin
+Disallow: /demo01
+
 # Pagine post-pagamento e API: non indicizzare
 Disallow: /order-confirm
 Disallow: /order-cancel
 Disallow: /en/order-confirm
 Disallow: /en/order-cancel
 Disallow: /api/
+Disallow: /reservation-embed
+Disallow: /reservation-test
 
 # PER-CLIENTE: sostituire col dominio del cliente (deve combaciare con
 # `site` in astro.config.mjs). Se resta sbagliato, Google legge la sitemap

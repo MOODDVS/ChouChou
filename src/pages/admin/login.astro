@@ -103,12 +103,10 @@ const nonce = Astro.locals.cspNonce;
     <style>
       :root {
         --c-hover: #e86a61; --c-card: #16424b; --c-input: #f1f1f1; --c-bg: #0c2a30;
- --c-header: #04161b;
+        --c-header: #04161b;
         --c-text: #333333; --c-accent: #cb534d; --c-muted: #86a0a4; --c-line: #e7e7e7;
         --c-error: #e5544b; --c-ok: #2f9e59;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
-        --font-brand: "Quicksand", system-ui, sans-serif;
+        --font-brand: var(--font-title);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
