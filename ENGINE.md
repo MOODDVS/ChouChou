@@ -1063,6 +1063,25 @@ alla casella del marchio invece che del punto; `assicuraLocation` in
 chiamava piu' nessuno, ma restava esportata, pronta per il primo che la
 riusava.
 
+### ⚠️ Le reti del motore girano anche dai CLIENTI (21/09/2026)
+
+Scoperto al primo merge di questo lavoro su 450 Gradi: due reti sono
+diventate rosse li' e verdi qui, e non c'era niente di rotto.
+
+Il motivo e' che un cliente vero **cancella le cartelle `demo01`** — sono il
+modello, non il suo sito. Una rete che nomina `src/pages/demo01/...` in un
+elenco di eccezioni lo trova nel motore e non lo trova dal cliente: una
+faceva `readFileSync` e moriva con ENOENT, l'altra dichiarava l'eccezione
+«morta» perche' il file non c'era.
+
+**Regola: un percorso fisso dentro una rete va guardato con `existsSync`
+prima di leggerlo, e un file assente non e' mai una violazione.** Una rete
+che punisce un'installazione legittima e' una rete che qualcuno prima o poi
+disattiva — e quel giorno smette di proteggere anche dalle violazioni vere.
+
+Le reti che SCORRONO `src/` (la maggioranza) non hanno il problema: trovano
+quello che c'e'. Il rischio e' solo negli elenchi scritti a mano.
+
 ## Il fuso orario — una variabile globale, diciannove file (21/09/2026)
 
 Il fuso stava in `slots.ts` come **`export let TIMEZONE`**: una variabile di

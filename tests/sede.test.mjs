@@ -1045,7 +1045,16 @@ test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
     `usano l'aggregato senza dichiararlo:\n  ${nonDichiarati.join("\n  ")}`,
   );
   // E ogni voce ammessa deve essere ancora vera.
-  const morte = Object.keys(AMMESSI).filter((f) => !usanti.includes(f));
+  //
+  // ⚠️ Un file che NON ESISTE non e' un'eccezione morta. Questa prova gira
+  // anche nei repo dei clienti, dove il motore arriva per merge, e un cliente
+  // vero cancella le pagine `demo01` — sono il modello, non il suo sito. La
+  // prima versione le dava per scontate e diventava rossa su 450 Gradi
+  // appena arrivava il merge: una rete che punisce una installazione
+  // legittima e' una rete che qualcuno prima o poi disattiva.
+  const morte = Object.keys(AMMESSI)
+    .filter((f) => existsSync(f))
+    .filter((f) => !usanti.includes(f));
   assert.deepEqual(morte.sort(), [], `dichiarati ma non usano piu' l'aggregato: ${morte.join(", ")}`);
 });
 

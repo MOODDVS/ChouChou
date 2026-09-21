@@ -12,7 +12,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import {
   CLASSIFICA_CONFIG,
@@ -69,6 +69,7 @@ const SORGENTI = fileSorgente("src").filter((f) => !f.endsWith("sedeRegole.ts"))
  *  leggeva `K_LOCATION` — la scheda Google, che e' di sede — a livello
  *  marchio, e nessuna ricerca di stringhe lo vedeva. */
 function costanti(f) {
+  if (!existsSync(f)) return new Map();
   const src = readFileSync(f, "utf8");
   const K = new Map();
   for (const m of src.matchAll(/(?:export )?const ([A-Z][A-Z_0-9]*) = "([a-z_0-9]+)";/g)) K.set(m[1], m[2]);
@@ -85,8 +86,12 @@ function costanti(f) {
   return K;
 }
 
-/** Le chiavi lette in un file, con il fatto che passi o no un ambito. */
+/** Le chiavi lette in un file, con il fatto che passi o no un ambito.
+ *  ⚠️ Un file che non esiste rende []. Questa prova gira anche nei repo dei
+ *  clienti, dove il motore arriva per merge, e un cliente vero cancella le
+ *  pagine `demo01`: sono il modello, non il suo sito. */
 function letture(f) {
+  if (!existsSync(f)) return [];
   const src = readFileSync(f, "utf8");
   const K = costanti(f);
   const fuori = [];
@@ -151,6 +156,7 @@ test("le eccezioni dichiarate esistono ancora davvero", () => {
   // la riga qui sopra deve andarsene.
   const morte = [];
   for (const [f, chiavi] of Object.entries(SENZA_AMBITO_AMMESSE)) {
+    if (!existsSync(f)) continue; // il cliente non ha quel file: non e' un'eccezione morta
     const viste = letture(f).filter((x) => !x.ambito).map((x) => x.k);
     for (const k of chiavi) if (!viste.includes(k)) morte.push(`${f}: ${k}`);
   }
