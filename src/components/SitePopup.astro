@@ -6,6 +6,7 @@
 // prenotazioni RestoHub.
 import { popupPerPagina } from "../lib/popups";
 import { SITE_PAGES } from "../config/sitePages";
+import Immagine from "./Immagine.astro";
 
 const raw = Astro.url.pathname.replace(/\/$/, "") || "/";
 const en = raw === "/en" || raw.startsWith("/en/");
@@ -36,7 +37,7 @@ const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: lo
           <path d="M6 6l12 12M18 6 6 18" />
         </svg>
       </button>
-      {pop.image_url && <img class="sitepop__img" src={pop.image_url} alt="" />}
+      {pop.image_url && <Immagine class="sitepop__img" src={pop.image_url} alt="" rapporto="16/9" />}
       <div class="sitepop__body">
         <h2 class="sitepop__title">{pop.title}</h2>
         {pop.body && <p class="sitepop__text">{pop.body}</p>}
@@ -130,6 +131,10 @@ const btn2 = pop?.btn2_label && pop?.btn2_url ? { label: pop.btn2_label, url: lo
   .sitepop__img {
     display: block;
     width: 100%;
+    /* ⚠️ `aspect-ratio` arriva da <Immagine>: riserva il posto PRIMA che la
+       foto atterri. Senza, il pop-up cresceva sotto il dito di chi stava
+       gia' per premere un bottone — e l'immagine e' remota, quindi le sue
+       dimensioni vere non si possono sapere qui. */
     max-height: 240px;
     object-fit: cover;
   }

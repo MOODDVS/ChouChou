@@ -116,3 +116,59 @@ test("il componente Font si importa dal percorso, non da «astro:fonts»", () =>
   assert.doesNotMatch(F.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/.*/g, " "), /from "astro:fonts"/,
     "«astro:fonts» non e' un modulo: la build fallisce");
 });
+
+/* ============================================================
+   LE IMMAGINI — riservare il posto, o la pagina salta
+   ============================================================ */
+
+test("le pagine PUBBLICHE del motore non hanno <img> senza posto riservato", () => {
+  // ⚠️ Solo le pubbliche: l'admin sta dietro login e PageSpeed non lo misura.
+  // Il CLS lo paga il cliente in 4G, non chi gestisce il locale dal Mac.
+  // ⚠️ `Immagine.astro` e' escluso: E' il componente, l'unico posto dove un
+  // `<img>` nudo ci deve stare. Una rete che accusa la cura invece della
+  // malattia e' una rete che qualcuno disattiva.
+  const pubbliche = ASTRO.filter(
+    (f) => !f.includes(`${"/"}admin${"/"}`) && !f.endsWith("Immagine.astro"),
+  );
+  const nudi = [];
+  for (const f of pubbliche) {
+    for (const m of readFileSync(f, "utf8").matchAll(/<img[^>]*>/g)) {
+      const t = m[0];
+      if (!/\bwidth=/.test(t) && !/aspect-ratio/.test(t)) nudi.push(`${f}: ${t.slice(0, 70)}`);
+    }
+  }
+  assert.deepEqual(nudi, [], "usa <Immagine>, che le dimensioni le pretende");
+});
+
+test("<Immagine> si ferma in BUILD se non sa che posto riservare", () => {
+  // ⚠️ La cura per il CLS e' banale — riservare il posto — ed e' proprio per
+  // questo che si dimentica: la pagina funziona lo stesso, semplicemente
+  // salta. Un componente che lo pretende e' l'unico modo perche' la domanda
+  // venga fatta nel momento in cui qualcuno sta guardando.
+  const I = readFileSync("src/components/Immagine.astro", "utf8");
+  assert.match(I, /if \(!rapporto && \(!width \|\| !height\)\) \{[\s\S]*?throw new Error/,
+    "<Immagine> ha smesso di pretendere le dimensioni");
+  // La primaria non si rimanda mai: rimandare l'LCP e' peggiorarlo di proposito.
+  assert.match(I, /primaria \? "eager" : "lazy"/);
+  assert.match(I, /fetchpriority=\{primaria \? "high" : undefined\}/);
+});
+
+test("una sola immagine `primaria` per pagina", () => {
+  // Se tutto e' prioritario, niente lo e': due `fetchpriority="high"` si
+  // annullano e il browser torna a decidere da solo.
+  const troppe = [];
+  for (const f of ASTRO) {
+    const n = [...readFileSync(f, "utf8").matchAll(/<Immagine[^>]*\sprimaria[\s/>]/g)].length;
+    if (n > 1) troppe.push(`${f}: ${n}`);
+  }
+  assert.deepEqual(troppe, []);
+});
+
+test("la ricetta per i clienti esiste e dice cosa il merge NON porta", () => {
+  // ⚠️ `astro.config.mjs` e' merge=ours: il blocco dei font non arriva da
+  // solo in nessun cliente. Se questo file smette di dirlo, il prossimo
+  // cliente configurato resta con i font di Google e nessuno se ne accorge.
+  const R = readFileSync("PRESTAZIONI.md", "utf8");
+  assert.match(R, /merge=ours/, "la ricetta non avverte piu' che il merge non porta il blocco font");
+  assert.match(R, /Immagine/, "la ricetta non spiega piu' il componente immagine");
+});

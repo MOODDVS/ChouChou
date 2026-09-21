@@ -13,6 +13,7 @@ import { TEMA_DEFAULT } from "../lib/admin/superAdmin";
 import { cacheOr } from "../lib/cache";
 import { linksSocial } from "../lib/links";
 import Fonts from "../components/Fonts.astro";
+import Immagine from "../components/Immagine.astro";
 
 export const prerender = false;
 
@@ -103,7 +104,11 @@ const cAccent = col("accent");
         text-align: center; padding: 2rem;
       }
       .box { max-width: 520px; }
-      .logo { width: auto; height: auto; max-width: 280px; max-height: 120px; margin: 0 auto 1.8rem; display: block; object-fit: contain; }
+      /* ⚠️ `height` FISSA, non `auto`. Il logo arriva dai Réglages: la sua forma
+         non si sa qui, quindi non si possono mettere width/height veri. Ma e' lo
+         spostamento VERTICALE che fa saltare la pagina, e quello si riserva:
+         120px sempre, e `object-fit: contain` tiene le proporzioni dentro. */
+      .logo { width: auto; height: 120px; max-width: 280px; margin: 0 auto 1.8rem; display: block; object-fit: contain; }
       h1 { font-family: "Quicksand", system-ui, sans-serif; font-weight: 700; font-size: 2.4rem; letter-spacing: 0.01em; }
       .riga { width: 64px; height: 3px; margin: 1.1rem auto 1.3rem; }
       p { font-size: 0.95rem; line-height: 1.7; }
@@ -119,7 +124,7 @@ const cAccent = col("accent");
   </head>
   <body style={`background:${cBg};color:${cText}`}>
     <div class="box">
-      <img class="logo" src={logoSrc} alt={titolo} />
+      <Immagine class="logo" src={logoSrc} alt={titolo} width={280} height={120} />
       <h1 style={`color:${cText}`}>{titolo}</h1>
       <div class="riga" style={`background:${cAccent}`}></div>
       <p style={`color:${cMuted}`}>{t("pub.comingSoon")}</p>

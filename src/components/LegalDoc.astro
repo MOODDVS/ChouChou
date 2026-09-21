@@ -3,6 +3,7 @@
 // con selettore lingua (5 lingue). Il contenuto arriva da src/lib/legal.
 import { AZIENDA, LEGAL_LANGS, type LegalDoc, type LegalLang } from "../lib/legal/legalContent";
 import Fonts from "./Fonts.astro";
+import Immagine from "./Immagine.astro";
 interface Props { doc: LegalDoc; current: LegalLang; }
 const { doc, current } = Astro.props;
 const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
@@ -50,7 +51,7 @@ const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
   </head>
   <body>
     <header>
-      <a href="/"><img src="/restohub/wordmark-negative.svg" alt="RestoHub" /></a>
+      <a href="/"><Immagine src="/restohub/wordmark-negative.svg" alt="RestoHub" width={420} height={56} /></a>
       <div class="langs" id="langs">
         {LEGAL_LANGS.map((l) => (
           <button type="button" data-l={l.code} class={l.code === current ? "on" : ""}>{l.label}</button>
