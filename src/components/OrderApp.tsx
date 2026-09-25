@@ -54,6 +54,18 @@ interface CartLine {
   /** Chiave del formato scelto. Assente = piatto a prezzo unico.
    *  Due formati dello stesso piatto sono DUE righe distinte. */
   variant?: string;
+  /** Il nome del piatto SENZA il formato, e l'etichetta del formato gia'
+   *  tradotta — gli stessi due pezzi che `api/checkout.ts` tiene separati
+   *  nelle righe d'ordine.
+   *
+   *  ⚠️ `name` resta il testo unico «Piatto — Formato» e non si tocca: e'
+   *  quello che vede chi non ha il carrello dettagliato, ed e' quello gia'
+   *  salvato nei carrelli aperti in sessionStorage. Questi due si AGGIUNGONO.
+   *
+   *  ⚠️ E non si ricavano spezzando `name` sul trattino: un piatto che ha un
+   *  trattino nel nome si spezzerebbe nel posto sbagliato, e in silenzio. */
+  base_name?: string;
+  variant_label?: string;
 }
 
 /** Identità di una riga di carrello: piatto + formato. */
@@ -143,7 +155,15 @@ interface OrderAppProps {
    *  nuove il CSS non ce l'hanno: se comparissero da sole, il giorno del
    *  merge si troverebbero una miniatura nuda nel carrello e il prezzo
    *  unitario in mezzo a una riga `space-between`, senza aver chiesto niente.
-   *  Si accende quando il sito ha lo stile pronto. */
+   *  Si accende quando il sito ha lo stile pronto.
+   *
+   *  Le classi da vestire:
+   *    order-cart-line-foto     il contenitore della miniatura
+   *    order-cart-line-unit     il prezzo unitario, accanto al nome
+   *    order-cart-line-variant  l'etichetta del formato, staccata dal nome
+   *    order-recap-testa        il <div> attorno al titolo del riepilogo
+   *    order-recap-conta        la riga «N articoli · Svuota tutto»
+   *    order-recap-svuota       il pulsante, che prende .confirm al primo tocco */
   carrelloDettagliato?: boolean;
   /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
    *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
@@ -389,6 +409,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           price_cents: v.price_cents,
           qty: 1,
           variant: v.key,
+          base_name: nomeVisto,
+          variant_label: etichettaVariante(v, lang),
         }
       : { id: item.id, name: nomeVisto, price_cents: item.price_cents, qty: 1 };
     const chiave = chiaveLinea(nuova);
@@ -637,7 +659,21 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               </span>
             )}
             <div className="order-cart-line-top">
-              <span className="order-cart-line-name">{l.name}</span>
+              {/* ⚠️ Il nome e il formato in DUE elementi: un sito che vuole il
+                  formato come pastiglia sotto il nome non puo' ricavarlo dal
+                  CSS, che un testo non lo divide.
+                  La ricaduta su `name` non e' prudenza generica: i carrelli
+                  gia' aperti in sessionStorage sono stati salvati PRIMA che
+                  questi campi esistessero, e senza di essa il cliente che
+                  torna sulla pagina vedrebbe le sue righe senza nome. */}
+              {carrelloDettagliato && l.base_name && l.variant_label ? (
+                <>
+                  <span className="order-cart-line-name">{l.base_name}</span>
+                  <span className="order-cart-line-variant">{l.variant_label}</span>
+                </>
+              ) : (
+                <span className="order-cart-line-name">{l.name}</span>
+              )}
               {/* ⚠️ `l.price_cents` E' GIA' l'unitario del formato scelto
                   (`prezzoRiga` lo moltiplica per la quantita'). Dividere
                   `prezzoRiga(l)` per `l.qty` darebbe lo stesso numero oggi e

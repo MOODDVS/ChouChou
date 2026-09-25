@@ -485,3 +485,59 @@ test("lo sconto si vede nel modale come nelle pastiglie", () => {
   assert.ok(pastiglie, "le pastiglie sono sparite: rete da aggiornare");
   assert.match(pastiglie[0], /order-item-old/);
 });
+
+/* ============================================================
+   IL FORMATO NELLA RIGA DI CARRELLO — due elementi, non un testo
+   ============================================================ */
+
+/**
+ * ⚠️ La riga salvava un testo unico, «Piatto — Formato», dentro un solo
+ * `<span>`. Un sito che vuole il formato come pastiglia sotto il nome non puo'
+ * ricavarlo: il CSS un testo non lo divide. E ricavarlo in JS spezzando sul
+ * trattino romperebbe, in silenzio, ogni piatto che un trattino ce l'ha nel
+ * nome.
+ */
+
+test("la riga porta il nome e il formato separati, e ANCHE il testo unico", () => {
+  // ⚠️ `name` non si tocca: e' quello che vede chi non ha il carrello
+  // dettagliato, ed e' quello gia' salvato nei carrelli aperti.
+  assert.match(ORDERAPP, /name: `\$\{nomeVisto\} — \$\{etichettaVariante\(v, lang\)\}`/,
+    "il testo unico e' sparito: i carrelli gia' aperti restano senza nome");
+  assert.match(ORDERAPP, /base_name: nomeVisto/);
+  assert.match(ORDERAPP, /variant_label: etichettaVariante\(v, lang\)/);
+  // E i due campi sono OPZIONALI: una riga vecchia non li ha.
+  assert.match(ORDERAPP, /base_name\?: string;/);
+  assert.match(ORDERAPP, /variant_label\?: string;/);
+});
+
+test("il formato si stacca solo quando c'e' davvero, e non si ricava spezzando il nome", () => {
+  const riga = ORDERAPP.slice(
+    ORDERAPP.indexOf('<div className="order-cart-line-top">'),
+    ORDERAPP.indexOf('<div className="order-cart-line-controls">'),
+  );
+  assert.ok(riga.length > 100, "la riga di carrello e' cambiata: rete da aggiornare");
+  // Due elementi quando il formato c'e'...
+  assert.match(riga, /order-cart-line-name">\{l\.base_name\}/);
+  assert.match(riga, /order-cart-line-variant">\{l\.variant_label\}/);
+  // ...e la ricaduta sul testo unico quando non c'e' (carrelli gia' aperti,
+  // o piatto a prezzo unico): altrimenti la riga resterebbe senza nome.
+  assert.match(riga, /order-cart-line-name">\{l\.name\}/);
+  assert.match(riga, /carrelloDettagliato && l\.base_name && l\.variant_label \?/);
+  // ⚠️ Mai ricavare il formato spezzando il nome sul trattino.
+  assert.doesNotMatch(ORDERAPP, /\.split\("\s*—\s*"\)/, "il formato si ricava spezzando il nome");
+});
+
+test("la classe nuova e' scritta dove la cerca chi veste il carrello", () => {
+  // Una classe che il motore emette e nessuno documenta e' una classe che
+  // resta senza stile finche' qualcuno non la scopre guardando il DOM.
+  const prop = ORDERAPP.slice(
+    ORDERAPP.indexOf("carrelloDettagliato?: boolean") - 1600,
+    ORDERAPP.indexOf("carrelloDettagliato?: boolean"),
+  );
+  for (const c of [
+    "order-cart-line-foto", "order-cart-line-unit", "order-cart-line-variant",
+    "order-recap-testa", "order-recap-conta", "order-recap-svuota",
+  ]) {
+    assert.ok(prop.includes(c), `la classe ${c} non e' documentata sulla prop`);
+  }
+});
