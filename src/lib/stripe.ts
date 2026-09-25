@@ -3,14 +3,9 @@ import Stripe from "stripe";
 // (src/i18n/ui.ts, file per-cliente): il motore la legge invece di dare per
 // scontato che sia il francese e che l'unica altra lingua sia l'inglese.
 import { defaultLang } from "../i18n/ui";
+import { prefissoLingua } from "./linguaUrl";
 import { leggiSegreto, type Ambito } from "./admin/sede";
 
-/** Prefisso di lingua negli URL del sito pubblico: la lingua di default sta
- *  alla radice, le altre sotto /<lingua>. Stessa regola di getLocalizedUrl(). */
-function prefissoLingua(lang: string | undefined): string {
-  const l = String(lang ?? "").trim();
-  return !l || l === defaultLang ? "" : `/${l}`;
-}
 
 /**
  * IL CLIENT STRIPE E' PER SEDE — perche' il conto e' della SOCIETA'.
@@ -94,7 +89,7 @@ export async function creaCheckoutSession({
   discount,
 }: CreaSessioneInput): Promise<string> {
   const sp = await stripeDi(ambito);
-  const prefix = prefissoLingua(lang);
+  const prefix = prefissoLingua(lang, defaultLang);
 
   // Sconto coupon → coupon Stripe monouso applicato alla sessione.
   let discounts: { coupon: string }[] | undefined;
@@ -145,6 +140,9 @@ export async function creaCheckoutBon(opts: {
   shippingCents?: number;
   siteUrl: string;
   nomeRistorante: string;
+  /** Lingua della pagina da cui si compra. Assente = la lingua di base del
+   *  sito, cioe' la radice: e' il comportamento che c'era prima. */
+  lang?: string;
 }): Promise<string> {
   const voci: { name: string; amount: number }[] = [
     { name: `Bon cadeau ${opts.nomeRistorante} — ${opts.code}`, amount: opts.valueCents },
@@ -160,8 +158,13 @@ export async function creaCheckoutBon(opts: {
       quantity: 1,
     })),
     metadata: { gift_card_id: opts.giftCardId },
-    success_url: `${opts.siteUrl}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${opts.siteUrl}/order-cancel`,
+    // ⚠️ Anche il buono regalo torna nella lingua da cui si e' partiti. Qui
+    // l'indirizzo era cucito sulla radice: chi comprava dalla pagina `/en`
+    // si ritrovava la conferma in francese. Senza `lang` il risultato e'
+    // identico a prima — la radice — quindi per i clienti di oggi non
+    // cambia niente finche' non gliela passano.
+    success_url: `${opts.siteUrl}${prefissoLingua(opts.lang, defaultLang)}/order-confirm?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${opts.siteUrl}${prefissoLingua(opts.lang, defaultLang)}/order-cancel`,
   });
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;
@@ -184,7 +187,7 @@ export async function creaCheckoutSupplemento(opts: {
   lang?: string;
   returnBase?: string;
 }): Promise<string> {
-  const prefix = prefissoLingua(opts.lang);
+  const prefix = prefissoLingua(opts.lang, defaultLang);
   // Etichetta mostrata sulla pagina di pagamento Stripe, nella lingua del cliente.
   const SUPPL: Record<string, (n: string) => string> = {
     fr: (n) => `Commande #${n} — supplément`,
@@ -193,7 +196,7 @@ export async function creaCheckoutSupplemento(opts: {
     nl: (n) => `Bestelling #${n} — supplement`,
     es: (n) => `Pedido #${n} — suplemento`,
   };
-  const label = (SUPPL[String(opts.lang ?? "")] ?? SUPPL.fr)(opts.numero);
+  const label = (SUPPL[String(opts.lang ?? "")] ?? SUPPL[defaultLang] ?? SUPPL.fr)(opts.numero);
   const session = await (await stripeDi(opts.ambito)).checkout.sessions.create({
     mode: "payment",
     payment_method_types: ["card"],
@@ -204,8 +207,8 @@ export async function creaCheckoutSupplemento(opts: {
       },
     ],
     metadata: { order_id: opts.orderId, supplement: "1" },
-    success_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${opts.returnBase ? `&lang=${opts.lang ?? "fr"}` : ""}`,
-    cancel_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-cancel${opts.returnBase ? `?lang=${opts.lang ?? "fr"}` : ""}`,
+    success_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-confirm?session_id={CHECKOUT_SESSION_ID}${opts.returnBase ? `&lang=${opts.lang ?? defaultLang}` : ""}`,
+    cancel_url: `${opts.siteUrl}${opts.returnBase ?? prefix}/order-cancel${opts.returnBase ? `?lang=${opts.lang ?? defaultLang}` : ""}`,
   });
   if (!session.url) throw new Error("Stripe non ha restituito un URL di checkout");
   return session.url;
