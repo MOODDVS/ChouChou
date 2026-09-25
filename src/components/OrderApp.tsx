@@ -377,12 +377,6 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }
 
   /** Differenza rispetto al formato base, col segno. */
-  function euroDelta(cents: number): string {
-    if (cents === 0) return "";
-    const segno = cents > 0 ? "+" : "−";
-    return segno + " " + euro(Math.abs(cents));
-  }
-
   function aggiungi(item: MenuItem, v?: Variante) {
     if (item.is_sold_out || v?.sold_out) return;
     // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
@@ -569,12 +563,21 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }
 
   /** Modale di scelta del formato: foto, nome e i formati come radio.
-   *  Il primo formato è il riferimento, gli altri mostrano la differenza. */
+   *
+   *  ⚠️ OGNI RIGA E' UNA SCELTA A SE', e porta il SUO prezzo pieno.
+   *
+   *  Prima la prima riga faceva da riferimento e le altre mostravano la
+   *  DIFFERENZA. Un formato che costa quanto la prima restava cosi' senza
+   *  prezzo, perche' `euroDelta(0)` rendeva "": il cliente non legge «stesso
+   *  prezzo», legge «prezzo mancante» — e sul dubbio non ordina.
+   *
+   *  Non e' solo il caso dello zero. Due prezzi pieni si confrontano
+   *  guardandoli; una differenza va sommata a mente a un numero che sta su
+   *  un'altra riga. Nessun formato e' il riferimento degli altri. */
   function ModaleVarianti() {
     if (sceltaFormato !== "modale" || !itemModale) return null;
     const ordinabili = variantiOrdinabili(itemModale);
-    const base = ordinabili[0];
-    if (!base) return null;
+    if (ordinabili.length === 0) return null;
     return (
       <div className="order-modal-overlay" onClick={chiudiModale}>
         <div className="order-modal" onClick={(e) => e.stopPropagation()}>
@@ -584,27 +587,29 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           )}
           <h3 className="order-modal-title">{testoPiatto(itemModale, lang).name}</h3>
           <div className="order-modal-variants">
-            {ordinabili.map((v) => {
-              const delta = v.price_cents - base.price_cents;
-              const isBase = v.key === base.key;
-              return (
-                <label
-                  key={v.key}
-                  className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
-                >
-                  <input
-                    type="radio"
-                    name="variante"
-                    checked={varianteScelta === v.key}
-                    onChange={() => setVarianteScelta(v.key)}
-                  />
-                  <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
-                  <span className="order-modal-variant-price">
-                    {isBase ? euro(v.price_cents) : euroDelta(delta)}
-                  </span>
-                </label>
-              );
-            })}
+            {ordinabili.map((v) => (
+              <label
+                key={v.key}
+                className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
+              >
+                <input
+                  type="radio"
+                  name="variante"
+                  checked={varianteScelta === v.key}
+                  onChange={() => setVarianteScelta(v.key)}
+                />
+                <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
+                <span className="order-modal-variant-price">
+                  {/* ⚠️ Lo sconto barrato c'era nelle pastiglie e non qui: lo
+                      stesso formato in promozione si vedeva scontato da una
+                      parte e a prezzo pieno dall'altra. */}
+                  {v.original_price_cents && (
+                    <s className="order-item-old">{euro(v.original_price_cents)}</s>
+                  )}
+                  {euro(v.price_cents)}
+                </span>
+              </label>
+            ))}
           </div>
           <button type="button" className="order-modal-add" onClick={confermaModale}>
             {t.ariaAdd}

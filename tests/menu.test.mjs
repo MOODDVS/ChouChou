@@ -418,3 +418,70 @@ test("le due etichette nuove hanno un ripiego in tutte le lingue", () => {
   // E la parola del cliente vince su quella del motore.
   assert.equal(etichettaMenu("clearAll", "it", { clearAll: "Azzera" }), "Azzera");
 });
+
+/* ============================================================
+   I FORMATI NEL MODALE — ogni riga porta il suo prezzo
+   ============================================================ */
+
+/**
+ * ⚠️ IL GUASTO: la prima riga faceva da riferimento e le altre mostravano la
+ * DIFFERENZA, con `euroDelta(0) === ""`. Due formati allo stesso prezzo e il
+ * secondo restava SENZA PREZZO — l'etichetta sola, il posto del numero vuoto.
+ * Il cliente non legge «stesso prezzo»: legge «prezzo mancante», e sul dubbio
+ * non ordina. Nessun errore, nessun log: solo un ordine che non arriva.
+ *
+ * Queste prove leggono il SORGENTE (qui non c'e' un DOM da montare), e
+ * difendono l'invariante che conta: il prezzo mostrato per un formato non
+ * dipende da nessun ALTRO formato.
+ */
+
+/** Via i commenti: una rete non deve leggere le frasi che la descrivono —
+ *  qui il commento del modale NOMINA `euroDelta(0)` per spiegare il guasto. */
+const ORDERAPP_CODICE = ORDERAPP
+  .replace(/\/\*[\s\S]*?\*\//g, " ")
+  .split("\n")
+  .filter((r) => !/^\s*(\/\/|\*)/.test(r))
+  .join("\n");
+
+/** Il corpo del modale, dal `map` dei formati alla sua chiusura. */
+function modaleVarianti() {
+  const i = ORDERAPP.indexOf("function ModaleVarianti()");
+  assert.ok(i > 0, "ModaleVarianti e' sparita: rete da aggiornare");
+  const j = ORDERAPP.indexOf("\n  function ", i + 10);
+  return ORDERAPP.slice(i, j > 0 ? j : undefined);
+}
+
+test("nel modale ogni formato mostra il SUO prezzo pieno", () => {
+  const M = modaleVarianti();
+  assert.match(M, /order-modal-variant-price[\s\S]{0,400}?euro\(v\.price_cents\)/,
+    "il prezzo del formato non e' piu' il suo");
+  // ⚠️ L'invariante: nessun riferimento a un'altra riga dentro il prezzo.
+  assert.doesNotMatch(M, /price_cents\s*-\s*base\./, "e' tornata la differenza dalla prima riga");
+  assert.doesNotMatch(M, /\bisBase\b/, "e' tornato un formato privilegiato");
+  assert.doesNotMatch(M, /\bdelta\b/, "e' tornata la differenza");
+});
+
+test("due formati allo stesso prezzo mostrano tutt'e due il prezzo", () => {
+  // La prova dello zero, quella che ha fatto nascere il lavoro: non c'e' piu'
+  // nessuna funzione che renda "" per una differenza nulla.
+  assert.doesNotMatch(ORDERAPP_CODICE, /function euroDelta/,
+    "euroDelta e' tornata: una differenza di zero diventa una riga senza prezzo");
+  assert.doesNotMatch(ORDERAPP_CODICE, /euroDelta\(/);
+  // E il prezzo non passa da nessuna condizione: si scrive sempre.
+  const M = modaleVarianti();
+  const span = M.match(/<span className="order-modal-variant-price">[\s\S]*?<\/span>/);
+  assert.ok(span, "il posto del prezzo e' sparito dal modale");
+  assert.doesNotMatch(span[0], /\?/, "il prezzo del formato passa da una condizione");
+});
+
+test("lo sconto si vede nel modale come nelle pastiglie", () => {
+  // ⚠️ C'era solo nelle pastiglie: lo stesso formato in promozione si vedeva
+  // scontato da una parte e a prezzo pieno dall'altra.
+  const M = modaleVarianti();
+  assert.match(M, /original_price_cents && \(\s*<s className="order-item-old">\{euro\(v\.original_price_cents\)\}<\/s>/,
+    "nel modale il prezzo barrato non c'e'");
+  // Stessa classe delle pastiglie: nessun CSS nuovo da scrivere per i clienti.
+  const pastiglie = ORDERAPP.match(/order-item-var-pr[\s\S]{0,600}?<\/span>/);
+  assert.ok(pastiglie, "le pastiglie sono sparite: rete da aggiornare");
+  assert.match(pastiglie[0], /order-item-old/);
+});
