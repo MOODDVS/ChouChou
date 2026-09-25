@@ -20,6 +20,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
+import { ETICHETTE_MENU, etichettaMenu } from "../src/lib/i18nMenu.ts";
 import {
   prezzoEffettivo, leggiVariantiDb, variantiDelPunto, trovaVariante,
   haVarianti, etichettaVariante, applicaStato,
@@ -336,4 +337,84 @@ test("il checkout filtra i formati per sede, non solo la vetrina", () => {
   const checkout = readFileSync("src/pages/api/checkout.ts", "utf8");
   assert.match(checkout, /trovaVariante\([^)]*ambitoPub\)/s, "il checkout non passa la sede a trovaVariante");
   assert.match(checkout, /haVarianti\([^)]*ambitoPub\)/s);
+});
+
+/* ============================================================
+   IL CARRELLO — fotografia, prezzo unitario, svuota
+   ============================================================ */
+
+/**
+ * ⚠️ I siti dei clienti VESTONO `OrderApp` da fuori, attaccandosi alle classi
+ * `order-*`. Il componente non si tocca: si configura e si veste. Quindi ogni
+ * nodo nuovo dentro il carrello e' un cambio di aspetto su quattro siti in
+ * produzione che per quelle classi il CSS non ce l'hanno — e `.order-cart-line-top`
+ * e' un flex `space-between`: un terzo figlio non si aggiunge, sposta gli altri due.
+ *
+ * Per questo il di piu' sta dietro una prop SPENTA. Queste prove difendono la
+ * prop, non la funzione: la funzione si vede a occhio, la prop no.
+ */
+const ORDERAPP = readFileSync("src/components/OrderApp.tsx", "utf8");
+
+test("il carrello ricco e' spento finche' il sito non lo chiede", () => {
+  assert.match(ORDERAPP, /carrelloDettagliato = false/,
+    "la prop ha perso il default: i siti in produzione cambiano aspetto al merge");
+  // Ogni pezzo nuovo passa dalla prop. Se un domani uno si sgancia, compare
+  // da solo su tutti i clienti insieme.
+  for (const pezzo of [
+    /carrelloDettagliato && fotoPerId\.get\(l\.id\)/,
+    /carrelloDettagliato && \(\s*<span className="order-cart-line-unit"/,
+    /carrelloDettagliato && linee\.length > 0 \?/,
+  ]) {
+    assert.match(ORDERAPP, pezzo, "un pezzo del carrello ricco non passa piu' dalla prop");
+  }
+});
+
+test("il prezzo unitario e' il prezzo unitario, non una divisione", () => {
+  // ⚠️ `l.price_cents` E' gia' l'unitario del formato scelto: `prezzoRiga` lo
+  // moltiplica per la quantita'. Dividere darebbe lo stesso numero oggi e un
+  // numero sbagliato il giorno che nasce uno sconto per quantita'.
+  assert.match(ORDERAPP, /order-cart-line-unit">\{euro\(l\.price_cents\)\}/);
+  assert.doesNotMatch(ORDERAPP, /prezzoRiga\(l\)\s*\/\s*l\.qty/,
+    "il prezzo unitario si ricava dividendo: regge oggi e mente domani");
+});
+
+test("la fotografia non lascia un buco quando non c'e'", () => {
+  // Un riquadro vuoto dice «manca qualcosa», e il CSS del sito non ha modo di
+  // distinguerlo da uno che sta caricando.
+  assert.match(ORDERAPP, /fotoPerId\.get\(l\.id\) && \(/);
+  // Il posto va riservato: senza, la riga salta quando la foto arriva.
+  const img = ORDERAPP.match(/<img src=\{fotoPerId[^>]*>/);
+  assert.ok(img, "l'immagine del carrello e' sparita");
+  assert.match(img[0], /width="\d+"/);
+  assert.match(img[0], /height="\d+"/);
+  assert.match(img[0], /loading="lazy"/);
+});
+
+test("svuotare chiede conferma, con l'UNICO meccanismo che c'e' gia'", () => {
+  // ⚠️ E' l'unico comando del carrello che distrugge tutto: un tocco per
+  // sbaglio su un telefono costa l'ordine intero. Due meccanismi di conferma
+  // diversi vorrebbero dire due tempi diversi e due modi di sbagliare.
+  assert.match(ORDERAPP, /function clickSvuota\(\)\s*\{\s*chiediConferma\(TUTTO, \(\) => setLinee\(\[\]\)\)/);
+  assert.match(ORDERAPP, /function clickRimuovi\(chiave: string\)\s*\{\s*chiediConferma\(/);
+  const attese = [...ORDERAPP.matchAll(/setDaConfermare\(null\), 3000\)/g)];
+  assert.equal(attese.length, 1, "il tempo di conferma e' scritto in piu' di un posto");
+  // Lo svuota non deve poter partire al primo tocco.
+  assert.doesNotMatch(ORDERAPP, /onClick=\{\(\) => setLinee\(\[\]\)\}/);
+});
+
+test("le due etichette nuove hanno un ripiego in tutte le lingue", () => {
+  // ⚠️ Sono opzionali: i siti gia' in produzione non le passano. Senza
+  // ripiego, a schermo comparirebbe `undefined` su tutti i clienti insieme.
+  for (const lang of Object.keys(ETICHETTE_MENU)) {
+    for (const k of Object.keys(ETICHETTE_MENU.fr)) {
+      const v = ETICHETTE_MENU[lang][k];
+      assert.ok(typeof v === "string" && v.trim(), `manca ${k} in ${lang}`);
+    }
+  }
+  assert.ok(Object.keys(ETICHETTE_MENU.fr).includes("each"));
+  assert.ok(Object.keys(ETICHETTE_MENU.fr).includes("clearAll"));
+  // Una lingua che non esiste non lascia il buco: ripiega sul francese.
+  assert.equal(etichettaMenu("clearAll", "de"), ETICHETTE_MENU.fr.clearAll);
+  // E la parola del cliente vince su quella del motore.
+  assert.equal(etichettaMenu("clearAll", "it", { clearAll: "Azzera" }), "Azzera");
 });

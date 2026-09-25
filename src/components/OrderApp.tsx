@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
@@ -109,6 +109,11 @@ interface OrderStrings {
   seasonal?: string;
   suggestion?: string;
   confirm?: string;
+  /** «l'unité» dopo il prezzo unitario, e il comando che svuota il carrello.
+   *  Opzionali come le altre: i siti gia' in produzione non le passano, e una
+   *  `undefined` a schermo sarebbe un guasto visibile su tutti insieme. */
+  each?: string;
+  clearAll?: string;
 }
 
 interface OrderAppProps {
@@ -129,6 +134,17 @@ interface OrderAppProps {
    *  Anche quando è true, la foto compare solo sui piatti che ne hanno una:
    *  niente riquadri vuoti a spezzare le righe. Default: nessuna foto. */
   foto?: boolean;
+  /** Il carrello mostra la fotografia del piatto, il prezzo unitario sotto il
+   *  nome, quanti articoli ci sono e un comando per svuotare tutto.
+   *
+   *  ⚠️ SPENTA DI DEFAULT, e non per prudenza generica: accenderla aggiunge
+   *  nodi dentro `.order-cart-line` e una riga nel riepilogo. I siti gia' in
+   *  produzione si attaccano alle classi `order-*` dal loro CSS, e per quelle
+   *  nuove il CSS non ce l'hanno: se comparissero da sole, il giorno del
+   *  merge si troverebbero una miniatura nuda nel carrello e il prezzo
+   *  unitario in mezzo a una riga `space-between`, senza aver chiesto niente.
+   *  Si accende quando il sito ha lo stile pronto. */
+  carrelloDettagliato?: boolean;
   /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
    *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
   sede?: string;
@@ -163,7 +179,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, sede = "" }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "" }: OrderAppProps) {
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -338,6 +354,16 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     return foto && !!item.image_url;
   }
 
+  /** La fotografia di un piatto, per id. La riga di carrello porta solo l'id,
+   *  e il menu il componente ce l'ha gia' in `props`: nessuna lettura nuova.
+   *  ⚠️ Riagganciarla da fuori vorrebbe dire confrontare i NOMI delle righe,
+   *  che per i piatti con formato non coincidono con quelli del menu. */
+  const fotoPerId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const cat of menu) for (const it of cat.items) if (it.image_url) m.set(it.id, it.image_url);
+    return m;
+  }, [menu]);
+
   function chiudiModale() {
     setItemModale(null);
     setVarianteScelta("");
@@ -395,15 +421,31 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [daConfermare, setDaConfermare] = useState<string | null>(null);
   const timerConferma = useRef<number | null>(null);
 
-  function clickRimuovi(chiave: string) {
+  /** Chiave finta del comando «svuota tutto» nel meccanismo a due tocchi.
+   *  Le chiavi vere sono uuid (o `uuid::formato`), quindi non puo' collidere. */
+  const TUTTO = "\u0000tutto";
+
+  /** ⚠️ UN SOLO meccanismo di conferma, non due. Svuotare e' l'unico comando
+   *  del carrello che distrugge tutto, e un tocco per sbaglio su un telefono
+   *  costa l'ordine intero: deve chiedere conferma esattamente come il
+   *  cestino di riga, con lo stesso tempo e lo stesso stato. */
+  function chiediConferma(chiave: string, azione: () => void) {
     if (timerConferma.current) window.clearTimeout(timerConferma.current);
     if (daConfermare === chiave) {
       setDaConfermare(null);
-      rimuovi(chiave);
+      azione();
       return;
     }
     setDaConfermare(chiave);
     timerConferma.current = window.setTimeout(() => setDaConfermare(null), 3000);
+  }
+
+  function clickRimuovi(chiave: string) {
+    chiediConferma(chiave, () => rimuovi(chiave));
+  }
+
+  function clickSvuota() {
+    chiediConferma(TUTTO, () => setLinee([]));
   }
 
   function prezzoRiga(l: CartLine): number {
@@ -579,8 +621,26 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           const k = chiaveLinea(l);
           return (
           <li key={k} className="order-cart-line">
+            {/* ⚠️ Niente <span> vuoto quando il piatto non ha fotografia: un
+                riquadro senza immagine dice «manca qualcosa», e il CSS del
+                sito non ha modo di distinguerlo da uno che sta caricando.
+                width/height sono il RAPPORTO, non le misure vere del file:
+                servono a riservare il posto mentre la foto arriva. */}
+            {carrelloDettagliato && fotoPerId.get(l.id) && (
+              <span className="order-cart-line-foto">
+                <img src={fotoPerId.get(l.id)} alt="" loading="lazy" decoding="async" width="80" height="80" />
+              </span>
+            )}
             <div className="order-cart-line-top">
               <span className="order-cart-line-name">{l.name}</span>
+              {/* ⚠️ `l.price_cents` E' GIA' l'unitario del formato scelto
+                  (`prezzoRiga` lo moltiplica per la quantita'). Dividere
+                  `prezzoRiga(l)` per `l.qty` darebbe lo stesso numero oggi e
+                  un numero sbagliato il giorno che nasce uno sconto per
+                  quantita'. */}
+              {carrelloDettagliato && (
+                <span className="order-cart-line-unit">{euro(l.price_cents)} {et("each")}</span>
+              )}
               <span className="order-cart-line-price">{euro(prezzoRiga(l))}</span>
             </div>
             <div className="order-cart-line-controls">
@@ -629,7 +689,27 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         </div>
         <div className="order-app">
           <div className="order-menu">
-            <h2 className="order-section-title">{t.recap}</h2>
+            {/* ⚠️ Il <div> avvolge l'<h2> SOLO quando serve. Avvolgerlo sempre
+                cambierebbe la struttura attorno a un nodo che tutti i siti
+                stilizzano, e per niente: senza il conteggio non c'e' nulla da
+                affiancare. */}
+            {carrelloDettagliato && linee.length > 0 ? (
+              <div className="order-recap-testa">
+                <h2 className="order-section-title">{t.recap}</h2>
+                <p className="order-recap-conta">
+                  <span>{numArticoli} {t.items}</span>
+                  <button
+                    type="button"
+                    className={"order-recap-svuota" + (daConfermare === TUTTO ? " confirm" : "")}
+                    onClick={clickSvuota}
+                  >
+                    {daConfermare === TUTTO ? et("confirm") : et("clearAll")}
+                  </button>
+                </p>
+              </div>
+            ) : (
+              <h2 className="order-section-title">{t.recap}</h2>
+            )}
             {linee.length === 0 ? (
               <p className="order-cart-empty">{t.cartEmpty}</p>
             ) : (
