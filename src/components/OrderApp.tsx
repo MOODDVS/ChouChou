@@ -163,7 +163,13 @@ interface OrderAppProps {
    *    order-cart-line-variant  l'etichetta del formato, staccata dal nome
    *    order-recap-testa        il <div> attorno al titolo del riepilogo
    *    order-recap-conta        la riga «N articoli · Svuota tutto»
-   *    order-recap-svuota       il pulsante, che prende .confirm al primo tocco */
+   *    order-recap-svuota       il pulsante, che prende .confirm al primo tocco
+   *
+   *  La pastiglia del formato porta anche `data-variant` e, sul formato
+   *  standard, `data-base`: vedi il commento sulla riga che la scrive.
+   *
+   *  ⚠️ Per aggiungere al carrello da FUORI dell'isola c'e' un evento
+   *  pubblico, non una prop: `EVENTO_AGGIUNGI` in cima a questo file. */
   carrelloDettagliato?: boolean;
   /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
    *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
@@ -171,6 +177,39 @@ interface OrderAppProps {
 }
 
 type Vista = "menu" | "checkout";
+
+/**
+ * AGGIUNGERE AL CARRELLO DA FUORI L'ISOLA — evento pubblico.
+ *
+ * Un sito puo' mostrare piatti dove il menu non e' disegnato (un carosello
+ * «ultima voglia» nella vista checkout, una scheda in home) e ha bisogno di
+ * metterli nel carrello senza duplicare la logica dei prezzi e dei formati.
+ *
+ *   window.dispatchEvent(new CustomEvent("restohub:order-add", {
+ *     detail: { id: "<id del piatto>", variant: "<chiave formato>" },
+ *   }));
+ *
+ * Risposta, sempre, su "restohub:order-add-result":
+ *   { id, ok: true }
+ *   { id, ok: false, motivo: "sconosciuto" | "esaurito"
+ *                          | "variante-richiesta" | "variante-non-disponibile" }
+ *
+ * ⚠️ `sconosciuto` vuol dire «non e' nel menu che questa pagina ha in mano»:
+ * il menu arriva gia' filtrato per sede e per ordinabilita', quindi copre
+ * anche il piatto che esiste ma qui non si vende.
+ *
+ * ⚠️ `variante-richiesta`: il piatto ha dei formati e l'evento non ne ha
+ * detto nessuno. Col modale attivo (`sceltaFormato="modale"`) si apre il
+ * modale e si risponde `ok`. Con le pastiglie il selettore NON ESISTE fuori
+ * dalla scheda del piatto, e il motore non inventa un'interfaccia che il
+ * sito non ha vestito: risponde `false`, e il sito chiede come vuole lui.
+ *
+ * ⚠️ E' una porta APERTA: qualunque script della pagina puo' bussare. Il
+ * danno possibile e' una riga di troppo in un carrello che il cliente vede
+ * prima di pagare — i prezzi li rifa' il server dal database, non da qui.
+ */
+export const EVENTO_AGGIUNGI = "restohub:order-add";
+export const EVENTO_AGGIUNGI_ESITO = "restohub:order-add-result";
 
 const STORAGE_KEY = "lm-order-cart";
 
@@ -378,6 +417,25 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
    *  e il menu il componente ce l'ha gia' in `props`: nessuna lettura nuova.
    *  ⚠️ Riagganciarla da fuori vorrebbe dire confrontare i NOMI delle righe,
    *  che per i piatti con formato non coincidono con quelli del menu. */
+  /** Il formato che il ristoratore ha messo per PRIMO nella scheda del piatto.
+   *
+   *  ⚠️ NON e' `variantiOrdinabili(item)[0]`. Quello si sposta con l'esaurito
+   *  di oggi: se la Classica finisce, il «base» diventerebbe il formato
+   *  particolare — e un sito che nasconde il base si ritroverebbe nascosto
+   *  proprio quello che voleva mostrare. L'ordine dichiarato non si muove.
+   *
+   *  ⚠️ E non e' piu' «il riferimento del modale»: quel concetto e' stato
+   *  tolto il 25/09/2026, perche' nessun formato e' il metro degli altri.
+   *  Qui serve un'altra cosa: quale formato il sito puo' considerare lo
+   *  STANDARD, per non ripeterlo su ogni riga. */
+  const formatoBasePerId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const cat of menu) {
+      for (const it of cat.items) if (it.variants.length > 0) m.set(it.id, it.variants[0].key);
+    }
+    return m;
+  }, [menu]);
+
   const fotoPerId = useMemo(() => {
     const m = new Map<string, string>();
     for (const cat of menu) for (const it of cat.items) if (it.image_url) m.set(it.id, it.image_url);
@@ -641,6 +699,42 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     );
   }
 
+  /** Ascolta l'evento pubblico descritto in cima al file. Finche' nessuno lo
+   *  manda, qui non succede niente: un `addEventListener` e la sua pulizia. */
+  useEffect(() => {
+    function esito(id: string, ok: boolean, motivo?: string) {
+      window.dispatchEvent(
+        new CustomEvent(EVENTO_AGGIUNGI_ESITO, { detail: { id, ok, ...(motivo ? { motivo } : {}) } }),
+      );
+    }
+    function ascolta(e: Event) {
+      const det = ((e as CustomEvent).detail ?? {}) as { id?: unknown; variant?: unknown };
+      const id = String(det.id ?? "").trim();
+      if (!id) return; // senza id non c'e' nemmeno a chi rispondere
+      const item = menu.flatMap((c) => c.items).find((i) => i.id === id);
+      if (!item) return esito(id, false, "sconosciuto");
+      if (item.is_sold_out) return esito(id, false, "esaurito");
+      if (item.variants.length === 0) {
+        aggiungi(item);
+        return esito(id, true);
+      }
+      const chiave = String(det.variant ?? "").trim();
+      if (!chiave) {
+        // ⚠️ Col modale si puo' chiedere; con le pastiglie no, e il motore
+        // non inventa un'interfaccia che il sito non ha vestito.
+        if (sceltaFormato !== "modale") return esito(id, false, "variante-richiesta");
+        clicPiu(item);
+        return esito(id, true);
+      }
+      const v = variantiOrdinabili(item).find((x) => x.key === chiave);
+      if (!v) return esito(id, false, "variante-non-disponibile");
+      aggiungi(item, v);
+      esito(id, true);
+    }
+    window.addEventListener(EVENTO_AGGIUNGI, ascolta);
+    return () => window.removeEventListener(EVENTO_AGGIUNGI, ascolta);
+  }, [menu, sceltaFormato, lang]);
+
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
@@ -669,7 +763,18 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               {carrelloDettagliato && l.base_name && l.variant_label ? (
                 <>
                   <span className="order-cart-line-name">{l.base_name}</span>
-                  <span className="order-cart-line-variant">{l.variant_label}</span>
+                  {/* ⚠️ Attributi, non il testo: l'etichetta cambia con la
+                      lingua della pagina, e un CSS che confronta un testo si
+                      rompe alla prima traduzione. Con
+                      `.order-cart-line-variant[data-base] { display: none }`
+                      il formato standard non si ripete su ogni riga. */}
+                  <span
+                    className="order-cart-line-variant"
+                    data-variant={l.variant}
+                    data-base={l.variant && formatoBasePerId.get(l.id) === l.variant ? "" : undefined}
+                  >
+                    {l.variant_label}
+                  </span>
                 </>
               ) : (
                 <span className="order-cart-line-name">{l.name}</span>
@@ -865,6 +970,11 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
             )}
           </aside>
         </div>
+
+        {/* ⚠️ Anche QUI, non solo nella vista menu: un sito che aggiunge un
+            piatto con l'evento pubblico mentre il cliente sta compilando i
+            dati deve poter chiedere il formato. Era montato solo di la'. */}
+        <ModaleVarianti />
       </div>
     );
   }

@@ -518,7 +518,10 @@ test("il formato si stacca solo quando c'e' davvero, e non si ricava spezzando i
   assert.ok(riga.length > 100, "la riga di carrello e' cambiata: rete da aggiornare");
   // Due elementi quando il formato c'e'...
   assert.match(riga, /order-cart-line-name">\{l\.base_name\}/);
-  assert.match(riga, /order-cart-line-variant">\{l\.variant_label\}/);
+  // ⚠️ Non su una riga sola: questa prova e' gia' andata rossa una volta
+  // perche' fissava l'IMPAGINAZIONE invece del fatto — lo <span> si e' aperto
+  // su piu' righe per far posto agli attributi, e il codice era giusto.
+  assert.match(riga, /className="order-cart-line-variant"[\s\S]{0,300}?\{l\.variant_label\}/);
   // ...e la ricaduta sul testo unico quando non c'e' (carrelli gia' aperti,
   // o piatto a prezzo unico): altrimenti la riga resterebbe senza nome.
   assert.match(riga, /order-cart-line-name">\{l\.name\}/);
@@ -540,4 +543,68 @@ test("la classe nuova e' scritta dove la cerca chi veste il carrello", () => {
   ]) {
     assert.ok(prop.includes(c), `la classe ${c} non e' documentata sulla prop`);
   }
+});
+
+/* ============================================================
+   LA PASTIGLIA DEL FORMATO, E L'AGGIUNTA DA FUORI L'ISOLA
+   ============================================================ */
+
+test("il formato standard si riconosce da un attributo, non dal testo", () => {
+  // ⚠️ L'etichetta cambia con la lingua della pagina: un CSS che confronta un
+  // testo si rompe alla prima traduzione. Per questo `data-base`.
+  const riga = ORDERAPP.slice(
+    ORDERAPP.indexOf('<div className="order-cart-line-top">'),
+    ORDERAPP.indexOf('<div className="order-cart-line-controls">'),
+  );
+  assert.match(riga, /data-variant=\{l\.variant\}/);
+  assert.match(riga, /data-base=\{l\.variant && formatoBasePerId\.get\(l\.id\) === l\.variant \? "" : undefined\}/);
+});
+
+test("il formato «standard» e' quello DICHIARATO per primo, non quello ordinabile per primo", () => {
+  // ⚠️ `variantiOrdinabili(item)[0]` si sposta con l'esaurito di oggi: se la
+  // Classica finisce, il base diventerebbe il formato particolare — e un sito
+  // che nasconde il base nasconderebbe proprio quello che voleva mostrare.
+  const mappa = ORDERAPP.slice(
+    ORDERAPP.indexOf("const formatoBasePerId = useMemo"),
+    ORDERAPP.indexOf("const fotoPerId = useMemo"),
+  );
+  assert.ok(mappa.length > 50, "formatoBasePerId e' sparita: rete da aggiornare");
+  assert.match(mappa, /it\.variants\[0\]\.key/);
+  assert.doesNotMatch(mappa, /variantiOrdinabili/,
+    "il formato standard si sposta con l'esaurito di oggi");
+});
+
+test("l'evento pubblico ha un nome solo, e risponde sempre", () => {
+  assert.match(ORDERAPP, /export const EVENTO_AGGIUNGI = "restohub:order-add";/);
+  assert.match(ORDERAPP, /export const EVENTO_AGGIUNGI_ESITO = "restohub:order-add-result";/);
+  // ⚠️ Il nome non si riscrive a mano da nessuna parte: due stringhe uguali
+  // sono due stringhe che prima o poi divergono.
+  const usi = [...ORDERAPP_CODICE.matchAll(/"restohub:order-add[^"]*"/g)];
+  assert.equal(usi.length, 2, "il nome dell'evento e' scritto in piu' di un posto");
+  // Ogni via d'uscita passa da `esito(...)`: un sito che chiede e non riceve
+  // risposta non ha modo di sapere se aspettare.
+  const listener = ORDERAPP.slice(
+    ORDERAPP.indexOf("function ascolta(e: Event)"),
+    ORDERAPP.indexOf("window.addEventListener(EVENTO_AGGIUNGI"),
+  );
+  assert.ok(listener.length > 200, "il listener e' cambiato: rete da aggiornare");
+  for (const motivo of ["sconosciuto", "esaurito", "variante-richiesta", "variante-non-disponibile"]) {
+    assert.ok(listener.includes(`"${motivo}"`), `manca il motivo ${motivo}`);
+  }
+  // L'unico ritorno che NON risponde e' quello senza id: non c'e' a chi dirlo.
+  const muti = [...listener.matchAll(/\breturn;/g)];
+  assert.equal(muti.length, 1, "c'e' una via d'uscita che non risponde a chi ha chiesto");
+});
+
+test("il listener si toglie quando l'isola se ne va", () => {
+  // Senza pulizia, ogni rimontaggio lascia un ascoltatore in piu' e lo stesso
+  // evento aggiunge il piatto due volte, tre volte, quattro.
+  assert.match(ORDERAPP, /window\.addEventListener\(EVENTO_AGGIUNGI, ascolta\);\s*\n\s*return \(\) => window\.removeEventListener\(EVENTO_AGGIUNGI, ascolta\);/);
+});
+
+test("il modale dei formati esiste in tutt'e due le viste", () => {
+  // ⚠️ Era montato solo nella vista menu. Un sito che aggiunge un piatto con
+  // formati mentre il cliente compila i dati non avrebbe avuto dove chiedere.
+  const montaggi = [...ORDERAPP.matchAll(/<ModaleVarianti \/>/g)];
+  assert.equal(montaggi.length, 2, "il modale non e' montato in tutt'e due le viste");
 });
