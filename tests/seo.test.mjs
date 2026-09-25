@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { inSitemap, FUORI_SITEMAP } from "../src/lib/seo/sitemapRegole.ts";
+import { inSitemap, FUORI_SITEMAP, PAGINE_FUORI_SITEMAP } from "../src/lib/seo/sitemapRegole.ts";
 
 const CONFIG = readFileSync("astro.config.mjs", "utf8");
 const ROBOTS = readFileSync("public/robots.txt", "utf8");
@@ -77,4 +77,28 @@ test("robots.txt chiude il pannello, e non chiude il ristorante", () => {
       `robots.txt blocca ${v}: e' una pagina pubblica del ristorante`);
   }
   assert.match(ROBOTS, /^Sitemap: /m, "robots.txt non indica piu' dove sta la sitemap");
+});
+
+test("le pagine di ritorno da Stripe restano fuori IN OGNI LINGUA", () => {
+  // ⚠️ La proposta diceva di elencare `/order-confirm` e `/en/order-confirm`.
+  // Ma L'Huile sur le Feu ha `/it/` e `/nl/`, Educazione Napoletana ha `/it/`:
+  // con un elenco di INIZI, due clienti si sarebbero tenuti in sitemap le
+  // pagine di ritorno dal pagamento in italiano e in olandese. Il motore non
+  // sa quali lingue ha un cliente, e non deve saperlo: guarda l'ultimo pezzo
+  // del percorso.
+  assert.ok(PAGINE_FUORI_SITEMAP.includes("order-confirm"), "elenco svuotato: la prova passerebbe a vuoto");
+  for (const p of [
+    "/order-confirm/", "/en/order-confirm/", "/it/order-confirm/", "/nl/order-confirm/",
+    "/order-cancel/", "/es/order-cancel/", "/404", "/en/404/",
+  ]) {
+    assert.equal(inSitemap(`https://www.esempio.be${p}`), false, `${p} e' rimasta in sitemap`);
+  }
+});
+
+test("un pezzo intero, non «inizia con»", () => {
+  // ⚠️ Il confine che rende innocua la regola sopra: una pagina del cliente
+  // che si chiama `/order-confirmation` e' una pagina vera, e deve restare.
+  for (const p of ["/order-confirmation/", "/order/", "/orders/", "/en/order/", "/404-idee/"]) {
+    assert.ok(inSitemap(`https://www.esempio.be${p}`), `${p} e' sparita dalla sitemap`);
+  }
 });

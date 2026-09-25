@@ -35,6 +35,25 @@ export const FUORI_SITEMAP: readonly string[] = [
 ];
 
 /**
+ * Pagine che restano fuori QUALUNQUE sia il prefisso di lingua.
+ *
+ * ⚠️ Qui si guarda l'ULTIMO PEZZO del percorso, non l'inizio, e non e' un
+ * vezzo: la proposta diceva di elencare `/order-confirm` e `/en/order-confirm`.
+ * Ma L'Huile ha `/it/` e `/nl/`, Educazione Napoletana ha `/it/`: con un
+ * elenco di inizi, due clienti si sarebbero tenuti in sitemap le pagine di
+ * ritorno da Stripe in italiano e in olandese. Il motore non sa quali lingue
+ * ha un cliente, e non deve saperlo.
+ *
+ * Sono pagine dove si ARRIVA dopo aver pagato, con un id di sessione
+ * nell'URL: in ricerca non ci vanno, e senza quell'id non mostrano niente.
+ */
+export const PAGINE_FUORI_SITEMAP: readonly string[] = [
+  "order-confirm", // ritorno da Stripe dopo il pagamento
+  "order-cancel", //  ritorno da Stripe se il cliente rinuncia
+  "404", //           la pagina d'errore non e' un contenuto
+];
+
+/**
  * ⚠️ QUI NON C'E' `/demo01`, e non e' una dimenticanza.
  *
  * La prima stesura ce l'aveva, e la prova «il motore non nomina un demo in
@@ -59,5 +78,9 @@ export function inSitemap(url: string): boolean {
   if (!path.startsWith("/")) path = `/${path}`;
   // `/admin/` e `/admin` sono la stessa cosa: la sitemap scrive la barra finale.
   const pulito = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
-  return !FUORI_SITEMAP.some((v) => pulito === v || pulito.startsWith(`${v}/`));
+  if (FUORI_SITEMAP.some((v) => pulito === v || pulito.startsWith(`${v}/`))) return false;
+  // ⚠️ Il pezzo INTERO, non «inizia con»: una pagina `/order-confirmation`
+  // del cliente non c'entra niente e deve restare in sitemap.
+  const ultimo = pulito.slice(pulito.lastIndexOf("/") + 1);
+  return !PAGINE_FUORI_SITEMAP.includes(ultimo);
 }

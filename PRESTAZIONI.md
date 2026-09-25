@@ -126,6 +126,12 @@ Disallow: /reservation-test
 filtro in `sitemapRegole.ts` NON lo nomina di proposito: il motore non decide
 in base al nome di un demo, e c'e' una prova che lo impedisce.)
 
+⚠️ **Le lingue.** Il filtro della sitemap guarda l'ULTIMO pezzo del percorso,
+quindi `order-confirm` e `order-cancel` restano fuori in qualunque lingua —
+`/it/`, `/nl/`, `/es/` compresi — senza che il motore sappia quali lingue hai.
+In `robots.txt` no: li' i prefissi vanno scritti a mano, uno per lingua del
+sito. Se il cliente ha `/it/` e `/nl/`, servono anche quelle righe.
+
 ⚠️ **Non allargare i prefissi.** `/order/cancel` e `/reservation/cancel` stanno
 fuori dalla sitemap, ma `Disallow: /order` spegnerebbe la pagina d'ordine e
 `Disallow: /reservation` quella delle prenotazioni: in robots.txt un prefisso

@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { SONO_IL_MOTORE } from "./ambiente.mjs";
 import { join } from "node:path";
 import {
   CLASSIFICA,
@@ -987,17 +988,22 @@ test("un ordine non si crea nell'aggregato, e nasce sempre con la sua sede", () 
    per sempre «in attesa» e il link «annulla» non farebbe niente.
 
    Devono essere pochi, dichiarati, e con il perche' scritto accanto. */
-test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
-  const AMMESSI = {
+const AMMESSI_AGGREGATO = {
     "src/pages/api/stripe-webhook.ts":
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
       "l'ordine si trova con il suo cancel_token, che e' un segreto: il token E' l'autorizzazione",
-    // ⚠️ Le versioni radice e /en non ci sono piu' (16/09/2026): le pagine
-    // vetrina di un cliente sono uscite dal motore, e il sito di riferimento
-    // e' `demo01`. Se un giorno ne rinasce una, va ridichiarata qui.
+    // ⚠️ Le versioni radice e /en erano uscite dal motore il 16/09/2026 con le
+    // altre pagine vetrina. Rinascono NEI CLIENTI (25/09/2026): il ritorno da
+    // Stripe e' una pagina del sito pubblico, e ogni cliente ha la sua. Qui nel
+    // motore non esistono, e va bene: il motore non ha un sito.
     "src/pages/demo01/order-confirm.astro":
       "la pagina di ritorno da Stripe ha l'id di sessione, che e' l'autorizzazione",
+    "src/pages/order-confirm.astro":
+      "ritorno da Stripe sul sito del cliente: chi torna dal pagamento non dice " +
+      "da quale punto, e l'id di sessione E' l'autorizzazione",
+    "src/pages/en/order-confirm.astro":
+      "stessa pagina, altra lingua: l'id di sessione E' l'autorizzazione",
     "src/pages/api/reservation.ts":
       "i link «modifier» e «annuler» arrivano da un'email: il cliente non ha " +
       "scelto nessun punto sul sito e non deve doverlo fare. Il cancel_token e' " +
@@ -1021,7 +1027,11 @@ test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
     "src/lib/newsletterSend.ts":
       "la rubrica e' del MARCHIO: una persona che ordina qui e prenota la' riceve " +
       "una copia sola, quindi i destinatari si contano sul gruppo",
-  };
+};
+
+/** I file che chiamano `tutteLeSedi()`. Lo calcolano tutt'e due le prove qui
+ *  sotto: una ne cerca di non dichiarati, l'altra di dichiarati a vuoto. */
+function fileCheUsanoAggregato() {
   // ⚠️ Su TUTTO `src/`, non solo su `src/pages`. La prima versione guardava
   // solo le pagine e si era gia' lasciata fuori due usi veri in `src/lib`
   // (il promemoria delle prenotazioni e la lista clienti del server). Un
@@ -1034,25 +1044,42 @@ test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
       else if (/\.(ts|astro)$/.test(nome)) file.push(p);
     }
   })("src");
-
-  const usanti = file
+  return file
     .filter((f) => f !== "src/lib/admin/sede.ts" && f !== "src/lib/admin/sedeRegole.ts")
     .filter((f) => /\btutteLeSedi\(\)/.test(soloCodice(readFileSync(f, "utf8"))));
-  const nonDichiarati = usanti.filter((f) => !AMMESSI[f]);
+}
+
+test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
+  const nonDichiarati = fileCheUsanoAggregato().filter((f) => !AMMESSI_AGGREGATO[f]);
   assert.deepEqual(
     nonDichiarati.sort(),
     [],
     `usano l'aggregato senza dichiararlo:\n  ${nonDichiarati.join("\n  ")}`,
   );
-  // E ogni voce ammessa deve essere ancora vera.
-  //
-  // ⚠️ Un file che NON ESISTE non e' un'eccezione morta. Questa prova gira
-  // anche nei repo dei clienti, dove il motore arriva per merge, e un cliente
-  // vero cancella le pagine `demo01` — sono il modello, non il suo sito. La
-  // prima versione le dava per scontate e diventava rossa su 450 Gradi
-  // appena arrivava il merge: una rete che punisce una installazione
-  // legittima e' una rete che qualcuno prima o poi disattiva.
-  const morte = Object.keys(AMMESSI)
+});
+
+/**
+ * E ogni voce ammessa deve essere ancora vera — MA SOLO NEL MOTORE.
+ *
+ * ⚠️ Un file che NON ESISTE non e' un'eccezione morta: un cliente vero
+ * cancella le pagine `demo01`, che sono il modello e non il suo sito. La
+ * prima versione le dava per scontate e diventava rossa su 450 Gradi appena
+ * arrivava il merge.
+ *
+ * ⚠️ E nemmeno un file che ESISTE ma legge in un altro modo. Il 25/09/2026
+ * abbiamo dichiarato `src/pages/order-confirm.astro`, che nel motore non c'e'
+ * e in un cliente si'. Negli altri quattro clienti quella pagina esiste da
+ * sempre e legge l'ordine direttamente da `supabaseAdmin`, senza passare da
+ * `tutteLeSedi()`: sarebbe stata contata come eccezione morta, e la prova
+ * sarebbe diventata rossa su quattro repo in una volta.
+ *
+ * Tenere onesto l'elenco e' un lavoro DEL MOTORE. In un cliente, se una
+ * dichiarazione del motore sia ancora usata non e' una domanda che abbia
+ * senso fare.
+ */
+test.skipIf(!SONO_IL_MOTORE)("le eccezioni sull'aggregato sono ancora vere", () => {
+  const usanti = fileCheUsanoAggregato();
+  const morte = Object.keys(AMMESSI_AGGREGATO)
     .filter((f) => existsSync(f))
     .filter((f) => !usanti.includes(f));
   assert.deepEqual(morte.sort(), [], `dichiarati ma non usano piu' l'aggregato: ${morte.join(", ")}`);
