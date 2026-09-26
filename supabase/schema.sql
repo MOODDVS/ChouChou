@@ -1,6 +1,6 @@
 -- ============================================================
--- LA MOLISANA — Schema DB (clone del motore Pizzeria 77)
--- Da lanciare nel SQL Editor del progetto Supabase "La Molisana".
+-- RestoHub — Schema DB
+-- Da lanciare nel SQL Editor del progetto Supabase del cliente.
 -- Sicuro da rilanciare (idempotente): usa IF NOT EXISTS / ON CONFLICT.
 -- ============================================================
 
@@ -67,28 +67,27 @@ create policy "settings lettura pubblica"
   to anon, authenticated
   using (true);
 
--- Seed: orari REALI di La Molisana. Orario CONTINUATO 11:00-23:30, una sola
--- fascia (usiamo lunch_*, dinner_* disattivata). Martedì (day_of_week 2) chiuso.
--- prep 30', slot 15'. UPSERT: aggiorna anche se le righe esistono già.
+-- Seed: sette righe di PARTENZA, non gli orari di nessun ristorante vero.
+-- Servizio spezzato 12:00-14:30 / 18:30-22:30, sette giorni su sette, prep 30',
+-- slot 15'. Il ristoratore li corregge in Reglages -> Horaires al primo giro.
+--
+-- ⚠️ `do nothing`, NON un UPSERT, ed e' il punto di questo blocco. Prima era
+-- `do update set`: rilanciare questo file su un cliente che gia' lavora — cosa
+-- che si fa ogni volta che serve una colonna nuova — gli RISCRIVEVA i sette
+-- giorni con quelli scritti qui. Nessun errore, nessuna riga nei log: la gente
+-- si presenta in un giorno che il sito dice aperto e trova chiuso. Un seed
+-- semina, non corregge: le riparazioni si fanno dall'admin.
 insert into public.settings
   (day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes)
 values
-  (0, true,  '11:00', '23:30', false, null, null, 30, 15),  -- domenica
-  (1, true,  '11:00', '23:30', false, null, null, 30, 15),  -- lunedì
-  (2, false, null,    null,    false, null, null, 30, 15),  -- MARTEDÌ CHIUSO
-  (3, true,  '11:00', '23:30', false, null, null, 30, 15),  -- mercoledì
-  (4, true,  '11:00', '23:30', false, null, null, 30, 15),  -- giovedì
-  (5, true,  '11:00', '23:30', false, null, null, 30, 15),  -- venerdì
-  (6, true,  '11:00', '23:30', false, null, null, 30, 15)   -- sabato
-on conflict (day_of_week) do update set
-  lunch_active          = excluded.lunch_active,
-  lunch_open            = excluded.lunch_open,
-  lunch_close           = excluded.lunch_close,
-  dinner_active         = excluded.dinner_active,
-  dinner_open           = excluded.dinner_open,
-  dinner_close          = excluded.dinner_close,
-  prep_time_minutes     = excluded.prep_time_minutes,
-  slot_duration_minutes = excluded.slot_duration_minutes;
+  (0, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- domenica
+  (1, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- lunedì
+  (2, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- martedì
+  (3, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- mercoledì
+  (4, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- giovedì
+  (5, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15),  -- venerdì
+  (6, true, '12:00', '14:30', true, '18:30', '22:30', 30, 15)   -- sabato
+on conflict (day_of_week) do nothing;
 
 -- ------------------------------------------------------------
 -- 3. ORDERS — ordini take-away

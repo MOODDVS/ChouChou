@@ -155,6 +155,62 @@ test("Cuisine, Réservations e Notifiche si salvano per SEDE", () => {
   }
 });
 
+test("l'email cucina si salva anche VUOTA, e su una sede il vuoto eredita", () => {
+  // ⚠️ Il guasto era `if (email)`: con la lista vuota il salvataggio si
+  // saltava del tutto. Togliere l'ultimo indirizzo non aveva effetto, e al
+  // ricaricamento riappariva quello di prima — sembrava che il campo non si
+  // potesse svuotare, ed era vero.
+  assert.doesNotMatch(API, /if \(email\) \{/,
+    "la lista vuota salta di nuovo il salvataggio: non si riesce a togliere l'ultimo indirizzo");
+
+  // CASO 1 — una sede attiva, lista vuota: si TOGLIE l'eccezione e la sede
+  // torna a ereditare dal marchio. NON si scrive un'eccezione vuota: quella
+  // manderebbe i ticket di quel punto sull'.env o in nessun posto, e un ordine
+  // che nessuna cucina vede non da' errore e non lascia una riga nei log.
+  assert.match(API, /cancellaConfig\(ambitoPut, \["kitchen_email"\]\)/,
+    "il vuoto su una sede non toglie piu' l'eccezione");
+
+  // CASO 2 — livello marchio, lista vuota: si salva '' , e chi legge ripiega
+  // su KITCHEN_EMAIL dell'.env. Qui non c'e' nessuna eccezione da togliere.
+  assert.match(API, /scriviConfig\(ambitoPut, \{ kitchen_email: "" \}\)/,
+    "il vuoto al livello marchio non si salva piu'");
+
+  // ...e la lista piena continua a salvarsi dove la manda CLASSIFICA_CONFIG.
+  assert.match(API, /scriviConfig\(ambitoPut, \{ kitchen_email: email \}\)/);
+});
+
+test("cancellaConfig toglie la riga di QUESTA sede, e solo la sua", () => {
+  // Fino al 26/09/2026 in `location_config` non c'era nessuna cancellazione:
+  // una sede che aveva salvato una volta non tornava mai piu' a ereditare, per
+  // nessuna chiave. Questa e' la primitiva che mancava.
+  const sede = readFileSync("src/lib/admin/sede.ts", "utf8");
+  assert.match(sede, /export async function cancellaConfig/, "cancellaConfig e' sparita");
+
+  // ⚠️ Senza `.eq("location_id", ambito.id)` la delete porterebbe via
+  // l'eccezione di TUTTE le sedi: un campo svuotato in un punto azzererebbe
+  // gli altri due, e nessuno collegherebbe le due cose.
+  assert.match(
+    sede,
+    /from\("location_config"\)\s*\n?\s*\.delete\(\)\s*\n?\s*\.eq\("location_id", ambito\.id\)\s*\n?\s*\.in\("key", diSede\)/,
+    "la delete su location_config non e' piu' limitata a una sede e a certe chiavi",
+  );
+
+  // Con `unica` / `tutte` non esiste nessuna eccezione da togliere: il valore
+  // del marchio E' il valore. Uscire subito, non cancellare `app_config`.
+  assert.match(sede, /ambito\.modo !== "sede"\) return null/,
+    "cancellaConfig potrebbe arrivare a toccare app_config");
+});
+
+test("la pagina distingue un'email cucina ereditata da una propria", () => {
+  // ⚠️ Un campo pieno coi dati del marchio sembra un dato proprio, e chi lo
+  // salva senza toccarlo se lo porta a casa come eccezione per sempre. Con la
+  // cancellazione si puo' tornare indietro, ma la cosa va comunque detta.
+  assert.match(API, /kitchen_email_ereditata: ambito\.modo === "sede" && !sovrascritte\.has\("kitchen_email"\)/,
+    "la GET non dice piu' se l'email cucina e' ereditata");
+  assert.match(PAGINA, /kitchen_email_ereditata \? "" : "none"/,
+    "la pagina non mostra piu' l'avviso di valore ereditato");
+});
+
 test("gli orari si scrivono con scriviOrari, che sdoppia da solo", () => {
   // `settings` ha `day_of_week` come chiave naturale, quindi la variante per
   // sede non puo' stare nella stessa tabella: vive in `location_settings`.
@@ -177,7 +233,18 @@ test("si legge con l'ambito della richiesta, e si sa cosa e' ereditato", () => {
   // pieno di dati del marchio sembra un dato proprio, e chi lo salva senza
   // toccarlo se lo porta a casa come eccezione per sempre.
   assert.match(API, /const ambito = await ambitoDiRichiesta\(request, staff\);/);
-  assert.match(API, /const \{ valori: cfg, marchio \} = await leggiConfig\(ambito,/);
+  // ⚠️ Questa riga fissava la destrutturazione esatta — `{ valori: cfg,
+  // marchio }` — e il giorno che ne e' servita una terza (`sovrascritte`, per
+  // dire se un valore e' ereditato) e' diventata rossa senza che niente si
+  // fosse rotto. Adesso guarda le tre cose UNA PER UNA: aggiungerne una quarta
+  // non fa piu' rumore, togliere una delle tre si'.
+  assert.match(API, /await leggiConfig\(ambito,/);
+  for (const nome of ["valori: cfg", "marchio", "sovrascritte"]) {
+    assert.ok(
+      new RegExp(`const \\{[^}]*\\b${nome}\\b[^}]*\\} = await leggiConfig`).test(API),
+      `la GET non legge piu' \`${nome}\` da leggiConfig`,
+    );
+  }
 });
 
 test("dall'aggregato non si salva niente in Réglages", () => {

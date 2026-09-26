@@ -1374,6 +1374,7 @@ const t = adminT(lang);
                   <label class="dyn-lbl">{t("set.ord.notifyEmail")}</label>
                   <div class="kemails" id="kemails"></div>
                   <button type="button" class="kemail-add" id="kemail-add">{t("set.gen.addEmail")}</button>
+                  <span class="cf-hint" id="kemail-herit" style="display:none">{t("set.cui.kitchenInherited")}</span>
                 </div>
               </div>
             </div>
@@ -3596,7 +3597,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -3771,6 +3772,11 @@ const t = adminT(lang);
         const listaEmail = String(dati.kitchen_email ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
         if (listaEmail.length === 0) aggiungiRigaEmail();
         else listaEmail.forEach((e: string) => aggiungiRigaEmail(e));
+        // Ereditato dal marchio: il campo e' pieno ma la sede non ha scritto
+        // niente. Senza dirlo sembra un dato suo, e chi salva senza toccarlo
+        // se lo porta a casa come eccezione per sempre.
+        const kHerit = document.getElementById("kemail-herit") as HTMLElement | null;
+        if (kHerit) kHerit.style.display = dati.kitchen_email_ereditata ? "" : "none";
         for (const k of CHIAVI_LINK) {
           const el = lnkEls.get(k);
           if (el) el.value = dati.links?.[k] ?? "";

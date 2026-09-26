@@ -66,3 +66,73 @@ test("TUTTO.sql contiene davvero il corpo di ogni migrazione", () => {
     if (corpo) assert.ok(tutto.includes(corpo.trim()), `manca il corpo di ${file}`);
   }
 });
+
+/* ============================================================
+   I SEED — semina per tutti, non i dati di uno
+   ============================================================
+   Le migrazioni si lanciano su OGNI cliente. Un dato vero finito in un seed
+   non si vede il giorno in cui lo scrivi: si vede mesi dopo, sull'
+   installazione di qualcun altro, e non da' nessun errore. */
+
+// Domini e indirizzi che POSSONO stare in un .sql: l'azienda e i segnaposto.
+const DOMINI_AMMESSI = [
+  "moodd.online",
+  "example.com",
+  "example.be",
+  "supabase.co",
+  "dominiocliente.be",
+  "restaurant.be",
+];
+
+/** Le righe di DATI: i commenti SQL raccontano la storia delle decisioni
+ *  ("(450 Gradi, 13/09) lo rilancia...") e li' un nome di cliente e' giusto.
+ *  In un INSERT no. */
+function righeDati(sql) {
+  return sql
+    .split("\n")
+    .map((r, i) => [i + 1, r])
+    .filter(([, r]) => r.trim() && !r.trim().startsWith("--"));
+}
+
+test("nessun seed porta l'email di un cliente vero", () => {
+  const colpevoli = [];
+  for (const file of sqlNellaCartella()) {
+    const sql = readFileSync(join(CARTELLA, file), "utf8");
+    for (const [n, r] of righeDati(sql)) {
+      for (const m of r.matchAll(/[A-Za-z0-9._%+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g)) {
+        if (!DOMINI_AMMESSI.includes(m[1].toLowerCase())) colpevoli.push(`${file}:${n} ${m[0]}`);
+      }
+    }
+  }
+  // ⚠️ Il caso vero: `app_config.sql` seminava kitchen_email =
+  // 'info@lamolisana.be'. Ogni installazione nuova mandava i ticket degli
+  // ordini a La Molisana — e `app_config` BATTE la variabile d'ambiente,
+  // quindi KITCHEN_EMAIL dell'.env non salvava nessuno.
+  assert.deepEqual(colpevoli, [], "email di un cliente dentro un seed");
+});
+
+test("i seed di settings e app_config non sono UPSERT", () => {
+  // ⚠️ Un seed che AGGIORNA riscrive il lavoro di un cliente che gia' lavora,
+  // e questi file si rilanciano ogni volta che serve una colonna nuova. Il
+  // seed degli orari era `do update set`: rilanciarlo rimetteva a tutti gli
+  // orari scritti nel file. Nessun errore, nessuna riga nei log: la gente si
+  // presenta in un giorno che il sito dice aperto e trova chiuso.
+  // Un seed semina; le riparazioni si fanno dall'admin.
+  for (const file of sqlNellaCartella()) {
+    const sql = readFileSync(join(CARTELLA, file), "utf8");
+    for (const tabella of ["public.settings", "public.app_config"]) {
+      let da = 0;
+      for (;;) {
+        const i = sql.indexOf(`insert into ${tabella}`, da);
+        if (i < 0) break;
+        da = i + 1;
+        const fine = sql.indexOf(";", i);
+        const blocco = sql.slice(i, fine < 0 ? sql.length : fine);
+        assert.ok(
+          !/on conflict[\s\S]*do update/i.test(blocco),
+          `${file}: il seed di ${tabella} e' un UPSERT e sovrascrive i dati del cliente`,
+        );
+      }
+    }
+  }
+});

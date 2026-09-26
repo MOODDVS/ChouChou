@@ -510,6 +510,36 @@ export async function scriviConfig(
   return error ? error.message : null;
 }
 
+/**
+ * Toglie l'ECCEZIONE di una o piu' chiavi per questa sede: la riga sparisce da
+ * `location_config` e la sede torna a leggere il valore del marchio.
+ *
+ * ⚠️ Serve perche' `scriviConfig(ambito, { k: "" })` NON vuol dire questo.
+ * Scrive un'eccezione VUOTA, che `leggiConfig` conta come override e che chi
+ * legge risolve sull'.env: ne' il marchio, ne' un errore. Sono due cose
+ * diverse e servono entrambe — «questo punto non manda email a nessuno» e
+ * «questo punto fa come il gruppo» — e finora la seconda non si poteva dire:
+ * in `location_config` non c'era nessuna cancellazione, quindi una sede che
+ * aveva salvato una volta non tornava piu' a ereditare.
+ *
+ * Con `unica` / `tutte` non fa niente, e non e' un errore: non esiste nessuna
+ * eccezione da togliere, il valore del marchio E' il valore.
+ */
+export async function cancellaConfig(ambito: Ambito, chiavi: string[]): Promise<string | null> {
+  if (chiavi.length === 0 || ambito.modo !== "sede") return null;
+  // Stessa severita' di `scriviConfig`: una chiave non dichiarata in
+  // CLASSIFICA_CONFIG lancia qui, il solo momento in cui qualcuno guarda.
+  for (const k of chiavi) appartenenzaConfig(k);
+  const diSede = chiavi.filter((k) => tabellaConfig(k, ambito) === "location_config");
+  if (diSede.length === 0) return null;
+  const { error } = await supabaseAdmin
+    .from("location_config")
+    .delete()
+    .eq("location_id", ambito.id)
+    .in("key", diSede);
+  return error ? error.message : null;
+}
+
 // ============================================================
 // ORARI SETTIMANALI — la riga sovrascrive il GIORNO INTERO
 // ============================================================

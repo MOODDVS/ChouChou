@@ -10,7 +10,7 @@ import { adminT } from "../../../i18n/admin";
 // Multi-sede: `app_config` e' il livello del MARCHIO, `location_config` le
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
-  ambitoDiRichiesta, leggiConfig, scriviConfig,
+  ambitoDiRichiesta, leggiConfig, scriviConfig, cancellaConfig,
   leggiOrari, scriviOrari, assicuraOrariSede,
 } from "../../../lib/admin/sede";
 
@@ -167,7 +167,7 @@ export const GET: APIRoute = async ({ request }) => {
   } catch {
     return json({ error: await msg("err.read") }, 500);
   }
-  const { valori: cfg, marchio } = await leggiConfig(ambito, [
+  const { valori: cfg, marchio, sovrascritte } = await leggiConfig(ambito, [
     "kitchen_email",
     "orders_closed",
     "daily_brief_enabled",
@@ -199,6 +199,10 @@ export const GET: APIRoute = async ({ request }) => {
     prep_time_minutes: days[0]?.prep_time_minutes ?? 30,
     slot_duration_minutes: days[0]?.slot_duration_minutes ?? 15,
     kitchen_email: cfg.get("kitchen_email") ?? "",
+    // Un campo pieno coi dati del marchio sembra un dato proprio, e chi lo
+    // salva senza toccarlo se lo porta a casa come eccezione per sempre.
+    // Qui la pagina sa distinguere le due cose e lo dice.
+    kitchen_email_ereditata: ambito.modo === "sede" && !sovrascritte.has("kitchen_email"),
     orders_closed: cfg.get("orders_closed") === "1",
     daily_brief_enabled: cfg.get("daily_brief_enabled") === "1",
     daily_brief_hour: cfg.get("daily_brief_hour") || "09:00",
@@ -549,10 +553,22 @@ export const PUT: APIRoute = async ({ request }) => {
   // attiva ogni scrittura deve sapere il valore del marchio per decidere se
   // e' un'eccezione o un ritorno all'eredita', e chiederlo trenta volte
   // sarebbe trenta letture.
-  if (email) {
-    const err = await scriviConfig(ambitoPut, { kitchen_email: email });
-    if (err) return json({ error: await msg("err.kitchenEmail") }, 500);
-  }
+  // ⚠️ Qui c'era `if (email)`, e saltava il salvataggio quando la lista era
+  // vuota: togliere l'ultimo indirizzo non aveva effetto, e al ricaricamento
+  // riappariva quello di prima. Il vuoto adesso si salva sempre.
+  //
+  // Con una sede attiva il vuoto vuol dire «fai come il gruppo», e si TOGLIE
+  // l'eccezione invece di scriverne una vuota. Non e' una preferenza: un'altra
+  // eccezione vuota manderebbe i ticket di quel punto sull'.env o in nessun
+  // posto, e un ordine che nessuna cucina vede non da' errore, non lascia una
+  // riga nei log e si scopre dal cliente che aspetta. Ereditare sbaglia in
+  // modo visibile — il ticket arriva alla cucina del gruppo — e si corregge.
+  const errEmail = email
+    ? await scriviConfig(ambitoPut, { kitchen_email: email })
+    : ambitoPut.modo === "sede"
+      ? await cancellaConfig(ambitoPut, ["kitchen_email"])
+      : await scriviConfig(ambitoPut, { kitchen_email: "" });
+  if (errEmail) return json({ error: await msg("err.kitchenEmail") }, 500);
 
   // Liens: del GRUPPO. Un solo sito pubblico per tutte le sedi, quindi un
   // solo Facebook, un solo TripAdvisor.
