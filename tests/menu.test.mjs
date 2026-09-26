@@ -608,3 +608,75 @@ test("il modale dei formati esiste in tutt'e due le viste", () => {
   const montaggi = [...ORDERAPP.matchAll(/<ModaleVarianti \/>/g)];
   assert.equal(montaggi.length, 2, "il modale non e' montato in tutt'e due le viste");
 });
+
+/* ============================================================
+   IL CODICE SCONTO DIETRO UNA CASELLA
+   ============================================================ */
+
+/**
+ * ⚠️ Un campo «codice sconto» sempre aperto davanti a chi un codice non ce
+ * l'ha gli dice che uno sconto esiste e che se lo sta perdendo: qualcuno va a
+ * cercarlo altrove e l'ordine non torna. `t.couponAsk` lo mette dietro una
+ * casella da spuntare.
+ *
+ * ⚠️ OPZIONALE, come le altre: i siti gia' in produzione non la passano e per
+ * loro non cambia un pixel. E' l'unico modo di aggiungere disegno a un
+ * componente che quattro clienti hanno gia' vestito.
+ */
+
+const COUPON = ORDERAPP.slice(
+  ORDERAPP.indexOf('<div className="order-coupon">'),
+  ORDERAPP.indexOf('<label className="order-consent">'),
+);
+
+test("il blocco del coupon si legge ancora (le prove qui sotto non girano a vuoto)", () => {
+  assert.ok(COUPON.length > 400, `letto solo ${COUPON.length} caratteri`);
+});
+
+test("senza couponAsk il campo resta visibile, com'e' sempre stato", () => {
+  assert.match(ORDERAPP, /couponAsk\?: string;/, "la stringa non e' piu' opzionale");
+  // La vecchia etichetta c'e' ancora, sul ramo di chi non passa couponAsk.
+  assert.match(COUPON, /t\.couponAsk \? \([\s\S]*?\) : \(\s*<label className="order-field-label" htmlFor="order-coupon-field">\{t\.coupon\}<\/label>/);
+  // E il campo e' condizionato in modo che senza couponAsk passi sempre.
+  assert.match(COUPON, /\(!t\.couponAsk \|\| couponAperto\) && \(/,
+    "il campo non e' piu' sempre visibile per chi non usa la casella");
+});
+
+test("con couponAsk il campo aspetta la spunta, ma lo sconto ottenuto no", () => {
+  assert.match(COUPON, /className="order-coupon-ask"[\s\S]{0,300}?type="checkbox"[\s\S]{0,200}?checked=\{couponAperto\}/);
+  // ⚠️ Il coupon GIA' APPLICATO non passa dalla casella: nasconderlo vorrebbe
+  // dire non far piu' vedere ne' quanto sconta ne' come toglierlo.
+  // ⚠️ Solo il RAMO del coupon applicato: la condizione del campo sta nel ramo
+  // successivo e nomina `couponAperto` a ragione.
+  // ⚠️ Solo il RAMO del coupon applicato. Il `) : (` va cercato DOPO il suo
+  // inizio: ce n'e' un altro prima, quello del ternario sull'etichetta, e
+  // cercandolo dall'inizio la fetta usciva vuota — una prova che passa su
+  // niente.
+  const inizio = COUPON.indexOf("{couponApplicato ? (");
+  const applicato = COUPON.slice(inizio, COUPON.indexOf("\n              ) : (", inizio));
+  assert.ok(applicato.length > 200, `ramo del coupon applicato letto male (${applicato.length})`);
+  assert.doesNotMatch(applicato, /couponAperto/, "lo sconto gia' ottenuto si nasconde con la casella");
+});
+
+test("chiudendo la casella il codice scritto non resta dietro le quinte", () => {
+  // Se restasse, alla ripresa il cliente si ritroverebbe un codice che aveva
+  // scritto e poi deciso di non usare.
+  assert.match(ORDERAPP, /function apriCoupon\(aperto: boolean\)[\s\S]{0,400}?if \(!aperto\) \{\s*setCoupon\(""\);\s*setCouponMsg\(null\);/);
+  // E chi torna su un carrello con un codice gia' scritto lo ritrova aperto.
+  assert.match(ORDERAPP, /useState\(Boolean\(\(salvato\.coupon \?\? ""\)\.trim\(\)\)\)/);
+});
+
+test("una classe nuova sola, e il campo resta annunciabile", () => {
+  // Lo stile lo mette il sito: piu' classi nuove sono piu' CSS da scrivere
+  // prima che la cosa si veda.
+  const nuove = [...new Set([...COUPON.matchAll(/className="(order-[a-z-]+)"/g)].map((m) => m[1]))];
+  assert.deepEqual(
+    nuove.filter((c) => !["order-coupon", "order-field-label", "order-coupon-applied", "order-coupon-code",
+      "order-coupon-amount", "order-coupon-remove", "order-coupon-row", "order-input",
+      "order-coupon-apply", "order-coupon-msg", "order-coupon-ask"].includes(c)),
+    [], "classe nuova non dichiarata nel blocco del coupon",
+  );
+  assert.ok(nuove.includes("order-coupon-ask"));
+  // Con la casella l'etichetta visibile sparisce: il campo deve dire come si chiama.
+  assert.match(COUPON, /aria-label=\{t\.couponAsk \? t\.coupon : undefined\}/);
+});

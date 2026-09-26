@@ -83,6 +83,16 @@ interface OrderStrings {
   notes: string;
   notesPlaceholder: string;
   coupon: string;
+  /** Etichetta della casella «ho un codice sconto».
+   *
+   *  ⚠️ OPZIONALE, e il suo esserci cambia il disegno: se la pagina non la
+   *  passa, il campo del codice resta visibile com'e' sempre stato. I siti
+   *  gia' in produzione non la passano, e non cambia loro niente.
+   *
+   *  Serve ai siti che non vogliono un campo «codice sconto» sempre aperto
+   *  davanti a chi un codice non ce l'ha: chiederlo suggerisce che esista
+   *  uno sconto e che lui se lo stia perdendo. */
+  couponAsk?: string;
   couponPlaceholder: string;
   couponApply: string;
   couponRemove: string;
@@ -304,6 +314,22 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  /** La casella «ho un codice» e' spuntata? Conta solo con `t.couponAsk`.
+   *  ⚠️ Parte aperta se un codice era gia' stato scritto: il carrello
+   *  sopravvive a un ricaricamento, e chi torna deve ritrovare quello che
+   *  aveva lasciato, non un campo chiuso col suo codice dentro. */
+  const [couponAperto, setCouponAperto] = useState(Boolean((salvato.coupon ?? "").trim()));
+
+  function apriCoupon(aperto: boolean) {
+    setCouponAperto(aperto);
+    // ⚠️ Chiudendo, il campo sparisce ma il suo contenuto resterebbe: alla
+    // ripresa il cliente si ritroverebbe applicato un codice che aveva
+    // scritto e poi deciso di non usare. Si svuota, col suo messaggio.
+    if (!aperto) {
+      setCoupon("");
+      setCouponMsg(null);
+    }
+  }
   const [accettato, setAccettato] = useState(false);
 
   const [invio, setInvio] = useState(false);
@@ -890,7 +916,22 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="order-coupon">
-              <label className="order-field-label" htmlFor="order-coupon-field">{t.coupon}</label>
+              {t.couponAsk ? (
+                <label className="order-coupon-ask">
+                  <input
+                    type="checkbox"
+                    checked={couponAperto}
+                    onChange={(e) => apriCoupon(e.target.checked)}
+                  />
+                  <span>{t.couponAsk}</span>
+                </label>
+              ) : (
+                <label className="order-field-label" htmlFor="order-coupon-field">{t.coupon}</label>
+              )}
+              {/* ⚠️ Il coupon GIA' APPLICATO non passa dalla casella: e' uno
+                  sconto che il cliente ha gia' ottenuto, e nasconderlo
+                  vorrebbe dire non fargli piu' vedere ne' quanto sconta ne'
+                  il modo di toglierlo. */}
               {couponApplicato ? (
                 <div className="order-coupon-applied">
                   <span className="order-coupon-code">{couponApplicato.code}</span>
@@ -905,12 +946,19 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                   </button>
                 </div>
               ) : (
+                (!t.couponAsk || couponAperto) && (
                 <div className="order-coupon-row">
+                  {/* ⚠️ `aria-label` solo con la casella: li' l'etichetta
+                      visibile del campo non esiste piu', e senza nome il campo
+                      si annuncerebbe come «casella di testo» e basta. Senza
+                      casella l'etichetta c'e' gia', e un aria-label
+                      raddoppierebbe il nome. */}
                   <input
                     id="order-coupon-field"
                     className="order-input"
                     type="text"
                     autoComplete="off"
+                    aria-label={t.couponAsk ? t.coupon : undefined}
                     placeholder={t.couponPlaceholder}
                     value={coupon}
                     onChange={(e) => setCoupon(e.target.value)}
@@ -930,6 +978,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                     {couponLoading ? "…" : t.couponApply}
                   </button>
                 </div>
+                )
               )}
               {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
             </div>
