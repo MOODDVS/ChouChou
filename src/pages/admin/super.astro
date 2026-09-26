@@ -245,9 +245,13 @@ const prI18n = {
       #loc-overlay .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
       #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
       #loc-overlay .loc-riga .btn { flex: 0 0 auto; }
-      #loc-overlay .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
-      #loc-overlay .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
-      #loc-overlay #loc-g-list:not(:empty) { margin-top: 0.6rem; }
+      /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
+         scheda Google in Intégrations: a sede unica non esiste nessun modale
+         in cui metterlo. Stesso aspetto, non un secondo aspetto. */
+      #loc-overlay .loc-riga, #g-unica .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
+      #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
+      #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }
       /* Il titolino di sezione dentro un modale non ha bisogno dello stacco
          che ha nella pagina: qui lo spazio e' prezioso. */
       #loc-overlay .itg-niv { margin: 1.1rem 0 0.6rem; padding-top: 0.8rem; }
@@ -726,6 +730,23 @@ const prI18n = {
                  chiavi Stripe. Qui resta il collegamento, che e' UNO per
                  installazione — un account Google, piu' schede. -->
             <p class="note" id="g-sedi-rinvio" style="display:none;margin-top:0.8rem">{t("gg.pickInSede")}</p>
+
+            <!-- ⚠️ INSTALLAZIONE A SEDE UNICA. Il rinvio qui sopra manda al
+                 modale del punto, che a sede unica NON ESISTE: il 15/09/2026
+                 la scelta della scheda e' passata di la', e per quattro
+                 clienti su cinque e' diventata irraggiungibile. Il rimedio non
+                 e' creare una sede — farebbe passare un ristorante solo in
+                 multi-sede, col travaso dello storico, per un bottone.
+                 La scelta e' la stessa: l'API senza `?sede=` usa
+                 `ambitoDiRiga(null)`, cioe' SEDE_UNICA, e scrive nel marchio. -->
+            <div id="g-unica" style="display:none;margin-top:0.8rem">
+              <span class="f-label">{t("gg.pickTitle")}</span>
+              <div class="loc-riga">
+                <span class="loc-g-cur" id="g-unica-cur"></span>
+                <button type="button" id="g-unica-pick" class="btn">{t("gg.change")}</button>
+              </div>
+              <div id="g-unica-list"></div>
+            </div>
 
             <div class="us-foot">
               <button type="button" id="g-save" class="us-add">{t("common.save")}</button>
@@ -1489,14 +1510,63 @@ const prI18n = {
         function escG(x: unknown): string {
           return String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         }
+        const gUnicaBox = document.getElementById("g-unica") as HTMLElement | null;
+        const gUnicaCur = document.getElementById("g-unica-cur") as HTMLElement | null;
+        const gUnicaPick = document.getElementById("g-unica-pick") as HTMLButtonElement | null;
+        const gUnicaList = document.getElementById("g-unica-list") as HTMLElement | null;
+
+        /** ⚠️ Legge `sedi`, che la riempie `locCarica()`: per questo NON si
+         *  chiama qui (`sedi` sarebbe ancora nella sua zona morta e lancerebbe)
+         *  ma in fondo a `locCarica`, quando l'elenco c'e' davvero. */
         async function gCaricaSedeStato() {
           try {
             const res = await fetch("/api/admin/google/locations", { headers });
             const j = await res.json();
-            if (gRinvio) gRinvio.style.display = j.connected ? "block" : "none";
+            const conSedi = sedi.length > 0;
+            if (gRinvio) gRinvio.style.display = j.connected && conSedi ? "block" : "none";
+            if (gUnicaBox) gUnicaBox.style.display = j.connected && !conSedi ? "block" : "none";
+            if (gUnicaCur) gUnicaCur.textContent = j.current?.title || (SUP.loc?.gNessuna ?? "");
           } catch { /* best-effort */ }
         }
-        gCaricaSedeStato();
+
+        gUnicaPick?.addEventListener("click", async () => {
+          if (!gUnicaList) return;
+          gUnicaList.textContent = SUP.loading ?? "";
+          try {
+            const res = await fetch("/api/admin/google/locations", { headers });
+            const j = await res.json();
+            if (j.error) { gUnicaList.textContent = String(j.error); return; }
+            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
+            const cur = j.current?.path ?? "";
+            if (!schede.length) { gUnicaList.textContent = SUP.loc?.gVuoto ?? ""; return; }
+            gUnicaList.innerHTML = schede
+              .map((sd) => `<button type="button" class="us-ghost gscheda-unica" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`)
+              .join("");
+          } catch {
+            gUnicaList.textContent = SUP.loc?.netErr ?? "";
+          }
+        });
+
+        gUnicaList?.addEventListener("click", async (ev) => {
+          const b = (ev.target as HTMLElement).closest(".gscheda-unica") as HTMLElement | null;
+          if (!b) return;
+          try {
+            // ⚠️ Nessun `sede` nel corpo: e' proprio quello che manda l'API
+            // sul livello marchio. Metterci un id sarebbe inventare una sede.
+            const res = await fetch("/api/admin/google/locations", {
+              method: "POST", headers,
+              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "" }),
+            });
+            const j = await res.json();
+            if (!res.ok) { toast(j.error ?? SUP.loc?.netErr ?? "", true); return; }
+            if (j.reviewError) toast(String(j.reviewError), true);
+            else toast(SUP.loc?.gSalvata ?? "");
+            if (gUnicaList) gUnicaList.innerHTML = "";
+            await gCaricaSedeStato();
+          } catch {
+            toast(SUP.loc?.netErr ?? "", true);
+          }
+        });
         gDisconnect?.addEventListener("click", async () => {
           try {
             const res = await fetch("/api/google/connect", {
@@ -2213,6 +2283,9 @@ const prI18n = {
             propri = j.propri ?? {};
             storicoOrfano = j.storico ?? {};
             locRender();
+            // La scheda Google: solo adesso si sa se ci sono sedi, e quindi se
+            // la scelta va nel modale del punto o qui in Intégrations.
+            void gCaricaSedeStato();
             stRenderAvviso();
           } catch {
             locState.style.display = "";
