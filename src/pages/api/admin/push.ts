@@ -46,7 +46,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
   if (body.test) {
     const lang = await adminLang();
-    const r = await inviaPushConDettagli({ title: "MOODD", body: TEST_BODY[lang] ?? TEST_BODY.fr, url: "/admin" }, await ambitoDiRichiesta(request, staff));
+    const r = await inviaPushConDettagli({ title: "RestoHub", body: TEST_BODY[lang] ?? TEST_BODY.fr, url: "/admin" }, await ambitoDiRichiesta(request, staff));
     // Riepilogo per tipo di dispositivo (aiuta a capire se l'iPhone è iscritto).
     const tipo = (d: PushDettaglio): string => {
       const h = d.host.toLowerCase();

@@ -642,7 +642,7 @@ const t = adminT(lang);
   // --- Poller globale: toast "Nouvelle réservation" su OGNI pagina admin ---
   // Ogni ~20s chiede le prenotazioni PUBBLICHE (web/google) create dopo l'ultimo
   // controllo; mostra un toast cliccabile e notifica la pagina Réservations
-  // (evento moodd:new-resa) perché ricarichi la lista se è il giorno mostrato.
+  // (evento restohub:new-resa) perché ricarichi la lista se è il giorno mostrato.
   (async () => {
     const { data } = await supabaseBrowser.auth.getSession();
     const token = data.session?.access_token ?? "";
@@ -775,7 +775,7 @@ const t = adminT(lang);
         if (!eventi.length) return;
         mostra(eventi);
         if (news.length) suona(bell); // campana solo per una NUOVA prenotazione
-        for (const ev of eventi) window.dispatchEvent(new CustomEvent("moodd:new-resa", { detail: ev.r }));
+        for (const ev of eventi) window.dispatchEvent(new CustomEvent("restohub:new-resa", { detail: ev.r }));
       } catch {
         // rete assente: nessun blocco
       }
@@ -819,7 +819,7 @@ const t = adminT(lang);
 
         mostraOrdine(nuovi);
         suona(beepOrder); // beep del controller ×3
-        for (const o of nuovi) window.dispatchEvent(new CustomEvent("moodd:new-order", { detail: o }));
+        for (const o of nuovi) window.dispatchEvent(new CustomEvent("restohub:new-order", { detail: o }));
       } catch {
         // rete assente: nessun blocco
       }
@@ -920,12 +920,12 @@ const t = adminT(lang);
     render();
 
     // Aggiornamento dal vivo (eventi dispatchati dal poller qui sopra)
-    window.addEventListener("moodd:new-resa", () => {
+    window.addEventListener("restohub:new-resa", () => {
       if (current === "reservations") { ls.set("mdd_resa_seen_at", new Date().toISOString()); return; }
       bResa += 1;
       render();
     });
-    window.addEventListener("moodd:new-order", (e: Event) => {
+    window.addEventListener("restohub:new-order", (e: Event) => {
       const id = (e as CustomEvent<{ id?: string }>).detail?.id;
       if (current === "orders") {
         if (id) {

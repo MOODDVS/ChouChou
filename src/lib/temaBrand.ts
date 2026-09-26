@@ -3,7 +3,7 @@ import { TEMA_DEFAULT } from "./admin/superAdmin";
 
 // Legge il TEMA brand del cliente (app_config "admin_theme") e ne deriva una
 // palette pronta per le EMAIL, robusta sia su fondo chiaro che scuro anche se
-// il cliente ha impostato solo alcune chiavi. Fallback: colori MOODD.
+// il cliente ha impostato solo alcune chiavi. Fallback: colori RestoHub.
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
 export interface TemaEmail {
@@ -60,7 +60,7 @@ export async function temaEmail(): Promise<TemaEmail> {
       if (typeof v === "string" && RE_HEX.test(v)) t[k] = v.toLowerCase();
     }
   } catch {
-    /* tema di default MOODD */
+    /* tema di default RestoHub */
   }
 
   const card = t.card || t.bg;

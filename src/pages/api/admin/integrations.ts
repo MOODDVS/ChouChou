@@ -21,7 +21,7 @@ async function msg(chiave: string): Promise<string> {
 // il codice incollato finisce nel sito pubblico del cliente.
 //
 // Prenotazioni:
-//   resa_mode     : "moodd" (widget MOODD) | "link" | "embed" | "none"
+//   resa_mode     : "moodd" (widget RestoHub) | "link" | "embed" | "none"
 //   resa_provider : nome del fornitore (Zenchef, TheFork…) — solo informativo
 //   resa_url      : URL di prenotazione (modalità "link")
 //   resa_embed    : codice HTML/JS del widget (modalità "embed")

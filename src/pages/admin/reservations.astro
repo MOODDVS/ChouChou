@@ -1864,7 +1864,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void carica(true); // silenzioso: aggiorna solo se qualcosa è cambiato
         }
         // 1) evento da AdminNav (nuova / annullée / modifiée dal cliente)
-        window.addEventListener("moodd:new-resa", (e) => {
+        window.addEventListener("restohub:new-resa", (e) => {
           const d = (e as CustomEvent).detail as { date?: string } | null;
           if (d && d.date === giorno) refreshLive();
         });

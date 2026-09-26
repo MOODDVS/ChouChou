@@ -79,7 +79,7 @@ const tabTitle = brand.nome || titolo;
 const logoSrc = brand.logoNeg || brand.logo;
 const faviconHref = brand.favicon || "/favicon.svg";
 
-// Colore effettivo: valore dal tema se e un hex valido, altrimenti default MOODD.
+// Colore effettivo: valore dal tema se e un hex valido, altrimenti default RestoHub.
 const col = (k: string): string => (HEX.test(brand.tema[k] ?? "") ? brand.tema[k] : TEMA_DEFAULT[k]);
 const cBg = col("bg");
 const cText = col("text");

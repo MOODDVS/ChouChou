@@ -669,7 +669,7 @@ const prI18n = {
             </div>
 
             <div class="us-roles" id="itg-modes" style="margin-top:1.2rem">
-              <button type="button" class="us-role is-on" data-mode="moodd">MOODD</button>
+              <button type="button" class="us-role is-on" data-mode="moodd">RestoHub</button>
               <button type="button" class="us-role" data-mode="link">{t("itg.mode.link")}</button>
               <button type="button" class="us-role" data-mode="embed">{t("itg.mode.embed")}</button>
               <button type="button" class="us-role" data-mode="none">{t("itg.mode.none")}</button>
@@ -1447,7 +1447,7 @@ const prI18n = {
           if (itgUrlBox) itgUrlBox.style.display = m === "link" ? "" : "none";
           if (itgEmbedBox) itgEmbedBox.style.display = m === "embed" ? "" : "none";
           if (itgState) {
-            itgState.textContent = m === "moodd" ? "MOODD" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
+            itgState.textContent = m === "moodd" ? "RestoHub" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
             itgState.classList.toggle("ext", esterno);
           }
         }

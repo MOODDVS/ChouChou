@@ -28,7 +28,7 @@ async function msg(chiave: string): Promise<string> {
 const CHIAVE = "admin_pages_hidden";
 const CHIAVE_TABS = "admin_tabs_hidden";
 // TEMA brand del cliente (Reglages -> Couleurs): oggetto {accent,hover,bg,...}
-// con hex #rrggbb. Oggetto vuoto/assente = colori MOODD di default.
+// con hex #rrggbb. Oggetto vuoto/assente = colori RestoHub di default.
 const CHIAVE_TEMA = "admin_theme";
 // Lingue pubbliche (lato cliente): set attivo + lingua predefinita.
 const CHIAVE_PUBLIC_LANGS = "public_languages";
@@ -119,7 +119,7 @@ export const PUT: APIRoute = async ({ request }) => {
     ? [...new Set(body.features.filter((k) => FUNZIONI_VALIDE.includes(k)))]
     : null;
 
-  // theme e' opzionale: se assente non lo tocca; {} = reset ai default MOODD.
+  // theme e' opzionale: se assente non lo tocca; {} = reset ai default RestoHub.
   let theme: Record<string, string> | null = null;
   if (body.theme !== undefined) {
     if (typeof body.theme !== "object" || body.theme === null || Array.isArray(body.theme)) {

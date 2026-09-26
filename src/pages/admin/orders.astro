@@ -1860,7 +1860,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         }
 
         // 1) evento da AdminNav all'arrivo di un nuovo ordine pagato
-        window.addEventListener("moodd:new-order", () => refreshLive());
+        window.addEventListener("restohub:new-order", () => refreshLive());
         // 2) quando torni sulla scheda dell'admin
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") refreshLive();

@@ -4,9 +4,9 @@ import { cacheOr } from "./cache";
 /**
  * Modalità di prenotazione del sito pubblico (Réglages → Integrations).
  * Permette al cliente di restare su Zenchef / TheFork / Barestho tenendo
- * tutto il resto del motore MOODD.
+ * tutto il resto del motore RestoHub.
  *
- *  - "moodd" : widget MOODD (default, comportamento storico)
+ *  - "moodd" : widget RestoHub (default, comportamento storico)
  *  - "link"  : il bottone « Réserver » porta al sito del fornitore
  *  - "embed" : widget del fornitore incollato nel sito
  *  - "none"  : nessuna prenotazione online (take-away puro)
