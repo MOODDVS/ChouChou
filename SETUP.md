@@ -180,6 +180,11 @@ git -C /Users/moodd/Developer/NomeCliente merge engine/main
 - **Migrazioni**: apri `supabase/MIGRATIONS.md` e lancia sul Supabase del
   cliente i numeri che gli mancano, in ordine.
 
+⚠️ **Il primo merge dopo il multi-sede non è un aggiornamento di routine**: il
+merge cancella i file del sito che il cliente non ha mai toccato, il pannello
+non si apre senza il blocco `fonts:`, e le pagine pubbliche vanno adattate
+all'ambito. La procedura sta in [`MIGRAZIONE-MULTISEDE.md`](MIGRAZIONE-MULTISEDE.md).
+
 Consiglio: taggare le versioni del template (`git tag v2.2 && git push origin v2.2`)
 e fare i merge di un tag preciso (`git merge v2.2`), tenendo nota in un
 `CLIENTS.md` di chi è fermo a quale versione.
