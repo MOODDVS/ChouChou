@@ -5,6 +5,7 @@ import { prezzoEffettivo, variantiDelPunto, haVarianti, type DiscountType } from
 import { leggi, type Ambito } from "./admin/sede";
 import { i18nPulito } from "./i18nMenu";
 import { applicaStatoSede } from "./menuStato";
+import { cacheOr } from "./cache";
 
 // Ri-esportato per comodità: il server legge il menu da qui.
 // NB: le isole React devono importarlo da "./i18nMenu", non da db.ts
@@ -360,14 +361,56 @@ async function leggiPiatti(soloOrdinabili: boolean, ambito: Ambito): Promise<Ris
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
  */
+/** Suffisso della chiave di cache: la sede fa parte dell'identita' del dato.
+ *  Stessa forma di `schedule.ts` — `menu_items` e' «mista», quindi il piatto
+ *  del gruppo E quello del punto: una chiave che non nomina la sede servirebbe
+ *  il menu di Schaerbeek a chi ordina a Stockel. */
+const perAmbito = (a: Ambito) => (a.modo === "sede" ? a.id : a.modo);
+
+/**
+ * LA DEFINIZIONE del menu: i piatti, i prezzi, le varianti, le categorie.
+ * In cache 60 secondi, perche' una `getMenu` costava QUATTRO giri di database
+ * — i piatti, i nascosti dal lunch, l'esaurito, le categorie — su ogni visita
+ * della pagina piu' vista del sito.
+ *
+ * ⚠️ QUI DENTRO NON C'E' L'ESAURITO, ed e' il punto di tutta la funzione.
+ * `applicaStatoSede` resta FUORI e gira a ogni richiesta. La differenza:
+ * prezzi e piatti cambiano qualche volta al mese, l'esaurito cambia durante
+ * il servizio. Mettendo in cache il risultato finito, la cucina segna finita
+ * la burrata e per un minuto il sito continua a offrirla — e qualcuno la
+ * ordina e la paga. Un menu vecchio di un minuto non fa danno; un esaurito
+ * vecchio di un minuto e' un ordine che non si puo' servire.
+ *
+ * ⚠️ Nessuno la svuota, e non e' una dimenticanza: valgono i 60 secondi, come
+ * per gli orari in `schedule.ts`, che il ristoratore cambia quanto il menu.
+ * Il giorno che non bastassero, e' una riga: `cacheDelPrefisso("menu:def:")`
+ * nelle API che scrivono menu, categorie e lunch.
+ */
+async function definizioneMenu(
+  soloOrdinabili: boolean,
+  ambito: Ambito,
+): Promise<{ visibili: { id: string }[]; categorie: Awaited<ReturnType<typeof mappaCategorie>> }> {
+  const chiave = `menu:def:${soloOrdinabili ? "ord" : "vetrina"}:${perAmbito(ambito)}`;
+  return cacheOr(chiave, async () => {
+    const { data, error } = await leggiPiatti(soloOrdinabili, ambito);
+    if (error || !data) {
+      throw new Error(
+        soloOrdinabili
+          ? "Impossibile leggere il menu ordinabile da Supabase"
+          : "Impossibile leggere il menu da Supabase",
+      );
+    }
+    const nascosti = await piattiNascostiDaLunch();
+    const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
+    // ⚠️ `cacheOr` non scrive niente se questa funzione lancia: un errore di
+    // rete non resta in cache per un minuto.
+    return { visibili, categorie: await mappaCategorie() };
+  });
+}
+
 export async function getMenu(ambito: Ambito): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(false, ambito);
-  if (error || !data) {
-    throw new Error("Impossibile leggere il menu da Supabase");
-  }
-  const nascosti = await piattiNascostiDaLunch();
-  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), false, ambito), await mappaCategorie());
+  const { visibili, categorie } = await definizioneMenu(false, ambito);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), false, ambito), categorie);
 }
 
 /**
@@ -375,12 +418,7 @@ export async function getMenu(ambito: Ambito): Promise<MenuCategoria[]> {
  * Usata in /order.
  */
 export async function getMenuOrderable(ambito: Ambito): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(true, ambito);
-  if (error || !data) {
-    throw new Error("Impossibile leggere il menu ordinabile da Supabase");
-  }
-  const nascosti = await piattiNascostiDaLunch();
-  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), await mappaCategorie());
+  const { visibili, categorie } = await definizioneMenu(true, ambito);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), categorie);
 }
 

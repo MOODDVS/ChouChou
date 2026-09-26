@@ -680,3 +680,47 @@ test("una classe nuova sola, e il campo resta annunciabile", () => {
   // Con la casella l'etichetta visibile sparisce: il campo deve dire come si chiama.
   assert.match(COUPON, /aria-label=\{t\.couponAsk \? t\.coupon : undefined\}/);
 });
+
+/* ============================================================
+   LA CACHE DEL MENU — la definizione sì, lo stato no
+   ============================================================ */
+
+test("l'esaurito NON finisce in cache", () => {
+  // ⚠️ La ragione di tutta la separazione. `getMenu` costava quattro giri di
+  // database su ogni visita della pagina piu' vista, e metterli in cache e'
+  // giusto — ma se dentro ci finisce anche `applicaStatoSede`, la cucina
+  // segna finita la burrata e per un minuto il sito continua a offrirla.
+  // Qualcuno la ordina e la paga, e in cucina non c'e'.
+  //
+  // «Cos'e' in carta» cambia raramente: in cache. «Cos'e' finito» cambia ogni
+  // sera: fuori, a ogni richiesta. E' la stessa riga che questo file dichiara
+  // in testa, applicata alla cache.
+  const src = readFileSync("src/lib/db.ts", "utf8");
+  const da = src.indexOf("async function definizioneMenu");
+  const a = src.indexOf("export async function getMenu(");
+  assert.ok(da > 0 && a > da, "definizioneMenu non c'e' piu', o non sta prima di getMenu");
+
+  const inCache = src.slice(da, a);
+  assert.doesNotMatch(inCache, /applicaStatoSede/,
+    "l'esaurito e' finito dentro la cache: un piatto finito resta ordinabile per 60s");
+
+  // ...e deve restare applicato, fuori, in tutte e due le viste.
+  for (const f of ["getMenu", "getMenuOrderable"]) {
+    const corpo = src.slice(src.indexOf(`export async function ${f}(`));
+    assert.match(corpo.slice(0, 400), /applicaStatoSede\(visibili, ambito\)/,
+      `${f} non applica piu' l'esaurito: il menu mostra lo stato di un altro punto`);
+  }
+});
+
+test("la chiave della cache del menu nomina la sede", () => {
+  // ⚠️ `menu_items` e' «mista»: il filtro rende il piatto del gruppo E quello
+  // di questo punto. Una chiave che non nomina la sede servirebbe il menu del
+  // primo visitatore a tutti gli altri punti per un minuto — formati di un
+  // altro posto compresi, e nessun errore da nessuna parte.
+  const src = readFileSync("src/lib/db.ts", "utf8");
+  assert.match(src, /const perAmbito = \(a: Ambito\) => \(a\.modo === "sede" \? a\.id : a\.modo\);/,
+    "perAmbito e' cambiata: la chiave di cache potrebbe non distinguere piu' le sedi");
+  assert.match(src, /cacheOr\(chiave,/, "definizioneMenu non usa piu' cacheOr");
+  assert.match(src, /`menu:def:\$\{soloOrdinabili \? "ord" : "vetrina"\}:\$\{perAmbito\(ambito\)\}`/,
+    "la chiave della cache non nomina piu' la sede, o non distingue vetrina e ordinabile");
+});
