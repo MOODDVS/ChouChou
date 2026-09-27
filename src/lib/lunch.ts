@@ -113,7 +113,20 @@ export async function getLunchAttivo(): Promise<LunchAttivo | null> {
         .filter((x): x is LunchPiatto => Boolean(x));
     }
 
-    const combos = Array.isArray(scelto.combos) ? scelto.combos : [];
+    // ⚠️ IL PIU' ECONOMICO PER PRIMO.
+    //
+    // Nel database i combo stanno nell'ordine in cui il modulo dell'admin li ha
+    // generati (Entrée+Plat, Plat+Dessert, Entrée+Plat+Dessert), che non e'
+    // l'ordine dei prezzi: sulla pagina menu il 32 € finiva prima del 29 €.
+    // E il foglio di stampa ordinava già per prezzo per conto suo, quindi le due
+    // viste dello stesso lunch si contraddicevano. L'ordine si decide qui, dove
+    // passano tutte e due.
+    //
+    // L'ordinamento di JavaScript è stabile: due combo allo stesso prezzo
+    // restano nell'ordine in cui il ristoratore li ha creati.
+    const combos = (Array.isArray(scelto.combos) ? scelto.combos : [])
+      .slice()
+      .sort((x, y) => (x?.price_cents ?? 0) - (y?.price_cents ?? 0));
     return {
       name: scelto.name ?? null,
       date_from: (scelto.date_from as string | null) ?? null,
