@@ -999,11 +999,11 @@ const AMMESSI_AGGREGATO = {
     // motore non esistono, e va bene: il motore non ha un sito.
     "src/pages/demo01/order-confirm.astro":
       "la pagina di ritorno da Stripe ha l'id di sessione, che e' l'autorizzazione",
+    // ⚠️ Vale per TUTTE le lingue del cliente: la chiave si cerca senza il
+    // prefisso (vedi `chiaveAmmessi` qui sotto).
     "src/pages/order-confirm.astro":
       "ritorno da Stripe sul sito del cliente: chi torna dal pagamento non dice " +
       "da quale punto, e l'id di sessione E' l'autorizzazione",
-    "src/pages/en/order-confirm.astro":
-      "stessa pagina, altra lingua: l'id di sessione E' l'autorizzazione",
     "src/pages/api/reservation.ts":
       "i link «modifier» e «annuler» arrivano da un'email: il cliente non ha " +
       "scelto nessun punto sul sito e non deve doverlo fare. Il cancel_token e' " +
@@ -1029,6 +1029,23 @@ const AMMESSI_AGGREGATO = {
       "una copia sola, quindi i destinatari si contano sul gruppo",
 };
 
+/**
+ * La chiave dell'elenco, SENZA il prefisso di lingua del cliente.
+ *
+ * ⚠️ `src/pages/it/order-confirm.astro` e `src/pages/nl/order-confirm.astro`
+ * sono la STESSA pagina in un'altra lingua. Il motore non sa quali lingue ha
+ * un cliente e non deve saperlo — e' la lezione gia' scritta in
+ * `src/lib/seo/sitemapRegole.ts`, dove elencare `/order-confirm` e
+ * `/en/order-confirm` avrebbe lasciato in sitemap le pagine italiane e
+ * olandesi di L'Huile. Qui il difetto sarebbe l'opposto: con i percorsi
+ * esatti, L'Huile (fr/en/it/nl) diventerebbe rossa su due pagine identiche a
+ * una dichiarata, e la cura ovvia — aggiungere due righe al motore —
+ * significherebbe mettere le lingue di un cliente dentro il motore.
+ *
+ * `api` non ci casca: sono tre lettere, non due.
+ */
+const chiaveAmmessi = (f) => f.replace(/^src\/pages\/[a-z]{2}\//, "src/pages/");
+
 /** I file che chiamano `tutteLeSedi()`. Lo calcolano tutt'e due le prove qui
  *  sotto: una ne cerca di non dichiarati, l'altra di dichiarati a vuoto. */
 function fileCheUsanoAggregato() {
@@ -1050,7 +1067,7 @@ function fileCheUsanoAggregato() {
 }
 
 test("l'aggregato negli ordini si usa solo dove e' dichiarato", () => {
-  const nonDichiarati = fileCheUsanoAggregato().filter((f) => !AMMESSI_AGGREGATO[f]);
+  const nonDichiarati = fileCheUsanoAggregato().filter((f) => !AMMESSI_AGGREGATO[chiaveAmmessi(f)]);
   assert.deepEqual(
     nonDichiarati.sort(),
     [],
