@@ -15,6 +15,7 @@ import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import { supabaseAdmin } from "../../lib/db";
 import { K_PRINT_CATALOG, PRINT_DEFAULTS, normalizzaCatalogo } from "../../config/printCatalog";
+import { pagineStampa } from "../../lib/admin/printRoutes";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -32,14 +33,14 @@ try {
 } catch {
   /* default */
 }
-const prodotti = catalogo.filter((p) => p.visible);
-
-// Etichetta prodotto tradotta per slug (fallback: label salvata).
-const plabel = (slug: string, fallback: string) => {
-  const k = "print.prod." + slug;
-  const v = t(k);
-  return v === k ? fallback : v;
-};
+// ⚠️ Una `route` scritta non vuol dire che la pagina esista. Prima bastava
+// che il campo non fosse vuoto, e un prodotto che puntava a una pagina mai
+// creata (o cancellata) mostrava un iframe a 404 dentro la card, senza dire
+// perche'. Qui si confronta con le pagine che il sito ha davvero.
+const rotteEsistenti = new Set(pagineStampa().map((pg) => pg.route));
+const prodotti = catalogo
+  .filter((p) => p.visible)
+  .map((p) => ({ ...p, haPagina: Boolean(p.route) && rotteEsistenti.has(p.route) }));
 ---
 
 <html lang={lang}>
@@ -94,10 +95,10 @@ const plabel = (slug: string, fallback: string) => {
         ) : (
           <div class="pgrid">
             {prodotti.map((p) => (
-              <article class="pcard" data-name={plabel(p.slug, p.label)}>
-                {p.route ? (
+              <article class="pcard" data-name={p.label}>
+                {p.haPagina ? (
                   <div class="pcard-cover pbtn-preview" data-route={p.route} role="button" tabindex="0" aria-label={t("print.card.preview")}>
-                    <iframe src={p.route} title={plabel(p.slug, p.label)} loading="lazy" tabindex="-1"></iframe>
+                    <iframe src={p.route} title={p.label} loading="lazy" tabindex="-1"></iframe>
                     <span class="pcard-zoom" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                     </span>
@@ -108,7 +109,7 @@ const plabel = (slug: string, fallback: string) => {
                   </div>
                 )}
                 <div class="pcard-body">
-                  <div class="pcard-title">{plabel(p.slug, p.label)}</div>
+                  <div class="pcard-title">{p.label}</div>
                   <dl class="pcard-specs">
                     {p.meta.format && (<div><dt>{t("print.meta.format")}</dt><dd>{p.meta.format}</dd></div>)}
                     {p.meta.pages && (<div><dt>{t("print.meta.pages")}</dt><dd>{p.meta.pages}</dd></div>)}
@@ -116,7 +117,7 @@ const plabel = (slug: string, fallback: string) => {
                     {p.meta.color && (<div><dt>{t("print.meta.color")}</dt><dd>{p.meta.color}</dd></div>)}
                   </dl>
                   <div class="pcard-foot">
-                    {p.route ? (
+                    {p.haPagina ? (
                       <button type="button" class="pbtn pbtn-primary pbtn-dl" data-route={p.route} aria-label={t("print.card.download")}><svg class="pbtn-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>PDF</button>
                     ) : (
                       <span class="pcard-nopage">{t("print.card.noPage")}</span>
@@ -131,7 +132,7 @@ const plabel = (slug: string, fallback: string) => {
       </main>
       <AdminFooter />
 
-      <script is:inline type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: plabel(p.slug, p.label), tiers: p.tiers })) }).replace(/</g, "\\u003c")}></script>
+      <script is:inline type="application/json" id="print-data" set:html={JSON.stringify({ unit: t("print.card.unit"), products: prodotti.map((p) => ({ slug: p.slug, label: p.label, tiers: p.tiers })) }).replace(/</g, "\\u003c")}></script>
       <script is:inline type="application/json" id="print-order-i18n" set:html={JSON.stringify({ pay: t("print.order.pay"), paying: t("print.order.paying"), paid: t("print.order.paid"), canceled: t("print.order.canceled"), error: t("print.order.error") }).replace(/</g, "\\u003c")}></script>
 
       <!-- Modale ordine (acquisto) -->

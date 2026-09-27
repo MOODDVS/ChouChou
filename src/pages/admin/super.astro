@@ -87,7 +87,10 @@ const prI18n = {
   saveError: t("print.saveError"),
   loadError: t("print.loadError"),
   resetDone: t("print.resetDone"),
-  prodLabels: { menu: t("print.prod.menu"), "business-cards": t("print.prod.business-cards") } as Record<string, string>,
+  name: t("print.name"),
+  foundNone: t("print.foundNone"),
+  addProd: t("print.addProd"),
+  missing: t("print.missing"),
   metaTitle: t("print.meta.title"),
   metaFormat: t("print.meta.format"),
   metaPages: t("print.meta.pages"),
@@ -809,6 +812,11 @@ const prI18n = {
           </h1>
           <p class="sub">{t("print.intro")}</p>
           <script is:inline type="application/json" id="pr-i18n" set:html={JSON.stringify(prI18n)}></script>
+          <div class="pr-found" id="pr-found" hidden>
+            <div class="pr-found-t">{t("print.found")}</div>
+            <p class="pr-found-hint">{t("print.foundHint")}</p>
+            <div id="pr-found-list"></div>
+          </div>
           <div id="pr-list" class="pr-list"></div>
           <div class="pr-actions">
             <button type="button" id="pr-reset" class="us-ghost">{t("print.reset")}</button>
@@ -2731,6 +2739,14 @@ const prI18n = {
       .pr-titles { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
       .pr-name { font-family: var(--font-title); font-size: 1.1rem; letter-spacing: 0.03em; color: var(--c-text); }
       .pr-route { font-size: 0.78rem; color: var(--c-muted); }
+      .pr-name-in { width: 100%; padding: 0.4rem 0.55rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); color: var(--c-text); font-family: var(--font-title); font-size: 1.05rem; letter-spacing: 0.03em; }
+      .pr-name-in:focus { outline: none; border-color: var(--c-accent); }
+      .pr-warn { margin-top: 0.6rem; font-size: 0.78rem; color: #c0392b; }
+      .pr-found { border: 1px dashed var(--c-line); border-radius: 12px; padding: 1rem 1.2rem; margin-bottom: 1.4rem; }
+      .pr-found-t { font-family: var(--font-title); font-size: 0.85rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 0.4rem; }
+      .pr-found-hint { font-size: 0.85rem; color: var(--c-muted); margin: 0 0 0.6rem; }
+      .pr-found-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.5rem 0; border-top: 1px solid var(--c-line); }
+      .pr-found-row .pr-add { margin-top: 0; flex-shrink: 0; }
       .pr-toggle { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
       .pr-toggle-lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
       .pr-tiers { width: 100%; border-collapse: collapse; }
@@ -2757,6 +2773,10 @@ const prI18n = {
 
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
+      // ⚠️ Dalle REGOLE pure, non da `printRoutes`: quello contiene
+      // `import.meta.glob`, e importarlo qui trascinerebbe le pagine del sito
+      // dentro il pacchetto del browser.
+      import { confrontaCatalogo } from "../../lib/admin/printRegole";
 
       const paneEl = document.querySelector('.pane[data-pane="print"]');
       if (paneEl) {
@@ -2769,6 +2789,11 @@ const prI18n = {
         let catalogo: any[] = [];
         let defaults: any[] = [];
         let token = "";
+        // Le pagine `/print/` che il sito di questo cliente ha davvero, lette
+        // dal filesystem in build e portate qui dal GET.
+        let pagine: { slug: string; route: string }[] = [];
+        let nuove: { slug: string; route: string }[] = [];
+        let senzaPagina = new Set<string>();
 
         const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
         const eur = (cents: number) => (Math.max(0, Math.round(cents)) / 100).toFixed(2);
@@ -2794,7 +2819,7 @@ const prI18n = {
             <div class="pr-card" data-p="${pi}">
               <div class="pr-head">
                 <div class="pr-titles">
-                  <span class="pr-name">${esc(PR.prodLabels?.[p.slug] ?? p.label)}</span>
+                  <input type="text" class="pr-name-in" value="${esc(p.label)}" placeholder="${esc(PR.name)}" aria-label="${esc(PR.name)}" />
                   <span class="pr-route">${esc(p.route || "")}</span>
                 </div>
                 <label class="pr-toggle">
@@ -2802,6 +2827,7 @@ const prI18n = {
                   <span class="switch"><input type="checkbox" class="pr-vis" ${p.visible ? "checked" : ""} /><span class="track"></span></span>
                 </label>
               </div>
+              ${senzaPagina.has(p.slug) ? `<div class="pr-warn">${esc(PR.missing)}</div>` : ""}
               <table class="pr-tiers">
                 <thead><tr><th>${esc(PR.colQty)}</th><th>${esc(PR.colPrice)}</th><th></th></tr></thead>
                 <tbody>
@@ -2826,6 +2852,47 @@ const prI18n = {
             </div>`).join("");
         }
 
+        // Quali pagine non sono ancora a catalogo, e quali prodotti puntano a
+        // una pagina che non esiste. La REGOLA e' quella del server, importata:
+        // due copie della stessa condizione prima o poi divergono.
+        function ricalcola() {
+          const c = confrontaCatalogo(catalogo.map((p) => ({ slug: p.slug, route: p.route || "" })), pagine);
+          nuove = c.nuove;
+          senzaPagina = new Set(c.senzaPagina);
+        }
+
+        function renderTrovate() {
+          const box = document.getElementById("pr-found") as HTMLElement | null;
+          const list = document.getElementById("pr-found-list") as HTMLElement | null;
+          if (!box || !list) return;
+          // Nessuna pagina trovata = cliente senza pagine di stampa: il riquadro
+          // non ha niente da dire e sparisce, invece di annunciare il vuoto.
+          if (pagine.length === 0) { box.hidden = true; return; }
+          box.hidden = false;
+          list.innerHTML = nuove.length === 0
+            ? `<p class="pr-found-hint">${esc(PR.foundNone)}</p>`
+            : nuove.map((pg) => `
+              <div class="pr-found-row">
+                <span class="pr-route">${esc(pg.route)}</span>
+                <button type="button" class="pr-add pr-addprod" data-slug="${esc(pg.slug)}" data-route="${esc(pg.route)}">${esc(PR.addProd)}</button>
+              </div>`).join("");
+        }
+
+        document.getElementById("pr-found-list")?.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          if (!t.classList.contains("pr-addprod")) return;
+          const slug = t.dataset.slug || "";
+          const route = t.dataset.route || "";
+          if (!slug || catalogo.some((p: any) => p.slug === slug)) return;
+          // Nasce nascosto e senza prezzi, come i prodotti del seed: l'API
+          // rifiuta un prodotto visibile senza nemmeno una quantita'.
+          sync();
+          catalogo.push({ slug, label: slug, route, visible: false, meta: {}, tiers: [] });
+          ricalcola();
+          render();
+          renderTrovate();
+        });
+
         // Legge gli input nel modello senza re-render (per non perdere il focus).
         function sync() {
           listEl.querySelectorAll<HTMLElement>(".pr-card").forEach((card) => {
@@ -2833,6 +2900,10 @@ const prI18n = {
             const p = catalogo[pi];
             if (!p) return;
             p.visible = (card.querySelector(".pr-vis") as HTMLInputElement | null)?.checked ?? false;
+            // Il nome e' un campo libero: lo scrive il super admin nella lingua
+            // del cliente. Se lo svuota si ripiega sullo slug, perche' una card
+            // senza nome non si distingue dalle altre.
+            p.label = ((card.querySelector(".pr-name-in") as HTMLInputElement | null)?.value ?? "").trim() || p.slug;
             card.querySelectorAll<HTMLElement>("tbody tr").forEach((tr) => {
               const ti = Number(tr.dataset.t);
               if (!p.tiers[ti]) return;
@@ -2882,7 +2953,10 @@ const prI18n = {
             const body = await res.json();
             catalogo = Array.isArray(body.catalog) ? body.catalog : [];
             defaults = Array.isArray(body.defaults) ? body.defaults : [];
+            pagine = Array.isArray(body.pagine) ? body.pagine : [];
+            ricalcola();
             render();
+            renderTrovate();
           } catch {
             msg(PR.loadError, true);
           }
@@ -2901,7 +2975,7 @@ const prI18n = {
             });
             const body = await res.json().catch(() => ({}));
             if (!res.ok) { msg(body.error || PR.saveError, true); return; }
-            if (Array.isArray(body.catalog)) { catalogo = body.catalog; render(); }
+            if (Array.isArray(body.catalog)) { catalogo = body.catalog; ricalcola(); render(); renderTrovate(); }
             msg(PR.saved);
           } catch {
             msg(PR.saveError, true);
@@ -2913,7 +2987,9 @@ const prI18n = {
         saveBtn?.addEventListener("click", salva);
         resetBtn?.addEventListener("click", () => {
           catalogo = JSON.parse(JSON.stringify(defaults));
+          ricalcola();
           render();
+          renderTrovate();
           msg(PR.resetDone);
         });
 
