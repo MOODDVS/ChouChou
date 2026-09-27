@@ -59,7 +59,7 @@ const STARS = [1, 2, 3, 4, 5];
       <div class="lnk-stories" aria-label={en ? "Upcoming events" : "Prochains événements"}>
         {stories.map((s, i) => (
           <button type="button" class="lnk-story" data-i={i} data-img={s.img} data-title={s.title} data-date={s.date}>
-            <span class="lnk-story__ring"><img src={s.img} alt={s.title} loading="lazy" decoding="async" /></span>
+            <span class="lnk-story__ring"><img data-posto="css" src={s.img} alt={s.title} loading="lazy" decoding="async" /></span>
             <span class="lnk-story__label">{s.title}</span>
           </button>
         ))}

@@ -124,6 +124,30 @@ test("il componente Font si importa dal percorso, non da «astro:fonts»", () =>
    LE IMMAGINI — riservare il posto, o la pagina salta
    ============================================================ */
 
+/**
+ * Perche' un `<img>` puo' non portare le dimensioni e restare giusto.
+ *
+ * ⚠️ Questa rete legge il TESTO del tag: non vede il foglio di stile. Su un
+ * sito che riserva lo spazio col contenitore segnalava codice corretto — su
+ * ChouChou 24 tag su 33 — e in tre casi chiedeva di PEGGIORARE la pagina:
+ * `.ev-media img` ha `aspect-ratio: 16 / 10`, e un attributo `height` sopra
+ * quella regola da' due dimensioni definite al browser, che allora ignora
+ * l'aspect-ratio. Obbedire avrebbe rotto le immagini che erano a posto.
+ *
+ * Il motivo si scrive SUL TAG, non in un elenco qui: questo file e' del motore
+ * e il merge lo riscrive nei repo dei clienti, quindi un elenco per-cliente
+ * sparirebbe al primo aggiornamento. Scritto sul tag, muore col tag.
+ *
+ *  - `css`      il posto lo riserva il foglio di stile: altezza definita o
+ *               `aspect-ratio`, sull'immagine o sul contenitore. Si mette dopo
+ *               aver GUARDATO la regola, non per far passare la prova.
+ *  - `overlay`  l'immagine non e' nel flusso (lightbox, modale): uno
+ *               spostamento del contenuto non puo' esistere.
+ *  - `naturale` formato variabile PER SCELTA — una galleria che non ritaglia,
+ *               dove l'altezza la decide la foto. Il costo e' noto e accettato.
+ */
+const POSTI = ["css", "overlay", "naturale"];
+
 test("le pagine PUBBLICHE del motore non hanno <img> senza posto riservato", () => {
   // ⚠️ Solo le pubbliche: l'admin sta dietro login e PageSpeed non lo misura.
   // Il CLS lo paga il cliente in 4G, non chi gestisce il locale dal Mac.
@@ -137,10 +161,24 @@ test("le pagine PUBBLICHE del motore non hanno <img> senza posto riservato", () 
   for (const f of pubbliche) {
     for (const m of readFileSync(f, "utf8").matchAll(/<img[^>]*>/g)) {
       const t = m[0];
+      const posto = t.match(/data-posto="([a-z]+)"/)?.[1];
+      if (posto && POSTI.includes(posto)) continue;
       if (!/\bwidth=/.test(t) && !/aspect-ratio/.test(t)) nudi.push(`${f}: ${t.slice(0, 70)}`);
     }
   }
   assert.deepEqual(nudi, [], "usa <Immagine>, che le dimensioni le pretende");
+});
+
+test("un `data-posto` scritto male non zittisce niente", () => {
+  // Senza questa prova un refuso (`data-posto="genitore"`) passerebbe per una
+  // dichiarazione valida e spegnerebbe il controllo su quel tag, in silenzio.
+  const sbagliati = [];
+  for (const f of ASTRO) {
+    for (const m of readFileSync(f, "utf8").matchAll(/data-posto="([^"]*)"/g)) {
+      if (!POSTI.includes(m[1])) sbagliati.push(`${f}: data-posto="${m[1]}"`);
+    }
+  }
+  assert.deepEqual(sbagliati, [], `i valori ammessi sono: ${POSTI.join(", ")}`);
 });
 
 test("<Immagine> si ferma in BUILD se non sa che posto riservare", () => {

@@ -63,7 +63,7 @@ const L = {
 <Layout title={titre + ", Comptoir Chouchou"} description={metaDesc} ogImage={ev.image_url ?? undefined} lightHeader={true}>
   <article class="ev">
     <div class="ev-media">
-      <img class="ev-img" src={photo} alt={titre} loading="eager" fetchpriority="high" decoding="async" />
+      <img data-posto="naturale" class="ev-img" src={photo} alt={titre} loading="eager" fetchpriority="high" decoding="async" />
     </div>
     <div class="ev-card">
       <div class="ev-in">
@@ -79,7 +79,7 @@ const L = {
         <div class="ev-gallery">
           {gallery.map((src, i) => (
             <a class="ev-gallery__item" href={src} data-idx={i} target="_blank" rel="noopener noreferrer">
-              <img src={src} alt={titre} loading="lazy" decoding="async" />
+              <img data-posto="css" src={src} alt={titre} loading="lazy" decoding="async" />
             </a>
           ))}
         </div>
@@ -97,7 +97,7 @@ const L = {
           <button type="button" class="ev-lb__nav ev-lb__prev" id="ev-lb-prev" aria-label={en ? "Previous" : "Précédent"}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
-          <img class="ev-lb__img" id="ev-lb-img" src="" alt={titre} />
+          <img data-posto="overlay" class="ev-lb__img" id="ev-lb-img" src="" alt={titre} />
           <button type="button" class="ev-lb__nav ev-lb__next" id="ev-lb-next" aria-label={en ? "Next" : "Suivant"}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
           </button>

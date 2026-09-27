@@ -50,7 +50,7 @@ const ATOUTS = en ? ["The grocery", "One evening, one chef", "Sunday brunch"] : 
     <div class="hh-slides" id="hh-slides">
       {SLIDES.map((src, i) => (
         <div class={"hh-slide" + (i === 0 ? " is-on" : "")}>
-          <img
+          <img data-posto="css"
             src={src}
             alt=""
             loading={i === 0 ? "eager" : "lazy"}

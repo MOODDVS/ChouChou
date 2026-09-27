@@ -128,7 +128,7 @@ const SPARKS = [
     <!-- HERO -->
     <section class="ag-hero">
       <div class="ag-hero__bg" aria-hidden="true"></div>
-      <img class="ag-hero__photo" src={HERO_BG} alt="" loading="eager" fetchpriority="high" decoding="async" onerror="this.remove()" />
+      <img data-posto="css" class="ag-hero__photo" src={HERO_BG} alt="" loading="eager" fetchpriority="high" decoding="async" onerror="this.remove()" />
       <div class="ag-hero__overlay" aria-hidden="true"></div>
       <div class="ag-hero__glow" aria-hidden="true"></div>
       <div class="ag-hero__inner">
@@ -164,7 +164,7 @@ const SPARKS = [
               <article class="ag-solo">
                 <a class="ag-solo__media" href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
                   {e.image_url
-                    ? <img src={e.image_url} alt={titreDi(e)} loading="eager" decoding="async" onerror="this.remove();" />
+                    ? <img data-posto="css" src={e.image_url} alt={titreDi(e)} loading="eager" decoding="async" onerror="this.remove();" />
                     : <span class="ph" aria-hidden="true">✦</span>}
                 </a>
                 <div class="ag-solo__body">
@@ -182,7 +182,7 @@ const SPARKS = [
                   <a class="ag-evh" href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
                     <div class="ag-evh__media">
                       {e.image_url
-                        ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.remove();" />
+                        ? <img data-posto="css" src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.remove();" />
                         : <span class="ph" aria-hidden="true">✦</span>}
                     </div>
                     <div class="ag-evh__body">
@@ -204,7 +204,7 @@ const SPARKS = [
             <a class={"ag-card" + (estPasse(e) ? " is-past" : "")} href={getLocalizedUrl(`/agenda/${slugifyTitre(e.title)}`, lang)} aria-label={titreDi(e)}>
               <div class="ag-card__media">
                 {e.image_url
-                  ? <img src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.closest('.ag-card__media').classList.add('is-ph'); this.remove();" />
+                  ? <img data-posto="css" src={e.image_url} alt={titreDi(e)} loading="lazy" decoding="async" onerror="this.closest('.ag-card__media').classList.add('is-ph'); this.remove();" />
                   : <span class="ag-card__ph" aria-hidden="true">✦</span>}
                 <span class="ag-card__date">
                   <span class="ag-card__date-d">{badgeDate(e.date_start)}</span>
@@ -230,7 +230,7 @@ const SPARKS = [
 
     <!-- CTA CONTACT -->
     <section class="ag-cta">
-      <img class="ag-cta__img" src={CTA_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
+      <img data-posto="css" class="ag-cta__img" src={CTA_FOTO} alt="" loading="lazy" decoding="async" onerror="this.remove()" />
       <div class="ag-cta__scrim" aria-hidden="true"></div>
       <div class="ag-cta__fade" aria-hidden="true"></div>
       <div class="ag-cta__in">

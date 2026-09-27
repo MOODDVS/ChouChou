@@ -53,7 +53,7 @@ const L = {
           <div class="strip">
             {carte.map((src) =>
               src ? (
-                <img class="strip-img" src={src} alt="" loading="lazy" decoding="async" />
+                <img data-posto="css" class="strip-img" src={src} alt="" loading="lazy" decoding="async" />
               ) : (
                 <span class="ph" aria-hidden="true"></span>
               )
@@ -87,7 +87,7 @@ const L = {
       <a class="epic-block" href={getLocalizedUrl("/epicerie", lang)}>
         <div class="epic-media">
           {epicerieImg ? (
-            <img src={epicerieImg} alt="" loading="lazy" decoding="async" />
+            <img data-posto="css" src={epicerieImg} alt="" loading="lazy" decoding="async" />
           ) : (
             <span class="ph" aria-hidden="true"></span>
           )}

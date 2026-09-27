@@ -71,7 +71,7 @@ const EVENTS = [
           <div class="ev ev--static">
             <div class="ev-media">
               {e.img ? (
-                <img src={e.img} alt="" loading="lazy" decoding="async" />
+                <img data-posto="css" src={e.img} alt="" loading="lazy" decoding="async" />
               ) : (
                 <span class="ph" aria-hidden="true"></span>
               )}
@@ -87,7 +87,7 @@ const EVENTS = [
           <a class="ev" href={getLocalizedUrl("/agenda", lang)}>
             <div class="ev-media">
               {e.img ? (
-                <img src={e.img} alt="" loading="lazy" decoding="async" />
+                <img data-posto="css" src={e.img} alt="" loading="lazy" decoding="async" />
               ) : (
                 <span class="ph" aria-hidden="true"></span>
               )}
