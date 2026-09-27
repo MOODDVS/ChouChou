@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** HEAD `8b1481c` (08/09/2026, secondo giro della giornata).
+**Motore — riferimento attuale:** `multi-sede` HEAD `d53b620` (27/09/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
@@ -13,12 +13,53 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 ## Quadro
 
-| Cliente | Stato | Hosting | Dominio | Design | Ultimo allineamento | Note |
+| Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | Scuro (pinnato) | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | Chiaro (widget rosa #ed2289) | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
-| **L'huile sur le feu** | 🟢 Allineato *(setup in corso)* | Hostinger *(da conf.)* | *(da definire)* | *(da definire)* | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto |
-| **Educazione Napoletana** | 🟡 v2 in ricostruzione | Hostinger *(da fare)* | educazionenapoletana.be *(switch finale)* | Storico EN portato sul motore | **merge `8b1481c` — 08/09/2026** | merge pulito 0 conflitti; ✅ redeploy fatto; unico trilingue → controllo live da fare |
+| **450 Gradi** | 🟡 Parziale | Hostinger | 450gradi.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); manca `?raw` — nessuna pagina `/print/`, quindi non lo sente |
+| **La Molisana** | 🟡 Parziale | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | manca `?raw`; nessuna pagina `/print/` |
+| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | manca `?raw`: **ha** `/print/menu` e `/print/lunch`, ma con `is:inline`, quindi è scampato per fortuna — è il cliente da riallineare per primo |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `28bbdf5` — 27/09/2026** | il difetto del CSS di stampa è nato e morto qui |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `28bbdf5` — 27/09/2026** | ultimo passato al multi-sede |
+
+Tutti e cinque sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
+su quattro e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
+
+⚠️ I tre 🟡 sono indietro di due commit del motore (`28bbdf5`, `d53b620`), non di
+una sessione: `git fetch engine && git merge engine/multi-sede` e sono a pari.
+
+Ciò che resta fuori su tutti e cinque è `PRESTAZIONI.md` §1 e §3 — i font del
+sito pubblico e le `<img>` senza posto riservato — e resta segnato da quattro o
+cinque prove rosse in `prestazioni.test.mjs`. È voluto.
+
+---
+
+## 🔄 Il multi-sede — 27/09/2026
+
+Cinque clienti portati sul motore multi-sede in un giorno, con la ricetta in
+`MIGRAZIONE-MULTISEDE.md`. La migrazione di database è **una sola**, la #73
+`locations.sql`, dichiarata «solo schema, nessun effetto visibile»: si lancia
+`supabase/TUTTO.sql` intero, che è idempotente.
+
+Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
+
+- **ChouChou non generava nessuna sitemap**, e `robots.txt` ne annunciava
+  comunque l'indirizzo. Aveva anche `Disallow: /order` **secco**: un prefisso in
+  robots non ha confini di parola, quindi teneva fuori da Google la pagina
+  d'ordine del ristorante.
+- **`TIMEZONE` era `export let`** in `slots.ts`: una variabile di modulo mutabile
+  condivisa fra tutte le richieste del processo. Con due sedi in fusi diversi
+  dava un'ora sbagliata *ma plausibile*. Ora è `fusoDi(ambito)`.
+- **Il CSS di una pagina di stampa finiva addosso al pannello.**
+  `import.meta.glob` non rende i nomi dei file: aggancia i moduli al grafo delle
+  dipendenze di chi lo chiama. Cura: `query: "?raw"`.
+- **`societa.ts` di L'Huile pubblicava la partita IVA di un'altra società** nel
+  footer legale, e `SeoJsonLd` gli orari del gruppo nella scheda Google di un
+  punto.
+- **Tre `_MENU_*.sql`** erano a un passo dall'essere cuciti in `TUTTO.sql`, e
+  avrebbero installato il menu di L'Huile su ogni cliente.
+- **Chiavi di cache senza la sede** (`footer:extra`, `seo:locale`, `seo:jsonld`):
+  la prima pagina servita da un punto riempiva la cache e per un minuto tutti gli
+  altri servivano i suoi dati.
 
 ---
 

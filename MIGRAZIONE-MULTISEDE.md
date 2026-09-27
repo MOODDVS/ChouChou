@@ -9,6 +9,10 @@ momento.
 Chi era già passato: **450 Gradi** (ma partiva da un sito riscritto, quindi non
 ha incontrato i passi 4 e 6) e **La Molisana**.
 
+Poi sono passati **ChouChou**, **L'Huile sur le Feu** e, il 27/09/2026,
+**Educazione Napoletana** — l'ultimo. Le cose che EN ha insegnato sono scritte
+dentro i passi qui sotto, non in fondo: si leggono quando servono.
+
 ---
 
 ## Prima di tutto: il merge NON accende il multi-sede
@@ -106,6 +110,19 @@ git diff --diff-filter=D --name-only pre-multisede HEAD -- src public \
 Guarda l'elenco prima di eseguirlo. Il `grep -v` toglie l'admin (che deve venire
 dal motore) e il demo (che hai appena cancellato apposta).
 
+⚠️ **Su Educazione Napoletana l'elenco era VUOTO, e non è un errore.** EN aveva
+modificato *ogni* file della sua vetrina, quindi sono passati tutti per il
+conflitto e `merge=ours` li ha tenuti: i 31 file spariti in silenzio su La
+Molisana erano quelli che nessuno aveva mai toccato. Non saltare il comando —
+il suo risultato è l'informazione.
+
+E c'è **il rovescio, che è una buona notizia**: un componente del motore che il
+cliente non ha mai toccato non dà conflitto, quindi arriva **già aggiornato**.
+Su EN `ReservationWidget.astro`, `OrderApp.tsx` e `SlotPicker.tsx` sono arrivati
+col passo 7 già fatto, e il lavoro è stato solo controllarlo. Il conto è sempre
+lo stesso — `merge=ours` protegge ciò che il cliente ha modificato — ma qui
+gioca a favore.
+
 ## 5. ⚠️ Senza il blocco `fonts:` il pannello NON SI APRE
 
 `AdminHead` rende `<Fonts />`, che chiede ad Astro le famiglie dichiarate in
@@ -151,6 +168,26 @@ import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 const ambito = await ambitoPubblicoChiesto(Astro.request);
 ```
 
+**E c'è una quinta funzione, che non è nella tabella perché non ha preso un
+parametro: l'ha perso.** `TIMEZONE` e `aggiornaTimezone()` non esistono più in
+`slots.ts`, e `calcolaSlotGiorno` vuole il fuso come terzo argomento.
+
+```astro
+import { fusoDi } from "../lib/fuso";
+const fuso = await fusoDi(ambito);
+```
+
+⚠️ Il guasto che quella rimozione chiude è il più brutto della serie, e vale
+raccontarlo perché spiega perché non c'è un valore predefinito: `TIMEZONE` era
+`export let`, una variabile di modulo **mutabile condivisa da tutte le richieste
+del processo**. Con due sedi in fusi diversi, la richiesta di una cambiava il
+valore sotto i piedi a quella dell'altra già partita — e il risultato non era un
+errore, era **un'ora sbagliata ma plausibile** che nessuno avrebbe collegato
+alla richiesta di un'altra persona. `astro check` trova gli import morti; quello
+che non trova è `timeZone: "Europe/Brussels"` **scritto a mano**, che su EN
+stava nell'unico posto dove quell'ora conta: l'ora di ritiro annunciata al
+cliente dopo il pagamento.
+
 ⚠️ **Passalo, invece di scrivere `SEDE_UNICA` a mano.** Con una sede sola
 rendono lo stesso identico valore, ma `SEDE_UNICA` scritto a mano è vero finché
 il ristorante è uno — e il giorno che non lo fosse più non darebbe errore:
@@ -159,7 +196,9 @@ darebbe gli orari del posto sbagliato.
 Poi ci sono tre cose che `astro check` **non** vede, e che trovano solo le prove:
 
 - **`orders_closed` e `restaurant_name` letti nudi su `app_config`**: sono chiavi
-  *di sede*. Si leggono con `appConfigEq(chiave, ambito)`, oppure — per il nome —
+  *di sede*. ⚠️ Su EN erano **tre posti**, e due erano le pagine di ritorno dal
+  pagamento (`OrderConfirmPage`, `OrderCancelPage`): quelle si guardano sempre,
+  perché nascono copiandosi fra loro e la lettura nuda si copia con il resto. Si leggono con `appConfigEq(chiave, ambito)`, oppure — per il nome —
   con `datiRistorante(ambito).nome`, che ripiega da solo su `client.ts`.
   (`tests/config.test.mjs`)
 - **`order-confirm` che legge `orders` nuda**: va letta con
@@ -207,6 +246,13 @@ const conSede = (u: string) => urlConSede(u, sede);
 const res = await fetch(conSede("/api/contact"), { … });
 ```
 
+⚠️ **`conSede`, minuscolo, e non `urlConSede(...)` scritto per esteso.** La rete
+cerca quella forma, e sembra un cavillo: non lo è. La funzioncina locale è
+l'*associazione* fra un componente e la sua sede; la regola sta in `sedeUrl.ts`.
+Chiamare `urlConSede("/api/x", sede)` direttamente funziona identico e resta
+rosso — giustamente, perché cinque file che fanno la stessa cosa in due modi
+sono cinque file che prima o poi divergono. (Costato un giro su EN.)
+
 In un componente `.astro` lo script e' un modulo a parte e non vede le props: la
 sede passa dal DOM.
 
@@ -217,6 +263,18 @@ sede passa dal DOM.
 ```ts
 const SEDE = (document.getElementById("rw") as HTMLElement | null)?.dataset.sede || "";
 const conSede = (u: string): string => urlConSede(u, SEDE);
+```
+
+⚠️ **Se lo script ha `define:vars`, non può importare niente.** `define:vars` lo
+rende `is:inline`, quindi `urlConSede` da lì non si vede — e Astro lo dice solo
+come suggerimento, non come errore. Lì l'URL si compone **nel frontmatter** e
+passa dentro `define:vars` già fatto (su EN era `FeedbackPage.astro`):
+
+```astro
+const conSede = (u: string): string => urlConSede(u, sedeChiesta);
+const urlFeedback = conSede("/api/feedback");
+---
+<script define:vars={{ ..., urlFeedback }}>
 ```
 
 Su ChouChou erano `ContactForm.tsx` (una chiamata) e `ReservationWidget.astro`
@@ -284,6 +342,21 @@ file sono suoi e possono essere sbagliati da anni. Su ChouChou:
 - `Sitemap: …/sitemap.xml`. `@astrojs/sitemap` genera **`sitemap-index.xml`**:
   l'indirizzo vecchio rispondeva 404.
 
+⚠️ **`Disallow: /reservation-test` ci va anche se la pagina non c'è.** Su EN il
+`robots.txt` era scritto bene — nessun prefisso secco, indirizzo della sitemap
+giusto — e l'ho dato per buono guardandolo: mancava quella riga, e la prova l'ha
+trovata. È una pagina **del motore**: il cliente che l'ha cancellata al clone
+non ha niente da escludere *oggi*, ma un merge che la riportasse la troverebbe
+già coperta invece di lasciarla in Google per una settimana.
+
+⚠️ E il filtro si **compone**, non si sostituisce a quello del cliente. EN aveva
+`filter: (page) => !["/admin", "/reservation-embed", "/feedback"].some((p) =>
+page.includes(p))`: un elenco scritto a mano, che non sa delle pagine nuove, e
+con `includes` senza confini di parola. La cura è `if (!inSitemap(page)) return
+false;` **più** la sola regola davvero sua (`/feedback`, che è interna e
+`noindex`), guardando l'ultimo pezzo del percorso e non l'inizio — altrimenti
+`/it/feedback` resta dentro.
+
 ## 9. Verifica, commit, migrazioni, deploy
 
 ```
@@ -291,7 +364,8 @@ npx astro check && npm test
 ```
 
 `astro check` deve dare **0 errori**. Il totale delle prove cambia da cliente a
-cliente (504 su La Molisana, 508 su ChouChou), quindi non e' quello il segnale:
+cliente (504 su La Molisana, 508 su ChouChou, 521 su Educazione Napoletana),
+quindi non e' quello il segnale:
 quello che conta e' che le rosse siano **solo** quelle di `prestazioni.test.mjs`
 su font del sito e immagini — vedi «Cosa resta fuori». Se e' rossa una rete di
 `sede`, `pubblico`, `config` o `seo`, il merge non e' finito.
@@ -331,12 +405,24 @@ file del cliente. Restano segnati da cinque o sei prove rosse in
   mescola i due sistemi in un file solo, ed è quella la trappola.
   ⚠️ Attenzione al caso La Molisana: usa **gli stessi nomi di variabile del
   motore per famiglie diverse** (`--font-title` è Bebas Neue sul sito e Quicksand
-  nel motore). Rimetterlo in riga vuol dire rinominare ~130 occorrenze nel CSS
+  nel motore). Lo fanno anche L'Huile e Educazione Napoletana (`--font-title` è
+  Burford, `--font-body` è Arial): è la regola, non l'eccezione, e i due sistemi
+  convivono senza rompersi solo perché **il pannello non monta il Layout del
+  sito**. Se un giorno un componente del motore finisse dentro una pagina
+  pubblica, la ricetta è quella di ChouChou: il cliente dichiara le sue famiglie
+  con nomi propri (`--font-titolo`, `--font-testo`) e il Layout ci rinvia da
+  `html:root`, che batte il `:root` di Astro per specificità (0,1,1 contro 0,1,0)
+  e quindi vince qualunque sia l'ordine nel `<head>`. Rimetterlo in riga vuol dire rinominare ~130 occorrenze nel CSS
   della vetrina, e **non tutte**: `ReservationWidget.astro` usa già la
   convenzione del motore e va lasciata stare. Va fatto col sito aperto davanti,
   prima e dopo.
-- **§3, le immagini.** `<img>` senza posto riservato (22 su La Molisana). Si
-  passa a `<Immagine>`, che le dimensioni le pretende.
+- **§3, le immagini.** `<img>` senza posto riservato (22 su La Molisana, 16 su
+  Educazione Napoletana). Si passa a `<Immagine>`, che le dimensioni le pretende.
+  ⚠️ E non si inventano: su ChouChou, delle 33 immagini da sistemare, 24 avevano
+  già le dimensioni giuste nel CSS e per 3 scriverle a mano le avrebbe rotte —
+  `width`/`height` sono *suggerimenti di presentazione*, ma contano come
+  dimensioni definite, e su una regola con `aspect-ratio` la fanno ignorare. Si
+  guarda una per una, o si aggiunge `height: auto`.
 
 ---
 
