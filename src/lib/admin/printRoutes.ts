@@ -19,7 +19,20 @@
  */
 import { derivaPagine, type PaginaStampa } from "./printRegole";
 
-const MODULI = import.meta.glob("/src/pages/print/*.astro");
+// ⚠️ `query: "?raw"` NON E' UN DETTAGLIO, ed e' costato un pomeriggio.
+//
+// `import.meta.glob` non rende soltanto i NOMI dei file: aggancia quei moduli
+// al grafo delle dipendenze di chi lo chiama. Astro poi raccoglie il CSS delle
+// dipendenze di una pagina, quindi il foglio `is:global` di una pagina di
+// stampa finiva addosso a `/admin/print`. Su L'Huile sur le Feu quel foglio ha
+// `@media screen { body { background:#4a4a4a; padding:24px } }` per l'anteprima
+// del PDF: il pannello si ritrovava il fondo grigio e l'header staccato di 24px
+// dal bordo, senza piu' sembrare attaccato in alto. Nessun errore, da nessuna
+// parte — solo una pagina che non somigliava piu' alle altre.
+//
+// Con `?raw` i moduli diventano stringhe: le chiavi sono le stesse, il CSS non
+// segue. E le funzioni non si chiamano mai: qui servono solo i nomi.
+const MODULI = import.meta.glob("/src/pages/print/*.astro", { query: "?raw", import: "default" });
 
 /** Le pagine di stampa di QUESTO cliente. Vuoto se non ne ha nessuna. */
 export function pagineStampa(): PaginaStampa[] {
