@@ -169,11 +169,85 @@ Poi ci sono tre cose che `astro check` **non** vede, e che trovano solo le prove
   ha appena pagato. Le due pagine `src/pages/order-confirm.astro` e
   `src/pages/en/order-confirm.astro` sono **già dichiarate** fra le eccezioni del
   motore. (`tests/sede.test.mjs`)
+- **Non e' solo `src/pages`: guarda anche `src/lib/` del cliente.** Su ChouChou
+  `src/lib/jsonLd.ts` chiamava `datiRistorante()` a mani vuote. Quello `astro
+  check` lo trova; la cosa che non trova nessuno e' che **la sede va anche dentro
+  la chiave della sua cache**, altrimenti la prima pagina di un punto riempie la
+  cache e per un minuto tutte le altre servono i dati suoi.
+  ```ts
+  cacheOr(`seo:jsonld:${lang}:${ambito.modo === "sede" ? ambito.id : ambito.modo}`, …)
+  ```
+- ⚠️ **Le reti leggono anche i commenti.** Sono grep sul sorgente, non
+  compilatori: `datiRistorante()` scritto dentro un commento e' rosso esattamente
+  come se fosse codice, e lo stesso vale per un `<img>` messo li' come esempio.
+  E' gia' successo tre volte. Quando una rete indica una riga che «non e'
+  codice», riscrivi il commento — non allargare la regola.
 - ⚠️ **Le eccezioni stanno nei file di prova, che sono del motore.** Il merge le
   riscrive: non aggiungerne nei repo cliente. Se una rete è rossa per una scelta
   legittima del sito, o si cambia il sito o si cambia la regola **sul motore**.
 
-## 7. Le due righe del SEO
+## 7. ⚠️ Il punto deve viaggiare con le chiamate del browser
+
+`astro check` qui non vede niente: sono stringhe dentro un `fetch`. La rete e'
+`tests/pubblico.test.mjs`.
+
+I componenti pubblici sono `merge=ours`, quindi quelli del cliente sono fermi a
+prima del multi-sede: chiamano `/api/…` senza dire di quale punto parlano. Il
+motore non lo indovina piu' — ripiega sulla **prima** sede. Per un menu e'
+un'informazione falsa; per `/api/checkout` e' un ordine che nasce nella cucina
+sbagliata e si paga sulla cassa di un'altra societa'.
+
+La regola (quale parametro, come si attacca) sta in un posto solo,
+`src/lib/sedeUrl.ts`. Nel componente si lega soltanto alla propria sede:
+
+```tsx
+import { urlConSede } from "../lib/sedeUrl";
+// prop: sede = ""  → punto unico, e l'URL resta identico a prima
+const conSede = (u: string) => urlConSede(u, sede);
+const res = await fetch(conSede("/api/contact"), { … });
+```
+
+In un componente `.astro` lo script e' un modulo a parte e non vede le props: la
+sede passa dal DOM.
+
+```astro
+<div class="rw" id="rw" data-sede={sede}>
+```
+
+```ts
+const SEDE = (document.getElementById("rw") as HTMLElement | null)?.dataset.sede || "";
+const conSede = (u: string): string => urlConSede(u, SEDE);
+```
+
+Su ChouChou erano `ContactForm.tsx` (una chiamata) e `ReservationWidget.astro`
+(sei su sette).
+
+⚠️ **La settima resta nuda, e non e' una dimenticanza.** La *modifica* di una
+prenotazione che esiste gia' (`PUT` col token) non porta il punto: la sua sede
+sta nella riga, e il token e' l'autorizzazione. Mandare un punto li' vorrebbe
+dire poter spostare una prenotazione cambiando un URL. La riga e' dichiarata fra
+le eccezioni della rete, e la forma **deve restare questa**, altrimenti la rete
+dice che l'eccezione e' morta:
+
+```js
+fetch(modifyToken ? "/api/reservation" : conSede("/api/reservation"), { … })
+```
+
+⚠️ **Poi le pagine che montano quei componenti devono passargli la sede**, o
+la prop resta vuota e tutto il lavoro sopra non serve a niente. La pagina la
+prende dall'URL con cui e' stata chiesta — mai da un cookie:
+
+```astro
+const sedeChiesta = Astro.url.searchParams.get("sede") ?? "";
+<ContactForm t={formLabels} lang={lang} sede={sedeChiesta} client:load />
+<ReservationWidget telWidget={telWidget} sede={sedeChiesta} inPage />
+```
+
+Un cliente multi-sede incorpora `/reservation-embed` una volta per punto, con
+`?sede=<id>` nell'URL dell'iframe. **Nessuna prova verifica questo passaggio**:
+e' la parte che si dimentica.
+
+## 8. Le due righe del SEO
 
 `PRESTAZIONI.md` §2. Non arrivano col merge perché stanno in due file
 `merge=ours`.
@@ -194,17 +268,33 @@ Disallow: /reservation-test
 ```
 
 Senza la prima, la sitemap del cliente annuncia a Google una quindicina di URL
-del pannello, che rispondono 302 al login.
+del pannello, che rispondono 302 al login. ⚠️ E senza l'integrazione **non c'e'
+nessuna sitemap**: ChouChou non ne generava una, e `robots.txt` ne annunciava
+comunque l'indirizzo.
 
-## 8. Verifica, commit, migrazioni, deploy
+⚠️ **E guarda cosa il cliente ha scritto li' prima di te**, perche' quei due
+file sono suoi e possono essere sbagliati da anni. Su ChouChou:
+
+- `Disallow: /order` e `Disallow: /en/order`, **secche**. Un prefisso in robots
+  non ha confini di parola: quelle due righe tenevano fuori da Google la pagina
+  d'ordine del ristorante. Le pagine di ritorno si elencano una per una
+  (`/order-confirm`, `/order-cancel`, `/order/cancel`). Vale identico per
+  `/reservation`, `/menu`, `/contact`, e c'e' una prova che lo verifica: e'
+  l'errore gemello, e sarebbe peggio di quello che si sta chiudendo.
+- `Sitemap: …/sitemap.xml`. `@astrojs/sitemap` genera **`sitemap-index.xml`**:
+  l'indirizzo vecchio rispondeva 404.
+
+## 9. Verifica, commit, migrazioni, deploy
 
 ```
 npx astro check && npm test
 ```
 
-`astro check` deve dare **0 errori**. Le prove: il totale dev'essere **504** (5
-saltate nei clienti). Restano rosse le sei di `prestazioni.test.mjs` su font del
-sito e immagini — vedi «Cosa resta fuori».
+`astro check` deve dare **0 errori**. Il totale delle prove cambia da cliente a
+cliente (504 su La Molisana, 508 su ChouChou), quindi non e' quello il segnale:
+quello che conta e' che le rosse siano **solo** quelle di `prestazioni.test.mjs`
+su font del sito e immagini — vedi «Cosa resta fuori». Se e' rossa una rete di
+`sede`, `pubblico`, `config` o `seo`, il merge non e' finito.
 
 ⚠️ **Le migrazioni: lancia `supabase/TUTTO.sql` INTERO, non i singoli file.**
 Contare i `.sql` presenti nel repo dice quali file il cliente ha *ricevuto*, non
@@ -232,8 +322,8 @@ Deploy. Sul sito vero guarda **home** (i font devono essere identici a prima),
 ## Cosa resta fuori, e va bene così
 
 Due lavori di `PRESTAZIONI.md` che il merge non può portare, perché vivono in
-file del cliente. Restano segnati da sei prove rosse in `prestazioni.test.mjs`,
-ed è giusto che restino segnati.
+file del cliente. Restano segnati da cinque o sei prove rosse in
+`prestazioni.test.mjs`, ed è giusto che restino segnati.
 
 - **§1, i font del sito pubblico.** Il layout del cliente ridichiara
   `--font-title`, `--font-body`, `--font-display` nel suo `:root` coi nomi

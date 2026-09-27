@@ -169,6 +169,53 @@ il punto: la cura e' banale, e per questo si dimentica.
 - `rapporto` e' per le immagini che arrivano da internet, di cui non si
   conoscono le dimensioni.
 
+### ⚠️ `width`/`height` sul tag spengono l'`aspect-ratio` del CSS
+
+Trovato su La Molisana il 26/09/2026, col sito aperto davanti — e solo dopo
+aver sbagliato tre volte ragionandoci sopra.
+
+`width` e `height` scritti come attributi sono *presentational hints*: valgono
+come CSS a specificità zero, ma sono **dimensioni definite**. Dove la regola dice
+`width: 100%` e si affida all'`aspect-ratio` per l'altezza, l'attributo `height`
+resta in piedi — due dimensioni definite — e allora il browser **ignora
+l'aspect-ratio**. L'immagine esce con la forma sbagliata, e il CSS che la governa
+non è cambiato di una riga: è cambiato quello che il browser aveva in mano.
+
+La cura è una parola:
+
+```css
+.feat-thumbs img { width: 100%; aspect-ratio: 3 / 2; height: auto; }
+```
+
+`height: auto` rimette **una sola** dimensione definita, e l'aspect-ratio torna a
+comandare. ⚠️ Vale anche al rovescio: se stai aggiungendo le dimensioni a un
+`<img>` la cui regola ha un `aspect-ratio`, quella regola va guardata **prima**,
+o il lavoro peggiora la pagina invece di migliorarla.
+
+### ⚠️ Quando il posto lo riserva già il CSS: `data-posto`
+
+Su ChouChou la rete segnalava 33 immagini e **24 erano corrette**: i sei hero
+hanno `min-height: clamp(400px, 56vh, 600px)`, `.ag-card__media` ha
+`aspect-ratio: 4 / 3`, `.cover-badges img` ha `height: 11mm`. Lo spazio era già
+riservato — dal contenitore, non dal tag — e la rete legge il testo del tag,
+quindi non poteva vederlo. In tre casi obbedire avrebbe **rotto** la pagina, per
+il motivo del paragrafo qui sopra.
+
+Quindi il motivo si scrive sul tag, e la rete lo accetta. Tre valori, non uno di
+piu':
+
+```
+data-posto="css"        altezza o aspect-ratio nel foglio di stile
+data-posto="overlay"    lightbox, modale: l'immagine non e' nel flusso
+data-posto="naturale"   galleria che non ritaglia: l'altezza la decide la foto
+```
+
+⚠️ **`css` si scrive dopo aver guardato la regola**, non per far passare la
+prova — e in quel caso una dimensione vera è sempre meglio del segno. Un valore
+scritto male non zittisce niente: c'è una seconda prova che verifica che i valori
+dichiarati esistano. E il segno sta sul tag, non in un elenco dentro il file di
+prova: quel file è del motore, e il merge lo riscrive nei repo dei clienti.
+
 **Come si trovano le immagini da sistemare, in un cliente:**
 
 ```bash
