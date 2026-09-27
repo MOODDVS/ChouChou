@@ -5,14 +5,15 @@
 // così l'utente può riprovare senza ricomporre l'ordine.
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
-import { supabaseAdmin } from "../lib/db";
-import { CLIENT } from "../config/client";
+import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 
-const { data: cfgBrand } = await supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
-const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
+// ⚠️ `restaurant_name` e' di SEDE. `datiRistorante` lo legge gia' con un
+// ambito e ripiega da solo su client.ts: qui basta chiederglielo.
+const brand = (await datiRistorante(await ambitoPubblicoChiesto(Astro.request))).nome;
 ---
 
 <Layout title={t("cancel.title") + " — " + brand}>

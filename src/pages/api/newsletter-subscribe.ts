@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { supabaseAdmin } from "../../lib/db";
 import { registraCliente } from "../../lib/registraCliente";
 import { datiRistorante } from "../../lib/ristorante";
+import { ambitoPubblicoChiesto, leggiConfig, type Ambito } from "../../lib/admin/sede";
 import { linksSocial } from "../../lib/links";
 import { temaEmail, type TemaEmail } from "../../lib/temaBrand";
 import { CLIENT } from "../../config/client";
@@ -33,10 +34,14 @@ function esc(s: string): string {
 }
 
 // Destinatari della notifica interna (Réglages → Général → contact_emails)
-async function destinatariNotifica(): Promise<string[]> {
+// ⚠️ I destinatari sono una chiave DI SEDE: ogni punto ha la sua casella.
+// Letta a livello marchio, l'iscrizione fatta su un punto arrivava a un altro
+// ristorante, e chi l'aspettava non riceveva niente. L'ambito lo porta chi chiama, che
+// l'ha letto dalla richiesta.
+async function destinatariNotifica(ambito: Ambito): Promise<string[]> {
   try {
-    const { data } = await supabaseAdmin.from("app_config").select("value").eq("key", "contact_emails").maybeSingle();
-    const lista = String(data?.value ?? "").split(",").map((e) => e.trim()).filter(Boolean);
+    const { valori } = await leggiConfig(ambito, ["contact_emails"]);
+    const lista = String(valori.get("contact_emails") ?? "").split(",").map((e) => e.trim()).filter(Boolean);
     if (lista.length > 0) return lista;
   } catch { /* fallback */ }
   return [CLIENT.email];
@@ -174,7 +179,8 @@ export const POST: APIRoute = async ({ request }) => {
 
   // 3) Emails (best-effort : n'empêchent jamais l'inscription)
   try {
-    const dati = await datiRistorante();
+    const ambito = await ambitoPubblicoChiesto(request);
+    const dati = await datiRistorante(ambito);
     const social = await linksSocial();
     const temaBase = await temaEmail();
     // Email newsletter: versione CHIARA (fondo blanc), a prescindere dal tema admin.
@@ -204,7 +210,7 @@ export const POST: APIRoute = async ({ request }) => {
     const quand = new Date().toLocaleString("fr-BE", { timeZone: "Europe/Brussels" });
     await resend.emails.send({
       from: FROM,
-      to: await destinatariNotifica(),
+      to: await destinatariNotifica(ambito),
       subject: `Nouvelle inscription newsletter — ${dati.nome}`,
       text: `Nouvelle inscription à la newsletter.\n\nEmail : ${email}\nNom : ${name || "—"}\nLangue : ${lang.toUpperCase()}\nDate : ${quand}`,
       html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#222;">Nouvelle inscription à la newsletter.</p>

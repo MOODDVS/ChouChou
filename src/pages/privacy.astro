@@ -1,26 +1,31 @@
 ---
-// Politique de confidentialité — La Molisana (bilingue FR/EN nello stesso
+// Politique de confidentialité — Comptoir Chouchou (bilingue FR/EN nello stesso
 // template; la versione /en/ è la copia con gli import adattati).
 import Layout from "../layouts/Layout.astro";
 import { getLangFromUrl } from "../i18n/ui";
 import { datiRistorante } from "../lib/ristorante";
-import { supabaseAdmin } from "../lib/db";
+import { ambitoPubblicoChiesto, leggiConfig } from "../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const isEn = lang === "en";
 
-const dati = await datiRistorante();
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+const dati = await datiRistorante(ambito);
 const updated = "13/07/2026";
 
 // Infos légales de la société (Admin → Réglages → Général : company_*).
 const PAYS: Record<string, string> = { BE: "Belgique", FR: "France", LU: "Luxembourg", NL: "Pays-Bas" };
 async function infosSociete() {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["company_name", "company_vat", "company_street", "company_zip", "company_city", "company_country"]);
-    const m = new Map((data ?? []).map((r: any) => [r.key, String(r.value ?? "").trim()]));
+    // ⚠️ Sono chiavi DI SEDE: un gruppo può avere una società per punto, con
+    // la sua partita IVA e il suo indirizzo. Lette a livello marchio, la pagina
+    // legale di un punto dichiarava i dati di un altro — e una pagina legale
+    // sbagliata è sbagliata per la legge, non per il codice.
+    const { valori } = await leggiConfig(ambito, [
+      "company_name", "company_vat", "company_street", "company_zip", "company_city", "company_country",
+    ]);
+    const m = new Map<string, string>();
+    for (const [k, v] of valori) m.set(k, String(v ?? "").trim());
     const street = m.get("company_street") || "";
     const zip = m.get("company_zip") || "";
     const city = m.get("company_city") || "";

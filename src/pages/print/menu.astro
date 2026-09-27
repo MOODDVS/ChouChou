@@ -14,8 +14,15 @@
 export const prerender = false;
 
 import { getMenu, type MenuItem, type MenuCategoria } from "../../lib/db";
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 
-const menu = await getMenu();
+// ⚠️ L'AMBITO. Dal multi-sede il motore chiede sempre DI QUALE PUNTO si
+// parla. ChouChou ne ha uno solo, quindi `ambitoPubblicoChiesto` rende
+// SEDE_UNICA e non filtra niente: oggi e' esattamente il comportamento di
+// prima. Si passa lo stesso, invece di scrivere SEDE_UNICA a mano, perche'
+// quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
+// fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
+const menu = await getMenu(await ambitoPubblicoChiesto(Astro.request));
 
 // Foto copertina/retro: immagini dedicate in public/print/.
 const COVER_FOTO = "/print/chouchou-dessert-01.png";

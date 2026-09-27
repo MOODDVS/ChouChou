@@ -1,18 +1,28 @@
 User-agent: *
 Allow: /
 
-# Pages post-paiement, widget et API : ne pas indexer
-Disallow: /order
+# Le PANNEAU n'est pas un site : il repond 302 au login, et n'a rien a faire
+# dans les resultats de recherche. Il est aussi hors sitemap (astro.config.mjs
+# -> sitemap({ filter: inSitemap })) : les deux vont ensemble, avec une seule
+# des deux Google arrive quand meme.
+Disallow: /admin
+Disallow: /reservation-embed
+Disallow: /reservation-test
+
+# Pages post-paiement et API : ne pas indexer.
+# ATTENTION : pas de « Disallow: /order » tout court. Un prefixe dans
+# robots.txt n'a pas de frontiere de mot : il couperait AUSSI /order, la page
+# de commande du restaurant. Les pages de retour sont listees une par une.
 Disallow: /order-confirm
 Disallow: /order-cancel
-Disallow: /en/order
+Disallow: /order/cancel
 Disallow: /en/order-confirm
 Disallow: /en/order-cancel
-Disallow: /reservation-embed
 Disallow: /reservation/cancel
-Disallow: /order/cancel
 Disallow: /feedback
 Disallow: /en/feedback
 Disallow: /api/
 
-Sitemap: https://www.comptoirchouchou.be/sitemap.xml
+# Doit correspondre a `site` dans astro.config.mjs. @astrojs/sitemap genere
+# sitemap-index.xml, pas sitemap.xml : l'ancienne adresse repondait 404.
+Sitemap: https://www.comptoirchouchou.be/sitemap-index.xml

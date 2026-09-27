@@ -3,6 +3,7 @@ import { CLIENT } from "../config/client";
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { linksSocial, linkGoogleReview } from "../lib/links";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 import { getAgendaProchains } from "../lib/agenda";
 
 const lang = getLangFromUrl(Astro.url);
@@ -14,7 +15,7 @@ const social = await linksSocial();
 const googleReview = await linkGoogleReview();
 const feedbackUrl = getLocalizedUrl("/feedback", lang);
 
-const dati = await datiRistorante();
+const dati = await datiRistorante(await ambitoPubblicoChiesto(Astro.request));
 const mapUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dati.nome + ", " + dati.indirizzo)}`;
 const mapEmbed = `https://www.google.com/maps?q=${encodeURIComponent(dati.nome + ", " + dati.indirizzo)}&output=embed`;
 

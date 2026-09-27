@@ -1,12 +1,13 @@
 ---
 // Pagina PUBBLICA di prenotazione (URL /reservation). Pagina intera del sito
 // con header + footer: hero Chouchou (foto random + overlay + halo magenta) +
-// widget MOODD incorniciato su fondo ivoire. La versione nuda per l'iframe del
+// widget RestoHub incorniciato su fondo ivoire. La versione nuda per l'iframe del
 // modale "Réserver" resta /reservation-embed.
 import Layout from "../layouts/Layout.astro";
 import ReservationWidget from "../components/ReservationWidget.astro";
 import { CLIENT } from "../config/client";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 import { getLangFromUrl } from "../i18n/ui";
 import { siteImages } from "../lib/siteImages";
 
@@ -20,9 +21,15 @@ const en = getLangFromUrl(Astro.url) === "en" || Astro.url.searchParams.get("lan
 // (cache 60s), fallback sul config statico del cliente.
 let telWidget = CLIENT.telefono;
 try {
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(await ambitoPubblicoChiesto(Astro.request));
   if (dati.tel) telWidget = dati.tel;
 } catch { /* fallback config */ }
+
+// ⚠️ IL PUNTO CHE LA PAGINA HA RICEVUTO VIAGGIA COL WIDGET. Un cliente
+// multi-sede apre questa pagina (o l'iframe) una volta per punto, con
+// `?sede=<id>`: da lì il widget porta la sede a ogni chiamata, e le
+// prenotazioni nascono nella sala giusta. Vuoto = punto unico, come oggi.
+const sedeChiesta = Astro.url.searchParams.get("sede") ?? "";
 
 // Sfondo hero: una foto Chouchou a caso tra quelle caricate nell'admin
 // (heroes, galerie, ambiance). Cambia a ogni ricaricamento (SSR).
@@ -66,7 +73,7 @@ const L = {
     <section class="rv-body">
       <div class="rv-body__glow" aria-hidden="true"></div>
       <div class="rv-body__inner">
-        <ReservationWidget telWidget={telWidget} inPage />
+        <ReservationWidget telWidget={telWidget} sede={sedeChiesta} inPage />
       </div>
     </section>
   </div>

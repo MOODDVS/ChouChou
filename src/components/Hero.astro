@@ -10,6 +10,7 @@ import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { siteImages, siteImg } from "../lib/siteImages";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../lib/schedule";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -30,7 +31,7 @@ const L = {
 let statoOggi: "open" | "closed" | null = null;
 let fasceOggi: string[] = [];
 try {
-  const cfg = await configGiornoEffettiva(DateTime.now());
+  const cfg = await configGiornoEffettiva(DateTime.now(), await ambitoPubblicoChiesto(Astro.request));
   if (cfg) {
     const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : "");
     if (cfg.lunch_active && cfg.lunch_open && cfg.lunch_close)

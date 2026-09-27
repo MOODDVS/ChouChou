@@ -5,6 +5,7 @@ import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { linksSocial } from "./links";
 import { cacheOr } from "./cache";
+import type { Ambito } from "./admin/sedeRegole";
 
 // index = day_of_week nel DB (0 = dimanche)
 const SCHEMA_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -45,12 +46,22 @@ function parseIndirizzo(indirizzo: string): { street: string; postalCode: string
 }
 
 /** JSON-LD "Restaurant" (stringa pronta per <script type="application/ld+json">). */
-export async function restaurantJsonLd(siteUrl: string, lang: string): Promise<string> {
+/**
+ * ⚠️ L'ambito arriva da fuori, non se lo sceglie questa funzione. Qui non c'e'
+ * nessuna richiesta da cui dedurre il punto, e indovinarlo vorrebbe dire
+ * pubblicare a Google l'indirizzo e gli orari della sede sbagliata — un
+ * errore che non da' nessun segnale, se non il cliente che suona a una porta
+ * chiusa. Lo passa il Layout, che la richiesta ce l'ha.
+ *
+ * ⚠️ E la sede entra nella CHIAVE di cache: senza, la prima pagina servita
+ * deciderebbe i dati strutturati di tutte le altre per cinque minuti.
+ */
+export async function restaurantJsonLd(siteUrl: string, lang: string, ambito: Ambito): Promise<string> {
   return cacheOr(
-    "seo:jsonld:" + lang,
+    `seo:jsonld:${lang}:${ambito.modo === "sede" ? ambito.id : ambito.modo}`,
     async () => {
       const base = siteUrl.replace(/\/$/, "");
-      const dati = await datiRistorante();
+      const dati = await datiRistorante(ambito);
       const social = await linksSocial();
       const hours = await orariSpec();
       const a = parseIndirizzo(dati.indirizzo);

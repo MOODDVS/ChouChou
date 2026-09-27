@@ -7,10 +7,12 @@
 // prezzi scontati barrati, carrello e checkout Stripe.
 import Layout from "../../layouts/Layout.astro";
 import OrderApp from "../../components/OrderApp";
-import { getMenuOrderable, supabaseAdmin } from "../../lib/db";
+import { getMenuOrderable } from "../../lib/db";
 import { getLangFromUrl, useTranslations } from "../../i18n/ui";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../../lib/schedule";
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { appConfigEq } from "../../lib/appConfigCache";
 
 const lang = getLangFromUrl(Astro.url);
 const tr = useTranslations(lang);
@@ -19,10 +21,18 @@ const en = lang === "en";
 // Ristorante chiuso OGGI (es. martedì, o giorno speciale dell'admin)?
 // Il carrello diventa un avviso "fermé aujourd'hui" ben visibile,
 // con sotto la prossima riapertura ("Nous serons ouverts demain dès 11:00").
+// ⚠️ L'AMBITO. Dal multi-sede il motore chiede sempre DI QUALE PUNTO si
+// parla. ChouChou ne ha uno solo, quindi `ambitoPubblicoChiesto` rende
+// SEDE_UNICA e non filtra niente: oggi e' esattamente il comportamento di
+// prima. Si passa lo stesso, invece di scrivere SEDE_UNICA a mano, perche'
+// quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
+// fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+
 let chiusoOggi = false;
 let riapertura = "";
 try {
-  const cfg = await configGiornoEffettiva(DateTime.now());
+  const cfg = await configGiornoEffettiva(DateTime.now(), ambito);
   if (cfg) {
     const midi = cfg.lunch_active && cfg.lunch_open && cfg.lunch_close;
     const soir = cfg.dinner_active && cfg.dinner_open && cfg.dinner_close;
@@ -35,7 +45,7 @@ try {
     const hhmm = (t: string | null) => (t ? String(t).slice(0, 5) : "");
     for (let i = 1; i <= 7; i++) {
       const giorno = oggi.plus({ days: i });
-      const c = await configGiornoEffettiva(giorno);
+      const c = await configGiornoEffettiva(giorno, ambito);
       if (!c) continue;
       let ora = "";
       if (c.lunch_active && c.lunch_open && c.lunch_close) ora = hhmm(c.lunch_open);
@@ -61,18 +71,16 @@ try {
 // Servizio chiuso dall'admin? (bottone "Fermer" nella pagina Commandes)
 let ordiniChiusi = false;
 try {
-  const { data } = await supabaseAdmin
-    .from("app_config")
-    .select("value")
-    .eq("key", "orders_closed")
-    .maybeSingle();
+  // ⚠️ `orders_closed` e' una chiave DI SEDE: letta nuda su `app_config`
+  // darebbe la chiusura del MARCHIO anche a un punto che ha la sua.
+  const { data } = await appConfigEq("orders_closed", ambito);
   ordiniChiusi = data?.value === "1";
 } catch {
   // in dubbio il servizio resta aperto: il checkout ricontrolla comunque
 }
 
 // Solo piatti ordinabili in take-away (available = true AND orderable = true).
-const menu = ordiniChiusi ? [] : await getMenuOrderable();
+const menu = ordiniChiusi ? [] : await getMenuOrderable(ambito);
 
 const HERO_FOTO = "/slideshow/slide-02.webp";
 

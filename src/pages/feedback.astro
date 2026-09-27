@@ -4,8 +4,8 @@
 // Aperta dalle stelle 1-3 dell'email recensione: raccoglie nota +
 // sotto-valutazioni e le invia SOLO al ristorante (/api/feedback).
 import Layout from "../layouts/Layout.astro";
-import { supabaseAdmin } from "../lib/db";
-import { CLIENT } from "../config/client";
+import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 export const prerender = false;
 
@@ -22,9 +22,9 @@ const langRaw = (url.searchParams.get("lang") ?? "fr").toLowerCase();
 const pathEn = url.pathname.split("/")[1] === "en";
 const lang = pathEn ? "en" : (LANGS.includes(langRaw) ? langRaw : "fr");
 
-const { data: cfgBrand } = await supabaseAdmin
-  .from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
-const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
+// ⚠️ `restaurant_name` e' di SEDE. `datiRistorante` lo legge gia' con un
+// ambito e ripiega da solo su client.ts: qui basta chiederglielo.
+const brand = (await datiRistorante(await ambitoPubblicoChiesto(Astro.request))).nome;
 
 type Cats = { food: string; service: string; atmosphere: string };
 type Str = { title: string; sub: string; ph: string; contactPh: string; send: string; sending: string; thanksT: string; thanksS: string; rate: string; needMsg: string; err: string; home: string; details: string; cats: Cats };

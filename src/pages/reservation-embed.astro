@@ -1,18 +1,25 @@
 ---
-// Widget prenotazioni MOODD in versione NUDA (niente Layout/header/footer).
+// Widget prenotazioni RestoHub in versione NUDA (niente Layout/header/footer).
 // Caricato SOLO dentro l'iframe del modale "Réserver". La pagina intera con
 // header + footer è /reservation.
 import ReservationWidget from "../components/ReservationWidget.astro";
 import { CLIENT } from "../config/client";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 export const prerender = false;
 
 let telWidget = CLIENT.telefono;
 try {
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(await ambitoPubblicoChiesto(Astro.request));
   if (dati.tel) telWidget = dati.tel;
 } catch { /* fallback config */ }
+
+// ⚠️ IL PUNTO CHE LA PAGINA HA RICEVUTO VIAGGIA COL WIDGET. Un cliente
+// multi-sede apre questa pagina (o l'iframe) una volta per punto, con
+// `?sede=<id>`: da lì il widget porta la sede a ogni chiamata, e le
+// prenotazioni nascono nella sala giusta. Vuoto = punto unico, come oggi.
+const sedeChiesta = Astro.url.searchParams.get("sede") ?? "";
 ---
 
 <!doctype html>
@@ -43,6 +50,6 @@ try {
     </style>
   </head>
   <body>
-    <ReservationWidget telWidget={telWidget} />
+    <ReservationWidget telWidget={telWidget} sede={sedeChiesta} />
   </body>
 </html>

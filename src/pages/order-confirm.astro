@@ -3,15 +3,18 @@
 // Card in stile La Molisana: claim, titolo Marcellus, ora di ritiro
 // in evidenza oro, righe dell'ordine e totale.
 import Layout from "../layouts/Layout.astro";
-import { supabaseAdmin } from "../lib/db";
+import { leggi } from "../lib/admin/sede";
+import { tutteLeSedi } from "../lib/admin/sedeRegole";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
-import { CLIENT } from "../config/client";
+import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 
-const { data: cfgBrand } = await supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
-const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
+// ⚠️ `restaurant_name` e' di SEDE. `datiRistorante` lo legge gia' con un
+// ambito e ripiega da solo su client.ts: qui basta chiederglielo.
+const brand = (await datiRistorante(await ambitoPubblicoChiesto(Astro.request))).nome;
 
 const sessionId = Astro.url.searchParams.get("session_id");
 
@@ -27,9 +30,11 @@ interface Ordine {
 let ordine: Ordine | null = null;
 
 if (sessionId) {
-  const { data } = await supabaseAdmin
-    .from("orders")
-    .select("id, status, pickup_time, customer_name, items, total_cents")
+  // ⚠️ L'AGGREGATO, ed e' dichiarato nel motore per questa pagina. Chi torna
+  // dal pagamento non dice da quale punto ha ordinato, e l'id di sessione
+  // Stripe E' l'autorizzazione: e' unico, lo conosce solo chi ha pagato.
+  // Filtrare per sede qui darebbe una conferma bianca a chi ha appena pagato.
+  const { data } = await leggi("orders", tutteLeSedi(), "id, status, pickup_time, customer_name, items, total_cents")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   ordine = data as Ordine | null;

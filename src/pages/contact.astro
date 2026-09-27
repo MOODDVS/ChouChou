@@ -2,7 +2,8 @@
 // Pagina Contact:
 // - hero Chouchou: gradiente navy + halo magenta + script "Comptoir"
 // - colonna sinistra: informazioni (indirizzo, contatti, orari LIVE
-//   dall'admin, stessa logica del footer, e servizi). Dati da datiRistorante().
+//   dall'admin, stessa logica del footer, e servizi). I dati del ristorante
+//   arrivano dall'admin, per la sede di cui parla la richiesta.
 // - colonna destra: form messaggio (NIENTE prenotazioni: nota con
 //   invito a chiamare) -> POST /api/contact
 // - sotto: Google Map edge-to-edge in bianco e nero col pin.
@@ -17,11 +18,19 @@ const en = lang === "en";
 
 import { siteImages, siteImg } from "../lib/siteImages";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 const IMGS = await siteImages();
 const HERO_FOTO = siteImg(IMGS, "site_contact_hero", "/slideshow/slide-01.webp");
 
 // Coordonnées lues depuis l'admin (Réglages → Général), comme le footer.
-const dati = await datiRistorante();
+const ambito = await ambitoPubblicoChiesto(Astro.request);
+const dati = await datiRistorante(ambito);
+
+// ⚠️ IL PUNTO VIAGGIA COL FORM. `/api/contact` manda il messaggio alla casella
+// DI QUEL punto: senza sede finirebbe sempre in quella della prima, e chi
+// l'aspettava non riceverebbe niente. Vuoto = installazione a punto unico,
+// e l'URL resta quello di sempre (vedi lib/sedeUrl).
+const sedeChiesta = Astro.url.searchParams.get("sede") ?? "";
 const PHONE_DISPLAY = dati.tel;
 const PHONE_TEL = dati.telLink;
 const EMAIL = dati.email;
@@ -209,7 +218,7 @@ const L = {
     <div class="ct-form">
       <h2 class="ct-form__title">{L.formTitle}</h2>
       <p class="ct-form__note">{L.formNote} {en ? "You can also " : "Vous pouvez aussi "}<button type="button" class="ct-form__book" data-reserver>{en ? "book online" : "réserver en ligne"}</button>.</p>
-      <ContactForm t={formLabels} lang={lang} client:load />
+      <ContactForm t={formLabels} lang={lang} sede={sedeChiesta} client:load />
     </div>
   </div>
   </section>

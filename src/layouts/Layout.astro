@@ -10,6 +10,7 @@ import { CLIENT } from "../config/client";
 import { supabaseAdmin } from "../lib/db";
 import { cacheOr } from "../lib/cache";
 import { restaurantJsonLd } from "../lib/jsonLd";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 interface Props {
   title?: string;
@@ -62,7 +63,7 @@ const frUrl = new URL(frPath, siteUrl).href;
 const enUrl = new URL(enPath, siteUrl).href;
 
 // Dati strutturati Restaurant (SEO locale), su tutte le pagine tranne quelle "bare".
-const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang);
+const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPubblicoChiesto(Astro.request));
 ---
 
 <html lang={lang}>

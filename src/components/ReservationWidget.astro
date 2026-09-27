@@ -1,10 +1,16 @@
 ---
-// Widget prenotazioni MOODD (motore proprio). Riusato dalla pagina pubblica
+// Widget prenotazioni RestoHub (motore proprio). Riusato dalla pagina pubblica
 // /reservation (dentro Layout, con header+footer) e da /reservation-embed
 // (pagina nuda caricata nell'iframe del modale "Réserver").
 import { CLIENT } from "../config/client";
-interface Props { telWidget: string; inPage?: boolean; }
-const { telWidget, inPage = false } = Astro.props;
+interface Props {
+  telWidget: string;
+  inPage?: boolean;
+  /** Il punto da cui si prenota. Vuoto = installazione a sede unica, o un
+   *  sito che non ha ancora un selettore: il motore ripiega come sempre. */
+  sede?: string;
+}
+const { telWidget, inPage = false, sede = "" } = Astro.props;
 ---
 
 <style is:global>
@@ -153,7 +159,7 @@ const { telWidget, inPage = false } = Astro.props;
 </style>
 
 <div class:list={["page", { "page--inpage": inPage }]}>
-  <div class="rw" id="rw" data-tel={telWidget}>
+  <div class="rw" id="rw" data-tel={telWidget} data-sede={sede}>
         <div class="rw-lang" id="rw-lang" style="display:none">
           <button type="button" class="rw-lang-btn" id="rw-lang-btn">
             <svg class="rw-lang-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
@@ -279,6 +285,19 @@ const { telWidget, inPage = false } = Astro.props;
       import { TESTI_WIDGET, SERVIZI_WIDGET, LINGUE_WIDGET, type LinguaWidget } from "../lib/reservationI18n";
       import { PREFISSI } from "../lib/prefissi";
       import { CLIENT } from "../config/client";
+      import { urlConSede } from "../lib/sedeUrl";
+
+      // ⚠️ IL PUNTO VIAGGIA CON OGNI CHIAMATA.
+      //
+      // Dal multi-sede il motore non lo indovina piu': se il widget non lo
+      // dice, `/api/reservation` ripiega sulla PRIMA sede — orari di un altro
+      // ristorante, e una prenotazione che nasce nella sala sbagliata.
+      // Vuoto = punto unico, ed è il caso di ChouChou oggi: la stringa non si
+      // aggiunge nemmeno, e l'URL resta quello di sempre.
+      const SEDE = (document.getElementById("rw") as HTMLElement | null)?.dataset.sede || "";
+      // ⚠️ La regola (quale parametro, come si attacca) sta in lib/sedeUrl, un
+      // posto solo: qui si lega soltanto alla sede DI QUESTO widget.
+      const conSede = (u: string): string => urlConSede(u, SEDE);
 
       type Servizio = { key: string; from: string; to: string; hold: number; slot: number; days: number[] };
       type Zona = { name: string; seats: number; max_ins?: number };
@@ -419,7 +438,7 @@ const { telWidget, inPage = false } = Astro.props;
       async function caricaGiorno(iso: string): Promise<void> {
         if (dayCache.has(iso)) return;
         try {
-          const r = await fetch("/api/reservation?date=" + iso + (excludeToken ? "&exclude=" + encodeURIComponent(excludeToken) : ""));
+          const r = await fetch(conSede("/api/reservation?date=" + iso + (excludeToken ? "&exclude=" + encodeURIComponent(excludeToken) : "")));
           const j = await r.json();
           dayCache.set(iso, {
             rese: (j.reservations ?? []) as Resa[],
@@ -668,7 +687,7 @@ const { telWidget, inPage = false } = Astro.props;
       // ---------- Init ----------
       (async () => {
         try {
-          const r = await fetch("/api/reservation?config=1");
+          const r = await fetch(conSede("/api/reservation?config=1"));
           const j = await r.json();
           CFG = j.config as Config;
         } catch {
@@ -694,7 +713,7 @@ const { telWidget, inPage = false } = Astro.props;
         const tk = new URLSearchParams(location.search).get("token") ?? "";
         if (tk) {
           try {
-            const rr = await fetch("/api/reservation?token=" + encodeURIComponent(tk));
+            const rr = await fetch(conSede("/api/reservation?token=" + encodeURIComponent(tk)));
             const jj = await rr.json();
             if (jj.reservation) {
               resaMod = jj.reservation as ResaMod;
@@ -741,7 +760,7 @@ const { telWidget, inPage = false } = Astro.props;
           if (mesiCaricati.has(key)) return;
           mesiCaricati.add(key);
           try {
-            const j = await (await fetch("/api/reservation?month=" + key)).json();
+            const j = await (await fetch(conSede("/api/reservation?month=" + key))).json();
             for (const d of j.closed ?? []) closedSet.add(d);
             for (const d of j.open ?? []) openSet.add(d);
             for (const d of j.full ?? []) fullSet.add(d);
@@ -829,7 +848,7 @@ const { telWidget, inPage = false } = Astro.props;
           const [m1, m2] = [isoOggi().slice(0, 7), isoPiu(20).slice(0, 7)];
           const mesi = m1 === m2 ? [m1] : [m1, m2];
           mesi.forEach((m) => mesiCaricati.add(m));
-          const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((x) => x.json())));
+          const risp = await Promise.all(mesi.map((m) => fetch(conSede("/api/reservation?month=" + m)).then((x) => x.json())));
           for (const rr of risp) { for (const d of rr.closed ?? []) closedSet.add(d); for (const d of rr.full ?? []) fullSet.add(d); for (const d of rr.open ?? []) openSet.add(d); }
         } catch { /* nessun blocco datepicker */ }
 
@@ -968,7 +987,7 @@ const { telWidget, inPage = false } = Astro.props;
               notes: ($("rw-f-notes") as HTMLTextAreaElement).value.trim(),
             };
             if (modifyToken) payload.token = modifyToken;
-            const res = await fetch("/api/reservation", {
+            const res = await fetch(modifyToken ? "/api/reservation" : conSede("/api/reservation"), {
               method: modifyToken ? "PUT" : "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),

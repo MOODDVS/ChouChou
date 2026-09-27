@@ -9,6 +9,7 @@
 // Allergeni: numeri UE in apice + legenda a fondo pagina.
 import Layout from "../layouts/Layout.astro";
 import { getMenu, type MenuItem } from "../lib/db";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 import { getLunchAttivo } from "../lib/lunch";
 import { getLangFromUrl, useTranslations, getLocalizedUrl } from "../i18n/ui";
 
@@ -16,7 +17,13 @@ const lang = getLangFromUrl(Astro.url);
 const t = useTranslations(lang);
 const en = lang === "en";
 
-const menu = await getMenu();
+// ⚠️ L'AMBITO. Dal multi-sede il motore chiede sempre DI QUALE PUNTO si
+// parla. ChouChou ne ha uno solo, quindi `ambitoPubblicoChiesto` rende
+// SEDE_UNICA e non filtra niente: oggi e' esattamente il comportamento di
+// prima. Si passa lo stesso, invece di scrivere SEDE_UNICA a mano, perche'
+// quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
+// fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
+const menu = await getMenu(await ambitoPubblicoChiesto(Astro.request));
 
 // Lunch del giorno (tab Lunch dell'admin), risolto sui piatti del menù.
 const lunch = await getLunchAttivo();

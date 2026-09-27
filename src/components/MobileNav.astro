@@ -6,6 +6,7 @@
 //   telefono, FR/EN, Fermer ⬇.
 import { getLangFromUrl, getLocalizedUrl } from "../i18n/ui";
 import { datiRistorante } from "../lib/ristorante";
+import { ambitoPubblicoChiesto } from "../lib/admin/sede";
 
 const lang = getLangFromUrl(Astro.url);
 const en = lang === "en";
@@ -32,7 +33,7 @@ function isActive(path: string): boolean {
 // bottoni Commander/Réserver è occupato dall'isola carrello di OrderApp.
 const isOrder = current === "/order";
 
-const dati = await datiRistorante();
+const dati = await datiRistorante(await ambitoPubblicoChiesto(Astro.request));
 const PHONE_DISPLAY = dati.tel;
 const PHONE_TEL = dati.telLink;
 const BOOK = en ? "Book" : "Réserver";
