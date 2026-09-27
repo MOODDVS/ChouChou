@@ -2,10 +2,21 @@ import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
-import { TIMEZONE, aggiornaTimezone } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
+import { SEDE_UNICA } from "../../../lib/admin/sede";
 import { parseSegment } from "../../../lib/newsletterSend";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Newsletter PROGRAMMATE e RICORRENTI (#39, tabella newsletter_schedule).
 // GET          → { schedules } attive (missing: true se la #39 non è lanciata)
@@ -54,7 +65,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const subject = String(body.subject ?? "").trim();
@@ -83,29 +94,29 @@ export const POST: APIRoute = async ({ request }) => {
         .eq("id", idBozza)
         .select(SELECT)
         .single();
-      if (error || !data) return json({ error: "Enregistrement impossible" }, 500);
+      if (error || !data) return json({ error: await msg("err.save") }, 500);
       return json({ schedule: data });
     }
     const { data, error } = await supabaseAdmin.from("newsletter_schedule").insert(bozza).select(SELECT).single();
     if (error || !data) {
-      return json({ error: "Enregistrement impossible — migration supabase/newsletter_schedule.sql à (re)lancer ?" }, 500);
+      return json({ error: await msg("err.migrNlSave") }, 500);
     }
     return json({ schedule: data }, 201);
   }
 
-  if (!subject) return json({ error: "L'objet est obligatoire" }, 400);
-  if (!message) return json({ error: "Le message est obligatoire" }, 400);
+  if (!subject) return json({ error: await msg("err.subjectRequired") }, 400);
+  if (!message) return json({ error: await msg("err.messageRequired") }, 400);
 
   const { lang, group } = parseSegment(String(body.segment ?? ""));
   const segment = `${lang}:${group}`;
   const heure = Math.round(Number(body.heure));
-  if (!Number.isFinite(heure) || heure < 0 || heure > 23) return json({ error: "Heure invalide" }, 400);
+  if (!Number.isFinite(heure) || heure < 0 || heure > 23) return json({ error: await msg("err.time") }, 400);
 
-  try {
-    await aggiornaTimezone();
-  } catch {
-    // fuso di fallback
-  }
+  // ⚠️ Fuso dell'INSTALLAZIONE: la newsletter e' del marchio (una lista, un
+  // calendario) e l'ora programmata e' una sola. Con sedi in fusi diversi
+  // non esiste un «alle 9» che valga per tutte: si sceglie quello di casa, e
+  // lo si dice, invece di lasciarlo decidere a una variabile globale.
+  const fuso = await fusoDi(SEDE_UNICA);
 
   const riga: Record<string, unknown> = {
     subject,
@@ -125,28 +136,28 @@ export const POST: APIRoute = async ({ request }) => {
   const recur = String(body.recur ?? "").trim();
   if (sendDate) {
     // Una tantum: data+ora locali del ristorante → UTC
-    if (!RE_DATA.test(sendDate)) return json({ error: "Date invalide" }, 400);
-    const dt = DateTime.fromISO(`${sendDate}T${String(heure).padStart(2, "0")}:00:00`, { zone: TIMEZONE });
-    if (!dt.isValid) return json({ error: "Date invalide" }, 400);
-    if (dt <= DateTime.now()) return json({ error: "Cette date est déjà passée" }, 400);
+    if (!RE_DATA.test(sendDate)) return json({ error: await msg("err.date") }, 400);
+    const dt = DateTime.fromISO(`${sendDate}T${String(heure).padStart(2, "0")}:00:00`, { zone: fuso });
+    if (!dt.isValid) return json({ error: await msg("err.date") }, 400);
+    if (dt <= DateTime.now()) return json({ error: await msg("err.datePast") }, 400);
     riga.send_at = dt.toUTC().toISO();
   } else if (recur === "weekly") {
     const dow = Math.round(Number(body.recur_dow));
-    if (!Number.isFinite(dow) || dow < 1 || dow > 7) return json({ error: "Jour de la semaine invalide" }, 400);
+    if (!Number.isFinite(dow) || dow < 1 || dow > 7) return json({ error: await msg("err.weekday") }, 400);
     riga.recur = "weekly";
     riga.recur_dow = dow;
   } else if (recur === "monthly") {
     const day = Math.round(Number(body.recur_day));
-    if (!Number.isFinite(day) || day < 1 || day > 28) return json({ error: "Jour du mois invalide (1-28)" }, 400);
+    if (!Number.isFinite(day) || day < 1 || day > 28) return json({ error: await msg("err.monthday") }, 400);
     riga.recur = "monthly";
     riga.recur_day = day;
   } else {
-    return json({ error: "Programmation invalide" }, 400);
+    return json({ error: await msg("err.schedule") }, 400);
   }
 
   const { data, error } = await supabaseAdmin.from("newsletter_schedule").insert(riga).select(SELECT).single();
   if (error || !data) {
-    return json({ error: "Création impossible — migration supabase/newsletter_schedule.sql à lancer ?" }, 500);
+    return json({ error: await msg("err.migrNlCreate") }, 500);
   }
   return json({ schedule: data }, 201);
 };
@@ -156,9 +167,9 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const id = url.searchParams.get("id") ?? "";
-  if (!RE_UUID.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!RE_UUID.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const { error } = await supabaseAdmin.from("newsletter_schedule").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

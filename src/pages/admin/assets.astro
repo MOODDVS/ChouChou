@@ -13,7 +13,6 @@ import Modal from "../../components/admin/Modal.astro";
 import { SITE_IMAGE_SLOTS, SITE_PAGES } from "../../config/siteImageSlots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -37,24 +36,17 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -156,7 +148,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       /* --- Modale modifica immagine ---
          Il guscio sta in src/styles/modal.css (.md-*): era l'unico modale
          della pagina, quindi qui non resta niente del vecchio. */
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; display: block; margin-bottom: 0.3rem; }
       .ed-prev {
         border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
         display: flex; align-items: center; justify-content: center; margin-bottom: 0.6rem; min-height: 90px;
@@ -181,15 +172,6 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
          si esclude. */
 
       /* Toast */
-      .toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
-        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      }
-      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
       @media (max-width: 640px) {
         .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -365,9 +347,9 @@ function groupsForPage(p: string): [string, typeof SITE_IMAGE_SLOTS][] {
       let toastTimer: number | undefined;
       function toast(msg: string, err = false) {
         toastEl.textContent = msg;
-        toastEl.className = "toast show" + (err ? " err" : "");
+        toastEl.className = "toast is-on" + (err ? " is-error" : "");
         window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 3000);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 3000);
       }
 
       const gridEl = document.getElementById("grid") as HTMLDivElement;

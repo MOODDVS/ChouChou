@@ -123,6 +123,33 @@ export function opzioniPrefisso(paeseDefault: string): string {
 }
 
 /**
+ * Opzioni <option> per il select «Paese» (Réglages → Général).
+ * Il valore e' il codice ISO, non il nome: il nome cambia con la lingua
+ * dell'admin, il codice no — ed e' il codice che sceglie le festivita'.
+ * La prima voce vuota esiste apposta: un paese non impostato deve poter
+ * restare non impostato, senza scivolare sul primo della lista.
+ */
+export function opzioniPaese(scelto: string, lang = "fr", vuoto = "—"): string {
+  // Tipato a mano e non come Intl.DisplayNames: quel tipo dipende dalla `lib`
+  // del tsconfig, e un nome di paese non vale una riga di configurazione.
+  let nomi: { of(codice: string): string | undefined } | null = null;
+  try {
+    nomi = new (Intl as unknown as { DisplayNames: new (l: string[], o: object) => { of(c: string): string | undefined } })
+      .DisplayNames([lang], { type: "region" });
+  } catch {
+    nomi = null;
+  }
+  const voci = PREFISSI.map((pr) => {
+    const nome = (nomi?.of(pr.code) ?? pr.nome) || pr.nome;
+    return { code: pr.code, flag: pr.flag, nome };
+  }).sort((a, b) => a.nome.localeCompare(b.nome, lang));
+  return (
+    `<option value=""${scelto ? "" : " selected"}>${vuoto}</option>` +
+    voci.map((v) => `<option value="${v.code}"${v.code === scelto ? " selected" : ""}>${v.flag} ${v.nome}</option>`).join("")
+  );
+}
+
+/**
  * Numero completo internazionale da (prefisso selezionato + numero grezzo).
  * Se il numero digitato contiene GIÀ un prefisso (es. autofill "+32…"), quello
  * vince. Ritorna undefined se il numero è vuoto.

@@ -12,12 +12,13 @@ import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaResaGiorno } from "../../lib/admin/caricaResaGiorno";
-import { aggiornaTimezone } from "../../lib/slots";
+import { ambitoDiRichiesta } from "../../lib/admin/sede";
+import { fusoDi } from "../../lib/fuso";
+import { FUSO_DEFAULT } from "../../lib/slots";
 import { adminLang } from "../../lib/admin/adminLang";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -29,15 +30,22 @@ export const prerender = false;
 // (stesso default del client al primo render). Se il cookie di sessione è
 // valido, carichiamo il giorno GIÀ sul server → la lista arriva coi dati.
 // Altrimenti ssrResa resta null e il client carica come prima (nessun rischio).
+// ⚠️ L'ordine conta. «Oggi» dipende dal fuso, il fuso dipende dalla sede, e
+// la sede si sa solo dopo aver letto il cookie: quindi prima lo staff, poi
+// l'ambito, poi il giorno. Prima era rovesciato — con `aggiornaTimezone()`
+// non si notava, perche' la variabile globale non chiedeva niente a nessuno.
 const pDateSSR = Astro.url.searchParams.get("date") ?? "";
+const tokenResa = Astro.cookies.get("mdd_at")?.value ?? "";
+const staffResa = tokenResa ? await verificaTokenLocale(tokenResa) : null;
+const ambitoResa = staffResa ? await ambitoDiRichiesta(Astro.request, staffResa) : null;
 const ssrGiorno = /^\d{4}-\d{2}-\d{2}$/.test(pDateSSR)
   ? pDateSSR
-  : new Intl.DateTimeFormat("en-CA", { timeZone: await aggiornaTimezone() }).format(new Date());
+  : new Intl.DateTimeFormat("en-CA", {
+      timeZone: ambitoResa ? await fusoDi(ambitoResa) : FUSO_DEFAULT,
+    }).format(new Date());
 let ssrResa: unknown = null;
 try {
-  const token = Astro.cookies.get("mdd_at")?.value ?? "";
-  const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrResa = await caricaResaGiorno(ssrGiorno);
+  if (staffResa && ambitoResa) ssrResa = await caricaResaGiorno(ssrGiorno, ambitoResa);
 } catch {
   ssrResa = null;
 }
@@ -55,24 +63,17 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -662,8 +663,9 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       .dt-row .v { text-align: right; min-width: 0; overflow-wrap: anywhere; }
       .dt-row .v a { color: var(--c-text); }
       .f-row { display: flex; gap: 0.8rem; margin-bottom: 0.9rem; }
+      /* Come in Menu: specializzazione per i campi in riga sopra la regola
+         condivisa di field.css, non una sua copia. */
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 0; }
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       /* ⚠️ Questi stili erano agganciati a `.modal`: i modali del guscio
          condiviso sono `.md-box` e senza questi selettori i campi tornano
          al bianco di sistema. */
@@ -922,16 +924,6 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       }
 
       /* Toast */
-      .toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
-        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      }
-      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.err { border-color: #a3320f; color: #ff8a8f; }
-      .toast.ok { border-color: #2f9e63; color: #7fd7a4; }
 
       @media (max-width: 760px) {
         .d-label { min-width: 0; flex: 1; font-size: 1.1rem; }
@@ -1185,6 +1177,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
     <script id="ssr-resa" type="application/json" is:inline set:html={ssrResaJson} data-giorno={ssrGiorno}></script>
 
     <script>
+      import { iconaDiSorgente } from "../../lib/sorgenteRegole";
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
@@ -1253,12 +1246,15 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
         phone: '<svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="m31.9 14.2c-2.8-6.4-7.9-11.5-14.2-14.1-.5-.2-1.1 0-1.3.6-.2.5 0 1.2.6 1.4 5.9 2.5 10.5 7.1 13.1 13 .2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4z"/><path d="m16.4 7.8c3.6 1.5 6.4 4.3 8 7.9.2.4.5.6.9.6.1 0 .3 0 .4-.1.5-.2.7-.8.5-1.4-1.8-4.1-5-7.3-9-9-.5-.2-1.1 0-1.3.6-.3.5 0 1.1.5 1.4z"/><path d="m26.5 20.2c-.6-.6-1.2-.8-1.8-.8s-1.3.3-1.8.8c-.9.9-1.7 1.7-2.6 2.6-.1.1-.3.2-.4.2s-.2 0-.3-.1c-.6-.3-1.2-.6-1.7-.9-2.5-1.6-4.6-3.6-6.4-5.9-.9-1.1-1.7-2.3-2.3-3.7-.3-.2-.2-.4 0-.6.9-.8 1.7-1.7 2.6-2.5 1.2-1.2 1.2-2.6 0-3.8-.7-.7-1.3-1.3-2-2-.8-.8-1.5-1.5-2.2-2.1-.5-.6-1.2-.9-1.8-.9s-1.3.3-1.8.8c-.9.9-1.8 1.8-2.7 2.6-.8.8-1.2 1.8-1.3 2.9-.1 1.8.3 3.5.9 5.2 1.3 3.4 3.2 6.5 5.6 9.3 3.2 3.8 7 6.8 11.4 8.9 2 1 4.1 1.7 6.3 1.8h.4c1.4 0 2.6-.4 3.6-1.5.7-.8 1.6-1.6 2.4-2.4 1.2-1.2 1.2-2.6 0-3.8-1.4-1.3-2.7-2.7-4.1-4.1z"/></svg>',
         web: '<svg viewBox="0 0 51 51" fill="currentColor" aria-hidden="true"><g clip-rule="evenodd" fill-rule="evenodd"><path d="m25.75 5.83301c-10.643 0-19.27081 8.62789-19.27081 19.27079 0 10.643 8.62781 19.2709 19.27081 19.2709.863 0 1.5625.6995 1.5625 1.5625 0 .8629-.6995 1.5625-1.5625 1.5625-12.3689 0-22.39581-10.027-22.39581-22.3959 0-12.3688 10.02691-22.39579 22.39581-22.39579s22.3959 10.02699 22.3959 22.39579c0 .863-.6996 1.5625-1.5625 1.5625-.863 0-1.5625-.6995-1.5625-1.5625 0-10.6429-8.6279-19.27079-19.2709-19.27079z"/><path d="m26.8884 3.12887c.6873-.52188 1.6675-.38782 2.1893.29943l-1.2443.94495c1.2443-.94495 1.2447-.94447 1.2451-.94396l.0009.00117.0022.00292.0061.00812.0189.02531c.0154.0209.0367.04981.0633.08663.0532.07362.1279.17889.221.31482.1862.2718.4463.66657.7553 1.17654.6178 1.01943 1.4334 2.50252 2.2467 4.387 1.6256 3.7663 3.253 9.1611 3.253 15.6719 0 .863-.6996 1.5625-1.5625 1.5625-.863 0-1.5625-.6995-1.5625-1.5625 0-5.9891-1.4977-10.9596-2.9971-14.4335-.7492-1.73567-1.4961-3.09144-2.0502-4.00585-.2769-.45695-.5051-.80284-.6607-1.02997-.0778-.11354-.1374-.19731-.1757-.25035l-.0412-.05636-.007-.00947c-.5212-.68721-.3876-1.66765.2994-2.18933z"/><path d="m23.6667 4.37325c-1.2444-.94495-1.2448-.94447-1.2451-.94396l-.0009.00117-.0022.00292-.0061.00812-.0189.02531c-.0155.0209-.0367.04981-.0634.08663-.0532.07362-.1279.17889-.221.31482-.1862.2718-.4462.66657-.7553 1.17654-.6177 1.01943-1.4333 2.50252-2.2467 4.387-1.6256 3.7663-3.2529 9.1611-3.2529 15.6719 0 6.5109 1.6273 11.9057 3.2529 15.6719.8134 1.8845 1.629 3.3676 2.2467 4.387.3091.51.5691.9048.7553 1.1766.0931.1359.1678.2412.221.3148.0267.0368.0479.0657.0634.0866l.0188.0253.0062.0082.0022.0029.0009.0011c.0003.0006.0007.001 1.2451-.9439l-1.2444.9449c.5219.6873 1.5021.8213 2.1893.2995.687-.5217.8212-1.5014.3001-2.1886l-.0077-.0102-.0412-.0564c-.0383-.053-.0979-.1368-.1756-.2503-.1556-.2272-.3839-.5731-.6608-1.03-.5541-.9144-1.301-2.2702-2.0501-4.0058-1.4995-3.474-2.9971-8.4444-2.9971-14.4336 0-5.9891 1.4976-10.9595 2.9971-14.4335.7491-1.73567 1.496-3.09144 2.0501-4.00585.2769-.45695.5052-.80284.6608-1.02997.0777-.11354.1373-.19731.1756-.25035l.0412-.05636.0077-.01027z"/><path d="m4.66593 32.3955c0-.8629.69956-1.5625 1.5625-1.5625h19.52167c.8629 0 1.5625.6996 1.5625 1.5625 0 .863-.6996 1.5625-1.5625 1.5625h-19.52167c-.86294 0-1.5625-.6995-1.5625-1.5625z"/><path d="m4.66593 17.8122c0-.863.69956-1.5625 1.5625-1.5625h39.04327c.863 0 1.5625.6995 1.5625 1.5625 0 .8629-.6995 1.5625-1.5625 1.5625h-39.04327c-.86294 0-1.5625-.6996-1.5625-1.5625z"/><path d="m33.1715 29.308c.883-.6183 2.0049-.5728 2.8994-.0225l11.0788 6.8153c1.0167.6255 1.5204 1.7142 1.4786 2.7338-.0433 1.0556-.7424 2.2758-2.2154 2.4428l-4.5029.5104-2.0198 4.0568c-.6607 1.3271-2.0464 1.5666-3.0532 1.2463-.9724-.3094-1.8232-1.1551-2.0632-2.3244l-2.6151-12.7417c-.2112-1.0287.1298-2.0985 1.0128-2.7168z"/></g></svg>',
         google: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 12h-9" /></svg>',
+        instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
       };
       const SRC_TITRE: Record<string, string> = {
         walkin: tr("res.walkin"),
         phone: tr("res.srcPhone"),
         web: tr("res.srcWeb"),
         google: tr("res.srcGoogle"),
+        instagram: tr("res.srcInstagram"),
+        qr: tr("res.srcQr"),
       };
 
       // Icone della riga di testa del modale dettagli: una davanti a ogni
@@ -1295,9 +1291,12 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       let toastTimer: number | undefined;
       function toast(msg: string, tipo: "" | "ok" | "err" = "") {
         toastEl.textContent = msg;
-        toastEl.className = "toast show" + (tipo ? " " + tipo : "");
+        // `tipo` resta "ok"/"err" per chi chiama — sono venti punti nel file.
+        // La traduzione nelle classi del componente si fa QUI, una volta.
+        const stile = tipo === "err" ? " is-error" : tipo === "ok" ? " is-ok" : "";
+        toastEl.className = "toast is-on" + stile;
         window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 2500);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
       }
 
       // ----- Giorno corrente (fuso Bruxelles) -----
@@ -1539,8 +1538,8 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
               <div class="r-heure">${esc(r.heure)}</div>
               ${modoRicerca ? `<div class="r-date">${dataFr(r.date)}</div>` : ""}
               ${
-                r.source && ICO_SRC[r.source]
-                  ? `<div class="r-time-src" title="${SRC_TITRE[r.source] ?? ""}">${ICO_SRC[r.source]}</div>`
+                r.source && ICO_SRC[iconaDiSorgente(r.source)]
+                  ? `<div class="r-time-src" title="${SRC_TITRE[r.source] ?? ""}">${ICO_SRC[iconaDiSorgente(r.source)]}</div>`
                   : ""
               }
             </div>
@@ -1865,7 +1864,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           void carica(true); // silenzioso: aggiorna solo se qualcosa è cambiato
         }
         // 1) evento da AdminNav (nuova / annullée / modifiée dal cliente)
-        window.addEventListener("moodd:new-resa", (e) => {
+        window.addEventListener("restohub:new-resa", (e) => {
           const d = (e as CustomEvent).detail as { date?: string } | null;
           if (d && d.date === giorno) refreshLive();
         });
@@ -2699,7 +2698,7 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
           // della pillola dello stato, come sola icona bianca: la parola era
           // rumore, l'icona la stessa che gia' sta sulle card. Il nome resta
           // nel `title`, per chi non la riconosce al volo.
-          const srcIco = r.source ? (ICO_SRC[r.source] ?? "") : "";
+          const srcIco = r.source ? (ICO_SRC[iconaDiSorgente(r.source)] ?? "") : "";
           const srcHtml = srcIco
             ? `<span class="dt-src" title="${esc((r.source && SRC_TITRE[r.source]) || "")}">${srcIco}</span>`
             : "";

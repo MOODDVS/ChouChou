@@ -11,7 +11,7 @@ import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../i18n/admi
  * PERCHE' ESISTE: prima il tema arrivava solo lato client (AdminNav ->
  * getSession -> fetch /api/admin/pages), con una cache localStorage applicata
  * da uno script piazzato centinaia di righe dentro il <body>. Il browser
- * dipingeva molto prima di arrivarci: si vedevano i colori MOODD di default
+ * dipingeva molto prima di arrivarci: si vedevano i colori RestoHub di default
  * e poi, di colpo, quelli veri. Leggendoli qui e stampandoli nel <head>
  * (componente AdminHead) il flash sparisce del tutto, anche al primo accesso
  * su un browser nuovo o in navigazione privata, dove la cache non c'e'.
@@ -120,14 +120,14 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
       } satisfies AdminBoot;
     });
   } catch {
-    // app_config illeggibile: si parte coi default MOODD, mai un errore in faccia
+    // app_config illeggibile: si parte coi default RestoHub, mai un errore in faccia
     return VUOTO;
   }
 }
 
 /**
  * Regola CSS da stampare nel <head>. Mira `html:root` (specificita' 0-1-1):
- * BATTE il `:root{}` (0-1-0) dei default MOODD di ogni pagina, a prescindere
+ * BATTE il `:root{}` (0-1-0) dei default RestoHub di ogni pagina, a prescindere
  * dall'ordine nel documento -> i colori del cliente vincono gia' al primo
  * paint (niente flash arancione). Restano vinti solo dagli stili inline che
  * AdminNav applica lato client (aggiornamento entro i 60s di cache).

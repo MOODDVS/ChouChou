@@ -7,34 +7,35 @@ import { DateTime } from "luxon";
 // solo, dentro una funzione gia' async, quindi si carica li'.
 
 /**
- * Fuso orario del RISTORANTE. Default Bruxelles; il valore vero arriva da
- * app_config.timezone (Réglages → Général). Live binding ESM: chi importa
- * TIMEZONE vede sempre il valore aggiornato. Il refresh (cache 60s) viene
- * innescato dai punti d'ingresso async: configGiornoEffettiva, caricaToday,
- * dailyBrief — quindi ogni calcolo di slot/orari usa il fuso configurato.
+ * IL FUSO — le due parti pure. La lettura sta in `fuso.ts`, che ha bisogno
+ * del database; qui restano il valore di ripiego e la validazione, che non
+ * hanno bisogno di niente e si possono provare senza variabili d'ambiente.
+ *
+ * ⚠️ QUI C'ERA `export let TIMEZONE`, una variabile di modulo MUTABILE letta
+ * da diciannove file e condivisa da tutte le richieste del processo. Era
+ * comoda — si importava e basta, senza passare niente — ed e' esattamente
+ * per questo che era pericolosa: con due sedi in fusi diversi, la richiesta
+ * di Stockel cambiava il valore sotto i piedi a quella di Schaerbeek gia'
+ * partita. Non un errore: un orario sbagliato, plausibile, che nessuno
+ * avrebbe collegato alla richiesta di un'altra persona.
+ *
+ * Adesso il fuso viaggia di mano in mano: `fusoDi(ambito)` lo legge, e chi
+ * calcola lo riceve come argomento. Vedi ENGINE.md, «Il fuso orario».
  */
-export let TIMEZONE = "Europe/Brussels";
-let tzUltimaLettura = 0;
-export async function aggiornaTimezone(): Promise<string> {
-  const adesso = Date.now();
-  if (adesso - tzUltimaLettura < 60_000) return TIMEZONE;
-  tzUltimaLettura = adesso;
+export const FUSO_DEFAULT = "Europe/Brussels";
+
+/** Il fuso se e' un nome IANA valido, altrimenti `null`. Pura: `Intl` lancia
+ *  sui nomi che non conosce, ed e' l'unico modo di saperlo senza un elenco
+ *  da tenere aggiornato a mano. */
+export function fusoValido(grezzo: unknown): string | null {
+  const v = String(grezzo ?? "").trim();
+  if (!v) return null;
   try {
-    const { supabaseAdmin } = await import("./db");
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "timezone")
-      .maybeSingle();
-    const v = String(data?.value ?? "").trim();
-    if (v) {
-      new Intl.DateTimeFormat("en", { timeZone: v }); // valida (throw se invalido)
-      TIMEZONE = v;
-    }
+    new Intl.DateTimeFormat("en", { timeZone: v });
+    return v;
   } catch {
-    /* config assente o fuso invalido: si tiene il valore attuale */
+    return null;
   }
-  return TIMEZONE;
 }
 
 /** Configurazione oraria di una singola fascia. */
@@ -45,8 +46,15 @@ export interface OrariApertura {
 }
 
 export interface CalcolaSlotInput {
-  /** Ora corrente, DateTime luxon. DEVE essere in zona Europe/Brussels. */
+  /** Ora corrente, DateTime luxon. Viene riportata in `fuso` qui dentro. */
   oraCorrente: DateTime;
+  /** Fuso del locale (IANA). ⚠️ OBBLIGATORIO, di proposito. Prima veniva
+   *  letto da una variabile globale: la funzione si dichiarava pura e non lo
+   *  era. Un valore di default qui rimetterebbe lo stesso guasto in forma
+   *  piu' educata — chi dimentica di passarlo calcolerebbe gli orari di
+   *  Bruxelles per una sede che sta altrove, senza nessun errore. Cosi'
+   *  invece non compila. */
+  fuso: string;
   orariApertura: OrariApertura;
   /** Minuti minimi di preparazione (es. 30). */
   tempoPrep: number;
@@ -77,9 +85,10 @@ export function calcolaSlot(input: CalcolaSlotInput): string[] {
     durataSlot,
     giorniChiusura,
     preavvisoDaApertura = true,
+    fuso,
   } = input;
 
-  const ora = oraCorrente.setZone(TIMEZONE);
+  const ora = oraCorrente.setZone(fuso);
 
   // --- Caso limite 1: giorno in chiusura eccezionale ---
   const oggiISO = ora.toFormat("yyyy-MM-dd");
@@ -180,6 +189,7 @@ export interface SlotGiorno {
 export function calcolaSlotGiorno(
   oraCorrente: DateTime,
   config: ConfigGiorno,
+  fuso: string,
   preavvisoMin?: number,
   preavvisoDaApertura: boolean = true
 ): SlotGiorno {
@@ -191,6 +201,7 @@ export function calcolaSlotGiorno(
     durataSlot: config.slot_duration_minutes,
     giorniChiusura: config.exceptional_closures,
     preavvisoDaApertura,
+    fuso,
   };
 
   const lunch =

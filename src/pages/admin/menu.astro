@@ -11,13 +11,13 @@ import Modal from "../../components/admin/Modal.astro";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaMenuPagina } from "../../lib/admin/caricaMenu";
+import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { CATEGORIE_STANDARD } from "../../lib/admin/categorieStandard";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -31,7 +31,7 @@ let ssrMenu: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrMenu = await caricaMenuPagina();
+  if (staff) ssrMenu = await caricaMenuPagina(await ambitoDiRichiesta(Astro.request, staff));
 } catch {
   ssrMenu = null;
 }
@@ -64,26 +64,19 @@ const varianti = boot.features.includes("variants");
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       /* Modulo "Commandes" disattivato dal super admin: niente switch "ordinabile". */
       .no-orders .sw-cmd, .no-orders .m-toggle-cmd { display: none !important; }
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -220,7 +213,6 @@ const varianti = boot.features.includes("variants");
         display: flex; align-items: center; justify-content: center;
         background: rgba(255, 255, 255, 0.04); color: var(--c-muted);
       }
-      .ph-ico { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
       .i-main { flex: 1; min-width: 0; }
       .i-name { font-weight: 700; display: flex; align-items: center; min-width: 0; }
       .i-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -229,6 +221,7 @@ const varianti = boot.features.includes("variants");
       .i-badge { font-size: 0.82rem; line-height: 1; }
       /* Pallino col numero di varianti: corallo come le pastiglie della card
          ordine, cosi' la variante ha lo stesso colore ovunque nell'admin. */
+      .i-onlyhere { flex: none; display: inline-flex; align-items: center; margin-left: 0.5rem; vertical-align: middle; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted, #9aa0a6); border: 1px solid currentColor; border-radius: 999px; padding: 0.1rem 0.5rem; }
       .i-vars { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; margin-left: 0.55rem; min-width: 1.35rem; height: 1.35rem; padding: 0 0.34rem; border: 2px solid var(--c-accent); border-radius: 999px; color: #fff; font-size: 0.7rem; font-weight: 800; line-height: 1; }
       .b-best { color: var(--c-accent); }
       .i-desc { color: var(--c-muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -337,8 +330,10 @@ const varianti = boot.features.includes("variants");
       .m-tab.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
 
       .f-row { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+      /* Specializzazione locale sopra `.f-field` di field.css: qui i campi
+         stanno in riga, quindi si dividono lo spazio e NON hanno margine
+         sotto (lo mette la riga). Non e' una copia della regola condivisa. */
       .f-field { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; min-width: 150px; }
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
       input[type="text"], input[type="number"], input[type="date"], select, textarea {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
         font-family: var(--font-body); font-size: 0.95rem; padding: 0.55rem 0.7rem; border-radius: 0;
@@ -367,13 +362,6 @@ const varianti = boot.features.includes("variants");
       .alg-item input:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
       .alg-num { color: var(--c-muted); font-size: 0.72rem; min-width: 1.2rem; }
 
-      .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
-      .f-img-prev {
-        width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
-        border: 1px solid var(--c-line); background: rgba(255, 255, 255, 0.04);
-        display: flex; align-items: center; justify-content: center; color: var(--c-muted);
-      }
-      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
       .m-toggles { display: flex; gap: 2rem; margin: 0.4rem 0 1.2rem; }
       .m-toggle { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
@@ -517,15 +505,6 @@ const varianti = boot.features.includes("variants");
       #lu-from, #lu-to { cursor: pointer; }
 
       /* Toast */
-      .toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
-        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      }
-      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
       /* Tablet + mobile: nome piatto e prezzo un po' più piccoli. */
       @media (max-width: 1024px) {
@@ -719,6 +698,11 @@ const varianti = boot.features.includes("variants");
               <span class="switch"><input type="checkbox" id="f-soldout" /><span class="track"></span></span>
               <span class="tl-full">{t("menu.soldOut")}</span><span class="tl-short">{t("menu.soldShort")}</span>
             </label>
+            <!-- Multi-sede: compare solo dentro un punto (lo accende lo script). -->
+            <label class="m-toggle" id="f-allloc-wrap" style="display: none">
+              <span class="switch"><input type="checkbox" id="f-allloc" checked /><span class="track"></span></span>
+              <span class="tl-full">{t("menu.allLocations")}</span><span class="tl-short">{t("menu.allLocationsShort")}</span>
+            </label>
           </div>
           <span class="m-msg" id="m-msg"></span>
           <div class="m-btns">
@@ -897,7 +881,9 @@ const varianti = boot.features.includes("variants");
         id: string; category: string; category_order: number; sort_order: number;
         name: string; description_fr: string | null; description_en: string | null;
         name_i18n?: Record<string, string> | null; desc_i18n?: Record<string, string> | null;
-        variants?: { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out?: boolean }[] | null;
+        variants?: { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out?: boolean; location_id?: string | null }[] | null;
+        /** Multi-sede: di quale punto e' il piatto. null = di tutti. */
+        location_id?: string | null;
         allergens: number[]; price_cents: number; available: boolean; orderable: boolean;
         discount_type: "fixed" | "percent" | null; discount_value: number; discount_scope: "all" | "online";
         is_bestseller: boolean; is_vegan: boolean; is_spicy: boolean; is_suggestion: boolean; is_seasonal: boolean; sold_out?: boolean;
@@ -925,6 +911,10 @@ const varianti = boot.features.includes("variants");
 
       let items: Item[] = [];
       let cats: Cat[] = [];
+      // Multi-sede: l'id del punto in cui si sta scrivendo, o null (sede unica
+      // o installazione senza multi-sede). Lo dice il server insieme ai piatti:
+      // non si indovina dal cookie, che il browser puo' scrivere come vuole.
+      let sedeAttiva: string | null = null;
       let attiva = ""; // nome sezione attiva
       type KindTab = "food" | "drink" | "lunch" | "menus";
       let kindFiltro: KindTab = "food"; // filtro tab: cibo, bevande, lunch, menus
@@ -952,9 +942,9 @@ const varianti = boot.features.includes("variants");
       let toastTimer: number | undefined;
       function toast(msg: string, err = false) {
         toastEl.textContent = msg;
-        toastEl.className = "toast show" + (err ? " err" : "");
+        toastEl.className = "toast is-on" + (err ? " is-error" : "");
         window.clearTimeout(toastTimer);
-        toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 2500);
+        toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2500);
       }
 
       // ---------- Rendering ----------
@@ -994,7 +984,30 @@ const varianti = boot.features.includes("variants");
       function variantiHTML(it: Item): string {
         if (!FEAT_VARIANTI) return "";
         const n = it.variants?.length ?? 0;
-        return n ? `<span class="i-vars" title="${n} ${esc(tr("menu.variants"))}">${n}</span>` : "";
+        if (!n) return "";
+        const pallino = `<span class="i-vars" title="${n} ${esc(tr("menu.variants"))}">${n}</span>`;
+        // ⚠️ Il pallino dice QUANTI formati ci sono, non se si possono
+        // vendere. Con «40 cm» finita e «30 cm» disponibile il piatto
+        // sembrava a posto: nessun badge, l'interruttore Esaurito della riga
+        // spento (e' del piatto intero), e l'unico modo di accorgersene era
+        // aprire il modale. Qui si dice QUALE formato e' finito.
+        const finiti = (it.variants ?? []).filter((v) => v.sold_out === true);
+        if (!finiti.length) return pallino;
+        const nome = (v: { label_i18n?: Record<string, string>; key: string }) =>
+          v.label_i18n?.[PUB.def] || Object.values(v.label_i18n ?? {})[0] || v.key;
+        const testo = finiti.length === 1 ? nome(finiti[0]) : `${nome(finiti[0])} +${finiti.length - 1}`;
+        const titolo = finiti.map(nome).join(", ");
+        return `${pallino}<span class="i-soldout" title="${esc(tr("menu.soldOut"))} : ${esc(titolo)}">⛔ ${esc(testo)}</span>`;
+      }
+      /** Pastiglia «solo qui»: il piatto e' di QUESTO punto e non del gruppo.
+       *  Serve prima di tutto prima di cancellare: senza, un piatto condiviso
+       *  e uno di un punto solo sono identici nella lista, e il cestino sul
+       *  primo lo toglie da tutte e tre le pizzerie. */
+      function sedeHTML(it: Item): string {
+        if (!sedeAttiva) return "";
+        return (it.location_id ?? null) === null
+          ? ""
+          : `<span class="i-onlyhere">${esc(tr("menu.onlyHere"))}</span>`;
       }
       function itemHTML(it: Item, indent = 0): string {
         const desc = it.description_fr ? `<div class="i-desc">${esc(it.description_fr)}</div>` : "";
@@ -1008,7 +1021,7 @@ const varianti = boot.features.includes("variants");
           <div class="item${dim}" data-id="${it.id}" data-cat="${esc(it.category)}"${indent ? ` style="margin-left:${indent}rem"` : ""}>
             <span class="i-btn i-drag" title="${tr("menu.dragReorder")}">⠿</span>
             ${thumb}
-            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${variantiHTML(it)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
+            <div class="i-main"><span class="i-name"><span class="i-nm">${esc(it.name)}</span>${variantiHTML(it)}${sedeHTML(it)}${badgesHTML(it)}${it.sold_out ? `<span class="i-soldout i-sold-piatto">⛔ ${esc(tr("menu.soldOut"))}</span>` : ""}</span>${desc}</div>
             ${alg}
             ${prezzoHTML(it)}
             <span class="i-switches">
@@ -1195,11 +1208,12 @@ const varianti = boot.features.includes("variants");
         if (out.length < arr.length) for (const c of arr) if (!out.includes(c)) out.push(c);
         return out;
       }
-      async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[] }) {
+      async function caricaTutto(datiIniziali?: { categories: Cat[]; items: Item[]; sede?: string | null }) {
         if (datiIniziali) {
           // Dati già pronti dal server (SSR): niente fetch.
           cats = ordinaAlbero(datiIniziali.categories ?? []);
           items = datiIniziali.items ?? [];
+          sedeAttiva = datiIniziali.sede ?? null;
         } else {
           const [rc, ri] = await Promise.all([
             fetch("/api/admin/categories", { headers }),
@@ -1210,7 +1224,9 @@ const varianti = boot.features.includes("variants");
             return false;
           }
           cats = ordinaAlbero(((await rc.json()).categories as Cat[]) ?? []);
-          items = ((await ri.json()).items as Item[]) ?? [];
+          const dati = (await ri.json()) as { items?: Item[]; sede?: string | null };
+          items = dati.items ?? [];
+          sedeAttiva = dati.sede ?? null;
         }
         if (!attiva || !cats.some((c) => c.name === attiva)) {
           attiva = cats.find((c) => c.kind === kindFiltro && (c.depth ?? 0) === 0)?.name ?? cats.find((c) => (c.depth ?? 0) === 0)?.name ?? "";
@@ -1314,6 +1330,10 @@ const varianti = boot.features.includes("variants");
       const fSuggestion = document.getElementById("f-suggestion") as HTMLInputElement;
       const fSeasonal = document.getElementById("f-seasonal") as HTMLInputElement;
       const fSoldout = document.getElementById("f-soldout") as HTMLInputElement;
+      // Multi-sede: «vale per tutte le sedi». Esiste sempre nel DOM, si vede
+      // solo dentro un punto.
+      const fAllLoc = document.getElementById("f-allloc") as HTMLInputElement;
+      const fAllLocWrap = document.getElementById("f-allloc-wrap") as HTMLElement;
       const mSave = document.getElementById("m-save") as HTMLButtonElement;
       const fImgPrev = document.getElementById("f-img-prev") as HTMLSpanElement;
       const fImgUp = document.getElementById("f-img-up") as HTMLButtonElement;
@@ -1422,6 +1442,7 @@ const varianti = boot.features.includes("variants");
           price_cents: Number(v.price_cents ?? 0),
           orderable: v.orderable !== false,
           sold_out: v.sold_out === true,
+          location_id: v.location_id ?? null,
         }));
         renderVarianti();
         const dI18n = it?.desc_i18n ?? {};
@@ -1450,6 +1471,11 @@ const varianti = boot.features.includes("variants");
         if (spiRow) spiRow.style.display = isDrink ? "none" : "";
         if (isDrink) { fVegan.checked = false; fSpicy.checked = false; }
         fSoldout.checked = it?.sold_out ?? false;
+        // A CHI APPARTIENE IL PIATTO. Default sul nuovo: a tutte le sedi — il
+        // menu del gruppo e' lo stesso, e il piatto di un punto solo e' il
+        // caso raro. (Il default opposto vale per i FORMATI, piu' sopra.)
+        if (fAllLocWrap) fAllLocWrap.style.display = sedeAttiva ? "" : "none";
+        if (fAllLoc) fAllLoc.checked = it ? (it.location_id ?? null) === null : true;
         imgUrl = it?.image_url ?? null;
         fImgState.textContent = "";
         renderFotoPrev();
@@ -1474,7 +1500,10 @@ const varianti = boot.features.includes("variants");
       fDtype.addEventListener("change", aggiornaCampiSconto);
 
       // ---------- Formati / varianti del piatto (#71) ----------
-      type VarRiga = { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out: boolean };
+      // ⚠️ Il formato porta la sua sede. La pizza in teglia esiste solo a
+      // Stockel: il piatto e' del gruppo, il formato di un punto solo.
+      // `location_id` null = di tutte le sedi.
+      type VarRiga = { key: string; label_i18n: Record<string, string>; price_cents: number; orderable: boolean; sold_out: boolean; location_id: string | null };
       let mVar: VarRiga[] = [];
       // Presenti solo se il super admin ha acceso la funzione "variants".
       const fVars = document.getElementById("f-vars") as HTMLDivElement | null;
@@ -1509,6 +1538,9 @@ const varianti = boot.features.includes("variants");
           mVar[i].orderable = og ? og.checked : true;
           const so = riga.querySelector<HTMLInputElement>(".f-var-so");
           mVar[i].sold_out = so ? so.checked : false;
+          // Interruttore acceso = «vale per tutte le sedi» (location_id null).
+          const al = riga.querySelector<HTMLInputElement>(".f-var-al");
+          if (al) mVar[i].location_id = al.checked ? null : sedeAttiva;
         });
       }
 
@@ -1546,6 +1578,10 @@ const varianti = boot.features.includes("variants");
                   <span class="switch"><input type="checkbox" class="f-var-so"${v.sold_out ? " checked" : ""} /><span class="track"></span></span>
                   ${esc(tr("menu.soldOut"))}
                 </label>
+                ${sedeAttiva ? `<label class="m-toggle">
+                  <span class="switch"><input type="checkbox" class="f-var-al"${v.location_id === null ? " checked" : ""} /><span class="track"></span></span>
+                  ${esc(tr("menu.allLocations"))}
+                </label>` : ""}
               </div>
               <div class="mn-corso-foot">
                 <button type="button" class="i-btn i-del f-var-del" data-i="${i}" title="${esc(tr("menu.variantRemove"))}">${ICO_TRASH}</button>
@@ -1563,7 +1599,11 @@ const varianti = boot.features.includes("variants");
 
       fVarAdd?.addEventListener("click", () => {
         sincronizzaVarDom();
-        mVar.push({ key: "", label_i18n: {}, price_cents: -1, orderable: true, sold_out: false });
+        // Default: SOLO QUESTA SEDE. Chi aggiunge un formato stando dentro un
+        // punto quasi sempre sta aggiungendo qualcosa che fa solo lui; se lo
+        // vuole per tutti lo dice con l'interruttore. Fuori da un punto
+        // (`sedeAttiva` null) non c'e' niente da dividere.
+        mVar.push({ key: "", label_i18n: {}, price_cents: -1, orderable: true, sold_out: false, location_id: sedeAttiva });
         renderVarianti();
       });
       fVars?.addEventListener("click", (e) => {
@@ -1593,7 +1633,7 @@ const varianti = boot.features.includes("variants");
           if (!(v.price_cents >= 0)) return { errore: tr("menu.variantPriceReq") };
           const key = v.key || chiaveDaEtichetta(v.label_i18n[PUB.def] ?? etichette[0][1], prese);
           v.key = key;
-          out.push({ key, label_i18n: Object.fromEntries(etichette), price_cents: v.price_cents, orderable: v.orderable, sold_out: v.sold_out });
+          out.push({ key, label_i18n: Object.fromEntries(etichette), price_cents: v.price_cents, orderable: v.orderable, sold_out: v.sold_out, location_id: v.location_id ?? null });
         }
         return { value: out };
       }
@@ -1639,6 +1679,7 @@ const varianti = boot.features.includes("variants");
           is_suggestion: fSuggestion.checked,
           is_seasonal: fSeasonal.checked,
           sold_out: fSoldout.checked,
+          ...(sedeAttiva ? { all_locations: fAllLoc?.checked !== false } : {}),
           image_url: imgUrl,
           discount_type: fDtype.value || null,
           discount_value: fDtype.value === "fixed"
@@ -3223,7 +3264,7 @@ const varianti = boot.features.includes("variants");
 
         renderNuovaKind();
         // Primo caricamento: usa i dati SSR (Fase 2) se presenti, senza fetch.
-        let ssrMenuDati: { categories: Cat[]; items: Item[] } | null = null;
+        let ssrMenuDati: { categories: Cat[]; items: Item[]; sede?: string | null } | null = null;
         try {
           const raw = document.getElementById("ssr-menu")?.textContent?.trim();
           if (raw) ssrMenuDati = JSON.parse(raw);
@@ -3479,9 +3520,14 @@ const varianti = boot.features.includes("variants");
             if (campo === "available") row.classList.toggle("is-hidden-item", !t.checked);
             if (campo === "sold_out") {
               const nameEl = row.querySelector(".i-name");
-              const pill = nameEl?.querySelector(".i-soldout");
+              // ⚠️ `.i-sold-piatto` e non `.i-soldout`: da quando i FORMATI
+              // finiti hanno la loro pastiglia, nella riga ce ne sono due, e
+              // la prima e' quella del formato. Cercando la classe generica,
+              // spegnere l'esaurito del piatto avrebbe cancellato il badge
+              // del formato — che e' un'altra cosa e resta vera.
+              const pill = nameEl?.querySelector(".i-sold-piatto");
               if (t.checked && !pill && nameEl) {
-                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
+                nameEl.insertAdjacentHTML("beforeend", `<span class="i-soldout i-sold-piatto">\u26D4 ${esc(tr("menu.soldOut"))}</span>`);
               } else if (!t.checked && pill) {
                 pill.remove();
               }

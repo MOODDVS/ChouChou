@@ -14,7 +14,6 @@ import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { SITE_PAGES } from "../../config/sitePages";
@@ -41,24 +40,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -227,6 +219,12 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       #cp-overlay .f-lab:first-of-type { margin-top: 0; }
       #cp-overlay .f-row { margin-top: 1.75rem; gap: 1.5rem; }
       #cp-overlay .f-row .f-lab { margin-top: 0; }
+      /* ⚠️ `:first-of-type` conta dentro il SUO genitore, non nel modale.
+         Un'etichetta avvolta in un <div> e' sempre la prima del suo, quindi
+         la riga sopra le azzerava il margine e finiva schiacciata contro il
+         campo precedente. Vale per qualunque blocco che si avvolga: se un
+         domani ne arriva un altro, va aggiunto qui. */
+      #cp-overlay #cp-sedi-wrap .f-lab { margin-top: 1.75rem; }
       #cp-overlay .picks { gap: 0.5rem; margin-top: 0.2rem; }
       #cp-overlay .sched-block { margin-top: 1.2rem; }
       #cp-overlay .f-hint { margin-top: 0.1rem; }
@@ -353,6 +351,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .m-foot-row .m-err { margin-right: auto; }
       .m-foot-row .m-err:empty { display: none; }
       .m-err { color: #ff6b6b; font-size: 0.85rem; }
+      /* Specializzazione locale sopra .f-img-row/.f-img-prev di field.css:
+         qui l'anteprima e' piu' piccola (52px). Non e' una copia. */
       .f-img-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
       .f-img-prev { width: 52px; height: 52px; border-radius: 10px; border: 1px solid var(--c-line); background: var(--c-input); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; flex: 0 0 auto; color: var(--c-muted); }
       .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -408,15 +408,6 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       .md-btn-primary.confirm:hover { filter: none; background: #a3320f; color: #fff; }
 
       /* Toast */
-      .toast {
-        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
-        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
-        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { border-color: #ed1c24; }
 
       @media (max-width: 640px) {
         .f-row { grid-template-columns: 1fr; }
@@ -458,7 +449,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <div id="tab-giftcards" style="display:none">
           <div class="actionsbar">
             <button class="btn" id="gc-shop">{t("mk.buyVouchers")}</button>
+            <button class="btn" id="gc-report">{t("mk.gcReport")}</button>
           </div>
+          <p class="f-hint" id="gc-conto" style="display:none;margin:-0.2rem 0 0.9rem" title={t("mk.gcBalanceHelp")}></p>
           <div class="state" id="gc-empty" style="display:none">
             {t("mk.giftEmpty")}
           </div>
@@ -563,7 +556,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <div class="f-row">
             <div>
               <label class="f-lab" for="f-ds">{t("mk.from")}</label>
-              <input type="text" class="f-input f-date" id="f-ds" readonly placeholder={t("mk.datePh")} />
+              <input type="text" class="f-input f-date" id="f-ds" readonly data-pair="f-de" placeholder={t("mk.datePh")} />
             </div>
             <div>
               <label class="f-lab" for="f-de">{t("mk.to")}</label>
@@ -709,6 +702,12 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         <label class="f-lab" for="cp-minspend">{t("mk.minSpend")}</label>
         <input type="number" class="f-input" id="cp-minspend" min="0" step="0.01" placeholder={t("mk.none")} style="max-width:200px" />
 
+        <div id="cp-sedi-wrap" style="display:none">
+          <label class="f-lab">{t("mk.couponWhere")}</label>
+          <div class="picks" id="cp-sedi"></div>
+          <p class="f-hint" style="margin:0.35rem 0 0">{t("mk.couponWhereHint")}</p>
+        </div>
+
         <label class="f-lab">{t("mk.scheduling")}</label>
         <div class="picks" id="cp-kind">
           <span class="pick is-on" data-k="always">{t("mk.schedAlways")}</span>
@@ -720,11 +719,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           <div class="f-row">
             <div>
               <label class="f-lab" for="cp-ds">{t("mk.from")}</label>
-              <input type="date" class="f-input" id="cp-ds" />
+              <input type="text" class="f-input f-date" id="cp-ds" readonly data-pair="cp-de" placeholder={t("mk.datePh")} />
             </div>
             <div>
               <label class="f-lab" for="cp-de">{t("mk.to")}</label>
-              <input type="date" class="f-input" id="cp-de" />
+              <input type="text" class="f-input f-date" id="cp-de" readonly placeholder={t("mk.datePh")} />
             </div>
           </div>
         </div>
@@ -955,6 +954,27 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
       </Fragment>
     </Modal>
 
+    <!-- Modale : relevé comptable des bons cadeaux (PDF) -->
+    <Modal id="gr-overlay" title={t("mk.gcReport")} width="520px">
+        <p class="f-hint">{t("mk.gcReportIntro")}</p>
+        <div class="f-row">
+          <div>
+            <label class="f-lab" for="gr-from">{t("mk.from")}</label>
+            <input type="text" class="f-input f-date" id="gr-from" readonly data-pair="gr-to" placeholder={t("mk.datePh")} />
+          </div>
+          <div>
+            <label class="f-lab" for="gr-to">{t("mk.to")}</label>
+            <input type="text" class="f-input f-date" id="gr-to" readonly placeholder={t("mk.datePh")} />
+          </div>
+        </div>
+        <p class="f-hint" id="gr-sede" style="display:none">{t("mk.gcReportSede")}</p>
+        <p class="f-hint" id="gr-err" style="display:none"></p>
+      <Fragment slot="foot">
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="gr-go">{t("mk.gcReportGet")}</button>
+      </Fragment>
+    </Modal>
+
     <div class="toast" id="toast"></div>
 
     <ImagePicker />
@@ -970,6 +990,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
   import { CLIENT } from "../../config/client";
   import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { creaDatepicker } from "../../lib/admin/datepicker";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -1034,6 +1055,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
       const ICO_GC_EXP =
         '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>';
+      // Il punto: stesso pin di Google e del Super admin, per non introdurre
+      // un secondo modo di disegnare la stessa cosa.
+      const ICO_GC_SEDE =
+        '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
       const ICO_GC_USES =
         '<svg class="gc-ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
 
@@ -1076,9 +1101,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
         }
 
         // ---------- Lista ----------
@@ -1342,10 +1367,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           setBtnU("f-b2u", p?.btn2_url ?? "");
           fMax.value = String(p?.max_shows ?? 3);
           fActive.checked = p ? p.active : true;
-          fDs.dataset.iso = p?.date_start ?? "";
-          fDs.value = p?.date_start ? fmtFr(p.date_start) : "";
-          fDe.dataset.iso = p?.date_end ?? "";
-          fDe.value = p?.date_end ? fmtFr(p.date_end) : "";
+          dp.metti(fDs, p?.date_start ?? "");
+          dp.metti(fDe, p?.date_end ?? "");
           fHs.value = String(p?.hour_start ?? "").slice(0, 5);
           fHe.value = String(p?.hour_end ?? "").slice(0, 5);
 
@@ -1370,132 +1393,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           overlay.hidden = true;
         }
 
-        // ---------- Datepicker custom (brand, come Réglages) ----------
-        const MESI = Array.from({ length: 12 }, (_, m) => new Date(2000, m, 1).toLocaleDateString(LOC, { month: "long" }));
-        const DOW = tr("res.dowInitials").split(",");
-        let dpTarget: HTMLInputElement | null = null;
-        let dpAnno = 0;
-        let dpMese = 0; // 0-11
-        const dpPanel = document.createElement("div");
-        dpPanel.className = "dp-panel";
-        dpPanel.style.position = "absolute";
-        dpPanel.style.display = "none";
-        document.body.appendChild(dpPanel);
-
-        function isoOggi(): string {
-          const d = new Date();
-          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        }
-        function isoDi(y: number, m: number, g: number): string {
-          return `${y}-${String(m + 1).padStart(2, "0")}-${String(g).padStart(2, "0")}`;
-        }
-        function fmtFr(iso: string): string {
-          const [y, m, d] = iso.split("-");
-          return `${d}/${m}/${y}`;
-        }
-        function dpRender() {
-          const oggi = isoOggi();
-          const sel = dpTarget?.dataset.iso ?? "";
-          const offset = (new Date(dpAnno, dpMese, 1).getDay() + 6) % 7; // lunedì=0
-          const nGiorni = new Date(dpAnno, dpMese + 1, 0).getDate();
-          const oy = Number(oggi.slice(0, 4));
-          const om = Number(oggi.slice(5, 7)) - 1;
-          const prevOff = dpAnno < oy || (dpAnno === oy && dpMese <= om);
-          let celle = "";
-          for (let i = 0; i < offset; i++) celle += '<span class="dp-cell dp-vuota"></span>';
-          for (let g = 1; g <= nGiorni; g++) {
-            const iso = isoDi(dpAnno, dpMese, g);
-            const cls = ["dp-cell"];
-            if (iso < oggi) cls.push("dp-off");
-            if (iso === oggi) cls.push("dp-today");
-            if (iso === sel) cls.push("dp-sel");
-            celle += `<button type="button" class="${cls.join(" ")}" data-iso="${iso}" ${iso < oggi ? "disabled" : ""}>${g}</button>`;
-          }
-          dpPanel.innerHTML = `
-            <div class="dp-head">
-              <button type="button" class="dp-nav" data-nav="-1" ${prevOff ? "disabled" : ""}>‹</button>
-              <span class="dp-title">${MESI[dpMese]} ${dpAnno}</span>
-              <button type="button" class="dp-nav" data-nav="1">›</button>
-            </div>
-            <div class="dp-dow">${DOW.map((g) => `<span>${g}</span>`).join("")}</div>
-            <div class="dp-grid">${celle}</div>`;
-        }
-        function dpApri(target: HTMLInputElement) {
-          dpTarget = target;
-          const base = target.dataset.iso || isoOggi();
-          dpAnno = Number(base.slice(0, 4));
-          dpMese = Number(base.slice(5, 7)) - 1;
-          dpRender();
-          dpPanel.style.maxHeight = "";
-          dpPanel.style.overflowY = "";
-          dpPanel.style.display = "block";
-          const r = target.getBoundingClientRect();
-          const pw = dpPanel.offsetWidth || 308;
-          const ph = dpPanel.offsetHeight || 360;
-          const gap = 6;
-          const navReserve = window.innerWidth <= 900 ? 90 : 12;
-          const headerReserve = 72;
-          const spaceBelow = window.innerHeight - r.bottom - gap - navReserve;
-          const spaceAbove = r.top - gap - headerReserve;
-          let topVp: number;
-          if (ph <= spaceBelow) {
-            topVp = r.bottom + gap;
-          } else if (ph <= spaceAbove) {
-            topVp = r.top - gap - ph;
-          } else if (spaceBelow >= spaceAbove) {
-            topVp = r.bottom + gap;
-            dpPanel.style.maxHeight = `${Math.max(220, spaceBelow)}px`;
-            dpPanel.style.overflowY = "auto";
-          } else {
-            const h = Math.max(220, spaceAbove);
-            topVp = r.top - gap - h;
-            dpPanel.style.maxHeight = `${h}px`;
-            dpPanel.style.overflowY = "auto";
-          }
-          const leftVp = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
-          dpPanel.style.left = `${leftVp + window.scrollX}px`;
-          dpPanel.style.top = `${topVp + window.scrollY}px`;
-        }
-        function dpChiudi() {
-          dpPanel.style.display = "none";
-          dpTarget = null;
-        }
-        dpPanel.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const t = e.target as HTMLElement;
-          if (t.classList.contains("dp-nav")) {
-            dpMese += Number(t.dataset.nav);
-            if (dpMese < 0) { dpMese = 11; dpAnno--; }
-            if (dpMese > 11) { dpMese = 0; dpAnno++; }
-            dpRender();
-            return;
-          }
-          if (t.classList.contains("dp-cell") && t.dataset.iso && dpTarget) {
-            const iso = t.dataset.iso;
-            dpTarget.dataset.iso = iso;
-            dpTarget.value = fmtFr(iso);
-            // se la fine manca o è prima dell'inizio, allineala
-            const fromIso = fDs.dataset.iso ?? "";
-            const toIso = fDe.dataset.iso ?? "";
-            if (dpTarget === fDs && (!toIso || toIso < fromIso)) {
-              fDe.dataset.iso = iso;
-              fDe.value = fmtFr(iso);
-            }
-            dpChiudi();
-          }
-        });
-        [fDs, fDe].forEach((el) => {
-          el.addEventListener("click", (e) => {
-            e.stopPropagation();
-            dpApri(el);
-          });
-        });
-        document.addEventListener("click", (e) => {
-          if (dpPanel.style.display !== "none" && !dpPanel.contains(e.target as Node)) dpChiudi();
-        });
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") dpChiudi();
-        });
+        // ---------- Il calendario del marchio ----------
+        // ⚠️ Era 130 righe copiate qui dentro, e identiche in altre sette
+        // pagine. Lo STILE era gia' stato unificato (styles/datepicker.css);
+        // il COMPORTAMENTO no, e le copie stavano gia' divergendo. Adesso
+        // vive in lib/admin/datepicker.ts e ha i suoi test.
+        const dp = creaDatepicker({ loc: LOC, dow: tr("res.dowInitials").split(",") });
+        dp.collega(fDs);
+        dp.collega(fDe);
 
         // ---------- Upload immagine (Supabase Storage via API) ----------
         const fUpload = document.getElementById("f-upload") as HTMLButtonElement;
@@ -2041,7 +1946,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         });
         npDate.addEventListener("click", (e) => {
           e.stopPropagation();
-          dpApri(npDate);
+          dp.apri(npDate);
         });
         renderDow();
         renderSeg();
@@ -2351,6 +2256,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           hour_start: string | null;
           hour_end: string | null;
           per_customer_limit: number | null;
+          /** Le sedi in cui vale. Vuoto = tutte. */
+          locations?: string[] | null;
           global_limit: number | null;
           categories: string[];
           combine_with_promo: "stack" | "exclude" | "block";
@@ -2375,7 +2282,14 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         const cpSchedWeekly = document.getElementById("cp-sched-weekly") as HTMLDivElement;
         const cpDs = document.getElementById("cp-ds") as HTMLInputElement;
         const cpDe = document.getElementById("cp-de") as HTMLInputElement;
+        [cpDs, cpDe].forEach((el) => {
+          el.addEventListener("click", (e) => { e.stopPropagation(); dp.apri(el); });
+        });
         const cpDaysBox = document.getElementById("cp-days") as HTMLDivElement;
+        const cpSediWrap = document.getElementById("cp-sedi-wrap") as HTMLDivElement;
+        const cpSediBox = document.getElementById("cp-sedi") as HTMLDivElement;
+        // Le sedi arrivano insieme ai coupon: una sola lettura.
+        let cpSedi: { id: string; name: string }[] = [];
         const cpHs = document.getElementById("cp-hs") as HTMLInputElement;
         const cpHe = document.getElementById("cp-he") as HTMLInputElement;
         const cpPerClient = document.getElementById("cp-perclient") as HTMLInputElement;
@@ -2397,6 +2311,38 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
         // Popola i giorni della settimana (una volta sola)
         cpDaysBox.innerHTML = GIORNI.map((g) => `<span class="pick" data-d="${g.n}">${g.label}</span>`).join("");
+
+        /** Le caselle delle sedi. Compaiono solo se ce n'e' piu' d'una: con
+         *  un punto solo non c'e' niente da scegliere, e una domanda senza
+         *  risposte possibili e' solo rumore. */
+        function cpSediRender(scelte: string[]) {
+          if (cpSedi.length < 2) { cpSediWrap.style.display = "none"; return; }
+          cpSediWrap.style.display = "";
+          const tutte = scelte.length === 0;
+          cpSediBox.innerHTML =
+            `<span class="pick${tutte ? " is-on" : ""}" data-s="">${tr("mk.couponAll")}</span>` +
+            cpSedi.map((x) => `<span class="pick${scelte.includes(x.id) ? " is-on" : ""}" data-s="${x.id}">${esc(x.name)}</span>`).join("");
+        }
+
+        // «Tutte» e i singoli punti si escludono: scegliere un punto spegne
+        // «Tutte», e togliere l'ultimo punto la riaccende. Senza, si potrebbe
+        // salvare «tutte le sedi + solo Stockel», che non vuol dire niente.
+        cpSediBox.addEventListener("click", (e) => {
+          const el = (e.target as HTMLElement).closest(".pick") as HTMLElement | null;
+          if (!el) return;
+          const id = el.dataset.s ?? "";
+          if (!id) { cpSediRender([]); return; }
+          el.classList.toggle("is-on");
+          const scelte = Array.from(cpSediBox.querySelectorAll<HTMLElement>(".pick.is-on"))
+            .map((x) => x.dataset.s ?? "")
+            .filter(Boolean);
+          cpSediRender(scelte);
+        });
+
+        const cpSediScelte = (): string[] =>
+          Array.from(cpSediBox.querySelectorAll<HTMLElement>(".pick.is-on"))
+            .map((x) => x.dataset.s ?? "")
+            .filter(Boolean);
 
         async function cpCaricaCategorie() {
           if (cpCatsCaricate) return;
@@ -2446,6 +2392,17 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               tags.push(
                 `<span class="m-tag">${c.categories.length ? esc(c.categories.join(", ")) : tr("mk.allCategories")}</span>`
               );
+              // DOVE VALE, sempre in vista quando ci sono piu' punti. Un
+              // codice riservato per sbaglio, o dimenticato aperto a tutti,
+              // costa denaro a societa' diverse: deve vedersi dall'elenco,
+              // non solo aprendo il modale.
+              if (cpSedi.length > 1) {
+                const scelte = (c.locations ?? []).filter(Boolean);
+                const nomi = scelte.length
+                  ? cpSedi.filter((x) => scelte.includes(x.id)).map((x) => x.name).join(", ")
+                  : tr("mk.couponAll");
+                tags.push(`<span class="m-tag">${esc(nomi)}</span>`);
+              }
               const combineLbl =
                 c.combine_with_promo === "stack"
                   ? tr("mk.combStack")
@@ -2485,6 +2442,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             const res = await fetch("/api/admin/coupons", { headers });
             const j = await res.json();
             coupons = j.coupons ?? [];
+            cpSedi = j.sedi ?? [];
             cpRender();
           } catch {
             toast(tr("mk.couponsLoadErr"), true);
@@ -2561,8 +2519,8 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           cpKind.querySelectorAll<HTMLElement>(".pick").forEach((el) => el.classList.toggle("is-on", el.dataset.k === kind));
           cpSchedDates.classList.toggle("is-visible", kind === "dates");
           cpSchedWeekly.classList.toggle("is-visible", kind === "weekly");
-          cpDs.value = c?.date_start ?? "";
-          cpDe.value = c?.date_end ?? "";
+          dp.metti(cpDs, c?.date_start ?? "");
+          dp.metti(cpDe, c?.date_end ?? "");
           const giorniOn = c?.days ?? [];
           cpDaysBox.querySelectorAll<HTMLElement>(".pick").forEach((el) =>
             el.classList.toggle("is-on", giorniOn.includes(Number(el.dataset.d)))
@@ -2583,6 +2541,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
 
           cpNew.checked = c?.new_customers_only ?? false;
           cpActive.checked = c ? c.active : true;
+          // Un coupon nuovo nasce valido ovunque: e' il caso comune, e la
+          // scelta e' sotto gli occhi di chi compila.
+          cpSediRender(c?.locations ?? []);
 
           cpOverlay.hidden = false;
         }
@@ -2608,8 +2569,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             max_discount_cents: cpEurToCents(cpMaxcap.value.trim()),
             min_spend_cents: cpEurToCents(cpMinspend.value.trim()),
             schedule_kind: kind,
-            date_start: kind === "dates" ? cpDs.value || null : null,
-            date_end: kind === "dates" ? cpDe.value || null : null,
+            // ⚠️ `data-iso`, non `value`: `value` e' la data scritta (31/12/2026)
+            // e finirebbe nel database in un formato che nessuno rilegge.
+            date_start: kind === "dates" ? cpDs.dataset.iso || null : null,
+            date_end: kind === "dates" ? cpDe.dataset.iso || null : null,
             days:
               kind === "weekly"
                 ? Array.from(cpDaysBox.querySelectorAll<HTMLElement>(".pick.is-on")).map((el) => Number(el.dataset.d))
@@ -2622,6 +2585,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
             combine_with_promo: cpCombineAttivo(),
             new_customers_only: cpNew.checked,
             active: cpActive.checked,
+            locations: cpSediScelte(),
           };
         }
 
@@ -2791,7 +2755,11 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           redemptions?: {
             amount_cents: number | null; created_at: string | null;
             note: string | null; kind: string | null; created_by: string | null;
+            location_name?: string;
           }[];
+          // Multi-sede: il nome lo attacca il server. Vuoto = punto unico,
+          // oppure buono venduto prima che si registrasse il punto.
+          sold_at_name?: string;
           paid?: boolean; payment_method?: string;
           recipient_email?: string | null; recipient_phone?: string | null;
           sender_email?: string | null; sender_phone?: string | null;
@@ -2799,13 +2767,27 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           ship?: boolean; ship_address?: string | null; ship_zip?: string | null;
           ship_city?: string | null; ship_country?: string | null; shipping_cents?: number | null;
         }
+        const gcConto = document.getElementById("gc-conto") as HTMLParagraphElement;
+        // Il conto fra le societa': quanto ha incassato e quanto ha servito
+        // ogni punto. Arriva calcolato dal server, che e' l'unico posto in cui
+        // le due liste sono intere.
+        interface ContoBuoni {
+          quote: { id: string | null; nome: string; venduto: number; speso: number; saldo: number }[];
+          incoerenti: string[];
+        }
         let giftCards: GiftCard[] = [];
+        let gcContoDati: ContoBuoni | null = null;
         let gcUseId: string | null = null;
         let gcEditId: string | null = null;
         let gcDelPending: string | null = null;
         let gcDelTimer: number | undefined;
 
         const gcEuro = (cents: number): string => (cents / 100).toFixed(2).replace(".", ",") + " €";
+        // L'API risponde in francese. Il solo errore che l'utente PUO'
+        // correggere da solo — «scegli un punto» — passa per un codice, cosi'
+        // lo legge nella sua lingua invece che in quella del server.
+        const gcErrDi = (j: { error?: string; code?: string }, fallback: string): string =>
+          j?.code === "no_sede" ? tr("mk.giftNoSede") : (j?.error ?? fallback);
         const gcDate = (d: string | null): string => (d ? d.split("-").reverse().join("/") : "");
         // Nel registro la sola data non basta: un buono usato due volte lo
         // stesso giorno darebbe due righe identiche.
@@ -2833,7 +2815,22 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           return `${prefix.value} ${local}`.trim();
         }
 
+        function gcContoRender() {
+          // Una sede sola: non c'e' nessun confine da attraversare.
+          const q = (gcContoDati?.quote ?? []).filter((x) => x.venduto || x.speso);
+          if (!gcContoDati || q.length < 2) { gcConto.style.display = "none"; return; }
+          const voci = q
+            .map((x) => `${esc(x.nome || tr("mk.gcNoSede"))} ${x.saldo >= 0 ? "+" : "\u2212"}${gcEuro(Math.abs(x.saldo))}`)
+            .join(" · ");
+          const rotti = gcContoDati.incoerenti.length
+            ? ` — ${tr("mk.gcInconsist")} ${gcContoDati.incoerenti.map(esc).join(", ")}`
+            : "";
+          gcConto.innerHTML = `<b>${tr("mk.gcBalance")}</b> · ${voci}${rotti}`;
+          gcConto.style.display = "block";
+        }
+
         function gcRender() {
+          gcContoRender();
           if (giftCards.length === 0) {
             gcList.innerHTML = "";
             gcEmpty.style.display = "block";
@@ -2856,6 +2853,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               if (c.recipient_name) righe.push(riga(ICO_GC_TO, tr("mk.gcFor"), esc(c.recipient_name)));
               if (c.sender_name) righe.push(riga(ICO_GC_FROM, tr("mk.gcFrom"), esc(c.sender_name)));
               if (c.expires_at) righe.push(riga(ICO_GC_EXP, tr("mk.gcExpiresOn"), gcDate(c.expires_at)));
+              // DOVE E' STATO COMPRATO: la societa' che ha incassato. Il buono
+              // resta spendibile ovunque — questa riga non e' un vincolo, e'
+              // un fatto contabile.
+              if (c.sold_at_name) righe.push(riga(ICO_GC_SEDE, tr("mk.gcSoldAt"), esc(c.sold_at_name)));
               const pagato = c.paid !== false;
               const badgePay = pagato
                 ? `<span class="gc-pay ok" title="${tr("ord.paid")}"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>`
@@ -2872,7 +2873,10 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
                     const quando = gcQuando(r.created_at);
                     const quanto = r.amount_cents ? gcEuro(r.amount_cents) : "";
                     const nota = r.note ? ` · ${esc(r.note)}` : r.kind === "manual" ? ` · ${tr("mk.gcLogManual")}` : "";
-                    return `<li class="gc-log-row"><span class="gc-log-when">${quando}</span><b class="gc-log-amt">${quanto}</b><span class="gc-log-note">${nota}</span></li>`;
+                    // DOVE E' STATO SPESO. Senza, «50 € caricati, 20 spesi»
+                    // non dice quale delle tre societa' ha servito il cliente.
+                    const dove = r.location_name ? ` · ${esc(r.location_name)}` : "";
+                    return `<li class="gc-log-row"><span class="gc-log-when">${quando}</span><b class="gc-log-amt">${quanto}</b><span class="gc-log-note">${dove}${nota}</span></li>`;
                   })
                   .join("");
                 righe.push(`<ul class="gc-log">${voci}</ul>`);
@@ -2907,8 +2911,9 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           try {
             const res = await fetch("/api/admin/gift-cards", { headers });
             if (!res.ok) { toast(tr("mk.giftsLoadErr"), true); return; }
-            const j = (await res.json()) as { cards: GiftCard[] };
+            const j = (await res.json()) as { cards: GiftCard[]; conto: ContoBuoni | null };
             giftCards = j.cards ?? [];
+            gcContoDati = j.conto ?? null;
             gcRender();
           } catch {
             toast(tr("res.connErr"), true);
@@ -2959,7 +2964,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           if (c?.expires_at) {
             gcExpPicks.querySelector('[data-exp="autre"]')?.classList.add("is-on");
             gcExp.dataset.iso = String(c.expires_at);
-            gcExp.value = fmtFr(String(c.expires_at));
+            gcExp.value = dp.fmt(String(c.expires_at));
             gcExp.style.display = "";
           } else {
             gcExpPicks.querySelector('[data-exp="none"]')?.classList.add("is-on");
@@ -3032,6 +3037,77 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
         gsOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
           el.addEventListener("click", () => { gsOverlay.hidden = true; });
+        });
+
+        /* ---------- Relevé comptable (PDF) ---------- */
+        const grOverlay = document.getElementById("gr-overlay") as HTMLDivElement;
+        const grFrom = document.getElementById("gr-from") as HTMLInputElement;
+        const grTo = document.getElementById("gr-to") as HTMLInputElement;
+        const grSede = document.getElementById("gr-sede") as HTMLParagraphElement;
+        const grErr = document.getElementById("gr-err") as HTMLParagraphElement;
+        const grGo = document.getElementById("gr-go") as HTMLButtonElement;
+
+        // Il calendario del marchio, non quello del browser — e con il passato
+        // acceso, perche' un documento contabile guarda solo indietro.
+        [grFrom, grTo].forEach((el) => {
+          el.addEventListener("click", (e) => { e.stopPropagation(); dp.apri(el, true); });
+        });
+        document.getElementById("gc-report")?.addEventListener("click", () => {
+          // Precompilato sull'anno in corso: e' il periodo che si chiede nove
+          // volte su dieci, e resta modificabile per un trimestre o un mese.
+          const anno = new Date().getFullYear();
+          dp.metti(grFrom, `${anno}-01-01`);
+          dp.metti(grTo, dp.isoOggi());
+          grErr.style.display = "none";
+          // Con piu' di una sede il documento e' di UNA societa': si dice
+          // prima, non dopo aver aperto un PDF che non e' quello che si
+          // aspettava.
+          grSede.style.display = (gcContoDati?.quote?.length ?? 0) > 0 ? "block" : "none";
+          grOverlay.hidden = false;
+        });
+        grOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
+          el.addEventListener("click", () => { grOverlay.hidden = true; });
+        });
+
+        grGo?.addEventListener("click", async () => {
+          // ⚠️ Il valore che conta e' `data-iso`. `value` e' la data SCRITTA
+          // (31/12/2026): confrontarla come testo metterebbe dicembre prima
+          // di gennaio, e il periodo uscirebbe a rovescio senza un errore.
+          const daIso = grFrom.dataset.iso ?? "";
+          const aIso = grTo.dataset.iso ?? "";
+          if (!daIso || !aIso || daIso > aIso) {
+            grErr.textContent = tr("mk.gcReportErr");
+            grErr.style.display = "block";
+            return;
+          }
+          grGo.disabled = true;
+          try {
+            // ⚠️ Non un semplice <a href>: la chiamata vuole il token nell'header,
+            // che un link non porta. Si scarica, si consegna come file e si
+            // libera subito l'URL temporaneo.
+            const qs = new URLSearchParams({ from: daIso, to: aIso, lang: LANG });
+            const res = await fetch(`/api/admin/gift-cards-pdf?${qs}`, { headers });
+            if (!res.ok) {
+              const j = await res.json().catch(() => ({}));
+              grErr.textContent = gcErrDi(j, tr("mk.gcReportErr"));
+              grErr.style.display = "block";
+              return;
+            }
+            const blob = await res.blob();
+            const nome = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "bons.pdf";
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = nome;
+            a.click();
+            URL.revokeObjectURL(url);
+            grOverlay.hidden = true;
+          } catch {
+            grErr.textContent = tr("res.connErr");
+            grErr.style.display = "block";
+          } finally {
+            grGo.disabled = false;
+          }
         });
 
         gsPacks?.addEventListener("click", (e) => {
@@ -3112,7 +3188,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               body: JSON.stringify({ action: "resend_link", id: gcEditId, sender_email: gcSemail.value.trim() || undefined }),
             });
             const j = await res.json();
-            if (!res.ok) { gcErr.textContent = j.error ?? tr("ord.sendFailed"); return; }
+            if (!res.ok) { gcErr.textContent = gcErrDi(j, tr("ord.sendFailed")); return; }
             toast(tr("mk.payLinkResentTo") + (j.sent_to ?? ""));
           } catch {
             gcErr.textContent = tr("common.netErr");
@@ -3126,7 +3202,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           el.classList.toggle("is-on");
         });
         function isoPlus(mesi: number, anni: number): string {
-          const [y, m, d] = isoOggi().split("-").map(Number);
+          const [y, m, d] = dp.isoOggi().split("-").map(Number);
           const dt = new Date(Date.UTC(y, m - 1, d));
           dt.setUTCFullYear(dt.getUTCFullYear() + anni);
           dt.setUTCMonth(dt.getUTCMonth() + mesi);
@@ -3140,20 +3216,20 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
           el.classList.add("is-on");
           const mode = el.dataset.exp;
           if (mode === "none") { gcExp.removeAttribute("data-iso"); gcExp.value = ""; gcExp.style.display = "none"; return; }
-          if (mode === "autre") { gcExp.style.display = ""; dpApri(gcExp); return; }
+          if (mode === "autre") { gcExp.style.display = ""; dp.apri(gcExp); return; }
           let iso = "";
           if (mode === "1m") iso = isoPlus(1, 0);
           else if (mode === "6m") iso = isoPlus(6, 0);
           else if (mode === "1y") iso = isoPlus(0, 1);
-          else if (mode === "eoy") iso = isoOggi().slice(0, 4) + "-12-31";
+          else if (mode === "eoy") iso = dp.isoOggi().slice(0, 4) + "-12-31";
           gcExp.dataset.iso = iso;
-          gcExp.value = fmtFr(iso);
+          gcExp.value = dp.fmt(iso);
           gcExp.style.display = "";
         });
         gcExp?.addEventListener("click", (e) => {
           if (gcExpPicks.querySelector(".pick.is-on")?.getAttribute("data-exp") !== "autre") return;
           e.stopPropagation();
-          dpApri(gcExp);
+          dp.apri(gcExp);
         });
         // Chiusura: le ancore del guscio condiviso (sfondo, ×, Annulla).
         gcOverlay?.querySelectorAll("[data-md-close]").forEach((el) => {
@@ -3186,7 +3262,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
         }
         function gcBuildRecap() {
           const val = gcValoreCents();
-          const exp = gcExp.dataset.iso ? fmtFr(gcExp.dataset.iso) : tr("itg.mode.none");
+          const exp = gcExp.dataset.iso ? dp.fmt(gcExp.dataset.iso) : tr("itg.mode.none");
           const code = gcCode.value.trim() || tr("mk.autoGenerated");
           const offrant = [`${gcSfname.value.trim()} ${gcSlname.value.trim()}`.trim(), gcSemail.value.trim(), gcTelFull(gcSprefix, gcSphone) ?? ""].filter(Boolean).join(" · ") || "—";
           const dest = [`${gcRfname.value.trim()} ${gcRlname.value.trim()}`.trim(), gcRemail.value.trim(), gcTelFull(gcRprefix, gcRphone) ?? ""].filter(Boolean).join(" · ") || "—";
@@ -3274,7 +3350,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               }),
             });
             const j = await res.json();
-            if (!res.ok) { gcErr.textContent = j.error ?? tr("common.saveErr"); return; }
+            if (!res.ok) { gcErr.textContent = gcErrDi(j, tr("common.saveErr")); return; }
             gcOverlay.hidden = true;
             if (j.pay_error) toast(tr("mk.giftCreatedNoLink") + j.pay_error, true);
             else if (gcEditId) toast(tr("mk.giftUpdated"));
@@ -3304,7 +3380,7 @@ const sitePagesJson = JSON.stringify(SITE_PAGES).replace(/</g, "\\u003c");
               body: JSON.stringify({ action: "redeem", id: gcUseId, amount_cents, note: gcUseNote.value.trim() || undefined }),
             });
             const j = await res.json();
-            if (!res.ok) { gcUseErr.textContent = j.error ?? tr("mk.cashInFailed"); return; }
+            if (!res.ok) { gcUseErr.textContent = gcErrDi(j, tr("mk.cashInFailed")); return; }
             gcUseOverlay.hidden = true;
             toast(tr("mk.collectedBalance") + gcEuro(j.balance_cents ?? 0));
             await caricaGiftcards();

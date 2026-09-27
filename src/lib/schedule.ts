@@ -1,7 +1,9 @@
 import type { DateTime } from "luxon";
 import { supabaseAdmin } from "./db";
 import { cacheOr } from "./cache";
-import { TIMEZONE, type ConfigGiorno, aggiornaTimezone } from "./slots";
+import { type ConfigGiorno } from "./slots";
+import { fusoDi } from "./fuso";
+import { leggiOrari, applicaFiltro, type Ambito } from "./admin/sede";
 
 /**
  * Config oraria EFFETTIVA del giorno di `ora`:
@@ -15,6 +17,16 @@ import { TIMEZONE, type ConfigGiorno, aggiornaTimezone } from "./slots";
  * PERFORMANCE: le due tabelle vengono lette UNA volta e tenute in una
  * cache da 60s. Chiamare questa funzione più volte nella stessa pagina
  * (es. il calcolo della prossima riapertura) non costa query extra.
+ *
+ * ⚠️ MULTI-SEDE: l'ambito NON ha un valore di default, di proposito. Queste
+ * due letture decidono a che ora si può ordinare e prenotare; un ambito
+ * dimenticato darebbe gli orari di un altro punto senza dare errore. Chi
+ * chiama deve dire dove si trova — `SEDE_UNICA` compreso, che è una risposta
+ * legittima e si vede nel codice.
+ *
+ * ⚠️ E la CHIAVE DI CACHE porta la sede dentro. Senza, la prima richiesta che
+ * arriva riempie la cache e per 60 secondi tutti gli altri punti si vedono
+ * serviti i suoi orari.
  */
 
 interface RigaSettings {
@@ -40,41 +52,47 @@ interface RigaSpeciale {
   dinner_close: string | null;
 }
 
-/** Tutti i 7 giorni della tabella settings (cache 60s). */
-async function tutteLeSettings(): Promise<RigaSettings[]> {
-  return cacheOr("sched:settings", async () => {
-    const { data, error } = await supabaseAdmin
-      .from("settings")
-      .select(
-        "day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close, prep_time_minutes, slot_duration_minutes, exceptional_closures"
-      );
-    if (error || !data) throw new Error("settings illeggibili");
-    return data as RigaSettings[];
+/** Suffisso della chiave di cache: la sede fa parte dell'identità del dato. */
+const perAmbito = (a: Ambito) => (a.modo === "sede" ? a.id : a.modo);
+
+/** I 7 giorni che valgono in questo ambito (cache 60s). */
+async function tutteLeSettings(ambito: Ambito): Promise<RigaSettings[]> {
+  return cacheOr(`sched:settings:${perAmbito(ambito)}`, async () => {
+    return (await leggiOrari(ambito)) as unknown as RigaSettings[];
   });
 }
 
-/** Giorni speciali attuali e futuri prossimi (cache 60s). */
-async function giorniSpeciali(): Promise<RigaSpeciale[]> {
-  return cacheOr("sched:special", async () => {
-    const { data, error } = await supabaseAdmin
-      .from("special_days")
-      .select("date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close")
-      .order("type", { ascending: true }); // 'closed' prima di 'open'
+/** Giorni speciali di questo ambito (cache 60s).
+ *  `special_days` è «mista»: il filtro rende le chiusure della sede E quelle
+ *  che valgono per tutte — Natale chiude tutti, i lavori chiudono uno. */
+async function giorniSpeciali(ambito: Ambito): Promise<RigaSpeciale[]> {
+  return cacheOr(`sched:special:${perAmbito(ambito)}`, async () => {
+    const q = applicaFiltro(
+      supabaseAdmin
+        .from("special_days")
+        .select("date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close")
+        .order("type", { ascending: true }) as never, // 'closed' prima di 'open'
+      "special_days",
+      ambito,
+    );
+    const { data, error } = await (q as unknown as PromiseLike<{ data: RigaSpeciale[] | null; error: unknown }>);
     if (error || !data) throw new Error("special_days illeggibili");
     return data as RigaSpeciale[];
   });
 }
 
-export async function configGiornoEffettiva(ora: DateTime): Promise<ConfigGiorno | null> {
-  await aggiornaTimezone();
-  const oggi = ora.setZone(TIMEZONE);
+export async function configGiornoEffettiva(
+  ora: DateTime,
+  ambito: Ambito,
+): Promise<ConfigGiorno | null> {
+  const oggi = ora.setZone(await fusoDi(ambito));
   const dayOfWeek = oggi.weekday === 7 ? 0 : oggi.weekday;
   const iso = oggi.toFormat("yyyy-MM-dd");
 
   let settings: RigaSettings | undefined;
   let sp: RigaSpeciale | undefined;
   try {
-    const [tutte, speciali] = await Promise.all([tutteLeSettings(), giorniSpeciali()]);
+    const [tutte, speciali] = await Promise.all([tutteLeSettings(ambito), giorniSpeciali(ambito)]);
     settings = tutte.find((r) => r.day_of_week === dayOfWeek);
     sp = speciali.find((s) => s.date_from <= iso && s.date_to >= iso);
   } catch {

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -18,11 +18,14 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data: cfg } = await supabaseAdmin
-    .from("app_config")
-    .select("key,value")
-    .in("key", ["google_oauth_refresh", "google_location_title", "google_rating", "google_review_count", "google_reviews_synced_at", "google_profile"]);
-  const m = new Map((cfg ?? []).map((r: { key: string; value: unknown }) => [r.key, String(r.value ?? "")]));
+  const ambito = await ambitoDiRichiesta(request, staff);
+  // Voto, conteggio e ultimo sync sono del PUNTO; il collegamento OAuth e'
+  // dell'installazione. `leggiConfig` sovrappone i due piani da solo.
+  const cfg = await leggiConfig(ambito, [
+    "google_oauth_refresh", "google_location_title", "google_rating",
+    "google_review_count", "google_reviews_synced_at", "google_profile",
+  ]);
+  const m = cfg.valori;
 
   // ⚠️ A PAGINE DI 1000. PostgREST ne rende al massimo 1000 per richiesta, e
   // senza `range` la lista si fermava li' in silenzio: la scheda diceva 1138
@@ -31,9 +34,8 @@ export const GET: APIRoute = async ({ request }) => {
   const PAGINA = 1000;
   const rev: unknown[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("google_reviews")
-      .select("review_id,author,photo,rating,comment,create_time,reply_comment,reply_time")
+    const { data, error } = await leggi("google_reviews", ambito,
+      "review_id,author,photo,rating,comment,create_time,reply_comment,reply_time")
       .order("create_time", { ascending: false })
       .range(da, da + PAGINA - 1);
     if (error) break; // quello che si e' letto finora vale comunque

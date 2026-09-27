@@ -1,10 +1,22 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi } from "../../../../lib/admin/sede";
+import type { Ambito } from "../../../../lib/admin/sedeRegole";
 import { supabaseAdmin } from "../../../../lib/db";
-import { accessToken, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, locationSalvata, leggiFoodMenuStato, spingiFoodMenu } from "../../../../lib/googleBusiness";
 import type { FMMenu, FMLabel } from "../../../../lib/googleBusiness";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET  /api/admin/google/menu  -> anteprima menu RestoHub + stato menu Google
 // POST /api/admin/google/menu  -> spinge il menu RestoHub su Google (Food Menus)
@@ -19,11 +31,14 @@ function json(body: unknown, status = 200): Response {
 async function preludio(request: Request) {
   const staff = await verificaStaff(request);
   if (!staff) return { err: nonAutorizzato() };
-  const token = await accessToken();
-  if (!token) return { err: json({ error: "Google non collegato" }, 400) };
-  const loc = await locationSalvata();
-  if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
-  return { token, path: loc.path };
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
+  // Scheda e menu vengono ora dallo STESSO punto: si spingono i piatti di
+  // Stockel sulla scheda di Stockel.
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const loc = await locationSalvata(ambito);
+  if (!loc?.path) return { err: json({ error: await msg("err.googleNotLinked") }, 400) };
+  return { token, path: loc.path, ambito };
 }
 
 type RigaMenu = {
@@ -46,11 +61,11 @@ async function linguaDefault(): Promise<string> {
   }
 }
 
-async function leggiMenuRH(): Promise<RigaMenu[]> {
+async function leggiMenuRH(ambito: Ambito): Promise<RigaMenu[]> {
   const cols = "category, category_order, sort_order, name, name_i18n, description_fr, desc_i18n, price_cents, available";
   const base = "category, category_order, sort_order, name, description_fr, price_cents, available";
   const q = (sel: string) =>
-    supabaseAdmin.from("menu_items").select(sel)
+    leggi("menu_items", ambito, sel)
       .order("category_order", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
@@ -108,7 +123,7 @@ export const GET: APIRoute = async ({ request }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const lang = await linguaDefault();
-  const sezioni = raggruppa(await leggiMenuRH(), lang);
+  const sezioni = raggruppa(await leggiMenuRH(p.ambito!), lang);
   const tot = sezioni.reduce((n, s) => n + s.items.length, 0);
   const stato = await leggiFoodMenuStato(p.token!, p.path!);
   return json({
@@ -124,8 +139,8 @@ export const POST: APIRoute = async ({ request }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const lang = await linguaDefault();
-  const sezioni = raggruppa(await leggiMenuRH(), lang);
-  if (!sezioni.length) return json({ error: "Nessun piatto con prezzo da sincronizzare" }, 400);
+  const sezioni = raggruppa(await leggiMenuRH(p.ambito!), lang);
+  if (!sezioni.length) return json({ error: await msg("err.noPricedDish") }, 400);
   const menus = costruisciPayload(sezioni, lang);
   const { ok, error } = await spingiFoodMenu(p.token!, p.path!, menus);
   if (!ok) return json({ error: error || "Sincronizzazione impossibile" }, 502);

@@ -1,9 +1,19 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { cacheOr } from "../../../lib/cache";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, leggiConfig } from "../../../lib/admin/sede";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Scheda Google del ristorante per la tile dell'Accueil (livello 1: lettura).
 // Place ID per-cliente (app_config), chiave Places di MOODD (env).
@@ -75,12 +85,12 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const { data } = await supabaseAdmin
-    .from("app_config")
-    .select("value")
-    .eq("key", "google_place_id")
-    .maybeSingle();
-  const placeId = String(data?.value ?? "").trim();
+  // Il Place ID identifica UN'ATTIVITA' FISICA: tre pizzerie, tre Place ID.
+  // `leggiConfig` prende quello della sede e ripiega su quello
+  // dell'installazione (sede unica: identico a prima).
+  const ambitoPI = await ambitoDiRichiesta(request, staff);
+  const cfgPI = await leggiConfig(ambitoPI, ["google_place_id"]);
+  const placeId = (cfgPI.valori.get("google_place_id") ?? "").trim();
   if (!placeId || !KEY) return json({ configured: false });
 
   try {
@@ -138,9 +148,9 @@ export const GET: APIRoute = async ({ request }) => {
     // dopo una risposta il bottone deve sparire subito. Fallback = avis Places.
     let avisOut = info.avis;
     try {
-      const { data: gr } = await supabaseAdmin
-        .from("google_reviews")
-        .select("review_id, author, rating, comment, reply_comment, create_time")
+      // Le recensioni della tile sono quelle del PUNTO che si sta guardando.
+      const { data: gr } = await leggi("google_reviews", await ambitoDiRichiesta(request, staff),
+        "review_id, author, rating, comment, reply_comment, create_time")
         .order("create_time", { ascending: false })
         .limit(8);
       if (gr && gr.length) {
@@ -160,6 +170,6 @@ export const GET: APIRoute = async ({ request }) => {
     } catch { /* tabella assente/non collegato: restano le recensioni Places */ }
     return json({ configured: true, ...info, avis: avisOut });
   } catch {
-    return json({ configured: true, error: "Google indisponible" }, 200);
+    return json({ configured: true, error: await msg("err.googleDown") }, 200);
   }
 };

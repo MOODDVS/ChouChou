@@ -1,4 +1,6 @@
-import { supabaseAdmin } from "./db";
+import { leggi, aggiorna, type Ambito } from "./admin/sede";
+import { scegliCombinazione, minutiDi, type TavoliAssegnati } from "./salaRegole";
+export { scegliCombinazione, type TavoliAssegnati };
 import { appConfigIn, appConfigEq } from "./appConfigCache";
 
 /**
@@ -8,10 +10,10 @@ import { appConfigIn, appConfigEq } from "./appConfigCache";
  * errore → il chiamante usa i couverts dichiarati nelle Sections.
  * Una section senza tavoli disegnati vale 0 posti (non prenotabile).
  */
-export async function postiDalPlan(planMode: string | undefined): Promise<Map<string, number> | null> {
+export async function postiDalPlan(planMode: string | undefined, ambito: Ambito): Promise<Map<string, number> | null> {
   if (planMode !== "1") return null;
   try {
-    const { data, error } = await supabaseAdmin.from("restaurant_tables").select("zone, seats");
+    const { data, error } = await leggi("restaurant_tables", ambito, "zone, seats");
     if (error || !data) return null;
     const m = new Map<string, number>();
     for (const r of data as { zone?: unknown; seats?: unknown }[]) {
@@ -30,12 +32,12 @@ export async function postiDalPlan(planMode: string | undefined): Promise<Map<st
  * il tavolo singolo più capiente oppure la catena di liaison più grande.
  * null se il plan mode è spento o i dati mancano.
  */
-export async function maxInsiemePerZona(planMode: string | undefined): Promise<Map<string, number> | null> {
+export async function maxInsiemePerZona(planMode: string | undefined, ambito: Ambito): Promise<Map<string, number> | null> {
   if (planMode !== "1") return null;
   try {
     const [{ data: tavoli, error }, { data: cfg }] = await Promise.all([
-      supabaseAdmin.from("restaurant_tables").select("id, zone, seats"),
-      appConfigEq("reservation_plan_links"),
+      leggi("restaurant_tables", ambito, "id, zone, seats"),
+      appConfigEq("reservation_plan_links", ambito),
     ]);
     if (error || !tavoli) return null;
     const posti = new Map<string, number>();
@@ -67,13 +69,6 @@ export async function maxInsiemePerZona(planMode: string | undefined): Promise<M
 // FASE 2 — Assegnazione automatica dei tavoli alla prenotazione
 // ------------------------------------------------------------------
 
-export type TavoliAssegnati = { ids: string[]; names: string[]; zone: string };
-
-function minutiDi(hhmm: string): number {
-  const m = /^(\d{2}):(\d{2})/.exec(hhmm);
-  return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
-}
-
 /**
  * Sceglie i tavoli per una prenotazione: la combinazione LIBERA piu' piccola
  * che basta (tavolo singolo, oppure finestra contigua di una catena di
@@ -82,55 +77,6 @@ function minutiDi(hhmm: string): number {
  * Ritorna null se nessuna combinazione libera basta (l'admin puo' bypassare:
  * in quel caso la prenotazione resta senza tavoli).
  */
-function scegliCombinazione(
-  tavoli: { id: string; zone: string; name: string; seats: number }[],
-  legami: Record<string, unknown>,
-  occupati: Set<string>,
-  zonaPref: string | null,
-  zoneChiuse: string[],
-  people: number,
-  priorita: string[]
-): TavoliAssegnati | null {
-  const perId = new Map(tavoli.map((t) => [t.id, t]));
-  let zone = zonaPref
-    ? [zonaPref]
-    : [...new Set(tavoli.map((t) => t.zone))].filter((z) => !zoneChiuse.includes(z));
-  // Priorità di riempimento (modale Sections): con "Indifférent" si prova
-  // PRIMA la section in cima alla lista; senza priorità configurata vince la
-  // combinazione globale con meno posti sprecati.
-  const conPrio = !zonaPref && priorita.length > 0;
-  if (conPrio) {
-    const idx = (z: string) => { const i = priorita.indexOf(z); return i === -1 ? 999 : i; };
-    zone = [...zone].sort((a, b) => idx(a) - idx(b));
-  }
-
-  let best: { ids: string[]; somma: number; zone: string } | null = null;
-  const prova = (ids: string[], z: string) => {
-    if (ids.some((id) => occupati.has(id) || !perId.has(id))) return;
-    const somma = ids.reduce((t, id) => t + (perId.get(id)?.seats ?? 0), 0);
-    if (somma < people) return;
-    if (!best || somma < best.somma || (somma === best.somma && ids.length < best.ids.length)) {
-      best = { ids, somma, zone: z };
-    }
-  };
-
-  for (const z of zone) {
-    for (const t of tavoli) if (t.zone === z) prova([t.id], z);
-    const gruppi = Array.isArray(legami[z]) ? (legami[z] as unknown[]) : [];
-    for (const g of gruppi) {
-      if (!Array.isArray(g)) continue;
-      const catena = (g as unknown[]).map(String);
-      for (let da = 0; da < catena.length; da++) {
-        for (let a = da + 2; a <= catena.length; a++) prova(catena.slice(da, a), z);
-      }
-    }
-    // Con priorità: appena una section (in ordine) ha una combinazione, stop
-    if (conPrio && best) break;
-  }
-  if (!best) return null;
-  const b = best as { ids: string[]; somma: number; zone: string };
-  return { ids: b.ids, names: b.ids.map((id) => perId.get(id)?.name ?? "?"), zone: b.zone };
-}
 
 /**
  * Assegna i tavoli a una (potenziale) prenotazione. Autonoma: legge da sola
@@ -149,12 +95,12 @@ export async function assegnaTavoli(p: {
   zone: string | null;
   people: number;
   excludeId?: string;
-}): Promise<TavoliAssegnati | null> {
+}, ambito: Ambito): Promise<TavoliAssegnati | null> {
   try {
     const slotMin = minutiDi(p.heure);
     if (slotMin < 0 || !Number.isFinite(p.people) || p.people < 1) return null;
 
-    const { data: cfgRows } = await appConfigIn(["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones", "zone_closures_permanent"]);
+    const { data: cfgRows } = await appConfigIn(["reservation_plan_mode", "reservation_plan_links", "reservation_services", "reservation_hold_minutes", "reservation_zone_priority", "reservation_zones", "zone_closures_permanent"], ambito);
     const cfg = new Map((cfgRows ?? []).map((r) => [r.key, String(r.value ?? "")]));
     if (cfg.get("reservation_plan_mode") !== "1") return null;
 
@@ -203,8 +149,8 @@ export async function assegnaTavoli(p: {
     } catch { /* niente zones */ }
 
     const [tavQ, chzQ] = await Promise.all([
-      supabaseAdmin.from("restaurant_tables").select("id, zone, name, seats"),
-      supabaseAdmin.from("zone_closures").select("zone").eq("date", p.date),
+      leggi("restaurant_tables", ambito, "id, zone, name, seats"),
+      leggi("zone_closures", ambito, "zone").eq("date", p.date),
     ]);
     if (tavQ.error || !tavQ.data || tavQ.data.length === 0) return null;
     const tavoli = (tavQ.data as { id: string; zone: string; name: string; seats: number }[])
@@ -219,17 +165,13 @@ export async function assegnaTavoli(p: {
 
     // Prenotazioni del giorno (confirmed/seated). Se la colonna `tables`
     // manca (#37 non lanciata) si riprova senza: tutte "virtuali".
-    let dayQ = supabaseAdmin
-      .from("reservations")
-      .select("id, heure, people, zone, service_key, tables, created_at, extra_minutes")
+    let dayQ = leggi("reservations", ambito, "id, heure, people, zone, service_key, tables, created_at, extra_minutes")
       .eq("date", p.date)
       .in("status", ["confirmed", "seated"]);
     if (p.excludeId) dayQ = dayQ.neq("id", p.excludeId);
     let day = await dayQ;
     if (day.error && String(day.error.message ?? "").includes("tables")) {
-      let q2 = supabaseAdmin
-        .from("reservations")
-        .select("id, heure, people, zone, service_key, created_at, extra_minutes")
+      let q2 = leggi("reservations", ambito, "id, heure, people, zone, service_key, created_at, extra_minutes")
         .eq("date", p.date)
         .in("status", ["confirmed", "seated"]);
       if (p.excludeId) q2 = q2.neq("id", p.excludeId);
@@ -274,15 +216,16 @@ export async function assegnaTavoli(p: {
  */
 export async function assegnaESalva(
   id: string,
-  p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number }
+  p: { date: string; heure: string; service_key: string | null; zone: string | null; people: number },
+  ambito: Ambito,
 ): Promise<void> {
   try {
     // Attribuzione manuale (reservation_auto_tables = "0"): il motore non
     // tocca MAI i tavoli — li mette/toglie il ristoratore dal modale.
-    const { data: at } = await appConfigEq("reservation_auto_tables");
+    const { data: at } = await appConfigEq("reservation_auto_tables", ambito);
     if (String(at?.value ?? "1") === "0") return;
-    const scelta = await assegnaTavoli({ ...p, excludeId: id });
-    await supabaseAdmin.from("reservations").update({ tables: scelta ? scelta.ids : null }).eq("id", id);
+    const scelta = await assegnaTavoli({ ...p, excludeId: id }, ambito);
+    await aggiorna("reservations", ambito, { tables: scelta ? scelta.ids : null }).eq("id", id);
   } catch { /* mai bloccante */ }
 }
 

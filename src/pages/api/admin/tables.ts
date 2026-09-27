@@ -1,10 +1,22 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
+import {
+  ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella, leggiConfig, scriviConfig, type Ambito,
+} from "../../../lib/admin/sede";
 import { invalidaAppConfig } from "../../../lib/appConfigCache";
 import { assegnaTavoli } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 /** Tavoli massimi in UNA combinazione (liaison) e combinazioni per section.
  *  Erano 8 e 40, applicati scartando in silenzio: con tavoli da 2 il tetto
@@ -44,6 +56,7 @@ function num(v: unknown, min: number, max: number, fallback: number): number {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   // ?assign=1 -> ANTEPRIMA assegnazione per il modale admin: quali tavoli
   // riceverebbe una prenotazione a questi date/heure/people/zone (dry-run,
@@ -53,7 +66,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const heure = url.searchParams.get("heure") ?? "";
     const people = Math.floor(Number(url.searchParams.get("people")));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(heure) || !Number.isFinite(people) || people < 1) {
-      return json({ error: "Paramètres invalides" }, 400);
+      return json({ error: await msg("err.params") }, 400);
     }
     const exclude = url.searchParams.get("exclude") ?? "";
     const proposal = await assegnaTavoli({
@@ -63,15 +76,15 @@ export const GET: APIRoute = async ({ request, url }) => {
       zone: (url.searchParams.get("zone") ?? "").trim() || null,
       people,
       excludeId: /^[0-9a-f-]{36}$/i.test(exclude) ? exclude : undefined,
-    });
+    }, ambito);
     return json({ proposal });
   }
 
   const zone = (url.searchParams.get("zone") ?? "").trim();
-  let q = supabaseAdmin.from("restaurant_tables").select(SELECT).order("created_at", { ascending: true });
+  let q = leggi("restaurant_tables", ambito, SELECT).order("created_at", { ascending: true });
   if (zone) q = q.eq("zone", zone);
   const { data, error } = await q;
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
 
   let area: number[][] | null = null;
   let links: unknown = [];
@@ -80,11 +93,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let autoTables = true;
   let priority: string[] = [];
   try {
-    const { data: cfg } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_decor", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
-    const m = new Map((cfg ?? []).map((r) => [r.key, r.value ?? ""]));
+    const { valori: m } = await leggiConfig(ambito, ["reservation_plan_areas", "reservation_plan_links", "reservation_plan_decor", "reservation_plan_mode", "reservation_zone_priority", "reservation_auto_tables"]);
     planMode = m.get("reservation_plan_mode") === "1";
     autoTables = (m.get("reservation_auto_tables") ?? "1") !== "0";
     const aree = JSON.parse(m.get("reservation_plan_areas") || "{}") as Record<string, unknown>;
@@ -104,31 +113,30 @@ export const GET: APIRoute = async ({ request, url }) => {
 };
 
 /** Aggiorna una mappa { zone: valore } in app_config. */
-async function salvaMappa(chiave: string, zone: string, valore: unknown | null): Promise<boolean> {
+async function salvaMappa(chiave: string, zone: string, valore: unknown | null, ambito: Ambito): Promise<boolean> {
   let mappa: Record<string, unknown> = {};
   try {
-    const { data: cfg } = await supabaseAdmin.from("app_config").select("value").eq("key", chiave).maybeSingle();
-    mappa = JSON.parse(cfg?.value || "{}") as Record<string, unknown>;
+    const { valori } = await leggiConfig(ambito, [chiave]);
+    mappa = JSON.parse(valori.get(chiave) || "{}") as Record<string, unknown>;
   } catch { mappa = {}; }
   if (valore !== null) mappa[zone] = valore;
   else delete mappa[zone];
-  const { error } = await supabaseAdmin
-    .from("app_config")
-    .upsert({ key: chiave, value: JSON.stringify(mappa) }, { onConflict: "key" });
-  if (!error) invalidaAppConfig();
-  return !error;
+  const err = await scriviConfig(ambito, { [chiave]: JSON.stringify(mappa) });
+  if (!err) invalidaAppConfig();
+  return !err;
 }
 
 // PUT — salva/cancella l'AREA (perimetro) di una section: { zone, area | null }
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: { zone?: unknown; area?: unknown; priority?: unknown };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   // Priorità di riempimento: { priority: ["Interieur", "Terrasse", …] }.
   // Ordine con cui l'assegnazione tavoli riempie le sections quando il
@@ -137,18 +145,16 @@ export const PUT: APIRoute = async ({ request }) => {
     const grezzi = Array.isArray((body as { priority?: unknown }).priority)
       ? ((body as { priority: unknown[] }).priority)
       : null;
-    if (!grezzi || grezzi.length > 20) return json({ error: "Priorité invalide" }, 400);
+    if (!grezzi || grezzi.length > 20) return json({ error: await msg("err.priority") }, 400);
     const priority = grezzi.map((z) => String(z).trim().slice(0, 60)).filter(Boolean);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "reservation_zone_priority", value: JSON.stringify(priority) }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambito, { reservation_zone_priority: JSON.stringify(priority) });
+    if (err) return json({ error: await msg("err.save") }, 500);
     invalidaAppConfig();
     return json({ ok: true, priority });
   }
 
   const zone = String(body.zone ?? "").trim().slice(0, 60);
-  if (!zone) return json({ error: "Section obligatoire" }, 400);
+  if (!zone) return json({ error: await msg("err.sectionRequired") }, 400);
 
   // Liaisons: { zone, links: [["id","id"], …] } (validate e salvate a parte).
   // I limiti sono una difesa contro valori assurdi, non una regola di sala:
@@ -162,19 +168,19 @@ export const PUT: APIRoute = async ({ request }) => {
     }
     const links: string[][] = [];
     for (const g of grezzi) {
-      if (!Array.isArray(g)) return json({ error: "Liaison invalide" }, 400);
+      if (!Array.isArray(g)) return json({ error: await msg("err.linkBad") }, 400);
       const ids = g.map((x) => String(x)).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
-      if (ids.length !== g.length) return json({ error: "Liaison invalide" }, 400);
+      if (ids.length !== g.length) return json({ error: await msg("err.linkBad") }, 400);
       if (ids.length < 2) {
-        return json({ error: "Une liaison doit contenir au moins 2 tables" }, 400);
+        return json({ error: await msg("err.link2") }, 400);
       }
       if (ids.length > MAX_TAVOLI_LIAISON) {
-        return json({ error: `Une liaison dépasse le maximum de ${MAX_TAVOLI_LIAISON} tables` }, 400);
+        return json({ error: `${await msg("err.linkMax")} (${MAX_TAVOLI_LIAISON})` }, 400);
       }
       links.push(ids);
     }
-    const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null);
-    if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+    const ok = await salvaMappa("reservation_plan_links", zone, links.length ? links : null, ambito);
+    if (!ok) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, links });
   }
 
@@ -190,39 +196,40 @@ export const PUT: APIRoute = async ({ request }) => {
       const color = ["white", "black", "brown"].includes(String(o.color)) ? String(o.color) : "brown";
       decor.push({ id, type, color, x: num(o.x, 0, 1000, 0), y: num(o.y, 0, 600, 0), w: num(o.w, 4, 1000, 40), h: num(o.h, 4, 600, 40) });
     }
-    const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null);
-    if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+    const ok = await salvaMappa("reservation_plan_decor", zone, decor.length ? decor : null, ambito);
+    if (!ok) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, decor });
   }
 
   let area: number[][] | null = null;
   if (Array.isArray(body.area)) {
-    if (body.area.length < 3 || body.area.length > 80) return json({ error: "Zone invalide (3–80 points)" }, 400);
+    if (body.area.length < 3 || body.area.length > 80) return json({ error: await msg("err.zonePoints") }, 400);
     area = (body.area as unknown[]).map((pt) => {
       const p2 = Array.isArray(pt) ? pt : [0, 0];
       return [num(p2[0], 0, 1000, 0), num(p2[1], 0, 600, 0)];
     });
   }
 
-  const ok = await salvaMappa("reservation_plan_areas", zone, area);
-  if (!ok) return json({ error: "Enregistrement impossible" }, 500);
+  const ok = await salvaMappa("reservation_plan_areas", zone, area, ambito);
+  if (!ok) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true, area });
 };
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const zone = String(body.zone ?? "").trim().slice(0, 60);
   const name = String(body.name ?? "").trim().slice(0, 12);
-  if (!zone || !name) return json({ error: "Section et nom obligatoires" }, 400);
+  if (!zone || !name) return json({ error: await msg("err.sectionAndName") }, 400);
   const shape = FORME.includes(String(body.shape)) ? String(body.shape) : "square";
 
   const riga = {
@@ -235,60 +242,60 @@ export const POST: APIRoute = async ({ request }) => {
     w: num(body.w, 20, 600, 100),
     h: num(body.h, 20, 500, 100),
   };
-  const { data, error } = await supabaseAdmin.from("restaurant_tables").insert(riga).select(SELECT).single();
-  if (error || !data) return json({ error: "Création impossible" }, 500);
+  const { data, error } = await inserisci("restaurant_tables", ambito, riga).select(SELECT).single();
+  if (error || !data) return json({ error: await msg("err.create") }, 500);
   return json({ table: data }, 201);
 };
 
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const campi: Record<string, unknown> = {};
   if ("name" in body) {
     const nome = String(body.name ?? "").trim().slice(0, 12);
-    if (!nome) return json({ error: "Nom obligatoire" }, 400);
+    if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
     campi.name = nome;
   }
   if ("seats" in body) campi.seats = num(body.seats, 1, 30, 4);
   if ("shape" in body) {
-    if (!FORME.includes(String(body.shape))) return json({ error: "Forme invalide" }, 400);
+    if (!FORME.includes(String(body.shape))) return json({ error: await msg("err.shape") }, 400);
     campi.shape = String(body.shape);
   }
   if ("x" in body) campi.x = num(body.x, 0, 1000, 0);
   if ("y" in body) campi.y = num(body.y, 0, 600, 0);
   if ("w" in body) campi.w = num(body.w, 20, 600, 100);
   if ("h" in body) campi.h = num(body.h, 20, 500, 100);
-  if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
+  if (Object.keys(campi).length === 0) return json({ error: await msg("err.nothing") }, 400);
 
-  const { data, error } = await supabaseAdmin
-    .from("restaurant_tables")
-    .update(campi)
+  const { data, error } = await aggiorna("restaurant_tables", ambito, campi)
     .eq("id", id)
     .select(SELECT)
     .single();
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   return json({ table: data });
 };
 
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
-  const { error } = await supabaseAdmin.from("restaurant_tables").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  const { error } = await cancella("restaurant_tables", ambito).eq("id", id);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

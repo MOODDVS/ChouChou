@@ -1,8 +1,19 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { accessToken, locationSalvata, listaPost, creaPost, eliminaPost } from "../../../../lib/googleBusiness";
+import { tokenGoogle, erroreGoogle, locationSalvata, listaPost, creaPost, eliminaPost } from "../../../../lib/googleBusiness";
+import { ambitoDiRichiesta } from "../../../../lib/admin/sede";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET    /api/admin/google/posts              -> lista dei post pubblicati
 // POST   /api/admin/google/posts   body {...} -> crea un post (STANDARD | EVENT | OFFER)
@@ -34,10 +45,10 @@ function urlSicuro(u: unknown): string | null {
 async function preludio(request: Request) {
   const staff = await verificaStaff(request);
   if (!staff) return { err: nonAutorizzato() };
-  const token = await accessToken();
-  if (!token) return { err: json({ error: "Google non collegato" }, 400) };
-  const loc = await locationSalvata();
-  if (!loc?.path) return { err: json({ error: "Scheda Google non configurata" }, 400) };
+  const { token: token, stato: sttoken } = await tokenGoogle();
+  if (!token) return { err: json({ error: await erroreGoogle(sttoken) }, 400) };
+  const loc = await locationSalvata(await ambitoDiRichiesta(request, staff));
+  if (!loc?.path) return { err: json({ error: await msg("err.googleNotLinked") }, 400) };
   return { token, path: loc.path };
 }
 
@@ -54,7 +65,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (p.err) return p.err;
 
   let b: Record<string, unknown>;
-  try { b = await request.json(); } catch { return json({ error: "Corps invalide" }, 400); }
+  try { b = await request.json(); } catch { return json({ error: await msg("err.body") }, 400); }
 
   const tipo = String(b.tipo ?? "STANDARD").toUpperCase();
   const lang = (String(b.lang ?? "fr").toLowerCase().slice(0, 5)) || "fr";
@@ -72,7 +83,7 @@ export const POST: APIRoute = async ({ request }) => {
       corpo.callToAction = { actionType: "CALL" };
     } else {
       const u = urlSicuro(b.ctaUrl);
-      if (!u) return json({ error: "Lien du bouton invalide (http/https)" }, 400);
+      if (!u) return json({ error: await msg("err.btnLink") }, 400);
       corpo.callToAction = { actionType: ctaTipo, url: u };
     }
   }
@@ -81,13 +92,13 @@ export const POST: APIRoute = async ({ request }) => {
     const title = String(b.title ?? "").trim().slice(0, 58);
     const d1 = dataGoogle(b.startDate);
     const d2 = dataGoogle(b.endDate);
-    if (!title) return json({ error: "Titre requis" }, 400);
-    if (!d1 || !d2) return json({ error: "Dates requises (début et fin)" }, 400);
+    if (!title) return json({ error: await msg("err.titleRequired") }, 400);
+    if (!d1 || !d2) return json({ error: await msg("err.datesRequired") }, 400);
     corpo.event = { title, schedule: { startDate: d1, endDate: d2 } };
   }
 
   if (tipo === "STANDARD") {
-    if (!summary && !photo) return json({ error: "Texte ou photo requis" }, 400);
+    if (!summary && !photo) return json({ error: await msg("err.textOrPhoto") }, 400);
     corpo.topicType = "STANDARD";
   } else if (tipo === "EVENT") {
     corpo.topicType = "EVENT";
@@ -102,7 +113,7 @@ export const POST: APIRoute = async ({ request }) => {
     if (terms) offer.termsConditions = terms;
     if (Object.keys(offer).length) corpo.offer = offer;
   } else {
-    return json({ error: "Type inconnu" }, 400);
+    return json({ error: await msg("err.typeUnknown") }, 400);
   }
 
   const { ok, error, post } = await creaPost(p.token!, p.path!, corpo);
@@ -114,8 +125,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const p = await preludio(request);
   if (p.err) return p.err;
   const name = url.searchParams.get("name") ?? "";
-  if (!name || !name.includes("/localPosts/")) return json({ error: "name manquant" }, 400);
+  if (!name || !name.includes("/localPosts/")) return json({ error: await msg("err.nameMissing") }, 400);
   const ok = await eliminaPost(p.token!, name);
-  if (!ok) return json({ error: "Suppression impossible" }, 502);
+  if (!ok) return json({ error: await msg("err.delete") }, 502);
   return json({ ok: true });
 };

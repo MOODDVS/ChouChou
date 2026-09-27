@@ -1,8 +1,21 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import {
+  ambitoDiRichiesta, leggi, salva, cancella, leggiConfig, scriviConfig, type Ambito,
+} from "../../../lib/admin/sede";
+import { fusoDi } from "../../../lib/fuso";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Chiusure di servizio per giorno (admin Réservations).
 // GET    ?date=YYYY-MM-DD                → { closures: [{ service_key, reason }], permanent: [key…] }
@@ -12,11 +25,15 @@ export const prerender = false;
 //                                          (app_config service_closures_permanent)
 // DELETE ?date=&service_key=             → riapre
 
-/** Lista dei service chiusi «jusqu'à réouverture» (app_config, mai bloccante). */
-async function leggiPermanenti(): Promise<string[]> {
+const K_PERM = "service_closures_permanent";
+
+/** Lista dei service chiusi «jusqu'à réouverture» (mai bloccante).
+ *  E' configurazione, quindi vive nei due strati come tutto il resto: un
+ *  punto puo' tenere chiusa la sera senza chiuderla agli altri. */
+async function leggiPermanenti(ambito: Ambito): Promise<string[]> {
   try {
-    const { data } = await supabaseAdmin.from("app_config").select("value").eq("key", "service_closures_permanent").maybeSingle();
-    const arr = JSON.parse(String(data?.value || "[]"));
+    const { valori } = await leggiConfig(ambito, [K_PERM]);
+    const arr = JSON.parse(String(valori.get(K_PERM) || "[]"));
     return Array.isArray(arr) ? arr.map(String).filter((k) => RE_KEY.test(k)) : [];
   } catch { return []; }
 }
@@ -35,26 +52,22 @@ export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
+  const ambito = await ambitoDiRichiesta(request, staff);
+
   // Tutte le chiusure da oggi in poi (fuso del ristorante)
   if (url.searchParams.get("future") === "1") {
-    let tz = "Europe/Brussels";
-    try {
-      const { data: cfg } = await supabaseAdmin.from("app_config").select("value").eq("key", "timezone").single();
-      const v = String(cfg?.value ?? "");
-      if (v) {
-        new Intl.DateTimeFormat("en", { timeZone: v });
-        tz = v;
-      }
-    } catch { /* default */ }
+    // Il fuso si legge con l'ambito, non da una copia locale: era la terza
+    // lettura a mano della stessa chiave, e dal 21/09 e' anche di QUESTA sede.
+    const tz = await fusoDi(ambito);
     const oggi = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
-    // Storico limitato a 90 giorni: le chiusure più vecchie si eliminano da sole
+    // Storico limitato a 90 giorni: le chiusure più vecchie si eliminano da
+    // sole — ma solo quelle di QUESTA sede, o si farebbe pulizia in casa
+    // d'altri senza che nessuno l'abbia chiesto.
     try {
       const limite = new Date(Date.parse(oggi) - 90 * 86400000).toISOString().slice(0, 10);
-      await supabaseAdmin.from("service_closures").delete().lt("date", limite);
+      await cancella("service_closures", ambito).lt("date", limite);
     } catch { /* mai bloccante */ }
-    const { data, error } = await supabaseAdmin
-      .from("service_closures")
-      .select("date, service_key, reason")
+    const { data, error } = await leggi("service_closures", ambito, "date, service_key, reason")
       .gte("date", oggi)
       .order("date", { ascending: true });
     if (error) return json({ closures: [], missing: true });
@@ -62,12 +75,10 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
 
-  const permanent = await leggiPermanenti();
-  const { data, error } = await supabaseAdmin
-    .from("service_closures")
-    .select("service_key, reason")
+  const permanent = await leggiPermanenti(ambito);
+  const { data, error } = await leggi("service_closures", ambito, "service_key, reason")
     .eq("date", date);
   // Tabella non ancora creata (migrazione #22): nessuna chiusura, non rotta
   if (error) return json({ closures: [], permanent, missing: true });
@@ -82,33 +93,35 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Chiusura PERMANENTE: { permanent_key, closed: true|false }
   if (body.permanent_key !== undefined) {
     const key = String(body.permanent_key ?? "");
-    if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
-    const lista = await leggiPermanenti();
+    if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
+    const ambitoPerm = await ambitoDiRichiesta(request, staff);
+    const lista = await leggiPermanenti(ambitoPerm);
     const nuova = body.closed ? [...new Set([...lista, key])] : lista.filter((k) => k !== key);
-    const { error } = await supabaseAdmin
-      .from("app_config")
-      .upsert({ key: "service_closures_permanent", value: JSON.stringify(nuova) }, { onConflict: "key" });
-    if (error) return json({ error: "Enregistrement impossible" }, 500);
+    const err = await scriviConfig(ambitoPerm, { [K_PERM]: JSON.stringify(nuova) });
+    if (err) return json({ error: await msg("err.save") }, 500);
     return json({ ok: true, permanent: nuova });
   }
 
   const date = String(body.date ?? "");
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const key = String(body.service_key ?? "");
-  if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
+  if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
   const reason = body.reason === "closed" ? "closed" : "full";
 
-  const { error } = await supabaseAdmin
-    .from("service_closures")
-    .upsert({ date, service_key: key, reason }, { onConflict: "date,service_key" });
+  const { error } = await salva(
+    "service_closures",
+    await ambitoDiRichiesta(request, staff),
+    { date, service_key: key, reason },
+    "date,service_key",
+  );
   if (error) {
-    return json({ error: "Enregistrement impossible — migration supabase/service_closures.sql à lancer ?" }, 500);
+    return json({ error: await msg("err.migrServiceClosures") }, 500);
   }
   return json({ ok: true });
 };
@@ -118,11 +131,13 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const key = url.searchParams.get("service_key") ?? "";
-  if (!RE_KEY.test(key)) return json({ error: "Service invalide" }, 400);
+  if (!RE_KEY.test(key)) return json({ error: await msg("err.service") }, 400);
 
-  const { error } = await supabaseAdmin.from("service_closures").delete().eq("date", date).eq("service_key", key);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  const { error } = await cancella("service_closures", await ambitoDiRichiesta(request, staff))
+    .eq("date", date)
+    .eq("service_key", key);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

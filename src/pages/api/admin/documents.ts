@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Documents (admin → Assets → Documents) : PDF nel bucket `documents`.
 // Ogni PDF può avere un'ANTEPRIMA (prima pagina in webp) salvata come
@@ -53,9 +63,9 @@ export const GET: APIRoute = async ({ request }) => {
     // Bucket non ancora creato = lista legittimamente vuota. QUALUNQUE altro
     // errore va detto: prima finivano tutti in "nessun documento", e chi
     // caricava un file vedeva il caricamento fallire senza capire perche'.
-    const msg = String(error.message ?? "").toLowerCase();
-    if (msg.includes("not found") || msg.includes("does not exist")) return json({ documents: [] });
-    return json({ error: "Lecture impossible", detail: error.message ?? "" }, 500);
+    const dettaglio = String(error.message ?? "").toLowerCase();
+    if (dettaglio.includes("not found") || dettaglio.includes("does not exist")) return json({ documents: [] });
+    return json({ error: await msg("err.read"), detail: error.message ?? "" }, 500);
   }
 
   // ⚠️ `list()` restituisce anche le CARTELLE (prefissi), che non sono oggetti:
@@ -83,15 +93,15 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const name = url.searchParams.get("name") ?? "";
-  if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
+  if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
 
   const { data, error } = await supabaseAdmin.storage.from(BUCKET).remove([name, thumbDi(name)]);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   // ⚠️ `remove()` NON da' errore per un file che non esiste: restituisce solo
   // la lista di quelli tolti davvero. Senza questo controllo l'admin diceva
   // «eliminato» e il documento restava li', il che e' peggio di un errore.
   const tolti = (data ?? []).map((f) => f.name);
-  if (!tolti.includes(name)) return json({ error: "Fichier introuvable" }, 404);
+  if (!tolti.includes(name)) return json({ error: await msg("err.fileNotFound") }, 404);
   return json({ ok: true });
 };
 
@@ -104,23 +114,23 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const name = body.name ?? "";
-  if (!nomeValido(name) || !name.endsWith(".pdf")) return json({ error: "Nom invalide" }, 400);
+  if (!nomeValido(name) || !name.endsWith(".pdf")) return json({ error: await msg("err.name") }, 400);
 
   let bytes: Buffer;
   try {
     bytes = Buffer.from(body.thumb ?? "", "base64");
   } catch {
-    return json({ error: "Aperçu illisible" }, 400);
+    return json({ error: await msg("err.previewUnreadable") }, 400);
   }
-  if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: "Aperçu invalide" }, 400);
+  if (bytes.length === 0 || bytes.length > 512 * 1024) return json({ error: await msg("err.previewBad") }, 400);
 
   const { error } = await supabaseAdmin.storage
     .from(BUCKET)
     .upload(thumbDi(name), bytes, { contentType: "image/webp", upsert: true });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };
 
@@ -132,20 +142,20 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const name = body.name ?? "";
-  if (!nomeValido(name)) return json({ error: "Nom invalide" }, 400);
+  if (!nomeValido(name)) return json({ error: await msg("err.name") }, 400);
   const nuovoNome = pulisciNome(body.new_name ?? "");
-  if (!nuovoNome) return json({ error: "Nouveau nom invalide" }, 400);
+  if (!nuovoNome) return json({ error: await msg("err.newName") }, 400);
   if (nuovoNome === name) {
     const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(name).data.publicUrl;
     return json({ ok: true, name, url });
   }
 
   const { error } = await supabaseAdmin.storage.from(BUCKET).move(name, nuovoNome);
-  if (error) return json({ error: "Ce nom existe déjà ou renommage impossible" }, 409);
+  if (error) return json({ error: await msg("err.nameTakenRename") }, 409);
   // L'anteprima segue il PDF (se non esiste, l'errore si ignora)
   await supabaseAdmin.storage.from(BUCKET).move(thumbDi(name), thumbDi(nuovoNome));
   const url = supabaseAdmin.storage.from(BUCKET).getPublicUrl(nuovoNome).data.publicUrl;

@@ -2,6 +2,19 @@
 
 Tutte idempotenti (`create table if not exists`, `add column if not exists`,
 `on conflict do nothing`): rilanciarle non fa danni. SQL Editor di Supabase.
+
+## Cliente nuovo, o dubbio su cosa è stato lanciato → `TUTTO.sql`
+
+`supabase/TUTTO.sql` è **tutte le migrazioni in un file solo**, nell'ordine di
+questa tabella: si incolla nell'SQL Editor e si esegue. Vale sia per un
+Supabase appena creato, sia per «non ricordo se avevo lanciato la #57» —
+essendo idempotenti, quelle già applicate non fanno niente.
+
+⚠️ **È generato, non si modifica a mano.** Quando aggiungi una migrazione:
+crea il `.sql`, aggiungi la riga qui sotto, poi `node scripts/genera-tutto.mjs`.
+`tests/migrazioni.test.mjs` lo ricalcola e lo confronta, quindi se te ne
+dimentichi il test diventa rosso — prima che un cliente nuovo si prenda uno
+schema a metà, che è un guasto che si manifesta settimane dopo.
 NB: se l'insert su `storage.buckets` è bloccato dal SQL Editor, crea i bucket
 dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `documents`.
 
@@ -79,6 +92,8 @@ dalla dashboard (Storage → New bucket, **Public** ON): `popups`, `menu`, `docu
 | 70 | `gift_cards_langs.sql` | `sender_lang` + `recipient_lang` (text) su gift_cards: lingua dell'email all'offrant e lingua dell'email al destinataire + del PDF. NULL = lingua predefinita del sito pubblico. Il PDF (on-demand) legge `recipient_lang`. Idempotente. |
 | 71 | `menu_variants.sql` | `variants` (jsonb, default `[]`) su menu_items: formati/varianti di un piatto con prezzo proprio (pizza 30/40 cm, calice/bottiglia, porzione). Array di `{ key, label_i18n, price_cents, orderable, sold_out }`. Vuoto = comportamento invariato (prezzo unico); pieno = `price_cents` diventa «a partire da» e il prezzo incassato è quello della variante, risolto lato server. Vincolo: deve essere un array. Idempotente. |
 | 72 | `admin_docs_lang.sql` | `lang` (text) su admin_docs_meta: lingua della LETTERA DI DISDETTA di un contratto. Non segue `admin_lang` perché l'email va al FORNITORE, non al ristoratore: si sceglie per documento in Réglages → Documents. NULL = lingua dell'admin (comportamento storico). L'API ripiega da sola se la colonna manca. Idempotente. |
+| 73 | `locations.sql` | **Multi-sede, passo 1 (solo schema, nessun effetto visibile).** Tabella `locations` (nome, slug, foto, fuso, ordine, attiva — **solo l'identità della sede**) + colonna `location_id uuid null references locations(id) on delete restrict` su 28 tabelle, con indice. **NULL = «vale per tutte le sedi»**: le righe esistenti restano a NULL, quindi per un cliente a sede unica non cambia niente. Nessuna chiave primaria toccata — `app_config` e `settings` hanno una chiave naturale e restano il livello del MARCHIO, sovrascritto per sede da due tabelle nuove, `location_config` e `location_settings` (riga assente = vale quella del marchio). Terza tabella `location_secrets`, **separata di proposito** dalla chiave/valore generica: ci vanno `stripe_secret_key` e `stripe_webhook_secret` (tre società = tre conti), e la lettura generica della configurazione non le vede mai. Assente = si ripiega sull'ambiente, cioè il comportamento di oggi. I vincoli `unique (date, service_key)` e `unique (date, zone)` diventano per sede con `NULLS NOT DISTINCT` (PG 15+, ripiego su `coalesce()` sotto), altrimenti i clienti a sede unica perderebbero in silenzio la protezione dal doppione. **Sezione 8 (aggiunta il 13/09):** indirizzo, CAP, città, telefono, email, ragione sociale, IVA e scheda Google escono da `locations` e finiscono in `location_config` con le chiavi che Réglages → Général usa già (`company_street`, `company_zip`, `public_phone`… vedi il file). Motivo: la scheda Sedi sta in `/admin/super`, dove il ristoratore non entra, e quei dati sono suoi — li scrive lui da Général sulla sede scelta in alto. Il travaso avviene prima del `drop column`, quindi quello che era già stato scritto non si perde, e le stringhe vuote non diventano sovrascritture. **Chi ha già lanciato la #73 la rilancia** e si prende solo la sezione 8. Idempotente. |
+| 74 | `reservations_source_canali.sql` | Allarga il `check` di `reservations.source` a **`instagram`** e **`qr`**, oltre a `web`/`walkin`/`phone`/`google`. Serve al `?ref=` dei link esterni (scheda Google Business, bio Instagram, QR sui tavoli). Il vincolo si rifà (drop + add): PostgreSQL non sa modificarlo sul posto. **Finché non si lancia, `?ref=instagram` farebbe fallire l'insert** — prenotazione persa, non statistica sbagliata; per questo il codice ripiega su `web` e `tests/sorgente.test.mjs` confronta l'elenco del codice con questo `check`. `qr` resta un valore distinto anche se nell'admin mostra l'icona del sito: stessa esperienza per chi guarda la lista, due canali diversi per chi decide dove spendere. Idempotente. |
 
 Manca ancora nel repo: `menu_seed.sql` (i 182 piatti La Molisana — solo per questo cliente).
 

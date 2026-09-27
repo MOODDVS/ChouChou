@@ -1,9 +1,23 @@
 import type { APIRoute } from "astro";
+import { leggi, tutteLeSedi, type Ambito } from "../../../lib/admin/sede";
+import {
+  uniscoClienti, chiaveCliente as chiave, type RigaOrdine, type RigaResa, type RigaCliente,
+} from "../../../lib/admin/clientiRegole";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { eliminaFotoStorage } from "../../../lib/admin/eliminaFotoStorage";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Lingue valide per il cliente (stesse del widget prenotazioni).
 const LINGUE_CLI = new Set(["fr", "en", "es", "it", "nl", "de", "ru", "ar", "zh", "ja"]);
@@ -17,45 +31,6 @@ const normLangCli = (v: unknown): string | null => {
 // POST → aggiunge un cliente manuale (name, email, phone).
 // Chiave cliente = email (minuscolo); fallback telefono, poi nome.
 
-interface RigaOrdine {
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  total_cents: number;
-  created_at: string;
-}
-
-interface RigaCliente {
-  id: string;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  hidden: boolean;
-  photo_url?: string | null;
-  blocked?: boolean | null;
-  created_at?: string | null;
-  lang?: string | null;
-}
-
-interface Cliente {
-  id: string | null; // id nella tabella `clients` se manuale, altrimenti null
-  name: string;
-  email: string;
-  phone: string;
-  orders: number;
-  reservations: number;
-  noshows: number;
-  total_cents: number;
-  last_order: string | null;
-  first_activity: string | null; // PRIMA attività in assoluto (per il tag New)
-  manual: boolean;
-  photo_url?: string | null;
-  blocked?: boolean;
-  newsletter_optout?: boolean;
-  lang?: string | null; // lingua del cliente (dalla prenotazione più recente)
-  key?: string; // chiave di aggregazione (per il dettaglio attività)
-}
-
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -63,20 +38,14 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function chiave(email: string, phone: string, name: string): string {
-  return email.toLowerCase() || phone || name.toLowerCase();
-}
-
 /** Ordini per il dettaglio attività (tutti i campi utili), a pagine di 1000. */
-async function ordiniDettaglio(): Promise<
+async function ordiniDettaglio(ambito: Ambito): Promise<
   { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { customer_name: string | null; customer_email: string | null; customer_phone: string | null; total_cents: number | null; created_at: string; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, created_at, status")
+    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at, status")
       .in("status", ["paid", "done"])
       .order("created_at", { ascending: false })
       .range(da, da + PAGINA - 1);
@@ -88,15 +57,13 @@ async function ordiniDettaglio(): Promise<
 }
 
 /** Prenotazioni per il dettaglio attività, a pagine di 1000. */
-async function prenotazioniDettaglio(): Promise<
+async function prenotazioniDettaglio(ambito: Ambito): Promise<
   { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[]
 > {
   const PAGINA = 1000;
   const tutti: { first_name: string | null; last_name: string | null; email: string | null; phone: string | null; date: string; heure: string | null; people: number | null; zone: string | null; status: string | null }[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("first_name, last_name, email, phone, date, heure, people, zone, status")
+    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, date, heure, people, zone, status")
       .order("date", { ascending: false })
       .range(da, da + PAGINA - 1);
     if (error) return tutti;
@@ -107,13 +74,11 @@ async function prenotazioniDettaglio(): Promise<
 }
 
 /** Legge TUTTI gli ordini incassati (paid/done), a pagine di 1000. */
-async function ordiniIncassati(): Promise<RigaOrdine[] | null> {
+async function ordiniIncassati(ambito: Ambito): Promise<RigaOrdine[] | null> {
   const PAGINA = 1000;
   const tutti: RigaOrdine[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_name, customer_email, customer_phone, total_cents, created_at")
+    const { data, error } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, total_cents, created_at")
       .in("status", ["paid", "done"])
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
@@ -124,24 +89,13 @@ async function ordiniIncassati(): Promise<RigaOrdine[] | null> {
   return tutti;
 }
 
-interface RigaResa {
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  status: string | null;
-  created_at: string | null;
-}
-
 /** Prenotazioni non annullate, a pagine di 1000. TOLLERANTE: se la
  *  tabella `reservations` non esiste ancora, torna una lista vuota. */
-async function prenotazioniAttive(): Promise<RigaResa[]> {
+async function prenotazioniAttive(ambito: Ambito): Promise<RigaResa[]> {
   const PAGINA = 1000;
   const tutti: RigaResa[] = [];
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("first_name, last_name, email, phone, status, created_at")
+    const { data, error } = await leggi("reservations", ambito, "first_name, last_name, email, phone, status, created_at")
       .order("created_at", { ascending: true })
       .range(da, da + PAGINA - 1);
     if (error) return tutti; // migrazione non ancora lanciata: nessun blocco
@@ -191,11 +145,23 @@ async function clientiManuali(): Promise<RigaCliente[] | null> {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  // ⚠️⚠️ AGGREGATO, chiesto per nome. Il cliente e' del MARCHIO: bloccato a
+  // Schaerbeek e' bloccato ovunque, la newsletter e' una sola, un buono
+  // comprato qui si spende la'. La sua storia di spesa e di visite deve
+  // essere INTERA, o Stockel vede un cliente da 40 € che nel gruppo ne ha
+  // spesi 300 e lo tratta di conseguenza.
+  //
+  // Fino al 16/09/2026 qui c'era `ambitoDiRichiesta`, mentre la prima
+  // pittura sul server usava l'aggregato: la pagina compariva con i totali
+  // del gruppo e mezzo secondo dopo si riscriveva con quelli di un punto.
+  // Chi vuole «solo il mio punto» ha le Statistiche, che sono per sede
+  // apposta — e lo dicono.
+  const ambito = tutteLeSedi();
 
   // Dettaglio: tutta l'attività (ordini + prenotazioni) di un cliente
   const activityKey = (url.searchParams.get("activity") ?? "").trim();
   if (activityKey) {
-    const [ordini, rese] = await Promise.all([ordiniDettaglio(), prenotazioniDettaglio()]);
+    const [ordini, rese] = await Promise.all([ordiniDettaglio(ambito), prenotazioniDettaglio(ambito)]);
     const attivita: { type: string; when: string; label: string; status: string; amount_cents: number | null }[] = [];
     for (const o of ordini) {
       const k = chiave((o.customer_email ?? "").trim(), (o.customer_phone ?? "").trim(), (o.customer_name ?? "").trim());
@@ -224,111 +190,24 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const [ordini, manuali, rese] = await Promise.all([
-    ordiniIncassati(),
+    ordiniIncassati(ambito),
     clientiManuali(),
-    prenotazioniAttive(),
+    prenotazioniAttive(ambito),
   ]);
-  if (ordini === null || manuali === null) return json({ error: "Lecture impossible" }, 500);
+  if (ordini === null || manuali === null) return json({ error: await msg("err.read") }, 500);
 
-  const mappa = new Map<string, Cliente>();
-
-  // 0) Chiavi dei clienti nascosti ("cancellati" dall'admin): vanno
-  //    esclusi sia come record manuali sia come aggregato degli ordini.
-  const nascosti = new Set<string>();
-  for (const m of manuali) {
-    if (!m.hidden) continue;
-    const k = chiave((m.email ?? "").trim(), (m.phone ?? "").trim(), (m.name ?? "").trim());
-    if (k) nascosti.add(k);
-  }
-
-  // 1) Aggregazione dagli ordini (ordine cronologico → l'ultimo vince sui dati).
-  for (const o of ordini) {
-    const email = (o.customer_email ?? "").trim();
-    const phone = (o.customer_phone ?? "").trim();
-    const name = (o.customer_name ?? "").trim();
-    const key = chiave(email, phone, name);
-    if (!key || nascosti.has(key)) continue;
-
-    let c = mappa.get(key);
-    if (!c) {
-      c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: o.created_at, first_activity: o.created_at, manual: false };
-      mappa.set(key, c);
-    }
-    c.orders += 1;
-    c.total_cents += o.total_cents;
-    if (o.created_at >= (c.last_order ?? "")) c.last_order = o.created_at;
-    if (!c.first_activity || o.created_at < c.first_activity) c.first_activity = o.created_at;
-    if (name) c.name = name;
-    if (phone) c.phone = phone;
-    if (email) c.email = email;
-  }
-
-  // 1b) Prenotazioni: conteggio per cliente (e creazione se ha SOLO prenotato).
-  for (const r of rese) {
-    const email = (r.email ?? "").trim();
-    const phone = (r.phone ?? "").trim();
-    const name = `${(r.first_name ?? "").trim()} ${(r.last_name ?? "").trim()}`.trim();
-    const key = chiave(email, phone, name);
-    if (!key || nascosti.has(key)) continue;
-
-    let c = mappa.get(key);
-    if (!c) {
-      c = { id: null, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: null, manual: false };
-      mappa.set(key, c);
-    }
-    // Annullata: il cliente resta in lista ma non conta come résa
-    if (r.status !== "cancelled") c.reservations += 1;
-    if (r.status === "noshow") c.noshows += 1;
-    if (r.created_at && (!c.first_activity || r.created_at < c.first_activity)) c.first_activity = r.created_at;
-    if (name && !c.name) c.name = name;
-    if (phone && !c.phone) c.phone = phone;
-    if (email && !c.email) c.email = email;
-  }
-
-  // 2) Fusione dei clienti manuali (aggiungono contatti o completano i dati).
-  for (const m of manuali) {
-    if (m.hidden) continue;
-    const email = (m.email ?? "").trim();
-    const phone = (m.phone ?? "").trim();
-    const name = (m.name ?? "").trim();
-    const key = chiave(email, phone, name);
-    if (!key) continue;
-
-    const esistente = mappa.get(key);
-    if (esistente) {
-      esistente.id = m.id;
-      esistente.manual = true;
-      if (m.photo_url) esistente.photo_url = m.photo_url;
-      if (m.blocked) esistente.blocked = true;
-      if (m.created_at && (!esistente.first_activity || m.created_at < esistente.first_activity))
-        esistente.first_activity = m.created_at;
-      // Il record `clients` è il dato CURATO (modale admin): prevale
-      // sull'aggregazione da ordini/prenotazioni (prima riempiva solo i
-      // buchi → modificare il cognome dal modale non si vedeva mai).
-      if (name) esistente.name = name;
-      if (email) esistente.email = email;
-      if (phone) esistente.phone = phone;
-      if (m.lang) esistente.lang = m.lang; // il dato curato (modale) prevale
-    } else {
-      mappa.set(key, {
-        id: m.id, name, email, phone, orders: 0, reservations: 0, noshows: 0, total_cents: 0, last_order: null, first_activity: m.created_at ?? null, manual: true, photo_url: m.photo_url ?? null, blocked: Boolean(m.blocked), lang: m.lang ?? null,
-      });
-    }
-  }
-
-  // Newsletter: chi prenota/ordina/è aggiunto a mano è OPT-IN per default;
-  // opt-out = presenza in newsletter_optout (stessa fonte del link email).
+  // ⚠️ L'unione sta in `clientiRegole.ts`, una volta sola. Era copiata qui e
+  // in `caricaClienti.ts` — novantasette righe da tenere allineate a mano — e
+  // le due copie leggevano con ambiti diversi: la pagina si disegnava con i
+  // totali del gruppo e mezzo secondo dopo si riscriveva con quelli di un
+  // punto solo.
+  let optout: string[] = [];
   try {
-    const { data: optout } = await supabaseAdmin.from("newsletter_optout").select("email");
-    const setOptout = new Set((optout ?? []).map((r) => String(r.email ?? "").toLowerCase()));
-    for (const c of mappa.values()) {
-      if (c.email && setOptout.has(c.email.toLowerCase())) c.newsletter_optout = true;
-    }
+    const { data } = await supabaseAdmin.from("newsletter_optout").select("email");
+    optout = (data ?? []).map((r) => String(r.email ?? ""));
   } catch { /* tabella assente: tutti opt-in */ }
 
-  const clienti = [...mappa.entries()]
-    .map(([k, c]) => ({ ...c, key: k }))
-    .sort((a, b) => b.total_cents - a.total_cents);
+  const clienti = uniscoClienti({ ordini, rese, manuali, optout });
   return json({ count: clienti.length, clients: clienti });
 };
 
@@ -361,15 +240,15 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const name = (body.name ?? "").trim();
   const email = (body.email ?? "").trim();
   const phone = (body.phone ?? "").trim();
-  if (!name) return json({ error: "Le nom est obligatoire" }, 400);
-  if (!email && !phone) return json({ error: "Renseignez au moins un email ou un téléphone" }, 400);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Email invalide" }, 400);
+  if (!name) return json({ error: await msg("err.nameRequired") }, 400);
+  if (!email && !phone) return json({ error: await msg("err.emailOrPhone") }, 400);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: await msg("err.email") }, 400);
 
   const patch: Record<string, unknown> = {
     name,
@@ -416,7 +295,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       ? await supabaseAdmin.from("clients").update(patch).eq("id", idRiga).select("id").maybeSingle()
       : await supabaseAdmin.from("clients").insert(patch).select("id").single();
   }
-  if (esito.error) return json({ error: "Enregistrement impossible" }, 500);
+  if (esito.error) return json({ error: await msg("err.save") }, 500);
 
   // Foto tolta o sostituita → il vecchio file sparisce dallo Storage
   // (dopo l'update: la riga non la referenzia più, la guardia passa)
@@ -447,6 +326,13 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  // ⚠️ AGGREGATO anche qui, e per un motivo preciso: sotto si controlla se il
+  // cliente ha ancora prenotazioni prima di cancellarlo davvero. Filtrando
+  // per sede, uno con prenotazioni a Jourdan cancellato da Stockel
+  // risulterebbe senza attivita', verrebbe eliminato per davvero, e
+  // l'aggregazione (che guarda il gruppo) lo farebbe riapparire subito. E'
+  // il bug «serve cancellare due volte», in versione multi-sede.
+  const ambito = tutteLeSedi();
 
   const id = url.searchParams.get("id") ?? "";
   const orders = Number(url.searchParams.get("orders") ?? "0");
@@ -454,7 +340,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   const phone = (url.searchParams.get("phone") ?? "").trim();
   const name = (url.searchParams.get("name") ?? "").trim();
 
-  if (!id && !email && !phone && !name) return json({ error: "Client non identifiable" }, 400);
+  if (!id && !email && !phone && !name) return json({ error: await msg("err.clientUnknown") }, 400);
 
   // Foto del cliente: va eliminata definitivamente in entrambi i casi
   let fotoDaEliminare: string | null = null;
@@ -474,9 +360,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     const conds: string[] = [];
     if (email) conds.push(`email.eq.${email}`);
     if (phone) conds.push(`phone.eq.${phone}`);
-    const { data: pr } = await supabaseAdmin
-      .from("reservations")
-      .select("id")
+    const { data: pr } = await leggi("reservations", ambito, "id")
       .or(conds.join(","))
       .limit(1);
     haPrenotazioni = !!(pr && pr.length);
@@ -486,7 +370,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   // Manuale puro, SENZA nessuna attività (né ordini né prenotazioni): eliminazione vera.
   if (id && !haAttivita) {
     const { error } = await supabaseAdmin.from("clients").delete().eq("id", id);
-    if (error) return json({ error: "Suppression impossible" }, 500);
+    if (error) return json({ error: await msg("err.delete") }, 500);
     await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
@@ -497,7 +381,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     if (upd.error && String(upd.error.message ?? "").includes("photo_url")) {
       upd = await supabaseAdmin.from("clients").update({ hidden: true }).eq("id", id);
     }
-    if (upd.error) return json({ error: "Suppression impossible" }, 500);
+    if (upd.error) return json({ error: await msg("err.delete") }, 500);
     await eliminaFotoStorage(fotoDaEliminare);
     return json({ ok: true });
   }
@@ -509,6 +393,6 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     phone: phone || null,
     hidden: true,
   });
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

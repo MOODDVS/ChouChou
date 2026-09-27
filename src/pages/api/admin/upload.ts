@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // POST /api/admin/upload — carica un'immagine su Supabase Storage
 // e ritorna l'URL pubblico.
@@ -37,7 +47,7 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Bucket di destinazione: solo quelli previsti (mai libero dal client)
@@ -48,24 +58,24 @@ export const POST: APIRoute = async ({ request }) => {
   const estensione = filename.split(".").pop()?.toLowerCase() ?? "";
   const contentType = TIPI[estensione];
   if (!contentType) {
-    return json({ error: "Format non supporté (jpg, png, webp, gif, svg, pdf)" }, 400);
+    return json({ error: await msg("err.formatUnsupported") }, 400);
   }
   // I PDF vanno SOLO nel bucket documents (e viceversa)
   if ((contentType === "application/pdf") !== (bucket === "documents")) {
-    return json({ error: "Format et destination incohérents" }, 400);
+    return json({ error: await msg("err.formatDest") }, 400);
   }
   // Le favicon .ico SOLO nel bucket brand
   if (contentType === "image/x-icon" && bucket !== "brand") {
-    return json({ error: "Format et destination incohérents" }, 400);
+    return json({ error: await msg("err.formatDest") }, 400);
   }
 
   let bytes: Buffer;
   try {
     bytes = Buffer.from(body.data ?? "", "base64");
   } catch {
-    return json({ error: "Fichier illisible" }, 400);
+    return json({ error: await msg("err.fileUnreadable") }, 400);
   }
-  if (bytes.length === 0) return json({ error: "Fichier vide" }, 400);
+  if (bytes.length === 0) return json({ error: await msg("err.fileEmpty") }, 400);
   const maxBytes = bucket === "documents" ? 10 * 1024 * 1024 : MAX_BYTES;
   if (bytes.length > maxBytes) {
     return json({ error: bucket === "documents" ? "Fichier trop lourd (max 10 Mo)" : "Fichier trop lourd (max 4 Mo)" }, 400);
@@ -84,7 +94,7 @@ export const POST: APIRoute = async ({ request }) => {
   const { error } = await supabaseAdmin.storage
     .from(bucket)
     .upload(path, bytes, { contentType, upsert: false });
-  if (error) return json({ error: "Téléversement impossible" }, 500);
+  if (error) return json({ error: await msg("err.upload") }, 500);
 
   const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(path);
   return json({ ok: true, url: data.publicUrl }, 201);

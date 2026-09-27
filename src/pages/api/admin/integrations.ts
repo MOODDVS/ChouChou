@@ -3,14 +3,25 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { serviceAccountEmail, searchConsolePronto } from "../../../lib/searchConsole";
+import { statoGoogle } from "../../../lib/googleBusiness";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Integrazioni di terzi (Réglages → Integrations). SOLO super admin:
 // il codice incollato finisce nel sito pubblico del cliente.
 //
 // Prenotazioni:
-//   resa_mode     : "moodd" (widget MOODD) | "link" | "embed" | "none"
+//   resa_mode     : "moodd" (widget RestoHub) | "link" | "embed" | "none"
 //   resa_provider : nome del fornitore (Zenchef, TheFork…) — solo informativo
 //   resa_url      : URL di prenotazione (modalità "link")
 //   resa_embed    : codice HTML/JS del widget (modalità "embed")
@@ -54,6 +65,8 @@ export const GET: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
 
   const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE, K_NL_QUOTA]);
+  // Una chiamata sola a Google per sapere se il permesso vale ancora.
+  const statoG = await statoGoogle();
   const mode = MODI.includes(c[K_MODE]) ? c[K_MODE] : "moodd";
   return json({
     resa: {
@@ -66,7 +79,13 @@ export const GET: APIRoute = async ({ request }) => {
     },
     google: {
       place_id: c[K_GPLACE] ?? "",
-      connected: Boolean(c[K_GTOKEN]),
+      // ⚠️ `connected` era `Boolean(token nel database)`: diceva «collegato»
+      // anche quando Google l'aveva revocato da giorni. La stringa c'e', il
+      // permesso no — e finche' l'app OAuth resta in «Testing» Google li
+      // revoca ogni SETTE GIORNI. Adesso si chiede a Google, e si distingue
+      // «scaduto» (ricollega) da «non risponde» (riprova).
+      connected: statoG === "ok",
+      stato: statoG,
       // la connessione OAuth è possibile solo con le credenziali MOODD configurate
       oauth_ready: Boolean(
         (import.meta.env.GOOGLE_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID) &&
@@ -91,13 +110,13 @@ export const GET: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
+  if (!isSuperUser(staff)) return json({ error: await msg("err.super") }, 403);
 
   let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string; newsletter_quota?: number };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   // Salvataggio PARZIALE: ogni bottone "Enregistrer" tocca solo i suoi campi.
@@ -110,11 +129,11 @@ export const PUT: APIRoute = async ({ request }) => {
     const mode = MODI.includes(String(body.mode)) ? String(body.mode) : "moodd";
     const url = String(body.url ?? "").trim().slice(0, 500);
     if (mode === "link" && url && !/^https:\/\//i.test(url)) {
-      return json({ error: "Le lien doit commencer par https://" }, 400);
+      return json({ error: await msg("err.linkHttps") }, 400);
     }
-    if (mode === "link" && !url) return json({ error: "Ajoute le lien de réservation." }, 400);
+    if (mode === "link" && !url) return json({ error: await msg("err.addResLink") }, 400);
     if (mode === "embed" && !String(body.embed ?? "").trim()) {
-      return json({ error: "Colle le code du widget." }, 400);
+      return json({ error: await msg("err.pasteWidget") }, 400);
     }
     upserts.push(
       { key: K_MODE, value: mode },
@@ -125,19 +144,18 @@ export const PUT: APIRoute = async ({ request }) => {
   }
 
   // --- Google Business : Place ID ---
-  if (body.google_place_id !== undefined) {
-    const placeId = String(body.google_place_id).trim().slice(0, 200);
-    if (placeId && !/^[A-Za-z0-9_-]+$/.test(placeId)) {
-      return json({ error: "Place ID invalide." }, 400);
-    }
-    upserts.push({ key: K_GPLACE, value: placeId });
-  }
+  // ⚠️ NON si scrive piu' da qui (15/09/2026). Il Place ID identifica UN
+  // esercizio fisico, quindi e' un dato della SEDE e si imposta nella sua
+  // scheda (Sedi → matita), che lo salva in `location_config`. La chiave
+  // resta LEGGIBILE in `app_config` perche' `leggiConfig` ci ripiega: le
+  // installazioni a sede unica di oggi continuano a funzionare senza
+  // toccare niente.
 
   // --- Search Console : "sc-domain:exemple.be" ou une URL https ---
   if (body.gsc_site !== undefined) {
     const gscSite = String(body.gsc_site).trim().slice(0, 300);
     if (gscSite && !/^sc-domain:[a-z0-9.-]+$/i.test(gscSite) && !/^https:\/\//i.test(gscSite)) {
-      return json({ error: "Site Search Console invalide : sc-domain:exemple.be ou https://…" }, 400);
+      return json({ error: await msg("err.scSite") }, 400);
     }
     upserts.push({ key: K_GSC_SITE, value: gscSite });
   }
@@ -146,13 +164,13 @@ export const PUT: APIRoute = async ({ request }) => {
   if (body.newsletter_quota !== undefined) {
     const n = Math.floor(Number(body.newsletter_quota));
     if (!Number.isFinite(n) || n < 0 || n > 1000000) {
-      return json({ error: "Quota newsletter invalide (0 – 1 000 000)." }, 400);
+      return json({ error: await msg("err.nlQuota") }, 400);
     }
     upserts.push({ key: K_NL_QUOTA, value: String(n) });
   }
 
-  if (!upserts.length) return json({ error: "Rien à enregistrer" }, 400);
+  if (!upserts.length) return json({ error: await msg("err.nothingSave") }, 400);
   const { error } = await supabaseAdmin.from("app_config").upsert(upserts, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };

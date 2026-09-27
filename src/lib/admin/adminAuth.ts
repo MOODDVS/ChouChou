@@ -73,6 +73,15 @@ export interface StaffUser {
   role?: string;
   /** Vecchio flag booleano, tenuto per retrocompatibilità. */
   is_super?: boolean;
+  /** Multi-sede: la sede a cui questo utente è legato (app_metadata,
+   *  scrivibile solo con la service key). NULL = le vede tutte.
+   *  Viaggia FIRMATA dentro il JWT: il browser non può cambiarla. */
+  location_id?: string | null;
+  /** Pagine admin permesse a QUESTA persona (app_metadata, service key).
+   *  `undefined`/`null` = nessuno ha ancora deciso → vale il default del
+   *  ruolo. Viaggia firmata nel JWT come `location_id`: il browser non può
+   *  aggiungersi una pagina. */
+  pages?: string[] | null;
 }
 
 // ============================================================
@@ -177,6 +186,11 @@ async function verificaLocale(token: string, opts: { ignoraScadenza?: boolean } 
     email: typeof payload.email === "string" ? payload.email : null,
     role: typeof payload.app_metadata?.role === "string" ? payload.app_metadata.role : undefined,
     is_super: payload.app_metadata?.is_super === true,
+    location_id:
+      typeof payload.app_metadata?.location_id === "string" ? payload.app_metadata.location_id : null,
+    pages: Array.isArray(payload.app_metadata?.pages)
+      ? (payload.app_metadata.pages as unknown[]).map((x: unknown) => String(x))
+      : null,
   };
 }
 
@@ -214,6 +228,8 @@ export async function verificaStaff(request: Request): Promise<StaffUser | null>
       email: data.user.email ?? null,
       role: (data.user.app_metadata as { role?: string } | undefined)?.role,
       is_super: (data.user.app_metadata as { is_super?: boolean } | undefined)?.is_super === true,
+      location_id:
+        (data.user.app_metadata as { location_id?: string } | undefined)?.location_id ?? null,
     };
   }
 
@@ -254,6 +270,24 @@ export async function sessioneRiconosciuta(token: string): Promise<boolean> {
     return !!(await verificaLocale(token, { ignoraScadenza: true }));
   } catch {
     return true; // JWKS irraggiungibile: fail-open (render come prima), mai un loop di login
+  }
+}
+
+/**
+ * I dati FIRMATI della sessione (ruolo, sede, pagine) senza toccare la rete.
+ *
+ * Come `sessioneRiconosciuta`, la SCADENZA si ignora: un token appena scaduto
+ * ma in corso di rinnovo e' una situazione normale, e trattarlo come «non ha
+ * il permesso» butterebbe fuori dalla pagina qualcuno che ha tutti i diritti.
+ * Qui non si decide SE e' autenticato — quello e' gia' deciso — si legge solo
+ * CHI e'. Firma non verificabile → null, e chi chiama non blocca niente.
+ */
+export async function claimsDaToken(token: string): Promise<StaffUser | null> {
+  if (!token) return null;
+  try {
+    return await verificaLocale(token, { ignoraScadenza: true });
+  } catch {
+    return null;
   }
 }
 

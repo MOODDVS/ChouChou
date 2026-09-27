@@ -3,38 +3,36 @@ import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { creaCheckoutSession, creaCheckoutSupplemento, type VoceCheckout } from "../../../lib/stripe";
-import { calcolaSlotGiorno, TIMEZONE } from "../../../lib/slots";
+import { basePubblicaOpz } from "../../../lib/basePubblica";
+import { calcolaSlotGiorno } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 import { configGiornoEffettiva } from "../../../lib/schedule";
+// Multi-sede. `inserisci` e `aggiorna` sono gia' nomi locali qui dentro,
+// quindi l'importazione e' rinominata invece di rinominare le loro.
+import {
+  ambitoDiRichiesta, ambitoDiRiga, cercaAmbito, pagamentoOnlineAttivo, leggi, inserisci as inserisciRiga, aggiorna as aggiornaRighe, cancella, type Ambito,
+} from "../../../lib/admin/sede";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../../lib/pricing";
+import { applicaStatoSede } from "../../../lib/menuStato";
 import { emailLienPaiement, inviaNotifiche, inviaModificaOrdine, inviaAnnullaOrdine } from "../../../lib/notifications";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
-}
-
-// Base pubblica del sito per gli URL di ritorno Stripe (es. "/demo01").
-// app_config "public_site_base"; vuoto/assente = sito alla radice ("").
-// Serve perché i link di pagamento generati dall'admin devono riportare
-// il cliente alla conferma del SITO giusto (non alla root sbagliata).
-async function basePubblica(): Promise<string | undefined> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "public_site_base")
-      .maybeSingle();
-    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
-    if (!v) return undefined;
-    const b = (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
-    return b || undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 // GET /api/admin/orders
@@ -45,6 +43,8 @@ async function basePubblica(): Promise<string | undefined> {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   // Polling toast "Nouvelle commande": gli ultimi ordini PAGATI (per created_at).
   // Il client tiene gli ID già visti e avvisa sui NUOVI. Non si usa più un
@@ -58,9 +58,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     // ne "risaliva" uno più vecchio mai visto, scambiato per nuovo ordine
     // (toast/beep fantasma). Con la finestra ampia gli ordini pagati ATTIVI
     // (non 'done'/'cancelled') ci stanno tutti: nessuna risalita, nessun falso.
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("id, customer_name, total_cents, pickup_time, created_at")
+    const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
       .eq("status", "paid")
       .order("created_at", { ascending: false })
       .limit(200);
@@ -72,9 +70,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const newSince = url.searchParams.get("new_since");
   if (newSince) {
     const now = new Date().toISOString();
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("id, customer_name, total_cents, pickup_time, created_at")
+    const { data, error } = await leggi("orders", ambito, "id, customer_name, total_cents, pickup_time, created_at")
       .eq("status", "paid")
       .gt("created_at", newSince)
       .order("created_at", { ascending: true })
@@ -87,20 +83,18 @@ export const GET: APIRoute = async ({ request, url }) => {
   // pallino verde nel datepicker di consultazione).
   const monthParam = url.searchParams.get("month");
   if (monthParam && /^\d{4}-\d{2}$/.test(monthParam)) {
-    const start = DateTime.fromISO(monthParam + "-01", { zone: TIMEZONE });
+    const start = DateTime.fromISO(monthParam + "-01", { zone: fuso });
     if (!start.isValid) return json({ days: [] });
     const daM = start.startOf("month").toISO();
     const aM = start.endOf("month").toISO();
-    const { data } = await supabaseAdmin
-      .from("orders")
-      .select("pickup_time, status, source")
+    const { data } = await leggi("orders", ambito, "pickup_time, status, source")
       .gte("pickup_time", daM as string)
       .lte("pickup_time", aM as string);
     const giorni = new Set<string>();
     for (const r of (data ?? []) as Array<{ pickup_time: string; status: string; source?: string | null }>) {
       const ok = ["paid", "done", "cancelled"].includes(r.status) || (r.status === "pending" && r.source === "manual");
       if (!ok) continue;
-      const d = DateTime.fromISO(r.pickup_time).setZone(TIMEZONE).toISODate();
+      const d = DateTime.fromISO(r.pickup_time).setZone(fuso).toISODate();
       if (d) giorni.add(d);
     }
     return json({ days: [...giorni] });
@@ -125,9 +119,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     };
     // 1) ordini passati (customer_name), dal più recente
     try {
-      const { data } = await supabaseAdmin
-        .from("orders")
-        .select("customer_name, customer_email, customer_phone, lang, created_at")
+      const { data } = await leggi("orders", ambito, "customer_name, customer_email, customer_phone, lang, created_at")
         .ilike("customer_name", `%${pulito}%`)
         .order("created_at", { ascending: false })
         .limit(60);
@@ -158,9 +150,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     type ItemJ = { id?: string; name?: string; qty?: number; variant?: string };
     const rows = new Map<string, { items: ItemJ[]; lang: string; created_at: string }>();
     const raccogli = async (mode: "email" | "phone", val: string) => {
-      const base = supabaseAdmin
-        .from("orders")
-        .select("id, items, lang, created_at")
+      const base = leggi("orders", ambito, "id, items, lang, created_at")
         .in("status", ["paid", "done"])
         .order("created_at", { ascending: false })
         .limit(500);
@@ -193,10 +183,10 @@ export const GET: APIRoute = async ({ request, url }) => {
     return json({ top_items: top, lang });
   }
 
-  // Soglia: 7 giorni fa a mezzanotte, fuso Europe/Brussels, in ISO completo
+  // Soglia: 7 giorni fa a mezzanotte, nel fuso DELLA SEDE, in ISO completo
   // (pickup_time è timestamptz, quindi confronto con un istante ISO).
   const soglia = DateTime.now()
-    .setZone(TIMEZONE)
+    .setZone(fuso)
     .minus({ days: 7 })
     .startOf("day")
     .toISO();
@@ -207,7 +197,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let daISO: string | null = null;
   let aISO: string | null = null;
   if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-    const d = DateTime.fromISO(dateParam, { zone: TIMEZONE });
+    const d = DateTime.fromISO(dateParam, { zone: fuso });
     if (d.isValid) {
       daISO = d.startOf("day").toISO();
       aISO = d.endOf("day").toISO();
@@ -220,11 +210,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   // stata lanciata, il primo select fallisce e si ripiega sui campi base:
   // la lista continua a funzionare, la feature differenza resta dormiente.
   const EXTRA_50 = ", supplement_due_cents, refund_due_cents, supplement_paid_at, payment_method";
-  const leggi = (campi: string) => {
-    const q1 = supabaseAdmin.from("orders").select(campi).in("status", ["paid", "done", "cancelled"]);
+  // ⚠️ Nome esplicito: `leggi` e' il passaggio obbligato importato da
+  // `sede.ts`, e una funzione locale con lo stesso nome lo ombreggerebbe in
+  // TUTTO il corpo dell'handler — comprese le righe SOPRA di lei, che
+  // finirebbero nella sua zona morta. Non un errore di compilazione: un
+  // ReferenceError a pagina aperta.
+  const leggiOrdini = (campi: string) => {
+    const q1 = leggi("orders", ambito, campi).in("status", ["paid", "done", "cancelled"]);
     // Pending MANUALI (link di pagamento inviato): i pending del sito
     // (checkout abbandonati) restano fuori. Migrazione #29 assente → nessuno.
-    const q2 = supabaseAdmin.from("orders").select(campi).eq("status", "pending").eq("source", "manual");
+    const q2 = leggi("orders", ambito, campi).eq("status", "pending").eq("source", "manual");
     if (daISO && aISO) {
       q1.gte("pickup_time", daISO).lte("pickup_time", aISO);
       q2.gte("pickup_time", daISO).lte("pickup_time", aISO);
@@ -237,11 +232,11 @@ export const GET: APIRoute = async ({ request, url }) => {
       q2.order("pickup_time", { ascending: true }),
     ]);
   };
-  let [princ, pend] = await leggi(CAMPI_BASE + EXTRA_50);
-  if (princ.error) [princ, pend] = await leggi(CAMPI_BASE);
+  let [princ, pend] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
+  if (princ.error) [princ, pend] = await leggiOrdini(CAMPI_BASE);
 
   if (princ.error) {
-    return json({ error: "Lecture impossible" }, 500);
+    return json({ error: await msg("err.read") }, 500);
   }
 
   // Nota: `select` con stringa variabile (fallback #50) fa perdere a TS il tipo
@@ -262,13 +257,23 @@ export const GET: APIRoute = async ({ request, url }) => {
 // lo passerà a 'paid' quando il cliente paga (email cucina/conferma comprese).
 /** Piatti per il calcolo di un ordine dello staff. Prezzi SEMPRE dal DB.
  *  Ripiega senza `variants` sui DB dove la migrazione #71 manca ancora. */
-async function piattiPerOrdine(ids: string[]): Promise<RisultatoQuery> {
+async function piattiPerOrdine(ids: string[], ambito: Ambito): Promise<RisultatoQuery> {
   const CAMPI = "id, name, price_cents, available, discount_type, discount_value";
-  return await conRipiegoColonne(
+  const res = await conRipiegoColonne(
     CAMPI,
     async (campi) =>
-      (await supabaseAdmin.from("menu_items").select(campi).in("id", ids)) as unknown as RisultatoQuery
+      (await leggi("menu_items", ambito, campi).in("id", ids)) as unknown as RisultatoQuery
   );
+  // L'esaurito e' del PUNTO, non del piatto: si sovrappone qui, dentro la
+  // funzione, cosi' nessuno dei due chiamanti puo' dimenticarselo e vendere
+  // una burrata finita stamattina a Stockel.
+  if (res.data) {
+    res.data = (await applicaStatoSede(
+      res.data as unknown as Record<string, unknown>[],
+      ambito,
+    )) as unknown as typeof res.data;
+  }
+  return res;
 }
 
 /** Riga d'ordine a partire dal piatto e dal formato eventualmente scelto.
@@ -276,12 +281,13 @@ async function piattiPerOrdine(ids: string[]): Promise<RisultatoQuery> {
 function rigaOrdine(
   piatto: any,
   rich: { qty?: unknown; variant?: unknown },
-  lang: string
+  lang: string,
+  ambito: Ambito,
 ): { name: string; base_name: string; variant_label?: string; price_cents: number; qty: number; variant?: string } | null {
   const qty = Math.max(1, Math.floor(Number(rich.qty)));
   let variante = null as ReturnType<typeof trovaVariante>;
-  if (haVarianti(piatto.variants)) {
-    variante = trovaVariante(piatto.variants, rich.variant, true);
+  if (haVarianti(piatto.variants, ambito)) {
+    variante = trovaVariante(piatto.variants, rich.variant, true, ambito);
     if (!variante) return null;
   }
   const pieno = variante ? variante.price_cents : piatto.price_cents;
@@ -302,6 +308,8 @@ function rigaOrdine(
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   let body: {
     first_name?: string;
@@ -319,26 +327,33 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   // ---- RINVIO email di pagamento (ordine pending): sessione Stripe NUOVA
   // (il vecchio link può essere scaduto: 24h) + stessa email col riepilogo.
   if (body.resend_id) {
     const rid = String(body.resend_id);
-    if (!/^[0-9a-f-]{36}$/i.test(rid)) return json({ error: "Id invalide" }, 400);
-    const { data: ord } = await supabaseAdmin.from("orders").select("*").eq("id", rid).maybeSingle();
-    if (!ord || ord.status !== "pending") return json({ error: "Commande introuvable ou déjà payée" }, 404);
+    if (!/^[0-9a-f-]{36}$/i.test(rid)) return json({ error: await msg("err.id") }, 400);
+    const { data: ord } = await leggi("orders", ambito, "*").eq("id", rid).maybeSingle();
+    if (!ord || ord.status !== "pending") return json({ error: await msg("err.orderNotFoundOrPaid") }, 404);
     const vociR: VoceCheckout[] = ((ord.items ?? []) as { name: string; qty: number; price_cents: number }[])
       .filter((i) => i.qty > 0)
       .map((i) => ({ name: i.name, price_cents: i.price_cents, qty: i.qty }));
-    if (!vociR.length) return json({ error: "Commande vide" }, 409);
+    if (!vociR.length) return json({ error: await msg("err.orderEmpty") }, 409);
     const siteUrlR = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
       const langR: "fr" | "en" = ord.lang === "en" ? "en" : "fr";
-      const payUrl = await creaCheckoutSession({ voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblica() });
-      await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", rid);
+      // ⚠️ Il conto e' quello dell'ORDINE (`ord` e' letto con `*`), non la
+      // sede selezionata nell'header: si sta rimandando il link di un ordine
+      // che esiste gia', e deve incassare dove ha sempre dovuto incassare.
+      const contoOrd = ambitoDiRiga(ord.location_id as string | null);
+      const payUrl = await creaCheckoutSession({ ambito: contoOrd, voci: vociR, orderId: rid, siteUrl: siteUrlR, lang: langR, returnBase: await basePubblicaOpz(contoOrd) });
+      await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", rid);
       void emailLienPaiement({
+        // Stessa sede dell'incasso: l'email porta indirizzo e telefono del
+        // punto dove l'ordine e' stato preso.
+        location_id: ord.location_id as string | null,
         numero: rid.slice(0, 8),
         customer_name: String(ord.customer_name ?? ""),
         customer_email: String(ord.customer_email ?? ""),
@@ -355,7 +370,7 @@ export const POST: APIRoute = async ({ request }) => {
       return json({ ok: true });
     } catch (e) {
       console.error("[rinvio email ordine] Stripe error:", e);
-      return json({ error: "Erreur Stripe" }, 502);
+      return json({ error: await msg("err.stripe") }, 502);
     }
   }
 
@@ -373,47 +388,56 @@ export const POST: APIRoute = async ({ request }) => {
   // richiamare il cliente se qualcosa non va col ritiro. Il cognome no: al
   // banco spesso non lo si chiede. (La MODIFICA non li impone: gli ordini
   // presi dal sito pubblico possono non avere il telefono.)
-  if (!String(body.first_name ?? "").trim()) return json({ error: "Prénom requis" }, 400);
-  if (!String(body.phone ?? "").trim()) return json({ error: "Téléphone requis" }, 400);
-  if (!nome) return json({ error: "Nom requis" }, 400);
+  if (!String(body.first_name ?? "").trim()) return json({ error: await msg("err.firstNameRequired") }, 400);
+  if (!String(body.phone ?? "").trim()) return json({ error: await msg("err.phoneRequired") }, 400);
+  if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
   // Email obbligatoria SOLO per il link di pagamento; facoltativa se pagato di
   // persona (walk-in). Se presente deve comunque essere valida.
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  if (payment === "link" && !emailOk) return json({ error: "Email requise pour le lien de paiement" }, 400);
-  if (email && !emailOk) return json({ error: "Email invalide" }, 400);
-  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: "Créneau invalide" }, 400);
-  if (!items.length) return json({ error: "Panier vide" }, 400);
+  if (payment === "link" && !emailOk) return json({ error: await msg("err.emailForPayLink") }, 400);
+
+  // ⚠️ Il bottone nascosto e' un suggerimento, non un controllo. Chi manda la
+  // richiesta e' il browser, e il browser puo' mandare qualunque cosa — un
+  // vecchio schermo aperto da stamattina, per esempio. Senza questo, un
+  // ordine `link` su una sede non configurata verrebbe creato, l'email
+  // partirebbe, e il cliente pagherebbe su un conto che non e' il suo.
+  if (payment === "link" && !(await pagamentoOnlineAttivo(ambito))) {
+    return json({ error: await msg("err.payNotConfigured") }, 409);
+  }
+  if (email && !emailOk) return json({ error: await msg("err.email") }, 400);
+  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: await msg("err.slot") }, 400);
+  if (!items.length) return json({ error: await msg("err.cartEmpty") }, 400);
 
   // Data del ritiro: oggi (default) o un giorno futuro. Le date passate/non valide
   // vengono rifiutate. Per oggi si usa l'ora corrente (filtra gli slot passati),
   // per un giorno futuro l'inizio giornata.
-  const oraNow = DateTime.now().setZone(TIMEZONE);
+  const oraNow = DateTime.now().setZone(fuso);
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: "Date invalide" }, 400);
-    const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
-    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: "Date invalide" }, 400);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
+    const d = DateTime.fromISO(dStr, { zone: fuso });
+    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
   // Créneau valido per QUELLA data (stessa fonte del sito: /api/slots)
-  const config = await configGiornoEffettiva(ora);
-  if (!config) return json({ error: "Horaires indisponibles" }, 503);
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
-  if (![...lunch, ...dinner].includes(slot)) return json({ error: "Créneau plus disponible" }, 409);
+  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
+  if (![...lunch, ...dinner].includes(slot)) return json({ error: await msg("err.slotGone") }, 409);
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi
   const ids = items.map((i) => String(i.id ?? ""));
-  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids);
-  if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
+  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids, ambito);
+  if (errMenu || !piatti) return json({ error: await msg("err.menuUnreadable") }, 503);
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
-    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
-    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
+    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
+    if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
     itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
@@ -436,16 +460,16 @@ export const POST: APIRoute = async ({ request }) => {
     total_cents: totale,
     lang,
   };
-  const inserisci = () => supabaseAdmin.from("orders").insert(datiOrdine).select("id, cancel_token").single();
+  const inserisci = () => inserisciRiga("orders", ambito, datiOrdine).select("id, cancel_token").single();
   let ins = await inserisci();
   // Migrazione #29 non ancora lanciata: senza source l'ordine sparirebbe
   // dalla lista (pending non manuale) → meglio rifiutare chiaramente.
   if (ins.error && String(ins.error.message ?? "").includes("source")) {
-    return json({ error: "Migration orders_source.sql (#29) à lancer sur Supabase" }, 500);
+    return json({ error: await msg("err.migr29") }, 500);
   }
   // Migrazione #49 mancante: il check lang in ('fr','en') rifiuta it/nl/es.
   if (ins.error && String(ins.error.message ?? "").toLowerCase().includes("lang")) {
-    return json({ error: "Migration orders_manual_payment.sql (#49) à lancer (langues + paiement)" }, 500);
+    return json({ error: await msg("err.migr49") }, 500);
   }
   // Migrazione #49 (payment_method) assente: si crea comunque l'ordine, senza il metodo.
   if (ins.error && String(ins.error.message ?? "").includes("payment_method")) {
@@ -454,9 +478,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
   // Migrazione #30 assente: si continua senza link di annullamento
   if (ins.error && String(ins.error.message ?? "").includes("cancel_token")) {
-    ins = await supabaseAdmin.from("orders").insert(datiOrdine).select("id").single();
+    ins = await inserisciRiga("orders", ambito, datiOrdine).select("id").single();
   }
-  if (ins.error || !ins.data) return json({ error: "Création impossible" }, 500);
+  if (ins.error || !ins.data) return json({ error: await msg("err.create") }, 500);
   const orderId = ins.data.id as string;
   const cancelToken = (ins.data as { cancel_token?: string | null }).cancel_token ?? null;
 
@@ -464,6 +488,8 @@ export const POST: APIRoute = async ({ request }) => {
   // conferma + recensione al cliente solo se ha lasciato l'email (guardie interne).
   if (paidSurPlace) {
     void inviaNotifiche({
+      // L'ordine e' appena stato inserito con questo ambito.
+      location_id: ambito.modo === "sede" ? ambito.id : null,
       numero: orderId.slice(0, 8),
       customer_name: nome,
       customer_email: email,
@@ -478,9 +504,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
-    const payUrl = await creaCheckoutSession({ voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
-    await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", orderId);
+    // Ordine appena inserito con questo ambito: stesso conto. (Non puo'
+    // essere l'aggregato: `inserisci` lo avrebbe gia' rifiutato.)
+    const payUrl = await creaCheckoutSession({ ambito, voci, orderId, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblicaOpz(ambito) });
+    await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", orderId);
     void emailLienPaiement({
+      location_id: ambito.modo === "sede" ? ambito.id : null,
       numero: orderId.slice(0, 8),
       customer_name: nome,
       customer_email: email,
@@ -496,8 +525,8 @@ export const POST: APIRoute = async ({ request }) => {
   } catch (e) {
     // Sessione Stripe fallita: niente ordine fantasma in lista
     console.error("[ordine manuale] Stripe error:", e);
-    await supabaseAdmin.from("orders").delete().eq("id", orderId);
-    return json({ error: "Erreur Stripe: paiement impossible à créer" }, 502);
+    await cancella("orders", ambito).eq("id", orderId);
+    return json({ error: await msg("err.stripeCreate") }, 502);
   }
 };
 
@@ -507,47 +536,52 @@ export const POST: APIRoute = async ({ request }) => {
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: { id?: string; status?: string };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const status = String(body.status ?? "");
   if (!["paid", "done", "cancelled"].includes(status)) {
-    return json({ error: "Statut invalide" }, 400);
+    return json({ error: await msg("err.status") }, 400);
   }
+
+  // ⚠️ La sede dell'ORDINE, non quella selezionata: l'email di annullamento
+  // porta l'indirizzo e il telefono del punto dove il cliente aveva ordinato.
+  // `SEL_ANN` non seleziona `location_id` (non puo': su un cliente senza la
+  // migrazione #73 la colonna non esiste), quindi si legge a parte.
+  const contoAnn = await cercaAmbito("orders", id, ambito);
 
   // Leggo l'ordine PRIMA di aggiornarlo: serve lo stato/metodo precedenti per
   // decidere l'email di annullamento (rimborso online / in cassa / non pagato).
   const SEL_ANN = "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang, payment_method";
   let prima: Record<string, unknown> | null = null;
   {
-    const r = await supabaseAdmin.from("orders").select(SEL_ANN).eq("id", id).maybeSingle();
+    const r = await leggi("orders", ambito, SEL_ANN).eq("id", id).maybeSingle();
     if (!r.error) prima = r.data as Record<string, unknown> | null;
     else {
-      const r2 = await supabaseAdmin
-        .from("orders")
-        .select("id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang")
+      const r2 = await leggi("orders", ambito, "id, status, customer_name, customer_email, customer_phone, pickup_time, total_cents, refunded_cents, lang")
         .eq("id", id)
         .maybeSingle();
       prima = r2.data as Record<string, unknown> | null;
     }
   }
 
-  let q = supabaseAdmin.from("orders").update({ status }).eq("id", id);
+  let q = aggiornaRighe("orders", ambito, { status }).eq("id", id);
   // Annuler è permesso anche su un pending (link di pagamento non pagato);
   // per gli altri passaggi i pending non si toccano (li gestisce il webhook).
   if (status !== "cancelled") q = q.neq("status", "pending");
   const { data, error } = await q.select("id").maybeSingle();
 
-  if (error) return json({ error: "Modification impossible" }, 500);
-  if (!data) return json({ error: "Commande introuvable" }, 404);
+  if (error) return json({ error: await msg("err.update") }, 500);
+  if (!data) return json({ error: await msg("err.orderNotFound") }, 404);
 
   // Email di annullamento al cliente (solo alla transizione verso "cancelled").
   if (status === "cancelled" && prima && prima.status !== "cancelled" && String(prima.customer_email ?? "").trim()) {
@@ -561,6 +595,9 @@ export const PATCH: APIRoute = async ({ request }) => {
     else refundMode = "online";
 
     const notif = {
+      // La sede del FATTO: l'email dice l'indirizzo del punto dove l'ordine
+      // e' stato preso, non di quello selezionato adesso nell'header.
+      location_id: contoAnn.modo === "sede" ? contoAnn.id : null,
       numero: String(prima.id).slice(0, 8),
       customer_name: String(prima.customer_name ?? ""),
       customer_email: String(prima.customer_email ?? ""),
@@ -592,6 +629,8 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
+  const fuso = await fusoDi(ambito);
 
   let body: {
     id?: string;
@@ -608,11 +647,11 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requete invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // L'ordine deve esistere ed essere ATTIVO (paid o pending). Leggo anche gli
   // importi/pagamento per gestire la differenza. Le colonne #50 (supplement/
@@ -623,17 +662,17 @@ export const PUT: APIRoute = async ({ request }) => {
   const SEL_BASE =
     "id, status, cancel_token, pickup_time, total_cents, refunded_cents, stripe_session_id, payment_method, items";
   let migMancante = false;
-  let sel = await supabaseAdmin.from("orders").select(SEL_FULL).eq("id", id).maybeSingle();
+  let sel = await leggi("orders", ambito, SEL_FULL).eq("id", id).maybeSingle();
   if (sel.error) {
     migMancante = true;
-    sel = await supabaseAdmin.from("orders").select(SEL_BASE).eq("id", id).maybeSingle();
+    sel = await leggi("orders", ambito, SEL_BASE).eq("id", id).maybeSingle();
   }
   const ord = sel.data as Record<string, unknown> | null;
   const errOrd = sel.error;
-  if (errOrd) return json({ error: "Lecture impossible" }, 500);
-  if (!ord) return json({ error: "Commande introuvable" }, 404);
+  if (errOrd) return json({ error: await msg("err.read") }, 500);
+  if (!ord) return json({ error: await msg("err.orderNotFound") }, 404);
   if (ord.status !== "paid" && ord.status !== "pending") {
-    return json({ error: "Seules les commandes actives sont modifiables" }, 409);
+    return json({ error: await msg("err.onlyActiveOrders") }, 409);
   }
   const isLink = ord.status === "pending";
 
@@ -643,52 +682,52 @@ export const PUT: APIRoute = async ({ request }) => {
   const email = String(body.email ?? "").trim();
   const slot = String(body.slot ?? "");
   const items = Array.isArray(body.items) ? body.items : [];
-  if (!nome) return json({ error: "Nom requis" }, 400);
+  if (!nome) return json({ error: await msg("err.nameRequired") }, 400);
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  if (isLink && !emailOk) return json({ error: "Email requise pour le lien de paiement" }, 400);
-  if (email && !emailOk) return json({ error: "Email invalide" }, 400);
-  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: "Creneau invalide" }, 400);
-  if (!items.length) return json({ error: "Panier vide" }, 400);
+  if (isLink && !emailOk) return json({ error: await msg("err.emailForPayLink") }, 400);
+  if (email && !emailOk) return json({ error: await msg("err.email") }, 400);
+  if (!/^\d{2}:\d{2}$/.test(slot)) return json({ error: await msg("err.slot") }, 400);
+  if (!items.length) return json({ error: await msg("err.cartEmpty") }, 400);
 
   // Data del ritiro (stessa logica del POST).
-  const oraNow = DateTime.now().setZone(TIMEZONE);
+  const oraNow = DateTime.now().setZone(fuso);
   let ora = oraNow;
   const dStr = String(body.date ?? "").trim();
   if (dStr) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: "Date invalide" }, 400);
-    const d = DateTime.fromISO(dStr, { zone: TIMEZONE });
-    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: "Date invalide" }, 400);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return json({ error: await msg("err.date") }, 400);
+    const d = DateTime.fromISO(dStr, { zone: fuso });
+    if (!d.isValid || d.startOf("day") < oraNow.startOf("day")) return json({ error: await msg("err.date") }, 400);
     ora = d.hasSame(oraNow, "day") ? oraNow : d.startOf("day");
   }
-  const config = await configGiornoEffettiva(ora);
-  if (!config) return json({ error: "Horaires indisponibles" }, 503);
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const config = await configGiornoEffettiva(ora, await ambitoDiRichiesta(request, staff));
+  if (!config) return json({ error: await msg("err.hoursUnavailable") }, 503);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   // Orario originale dell'ordine (fuso ristorante): se lo staff NON lo cambia,
   // va accettato anche se ormai e' passato (quindi non piu' tra i disponibili).
   const origSlot = ord.pickup_time
-    ? DateTime.fromISO(String(ord.pickup_time)).setZone(TIMEZONE).toFormat("HH:mm")
+    ? DateTime.fromISO(String(ord.pickup_time)).setZone(fuso).toFormat("HH:mm")
     : "";
   const origDate = ord.pickup_time
-    ? DateTime.fromISO(String(ord.pickup_time)).setZone(TIMEZONE).toFormat("yyyy-MM-dd")
+    ? DateTime.fromISO(String(ord.pickup_time)).setZone(fuso).toFormat("yyyy-MM-dd")
     : "";
   const dataScelta = dStr || oraNow.toFormat("yyyy-MM-dd");
   const slotInvariato = slot === origSlot && dataScelta === origDate;
   if (!slotInvariato && ![...lunch, ...dinner].includes(slot)) {
-    return json({ error: "Creneau plus disponible" }, 409);
+    return json({ error: await msg("err.slotGone") }, 409);
   }
 
   // Prezzi SEMPRE dal DB (mai dal browser), sconti compresi.
   const ids = items.map((i) => String(i.id ?? ""));
-  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids);
-  if (errMenu || !piatti) return json({ error: "Menu illisible" }, 503);
+  const { data: piatti, error: errMenu } = await piattiPerOrdine(ids, ambito);
+  if (errMenu || !piatti) return json({ error: await msg("err.menuUnreadable") }, 503);
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: { id: string; name: string; base_name?: string; variant_label?: string; qty: number; price_cents: number; notes: string; variant?: string }[] = [];
   for (const rich of items) {
     const piatto = piatti.find((x) => x.id === rich.id);
-    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: "Un plat n'est plus disponible" }, 409);
-    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang);
-    if (!riga) return json({ error: "Le format choisi n'est plus disponible" }, 409);
+    if (!piatto || !piatto.available || piatto.sold_out === true) return json({ error: await msg("err.dishGone") }, 409);
+    const riga = rigaOrdine(piatto, rich as { qty?: unknown; variant?: unknown }, lang, ambito);
+    if (!riga) return json({ error: await msg("err.formatGone") }, 409);
     voci.push({ name: riga.name, price_cents: riga.price_cents, qty: riga.qty });
     itemsOrdine.push({ id: piatto.id, name: riga.name, base_name: riga.base_name, ...(riga.variant_label ? { variant_label: riga.variant_label } : {}), qty: riga.qty, price_cents: riga.price_cents, notes: "", ...(riga.variant ? { variant: riga.variant } : {}) });
   }
@@ -722,19 +761,27 @@ export const PUT: APIRoute = async ({ request }) => {
   // di scrivere, per non lasciare un ordine modificato senza traccia della
   // differenza (il rimborso/supplemento resterebbe invisibile).
   if (paidOnline && delta !== 0 && migMancante) {
-    return json({ error: "Migration orders_modifica_diff.sql (#50) a lancer sur Supabase" }, 500);
+    return json({ error: await msg("err.migr50") }, 500);
   }
 
-  const { error: errUpd } = await supabaseAdmin.from("orders").update(aggiorna).eq("id", id);
+  const { error: errUpd } = await aggiornaRighe("orders", ambito, aggiorna).eq("id", id);
   if (errUpd) {
     if (String(errUpd.message ?? "").toLowerCase().includes("lang")) {
-      return json({ error: "Migration orders_manual_payment.sql (#49) a lancer (langues + paiement)" }, 500);
+      return json({ error: await msg("err.migr49") }, 500);
     }
-    return json({ error: "Modification impossible" }, 500);
+    return json({ error: await msg("err.update") }, 500);
   }
+
+  // ⚠️ Il conto su cui incassare e l'indirizzo che va nell'email sono quelli
+  // dell'ORDINE, non della sede selezionata da chi sta modificando.
+  // `SEL_FULL` non seleziona `location_id` (e non puo': su un cliente senza
+  // la migrazione #73 quella colonna non esiste ancora), quindi si legge a
+  // parte, tollerando l'assenza.
+  const conto = await cercaAmbito("orders", id, ambito);
 
   const numero = id.slice(0, 8);
   const notif = {
+    location_id: conto.modo === "sede" ? conto.id : null,
     numero,
     customer_name: nome,
     customer_email: email,
@@ -781,8 +828,8 @@ export const PUT: APIRoute = async ({ request }) => {
   if (isLink) {
     const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
     try {
-      const payUrl = await creaCheckoutSession({ voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblica() });
-      await supabaseAdmin.from("orders").update({ stripe_session_id: payUrl }).eq("id", id);
+      const payUrl = await creaCheckoutSession({ ambito: conto, voci, orderId: id, siteUrl, lang: lang === "en" ? "en" : "fr", returnBase: await basePubblicaOpz(conto) });
+      await aggiornaRighe("orders", ambito, { stripe_session_id: payUrl }).eq("id", id);
       void emailLienPaiement({
         ...notif,
         pay_url: payUrl,
@@ -790,7 +837,7 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     } catch (e) {
       console.error("[modifica ordine] Stripe error:", e);
-      return json({ error: "Erreur Stripe: lien de paiement non regenere" }, 502);
+      return json({ error: await msg("err.stripeRelink") }, 502);
     }
     return json({ ok: true, id });
   }
@@ -808,23 +855,24 @@ export const PUT: APIRoute = async ({ request }) => {
     const diffUpd: Record<string, unknown> = { supplement_due_cents: newSupp, refund_due_cents: newRef };
     // Nuovo supplemento in sospeso -> azzero un eventuale "differenza pagata" vecchio.
     if (newSupp > 0) diffUpd.supplement_paid_at = null;
-    await supabaseAdmin.from("orders").update(diffUpd).eq("id", id);
+    await aggiornaRighe("orders", ambito, diffUpd).eq("id", id);
 
     let payUrl: string | null = null;
     if (newSupp > 0) {
       const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
       try {
         payUrl = await creaCheckoutSupplemento({
+          ambito: conto,
           orderId: id,
           diffCents: newSupp,
           numero,
           siteUrl,
           lang: lang === "en" ? "en" : "fr",
-          returnBase: await basePubblica(),
+          returnBase: await basePubblicaOpz(conto),
         });
       } catch (e) {
         console.error("[modifica ordine] supplemento Stripe error:", e);
-        return json({ error: "Erreur Stripe: lien de supplement non cree" }, 502);
+        return json({ error: await msg("err.stripeExtra") }, 502);
       }
     }
     void inviaModificaOrdine(notif, {

@@ -1,4 +1,11 @@
 import { supabaseAdmin } from "../db";
+// ⚠️ `leggi` e non `supabaseAdmin.from`: `menu_items` e' «mista». Questa e'
+// la lettura del PRIMO caricamento della pagina — se qui manca il filtro, il
+// menu nasce con i piatti di tutti e tre i punti e si corregge solo al primo
+// ricaricamento. Stessa trappola delle varianti sparite, un piano piu' sotto.
+import { leggi } from "./sede";
+import type { Ambito } from "./sedeRegole";
+import { applicaStato, statiDelPunto } from "../menuStato";
 
 // Pre-carica lato server (SSR, Fase 2) i dati della pagina /admin/menu:
 // categorie (con conteggio piatti, come /api/admin/categories) + piatti
@@ -12,14 +19,12 @@ const MENU_SELECT_BASE =
 // SSR (quella del PRIMO caricamento della pagina), le varianti salvate
 // sparivano a ogni reload: c'erano nel database, c'erano nella risposta
 // dell'API dopo il salvataggio, ma non nei dati con cui la pagina nasce.
-const MENU_COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants"];
+const MENU_COLONNE_NUOVE = ["sold_out", "name_i18n", "desc_i18n", "variants", "location_id"];
 const MENU_SELECT = MENU_SELECT_BASE + ", " + MENU_COLONNE_NUOVE.join(", ");
 
-async function caricaItems(): Promise<{ data: unknown[] | null }> {
+async function caricaItems(ambito: Ambito): Promise<{ data: unknown[] | null }> {
   const ordina = (sel: string) =>
-    supabaseAdmin
-      .from("menu_items")
-      .select(sel)
+    leggi("menu_items", ambito, sel)
       .order("category_order", { ascending: true })
       .order("sort_order", { ascending: true })
       .order("name", { ascending: true });
@@ -62,11 +67,11 @@ async function caricaCategorie(): Promise<{ data: unknown[] | null }> {
   return { data: res.data };
 }
 
-export async function caricaMenuPagina() {
+export async function caricaMenuPagina(ambito: Ambito) {
   const [catsRes, itemsRes, countRes] = await Promise.all([
     caricaCategorie(),
-    caricaItems(),
-    supabaseAdmin.from("menu_items").select("category"),
+    caricaItems(ambito),
+    leggi("menu_items", ambito, "category"),
   ]);
 
   const conteggi = new Map<string, number>();
@@ -78,5 +83,25 @@ export async function caricaMenuPagina() {
     count: conteggi.get(String(c.name ?? "")) ?? 0,
   }));
 
-  return { categories, items: itemsRes.data ?? [] };
+  // Lo stato del punto (esaurito piatto e formati) e i formati di un altro
+  // punto: la pagina deve nascere gia' giusta, non aggiustarsi dopo.
+  let items = (itemsRes.data ?? []) as Record<string, unknown>[];
+  if (ambito.modo === "sede" && items.length) {
+    const stati = await statiDelPunto(ambito, items.map((i) => String(i.id)));
+    items = items.map((i) => {
+      const conStato = applicaStato(i, stati.get(String(i.id)));
+      const v = conStato.variants;
+      return {
+        ...conStato,
+        variants: Array.isArray(v)
+          ? v.filter((x) => {
+              const l = (x as Record<string, unknown>)?.location_id;
+              return l == null || l === ambito.id;
+            })
+          : v,
+      };
+    });
+  }
+
+  return { categories, items, sede: ambito.modo === "sede" ? ambito.id : null };
 }

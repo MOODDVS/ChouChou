@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 import {
   K_PRINT_CATALOG,
   PRINT_DEFAULTS,
@@ -10,6 +12,14 @@ import {
 } from "../../../config/printCatalog";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Catalogo PRINT (prodotti stampabili on-demand ordinabili a MOODD).
 // STEP 1: solo lettura + salvataggio dei prezzi. Nessun ordine.
@@ -53,13 +63,13 @@ export const GET: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!isSuperUser(staff)) return json({ error: "Réservé au super admin" }, 403);
+  if (!isSuperUser(staff)) return json({ error: await msg("err.super") }, 403);
 
   let body: { catalog?: unknown };
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const { catalog, error } = validaCatalogo(body?.catalog);
@@ -68,7 +78,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const { error: dbErr } = await supabaseAdmin
     .from("app_config")
     .upsert({ key: K_PRINT_CATALOG, value: JSON.stringify(catalog) }, { onConflict: "key" });
-  if (dbErr) return json({ error: "Enregistrement impossible" }, 500);
+  if (dbErr) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true, catalog });
 };

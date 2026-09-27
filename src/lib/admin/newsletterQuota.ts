@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../db";
 import { DateTime } from "luxon";
-import { TIMEZONE } from "../slots";
+import { fusoDi } from "../fuso";
+import { SEDE_UNICA } from "./sede";
 
 /**
  * Quota newsletter condivisa tra le API (invio e crediti).
@@ -42,22 +43,27 @@ export async function quotaMensile(): Promise<number> {
 }
 
 export async function statoQuota(): Promise<StatoQuota> {
+  // ⚠️ Fuso dell'INSTALLAZIONE, non di una sede: la quota newsletter e' del
+  // marchio (un abbonamento, un contatore) e i mesi si contano una volta
+  // sola. Con tre sedi in tre fusi, tre «mesi correnti» diversi darebbero
+  // tre conteggi diversi della stessa quota.
+  const fuso = await fusoDi(SEDE_UNICA);
   const [{ data: log }, { data: acquisti }] = await Promise.all([
     supabaseAdmin.from("newsletter_log").select("count, created_at"),
     supabaseAdmin.from("newsletter_credits").select("credits").eq("status", "paid"),
   ]);
 
-  // Invii raggruppati per mese (Europe/Brussels)
+  // Invii raggruppati per mese (fuso dell'installazione)
   const perMese = new Map<string, number>();
   for (const r of log ?? []) {
     const chiave = DateTime.fromISO(r.created_at, { zone: "utc" })
-      .setZone(TIMEZONE)
+      .setZone(fuso)
       .toFormat("yyyy-MM");
     perMese.set(chiave, (perMese.get(chiave) ?? 0) + (r.count ?? 0));
   }
 
   const quota = await quotaMensile();
-  const meseCorrente = DateTime.now().setZone(TIMEZONE).toFormat("yyyy-MM");
+  const meseCorrente = DateTime.now().setZone(fuso).toFormat("yyyy-MM");
   const sentThisMonth = perMese.get(meseCorrente) ?? 0;
 
   // Crediti consumati = somma delle eccedenze mensili oltre le incluse

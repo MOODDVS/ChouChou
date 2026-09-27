@@ -1,8 +1,20 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../../lib/admin/adminAuth";
-import { supabaseAdmin } from "../../../../lib/db";
+// Gli orari da mandare a Google sono quelli della SCHEDA di questa sede:
+// tre punti, tre schede, tre orari.
+import { ambitoDiRichiesta, leggiOrari, leggi } from "../../../../lib/admin/sede";
 
+import { adminLang } from "../../../../lib/admin/adminLang";
+import { adminT } from "../../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // GET /api/admin/google/rh-hours
 // Orari di RestoHub nel formato dell'editor Google:
@@ -37,15 +49,19 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const [set, spc] = await Promise.all([
-    supabaseAdmin
-      .from("settings")
-      .select("day_of_week, lunch_active, lunch_open, lunch_close, dinner_active, dinner_open, dinner_close"),
-    supabaseAdmin
-      .from("special_days")
-      .select("date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close"),
-  ]);
-  if (set.error || !set.data) return json({ error: "Orari RestoHub illeggibili" }, 502);
+  const ambito = await ambitoDiRichiesta(request, staff);
+  let set: { data: unknown[] | null; error: unknown };
+  try {
+    set = { data: await leggiOrari(ambito), error: null };
+  } catch (e) {
+    set = { data: null, error: e };
+  }
+  const spc = await leggi(
+    "special_days",
+    ambito,
+    "date_from, date_to, type, lunch_open, lunch_close, dinner_open, dinner_close",
+  );
+  if (set.error || !set.data) return json({ error: await msg("err.rhHours") }, 502);
 
   // --- Orari settimanali ---
   const byDow = new Map<number, {

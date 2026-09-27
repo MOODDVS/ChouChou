@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
+// Multi-sede: i piatti del punto che il sito sta mostrando.
+import { leggi, ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { DateTime } from "luxon";
 import { supabaseAdmin } from "../../lib/db";
 import { prezzoEffettivo } from "../../lib/pricing";
-import { TIMEZONE } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
@@ -37,6 +39,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const POST: APIRoute = async ({ request }) => {
+  // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
+  // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
+  const ambito = await ambitoPubblicoChiesto(request);
   let body: Body;
   try {
     body = await request.json();
@@ -65,9 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Costruisce le righe carrello leggendo i prezzi REALI dal DB.
   const ids = items.map((i) => i.id);
-  const { data: piatti } = await supabaseAdmin
-    .from("menu_items")
-    .select("id, category, price_cents, discount_type, discount_value, available")
+  const { data: piatti } = await leggi("menu_items", ambito, "id, category, price_cents, discount_type, discount_value, available")
     .in("id", ids);
 
   const linee: LineaCoupon[] = [];
@@ -86,8 +89,10 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: false, error: L.carrelloVuoto });
   }
 
-  const now = DateTime.now().setZone(TIMEZONE);
-  const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, lang);
+  const now = DateTime.now().setZone(await fusoDi(ambito));
+    // L'ambito e' quello che il cliente ha scelto sul sito: un codice
+    // riservato a un punto vale li' e basta.
+  const ris = calcolaScontoCoupon(coupon as CouponRow, linee, now, ambito, lang);
   if (ris.error) return json({ ok: false, error: ris.error });
 
   const limite = await verificaLimitiUso(coupon as CouponRow, body.email ?? "", supabaseAdmin, lang);

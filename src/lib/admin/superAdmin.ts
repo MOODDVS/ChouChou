@@ -100,19 +100,19 @@ export const TABS_VALIDI: string[] = Object.entries(TABS_ADMIN).flatMap(
  * TEMA dell'admin: colori del BRAND del cliente, configurabili dal super
  * admin nella pagina Reglages (app_config "admin_theme"). Ogni chiave
  * corrisponde a una variabile CSS --c-<chiave> usata da tutte le pagine
- * admin. Assente/parziale => si usano questi default MOODD.
+ * admin. Assente/parziale => si usano questi default RestoHub.
  * I colori SEMANTICI (verde ok, rossi errore/allarme) restano fissi.
  */
 export const TEMA_DEFAULT: Record<string, string> = {
-  accent: "#ff7300", // arancione MOODD: azioni, attivi, titoli
-  hover: "#e04f00",  // arancione hover
-  bg: "#ffffff",     // fondo pagina (e testo sui bottoni accent)
-  header: "#ffffff", // barra in alto (indipendente dal fondo pagina)
-  card: "#ffffff",   // card
-  input: "#e6e6e6",  // input / elementi "off"
-  line: "#ebebeb",   // linee e bordi
-  muted: "#a6a6a6",  // testo secondario
-  text: "#666666",   // testo principale
+  accent: "#cb534d", // corallo RestoHub: azioni, attivi, titoli
+  hover: "#e86a61",  // corallo hover
+  bg: "#0c2a30",     // fondo pagina (e testo sui bottoni accent)
+  header: "#04161b", // barra in alto (indipendente dal fondo pagina)
+  card: "#16424b",   // card
+  input: "#0e3038",  // campi ed elementi scuri
+  line: "#244a52",   // linee e bordi
+  muted: "#86a0a4",  // testo secondario
+  text: "#e9efef",   // testo principale
 };
 // Default non-colore del tema: effet verre SPENTO (opaco), ombre al 15%.
 // Il verre si accende salvando glass:"on"; le ombre con shadow:"0".."100".

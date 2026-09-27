@@ -31,6 +31,17 @@ export function cacheDel(chiave: string): void {
   memoria.delete(chiave);
 }
 
+/** Rimuove tutte le voci che iniziano con `prefisso`.
+ *  Serve alle cache che si sdoppiano per sede (`cfg:all`, `cfg:all:<id>`):
+ *  chi invalida non sa quante sedi ci sono, e dimenticarne una vorrebbe dire
+ *  un valore vecchio servito per mezzo minuto a un punto solo — il genere di
+ *  incoerenza che si guarda per un'ora prima di capirla. */
+export function cacheDelPrefisso(prefisso: string): void {
+  for (const k of memoria.keys()) {
+    if (k === prefisso || k.startsWith(prefisso + ":")) memoria.delete(k);
+  }
+}
+
 export function cacheSet(chiave: string, valore: unknown, ttlMs = TTL_STANDARD): void {
   // Tetto di sicurezza: mai far crescere la mappa all'infinito
   if (memoria.size > 500) {

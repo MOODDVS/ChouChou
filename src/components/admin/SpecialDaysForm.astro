@@ -11,9 +11,17 @@
 //  - evento "spf:loaded"   -> detail.days = giorni speciali appena caricati.
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
+import { verificaTokenLocale } from "../../lib/admin/adminAuth";
+import { sediVisibili } from "../../lib/admin/sede";
 
 const lang = await adminLang();
 const t = adminT(lang);
+// Multi-sede: l'interruttore «vale per tutte le sedi» ha senso solo per chi
+// ne vede piu' d'una. Un responsabile legato a un punto ne vede una sola e
+// non deve poter chiudere anche gli altri — l'API lo impedisce comunque,
+// perche' nascondere un comando non e' un permesso.
+const staffSpf = await verificaTokenLocale(Astro.cookies.get("mdd_at")?.value ?? "");
+const piuSedi = (await sediVisibili(staffSpf)).length > 1;
 ---
 
 <div class="spf">
@@ -57,6 +65,12 @@ const t = adminT(lang);
     </div>
     <div class="sp-row">
       <input type="text" class="spf-note" placeholder={t("set.hor.notePh")} maxlength="200" />
+      {piuSedi && (
+        <span class="sw-wrap spf-tutte-wrap">
+          <label class="switch"><input type="checkbox" class="spf-tutte" /><span class="track"></span></label>
+          <span class="sw-lab">{t("sd.tutte")}</span>
+        </span>
+      )}
       <button type="button" class="sp-addbtn spf-add">{t("common.add")}</button>
     </div>
     <span class="msg spf-msg"></span>
@@ -437,6 +451,7 @@ const t = adminT(lang);
       const bClosed = q<HTMLButtonElement>(".spf-t-closed");
       const bOpen = q<HTMLButtonElement>(".spf-t-open");
       const bAdd = q<HTMLButtonElement>(".spf-add");
+      const inTutte = root.querySelector(".spf-tutte") as HTMLInputElement | null;
       const msg = q<HTMLSpanElement>(".spf-msg");
       const boxServs = q<HTMLDivElement>(".spf-servs");
       const servSel = new Set<string>();
@@ -544,6 +559,9 @@ const t = adminT(lang);
               dinner_close: tipo === "open" && modo === "coupe" ? inDc.value : null,
               services: tipo === "open" ? [...servSel] : null,
               note: inNote.value.trim(),
+              // Assente o falso = solo questa sede. L'interruttore esiste
+              // solo per chi vede piu' di una sede.
+              tutte: inTutte?.checked === true,
             }),
           });
           const j = await res.json();

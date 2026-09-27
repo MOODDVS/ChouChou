@@ -2,6 +2,8 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { statoQuota } from "../../../lib/admin/newsletterQuota";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 import {
   parseSegment,
   contatoriSegmenti,
@@ -11,6 +13,14 @@ import {
 } from "../../../lib/newsletterSend";
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Newsletter (admin Marketing → Newsletter). Motore d'invio in lib/newsletterSend.
 // GET  → stato: inviate questo mese, quota, segmenti (con conteggi), storico.
@@ -70,7 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
 
   if (!resendPronto()) {
-    return json({ error: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)" }, 500);
+    return json({ error: await msg("err.resendFull") }, 500);
   }
 
   let body: {
@@ -87,13 +97,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const subject = (body.subject ?? "").trim();
   const message = (body.message ?? "").trim();
-  if (!subject) return json({ error: "L'objet est obligatoire" }, 400);
-  if (!message) return json({ error: "Le message est obligatoire" }, 400);
+  if (!subject) return json({ error: await msg("err.subjectRequired") }, 400);
+  if (!message) return json({ error: await msg("err.messageRequired") }, 400);
 
   const contenuto = {
     subject,
@@ -109,9 +119,9 @@ export const POST: APIRoute = async ({ request }) => {
   // ---- Invio di TEST: solo all'email dello staff loggato ----
   if (body.test === true) {
     const dest = staff.email ?? "";
-    if (!dest) return json({ error: "Email du compte staff introuvable" }, 400);
+    if (!dest) return json({ error: await msg("err.staffEmail") }, 400);
     const ok = await inviaTest(dest, contenuto);
-    if (!ok) return json({ error: "Envoi du test impossible" }, 502);
+    if (!ok) return json({ error: await msg("err.testSend") }, 502);
     return json({ ok: true, test: true, to: dest });
   }
 

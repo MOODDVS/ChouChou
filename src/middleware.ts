@@ -1,6 +1,8 @@
 import { defineMiddleware, sequence } from "astro:middleware";
 import { colpisci, ipClient } from "./lib/rateLimit";
 import { sessioneRiconosciuta } from "./lib/admin/adminAuth";
+import { contestoDaToken } from "./lib/admin/permessi";
+import { chiavePagina, puoVederePagina, chiaveApi, puoChiamareApi } from "./lib/admin/permessiRegole";
 
 /**
  * Host canonico: forza il www.
@@ -175,13 +177,70 @@ const securityHeaders = defineMiddleware(async (context, next) => {
  * sessioneRiconosciuta). Solo pagine (GET/HEAD) e mai login/reset-password.
  */
 const PUBBLICHE_ADMIN = new Set(["/admin/login", "/admin/reset-password"]);
+
+/** Cosa serve per decidere: ruolo, pagine dell'utente, pagine spente. */
+// ⚠️ Il contesto si costruisce in `lib/admin/permessi.ts`, non qui. Ne
+// esisteva una copia in questo file e una nell'SSR della home: due copie
+// della stessa domanda, e la risposta sbagliata non da' nessun errore — da'
+// dati che chi guarda non doveva vedere.
+const contestoPermessi = contestoDaToken;
+
 const authGuardAdmin = defineMiddleware(async (context, next) => {
   const { pathname } = new URL(context.request.url);
   const m = context.request.method;
+
+  // ---- LE API ----------------------------------------------------------
+  // Chiudere le pagine non bastava: /admin/stats era sbarrata e
+  // /api/admin/stats rispondeva lo stesso a chiunque avesse fatto il login.
+  // Qui si risponde 403 e non si redirige: chi chiama e' del codice, non un
+  // browser che naviga, e un 302 verso una pagina HTML lo farebbe impazzire.
+  // L'autenticazione resta di `verificaStaff` dentro ogni API: qui si decide
+  // solo SE quell'utente puo' chiedere questa cosa.
+  if (pathname.startsWith("/api/admin/")) {
+    const chiave = chiaveApi(pathname);
+    if (chiave) {
+      const ctx = await contestoPermessi(context.cookies.get("mdd_at")?.value ?? "");
+      // Nessun contesto leggibile: non si blocca. Il 401 lo dara' l'API.
+      if (ctx && !puoChiamareApi(chiave, ctx)) {
+        return new Response(JSON.stringify({ error: "forbidden" }), {
+          status: 403,
+          headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+        });
+      }
+    }
+    return next();
+  }
+
   if ((m === "GET" || m === "HEAD") && (pathname === "/admin" || pathname.startsWith("/admin/")) && !PUBBLICHE_ADMIN.has(pathname.replace(/\/$/, ""))) {
     const token = context.cookies.get("mdd_at")?.value ?? "";
     if (!(await sessioneRiconosciuta(token))) {
       return context.redirect("/admin/login", 302);
+    }
+
+    // ---- PERMESSI: qui, non nel browser ----------------------------------
+    // Prima il ruolo era un suggerimento: la nav nascondeva i link e
+    // `settings`/`super` si difendevano dentro uno <script>, cioe' DOPO aver
+    // mandato la pagina. Chi scriveva /admin/stats riceveva il fatturato del
+    // giorno gia' calcolato dal server e incollato nell'HTML.
+    //
+    // Questo e' l'unico punto da cui passano tutte le pagine admin: la
+    // decisione sta qui, e la regola che la prende e' pura e provata.
+    //
+    // ⚠️ Se i dati della sessione non sono leggibili (JWKS irraggiungibile,
+    // token strano) NON si blocca: `sessioneRiconosciuta` e' gia' passata, e
+    // trasformare un problema di rete in «non hai il permesso» chiuderebbe
+    // fuori il proprietario dal suo admin. Chiudere la porta e' meglio che
+    // lasciarla aperta, ma non se la chiave e' il meteo.
+    const chiave = chiavePagina(pathname);
+    if (chiave) {
+      const ctx = await contestoPermessi(token);
+      if (ctx) {
+        const ok = puoVederePagina(chiave, ctx);
+        // Rimandato alla home, non al login: e' loggato, semplicemente quella
+        // pagina non e' sua. Un redirect al login sembrerebbe una sessione
+        // scaduta e lo farebbe riaccedere all'infinito.
+        if (!ok) return context.redirect("/admin", 302);
+      }
     }
   }
   return next();

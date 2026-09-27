@@ -26,9 +26,43 @@ dal motore).
 - [ ] Disattiva «Automatically expose new tables» (i GRANT li fanno le migrazioni).
 - [ ] SQL Editor → lancia **TUTTE le migrazioni di `MIGRATIONS.md` in ordine**
       (idempotenti). Include la #51 `lunch_hide_by_course.sql`.
+- [ ] **Dopo le migrazioni**: `notify pgrst, 'reload schema';` nel SQL Editor.
+      PostgREST tiene in cache la struttura del database: finché non la
+      rilegge, una tabella appena creata risponde `PGRST205 Could not find
+      the table … in the schema cache`, come se non esistesse.
 - [ ] Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
 - [ ] Authentication → crea l'utente del cliente; verifica accesso super admin
       `admin@moodd.online`.
+
+## 3bis. Piu' di una sede? (450 Gradi e' il primo, 16/09/2026)
+
+**Salta tutto questo se il cliente ha UN punto solo** — ed e' il caso normale.
+Tabella `locations` vuota vuol dire nessun filtro, cioe' il comportamento di
+sempre. La sede si crea il giorno che ne arriva una seconda, non «per sicurezza».
+
+Con piu' punti (piu' societa', un sito solo):
+- [ ] `supabase/locations.sql` e' fra le migrazioni: assicurati che sia passata.
+- [ ] `/admin/super` → **Sedi**: creane una per punto (nome, slug, indirizzo,
+      societa', IVA, fuso). L'ordine qui e' quello del selettore nell'header.
+- [ ] **Stripe per sede**: ogni societa' incassa sul SUO conto. La chiave si
+      mette da `/admin/super` → Sedi, non nell'`.env`, e viene cifrata con
+      `SECRETS_KEY` (32 byte base64, nell'`.env`: senza, l'admin rifiuta di
+      salvarla invece di scriverla in chiaro).
+- [ ] **Webhook Stripe**: un indirizzo solo per tutti i conti
+      (`https://<dominio>/api/stripe-webhook`). Si prova ogni chiave di firma e
+      quella che verifica dice da dove arriva l'evento. Niente slug nell'URL.
+- [ ] **Sul sito**: ogni chiamata al motore porta il punto — header `x-sede`
+      oppure `?sede=<id>`. Senza, il motore ripiega sulla PRIMA sede, che con
+      tre punti sbaglia due volte su tre. Il widget di prenotazione lo fa gia'
+      se gli passi `sede` (vedi `reservation-embed.astro`).
+- [ ] `.env`: `STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET` restano come
+      RIPIEGO per chi non ha ancora la sua chiave. Una riga presente e
+      illeggibile NON ripiega: assente e' una configurazione, illeggibile e'
+      un guasto.
+
+⚠️ Quello che NON e' per sede: il cliente, il menu, i coupon, i buoni regalo,
+la newsletter e il tema sono del MARCHIO. Un buono comprato in un punto si
+spende negli altri; un coupon puo' essere ristretto a due punti su tre.
 
 ## 4. Variabili d'ambiente (pannello **Hostinger**, non Vercel)
 - [ ] Supabase: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`.

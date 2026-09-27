@@ -1,8 +1,20 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggiConfig } from "../../../lib/admin/sede";
+import { codicePaese } from "../../../lib/festivitaRegole";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Eventi LOCALI del ristorante (festa del quartiere, brocante, ricorrenze
 // del locale...): promemoria mostrati nella tile "Jours spéciaux" della
@@ -48,15 +60,21 @@ export const GET: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
 
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", CHIAVE)
-      .maybeSingle();
-    const events = pulisci(JSON.parse(data?.value ?? "[]")) ?? [];
-    return json({ events });
+    // Il paese viaggia con gli eventi perche' serve alla STESSA tile: e' lui
+    // a decidere quali feste e ricorrenze mostrare. Un fetch invece di due.
+    //
+    // ⚠️ `leggiConfig(ambito, ...)`, non una lettura diretta di `app_config`.
+    // Reglages → General SCRIVE con `scriviConfig(ambito, ...)`: con le sedi
+    // attive il paese finisce in `location_config` della sede, e chi legge
+    // `app_config` a mano non lo trova mai. Per un cliente a sede unica le
+    // due strade danno lo stesso risultato, quindi il difetto si vedeva solo
+    // dove c'erano piu' sedi — cioe' dove costa di piu'.
+    const ambito = await ambitoDiRichiesta(request, staff);
+    const cfg = await leggiConfig(ambito, [CHIAVE, "company_country"]);
+    const events = pulisci(JSON.parse(cfg.valori.get(CHIAVE) || "[]")) ?? [];
+    return json({ events, paese: codicePaese(cfg.valori.get("company_country") ?? "") });
   } catch {
-    return json({ events: [] });
+    return json({ events: [], paese: "" });
   }
 };
 
@@ -68,15 +86,15 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   const events = pulisci(body.events);
-  if (events === null) return json({ error: "Liste invalide" }, 400);
+  if (events === null) return json({ error: await msg("err.list") }, 400);
 
   const { error } = await supabaseAdmin
     .from("app_config")
     .upsert({ key: CHIAVE, value: JSON.stringify(events) }, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true, events });
 };

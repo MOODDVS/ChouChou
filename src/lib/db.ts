@@ -1,8 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
-import { trovaCategoriaStandard, i18nStandard } from "./admin/categorieStandard";
-import { cacheOr } from "./cache";
-import { prezzoEffettivo, leggiVariantiDb, haVarianti, type DiscountType } from "./pricing";
+import { prezzoEffettivo, variantiDelPunto, haVarianti, type DiscountType } from "./pricing";
+// ⚠️ `leggi` e non `supabaseAdmin.from`: `menu_items` e' «mista», quindi il
+// filtro rende il piatto del gruppo E quello di questo punto.
+import { leggi, type Ambito } from "./admin/sede";
 import { i18nPulito } from "./i18nMenu";
+import { applicaStatoSede } from "./menuStato";
+import { trovaCategoriaStandard, i18nStandard, LINGUE } from "./admin/categorieStandard";
+import { cacheOr } from "./cache";
 
 // Ri-esportato per comodità: il server legge il menu da qui.
 // NB: le isole React devono importarlo da "./i18nMenu", non da db.ts
@@ -127,9 +131,10 @@ function leggiVarianti(
   applicabile: boolean,
   type: unknown,
   value: unknown,
-  soloOrdinabili: boolean
+  soloOrdinabili: boolean,
+  ambito: Ambito,
 ): Variante[] {
-  return leggiVariantiDb(raw)
+  return variantiDelPunto(raw, ambito)
     .filter((v) => !soloOrdinabili || v.orderable)
     .map((v) => {
       const eff = applicabile
@@ -146,16 +151,16 @@ function leggiVarianti(
     });
 }
 
-function raggruppa(data: any[], online: boolean): MenuCategoria[] {
+function raggruppa(data: any[], online: boolean, ambito: Ambito): MenuCategoria[] {
   const gruppi: MenuCategoria[] = [];
   const indiceCategoria = new Map<string, number>();
 
   for (const riga of data) {
     const applicabile = online || riga.discount_scope === "all";
-    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online);
+    const varianti = leggiVarianti(riga.variants, applicabile, riga.discount_type, riga.discount_value, online, ambito);
     // Un piatto con formati, ma nessun formato ordinabile, sparisce dal
     // menu take-away (come un piatto con orderable = false).
-    if (online && haVarianti(riga.variants) && varianti.length === 0) continue;
+    if (online && haVarianti(riga.variants, ambito) && varianti.length === 0) continue;
     const base = applicabile
       ? prezzoEffettivo(riga.price_cents, riga.discount_type, riga.discount_value)
       : riga.price_cents;
@@ -240,12 +245,25 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
     }
     return cur;
   };
-  // name_i18n dall'admin; se vuoto e la categoria è "standard", ripiega sul
-  // dizionario predefinito (stesse traduzioni della "A" auto-traduite admin).
+  /**
+   * Le traduzioni di una categoria, col ripiego sul dizionario standard.
+   *
+   * ⚠️ Quello che il ristoratore ha scritto VINCE sempre. Il dizionario entra
+   * solo quando `name_i18n` e' vuoto, e solo se il nome combacia esattamente
+   * con una voce standard in una delle lingue — «Pizze», «Pizzas», «Pizza's».
+   * Non traduce: riconosce.
+   *
+   * Senza questo ripiego una categoria non tradotta compare col nome italiano
+   * anche al cliente francese, sulla pagina menu, che e' il testo piu' letto
+   * del sito. Il dizionario c'era gia' e lo diceva nella sua intestazione —
+   * «le traduzioni si applicano automaticamente» — ma sul sito pubblico non lo
+   * chiamava nessuno: `trovaCategoriaStandard` e `i18nStandard` erano esportate
+   * e mai usate.
+   */
   const i18nDi = (nome: string, dalDb: Record<string, string> | null): Record<string, string> | null => {
     if (dalDb && Object.keys(dalDb).length > 0) return dalDb;
     const std = trovaCategoriaStandard(nome);
-    return std ? i18nStandard(std, ["fr", "it", "en", "nl", "es"]) : dalDb;
+    return std ? i18nStandard(std, LINGUE as string[]) : dalDb;
   };
   for (const g of gruppi) {
     const info = mappa.get(g.category);
@@ -342,11 +360,12 @@ async function piattiNascostiDaLunch(): Promise<Set<string>> {
  *  così il sito continua a funzionare col prezzo unico. */
 type RisultatoPiatti = { data: any[] | null; error: { message?: string } | null };
 
-async function leggiPiatti(soloOrdinabili: boolean): Promise<RisultatoPiatti> {
+async function leggiPiatti(soloOrdinabili: boolean, ambito: Ambito): Promise<RisultatoPiatti> {
   // La lista di colonne è una variabile (serve per il ripiego), quindi
   // supabase-js non può inferire la forma della riga: si tipizza a mano.
   const query = async (campi: string): Promise<RisultatoPiatti> => {
-    let q = supabaseAdmin.from("menu_items").select(campi).eq("available", true);
+    // `menu_items` e' «mista»: il piatto del gruppo E quello di questo punto.
+    let q = leggi("menu_items", ambito, campi).eq("available", true);
     if (soloOrdinabili) q = q.eq("orderable", true);
     return (await q
       .order("category_order", { ascending: true })
@@ -355,35 +374,72 @@ async function leggiPiatti(soloOrdinabili: boolean): Promise<RisultatoPiatti> {
   return await conRipiegoColonne(MENU_SELECT, query);
 }
 
+// L'ESAURITO DI QUESTO PUNTO sta in `menuStato.ts`: lo usano anche il
+// checkout e l'admin, e una regola con tre copie e' una regola che diverge.
+// Vedi `applicaStatoSede` per il perche' non stia dentro `menu_items`.
+
 /**
  * Menu VETRINA: tutti i piatti disponibili (available = true).
  * Usata in /menu.
  */
-export async function getMenu(): Promise<MenuCategoria[]> {
-  return cacheOr("menu:public", getMenuNoCache);
+/** Suffisso della chiave di cache: la sede fa parte dell'identita' del dato.
+ *  Stessa forma di `schedule.ts` — `menu_items` e' «mista», quindi il piatto
+ *  del gruppo E quello del punto: una chiave che non nomina la sede servirebbe
+ *  il menu di Schaerbeek a chi ordina a Stockel. */
+const perAmbito = (a: Ambito) => (a.modo === "sede" ? a.id : a.modo);
+
+/**
+ * LA DEFINIZIONE del menu: i piatti, i prezzi, le varianti, le categorie.
+ * In cache 60 secondi, perche' una `getMenu` costava QUATTRO giri di database
+ * — i piatti, i nascosti dal lunch, l'esaurito, le categorie — su ogni visita
+ * della pagina piu' vista del sito.
+ *
+ * ⚠️ QUI DENTRO NON C'E' L'ESAURITO, ed e' il punto di tutta la funzione.
+ * `applicaStatoSede` resta FUORI e gira a ogni richiesta. La differenza:
+ * prezzi e piatti cambiano qualche volta al mese, l'esaurito cambia durante
+ * il servizio. Mettendo in cache il risultato finito, la cucina segna finita
+ * la burrata e per un minuto il sito continua a offrirla — e qualcuno la
+ * ordina e la paga. Un menu vecchio di un minuto non fa danno; un esaurito
+ * vecchio di un minuto e' un ordine che non si puo' servire.
+ *
+ * ⚠️ Nessuno la svuota, e non e' una dimenticanza: valgono i 60 secondi, come
+ * per gli orari in `schedule.ts`, che il ristoratore cambia quanto il menu.
+ * Il giorno che non bastassero, e' una riga: `cacheDelPrefisso("menu:def:")`
+ * nelle API che scrivono menu, categorie e lunch.
+ */
+async function definizioneMenu(
+  soloOrdinabili: boolean,
+  ambito: Ambito,
+): Promise<{ visibili: { id: string }[]; categorie: Awaited<ReturnType<typeof mappaCategorie>> }> {
+  const chiave = `menu:def:${soloOrdinabili ? "ord" : "vetrina"}:${perAmbito(ambito)}`;
+  return cacheOr(chiave, async () => {
+    const { data, error } = await leggiPiatti(soloOrdinabili, ambito);
+    if (error || !data) {
+      throw new Error(
+        soloOrdinabili
+          ? "Impossibile leggere il menu ordinabile da Supabase"
+          : "Impossibile leggere il menu da Supabase",
+      );
+    }
+    const nascosti = await piattiNascostiDaLunch();
+    const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
+    // ⚠️ `cacheOr` non scrive niente se questa funzione lancia: un errore di
+    // rete non resta in cache per un minuto.
+    return { visibili, categorie: await mappaCategorie() };
+  });
 }
 
-async function getMenuNoCache(): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(false);
-  if (error || !data) {
-    throw new Error("Impossibile leggere il menu da Supabase");
-  }
-  const nascosti = await piattiNascostiDaLunch();
-  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(visibili, false), await mappaCategorie());
+export async function getMenu(ambito: Ambito): Promise<MenuCategoria[]> {
+  const { visibili, categorie } = await definizioneMenu(false, ambito);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), false, ambito), categorie);
 }
 
 /**
  * Menu TAKE-AWAY: solo piatti ordinabili (available = true AND orderable = true).
  * Usata in /order.
  */
-export async function getMenuOrderable(): Promise<MenuCategoria[]> {
-  const { data, error } = await leggiPiatti(true);
-  if (error || !data) {
-    throw new Error("Impossibile leggere il menu ordinabile da Supabase");
-  }
-  const nascosti = await piattiNascostiDaLunch();
-  const visibili = nascosti.size ? data.filter((r: { id: string }) => !nascosti.has(String(r.id))) : data;
-  return arricchisci(raggruppa(visibili, true), await mappaCategorie());
+export async function getMenuOrderable(ambito: Ambito): Promise<MenuCategoria[]> {
+  const { visibili, categorie } = await definizioneMenu(true, ambito);
+  return arricchisci(raggruppa(await applicaStatoSede(visibili, ambito), true, ambito), categorie);
 }
 

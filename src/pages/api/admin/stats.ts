@@ -1,8 +1,19 @@
 import type { APIRoute } from "astro";
 import { calcolaStats, type Periodo } from "../../../lib/admin/calcolaStats";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 /**
  * GET /api/admin/stats?period=day|week|month|ytd|all
@@ -29,9 +40,9 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
 
   const p = (url.searchParams.get("period") ?? "day") as Periodo;
-  if (!PERIODI.includes(p)) return json({ error: "Période invalide" }, 400);
+  if (!PERIODI.includes(p)) return json({ error: await msg("err.period") }, 400);
 
-  const stats = await calcolaStats(p);
-  if (!stats) return json({ error: "Lecture impossible" }, 500);
+  const stats = await calcolaStats(p, await ambitoDiRichiesta(request, staff));
+  if (!stats) return json({ error: await msg("err.read") }, 500);
   return json(stats);
 };

@@ -63,14 +63,17 @@ export function testoPiatto(
  * Il cliente può sovrascriverle passando la chiave nel proprio dizionario:
  * questi sono i valori di partenza, non una gabbia.
  */
-export type ChiaveEtichetta = "soldOut" | "vegan" | "spicy" | "seasonal" | "suggestion" | "confirm";
+export type ChiaveEtichetta =
+  | "soldOut" | "vegan" | "spicy" | "seasonal" | "suggestion" | "confirm"
+  // Carrello: prezzo unitario sotto il nome, e il comando che svuota tutto.
+  | "each" | "clearAll";
 
 export const ETICHETTE_MENU: Record<string, Record<ChiaveEtichetta, string>> = {
-  fr: { soldOut: "Épuisé", vegan: "Végan", spicy: "Épicé", seasonal: "Saisonnier", suggestion: "Suggestion", confirm: "Confirmer ?" },
-  en: { soldOut: "Sold out", vegan: "Vegan", spicy: "Spicy", seasonal: "Seasonal", suggestion: "Suggestion", confirm: "Confirm?" },
-  it: { soldOut: "Esaurito", vegan: "Vegano", spicy: "Piccante", seasonal: "Stagionale", suggestion: "Consigliato", confirm: "Confermare?" },
-  nl: { soldOut: "Uitverkocht", vegan: "Vegan", spicy: "Pittig", seasonal: "Seizoensgebonden", suggestion: "Aanbevolen", confirm: "Bevestigen?" },
-  es: { soldOut: "Agotado", vegan: "Vegano", spicy: "Picante", seasonal: "De temporada", suggestion: "Sugerencia", confirm: "¿Confirmar?" },
+  fr: { soldOut: "Épuisé", vegan: "Végan", spicy: "Épicé", seasonal: "Saisonnier", suggestion: "Suggestion", confirm: "Confirmer ?", each: "l'unité", clearAll: "Tout vider" },
+  en: { soldOut: "Sold out", vegan: "Vegan", spicy: "Spicy", seasonal: "Seasonal", suggestion: "Suggestion", confirm: "Confirm?", each: "each", clearAll: "Clear all" },
+  it: { soldOut: "Esaurito", vegan: "Vegano", spicy: "Piccante", seasonal: "Stagionale", suggestion: "Consigliato", confirm: "Confermare?", each: "cad.", clearAll: "Svuota tutto" },
+  nl: { soldOut: "Uitverkocht", vegan: "Vegan", spicy: "Pittig", seasonal: "Seizoensgebonden", suggestion: "Aanbevolen", confirm: "Bevestigen?", each: "per stuk", clearAll: "Alles wissen" },
+  es: { soldOut: "Agotado", vegan: "Vegano", spicy: "Picante", seasonal: "De temporada", suggestion: "Sugerencia", confirm: "¿Confirmar?", each: "c/u", clearAll: "Vaciar todo" },
 };
 
 /**

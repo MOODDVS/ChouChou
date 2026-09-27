@@ -8,6 +8,7 @@ import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import { supabaseAdmin } from "../../lib/db";
 import { cacheOr } from "../../lib/cache";
+import Fonts from "../../components/Fonts.astro";
 const lang = await adminLang();
 const t = adminT(lang);
 
@@ -98,17 +99,14 @@ const nonce = Astro.locals.cspNonce;
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;900&family=Quicksand:wght@500;600;700&display=swap" />
+    <Fonts />
     <style>
       :root {
-        --c-hover: #e04f00; --c-card: #ffffff; --c-input: #f1f1f1; --c-bg: #ffffff;
-        --c-text: #333333; --c-accent: #ff7300; --c-muted: #a6a6a6; --c-line: #e7e7e7;
+        --c-hover: #e86a61; --c-card: #16424b; --c-input: #f1f1f1; --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #333333; --c-accent: #cb534d; --c-muted: #86a0a4; --c-line: #e7e7e7;
         --c-error: #e5544b; --c-ok: #2f9e59;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
-        --font-brand: "Quicksand", system-ui, sans-serif;
+        --font-brand: var(--font-title);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
@@ -146,7 +144,7 @@ const nonce = Astro.locals.cspNonce;
         /* Pannello form brandizzato RestoHub: ridefinisce le variabili colore
            solo per questo lato (override del tema cliente). Corallo + petrolio. */
         --c-accent: #dd5851; --c-hover: #c8443c; --c-text: #002d34; --c-muted: #9aa4a4;
-        --c-input: #f0f1f1; --c-line: #e7e7e7; --c-card: #ffffff; --c-error: #d64545; --c-ok: #2f9e59;
+        --c-input: #f0f1f1; --c-line: #e7e7e7; --c-card: #16424b; --c-error: #d64545; --c-ok: #2f9e59;
         flex: .9 1 0; display: flex; align-items: center; justify-content: center; background: #ffffff; padding: 2.4rem 1.6rem;
       }
       .form-inner { width: 100%; max-width: 360px; }
@@ -162,7 +160,30 @@ const nonce = Astro.locals.cspNonce;
         color: var(--c-text); font-family: var(--font-body); font-size: 1rem; padding: .8rem .9rem;
         margin-bottom: 1.1rem; transition: border-color .15s, background .15s;
       }
-      input:focus { outline: none; border-color: var(--c-accent); background: var(--c-card); }
+      /* Al focus cambia SOLO il bordo. Qui c'era `background: var(--c-card)`,
+         che e' il fondo scuro delle schede: su un campo chiaro con testo
+         scuro (--c-input #f1f1f1 / --c-text #333) rendeva illeggibile quello
+         che stavi scrivendo, e proprio nel campo su cui avevi il cursore. */
+      input:focus {
+        outline: none;
+        border-color: var(--c-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+      }
+      /* Riempimento automatico del browser: dipinge un suo fondo (lilla su
+         Chrome/Brave) e ignora il tema. Il box-shadow interno lo copre —
+         `background` non basta, il browser la scavalca. */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus {
+        -webkit-text-fill-color: var(--c-text);
+        -webkit-box-shadow: 0 0 0 1000px var(--c-input) inset;
+        box-shadow: 0 0 0 1000px var(--c-input) inset;
+        caret-color: var(--c-text);
+      }
+      input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0 1000px var(--c-input) inset, 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+        box-shadow: 0 0 0 1000px var(--c-input) inset, 0 0 0 3px color-mix(in srgb, var(--c-accent) 22%, transparent);
+      }
       .pw-wrap { position: relative; margin-bottom: 1.1rem; }
       .pw-wrap input { margin-bottom: 0; padding-right: 2.7rem; }
       .pw-eye { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); background: none; border: none; padding: .3rem; cursor: pointer; color: var(--c-muted); display: flex; align-items: center; }

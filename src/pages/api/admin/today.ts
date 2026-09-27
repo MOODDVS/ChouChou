@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { caricaToday } from "../../../lib/admin/caricaToday";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -11,7 +12,7 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const dati = await caricaToday();
+  const dati = await caricaToday(await ambitoDiRichiesta(request, staff));
 
   return new Response(JSON.stringify(dati), {
     status: 200,

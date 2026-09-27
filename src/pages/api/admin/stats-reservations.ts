@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { calcolaStatsResa } from "../../../lib/admin/statsResa";
+import { ambitoDiRichiesta } from "../../../lib/admin/sede";
 
 export const prerender = false;
 
@@ -20,7 +21,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   let giorni = parseInt(url.searchParams.get("giorni") || "30", 10);
   if (!AMMESSI.includes(giorni)) giorni = 30;
   try {
-    const stats = await calcolaStatsResa(giorni);
+    const stats = await calcolaStatsResa(giorni, await ambitoDiRichiesta(request, staff));
     return json({ stats });
   } catch (e) {
     return json({ error: (e as Error).message || "Errore" }, 500);

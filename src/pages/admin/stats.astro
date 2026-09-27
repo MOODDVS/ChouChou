@@ -9,6 +9,7 @@ import "../../styles/filters.css";
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { calcolaStats } from "../../lib/admin/calcolaStats";
+import { ambitoDiRichiesta, sediVisibili } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 
@@ -21,10 +22,21 @@ export const prerender = false;
 // periodo di default ("day") sul server. Altrimenti ssrStats resta null → la
 // pagina calcola lato client come prima.
 let ssrStats: unknown = null;
+// «Tutte le sedi» esiste SOLO qui, e solo in Finanze e Prenotazioni (deciso
+// 14/09/2026). Non e' nel selettore dell'header: li' si sceglie dove si
+// lavora, e in aggregato non si puo' scrivere. Statistiche invece e' di sola
+// lettura, quindi l'aggregato non ha nessun verso pericoloso — e guardare i
+// tre punti insieme e' esattamente quello che il gruppo vuole fare qui.
+let piuSedi = false;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrStats = await calcolaStats("day");
+  if (staff) {
+    ssrStats = await calcolaStats("day", await ambitoDiRichiesta(Astro.request, staff));
+    // Chi e' legato a un punto vede solo il suo: `sediVisibili` ne rende una,
+    // la pastiglia non compare, e il server rifiuterebbe comunque l'aggregato.
+    piuSedi = (await sediVisibili(staff)).length > 1;
+  }
 } catch {
   ssrStats = null;
 }
@@ -42,24 +54,17 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -190,6 +195,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
       .rbar-val { fill: var(--c-text); font-size: 11px; font-family: var(--font-body); }
       .hb-row { display: grid; grid-template-columns: 6.5rem 1fr auto; align-items: center; gap: 0.7rem; margin-bottom: 0.5rem; }
       .hb-k { font-size: 0.85rem; color: var(--c-text); }
+      /* Sotto il nome del punto: il dato secondario (ordini, coperti). */
+      .hb-sub { display: block; font-size: 0.7rem; color: var(--c-muted); }
       .hb-bar { position: relative; height: 22px; background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 6px; overflow: hidden; }
       .hb-fill { position: absolute; inset: 0 auto 0 0; background: var(--c-accent); }
       .hb-val { font-family: var(--font-title); font-size: 1rem; min-width: 3rem; text-align: right; color: var(--c-text); }
@@ -246,6 +253,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           <button class="rh-filter" data-p="month">{t("res.month")}</button>
           <button class="rh-filter" data-p="ytd">{t("st.pYear")}</button>
           <button class="rh-filter" data-p="all">{t("ord.total")}</button>
+          {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
+          {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
         </div>
         <div class="state" id="state">{t("sup.loading")}</div>
         <div id="content" style="display:none">
@@ -265,6 +274,12 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
               <div class="stat-big" id="s-peak">—</div>
               <div class="stat-sub" id="s-peak-sub"></div>
             </div>
+          </div>
+          <!-- Solo in aggregato: un totale senza la ripartizione dice al
+               gruppo quanto ha incassato, non se una delle tre va male. -->
+          <div class="top" id="s-sedi-box" style="display:none">
+            <div class="top-title">{t("st.bySede")}</div>
+            <div id="s-sedi"></div>
           </div>
           <div class="chart">
             <div class="chart-title" id="c-title">{t("st.byHour")}</div>
@@ -342,6 +357,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             <button class="rh-filter" data-g="90">{t("st.rFil90")}</button>
             <button class="rh-filter" data-g="180">{t("st.rFil180")}</button>
             <button class="rh-filter" data-g="365">{t("st.rFil365")}</button>
+            {piuSedi && <span class="rh-sep" aria-hidden="true"></span>}
+            {piuSedi && <button class="rh-filter rh-tutte" type="button">{t("st.allLocations")}</button>}
           </div>
           <div class="state" id="r-state">{t("sup.loading")}</div>
           <div class="state" id="r-empty" style="display:none">{t("st.rNoData")}</div>
@@ -369,6 +386,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             </div>
 
             <div class="two-cols">
+              <div class="top" id="r-sedi-box" style="display:none"><div class="top-title">{t("st.bySede")}</div><div id="r-sedi"></div></div>
               <div class="top"><div class="top-title">{t("st.rBySource")}</div><div id="r-src"></div></div>
               <div class="top"><div class="top-title">{t("st.rCoversSvc")}</div><div id="r-svc"></div></div>
             </div>
@@ -402,6 +420,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         series_kind: string;
         series: { label: string; count: number }[];
         top: { name: string; qty: number; cents: number }[];
+        /** Solo in aggregato: il totale diviso per punto. */
+        perSede?: { id: string | null; nome: string; orders: number; revenue_cents: number; avg_cents: number }[];
       };
 
       const NOMI_PERIODO: Record<string, string> = {
@@ -445,6 +465,22 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         let headers = { Authorization: `Bearer ${session.access_token ?? ""}` };
 
+        // ---- «Tutte le sedi»: l'AGGREGATO -----------------------------------
+        // Stato unico per i due tab: chi lo accende in Finanze lo ritrova in
+        // Prenotazioni, che e' come lo si usa davvero (si guarda il gruppo,
+        // non una pagina).
+        //
+        // ⚠️ Viaggia SOLO nell'header `x-sede` della singola richiesta, mai
+        // nel cookie: l'aggregato non si ricorda apposta. E' un modo di
+        // guardare, non un posto dove si lavora — riaprendo l'admin domani si
+        // riparte dal proprio punto, non da una vista in cui non si puo'
+        // scrivere. Il server lo concede solo a chi non e' legato a una sede.
+        let tutteSedi = false;
+        const hdr = () => (tutteSedi ? { ...headers, "x-sede": "tutte" } : headers);
+        function segnaTutte() {
+          document.querySelectorAll(".rh-tutte").forEach((b) => b.classList.toggle("is-on", tutteSedi));
+        }
+
         // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
         // una volta sola al caricamento, un tab lasciato aperto continuava a
         // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
@@ -458,6 +494,24 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
         let periodo = "day";
 
         function render(s: Stats) {
+          // Ripartizione per punto: c'e' solo in aggregato, e allora la si
+          // mostra; tornando su una sede il blocco sparisce invece di restare
+          // appeso con i numeri di prima.
+          const boxSedi = document.getElementById("s-sedi-box") as HTMLElement;
+          if (s.perSede?.length) {
+            boxSedi.style.display = "";
+            rHbars(
+              "s-sedi",
+              s.perSede.map((x) => ({
+                k: x.nome || tr("st.noSede"),
+                sub: `${nfInt.format(x.orders)} ${tr("nav.orders").toLowerCase()} · ${euro(x.avg_cents)}`,
+                v: x.revenue_cents,
+              })),
+              euro,
+            );
+          } else {
+            boxSedi.style.display = "none";
+          }
           (document.getElementById("s-rev") as HTMLElement).textContent = euro(s.revenue_cents);
           (document.getElementById("s-avg") as HTMLElement).textContent =
             s.orders > 0 ? `${tr("st.avgBasket")} : ${euro(s.avg_cents)}` : "";
@@ -562,7 +616,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
             if (datiIniziali) {
               s = datiIniziali; // dati già pronti dal server (SSR)
             } else {
-              const res = await fetch("/api/admin/stats?period=" + periodo, { headers });
+              const res = await fetch("/api/admin/stats?period=" + periodo, { headers: hdr() });
               if (!res.ok) {
                 stateEl.textContent = tr("sup.load.error");
                 stateEl.style.display = "block";
@@ -583,9 +637,21 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         periodsEl.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
-          if (!t || t.dataset.p === periodo) return;
+          if (!t) return;
+          // ⚠️ Prima del resto: la pastiglia delle sedi sta nella stessa riga
+          // ma e' un'ALTRA dimensione. Senza questo ramo finirebbe nel codice
+          // del periodo, che leggerebbe un `data-p` inesistente e metterebbe
+          // `periodo` a undefined.
+          if (t.classList.contains("rh-tutte")) {
+            tutteSedi = !tutteSedi;
+            segnaTutte();
+            carica();
+            if (rLoaded) void caricaResa();
+            return;
+          }
+          if (t.dataset.p === periodo) return;
           periodo = t.dataset.p!;
-          periodsEl.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
+          periodsEl.querySelectorAll(".rh-filter:not(.rh-tutte)").forEach((b) => b.classList.toggle("is-on", b === t));
           carica();
         });
 
@@ -818,6 +884,8 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           perOra: { ora: string; n: number }[];
           perFonte: { fonte: string; n: number }[];
           copertiServizio: { servizio: string; coperti: number }[];
+          /** Solo in aggregato: il totale diviso per punto. */
+          perSede?: { id: string | null; nome: string; pren: number; coperti: number }[];
         };
         const rState = document.getElementById("r-state") as HTMLElement;
         const rEmpty = document.getElementById("r-empty") as HTMLElement;
@@ -879,11 +947,17 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           });
           box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${b}</svg>`;
         }
-        function rHbars(boxId: string, rows: { k: string; v: number; c?: string }[]): void {
+        // `fmt` serve a non duplicare il componente: le finanze mostrano euro,
+        // le prenotazioni numeri interi, ma la barra e' la stessa.
+        function rHbars(
+          boxId: string,
+          rows: { k: string; v: number; c?: string; sub?: string }[],
+          fmt: (n: number) => string = (n) => nfInt.format(n),
+        ): void {
           const box = document.getElementById(boxId); if (!box) return;
           if (!rows.length) { box.innerHTML = `<p class="state" style="padding:1rem 0">${tr("st.noData")}</p>`; return; }
           const max = Math.max(1, ...rows.map((r) => r.v));
-          box.innerHTML = rows.map((r) => `<div class="hb-row"><span class="hb-k">${esc(r.k)}</span><div class="hb-bar"><div class="hb-fill" style="width:${Math.max(4, Math.round((r.v / max) * 100))}%;background:${r.c || "var(--c-accent)"}"></div></div><span class="hb-val">${nfInt.format(r.v)}</span></div>`).join("");
+          box.innerHTML = rows.map((r) => `<div class="hb-row"><span class="hb-k">${esc(r.k)}${r.sub ? `<span class="hb-sub">${esc(r.sub)}</span>` : ""}</span><div class="hb-bar"><div class="hb-fill" style="width:${Math.max(4, Math.round((r.v / max) * 100))}%;background:${r.c || "var(--c-accent)"}"></div></div><span class="hb-val">${esc(fmt(r.v))}</span></div>`).join("");
         }
         const FONTE_LAB: Record<string, string> = { web: tr("st.srcWeb"), phone: tr("st.srcPhone"), walkin: tr("st.srcWalkin"), google: tr("st.srcGoogle"), altro: tr("st.srcOther") };
         const SVC_LAB: Record<string, string> = { midi: tr("st.svMidi"), soir: tr("st.svSoir") };
@@ -913,6 +987,17 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           ], d.serie.map((x) => fmtJour(x.date)));
           rBars("r-week", d.perGiorno, [0, 1, 2, 3, 4, 5, 6].map((i) => giornoNome(i, "short")), "var(--c-accent)");
           rBars("r-hours", d.perOra.map((o) => o.n), d.perOra.map((o) => o.ora.slice(0, 2)), "var(--c-accent)");
+          const boxResaSedi = document.getElementById("r-sedi-box") as HTMLElement;
+          if (d.perSede?.length) {
+            boxResaSedi.style.display = "";
+            rHbars("r-sedi", d.perSede.map((x) => ({
+              k: x.nome || tr("st.noSede"),
+              sub: `${nfInt.format(x.coperti)} ${tr("st.rCovers").toLowerCase()}`,
+              v: x.pren,
+            })));
+          } else {
+            boxResaSedi.style.display = "none";
+          }
           rHbars("r-src", d.perFonte.map((f) => ({ k: FONTE_LAB[f.fonte] ?? f.fonte, v: f.n })));
           rHbars("r-svc", d.copertiServizio.map((x) => ({ k: SVC_LAB[x.servizio] ?? x.servizio, v: x.coperti, c: x.servizio === "midi" ? "#7fa6ae" : "var(--c-accent)" })));
         }
@@ -922,7 +1007,7 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
           rState.style.display = "block"; rState.textContent = tr("sup.loading");
           rEmpty.style.display = "none"; rContent.style.display = "none";
           try {
-            const res = await fetch("/api/admin/stats-reservations?giorni=" + rDays, { headers });
+            const res = await fetch("/api/admin/stats-reservations?giorni=" + rDays, { headers: hdr() });
             const j = await res.json();
             if (!res.ok) throw new Error(j.error || tr("res.connErr"));
             rDati = j.stats as RStats;
@@ -937,9 +1022,19 @@ const ssrStatsJson = ssrStats ? JSON.stringify(ssrStats).replace(/</g, "\\u003c"
 
         rPeriods.addEventListener("click", (e) => {
           const t = (e.target as HTMLElement).closest(".rh-filter") as HTMLElement | null;
-          if (!t || Number(t.dataset.g) === rDays) return;
+          if (!t) return;
+          // Stessa ragione del tab Finanze: senza questo ramo `rDays`
+          // diventerebbe NaN e la richiesta partirebbe senza giorni.
+          if (t.classList.contains("rh-tutte")) {
+            tutteSedi = !tutteSedi;
+            segnaTutte();
+            void caricaResa();
+            carica();
+            return;
+          }
+          if (Number(t.dataset.g) === rDays) return;
           rDays = Number(t.dataset.g);
-          rPeriods.querySelectorAll(".rh-filter").forEach((b) => b.classList.toggle("is-on", b === t));
+          rPeriods.querySelectorAll(".rh-filter:not(.rh-tutte)").forEach((b) => b.classList.toggle("is-on", b === t));
           void caricaResa();
         });
 

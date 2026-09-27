@@ -1,7 +1,17 @@
 import type { APIRoute } from "astro";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Verifica di un Place ID Google (livello 1 di Google Business: sola lettura).
 // Usa la Places API con la chiave MOODD (GOOGLE_PLACES_API_KEY), condivisa
@@ -20,10 +30,10 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
-  if (!KEY) return json({ error: "GOOGLE_PLACES_API_KEY manquante" }, 500);
+  if (!KEY) return json({ error: await msg("err.placesKey") }, 500);
 
   const placeId = (url.searchParams.get("place_id") ?? "").trim();
-  if (!/^[A-Za-z0-9_-]+$/.test(placeId)) return json({ error: "Place ID invalide." }, 400);
+  if (!/^[A-Za-z0-9_-]+$/.test(placeId)) return json({ error: await msg("err.placeId") }, 400);
 
   try {
     const res = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
@@ -43,8 +53,8 @@ export const GET: APIRoute = async ({ request, url }) => {
       } catch {
         dettaglio = t.slice(0, 160);
       }
-      if (res.status === 404) return json({ error: "Établissement introuvable (Place ID)." }, 404);
-      return json({ error: `Google (${res.status}) : ${dettaglio || "requête refusée"}` }, 502);
+      if (res.status === 404) return json({ error: await msg("err.placeNotFound") }, 404);
+      return json({ error: `Google (${res.status}) : ${dettaglio || (await msg("err.googleRefused"))}` }, 502);
     }
     const j = (await res.json()) as {
       displayName?: { text?: string };
@@ -60,6 +70,6 @@ export const GET: APIRoute = async ({ request, url }) => {
       maps_url: j.googleMapsUri ?? "",
     });
   } catch {
-    return json({ error: "Connexion à Google impossible." }, 502);
+    return json({ error: await msg("err.googleConn") }, 502);
   }
 };

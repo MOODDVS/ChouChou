@@ -8,6 +8,7 @@ import AdminHead from "../../components/admin/AdminHead.astro";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Modal from "../../components/admin/Modal.astro";
+import ImagePicker from "../../components/admin/ImagePicker.astro";
 import { CLIENT } from "../../config/client";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT, LINGUE_ADMIN } from "../../i18n/admin";
@@ -30,6 +31,30 @@ const supI18n = {
   on: t("sup.features.on"),
   off: t("sup.features.off"),
   loadError: t("sup.load.error"),
+  loading: t("sup.loading"),
+  sito: (import.meta.env.PUBLIC_SITE_URL ?? "").replace(/\/+$/, ""),
+  loc: {
+    empty: t("loc.empty"), neu: t("loc.new"), edit: t("loc.edit"),
+    saved: t("loc.saved"), deleted: t("loc.deleted"), secretSaved: t("loc.secretSaved"),
+    secretSet: t("loc.secretSet"), secretNone: t("loc.secretNone"),
+    secretPh: t("loc.secretPh"), secretSetPh: t("loc.secretSetPh"),
+    cifraKo: t("loc.cifraKo"),
+    stDaEnv: t("loc.st.daEnv"), stManca: t("loc.st.manca"), reviewShort: t("loc.reviewShort"),
+    stNonColl: t("loc.st.nonColl"), stConf: t("loc.st.conf"),
+    stDaMarchio: t("loc.st.daMarchio"),
+    stPlace: t("loc.placeId"),
+    stripe: t("loc.stripe"), webhook: t("loc.webhook"),
+    active: t("loc.active"), confirm: t("common.confirm"), del: t("common.delete"),
+    imgErr: t("as.uploadFailed"), sending: t("mk.upload"),
+    gNuova: t("gg.inSedeNew"), gNonCollegato: t("gg.notLinked"),
+    gNessuna: t("gg.noneYet"),
+    gVuoto: t("gg.pickEmpty"), gSalvata: t("gg.saved"),
+    placeHint: t("loc.placeIdHint"), placeVuoto: t("itg.g.needPlace"),
+    placeChiave: t("itg.g.isKey"),
+    stCount: t("loc.st.count"), stDone: t("loc.st.done"),
+    sedeTutte: t("us.sedeTutte"),
+    netErr: t("common.netErr"),
+  },
   pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
   tabLabels: Object.fromEntries(
     Object.entries(TABS_ADMIN).flatMap(([pk, tabs]) =>
@@ -37,6 +62,15 @@ const supI18n = {
     )
   ) as Record<string, string>,
   featureLabels: { variants: t("menu.variants") } as Record<string, string>,
+  // Nomi delle tabelle nel conteggio dello storico: parole del mestiere
+  // («ordini», «tavoli»), non i nomi delle tabelle. Sta qui e non dentro
+  // `loc` perche' quello e' un dizionario di sole stringhe.
+  stTabLabels: Object.fromEntries(
+    ["orders", "reservations", "restaurant_tables", "service_closures", "zone_closures",
+     "agenda_events", "admin_notes", "google_reviews", "push_subscriptions",
+     "admin_docs_meta", "gift_card_redemptions", "print_orders"]
+      .map((k) => [k, t("loc.st.t." + k)])
+  ) as Record<string, string>,
   pwaNoIcon: t("sup.pwa.noIcon"),
   pwaNomeCliente: CLIENT.nome,
   pwaReinstall: t("sup.pwa.reinstall"),
@@ -73,24 +107,17 @@ const prI18n = {
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -114,6 +141,125 @@ const prI18n = {
       .tabs button:hover { border-color: var(--c-accent); color: var(--c-text); }
       .tabs button.is-active { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); }
       .pane[hidden] { display: none; }
+
+      /* ---- Établissements (multi-sede) ---- */
+      /* Il paragrafo sopra ha margine 0: senza questo, l'etichetta della
+         domanda resta appiccicata al testo che la introduce. */
+      .st-scelta { margin-top: 1.2rem; }
+      .st-conteggi { background: var(--c-input); border: 1px solid var(--c-line); border-radius: 9px; padding: 0.7rem 0.75rem; margin-top: 0.9rem; }
+      .st-conteggi b { color: var(--c-text); font-weight: 700; }
+      .st-avviso { display: flex; gap: 0.55rem; align-items: flex-start; margin: 0.9rem 0 0; padding: 0.65rem 0.75rem; border: 1px solid color-mix(in srgb, var(--c-accent) 50%, transparent); border-radius: 9px; font-size: 0.85rem; color: var(--c-accent); }
+      /* Nota d'avviso: stesso .f-note, colore dell'accento. */
+      .f-note.is-avviso { color: var(--c-accent); }
+      .loc-storico { border: 1px solid color-mix(in srgb, var(--c-accent) 50%, transparent); border-radius: 10px; padding: 0.9rem 1rem; margin: 0 0 1.6rem; }
+      .loc-storico-t { margin: 0 0 0.3rem; font-weight: 700; color: var(--c-accent); }
+      .loc-storico .note { margin: 0 0 0.7rem; }
+      /* Quattro colonne fisse, come la griglia dei Documenti: `auto-fill`
+         faceva card strette e diverse a ogni larghezza di finestra. */
+      .loc-list { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: start; }
+      @media (max-width: 1279px) { .loc-list { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+      @media (max-width: 1023px) { .loc-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 640px)  { .loc-list { grid-template-columns: 1fr; } }
+      /* Angoli retti come le card dei Documenti e del Team, ma fondo
+         --c-card come `.pr-card` qui accanto: nel super i pannelli non
+         hanno un fondo proprio, le card stanno direttamente sulla pagina.
+         In Impostazioni e' il contrario (la sezione e' gia' --c-card) e
+         li' si usa --c-bg: la regola e' «un piano sopra il suo sfondo»,
+         non un colore fisso. */
+      .loc-card {
+        background: var(--c-card); border: 1px solid var(--c-line);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+        padding: 1rem 1.1rem 0.9rem;
+        display: flex; flex-direction: column; gap: 0.75rem;
+      }
+      .loc-card.is-off { opacity: 0.55; }
+      .loc-head { display: flex; align-items: center; gap: 0.7rem; min-width: 0; }
+      .loc-ident { display: flex; flex-direction: column; min-width: 0; }
+      .loc-nome {
+        font-family: var(--font-title); font-size: 1.05rem; font-weight: 700;
+        letter-spacing: 0.02em; line-height: 1.25; word-break: break-word;
+      }
+      .loc-slug { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.04em; }
+
+      /* Pastiglia di stato: dice SE il segreto c'e', mai che cosa.
+         Verde quando c'e' — il corallo e' l'accento dell'interfaccia, non
+         un giudizio, e qui serve dire «a posto». */
+      .loc-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+      .loc-chip {
+        display: inline-flex; align-items: center; gap: 0.35rem;
+        font-size: 0.68rem; letter-spacing: 0.05em; text-transform: uppercase;
+        padding: 0.18rem 0.6rem; border-radius: 999px; white-space: nowrap;
+        border: 1px solid color-mix(in srgb, var(--c-text) 20%, var(--c-bg));
+        color: var(--c-muted);
+      }
+      .loc-chip::before {
+        content: ""; width: 6px; height: 6px; border-radius: 50%;
+        background: currentColor; opacity: 0.55;
+      }
+      .loc-chip.is-set {
+        color: #4fbe8c; border-color: #2e9e6b;
+        background: rgba(46, 158, 107, 0.12);
+      }
+      .loc-chip.is-set::before { background: #2e9e6b; opacity: 1; }
+
+      /* STATO DELLA SEDE — una riga per collegamento, il pallino a sinistra.
+         Erano due pastiglie affiancate; con quattro voci diventavano un muro
+         di maiuscoletto che si legge una parola alla volta. In colonna si
+         scorre, e le etichette incolonnate si confrontano fra sedi diverse.
+
+         ⚠️ Tre colori e non due. Verde = configurato qui. Grigio = non c'e',
+         e va bene cosi' (eredita dal .env, oppure e' facoltativo). Corallo =
+         non c'e' da nessuna parte, e qualcosa non funzionera'. Con due soli
+         colori «eredita dal .env» e «pagamenti rotti» erano la stessa cosa. */
+      .loc-stato { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+      .loc-stato li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.74rem; line-height: 1.35; min-width: 0; }
+      .loc-stato li::before {
+        content: ""; width: 7px; height: 7px; border-radius: 50%;
+        flex: 0 0 auto; background: var(--c-muted); opacity: 0.45;
+      }
+      .loc-st-k { flex: 0 0 auto; min-width: 6.4rem; color: var(--c-muted); letter-spacing: 0.03em; }
+      .loc-st-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-muted); }
+      .loc-stato li.is-ok::before { background: #2e9e6b; opacity: 1; }
+      .loc-stato li.is-ok .loc-st-v { color: #4fbe8c; }
+      .loc-stato li.is-ko::before { background: var(--c-accent); opacity: 1; }
+      .loc-stato li.is-ko .loc-st-v { color: var(--c-accent); }
+
+      /* L'indirizzo che uscira' davvero: vedendolo si capisce subito se e'
+         ridondante (…450gradi.be/450-gradi-schaerbeek) e lo si accorcia. */
+      .loc-url { color: var(--c-accent); word-break: break-all; }
+      .loc-url:empty { display: none; }
+      /* Interruttore a sinistra, coppia modifica/elimina a destra: l'ordine
+         di lettura va dallo stato dell'oggetto alle azioni su di esso. */
+      .loc-actions { display: flex; align-items: center; gap: 0.4rem; border-top: 1px solid var(--c-line); padding-top: 0.8rem; margin-top: 0.15rem; }
+      .loc-spacer { flex: 1; }
+      /* Pastiglia della sede: foto se c'e', iniziali se no. Stessa forma
+         ovunque comparira' — schede, selettore dell'header, ordini. */
+
+      /* Modale: il grosso arriva da field.css (.f-field/.f-label/.f-line/.f-note).
+         Qui resta solo quello che e' davvero di questa scheda. */
+      /* Ordine: un numero a due cifre. Non cresce, cosi' il nome si prende
+         tutta la riga che avanza. */
+      #loc-overlay .loc-cap { flex: 0 0 110px; max-width: 110px; }
+      #loc-overlay .loc-f-nome { flex: 3 1 260px; }
+      /* Campo + bottone sulla stessa riga (Place ID, scheda Google). */
+      #loc-overlay .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
+      #loc-overlay .loc-riga .btn { flex: 0 0 auto; }
+      /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
+         scheda Google in Intégrations: a sede unica non esiste nessun modale
+         in cui metterlo. Stesso aspetto, non un secondo aspetto. */
+      #loc-overlay .loc-riga, #g-unica .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
+      #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
+      #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }
+      /* Il titolino di sezione dentro un modale non ha bisogno dello stacco
+         che ha nella pagina: qui lo spazio e' prezioso. */
+      #loc-overlay .itg-niv { margin: 1.1rem 0 0.6rem; padding-top: 0.8rem; }
+      #loc-overlay .md-foot { justify-content: flex-start; gap: 1.1rem; }
+      #loc-overlay .md-foot .md-btn { margin-left: auto; }
+      #loc-overlay .md-foot .md-btn + .md-btn { margin-left: 0; }
+      .loc-err { color: #ff8a8f; font-size: 0.85rem; align-self: center; }
+      .loc-err:empty { display: none; }
       .pane .tema-titre { margin-top: 0; }
       h1 { font-family: var(--font-title); font-size: 1.3rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.4rem; }
       h1 svg { width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: var(--c-accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -141,23 +287,17 @@ const prI18n = {
       }
       .subrow.is-off { opacity: 0.6; }
       .subrow-name { font-size: 0.85rem; white-space: nowrap; }
-      .subrow .switch { width: 34px; height: 19px; }
-      .subrow .switch .track::before { width: 13px; height: 13px; left: 3px; }
-      .subrow .switch input:checked + .track::before { transform: translate(15px, -50%); }
+      /* Taglia ridotta della riga annidata: si dice con le variabili del
+         componente, non riscrivendo pallina e spostamento — erano tre numeri
+         da tenere d'accordo a mano, e uno sbagliato faceva uscire la pallina. */
+      .subrow .switch { --sw-w: 34px; --sw-h: 19px; --sw-k: 13px; }
 
-      .switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
-      .switch input { opacity: 0; width: 0; height: 0; }
-      .switch .track {
-        position: absolute; inset: 0; cursor: pointer; border-radius: 999px;
-        background: var(--c-line); transition: background 0.2s;
-      }
-      .switch .track::before {
-        content: ""; position: absolute; width: 20px; height: 20px; left: 3px; top: 50%;
-        transform: translateY(-50%);
-        border-radius: 50%; background: #fff; transition: transform 0.2s;
-      }
-      .switch input:checked + .track { background: var(--c-accent); }
-      .switch input:checked + .track::before { transform: translate(20px, -50%); }
+      /* L'interruttore NON si ridefinisce qui: vale `styles/switch.css`,
+         importato da AdminHead. La copia che stava qui dipingeva lo spento con
+         --c-line, che e' un token di BORDO: su un tema con i bordi chiari
+         diventava una pastiglia pallida invece che uno spento pieno.
+         Le misure di questa pagina sono gia' quelle del componente
+         (46 x 26, pallina 20), quindi non serve nemmeno una variabile. */
 
       .note { color: var(--c-muted); font-size: 0.8rem; margin-top: 1.2rem; line-height: 1.6; }
 
@@ -296,6 +436,7 @@ const prI18n = {
       #us-overlay .md-foot .us-err { margin-right: auto; }
       .us-err { color: #ff6b6b; font-size: 0.82rem; }
       .us-err:empty { display: none; }
+      .us-pagine { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.2rem; }
       .us-roles { display: flex; gap: 0.4rem; flex-wrap: wrap; }
       .us-role {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-muted);
@@ -408,15 +549,6 @@ const prI18n = {
       .publang-row.is-off .publang-set { visibility: hidden; }
       .publang-sep { border: none; border-top: 1px solid var(--c-line); margin: 2.4rem 0 1.6rem; }
 
-      .toast {
-        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
-        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
-        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { border-color: #ed1c24; }
 
     </style>
     <AdminHead />
@@ -429,6 +561,7 @@ const prI18n = {
         <h1><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>{t("sup.title")}</h1>
         <div class="tabs" id="sup-tabs">
           <button type="button" data-t="design" class="is-active"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="2.5" /><circle cx="19" cy="13" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="10" cy="20" r="2.5" /><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-1.5-1-1.6-1-2.5 0-1.1.9-2 2-2h1.5A5.5 5.5 0 0 0 22 10c0-4.4-4.5-8-10-8z" /></svg>{t("sup.tab.design")}</button>
+          <button type="button" data-t="sedi"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>{t("sup.tab.sedi")}</button>
           <button type="button" data-t="users"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>{t("sup.tab.users")}</button>
           <button type="button" data-t="reglages"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" /><line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" /><line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" /><line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" /></svg>{t("sup.tab.reglages")}</button>
           <button type="button" data-t="integrations"><svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="2" x2="9" y2="5" /><line x1="15" y1="2" x2="15" y2="5" /><line x1="9" y1="19" x2="9" y2="22" /><line x1="15" y1="19" x2="15" y2="22" /><line x1="2" y1="9" x2="5" y2="9" /><line x1="2" y1="15" x2="5" y2="15" /><line x1="19" y1="9" x2="22" y2="9" /><line x1="19" y1="15" x2="22" y2="15" /><rect x="5" y="5" width="14" height="14" rx="2" /></svg>{t("sup.tab.integrations")}</button>
@@ -540,7 +673,7 @@ const prI18n = {
             </div>
 
             <div class="us-roles" id="itg-modes" style="margin-top:1.2rem">
-              <button type="button" class="us-role is-on" data-mode="moodd">MOODD</button>
+              <button type="button" class="us-role is-on" data-mode="moodd">RestoHub</button>
               <button type="button" class="us-role" data-mode="link">{t("itg.mode.link")}</button>
               <button type="button" class="us-role" data-mode="embed">{t("itg.mode.embed")}</button>
               <button type="button" class="us-role" data-mode="none">{t("itg.mode.none")}</button>
@@ -580,13 +713,8 @@ const prI18n = {
               <span class="itg-state" id="g-state">{t("itg.g.off")}</span>
             </div>
 
-            <p class="itg-niv">{t("itg.g.lvl1")}</p>
-            <label class="us-lab" for="g-place">{t("itg.g.placeLabel")}</label>
-            <div class="us-frow us-frow-pass">
-              <input type="text" id="g-place" placeholder="ChIJ…" autocomplete="off" />
-              <button type="button" id="g-test" class="us-ghost">{t("common.verify")}</button>
-            </div>
-            <p class="note" id="g-res" style="margin-top:0.5rem">{t("itg.g.placeNote")}</p>
+            <!-- Il Place ID (livello 1) sta nella scheda della sede: identifica
+                 UN'attivita' fisica, quindi tre pizzerie sono tre Place ID. -->
 
             <p class="itg-niv">{t("itg.g.lvl2")}</p>
             <div class="us-frow us-frow-pass">
@@ -597,11 +725,27 @@ const prI18n = {
               <span class="note" id="g-oauth-note">{t("itg.g.pending")}</span>
             </div>
 
-            <div id="g-sedi-wrap" style="display:none;margin-top:0.8rem">
-              <p class="itg-niv">{t("gg.pickTitle")}</p>
-              <p class="note" id="g-sede-cur" style="margin:0.2rem 0 0.5rem"></p>
-              <button type="button" id="g-sede-pick" class="us-ghost">{t("gg.change")}</button>
-              <div id="g-sede-list" style="margin-top:0.6rem"></div>
+            <!-- La SCELTA della scheda non sta piu' qui: e' un fatto della
+                 sede e vive nel suo modale (Sedi → matita), accanto alle
+                 chiavi Stripe. Qui resta il collegamento, che e' UNO per
+                 installazione — un account Google, piu' schede. -->
+            <p class="note" id="g-sedi-rinvio" style="display:none;margin-top:0.8rem">{t("gg.pickInSede")}</p>
+
+            <!-- ⚠️ INSTALLAZIONE A SEDE UNICA. Il rinvio qui sopra manda al
+                 modale del punto, che a sede unica NON ESISTE: il 15/09/2026
+                 la scelta della scheda e' passata di la', e per quattro
+                 clienti su cinque e' diventata irraggiungibile. Il rimedio non
+                 e' creare una sede — farebbe passare un ristorante solo in
+                 multi-sede, col travaso dello storico, per un bottone.
+                 La scelta e' la stessa: l'API senza `?sede=` usa
+                 `ambitoDiRiga(null)`, cioe' SEDE_UNICA, e scrive nel marchio. -->
+            <div id="g-unica" style="display:none;margin-top:0.8rem">
+              <span class="f-label">{t("gg.pickTitle")}</span>
+              <div class="loc-riga">
+                <span class="loc-g-cur" id="g-unica-cur"></span>
+                <button type="button" id="g-unica-pick" class="btn">{t("gg.change")}</button>
+              </div>
+              <div id="g-unica-list"></div>
             </div>
 
             <div class="us-foot">
@@ -674,6 +818,22 @@ const prI18n = {
           <p class="note">{t("print.note")}</p>
         </section>
 
+        <section class="pane" data-pane="sedi" hidden>
+          <p class="sub">{t("loc.intro")}</p>
+
+          <!-- L'interruttore «Attiva il multi-sede» non esiste piu'
+               (15/09/2026): la verita' e' quante sedi ci sono. Al suo posto,
+               quando serve, l'avviso dello storico rimasto senza sede. -->
+          <div class="loc-storico" id="loc-storico" style="display:none">
+            <p class="loc-storico-t">{t("loc.st.orfano")}</p>
+            <p class="note" id="loc-storico-n"></p>
+            <button type="button" class="us-add" id="loc-storico-btn">{t("loc.st.assegna")}</button>
+          </div>
+
+          <p class="note" id="loc-state">{t("sup.loading")}</p>
+          <div class="loc-list" id="loc-list"></div>
+        </section>
+
         <section class="pane" data-pane="users" hidden>
           <p class="sub">{t("us.intro")}</p>
 
@@ -718,6 +878,23 @@ const prI18n = {
           <button type="button" class="us-role" data-role="user">{t("role.user")}</button>
         </div>
         <p class="note us-sotto" id="us-role-hint"></p>
+
+        <!-- PAGINE: solo per «utente». Per super e admin il blocco non esiste
+             proprio — non e' un elenco disabilitato, che farebbe credere che
+             si possa togliere qualcosa al proprietario. -->
+        <div id="us-pagine-box" hidden>
+          <label class="us-lab">{t("us.pages")}</label>
+          <div class="us-pagine" id="us-pagine"></div>
+          <p class="note us-sotto">{t("us.pagesHint")}</p>
+        </div>
+
+        <!-- Sede: compare SOLO se il multi-sede e' acceso. Su un cliente a
+             sede unica il campo non esiste proprio, non e' un campo vuoto. -->
+        <div class="f-field" id="us-sede-box" hidden>
+          <label class="f-label" for="us-sede">{t("hdr.sede")}</label>
+          <select id="us-sede"><option value=""></option></select>
+        </div>
+        <p class="f-note" id="us-sede-hint" hidden>{t("us.sedeHint")}</p>
       <Fragment slot="foot">
         <span class="us-err" id="us-err"></span>
         <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
@@ -725,7 +902,124 @@ const prI18n = {
       </Fragment>
     </Modal>
 
+    <!-- Modale : fiche d'un établissement -->
+    <Modal id="loc-overlay" title={t("loc.new")} titleId="loc-title" width="680px">
+      <!-- IDENTITA' — com'e' fatta la sede e dove sta nel sito.
+           Indirizzo, telefono, societa' e IVA NON stanno qui: sono dati del
+           ristoratore, e questa scheda lui non la vede. Si scrivono da
+           Réglages → Général, sulla sede scelta in alto. -->
+      <div class="f-field">
+        <span class="f-label">{t("loc.image")}</span>
+        <div class="f-img-row">
+          <span class="f-img-prev" id="loc-prev"></span>
+          <button type="button" class="btn" id="loc-img-up">{t("cli.uploadPhoto")}</button>
+          <button type="button" class="btn" id="loc-img-lib">{t("menu.library")}</button>
+          <button type="button" class="btn btn-danger" id="loc-img-rm" style="display: none">{t("ord.remove")}</button>
+          <input type="file" id="loc-img-file" accept=".jpg,.jpeg,.png,.webp" style="display: none" />
+          <span class="f-label" id="loc-img-state"></span>
+        </div>
+      </div>
+      <p class="f-note">{t("loc.imageHint")}</p>
+
+      <!-- Nome e ordine sulla stessa riga: il secondo e' un numero corto, e
+           da solo lasciava mezza riga vuota. -->
+      <div class="f-line">
+        <div class="f-field loc-f-nome">
+          <label class="f-label" for="loc-name">{t("loc.name")}</label>
+          <input type="text" id="loc-name" maxlength="60" autocomplete="off" />
+        </div>
+        <div class="f-field loc-cap">
+          <label class="f-label" for="loc-order">{t("loc.order")}</label>
+          <input type="number" id="loc-order" min="0" max="999" />
+        </div>
+      </div>
+      <p class="f-note">{t("loc.nameHint")}</p>
+
+      <!-- Lo slug si SCRIVE DA SOLO dal nome: nessuno ha voglia di inventarlo,
+           ed e' un concetto tecnico. Resta visibile e modificabile perche' una
+           volta pubblicato non si tocca piu', e chi lo cambia deve poterlo
+           vedere. Su una sede che esiste gia' non si aggiorna mai da solo. -->
+      <div class="f-field">
+        <label class="f-label" for="loc-slug">{t("loc.slug")}</label>
+        <input type="text" id="loc-slug" maxlength="40" autocomplete="off" />
+      </div>
+      <p class="f-note">{t("loc.slugHint")}<br /><span class="loc-url" id="loc-url"></span></p>
+
+      <!-- PAGAMENTI — segreti: si scrivono, non si rileggono mai. Il segnale
+           accanto all'etichetta dice solo SE c'e' qualcosa, non che cosa. -->
+      <p class="itg-niv">{t("loc.sezPagamenti")}</p>
+      <div class="f-line">
+        <div class="f-field">
+          <label class="f-label" for="loc-stripe">{t("loc.stripe")} <span class="loc-chip" id="loc-stripe-stato"></span></label>
+          <input type="password" id="loc-stripe" autocomplete="new-password" />
+        </div>
+        <div class="f-field">
+          <label class="f-label" for="loc-hook">{t("loc.webhook")} <span class="loc-chip" id="loc-hook-stato"></span></label>
+          <input type="password" id="loc-hook" autocomplete="new-password" />
+        </div>
+      </div>
+      <p class="f-note">{t("loc.secretHint")}</p>
+      <p class="f-note is-avviso" id="loc-cifra" hidden>{t("loc.cifraKo")}</p>
+
+      <!-- GOOGLE — la scheda e il Place ID di QUESTO punto. L'autorizzazione
+           invece e' una sola per installazione e si fa in Integrazioni. -->
+      <p class="itg-niv">{t("loc.sezGoogle")}</p>
+      <div class="f-field">
+        <label class="f-label" for="loc-place">{t("loc.placeId")}</label>
+        <div class="loc-riga">
+          <input type="text" id="loc-place" placeholder="ChIJ…" autocomplete="off" />
+          <button type="button" id="loc-place-test" class="btn">{t("common.verify")}</button>
+        </div>
+      </div>
+      <p class="f-note" id="loc-place-res">{t("loc.placeIdHint")}</p>
+
+      <div class="f-field">
+        <label class="f-label" for="loc-greview">{t("loc.reviewUrl")}</label>
+        <input type="url" id="loc-greview" placeholder="https://g.page/r/.../review" autocomplete="off" />
+      </div>
+      <p class="f-note">{t("loc.reviewUrlHint")}</p>
+
+      <div class="f-field">
+        <span class="f-label">{t("gg.pickTitle")}</span>
+        <div class="loc-riga">
+          <span class="loc-g-cur" id="loc-g-cur"></span>
+          <button type="button" id="loc-g-pick" class="btn">{t("gg.change")}</button>
+        </div>
+        <div id="loc-g-list"></div>
+      </div>
+
+      <Fragment slot="foot">
+        <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-active" checked /><span class="track"></span></label><span class="sw-lab">{t("loc.active")}</span></span>
+        <span class="loc-err" id="loc-err"></span>
+        <button type="button" class="md-btn" data-md-close>{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="loc-save">{t("common.save")}</button>
+      </Fragment>
+    </Modal>
+
+    <!-- Lo storico di prima del multi-sede. Compare SOLO se c'e' davvero
+         qualcosa da attribuire: su un'installazione nuova non c'e', e una
+         domanda che ha sempre la stessa risposta si impara a saltare. -->
+    <Modal id="st-overlay" title={t("loc.st.title")} width="560px">
+      <p>{t("loc.st.intro")}</p>
+      <p class="note">{t("loc.st.why")}</p>
+      <div class="f-field st-scelta">
+        <label class="f-label" for="st-sede">{t("loc.st.which")}</label>
+        <select id="st-sede"></select>
+      </div>
+      <p class="note st-conteggi" id="st-conteggi"></p>
+      <p class="st-avviso">⚠ {t("loc.st.warn")}</p>
+      <Fragment slot="foot">
+        <span class="loc-err" id="st-err"></span>
+        <button type="button" class="md-btn" id="st-cancel">{t("common.cancel")}</button>
+        <button type="button" class="md-btn md-btn-primary" id="st-go">{t("loc.st.go")}</button>
+      </Fragment>
+    </Modal>
+
+    <ImagePicker />
+
     <div class="toast" id="toast"></div>
+
+    <button class="fab-add fab-pill" id="loc-add" type="button" style="display:none" title={t("loc.new")}><span class="fab-plus">+</span>{t("loc.add")}</button>
 
     <AdminNav current="super" />
 
@@ -734,6 +1028,7 @@ const prI18n = {
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
+      import { PAGINE_SOLO_ADMIN as SOLO_ADMIN } from "../../lib/admin/permessiRegole";
       import { adminT, type AdminLang } from "../../i18n/admin";
 
       (async () => {
@@ -757,6 +1052,10 @@ const prI18n = {
           document.querySelectorAll<HTMLElement>(".pane").forEach((p2) => {
             p2.hidden = p2.dataset.pane !== t;
           });
+          // Il FAB appartiene a UN pannello: si mostra con lui, come nelle
+          // altre pagine dove ogni tab ha il suo.
+          const fabSedi = document.getElementById("loc-add") as HTMLButtonElement | null;
+          if (fabSedi) fabSedi.style.display = t === "sedi" ? "" : "none";
           try { localStorage.setItem("mdd_super_tab", t); } catch { /* storage plein */ }
         }
         supTabs?.addEventListener("click", (e) => {
@@ -796,9 +1095,9 @@ const prI18n = {
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2200);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2200);
         }
 
         // Testi tradotti passati dal server (JSON in pagina).
@@ -808,11 +1107,15 @@ const prI18n = {
         })() as {
           temaLabels?: Record<string, string>;
           glassTitle?: string; glassOn?: string; glassOff?: string; shadowTitle?: string;
-          visible?: string; hidden?: string; loadError?: string;
+          visible?: string; hidden?: string; loadError?: string; loading?: string; sito?: string;
           on?: string; off?: string;
           pageLabels?: Record<string, string>; tabLabels?: Record<string, string>;
           featureLabels?: Record<string, string>;
+          /** Nomi delle tabelle nel conteggio dello storico senza sede. */
+          stTabLabels?: Record<string, string>;
           pwaNoIcon?: string; pwaReinstall?: string; pwaNomeCliente?: string;
+          /** Testi del pannello Établissements (multi-sede). */
+          loc?: Record<string, string>;
         };
 
         let nascoste: string[] = [];
@@ -1165,7 +1468,7 @@ const prI18n = {
           if (itgUrlBox) itgUrlBox.style.display = m === "link" ? "" : "none";
           if (itgEmbedBox) itgEmbedBox.style.display = m === "embed" ? "" : "none";
           if (itgState) {
-            itgState.textContent = m === "moodd" ? "MOODD" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
+            itgState.textContent = m === "moodd" ? "RestoHub" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
             itgState.classList.toggle("ext", esterno);
           }
         }
@@ -1175,37 +1478,12 @@ const prI18n = {
         });
 
         // --- Google Business ---
-        const gPlace = document.getElementById("g-place") as HTMLInputElement | null;
-        const gTest = document.getElementById("g-test") as HTMLButtonElement | null;
-        const gRes = document.getElementById("g-res") as HTMLParagraphElement | null;
         const gState = document.getElementById("g-state") as HTMLSpanElement | null;
         const gSave = document.getElementById("g-save") as HTMLButtonElement | null;
         const gErr = document.getElementById("g-err") as HTMLSpanElement | null;
         const gConnect = document.getElementById("g-connect") as HTMLButtonElement | null;
         const gOauthNote = document.getElementById("g-oauth-note") as HTMLSpanElement | null;
 
-        gTest?.addEventListener("click", async () => {
-          const id = gPlace?.value.trim() ?? "";
-          if (!id) { if (gRes) gRes.textContent = tr("itg.g.needPlace"); return; }
-          if (/^AIza/.test(id)) {
-            if (gRes) gRes.textContent = tr("itg.g.isKey");
-            return;
-          }
-          gTest.disabled = true;
-          if (gRes) gRes.textContent = tr("common.verifying");
-          try {
-            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
-            const j = await res.json();
-            if (!res.ok) { if (gRes) gRes.textContent = j.error ?? tr("itg.g.verifyErr"); return; }
-            if (gRes) {
-              gRes.textContent = `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0} ${tr("itg.g.reviews")}`;
-            }
-          } catch {
-            if (gRes) gRes.textContent = tr("common.netErr");
-          } finally {
-            gTest.disabled = false;
-          }
-        });
 
         // Collegamento OAuth (livello 2)
         const gDisconnect = document.getElementById("g-disconnect") as HTMLButtonElement | null;
@@ -1223,69 +1501,72 @@ const prI18n = {
           }
         });
 
-        // --- Scelta scheda recensioni (Business Profile) — solo super admin ---
-        const gSediWrap = document.getElementById("g-sedi-wrap") as HTMLDivElement | null;
-        const gSedeCur = document.getElementById("g-sede-cur") as HTMLParagraphElement | null;
-        const gSedePick = document.getElementById("g-sede-pick") as HTMLButtonElement | null;
-        const gSedeList = document.getElementById("g-sede-list") as HTMLDivElement | null;
+        // --- Scheda Google: il RINVIO al modale della sede -------------------
+        // La scelta della scheda e' passata nel modale del punto (deciso
+        // 15/09/2026): tutto quello che appartiene a una sede si modifica
+        // nella sua scheda, non in una pagina che parla dell'installazione.
+        // Qui resta solo il collegamento, che e' uno per tutte le sedi.
+        const gRinvio = document.getElementById("g-sedi-rinvio") as HTMLElement | null;
         function escG(x: unknown): string {
           return String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         }
+        const gUnicaBox = document.getElementById("g-unica") as HTMLElement | null;
+        const gUnicaCur = document.getElementById("g-unica-cur") as HTMLElement | null;
+        const gUnicaPick = document.getElementById("g-unica-pick") as HTMLButtonElement | null;
+        const gUnicaList = document.getElementById("g-unica-list") as HTMLElement | null;
+
+        /** ⚠️ Legge `sedi`, che la riempie `locCarica()`: per questo NON si
+         *  chiama qui (`sedi` sarebbe ancora nella sua zona morta e lancerebbe)
+         *  ma in fondo a `locCarica`, quando l'elenco c'e' davvero. */
         async function gCaricaSedeStato() {
           try {
             const res = await fetch("/api/admin/google/locations", { headers });
             const j = await res.json();
-            if (!j.connected) { if (gSediWrap) gSediWrap.style.display = "none"; return; }
-            if (gSediWrap) gSediWrap.style.display = "block";
-            if (gSedeCur) {
-              gSedeCur.textContent = j.current?.title
-                ? `${tr("gg.pickCurrent")}: ${j.current.title}`
-                : tr("gg.pickHint");
-            }
+            const conSedi = sedi.length > 0;
+            if (gRinvio) gRinvio.style.display = j.connected && conSedi ? "block" : "none";
+            if (gUnicaBox) gUnicaBox.style.display = j.connected && !conSedi ? "block" : "none";
+            if (gUnicaCur) gUnicaCur.textContent = j.current?.title || (SUP.loc?.gNessuna ?? "");
           } catch { /* best-effort */ }
         }
-        gSedePick?.addEventListener("click", async () => {
-          if (!gSedeList) return;
-          gSedeList.textContent = tr("sup.loading");
+
+        gUnicaPick?.addEventListener("click", async () => {
+          if (!gUnicaList) return;
+          gUnicaList.textContent = SUP.loading ?? "";
           try {
             const res = await fetch("/api/admin/google/locations", { headers });
             const j = await res.json();
-            if (j.error) { gSedeList.textContent = `${tr("gg.pickErr")} ${j.error}`; return; }
-            const sedi = (j.sedi ?? []) as { path: string; title: string; address: string }[];
+            if (j.error) { gUnicaList.textContent = String(j.error); return; }
+            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
             const cur = j.current?.path ?? "";
-            if (!sedi.length) { gSedeList.textContent = tr("gg.pickEmpty"); return; }
-            gSedeList.innerHTML = sedi
-              .map(
-                (sd) =>
-                  `<button type="button" class="us-ghost gsede" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`
-              )
+            if (!schede.length) { gUnicaList.textContent = SUP.loc?.gVuoto ?? ""; return; }
+            gUnicaList.innerHTML = schede
+              .map((sd) => `<button type="button" class="us-ghost gscheda-unica" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`)
               .join("");
           } catch {
-            gSedeList.textContent = tr("common.netErr");
+            gUnicaList.textContent = SUP.loc?.netErr ?? "";
           }
         });
-        gSedeList?.addEventListener("click", async (ev) => {
-          const b = (ev.target as HTMLElement).closest(".gsede") as HTMLElement | null;
-          if (!b || !gSedeList) return;
-          const path = b.dataset.path ?? "";
-          const title = b.dataset.title ?? "";
+
+        gUnicaList?.addEventListener("click", async (ev) => {
+          const b = (ev.target as HTMLElement).closest(".gscheda-unica") as HTMLElement | null;
+          if (!b) return;
           try {
+            // ⚠️ Nessun `sede` nel corpo: e' proprio quello che manda l'API
+            // sul livello marchio. Metterci un id sarebbe inventare una sede.
             const res = await fetch("/api/admin/google/locations", {
-              method: "POST",
-              headers,
-              body: JSON.stringify({ path, title }),
+              method: "POST", headers,
+              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "" }),
             });
             const j = await res.json();
-            if (!res.ok) { toast(j.error ?? tr("common.netErr"), true); return; }
-            if (j.reviewError) toast(`${tr("gg.reviewErr")} ${j.reviewError}`, true);
-            else toast(tr("gg.synced"));
-            gSedeList.innerHTML = "";
-            gCaricaSedeStato();
+            if (!res.ok) { toast(j.error ?? SUP.loc?.netErr ?? "", true); return; }
+            if (j.reviewError) toast(String(j.reviewError), true);
+            else toast(SUP.loc?.gSalvata ?? "");
+            if (gUnicaList) gUnicaList.innerHTML = "";
+            await gCaricaSedeStato();
           } catch {
-            toast(tr("common.netErr"), true);
+            toast(SUP.loc?.netErr ?? "", true);
           }
         });
-        gCaricaSedeStato();
         gDisconnect?.addEventListener("click", async () => {
           try {
             const res = await fetch("/api/google/connect", {
@@ -1318,10 +1599,6 @@ const prI18n = {
         gSave?.addEventListener("click", async () => {
           if (!gErr) return;
           gErr.textContent = "";
-          if (/^AIza/.test(gPlace?.value.trim() ?? "")) {
-            gErr.textContent = tr("itg.g.isKeyShort");
-            return;
-          }
           gSave.disabled = true;
           try {
             const res = await fetch("/api/admin/integrations", {
@@ -1332,7 +1609,6 @@ const prI18n = {
                 provider: itgProvider?.value.trim() ?? "",
                 url: itgUrl?.value.trim() ?? "",
                 embed: itgEmbed?.value ?? "",
-                google_place_id: gPlace?.value.trim() ?? "",
               }),
             });
             const j = await res.json();
@@ -1364,7 +1640,6 @@ const prI18n = {
             }
             const g = j.google;
             if (g) {
-              if (gPlace) gPlace.value = g.place_id ?? "";
               if (gState) {
                 gState.textContent = g.connected ? tr("itg.g.connected") : g.place_id ? tr("itg.g.reviewsActive") : tr("itg.g.off");
                 gState.classList.toggle("ext", g.connected || Boolean(g.place_id));
@@ -1541,11 +1816,42 @@ const prI18n = {
         function usRuoloSel(): string {
           return (usRoles?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.role ?? "admin";
         }
+        // ---- Pagine permesse (solo ruolo "user") ------------------------
+        // La stessa forma dei bottoni del ruolo: non si inventa un controllo
+        // nuovo per una cosa che e' ancora «scegli fra queste voci».
+        const usPagineBox = document.getElementById("us-pagine-box") as HTMLElement | null;
+        const usPagine = document.getElementById("us-pagine") as HTMLElement | null;
+        function usDisegnaPagine(scelte: string[] | null) {
+          if (!usPagine) return;
+          // `null` = mai deciso → si mostra spuntato il default storico, cosi'
+          // chi apre il modale vede quello che quell'utente vede DAVVERO.
+          const attive = new Set(scelte ?? PAGINE_ADMIN.filter((pg) => !SOLO_ADMIN.includes(pg.key)).map((pg) => pg.key));
+          // ⚠️ `SUP` e non `L`, e un escape locale: `L` ed `esc` sono
+          // dichiarati PIU' SOTTO in questo stesso script, e una `const` non
+          // esiste prima della sua riga. Usarli qui non darebbe un errore di
+          // compilazione: darebbe un ReferenceError all'apertura del modale,
+          // cioe' un modale che non si apre piu' e nessuno sa perche'.
+          const escP = (v: unknown) =>
+            String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
+          usPagine.innerHTML = PAGINE_ADMIN.map((pg) =>
+            `<button type="button" class="us-role${attive.has(pg.key) ? " is-on" : ""}" data-pagina="${pg.key}">${escP(SUP.pageLabels?.[pg.key] ?? pg.label)}</button>`
+          ).join("");
+        }
+        usPagine?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest("[data-pagina]") as HTMLButtonElement | null;
+          if (b) b.classList.toggle("is-on");
+        });
+        function usPagineScelte(): string[] {
+          return [...(usPagine?.querySelectorAll<HTMLElement>("[data-pagina].is-on") ?? [])]
+            .map((b) => b.dataset.pagina ?? "");
+        }
+
         function usSetRuolo(r: string) {
           usRoles?.querySelectorAll<HTMLElement>(".us-role").forEach((b) =>
             b.classList.toggle("is-on", b.dataset.role === r)
           );
           if (usRoleHint) usRoleHint.textContent = RUOLO_TESTO[r] ?? "";
+          if (usPagineBox) usPagineBox.hidden = r !== "user";
         }
         usRoles?.addEventListener("click", (e) => {
           const b = (e.target as HTMLElement).closest(".us-role") as HTMLButtonElement | null;
@@ -1562,7 +1868,27 @@ const prI18n = {
         let usDelPending: string | null = null;
         let usDelTimer: number | undefined;
         let usEditId: string | null = null;
-        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }[] = [];
+        let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }[] = [];
+
+        // ---- Sede dell'utente (multi-sede) ----
+        // L'elenco arriva dalla stessa API delle Sedi, gia' caricata da questo
+        // pannello: nessuna chiamata in piu'.
+        const usSedeBox = document.getElementById("us-sede-box") as HTMLElement | null;
+        const usSedeHint = document.getElementById("us-sede-hint") as HTMLElement | null;
+        const usSedeSel = document.getElementById("us-sede") as HTMLSelectElement | null;
+        function usRiempiSedi(scelta: string) {
+          if (!usSedeBox || !usSedeSel) return;
+          // Con meno di due sedi non c'e' niente da scegliere: il campo
+          // «a quale punto appartiene» non serve e si nasconde.
+          const attivo = sedi.length > 1;
+          usSedeBox.hidden = !attivo;
+          if (usSedeHint) usSedeHint.hidden = !attivo;
+          if (!attivo) return;
+          usSedeSel.innerHTML =
+            `<option value="">${esc(L.sedeTutte ?? "")}</option>` +
+            sedi.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+          usSedeSel.value = scelta;
+        }
 
         function usData(iso: string | null): string {
           if (!iso) return tr("us.never");
@@ -1581,14 +1907,16 @@ const prI18n = {
             const res = await fetch("/api/admin/users", { headers });
             if (!res.ok) { usList.innerHTML = `<p class="note">${tr("us.loadErr")}</p>`; return; }
             const j = (await res.json()) as {
-              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean }[];
+              users: { id: string; nome?: string; first_name?: string; last_name?: string; email: string; created_at: string; last_sign_in_at: string | null; role?: string; is_moodd?: boolean; location_id?: string | null }[];
             };
             usCache = j.users ?? [];
             usList.innerHTML = (j.users ?? [])
               .map((u) => `
                 <div class="us-row" data-uid="${u.id}">
                   <span class="us-cell nom">${[u.first_name, u.last_name].filter(Boolean).join(" ") || "—"}${u.is_moodd ? '<span class="us-tag">MOODD</span>' : u.role === "super" ? '<span class="us-tag">SUPER</span>' : u.role === "user" ? '<span class="us-tag role-user">USER</span>' : '<span class="us-tag role-admin">ADMIN</span>'}</span>
-                  <span class="us-cell" title="${u.email}">${u.email}</span>
+                  <span class="us-cell" title="${u.email}">${u.email}${
+                    u.location_id ? `<span class="us-tag role-user">${esc(sedi.find((s) => s.id === u.location_id)?.name ?? "?")}</span>` : ""
+                  }</span>
                   <span class="us-cell dim">${usData(u.created_at)}</span>
                   <span class="us-cell dim">${usData(u.last_sign_in_at)}</span>
                   <span class="us-acts">
@@ -1607,7 +1935,7 @@ const prI18n = {
           if (usPass) usPass.value = usPwd();
         });
 
-        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean }) {
+        function usApri(u?: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null; pages?: string[] | null }) {
           usEditId = u?.id ?? null;
           if (usErr) usErr.textContent = "";
           if (usFname) usFname.value = u?.first_name ?? "";
@@ -1621,6 +1949,10 @@ const prI18n = {
           if (hint) hint.textContent = u ? tr("us.editHint") : tr("us.newHint");
           if (passLab) passLab.textContent = u ? tr("us.passOpt") : tr("us.pass");
           usSetRuolo(u?.role ?? "admin");
+          // Prima di usSetRuolo il blocco e' nascosto: si disegna comunque,
+          // cosi' se poi si passa a «utente» le caselle sono gia' quelle sue.
+          usDisegnaPagine(u?.pages ?? null);
+          usRiempiSedi(u?.location_id ?? "");
           usRoles?.querySelectorAll<HTMLButtonElement>(".us-role").forEach((b) => {
             b.disabled = u?.is_moodd === true; // l'accès MOODD reste super
           });
@@ -1655,6 +1987,12 @@ const prI18n = {
               last_name: usLname?.value.trim() ?? "",
             };
             corpo.role = usRuoloSel();
+            // Solo per «utente»: per gli altri l'API le ignora comunque, ma
+            // mandarle darebbe l'idea che contino.
+            if (corpo.role === "user") corpo.pages = usPagineScelte();
+            // Si manda solo se il campo esiste: su un cliente a sede unica
+            // non deve arrivare all'API nemmeno come stringa vuota.
+            if (usSedeBox && !usSedeBox.hidden) corpo.location_id = usSedeSel?.value ?? "";
             if (usEditId) corpo.id = usEditId;
             if (password) corpo.password = password;
             const res = await fetch("/api/admin/users", {
@@ -1742,8 +2080,6 @@ const prI18n = {
           }
         });
 
-        void usCarica();
-
         temaResetEl.addEventListener("click", () => {
           tema = {};
           renderTema();
@@ -1787,6 +2123,604 @@ const prI18n = {
         } catch {
           stateEl.textContent = SUP.loadError ?? "Erreur de chargement.";
         }
+
+        // ============================================================
+        // ÉTABLISSEMENTS (multi-sede)
+        // ------------------------------------------------------------
+        // Le chiavi Stripe si SCRIVONO e non si rileggono: l'API rende solo
+        // un booleano «c'e' / non c'e'», e qui si mostra una pastiglia. Per
+        // sostituirne una si incolla la nuova; per toglierla si salva vuoto.
+        // ============================================================
+        const L = SUP.loc ?? {};
+        const locList = document.getElementById("loc-list") as HTMLDivElement;
+        const locState = document.getElementById("loc-state") as HTMLParagraphElement;
+        const locOverlay = document.getElementById("loc-overlay") as HTMLDivElement;
+        const locTitle = document.getElementById("loc-title") as HTMLHeadingElement;
+        const locErr = document.getElementById("loc-err") as HTMLSpanElement;
+        const locSave = document.getElementById("loc-save") as HTMLButtonElement;
+        const LOC_MATITA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>';
+        const LOC_CESTINO = '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>';
+
+        interface Sede {
+          id: string; name: string; slug: string;
+          image_url: string | null;
+          sort_order: number; active: boolean;
+        }
+        let sedi: Sede[] = [];
+        let segreti: Record<string, Record<string, boolean>> = {};
+        // Place ID per sede: non e' un segreto, si rilegge e si mostra.
+        let placeIds: Record<string, string> = {};
+        let reviewUrls: Record<string, string> = {};
+        // Titolo della scheda Google collegata a ogni sede, e se il .env ha
+        // un ripiego per ciascun segreto (solo se c'e', mai il valore).
+        let schedeGoogle: Record<string, string> = {};
+        let ripiego: Record<string, boolean> = {};
+        /** Le chiavi che ogni sede ha scritto DI SUO: il resto e' ereditato dal
+         *  marchio, e per la scheda Google ereditare vuol dire sbagliata. */
+        let propri: Record<string, string[]> = {};
+        let sedeAperta: Sede | null = null;
+        let locImgUrl: string | null = null;
+
+        /** Iniziali della sede: ripiego quando non c'e' una foto. Due lettere
+         *  bastano a distinguere Jourdan da Stockel in un elenco. */
+        const iniziali = (nome: string) =>
+          nome.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? "").join("").toUpperCase() || "?";
+
+        /** Pastiglia della sede nelle schede: foto se c'e', iniziali se no.
+         *  Nel modale invece si usa il campo foto di casa (.f-img-prev), che
+         *  mostra l'icona «immagine»: li' si sta scegliendo un file, qui si
+         *  sta riconoscendo una sede. */
+        function avatar(s: { name: string; image_url?: string | null }): string {
+          return s.image_url
+            ? `<span class="sede-avatar"><img src="${esc(s.image_url)}" alt="" loading="lazy" /></span>`
+            : `<span class="sede-avatar">${esc(iniziali(s.name))}</span>`;
+        }
+
+        const esc = (s: unknown) =>
+          String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+        /** Una riga di stato: pallino, etichetta corta, valore.
+         *  `liv` e' il colore del pallino, e dice quanto conta. */
+        function riga(etichetta: string, liv: "ok" | "no" | "ko", valore: string): string {
+          return `<li class="is-${liv}"><span class="loc-st-k">${esc(etichetta)}</span>` +
+            `<span class="loc-st-v">${esc(valore)}</span></li>`;
+        }
+
+        /** Un segreto della sede ha TRE stati, non due.
+         *
+         *  ⚠️ «vuoto» non voleva dire niente. Una sede senza chiave Stripe
+         *  incassa con quella del .env — funziona, ed e' giusto per un
+         *  ristorante solo. Ma in un gruppo di tre societa' vuol dire che i
+         *  soldi di quel punto arrivano sul conto di un altro, e il pannello
+         *  lo diceva con la stessa pastiglia grigia di «non serve». */
+        function statoSegreto(idSede: string, chiave: string): [("ok" | "no" | "ko"), string] {
+          if (segreti[idSede]?.[chiave] === true) return ["ok", String(L.secretSet ?? "")];
+          if (ripiego[chiave] === true) return ["no", String(L.stDaEnv ?? "")];
+          return ["ko", String(L.stManca ?? "")];
+        }
+
+        /** Un dato Google della sede. Verde SOLO se e' suo: un valore
+         *  ereditato dal marchio e' l'attivita' di qualcun altro. */
+        function statoGoogle(idSede: string, chiave: string, valore: string, vuoto: string): [("ok" | "no"), string] {
+          if (!valore) return ["no", vuoto];
+          if (!(propri[idSede] ?? []).includes(chiave)) return ["no", String(L.stDaMarchio ?? "")];
+          return ["ok", valore];
+        }
+
+        function locRender() {
+          if (sedi.length === 0) {
+            locState.style.display = "";
+            locState.textContent = L.empty ?? "";
+            locList.innerHTML = "";
+            return;
+          }
+          locState.style.display = "none";
+          locList.innerHTML = sedi.map((s) => `
+            <div class="loc-card${s.active ? "" : " is-off"}" data-id="${esc(s.id)}">
+              <div class="loc-head">
+                ${avatar(s)}
+                <span class="loc-ident">
+                  <span class="loc-nome">${esc(s.name)}</span>
+                  <span class="loc-slug">/${esc(s.slug)}</span>
+                </span>
+              </div>
+              <ul class="loc-stato">
+                ${riga("Stripe", ...statoSegreto(s.id, "stripe_secret_key"))}
+                ${riga("Webhook", ...statoSegreto(s.id, "stripe_webhook_secret"))}
+                ${riga("Google Business", ...statoGoogle(s.id, "google_location_title", schedeGoogle[s.id] ?? "", String(L.stNonColl ?? "")))}
+                ${riga("Place ID", ...statoGoogle(s.id, "google_place_id", placeIds[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
+                ${riga(L.reviewShort ?? "", ...statoGoogle(s.id, "link_google_review", reviewUrls[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
+              </ul>
+              <div class="loc-actions">
+                <span class="sw-wrap">
+                  <label class="switch"><input type="checkbox" class="loc-att"${s.active ? " checked" : ""} /><span class="track"></span></label>
+                  <span class="sw-lab">${esc(L.active)}</span>
+                </span>
+                <span class="loc-spacer"></span>
+                <button type="button" class="ibtn loc-edit" title="${esc(L.edit)}" aria-label="${esc(L.edit)}">${LOC_MATITA}</button>
+                <button type="button" class="ibtn ibtn-danger loc-del" title="${esc(L.del)}" aria-label="${esc(L.del)}">${LOC_CESTINO}</button>
+              </div>
+            </div>`).join("");
+        }
+
+        /**
+         * RICARICA LA PAGINA dopo aver cambiato l'ELENCO delle sedi.
+         *
+         * ⚠️ Non e' pigrizia: creare, eliminare, attivare o disattivare una
+         * sede cambia l'AMBITO di tutta l'applicazione, e tre cose nascono
+         * lato server e non si aggiornano da sole —
+         *  1. il selettore delle sedi nell'header (compare, sparisce, o
+         *     cambia nome e logo);
+         *  2. i dati pre-caricati della pagina, calcolati con l'ambito di
+         *     prima;
+         *  3. il poller degli ordini della barra, che tiene un elenco di id
+         *     «gia' visti» costruito con l'ambito di prima: cambiando il
+         *     filtro, ordini mai visti ricompaiono e suonano come nuovi.
+         *
+         * Il ritardo serve a far leggere il toast: senza, il messaggio
+         * sparisce prima di essere letto e l'operazione sembra non aver
+         * fatto niente.
+         */
+        function ricaricaPagina() {
+          setTimeout(() => location.reload(), 1400);
+        }
+
+        async function locCarica() {
+          try {
+            const res = await fetch("/api/admin/locations", { headers });
+            if (!res.ok) throw new Error();
+            const j = await res.json();
+            sedi = (j.locations ?? []) as Sede[];
+            segreti = j.secrets ?? {};
+            // ⚠️ Si dice PRIMA, non dopo il salvataggio: quando l'avviso
+            // servirebbe davvero, la chiave e' gia' stata incollata.
+            const av = document.getElementById("loc-cifra") as HTMLElement | null;
+            if (av) av.hidden = j.cifratura !== false;
+            placeIds = j.placeIds ?? {};
+            reviewUrls = j.reviewUrls ?? {};
+            schedeGoogle = j.google ?? {};
+            ripiego = j.ambiente ?? {};
+            propri = j.propri ?? {};
+            storicoOrfano = j.storico ?? {};
+            locRender();
+            // La scheda Google: solo adesso si sa se ci sono sedi, e quindi se
+            // la scelta va nel modale del punto o qui in Intégrations.
+            void gCaricaSedeStato();
+            stRenderAvviso();
+          } catch {
+            locState.style.display = "";
+            locState.textContent = SUP.loadError ?? "";
+          }
+        }
+
+        const campo = (id: string) => document.getElementById(id) as HTMLInputElement;
+
+        function locApri(s: Sede | null) {
+          sedeAperta = s;
+          slugAMano = !!s; // su una sede esistente lo slug non si muove da solo
+          locErr.textContent = "";
+          locTitle.textContent = (s ? L.edit : L.neu) ?? "";
+          campo("loc-name").value = s?.name ?? "";
+          campo("loc-slug").value = s?.slug ?? "";
+          mostraUrl();
+          locImgUrl = s?.image_url ?? null;
+          disegnaFoto();
+          (document.getElementById("loc-img-state") as HTMLSpanElement).textContent = "";
+          campo("loc-order").value = String(s?.sort_order ?? sedi.length + 1);
+          campo("loc-active").checked = s ? s.active : true;
+          // I campi segreti partono SEMPRE vuoti: non c'e' niente da
+          // riproporre, e un campo vuoto che non salva nulla e' meno
+          // pericoloso di un finto valore che qualcuno cancella per sbaglio.
+          campo("loc-stripe").value = "";
+          campo("loc-hook").value = "";
+          const st = document.getElementById("loc-stripe-stato") as HTMLSpanElement;
+          const hk = document.getElementById("loc-hook-stato") as HTMLSpanElement;
+          const dato = (k: string) => (s && segreti[s.id]?.[k] === true);
+          // ⚠️ Pallini nel SEGNAPOSTO, non nel valore. Il segreto non si
+          // rilegge da nessuna parte: mettere dei finti caratteri nel campo
+          // vorrebbe dire rispedirli al salvataggio e sostituire la chiave
+          // vera con dei pallini. Cosi' invece il campo resta vuoto — cioe'
+          // «non cambiare niente» — e si vede lo stesso che una chiave c'e'.
+          const segna = (el: HTMLInputElement, c: boolean, vuoto: string) => {
+            el.placeholder = c ? (L.secretSetPh ?? "") : vuoto;
+          };
+          const cStripe = !!dato("stripe_secret_key");
+          const cHook = !!dato("stripe_webhook_secret");
+          st.textContent = String((cStripe ? L.secretSet : L.secretNone) ?? "");
+          st.classList.toggle("is-set", cStripe);
+          hk.textContent = String((cHook ? L.secretSet : L.secretNone) ?? "");
+          hk.classList.toggle("is-set", cHook);
+          segna(campo("loc-stripe"), cStripe, String(L.secretPh ?? ""));
+          segna(campo("loc-hook"), cHook, "whsec_…");
+          campo("loc-place").value = s ? (placeIds[s.id] ?? "") : "";
+          campo("loc-greview").value = s ? (reviewUrls[s.id] ?? "") : "";
+          (document.getElementById("loc-place-res") as HTMLElement).textContent = L.placeHint ?? "";
+          void gSedeStato();
+          locOverlay.hidden = false;
+        }
+
+        // ---- SCHEDA GOOGLE DI QUESTA SEDE -----------------------------------
+        // ⚠️ La sede viaggia ESPLICITA (`?sede=`), non nel cookie dell'header:
+        // qui si sta modificando il punto aperto nel modale, che puo' essere
+        // diverso da quello selezionato in alto. Su una sede NUOVA (non ancora
+        // salvata) non c'e' ancora un id a cui agganciare la scheda: si dice, e
+        // si sceglie dopo il primo salvataggio.
+        const gCur = document.getElementById("loc-g-cur") as HTMLElement;
+        const gPick = document.getElementById("loc-g-pick") as HTMLButtonElement;
+        const gList = document.getElementById("loc-g-list") as HTMLDivElement;
+        const gUrl = (id: string | null) => "/api/admin/google/locations" + (id ? `?sede=${encodeURIComponent(id)}` : "");
+
+        async function gSedeStato() {
+          gList.innerHTML = "";
+          gPick.style.display = "none";
+          gCur.textContent = "";
+          if (!sedeAperta) { gCur.textContent = L.gNuova ?? ""; return; }
+          try {
+            const res = await fetch(gUrl(sedeAperta.id), { headers });
+            const j = await res.json();
+            if (!j.connected) { gCur.textContent = L.gNonCollegato ?? ""; return; }
+            gPick.style.display = "";
+            // Il nome della scheda e basta: «Scheda attuale:» davanti era una
+            // didascalia che ripeteva l'etichetta gia' scritta sopra.
+            gCur.textContent = j.current?.title || (L.gNessuna ?? "");
+          } catch {
+            gCur.textContent = L.netErr ?? "";
+          }
+        }
+
+        const placeTest = document.getElementById("loc-place-test") as HTMLButtonElement;
+        const placeRes = document.getElementById("loc-place-res") as HTMLElement;
+        placeTest.addEventListener("click", async () => {
+          const id = campo("loc-place").value.trim();
+          if (!id) { placeRes.textContent = L.placeVuoto ?? ""; return; }
+          // Errore tipico: incollare la CHIAVE API invece del Place ID.
+          if (/^AIza/.test(id)) { placeRes.textContent = L.placeChiave ?? ""; return; }
+          placeTest.disabled = true;
+          placeRes.textContent = SUP.loading ?? "";
+          try {
+            const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
+            const j = await res.json();
+            placeRes.textContent = res.ok
+              ? `${j.name} — ${j.rating ?? "?"}/5 · ${j.reviews ?? 0}`
+              : (j.error ?? L.netErr ?? "");
+          } catch {
+            placeRes.textContent = L.netErr ?? "";
+          } finally {
+            placeTest.disabled = false;
+          }
+        });
+
+        gPick.addEventListener("click", async () => {
+          if (!sedeAperta) return;
+          gList.textContent = SUP.loading ?? "";
+          try {
+            const res = await fetch(gUrl(sedeAperta.id), { headers });
+            const j = await res.json();
+            if (j.error) { gList.textContent = String(j.error); return; }
+            const schede = (j.sedi ?? []) as { path: string; title: string; address: string }[];
+            const cur = j.current?.path ?? "";
+            if (!schede.length) { gList.textContent = L.gVuoto ?? ""; return; }
+            gList.innerHTML = schede
+              .map((sd) => `<button type="button" class="us-ghost gscheda" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`)
+              .join("");
+          } catch {
+            gList.textContent = L.netErr ?? "";
+          }
+        });
+
+        gList.addEventListener("click", async (ev) => {
+          const b = (ev.target as HTMLElement).closest(".gscheda") as HTMLElement | null;
+          if (!b || !sedeAperta) return;
+          try {
+            const res = await fetch("/api/admin/google/locations", {
+              method: "POST", headers,
+              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "", sede: sedeAperta.id }),
+            });
+            const j = await res.json();
+            if (!res.ok) { toast(j.error ?? L.netErr ?? "", true); return; }
+            if (j.reviewError) toast(String(j.reviewError), true);
+            else toast(L.gSalvata ?? "");
+            await gSedeStato();
+          } catch {
+            toast(L.netErr ?? "", true);
+          }
+        });
+
+        // Lo slug segue il nome mentre si scrive, e SOLO su una sede nuova:
+        // su una che esiste gia' cambiarlo romperebbe i link del sito
+        // pubblico, quindi lo tocca solo chi lo decide a mano.
+        // Si smette di seguirlo appena qualcuno ci mette le mani.
+        let slugAMano = false;
+        const sluggifica = (s: string) =>
+          s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")   // via gli accenti
+           .toLowerCase()
+           .replace(/[^a-z0-9]+/g, "-")
+           .replace(/^-+|-+$/g, "")
+           .slice(0, 40);
+        const locUrl = document.getElementById("loc-url") as HTMLSpanElement;
+        function mostraUrl() {
+          const s = campo("loc-slug").value.trim();
+          locUrl.textContent = s ? `${SUP.sito ?? ""}/${s}` : "";
+        }
+        campo("loc-slug").addEventListener("input", () => { slugAMano = true; mostraUrl(); });
+        campo("loc-name").addEventListener("input", () => {
+          if (sedeAperta || slugAMano) return;
+          campo("loc-slug").value = sluggifica(campo("loc-name").value);
+          mostraUrl();
+        });
+
+        // ---- Foto della sede ----
+        const locImgUp = document.getElementById("loc-img-up") as HTMLButtonElement;
+        const locImgRm = document.getElementById("loc-img-rm") as HTMLButtonElement;
+        const locImgFile = document.getElementById("loc-img-file") as HTMLInputElement;
+        const locImgState = document.getElementById("loc-img-state") as HTMLSpanElement;
+        const locPrev = document.getElementById("loc-prev") as HTMLSpanElement;
+
+        const ICO_IMG =
+          '<svg class="ph-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>';
+
+        function disegnaFoto() {
+          locPrev.innerHTML = locImgUrl ? `<img src="${esc(locImgUrl)}" alt="" />` : ICO_IMG;
+          locImgRm.style.display = locImgUrl ? "" : "none";
+        }
+
+        // Libreria: stesso componente del modale piatto. La guardia sul
+        // modale chiuso e' obbligatoria — l'evento e' globale, e senza di
+        // essa una foto scelta altrove finirebbe qui.
+        (document.getElementById("loc-img-lib") as HTMLButtonElement).addEventListener("click", () => {
+          window.dispatchEvent(new CustomEvent("imgpick:open"));
+        });
+        window.addEventListener("imgpick:pick", (e) => {
+          if (locOverlay.hidden) return;
+          locImgUrl = (e as CustomEvent<{ url: string }>).detail.url;
+          disegnaFoto();
+          locImgState.textContent = "";
+        });
+
+        locImgUp.addEventListener("click", () => locImgFile.click());
+        locImgRm.addEventListener("click", () => {
+          // Toglie solo il collegamento: il file resta nello storage, e
+          // cancellarlo qui vorrebbe dire perderlo anche se si annulla.
+          locImgUrl = null;
+          disegnaFoto();
+        });
+        locImgFile.addEventListener("change", () => conAttesa(locImgUp, async () => {
+          const file = locImgFile.files?.[0];
+          locImgFile.value = "";
+          if (!file) return;
+          locImgState.textContent = L.sending ?? "";
+          try {
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+              r.onerror = () => reject(new Error());
+              r.readAsDataURL(file);
+            });
+            const res = await fetch("/api/admin/upload", {
+              method: "POST", headers,
+              body: JSON.stringify({ filename: file.name, data: b64, bucket: "brand", folder: "sedi" }),
+            });
+            const j = await res.json();
+            if (!res.ok) throw new Error(j.error ?? "");
+            locImgUrl = String(j.url ?? "") || null;
+            disegnaFoto();
+            locImgState.textContent = "";
+          } catch (err) {
+            locImgState.textContent = (err instanceof Error && err.message) || L.imgErr || "";
+          }
+        }));
+
+        (document.getElementById("loc-add") as HTMLButtonElement).addEventListener("click", () => locApri(null));
+        locOverlay.querySelectorAll("[data-md-close]").forEach((el) =>
+          el.addEventListener("click", () => { locOverlay.hidden = true; })
+        );
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && !locOverlay.hidden) locOverlay.hidden = true;
+        });
+
+        locSave.addEventListener("click", () => conAttesa(locSave, async () => {
+          locErr.textContent = "";
+          const corpo: Record<string, unknown> = {
+            name: campo("loc-name").value.trim(),
+            slug: campo("loc-slug").value.trim().toLowerCase(),
+            image_url: locImgUrl,
+            sort_order: Number(campo("loc-order").value || 0),
+            active: campo("loc-active").checked,
+          };
+          try {
+            const res = await fetch("/api/admin/locations", {
+              method: sedeAperta ? "PATCH" : "POST",
+              headers,
+              body: JSON.stringify(sedeAperta ? { id: sedeAperta.id, ...corpo } : corpo),
+            });
+            const j = await res.json();
+            if (!res.ok) { locErr.textContent = j.error ?? ""; return; }
+            const id = String(j.location?.id ?? sedeAperta?.id ?? "");
+
+            // I segreti viaggiano a parte, uno per chiamata, e solo se
+            // qualcuno ha scritto qualcosa: un campo lasciato vuoto NON
+            // cancella la chiave gia' registrata.
+            // Place ID: si manda SEMPRE, anche vuoto — svuotare il campo deve
+            // poterlo togliere. I segreti no: la' vuoto vuol dire «non cambiare».
+            await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({ id, place_id: campo("loc-place").value.trim() }),
+            });
+            // Il link recensioni si manda SEMPRE, anche vuoto: vuoto vuol dire
+            // «toglilo». I segreti no — la' vuoto vuol dire «non cambiare».
+            await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({ id, review_url: campo("loc-greview").value.trim() }),
+            });
+            for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
+              const v = campo(idCampo).value.trim();
+              if (!v) continue;
+              await fetch("/api/admin/locations", {
+                method: "PATCH", headers,
+                body: JSON.stringify({ id, secret_key: chiave, secret_value: v }),
+              });
+            }
+            locOverlay.hidden = true;
+            const n = Number(j.assegnate ?? 0);
+            toast(n > 0 ? (L.stDone ?? "").replace("{n}", String(n)) : (L.saved ?? ""));
+            ricaricaPagina();
+          } catch {
+            locErr.textContent = L.netErr ?? "";
+          }
+        }));
+
+        // ---- LO STORICO RIMASTO SENZA SEDE ----------------------------------
+        // La migrazione aggiunge `location_id` ma non la riempie: quando gira,
+        // le sedi non esistono ancora. Creata la prima sede il filtro si
+        // accende, e quelle righe — ordini, prenotazioni, TAVOLI — sparirebbero
+        // da ogni punto: il filtro e' `location_id = <id>`, e NULL non lo
+        // soddisfa.
+        //
+        // ⚠️ E' uno STATO, non un evento. Prima la domanda arrivava
+        // nell'istante in cui si accendeva un interruttore; se la si
+        // annullava, lo storico restava invisibile e non lo diceva piu'
+        // nessuno. Ora l'avviso resta nel pannello finche' c'e' qualcosa da
+        // assegnare. Con la PRIMA sede non compare proprio: li' il travaso e'
+        // automatico, perche' non c'e' niente da scegliere.
+        const stOverlay = document.getElementById("st-overlay") as HTMLDivElement;
+        const stSede = document.getElementById("st-sede") as HTMLSelectElement;
+        const stConteggi = document.getElementById("st-conteggi") as HTMLElement;
+        const stErr = document.getElementById("st-err") as HTMLElement;
+        const stBox = document.getElementById("loc-storico") as HTMLElement;
+        const stNum = document.getElementById("loc-storico-n") as HTMLElement;
+
+        /** Righe orfane dell'ultimo caricamento: { tabella: quante }. */
+        let storicoOrfano: Record<string, number> = {};
+
+        function stRighe(): [string, number][] {
+          return Object.entries(storicoOrfano).filter(([, n]) => Number(n) > 0);
+        }
+        function stDettaglio(): string {
+          return stRighe()
+            .map(([t2, n]) => `<b>${Number(n).toLocaleString(document.documentElement.lang || "fr")}</b> ${esc(SUP.stTabLabels?.[t2] ?? t2)}`)
+            .join(" · ");
+        }
+        function stRenderAvviso() {
+          const righe = stRighe();
+          // Con una sede sola non si chiede niente: il travaso e' gia' avvenuto
+          // creandola. L'avviso ha senso solo se c'e' una scelta da fare.
+          const serve = righe.length > 0 && sedi.filter((x) => x.active !== false).length > 1;
+          stBox.style.display = serve ? "block" : "none";
+          if (serve) stNum.innerHTML = `${esc(L.stCount ?? "")} ${stDettaglio()}`;
+        }
+
+        document.getElementById("loc-storico-btn")?.addEventListener("click", () => {
+          const attive = sedi.filter((x) => x.active !== false);
+          stErr.textContent = "";
+          stSede.innerHTML = attive
+            .map((x) => `<option value="${esc(x.id)}">${esc(x.name)}</option>`)
+            .join("");
+          stConteggi.innerHTML = `${esc(L.stCount ?? "")} ${stDettaglio()}`;
+          stOverlay.hidden = false;
+        });
+
+        document.getElementById("st-cancel")?.addEventListener("click", () => {
+          stOverlay.hidden = true;
+        });
+
+        const stGo = document.getElementById("st-go") as HTMLButtonElement | null;
+        stGo?.addEventListener("click", () => conAttesa(stGo, async () => {
+          stErr.textContent = "";
+          try {
+            const res = await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({ storico_sede: stSede.value }),
+            });
+            const j = await res.json();
+            if (!res.ok) { toast(j.error ?? "", true); return; }
+            const n = Number(j.assegnate ?? 0);
+            toast((L.stDone ?? "").replace("{n}", String(n)));
+            stOverlay.hidden = true;
+            ricaricaPagina();
+          } catch {
+            stErr.textContent = L.netErr ?? "";
+          }
+        }));
+
+        // Cestino a due tempi, UNO SOLO armato alla volta: stessa guardia
+        // di Documenti e Ordini.
+        let locCestino: HTMLButtonElement | null = null;
+        let locCestinoTimer = 0;
+        function locDisarma() {
+          window.clearTimeout(locCestinoTimer);
+          if (!locCestino) return;
+          locCestino.classList.remove("confirm");
+          locCestino.innerHTML = LOC_CESTINO;
+          locCestino = null;
+        }
+        // L'interruttore salva da solo: e' uno stato, non una modifica da
+        // confermare. Se il server rifiuta, torna com'era.
+        locList.addEventListener("change", async (e) => {
+          const sw = e.target as HTMLInputElement;
+          if (!sw.classList.contains("loc-att")) return;
+          const card = sw.closest(".loc-card") as HTMLElement | null;
+          if (!card) return;
+          const attiva = sw.checked;
+          try {
+            const res = await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({ id: card.dataset.id ?? "", active: attiva }),
+            });
+            const j = await res.json();
+            if (!res.ok) { sw.checked = !attiva; toast(j.error ?? "", true); return; }
+            card.classList.toggle("is-off", !attiva);
+            toast(L.saved ?? "");
+            // Una sede disattivata esce da `elencoSedi()`: il selettore in alto
+            // cambia, e con una sede sola sparisce del tutto.
+            ricaricaPagina();
+          } catch {
+            sw.checked = !attiva;
+            toast(L.netErr ?? "", true);
+          }
+        });
+
+        locList.addEventListener("click", async (e) => {
+          const bersaglio = e.target as HTMLElement;
+          const card = bersaglio.closest(".loc-card") as HTMLElement | null;
+          if (!card) return;
+          const id = card.dataset.id ?? "";
+
+          if (bersaglio.closest(".loc-edit")) {
+            locDisarma();
+            const s = sedi.find((x) => x.id === id);
+            if (s) locApri(s);
+            return;
+          }
+          const del = bersaglio.closest(".loc-del") as HTMLButtonElement | null;
+          if (!del) return;
+          if (del !== locCestino) {
+            locDisarma();
+            locCestino = del;
+            del.classList.add("confirm");
+            del.textContent = L.confirm ?? "?";
+            locCestinoTimer = window.setTimeout(locDisarma, 3000);
+            return;
+          }
+          locDisarma();
+          await conAttesa(del, async () => {
+            try {
+              const res = await fetch("/api/admin/locations?id=" + encodeURIComponent(id), {
+                method: "POST", headers: { ...headers, "X-Method-Override": "DELETE" },
+              });
+              const j = await res.json();
+              if (!res.ok) { toast(j.error ?? "", true); return; }
+              toast(L.deleted ?? "");
+              ricaricaPagina();
+            } catch {
+              toast(L.netErr ?? "", true);
+            }
+          });
+        });
+
+        // Prima le sedi, poi gli utenti: la riga utente mostra il nome della sua
+        // sede, e senza l'elenco gia' pronto mostrerebbe "?" a seconda di chi
+        // dei due risponde per primo.
+        void locCarica().then(() => usCarica());
       })();
     </script>
 

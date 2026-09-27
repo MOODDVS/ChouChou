@@ -1,13 +1,33 @@
 import { Resend } from "resend";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "./db";
 import { datiRistorante } from "./ristorante";
 import { temaEmail, type TemaEmail } from "./temaBrand";
 import { adminLang } from "./admin/adminLang";
 import { caricaBootAdmin } from "./admin/adminBoot";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
-import { TIMEZONE } from "./slots";
+import { fusoDi } from "./fuso";
+// ⚠️⚠️ OGNI EMAIL E' DI UN PUNTO (16/09/2026).
+//
+// Il nome, l'indirizzo, il telefono, il mittente e il destinatario di una
+// notifica sono quelli della sede a cui l'ordine o la prenotazione
+// appartiene — non quelli del marchio. Con tre pizzerie a tre indirizzi,
+// mandare la conferma di Stockel con la via di Schaerbeek non e' un numero
+// sbagliato su uno schermo: e' una persona che suona a un citofono sbagliato.
+//
+// ⚠️ La sede NON arriva dal contesto di chi manda: arriva DAL FATTO. Ogni
+// riga (`OrdineNotifica`, `ResaEmail`) porta il suo `location_id`, e da li'
+// si ricava l'ambito con `ambitoDiRiga`. E' la stessa regola del conto
+// Stripe: chi paga lo decide l'ordine, non la sede selezionata nell'header.
+// Un webhook, un cron e l'admin possono mandare la stessa email da tre
+// contesti diversi; il fatto invece e' uno solo.
+//
+// ⚠️ `location_id` e' OBBLIGATORIO nelle interfacce, non facoltativo. Cosi'
+// il compilatore indica ogni punto di chiamata che se l'e' dimenticato —
+// perche' a runtime non lo direbbe nessuno.
+import { ambitoDiRiga, type Ambito } from "./admin/sede";
+import { appConfigEq, appConfigIn } from "./appConfigCache";
+import { basePubblica } from "./basePubblica";
 
 const RESEND_API_KEY = import.meta.env.RESEND_API_KEY;
 // RESEND_FROM: si toglie l'eventuale virgolettatura stray dell'.env (es. "Nome <mail>")
@@ -27,13 +47,9 @@ const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
  * Email cucina: prima da app_config (modificabile dall'admin),
  * fallback sulla variabile d'ambiente KITCHEN_EMAIL.
  */
-async function kitchenEmail(): Promise<string> {
+async function kitchenEmail(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "kitchen_email")
-      .maybeSingle();
+    const { data } = await appConfigEq("kitchen_email", ambito);
     const v = data?.value?.trim();
     if (v) return v;
   } catch {
@@ -43,12 +59,12 @@ async function kitchenEmail(): Promise<string> {
 }
 
 /** Mittente delle email cliente per gli ORDINI (order_from_* o fallback generali). */
-async function ordineFromEmail(): Promise<string> {
+async function ordineFromEmail(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["order_from_name", "email_from_name", "restaurant_name", "order_from_email", "public_email", "newsletter_from_email"]);
+    const { data } = await appConfigIn(
+      ["order_from_name", "email_from_name", "restaurant_name", "order_from_email", "public_email", "newsletter_from_email"],
+      ambito,
+    );
     const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
     const nome = m.get("order_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
     const email = m.get("order_from_email") || m.get("public_email") || m.get("newsletter_from_email") || "";
@@ -61,6 +77,13 @@ async function ordineFromEmail(): Promise<string> {
 
 /** Dati di un ordine confermato, per comporre le notifiche. */
 export interface OrdineNotifica {
+  /** ⚠️ La sede a cui appartiene questo fatto. OBBLIGATORIO: `null` vuol dire
+   *  installazione a sede unica (o riga anteriore alle sedi), e li' rende
+   *  SEDE_UNICA, cioe' i dati dell'installazione — il comportamento di
+   *  sempre. Facoltativo voleva dire dimenticato, e dimenticarlo non da'
+   *  nessun errore: da' l'indirizzo giusto di un'altra pizzeria. */
+  location_id: string | null;
+
   numero: string;
   customer_name: string;
   customer_email: string;
@@ -143,12 +166,14 @@ const TXT = {
   },
 } as const;
 
-/** Ora di ritiro formattata in HH:mm (Europe/Brussels). */
-function oraRitiro(iso: string): string {
+/** Ora di ritiro formattata in HH:mm, nel fuso DELLA SEDE.
+ *  ⚠️ Prima leggeva la variabile globale `TIMEZONE`: l'ora scritta al
+ *  cliente era quella dell'ultima sede che aveva toccato quella variabile. */
+function oraRitiro(iso: string, fuso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: TIMEZONE,
+    timeZone: fuso,
   });
 }
 
@@ -344,15 +369,19 @@ const TXT_ANN = {
 } as const;
 
 async function emailAnnullaCliente(o: OrdineNotifica, opts: AnnullaOpts): Promise<void> {
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from) return;
   if (!o.customer_email?.trim()) return; // ordine senza email: niente invio
 
   const t = pick5(TXT_ANN, o.lang);
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const giorno = new Date(o.pickup_time).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
   const pickupVal = `${giorno} · ${ora}`;
   const importo = euro(opts.refund_cents ?? o.total_cents);
@@ -456,7 +485,11 @@ export async function inviaAnnullaOrdine(o: OrdineNotifica, opts: AnnullaOpts): 
 
 /** Email di conferma al cliente (design dark brand). */
 async function emailCliente(o: OrdineNotifica): Promise<void> {
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto email cliente");
     return;
@@ -464,8 +497,8 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
   if (!o.customer_email?.trim()) return; // ordine pagato di persona senza email
   const t = pick5(TXT, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
-  const dati = await datiRistorante();
+  const ora = oraRitiro(o.pickup_time, fuso);
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CLIENTE);
@@ -647,7 +680,11 @@ async function emailModificaCliente(
   o: OrdineNotifica,
   opts: { supplement_url?: string | null; supplement_cents?: number; refund_cents?: number; changes?: OrdineChanges | null }
 ): Promise<void> {
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto email modifica");
     return;
@@ -655,8 +692,8 @@ async function emailModificaCliente(
   if (!o.customer_email?.trim()) return;
   const t = pick5(TXT_MOD, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
-  const dati = await datiRistorante();
+  const ora = oraRitiro(o.pickup_time, fuso);
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
   // "Cosa è cambiato": ordine iniziale con elementi tolti (barrati) e aggiunti.
@@ -838,15 +875,19 @@ const TXT_PAY = {
 
 /** Email al cliente con il LINK DI PAGAMENTO Stripe (ordine manuale staff). */
 export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; cancel_url?: string | null }): Promise<void> {
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto email link di pagamento");
     return;
   }
   const t = pick5(TXT_PAY, o.lang);
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
-  const dati = await datiRistorante();
+  const ora = oraRitiro(o.pickup_time, fuso);
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CLIENTE);
@@ -931,14 +972,18 @@ const K_TXT = {
 
 /** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
 async function emailCucina(o: OrdineNotifica): Promise<void> {
-  const dest = await kitchenEmail();
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const dest = await kitchenEmail(ambito);
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from || !dest) {
     console.warn("Resend/email ordini non configurati: salto notifica ordine");
     return;
   }
   const { piatti, noteCliente } = separaItems(o);
-  const ora = oraRitiro(o.pickup_time);
+  const ora = oraRitiro(o.pickup_time, fuso);
   const tema = await temaEmail();
   const k = K_TXT[await adminLang()] ?? K_TXT.fr;
   const telLink = (o.customer_phone ?? "").replace(/[^+\d]/g, "");
@@ -1011,6 +1056,9 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
     console.warn("SLACK_WEBHOOK_URL non configurato: salto Slack");
     return;
   }
+  // ⚠️ La sede viene DAL FATTO, come in tutte le altre notifiche: l'ora di
+  // ritiro nel messaggio Slack e' quella del punto che deve preparare.
+  const fuso = await fusoDi(ambitoDiRiga(o.location_id));
   const { piatti, noteCliente } = separaItems(o);
   const k = K_TXT[await adminLang().catch(() => "fr" as const)] ?? K_TXT.fr;
   try {
@@ -1022,7 +1070,7 @@ async function slackCucina(o: OrdineNotifica): Promise<void> {
       `*${k.client}:* ${o.customer_name}\n` +
       `*${k.phone}:* ${o.customer_phone ?? "—"}\n` +
       `*${k.email}:* ${o.customer_email}\n` +
-      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time)}\n` +
+      `*${k.pickupAt}:* ${oraRitiro(o.pickup_time, fuso)}\n` +
       `*${k.payment}:* ${k.paid} ✅\n\n` +
       `*${k.order}:*\n${righe}${notaRiga}\n\n` +
       `*${k.total}:* ${euro(o.total_cents)}`;
@@ -1103,20 +1151,20 @@ const TXT_REVIEW = {
  * (Réglages → Liens). Nessun cron: la consegna è gestita da Resend.
  */
 async function emailReview(o: OrdineNotifica): Promise<void> {
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from) return;
   if (!o.customer_email?.trim()) return; // niente email: niente richiesta recensione
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
   // Link recensione dall'admin: senza link, niente email.
   let reviewUrl = "";
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "link_google_review")
-      .maybeSingle();
+    const { data } = await appConfigEq("link_google_review", ambito);
     reviewUrl = String(data?.value ?? "").trim();
   } catch {
     return;
@@ -1128,7 +1176,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   // Stelle cliccabili (gating): 1-3 -> pagina feedback privata; 4-5 -> link Google.
   // Se il link Google non è configurato, tutte le stelle vanno alla pagina feedback.
   // Base pubblica per-cliente (root o sotto-prefisso), non /demo01 fisso.
-  const baseSite = await siteBaseResa();
+  const baseSite = await siteBaseResa(ambito);
   const feedbackUrl = (r: number) =>
     `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
     `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
@@ -1143,7 +1191,7 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
 
   // 11:30 del giorno dopo l'ordine, ora di Bruxelles.
   const quando = DateTime.fromISO(o.pickup_time)
-    .setZone(TIMEZONE)
+    .setZone(fuso)
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
 
@@ -1255,6 +1303,13 @@ const TXT_REVIEW_RESA = {
 
 /** Dati minimi di una prenotazione per l'email recensione. */
 export interface ResaReview {
+  /** ⚠️ La sede a cui appartiene questo fatto. OBBLIGATORIO: `null` vuol dire
+   *  installazione a sede unica (o riga anteriore alle sedi), e li' rende
+   *  SEDE_UNICA, cioe' i dati dell'installazione — il comportamento di
+   *  sempre. Facoltativo voleva dire dimenticato, e dimenticarlo non da'
+   *  nessun errore: da' l'indirizzo giusto di un'altra pizzeria. */
+  location_id: string | null;
+
   date: string; // YYYY-MM-DD della prenotazione
   first_name: string;
   last_name: string;
@@ -1277,6 +1332,9 @@ const FB_TXT = {
  * Ritorna true se l'email è stata inviata.
  */
 export async function inviaFeedbackCliente(fb: {
+  /** ⚠️ Di quale punto e' questo feedback: decide a chi arriva l'email e con
+   *  che intestazione. Arriva dalla pagina pubblica, che sa su quale sito e'. */
+  location_id: string | null;
   rating: number;
   message: string;
   name: string;
@@ -1287,12 +1345,15 @@ export async function inviaFeedbackCliente(fb: {
   service?: number;
   atmosphere?: number;
 }): Promise<boolean> {
-  const dest = await kitchenEmail();
-  const from = await ordineFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(fb.location_id);
+
+  const dest = await kitchenEmail(ambito);
+  const from = await ordineFromEmail(ambito);
   if (!resend || !from || !dest) return false;
 
   const tema = await temaEmail();
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const k = FB_TXT[await adminLang()] ?? FB_TXT.fr;
   const r = Math.max(1, Math.min(5, Math.round(fb.rating)));
   const nome = esc(fb.name || "—");
@@ -1398,19 +1459,19 @@ export async function inviaFeedbackCliente(fb: {
  * o null se non è partita (niente email, niente link, orario passato).
  */
 export async function emailReviewResa(r: ResaReview): Promise<string | null> {
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
   if (!resend || !RESEND_FROM) return null;
   const email = r.email.trim();
   if (!email) return null;
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
 
   let reviewUrl = "";
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "link_google_review")
-      .maybeSingle();
+    const { data } = await appConfigEq("link_google_review", ambito);
     reviewUrl = String(data?.value ?? "").trim();
   } catch {
     return null;
@@ -1418,7 +1479,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   if (!reviewUrl) return null;
 
   // 11:30 del giorno dopo la prenotazione; se è già passato, niente email.
-  const quando = DateTime.fromISO(r.date, { zone: TIMEZONE })
+  const quando = DateTime.fromISO(r.date, { zone: fuso })
     .plus({ days: 1 })
     .set({ hour: 11, minute: 30, second: 0, millisecond: 0 });
   if (quando <= DateTime.now()) return null;
@@ -1430,7 +1491,7 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   // privata del cliente, 4-5 -> link recensione Google. La base pubblica è
   // quella per-cliente (stessa dei link modifica/annulla prenotazione), così
   // funziona su ogni installazione (root o sotto-prefisso), non solo /demo01.
-  const baseResa = await siteBaseResa();
+  const baseResa = await siteBaseResa(ambito);
   const nomeCompleto = (r.first_name.trim() + " " + r.last_name.trim()).trim();
   const feedbackUrl = (star: number) =>
     `${baseResa}/feedback?r=${star}&lang=${r.lang || "fr"}` +
@@ -1503,6 +1564,13 @@ export async function annullaEmailReview(emailId: string): Promise<void> {
 
 /** Dati di una prenotazione per comporre le email. */
 export interface ResaEmail {
+  /** ⚠️ La sede a cui appartiene questo fatto. OBBLIGATORIO: `null` vuol dire
+   *  installazione a sede unica (o riga anteriore alle sedi), e li' rende
+   *  SEDE_UNICA, cioe' i dati dell'installazione — il comportamento di
+   *  sempre. Facoltativo voleva dire dimenticato, e dimenticarlo non da'
+   *  nessun errore: da' l'indirizzo giusto di un'altra pizzeria. */
+  location_id: string | null;
+
   cancel_reason?: string | null;
   id: string;
   date: string; // YYYY-MM-DD
@@ -1536,10 +1604,10 @@ const LOCALE_RESA: Record<LinguaWidget, string> = {
 };
 
 /** Data leggibile (es. "vendredi 18 juillet 2026") nella lingua del cliente. */
-function fmtDataResa(iso: string, lang: LinguaWidget): string {
+function fmtDataResa(iso: string, lang: LinguaWidget, fuso: string): string {
   try {
     return new Intl.DateTimeFormat(LOCALE_RESA[lang] ?? "fr-FR", {
-      timeZone: TIMEZONE,
+      timeZone: fuso,
       weekday: "long",
       day: "numeric",
       month: "long",
@@ -1772,12 +1840,12 @@ const TXT_RESA: Record<LinguaWidget, TxtResa> = {
 };
 
 /** Mittente delle email cliente: reservation_from_email (Réglages) o RESEND_FROM. */
-async function resaFromEmail(): Promise<string> {
+async function resaFromEmail(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["reservation_from_name", "email_from_name", "restaurant_name", "reservation_from_email", "public_email", "newsletter_from_email"]);
+    const { data } = await appConfigIn(
+      ["reservation_from_name", "email_from_name", "restaurant_name", "reservation_from_email", "public_email", "newsletter_from_email"],
+      ambito,
+    );
     const m = new Map((data ?? []).map((r) => [String(r.key), String(r.value ?? "").trim()]));
     const nome = m.get("reservation_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
     const email = m.get("reservation_from_email") || m.get("public_email") || m.get("newsletter_from_email") || "";
@@ -1789,13 +1857,9 @@ async function resaFromEmail(): Promise<string> {
 }
 
 /** Destinatario delle notifiche al ristorante (reservation_notify_email). */
-async function resaNotifyEmail(): Promise<string> {
+async function resaNotifyEmail(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "reservation_notify_email")
-      .maybeSingle();
+    const { data } = await appConfigEq("reservation_notify_email", ambito);
     return String(data?.value ?? "").trim();
   } catch {
     return "";
@@ -1892,28 +1956,12 @@ function siteBase(): string {
   return SITE_URL.replace(/\/$/, "");
 }
 
-/** Prefisso del sito pubblico del cliente (es. "/demo01"), letto da
- *  app_config "public_site_base". Vuoto se assente (sito alla radice).
- *  Serve perché i link "modifier / annuler" nelle email di prenotazione
- *  devono puntare al SITO giusto, non alla root del dominio. */
-async function basePubblicaResa(): Promise<string> {
-  try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "public_site_base")
-      .maybeSingle();
-    const v = String((data as { value?: unknown } | null)?.value ?? "").trim();
-    if (!v) return "";
-    return (v.startsWith("/") ? v : "/" + v).replace(/\/$/, "");
-  } catch {
-    return "";
-  }
-}
+// Il prefisso del sito pubblico vive in `lib/basePubblica.ts`: lo leggono
+// anche i link di pagamento dell'admin e il checkout.
 
 /** Base pubblica completa per i link cliente delle prenotazioni. */
-async function siteBaseResa(): Promise<string> {
-  return siteBase() + (await basePubblicaResa());
+async function siteBaseResa(ambito: Ambito): Promise<string> {
+  return siteBase() + (await basePubblica(ambito));
 }
 
 /** Blocco MAPPA per l'email di conferma: mappa statica Google (immagine)
@@ -1945,7 +1993,11 @@ function mapsBlocco(tema: TemaEmail, indirizzo: string, lang: string): string {
 
 /** Email di CONFERMA al cliente, con link Modifier / Annuler. */
 async function emailConfermaResa(r: ResaEmail): Promise<void> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto conferma prenotazione");
     return;
@@ -1953,19 +2005,19 @@ async function emailConfermaResa(r: ResaEmail): Promise<void> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const t = TXT_RESA[lang];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const nome = r.first_name.trim() || r.last_name.trim() || "";
   const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
-  const modifyUrl = `${await siteBaseResa()}/reservation?token=${r.cancel_token}`;
-  const cancelUrl = `${await siteBaseResa()}/reservation/cancel?token=${r.cancel_token}`;
+  const modifyUrl = `${await siteBaseResa(ambito)}/reservation?token=${r.cancel_token}`;
+  const cancelUrl = `${await siteBaseResa(ambito)}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
@@ -2027,7 +2079,11 @@ const TXT_RAPPEL: Record<LinguaWidget, { subject: (n: string) => string; title: 
 
 /** Email de RAPPEL au client (~3 h avant). Aucun bouton modifier/annuler. */
 export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto rappel prenotazione");
     return false;
@@ -2035,13 +2091,13 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const tr = TXT_RAPPEL[lang];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const nome = r.first_name.trim() || r.last_name.trim() || "";
   const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
@@ -2080,7 +2136,11 @@ export async function emailRappelResa(r: ResaEmail): Promise<boolean> {
  *  annulla della conferma; la vera email di conferma parte quando il
  *  ristoratore passa la prenotazione a Confirmée. */
 async function emailDemandeResa(r: ResaEmail): Promise<void> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from) {
     console.warn("Resend non configurato: salto demande prenotazione");
     return;
@@ -2088,19 +2148,19 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const t = TXT_RESA[lang];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const nome = r.first_name.trim() || r.last_name.trim() || "";
   const tema = await temaEmail();
 
   const heureVal = r.service_key ? `${r.heure} · ${labelService(r.service_key, lang)}` : r.heure;
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, heureVal) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");
 
-  const modifyUrl = `${await siteBaseResa()}/reservation?token=${r.cancel_token}`;
-  const cancelUrl = `${await siteBaseResa()}/reservation/cancel?token=${r.cancel_token}`;
+  const modifyUrl = `${await siteBaseResa(ambito)}/reservation?token=${r.cancel_token}`;
+  const cancelUrl = `${await siteBaseResa(ambito)}/reservation/cancel?token=${r.cancel_token}`;
 
   const ctaHtml = `
     <tr>
@@ -2146,7 +2206,11 @@ async function emailDemandeResa(r: ResaEmail): Promise<void> {
 
 /** Email al CLIENTE quando la prenotazione è annullata dal ristorante. */
 export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
     console.warn("Resend non configurato: salto email annullamento");
     return;
@@ -2154,16 +2218,16 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const t = TXT_RESA[lang];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const nome = r.first_name.trim() || r.last_name.trim() || "";
   const tema = await temaEmail();
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
-  const bookUrl = `${await siteBaseResa()}/reservation`;
+  const bookUrl = `${await siteBaseResa(ambito)}/reservation`;
   const ctaHtml = `
     <tr>
       <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
@@ -2211,7 +2275,11 @@ export async function emailAnnullataResa(r: ResaEmail): Promise<void> {
 
 /** Email al cliente: prenotazione annullata per CHIUSURA eccezionale del locale. */
 export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
     console.warn("Resend non configurato: salto email chiusura");
     return;
@@ -2219,16 +2287,16 @@ export async function emailChiusuraResa(r: ResaEmail): Promise<void> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const t = TXT_RESA[lang];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const nome = r.first_name.trim() || r.last_name.trim() || "";
   const tema = await temaEmail();
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`);
 
-  const bookUrl = `${await siteBaseResa()}/reservation`;
+  const bookUrl = `${await siteBaseResa(ambito)}/reservation`;
   const ctaHtml = `
     <tr>
       <td class="em-pad" style="padding:22px 44px 4px;text-align:center;">
@@ -2393,16 +2461,20 @@ function guscioResaRisto(o: {
 }
 
 async function emailNotificaResa(r: ResaEmail): Promise<void> {
-  const dest = await resaNotifyEmail();
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const dest = await resaNotifyEmail(ambito);
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica ristorante");
     return;
   }
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2445,16 +2517,20 @@ async function emailNotificaResa(r: ResaEmail): Promise<void> {
 
 /** Email di NOTIFICA al ristorante quando il CLIENTE annulla (FR, tema rosso). */
 export async function emailNotificaAnnulloResa(r: ResaEmail): Promise<void> {
-  const dest = await resaNotifyEmail();
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const dest = await resaNotifyEmail(ambito);
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica annullo");
     return;
   }
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2575,14 +2651,17 @@ const TXT_BON: Record<LangBon, TxtBon> = {
   es: { subjDest: (r, v) => `Tu tarjeta regalo ${r} — ${v}`, subjOffr: (c) => `Tarjeta regalo creada — ${c}`, titleDest: "Tu tarjeta regalo", titleOffr: "Tu tarjeta regalo ha sido creada", leadDestWith: (s, r) => `¡Buenas noticias! ${s} te ofrece una tarjeta regalo para usar en ${r}.`, leadDestNo: (r) => `Has recibido una tarjeta regalo para usar en ${r}.`, leadOffrWith: (n) => `Aquí tienes el resumen de la tarjeta regalo destinada a ${n}.`, leadOffrNo: "Aquí tienes el resumen de tu tarjeta regalo.", votreCode: "Tu código", valeur: "Valor", aUtiliser: "Usar antes del", fraisEnvoi: "Gastos de envío", envoiPostal: "Envío postal", payer: "Pagar ahora", payerHint: "La tarjeta se activará al recibir el pago.", pending: "Pago pendiente", pendingHint: "El restaurante te enviará el enlace de pago; la tarjeta se activará al recibirlo.", telecharger: "Descargar el PDF", footNote: "Muestra este código en el local o introdúcelo al hacer tu pedido online.", valable: (d) => ` Válido hasta el ${d}.` },
 };
 
-export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant", dest: string): Promise<void> {
+export async function emailBonCadeau(bon: BonEmail, a: "destinataire" | "offrant", dest: string, ambito: Ambito): Promise<void> {
+  // ⚠️ I buoni regalo sono del MARCHIO: la riga non ha una sede, quindi il
+  // punto lo dice chi manda l'email (dove e' stato creato o riscattato).
+
   if (!resend || !RESEND_FROM || !dest) {
     console.warn("Resend non configurato: salto l'email du bon cadeau");
     return;
   }
   const perDest = a === "destinataire";
   const L = TXT_BON[await linguaBon(perDest ? bon.recipient_lang : bon.sender_lang)];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
   const nomeDest = String(bon.recipient_name ?? "").trim();
   const nomeOffr = String(bon.sender_name ?? "").trim();
@@ -2687,9 +2766,9 @@ const TXT_BON_ADMIN: Record<LangBon, TxtBonAdmin> = {
 };
 
 /** Indirizzo email del ristoratore per le notifiche (notify > contact > public > CLIENT). */
-async function emailRistoratore(): Promise<string> {
+async function emailRistoratore(ambito: Ambito): Promise<string> {
   try {
-    const { data } = await supabaseAdmin.from("app_config").select("key, value").in("key", ["reservation_notify_email", "contact_emails", "public_email"]);
+    const { data } = await appConfigIn(["reservation_notify_email", "contact_emails", "public_email"], ambito);
     const m = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
     const notif = m.get("reservation_notify_email");
     if (notif) return notif;
@@ -2702,14 +2781,17 @@ async function emailRistoratore(): Promise<string> {
 }
 
 /** Notifica al ristoratore: un buono e' stato creato (lingua ADMIN). Best-effort. */
-export async function emailBonRistoratore(bon: BonEmail): Promise<void> {
-  const dest = await emailRistoratore();
+export async function emailBonRistoratore(bon: BonEmail, ambito: Ambito): Promise<void> {
+  // ⚠️ I buoni regalo sono del MARCHIO: la riga non ha una sede, quindi il
+  // punto lo dice chi manda l'email (dove e' stato creato o riscattato).
+
+  const dest = await emailRistoratore(ambito);
   if (!resend || !RESEND_FROM || !dest) {
     console.warn("Resend/email ristoratore non configurati: salto notifica bon");
     return;
   }
   const L = TXT_BON_ADMIN[norm5(await adminLang()) || "fr"];
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
   const scadenza = bon.expires_at ? String(bon.expires_at).split("-").reverse().join("/") : "";
   const metodo = bon.payment_method === "card" ? L.mCard : bon.payment_method === "link" ? L.mLink : L.mCash;
@@ -2759,16 +2841,20 @@ export async function emailBonRistoratore(bon: BonEmail): Promise<void> {
 
 /** Email di NOTIFICA al ristorante quando il CLIENTE modifica (FR, tema bleu). */
 export async function emailNotificaModificaResa(r: ResaEmail): Promise<void> {
-  const dest = await resaNotifyEmail();
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const dest = await resaNotifyEmail(ambito);
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !dest) {
     console.warn("Resend/notify prenotazioni non configurati: salto notifica modifica");
     return;
   }
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const { lang, k } = await contestoRisto();
   const servFr = labelService(r.service_key, lang);
-  const dataFr = fmtDataResa(r.date, lang);
+  const dataFr = fmtDataResa(r.date, lang, fuso);
   const { dateBig, year } = compattaData(r.date, lang);
   const nomeCompleto = `${r.first_name} ${r.last_name}`.trim();
   const telLink = (r.phone ?? "").replace(/[^+\d]/g, "");
@@ -2907,7 +2993,11 @@ const TXT_NOSHOW: Record<string, TxtNoShow> = {
 /** Email formale al cliente quando la prenotazione è messa in NO-SHOW.
  *  Tono rispettoso ma fermo. Nessun bottone. Stesso guscio a tema. */
 export async function emailNoShowResa(r: ResaEmail): Promise<void> {
-  const from = await resaFromEmail();
+  // ⚠️ La sede viene DAL FATTO, non da chi manda l'email.
+  const ambito = ambitoDiRiga(r.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const from = await resaFromEmail(ambito);
   if (!resend || !from || !r.email) {
     console.warn("Resend non configurato: salto email no-show");
     return;
@@ -2915,12 +3005,12 @@ export async function emailNoShowResa(r: ResaEmail): Promise<void> {
   const lang = lw(r.lang);
   const w = TESTI_WIDGET[lang];
   const t = TXT_NOSHOW[lang] ?? TXT_NOSHOW.fr;
-  const dati = await datiRistorante();
+  const dati = await datiRistorante(ambito);
   const tema = await temaEmail();
   const nome = r.first_name.trim() || r.last_name.trim() || "";
 
   const recap =
-    rigaRecap(tema, w.date, fmtDataResa(r.date, lang)) +
+    rigaRecap(tema, w.date, fmtDataResa(r.date, lang, fuso)) +
     rigaRecap(tema, w.heure, r.heure) +
     rigaRecap(tema, w.personnes, `${r.people} ${w.pers}`) +
     (r.zone ? rigaRecap(tema, w.section, r.zone) : "");

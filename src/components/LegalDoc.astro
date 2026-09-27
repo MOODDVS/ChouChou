@@ -2,6 +2,8 @@
 // Pagina legale RestoHub (Termini, Privacy, ...) — standalone, brand RestoHub,
 // con selettore lingua (5 lingue). Il contenuto arriva da src/lib/legal.
 import { AZIENDA, LEGAL_LANGS, type LegalDoc, type LegalLang } from "../lib/legal/legalContent";
+import Fonts from "./Fonts.astro";
+import Immagine from "./Immagine.astro";
 interface Props { doc: LegalDoc; current: LegalLang; }
 const { doc, current } = Astro.props;
 const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
@@ -12,14 +14,12 @@ const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{tabTitle}</title>
     <link rel="icon" type="image/svg+xml" href="/restohub/icon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&family=Quicksand:wght@500;600;700&display=swap" />
+    <Fonts />
     <style>
       :root {
         --petrol: #002d34; --coral: #dd5851; --bg: #f4f6f6; --card: #ffffff;
         --text: #223a3e; --muted: #6b7c7e; --line: #e3e7e7;
-        --brand: "Quicksand", system-ui, sans-serif; --body: "Nunito Sans", system-ui, sans-serif;
+        --brand: var(--font-title); --body: var(--font-body);
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.7; }
@@ -51,7 +51,7 @@ const tabTitle = `${doc[current].title} — ${AZIENDA.prodotto}`;
   </head>
   <body>
     <header>
-      <a href="/"><img src="/restohub/wordmark-negative.svg" alt="RestoHub" /></a>
+      <a href="/"><Immagine src="/restohub/wordmark-negative.svg" alt="RestoHub" width={420} height={56} /></a>
       <div class="langs" id="langs">
         {LEGAL_LANGS.map((l) => (
           <button type="button" data-l={l.code} class={l.code === current ? "on" : ""}>{l.label}</button>

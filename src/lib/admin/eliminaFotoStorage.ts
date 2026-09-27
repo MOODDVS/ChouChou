@@ -8,6 +8,14 @@ import { supabaseAdmin } from "../db";
 // Guardie di sicurezza: si elimina SOLO un URL del nostro Storage e SOLO
 // se nessuna riga lo referenzia più (team, piatti, pop-up, clienti) —
 // chiamarla DOPO l'update/delete della riga, così la guardia passa.
+//
+// ⚠️ MULTI-SEDE: queste quattro letture NON sono filtrate, e non devono
+// esserlo. La domanda non è «questa foto la usa la MIA sede?» ma «la usa
+// ancora qualcuno?». Lo Storage è uno solo per installazione: filtrando,
+// una foto usata da Stockel sembrerebbe libera guardando da Schaerbeek, e
+// il file verrebbe cancellato davvero — con la scheda di Stockel che resta
+// con un'immagine rotta. È l'unico posto di tutto il multi-sede dove il
+// filtro distruggerebbe un dato invece di nasconderlo.
 export async function eliminaFotoStorage(urlFoto: string | null | undefined): Promise<void> {
   try {
     const u = String(urlFoto ?? "");

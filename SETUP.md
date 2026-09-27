@@ -60,7 +60,11 @@ fuso orario…) si configura DALL'ADMIN in Admin → Général, senza codice.
 2. Disattiva «Automatically expose new tables» (le migrazioni fanno i GRANT).
 3. SQL Editor → lancia **TUTTE le migrazioni di `supabase/MIGRATIONS.md`
    NELL'ORDINE dei numeri**. Sono idempotenti: rilanciarne una non fa danni.
-4. Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
+4. **Dopo le migrazioni**, sempre nel SQL Editor: `notify pgrst, 'reload schema';`
+   PostgREST tiene in cache la struttura del database. Finché non la rilegge,
+   una tabella appena creata dà `PGRST205 Could not find the table … in the
+   schema cache`: sembra che la migrazione non sia passata, e invece è passata.
+5. Storage → crea i bucket **pubblici**: `popups`, `menu`, `documents`, `brand`.
 5. Authentication → crea l'utente del cliente (email+password) e verifica che
    `admin@moodd.online` possa accedere (super admin, hardcoded nel motore).
 
@@ -76,9 +80,24 @@ KITCHEN_EMAIL=…             # fallback email cucina
 CRON_SECRET=…               # NUOVO per ogni cliente: openssl rand -hex 24
 PUBLIC_SITE_URL=https://www.dominiocliente.be
 STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET   # solo quando si attivano gli ordini
+SECRETS_KEY=…               # NUOVO per ogni cliente: openssl rand -base64 32
 ```
 
 Mai riusare il CRON_SECRET di un altro cliente. Mai incollare secret in chat.
+
+**`SECRETS_KEY`** cifra le chiavi Stripe salvate per sede nel database
+(`location_secrets`). Serve solo a un gruppo con piu' societa', ma conviene
+metterla sempre: senza, il super admin **rifiuta** di registrare una chiave di
+sede — un segreto in chiaro nel database e' peggio di un segreto assente,
+perche' funziona. Cambiarla rende illeggibili i segreti gia' salvati: vanno
+riscritti dal pannello Sedi.
+
+**Un gruppo con piu' sedi** (tre pizzerie, tre societa', un sito solo) mette
+`STRIPE_SECRET_KEY` e `STRIPE_WEBHOOK_SECRET` nel `.env` solo come ripiego:
+le chiavi vere stanno in Super admin → Sedi, una per punto. Il webhook resta
+**un indirizzo solo** — `https://…/api/stripe-webhook`, registrato uguale in
+tutti e tre i conti Stripe: il motore prova le chiavi di firma e riconosce da
+solo da quale conto arriva l'evento.
 
 ## 5. Deploy (Hostinger)
 
@@ -160,6 +179,11 @@ git -C /Users/moodd/Developer/NomeCliente merge engine/main
 - Poi: `npx astro check` → test locale → push → deploy.
 - **Migrazioni**: apri `supabase/MIGRATIONS.md` e lancia sul Supabase del
   cliente i numeri che gli mancano, in ordine.
+
+⚠️ **Il primo merge dopo il multi-sede non è un aggiornamento di routine**: il
+merge cancella i file del sito che il cliente non ha mai toccato, il pannello
+non si apre senza il blocco `fonts:`, e le pagine pubbliche vanno adattate
+all'ambito. La procedura sta in [`MIGRAZIONE-MULTISEDE.md`](MIGRAZIONE-MULTISEDE.md).
 
 Consiglio: taggare le versioni del template (`git tag v2.2 && git push origin v2.2`)
 e fare i merge di un tag preciso (`git merge v2.2`), tenendo nota in un

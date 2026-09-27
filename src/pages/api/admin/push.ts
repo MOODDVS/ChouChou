@@ -2,8 +2,10 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { inviaPushConDettagli, type PushDettaglio } from "../../../lib/push";
+import { ambitoDiRichiesta, cancella } from "../../../lib/admin/sede";
+import { sedeDaScrivere } from "../../../lib/admin/sedeRegole";
 import { adminLang } from "../../../lib/admin/adminLang";
-import type { AdminLang } from "../../../i18n/admin";
+import { adminT, type AdminLang } from "../../../i18n/admin";
 
 // Corpo della notifica di TEST nella lingua admin (fallback FR).
 const TEST_BODY: Record<AdminLang, string> = {
@@ -15,6 +17,14 @@ const TEST_BODY: Record<AdminLang, string> = {
 };
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -32,11 +42,11 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
   if (body.test) {
     const lang = await adminLang();
-    const r = await inviaPushConDettagli({ title: "MOODD", body: TEST_BODY[lang] ?? TEST_BODY.fr, url: "/admin" });
+    const r = await inviaPushConDettagli({ title: "RestoHub", body: TEST_BODY[lang] ?? TEST_BODY.fr, url: "/admin" }, await ambitoDiRichiesta(request, staff));
     // Riepilogo per tipo di dispositivo (aiuta a capire se l'iPhone è iscritto).
     const tipo = (d: PushDettaglio): string => {
       const h = d.host.toLowerCase();
@@ -59,13 +69,19 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const sub = body.subscription;
   if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
-    return json({ error: "Subscription invalide" }, 400);
+    return json({ error: await msg("err.subscription") }, 400);
   }
   const email = (staff as { email?: string }).email ?? null;
+  // ⚠️ `onConflict` resta su `endpoint` da solo, NON su (location_id, endpoint):
+  // l'endpoint e' gia' unico al mondo (lo assegna il browser) e non esiste un
+  // indice a due colonne — `salva()` ne costruirebbe uno che il database non
+  // ha, e il salvataggio morirebbe. Un telefono ha UNA iscrizione: se il
+  // responsabile cambia punto e si riscrive, la riga si sposta con lui.
+  const location_id = sedeDaScrivere("push_subscriptions", await ambitoDiRichiesta(request, staff));
   const { error } = await supabaseAdmin
     .from("push_subscriptions")
-    .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, user_email: email }, { onConflict: "endpoint" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+    .upsert({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, user_email: email, ...(location_id ? { location_id } : {}) }, { onConflict: "endpoint" });
+  if (error) return json({ error: await msg("err.save") }, 500);
   return json({ ok: true });
 };
 
@@ -75,7 +91,8 @@ export const DELETE: APIRoute = async ({ request, url }) => {
   if (!staff) return nonAutorizzato();
   const endpoint = url.searchParams.get("endpoint") ?? "";
   if (endpoint) {
-    try { await supabaseAdmin.from("push_subscriptions").delete().eq("endpoint", endpoint); } catch { /* best-effort */ }
+    // Filtrato: un endpoint di un altro punto non si cancella da qui.
+    try { await cancella("push_subscriptions", await ambitoDiRichiesta(request, staff)).eq("endpoint", endpoint); } catch { /* best-effort */ }
   }
   return json({ ok: true });
 };

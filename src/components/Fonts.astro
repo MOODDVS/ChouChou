@@ -1,0 +1,66 @@
+---
+/**
+ * I FONT DEL MOTORE — un posto solo, servito dal dominio del cliente.
+ *
+ * ⚠️ QUI C'ERANO ventitre' copie di questo blocco:
+ *
+ *     <link rel="preconnect" href="https://fonts.googleapis.com" />
+ *     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+ *     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?..." />
+ *
+ * Tre problemi, tutti veri:
+ *
+ * 1. VELOCITA'. Due handshake verso un terzo dominio prima che il browser
+ *    possa disegnare una lettera, sul percorso critico. Su mobile e' il pezzo
+ *    piu' grosso dell'LCP di un sito vetrina.
+ * 2. PRIVACY. Un foglio servito da Google porta l'IP del visitatore a Google
+ *    a ogni visita. In Germania un tribunale l'ha gia' giudicata una
+ *    violazione del GDPR — e questi siti hanno una pagina privacy.
+ * 3. COERENZA. Ventitre' elenchi di famiglie e pesi scritti a mano, gia'
+ *    divergenti: alcune pagine chiedevano Nunito Sans 400;600;700, altre
+ *    400;700, altre ancora 400;600;700;900. Nessuno sapeva piu' quale fosse
+ *    quello giusto, e il browser scaricava insiemi diversi pagina per pagina.
+ *
+ * Adesso le famiglie si dichiarano UNA volta in `astro.config.mjs`, Astro le
+ * scarica in build e le serve dal dominio del cliente.
+ *
+ * ⚠️ `preload` si mette SOLO sui font che servono al primo schermo. Un
+ * precaricamento di troppo non e' gratis: ruba banda al vero LCP e il
+ * browser avverte in console. Qui: il testo (`--font-body`) e i titoli
+ * (`--font-title`) si precaricano, la firma a mano no — sta in una tile
+ * della home, sotto la piega, e nessuno la aspetta.
+ */
+// ⚠️ NON `import { Font } from "astro:fonts"`. In Astro 7.3 `astro:fonts` e'
+// il NOME DEL PLUGIN Vite, non un modulo importabile: la build fallisce con
+// «Rolldown failed to resolve import "astro:fonts"», e lo fa solo in build —
+// in `astro check` non si vede. Il componente si prende dal suo percorso, ed
+// e' lui a importare il modulo virtuale che il plugin risolve.
+import Font from "astro/components/Font.astro";
+
+interface Props {
+  /** `false` sulle pagine dove i titoli non sono nel primo schermo. */
+  titoli?: boolean;
+  /** Precarica anche Marcellus e Bebas Neue: widget di prenotazione, vetrina. */
+  vetrina?: boolean;
+}
+const { titoli = true, vetrina = false } = Astro.props;
+---
+
+{/*
+  ⚠️ TUTTE le famiglie, su OGNI pagina — e non e' spreco.
+
+  Un `@font-face` non scarica niente: dichiara soltanto dove sta il file, e
+  il browser lo prende solo quando un elemento usa davvero quel carattere.
+  Quello che costa e' il `preload`, ed e' l'unica cosa che qui si decide
+  pagina per pagina.
+
+  La prima versione emetteva solo le famiglie chieste, e sarebbe stata un
+  guasto silenzioso: `--font-serif` non esisteva sulle pagine admin, ma
+  `settings.astro` e `ReservationWidget` usano Marcellus. Il testo sarebbe
+  ricaduto su Georgia senza che niente lo dicesse.
+*/}
+<Font cssVariable="--font-body" preload />
+<Font cssVariable="--font-title" preload={titoli} />
+<Font cssVariable="--font-serif" preload={vetrina} />
+<Font cssVariable="--font-display" preload={vetrina} />
+<Font cssVariable="--font-mano" />

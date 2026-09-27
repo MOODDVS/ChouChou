@@ -3,7 +3,7 @@ import { TEMA_DEFAULT } from "./admin/superAdmin";
 
 // Legge il TEMA brand del cliente (app_config "admin_theme") e ne deriva una
 // palette pronta per le EMAIL, robusta sia su fondo chiaro che scuro anche se
-// il cliente ha impostato solo alcune chiavi. Fallback: colori MOODD.
+// il cliente ha impostato solo alcune chiavi. Fallback: colori RestoHub.
 const RE_HEX = /^#[0-9a-fA-F]{6}$/;
 
 export interface TemaEmail {
@@ -34,6 +34,18 @@ function rgba(hex: string, a: number): string {
   return "rgba(" + r + ", " + g + ", " + b + ", " + a + ")";
 }
 
+/**
+ * ⚠️ IL TEMA RESTA DEL MARCHIO, di proposito (deciso 16/09/2026).
+ *
+ * Tutto il resto delle email e' passato «per sede» — nome, indirizzo,
+ * telefono, mittente, destinatario — perche' sono dati di un posto fisico.
+ * I colori no: sono l'identita' visiva, e 450 Gradi e' un marchio solo anche
+ * se sono tre societa'. Tre email con tre palette diverse non sarebbero tre
+ * pizzerie, sarebbero tre ristoranti.
+ *
+ * Se un giorno servisse per sede, e' una riga: `admin_theme` si legge con
+ * `appConfigEq(chiave, ambito)` e l'ereditarieta' dal marchio c'e' gia'.
+ */
 export async function temaEmail(): Promise<TemaEmail> {
   const t: Record<string, string> = { ...TEMA_DEFAULT };
   try {
@@ -48,7 +60,7 @@ export async function temaEmail(): Promise<TemaEmail> {
       if (typeof v === "string" && RE_HEX.test(v)) t[k] = v.toLowerCase();
     }
   } catch {
-    /* tema di default MOODD */
+    /* tema di default RestoHub */
   }
 
   const card = t.card || t.bg;

@@ -22,6 +22,8 @@ import TileSearchConsole from "../../components/admin/home/TileSearchConsole.ast
 import { CLIENT } from "../../config/client";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaHomeData } from "../../lib/admin/caricaHomeData";
+import { contestoDiStaff } from "../../lib/admin/permessi";
+import { ambitoDiRichiesta } from "../../lib/admin/sede";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
@@ -39,7 +41,15 @@ let ssrHome: unknown = null;
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
-  if (staff) ssrHome = await caricaHomeData();
+  // ⚠️ Il contesto dei permessi va passato, non dedotto qui: e' lo STESSO
+  // che usa il middleware per decidere se un'API risponde. Due copie di
+  // quella decisione e i dati nell'HTML direbbero una cosa e le API un'altra.
+  if (staff) {
+    ssrHome = await caricaHomeData(
+      await ambitoDiRichiesta(Astro.request, staff),
+      await contestoDiStaff(staff),
+    );
+  }
 } catch {
   ssrHome = null;
 }
@@ -57,25 +67,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Homemade+Apple&family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --c-brown: var(--c-bg);
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
@@ -408,7 +411,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       @media (max-width: 640px) {
         .home-hello { display: block; text-align: center; margin: 0.15rem 0 1.1rem; font-family: var(--font-title); font-size: 1.25rem; line-height: 1.1; color: var(--c-muted); letter-spacing: 0.02em; }
         .home-hello strong { color: var(--c-text); font-weight: 700; }
-        .home-hello .hh-word { display: inline-block; font-family: "Homemade Apple", cursive; font-weight: 400; font-size: 0.95em; line-height: 1; vertical-align: -0.04em; margin-right: 0.2em; transition: opacity 0.35s ease, transform 0.35s ease; }
+        .home-hello .hh-word { display: inline-block; font-family: var(--font-mano); font-weight: 400; font-size: 0.95em; line-height: 1; vertical-align: -0.04em; margin-right: 0.2em; transition: opacity 0.35s ease, transform 0.35s ease; }
       }
       .org-fab {
         position: fixed; left: 1.5rem; bottom: 4.4rem; z-index: 90;
@@ -557,6 +560,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { collegaLogout } from "../../lib/admin/logout";
       import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { festivita, ricorrenze } from "../../lib/festivitaRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -869,6 +873,16 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const token = session.access_token ?? "";
         let headers = { Authorization: `Bearer ${token}` };
 
+        /** La sede selezionata nell'header, per le chiamate agli endpoint
+         *  PUBBLICI: quelli non guardano il cookie apposta (vedi
+         *  `ambitoPubblicoChiesto`), quindi glielo si passa a mano.
+         *  Nessuna sede selezionata = niente header = comportamento di sempre. */
+        function hSede(): Record<string, string> {
+          const m = /(?:^|;\s*)mdd_sede=([^;]*)/.exec(document.cookie);
+          const v = m ? decodeURIComponent(m[1]).trim() : "";
+          return v && v !== "tutte" ? { "x-sede": v } : {};
+        }
+
         // Il token Supabase SCADE (di norma dopo un'ora). Con `headers` fissato
         // una volta sola al caricamento, un tab lasciato aperto continuava a
         // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
@@ -934,61 +948,40 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           }
         })();
 
-        // ---------- Événements du pays (calcolo locale, nessuna API) ----------
-        // Feste ufficiali belghe + date commerciali utili a un ristorante.
-        // Le feste mobili derivano dalla Pasqua (algoritmo di Gauss).
+        // ---------- Événements du pays ----------
+        // Feste legali + ricorrenze commerciali del PAESE scelto in Réglages →
+        // Général, piu' gli eventi del locale. Le date non si calcolano piu'
+        // qui: stavano scritte a mano e erano quelle belghe, quindi un cliente
+        // francese vedeva il 21 luglio e non il 14. Adesso vengono da
+        // `festivitaRegole.ts`, che e' puro e ha la sua rete di prove.
         let eventiLocali: { date: string; label: string; yearly: boolean }[] = [];
+        let paeseEventi = "";
         async function caricaEventiLocali(): Promise<void> {
           try {
             const res = await fetch("/api/admin/events", { headers });
-            if (res.ok) eventiLocali = (((await res.json()) as { events?: typeof eventiLocali }).events ?? []);
+            if (res.ok) {
+              const j = (await res.json()) as { events?: typeof eventiLocali; paese?: string };
+              eventiLocali = j.events ?? [];
+              paeseEventi = j.paese ?? "";
+            }
           } catch { /* niente eventi locali */ }
         }
         async function renderEventi(): Promise<void> {
           const box = document.getElementById("spx-evts") as HTMLElement | null;
           if (!box) return;
-          const pasqua = (anno: number): Date => {
-            const a = anno % 19, b = Math.floor(anno / 100), c = anno % 100;
-            const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
-            const g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
-            const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7;
-            const m = Math.floor((a + 11 * h + 22 * l) / 451);
-            const mese = Math.floor((h + l - 7 * m + 114) / 31);
-            const giorno = ((h + l - 7 * m + 114) % 31) + 1;
-            return new Date(anno, mese - 1, giorno);
-          };
-          const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-          const somma = (d: Date, gg: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + gg);
-          const nDomenica = (anno: number, mese0: number, n: number): Date => {
-            const primo = new Date(anno, mese0, 1);
-            const off = (7 - primo.getDay()) % 7; // prima domenica
-            return new Date(anno, mese0, 1 + off + (n - 1) * 7);
-          };
+
+          // Feste legali PRIMA, ricorrenze dopo: se cadono lo stesso giorno
+          // (in Germania la festa del papa' E' l'Ascensione) vince la festa
+          // legale e la riga resta una sola.
           const eventiAnno = (anno: number): [string, string][] => {
-            const P = pasqua(anno);
-            const ev: [Date, string][] = [
-              [new Date(anno, 0, 1), tr("hol.newyear")],
-              [new Date(anno, 1, 14), tr("hol.valentine")],
-              [somma(P, -47), tr("hol.mardigras")],
-              [P, tr("hol.easter")],
-              [somma(P, 1), tr("hol.eastermon")],
-              [new Date(anno, 4, 1), tr("hol.labour")],
-              [nDomenica(anno, 4, 2), tr("hol.mothers")],
-              [somma(P, 39), tr("hol.ascension")],
-              [somma(P, 49), tr("hol.pentecost")],
-              [somma(P, 50), tr("hol.pentecostmon")],
-              [nDomenica(anno, 5, 2), tr("hol.fathers")],
-              [new Date(anno, 6, 21), tr("hol.belgiannat")],
-              [new Date(anno, 7, 15), tr("hol.assumption")],
-              [new Date(anno, 9, 31), tr("hol.halloween")],
-              [new Date(anno, 10, 1), tr("hol.toussaint")],
-              [new Date(anno, 10, 11), tr("hol.armistice")],
-              [new Date(anno, 11, 6), tr("hol.stnicolas")],
-              [new Date(anno, 11, 24), tr("hol.xmaseve")],
-              [new Date(anno, 11, 25), tr("hol.xmas")],
-              [new Date(anno, 11, 31), tr("hol.nyeve")],
-            ];
-            return ev.map(([d, n]) => [iso(d), n]);
+            const visti = new Set<string>();
+            const out: [string, string][] = [];
+            for (const f of [...festivita(paeseEventi, anno), ...ricorrenze(paeseEventi, anno)]) {
+              if (visti.has(f.data)) continue;
+              visti.add(f.data);
+              out.push([f.data, f.nome[LANG] ?? f.nome.fr]);
+            }
+            return out;
           };
           const oggiBx = new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
           const anno = Number(oggiBx.slice(0, 4));
@@ -1015,12 +1008,24 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           let tagOk = false;
           try {
             const mesi = [...new Set(futuri.map(([d]) => d.slice(0, 7)))];
-            const risp = await Promise.all(mesi.map((m) => fetch("/api/reservation?month=" + m).then((r) => r.json())));
+            // ⚠️ `/api/reservation` e' PUBBLICA, e da sola risponderebbe per la
+            // sede del sito — cioe' sempre la prima. Qui si sta guardando la
+            // sede selezionata nell'header, e glielo si dice.
+            const risp = await Promise.all(
+              mesi.map((m) => fetch("/api/reservation?month=" + m, { headers: hSede() }).then((r) => r.json())),
+            );
             for (const rr of risp) for (const d of rr.closed ?? []) chiusi.add(d);
             tagOk = true;
           } catch { /* niente tag */ }
 
           const escEv = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+          // Senza paese non ci sono feste — restano solo gli eventi del locale.
+          // Se non c'e' nemmeno quelli la tile resterebbe muta e sembrerebbe
+          // rotta invece che da configurare, quindi lo si dice.
+          if (!futuri.length) {
+            box.innerHTML = paeseEventi ? "" : `<div class="spx-empty">${tr("home.noCountry")}</div>`;
+            return;
+          }
           box.innerHTML = futuri
             .map(([d, nome, loc]) => {
               const dt = new Date(d + "T12:00:00");
@@ -1252,14 +1257,19 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               wrap.innerHTML = `<div class="spx-empty">${tr("home.noSpecialDays")}</div>`;
               return;
             }
+            // SOLO i giorni speciali del ristoratore. Le feste del calendario
+            // stanno gia' in «Prossimi eventi» qui sotto (eventiAnno), con la
+            // loro grafica: ripeterle qui era una doppia riga per lo stesso
+            // fatto, e rubava i posti alle chiusure vere.
+            const righe = days.map((sp) => {
+              const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
+              const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
+              const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
+              return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
+            });
             wrap.innerHTML =
-              days.slice(0, MAX).map((sp) => {
-                const dates = sp.date_from === sp.date_to ? fd(sp.date_from) : `${fd(sp.date_from)} → ${fd(sp.date_to)}`;
-                const b = sp.type === "closed" ? `<span class="spx-b closed">${tr("home.tagClosed")}</span>` : `<span class="spx-b open">${tr("home.tagOpen")}</span>`;
-                const nota = sp.note ? `<span class="spx-note">${escSpx(String(sp.note))}</span>` : "";
-                return `<div class="spx-row">${b}<span class="spx-date">${dates}</span>${nota}</div>`;
-              }).join("") +
-              (days.length > MAX ? `<div class="spx-more">+ ${days.length - MAX} ${tr("home.more")}…</div>` : "");
+              righe.slice(0, MAX).join("") +
+              (righe.length > MAX ? `<div class="spx-more">+ ${righe.length - MAX} ${tr("home.more")}…</div>` : "");
           }
 
           document.addEventListener("spf:loaded", (e) => {
@@ -1283,7 +1293,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           // presenti, i tile principali appaiono all'istante senza fetch; le
           // statistiche (3) partono subito ma si attendono solo al momento
           // dell'uso, così non bloccano i primi tile. Senza SSR → come prima.
-          const fakeRes = (obj: any) => ({ ok: true, json: async () => obj });
+          // ⚠️ Un'isola ASSENTE non e' un'isola vuota: e' un rifiuto. L'SSR
+          // non manda quello che chi guarda non puo' vedere, ed e' esattamente
+          // quello che farebbe l'API con un 403 — quindi qui si risponde
+          // `ok: false`, e i due rami si comportano uguale.
+          const fakeRes = (obj: any) =>
+            obj === undefined || obj === null
+              ? { ok: false, json: async () => ({}) }
+              : { ok: true, json: async () => obj };
           let ssrHome: any = null;
           try {
             const raw = document.getElementById("ssr-home")?.textContent?.trim();
@@ -1301,9 +1318,14 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             resToday = fakeRes(ssrHome.today);
             resMenu = fakeRes(ssrHome.menu);
             resCats = fakeRes(ssrHome.categories);
-            const pSD = fetch("/api/admin/stats?period=day", { headers });
-            const pSM = fetch("/api/admin/stats?period=month", { headers });
-            const pSW = fetch("/api/admin/stats?period=week", { headers });
+            // Le statistiche restano lato client. Se chi guarda non ha la
+            // pagina, l'API risponde 403: chiederle tre volte per poi buttare
+            // via la risposta fa sembrare rotto quello che funziona.
+            const vedeStats = !Array.isArray(ssrHome.pagine) || ssrHome.pagine.includes("stats");
+            const negato = () => Promise.resolve(new Response("{}", { status: 403 }));
+            const pSD = vedeStats ? fetch("/api/admin/stats?period=day", { headers }) : negato();
+            const pSM = vedeStats ? fetch("/api/admin/stats?period=month", { headers }) : negato();
+            const pSW = vedeStats ? fetch("/api/admin/stats?period=week", { headers }) : negato();
             const lazy = (p: Promise<Response>) => ({
               ok: true,
               json: async () => {

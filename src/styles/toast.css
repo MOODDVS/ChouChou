@@ -1,0 +1,90 @@
+/* ============================================================
+   TOAST ADMIN — uno solo per tutta l'applicazione.
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+     <div class="toast" id="toast"></div>
+
+     el.textContent = "Salvato";
+     el.classList.toggle("is-error", andatoMale);   // rosso
+     el.classList.add("is-on");                     // lo mostra
+     setTimeout(() => el.classList.remove("is-on"), 2600);
+
+   DUE STATI, E SI VEDONO DA LONTANO.
+   Riuscito = fondo VERDE, testo bianco. Fallito = fondo ROSSO, testo bianco.
+   Prima ce n'erano nove copie e tre aspetti diversi: alcune pagine cambiavano
+   solo il BORDO fra riuscito e fallito — un filo di un pixel, su un messaggio
+   che sta in basso e sparisce in due secondi. Chi salvava non si accorgeva
+   che il salvataggio era fallito.
+
+   ⚠️ Il difetto NON e' il colore: e' che senza un componente ogni pagina
+   decide da sola, e la differenza si nota solo confrontandole due alla volta.
+
+   NOMI: `is-on` per mostrarlo, `is-error` per il rosso, `is-ok` per forzare
+   il verde. C'erano due vocabolari (`show`/`err` e `is-visible`/`is-error`):
+   adesso uno solo, e una rete in tests/motore.test.mjs impedisce che ne
+   ricompaia un terzo.
+   ============================================================ */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 6rem;
+  transform: translateX(-50%) translateY(1rem);
+  max-width: min(90vw, 30rem);
+  background: var(--c-ok, #1f7a4d);
+  color: #fff;
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  border: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 200;
+}
+
+.toast.is-on {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Riuscito: e' gia' il default, ma la classe esiste per i posti dove lo
+   stato si scrive esplicitamente invece di lasciarlo implicito. */
+.toast.is-ok {
+  background: var(--c-ok, #1f7a4d);
+  color: #fff;
+}
+
+.toast.is-error {
+  background: var(--c-error, #c0392b);
+  color: #fff;
+}
+
+/* Su schermo stretto la barra dei tasti in basso e' piu' alta. */
+@media (max-width: 720px) {
+  .toast { bottom: 7.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 0.2s; transform: translateX(-50%); }
+  .toast.is-on { transform: translateX(-50%); }
+}
+
+/* SOPRA IL MODALE. Il rimborso annuncia l'esito mentre la finestra e' ancora
+   aperta: quel toast deve stare in alto e piu' su di tutto. Era un componente
+   separato (.nc-toast) solo per questo — due file per una posizione diversa. */
+.toast.is-sopra {
+  top: 1rem;
+  bottom: auto;
+  z-index: 2000;
+  transform: translateX(-50%) translateY(-200%);
+}
+.toast.is-sopra.is-on { transform: translateX(-50%) translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .toast.is-sopra, .toast.is-sopra.is-on { transform: translateX(-50%); }
+}

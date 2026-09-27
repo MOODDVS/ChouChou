@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import SlotPicker from "./SlotPicker";
 import { etichettaVariante } from "../lib/pricing";
 import { testoPiatto, etichettaMenu, type ChiaveEtichetta } from "../lib/i18nMenu";
+import { urlConSede } from "../lib/sedeUrl";
 
 /** Formato di un piatto (pizza 30/40 cm, calice/bottiglia…). Prezzi già
  *  scontati lato server; qui si sceglie soltanto quale formato ordinare. */
@@ -53,6 +54,18 @@ interface CartLine {
   /** Chiave del formato scelto. Assente = piatto a prezzo unico.
    *  Due formati dello stesso piatto sono DUE righe distinte. */
   variant?: string;
+  /** Il nome del piatto SENZA il formato, e l'etichetta del formato gia'
+   *  tradotta — gli stessi due pezzi che `api/checkout.ts` tiene separati
+   *  nelle righe d'ordine.
+   *
+   *  ⚠️ `name` resta il testo unico «Piatto — Formato» e non si tocca: e'
+   *  quello che vede chi non ha il carrello dettagliato, ed e' quello gia'
+   *  salvato nei carrelli aperti in sessionStorage. Questi due si AGGIUNGONO.
+   *
+   *  ⚠️ E non si ricavano spezzando `name` sul trattino: un piatto che ha un
+   *  trattino nel nome si spezzerebbe nel posto sbagliato, e in silenzio. */
+  base_name?: string;
+  variant_label?: string;
 }
 
 /** Identità di una riga di carrello: piatto + formato. */
@@ -70,6 +83,16 @@ interface OrderStrings {
   notes: string;
   notesPlaceholder: string;
   coupon: string;
+  /** Etichetta della casella «ho un codice sconto».
+   *
+   *  ⚠️ OPZIONALE, e il suo esserci cambia il disegno: se la pagina non la
+   *  passa, il campo del codice resta visibile com'e' sempre stato. I siti
+   *  gia' in produzione non la passano, e non cambia loro niente.
+   *
+   *  Serve ai siti che non vogliono un campo «codice sconto» sempre aperto
+   *  davanti a chi un codice non ce l'ha: chiederlo suggerisce che esista
+   *  uno sconto e che lui se lo stia perdendo. */
+  couponAsk?: string;
   couponPlaceholder: string;
   couponApply: string;
   couponRemove: string;
@@ -108,6 +131,11 @@ interface OrderStrings {
   seasonal?: string;
   suggestion?: string;
   confirm?: string;
+  /** «l'unité» dopo il prezzo unitario, e il comando che svuota il carrello.
+   *  Opzionali come le altre: i siti gia' in produzione non le passano, e una
+   *  `undefined` a schermo sarebbe un guasto visibile su tutti insieme. */
+  each?: string;
+  clearAll?: string;
 }
 
 interface OrderAppProps {
@@ -128,9 +156,70 @@ interface OrderAppProps {
    *  Anche quando è true, la foto compare solo sui piatti che ne hanno una:
    *  niente riquadri vuoti a spezzare le righe. Default: nessuna foto. */
   foto?: boolean;
+  /** Il carrello mostra la fotografia del piatto, il prezzo unitario sotto il
+   *  nome, quanti articoli ci sono e un comando per svuotare tutto.
+   *
+   *  ⚠️ SPENTA DI DEFAULT, e non per prudenza generica: accenderla aggiunge
+   *  nodi dentro `.order-cart-line` e una riga nel riepilogo. I siti gia' in
+   *  produzione si attaccano alle classi `order-*` dal loro CSS, e per quelle
+   *  nuove il CSS non ce l'hanno: se comparissero da sole, il giorno del
+   *  merge si troverebbero una miniatura nuda nel carrello e il prezzo
+   *  unitario in mezzo a una riga `space-between`, senza aver chiesto niente.
+   *  Si accende quando il sito ha lo stile pronto.
+   *
+   *  Le classi da vestire:
+   *    order-cart-line-foto     il contenitore della miniatura
+   *    order-cart-line-unit     il prezzo unitario, accanto al nome
+   *    order-cart-line-variant  l'etichetta del formato, staccata dal nome
+   *    order-recap-testa        il <div> attorno al titolo del riepilogo
+   *    order-recap-conta        la riga «N articoli · Svuota tutto»
+   *    order-recap-svuota       il pulsante, che prende .confirm al primo tocco
+   *
+   *  La pastiglia del formato porta anche `data-variant` e, sul formato
+   *  standard, `data-base`: vedi il commento sulla riga che la scrive.
+   *
+   *  ⚠️ Per aggiungere al carrello da FUORI dell'isola c'e' un evento
+   *  pubblico, non una prop: `EVENTO_AGGIUNGI` in cima a questo file. */
+  carrelloDettagliato?: boolean;
+  /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
+   *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
+  sede?: string;
 }
 
 type Vista = "menu" | "checkout";
+
+/**
+ * AGGIUNGERE AL CARRELLO DA FUORI L'ISOLA — evento pubblico.
+ *
+ * Un sito puo' mostrare piatti dove il menu non e' disegnato (un carosello
+ * «ultima voglia» nella vista checkout, una scheda in home) e ha bisogno di
+ * metterli nel carrello senza duplicare la logica dei prezzi e dei formati.
+ *
+ *   window.dispatchEvent(new CustomEvent("restohub:order-add", {
+ *     detail: { id: "<id del piatto>", variant: "<chiave formato>" },
+ *   }));
+ *
+ * Risposta, sempre, su "restohub:order-add-result":
+ *   { id, ok: true }
+ *   { id, ok: false, motivo: "sconosciuto" | "esaurito"
+ *                          | "variante-richiesta" | "variante-non-disponibile" }
+ *
+ * ⚠️ `sconosciuto` vuol dire «non e' nel menu che questa pagina ha in mano»:
+ * il menu arriva gia' filtrato per sede e per ordinabilita', quindi copre
+ * anche il piatto che esiste ma qui non si vende.
+ *
+ * ⚠️ `variante-richiesta`: il piatto ha dei formati e l'evento non ne ha
+ * detto nessuno. Col modale attivo (`sceltaFormato="modale"`) si apre il
+ * modale e si risponde `ok`. Con le pastiglie il selettore NON ESISTE fuori
+ * dalla scheda del piatto, e il motore non inventa un'interfaccia che il
+ * sito non ha vestito: risponde `false`, e il sito chiede come vuole lui.
+ *
+ * ⚠️ E' una porta APERTA: qualunque script della pagina puo' bussare. Il
+ * danno possibile e' una riga di troppo in un carrello che il cliente vede
+ * prima di pagare — i prezzi li rifa' il server dal database, non da qui.
+ */
+export const EVENTO_AGGIUNGI = "restohub:order-add";
+export const EVENTO_AGGIUNGI_ESITO = "restohub:order-add-result";
 
 const STORAGE_KEY = "lm-order-cart";
 
@@ -159,7 +248,10 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "" }: OrderAppProps) {
+  // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
+  // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
+  const conSede = (u: string) => urlConSede(u, sede);
   // ---- Gruppi costruiti dalle categorie REALI dell'admin ----
   // Pizza = rouges/blanches/calzone/suppléments (category_order 4..7)
   // Boissons = tutte le bevande (category_order >= 9)
@@ -222,6 +314,22 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  /** La casella «ho un codice» e' spuntata? Conta solo con `t.couponAsk`.
+   *  ⚠️ Parte aperta se un codice era gia' stato scritto: il carrello
+   *  sopravvive a un ricaricamento, e chi torna deve ritrovare quello che
+   *  aveva lasciato, non un campo chiuso col suo codice dentro. */
+  const [couponAperto, setCouponAperto] = useState(Boolean((salvato.coupon ?? "").trim()));
+
+  function apriCoupon(aperto: boolean) {
+    setCouponAperto(aperto);
+    // ⚠️ Chiudendo, il campo sparisce ma il suo contenuto resterebbe: alla
+    // ripresa il cliente si ritroverebbe applicato un codice che aveva
+    // scritto e poi deciso di non usare. Si svuota, col suo messaggio.
+    if (!aperto) {
+      setCoupon("");
+      setCouponMsg(null);
+    }
+  }
   const [accettato, setAccettato] = useState(false);
 
   const [invio, setInvio] = useState(false);
@@ -331,6 +439,35 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     return foto && !!item.image_url;
   }
 
+  /** La fotografia di un piatto, per id. La riga di carrello porta solo l'id,
+   *  e il menu il componente ce l'ha gia' in `props`: nessuna lettura nuova.
+   *  ⚠️ Riagganciarla da fuori vorrebbe dire confrontare i NOMI delle righe,
+   *  che per i piatti con formato non coincidono con quelli del menu. */
+  /** Il formato che il ristoratore ha messo per PRIMO nella scheda del piatto.
+   *
+   *  ⚠️ NON e' `variantiOrdinabili(item)[0]`. Quello si sposta con l'esaurito
+   *  di oggi: se la Classica finisce, il «base» diventerebbe il formato
+   *  particolare — e un sito che nasconde il base si ritroverebbe nascosto
+   *  proprio quello che voleva mostrare. L'ordine dichiarato non si muove.
+   *
+   *  ⚠️ E non e' piu' «il riferimento del modale»: quel concetto e' stato
+   *  tolto il 25/09/2026, perche' nessun formato e' il metro degli altri.
+   *  Qui serve un'altra cosa: quale formato il sito puo' considerare lo
+   *  STANDARD, per non ripeterlo su ogni riga. */
+  const formatoBasePerId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const cat of menu) {
+      for (const it of cat.items) if (it.variants.length > 0) m.set(it.id, it.variants[0].key);
+    }
+    return m;
+  }, [menu]);
+
+  const fotoPerId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const cat of menu) for (const it of cat.items) if (it.image_url) m.set(it.id, it.image_url);
+    return m;
+  }, [menu]);
+
   function chiudiModale() {
     setItemModale(null);
     setVarianteScelta("");
@@ -344,12 +481,6 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }
 
   /** Differenza rispetto al formato base, col segno. */
-  function euroDelta(cents: number): string {
-    if (cents === 0) return "";
-    const segno = cents > 0 ? "+" : "−";
-    return segno + " " + euro(Math.abs(cents));
-  }
-
   function aggiungi(item: MenuItem, v?: Variante) {
     if (item.is_sold_out || v?.sold_out) return;
     // Nome mostrato nella lingua della pagina. Il nome canonico resta nel DB:
@@ -362,6 +493,8 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           price_cents: v.price_cents,
           qty: 1,
           variant: v.key,
+          base_name: nomeVisto,
+          variant_label: etichettaVariante(v, lang),
         }
       : { id: item.id, name: nomeVisto, price_cents: item.price_cents, qty: 1 };
     const chiave = chiaveLinea(nuova);
@@ -388,15 +521,31 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [daConfermare, setDaConfermare] = useState<string | null>(null);
   const timerConferma = useRef<number | null>(null);
 
-  function clickRimuovi(chiave: string) {
+  /** Chiave finta del comando «svuota tutto» nel meccanismo a due tocchi.
+   *  Le chiavi vere sono uuid (o `uuid::formato`), quindi non puo' collidere. */
+  const TUTTO = "\u0000tutto";
+
+  /** ⚠️ UN SOLO meccanismo di conferma, non due. Svuotare e' l'unico comando
+   *  del carrello che distrugge tutto, e un tocco per sbaglio su un telefono
+   *  costa l'ordine intero: deve chiedere conferma esattamente come il
+   *  cestino di riga, con lo stesso tempo e lo stesso stato. */
+  function chiediConferma(chiave: string, azione: () => void) {
     if (timerConferma.current) window.clearTimeout(timerConferma.current);
     if (daConfermare === chiave) {
       setDaConfermare(null);
-      rimuovi(chiave);
+      azione();
       return;
     }
     setDaConfermare(chiave);
     timerConferma.current = window.setTimeout(() => setDaConfermare(null), 3000);
+  }
+
+  function clickRimuovi(chiave: string) {
+    chiediConferma(chiave, () => rimuovi(chiave));
+  }
+
+  function clickSvuota() {
+    chiediConferma(TUTTO, () => setLinee([]));
   }
 
   function prezzoRiga(l: CartLine): number {
@@ -423,7 +572,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setCouponLoading(true);
     setCouponMsg(null);
     try {
-      const res = await fetch("/api/coupon", {
+      const res = await fetch(conSede("/api/coupon"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -470,7 +619,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setInvio(true);
     setErroreCheckout(null);
     try {
-      const res = await fetch("/api/checkout", {
+      const res = await fetch(conSede("/api/checkout"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -520,12 +669,21 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   }
 
   /** Modale di scelta del formato: foto, nome e i formati come radio.
-   *  Il primo formato è il riferimento, gli altri mostrano la differenza. */
+   *
+   *  ⚠️ OGNI RIGA E' UNA SCELTA A SE', e porta il SUO prezzo pieno.
+   *
+   *  Prima la prima riga faceva da riferimento e le altre mostravano la
+   *  DIFFERENZA. Un formato che costa quanto la prima restava cosi' senza
+   *  prezzo, perche' `euroDelta(0)` rendeva "": il cliente non legge «stesso
+   *  prezzo», legge «prezzo mancante» — e sul dubbio non ordina.
+   *
+   *  Non e' solo il caso dello zero. Due prezzi pieni si confrontano
+   *  guardandoli; una differenza va sommata a mente a un numero che sta su
+   *  un'altra riga. Nessun formato e' il riferimento degli altri. */
   function ModaleVarianti() {
     if (sceltaFormato !== "modale" || !itemModale) return null;
     const ordinabili = variantiOrdinabili(itemModale);
-    const base = ordinabili[0];
-    if (!base) return null;
+    if (ordinabili.length === 0) return null;
     return (
       <div className="order-modal-overlay" onClick={chiudiModale}>
         <div className="order-modal" onClick={(e) => e.stopPropagation()}>
@@ -535,27 +693,29 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           )}
           <h3 className="order-modal-title">{testoPiatto(itemModale, lang).name}</h3>
           <div className="order-modal-variants">
-            {ordinabili.map((v) => {
-              const delta = v.price_cents - base.price_cents;
-              const isBase = v.key === base.key;
-              return (
-                <label
-                  key={v.key}
-                  className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
-                >
-                  <input
-                    type="radio"
-                    name="variante"
-                    checked={varianteScelta === v.key}
-                    onChange={() => setVarianteScelta(v.key)}
-                  />
-                  <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
-                  <span className="order-modal-variant-price">
-                    {isBase ? euro(v.price_cents) : euroDelta(delta)}
-                  </span>
-                </label>
-              );
-            })}
+            {ordinabili.map((v) => (
+              <label
+                key={v.key}
+                className={"order-modal-variant" + (varianteScelta === v.key ? " is-selected" : "")}
+              >
+                <input
+                  type="radio"
+                  name="variante"
+                  checked={varianteScelta === v.key}
+                  onChange={() => setVarianteScelta(v.key)}
+                />
+                <span className="order-modal-variant-label">{etichettaVariante(v, lang)}</span>
+                <span className="order-modal-variant-price">
+                  {/* ⚠️ Lo sconto barrato c'era nelle pastiglie e non qui: lo
+                      stesso formato in promozione si vedeva scontato da una
+                      parte e a prezzo pieno dall'altra. */}
+                  {v.original_price_cents && (
+                    <s className="order-item-old">{euro(v.original_price_cents)}</s>
+                  )}
+                  {euro(v.price_cents)}
+                </span>
+              </label>
+            ))}
           </div>
           <button type="button" className="order-modal-add" onClick={confermaModale}>
             {t.ariaAdd}
@@ -565,6 +725,42 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     );
   }
 
+  /** Ascolta l'evento pubblico descritto in cima al file. Finche' nessuno lo
+   *  manda, qui non succede niente: un `addEventListener` e la sua pulizia. */
+  useEffect(() => {
+    function esito(id: string, ok: boolean, motivo?: string) {
+      window.dispatchEvent(
+        new CustomEvent(EVENTO_AGGIUNGI_ESITO, { detail: { id, ok, ...(motivo ? { motivo } : {}) } }),
+      );
+    }
+    function ascolta(e: Event) {
+      const det = ((e as CustomEvent).detail ?? {}) as { id?: unknown; variant?: unknown };
+      const id = String(det.id ?? "").trim();
+      if (!id) return; // senza id non c'e' nemmeno a chi rispondere
+      const item = menu.flatMap((c) => c.items).find((i) => i.id === id);
+      if (!item) return esito(id, false, "sconosciuto");
+      if (item.is_sold_out) return esito(id, false, "esaurito");
+      if (item.variants.length === 0) {
+        aggiungi(item);
+        return esito(id, true);
+      }
+      const chiave = String(det.variant ?? "").trim();
+      if (!chiave) {
+        // ⚠️ Col modale si puo' chiedere; con le pastiglie no, e il motore
+        // non inventa un'interfaccia che il sito non ha vestito.
+        if (sceltaFormato !== "modale") return esito(id, false, "variante-richiesta");
+        clicPiu(item);
+        return esito(id, true);
+      }
+      const v = variantiOrdinabili(item).find((x) => x.key === chiave);
+      if (!v) return esito(id, false, "variante-non-disponibile");
+      aggiungi(item, v);
+      esito(id, true);
+    }
+    window.addEventListener(EVENTO_AGGIUNGI, ascolta);
+    return () => window.removeEventListener(EVENTO_AGGIUNGI, ascolta);
+  }, [menu, sceltaFormato, lang]);
+
   function RigheCarrello() {
     return (
       <ul className="order-cart-lines">
@@ -572,8 +768,51 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           const k = chiaveLinea(l);
           return (
           <li key={k} className="order-cart-line">
+            {/* ⚠️ Niente <span> vuoto quando il piatto non ha fotografia: un
+                riquadro senza immagine dice «manca qualcosa», e il CSS del
+                sito non ha modo di distinguerlo da uno che sta caricando.
+                width/height sono il RAPPORTO, non le misure vere del file:
+                servono a riservare il posto mentre la foto arriva. */}
+            {carrelloDettagliato && fotoPerId.get(l.id) && (
+              <span className="order-cart-line-foto">
+                <img src={fotoPerId.get(l.id)} alt="" loading="lazy" decoding="async" width="80" height="80" />
+              </span>
+            )}
             <div className="order-cart-line-top">
-              <span className="order-cart-line-name">{l.name}</span>
+              {/* ⚠️ Il nome e il formato in DUE elementi: un sito che vuole il
+                  formato come pastiglia sotto il nome non puo' ricavarlo dal
+                  CSS, che un testo non lo divide.
+                  La ricaduta su `name` non e' prudenza generica: i carrelli
+                  gia' aperti in sessionStorage sono stati salvati PRIMA che
+                  questi campi esistessero, e senza di essa il cliente che
+                  torna sulla pagina vedrebbe le sue righe senza nome. */}
+              {carrelloDettagliato && l.base_name && l.variant_label ? (
+                <>
+                  <span className="order-cart-line-name">{l.base_name}</span>
+                  {/* ⚠️ Attributi, non il testo: l'etichetta cambia con la
+                      lingua della pagina, e un CSS che confronta un testo si
+                      rompe alla prima traduzione. Con
+                      `.order-cart-line-variant[data-base] { display: none }`
+                      il formato standard non si ripete su ogni riga. */}
+                  <span
+                    className="order-cart-line-variant"
+                    data-variant={l.variant}
+                    data-base={l.variant && formatoBasePerId.get(l.id) === l.variant ? "" : undefined}
+                  >
+                    {l.variant_label}
+                  </span>
+                </>
+              ) : (
+                <span className="order-cart-line-name">{l.name}</span>
+              )}
+              {/* ⚠️ `l.price_cents` E' GIA' l'unitario del formato scelto
+                  (`prezzoRiga` lo moltiplica per la quantita'). Dividere
+                  `prezzoRiga(l)` per `l.qty` darebbe lo stesso numero oggi e
+                  un numero sbagliato il giorno che nasce uno sconto per
+                  quantita'. */}
+              {carrelloDettagliato && (
+                <span className="order-cart-line-unit">{euro(l.price_cents)} {et("each")}</span>
+              )}
               <span className="order-cart-line-price">{euro(prezzoRiga(l))}</span>
             </div>
             <div className="order-cart-line-controls">
@@ -622,7 +861,27 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
         </div>
         <div className="order-app">
           <div className="order-menu">
-            <h2 className="order-section-title">{t.recap}</h2>
+            {/* ⚠️ Il <div> avvolge l'<h2> SOLO quando serve. Avvolgerlo sempre
+                cambierebbe la struttura attorno a un nodo che tutti i siti
+                stilizzano, e per niente: senza il conteggio non c'e' nulla da
+                affiancare. */}
+            {carrelloDettagliato && linee.length > 0 ? (
+              <div className="order-recap-testa">
+                <h2 className="order-section-title">{t.recap}</h2>
+                <p className="order-recap-conta">
+                  <span>{numArticoli} {t.items}</span>
+                  <button
+                    type="button"
+                    className={"order-recap-svuota" + (daConfermare === TUTTO ? " confirm" : "")}
+                    onClick={clickSvuota}
+                  >
+                    {daConfermare === TUTTO ? et("confirm") : et("clearAll")}
+                  </button>
+                </p>
+              </div>
+            ) : (
+              <h2 className="order-section-title">{t.recap}</h2>
+            )}
             {linee.length === 0 ? (
               <p className="order-cart-empty">{t.cartEmpty}</p>
             ) : (
@@ -649,7 +908,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
             {/* SlotPicker legge il dizionario PUBBLICO del cliente (src/i18n/ui.ts),
                 che ha solo fr/en: si restringe qui, con lo stesso ripiego (fr)
                 che userebbe il dizionario. Non è un'etichetta scritta a mano. */}
-            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} />
+            <SlotPicker onSelect={setSlot} lang={lang === "en" ? "en" : "fr"} sede={sede} />
             <div className="order-form">
               <input className="order-input" type="text" placeholder={t.firstName} value={nome} onChange={(e) => setNome(e.target.value)} />
               <input className="order-input" type="text" placeholder={t.lastName} value={cognome} onChange={(e) => setCognome(e.target.value)} />
@@ -657,7 +916,22 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="order-coupon">
-              <label className="order-field-label" htmlFor="order-coupon-field">{t.coupon}</label>
+              {t.couponAsk ? (
+                <label className="order-coupon-ask">
+                  <input
+                    type="checkbox"
+                    checked={couponAperto}
+                    onChange={(e) => apriCoupon(e.target.checked)}
+                  />
+                  <span>{t.couponAsk}</span>
+                </label>
+              ) : (
+                <label className="order-field-label" htmlFor="order-coupon-field">{t.coupon}</label>
+              )}
+              {/* ⚠️ Il coupon GIA' APPLICATO non passa dalla casella: e' uno
+                  sconto che il cliente ha gia' ottenuto, e nasconderlo
+                  vorrebbe dire non fargli piu' vedere ne' quanto sconta ne'
+                  il modo di toglierlo. */}
               {couponApplicato ? (
                 <div className="order-coupon-applied">
                   <span className="order-coupon-code">{couponApplicato.code}</span>
@@ -672,12 +946,19 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                   </button>
                 </div>
               ) : (
+                (!t.couponAsk || couponAperto) && (
                 <div className="order-coupon-row">
+                  {/* ⚠️ `aria-label` solo con la casella: li' l'etichetta
+                      visibile del campo non esiste piu', e senza nome il campo
+                      si annuncerebbe come «casella di testo» e basta. Senza
+                      casella l'etichetta c'e' gia', e un aria-label
+                      raddoppierebbe il nome. */}
                   <input
                     id="order-coupon-field"
                     className="order-input"
                     type="text"
                     autoComplete="off"
+                    aria-label={t.couponAsk ? t.coupon : undefined}
                     placeholder={t.couponPlaceholder}
                     value={coupon}
                     onChange={(e) => setCoupon(e.target.value)}
@@ -697,6 +978,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                     {couponLoading ? "…" : t.couponApply}
                   </button>
                 </div>
+                )
               )}
               {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
             </div>
@@ -737,6 +1019,11 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
             )}
           </aside>
         </div>
+
+        {/* ⚠️ Anche QUI, non solo nella vista menu: un sito che aggiunge un
+            piatto con l'evento pubblico mentre il cliente sta compilando i
+            dati deve poter chiedere il formato. Era montato solo di la'. */}
+        <ModaleVarianti />
       </div>
     );
   }

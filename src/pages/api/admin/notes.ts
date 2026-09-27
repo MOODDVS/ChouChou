@@ -1,8 +1,18 @@
 import type { APIRoute } from "astro";
-import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
+import { ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella } from "../../../lib/admin/sede";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 const SELECT = "id, content, author, done, created_at, tags";
 const SELECT_BASE = "id, content, author, done, created_at";
@@ -31,22 +41,19 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .select(SELECT)
+  const ambito = await ambitoDiRichiesta(request, staff);
+  let { data, error } = await leggi("admin_notes", ambito, SELECT)
     .order("done", { ascending: true })
     .order("created_at", { ascending: false });
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .select(SELECT_BASE)
+    const retry = await leggi("admin_notes", ambito, SELECT_BASE)
       .order("done", { ascending: true })
       .order("created_at", { ascending: false });
     data = retry.data as typeof data;
     error = retry.error;
   }
 
-  if (error) return json({ error: "Lecture impossible" }, 500);
+  if (error) return json({ error: await msg("err.read") }, 500);
   return json({ notes: data ?? [] });
 };
 
@@ -54,12 +61,13 @@ export const GET: APIRoute = async ({ request }) => {
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   // Cancellazione via POST: il firewall dell'hosting blocca il metodo
@@ -67,33 +75,29 @@ export const POST: APIRoute = async ({ request }) => {
   // suppression viaggia come POST { delete_id }.
   const delId = String(body.delete_id ?? "");
   if (delId) {
-    if (!/^[0-9a-f-]{36}$/i.test(delId)) return json({ error: "Id invalide" }, 400);
-    const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", delId);
+    if (!/^[0-9a-f-]{36}$/i.test(delId)) return json({ error: await msg("err.id") }, 400);
+    const { error } = await cancella("admin_notes", ambito).eq("id", delId);
     if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
     return json({ ok: true });
   }
 
   const content = String(body.content ?? "").trim();
-  if (!content) return json({ error: "Note vide" }, 400);
+  if (!content) return json({ error: await msg("err.noteEmpty") }, 400);
   const author = (staff.email ?? "").slice(0, 120) || null;
   const tags = leggiTags(body.tags);
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .insert({ content: content.slice(0, MAX_LEN), author, tags: tags.length ? tags : null })
-    .select(SELECT)
-    .single();
+  let { data, error } = await inserisci("admin_notes", ambito, {
+    content: content.slice(0, MAX_LEN), author, tags: tags.length ? tags : null,
+  }).select(SELECT).single();
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .insert({ content: content.slice(0, MAX_LEN), author })
-      .select(SELECT_BASE)
-      .single();
+    const retry = await inserisci("admin_notes", ambito, {
+      content: content.slice(0, MAX_LEN), author,
+    }).select(SELECT_BASE).single();
     data = retry.data as typeof data;
     error = retry.error;
   }
 
-  if (error || !data) return json({ error: "Création impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.create") }, 500);
   return json({ note: data });
 };
 
@@ -101,36 +105,33 @@ export const POST: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: Record<string, unknown>;
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Requête invalide" }, 400);
+    return json({ error: await msg("err.request") }, 400);
   }
 
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   const campi: Record<string, unknown> = {};
   if ("done" in body) campi.done = !!body.done;
   if ("content" in body) {
     const c = String(body.content ?? "").trim();
-    if (!c) return json({ error: "Note vide" }, 400);
+    if (!c) return json({ error: await msg("err.noteEmpty") }, 400);
     campi.content = c.slice(0, MAX_LEN);
   }
-  if (Object.keys(campi).length === 0) return json({ error: "Rien à modifier" }, 400);
+  if (Object.keys(campi).length === 0) return json({ error: await msg("err.nothing") }, 400);
 
-  let { data, error } = await supabaseAdmin
-    .from("admin_notes")
-    .update(campi)
+  let { data, error } = await aggiorna("admin_notes", ambito, campi)
     .eq("id", id)
     .select(SELECT)
     .single();
   if (senzaTags(error)) {
-    const retry = await supabaseAdmin
-      .from("admin_notes")
-      .update(campi)
+    const retry = await aggiorna("admin_notes", ambito, campi)
       .eq("id", id)
       .select(SELECT_BASE)
       .single();
@@ -138,7 +139,7 @@ export const PUT: APIRoute = async ({ request }) => {
     error = retry.error;
   }
 
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   return json({ note: data });
 };
 
@@ -146,11 +147,12 @@ export const PUT: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
-  const { error } = await supabaseAdmin.from("admin_notes").delete().eq("id", id);
+  const { error } = await cancella("admin_notes", ambito).eq("id", id);
   if (error) return json({ error: "Suppression impossible : " + String(error.message ?? "") }, 500);
   return json({ ok: true });
 };

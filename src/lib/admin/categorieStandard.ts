@@ -59,7 +59,11 @@ export const CATEGORIE_STANDARD: CatStd[] = [
   { key: "amari",         kind: "drink", fr: "Liqueurs",            it: "Amari e liquori",        en: "Liqueurs",          nl: "Likeuren",            es: "Licores" },
 ];
 
-const LINGUE: (keyof CatStd)[] = ["fr", "it", "en", "nl", "es"];
+/** Le lingue in cui il dizionario e' scritto. Esportata perche' la usa anche
+ *  chi chiede le traduzioni (`i18nStandard`): un secondo elenco scritto a mano
+ *  dal chiamante diverge il giorno che si aggiunge una lingua, e nessuno se ne
+ *  accorge — la categoria semplicemente resta non tradotta. */
+export const LINGUE: (keyof CatStd)[] = ["fr", "it", "en", "nl", "es"];
 
 /** Cerca una categoria standard il cui nome (in una qualsiasi lingua) coincide
  *  con `nome` (case-insensitive, trim). Ritorna la voce o null. */

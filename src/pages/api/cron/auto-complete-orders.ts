@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
+// Multi-sede: il cron passa su TUTTI i punti.
+import { aggiorna, tutteLeSedi, SEDE_UNICA } from "../../../lib/admin/sede";
 import { segretoUguale } from "../../../lib/cronAuth";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../../lib/db";
-import { TIMEZONE } from "../../../lib/slots";
+import { fusoDi } from "../../../lib/fuso";
 
 export const prerender = false;
 
@@ -26,19 +27,24 @@ function json(body: unknown, status = 200): Response {
 }
 
 export const GET: APIRoute = async ({ request, url }) => {
+  // ⚠️ AGGREGATO, chiesto per nome. Il cron passa su TUTTI i punti: e' un
+  // lavoro di manutenzione del gruppo, non di una sede.
+  const ambito = tutteLeSedi();
   if (!CRON_SECRET) return json({ error: "CRON_SECRET non configurato" }, 503);
   const chiave = request.headers.get("x-cron-key") ?? url.searchParams.get("key") ?? "";
   if (!segretoUguale(chiave, CRON_SECRET)) return json({ error: "Non autorisé" }, 401);
 
-  const nowB = DateTime.now().setZone(TIMEZONE);
+  // ⚠️ Fuso dell'INSTALLAZIONE: questo cron passa su tutte le sedi insieme e
+  // la soglia e' una sola. Non e' gratis — con sedi in fusi diversi, la
+  // grazia delle 02:00 e' quella dell'installazione — ma e' una scelta
+  // dichiarata, non una variabile globale che decide per conto suo.
+  const nowB = DateTime.now().setZone(await fusoDi(SEDE_UNICA));
   // Prima delle 02:00 gli ordini di IERI hanno ancora la grazia → soglia = inizio di ieri.
   const soglia = (nowB.hour < 2 ? nowB.minus({ days: 1 }) : nowB).startOf("day");
   const sogliaISO = soglia.toISO();
   if (!sogliaISO) return json({ error: "Data non valida" }, 500);
 
-  const { data, error } = await supabaseAdmin
-    .from("orders")
-    .update({ status: "done" })
+  const { data, error } = await aggiorna("orders", ambito, { status: "done" })
     .eq("status", "paid")
     .lt("pickup_time", sogliaISO)
     .select("id");

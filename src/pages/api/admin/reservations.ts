@@ -1,5 +1,8 @@
 import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
+import {
+  ambitoDiRichiesta, leggi, inserisci, aggiorna, cancella, leggiOrari, type Ambito,
+} from "../../../lib/admin/sede";
 import { postiDalPlan, assegnaESalva } from "../../../lib/planSalle";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { appConfigIn, appConfigEq } from "../../../lib/appConfigCache";
@@ -7,6 +10,8 @@ import { emailReviewResa, annullaEmailReview, emailAnnullataResa, emailNoShowRes
 import { registraCliente } from "../../../lib/registraCliente";
 import { caricaResaGiorno } from "../../../lib/admin/caricaResaGiorno";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 /** Id tavoli validi (uuid) da un body: max 8, [] -> null. */
 function tavoliDalBody(v: unknown): string[] | null {
   if (!Array.isArray(v)) return null;
@@ -28,6 +33,14 @@ function registraClienteResa(r: { first_name?: string; last_name?: string; email
 }
 
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Réservations (admin) — V1 semplice.
 // GET ?date=YYYY-MM-DD → prenotazioni del giorno (tutte, ordinate per ora)
@@ -57,6 +70,7 @@ function json(body: unknown, status = 200): Response {
 export const GET: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   // Polling: nuove prenotazioni PUBBLICHE create dopo `new_since` (per il
   // toast globale dell'admin). Solo source web/google (le walk-in/phone le
@@ -66,9 +80,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     const now = new Date().toISOString();
 
     // Nuove prenotazioni (INSERT dopo `since`)
-    const ins = await supabaseAdmin
-      .from("reservations")
-      .select("id, first_name, last_name, date, heure, people, source, status, created_at")
+    const ins = await leggi("reservations", ambito, "id, first_name, last_name, date, heure, people, source, status, created_at")
       .gt("created_at", newSince)
       .order("created_at", { ascending: true })
       .limit(30);
@@ -77,9 +89,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     // client_action_at esiste. Se la migrazione non è lanciata: lista vuota.
     let chgRows: { id: string; first_name: string; last_name: string; date: string; heure: string; people: number; status: string }[] = [];
     try {
-      const chg = await supabaseAdmin
-        .from("reservations")
-        .select("id, first_name, last_name, date, heure, people, status, client_action_at")
+      const chg = await leggi("reservations", ambito, "id, first_name, last_name, date, heure, people, status, client_action_at")
         .gt("client_action_at", newSince)
         .order("client_action_at", { ascending: true })
         .limit(30);
@@ -110,9 +120,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (q.length >= 2) {
     const pulito = q.replace(/[%,()*]/g, "").slice(0, 60);
     if (!pulito) return json({ reservations: [] });
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("*")
+    const { data, error } = await leggi("reservations", ambito, "*")
       .or(
         `first_name.ilike.%${pulito}%,last_name.ilike.%${pulito}%,email.ilike.%${pulito}%,phone.ilike.%${pulito}%`
       )
@@ -162,9 +170,7 @@ export const GET: APIRoute = async ({ request, url }) => {
 
     // 2) prenotazioni passate (first_name / last_name)
     try {
-      const { data } = await supabaseAdmin
-        .from("reservations")
-        .select("first_name, last_name, email, phone")
+      const { data } = await leggi("reservations", ambito, "first_name, last_name, email, phone")
         .or(`first_name.ilike.%${pulito}%,last_name.ilike.%${pulito}%`)
         .order("created_at", { ascending: false })
         .limit(40);
@@ -188,7 +194,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (url.searchParams.get("client_stats") === "1") {
     const email = (url.searchParams.get("client_email") ?? "").trim().toLowerCase();
     const phone = (url.searchParams.get("client_phone") ?? "").trim();
-    if (!email && !phone) return json({ error: "Client manquant" }, 400);
+    if (!email && !phone) return json({ error: await msg("err.clientMissing") }, 400);
 
     type RigaStat = {
       id: string;
@@ -204,17 +210,17 @@ export const GET: APIRoute = async ({ request, url }) => {
     const campiStat = "id, date, heure, people, status, source, created_at, table_minutes, spent_cents";
     const righe = new Map<string, RigaStat>();
     if (email) {
-      const { data } = await supabaseAdmin.from("reservations").select(campiStat).ilike("email", email).limit(500);
+      const { data } = await leggi("reservations", ambito, campiStat).ilike("email", email).limit(500);
       for (const r of (data ?? []) as RigaStat[]) righe.set(r.id, r);
     }
     if (phone) {
-      const { data } = await supabaseAdmin.from("reservations").select(campiStat).eq("phone", phone).limit(500);
+      const { data } = await leggi("reservations", ambito, campiStat).eq("phone", phone).limit(500);
       for (const r of (data ?? []) as RigaStat[]) righe.set(r.id, r);
     }
     const tutte = [...righe.values()];
 
     // Anticipo di prenotazione: momento della résa (fuso ristorante) - created_at.
-    const { data: tzRow } = await appConfigEq("timezone");
+    const { data: tzRow } = await appConfigEq("timezone", ambito);
     const tz = String(tzRow?.value || "Europe/Brussels");
     const offsetMin = (utcMs: number): number => {
       try {
@@ -273,16 +279,12 @@ export const GET: APIRoute = async ({ request, url }) => {
     const ultimo = `${month}-${String(nGiorni).padStart(2, "0")}`;
 
     const [orari, speciali, cfg, rese] = await Promise.all([
-      supabaseAdmin.from("settings").select("day_of_week, lunch_active, dinner_active"),
-      supabaseAdmin
-        .from("special_days")
-        .select("type, date_from, date_to")
+      leggiOrari(ambito).then((d) => ({ data: d })),
+      leggi("special_days", ambito, "type, date_from, date_to")
         .lte("date_from", ultimo)
         .gte("date_to", primo),
-      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "timezone"]),
-      supabaseAdmin
-        .from("reservations")
-        .select("date, service_key, people, status")
+      appConfigIn(["reservation_services", "reservation_zones", "reservation_plan_mode", "timezone"], ambito),
+      leggi("reservations", ambito, "date, service_key, people, status")
         .gte("date", primo)
         .lte("date", ultimo)
         .neq("status", "cancelled"), // tutte tranne le annullate (per il pallino "occupé")
@@ -301,7 +303,7 @@ export const GET: APIRoute = async ({ request, url }) => {
     } catch { /* nessun service configurato */ }
     // Capacità per servizio = somma dei coperti delle sections (Réglages)
     let capienza = 0;
-    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"));
+    const planPosti = await postiDalPlan(cfgMap.get("reservation_plan_mode"), ambito);
     try {
       const arr = JSON.parse(cfgMap.get("reservation_zones") || "[]");
       if (Array.isArray(arr)) {
@@ -375,9 +377,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   const da = url.searchParams.get("from") ?? "";
   const a = url.searchParams.get("to") ?? "";
   if (RE_DATA.test(da) && RE_DATA.test(a) && da <= a) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("*")
+    const { data, error } = await leggi("reservations", ambito, "*")
       .gte("date", da)
       .lte("date", a)
       .order("date", { ascending: true })
@@ -388,15 +388,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
 
   const date = url.searchParams.get("date") ?? "";
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
 
   // Stessa logica del render lato server (SSR): fonte unica in caricaResaGiorno.
-  return json(await caricaResaGiorno(date));
+  return json(await caricaResaGiorno(date, ambito));
 };
 
 export const POST: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: {
     date?: string;
@@ -423,16 +424,16 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
 
   const date = String(body.date ?? "");
-  if (!RE_DATA.test(date)) return json({ error: "Date invalide" }, 400);
+  if (!RE_DATA.test(date)) return json({ error: await msg("err.date") }, 400);
   const heure = String(body.heure ?? "");
-  if (!/^\d{2}:\d{2}$/.test(heure)) return json({ error: "Heure invalide" }, 400);
+  if (!/^\d{2}:\d{2}$/.test(heure)) return json({ error: await msg("err.time") }, 400);
   const people = Math.floor(Number(body.people));
   if (!Number.isFinite(people) || people < 1 || people > 100) {
-    return json({ error: "Personnes invalide (1–100)" }, 400);
+    return json({ error: await msg("err.people") }, 400);
   }
   const langCliente = normLang(body.lang);
 
@@ -441,9 +442,7 @@ export const POST: APIRoute = async ({ request }) => {
   const riga: Record<string, unknown> = {
     source: body.source === "phone" ? "phone" : "walkin",
   };
-  const { data, error } = await supabaseAdmin
-    .from("reservations")
-    .insert({
+  const { data, error } = await inserisci("reservations", ambito, {
       ...riga,
       date,
       heure,
@@ -471,9 +470,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (error || !data) {
     // Migrazione #21 non ancora lanciata (colonna source assente): si salva senza
     if (error?.message.includes("source")) {
-      const { data: d2, error: e2 } = await supabaseAdmin
-        .from("reservations")
-        .insert({
+      const { data: d2, error: e2 } = await inserisci("reservations", ambito, {
           date,
           heure,
           service_key: svKey,
@@ -498,26 +495,26 @@ export const POST: APIRoute = async ({ request }) => {
         .select("*")
         .single();
       if (!e2 && d2) {
-        await assegnaESalva(String((d2 as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
+        await assegnaESalva(String((d2 as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people }, ambito);
         if (body.tables !== undefined && Array.isArray(body.tables)) {
           try {
-            await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((d2 as { id?: unknown }).id ?? ""));
+            await aggiorna("reservations", ambito, { tables: tavoliDalBody(body.tables) }).eq("id", String((d2 as { id?: unknown }).id ?? ""));
           } catch { /* #37 assente */ }
         }
         if (String((d2 as { email?: string }).email ?? "").trim()) {
           void inviaConfermaResa(d2 as unknown as ResaEmail);
         }
-        void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+        void programmaReview(d2 as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string }, ambito);
         registraClienteResa(d2 as { first_name?: string; last_name?: string; email?: string; phone?: string });
         return json({ reservation: d2 });
       }
     }
-    return json({ error: "Création impossible" }, 500);
+    return json({ error: await msg("err.create") }, 500);
   }
-  await assegnaESalva(String((data as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people });
+  await assegnaESalva(String((data as { id?: unknown }).id ?? ""), { date, heure, service_key: svKey, zone: zonaSel, people }, ambito);
   if (body.tables !== undefined && Array.isArray(body.tables)) {
     try {
-      await supabaseAdmin.from("reservations").update({ tables: tavoliDalBody(body.tables) }).eq("id", String((data as { id?: unknown }).id ?? ""));
+      await aggiorna("reservations", ambito, { tables: tavoliDalBody(body.tables) }).eq("id", String((data as { id?: unknown }).id ?? ""));
     } catch { /* #37 assente */ }
   }
   // Se lo staff ha inserito un'email, parte la conferma al cliente (come per
@@ -525,24 +522,34 @@ export const POST: APIRoute = async ({ request }) => {
   if (String((data as { email?: string }).email ?? "").trim()) {
     void inviaConfermaResa(data as unknown as ResaEmail);
   }
-  void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+  void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string }, ambito);
   registraClienteResa(data as { first_name?: string; last_name?: string; email?: string; phone?: string });
   return json({ reservation: data });
 };
 
 /** Programma l'email recensione (11:30 del giorno dopo) e salva l'id Resend. */
-async function programmaReview(r: { id: string; date: string; first_name: string; last_name: string; email: string; lang: string }): Promise<void> {
+async function programmaReview(
+  r: { id: string; date: string; first_name: string; last_name: string; email: string; lang: string },
+  ambito: Ambito,
+): Promise<void> {
   try {
-    const emailId = await emailReviewResa(r);
+    // ⚠️ `r` e' ristretto e non porta `location_id`, ma l'ambito qui c'e':
+    // e' la sede a cui la prenotazione appartiene. Senza, l'invito a lasciare
+    // una recensione porterebbe il nome e il link di un altro punto.
+    const emailId = await emailReviewResa({
+      ...r,
+      location_id: ambito.modo === "sede" ? ambito.id : null,
+    });
     if (!emailId) return;
     // Colonna assente (migrazione #24 non lanciata): si ignora l'errore
-    await supabaseAdmin.from("reservations").update({ review_email_id: emailId }).eq("id", r.id);
+    await aggiorna("reservations", ambito, { review_email_id: emailId }).eq("id", r.id);
   } catch { /* nessun blocco */ }
 }
 
 export const PATCH: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   let body: {
     id?: string;
@@ -571,19 +578,19 @@ export const PATCH: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
   const id = String(body.id ?? "");
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // Solo i campi presenti nel body vengono modificati
   const upd: Record<string, unknown> = {};
   let statoPrima = ""; // per la transizione Demande (pending) -> Confirmée
   if (body.status !== undefined) {
-    if (!STATI.includes(body.status)) return json({ error: "Statut invalide" }, 400);
+    if (!STATI.includes(body.status)) return json({ error: await msg("err.status") }, 400);
     upd.status = body.status;
     if (body.status === "confirmed") {
-      const { data: pv } = await supabaseAdmin.from("reservations").select("status").eq("id", id).maybeSingle();
+      const { data: pv } = await leggi("reservations", ambito, "status").eq("id", id).maybeSingle();
       statoPrima = String(pv?.status ?? "");
     }
     // Timer tavolo: "En cours" manuale = arrivo reale; ritorno a Confirmée lo azzera
@@ -599,13 +606,11 @@ export const PATCH: APIRoute = async ({ request }) => {
     if (body.status === "noshow" || body.status === "cancelled") upd.table_minutes = null;
     // Fini MANUALE: registra la durata reale (dall'arrivo al click)
     if (body.status === "done") {
-      const { data: cur } = await supabaseAdmin
-        .from("reservations")
-        .select("date, heure, seated_at, status")
+      const { data: cur } = await leggi("reservations", ambito, "date, heure, seated_at, status")
         .eq("id", id)
         .maybeSingle();
       if (cur && (cur.status === "confirmed" || cur.status === "seated")) {
-        const { data: tzRow } = await appConfigEq("timezone");
+        const { data: tzRow } = await appConfigEq("timezone", ambito);
         const tz = String(tzRow?.value || "Europe/Brussels");
         let offMin = 0;
         try {
@@ -627,9 +632,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if ((body as { extra_add?: number }).extra_add !== undefined) {
     const add = Math.floor(Number((body as { extra_add?: number }).extra_add));
     if (Number.isFinite(add) && add > 0) {
-      const { data: cur } = await supabaseAdmin
-        .from("reservations")
-        .select("extra_minutes, status, seated_at")
+      const { data: cur } = await leggi("reservations", ambito, "extra_minutes, status, seated_at")
         .eq("id", id)
         .maybeSingle();
       const base = Math.max(0, Math.floor(Number(cur?.extra_minutes) || 0));
@@ -641,16 +644,16 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
   }
   if (body.date !== undefined) {
-    if (!RE_DATA.test(String(body.date))) return json({ error: "Date invalide" }, 400);
+    if (!RE_DATA.test(String(body.date))) return json({ error: await msg("err.date") }, 400);
     upd.date = body.date;
   }
   if (body.heure !== undefined) {
-    if (!/^\d{2}:\d{2}$/.test(String(body.heure))) return json({ error: "Heure invalide" }, 400);
+    if (!/^\d{2}:\d{2}$/.test(String(body.heure))) return json({ error: await msg("err.time") }, 400);
     upd.heure = body.heure;
   }
   if (body.people !== undefined) {
     const n = Math.floor(Number(body.people));
-    if (!Number.isFinite(n) || n < 1 || n > 100) return json({ error: "Personnes invalide (1–100)" }, 400);
+    if (!Number.isFinite(n) || n < 1 || n > 100) return json({ error: await msg("err.people") }, 400);
     upd.people = n;
   }
   if (body.service_key !== undefined) {
@@ -676,7 +679,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       upd.spent_cents = null;
     } else {
       const n = Math.round(Number(body.spent_cents));
-      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) return json({ error: "Montant invalide" }, 400);
+      if (!Number.isFinite(n) || n < 0 || n > 10_000_000) return json({ error: await msg("err.amount") }, 400);
       upd.spent_cents = n;
     }
   }
@@ -685,15 +688,13 @@ export const PATCH: APIRoute = async ({ request }) => {
     upd.company = Boolean(body.business) ? String(body.company ?? "").trim() : "";
   }
   if (body.source !== undefined) {
-    if (body.source !== "walkin" && body.source !== "phone") return json({ error: "Origine invalide" }, 400);
+    if (body.source !== "walkin" && body.source !== "phone") return json({ error: await msg("err.origin") }, 400);
     upd.source = body.source;
   }
   if (body.tables !== undefined && Array.isArray(body.tables)) upd.tables = tavoliDalBody(body.tables);
-  if (!Object.keys(upd).length) return json({ error: "Rien à modifier" }, 400);
+  if (!Object.keys(upd).length) return json({ error: await msg("err.nothing") }, 400);
 
-  let { data, error } = await supabaseAdmin
-    .from("reservations")
-    .update(upd)
+  let { data, error } = await aggiorna("reservations", ambito, upd)
     .eq("id", id)
     .select("*")
     .single();
@@ -701,9 +702,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && upd.source !== undefined && error.message.includes("source")) {
     delete upd.source;
     if (Object.keys(upd).length) {
-      ({ data, error } = await supabaseAdmin
-        .from("reservations")
-        .update(upd)
+      ({ data, error } = await aggiorna("reservations", ambito, upd)
         .eq("id", id)
         .select("*")
         .single());
@@ -713,9 +712,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && upd.seated_at !== undefined && error.message.includes("seated_at")) {
     delete upd.seated_at;
     if (Object.keys(upd).length) {
-      ({ data, error } = await supabaseAdmin
-        .from("reservations")
-        .update(upd)
+      ({ data, error } = await aggiorna("reservations", ambito, upd)
         .eq("id", id)
         .select("*")
         .single());
@@ -725,9 +722,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && upd.table_minutes !== undefined && error.message.includes("table_minutes")) {
     delete upd.table_minutes;
     if (Object.keys(upd).length) {
-      ({ data, error } = await supabaseAdmin
-        .from("reservations")
-        .update(upd)
+      ({ data, error } = await aggiorna("reservations", ambito, upd)
         .eq("id", id)
         .select("*")
         .single());
@@ -737,9 +732,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && upd.tables !== undefined && error.message.includes("tables")) {
     delete upd.tables;
     if (Object.keys(upd).length) {
-      ({ data, error } = await supabaseAdmin
-        .from("reservations")
-        .update(upd)
+      ({ data, error } = await aggiorna("reservations", ambito, upd)
         .eq("id", id)
         .select("*")
         .single());
@@ -749,21 +742,19 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (error && upd.spent_cents !== undefined && error.message.includes("spent_cents")) {
     delete upd.spent_cents;
     if (Object.keys(upd).length) {
-      ({ data, error } = await supabaseAdmin
-        .from("reservations")
-        .update(upd)
+      ({ data, error } = await aggiorna("reservations", ambito, upd)
         .eq("id", id)
         .select("*")
         .single());
     }
   }
-  if (error || !data) return json({ error: "Modification impossible" }, 500);
+  if (error || !data) return json({ error: await msg("err.update") }, 500);
   // Annullata o no-show: l'email recensione programmata non deve partire
   if (upd.status === "cancelled" || upd.status === "noshow") {
     const emailId = String((data as { review_email_id?: string | null }).review_email_id ?? "");
     if (emailId) {
       void annullaEmailReview(emailId);
-      void supabaseAdmin.from("reservations").update({ review_email_id: null }).eq("id", id);
+      void aggiorna("reservations", ambito, { review_email_id: null }).eq("id", id);
     }
   }
   // Annullata dal ristoratore: avvisa il cliente nella sua lingua
@@ -787,7 +778,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   // cliente + la recensione J+1 (in modalità demande non erano partite)
   if (upd.status === "confirmed" && statoPrima === "pending") {
     if ((data as { email?: string }).email) void inviaConfermaResa(data as unknown as ResaEmail);
-    void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+    void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string }, ambito);
   }
   // RIPRISTINO da Annulée/No-show a Confirmée: la recensione era stata
   // annullata su Resend → si RIPROGRAMMA. Solo se non ce n'è già una attiva
@@ -796,13 +787,13 @@ export const PATCH: APIRoute = async ({ request }) => {
   if (upd.status === "confirmed" && (statoPrima === "cancelled" || statoPrima === "noshow")) {
     const giaProgrammata = String((data as { review_email_id?: string | null }).review_email_id ?? "");
     if (!giaProgrammata) {
-      void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string });
+      void programmaReview(data as { id: string; date: string; first_name: string; last_name: string; email: string; lang: string }, ambito);
     }
   }
   // Plan de salle: annullata/no-show libera i tavoli; dati cambiati (o ritorno
   // a Confirmée) -> riassegnazione con i valori AGGIORNATI della riga
   if (upd.status === "cancelled" || upd.status === "noshow") {
-    try { await supabaseAdmin.from("reservations").update({ tables: null }).eq("id", id); } catch { /* #37 assente */ }
+    try { await aggiorna("reservations", ambito, { tables: null }).eq("id", id); } catch { /* #37 assente */ }
   } else if (
     body.tables === undefined && // tavoli scelti a mano: non si ricalcola nulla
     (body.date !== undefined || body.heure !== undefined || body.people !== undefined ||
@@ -815,7 +806,7 @@ export const PATCH: APIRoute = async ({ request }) => {
       service_key: r.service_key ?? null,
       zone: r.zone ?? null,
       people: Math.floor(Number(r.people)) || 1,
-    });
+    }, ambito);
   }
   return json({ reservation: data });
 };
@@ -827,15 +818,14 @@ export const PATCH: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request, url }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
+  const ambito = await ambitoDiRichiesta(request, staff);
 
   const id = url.searchParams.get("id") ?? "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: "Id invalide" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return json({ error: await msg("err.id") }, 400);
 
   // Se c'era una email-recensione programmata, annullala prima di eliminare.
   try {
-    const { data: pre } = await supabaseAdmin
-      .from("reservations")
-      .select("review_email_id")
+    const { data: pre } = await leggi("reservations", ambito, "review_email_id")
       .eq("id", id)
       .maybeSingle();
     const emailId = (pre as { review_email_id?: string | null } | null)?.review_email_id;
@@ -844,7 +834,7 @@ export const DELETE: APIRoute = async ({ request, url }) => {
     /* best-effort */
   }
 
-  const { error } = await supabaseAdmin.from("reservations").delete().eq("id", id);
-  if (error) return json({ error: "Suppression impossible" }, 500);
+  const { error } = await cancella("reservations", ambito).eq("id", id);
+  if (error) return json({ error: await msg("err.delete") }, 500);
   return json({ ok: true });
 };

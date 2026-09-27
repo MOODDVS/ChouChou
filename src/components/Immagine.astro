@@ -1,0 +1,81 @@
+---
+/**
+ * UN'IMMAGINE CHE NON FA SALTARE LA PAGINA.
+ *
+ * ⚠️ Il problema che risolve. Un `<img>` senza dimensioni non occupa spazio
+ * finche' non arriva: il browser disegna il testo, poi l'immagine atterra e
+ * spinge tutto in basso. E' il CLS — uno dei tre Core Web Vitals — e nei
+ * cinque siti clienti 97 immagini su 125 erano cosi'. Non e' un difetto che
+ * si vede sul Mac dello sviluppatore, dove l'immagine e' in cache e arriva
+ * in un millisecondo: si vede al cliente, in 4G, che clicca un bottone e
+ * intanto la pagina gli scappa sotto il dito.
+ *
+ * La cura e' banale — riservare il posto — ed e' proprio per questo che si
+ * dimentica. Questo componente non la lascia dimenticare: senza dimensioni
+ * NON COMPILA.
+ *
+ * COME SI USA
+ *
+ *   File nel sito (in `public/`), dimensioni note:
+ *     <Immagine src="/img/sala.webp" alt="La sala" width={1200} height={800} />
+ *
+ *   L'immagine PRINCIPALE, quella grande in cima — l'LCP della pagina:
+ *     <Immagine src="/img/hero.webp" alt="" width={1600} height={900} primaria />
+ *
+ *   Immagine da internet (Supabase, scheda Google): le dimensioni vere non
+ *   si sanno, si riserva la FORMA:
+ *     <Immagine src={url} alt="" rapporto="16/9" />
+ *
+ * ⚠️ `primaria` va messa su UNA sola immagine per pagina, quella che si vede
+ * per prima. Dice al browser di non rimandarla e di darle la precedenza. Su
+ * due immagini si annulla: se tutto e' prioritario, niente lo e'.
+ */
+interface Props {
+  src: string;
+  alt: string;
+  /** Larghezza vera del file, in pixel. Obbligatoria per le immagini locali. */
+  width?: number;
+  /** Altezza vera del file, in pixel. */
+  height?: number;
+  /** Per le immagini remote, di cui non si sanno le dimensioni: "16/9", "1/1"… */
+  rapporto?: string;
+  /** L'immagine piu' importante della pagina (LCP). Una sola. */
+  primaria?: boolean;
+  class?: string;
+  /** `sizes` per le immagini responsive, se il sito le usa. */
+  sizes?: string;
+  loading?: "lazy" | "eager";
+}
+
+const { src, alt, width, height, rapporto, primaria = false, class: classe, sizes, loading } =
+  Astro.props;
+
+// ⚠️ Si ferma in BUILD, non a runtime. Un'immagine senza posto riservato e'
+// un difetto che nessuno segnala: la pagina funziona, semplicemente salta.
+// L'unico momento in cui qualcuno guarda e' adesso.
+if (!rapporto && (!width || !height)) {
+  throw new Error(
+    `<Immagine src="${src}">: servono width e height (le dimensioni vere del file), ` +
+    `oppure rapporto="16/9" se l'immagine viene da internet e non le conosci. ` +
+    `Senza, la pagina salta quando l'immagine arriva.`
+  );
+}
+
+// La primaria non si rimanda MAI: e' quella che il browser deve mostrare per
+// prima, e rimandarla vuol dire peggiorare l'LCP di proposito.
+const caricamento = loading ?? (primaria ? "eager" : "lazy");
+const stile = rapporto ? `aspect-ratio:${rapporto};width:100%;height:auto;` : undefined;
+---
+
+<img
+  src={src}
+  alt={alt}
+  width={width}
+  height={height}
+  sizes={sizes}
+  class={classe}
+  style={stile}
+  loading={caricamento}
+  decoding={primaria ? "sync" : "async"}
+  fetchpriority={primaria ? "high" : undefined}
+/>

@@ -27,3 +27,8 @@
 }
 .rh-filter:hover { color: var(--c-text); border-color: var(--c-accent); }
 .rh-filter.is-on { background: var(--c-accent); border-color: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+
+/* Separatore dentro la riga di filtri: serve quando nella stessa riga
+   convivono DUE dimensioni (il periodo e la sede, in Statistiche) e senza
+   una riga verticale sembrerebbero alternative fra loro. */
+.rh-sep { width: 1px; align-self: stretch; background: var(--c-line); margin: 0.15rem 0.35rem; flex: 0 0 auto; }

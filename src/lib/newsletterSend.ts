@@ -1,10 +1,19 @@
 import crypto from "node:crypto";
+import { leggi, tutteLeSedi, type Ambito } from "./admin/sede";
 import { Resend } from "resend";
 import { supabaseAdmin } from "./db";
 import { datiRistorante, type DatiRistorante } from "./ristorante";
+import { SEDE_UNICA } from "./admin/sede";
+import { appConfigIn } from "./appConfigCache";
 import { CLIENT } from "../config/client";
 import { statoQuota } from "./admin/newsletterQuota";
 import { linksSocial, type LinkSocial } from "./links";
+// I SEGMENTI e il profilo sono regole pure: vivono in `newsletterRegole.ts`
+// e hanno i loro test. Qui resta l'invio, che un test non puo' provare.
+import {
+  filtraRubrica, parseSegment, LINGUE, GRUPPI,
+  type LinguaNews, type GruppoNews, type Profilo,
+} from "./newsletterRegole";
 import { temaEmail, type TemaEmail } from "./temaBrand";
 
 // Motore d'invio della newsletter, condiviso tra:
@@ -21,6 +30,10 @@ const SECRET = import.meta.env.SUPABASE_SERVICE_KEY ?? "lm-newsletter";
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
+// Riesportati: /api/admin/newsletter e il cron li importano da qui da sempre.
+export { parseSegment, LINGUE, GRUPPI };
+export type { LinguaNews, GruppoNews };
+
 export function resendPronto(): boolean {
   return Boolean(resend && RESEND_FROM);
 }
@@ -34,10 +47,15 @@ function esc(s: string): string {
  *  Resend, altrimenti l'invio viene rifiutato da Resend. */
 export async function mittenteNewsletter(): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["newsletter_from_email", "newsletter_from_name", "email_from_name", "restaurant_name"]);
+    // ⚠️ SEDE_UNICA, cioe' i valori dell'installazione, e non e' una
+    // scorciatoia: la newsletter e' del MARCHIO. Va a tutta la rubrica del
+    // gruppo, e un cliente che ordina a Schaerbeek e prenota a Stockel e' una
+    // persona sola che ne riceve una copia sola — quindi il mittente non puo'
+    // essere quello di un punto scelto a caso fra i tre.
+    const { data } = await appConfigIn(
+      ["newsletter_from_email", "newsletter_from_name", "email_from_name", "restaurant_name"],
+      SEDE_UNICA,
+    );
     const m = new Map((data ?? []).map((r) => [r.key as string, String(r.value ?? "").trim()]));
     const v = m.get("newsletter_from_email") ?? "";
     const nome = m.get("newsletter_from_name") || m.get("email_from_name") || m.get("restaurant_name") || CLIENT.nome;
@@ -52,10 +70,8 @@ export async function mittenteNewsletter(): Promise<string> {
  *  poi l'icona del sito). URL salvati dall'admin nel bucket "brand". */
 async function logoNewsletter(isDark: boolean): Promise<string> {
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("key, value")
-      .in("key", ["brand_logo", "brand_logo_negative"]);
+    // Il logo e' del marchio per definizione: vedi la nota qui sopra.
+    const { data } = await appConfigIn(["brand_logo", "brand_logo_negative"], SEDE_UNICA);
     const map = new Map((data ?? []).map((r) => [r.key, String(r.value ?? "").trim()]));
     const pos = map.get("brand_logo") || "";
     const neg = map.get("brand_logo_negative") || "";
@@ -75,39 +91,9 @@ export function tokenDisiscrizione(email: string): string {
 // Rubrica + SEGMENTI
 // ---------------------------------------------------------------------------
 
-// La LINGUA è primaria: una newsletter FR va al pubblico FR (coi SUOI
-// nouveaux/top50/…), una EN al pubblico EN. fr = lingua del sito fr o
-// SCONOSCIUTA (default del sito); en = tutte le altre (en, nl, it, …).
-export type LinguaNews = "tous" | "fr" | "en";
-export const LINGUE: LinguaNews[] = ["tous", "fr", "en"];
-export type GruppoNews = "tous" | "nouveaux" | "top50" | "resa" | "commande";
-export const GRUPPI: GruppoNews[] = ["tous", "nouveaux", "top50", "resa", "commande"];
-
-/** Segment salvato/trasmesso come "lingua:gruppo" (es. "fr:top50"). */
-export function parseSegment(s: string): { lang: LinguaNews; group: GruppoNews } {
-  const [a, b] = String(s ?? "").split(":");
-  let lang: LinguaNews = (LINGUE as string[]).includes(a) ? (a as LinguaNews) : "tous";
-  let group: GruppoNews = (GRUPPI as string[]).includes(b ?? "") ? (b as GruppoNews) : "tous";
-  // Valori vecchi senza ":" (es. "top50")
-  if (!b && a && (GRUPPI as string[]).includes(a)) {
-    group = a as GruppoNews;
-    lang = "tous";
-  }
-  return { lang, group };
-}
-
-interface Profilo {
-  first: string | null; // prima attività (come il badge "New" della pagina Clients)
-  spesa: number; // ordini pagati + additions delle prenotazioni (cents)
-  ordini: boolean;
-  rese: boolean;
-  lang: string; // lingua dell'ULTIMA prenotazione (widget: fr, en, …)
-  langAt: string;
-}
-
 /** Rubrica con profilo per email: ordini incassati + prenotazioni + clienti
  *  manuali, meno i nascosti e i disiscritti. */
-async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: number }> {
+async function rubrica(ambito: Ambito): Promise<{ profili: Map<string, Profilo>; esclusi: number }> {
   const profili = new Map<string, Profilo>();
   const nascosti = new Set<string>();
   const prendi = (e: string): Profilo => {
@@ -121,9 +107,7 @@ async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: numb
 
   const PAGINA = 1000;
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("orders")
-      .select("customer_email, total_cents, created_at")
+    const { data, error } = await leggi("orders", ambito, "customer_email, total_cents, created_at")
       .in("status", ["paid", "done"])
       .range(da, da + PAGINA - 1);
     if (error) break;
@@ -139,9 +123,7 @@ async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: numb
   }
 
   for (let da = 0; ; da += PAGINA) {
-    const { data, error } = await supabaseAdmin
-      .from("reservations")
-      .select("email, lang, created_at, spent_cents, status")
+    const { data, error } = await leggi("reservations", ambito, "email, lang, created_at, spent_cents, status")
       .neq("status", "cancelled")
       .range(da, da + PAGINA - 1);
     if (error) break;
@@ -183,45 +165,18 @@ async function rubrica(): Promise<{ profili: Map<string, Profilo>; esclusi: numb
   return { profili, esclusi };
 }
 
-function filtra(profili: Map<string, Profilo>, lang: LinguaNews, group: GruppoNews): string[] {
-  let tutti = [...profili.entries()];
-  // 1) LINGUA (primaria): fr = fr o sconosciuta · en = tutte le altre
-  if (lang === "fr") tutti = tutti.filter(([, p]) => !p.lang || p.lang === "fr");
-  else if (lang === "en") tutti = tutti.filter(([, p]) => Boolean(p.lang) && p.lang !== "fr");
-  // 2) GRUPPO, dentro la lingua scelta (il top 50 è il top 50 di QUELLA lingua)
-  switch (group) {
-    case "nouveaux": {
-      // Stesso criterio del badge "New" della pagina Clients: prima attività < 14 giorni
-      const soglia = Date.now() - 14 * 86400000;
-      return tutti.filter(([, p]) => p.first && Date.parse(p.first) > soglia).map(([e]) => e);
-    }
-    case "top50":
-      return tutti
-        .filter(([, p]) => p.spesa > 0)
-        .sort((a, b) => b[1].spesa - a[1].spesa)
-        .slice(0, 50)
-        .map(([e]) => e);
-    case "resa":
-      return tutti.filter(([, p]) => p.rese).map(([e]) => e);
-    case "commande":
-      return tutti.filter(([, p]) => p.ordini).map(([e]) => e);
-    default:
-      return tutti.map(([e]) => e);
-  }
-}
-
 export async function destinatariSegmento(lang: LinguaNews, group: GruppoNews): Promise<{ lista: string[]; esclusi: number }> {
-  const { profili, esclusi } = await rubrica();
-  return { lista: filtra(profili, lang, group), esclusi };
+  const { profili, esclusi } = await rubrica(tutteLeSedi());
+  return { lista: filtraRubrica(profili, lang, group), esclusi };
 }
 
 /** Conteggi per OGNI combinazione lingua×gruppo (pillole del modale) + opted-out. */
 export async function contatoriSegmenti(): Promise<{ counts: Record<string, Record<string, number>>; esclusi: number }> {
-  const { profili, esclusi } = await rubrica();
+  const { profili, esclusi } = await rubrica(tutteLeSedi());
   const counts: Record<string, Record<string, number>> = {};
   for (const l of LINGUE) {
     counts[l] = {};
-    for (const g of GRUPPI) counts[l][g] = filtra(profili, l, g).length;
+    for (const g of GRUPPI) counts[l][g] = filtraRubrica(profili, l, g).length;
   }
   return { counts, esclusi };
 }
@@ -337,7 +292,12 @@ export function htmlNewsletter(
 /** Un solo invio di test all'email dello staff. */
 export async function inviaTest(dest: string, contenuto: ContenutoNews): Promise<boolean> {
   if (!resend || !RESEND_FROM) return false;
-  const dati = await datiRistorante();
+  // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
+  // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
+  // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
+  // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
+  // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
+  const dati = await datiRistorante(SEDE_UNICA);
   const tema = await temaEmail();
   const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);
   try {
@@ -370,7 +330,12 @@ export async function inviaNewsletter(contenuto: ContenutoNews, lang: LinguaNews
   if (!resend || !RESEND_FROM) {
     return { ok: false, error: "Resend non configuré (RESEND_API_KEY / RESEND_FROM)", status: 500 };
   }
-  const dati = await datiRistorante();
+  // ⚠️ SEDE_UNICA di proposito: la newsletter e' del MARCHIO. Si scrive una
+  // volta e va a tutta la rubrica del gruppo — un cliente che ha ordinato a
+  // Schaerbeek e prenotato a Stockel e' una persona sola e riceve una copia
+  // sola. Quindi nome, indirizzo e mittente sono quelli dell'installazione:
+  // scegliere un punto vorrebbe dire mandare l'indirizzo di uno a tutti.
+  const dati = await datiRistorante(SEDE_UNICA);
   const quota = await statoQuota();
   const tema = await temaEmail();
   const [logoUrl, social] = await Promise.all([logoNewsletter(tema.isDark), linksSocial()]);

@@ -1,6 +1,7 @@
-import { supabaseAdmin } from "../db";
+import { leggi, aggiorna, type Ambito } from "./sede";
 import { appConfigIn } from "../appConfigCache";
 import { postiDalPlan } from "../planSalle";
+import { capienzaDelleZone, zoneDaConfig } from "../salaRegole";
 
 // Carica le prenotazioni di un giorno + la configurazione + le chiusure, nella
 // forma esatta attesa dalla pagina /admin/reservations. UNICA fonte di verità:
@@ -29,11 +30,9 @@ export interface ResaGiorno {
   missing?: boolean;
 }
 
-export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
+export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<ResaGiorno> {
   const [reseQ, cfgQ, chQ, zchQ, spQ] = await Promise.all([
-    supabaseAdmin
-      .from("reservations")
-      .select("*")
+    leggi("reservations", ambito, "*")
       .eq("date", date)
       .order("heure", { ascending: true })
       .order("created_at", { ascending: true }),
@@ -46,18 +45,16 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
         "timezone",
         "service_closures_permanent",
         "zone_closures_permanent",
-      ]),
-    supabaseAdmin.from("service_closures").select("service_key, reason").eq("date", date),
-    supabaseAdmin.from("zone_closures").select("zone, reason").eq("date", date),
-    supabaseAdmin
-      .from("special_days")
-      .select("type, services")
+      ], ambito),
+    leggi("service_closures", ambito, "service_key, reason").eq("date", date),
+    leggi("zone_closures", ambito, "zone, reason").eq("date", date),
+    leggi("special_days", ambito, "type, services")
       .lte("date_from", date)
       .gte("date_to", date)
       .then(async (r) => {
         // Migrazione #33 non ancora lanciata: senza la colonna (= tutti)
         if (r.error && String(r.error.message ?? "").includes("services")) {
-          return supabaseAdmin.from("special_days").select("type").lte("date_from", date).gte("date_to", date);
+          return leggi("special_days", ambito, "type").lte("date_from", date).gte("date_to", date);
         }
         return r;
       }),
@@ -87,21 +84,16 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
       const arr = JSON.parse(m.get("reservation_services") || "[]");
       if (Array.isArray(arr)) services = arr;
     } catch { /* vuoto */ }
-    const planPosti = await postiDalPlan(m.get("reservation_plan_mode"));
-    try {
-      const arr = JSON.parse(m.get("reservation_zones") || "[]");
-      if (Array.isArray(arr)) {
-        zones = arr.map((z: { name?: string }) => String(z.name ?? "")).filter(Boolean);
-        for (const z of arr as { name?: string; seats?: unknown }[]) {
-          const nome = String(z.name ?? "");
-          const n = planPosti ? Math.floor(planPosti.get(nome.trim()) ?? 0) : Math.floor(Number(z.seats));
-          if (nome && Number.isFinite(n) && n > 0) {
-            zoneSeats[nome] = n;
-            capacity += n;
-          }
-        }
-      }
-    } catch { /* vuoto */ }
+    const planPosti = await postiDalPlan(m.get("reservation_plan_mode"), ambito);
+    // ⚠️ La regola sta in `salaRegole.ts`, una volta sola: qui e nel widget
+    // pubblico era scritta due volte, e le due copie divergevano gia'.
+    const conf = zoneDaConfig(m.get("reservation_zones"));
+    zones = (Array.isArray(conf) ? conf : [])
+      .map((z: { name?: unknown }) => String(z?.name ?? "").trim())
+      .filter(Boolean);
+    const cap = capienzaDelleZone(conf, planPosti);
+    for (const z of cap.zones) zoneSeats[z.name] = z.seats;
+    capacity = cap.capienza;
     const vTz = m.get("timezone") ?? "";
     if (vTz) {
       try {
@@ -160,14 +152,12 @@ export async function caricaResaGiorno(date: string): Promise<ResaGiorno> {
             void offMin;
             const durata = holdDiKey(r.service_key ?? null) + (Number((r as { extra_minutes?: number }).extra_minutes) || 0);
             r.table_minutes = durata;
-            return supabaseAdmin.from("reservations").update({ status: "done", table_minutes: durata }).eq("id", r.id);
+            return aggiorna("reservations", ambito, { status: "done", table_minutes: durata }).eq("id", r.id);
           })
         );
         // Migrazione #27 non ancora lanciata: si chiude senza durata
         if (esiti.some((e) => e.error && String(e.error.message ?? "").includes("table_minutes"))) {
-          await supabaseAdmin
-            .from("reservations")
-            .update({ status: "done" })
+          await aggiorna("reservations", ambito, { status: "done" })
             .in("id", daChiudere.map((r) => r.id));
         }
         for (const r of daChiudere) r.status = "done"; // riflesso subito nella risposta

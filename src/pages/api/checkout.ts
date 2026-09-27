@@ -1,11 +1,19 @@
 import type { APIRoute } from "astro";
+// Multi-sede: l'ordine nasce in un PUNTO. Segnaposto fino al pezzo 8.
+import { leggi, inserisci, aggiorna } from "../../lib/admin/sede";
 import { normalizzaNome } from "../../lib/normalizzaNome";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../lib/db";
 import { creaCheckoutSession, type VoceCheckout } from "../../lib/stripe";
-import { calcolaSlotGiorno, TIMEZONE } from "../../lib/slots";
+import { calcolaSlotGiorno } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import { configGiornoEffettiva } from "../../lib/schedule";
+// Multi-sede: quale punto sta guardando il sito pubblico (segnaposto, pezzo 8).
+import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import { appConfigEq } from "../../lib/appConfigCache";
+import { basePubblicaOpz } from "../../lib/basePubblica";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
+import { applicaStatoSede } from "../../lib/menuStato";
 import {
   calcolaScontoCoupon,
   verificaLimitiUso,
@@ -83,27 +91,35 @@ export const POST: APIRoute = async ({ request }) => {
     es: "Los pedidos en línea están cerrados temporalmente. Inténtalo más tarde.",
   };
 
+  // ⚠️ L'AMBITO SI CALCOLA PRIMA DEL CONTROLLO DI CHIUSURA.
+  // Stava sotto, e la chiusura leggeva `app_config` a mano: il bottone
+  // «Fermer» SCRIVE per sede (`scriviConfig(ambito)`), quindi su un gruppo il
+  // valore finisce in `location_config` e qui non si vedeva mai. Una cucina
+  // chiusa continuava a ricevere ordini, e il ristoratore vedeva il pulsante
+  // rosso pensando di essere protetto.
+  const ambitoPub = await ambitoPubblicoChiesto(request);
+
   // Servizio chiuso dall'admin (bottone "Fermer" nella pagina Commandes):
   // blocco anche lato server, per chi avesse la pagina già aperta.
-  const { data: cfgChiusura } = await supabaseAdmin
-    .from("app_config")
-    .select("value")
-    .eq("key", "orders_closed")
-    .maybeSingle();
+  const { data: cfgChiusura } = await appConfigEq("orders_closed", ambitoPub);
   if (cfgChiusura?.value === "1") {
     return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
   }
 
-  const ora = DateTime.now().setZone(TIMEZONE);
+  const fuso = await fusoDi(ambitoPub);
+  const ora = DateTime.now().setZone(fuso);
 
   // Config effettiva: orari settimanali + giorni speciali (special_days).
   // Stessa fonte di /api/slots: i due DEVONO essere d'accordo.
-  const config = await configGiornoEffettiva(ora);
+  // La sede la dice la RICHIESTA (header `x-sede` o `?sede=`), non piu' un
+  // ripiego sulla prima. Chi non la dice ricade su `ambitoPubblico()`.
+  // (calcolato piu' sopra: serve gia' al controllo di chiusura)
+  const config = await configGiornoEffettiva(ora, ambitoPub);
   if (!config) {
     return err(503, "Configurazione orari non disponibile");
   }
 
-  const { lunch, dinner } = calcolaSlotGiorno(ora, config);
+  const { lunch, dinner } = calcolaSlotGiorno(ora, config, fuso);
   const slotValidi = [...lunch, ...dinner];
   if (!slotValidi.includes(body.slot)) {
     return err(409, "Orario di ritiro non più disponibile");
@@ -116,12 +132,19 @@ export const POST: APIRoute = async ({ request }) => {
   const { data: piatti, error: errMenu } = await conRipiegoColonne(
     CAMPI,
     async (campi) =>
-      (await supabaseAdmin.from("menu_items").select(campi).in("id", ids)) as unknown as RisultatoQuery
+      (await leggi("menu_items", ambitoPub, campi).in("id", ids)) as unknown as RisultatoQuery
   );
 
   if (errMenu || !piatti) {
     return err(503, "Impossibile leggere il menu");
   }
+
+  // L'esaurito di QUESTO punto: il menu e' del gruppo, «finito» no. Senza
+  // questo passaggio si incassa per un piatto che questa cucina non ha.
+  const piattiPunto = await applicaStatoSede(
+    piatti as unknown as Record<string, unknown>[],
+    ambitoPub,
+  );
 
   const voci: VoceCheckout[] = [];
   const itemsOrdine: {
@@ -142,7 +165,7 @@ export const POST: APIRoute = async ({ request }) => {
   const lineeCoupon: LineaCoupon[] = [];
 
   for (const richiesto of body.items) {
-    const piatto = piatti.find((p) => p.id === richiesto.id);
+    const piatto = piattiPunto.find((p) => p.id === richiesto.id) as any;
     if (!piatto || !piatto.available || piatto.sold_out === true) {
       return err(409, "Un piatto selezionato non è più disponibile");
     }
@@ -162,8 +185,8 @@ export const POST: APIRoute = async ({ request }) => {
     // formati, sceglierne uno è OBBLIGATORIO e il prezzo è quello del formato:
     // dal browser arriva solo la chiave, il prezzo lo decide il server.
     let variante = null as ReturnType<typeof trovaVariante>;
-    if (haVarianti(piatto.variants)) {
-      variante = trovaVariante(piatto.variants, richiesto.variant, true);
+    if (haVarianti(piatto.variants, ambitoPub)) {
+      variante = trovaVariante(piatto.variants, richiesto.variant, true, ambitoPub);
       if (!variante) {
         return err(409, "Le format choisi n'est plus disponible");
       }
@@ -238,7 +261,9 @@ export const POST: APIRoute = async ({ request }) => {
     if (!coupon) {
       return err(409, testiCoupon(lang).nonValido);
     }
-    const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, lang);
+    // L'ambito e' quello che il cliente ha scelto sul sito: un codice
+    // riservato a un punto vale li' e basta.
+    const ris = calcolaScontoCoupon(coupon as CouponRow, lineeCoupon, ora, ambitoPub, lang);
     if (ris.error) return err(409, ris.error);
     const limite = await verificaLimitiUso(coupon as CouponRow, body.customer.email, supabaseAdmin, lang);
     if (limite) return err(409, limite);
@@ -271,9 +296,7 @@ export const POST: APIRoute = async ({ request }) => {
     datiOrdine.coupon_discount_cents = scontoCents;
   }
 
-  const { data: ordine, error: errInsert } = await supabaseAdmin
-    .from("orders")
-    .insert(datiOrdine)
+  const { data: ordine, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
     .select("id")
     .single();
 
@@ -284,19 +307,22 @@ export const POST: APIRoute = async ({ request }) => {
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
   try {
     const url = await creaCheckoutSession({
+      // Chi incassa: il punto che il cliente ha scelto, lo stesso con cui
+      // l'ordine e' stato appena inserito.
+      ambito: ambitoPub,
       voci,
       orderId: ordine.id,
       siteUrl,
       lang,
-      returnBase: (body as { source?: string }).source === "demo01" ? "/demo01" : undefined,
+      // ⚠️ Il prefisso del sito viene dalla CONFIGURAZIONE, non dal nome di
+      // un demo scritto qui dentro. Vedi `lib/basePubblica.ts`.
+      returnBase: await basePubblicaOpz(ambitoPub),
       discount:
         scontoCents > 0
           ? { amount_cents: scontoCents, label: couponCodeSalvato ?? "Code promo" }
           : undefined,
     });
-    await supabaseAdmin
-      .from("orders")
-      .update({ stripe_session_id: url })
+    await aggiorna("orders", ambitoPub, { stripe_session_id: url })
       .eq("id", ordine.id);
 
     return new Response(JSON.stringify({ url }), {

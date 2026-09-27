@@ -13,7 +13,6 @@ import { verificaTokenLocale } from "../../lib/admin/adminAuth";
 import { caricaClienti } from "../../lib/admin/caricaClienti";
 import { adminLang } from "../../lib/admin/adminLang";
 import { adminT } from "../../i18n/admin";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -47,24 +46,17 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -412,13 +404,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .act-left, .act-right { flex: none; max-width: none; width: 100%; overflow: visible; border-left: none; padding-left: 0; padding-right: 0; }
         .act-right { border-top: 1px solid var(--c-line); padding-top: 1rem; }
       }
-      .f-field { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
-      .f-label { font-size: 0.72rem; color: var(--c-muted); letter-spacing: 0.05em; text-transform: uppercase; }
-      .ed-telrow { display: flex; gap: 0.5rem; }
-      .ed-telrow input { flex: 1; min-width: 0; }
       /* Solo la misura e il posto nella riga: la grafica del campo (fondo,
          bordo, angoli, freccia) arriva da field.css. */
-      .ed-prefix { flex: 0 0 auto; width: 126px; }
       .ed-langs { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
       .ed-lang-pill {
         background: var(--c-card); border: 1px solid var(--c-line); color: var(--c-text);
@@ -436,15 +423,6 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       .ed-lang-piu:hover { color: var(--c-text); border-color: var(--c-text); }
 
       /* Toast */
-      .toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-8px);
-        z-index: 400; background: var(--c-card); border: 1px solid var(--c-line);
-        padding: 0.7rem 1.3rem; font-size: 0.9rem; border-radius: 999px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
-      }
-      .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.err { border-color: #a3320f; color: #ff8a8f; }
 
       /* Modulo ORDINI disattivato dal super admin: via colonna ordini (lista) e tab/statistiche ordini (modale) */
       .no-orders .c-orders, .no-orders .th[data-sort="orders"], .no-orders .act-tab[data-tab="order"] { display: none; }
@@ -621,8 +599,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       </div>
       <div class="f-field"><span class="f-label">{t("ord.emailLabel")}</span><input type="email" id="ed-email" autocomplete="off" /></div>
       <div class="f-field"><span class="f-label">{t("ord.phone")}</span>
-        <span class="ed-telrow">
-          <select id="ed-prefix" class="ed-prefix" aria-label={t("cli.dialCode")}></select>
+        <span class="f-tel">
+          <select id="ed-prefix" aria-label={t("cli.dialCode")}></select>
           <input type="tel" id="ed-phone" autocomplete="off" placeholder="455 12 34 56" />
         </span>
       </div>
@@ -656,7 +634,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
       import { collegaLogout } from "../../lib/admin/logout";
-      import { PREFISSI, separaPrefisso } from "../../lib/prefissi";
+      import { PREFISSI, separaPrefisso, collegaPrefissoTel } from "../../lib/prefissi";
       import { LINGUE_WIDGET } from "../../lib/reservationI18n";
       import { CLIENT } from "../../config/client";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
@@ -861,15 +839,10 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
           costruisciEdLingue();
         });
         // "+33 6…" o "0033…" digitato nel numero → prefisso riconosciuto e
-        // spostato nella tendina, numero ripulito. Stava solo sul modale
-        // «aggiungi» che nessuno apriva piu': qui e' sul modale vero.
-        (document.getElementById("ed-phone") as HTMLInputElement).addEventListener("input", (e) => {
-          const campo = e.target as HTMLInputElement;
-          const sep = separaPrefisso(campo.value);
-          if (!sep) return;
-          edPrefixEl().value = sep.dial;
-          campo.value = sep.resto;
-        });
+        // spostato nella tendina, numero ripulito. Il comportamento sta in
+        // prefissi.ts: qui c'era una seconda copia, con una differenza —
+        // non controllava che il prefisso fosse fra le opzioni del select.
+        collegaPrefissoTel(edPrefixEl(), document.getElementById("ed-phone") as HTMLInputElement);
 
         collegaLogout(logoutBtn);
 
@@ -1079,7 +1052,7 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
 
         function toast(msg: string, err = false) {
           toastEl.textContent = msg;
-          toastEl.className = "toast show" + (err ? " err" : "");
+          toastEl.className = "toast is-on" + (err ? " is-error" : "");
           clearTimeout(tCancella);
           tCancella = window.setTimeout(() => (toastEl.className = "toast"), 2600);
         }

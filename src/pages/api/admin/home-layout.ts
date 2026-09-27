@@ -2,7 +2,17 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 export const prerender = false;
+
+
+/** Messaggio nella lingua dell'admin. `adminLang()` legge un valore globale
+ *  gia' in cache (adminBoot): zero query in piu'. Vedi ENGINE.md,
+ *  «Messaggi d'errore delle API admin — nella lingua dell'admin». */
+async function msg(chiave: string): Promise<string> {
+  return adminT(await adminLang())(chiave);
+}
 
 // Layout PERSONALE della home per ogni utente admin: ordine, larghezza (1-4
 // colonne) e altezza minima delle isole. Salvato in app_config con chiave
@@ -45,9 +55,9 @@ export const PUT: APIRoute = async ({ request }) => {
   try {
     body = await request.json();
   } catch {
-    return json({ error: "Corps invalide" }, 400);
+    return json({ error: await msg("err.body") }, 400);
   }
-  if (!Array.isArray(body.layout)) return json({ error: "Layout invalide" }, 400);
+  if (!Array.isArray(body.layout)) return json({ error: await msg("err.layout") }, 400);
 
   const puliti: { key: string; w: number; minH?: number; hidden?: boolean }[] = [];
   const visti = new Set<string>();
@@ -66,7 +76,7 @@ export const PUT: APIRoute = async ({ request }) => {
   const { error } = await supabaseAdmin
     .from("app_config")
     .upsert({ key: chiaveUtente(staff.id), value: JSON.stringify(puliti) }, { onConflict: "key" });
-  if (error) return json({ error: "Enregistrement impossible" }, 500);
+  if (error) return json({ error: await msg("err.save") }, 500);
 
   return json({ ok: true, layout: puliti });
 };

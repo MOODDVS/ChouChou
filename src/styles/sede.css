@@ -1,0 +1,115 @@
+/* ============================================================
+   MULTI-SEDE — la pastiglia della sede e il selettore dell'header
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+   La pastiglia e' la stessa cosa ovunque compaia: nelle schede del
+   super admin, nel selettore in alto, e un domani sulle righe di
+   ordini e prenotazioni. Foto della sede se c'e', iniziali se no.
+
+     <span class="sede-avatar"><img src="…" alt="" /></span>
+     <span class="sede-avatar">JO</span>
+   ============================================================ */
+
+.sede-avatar {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-accent) 22%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, var(--c-text) 16%, var(--c-bg));
+  color: var(--c-text);
+  font-family: var(--font-title);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sede-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Taglia piccola: header, righe di elenco. */
+.sede-avatar-sm { width: 30px; height: 30px; border-radius: 6px; font-size: 0.7rem; }
+
+/* ---- Selettore nell'header ----
+   Prende il posto del logo: stessa altezza e stesso raggio del riquadro del
+   logo (48px / 10px), cosi' l'angolo in alto a sinistra non cambia forma
+   passando da un cliente a sede unica a uno multi-sede. Rettangolo con gli
+   angoli arrotondati, NON una pastiglia: la pastiglia farebbe a pugni con la
+   foto della sede, che e' quadrata. */
+.ah-sede { position: relative; display: inline-flex; }
+
+.ah-sede-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  height: 48px;
+  background: transparent;
+  border: 1px solid var(--c-line);
+  color: var(--c-text);
+  padding: 0 0.75rem 0 0.3rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  transition: border-color 0.2s, color 0.2s;
+}
+.ah-sede-btn:hover { border-color: var(--c-accent); }
+/* La foto sta DENTRO il riquadro: piu' piccola del bordo e con lo stesso
+   raggio rimpicciolito, o gli angoli si scontrano. */
+.ah-sede-btn .sede-avatar { width: 38px; height: 38px; border-radius: 7px; font-size: 0.85rem; }
+/* Un nome lungo non deve spingere via l'orologio: si taglia con i puntini. */
+.ah-sede-nome { display: block; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; }
+/* Una sede sola: niente da scegliere, quindi non e' un bottone. */
+.ah-sede-fisso { cursor: default; }
+.ah-sede-fisso:hover { border-color: var(--c-line); }
+.ah-sede-chev { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+
+.ah-sede-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 120;
+  min-width: 240px;
+  background: var(--c-header, var(--c-bg));
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+  padding: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.ah-sede-menu[hidden] { display: none; }
+
+.ah-sede-voce {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--c-text);
+  padding: 0.4rem 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+}
+.ah-sede-voce:hover { border-color: var(--c-accent); }
+.ah-sede-voce.is-on { color: var(--c-accent); }
+
+/* Telefono: resta la foto, sparisce il nome — in alto non c'e' spazio e la
+   foto basta a dire dove sei. Stessa misura che aveva il logo (40px). */
+@media (max-width: 640px) {
+  .ah-sede-nome { display: none; }
+  .ah-sede-btn { height: 40px; gap: 0.35rem; padding: 0 0.4rem 0 0.25rem; }
+  .ah-sede-btn .sede-avatar { width: 32px; height: 32px; border-radius: 6px; }
+}

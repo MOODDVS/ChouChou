@@ -1,7 +1,8 @@
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../db";
 import { configGiornoEffettiva } from "../schedule";
-import { TIMEZONE, aggiornaTimezone } from "../slots";
+import { appConfigEq } from "../appConfigCache";
+import type { Ambito } from "./sede";
+import { fusoDi } from "../fuso";
 
 // Dati "oggi" per l'admin (endpoint /api/admin/today + SSR caricaHomeData):
 //   - config       → config oraria effettiva di oggi (come prima)
@@ -24,10 +25,9 @@ function bande(cfg: NonNullable<CfgGiorno>): { open: string; close: string }[] {
   return b;
 }
 
-export async function caricaToday() {
-  await aggiornaTimezone();
-  const ora = DateTime.now().setZone(TIMEZONE);
-  const config = await configGiornoEffettiva(ora);
+export async function caricaToday(ambito: Ambito) {
+  const ora = DateTime.now().setZone(await fusoDi(ambito));
+  const config = await configGiornoEffettiva(ora, ambito);
   const hm = ora.toFormat("HH:mm");
 
   let closesAt: string | null = null;
@@ -37,7 +37,7 @@ export async function caricaToday() {
 
   let reopen: { in_days: number; heure: string } | null = null;
   for (let d = 0; d <= 21 && !reopen; d++) {
-    const cfg = d === 0 ? config : await configGiornoEffettiva(ora.plus({ days: d }));
+    const cfg = d === 0 ? config : await configGiornoEffettiva(ora.plus({ days: d }), ambito);
     for (const b of cfg ? bande(cfg) : []) {
       if (d === 0 && b.open <= hm) continue;
       reopen = { in_days: d, heure: b.open };
@@ -45,13 +45,12 @@ export async function caricaToday() {
     }
   }
 
+  // ⚠️ CON L'AMBITO. Il bottone «Fermer» scrive per sede: leggendo
+  // `app_config` a mano la tile mostrava lo stato del marchio, cioe' quasi
+  // sempre «aperta», su una cucina che il ristoratore aveva appena chiuso.
   let ordersClosed = false;
   try {
-    const { data } = await supabaseAdmin
-      .from("app_config")
-      .select("value")
-      .eq("key", "orders_closed")
-      .maybeSingle();
+    const { data } = await appConfigEq("orders_closed", ambito);
     ordersClosed = data?.value === "1";
   } catch {
     /* config assente: cucina considerata aperta */

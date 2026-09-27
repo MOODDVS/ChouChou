@@ -7,22 +7,21 @@
 // In testata: bottoni rapidi tempo di preparazione
 // (coniglio 15 / cane 30 / tartaruga 45) → PATCH /api/admin/settings.
 import AdminNav from "../../components/admin/AdminNav.astro";
+import { ambitoDiRichiesta, leggi, pagamentoOnlineAttivo } from "../../lib/admin/sede";
 import AdminHead from "../../components/admin/AdminHead.astro";
 import { CLIENT } from "../../config/client";
 import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Modal from "../../components/admin/Modal.astro";
 import { DateTime } from "luxon";
-import { supabaseAdmin } from "../../lib/db";
 import { verificaTokenLocale } from "../../lib/admin/adminAuth";
-import { aggiornaTimezone } from "../../lib/slots";
+import { fusoDi } from "../../lib/fuso";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { opzioniPrefisso } from "../../lib/prefissi";
 import { adminT } from "../../i18n/admin";
 import "../../styles/datepicker.css";
 import "../../styles/select.css";
-import "../../styles/fab.css";
 
 // Boot admin (cache 60s): lingua admin + lingue pubbliche della regola super.
 const boot = await caricaBootAdmin();
@@ -40,20 +39,34 @@ export const prerender = false;
 // Stessa query di GET /api/admin/orders. Se il cookie manca/è scaduto o c'è un
 // errore, ssrOrders resta null e il client carica come prima (nessun rischio).
 let ssrOrders: unknown[] | null = null;
+
+// LINK DI PAGAMENTO — si offre solo se questa sede puo' davvero incassare.
+//
+// ⚠️ Parte da `true`: se qualcosa qui sotto non riesce (cookie scaduto,
+// database lento) il bottone resta com'e' sempre stato. Un bottone di troppo
+// da' un errore leggibile quando lo si preme; un bottone che sparisce senza
+// motivo e' una telefonata.
+//
+// La pagina si ricarica quando si cambia sede (vedi AdminHeader), quindi
+// questo valore non puo' restare indietro rispetto al selettore.
+let pagaOnline = true;
+
 try {
   const token = Astro.cookies.get("mdd_at")?.value ?? "";
   const staff = token ? await verificaTokenLocale(token) : null;
   if (staff) {
+    const ambitoOrd = await ambitoDiRichiesta(Astro.request, staff);
+    pagaOnline = await pagamentoOnlineAttivo(ambitoOrd);
     const soglia = DateTime.now()
-      .setZone(await aggiornaTimezone())
+      .setZone(await fusoDi(ambitoOrd))
       .minus({ days: 7 })
       .startOf("day")
       .toISO();
-    const { data } = await supabaseAdmin
-      .from("orders")
-      .select(
-        "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id, payment_method"
-      )
+    const { data } = await leggi(
+      "orders",
+      ambitoOrd,
+      "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id, payment_method",
+    )
       .in("status", ["paid", "done", "cancelled"])
       .gte("pickup_time", soglia)
       .order("pickup_time", { ascending: true });
@@ -76,25 +89,18 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
         --c-red: #ed1c24;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; }
@@ -546,6 +552,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          ogni formato ha la sua riga rientrata. Si sceglie dalla lista, senza
          un modale in mezzo. */
       .nc-item-head { border-bottom: none; font-weight: 700; }
+      /* Piatto finito in QUESTO punto: si vede ma non si aggiunge. Sparire
+         sarebbe peggio — il ristoratore lo cercherebbe credendolo un guasto. */
+      .nc-item.is-off .n, .nc-item.is-off .p { opacity: 0.45; }
+      .nc-soldout { flex: none; display: inline-flex; align-items: center; margin-left: 0.5rem; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #ff8a8f; border: 1px solid rgba(237,28,36,0.5); border-radius: 999px; padding: 0.1rem 0.5rem; }
       .nc-item-var { padding-left: 1.6rem; border-bottom: none; }
       /* Dopo l'ULTIMA variante la linea torna piena: separa il piatto dal
          successivo. (Stessa specificita della regola dopo: conta l'ordine.) */
@@ -605,15 +615,10 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .nc-mod-line.add { color: #2e9e5b; font-weight: 600; }
       .nc-mod-line.rem { color: #d9534f; font-weight: 600; }
       .nc-mod-none { color: var(--c-muted); font-size: 0.9rem; }
-      .nc-toast {
-        position: fixed; top: 1rem; left: 50%; transform: translateX(-50%) translateY(-200%);
-        z-index: 2000; background: #2e9e6b; color: #fff; font-weight: 700; font-size: 0.9rem;
-        padding: 0.7rem 1.4rem; border-radius: 999px; box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.4 * var(--sh, 0.15)));
-        transition: transform 0.35s ease, opacity 0.35s ease; pointer-events: none;
-        opacity: 0; visibility: hidden;
-      }
-      .nc-toast.err { background: #b3261e; }
-      .nc-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; }
+      /* Il toast e' quello condiviso (styles/toast.css). Qui serve solo che
+         stia SOPRA il modale del rimborso, mentre la finestra e' ancora
+         aperta: e' la variante `is-sopra`. Prima era un componente a parte
+         (.nc-toast) per quella sola differenza di posizione. */
       /* Rimborso: guscio, campi e bottoni sono i condivisi. Qui resta solo la
          riga «€ [importo] [Tutto]», che e' l'unica cosa propria del modale.
          Spariti anche i 1000 di z-index: il guscio sta a 400 come ogni altro
@@ -847,7 +852,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               <div class="nc-pay">
                 <button type="button" class="nc-pay-btn" id="nc-cash" data-pay="cash">{t("ord.payCash")}</button>
                 <button type="button" class="nc-pay-btn" id="nc-card" data-pay="card">{t("ord.payCard")}</button>
-                <button type="button" class="nc-pay-btn nc-pay-link" id="nc-link" data-pay="link">{t("ord.payLinkShort")}</button>
+                <button
+                  type="button"
+                  class="nc-pay-btn nc-pay-link"
+                  id="nc-link"
+                  data-pay="link"
+                  data-off={pagaOnline ? undefined : "1"}
+                  style={pagaOnline ? undefined : "display:none"}
+                >{t("ord.payLinkShort")}</button>
               </div>
             </div>
           </div>
@@ -862,7 +874,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         <button type="button" class="md-btn md-btn-primary" id="nc-send" style="display:none">{t("ord.createSend")}</button>
       </Fragment>
     </Modal>
-    <div class="nc-toast" id="nc-toast"></div>
+    <div class="toast is-sopra" id="nc-toast"></div>
 
     <AdminNav current="orders" />
 
@@ -1462,7 +1474,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           if (dpvMesiFetch.has(k)) return;
           dpvMesiFetch.add(k);
           try {
-            const r = await fetch("/api/slots?month=" + k);
+            const r = await fetch("/api/admin/slots?month=" + k, { headers });
             if (!r.ok) return;
             const j = (await r.json()) as { closed?: string[] };
             (j.closed ?? []).forEach((d) => dpvClosedSet.add(d));
@@ -1848,7 +1860,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         }
 
         // 1) evento da AdminNav all'arrivo di un nuovo ordine pagato
-        window.addEventListener("moodd:new-order", () => refreshLive());
+        window.addEventListener("restohub:new-order", () => refreshLive());
         // 2) quando torni sulla scheda dell'admin
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "visible") refreshLive();
@@ -1879,14 +1891,16 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         let ncToastTimer = 0;
         function ncToast(msg: string, err = false) {
           ncToastEl.textContent = msg;
-          ncToastEl.classList.toggle("err", err);
-          ncToastEl.classList.add("show");
+          ncToastEl.classList.toggle("is-error", err);
+          ncToastEl.classList.add("is-on");
           window.clearTimeout(ncToastTimer);
-          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("show"), 3500);
+          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("is-on"), 3500);
         }
         type VoceMenu = {
           id: string; name: string; category: string; price_cents: number;
           available: boolean; orderable?: boolean;
+          /** Esaurito IN QUESTO PUNTO: l'API lo rende gia' sovrapposto. */
+          sold_out?: boolean;
           discount_type?: string | null; discount_value?: number | null;
           variants?: unknown;
         };
@@ -1910,8 +1924,31 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         function ncVarianti(v: VoceMenu) {
           return leggiVariantiDb(v.variants).filter((x) => x.orderable && !x.sold_out);
         }
+        /** Il piatto e' ordinabile ADESSO, in questo punto?
+         *
+         *  ⚠️ Due modi di essere finito, e vanno guardati tutti e due: il
+         *  piatto segnato esaurito, e il piatto che ha formati ma nessuno
+         *  ancora disponibile. Nel secondo caso `ncAggiungi` mandava una riga
+         *  senza formato e il server la rifiutava con un 409 alla fine, dopo
+         *  aver composto tutto l'ordine. */
+        function ncFinito(v: VoceMenu): boolean {
+          if (v.sold_out === true) return true;
+          const tutti = leggiVariantiDb(v.variants).filter((x) => x.orderable);
+          return tutti.length > 0 && ncVarianti(v).length === 0;
+        }
         /** Aggiunge (o incrementa) una riga. Unico punto che scrive nel carrello. */
         function ncAggiungi(voce: VoceMenu, variantKey?: string) {
+          // ⚠️ Il controllo sta QUI e non solo nella lista: al carrello si
+          // arriva anche dalle pastiglie «piatti preferiti» del cliente, che
+          // ripropongono quello che ha ordinato l'ultima volta — e l'ultima
+          // volta la burrata c'era. Senza questa riga il rifiuto arrivava dal
+          // server a ordine finito. (La MODIFICA di un ordine gia' esistente
+          // non passa di qui: ricostruisce il carrello scrivendoci dentro, e
+          // deve poterlo fare anche con un piatto finito stasera.)
+          if (ncFinito(voce)) {
+            ncToast(`${voce.name} — ${tr("menu.soldOut")}`, true);
+            return;
+          }
           const disp = ncVarianti(voce);
           // Piatto CON formati e nessuna chiave (preferito vecchio, senza
           // variante salvata): si prende il primo disponibile invece di mandare
@@ -1948,10 +1985,22 @@ let ncLang: string = NC_LANG_DEFAULT;
         }
         function ncRenderSvcs() {
           const box = document.getElementById("nc-svcs") as HTMLDivElement;
-          const tabs: string[] = [];
-          if (ncLunch.length) tabs.push(`<button type="button" class="nc-pill${ncSvc === "lunch" ? " is-on" : ""}" data-svc="lunch">${tr("ord.svcLunch")}</button>`);
-          if (ncDinner.length) tabs.push(`<button type="button" class="nc-pill${ncSvc === "dinner" ? " is-on" : ""}" data-svc="dinner">${tr("ord.svcDinner")}</button>`);
-          box.innerHTML = tabs.join("");
+          // ⚠️ Le etichette Pranzo/Cena si mostrano SOLO con due fasce.
+          //
+          // Con la «giornata continua» il motore tiene l'unica fascia nelle
+          // colonne `lunch_*` — anche quando quella fascia e' 17:00-23:00.
+          // Stampandola comunque, il modale diceva «PRANZO» sopra una fila di
+          // orari di sera. E con una fascia sola non c'e' niente da scegliere:
+          // la pastiglia non era un comando, era una didascalia sbagliata.
+          //
+          // La regola esisteva gia' nel sito pubblico (`SlotPicker.tsx`,
+          // `spezzato`); qui non era mai arrivata. Due implementazioni della
+          // stessa idea, una sola corretta — il solito doppione.
+          const spezzato = ncLunch.length > 0 && ncDinner.length > 0;
+          if (!spezzato) { box.innerHTML = ""; return; }
+          box.innerHTML =
+            `<button type="button" class="nc-pill${ncSvc === "lunch" ? " is-on" : ""}" data-svc="lunch">${tr("ord.svcLunch")}</button>` +
+            `<button type="button" class="nc-pill${ncSvc === "dinner" ? " is-on" : ""}" data-svc="dinner">${tr("ord.svcDinner")}</button>`;
         }
         function ncRenderSlots() {
           const slotsBox = document.getElementById("nc-slots") as HTMLDivElement;
@@ -1991,6 +2040,10 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-items") as HTMLDivElement).innerHTML = ncMenu
             .filter((v) => v.category === ncCat)
             .map((v) => {
+              // Finito qui: si vede, con la pastiglia, e il «+» non c'e'.
+              if (ncFinito(v)) {
+                return `<div class="nc-item is-off"><span class="n">${esc(v.name)}</span><span class="nc-soldout">${esc(tr("menu.soldOut"))}</span><span class="p">${euro(ncPrezzo(v))}</span></div>`;
+              }
               const va = ncVarianti(v);
               // Piatto SENZA formati: riga singola, identica a prima.
               if (!va.length) {
@@ -2046,7 +2099,10 @@ let ncLang: string = NC_LANG_DEFAULT;
           (document.getElementById("nc-title") as HTMLElement).textContent = tr("ord.newOrder");
           (document.getElementById("nc-pay-lab") as HTMLElement).style.display = "";
           (document.querySelector(".nc-pay") as HTMLElement).style.display = "";
-          (document.getElementById("nc-link") as HTMLElement).style.display = "";
+          // ⚠️ `data-off` viene dal server e dice che qui non si incassa: il
+          // reset del modale non deve farlo riapparire.
+          const ncLk = document.getElementById("nc-link") as HTMLElement;
+          ncLk.style.display = ncLk.dataset.off === "1" ? "none" : "";
           mostraStep(1);
           for (const id of ["nc-prenom", "nc-nom", "nc-email", "nc-tel", "nc-note"])
             (document.getElementById(id) as HTMLInputElement).value = "";
@@ -2304,7 +2360,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           ncSlot = "";
           ncSlotsEstesi = false;
           try {
-            const r = await fetch("/api/slots?date=" + encodeURIComponent(ncDate));
+            const r = await fetch("/api/admin/slots?date=" + encodeURIComponent(ncDate), { headers });
             if (!r.ok) throw new Error();
             const j = (await r.json()) as { lunch: string[]; dinner: string[]; closed?: boolean };
             // Giorno chiuso: niente servizi né slot, messaggio "Chiuso oggi/domani".
@@ -2352,7 +2408,7 @@ let ncLang: string = NC_LANG_DEFAULT;
           if (ncMesiFetch.has(key)) return;
           ncMesiFetch.add(key);
           try {
-            const r = await fetch("/api/slots?month=" + key);
+            const r = await fetch("/api/admin/slots?month=" + key, { headers });
             if (!r.ok) return;
             const j = (await r.json()) as { closed?: string[] };
             (j.closed ?? []).forEach((d) => ncClosedSet.add(d));

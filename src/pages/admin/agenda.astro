@@ -15,7 +15,6 @@ import { adminT } from "../../i18n/admin";
 import { LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
 import { caricaBootAdmin } from "../../lib/admin/adminBoot";
 import "../../styles/datepicker.css";
-import "../../styles/fab.css";
 
 const lang = await adminLang();
 const t = adminT(lang);
@@ -43,24 +42,17 @@ const pubLangsJson = JSON.stringify({
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Quicksand:wght@700&family=Nunito+Sans:wght@400;600;700;900&display=swap"
-    />
     <style is:global>
       :root {
-        --c-hover: #e04f00;
-        --c-input: #e6e6e6;
-        --c-bg: #ffffff;
-        --c-text: #666666;
-        --c-accent: #ff7300;
-        --c-muted: #a6a6a6;
-        --c-line: #ebebeb;
-        --c-card: #ffffff;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Nunito Sans", system-ui, sans-serif;
+        --c-hover: #e86a61;
+        --c-input: #0e3038;
+        --c-bg: #0c2a30;
+        --c-header: #04161b;
+        --c-text: #e9efef;
+        --c-accent: #cb534d;
+        --c-muted: #86a0a4;
+        --c-line: #244a52;
+        --c-card: #16424b;
       }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; }
@@ -199,10 +191,6 @@ const pubLangsJson = JSON.stringify({
       }
       /* Il messaggio d'errore spinge i bottoni a destra e resta a sinistra. */
       #overlay .md-foot .m-err { margin-right: auto; }
-      .f-img-row { display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; }
-      .f-img-prev { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--c-line); background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; color: var(--c-muted); }
-      .f-img-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
-      .f-img-prev svg { width: 22px; height: 22px; }
       .ev-lang { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }
       .ev-lang:first-child { border-top: none; padding-top: 0; margin-top: 0; }
       #f-langs { border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: 0.9rem; }
@@ -352,15 +340,6 @@ const pubLangsJson = JSON.stringify({
       .n-row-date { color: var(--c-muted); font-size: 0.82rem; white-space: nowrap; }
 
       /* Toast */
-      .toast {
-        position: fixed; left: 50%; bottom: 6rem; transform: translateX(-50%) translateY(20px);
-        background: var(--c-card); border: 1px solid var(--c-accent); color: var(--c-text);
-        padding: 0.7rem 1.3rem; border-radius: 999px; font-size: 0.9rem;
-        opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 400;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, calc(0.5 * var(--sh, 0.15)));
-      }
-      .toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .toast.is-error { border-color: #ed1c24; }
 
       @media (max-width: 640px) {
         .f-row { grid-template-columns: 1fr; }
@@ -480,6 +459,17 @@ const pubLangsJson = JSON.stringify({
             </span>
           </div>
           <p class="f-hint">{t("ag.rsvpHint")}</p>
+
+          <!-- Multi-sede: compare solo dentro un punto (lo accende lo script).
+               ⚠️ Spuntato di default: l'agenda e' del MARCHIO. Si toglie la
+               spunta per la serata che fa un punto solo. -->
+          <div class="f-row" id="f-allloc-wrap" style="align-items:center;margin-top:1.2rem;display:none">
+            <span class="sw-wrap">
+              <label class="switch"><input type="checkbox" id="f-allloc" checked /><span class="track"></span></label>
+              <span class="sw-lab">{t("ag.allLoc")}</span>
+            </span>
+          </div>
+          <p class="f-hint" id="f-allloc-hint" style="display:none">{t("ag.allLocHint")}</p>
           <label class="f-lab" for="f-rsvp-max">{t("ag.rsvpMax")}</label>
           <input type="number" class="f-input" id="f-rsvp-max" min="1" placeholder={t("ag.rsvpMaxPh")} />
 
@@ -516,6 +506,8 @@ const pubLangsJson = JSON.stringify({
       type LinkExt = { label: string; url: string };
       type Evento = {
         id: string;
+        /** Di quale punto e' questo evento. `null` = di tutto il gruppo. */
+        location_id?: string | null;
         title: string;
         title_i18n?: Record<string, string> | null;
         body_i18n?: Record<string, string> | null;
@@ -582,9 +574,9 @@ const pubLangsJson = JSON.stringify({
         function toast(msg: string, isErr = false) {
           toastEl.textContent = msg;
           toastEl.classList.toggle("is-error", isErr);
-          toastEl.classList.add("is-visible");
+          toastEl.classList.add("is-on");
           window.clearTimeout(toastTimer);
-          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-visible"), 2600);
+          toastTimer = window.setTimeout(() => toastEl.classList.remove("is-on"), 2600);
         }
 
         // ---------- Lista ----------
@@ -635,7 +627,9 @@ const pubLangsJson = JSON.stringify({
           try {
             const res = await fetch("/api/admin/agenda", { headers: await authFresh() });
             if (!res.ok) throw new Error();
-            eventi = ((await res.json()) as { events: Evento[] }).events;
+            const dati = (await res.json()) as { events: Evento[]; sede?: string | null };
+            eventi = dati.events;
+            sedeAttiva = dati.sede ?? null;
             stateEl.style.display = "none";
             render();
           } catch {
@@ -664,6 +658,12 @@ const pubLangsJson = JSON.stringify({
         const deWrap = document.getElementById("de-wrap") as HTMLDivElement;
         const fLinks = document.getElementById("f-links") as HTMLDivElement;
         const fRsvp = document.getElementById("f-rsvp") as HTMLInputElement;
+        const fAllLoc = document.getElementById("f-allloc") as HTMLInputElement;
+        const fAllLocWrap = document.getElementById("f-allloc-wrap") as HTMLElement;
+        const fAllLocHint = document.getElementById("f-allloc-hint") as HTMLElement;
+        /** La sede selezionata nell'header, detta dal server. `null` = nessun
+         *  punto selezionato, e allora non c'e' niente da scegliere. */
+        let sedeAttiva: string | null = null;
         const fActive = document.getElementById("f-active") as HTMLInputElement;
         // Lingue del sito pubblico (per titolo/descrizione tradotti).
         type PubLangs = { langs: string[]; def: string; labels: Record<string, { label: string; flag: string }> };
@@ -811,6 +811,14 @@ const pubLangsJson = JSON.stringify({
           fLinks.innerHTML = "";
           (ev?.links ?? []).forEach((l) => addLinkRow(l.label, l.url));
           fRsvp.checked = ev?.rsvp ?? false;
+          // ⚠️ Un evento NUOVO parte spuntato: l'agenda e' del marchio. Uno
+          // esistente mostra quello che e' davvero (`location_id` nullo = di
+          // tutti), non il default — altrimenti riaprire e salvare senza
+          // toccare niente sposterebbe un evento di sede su tutte.
+          const mostraLoc = sedeAttiva !== null;
+          fAllLocWrap.style.display = mostraLoc ? "" : "none";
+          fAllLocHint.style.display = mostraLoc ? "" : "none";
+          fAllLoc.checked = ev ? (ev.location_id ?? null) === null : true;
           fActive.checked = ev ? ev.active : true;
           overlay.hidden = false;
         }
@@ -1055,6 +1063,9 @@ const pubLangsJson = JSON.stringify({
             date_end: dateMode() === "range" ? fDe.dataset.iso || null : null,
             links,
             rsvp: fRsvp.checked,
+            // Si manda solo dentro un punto: fuori non c'e' niente da dividere,
+            // e l'API non deve nemmeno vedere il campo.
+            ...(sedeAttiva ? { all_locations: fAllLoc.checked } : {}),
             active: draft ? false : fActive.checked,
           };
           mSave.disabled = true;
