@@ -265,19 +265,36 @@ test("nessuno scrive a mano il nome di una famiglia dichiarata", () => {
     "il nome letterale non ha nessun @font-face: si usa var(--font-…)");
 });
 
-test("nessuna pagina ridichiara una variabile dei font", () => {
-  // Il `<style>` della pagina vince su quello iniettato da Astro. Ridichiarare
-  // la variabile — anche col valore «giusto» — significa sostituire il nome
-  // con hash con uno che non esiste.
+test("nessuna pagina riscrive una variabile dei font con un nome a mano", () => {
+  // Il `<style>` della pagina vince su quello iniettato da Astro, quindi
+  // riscrivere `--font-title: "Quicksand"` sostituisce il nome CON HASH con
+  // uno che non ha nessun `@font-face`: il testo ricade sul font di sistema.
+  //
+  // ⚠️ Ma un RINVIO a un'altra famiglia dichiarata non ha quel problema: il
+  // valore e' il nome con hash, e quello esiste. Ed e' l'unico modo perche' i
+  // componenti del motore dentro un sito cliente — il widget di prenotazione,
+  // il popup, le pagine legali — usino i font DI QUEL cliente invece dei
+  // nostri. ChouChou lo fa cosi':
+  //
+  //     html:root { --font-title: var(--font-titolo); }
+  //
+  // (`html:root` e non `:root`: vince sull'iniezione di Astro per
+  // specificita', non per ordine di comparsa nel `<head>`.)
+  const dichiarate = new Set(FAMIGLIE.map((x) => x.variabile));
   const colpevoli = [];
   for (const f of AGGANCIATI) {
     const testo = senzaCommenti(readFileSync(f, "utf8"));
     for (const { variabile } of FAMIGLIE) {
-      if (new RegExp(`${variabile}\\s*:`).test(testo)) colpevoli.push(`${f}: ${variabile}`);
+      for (const m of testo.matchAll(new RegExp(`${variabile}\\s*:([^;}]*)`, "g"))) {
+        const valore = m[1].trim();
+        const rinvio = valore.match(/^var\(\s*(--font-[a-z]+)\s*\)$/);
+        if (rinvio && dichiarate.has(rinvio[1])) continue;
+        colpevoli.push(`${f}: ${variabile}: ${valore.slice(0, 40)}`);
+      }
     }
   }
   assert.deepEqual(colpevoli, [],
-    "la variabile la definisce Astro: la pagina la legge, non la riscrive");
+    "la variabile la definisce Astro: si legge, o si rinvia a un'altra dichiarata");
 });
 
 test("ogni pagina che usa un font ha i font", () => {
@@ -292,6 +309,20 @@ test("ogni pagina che usa un font ha i font", () => {
     scoperte.push(f);
   }
   assert.deepEqual(scoperte, [], "usa var(--font-…) ma nessuno dichiara le famiglie");
+});
+
+test("nessuna variabile dei font e' dichiarata due volte", () => {
+  // Astro NON si ferma: scrive due righe di avviso in build — «Several font
+  // families have been registered for the … cssVariable» — e tiene l'ULTIMA.
+  // In build quegli avvisi passano in mezzo a tutto il resto, e il risultato e'
+  // una famiglia che sparisce senza che niente si rompa.
+  const viste = new Map();
+  const doppie = [];
+  for (const { nome, variabile } of FAMIGLIE) {
+    if (viste.has(variabile)) doppie.push(`${variabile}: ${viste.get(variabile)} e ${nome}`);
+    else viste.set(variabile, nome);
+  }
+  assert.deepEqual(doppie, [], "l'ultima dichiarazione vince e l'altra sparisce");
 });
 
 test("i pesi dichiarati sono quelli che c'erano, non quelli che sembrano giusti", () => {
@@ -310,12 +341,19 @@ test("i pesi dichiarati sono quelli che c'erano, non quelli che sembrano giusti"
   //
   // Quindi: questi elenchi NON si allargano per simmetria. Aggiungere un peso
   // e' un cambio di resa su tutto il pannello, e va visto a occhio.
+  // ⚠️ La chiave e' la VARIABILE, non il nome della famiglia. Un cliente puo'
+  // dichiarare la stessa famiglia una seconda volta coi pesi del SUO sito
+  // (ChouChou: Quicksand [700] sul pannello, [400,500,600,700] sul sito) e per
+  // Astro sono due famiglie distinte, perche' la chiave unica e'
+  // cssVariable + nome + provider e il nome con hash comprende i pesi.
+  // Con la chiave sul nome, la seconda dichiarazione copriva la prima e questa
+  // prova diceva che il pannello era cambiato quando non era vero.
   const pesi = Object.fromEntries(
-    [...BLOCCO_FONT.matchAll(/name:\s*"([^"]+)",[\s\S]{0,900}?weights:\s*\[([^\]]*)\]/g)]
-      .map(([, nome, lista]) => [nome, lista.split(",").map((n) => Number(n.trim()))]),
+    [...BLOCCO_FONT.matchAll(/cssVariable:\s*"(--font-[a-z]+)",[\s\S]{0,900}?weights:\s*\[([^\]]*)\]/g)]
+      .map(([, variabile, lista]) => [variabile, lista.split(",").map((n) => Number(n.trim()))]),
   );
-  assert.deepEqual(pesi["Quicksand"], [700],
-    "Quicksand con piu' di un peso: i titoli del pannello si smagriscono");
-  assert.deepEqual(pesi["Nunito Sans"], [400, 600, 700, 900],
+  assert.deepEqual(pesi["--font-title"], [700],
+    "Quicksand del pannello con piu' di un peso: i titoli si smagriscono");
+  assert.deepEqual(pesi["--font-body"], [400, 600, 700, 900],
     "l'800 di Nunito Sans non e' mai esistito: le 39 regole font-weight:800 contavano sul 900");
 });
