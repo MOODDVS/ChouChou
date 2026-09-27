@@ -1004,6 +1004,13 @@ const AMMESSI_AGGREGATO = {
     "src/pages/order-confirm.astro":
       "ritorno da Stripe sul sito del cliente: chi torna dal pagamento non dice " +
       "da quale punto, e l'id di sessione E' l'autorizzazione",
+    // ⚠️ Educazione Napoletana tiene il corpo della pagina in UN componente
+    // condiviso dalle tre lingue, invece di tre pagine gemelle: il percorso
+    // non e' sotto `src/pages`, quindi `chiaveAmmessi` non lo riporta a
+    // `order-confirm.astro` e va dichiarato per nome. La ragione e' la stessa:
+    // chi torna da Stripe non dice da quale punto ha ordinato.
+    "src/components/pages/OrderConfirmPage.astro":
+      "ritorno da Stripe, corpo condiviso fra le lingue: l'id di sessione E' l'autorizzazione",
     "src/pages/api/reservation.ts":
       "i link «modifier» e «annuler» arrivano da un'email: il cliente non ha " +
       "scelto nessun punto sul sito e non deve doverlo fare. Il cancel_token e' " +
