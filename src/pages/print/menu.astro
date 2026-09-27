@@ -15,6 +15,7 @@ export const prerender = false;
 
 import { getMenu, type MenuItem, type MenuCategoria } from "../../lib/db";
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
+import Fonts from "../../components/Fonts.astro";
 
 // ⚠️ L'AMBITO. Dal multi-sede il motore chiede sempre DI QUALE PUNTO si
 // parla. ChouChou ne ha uno solo, quindi `ambitoPubblicoChiesto` rende
@@ -232,12 +233,9 @@ const teaHead = (s: BevSub) => {
   <meta name="robots" content="noindex, nofollow" />
   <title>Comptoir Chouchou — La Carte (PDF)</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;500;600;700&display=swap"
-    rel="stylesheet"
-  />
+  {/* I font dal dominio di ChouChou, non da Google (vedi Layout.astro). Il
+      corsivo di Lato lo chiedeva questa pagina: e' dichiarato in astro.config. */}
+  <Fonts sito />
 
   <style is:inline>
     :root{
@@ -245,10 +243,9 @@ const teaHead = (s: BevSub) => {
       --mag:#ed2289;
       --ivory:#f7f4ee;
       --grey:#8a8f9b;
-      --font-title:"Quicksand", system-ui, sans-serif;
-      --font-body:"Lato", system-ui, sans-serif;
-      --font-script:"Birthstone", cursive;
     }
+    /* ⚠️ Rinvio, non ridichiarazione: vedi Layout.astro. */
+    html:root{ --font-title:var(--font-titolo); --font-body:var(--font-testo); }
     *{box-sizing:border-box}
 
     /* ---------- PAGE (A5 + bleed 3mm + segni di taglio) ---------- */
@@ -408,7 +405,7 @@ const teaHead = (s: BevSub) => {
        (paged.js riscrive il CSS principale e perderebbe le regole @media screen). -->
   <style is:inline data-pagedjs-ignore="true">
     .dl-btn{position:fixed;right:20px;bottom:20px;z-index:99999;border:none;cursor:pointer;
-      background:#ed2289;color:#fff;font-family:"Quicksand",system-ui,sans-serif;font-weight:700;
+      background:#ed2289;color:#fff;font-family:var(--font-titolo, system-ui);font-weight:700;
       font-size:15px;padding:13px 22px;border-radius:999px;box-shadow:0 8px 24px rgba(237,34,137,.4);}
     /* Fondo magenta su TUTTO il foglio della pagina concept, abbondanza inclusa
        (il foglio paged.js taglia gli elementi interni: lo coloriamo direttamente). */

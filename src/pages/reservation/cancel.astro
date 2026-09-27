@@ -4,6 +4,7 @@
 // chiede conferma e chiama DELETE /api/reservation. Multilingua: usa la
 // lingua salvata nella prenotazione. RestoHub non è toccato.
 import { CLIENT } from "../../config/client";
+import Fonts from "../../components/Fonts.astro";
 ---
 
 <!doctype html>
@@ -13,14 +14,14 @@ import { CLIENT } from "../../config/client";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Annulation — {CLIENT.nome}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@300;400;700;900&family=Quicksand:wght@400;500;600;700&display=swap"
-    />
+    {/* I font dal dominio di ChouChou, non da Google (vedi Layout.astro). */}
+    <Fonts sito />
     <style is:global>
-      :root { --font-title: "Quicksand", system-ui, sans-serif; --font-body: "Lato", system-ui, sans-serif; --font-script: "Birthstone", cursive; --navy: #353c4e; --mag: #ed2289; --ivory: #f7f4ee; }
+      :root { --navy: #353c4e; --mag: #ed2289; --ivory: #f7f4ee; }
+      /* ⚠️ Rinvio, non ridichiarazione: vedi Layout.astro. `html:root` vince
+         per specificita' sull'iniezione di Astro, e il valore e' un `var()`
+         perche' il nome della famiglia ha un hash. */
+      html:root { --font-title: var(--font-titolo); --font-body: var(--font-testo); }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; background: #23283a; color: var(--ivory); font-family: var(--font-body); }
       .page { position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 3vh 1rem 4rem; overflow: hidden; background: radial-gradient(120% 100% at 50% 0%, #3d4458 0%, #2b3040 55%, #23283a 100%); }

@@ -7,6 +7,7 @@
 export const prerender = false;
 
 import { getLunchAttivo, type LunchPiatto } from "../../lib/lunch";
+import Fonts from "../../components/Fonts.astro";
 
 const lunch = await getLunchAttivo();
 
@@ -62,17 +63,16 @@ if (lunch && lunch.combos.length) {
   <meta name="robots" content="noindex, nofollow" />
   <title>Comptoir Chouchou — Le Lunch (PDF)</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:ital,wght@0,400;0,700;1,400&family=Quicksand:wght@400;500;600;700&display=swap"
-    rel="stylesheet"
-  />
+  {/* I font dal dominio di ChouChou, non da Google (vedi Layout.astro). Il
+      corsivo di Lato lo chiedeva questa pagina: e' dichiarato in astro.config. */}
+  <Fonts sito />
 
   <style is:inline>
     :root{
       --navy:#353c4e; --mag:#ed2289; --ivory:#f7f4ee; --grey:#8a8f9b;
-      --ft:"Quicksand",system-ui,sans-serif; --fb:"Lato",system-ui,sans-serif; --fs:"Birthstone",cursive;
+      /* ⚠️ Nomi propri di questa pagina: il valore arriva dalle famiglie di
+         Astro, non da un nome scritto a mano (che non ha nessun @font-face). */
+      --ft:var(--font-titolo); --fb:var(--font-testo); --fs:var(--font-script);
     }
     *{box-sizing:border-box}
     @page{ size:148mm 210mm; bleed:3mm; marks:crop cross; margin:0; }
@@ -112,7 +112,7 @@ if (lunch && lunch.combos.length) {
   <!-- Stili anteprima/bottone: foglio IGNORATO da paged.js -->
   <style is:inline data-pagedjs-ignore="true">
     .dl-btn{position:fixed;right:20px;bottom:20px;z-index:99999;border:none;cursor:pointer;
-      background:#ed2289;color:#fff;font-family:"Quicksand",system-ui,sans-serif;font-weight:700;
+      background:#ed2289;color:#fff;font-family:var(--font-titolo, system-ui);font-weight:700;
       font-size:15px;padding:13px 22px;border-radius:999px;box-shadow:0 8px 24px rgba(237,34,137,.4);}
     @media screen{
       html,html body{background:#e7e5e0 !important;}

@@ -122,6 +122,71 @@ export default defineConfig({
       subsets: ["latin"],
       display: "swap",
     },
+    // ============================================================
+    // LE FAMIGLIE DEL SITO DI CHOUCHOU (Quicksand, Lato, Birthstone).
+    //
+    // Stanno accanto a quelle del pannello e non si mescolano: per Astro la
+    // chiave unica di una famiglia e' `cssVariable:nome:provider`, e il nome
+    // che finisce nel CSS e' `${nome}-${hash(tutto l'oggetto)}` — hash che
+    // comprende variabile e pesi. Quindi Quicksand compare due volte, [700]
+    // per il pannello e i pesi del sito qui sotto, e sono due `@font-face`
+    // separati: il pannello non cambia di un grammo.
+    //
+    // ⚠️ I nomi non hanno trattini interni (`--font-titolo`, non
+    // `--font-cc-title`): le reti in tests/prestazioni.test.mjs leggono
+    // `--font-[a-z]+`, e un trattino le farebbe passare a vuoto in silenzio.
+    //
+    // ⚠️ Il sito continua a scrivere `var(--font-title)` e `var(--font-body)`
+    // in 317 posti: il Layout RINVIA quelle due variabili a queste
+    // (`html:root { --font-title: var(--font-titolo) }`). Cosi' anche i
+    // componenti del motore dentro il sito — il widget di prenotazione, il
+    // popup, le pagine legali — restano coi font di ChouChou, com'erano.
+    // ============================================================
+    {
+      provider: fontProviders.google(),
+      name: "Quicksand",
+      cssVariable: "--font-titolo",
+      // I pesi che il sito chiedeva a Google: `Quicksand:wght@400;500;600;700`.
+      // ⚠️ NIENTE 800. Nel CSS del sito ci sono cinque `font-weight: 800`, e
+      // oggi ricadono sul 700 perche' l'800 non e' mai stato scaricato.
+      // Dichiararlo le smagrirebbe tutte e cinque — e' esattamente il guasto
+      // del 21/09/2026 sul pannello, che una prova qui accanto ora protegge.
+      weights: [400, 500, 600, 700],
+      styles: ["normal"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Lato",
+      cssVariable: "--font-testo",
+      // ⚠️ SOLO 400 e 700, come chiedeva il Layout. Cinque pagine chiedevano
+      // anche 300 e 900, ma nel CSS del sito quei due pesi non esistono: erano
+      // scaricati per niente, e dichiararli cambierebbe la resa il giorno che
+      // qualcuno li scrivesse.
+      //
+      // ⚠️ Il corsivo c'e' perche' le due pagine di stampa lo chiedevano
+      // davvero (`ital,wght@…1,400`) e la carta stampata e' la cosa piu'
+      // difficile da correggere dopo. Conseguenza da guardare: i due corsivi di
+      // menu.astro passano da obliquo sintetizzato a corsivo vero.
+      weights: [400, 700],
+      styles: ["normal", "italic"],
+      subsets: ["latin", "latin-ext"],
+      display: "swap",
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Birthstone",
+      cssVariable: "--font-script",
+      // La firma manoscritta: «Comptoir» nel titolo della home, e gli <em> del
+      // sito. Un peso solo, come prima. ⚠️ Questa variabile il motore non la
+      // dichiara, quindi tiene il nome che ha sempre avuto e le sue 23
+      // occorrenze non si toccano.
+      weights: [400],
+      styles: ["normal"],
+      subsets: ["latin"],
+      display: "swap",
+    },
   ],
   site: "https://www.comptoirchouchou.be",
 });

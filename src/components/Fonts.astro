@@ -42,8 +42,18 @@ interface Props {
   titoli?: boolean;
   /** Precarica anche Marcellus e Bebas Neue: widget di prenotazione, vetrina. */
   vetrina?: boolean;
+  /**
+   * Pagina del SITO di ChouChou, non del pannello.
+   *
+   * ⚠️ Cambia SOLO i precaricamenti, non le famiglie dichiarate. Sul sito,
+   * `--font-body` e `--font-title` (Nunito Sans e Quicksand 700 del pannello)
+   * non vengono usati da nessuno: il Layout li rinvia alle famiglie di
+   * ChouChou. Precaricarli sarebbe banda rubata al vero LCP, che e' la parola
+   * «Comptoir» in Birthstone nel titolo della home.
+   */
+  sito?: boolean;
 }
-const { titoli = true, vetrina = false } = Astro.props;
+const { titoli = true, vetrina = false, sito = false } = Astro.props;
 ---
 
 {/*
@@ -59,8 +69,24 @@ const { titoli = true, vetrina = false } = Astro.props;
   `settings.astro` e `ReservationWidget` usano Marcellus. Il testo sarebbe
   ricaduto su Georgia senza che niente lo dicesse.
 */}
-<Font cssVariable="--font-body" preload />
-<Font cssVariable="--font-title" preload={titoli} />
+{/*
+  ⚠️ QUESTO FILE E' DEL CLIENTE. `src/components/**` e' `merge=ours`, quindi il
+  merge del motore NON lo porta: le tre famiglie del sito qui sotto sopravvivono
+  agli aggiornamenti, ma un miglioramento del motore a questo componente va
+  ricopiato a mano. E' lo stesso patto di `astro.config.mjs`.
+*/}
+<Font cssVariable="--font-body" preload={!sito} />
+<Font cssVariable="--font-title" preload={titoli && !sito} />
 <Font cssVariable="--font-serif" preload={vetrina} />
 <Font cssVariable="--font-display" preload={vetrina} />
 <Font cssVariable="--font-mano" />
+
+{/*
+  Le famiglie del SITO. Si dichiarano su ogni pagina come le altre — un
+  `@font-face` non scarica niente — e si precaricano solo sulle pagine del sito.
+  Tutte e tre sono nel primo schermo: il testo, i titoli, e la firma manoscritta
+  che e' la prima riga dell'h1 della home.
+*/}
+<Font cssVariable="--font-testo" preload={sito} />
+<Font cssVariable="--font-titolo" preload={sito && titoli} />
+<Font cssVariable="--font-script" preload={sito} />

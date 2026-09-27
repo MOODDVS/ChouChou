@@ -5,6 +5,7 @@ import MobileNav from "../components/MobileNav.astro";
 import CookieBanner from "../components/CookieBanner.astro";
 import ReservationModal from "../components/ReservationModal.astro";
 import SitePopup from "../components/SitePopup.astro";
+import Fonts from "../components/Fonts.astro";
 import { getLangFromUrl } from "../i18n/ui";
 import { CLIENT } from "../config/client";
 import { supabaseAdmin } from "../lib/db";
@@ -110,20 +111,13 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPub
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Birthstone&family=Lato:wght@400;700&family=Quicksand:wght@400;500;600;700&display=swap"
-      />
-    </noscript>
+    {/*
+      I font arrivano dal dominio di ChouChou, non da Google: due handshake in
+      meno sul percorso critico, e l'IP del visitatore non esce piu' dal sito
+      — che ha una pagina privacy che promette proprio questo. Le famiglie si
+      dichiarano in astro.config.mjs.
+    */}
+    <Fonts sito />
 
     <style is:global>
       :root {
@@ -132,11 +126,32 @@ const jsonLd = bare ? "" : await restaurantJsonLd(siteUrl, lang, await ambitoPub
         --c-accent: #dfab4e;
         --c-muted: #b3aca6;
         --c-line: #3a3335;
-        --font-title: "Quicksand", system-ui, sans-serif;
-        --font-body: "Lato", system-ui, sans-serif;
-        --font-display: "Quicksand", system-ui, sans-serif;
-        --font-script: "Birthstone", cursive;
         --maxw: 1440px;
+      }
+      /*
+        ⚠️ I FONT DEL SITO ARRIVANO DA ASTRO, E QUESTE TRE RIGHE LI RINVIANO.
+        Il sito scrive `var(--font-title)` e `var(--font-body)` in 317 posti, e
+        quei due nomi sono quelli del PANNELLO (Nunito Sans, Quicksand 700).
+        Rinviarli alle famiglie di ChouChou fa due cose in una riga: non si
+        rinomina niente nel CSS del sito, e i componenti del motore che stanno
+        dentro il sito — il widget di prenotazione, il popup, le pagine legali —
+        restano coi font di ChouChou invece di passare ai nostri.
+
+        ⚠️ `html:root` e non `:root`: vince sull'iniezione di Astro per
+        SPECIFICITA' (0,1,1 contro 0,1,0), non per ordine di comparsa nel
+        `<head>`. Con `:root` il risultato dipenderebbe da dove finisce il CSS
+        impacchettato rispetto a quello di `<Font>`, e cambierebbe da una
+        versione di Astro all'altra.
+
+        ⚠️ Il valore e' un `var()`, mai un nome scritto a mano: Astro registra
+        le famiglie con un nome CON HASH, e `"Quicksand"` non ha nessun
+        `@font-face`. `--font-script` non sta qui perche' il motore non la
+        dichiara: Birthstone tiene il suo nome e arriva diretta.
+      */
+      html:root {
+        --font-title: var(--font-titolo);
+        --font-body: var(--font-testo);
+        --font-display: var(--font-titolo);
       }
       * { box-sizing: border-box; }
       html, body {
