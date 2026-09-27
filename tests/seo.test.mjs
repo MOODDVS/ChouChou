@@ -53,8 +53,18 @@ test("la regola e' agganciata: astro.config usa il filtro", () => {
   // Un modulo di regole che nessuno chiama e' peggio di niente: sembra che il
   // problema sia risolto.
   assert.match(CONFIG, /import \{ inSitemap \} from "\.\/src\/lib\/seo\/sitemapRegole"/);
-  assert.match(CONFIG, /sitemap\(\{\s*filter: inSitemap\s*\}\)/,
-    "sitemap() e' tornata nuda: rimette il pannello in sitemap");
+  // ⚠️ NON si pretende la forma esatta `filter: inSitemap`. L'Huile sur le Feu
+  // ha un elenco suo — /boutique, /links, /privacy, /apercu, /legal — ognuna
+  // con la sua ragione scritta, e lo COMPONE con le regole del motore:
+  //
+  //     filter: (page) => inSitemap(page) && !ESCLUSE_CLIENTE.some(…)
+  //
+  // Pretendere la forma esatta avrebbe costretto quel cliente a rimettere in
+  // sitemap pagine che aveva escluso apposta — cioe' a fare peggio per far
+  // passare una prova. Qui si verifica che il filtro ci sia e che passi dalle
+  // regole del motore; come le compone e' affare suo.
+  assert.match(CONFIG, /sitemap\(\{[\s\S]{0,600}?filter:[\s\S]{0,300}?inSitemap/,
+    "sitemap() e' nuda, o il suo filtro non passa piu' dalle regole del motore");
 });
 
 test("robots.txt chiude il pannello, e non chiude il ristorante", () => {

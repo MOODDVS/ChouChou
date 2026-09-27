@@ -82,8 +82,17 @@ test("printRegole resta senza dipendenze", () => {
   const imports = [...r.matchAll(/^import .*/gm)].map((m) => m[0]).filter((l) => !l.startsWith("import type"));
   assert.deepEqual(imports, [], "printRegole.ts non deve importare niente");
   const g = readFileSync("src/lib/admin/printRoutes.ts", "utf8");
-  assert.match(g, /import\.meta\.glob\("\/src\/pages\/print\/\*\.astro"\)/,
+  assert.match(g, /import\.meta\.glob\("\/src\/pages\/print\/\*\.astro"/,
     "la scoperta non legge piu' il filesystem: il pannello non trovera' niente");
+  // ⚠️ E deve chiederli COME TESTO. `import.meta.glob` non rende solo i nomi:
+  // aggancia quei moduli al grafo delle dipendenze, e Astro raccoglie il CSS
+  // delle dipendenze di una pagina. Senza `?raw`, il foglio `is:global` di una
+  // pagina di stampa finisce addosso a /admin/print: su L'Huile sur le Feu il
+  // pannello si e' ritrovato il fondo grigio e l'header staccato di 24px,
+  // perche' quel foglio stila `body` per l'anteprima del PDF. Nessun errore da
+  // nessuna parte, solo una pagina che non somigliava piu' alle altre.
+  assert.match(g, /query:\s*"\?raw"/,
+    "senza ?raw il glob trascina il CSS delle pagine di stampa dentro il pannello");
 });
 
 test("il seed punta a pagine di stampa, non altrove", () => {
