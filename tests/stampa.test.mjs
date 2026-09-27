@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import { derivaPagine, confrontaCatalogo } from "../src/lib/admin/printRegole.ts";
-import { PRINT_DEFAULTS } from "../src/config/printCatalog.ts";
+import { PRINT_DEFAULTS, validaCatalogo } from "../src/config/printCatalog.ts";
 
 test("dal nome del file esce la rotta, in ordine", () => {
   assert.deepEqual(
@@ -89,6 +89,41 @@ test("printRegole resta senza dipendenze", () => {
 test("il seed punta a pagine di stampa, non altrove", () => {
   const fuori = PRINT_DEFAULTS.filter((p) => p.route && !p.route.startsWith("/print/"));
   assert.deepEqual(fuori, [], "un prodotto del seed punta fuori da /print/");
+});
+
+test("un prodotto si puo' TOGLIERE dal listino, non solo aggiungere", () => {
+  // ⚠️ L'asimmetria era il buco: si poteva mettere un prodotto a catalogo e
+  // non levarlo piu'. E «Reinitialiser» non e' la via d'uscita, perche' riporta
+  // anche i prezzi consigliati su tutti gli altri prodotti. Senza questo
+  // bottone, un prodotto che punta a una pagina che il cliente non ha resta
+  // nel suo listino per sempre.
+  const S = readFileSync("src/pages/admin/super.astro", "utf8");
+  assert.match(S, /class="pr-del pr-delprod"/, "il bottone per togliere un prodotto e' sparito");
+  assert.match(S, /classList\.contains\("pr-delprod"\)/, "il bottone non e' agganciato a niente");
+  assert.match(S, /catalogo\.splice/, "niente toglie davvero il prodotto dal listino");
+});
+
+test("senza quantita' il prodotto si offre lo stesso: PDF si', ordine no", () => {
+  // ⚠️ Prima un prodotto visibile senza fasce era un ERRORE, e l'unico modo di
+  // dare un PDF senza venderlo era nasconderlo — cioe' non darlo. Adesso e' una
+  // scelta: il ristoratore vede anteprima e bottone PDF, e «Commander» non
+  // compare affatto.
+  const r = validaCatalogo([{ slug: "lunch", label: "Le Lunch", route: "/print/lunch", visible: true, meta: {}, tiers: [] }]);
+  assert.equal(r.error, undefined, "un prodotto senza prezzo viene ancora rifiutato");
+  assert.equal(r.catalog?.[0].visible, true);
+  assert.deepEqual(r.catalog?.[0].tiers, []);
+
+  // Il bottone d'ordine non si disegna senza fasce...
+  assert.match(readFileSync("src/pages/admin/print.astro", "utf8"),
+    /p\.tiers\.length > 0 && \(\s*<button[^>]*class="pbtn pbtn-buy"/,
+    "il bottone Commander e' tornato incondizionato");
+
+  // ...e se qualcuno chiama l'API a mano, il server non vende a zero: cerca la
+  // fascia chiesta fra quelle del prodotto, e senza fasce non ne trova nessuna.
+  const O = readFileSync("src/pages/api/admin/print-order.ts", "utf8");
+  assert.match(O, /prodotto\.tiers\.find\(\(t\) => t\.qty === qty\)/);
+  assert.match(O, /if \(!tier\) return json\(\{ error: await msg\("err\.qtyGone"\) \}, 400\)/,
+    "senza fascia trovata l'ordine non si ferma piu'");
 });
 
 test("il nome del prodotto NON torna nel codice", () => {

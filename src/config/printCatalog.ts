@@ -181,11 +181,14 @@ export function normalizzaCatalogo(raw: unknown): PrintProduct[] {
  */
 export function validaCatalogo(raw: unknown): { catalog?: PrintProduct[]; error?: string } {
   if (!Array.isArray(raw)) return { error: "Catalogue invalide." };
-  const pulito = normalizzaCatalogo(raw);
-  for (const p of pulito) {
-    if (p.visible && p.tiers.length === 0) {
-      return { error: `« ${p.label} » est visible mais n'a aucune quantité. Ajoute au moins un tarif ou masque le produit.` };
-    }
-  }
-  return { catalog: pulito };
+  // ⚠️ Un prodotto VISIBILE SENZA QUANTITA' non e' un errore: e' una scelta.
+  // Vuol dire «il PDF si scarica, ma non si ordina» — il ristoratore vede
+  // l'anteprima e il bottone PDF, e il bottone Commander non compare affatto.
+  // Prima questa funzione lo rifiutava, e l'unico modo di dare un PDF senza
+  // venderlo era nascondere il prodotto, cioe' non darlo.
+  //
+  // Il server resta coperto lo stesso: `print-order` cerca la fascia chiesta
+  // fra quelle del prodotto, e senza fasce non ne trova nessuna. Un ordine
+  // costruito a mano si ferma con `err.qtyGone`, non passa a prezzo zero.
+  return { catalog: normalizzaCatalogo(raw) };
 }
