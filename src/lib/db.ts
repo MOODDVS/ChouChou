@@ -5,6 +5,7 @@ import { prezzoEffettivo, variantiDelPunto, haVarianti, type DiscountType } from
 import { leggi, type Ambito } from "./admin/sede";
 import { i18nPulito } from "./i18nMenu";
 import { applicaStatoSede } from "./menuStato";
+import { trovaCategoriaStandard, i18nStandard, LINGUE } from "./admin/categorieStandard";
 import { cacheOr } from "./cache";
 
 // Ri-esportato per comodità: il server legge il menu da qui.
@@ -244,13 +245,33 @@ function arricchisci(gruppi: MenuCategoria[], mappa: Map<string, { parent: strin
     }
     return cur;
   };
+  /**
+   * Le traduzioni di una categoria, col ripiego sul dizionario standard.
+   *
+   * ⚠️ Quello che il ristoratore ha scritto VINCE sempre. Il dizionario entra
+   * solo quando `name_i18n` e' vuoto, e solo se il nome combacia esattamente
+   * con una voce standard in una delle lingue — «Pizze», «Pizzas», «Pizza's».
+   * Non traduce: riconosce.
+   *
+   * Senza questo ripiego una categoria non tradotta compare col nome italiano
+   * anche al cliente francese, sulla pagina menu, che e' il testo piu' letto
+   * del sito. Il dizionario c'era gia' e lo diceva nella sua intestazione —
+   * «le traduzioni si applicano automaticamente» — ma sul sito pubblico non lo
+   * chiamava nessuno: `trovaCategoriaStandard` e `i18nStandard` erano esportate
+   * e mai usate.
+   */
+  const i18nDi = (nome: string, dalDb: Record<string, string> | null): Record<string, string> | null => {
+    if (dalDb && Object.keys(dalDb).length > 0) return dalDb;
+    const std = trovaCategoriaStandard(nome);
+    return std ? i18nStandard(std, LINGUE as string[]) : dalDb;
+  };
   for (const g of gruppi) {
     const info = mappa.get(g.category);
     g.parent = info?.parent ?? null;
     g.depth = info?.depth ?? 0;
-    g.name_i18n = info?.name_i18n ?? null;
+    g.name_i18n = i18nDi(g.category, info?.name_i18n ?? null);
     g.root = radiceDi(g.category);
-    g.root_i18n = mappa.get(g.root)?.name_i18n ?? null;
+    g.root_i18n = i18nDi(g.root, mappa.get(g.root)?.name_i18n ?? null);
   }
   return gruppi;
 }

@@ -724,3 +724,53 @@ test("la chiave della cache del menu nomina la sede", () => {
   assert.match(src, /`menu:def:\$\{soloOrdinabili \? "ord" : "vetrina"\}:\$\{perAmbito\(ambito\)\}`/,
     "la chiave della cache non nomina piu' la sede, o non distingue vetrina e ordinabile");
 });
+
+/* ============================================================
+   LE CATEGORIE NON TRADOTTE — il dizionario standard
+   ============================================================ */
+
+test("il dizionario riconosce una categoria in QUALUNQUE lingua", async () => {
+  const { trovaCategoriaStandard, i18nStandard, LINGUE } =
+    await import("../src/lib/admin/categorieStandard.ts");
+
+  // ⚠️ Non traduce: RICONOSCE. Il ristoratore scrive «Pizze» o «Pizza's», e il
+  // dizionario sa che sono la stessa sezione — quindi sa dirla nelle altre.
+  for (const scritto of ["Pizze", "Pizzas", "Pizza's", "  pizze  "]) {
+    const std = trovaCategoriaStandard(scritto);
+    assert.ok(std, `«${scritto}» non e' piu' riconosciuta`);
+    assert.equal(std.key, "pizze");
+  }
+
+  const t = i18nStandard(trovaCategoriaStandard("Pizze"), LINGUE);
+  assert.deepEqual(Object.keys(t).sort(), [...LINGUE].sort(),
+    "il dizionario non rende piu' tutte le lingue che dichiara");
+  assert.equal(t.nl, "Pizza's");
+
+  // Un nome inventato non si traduce a caso: resta quello che ha scritto lui.
+  assert.equal(trovaCategoriaStandard("Le mie robe"), null);
+  assert.equal(trovaCategoriaStandard(""), null);
+});
+
+test("sul menu pubblico il ripiego c'e', e non scavalca il ristoratore", () => {
+  // ⚠️ Fino al 27/09/2026 `trovaCategoriaStandard` e `i18nStandard` erano
+  // esportate e non le chiamava NESSUNO: l'admin importava solo l'elenco. Una
+  // categoria senza name_i18n compariva col nome italiano anche al cliente
+  // francese, sulla pagina piu' letta del sito, mentre l'intestazione del
+  // dizionario prometteva che «le traduzioni si applicano automaticamente».
+  const src = readFileSync("src/lib/db.ts", "utf8");
+  assert.match(src, /trovaCategoriaStandard\(nome\)/,
+    "il menu pubblico non consulta piu' il dizionario standard");
+
+  // Quello che il ristoratore ha scritto VINCE: il dizionario entra solo sul
+  // vuoto. Senza questa riga, una traduzione fatta a mano verrebbe coperta.
+  assert.match(src, /if \(dalDb && Object\.keys\(dalDb\)\.length > 0\) return dalDb;/,
+    "il dizionario ha smesso di cedere il passo alle traduzioni del ristoratore");
+
+  // E vale per la categoria E per la sua radice: sul menu si vedono entrambe.
+  assert.match(src, /g\.name_i18n = i18nDi\(g\.category,/);
+  assert.match(src, /g\.root_i18n = i18nDi\(g\.root,/);
+
+  // Le lingue si chiedono al dizionario, non si riscrivono a mano qui.
+  assert.match(src, /i18nStandard\(std, LINGUE as string\[\]\)/,
+    "le lingue sono tornate un elenco scritto a mano: divergera'");
+});
