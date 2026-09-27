@@ -10,6 +10,8 @@ import {
   normalizzaCatalogo,
   validaCatalogo,
 } from "../../../config/printCatalog";
+import { pagineStampa } from "../../../lib/admin/printRoutes";
+import { confrontaCatalogo } from "../../../lib/admin/printRegole";
 
 export const prerender = false;
 
@@ -57,7 +59,13 @@ export const GET: APIRoute = async ({ request }) => {
     /* niente config: si usano i default */
   }
 
-  return json({ catalog, defaults: PRINT_DEFAULTS, custom });
+  // ⚠️ Le pagine `/print/` di QUESTO cliente, lette dal filesystem in build.
+  // Servono al super admin per due cose che prima nessuno sapeva: quali pagine
+  // esistono e non sono ancora a catalogo (da aggiungere con un clic, senza
+  // toccare il codice), e quali prodotti puntano a una pagina che non c'e'
+  // piu' (l'anteprima darebbe 404 senza dire perche').
+  const pagine = pagineStampa();
+  return json({ catalog, defaults: PRINT_DEFAULTS, custom, pagine, confronto: confrontaCatalogo(catalog, pagine) });
 };
 
 export const PUT: APIRoute = async ({ request }) => {
