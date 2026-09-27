@@ -84,14 +84,24 @@ if (lunch && lunch.combos.length) {
     .inner{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;
       text-align:center;padding:15mm 16mm 12mm;}
 
+    /* ⚠️ LE SPAZIATURE DI QUESTO FOGLIO SONO CONTATE, non scelte a occhio.
+       L'altezza utile di `.inner` e' 183mm (210 meno 15 di padding sopra e 12
+       sotto). Una settimana con tre portate e i nomi su due righe ne chiede
+       circa 193: i 10mm di troppo escono dal fondo, e siccome `.frame` e'
+       disegnata a 7mm dal bordo, la firma finiva sopra la riga magenta.
+       Qui sotto sono recuperati 16mm — titolo, filetto, spazio fra le portate,
+       riquadro dei prezzi e firma — che lasciano circa 6mm di respiro.
+       `.courses` ha `margin-bottom:auto`, quindi quando avanza spazio il
+       riquadro dei prezzi resta ancorato in basso e il respiro va sopra di lui:
+       stringere qui alza le portate senza spostare il fondo. */
     .logo{display:block;width:56mm;height:auto;margin:0 auto;}
-    .title{font-family:var(--fs);color:var(--mag);font-size:60px;line-height:.8;margin:7mm 0 0;}
+    .title{font-family:var(--fs);color:var(--mag);font-size:60px;line-height:.8;margin:4mm 0 0;}
     .serve{font-family:var(--ft);font-weight:700;color:var(--navy);font-size:12px;letter-spacing:.06em;
-      text-transform:uppercase;margin:4mm 0 1.5mm;}
+      text-transform:uppercase;margin:3mm 0 1.5mm;}
     .period{font-family:var(--fb);font-style:italic;color:var(--grey);font-size:12px;margin:0;}
-    .sep{width:26mm;height:2px;background:var(--mag);border-radius:2px;margin:6mm auto;}
+    .sep{width:26mm;height:2px;background:var(--mag);border-radius:2px;margin:4mm auto;}
 
-    .courses{display:flex;flex-direction:column;gap:6mm;margin:1mm 0 auto;width:100%;}
+    .courses{display:flex;flex-direction:column;gap:4.5mm;margin:1mm 0 auto;width:100%;}
     .course .lab{font-family:var(--ft);font-weight:700;color:var(--mag);font-size:12px;
       letter-spacing:.22em;text-transform:uppercase;margin:0 0 2mm;}
     .plat{margin-bottom:2mm;}
@@ -100,12 +110,12 @@ if (lunch && lunch.combos.length) {
     .desc{font-family:var(--fb);color:var(--grey);font-size:11px;line-height:1.4;margin:1.5mm auto 0;max-width:112mm;}
     .empty{font-family:var(--ft);color:var(--navy);font-size:14px;margin:8mm 0 auto;}
 
-    .formules{margin-top:7mm;background:var(--mag);border-radius:3mm;padding:6mm;width:100%;}
+    .formules{margin-top:5mm;background:var(--mag);border-radius:3mm;padding:5mm;width:100%;}
     .formules .f{display:flex;justify-content:center;align-items:baseline;gap:3mm;flex-wrap:wrap;margin:1.5mm 0;}
     .formules .fp{font-family:var(--fb);color:#fff;font-size:12.5px;}
     .formules .fpz{font-family:var(--ft);font-weight:700;color:#fff;font-size:14px;}
 
-    .foot{margin-top:5mm;font-family:var(--fb);color:var(--grey);font-size:9.5px;}
+    .foot{margin-top:4mm;font-family:var(--fb);color:var(--grey);font-size:9.5px;}
     .foot b{color:var(--navy);font-weight:700;}
   </style>
 
