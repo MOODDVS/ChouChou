@@ -91,6 +91,8 @@ const prI18n = {
   foundNone: t("print.foundNone"),
   addProd: t("print.addProd"),
   missing: t("print.missing"),
+  removeProd: t("print.removeProd"),
+  noTiers: t("print.noTiers"),
   metaTitle: t("print.meta.title"),
   metaFormat: t("print.meta.format"),
   metaPages: t("print.meta.pages"),
@@ -2757,6 +2759,8 @@ const prI18n = {
       .pr-tiers input:focus { outline: none; border-color: var(--c-accent); }
       .pr-del { width: 30px; height: 30px; border: 1px solid var(--c-line); background: var(--c-input); color: var(--c-muted); border-radius: 8px; cursor: pointer; font-size: 1.1rem; line-height: 1; transition: color 0.15s, border-color 0.15s; }
       .pr-del:hover { color: #c0392b; border-color: #c0392b; }
+      .pr-delprod { flex-shrink: 0; }
+      .pr-nota { font-size: 0.85rem; color: var(--c-muted); margin-top: 0.5rem; }
       .pr-add { margin-top: 0.7rem; background: none; border: 1px dashed var(--c-line); color: var(--c-muted); border-radius: 8px; padding: 0.45rem 0.9rem; cursor: pointer; font-family: var(--font-body); font-size: 0.85rem; transition: color 0.15s, border-color 0.15s; }
       .pr-add:hover { color: var(--c-accent); border-color: var(--c-accent); }
       .pane[data-pane="print"] .pr-actions { display: flex; gap: 0.7rem; align-items: center; margin-top: 1.4rem; flex-wrap: wrap; }
@@ -2826,6 +2830,7 @@ const prI18n = {
                   <span class="pr-toggle-lbl">${p.visible ? esc(PR.visible) : esc(PR.hidden)}</span>
                   <span class="switch"><input type="checkbox" class="pr-vis" ${p.visible ? "checked" : ""} /><span class="track"></span></span>
                 </label>
+                <button type="button" class="pr-del pr-delprod" title="${esc(PR.removeProd)}" aria-label="${esc(PR.removeProd)}">\u00d7</button>
               </div>
               ${senzaPagina.has(p.slug) ? `<div class="pr-warn">${esc(PR.missing)}</div>` : ""}
               <table class="pr-tiers">
@@ -2840,6 +2845,7 @@ const prI18n = {
                 </tbody>
               </table>
               <button type="button" class="pr-add">${esc(PR.addTier)}</button>
+              ${p.tiers.length === 0 ? `<p class="pr-nota">${esc(PR.noTiers)}</p>` : ""}
               <div class="pr-meta">
                 <div class="pr-meta-t">${esc(PR.metaTitle)}</div>
                 <div class="pr-meta-grid">
@@ -2927,7 +2933,17 @@ const prI18n = {
           const card = t.closest(".pr-card") as HTMLElement | null;
           if (!card) return;
           const pi = Number(card.dataset.p);
-          if (t.classList.contains("pr-add")) {
+          if (t.classList.contains("pr-delprod")) {
+            // ⚠️ Niente conferma, come per le quantita': non si perde niente
+            // finche' non si preme Enregistrer, e ricaricare la pagina annulla.
+            // Un prodotto tolto e salvato NON torna col seed: i default valgono
+            // solo per un cliente che non ha ancora un listino suo.
+            sync();
+            catalogo.splice(pi, 1);
+            ricalcola();
+            render();
+            renderTrovate();
+          } else if (t.classList.contains("pr-add")) {
             sync();
             catalogo[pi].tiers.push({ qty: 0, price_cents: 0 });
             render();

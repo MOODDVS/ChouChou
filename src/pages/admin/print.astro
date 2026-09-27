@@ -122,7 +122,9 @@ const prodotti = catalogo
                     ) : (
                       <span class="pcard-nopage">{t("print.card.noPage")}</span>
                     )}
-                    <button type="button" class="pbtn pbtn-buy" data-slug={p.slug}>{t("print.card.order")}</button>
+                    {p.tiers.length > 0 && (
+                      <button type="button" class="pbtn pbtn-buy" data-slug={p.slug}>{t("print.card.order")}</button>
+                    )}
                   </div>
                 </div>
               </article>
