@@ -7,6 +7,7 @@ import { caricaBootAdmin } from "./admin/adminBoot";
 import { CLIENT } from "../config/client";
 import { TESTI_WIDGET, SERVIZI_WIDGET, type LinguaWidget } from "./reservationI18n";
 import { fusoDi } from "./fuso";
+import { urlConSede } from "./sedeUrl";
 // ⚠️⚠️ OGNI EMAIL E' DI UN PUNTO (16/09/2026).
 //
 // Il nome, l'indirizzo, il telefono, il mittente e il destinatario di una
@@ -1177,10 +1178,17 @@ async function emailReview(o: OrdineNotifica): Promise<void> {
   // Se il link Google non è configurato, tutte le stelle vanno alla pagina feedback.
   // Base pubblica per-cliente (root o sotto-prefisso), non /demo01 fisso.
   const baseSite = await siteBaseResa(ambito);
+  // ⚠️ IL PUNTO VIAGGIA ANCHE NELLE STELLE. Senza, la pagina /feedback non sa
+  // di quale pizzeria si parla e il parere arriva alla casella di ripiego: su
+  // tre sedi, due volte su tre e' la cucina sbagliata a leggere il reclamo.
+  const conSede = (u: string): string =>
+    urlConSede(u, ambito.modo === "sede" ? ambito.id : null);
   const feedbackUrl = (r: number) =>
-    `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
-    `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
-    `&phone=${encodeURIComponent(o.customer_phone ?? "")}`;
+    conSede(
+      `${baseSite}/feedback?o=${encodeURIComponent(o.numero)}&r=${r}&lang=${o.lang ?? "fr"}` +
+        `&name=${encodeURIComponent(o.customer_name)}&email=${encodeURIComponent(o.customer_email)}` +
+        `&phone=${encodeURIComponent(o.customer_phone ?? "")}`,
+    );
   const starHref = (r: number) => (reviewUrl && r >= 4 ? reviewUrl : feedbackUrl(r));
   const stelle = [1, 2, 3, 4, 5]
     .map(
@@ -1492,10 +1500,16 @@ export async function emailReviewResa(r: ResaReview): Promise<string | null> {
   // quella per-cliente (stessa dei link modifica/annulla prenotazione), così
   // funziona su ogni installazione (root o sotto-prefisso), non solo /demo01.
   const baseResa = await siteBaseResa(ambito);
+  // ⚠️ Come nell'email ordine: il punto viaggia con le stelle, o il parere
+  // finisce nella casella di un'altra sede.
+  const conSede = (u: string): string =>
+    urlConSede(u, ambito.modo === "sede" ? ambito.id : null);
   const nomeCompleto = (r.first_name.trim() + " " + r.last_name.trim()).trim();
   const feedbackUrl = (star: number) =>
-    `${baseResa}/feedback?r=${star}&lang=${r.lang || "fr"}` +
-    `&name=${encodeURIComponent(nomeCompleto)}&email=${encodeURIComponent(r.email.trim())}`;
+    conSede(
+      `${baseResa}/feedback?r=${star}&lang=${r.lang || "fr"}` +
+        `&name=${encodeURIComponent(nomeCompleto)}&email=${encodeURIComponent(r.email.trim())}`,
+    );
   const starHref = (star: number) => (reviewUrl && star >= 4 ? reviewUrl : feedbackUrl(star));
   const stelle = [1, 2, 3, 4, 5]
     .map(

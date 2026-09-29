@@ -133,7 +133,11 @@ nel bundle del browser.
    verifica). ⚠️ Il motore **non ha un sito**: il clone ti dà l'admin, le API
    e le rotte funzionali, non delle pagine vetrina da ripulire.
 2. **`src/config/client.ts`** — nome, claim, loghi, telefono, email,
-   indirizzo, firma email, social di fallback.
+   indirizzo, firma email, social di fallback. ⚠️ **Va compilato davvero**:
+   ChouChou è andato in linea col segnaposto del motore dentro. È l'unico
+   posto del codice dove i recapiti possono stare — ovunque altro nel sito
+   li vieta `tests/recapiti.test.mjs`, e il motivo sta in fondo a questo
+   file.
 3. **`public/`** — loghi SVG, `favicon.svg/ico`, `apple-touch-icon.png`,
    `icon-192.png`/`icon-512.png`, e **`manifest.json`** (campo `name`!).
 4. **`astro.config.mjs`** — `site` col dominio del cliente.
@@ -1285,3 +1289,40 @@ prova. Cinque punti erano già così dopo la conversione. Il locale si chiama
 ⚠️ Quando un messaggio **sceglie fra due chiavi**, si traduce DOPO aver
 scelto — `await msg(cond ? "a" : "b")`, non un ternario fra due `await msg`.
 Altrimenti si leggono due volte lingua e dizionario per stampare una frase.
+
+## I recapiti non si scrivono nel codice (29/09/2026)
+
+**ChouChou e L'Huile pubblicavano il numero di telefono di La Molisana.** La
+pagina `/order` mostra, fuori orario, un riquadro «gli ordini sono chiusi,
+chiamateci» con un bottone: quel numero era scritto a mano, ed era arrivato
+col clone — quelle pagine nascono copiate da La Molisana, il cliente da cui
+il motore è nato, e nessuno le aveva più guardate.
+
+Sei pagine, due clienti, mesi. Nessun errore, nessuna riga nei log, e visibile
+**solo quando il servizio è chiuso** — cioè quando nessuno guarda. Chi provava
+a ordinare la sera telefonava a un altro ristorante.
+
+Lo stesso giorno, la stessa forma altre due volte: La Molisana pubblicava
+**due email diverse** (`pizzeria@` nel footer, `info@` nella pagina contatti e
+nei dati strutturati letti da Google), e tre pagine avevano il fuso orario
+scritto a mano. Tre difetti, una sola causa: **un dato del ristorante copiato
+dentro il codice al momento del clone, e mai più toccato.**
+
+⚠️ **Nessuna prova li aveva visti.** Le reti sorvegliavano le *chiavi* di
+`app_config` — che si leggano con l'ambito giusto, che una chiave di sede non
+sia letta a livello marchio. Nessuna guardava i **valori** scritti nel sito del
+cliente, che è esattamente dove il clone li lascia.
+
+**La regola.** I recapiti veri stanno nell'admin (Réglages → Général) e si
+leggono con `datiRistorante(ambito)`, come fanno footer e dati strutturati.
+Nel codice ne esiste **una copia sola, dichiarata**: il ripiego in
+`src/config/client.ts`, che serve a quando il database non risponde.
+
+`tests/recapiti.test.mjs` cerca telefoni e email scritti a mano in
+`src/pages/`, `src/components/`, `src/layouts/`. Fuori: l'admin (lì un
+recapito d'esempio non lo vede nessun cliente), `src/config/client.ts` (è il
+ripiego, è il suo mestiere) e le **pagine legali** — un'informativa privacy
+deve dire a chi si scrive, e un testo di legge non si compila da una tabella.
+
+⚠️ **Questa rete serve nei clienti, non nel motore**: il motore un sito non ce
+l'ha, quindi da solo non protegge nessuno. Arriva col merge, come le altre.
