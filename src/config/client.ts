@@ -22,17 +22,22 @@ export const CLIENT = {
   privacyUrl: { fr: "/privacy", en: "/en/privacy" } as Record<string, string>,
   /** Paese del ristorante (ISO): default dei prefissi telefonici. */
   paese: "BE",
-  /** Fallback de Admin → Général. */
-  telefono: "+32 000 00 00 00",
-  email: "contact@example.com",
-  indirizzo: "Rue à compléter 1, 0000 Ville",
+  /** Fallback de Admin → Général: si usano SOLO quando app_config e' vuota o
+   *  irraggiungibile. ⚠️ Non sono decorativi — il ripiego finisce nel riquadro
+   *  «ordini chiusi, chiamateci», nella firma delle email e nel footer legale.
+   *  Erano tutti segnaposto del clone, mai riempiti: sostituiti coi valori
+   *  veri il 29/09/2026. L'indirizzo si scrive "via, CAP citta'" — il footer
+   *  taglia sulla virgola per andare a capo. */
+  telefono: "+32 476 28 06 79",
+  email: "info@comptoirchouchou.be",
+  indirizzo: "Boucle Jean-François Breuer 34, 1435 Mont-Saint-Guibert",
   /** Firma dell’email di conferma ordine (per lingua). */
   firma: {
-    fr: "À très bientôt,<br>Toute l’équipe",
-    en: "See you soon,<br>The whole team",
-    it: "A prestissimo,<br>Tutto lo staff",
-    nl: "Tot heel binnenkort,<br>Het hele team",
-    es: "Hasta muy pronto,<br>Todo el equipo",
+    fr: "À très bientôt,<br>Toute l’équipe du Comptoir Chouchou",
+    en: "See you soon,<br>The Comptoir Chouchou team",
+    it: "A prestissimo,<br>Tutto lo staff del Comptoir Chouchou",
+    nl: "Tot heel binnenkort,<br>Het team van Comptoir Chouchou",
+    es: "Hasta muy pronto,<br>Todo el equipo de Comptoir Chouchou",
   },
   /** Social usati SOLO se il DB non risponde (i veri URL sono link_* in app_config). */
   socialFallback: {} as Record<string, string>,

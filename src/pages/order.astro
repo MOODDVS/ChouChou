@@ -8,6 +8,7 @@
 import Layout from "../layouts/Layout.astro";
 import OrderApp from "../components/OrderApp";
 import { getMenuOrderable } from "../lib/db";
+import { datiRistorante } from "../lib/ristorante";
 import { getLangFromUrl, useTranslations } from "../i18n/ui";
 import { DateTime } from "luxon";
 import { configGiornoEffettiva } from "../lib/schedule";
@@ -28,6 +29,12 @@ const en = lang === "en";
 // quello sarebbe vero finche' il ristorante e' uno — e il giorno che non lo
 // fosse piu' non darebbe errore, darebbe i dati del posto sbagliato.
 const ambito = await ambitoPubblicoChiesto(Astro.request);
+// ⚠️ IL NUMERO VIENE DALL'ADMIN. Era scritto a mano, ed era quello di UN ALTRO
+// RISTORANTE: questa pagina nasce clonata da La Molisana, e il numero non l'ha
+// mai cambiato nessuno. Il riquadro «gli ordini sono chiusi, chiamateci» si
+// vede solo fuori orario, cioe' quando nessuno lo guarda — e mandava i clienti
+// a telefonare altrove, senza nessun errore da nessuna parte. (29/09/2026)
+const risto = await datiRistorante(ambito);
 
 let chiusoOggi = false;
 let riapertura = "";
@@ -156,7 +163,7 @@ const orderStrings = {
           ? "Please come back later, or call us:"
           : "Revenez un peu plus tard, ou appelez-nous :"}
       </p>
-      <a class="order-closed__phone" href="tel:+32455131465">+32 455 13 14 65</a>
+      <a class="order-closed__phone" href={`tel:${risto.telLink}`}>{risto.tel}</a>
     </section>
   ) : (
     <OrderApp menu={menu} t={orderStrings} lang={lang} closedToday={chiusoOggi} client:load />
