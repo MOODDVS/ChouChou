@@ -872,6 +872,14 @@ const DIZIONARIO: Dizionario = {
   "nav.toastResaMulti": { fr: "{n} nouvelles réservations", en: "{n} new reservations", it: "{n} nuove prenotazioni", nl: "{n} nieuwe reserveringen", es: "{n} nuevas reservas" },
   "nav.toastOrder":     { fr: "Nouvelle commande", en: "New order", it: "Nuovo ordine", nl: "Nieuwe bestelling", es: "Nuevo pedido" },
   "nav.toastOrderMulti":{ fr: "{n} nouvelles commandes", en: "{n} new orders", it: "{n} nuovi ordini", nl: "{n} nieuwe bestellingen", es: "{n} nuevos pedidos" },
+
+  // ===== Guarigione: pagamenti che il webhook non ha mai portato =====
+  // ⚠️ Il messaggio dice due cose, e la seconda conta piu' della prima: che
+  // l'ordine e' stato recuperato, e che se succede spesso c'e' qualcosa da
+  // sistemare. Un recupero silenzioso nasconderebbe il guasto invece di
+  // segnalarlo — ed e' un guasto che non da' errori da nessun'altra parte.
+  "ord.recuperato":  { fr: "1 commande payée récupérée — elle n'était pas arrivée. Si cela se répète, vérifiez les webhooks Stripe.", en: "1 paid order recovered — it had not come through. If this repeats, check your Stripe webhooks.", it: "1 ordine pagato recuperato — non era arrivato. Se si ripete, controlla i webhook Stripe.", nl: "1 betaalde bestelling hersteld — hij was niet doorgekomen. Als dit vaker gebeurt, controleer je Stripe-webhooks.", es: "1 pedido pagado recuperado — no había llegado. Si se repite, revisa los webhooks de Stripe." },
+  "ord.recuperati":  { fr: "{n} commandes payées récupérées — elles n'étaient pas arrivées. Si cela se répète, vérifiez les webhooks Stripe.", en: "{n} paid orders recovered — they had not come through. If this repeats, check your Stripe webhooks.", it: "{n} ordini pagati recuperati — non erano arrivati. Se si ripete, controlla i webhook Stripe.", nl: "{n} betaalde bestellingen hersteld — ze waren niet doorgekomen. Als dit vaker gebeurt, controleer je Stripe-webhooks.", es: "{n} pedidos pagados recuperados — no habían llegado. Si se repite, revisa los webhooks de Stripe." },
   "nav.toastPers":      { fr: "pers.", en: "guests", it: "pers.", nl: "pers.", es: "pers." },
   "res.newReservation": { fr: "Nouvelle réservation", en: "New reservation", it: "Nuova prenotazione", nl: "Nieuwe reservering", es: "Nueva reserva" },
   "res.editReservation": { fr: "Modifier la réservation", en: "Edit reservation", it: "Modifica la prenotazione", nl: "Reservering bewerken", es: "Editar la reserva" },

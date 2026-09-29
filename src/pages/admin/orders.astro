@@ -1889,13 +1889,65 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const ncOverlay = document.getElementById("nc-overlay") as HTMLDivElement;
         const ncToastEl = document.getElementById("nc-toast") as HTMLDivElement;
         let ncToastTimer = 0;
-        function ncToast(msg: string, err = false) {
+        // ⚠️ `ms` esiste perche' un messaggio si legge in tempi diversi: tre
+        // secondi e mezzo bastano per «salvato», non per una frase che chiede
+        // di andare a controllare i webhook di Stripe.
+        function ncToast(msg: string, err = false, ms = 3500) {
           ncToastEl.textContent = msg;
           ncToastEl.classList.toggle("is-error", err);
           ncToastEl.classList.add("is-on");
           window.clearTimeout(ncToastTimer);
-          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("is-on"), 3500);
+          ncToastTimer = window.setTimeout(() => ncToastEl.classList.remove("is-on"), ms);
         }
+
+        // ---- GUARIGIONE: i pagamenti che il webhook non ha mai portato ----
+        //
+        // ⚠️ IL 29/09/2026 DUE CLIENTI HANNO PAGATO E IL RISTORANTE NON L'HA
+        // SAPUTO. I webhook di Stripe di 450 Gradi puntavano ancora al dominio
+        // di prova: i pagamenti riuscivano, il cliente vedeva la sua pagina di
+        // conferma, e l'ordine restava «in attesa» — che qui dentro vuol dire
+        // invisibile, perche' la lista mostra solo paid, done e cancelled.
+        // Nessun errore da nessuna parte. Se ne e' accorto il ristoratore
+        // guardando il pannello di Stripe.
+        //
+        // ⚠️ Non e' una spia, e' un rimedio: chiedere a Stripe se fra gli
+        // ordini in attesa ce n'e' qualcuno pagato, e in quel caso confermarlo
+        // davvero — stato, email al cliente, email alla cucina, notifica. Una
+        // spia sugli ordini in attesa sarebbe stata accesa quasi sempre, perche'
+        // un ordine in attesa e' quasi sempre un carrello abbandonato, e una
+        // spia sempre accesa non la guarda piu' nessuno.
+        //
+        // ⚠️ Percio' non dice niente quando non trova niente — cioe' quasi
+        // sempre. E quando parla, dice anche di controllare i webhook: il
+        // recupero rimedia all'ordine, non alla causa.
+        void (async () => {
+          try {
+            // ⚠️ Non a ogni apertura: chi lavora riapre questa pagina venti
+            // volte in un servizio, e ogni giro interroga Stripe una volta per
+            // ordine in attesa. Dieci minuti sono abbastanza stretti perche'
+            // un pagamento perso si recuperi entro il servizio in corso.
+            // ⚠️ In finestra privata `localStorage` lancia. Se succede si
+            // rinuncia al freno, non al recupero: meglio una domanda in piu' a
+            // Stripe che un ordine pagato che resta perso.
+            const CHIAVE = "rh-recupero-ordini";
+            try {
+              const ultimo = Number(window.localStorage.getItem(CHIAVE) ?? 0);
+              if (Date.now() - ultimo < 10 * 60_000) return;
+              window.localStorage.setItem(CHIAVE, String(Date.now()));
+            } catch { /* niente freno */ }
+
+            const r = await fetch("/api/admin/orders-recupero", { method: "POST" });
+            if (!r.ok) return;
+            const dati = (await r.json()) as { recuperati?: number };
+            const n = dati.recuperati ?? 0;
+            if (n <= 0) return;
+            ncToast(n === 1 ? tr("ord.recuperato") : tr("ord.recuperati").replace("{n}", String(n)), false, 12_000);
+            await carica();
+          } catch {
+            // Un recupero che non riesce non deve disturbare chi sta lavorando:
+            // la pagina Ordini funziona esattamente come prima.
+          }
+        })();
         type VoceMenu = {
           id: string; name: string; category: string; price_cents: number;
           available: boolean; orderable?: boolean;
