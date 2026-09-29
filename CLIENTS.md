@@ -27,9 +27,20 @@ su quattro e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
 ⚠️ I tre 🟡 sono indietro di due commit del motore (`28bbdf5`, `d53b620`), non di
 una sessione: `git fetch engine && git merge engine/multi-sede` e sono a pari.
 
-Ciò che resta fuori su tutti e cinque è `PRESTAZIONI.md` §1 e §3 — i font del
-sito pubblico e le `<img>` senza posto riservato — e resta segnato da quattro o
-cinque prove rosse in `prestazioni.test.mjs`. È voluto.
+`PRESTAZIONI.md` §1 e §3 — i font del sito pubblico e le `<img>` senza posto
+riservato — restano aperti **solo su L'Huile**, con 5 prove rosse.
+
+**Gli altri quattro sono verdi su tutto**, `prestazioni` compresa. Educazione
+Napoletana è stato chiuso il 29/09/2026: le immagini col posto riservato
+(`data-posto` dove lo dà il CSS, misure vere dove servono davvero) e i font
+dichiarati in `astro.config.mjs` sotto nomi propri, col rinvio da `html:root`.
+Là è saltato fuori che il widget di prenotazione usava `--font-serif` e
+nessuno lo dichiarava sul sito: quel testo era senza font, e non lo diceva
+niente.
+
+⚠️ Misurato cliente per cliente il 28/09/2026, e serviti due tentativi per
+scriverlo giusto. Questa riga non si aggiorna a memoria: si aggiorna dopo aver
+lanciato `npm test` nei cinque repo.
 
 ---
 

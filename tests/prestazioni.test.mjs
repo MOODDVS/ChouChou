@@ -265,6 +265,43 @@ test("nessuno scrive a mano il nome di una famiglia dichiarata", () => {
     "il nome letterale non ha nessun @font-face: si usa var(--font-…)");
 });
 
+
+/**
+ * I CARATTERI CHE CI SONO GIA', e per cui non c'e' niente da dichiarare.
+ *
+ * ⚠️ La regola qui sopra vieta il nome scritto a mano perche' un nome senza
+ * `@font-face` non ha nessun file dietro: il testo ricade in silenzio sul
+ * font di sistema. Ma per `Arial, Helvetica, sans-serif` il font di sistema
+ * E' L'INTENZIONE, non l'incidente — non c'e' niente da scaricare e niente
+ * da mancare. La regola stava bocciando il caso che non descrive.
+ *
+ * Trovato su Educazione Napoletana il 29/09/2026: il corpo del testo e'
+ * Arial. Le alternative erano cambiare il font del sito per far passare una
+ * prova, o tenersi una rossa per sempre: due modi di far perdere valore alla
+ * rete.
+ *
+ * ⚠️ L'ELENCO E' CHIUSO, e non e' pigrizia. «Qualsiasi valore senza
+ * virgolette» avrebbe lasciato passare `Quicksand, sans-serif` — che e'
+ * ESATTAMENTE il guasto che questa prova esiste per prendere. Un carattere
+ * che non e' in questo elenco va dichiarato, o va spiegato perche' no.
+ */
+const DI_SISTEMA = new Set([
+  // le famiglie generiche del CSS
+  "serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui",
+  "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded",
+  // le pile di sistema che i browser risolvono senza scaricare niente
+  "-apple-system", "blinkmacsystemfont",
+  // i caratteri preinstallati praticamente ovunque
+  "arial", "helvetica", "georgia", "verdana", "tahoma", "courier",
+]);
+
+/** `true` se ogni pezzo della pila e' un carattere che il visitatore ha gia'. */
+function soloDiSistema(valore) {
+  if (valore.includes('"') || valore.includes("'")) return false;
+  const pezzi = valore.split(",").map((x) => x.trim().toLowerCase()).filter(Boolean);
+  return pezzi.length > 0 && pezzi.every((x) => DI_SISTEMA.has(x));
+}
+
 test("nessuna pagina riscrive una variabile dei font con un nome a mano", () => {
   // Il `<style>` della pagina vince su quello iniettato da Astro, quindi
   // riscrivere `--font-title: "Quicksand"` sostituisce il nome CON HASH con
@@ -289,12 +326,28 @@ test("nessuna pagina riscrive una variabile dei font con un nome a mano", () => 
         const valore = m[1].trim();
         const rinvio = valore.match(/^var\(\s*(--font-[a-z]+)\s*\)$/);
         if (rinvio && dichiarate.has(rinvio[1])) continue;
+        if (soloDiSistema(valore)) continue;
         colpevoli.push(`${f}: ${variabile}: ${valore.slice(0, 40)}`);
       }
     }
   }
   assert.deepEqual(colpevoli, [],
     "la variabile la definisce Astro: si legge, o si rinvia a un'altra dichiarata");
+});
+
+test("una pila di caratteri di sistema non e' un lasciapassare", () => {
+  // ⚠️ L'eccezione qui sopra vale SOLO per caratteri che il visitatore ha
+  // gia'. Se un giorno diventasse «tutto cio' che non ha virgolette», la
+  // prova smetterebbe di prendere il guasto per cui e' nata — e nessuno se
+  // ne accorgerebbe, perche' resterebbe verde.
+  assert.equal(soloDiSistema("Arial, Helvetica, sans-serif"), true);
+  assert.equal(soloDiSistema("sans-serif"), true);
+  // Una famiglia che va scaricata resta vietata, con o senza virgolette.
+  assert.equal(soloDiSistema("Quicksand, sans-serif"), false);
+  assert.equal(soloDiSistema('"Quicksand", sans-serif'), false);
+  assert.equal(soloDiSistema("Burford, system-ui, sans-serif"), false);
+  // E una pila vuota non passa per «tutti di sistema».
+  assert.equal(soloDiSistema(""), false);
 });
 
 test("ogni pagina che usa un font ha i font", () => {
