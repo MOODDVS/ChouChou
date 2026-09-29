@@ -358,7 +358,15 @@ test("ogni pagina che usa un font ha i font", () => {
     if (!/src[/\\](pages|layouts)[/\\]/.test(f)) continue;
     const testo = readFileSync(f, "utf8");
     if (!/var\(--font-[a-z]+\)/.test(testo)) continue;
-    if (/<Fonts\b|AdminHead|Layout\b/.test(testo)) continue;
+    // ⚠️ NON SI CERCA IL NOME DEL TELAIO. Fino al 29/09/2026 questa riga
+    // cercava `Layout`, e 450 Gradi e' nato rosso: il suo telaio si chiama
+    // `Vetrina`, perche' il nome `Layout` e' PRENOTATO da un'altra rete del
+    // motore (`tests/motore.test.mjs`). Due reti che si contraddicono, e la
+    // seconda segnalava il nome di un file invece di un font mancante.
+    // Quello che conta e' che la pagina renda UN telaio, e un telaio sta in
+    // `src/layouts/` — comunque il cliente abbia deciso di chiamarlo.
+    if (/<Fonts\b|AdminHead/.test(testo)) continue;
+    if (/^\s*import\s+\w+\s+from\s+["'][^"']*layouts\/[^"']+["']/m.test(testo)) continue;
     scoperte.push(f);
   }
   assert.deepEqual(scoperte, [], "usa var(--font-…) ma nessuno dichiara le famiglie");
