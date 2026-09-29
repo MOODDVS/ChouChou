@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { inSitemap, FUORI_SITEMAP, PAGINE_FUORI_SITEMAP } from "../src/lib/seo/sitemapRegole.ts";
+import { inSitemap, PAGINE_FUORI_SITEMAP } from "../src/lib/seo/sitemapRegole.ts";
 
 const CONFIG = readFileSync("astro.config.mjs", "utf8");
 const ROBOTS = readFileSync("public/robots.txt", "utf8");
@@ -97,9 +97,13 @@ test("le pagine di ritorno da Stripe restano fuori IN OGNI LINGUA", () => {
   // sa quali lingue ha un cliente, e non deve saperlo: guarda l'ultimo pezzo
   // del percorso.
   assert.ok(PAGINE_FUORI_SITEMAP.includes("order-confirm"), "elenco svuotato: la prova passerebbe a vuoto");
+  assert.ok(PAGINE_FUORI_SITEMAP.includes("feedback"), "elenco svuotato: la prova passerebbe a vuoto");
   for (const p of [
     "/order-confirm/", "/en/order-confirm/", "/it/order-confirm/", "/nl/order-confirm/",
     "/order-cancel/", "/es/order-cancel/", "/404", "/en/404/",
+    // ⚠️ Il parere privato: porta noindex e restava in sitemap lo stesso —
+    // quattro clienti su quattro (29/09/2026).
+    "/feedback/", "/en/feedback/", "/it/feedback/", "/nl/feedback/",
   ]) {
     assert.equal(inSitemap(`https://www.esempio.be${p}`), false, `${p} e' rimasta in sitemap`);
   }

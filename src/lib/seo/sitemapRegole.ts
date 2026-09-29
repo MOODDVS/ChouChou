@@ -51,6 +51,13 @@ export const PAGINE_FUORI_SITEMAP: readonly string[] = [
   "order-confirm", // ritorno da Stripe dopo il pagamento
   "order-cancel", //  ritorno da Stripe se il cliente rinuncia
   "404", //           la pagina d'errore non e' un contenuto
+  // ⚠️ Ci si arriva SOLO dalle stelle 1-3 dell'email recensione, e la pagina
+  // porta gia' `noindex`. Restava pero' in sitemap: quattro clienti su
+  // quattro consegnavano a Google una pagina che poi le dice di non
+  // indicizzare — in Search Console «Inviata, ma con tag noindex»
+  // (29/09/2026). Qui si guarda l'ultimo pezzo, quindi vale anche per
+  // /en/feedback, /it/feedback e /nl/feedback in un colpo solo.
+  "feedback",
 ];
 
 /**
