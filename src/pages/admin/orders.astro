@@ -67,7 +67,10 @@ try {
       ambitoOrd,
       "id, status, pickup_time, customer_name, customer_email, customer_phone, items, total_cents, lang, created_at, refunded_cents, stripe_session_id, payment_method",
     )
-      .in("status", ["paid", "done", "cancelled"])
+      // ⚠️ Anche gli ordini DA INCASSARE, che sono `pending` (nessuno li ha
+      // pagati) ma veri. Il carrello abbandonato resta fuori: si distingue per
+      // `payment_method`, non per lo stato. Stessa regola dell'API.
+      .or("status.in.(paid,done,cancelled),and(status.eq.pending,payment_method.eq.onsite)")
       .gte("pickup_time", soglia)
       .order("pickup_time", { ascending: true });
     ssrOrders = data ?? [];
@@ -1039,7 +1042,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
 
         // Etichetta di stato (solo per le card spente)
         let tag = "";
-        if (o.status === "pending") tag = `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
+        // ⚠️ Due `pending` molto diversi: uno aspetta che il cliente paghi un
+        // link, l'altro e' un ordine gia' in cucina che si incassa al ritiro.
+        // Stesso stato, stessa verita' (non e' pagato), ma chi guarda la card
+        // deve sapere subito se deve aspettare o preparare.
+        if (o.status === "pending") {
+          tag = o.payment_method === "onsite"
+            ? `<span class="tag tag-pending" title="${tr("ord.toCollectHint")}">${tr("ord.toCollect")}</span>`
+            : `<span class="tag tag-pending" title="${tr("ord.awaitingPayment")}">${tr("ord.awaitingShort")}</span>`;
+        }
         if (o.status === "paid") {
           const payIco =
             o.payment_method === "cash"
@@ -1063,6 +1074,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
                  <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                  <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
                </div>`
+            : o.status === "pending" && o.payment_method === "onsite"
+              ? // Da incassare: niente «rimanda il link di pagamento» — non ce
+                // n'e' nessuno. Il bottone che serve e' quello del cassiere.
+                `<div class="actions">
+                   <button class="btn-done" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>
+                   <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
+                   <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
+                 </div>`
             : o.status === "pending"
               ? `<div class="actions">
                    <button class="btn-resend" type="button" data-id="${o.id}" data-act="resend" title="${tr("ord.resendEmail")}"><span class="b-lab">${tr("ord.resendShort")}</span></button>
@@ -1641,6 +1660,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           }
           if (btn.dataset.act === "done") {
             cambiaStato(id, "done", btn);
+            return;
+          }
+          // ⚠️ Incassare NON e' terminare: qui l'ordine diventa pagato per
+          // davvero (ed entra nelle statistiche), e resta in lavorazione
+          // finche' non viene consegnato. Sono due gesti e due bottoni.
+          if (btn.dataset.act === "incassa") {
+            cambiaStato(id, "paid", btn);
             return;
           }
           if (btn.dataset.act === "edit") {

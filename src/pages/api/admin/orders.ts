@@ -220,20 +220,33 @@ export const GET: APIRoute = async ({ request, url }) => {
     // Pending MANUALI (link di pagamento inviato): i pending del sito
     // (checkout abbandonati) restano fuori. Migrazione #29 assente → nessuno.
     const q2 = leggi("orders", ambito, campi).eq("status", "pending").eq("source", "manual");
+    // ⚠️ Gli ordini DA INCASSARE: `pending` perche' nessuno li ha pagati — e
+    // dire il contrario sarebbe scrivere un incasso che non e' entrato — ma
+    // sono ordini veri, che la cucina sta preparando. Si distinguono da un
+    // carrello abbandonato per `payment_method`, non per la configurazione del
+    // locale: cosi' restano giusti anche dove la carta e la cassa convivono.
+    //
+    // ⚠️ Una query a SE', non un `or` dentro q2: se la colonna `source` manca
+    // (migrazione #29 non lanciata) quella query fallisce tutta, e gli ordini
+    // da incassare sparirebbero per una colonna che non li riguarda.
+    const q3 = leggi("orders", ambito, campi).eq("status", "pending").eq("payment_method", "onsite");
     if (daISO && aISO) {
       q1.gte("pickup_time", daISO).lte("pickup_time", aISO);
       q2.gte("pickup_time", daISO).lte("pickup_time", aISO);
+      q3.gte("pickup_time", daISO).lte("pickup_time", aISO);
     } else {
       q1.gte("pickup_time", soglia);
       q2.gte("pickup_time", soglia);
+      q3.gte("pickup_time", soglia);
     }
     return Promise.all([
       q1.order("pickup_time", { ascending: true }),
       q2.order("pickup_time", { ascending: true }),
+      q3.order("pickup_time", { ascending: true }),
     ]);
   };
-  let [princ, pend] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
-  if (princ.error) [princ, pend] = await leggiOrdini(CAMPI_BASE);
+  let [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE + EXTRA_50);
+  if (princ.error) [princ, pend, cassa] = await leggiOrdini(CAMPI_BASE);
 
   if (princ.error) {
     return json({ error: await msg("err.read") }, 500);
@@ -244,8 +257,13 @@ export const GET: APIRoute = async ({ request, url }) => {
   const righe = [
     ...(princ.data ?? []),
     ...(pend.error ? [] : (pend.data ?? [])),
+    ...(cassa.error ? [] : (cassa.data ?? [])),
   ] as unknown as Array<Record<string, unknown>>;
-  const tutti = righe.sort((a, b) =>
+  // ⚠️ Tre query, tre elenchi: una riga che ricadesse in due di essi
+  // comparirebbe due volte nella lista. Si tiene la prima, sono la stessa.
+  const perId = new Map<string, Record<string, unknown>>();
+  for (const r of righe) if (!perId.has(String(r.id))) perId.set(String(r.id), r);
+  const tutti = [...perId.values()].sort((a, b) =>
     String(a.pickup_time).localeCompare(String(b.pickup_time))
   );
   return json({ orders: tutti });
@@ -574,10 +592,20 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
   }
 
+  // ⚠️ L'INCASSO IN CASSA e' l'unico modo legittimo di portare un `pending` a
+  // `paid` dal pannello: li' il denaro lo prende una persona, non Stripe.
+  // Vale SOLO per gli ordini nati per essere pagati al ritiro: un carrello
+  // abbandonato non si incassa, e segnarlo pagato sarebbe inventare un
+  // incasso. Se la lettura di `prima` non e' riuscita, non si concede niente.
+  const daIncassare =
+    prima?.status === "pending" && String(prima?.payment_method ?? "") === "onsite";
+
   let q = aggiornaRighe("orders", ambito, { status }).eq("id", id);
   // Annuler è permesso anche su un pending (link di pagamento non pagato);
   // per gli altri passaggi i pending non si toccano (li gestisce il webhook).
-  if (status !== "cancelled") q = q.neq("status", "pending");
+  if (status !== "cancelled" && !(status === "paid" && daIncassare)) {
+    q = q.neq("status", "pending");
+  }
   const { data, error } = await q.select("id").maybeSingle();
 
   if (error) return json({ error: await msg("err.update") }, 500);

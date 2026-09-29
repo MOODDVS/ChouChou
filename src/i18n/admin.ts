@@ -473,7 +473,11 @@ const DIZIONARIO: Dizionario = {
   "tab.settings.general":       { fr: "Général", en: "General", it: "Generale", nl: "Algemeen", es: "General" },
   "tab.settings.horaire":       { fr: "Horaire", en: "Hours", it: "Orari", nl: "Openingsuren", es: "Horario" },
   "tab.settings.reservations":  { fr: "Réservations", en: "Reservations", it: "Prenotazioni", nl: "Reserveringen", es: "Reservas" },
-  "tab.settings.cuisine":       { fr: "Cuisine", en: "Kitchen", it: "Cucina", nl: "Keuken", es: "Cocina" },
+  // ⚠️ Era «Cuisine»: il tab conteneva due campi di preparazione. Ora dice
+  // anche COME si ordina e come si paga, che di cucina non e'. La chiave
+  // tecnica resta `cuisine` per non rinominare mezzo file — ma quello che
+  // legge il ristoratore e' «Ordini».
+  "tab.settings.cuisine":       { fr: "Commandes", en: "Orders", it: "Ordini", nl: "Bestellingen", es: "Pedidos" },
   "tab.settings.liens":         { fr: "Liens", en: "Links", it: "Link", nl: "Links", es: "Enlaces" },
   "tab.settings.team":          { fr: "Team", en: "Team", it: "Team", nl: "Team", es: "Equipo" },
   "tab.settings.documents":     { fr: "Documents", en: "Documents", it: "Documenti", nl: "Documenten", es: "Documentos" },
@@ -1849,6 +1853,26 @@ const DIZIONARIO: Dizionario = {
   // ----- Tab Cuisine -----
   "set.cui.prepTime": { fr: "Temps de préparation (min)", en: "Preparation time (min)", it: "Tempo di preparazione (min)", nl: "Bereidingstijd (min)", es: "Tiempo de preparación (min)" },
   "set.cui.slotDuration": { fr: "Durée d'un créneau (min)", en: "Slot duration (min)", it: "Durata di una fascia (min)", nl: "Duur van een tijdvak (min)", es: "Duración de una franja (min)" },
+  // ===== Come si ordina e come si paga (tab Ordini) =====
+  "set.ord.payTitle":   { fr: "Paiement", en: "Payment", it: "Pagamento", nl: "Betaling", es: "Pago" },
+  "set.ord.payOnline":  { fr: "Paiement par carte en ligne", en: "Card payment online", it: "Pagamento con carta online", nl: "Online betalen met kaart", es: "Pago con tarjeta en línea" },
+  "set.ord.payOnlineHint": { fr: "Le client paie au moment de la commande, par Stripe.", en: "The customer pays when ordering, through Stripe.", it: "Il cliente paga al momento dell'ordine, tramite Stripe.", nl: "De klant betaalt bij het bestellen, via Stripe.", es: "El cliente paga al hacer el pedido, con Stripe." },
+  "set.ord.payOnsite":  { fr: "Paiement sur place", en: "Payment on site", it: "Pagamento al locale", nl: "Betaling ter plaatse", es: "Pago en el local" },
+  "set.ord.payOnsiteHint": { fr: "Le client commande sans payer et règle au retrait. La commande reste « à encaisser » jusqu'à ce que vous l'encaissiez.", en: "The customer orders without paying and settles at pickup. The order stays “to collect” until you collect it.", it: "Il cliente ordina senza pagare e salda al ritiro. L'ordine resta «da incassare» finché non lo incassi.", nl: "De klant bestelt zonder te betalen en rekent af bij afhalen. De bestelling blijft 'te innen' tot je hem int.", es: "El cliente pide sin pagar y abona al recoger. El pedido queda «por cobrar» hasta que lo cobres." },
+  "set.ord.coupons":    { fr: "Codes promo", en: "Promo codes", it: "Codici sconto", nl: "Kortingscodes", es: "Códigos promocionales" },
+  "set.ord.couponsHint": { fr: "Affiche le champ « code promo » au moment de commander. Les bons déjà vendus restent valables.", en: "Shows the promo code field at checkout. Vouchers already sold stay valid.", it: "Mostra il campo «codice sconto» al momento dell'ordine. I buoni già venduti restano validi.", nl: "Toont het veld 'kortingscode' bij het bestellen. Reeds verkochte bonnen blijven geldig.", es: "Muestra el campo «código promocional» al pedir. Los bonos ya vendidos siguen siendo válidos." },
+  "set.ord.stripeOff":  { fr: "Compte Stripe non configuré : le paiement en ligne reste indisponible même activé.", en: "Stripe account not configured: online payment stays unavailable even when enabled.", it: "Conto Stripe non configurato: il pagamento online resta non disponibile anche se acceso.", nl: "Stripe-account niet ingesteld: online betalen blijft onbeschikbaar, ook als het aanstaat.", es: "Cuenta de Stripe no configurada: el pago en línea sigue sin estar disponible aunque se active." },
+
+  // ⚠️ Spegnere tutto vuol dire un sito che non prende ordini, e nessun
+  // errore lo direbbe: lo dice questo, al momento di salvare.
+  "err.noPayment":      { fr: "Il faut au moins un moyen de paiement : en ligne ou sur place.", en: "At least one payment method is required: online or on site.", it: "Serve almeno un modo di pagamento: online o al locale.", nl: "Er is minstens één betaalmethode nodig: online of ter plaatse.", es: "Hace falta al menos un método de pago: en línea o en el local." },
+
+  // ===== Ordini da incassare (pagamento al locale) =====
+  "ord.toCollect":      { fr: "À encaisser", en: "To collect", it: "Da incassare", nl: "Te innen", es: "Por cobrar" },
+  "ord.toCollectHint":  { fr: "Commande à payer sur place, au retrait", en: "Order to be paid on site, at pickup", it: "Ordine da pagare al locale, al ritiro", nl: "Bestelling ter plaatse te betalen, bij afhalen", es: "Pedido a pagar en el local, al recoger" },
+  "ord.collect":        { fr: "✓ Encaissé", en: "✓ Collected", it: "✓ Incassato", nl: "✓ Geïnd", es: "✓ Cobrado" },
+  "ord.collectHint":    { fr: "Marquer comme payé — la commande reste en cours", en: "Mark as paid — the order stays in progress", it: "Segna come pagato — l'ordine resta in lavorazione", nl: "Markeer als betaald — de bestelling blijft lopen", es: "Marcar como pagado — el pedido sigue en curso" },
+
   "set.cui.kitchenEmails": { fr: "Emails cuisine (commandes)", en: "Kitchen emails (orders)", it: "Email cucina (ordini)", nl: "Keuken-e-mails (bestellingen)", es: "Correos de cocina (pedidos)" },
   "set.cui.kitchenInherited": { fr: "Ces adresses viennent du groupe. Les enregistrer les rend propres à cet établissement ; vider la liste revient au groupe.", en: "These addresses come from the group. Saving them makes them this location\u2019s own; emptying the list goes back to the group.", it: "Questi indirizzi vengono dal marchio. Salvarli li rende propri di questo punto; svuotare la lista torna al marchio.", nl: "Deze adressen komen van de groep. Ze opslaan maakt ze eigen aan deze vestiging; de lijst legen gaat terug naar de groep.", es: "Estas direcciones vienen del grupo. Guardarlas las hace propias de este establecimiento; vaciar la lista vuelve al grupo." },
   "set.cui.kitchenEmailsHint": { fr: "Chaque adresse reçoit une notification à chaque commande payée.", en: "Each address receives a notification for every paid order.", it: "Ogni indirizzo riceve una notifica a ogni ordine pagato.", nl: "Elk adres krijgt een melding bij elke betaalde bestelling.", es: "Cada dirección recibe una notificación en cada pedido pagado." },

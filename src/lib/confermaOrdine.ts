@@ -20,13 +20,22 @@
  * gestore del webhook. Se il webhook non arriva, non le fa nessuno, e non
  * esiste nessun'altra strada.
  *
- * Qui quel gesto diventa una funzione, che ha gia' due chiamanti:
- *   1. il webhook di Stripe (la strada normale);
- *   2. il recupero dal pannello, che chiede a Stripe se fra gli ordini in
- *      sospeso ce n'e' qualcuno gia' pagato (la rete di sicurezza).
- * E ne avra' un terzo il giorno che si potra' ordinare senza pagare online:
- * li' l'ordine e' confermato nell'istante in cui il cliente preme invio, e
- * deve fare esattamente queste stesse quattro cose.
+ * ⚠️ E SONO DUE GESTI, NON UNO. Con Stripe accadono insieme — il pagamento
+ * arriva e in quello stesso istante l'ordine e' valido — e per questo erano
+ * scritti come una cosa sola. Ma un ordine che si paga in cassa si ANNUNCIA
+ * subito (il cliente ha ordinato, la cucina deve saperlo) e si SEGNA PAGATO
+ * dopo, quando qualcuno incassa. Cucirli insieme voleva dire o mandare la
+ * comanda in ritardo, o scrivere «pagato» su un ordine che nessuno ha pagato.
+ *
+ *   `annunciaOrdine`        — l'ordine esiste: email al cliente, email alla
+ *                             cucina, notifica al ristoratore, rubrica.
+ *   `confermaOrdinePagato`  — il denaro e' arrivato: `pending` -> `paid`, e
+ *                             poi annuncia (perche' con Stripe e' li' che
+ *                             l'ordine diventa vero).
+ *
+ * Chiamanti di oggi: il webhook di Stripe (la strada normale), il recupero dal
+ * pannello (la rete sotto), e l'ordine da pagare in cassa, che annuncia e
+ * basta — resta `pending`, che per lui non e' un limbo ma la verita'.
  *
  * ⚠️ L'IDEMPOTENZA STA QUI DENTRO, e non nei chiamanti: si aggiorna solo se
  * l'ordine e' ancora `pending`. E' quello che impedisce a un evento Stripe
@@ -34,9 +43,24 @@
  * di mandare due email allo stesso cliente. Chi chiama non deve saperlo.
  */
 import { aggiorna, ambitoDiRiga, type Ambito } from "./admin/sede";
+import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
 import { inviaNotifiche } from "./notifications";
 import { inviaPushOrdine } from "./push";
+
+/** Quello che serve per annunciare un ordine: e' la SELECT qui sotto. */
+export interface RigaAnnuncio {
+  id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  customer_phone: string | null;
+  pickup_time: string;
+  items: unknown;
+  total_cents: number;
+  lang: string | null;
+  /** A quale cucina suona il telefono. */
+  location_id: string | null;
+}
 
 /**
  * Porta un ordine da `pending` a `paid` e fa tutto quello che ne consegue.
@@ -77,16 +101,39 @@ export async function confermaOrdinePagato(opts: {
   }
   if (!ordine) return false;
 
+  await annunciaOrdine(ordine as RigaAnnuncio);
+  return true;
+}
+
+/**
+ * L'ordine esiste: dirlo a chi deve saperlo.
+ *
+ * Email al cliente, email alla cucina, notifica sul telefono del ristoratore,
+ * cliente in rubrica. Non tocca lo stato: chi la chiama ha gia' deciso se
+ * quell'ordine e' pagato o no.
+ *
+ * ⚠️ NON E' IDEMPOTENTE, e non puo' esserlo: non sa niente di stati. Chi la
+ * chiama deve garantire di arrivarci una volta sola — `confermaOrdinePagato`
+ * lo fa aggiornando solo cio' che e' ancora `pending`, l'ordine in cassa lo fa
+ * annunciando subito dopo l'inserimento, che avviene una volta.
+ */
+export async function annunciaOrdine(ordine: RigaAnnuncio): Promise<void> {
+  const numero = String(ordine.id).slice(0, 8);
+
+  // ⚠️ Il database e' piu' permissivo di chi manda le email: `customer_name`
+  // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.
+  // Si adatta QUI, in un posto solo, invece di allentare `OrdineNotifica` —
+  // che e' il tipo che garantisce a chi scrive un'email di avere un nome.
   await inviaNotifiche({
     // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e cucina
     // a cui arriva il ticket.
     location_id: ordine.location_id ?? null,
-    numero: opts.orderId.slice(0, 8),
-    customer_name: ordine.customer_name,
-    customer_email: ordine.customer_email,
+    numero,
+    customer_name: ordine.customer_name ?? "",
+    customer_email: ordine.customer_email ?? "",
     customer_phone: ordine.customer_phone,
     pickup_time: ordine.pickup_time,
-    items: ordine.items,
+    items: (ordine.items ?? []) as OrdineNotifica["items"],
     total_cents: ordine.total_cents,
     lang: ordine.lang === "en" ? "en" : "fr",
   });
@@ -95,8 +142,8 @@ export async function confermaOrdinePagato(opts: {
   // farebbe squillare anche Jourdan e Schaerbeek.
   void inviaPushOrdine(
     {
-      numero: opts.orderId.slice(0, 8),
-      customer_name: ordine.customer_name,
+      numero,
+      customer_name: ordine.customer_name ?? "",
       total_cents: ordine.total_cents,
     },
     ambitoDiRiga(ordine.location_id),
@@ -107,8 +154,6 @@ export async function confermaOrdinePagato(opts: {
     email: ordine.customer_email,
     phone: ordine.customer_phone,
   });
-
-  return true;
 }
 
 /**

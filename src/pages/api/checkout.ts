@@ -12,6 +12,8 @@ import { configGiornoEffettiva } from "../../lib/schedule";
 import { ambitoPubblicoChiesto } from "../../lib/admin/sede";
 import { appConfigEq } from "../../lib/appConfigCache";
 import { basePubblicaOpz } from "../../lib/basePubblica";
+import { modiDiPagamento } from "../../lib/ordiniOpzioni";
+import { annunciaOrdine, type RigaAnnuncio } from "../../lib/confermaOrdine";
 import { prezzoEffettivo, haVarianti, trovaVariante, etichettaVariante } from "../../lib/pricing";
 import { applicaStatoSede } from "../../lib/menuStato";
 import {
@@ -43,6 +45,8 @@ interface CheckoutRequest {
   slot: string;
   note?: string;
   coupon?: string;
+  /** Come vuole pagare, quando il punto offre entrambe le strade. */
+  pay?: "online" | "onsite";
   customer: {
     name: string;
     surname: string;
@@ -83,6 +87,17 @@ export const POST: APIRoute = async ({ request }) => {
   const LANG_PUBBLICHE = ["fr", "en", "it", "nl", "es"];
   const lang = LANG_PUBBLICHE.includes(String(body.lang)) ? String(body.lang) : "fr";
   // Ordini chiusi dall'admin: messaggio nella lingua del cliente.
+  // ⚠️ Non e' «chiuso adesso», e' «qui non si prende nessun ordine»: il
+  // ristoratore ha spento sia il pagamento con carta sia quello al locale,
+  // oppure ha chiesto la carta senza avere un conto Stripe configurato.
+  // Meglio dirlo che far finta di accettare un ordine che non arrivera'.
+  const TXT_NIENTE_PAGAMENTO: Record<string, string> = {
+    fr: "Les commandes en ligne ne sont pas disponibles pour le moment.",
+    en: "Online ordering is not available at the moment.",
+    it: "Gli ordini online non sono disponibili al momento.",
+    nl: "Online bestellen is momenteel niet beschikbaar.",
+    es: "Los pedidos en línea no están disponibles por el momento.",
+  };
   const TXT_CHIUSO: Record<string, string> = {
     fr: "Les commandes en ligne sont momentanément fermées. Réessayez plus tard.",
     en: "Online ordering is temporarily closed. Please try again later.",
@@ -104,6 +119,15 @@ export const POST: APIRoute = async ({ request }) => {
   const { data: cfgChiusura } = await appConfigEq("orders_closed", ambitoPub);
   if (cfgChiusura?.value === "1") {
     return err(503, TXT_CHIUSO[lang] ?? TXT_CHIUSO.fr);
+  }
+
+  // ⚠️ COME SI PAGA IN QUESTO PUNTO. Non e' una preferenza: decide se qui si
+  // puo' ordinare, e come. `modiDiPagamento` incrocia quello che il ristoratore
+  // ha chiesto con quello che e' davvero possibile — volere il pagamento con
+  // carta senza un conto Stripe configurato non lo rende possibile.
+  const modi = await modiDiPagamento(ambitoPub);
+  if (modi.nessuno) {
+    return err(503, TXT_NIENTE_PAGAMENTO[lang] ?? TXT_NIENTE_PAGAMENTO.fr);
   }
 
   const fuso = await fusoDi(ambitoPub);
@@ -251,7 +275,10 @@ export const POST: APIRoute = async ({ request }) => {
   let couponId: string | null = null;
   let couponCodeSalvato: string | null = null;
   let scontoCents = 0;
-  const codeInput = normalizzaCodice(body.coupon ?? "");
+  // ⚠️ Il codice si legge solo se il ristoratore tiene i coupon accesi. Non
+  // basta nascondere il campo nel sito: chi manda la richiesta a mano
+  // aggirerebbe l'interruttore, e uno sconto non voluto e' denaro vero.
+  const codeInput = modi.coupon ? normalizzaCodice(body.coupon ?? "") : "";
   if (codeInput) {
     const { data: coupon } = await supabaseAdmin
       .from("coupons")
@@ -280,8 +307,23 @@ export const POST: APIRoute = async ({ request }) => {
   // Le colonne coupon_* si scrivono SOLO se un coupon è stato applicato: così
   // gli ordini normali funzionano anche se la migration coupons.sql non è
   // ancora stata lanciata su Supabase.
+  // ⚠️ QUALE DELLE DUE STRADE. Se il cliente ha chiesto esplicitamente
+  // `pay: "onsite"` (e il locale lo offre) si paga in cassa; altrimenti vince
+  // la carta quando e' possibile. Con un solo modo acceso — il caso di chi
+  // vuole gli ordini online senza pagamenti online — non c'e' niente da
+  // scegliere e il sito non deve chiedere nulla.
+  const inCassa = modi.locale && (!modi.online || body.pay === "onsite");
+
   const datiOrdine: Record<string, unknown> = {
+    // ⚠️ `pending` ANCHE per l'ordine in cassa, e non e' un limbo: quell'ordine
+    // NON e' pagato, e dire `paid` sarebbe scrivere una cifra incassata che
+    // non e' entrata. Diventa `paid` quando qualcuno incassa davvero.
     status: "pending",
+    // ⚠️ E' QUESTO che distingue un ordine da incassare da un carrello
+    // abbandonato: due righe `pending` identiche in tutto il resto. Il
+    // pannello mostra i primi e ignora i secondi, e il recupero da Stripe
+    // salta i primi perche' non hanno nessuna sessione da verificare.
+    ...(inCassa ? { payment_method: "onsite" } : {}),
     pickup_time: pickup.toISO(),
     customer_name: normalizzaNome(`${body.customer.name} ${body.customer.surname}`),
     customer_email: body.customer.email,
@@ -296,15 +338,56 @@ export const POST: APIRoute = async ({ request }) => {
     datiOrdine.coupon_discount_cents = scontoCents;
   }
 
-  const { data: ordine, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
-    .select("id")
+  // L'ordine in cassa ha bisogno del suo `cancel_token` subito: e' con quello
+  // che la pagina di ritorno lo ritrova, visto che nessuna sessione Stripe
+  // esiste.
+  const campiResa = inCassa
+    ? "id, cancel_token, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang, location_id"
+    : "id";
+  // ⚠️ `select` con una stringa VARIABILE fa perdere a TypeScript la forma
+  // della riga (rende un `ParserError`): si dichiara qui cosa ci si aspetta,
+  // che e' esattamente quello che `campiResa` chiede.
+  const { data: ordineRaw, error: errInsert } = await inserisci("orders", ambitoPub, datiOrdine)
+    .select(campiResa)
     .single();
+  const ordine = ordineRaw as unknown as
+    | (RigaAnnuncio & { cancel_token?: string })
+    | null;
 
   if (errInsert || !ordine) {
     return err(500, "Impossibile creare l'ordine");
   }
 
   const siteUrl = process.env.PUBLIC_SITE_URL ?? import.meta.env.PUBLIC_SITE_URL ?? "http://localhost:4321";
+
+  // ---- L'ORDINE DA PAGARE IN CASSA ----
+  // ⚠️ Niente Stripe, e quindi niente webhook: se l'ordine non lo annunciamo
+  // qui, non lo annuncia nessuno. E' lo stesso annuncio della strada con la
+  // carta — email al cliente, email alla cucina, notifica, rubrica — perche'
+  // per il ristorante quell'ordine e' vero esattamente come l'altro. Cio' che
+  // NON succede e' il passaggio a `paid`: quello aspetta la cassa.
+  if (inCassa) {
+    try {
+      await annunciaOrdine(ordine);
+    } catch (e) {
+      // ⚠️ L'ordine ESISTE gia': se l'annuncio fallisce non si torna indietro e
+      // non si dice al cliente di riprovare, o si ritroverebbe due ordini. Il
+      // ristoratore lo vede comunque nel pannello, che e' il punto.
+      console.error("[checkout] annuncio dell'ordine in cassa fallito:", e);
+    }
+    // ⚠️ La stessa forma della strada con la carta: il sito fa `location.href`
+    // su quello che gli si rende, e non deve sapere quale delle due e' stata.
+    // Il token e' la chiave per ritrovare l'ordine sulla pagina di ritorno —
+    // li' non c'e' nessuna sessione Stripe da citare.
+    const base = (await basePubblicaOpz(ambitoPub)) ?? "";
+    return new Response(
+      JSON.stringify({
+        url: `${base}/order-confirm?token=${encodeURIComponent(String(ordine.cancel_token ?? ""))}`,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   try {
     const url = await creaCheckoutSession({
       // Chi incassa: il punto che il cliente ha scelto, lo stesso con cui

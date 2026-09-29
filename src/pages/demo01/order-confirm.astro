@@ -13,6 +13,10 @@ const url = Astro.url;
 const langParam = (url.searchParams.get("lang") || "fr").toLowerCase();
 const lang = ["fr", "en", "it"].includes(langParam) ? langParam : "fr";
 const sessionId = url.searchParams.get("session_id");
+// ⚠️ L'ordine DA PAGARE IN CASSA non passa da Stripe, quindi non ha nessuna
+// sessione da citare. Torna qui con il suo `cancel_token`, che e' un uuid
+// casuale per riga — lo stesso segreto con cui si annulla un ordine.
+const token = url.searchParams.get("token");
 
 const { data: cfgBrand } = await supabaseAdmin.from("app_config").select("value").eq("key", "restaurant_name").maybeSingle();
 const brand = String(cfgBrand?.value ?? "").trim() || CLIENT.nome;
@@ -26,7 +30,19 @@ interface Ordine {
   total_cents: number;
 }
 let ordine: Ordine | null = null;
-if (sessionId) {
+if (token) {
+  // ⚠️ AGGREGATO, come sotto e per la stessa ragione: il token e'
+  // l'autorizzazione, e filtrare per sede farebbe trovare «ordine non
+  // trovato» a chi ha ordinato in un altro punto.
+  const { data } = await leggi(
+    "orders",
+    tutteLeSedi(),
+    "id, status, pickup_time, customer_name, items, total_cents",
+  )
+    .eq("cancel_token", token)
+    .maybeSingle();
+  ordine = data as Ordine | null;
+} else if (sessionId) {
   // ⚠️ AGGREGATO, chiesto per nome. L'ordine si trova con l'id della sessione
   // Stripe, che e' un segreto lungo e monouso: l'id E' l'autorizzazione.
   // Filtrando per sede, il cliente di due punti su tre tornerebbe da Stripe
@@ -48,7 +64,11 @@ const oraRitiro = (iso: string): string =>
     timeZone: "Europe/Brussels",
   });
 const numero = ordine ? ordine.id.slice(0, 8) : null;
-const confermato = ordine?.status === "paid";
+// ⚠️ «Confermato» e «pagato» non sono piu' la stessa cosa. Un ordine da
+// pagare al ritiro e' confermato — la cucina lo sta preparando — e resta
+// `pending` finche' non si incassa. Dire al cliente «pagamento in corso di
+// verifica» sarebbe falso e lo farebbe tornare qui a controllare.
+const confermato = ordine?.status === "paid" || Boolean(token && ordine);
 const voci = ordine ? ordine.items.filter((i) => i.qty > 0) : [];
 const noteCliente = ordine ? ordine.items.find((i) => i.qty === 0 && i.notes)?.notes ?? null : null;
 

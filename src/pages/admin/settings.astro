@@ -105,14 +105,24 @@ const t = adminT(lang);
       /* Tab Liens: riga = icona + label a sinistra, campo largo a destra */
       #content[data-tab="liens"], #content[data-tab="general"], #content[data-tab="team"], #content[data-tab="notifications"], #content[data-tab="documents"] { max-width: none; }
       #content[data-tab="reservations"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
+      #content[data-tab="cuisine"] { grid-template-columns: 1fr 1fr; max-width: none; align-items: start; }
       /* 1279/1280: le righe di questo tab hanno un label fisso da 300px, due
          colonne stanno comode solo su schermi larghi. Era 1100. */
-      @media (max-width: 1279px) { #content[data-tab="reservations"] { grid-template-columns: 1fr; } }
+      @media (max-width: 1279px) { #content[data-tab="reservations"], #content[data-tab="cuisine"] { grid-template-columns: 1fr; } }
 
       /* --- Plan de salle (tab Réservations) --- */
       .sl-col { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
-      /* dentro la colonna il flex-basis è l'ALTEZZA: si rimettono le misure vere */
-      .section[data-tab="reservations"] .field .sl-col label.switch { flex: 0 0 auto; width: 44px; max-width: 44px; height: 24px; }
+      /* ⚠️ LA REGOLA NON E' DEL TAB PRENOTAZIONI, e' dell'interruttore.
+         `.field label` da' 220px di flex-basis a OGNI label, e un interruttore
+         E' una label: in riga diventa largo 220px, dentro una colonna quel
+         valore e' l'ALTEZZA e lo stira in verticale. Era scritta solo per
+         `[data-tab="reservations"]`, dove il guasto si era visto la prima
+         volta — e il primo interruttore messo in un altro tab (Ordini,
+         29/09/2026) e' uscito lungo mezza pagina.
+         Le misure le decide il componente (`styles/switch.css`, --sw-*): qui
+         si annulla solo l'eredita' del flex. */
+      .field label.switch { flex: 0 0 auto; width: var(--sw-w); max-width: var(--sw-w); height: var(--sw-h); }
+      .field .switch input { flex: none; width: 0; min-width: 0; }
       .sl-filtri { display: flex; gap: 0.45rem; flex-wrap: wrap; }
       .section[data-tab="reservations"] .field-zones { margin-bottom: 2.2rem; }
       .section[data-tab="reservations"] .field-services { margin-bottom: 2.2rem; }
@@ -624,6 +634,23 @@ const t = adminT(lang);
       .section[data-tab="general"] .field input.g-zip { flex: 0 0 120px; }
       /* Descrizione del campo: sempre sotto il suo label */
       .field:has(.lab-hint) { align-items: flex-start; }
+      /* ⚠️ UN CAMPO CON INTERRUTTORE NON E' UN CAMPO CON INPUT. Li' il label
+         nomina la casella accanto e 220px bastano; qui il testo SPIEGA cosa
+         succede accendendolo — due righe di descrizione — e stretto in 220px
+         diventa una colonna di parole a capo. L'interruttore invece e' un
+         bersaglio piccolo e fisso: sta al margine destro, dove l'occhio lo
+         trova sempre allo stesso posto scorrendo l'elenco. */
+      .field:has(> label.switch) > label:not(.switch) { flex: 1 1 auto; max-width: none; }
+      .field > label.switch { margin-left: auto; }
+      /* ⚠️ Una riga fra un interruttore e l'altro: con due righe di
+         descrizione ciascuno, senza separazione non si capisce dove finisce
+         una spiegazione e dove comincia la successiva. Stesso tratto di
+         `.rgroup-sep`, e non sotto l'ultimo: li' chiuderebbe la scheda due
+         volte, insieme al bordo del riquadro. */
+      .field:has(> label.switch):not(:last-child) {
+        border-bottom: 1px solid var(--c-line);
+        padding-bottom: 0.9rem;
+      }
       .lab-hint {
         display: block;
         color: var(--c-muted);
@@ -716,8 +743,6 @@ const t = adminT(lang);
       .section[data-tab="reservations"] .field { flex-wrap: nowrap; }
       .section[data-tab="reservations"] .field label { flex: 0 0 300px; max-width: 300px; }
       .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
-      .section[data-tab="reservations"] .field label.switch { flex: 0 0 44px; max-width: 44px; width: 44px; }
-      .section[data-tab="reservations"] .field .switch input { flex: none; width: 0; min-width: 0; }
       @media (max-width: 640px) {
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
         .section[data-tab="reservations"] .field input { flex-basis: 100%; }
@@ -1325,6 +1350,31 @@ const t = adminT(lang);
             <div class="field">
               <label for="slot">{t("set.cui.slotDuration")}</label>
               <input type="number" id="slot" min="5" max="120" step="5" />
+            </div>
+
+          </div>
+
+          {/* ⚠️ Scheda a SE', non un pezzo in fondo a quella dei tempi: sono
+              due cose diverse (quanto ci mette la cucina · come si paga) e il
+              tab ha due colonne, come Prenotazioni e Orari. Una sezione sola
+              lasciava mezza pagina vuota. */}
+          <div class="section" data-tab="cuisine" style="display:none">
+            <h2>{t("set.ord.payTitle")}</h2>
+            {/* ⚠️ I due pagamenti non sono preferenze: insieme decidono se qui
+                si puo' ordinare. Spegnendoli entrambi il sito non prende piu'
+                niente, e il salvataggio lo rifiuta invece di lasciare un
+                ristorante muto senza che nessun errore lo dica. */}
+            <div class="field">
+              <label>{t("set.ord.payOnline")}<span class="lab-hint">{t("set.ord.payOnlineHint")}</span><span class="lab-hint" id="o-stripe-off" style="display:none">{t("set.ord.stripeOff")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-pay-online" /><span class="track"></span></label>
+            </div>
+            <div class="field">
+              <label>{t("set.ord.payOnsite")}<span class="lab-hint">{t("set.ord.payOnsiteHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-pay-onsite" /><span class="track"></span></label>
+            </div>
+            <div class="field">
+              <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
             </div>
           </div>
 
@@ -3597,7 +3647,7 @@ const t = adminT(lang);
         rwAuthPronta = true;
 
         // --- Carica i valori attuali ---
-        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string> };
+        let dati: { days: Giorno[]; prep_time_minutes: number; slot_duration_minutes: number; kitchen_email: string; kitchen_email_ereditata?: boolean; links?: Record<string, string>; general?: Record<string, string>; reservations?: Record<string, string>; orders?: Record<string, boolean>; stripe_pronto?: boolean };
         try {
           const res = await fetch("/api/admin/settings", { headers });
           if (!res.ok) { stateEl.textContent = tr("sup.load.error"); return; }
@@ -3777,6 +3827,23 @@ const t = adminT(lang);
         // se lo porta a casa come eccezione per sempre.
         const kHerit = document.getElementById("kemail-herit") as HTMLElement | null;
         if (kHerit) kHerit.style.display = dati.kitchen_email_ereditata ? "" : "none";
+
+        // ---- Tab Ordini: come si paga ----
+        // ⚠️ I ripieghi non si scrivono qui. Il server rende gia' gli
+        // interruttori risolti (`lib/ordiniOpzioni.ts`), perche' un default
+        // scritto in due posti e' un default che prima o poi diverge.
+        const ordini = dati.orders ?? {};
+        const met = (id: string, chiave: string) => {
+          const el = document.getElementById(id) as HTMLInputElement | null;
+          if (el) el.checked = Boolean(ordini[chiave]);
+        };
+        met("o-pay-online", "orders_pay_online");
+        met("o-pay-onsite", "orders_pay_onsite");
+        met("o-coupons", "orders_coupons");
+        // ⚠️ Acceso ma inutile: senza conto Stripe il pagamento con carta non
+        // si puo' offrire, e l'interruttore da solo sembrerebbe dire di si'.
+        const avvisoStripe = document.getElementById("o-stripe-off") as HTMLElement | null;
+        if (avvisoStripe) avvisoStripe.style.display = dati.stripe_pronto === false ? "" : "none";
         for (const k of CHIAVI_LINK) {
           const el = lnkEls.get(k);
           if (el) el.value = dati.links?.[k] ?? "";
@@ -4121,6 +4188,13 @@ const t = adminT(lang);
                 prep_time_minutes: Number(prepEl.value),
                 slot_duration_minutes: Number(slotEl.value),
                 kitchen_email: emailsCucina(),
+                // ⚠️ Interruttori: si mandano come veri/falsi. Il server li
+                // traduce in "1"/"0" e rifiuta di spegnerli tutti e due.
+                orders: {
+                  orders_pay_online: (document.getElementById("o-pay-online") as HTMLInputElement | null)?.checked ?? true,
+                  orders_pay_onsite: (document.getElementById("o-pay-onsite") as HTMLInputElement | null)?.checked ?? false,
+                  orders_coupons: (document.getElementById("o-coupons") as HTMLInputElement | null)?.checked ?? true,
+                },
                 links: Object.fromEntries(
                   CHIAVI_LINK.map((k) => [k, (lnkEls.get(k)?.value ?? "").trim()])
                 ),
