@@ -5044,8 +5044,27 @@ const t = adminT(lang);
             .filter((k) => k.startsWith("settings:"))
             .map((k) => k.slice("settings:".length));
           for (const tk of nasc) {
+            // ⚠️ IL BOTTONE SI TOGLIE, LA SEZIONE NO — SI SPEGNE (30/09/2026).
+            //
+            // Smontarla dal DOM rompeva la pagina per chiunque non fosse super
+            // admin: il codice che riempie i campi fa `prepEl.value = …`, e
+            // `prepEl` sta nel tab Ordini. Tab spento, elemento inesistente,
+            // `Cannot read properties of null` — e siccome quella riga stava
+            // PRIMA di togliere «Chargement…», la pagina restava li' per
+            // sempre. Nessun errore nel server (l'API rispondeva 200), nessun
+            // errore in `astro check` (il `as HTMLInputElement` gli dice che
+            // l'elemento c'e' sempre), e per il super admin funzionava tutto.
+            //
+            // Nascosta, i campi esistono ancora: il caricamento li riempie e
+            // il salvataggio li rimanda uguali a come li ha letti. Chi non
+            // deve vedere quel tab non lo vede — il bottone non c'e' e
+            // `mostraTab` non lo apre — ma niente si rompe.
             document.querySelector(`#tabs button[data-t="${tk}"]`)?.remove();
-            document.querySelector(`#content .section[data-tab="${tk}"]`)?.remove();
+            const sezSpenta = document.querySelector<HTMLElement>(`#content .section[data-tab="${tk}"]`);
+            if (sezSpenta) {
+              sezSpenta.dataset.spento = "1";
+              sezSpenta.style.display = "none";
+            }
           }
         }
       }
@@ -5059,7 +5078,10 @@ const t = adminT(lang);
     function mostraTab(t: string) {
       tabBtns.forEach((b) => b.classList.toggle("is-active", b.dataset.t === t));
       document.querySelectorAll<HTMLElement>("#content .section[data-tab]").forEach((sec) => {
-        sec.style.display = sec.dataset.tab === t ? "" : "none";
+        // ⚠️ Una sezione SPENTA resta spenta: e' ancora nel documento perche'
+        // il codice che riempie i campi ha bisogno che esista, non perche'
+        // debba potersi aprire.
+        sec.style.display = sec.dataset.spento === "1" ? "none" : sec.dataset.tab === t ? "" : "none";
       });
       const contenuto = document.getElementById("content");
       if (contenuto) contenuto.dataset.tab = t;

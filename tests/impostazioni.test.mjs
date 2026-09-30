@@ -422,3 +422,26 @@ test("chi legge il link recensioni puo' dire di quale sede", () => {
     "linkGoogleReview legge app_config a mano: scavalca lo strato delle sedi",
   );
 });
+
+test("un tab spento si nasconde, non si smonta", () => {
+  // ⚠️ IL GUASTO (30/09/2026): la pagina Impostazioni restava su
+  // «Chargement…» per chiunque non fosse super admin, su un cliente che
+  // aveva spento qualche tab. La sezione veniva tolta dal DOM, e il codice
+  // che riempie i campi faceva `prepEl.value = …` su un elemento che non
+  // c'era piu': `Cannot read properties of null`, lo script moriva, e
+  // «Chargement…» non veniva mai tolto.
+  //
+  // ⚠️ Non l'ha visto nessuno per settimane: l'API rispondeva 200, `astro
+  // check` era verde (il `as HTMLInputElement` gli dice che l'elemento c'e'
+  // sempre) e per il super admin — cioe' per chi prova — funzionava tutto.
+  const src = readFileSync("src/pages/admin/settings.astro", "utf8");
+  assert.doesNotMatch(
+    src,
+    /\.section\[data-tab="\$\{tk\}"\]`\)\?\.remove\(\)/,
+    "la sezione di un tab spento viene smontata: i campi che stanno dentro diventano null e il caricamento si ferma a meta'",
+  );
+  assert.match(src, /sezSpenta\.dataset\.spento = "1"/);
+  // E chi mostra i tab deve rispettare lo spegnimento, o la sezione
+  // tornerebbe visibile al primo cambio di tab.
+  assert.match(src, /sec\.dataset\.spento === "1" \? "none"/);
+});
