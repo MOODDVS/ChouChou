@@ -3,9 +3,7 @@ import type { APIRoute } from "astro";
 import Stripe from "stripe";
 import { aggiorna, tutteLeSedi, segretiDOgniSede } from "../../lib/admin/sede";
 import { supabaseAdmin } from "../../lib/db";
-import { inviaNotifiche } from "../../lib/notifications";
-import { inviaPushOrdine } from "../../lib/push";
-import { ambitoDiRiga } from "../../lib/admin/sede";
+import { confermaOrdinePagato } from "../../lib/confermaOrdine";
 
 export const prerender = false;
 
@@ -115,58 +113,30 @@ export const POST: APIRoute = async ({ request }) => {
       return new Response("order_id mancante", { status: 400 });
     }
 
-    // --- 2. Idempotenza: aggiorna SOLO se ancora 'pending' ---
-    // Se l'evento arriva due volte, la seconda non fa nulla (status già 'paid').
-    const { data: aggiornato, error } = await aggiorna("orders", ambito, {
-        status: "paid",
-        stripe_session_id: session.id, // l'id pulito cs_test_..., non l'URL
-      })
-      .eq("id", orderId)
-      .eq("status", "pending") // <-- chiave dell'idempotenza
-      // `location_id` serve alla notifica push: dice a QUALE pizzeria suona.
-      .select("id, customer_name, customer_email, customer_phone, pickup_time, items, total_cents, lang, location_id")
-      .maybeSingle();
-
-    if (error) {
-      console.error("Errore aggiornamento ordine:", error);
+    // --- 2. La conferma, che non vive piu' qui ---
+    // ⚠️ Le quattro cose che succedono quando un pagamento arriva — stato,
+    // email al cliente, email alla cucina, notifica, rubrica — stavano tutte
+    // dentro questo file, e quindi il webhook era l'UNICO modo di confermare
+    // un ordine. Il 29/09/2026 i webhook di 450 Gradi puntavano ancora al
+    // dominio di prova: due clienti hanno pagato e il ristorante non ha visto
+    // niente, senza un errore da nessuna parte. Ora il gesto sta in
+    // `lib/confermaOrdine.ts` e ha piu' di una strada per arrivarci.
+    //
+    // L'idempotenza (aggiorna solo se ancora `pending`) sta li' dentro: un
+    // evento consegnato due volte non manda due email.
+    try {
+      const fatto = await confermaOrdinePagato({
+        orderId,
+        ambito,
+        sessionId: session.id, // l'id pulito cs_..., non l'URL
+      });
+      console.log(
+        fatto
+          ? `Ordine ${orderId} confermato: pending -> paid`
+          : `Ordine ${orderId} gia' processato o non trovato (idempotenza)`,
+      );
+    } catch {
       return new Response("Errore DB", { status: 500 });
-    }
-
-    if (aggiornato) {
-        console.log(`Ordine ${orderId} confermato: pending -> paid`);
-        // Notifiche: numero ordine breve dai primi 8 caratteri dell'UUID.
-        await inviaNotifiche({
-          // La sede la dice la RIGA: e' lei che decide indirizzo, mittente e
-          // cucina a cui arriva il ticket.
-          location_id: aggiornato.location_id ?? null,
-          numero: orderId.slice(0, 8),
-          customer_name: aggiornato.customer_name,
-          customer_email: aggiornato.customer_email,
-          customer_phone: aggiornato.customer_phone,
-          pickup_time: aggiornato.pickup_time,
-          items: aggiornato.items,
-          total_cents: aggiornato.total_cents,
-          lang: aggiornato.lang === "en" ? "en" : "fr",
-        });
-        // Push all'admin: nuova commande payée
-        // ⚠️ La sede la dice la RIGA, non la richiesta: Stripe non sa niente
-        // di sedi (per questo la lettura qui sopra usa l'aggregato). Senza,
-        // un ordine di Stockel farebbe squillare anche Jourdan e Schaerbeek.
-        void inviaPushOrdine({
-          numero: orderId.slice(0, 8),
-          customer_name: aggiornato.customer_name,
-          total_cents: aggiornato.total_cents,
-        }, ambitoDiRiga(aggiornato.location_id));
-        // Registra (o completa) il cliente nella tabella `clients`.
-        // Mai bloccante: un errore qui non deve far fallire il webhook.
-        await registraCliente({
-          name: aggiornato.customer_name,
-          email: aggiornato.customer_email,
-          phone: aggiornato.customer_phone,
-        });
-      } else {
-      // Nessuna riga aggiornata: ordine già processato (evento duplicato) o inesistente.
-      console.log(`Ordine ${orderId} già processato o non trovato (idempotenza)`);
     }
   }
 
@@ -176,46 +146,3 @@ export const POST: APIRoute = async ({ request }) => {
     headers: { "Content-Type": "application/json" },
   });
 };
-
-/**
- * Salva il cliente dell'ordine nella tabella `clients` (rubrica admin).
- * - se un cliente con la stessa email esiste già: completa solo il
- *   telefono se mancava (niente doppioni, fusione per email)
- * - altrimenti lo crea
- */
-async function registraCliente(c: {
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-}): Promise<void> {
-  try {
-    const email = (c.email ?? "").trim().toLowerCase();
-    if (!email) return; // senza email non c'è chiave di fusione affidabile
-
-    const { data: esistente } = await supabaseAdmin
-      .from("clients")
-      .select("id, phone, hidden")
-      .ilike("email", email)
-      .limit(1)
-      .maybeSingle();
-
-    if (esistente) {
-      // Un nuovo ordine riattiva un cliente nascosto e completa il telefono.
-      const patch: { phone?: string; hidden?: boolean } = {};
-      if (!esistente.phone && c.phone) patch.phone = c.phone;
-      if (esistente.hidden) patch.hidden = false;
-      if (Object.keys(patch).length > 0) {
-        await supabaseAdmin.from("clients").update(patch).eq("id", esistente.id);
-      }
-      return;
-    }
-
-    await supabaseAdmin.from("clients").insert({
-      name: c.name ?? "",
-      email,
-      phone: c.phone,
-    });
-  } catch (e) {
-    console.error("[webhook] registrazione cliente fallita:", e);
-  }
-}

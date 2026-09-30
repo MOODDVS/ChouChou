@@ -134,6 +134,7 @@ export const API_PAGINA: Record<string, string> = {
   // --- Ordini -----------------------------------------------------------
   "orders": "orders",
   "refund": "orders",
+  "orders-recupero": "orders",   // la guarigione dei pagamenti non registrati
   // --- Prenotazioni -----------------------------------------------------
   "reservations": "reservations",
   "service-closures": "reservations",

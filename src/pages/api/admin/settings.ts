@@ -11,8 +11,9 @@ import { adminT } from "../../../i18n/admin";
 // eccezioni della sede. Queste due funzioni sono l'unico posto che lo sa.
 import {
   ambitoDiRichiesta, leggiConfig, scriviConfig, cancellaConfig,
-  leggiOrari, scriviOrari, assicuraOrariSede,
+  leggiOrari, scriviOrari, assicuraOrariSede, pagamentoOnlineAttivo,
 } from "../../../lib/admin/sede";
+import { CHIAVI_ORDINI, acceso } from "../../../lib/ordiniRegole";
 
 export const prerender = false;
 
@@ -180,6 +181,7 @@ export const GET: APIRoute = async ({ request }) => {
     ...CHIAVI_LINK.map((k) => "link_" + k),
     ...CHIAVI_GENERAL,
     ...CHIAVI_RESA,
+    ...CHIAVI_ORDINI,
   ]);
   // I link si leggono dal GRUPPO, non dallo strato della sede: e' il livello
   // in cui vivono. Cosi' un'eventuale riga di sede rimasta indietro non
@@ -193,6 +195,12 @@ export const GET: APIRoute = async ({ request }) => {
   reservations["reservation_hold_minutes"] = cfg.get("reservation_hold_minutes") ?? "";
   reservations["reservation_slot_minutes"] = cfg.get("reservation_slot_minutes") ?? "";
   reservations["reservation_min_notice_hours"] = cfg.get("reservation_min_notice_hours") ?? "";
+
+  // ⚠️ Interruttori, non testo: si rendono gia' come si'/no, col loro ripiego
+  // (`acceso`), cosi' la pagina non deve conoscere i valori di default — che
+  // e' il modo in cui due posti finiscono per non essere d'accordo.
+  const orders: Record<string, boolean> = {};
+  for (const k of CHIAVI_ORDINI) orders[k] = acceso(cfg.get(k), k);
 
   return json({
     days,
@@ -210,6 +218,11 @@ export const GET: APIRoute = async ({ request }) => {
     links,
     general,
     reservations,
+    orders,
+    // ⚠️ Volere non e' potere: la pagina deve poter dire che il pagamento con
+    // carta e' acceso ma non funzionera', perche' il conto Stripe non c'e'.
+    // Senza questo, un interruttore acceso sembrerebbe una promessa mantenuta.
+    stripe_pronto: await pagamentoOnlineAttivo(ambito),
   });
 };
 
@@ -304,6 +317,8 @@ export const PUT: APIRoute = async ({ request }) => {
     general?: Record<string, string>;
 
     reservations?: Record<string, string>;
+    /** Interruttori del tab Ordini: veri/falsi, non testo. */
+    orders?: Record<string, boolean>;
   };
   try {
     body = await request.json();
@@ -593,6 +608,30 @@ export const PUT: APIRoute = async ({ request }) => {
   if (resaPulito.length > 0) {
     const err = await scriviConfig(ambitoPut, Object.fromEntries(resaPulito));
     if (err) return json({ error: await msg("err.resSave") }, 500);
+  }
+
+  // ---- Tab Ordini: come si paga in questo punto ----
+  // ⚠️ LA REGOLA CHE CONTA: almeno un modo di pagamento acceso. Spegnendoli
+  // entrambi il sito smette di prendere ordini, e nessun errore lo direbbe —
+  // il carrello arriverebbe fino in fondo e si fermerebbe li'. Meglio
+  // rifiutare il salvataggio: e' l'unico momento in cui c'e' una persona che
+  // legge.
+  if (body.orders && typeof body.orders === "object") {
+    const dati = body.orders as Record<string, unknown>;
+    const ordPulito: [string, string][] = [];
+    for (const k of CHIAVI_ORDINI) {
+      if (!(k in dati)) continue;
+      ordPulito.push([k, dati[k] ? "1" : "0"]);
+    }
+    const mappa = new Map(ordPulito);
+    const vuole = (k: string) => (mappa.has(k) ? mappa.get(k) === "1" : acceso(undefined, k));
+    if (!vuole("orders_pay_online") && !vuole("orders_pay_onsite")) {
+      return json({ error: await msg("err.noPayment") }, 400);
+    }
+    if (ordPulito.length > 0) {
+      const err = await scriviConfig(ambitoPut, Object.fromEntries(ordPulito));
+      if (err) return json({ error: await msg("err.generalSave") }, 500);
+    }
   }
 
   invalidaAppConfig(); // app_config cambiata: la cache (30s) va svuotata subito

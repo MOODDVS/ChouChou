@@ -1326,3 +1326,49 @@ deve dire a chi si scrive, e un testo di legge non si compila da una tabella.
 
 ⚠️ **Questa rete serve nei clienti, non nel motore**: il motore un sito non ce
 l'ha, quindi da solo non protegge nessuno. Arriva col merge, come le altre.
+
+## Il webhook era l'unica strada (29/09/2026)
+
+**450 Gradi e' andato in linea, due clienti hanno ordinato e pagato, e il
+ristorante non ha visto niente**: nessun ordine nel pannello, nessuna email,
+nessuna notifica. I webhook di Stripe puntavano ancora al dominio di prova.
+
+Non e' stato un errore, e' stato un **silenzio**. Il pagamento riusciva, il
+cliente vedeva la sua pagina di conferma e se ne andava contento, l'ordine
+restava `pending` — che nel pannello vuol dire **invisibile**, perche' la lista
+mostra solo `paid`, `done` e `cancelled`. L'unico posto al mondo dove era
+scritto era il pannello di Stripe, e ci si guarda quando si sospetta qualcosa.
+
+⚠️ **La causa vera non era il dominio sbagliato: era che il webhook fosse
+l'unico modo di confermare un ordine.** Le quattro cose che accadono quando un
+pagamento arriva — stato a `paid`, email al cliente, email alla cucina, push al
+ristoratore, cliente in rubrica — vivevano tutte dentro il gestore del webhook.
+Nessun webhook, nessuna di quelle cose, e nessuna seconda strada.
+
+**La cura, in due pezzi.**
+
+`src/lib/confermaOrdine.ts` — il gesto, in un posto solo, con l'idempotenza
+dentro (si aggiorna solo se ancora `pending`, cosi' due chiamanti che arrivano
+insieme non mandano due email). Oggi lo chiamano il webhook e il recupero; lo
+chiamera' anche l'ordine senza pagamento online, il giorno che si fara'.
+
+`src/pages/api/admin/orders-recupero.ts` — quando il ristoratore apre la pagina
+Ordini, si chiede a Stripe se fra gli ordini in attesa ce n'e' qualcuno gia'
+pagato, e in quel caso lo si conferma davvero. Non e' la strada normale: e' la
+rete sotto.
+
+⚠️ **NON BASTAVA UNA SPIA.** La prima idea era un avviso «ci sono N ordini in
+attesa da piu' di un quarto d'ora». Ma un ordine in attesa e' quasi sempre un
+carrello abbandonato, quindi quella spia sarebbe accesa quasi sempre — e una
+spia sempre accesa non la guarda piu' nessuno. L'unico che sa se un ordine e'
+stato pagato e' Stripe: percio' non si avvisa, si **chiede**, e si rimedia. Il
+messaggio compare solo quando ha recuperato qualcosa, e dice anche di
+controllare i webhook — il recupero rimedia all'ordine, non alla causa.
+
+⚠️ **La chiave Stripe e' della sede, e la sede la dice la RIGA.** Con tre
+societa' sono tre conti: chiedere di una sessione di Stockel con la chiave di
+Schaerbeek non da' un ordine sbagliato, da' un «non trovata» — e l'ordine
+resterebbe perso in silenzio, cioe' esattamente il guasto da cui veniamo.
+
+Precedente in casa: `GET /api/admin/credits` fa gia' la stessa guarigione per i
+crediti newsletter quando il browser viene chiuso prima del ritorno.

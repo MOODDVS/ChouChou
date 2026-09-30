@@ -3,10 +3,10 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `d53b620` (27/09/2026).
+**Motore — riferimento attuale:** `multi-sede` HEAD `3f5f8ce` (29/09/2026).
 
 ## Legenda stato
-- 🟢 **Allineato** — a pari con `engine/main` (HEAD attuale), migrazioni applicate.
+- 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
 - 🟡 **Parziale** — allineato a una data passata; mancano commit motore recenti e/o migrazioni.
 - 🔴 **Indietro** — molto distante dal motore, richiede merge importante.
 - ⚫ **Fuori motore** — non gira sul motore (da ricostruire).
@@ -15,32 +15,71 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟡 Parziale | Hostinger | 450gradi.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); manca `?raw` — nessuna pagina `/print/`, quindi non lo sente |
-| **La Molisana** | 🟡 Parziale | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | manca `?raw`; nessuna pagina `/print/` |
-| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `b7fe2be` — 27/09/2026** | manca `?raw`: **ha** `/print/menu` e `/print/lunch`, ma con `is:inline`, quindi è scampato per fortuna — è il cliente da riallineare per primo |
-| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `28bbdf5` — 27/09/2026** | il difetto del CSS di stampa è nato e morto qui |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `28bbdf5` — 27/09/2026** | ultimo passato al multi-sede |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `3f5f8ce` — 29/09/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `3f5f8ce` — 29/09/2026** | |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `3f5f8ce` — 29/09/2026** | |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `3f5f8ce` — 29/09/2026** | |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `3f5f8ce` — 29/09/2026** | ultimo passato al multi-sede |
 
 Tutti e cinque sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
 su quattro e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
 
-⚠️ I tre 🟡 sono indietro di due commit del motore (`28bbdf5`, `d53b620`), non di
-una sessione: `git fetch engine && git merge engine/multi-sede` e sono a pari.
+`PRESTAZIONI.md` §1 e §3 sono **chiusi su tutti e cinque** (29/09/2026): nessun
+cliente chiede piu' i font a Google, e nessuna `<img>` pubblica e' senza posto
+riservato.
 
-`PRESTAZIONI.md` §1 e §3 sono **chiusi su tutti e cinque** (29/09/2026):
-prove tutte verdi ovunque, `prestazioni` compresa. Nessun cliente chiede piu' i
-font a Google, e nessuna `<img>` pubblica e' senza posto riservato.
+⚠️ **Questa tabella non si aggiorna a memoria.** Il 29/09/2026 e' stata scritta
+dopo aver confrontato i file del motore riga per riga nei cinque repo e aver
+verificato che locale e GitHub fossero allo stesso commit. Le due volte
+precedenti era stata scritta a memoria, ed era falsa.
 
-Educazione Napoletana è stato chiuso il 29/09/2026: le immagini col posto riservato
-(`data-posto` dove lo dà il CSS, misure vere dove servono davvero) e i font
-dichiarati in `astro.config.mjs` sotto nomi propri, col rinvio da `html:root`.
-Là è saltato fuori che il widget di prenotazione usava `--font-serif` e
-nessuno lo dichiarava sul sito: quel testo era senza font, e non lo diceva
-niente.
+---
 
-⚠️ Misurato cliente per cliente il 28/09/2026, e serviti due tentativi per
-scriverlo giusto. Questa riga non si aggiorna a memoria: si aggiorna dopo aver
-lanciato `npm test` nei cinque repo.
+## 🔄 I recapiti copiati col clone — 29/09/2026 (motore `3f5f8ce`)
+
+Un giro nato da un difetto solo, che si e' rivelato una famiglia intera: **un
+dato del cliente copiato dentro il codice al momento del clone, e mai piu'
+guardato.** Nessuno dava un errore.
+
+- **ChouChou e L'Huile pubblicavano il numero di telefono di La Molisana** nel
+  riquadro «ordini chiusi» di `/order` — sei pagine, visibili solo fuori orario,
+  cioe' quando nessuno guarda. Chi ordinava la sera telefonava a un altro
+  ristorante.
+- **La Molisana mostrava due email diverse**: `pizzeria@` nel footer, `info@`
+  nella pagina contatti e nei dati strutturati letti da Google.
+- **ChouChou aveva `src/config/client.ts` col segnaposto del motore** — telefono,
+  email, indirizzo e firma mai compilati al clone. E' il ripiego usato quando il
+  database non risponde.
+- **450 Gradi non aveva la pagina `/feedback`**, ma le email di richiesta
+  recensione ci mandano gia' le stelle 1-3: il cliente scontento — quello che
+  vale di piu' ascoltare — trovava un 404.
+- **Il link nelle stelle non portava la sede**, ne' per gli ordini ne' per le
+  prenotazioni: su un cliente a tre pizzerie il parere sarebbe arrivato alla
+  casella di ripiego invece che alla cucina che puo' rimediare.
+- **`/feedback` restava in sitemap** su tutti e quattro i clienti che ce
+  l'avevano, pur portando `noindex`: Google riceveva una pagina che poi le
+  veniva detto di ignorare.
+- **Le due pagine di annullamento di 450 Gradi portavano il tema di La
+  Molisana** — marrone e oro, Marcellus, angoli arrotondati — su un sito nero e
+  rosso. Ci si arriva dal link della propria email, quindi le vede un cliente
+  vero. Erano anche `lang="fr"` coi titoli in francese su un sito in inglese.
+
+**Le reti nuove.** `tests/recapiti.test.mjs` cerca telefoni ed email scritti a
+mano in `src/pages/`, `src/components/`, `src/layouts/` — fuori l'admin,
+`src/config/client.ts` (il ripiego dichiarato) e le pagine legali. Misurata
+prima di essere scritta: verde su motore e su quattro clienti, rossa solo su La
+Molisana con i tre file che gia' sapevamo.
+
+⚠️ **Perche' nessuna prova li aveva visti**: le reti sorvegliavano le CHIAVI di
+`app_config` — che si leggano con l'ambito giusto. Nessuna guardava i VALORI
+scritti nel sito del cliente, che e' dove il clone li lascia.
+
+⚠️ **E una rete che sbagliava bersaglio**: `prestazioni.test.mjs` cercava il NOME
+del telaio (`Layout`) per sapere se una pagina ha i font. 450 Gradi ha dovuto
+chiamare il suo `Vetrina`, perche' `Layout` e' prenotato da `motore.test.mjs`:
+due reti che si contraddicevano, e la seconda segnalava il nome di un file
+invece di un font mancante. Ora conta che la pagina renda un telaio, cioe'
+importi da `src/layouts/`.
 
 ---
 

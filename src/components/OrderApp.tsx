@@ -138,6 +138,22 @@ interface OrderStrings {
   clearAll?: string;
 }
 
+/**
+ * Le parole della scelta di pagamento.
+ *
+ * ⚠️ Ripiego INTERNO, non campi obbligatori in `OrderStrings`: quel tipo lo
+ * riempie la pagina /order di OGNI cliente, e renderli obbligatori vorrebbe
+ * dire cinque siti che non compilano piu' il giorno del merge. Un cliente che
+ * vuole parole sue le mette in `t`, e vincono le sue.
+ */
+const TXT_PAGAMENTO: Record<string, { titolo: string; ora: string; ritiro: string; ordina: string; ordinando: string }> = {
+  fr: { titolo: "Paiement", ora: "Payer maintenant par carte", ritiro: "Payer au retrait", ordina: "Commander", ordinando: "Envoi…" },
+  en: { titolo: "Payment", ora: "Pay now by card", ritiro: "Pay at pickup", ordina: "Place order", ordinando: "Sending…" },
+  it: { titolo: "Pagamento", ora: "Paga ora con la carta", ritiro: "Paga al ritiro", ordina: "Ordina", ordinando: "Invio…" },
+  nl: { titolo: "Betaling", ora: "Nu betalen met kaart", ritiro: "Betalen bij afhalen", ordina: "Bestellen", ordinando: "Versturen…" },
+  es: { titolo: "Pago", ora: "Pagar ahora con tarjeta", ritiro: "Pagar al recoger", ordina: "Pedir", ordinando: "Enviando…" },
+};
+
 interface OrderAppProps {
   menu: MenuCategoria[];
   t: OrderStrings;
@@ -184,6 +200,29 @@ interface OrderAppProps {
   /** Il punto da cui si ordina. La passa la pagina /order, che e' un file
    *  del cliente. Vuoto = punto unico (vedi lib/sedeUrl). */
   sede?: string;
+  /**
+   * COME SI PUO' PAGARE in questo punto — `modiDiPagamento(ambito)`, che la
+   * pagina /order legge lato server e passa qui.
+   *
+   * ⚠️ NON si chiede al browser di indovinarlo. Il ripiego, quando la pagina
+   * non la passa, e' il comportamento di sempre: solo carta. Cosi' i siti
+   * gia' in produzione non cambiano di una virgola il giorno del merge.
+   *
+   * ⚠️ E NON E' L'AUTORIZZAZIONE. Queste sono etichette per far vedere al
+   * cliente le strade che ha; quale sia davvero permessa lo ridecide
+   * `/api/checkout` a ogni richiesta, perche' una prop la si cambia da
+   * console in tre secondi.
+   */
+  pagamento?: {
+    /** Si puo' pagare con la carta ora (Stripe configurato e acceso). */
+    online: boolean;
+    /** Si puo' ordinare e pagare al ritiro. */
+    locale: boolean;
+    /** Esiste il campo «codice sconto». */
+    coupon: boolean;
+    /** ...e vale anche scegliendo di pagare al ritiro. */
+    couponInCassa: boolean;
+  };
 }
 
 type Vista = "menu" | "checkout";
@@ -248,7 +287,7 @@ function euro(cents: number): string {
   return (cents / 100).toFixed(2).replace(".", ",") + " €";
 }
 
-export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "" }: OrderAppProps) {
+export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFormato = "pulsanti", foto = false, carrelloDettagliato = false, sede = "", pagamento = { online: true, locale: false, coupon: true, couponInCassa: false } }: OrderAppProps) {
   // ⚠️ Il punto viaggia con ogni chiamata: /api/coupon e /api/checkout senza
   // sede finivano sulla PRIMA — ordine e incasso nel posto sbagliato.
   const conSede = (u: string) => urlConSede(u, sede);
@@ -310,6 +349,28 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
   const [telefono, setTelefono] = useState(salvato.telefono ?? "");
   const [email, setEmail] = useState(salvato.email ?? "");
   const [noteOrdine, setNoteOrdine] = useState(salvato.noteOrdine ?? "");
+  /**
+   * COME VUOLE PAGARE.
+   *
+   * ⚠️ Preselezionato «ora con la carta» quando e' possibile: e' la strada in
+   * cui l'incasso e' gia' fatto quando la pizza esce, e quella che il
+   * ristoratore preferisce. Chi vuole pagare al ritiro lo dice con un tocco.
+   *
+   * ⚠️ NON si ricorda dalla volta prima (non sta in `salvato`): e' una scelta
+   * di questo ordine, e un cliente che aveva pagato in cassa a maggio non
+   * vuole ritrovarsela preselezionata a settembre senza accorgersene.
+   */
+  const [modoPagamento, setModoPagamento] = useState<"online" | "onsite">(
+    pagamento.online ? "online" : "onsite",
+  );
+  /** Si sceglie solo se c'e' qualcosa da scegliere. */
+  const scegliePagamento = pagamento.online && pagamento.locale;
+  const pagaInCassa = !pagamento.online || (pagamento.locale && modoPagamento === "onsite");
+  /** ⚠️ Il campo del codice sparisce quando il codice non varrebbe: meglio non
+   *  mostrarlo che mostrarlo e poi rifiutarlo al momento di confermare. */
+  const couponVisibile = pagamento.coupon && (!pagaInCassa || pagamento.couponInCassa);
+  const tp = TXT_PAGAMENTO[lang] ?? TXT_PAGAMENTO.fr;
+
   const [coupon, setCoupon] = useState(salvato.coupon ?? "");
   const [couponApplicato, setCouponApplicato] = useState<{ code: string; discount_cents: number; label: string } | null>(null);
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
@@ -604,6 +665,22 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
     setCoupon("");
   }
 
+  /**
+   * ⚠️ Il codice applicato SI TOGLIE da solo se il cliente passa a pagare al
+   * ritiro dove quel codice non vale.
+   *
+   * Senza questo il campo sparisce ma lo sconto resta applicato: il cliente
+   * vede un totale scontato, preme «Ordina», e il server rifiuta con un
+   * messaggio su un codice che nella pagina non c'e' piu'. Togliendolo qui,
+   * il totale risale SUBITO e sotto gli occhi — che e' l'unico momento in cui
+   * puo' ancora cambiare idea e pagare con la carta.
+   */
+  useEffect(() => {
+    if (!couponVisibile && couponApplicato) rimuoviCoupon();
+    // `rimuoviCoupon` e' stabile: tre setState e niente altro.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [couponVisibile, couponApplicato]);
+
   const emailValida = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const formValido =
     linee.length > 0 &&
@@ -627,6 +704,10 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
           slot,
           note: noteOrdine,
           coupon: couponApplicato?.code ?? "",
+          // ⚠️ Il server non si fida di questo campo: ricontrolla che il punto
+          // offra davvero quella strada. Qui si dice cosa ha SCELTO il
+          // cliente, non cosa gli e' permesso.
+          pay: pagaInCassa ? "onsite" : "online",
           customer: { name: nome, surname: cognome, phone: telefono, email },
           lang,
         }),
@@ -915,6 +996,33 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               <input className="order-input" type="tel" placeholder={t.phone} value={telefono} onChange={(e) => setTelefono(e.target.value)} />
               <input className="order-input" type="email" placeholder={t.email} value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
+            {/* ⚠️ COMPARE SOLO SE C'E' DAVVERO UNA SCELTA, e solo se la pagina
+                /order del cliente passa `pagamento` con entrambe le strade
+                accese. Su un sito che non l'ha aggiornata non esiste: nessun
+                cliente si ritrova elementi nuovi e nudi dal giorno del merge,
+                come e' gia' successo con il carrello dettagliato. Le classi
+                da vestire sono `order-pay`, `order-pay-opt`, `order-pay-lab`. */}
+            {scegliePagamento && (
+              <div className="order-pay">
+                <span className="order-field-label">{tp.titolo}</span>
+                {([
+                  { v: "online" as const, testo: tp.ora },
+                  { v: "onsite" as const, testo: tp.ritiro },
+                ]).map((o) => (
+                  <label key={o.v} className="order-pay-opt">
+                    <input
+                      type="radio"
+                      name="order-pay"
+                      value={o.v}
+                      checked={modoPagamento === o.v}
+                      onChange={() => setModoPagamento(o.v)}
+                    />
+                    <span className="order-pay-lab">{o.testo}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {couponVisibile && (
             <div className="order-coupon">
               {t.couponAsk ? (
                 <label className="order-coupon-ask">
@@ -982,6 +1090,7 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
               )}
               {couponMsg && <p className="order-coupon-msg">{couponMsg}</p>}
             </div>
+            )}
             <label className="order-consent">
               <input type="checkbox" checked={accettato} onChange={(e) => setAccettato(e.target.checked)} />
               <span>
@@ -1010,8 +1119,12 @@ export default function OrderApp({ menu, t, lang, closedToday = false, sceltaFor
                 <strong>{euro(totale)}</strong>
               </div>
             )}
+            {/* ⚠️ Pagando al ritiro il bottone NON dice «Paga»: premendolo non
+                si paga niente, si ordina. Una parola che promette un
+                pagamento dove non ce n'e' uno lascia il cliente a chiedersi
+                se e' andato a buon fine. */}
             <button type="button" className="order-cart-checkout" disabled={!formValido || invio} onClick={paga}>
-              {invio ? t.paying : t.pay}
+              {pagaInCassa ? (invio ? tp.ordinando : tp.ordina) : (invio ? t.paying : t.pay)}
             </button>
             {erroreCheckout && <p className="order-cart-error">{erroreCheckout}</p>}
             {!formValido && !erroreCheckout && (

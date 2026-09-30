@@ -96,6 +96,16 @@ export interface OrdineNotifica {
   items: { name: string; qty: number; price_cents: number; notes?: string; base_name?: string; variant_label?: string }[];
   total_cents: number;
   lang?: string;
+  /**
+   * ⚠️ QUESTO ORDINE NON E' PAGATO: si incassa al ritiro.
+   *
+   * La comanda mostra in alto a destra una pastiglia verde «✓ Pagato», e con
+   * gli ordini che passano da Stripe e' sempre vera. Su un ordine da incassare
+   * sarebbe una bugia che costa denaro: chi consegna legge «pagato», da' la
+   * pizza e non chiede niente. Quando e' vero, quella pastiglia diventa
+   * «DA INCASSARE» con l'importo dentro.
+   */
+  da_incassare?: boolean;
 }
 
 function euro(cents: number): string {
@@ -127,6 +137,7 @@ const TXT = {
     pickup: "Retrait prévu à",
     note: "Note",
     total: "Total",
+    payAtPickup: "À régler au retrait",
     callBtn: "Nous contacter",
   },
   en: {
@@ -136,6 +147,7 @@ const TXT = {
     pickup: "Pickup at",
     note: "Note",
     total: "Total",
+    payAtPickup: "To pay at pickup",
     callBtn: "Contact us",
   },
   it: {
@@ -145,6 +157,7 @@ const TXT = {
     pickup: "Ritiro previsto alle",
     note: "Nota",
     total: "Totale",
+    payAtPickup: "Da pagare al ritiro",
     callBtn: "Contattaci",
   },
   nl: {
@@ -154,6 +167,7 @@ const TXT = {
     pickup: "Afhalen om",
     note: "Opmerking",
     total: "Totaal",
+    payAtPickup: "Te betalen bij afhaling",
     callBtn: "Contact opnemen",
   },
   es: {
@@ -163,6 +177,7 @@ const TXT = {
     pickup: "Recogida prevista a las",
     note: "Nota",
     total: "Total",
+    payAtPickup: "A pagar al recoger",
     callBtn: "Contáctanos",
   },
 } as const;
@@ -539,7 +554,7 @@ async function emailCliente(o: OrdineNotifica): Promise<void> {
             ${righeHtml}
             ${noteHtml}
             <tr>
-              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${t.total}</td>
+              <td style="padding:16px 24px 0;color:${tema.title};font-size:17px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${o.da_incassare ? t.payAtPickup : t.total}</td>
               <td style="padding:16px 24px 0;color:${tema.accent};font-size:20px;text-align:right;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">${euro(o.total_cents)}</td>
             </tr>
           </table>
@@ -964,11 +979,11 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
 /** Etichette del ticket ordine (al ristoratore) nella lingua dell'admin. */
 const K_TXT = {
-  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
-  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
-  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
-  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
-  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
+  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", toCollect: "À encaisser", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
+  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", toCollect: "To collect", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
+  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", toCollect: "Da incassare", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
+  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", toCollect: "Te innen", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
+  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", toCollect: "Por cobrar", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
 } as const;
 
 /** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
@@ -991,6 +1006,13 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
 
   const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
 
+  // ⚠️ Verde «pagato» oppure ambra «da incassare», con l'importo DENTRO la
+  // pastiglia: chi consegna guarda li' e basta, e deve trovarci la cifra da
+  // chiedere senza cercarla in fondo alla comanda.
+  const pastigliaPagamento = o.da_incassare
+    ? `<span style="display:inline-block;background:#b26a00;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">${k.toCollect} · ${euro(o.total_cents)}</span>`
+    : `<span style="display:inline-block;background:#2e9e6b;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">✓ ${k.paid}</span>`;
+
   const noteHtml = noteCliente
     ? `<tr><td style="padding:8px 32px 0;"><table role="presentation" width="100%" style="background:${tema.tint};border-left:4px solid ${tema.accent};border-radius:8px;"><tr><td style="padding:14px 18px;color:${tema.text};font-size:15px;"><strong style="color:${tema.title};">${k.note} :</strong> ${esc(noteCliente)}</td></tr></table></td></tr>`
     : "";
@@ -1006,7 +1028,7 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
         <td class="em-pad" style="padding:22px 32px 4px;">
           <table role="presentation" width="100%"><tr>
             <td style="vertical-align:middle;"><span style="color:${tema.accent};font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${k.newOrder}</span> <span style="color:${tema.muted};font-size:13px;">#${esc(o.numero)}</span></td>
-            <td style="text-align:right;vertical-align:middle;"><span style="display:inline-block;background:#2e9e6b;color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">✓ ${k.paid}</span></td>
+            <td style="text-align:right;vertical-align:middle;">${pastigliaPagamento}</td>
           </tr></table>
         </td>
       </tr>
