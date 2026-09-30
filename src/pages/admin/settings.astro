@@ -1376,6 +1376,13 @@ const t = adminT(lang);
               <label>{t("set.ord.coupons")}<span class="lab-hint">{t("set.ord.couponsHint")}</span></label>
               <label class="switch"><input type="checkbox" id="o-coupons" /><span class="track"></span></label>
             </div>
+            {/* ⚠️ Compare solo quando ha senso: se i coupon sono spenti, o se
+                non si paga in cassa, questa domanda non vuol dire niente e
+                sarebbe un interruttore che non fa mai niente. */}
+            <div class="field" id="o-coupons-onsite-row" style="display:none">
+              <label>{t("set.ord.couponsOnsite")}<span class="lab-hint">{t("set.ord.couponsOnsiteHint")}</span></label>
+              <label class="switch"><input type="checkbox" id="o-coupons-onsite" /><span class="track"></span></label>
+            </div>
           </div>
 
           <div class="section" data-tab="notifications" style="display:none">
@@ -3840,6 +3847,19 @@ const t = adminT(lang);
         met("o-pay-online", "orders_pay_online");
         met("o-pay-onsite", "orders_pay_onsite");
         met("o-coupons", "orders_coupons");
+        met("o-coupons-onsite", "orders_coupons_onsite");
+        // La riga dei coupon in cassa esiste solo dove la domanda ha senso, e
+        // segue i due interruttori da cui dipende, anche mentre li si tocca.
+        const rigaCouponCassa = document.getElementById("o-coupons-onsite-row") as HTMLElement | null;
+        const swCoupons = document.getElementById("o-coupons") as HTMLInputElement | null;
+        const swOnsite = document.getElementById("o-pay-onsite") as HTMLInputElement | null;
+        const aggiornaRigaCoupon = () => {
+          if (!rigaCouponCassa) return;
+          rigaCouponCassa.style.display = swCoupons?.checked && swOnsite?.checked ? "" : "none";
+        };
+        swCoupons?.addEventListener("change", aggiornaRigaCoupon);
+        swOnsite?.addEventListener("change", aggiornaRigaCoupon);
+        aggiornaRigaCoupon();
         // ⚠️ Acceso ma inutile: senza conto Stripe il pagamento con carta non
         // si puo' offrire, e l'interruttore da solo sembrerebbe dire di si'.
         const avvisoStripe = document.getElementById("o-stripe-off") as HTMLElement | null;
@@ -4194,6 +4214,7 @@ const t = adminT(lang);
                   orders_pay_online: (document.getElementById("o-pay-online") as HTMLInputElement | null)?.checked ?? true,
                   orders_pay_onsite: (document.getElementById("o-pay-onsite") as HTMLInputElement | null)?.checked ?? false,
                   orders_coupons: (document.getElementById("o-coupons") as HTMLInputElement | null)?.checked ?? true,
+                  orders_coupons_onsite: (document.getElementById("o-coupons-onsite") as HTMLInputElement | null)?.checked ?? false,
                 },
                 links: Object.fromEntries(
                   CHIAVI_LINK.map((k) => [k, (lnkEls.get(k)?.value ?? "").trim()])

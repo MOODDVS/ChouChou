@@ -117,7 +117,17 @@ export async function confermaOrdinePagato(opts: {
  * lo fa aggiornando solo cio' che e' ancora `pending`, l'ordine in cassa lo fa
  * annunciando subito dopo l'inserimento, che avviene una volta.
  */
-export async function annunciaOrdine(ordine: RigaAnnuncio): Promise<void> {
+export async function annunciaOrdine(
+  ordine: RigaAnnuncio,
+  /**
+   * ⚠️ Questo ordine si incassa al ritiro. Cambia due cose che nessuno puo'
+   * dedurre dalla riga: la pastiglia della comanda («DA INCASSARE · 24,50 €»
+   * invece di «✓ Pagato») e la parola sul totale nell'email al cliente. Chi
+   * chiama lo sa; la riga, appena creata, direbbe solo `pending` — che e'
+   * anche lo stato di un carrello abbandonato.
+   */
+  daIncassare = false,
+): Promise<void> {
   const numero = String(ordine.id).slice(0, 8);
 
   // ⚠️ Il database e' piu' permissivo di chi manda le email: `customer_name`
@@ -136,6 +146,7 @@ export async function annunciaOrdine(ordine: RigaAnnuncio): Promise<void> {
     items: (ordine.items ?? []) as OrdineNotifica["items"],
     total_cents: ordine.total_cents,
     lang: ordine.lang === "en" ? "en" : "fr",
+    da_incassare: daIncassare,
   });
 
   // ⚠️ La sede la dice la RIGA, non la richiesta: senza, un ordine di Stockel

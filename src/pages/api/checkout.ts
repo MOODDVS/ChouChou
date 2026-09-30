@@ -91,6 +91,13 @@ export const POST: APIRoute = async ({ request }) => {
   // ristoratore ha spento sia il pagamento con carta sia quello al locale,
   // oppure ha chiesto la carta senza avere un conto Stripe configurato.
   // Meglio dirlo che far finta di accettare un ordine che non arrivera'.
+  const TXT_COUPON_SOLO_ONLINE: Record<string, string> = {
+    fr: "Ce code promo n'est valable qu'en payant en ligne.",
+    en: "This promo code is only valid when paying online.",
+    it: "Questo codice sconto vale solo pagando online.",
+    nl: "Deze kortingscode geldt alleen bij online betaling.",
+    es: "Este código promocional solo es válido pagando en línea.",
+  };
   const TXT_NIENTE_PAGAMENTO: Record<string, string> = {
     fr: "Les commandes en ligne ne sont pas disponibles pour le moment.",
     en: "Online ordering is not available at the moment.",
@@ -268,6 +275,13 @@ export const POST: APIRoute = async ({ request }) => {
 
   const totalCents = itemsOrdine.reduce((s, i) => s + i.price_cents * i.qty, 0);
 
+  // ⚠️ QUALE DELLE DUE STRADE — si decide QUI, prima del coupon, perche' il
+  // coupon puo' non valere in cassa. Se il cliente ha chiesto `pay: "onsite"`
+  // (e il locale lo offre) si paga al ritiro; altrimenti vince la carta quando
+  // e' possibile. Con un solo modo acceso non c'e' niente da scegliere e il
+  // sito non deve chiedere nulla.
+  const inCassa = modi.locale && (!modi.online || body.pay === "onsite");
+
   // ---- Code promo: validazione + sconto REALE, ricalcolato lato server ----
   // Non ci si fida mai dell'importo mandato dal browser: si rilegge il coupon
   // dal DB e si ricalcola. Se non è (più) valido si rifiuta, così il cliente
@@ -275,10 +289,20 @@ export const POST: APIRoute = async ({ request }) => {
   let couponId: string | null = null;
   let couponCodeSalvato: string | null = null;
   let scontoCents = 0;
-  // ⚠️ Il codice si legge solo se il ristoratore tiene i coupon accesi. Non
-  // basta nascondere il campo nel sito: chi manda la richiesta a mano
-  // aggirerebbe l'interruttore, e uno sconto non voluto e' denaro vero.
-  const codeInput = modi.coupon ? normalizzaCodice(body.coupon ?? "") : "";
+  // ⚠️ Il codice si legge solo se il ristoratore tiene i coupon accesi, E se
+  // valgono per la strada scelta. Non basta nascondere il campo nel sito: chi
+  // manda la richiesta a mano aggirerebbe l'interruttore, e uno sconto non
+  // voluto e' denaro vero.
+  const couponAmmesso = modi.coupon && (!inCassa || modi.couponInCassa);
+  const codeInput = couponAmmesso ? normalizzaCodice(body.coupon ?? "") : "";
+
+  // ⚠️ E se un codice C'ERA, non lo si butta in silenzio: il cliente ha visto
+  // uno sconto sullo schermo e si aspetta quel totale. Meglio fermarsi e
+  // dirglielo, cosi' puo' scegliere di pagare con la carta o di togliere il
+  // codice — invece di scoprire alla cassa che paga di piu'.
+  if (!couponAmmesso && normalizzaCodice(body.coupon ?? "")) {
+    return err(409, TXT_COUPON_SOLO_ONLINE[lang] ?? TXT_COUPON_SOLO_ONLINE.fr);
+  }
   if (codeInput) {
     const { data: coupon } = await supabaseAdmin
       .from("coupons")
@@ -307,13 +331,6 @@ export const POST: APIRoute = async ({ request }) => {
   // Le colonne coupon_* si scrivono SOLO se un coupon è stato applicato: così
   // gli ordini normali funzionano anche se la migration coupons.sql non è
   // ancora stata lanciata su Supabase.
-  // ⚠️ QUALE DELLE DUE STRADE. Se il cliente ha chiesto esplicitamente
-  // `pay: "onsite"` (e il locale lo offre) si paga in cassa; altrimenti vince
-  // la carta quando e' possibile. Con un solo modo acceso — il caso di chi
-  // vuole gli ordini online senza pagamenti online — non c'e' niente da
-  // scegliere e il sito non deve chiedere nulla.
-  const inCassa = modi.locale && (!modi.online || body.pay === "onsite");
-
   const datiOrdine: Record<string, unknown> = {
     // ⚠️ `pending` ANCHE per l'ordine in cassa, e non e' un limbo: quell'ordine
     // NON e' pagato, e dire `paid` sarebbe scrivere una cifra incassata che
@@ -368,7 +385,7 @@ export const POST: APIRoute = async ({ request }) => {
   // NON succede e' il passaggio a `paid`: quello aspetta la cassa.
   if (inCassa) {
     try {
-      await annunciaOrdine(ordine);
+      await annunciaOrdine(ordine, true);
     } catch (e) {
       // ⚠️ L'ordine ESISTE gia': se l'annuncio fallisce non si torna indietro e
       // non si dice al cliente di riprovare, o si ritroverebbe due ordini. Il

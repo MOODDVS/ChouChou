@@ -11,6 +11,14 @@
  *   `orders_pay_online`  — si puo' pagare con la carta al momento dell'ordine.
  *   `orders_pay_onsite`  — si puo' ordinare e pagare al ritiro.
  *   `orders_coupons`     — il campo «codice sconto» esiste.
+ *   `orders_coupons_onsite` — e vale anche per chi paga in cassa.
+ *
+ * ⚠️ L'ULTIMO NON E' UN DETTAGLIO DEL PENULTIMO. Con Stripe lo sconto lo
+ * applica il sistema all'incasso e nessuno puo' sbagliarsi. In cassa lo deve
+ * applicare una persona, leggendo la comanda, mentre c'e' fila: se il
+ * ristoratore non lo vuole, il campo del codice sparisce appena il cliente
+ * sceglie di pagare al ritiro. Spento di ripiego, perche' promettere uno
+ * sconto che alla cassa nessuno sa di dover fare e' peggio che non offrirlo.
  *
  * ⚠️ SONO CHIAVI DI SEDE. Su un gruppo con piu' punti, uno puo' accettare i
  * contanti e un altro no; uno puo' avere il conto Stripe e un altro non
@@ -52,6 +60,8 @@ export interface OpzioniOrdini {
   locale: boolean;
   /** Il campo «codice sconto» esiste. */
   coupon: boolean;
+  /** ...e vale anche per chi paga in cassa. */
+  couponInCassa: boolean;
 }
 
 /** Le chiavi, con il valore che vale quando la riga non c'e'. */
@@ -59,6 +69,7 @@ export const RIPIEGO_ORDINI: Record<string, "1" | "0"> = {
   orders_pay_online: "1",
   orders_pay_onsite: "0",
   orders_coupons: "1",
+  orders_coupons_onsite: "0",
 };
 
 export const CHIAVI_ORDINI = Object.keys(RIPIEGO_ORDINI);

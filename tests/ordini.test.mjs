@@ -112,6 +112,48 @@ test("volere il pagamento con carta non basta: ci vuole il conto", () => {
   assert.match(src, /const online = volute\.online && stripePronto;/);
 });
 
+test("il coupon in cassa e' una scelta del ristoratore, non un automatismo", () => {
+  // ⚠️ Online lo sconto lo applica il sistema; in cassa deve applicarlo una
+  // persona mentre c'e' fila. Se il ristoratore non lo vuole, il campo del
+  // codice sparisce appena il cliente sceglie di pagare al ritiro — e il
+  // server RIFIUTA un codice arrivato lo stesso, invece di ignorarlo in
+  // silenzio: il cliente ha visto un totale scontato sullo schermo.
+  assert.equal(acceso(undefined, "orders_coupons_onsite"), false);
+  const chk = leggi("src/pages/api/checkout.ts");
+  assert.match(chk, /const couponAmmesso = modi\.coupon && \(!inCassa \|\| modi\.couponInCassa\);/);
+  assert.match(chk, /TXT_COUPON_SOLO_ONLINE/);
+  // Vale solo se ENTRAMBI gli interruttori sono accesi.
+  assert.match(leggi("src/lib/ordiniOpzioni.ts"), /couponInCassa: volute\.coupon && volute\.couponInCassa/);
+});
+
+test("la comanda non dice «pagato» su un ordine da incassare", () => {
+  // ⚠️ E' la bugia che costa denaro: chi consegna legge la pastiglia verde,
+  // da' la pizza e non chiede niente. Con l'importo DENTRO la pastiglia, la
+  // cifra da chiedere si trova senza cercarla.
+  const n = leggi("src/lib/notifications.ts");
+  assert.match(n, /da_incassare\?: boolean;/);
+  assert.match(n, /const pastigliaPagamento = o\.da_incassare/);
+  assert.match(n, /\$\{k\.toCollect\} · \$\{euro\(o\.total_cents\)\}/);
+  // E il cliente deve sapere di uscire con i contanti.
+  assert.match(n, /o\.da_incassare \? t\.payAtPickup : t\.total/);
+  // L'ordine in cassa lo dichiara: senza, la riga direbbe solo `pending`.
+  assert.match(leggi("src/pages/api/checkout.ts"), /annunciaOrdine\(ordine, true\)/);
+});
+
+test("con due strade aperte, la carta e' quella preselezionata", () => {
+  // ⚠️ E' la strada in cui l'incasso e' gia' fatto quando la pizza esce. Chi
+  // vuole pagare al ritiro lo dice con un tocco.
+  const app = leggi("src/components/OrderApp.tsx");
+  assert.match(app, /useState<"online" \| "onsite">\(\s*pagamento\.online \? "online" : "onsite",?\s*\)/);
+  // La scelta compare solo dove c'e' da scegliere...
+  assert.match(app, /const scegliePagamento = pagamento\.online && pagamento\.locale;/);
+  // ...e il ripiego e' il comportamento di sempre, per i siti che non la
+  // passano: niente elementi nuovi e nudi il giorno del merge.
+  assert.match(app, /pagamento = \{ online: true, locale: false, coupon: true, couponInCassa: false \}/);
+  // Pagando al ritiro il bottone non promette un pagamento che non avviene.
+  assert.match(app, /pagaInCassa \? \(invio \? tp\.ordinando : tp\.ordina\)/);
+});
+
 test("questa rete non dipende dal database (o non parte, e non lo dice nessuno)", () => {
   // ⚠️ E' l'errore fatto scrivendo questo file, il 29/09/2026: le prove
   // importavano `ordiniOpzioni`, che arriva a `db.ts`, che LANCIA all'import

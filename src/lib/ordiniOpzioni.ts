@@ -19,11 +19,12 @@ export async function opzioniOrdini(ambito: Ambito): Promise<OpzioniOrdini> {
       online: acceso(valori.get("orders_pay_online"), "orders_pay_online"),
       locale: acceso(valori.get("orders_pay_onsite"), "orders_pay_onsite"),
       coupon: acceso(valori.get("orders_coupons"), "orders_coupons"),
+      couponInCassa: acceso(valori.get("orders_coupons_onsite"), "orders_coupons_onsite"),
     };
   } catch {
     // Database muto: si torna al comportamento di sempre, non a un sito che
     // non prende ordini.
-    return { online: true, locale: false, coupon: true };
+    return { online: true, locale: false, coupon: true, couponInCassa: false };
   }
 }
 
@@ -45,6 +46,7 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
   online: boolean;
   locale: boolean;
   coupon: boolean;
+  couponInCassa: boolean;
   nessuno: boolean;
 }> {
   const [volute, stripePronto] = await Promise.all([
@@ -52,5 +54,13 @@ export async function modiDiPagamento(ambito: Ambito): Promise<{
     pagamentoOnlineAttivo(ambito),
   ]);
   const online = volute.online && stripePronto;
-  return { online, locale: volute.locale, coupon: volute.coupon, nessuno: !online && !volute.locale };
+  return {
+    online,
+    locale: volute.locale,
+    coupon: volute.coupon,
+    // Un codice sconto in cassa vale solo se il ristoratore ha acceso
+    // entrambe le cose: i coupon, e i coupon anche in cassa.
+    couponInCassa: volute.coupon && volute.couponInCassa,
+    nessuno: !online && !volute.locale,
+  };
 }
