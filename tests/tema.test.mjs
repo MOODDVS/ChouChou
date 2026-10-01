@@ -74,6 +74,19 @@ test("la voce attiva si schiarisce quando l'accent sparirebbe nell'header", () =
   assert.equal(def["--c-hactive-text"], "#ffffff");
 });
 
+test("il testo secondario si schiarisce sui colori saturi, non sui quasi-neri", () => {
+  // ⚠️ Il contrasto non dipende dal colore ma da quanto e' scuro il fondo.
+  // Su BROS il bianco al 72% diventava un rosa slavato e le voci del menu non
+  // si leggevano; sul quasi-nero di sempre lo stesso 72% e' giusto, ed e' cio'
+  // che distingue la voce attiva dalle altre. Se questo test cade, uno dei due
+  // casi si e' rotto per sistemare l'altro.
+  const bros = Object.fromEntries(variabiliTema({ header: "#e30613", bg: "#ffffff", text: "#1c1f21", muted: "#6b7075" }));
+  assert.equal(bros["--c-hmuted"], "rgba(255,255,255,0.92)", "sul rosso il testo secondario deve farsi quasi bianco");
+
+  const sempre = Object.fromEntries(variabiliTema({ header: "#04161b", bg: "#0c2a30", text: "#e9efef", muted: "#86a0a4" }));
+  assert.equal(sempre["--c-hmuted"], "rgba(255,255,255,0.72)", "sul quasi-nero NON deve cambiare: i clienti di oggi stanno li'");
+});
+
 test("distanza: uguali 0, estremi 1", () => {
   assert.equal(distanza("#000000", "#000000"), 0);
   assert.equal(distanza("#000000", "#ffffff"), 1);

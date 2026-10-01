@@ -95,7 +95,26 @@ export const NOMI_VARIABILI: string[] = [
 ];
 
 const BIANCO = "#ffffff";
-const BIANCO_SMORZATO = "rgba(255,255,255,0.72)";
+
+/**
+ * Il testo secondario della barra: bianco, ma quanto trasparente?
+ *
+ * ⚠️ Non e' un valore fisso, ed e' il secondo errore fatto su BROS. Su una
+ * barra quasi nera il bianco al 72% si legge benissimo e serve proprio a dire
+ * "questa voce non e' quella attiva". Su un rosso pieno lo stesso 72% diventa
+ * un rosa slavato: le voci del menu si leggevano a fatica. Non e' il colore
+ * ad essere sbagliato, e' il CONTRASTO, e il contrasto dipende da quanto e'
+ * scuro lo sfondo sotto.
+ *
+ * Sotto 0.2 di luminanza (il quasi-nero dei temi di sempre) resta 0.72, cosi'
+ * per i clienti che ci sono non cambia niente. Sopra, il bianco si fa quasi
+ * pieno: su un colore saturo la gerarchia la fa gia' la pillola della voce
+ * attiva, non serve spegnere il testo delle altre.
+ */
+export const LUM_SFONDO_PROFONDO = 0.2;
+function biancoSmorzato(lumSfondo: number): string {
+  return lumSfondo < LUM_SFONDO_PROFONDO ? "rgba(255,255,255,0.72)" : "rgba(255,255,255,0.92)";
+}
 
 /**
  * Le variabili CSS del tema: le nove salvate piu' le tre derivate.
@@ -123,7 +142,7 @@ export function variabiliTema(theme: Record<string, unknown>): [string, string][
 
   // Barra chiara: il testo della pagina va bene. Barra scura: bianco.
   out.push(["--c-htext", chiaro ? (testo ?? "#111111") : BIANCO]);
-  out.push(["--c-hmuted", chiaro ? (smorzato ?? "#6b7075") : BIANCO_SMORZATO]);
+  out.push(["--c-hmuted", chiaro ? (smorzato ?? "#6b7075") : biancoSmorzato(lum)]);
 
   // Voce attiva della barra: accent, salvo quando si confonde con l'header.
   const acc = typeof theme.accent === "string" && RE_HEX.test(theme.accent) ? theme.accent.toLowerCase() : null;

@@ -1471,3 +1471,12 @@ appiccicato al `<html>` fino al ricaricamento.
 eseguendolo sul tema RestoHub: stesse variabili di prima, `--c-hactive` resta
 corallo. Le regole CSS chiedono sempre `var(--c-htext, var(--c-text))`, quindi
 anche senza il calcolo il comportamento e' quello di sempre.
+
+⚠️ **Secondo giro, stesso schermo: il testo secondario della barra.** Era
+`rgba(255,255,255,0.72)` fisso. Su una barra quasi nera e' giusto — serve a dire
+"questa voce non e' quella attiva" — ma sul rosso pieno di BROS diventava un
+rosa slavato, e le voci del menu non si leggevano. **Non era il colore ad essere
+sbagliato, era il contrasto**, e il contrasto dipende da quanto e' scuro il
+fondo: sotto 0.2 di luminanza resta 0.72, sopra sale a 0.92. Lezione da
+ricordare: un valore di trasparenza non e' mai "il bianco smorzato", e' il
+bianco smorzato *su quello sfondo li'*.

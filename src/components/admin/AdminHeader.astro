@@ -199,7 +199,7 @@ const inizialiSede = (n: string) =>
   /* Il saluto è iniettato via JS (innerHTML) quindi senza l'attributo di scope
      dello style sopra: queste regole devono essere GLOBALI per applicarsi. */
   .ah-hello .ah-greet { display: inline-block; font-family: var(--font-mano); font-weight: 400; font-size: 1.15em; line-height: 1; vertical-align: -0.04em; margin-right: 0.18em; transition: opacity 0.35s ease, transform 0.35s ease; }
-  .ah-hello strong { color: #fff; font-weight: 700; }
+  .ah-hello strong { color: var(--c-htext, #fff); font-weight: 700; }
 </style>
 
 <script>
