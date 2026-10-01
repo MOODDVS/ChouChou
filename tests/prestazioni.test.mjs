@@ -194,6 +194,20 @@ test("<Immagine> si ferma in BUILD se non sa che posto riservare", () => {
   assert.match(I, /fetchpriority=\{primaria \? "high" : undefined\}/);
 });
 
+test("<Immagine> passa all'img gli attributi che non conosce", () => {
+  // ⚠️ Senza lo spread, gli stili scoped della PAGINA non arrivano all'immagine.
+  // Astro compila `.logo` in `.logo[data-astro-cid-xxxx]` e passa quell'attributo
+  // al componente figlio come PROP: se il figlio non lo rimette sul suo elemento,
+  // il selettore non trova niente e lo stile sparisce in silenzio. Costo reale:
+  // sulla home "coming soon" di un cliente nuovo l'`object-fit: contain` non si
+  // applicava e il logo quadrato usciva schiacciato nei 280x120 degli attributi.
+  const I = readFileSync("src/components/Immagine.astro", "utf8");
+  assert.match(I, /\.\.\.resto\s*\}\s*=\s*\n?\s*Astro\.props/,
+    "<Immagine> non raccoglie piu' gli attributi in piu'");
+  assert.match(I, /\{\.\.\.resto\}/,
+    "<Immagine> non rimette piu' gli attributi sull'img: gli stili scoped si perdono");
+});
+
 test("una sola immagine `primaria` per pagina", () => {
   // Se tutto e' prioritario, niente lo e': due `fetchpriority="high"` si
   // annullano e il browser torna a decidere da solo.

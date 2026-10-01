@@ -1401,3 +1401,31 @@ scrive quello che gli sta sopra e' una trappola, non una comodita'.
 Le quattro chiavi `resa_*` restano classificate in `src/lib/admin/sedeRegole.ts`
 (righe superstiti): i dati vecchi non si cancellano per ordine, e se una riga
 e' rimasta in un database va comunque in un posto preciso.
+
+## Lo stile che non arriva al componente figlio (01/10/2026)
+
+La home «coming soon» di BROS mostrava il logo **schiacciato**: un bollo
+quadrato stirato dentro un rettangolo. Il CSS diceva la cosa giusta —
+`object-fit: contain` — e non veniva applicato.
+
+Astro compila uno stile scoped in `.logo[data-astro-cid-xxxx]`, e quando la
+classe e' su un COMPONENTE invece che su un elemento, passa `data-astro-cid-xxxx`
+al componente **come prop**. Se il componente non rimette quell'attributo sul
+proprio elemento, il selettore non trova niente.
+
+⚠️ **Lo stile non sparisce con un errore: sparisce e basta.** `astro check` e'
+verde, la pagina si vede, ed e' solo guardandola che ci si accorge che una
+regola non c'e'. Gli attributi `width`/`height` continuavano a valere, quindi
+il risultato non era «nessuno stile»: era il logo deformato a 280x120.
+
+**La cura** sta in `src/components/Immagine.astro`: raccogliere gli attributi
+non dichiarati con `...resto` e rimetterli sull'`<img>`. Vale per qualunque
+componente nostro che avvolga un elemento e possa ricevere una classe.
+`tests/prestazioni.test.mjs` adesso lo verifica.
+
+**Secondo pezzo, sullo stesso schermo:** il logo di ripiego della home e'
+`/icon-192.png`, e l'icona di un cliente si fa di norma su fondo bianco — su
+una pagina a fondo scuro si vedeva un rettangolo bianco intorno al marchio.
+Per BROS `icon-192` e `icon-512` sono state rifatte **trasparenti**;
+`apple-touch-icon` resta opaca, perche' iOS non ha la trasparenza e al suo
+posto mette il nero.
