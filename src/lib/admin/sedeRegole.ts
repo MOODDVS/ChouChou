@@ -527,7 +527,12 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   gsc_site: "marchio",           // una Search Console per quel sito
   // ⚠️ UN SOLO conto Google, tre schede sotto: il refresh token e' del conto.
   google_oauth_refresh: "marchio",
-  // Widget di prenotazione esterno: e' il sito che lo incorpora, non il punto.
+  // ⚠️ RIGHE SUPERSTITI, non una funzione: le prenotazioni esterne
+  // configurabili dall'admin sono state TOLTE il 01/10/2026 (nessuno leggeva
+  // quella scelta, e il disegno a livello di marchio era sbagliato per i
+  // clienti che ne avrebbero bisogno — vedi `api/admin/integrations.ts`).
+  // La classificazione resta per le installazioni che hanno ancora quelle
+  // righe in tabella: cancellare dati per fare pulizia non si fa.
   resa_mode: "marchio",
   resa_provider: "marchio",
   resa_url: "marchio",

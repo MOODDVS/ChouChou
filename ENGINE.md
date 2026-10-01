@@ -1372,3 +1372,32 @@ resterebbe perso in silenzio, cioe' esattamente il guasto da cui veniamo.
 
 Precedente in casa: `GET /api/admin/credits` fa gia' la stessa guarigione per i
 crediti newsletter quando il browser viene chiuso prima del ritorno.
+
+## Le prenotazioni esterne: tolte, non rinviate (01/10/2026)
+
+In `Super → Integrazioni` c'era una scheda «Prenotazioni» con tre modi —
+widget RestoHub, link esterno, widget esterno — salvati in `app_config` come
+`resa_mode`, `resa_provider`, `resa_url`, `resa_embed`. **Non ha mai fatto
+niente.** Il modo veniva scritto nel database e riletto nella stessa pagina;
+nessun sito di cliente lo leggeva, perche' il pulsante «Prenota» di ogni
+cliente e' nel suo tema, non nel motore. Verificato su tutti e sei i
+repository: nessuno importava `src/lib/reservationMode.ts`.
+
+Era un'opzione che si poteva accendere, che sembrava fare qualcosa, e che
+lasciava il sito esattamente com'era. Peggio di un'opzione mancante.
+
+⚠️ **Se un giorno servira', NON va rifatta cosi'.** La scelta e' del singolo
+sito e non del gruppo (due sedi possono usare due servizi diversi, o nessuno),
+quindi il posto giusto e' il `src/config/client.ts` del cliente — dove abita
+gia' tutto il resto di cio' che e' suo — non una chiave di `app_config` scritta
+da un pannello che il ristoratore non vede nemmeno.
+
+**Tolto nello stesso giro, e per lo stesso motivo:** il bottone «Salva» della
+scheda Google. Mandava **solo** i campi delle prenotazioni, quindi di Google
+non salvava nulla: il Place ID sta nella scheda della sede, e la connessione
+si salva da se' con `POST /api/admin/google/locations`. Un bottone che non
+scrive quello che gli sta sopra e' una trappola, non una comodita'.
+
+Le quattro chiavi `resa_*` restano classificate in `src/lib/admin/sedeRegole.ts`
+(righe superstiti): i dati vecchi non si cancellano per ordine, e se una riga
+e' rimasta in un database va comunque in un posto preciso.

@@ -17,27 +17,28 @@ async function msg(chiave: string): Promise<string> {
   return adminT(await adminLang())(chiave);
 }
 
-// Integrazioni di terzi (Réglages → Integrations). SOLO super admin:
-// il codice incollato finisce nel sito pubblico del cliente.
-//
-// Prenotazioni:
-//   resa_mode     : "moodd" (widget RestoHub) | "link" | "embed" | "none"
-//   resa_provider : nome del fornitore (Zenchef, TheFork…) — solo informativo
-//   resa_url      : URL di prenotazione (modalità "link")
-//   resa_embed    : codice HTML/JS del widget (modalità "embed")
+// Integrazioni di terzi (Réglages → Integrations). SOLO super admin.
 //
 // GET → configurazione (staff autenticato: serve alle pagine admin)
 // PUT → salvataggio (super admin)
-
-const MODI = ["moodd", "link", "embed", "none"];
+//
+// ⚠️ QUI C'ERANO LE PRENOTAZIONI ESTERNE, tolte il 01/10/2026. Si poteva
+// scegliere fra widget RestoHub, link, codice incollato o niente — e NESSUNO
+// leggeva quella scelta: `lib/reservationMode.ts` non era importato da nessun
+// file, in nessuno dei cinque clienti. Il pannello configurava, salvava, e
+// sul sito non cambiava niente.
+//
+// ⚠️ E il disegno era sbagliato prima ancora di essere agganciato: una chiave
+// di MARCHIO con dentro dell'HTML incollato. I due clienti che usano davvero
+// un fornitore esterno hanno bisogno di una cosa PER SEDE — 450 Gradi ha tre
+// widget Resto-Genius, uno per pizzeria — e l'hanno risolta meglio da soli,
+// con qualche riga nel loro `config/client.ts`. E' li' che va rifatta, se
+// servira': una voce per sede nel config del cliente, non un campo libero
+// nell'admin.
 // Google Business — livello 1: Place ID (lecture seule, clé API MOODD)
 //                   livello 2: OAuth (répondre aux avis, horaires) — à venir
 const K_GPLACE = "google_place_id";
 const K_GTOKEN = "google_oauth_refresh"; // livello 2, scritto dal futuro callback OAuth
-const K_MODE = "resa_mode";
-const K_PROVIDER = "resa_provider";
-const K_URL = "resa_url";
-const K_EMBED = "resa_embed";
 const K_GSC_SITE = "gsc_site"; // Search Console : sc-domain:… ou https://…/
 const K_NL_QUOTA = "newsletter_monthly_quota"; // Newsletter incluse/mese (super admin)
 const NL_QUOTA_DEFAULT = 1000;
@@ -64,19 +65,10 @@ export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff) return nonAutorizzato();
 
-  const c = await leggi([K_MODE, K_PROVIDER, K_URL, K_EMBED, K_GPLACE, K_GTOKEN, K_GSC_SITE, K_NL_QUOTA]);
+  const c = await leggi([K_GPLACE, K_GTOKEN, K_GSC_SITE, K_NL_QUOTA]);
   // Una chiamata sola a Google per sapere se il permesso vale ancora.
   const statoG = await statoGoogle();
-  const mode = MODI.includes(c[K_MODE]) ? c[K_MODE] : "moodd";
   return json({
-    resa: {
-      mode,
-      provider: c[K_PROVIDER] ?? "",
-      url: c[K_URL] ?? "",
-      // il codice completo lo vede solo il super admin
-      embed: isSuperUser(staff) ? (c[K_EMBED] ?? "") : "",
-      has_embed: Boolean(c[K_EMBED]),
-    },
     google: {
       place_id: c[K_GPLACE] ?? "",
       // ⚠️ `connected` era `Boolean(token nel database)`: diceva «collegato»
@@ -112,7 +104,7 @@ export const PUT: APIRoute = async ({ request }) => {
   if (!staff) return nonAutorizzato();
   if (!isSuperUser(staff)) return json({ error: await msg("err.super") }, 403);
 
-  let body: { mode?: string; provider?: string; url?: string; embed?: string; google_place_id?: string; gsc_site?: string; newsletter_quota?: number };
+  let body: { google_place_id?: string; gsc_site?: string; newsletter_quota?: number };
   try {
     body = await request.json();
   } catch {
@@ -123,25 +115,6 @@ export const PUT: APIRoute = async ({ request }) => {
   // Scriviamo una chiave solo se il campo è presente nel body, così salvare
   // la Search Console non azzera le prenotazioni, e viceversa.
   const upserts: { key: string; value: string }[] = [];
-
-  // --- Prenotazioni (invia sempre mode) ---
-  if (body.mode !== undefined) {
-    const mode = MODI.includes(String(body.mode)) ? String(body.mode) : "moodd";
-    const url = String(body.url ?? "").trim().slice(0, 500);
-    if (mode === "link" && url && !/^https:\/\//i.test(url)) {
-      return json({ error: await msg("err.linkHttps") }, 400);
-    }
-    if (mode === "link" && !url) return json({ error: await msg("err.addResLink") }, 400);
-    if (mode === "embed" && !String(body.embed ?? "").trim()) {
-      return json({ error: await msg("err.pasteWidget") }, 400);
-    }
-    upserts.push(
-      { key: K_MODE, value: mode },
-      { key: K_PROVIDER, value: String(body.provider ?? "").trim().slice(0, 60) },
-      { key: K_URL, value: url },
-      { key: K_EMBED, value: String(body.embed ?? "").slice(0, 20000) },
-    );
-  }
 
   // --- Google Business : Place ID ---
   // ⚠️ NON si scrive piu' da qui (15/09/2026). Il Place ID identifica UN
