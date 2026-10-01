@@ -1514,3 +1514,32 @@ saltato in silenzio. Una rete che non sa una cosa deve dirlo, non tacere.
 Le quattro chiavi sono di **sede**: due punti vendita della stessa societa'
 possono avere scelte diverse, uno incassa online e l'altro alla cassa, e il
 carrello le legge con l'ambito del punto scelto.
+
+## L'interruttore stirato, terza volta (01/10/2026)
+
+Un interruttore e' una `<label class="switch">`. Le pagine incolonnano i titoli
+dei campi con `.field label { flex: 0 0 220px }`, e quella regola non distingue:
+colpisce anche l'interruttore. In riga lo rende largo 220px; **dentro una
+colonna quel numero diventa l'ALTEZZA**, e si vede una barra colorata lunga
+mezza pagina.
+
+E' successo tre volte: nel tab Prenotazioni, poi in Ordini (29/09), poi di nuovo
+in Prenotazioni (01/10). Le prime due volte la cura e' stata una contro-regola —
+`.field label.switch { flex: 0 0 auto; … }` — e non ha retto:
+`.section[data-tab="reservations"] .field label` e' **piu' specifica** e la
+scavalca.
+
+⚠️ **Rincorrere con contro-regole non e' una cura.** Finche' la regola sbagliata
+puo' colpire, basta che qualcuno ne scriva una piu' specifica — per un tab, per
+una scheda, per un breakpoint — e il componente si rompe di nuovo, in un punto
+che nessuno stava guardando. Si vince solo togliendo il bersaglio.
+
+**La cura e' alla fonte:** ogni regola che da' una misura alle label porta
+`:not(.switch)`. L'interruttore smette di essere raggiungibile, e le sue misure
+restano quelle del componente (`styles/switch.css`, `--sw-*`), ovunque.
+`tests/impostazioni.test.mjs` lo verifica su tutte le pagine admin: un selettore
+che finisce con l'elemento `label`, senza `:not(.switch)`, e che imposta
+`flex`, `width`, `height` o `min-height`, fa fallire la prova.
+
+Preso lo stesso giro anche `.cf-col label`, che non ha interruttori oggi ma
+imponeva `min-height: 2.5em` a qualunque label ci finisse dentro domani.

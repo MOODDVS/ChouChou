@@ -112,15 +112,21 @@ const t = adminT(lang);
 
       /* --- Plan de salle (tab Réservations) --- */
       .sl-col { display: flex; flex-direction: column; gap: 0.8rem; align-items: flex-start; }
-      /* ⚠️ LA REGOLA NON E' DEL TAB PRENOTAZIONI, e' dell'interruttore.
-         `.field label` da' 220px di flex-basis a OGNI label, e un interruttore
-         E' una label: in riga diventa largo 220px, dentro una colonna quel
-         valore e' l'ALTEZZA e lo stira in verticale. Era scritta solo per
-         `[data-tab="reservations"]`, dove il guasto si era visto la prima
-         volta — e il primo interruttore messo in un altro tab (Ordini,
-         29/09/2026) e' uscito lungo mezza pagina.
-         Le misure le decide il componente (`styles/switch.css`, --sw-*): qui
-         si annulla solo l'eredita' del flex. */
+      /* ⚠️ UN INTERRUTTORE E' UNA `label`, E LE REGOLE DI COLONNA NON DEVONO
+         VEDERLO. `.field label { flex: 0 0 220px }` serve a incolonnare i
+         titoli dei campi, ma colpisce anche gli interruttori: in riga diventano
+         larghi 220px, dentro una colonna quel numero e' l'ALTEZZA e li stira in
+         verticale fino a mezza pagina.
+         E' successo tre volte: nel tab Prenotazioni, poi in Ordini (29/09), poi
+         di nuovo in Prenotazioni (01/10), perche' la contro-regola qui sotto
+         perdeva contro `.section[data-tab="reservations"] .field label`, che e'
+         piu' specifica. Rincorrere con contro-regole non funziona: ne basta una
+         nuova, piu' specifica, e il componente si rompe di nuovo.
+         LA CURA E' ALLA FONTE: ogni regola che incolonna le label porta
+         `:not(.switch)`, cosi' l'interruttore non viene mai toccato e le sue
+         misure restano quelle del componente (`styles/switch.css`, --sw-*).
+         `tests/impostazioni.test.mjs` lo verifica. Le due righe qui sotto
+         restano come cintura, per una regola che qualcuno aggiungesse domani. */
       .field label.switch { flex: 0 0 auto; width: var(--sw-w); max-width: var(--sw-w); height: var(--sw-h); }
       .field .switch input { flex: none; width: 0; min-width: 0; }
       .sl-filtri { display: flex; gap: 0.45rem; flex-wrap: wrap; }
@@ -279,7 +285,7 @@ const t = adminT(lang);
       .cf-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
       /* Label mittente su 5 lingue: riserva 2 righe cosi' i due input
          restano allineati anche quando un label lungo va a capo. */
-      .cf-col label { min-height: 2.5em; line-height: 1.25; display: flex; align-items: flex-end; }
+      .cf-col label:not(.switch) { min-height: 2.5em; line-height: 1.25; display: flex; align-items: flex-end; }
       .cf-hint { font-size: .72rem; color: var(--c-muted); line-height: 1.4; margin-top: -.3rem; }
       .dyn-lbl { margin-bottom: 0.55rem; }
       @media (max-width: 900px) { .nf-f-form { flex: 1 1 100%; } .cf-sender { flex-wrap: wrap; } .cf-col { flex: 1 1 100%; } }
@@ -603,7 +609,7 @@ const t = adminT(lang);
 
       .field { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
       .field:last-child { margin-bottom: 0; }
-      .field label { flex: 0 0 220px; max-width: 220px; }
+      .field label:not(.switch) { flex: 0 0 220px; max-width: 220px; }
       /* Tab Général: input a tutta larghezza, tutto allineato a sinistra */
       .brand-title { border-top: 1px solid var(--c-line); padding-top: 1.4rem; margin-top: 1.6rem; }
       .brand-grid { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; }
@@ -626,7 +632,7 @@ const t = adminT(lang);
       .brand-rm.confirm { height: 32px; }
       .brand-hint { color: var(--c-muted); font-size: 0.78rem; margin-top: 0.8rem; }
       .section[data-tab="general"] .field { flex-wrap: nowrap; }
-      .section[data-tab="general"] .field label { flex: 0 0 260px; max-width: 260px; }
+      .section[data-tab="general"] .field label:not(.switch) { flex: 0 0 260px; max-width: 260px; }
       .section[data-tab="general"] .field input,
       .section[data-tab="general"] .kemails { flex: 1; width: auto; max-width: none; min-width: 0; }
       .section[data-tab="general"] .field .g-name-inp { flex: 0 0 40%; }
@@ -741,7 +747,7 @@ const t = adminT(lang);
       .section[data-tab="reservations"] .rzones { flex: 1; }
       /* Tab Réservations: stessi allineamenti (label più lunghe: 300px) */
       .section[data-tab="reservations"] .field { flex-wrap: nowrap; }
-      .section[data-tab="reservations"] .field label { flex: 0 0 300px; max-width: 300px; }
+      .section[data-tab="reservations"] .field label:not(.switch) { flex: 0 0 300px; max-width: 300px; }
       .section[data-tab="reservations"] .field input { flex: 1; width: auto; max-width: none; min-width: 0; }
       @media (max-width: 640px) {
         .section[data-tab="reservations"] .field { flex-wrap: wrap; }
@@ -749,7 +755,7 @@ const t = adminT(lang);
         .section[data-tab="reservations"] .hint { margin-left: 0; }
         /* Campi con righe dinamiche (sezioni/coperti, piantina, servizi): contenuto a tutta larghezza sotto il label, invece di schiacciarsi accanto al label da 300px */
         .section[data-tab="reservations"] .field > .dyn-col { flex-basis: 100%; width: 100%; }
-        .section[data-tab="reservations"] .field:has(> .dyn-col) > label { flex: 0 0 100%; max-width: none; }
+        .section[data-tab="reservations"] .field:has(> .dyn-col) > label:not(.switch) { flex: 0 0 100%; max-width: none; }
         /* Riga servizio: select nome a tutta larghezza sopra, orari (+ elimina) sotto */
         .section[data-tab="reservations"] .rs-line1 { flex-wrap: wrap; }
         .section[data-tab="reservations"] .rs-row .rs-key { flex: 0 0 100%; max-width: none; }
@@ -757,13 +763,13 @@ const t = adminT(lang);
       @media (max-width: 640px) {
         /* Label impilato sopra il field: avvicina il field al suo label (solo verticale) e label meno opaco */
         .field { gap: 0.4rem 1rem; }
-        .field label { flex: 0 0 auto; max-width: none; opacity: 0.66; }
+        .field label:not(.switch) { flex: 0 0 auto; max-width: none; opacity: 0.66; }
         /* Field un po' piu alti su mobile */
         input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
           padding-top: 0.55rem; padding-bottom: 0.55rem;
         }
         .section[data-tab="general"] .field { flex-wrap: wrap; }
-        .section[data-tab="general"] .field label { flex: 0 0 100%; max-width: none; }
+        .section[data-tab="general"] .field label:not(.switch) { flex: 0 0 100%; max-width: none; }
         .section[data-tab="general"] .field input, .section[data-tab="general"] .kemails { flex-basis: 100%; }
         .section[data-tab="general"] .kemail-add, .section[data-tab="general"] .hint { margin-left: 0; }
         /* CAP e città sulla stessa riga */
