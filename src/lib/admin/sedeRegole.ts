@@ -491,6 +491,16 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   service_closures_permanent: "sede",
   zone_closures_permanent: "sede",
   orders_closed: "sede",         // la cucina chiusa e' di UNA cucina
+  // Come si paga: della SEDE. Due punti vendita della stessa societa' possono
+  // avere scelte diverse — uno accetta la carta online, l'altro incassa in
+  // cassa — e il carrello legge queste chiavi con l'ambito del punto scelto.
+  // ⚠️ Mancavano dal 30/09, il giorno in cui sono nate: la pagina Impostazioni
+  // le scriveva e il salvataggio si fermava qui, su QUALSIASI campo si stesse
+  // salvando, perche' il PUT manda tutto il modulo insieme.
+  orders_pay_online: "sede",
+  orders_pay_onsite: "sede",
+  orders_coupons: "sede",
+  orders_coupons_onsite: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",

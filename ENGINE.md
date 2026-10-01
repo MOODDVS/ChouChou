@@ -1480,3 +1480,37 @@ sbagliato, era il contrasto**, e il contrasto dipende da quanto e' scuro il
 fondo: sotto 0.2 di luminanza resta 0.72, sopra sale a 0.92. Lezione da
 ricordare: un valore di trasparenza non e' mai "il bianco smorzato", e' il
 bianco smorzato *su quello sfondo li'*.
+
+## La rete cieca sulla costante (01/10/2026)
+
+`tests/config.test.mjs` esiste per un guasto preciso: una chiave di
+`app_config` scritta per sede e riletta per marchio. Trovato tre volte a mano,
+mai nei log. Da allora la rete elenca le chiavi lette da ogni file e pretende
+che ognuna sia classificata in `CLASSIFICA_CONFIG`.
+
+Il 30/09 sono nate quattro chiavi nuove — `orders_pay_online`,
+`orders_pay_onsite`, `orders_coupons`, `orders_coupons_onsite` — e **nessuna e'
+finita in `CLASSIFICA_CONFIG`**. La rete non ha detto niente. Il conto e'
+arrivato il giorno dopo, su BROS: salvando una qualunque impostazione in
+Admin → Général il PUT manda tutto il modulo insieme, `scriviConfig` incontrava
+la prima chiave non classificata e si fermava. Schermata di errore al posto del
+salvataggio, su un campo che con i pagamenti non c'entrava niente.
+
+⚠️ **Perche' la rete non l'ha vista.** Leggeva solo la forma scritta sul posto:
+
+    leggiConfig(ambito, ["orders_pay_online", ...])   // vista
+    leggiConfig(ambito, CHIAVI_ORDINI)                // NON vista
+
+`ordiniOpzioni.ts` passa una costante, perche' lo stesso elenco serve anche
+alle regole pure. La cosa fatta meglio — un elenco in un posto solo — e' la
+cosa che ha reso la chiave invisibile al controllo.
+
+**La cura non e' allargare la regex**, che domani sarebbe cieca su un'altra
+forma: e' `ELENCHI_CHIAVI`, una mappa nel test con gli elenchi importati
+davvero. Un `leggiConfig(ambito, COSTANTE)` con una costante che la mappa non
+conosce **fa fallire la prova** col nome della costante, invece di essere
+saltato in silenzio. Una rete che non sa una cosa deve dirlo, non tacere.
+
+Le quattro chiavi sono di **sede**: due punti vendita della stessa societa'
+possono avere scelte diverse, uno incassa online e l'altro alla cassa, e il
+carrello le legge con l'ambito del punto scelto.
