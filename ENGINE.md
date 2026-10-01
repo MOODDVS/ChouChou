@@ -1429,3 +1429,45 @@ una pagina a fondo scuro si vedeva un rettangolo bianco intorno al marchio.
 Per BROS `icon-192` e `icon-512` sono state rifatte **trasparenti**;
 `apple-touch-icon` resta opaca, perche' iOS non ha la trasparenza e al suo
 posto mette il nero.
+
+## Un colore solo per due sfondi (01/10/2026)
+
+Il tema ha nove colori, e fra questi `header` e `bg` sono **indipendenti**: la
+barra in alto puo' essere di un colore e la pagina di un altro. Il testo pero'
+era uno solo — `text` e `muted` — e valeva in tutti e due i posti.
+
+Finche' i temi sono stati tutti scuri l'assunzione ha retto, perche' nessuno
+l'aveva mai messa alla prova. BROS e' il primo marchio chiaro: header rosso,
+pagina bianca. Il testo giusto per la pagina — quasi nero — finiva dentro la
+barra rossa.
+
+⚠️ **Non era un colore sbagliato: era una domanda mai posta.** «Di che colore e'
+il testo» ha due risposte quando gli sfondi sono due, e il tema ne accettava
+una sola. Nessun controllo poteva accorgersene: i nove colori erano tutti
+validi, presi uno per uno.
+
+**La cura** sta in `src/lib/admin/temaColori.ts` — zero import, come
+`ordiniRegole.ts`, cosi' il test lo puo' caricare. Tre variabili in piu' che
+**nessuno sceglie**, perche' si calcolano dallo sfondo su cui finiscono:
+
+- `--c-htext` / `--c-hmuted` — il testo della barra. Barra scura, testo bianco;
+  barra chiara, il testo della pagina. Soglia 0.6 di luminanza percepita
+  (pesi BT.601: una media semplice darebbe il testo nero su un blu pieno).
+- `--c-hactive` — la pillola della voce attiva. Di norma e' l'accent, ma se
+  l'accent e' troppo vicino all'header la pillola sparisce dentro la barra, e
+  allora si ripiega sul testo dell'header. Caso reale: BROS header `#e30613` e
+  accent `#840008`, distanza 0.15 — due rossi diversi che insieme non si
+  leggono.
+
+⚠️ **La stessa funzione la usano il server e il browser.** `cssTema()` stampa le
+variabili nel `<head>` prima del primo paint, `AdminNav` le riscrive quando il
+tema arriva dall'API: se i due calcoli divergono, si vede un tema per un istante
+e un altro subito dopo. Per questo `variabiliTema()` sta in un posto solo, e
+`NOMI_VARIABILI` elenca tutto cio' che puo' scrivere — chi applica un tema nuovo
+prima azzera quella lista, altrimenti un colore del tema vecchio resta
+appiccicato al `<html>` fino al ricaricamento.
+
+**Per i clienti che ci sono gia' non cambia niente**, ed e' stato verificato
+eseguendolo sul tema RestoHub: stesse variabili di prima, `--c-hactive` resta
+corallo. Le regole CSS chiedono sempre `var(--c-htext, var(--c-text))`, quindi
+anche senza il calcolo il comportamento e' quello di sempre.

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "../db";
 import { cacheOr } from "../cache";
 import { PAGINE_ADMIN, TABS_VALIDI, FUNZIONI_VALIDE, TEMA_CHIAVI, normalizzaLinguePubbliche } from "./superAdmin";
+import { variabiliTema } from "./temaColori";
 import { ADMIN_LANG_DEFAULT, isAdminLang, type AdminLang } from "../../i18n/admin";
 
 /**
@@ -135,11 +136,10 @@ export async function caricaBootAdmin(): Promise<AdminBoot> {
  * Ritorna "" se non c'e' niente da scrivere.
  */
 export function cssTema(theme: Record<string, string>): string {
-  const decl: string[] = [];
-  for (const k of TEMA_CHIAVI) {
-    const v = theme[k];
-    if (typeof v === "string" && RE_HEX.test(v)) decl.push(`--c-${k}:${v}`);
-  }
+  // ⚠️ Le variabili NON si scrivono qui a mano: `variabiliTema` aggiunge anche
+  // quelle che nessuno sceglie (il testo dell'header, che si calcola dal colore
+  // dell'header), e deve dire la stessa cosa al server e al browser.
+  const decl: string[] = variabiliTema(theme).map(([k, v]) => `${k}:${v}`);
   if (/^\d{1,3}$/.test(String(theme.shadow))) {
     decl.push(`--sh:${Math.min(100, Number(theme.shadow)) / 100}`);
   }

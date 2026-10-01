@@ -257,3 +257,20 @@ test("il toast usa un vocabolario solo", () => {
   }
   assert.deepEqual(sbagliate, [], "classi del vecchio vocabolario ancora in uso sul toast");
 });
+
+test("ogni file di test entra davvero nel runner", () => {
+  // ⚠️ Scritto dopo averlo sbagliato: `tests/tema.test.mjs` importava `test`
+  // da "node:test" invece che da "vitest". I dodici controlli giravano — si
+  // vedevano passare a schermo — ma fuori dal runner, che per quel file
+  // diceva "No test suite found". Fosse passato inosservato, sarebbe bastato
+  // togliere la riga dell'import per avere un file di test che non prova piu'
+  // niente senza che nessuno se ne accorga. E' lo stesso guasto dei moduli che
+  // falliscono all'import (ENGINE.md, "Test unitari"), da un'altra porta.
+  const sbagliati = [];
+  for (const f of readdirSync("tests").filter((x) => x.endsWith(".test.mjs"))) {
+    const src = readFileSync(`tests/${f}`, "utf8");
+    if (/from\s+"node:test"/.test(src)) sbagliati.push(`${f}: importa da node:test`);
+    else if (!/from\s+"vitest"/.test(src)) sbagliati.push(`${f}: non importa da vitest`);
+  }
+  assert.deepEqual(sbagliati, [], "questi file girano fuori dal runner, o non girano affatto");
+});
