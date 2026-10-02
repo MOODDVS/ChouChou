@@ -136,7 +136,8 @@ test("dal SITO una sezione chiusa non si prenota: il controllo e' a monte", asyn
   const src = readFileSync("src/pages/api/reservation.ts", "utf8");
   assert.match(
     src,
-    /if \(p\.zone && zoneClosed\.includes\(p\.zone\)\) return "creneauPris";/,
+    // Dal 02/10/2026 ogni rifiuto porta il suo nome: qui "sezioneChiusa".
+    /if \(p\.zone && zoneClosed\.includes\(p\.zone\)\) return "sezioneChiusa";/,
     "il controllo sulle sezioni chiuse e' sparito da verificaCreneau",
   );
   // E le chiusure che guarda sono di QUESTA sede: quelle del giorno dalla
@@ -330,7 +331,7 @@ test("la capienza si calcola in UN posto solo", async () => {
   }
 });
 
-test("il rifiuto di un creneau dice SEMPRE perche'", () => {
+test("il rifiuto di un creneau dice SEMPRE perche'", async () => {
   // ⚠️ Il 02/10/2026 un ristoratore non riusciva a prenotare a nessuna ora, con
   // la sala vuota. Il server rispondeva `creneauPris` — la stessa parola per
   // tredici controlli diversi — e dal codice i candidati erano otto: capienza,
@@ -340,6 +341,7 @@ test("il rifiuto di un creneau dice SEMPRE perche'", () => {
   // Da qui in avanti `verificaCreneau` torna il motivo e l'API lo mette accanto
   // all'errore. Il cliente continua a leggere la frase gentile; chi apre la
   // scheda Rete legge quale regola ha deciso.
+  const { readFileSync } = await import("node:fs");
   const API = readFileSync("src/pages/api/reservation.ts", "utf8");
 
   assert.doesNotMatch(API, /return "creneauPris"/,
@@ -357,7 +359,7 @@ test("il rifiuto di un creneau dice SEMPRE perche'", () => {
     "il motivo non viene piu' messo nella risposta");
 });
 
-test("una chiave di servizio puo' avere piu' righe, e si guarda quella del giorno", () => {
+test("una chiave di servizio puo' avere piu' righe, e si guarda quella del giorno", async () => {
   // ⚠️ IL GUASTO PIU' CARO DI QUESTA SETTIMANA, e non dava nessun errore.
   // I ristoranti scrivono due servizi con la STESSA chiave e giorni diversi:
   //   soir 18:00-22:30  giorni [0,1,3,4]     (feriali)
@@ -370,6 +372,7 @@ test("una chiave di servizio puo' avere piu' righe, e si guarda quella del giorn
   // non e' attiva: prenotazione rifiutata a QUALSIASI ora, con la sala vuota,
   // nei due giorni che contano di piu'. Il cliente leggeva «questo orario e'
   // appena stato preso», e nei log non c'era niente.
+  const { readFileSync } = await import("node:fs");
   const API = readFileSync("src/pages/api/reservation.ts", "utf8");
 
   assert.doesNotMatch(API, /cfg\.services\.find\(/,
