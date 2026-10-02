@@ -235,3 +235,34 @@ test("l'ordine e la cassa sono lo stesso punto", () => {
   assert.match(src, /const ambitoPub = await ambitoPubblicoChiesto\(request\)/);
   assert.match(src, /ambito: ambitoPub/);
 });
+
+test("i campi del widget non scendono sotto i 16px sul tocco", () => {
+  // ⚠️ Safari su iPhone INGRANDISCE la pagina da solo quando si tocca un campo
+  // con testo piu' piccolo di 16px. Il modulo diventa piu' largo dello schermo
+  // e si compila nome, telefono ed email trascinando la pagina di lato — sul
+  // modulo che porta le prenotazioni, cioe' dove un cliente abbandona e basta.
+  //
+  // Non e' un comportamento che si puo' spegnere. La scorciatoia nota e'
+  // `maximum-scale=1` nel viewport, ma toglie lo zoom a chiunque, anche a chi
+  // ne ha bisogno per leggere: un'accessibilita' vera sacrificata a un difetto
+  // di stile. L'unica cura buona e' non scendere sotto i 16px dove si tocca.
+  const W = readFileSync("src/components/ReservationWidget.astro", "utf8");
+
+  assert.match(W, /@media \(pointer: coarse\)[\s\S]{0,200}?\.rw-in[^}]*font-size:\s*16px/,
+    "i campi del widget sono tornati sotto i 16px sul tocco: iPhone zooma e il modulo diventa inusabile");
+
+  // E la scorciatoia che non vogliamo, in nessuna pagina pubblica.
+  // ⚠️ Si guarda il TAG `<meta viewport>`, non il testo del file: la prima
+  // versione cercava la stringa e basta, e accusava il commento qui sopra che
+  // spiega perche' quella strada non si prende. Un test che litiga con la
+  // propria spiegazione lo si disattiva, non lo si legge.
+  for (const f of ["src/components/ReservationWidget.astro", "src/pages/reservation-embed.astro"]) {
+    let src = "";
+    try { src = readFileSync(f, "utf8"); } catch { continue; }
+    const meta = [...src.matchAll(/<meta[^>]*name=["']viewport["'][^>]*>/gi)].map((m) => m[0]);
+    for (const tag of meta) {
+      assert.doesNotMatch(tag, /maximum-scale\s*=\s*1|user-scalable\s*=\s*no/,
+        `${f} blocca lo zoom nel viewport: si risolve un difetto di stile togliendo l'ingrandimento a chi non ci vede`);
+    }
+  }
+});

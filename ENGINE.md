@@ -1587,3 +1587,27 @@ Nello stesso giro i tredici rifiuti di `verificaCreneau` hanno smesso di
 chiamarsi tutti `creneauPris`: ognuno torna il suo motivo, l'API lo mette
 accanto all'errore e il widget lo scrive in console. Il cliente continua a
 leggere una frase sola.
+
+## Sedici pixel, su un dito (02/10/2026)
+
+Safari su iPhone **ingrandisce la pagina da solo** quando si tocca un campo il
+cui testo e' piu' piccolo di 16px. I campi del widget prenotazioni erano a
+`0.88rem`, cioe' 14px: toccando «Nom» la pagina saltava avanti, il modulo
+diventava piu' largo dello schermo, e si finiva a compilare telefono ed email
+trascinando la pagina di lato. Sul modulo che porta le prenotazioni.
+
+Non e' un'impostazione che si puo' spegnere lato pagina. ⚠️ **La scorciatoia
+che si trova ovunque — `maximum-scale=1` o `user-scalable=no` nel viewport — e'
+peggio del difetto**: toglie l'ingrandimento a chiunque, compreso chi ne ha
+bisogno per leggere. Si baratta un'accessibilita' vera per un fastidio di
+stile, e nessuno se ne accorge finche' non e' un cliente con la vista stanca a
+provarci.
+
+La cura e' non scendere sotto i 16px dove si tocca:
+
+    @media (pointer: coarse) { .rw-in, .rw-datein { font-size: 16px; } }
+
+`pointer: coarse` prende i dispositivi a tocco e lascia il desktop com'era —
+ed e' la stessa condizione che il widget usa gia' per ingrandire le celle del
+calendario. `tests/pubblico.test.mjs` pretende i 16px e vieta le due
+scorciatoie sul viewport.

@@ -129,6 +129,19 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       .rw-in { flex: 1; width: 100%; min-width: 0; background: var(--rw-bg2,#1c1819); border: 1px solid var(--rw-line,#3a3335); color: #fff; padding: 0.55rem 0.7rem; font-size: 0.88rem; border-radius: var(--rw-rbox); font-family: var(--font-body); }
       .rw-in:focus { outline: none; border-color: var(--rw-accent,#dfab4e); }
       .rw-in::placeholder { color: #8f8781; }
+      /* ⚠️ SEDICI PIXEL, SU UN DITO. Safari su iPhone ingrandisce la pagina da
+         solo quando si tocca un campo con un testo piu' piccolo di 16px: il
+         modulo diventa piu' grande dello schermo, si perde il contesto e si
+         finisce a compilare nome e telefono trascinando la pagina di lato.
+         Non e' un'impostazione che si puo' spegnere — l'unico modo e' non
+         scendere sotto i 16px. La via rapida sarebbe `maximum-scale=1` nel
+         viewport, ma quella toglie lo zoom a TUTTI, anche a chi ne ha bisogno
+         per leggere: si perde un'accessibilita' vera per un difetto di stile.
+         `pointer: coarse` colpisce i dispositivi a tocco e lascia stare il
+         desktop, dove 0.88rem va benissimo. */
+      @media (pointer: coarse) {
+        .rw-in, .rw-datein { font-size: 16px; }
+      }
       .rw-in-societe { margin-bottom: 0.6rem; }
       .rw-ta { resize: vertical; margin-bottom: 0.6rem; display: block; }
       .rw-tel-prefix { flex: 0 0 118px; color-scheme: dark; cursor: pointer; -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b3aca6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.6rem center; background-size: 12px; padding-right: 2rem; }
