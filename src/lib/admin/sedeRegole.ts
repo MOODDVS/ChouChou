@@ -491,6 +491,16 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   service_closures_permanent: "sede",
   zone_closures_permanent: "sede",
   orders_closed: "sede",         // la cucina chiusa e' di UNA cucina
+  // Come si paga: della SEDE. Due punti vendita della stessa societa' possono
+  // avere scelte diverse — uno accetta la carta online, l'altro incassa in
+  // cassa — e il carrello legge queste chiavi con l'ambito del punto scelto.
+  // ⚠️ Mancavano dal 30/09, il giorno in cui sono nate: la pagina Impostazioni
+  // le scriveva e il salvataggio si fermava qui, su QUALSIASI campo si stesse
+  // salvando, perche' il PUT manda tutto il modulo insieme.
+  orders_pay_online: "sede",
+  orders_pay_onsite: "sede",
+  orders_coupons: "sede",
+  orders_coupons_onsite: "sede",
   custom_events: "sede",         // chiusure e date decise dal ristoratore
   // Google: tre schede, tre valutazioni, tre sincronizzazioni.
   google_place_id: "sede",
@@ -527,7 +537,12 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   gsc_site: "marchio",           // una Search Console per quel sito
   // ⚠️ UN SOLO conto Google, tre schede sotto: il refresh token e' del conto.
   google_oauth_refresh: "marchio",
-  // Widget di prenotazione esterno: e' il sito che lo incorpora, non il punto.
+  // ⚠️ RIGHE SUPERSTITI, non una funzione: le prenotazioni esterne
+  // configurabili dall'admin sono state TOLTE il 01/10/2026 (nessuno leggeva
+  // quella scelta, e il disegno a livello di marchio era sbagliato per i
+  // clienti che ne avrebbero bisogno — vedi `api/admin/integrations.ts`).
+  // La classificazione resta per le installazioni che hanno ancora quelle
+  // righe in tabella: cancellare dati per fare pulizia non si fa.
   resa_mode: "marchio",
   resa_provider: "marchio",
   resa_url: "marchio",

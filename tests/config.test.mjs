@@ -22,6 +22,26 @@ import {
   configDiSede,
   tabellaConfig,
 } from "../src/lib/admin/sedeRegole.ts";
+import { CHIAVI_ORDINI } from "../src/lib/ordiniRegole.ts";
+
+/**
+ * GLI ELENCHI DI CHIAVI DICHIARATI ALTROVE.
+ *
+ * ⚠️ Questa mappa esiste perche' la rete e' stata cieca una volta. Fino al
+ * 01/10/2026 `letture()` sapeva leggere solo `leggiConfig(ambito, ["a","b"])`
+ * con l'array scritto li'. `ordiniOpzioni.ts` passa invece una COSTANTE —
+ * `leggiConfig(ambito, CHIAVI_ORDINI)` — e le quattro chiavi dei pagamenti
+ * sono nate, sono state scritte dalla pagina Impostazioni e non sono mai
+ * entrate in CLASSIFICA_CONFIG. Il salvataggio di QUALSIASI campo di quella
+ * pagina moriva con un errore in faccia al ristoratore.
+ *
+ * Un elenco che non e' qui dentro non viene ignorato: fa fallire la prova,
+ * col nome della costante. Meglio un test che chiede di essere aggiornato che
+ * una rete che non guarda.
+ */
+const ELENCHI_CHIAVI = new Map([
+  ["CHIAVI_ORDINI", CHIAVI_ORDINI],
+]);
 
 const SEDE_UNICA = { modo: "unica" };
 const UNA_SEDE = { modo: "sede", id: "11111111-1111-1111-1111-111111111111" };
@@ -108,6 +128,13 @@ function letture(f) {
     for (const t of m[1].split(",")) { const k = risolvi(t); if (k) fuori.push({ k, ambito: !!m[2] }); }
   for (const m of src.matchAll(/leggiConfig\(\s*\w+\s*,\s*\[([^\]]*)\]/g))
     for (const t of m[1].split(",")) { const k = risolvi(t); if (k) fuori.push({ k, ambito: true }); }
+  // leggiConfig(ambito, COSTANTE): l'elenco sta in un altro file. Se la rete
+  // non lo conosce lo DICHIARA ignoto invece di saltarlo (vedi ELENCHI_CHIAVI).
+  for (const m of src.matchAll(/leggiConfig\(\s*\w+\s*,\s*([A-Z][A-Z_0-9]*)\s*\)/g)) {
+    const elenco = ELENCHI_CHIAVI.get(m[1]);
+    if (!elenco) { fuori.push({ k: `elenco-non-dichiarato:${m[1]}`, ambito: true }); continue; }
+    for (const k of elenco) fuori.push({ k, ambito: true });
+  }
   // app_config grezzo. ⚠️ Conta la TABELLA della catena, non il fatto che il
   // file nomini `app_config` da qualche parte: `googleBusiness.ts` interroga
   // anche `location_config` per sapere QUALE sede dichiara una scheda, ed e'

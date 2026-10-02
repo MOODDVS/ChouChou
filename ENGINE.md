@@ -1372,3 +1372,218 @@ resterebbe perso in silenzio, cioe' esattamente il guasto da cui veniamo.
 
 Precedente in casa: `GET /api/admin/credits` fa gia' la stessa guarigione per i
 crediti newsletter quando il browser viene chiuso prima del ritorno.
+
+## Le prenotazioni esterne: tolte, non rinviate (01/10/2026)
+
+In `Super → Integrazioni` c'era una scheda «Prenotazioni» con tre modi —
+widget RestoHub, link esterno, widget esterno — salvati in `app_config` come
+`resa_mode`, `resa_provider`, `resa_url`, `resa_embed`. **Non ha mai fatto
+niente.** Il modo veniva scritto nel database e riletto nella stessa pagina;
+nessun sito di cliente lo leggeva, perche' il pulsante «Prenota» di ogni
+cliente e' nel suo tema, non nel motore. Verificato su tutti e sei i
+repository: nessuno importava `src/lib/reservationMode.ts`.
+
+Era un'opzione che si poteva accendere, che sembrava fare qualcosa, e che
+lasciava il sito esattamente com'era. Peggio di un'opzione mancante.
+
+⚠️ **Se un giorno servira', NON va rifatta cosi'.** La scelta e' del singolo
+sito e non del gruppo (due sedi possono usare due servizi diversi, o nessuno),
+quindi il posto giusto e' il `src/config/client.ts` del cliente — dove abita
+gia' tutto il resto di cio' che e' suo — non una chiave di `app_config` scritta
+da un pannello che il ristoratore non vede nemmeno.
+
+**Tolto nello stesso giro, e per lo stesso motivo:** il bottone «Salva» della
+scheda Google. Mandava **solo** i campi delle prenotazioni, quindi di Google
+non salvava nulla: il Place ID sta nella scheda della sede, e la connessione
+si salva da se' con `POST /api/admin/google/locations`. Un bottone che non
+scrive quello che gli sta sopra e' una trappola, non una comodita'.
+
+Le quattro chiavi `resa_*` restano classificate in `src/lib/admin/sedeRegole.ts`
+(righe superstiti): i dati vecchi non si cancellano per ordine, e se una riga
+e' rimasta in un database va comunque in un posto preciso.
+
+## Lo stile che non arriva al componente figlio (01/10/2026)
+
+La home «coming soon» di BROS mostrava il logo **schiacciato**: un bollo
+quadrato stirato dentro un rettangolo. Il CSS diceva la cosa giusta —
+`object-fit: contain` — e non veniva applicato.
+
+Astro compila uno stile scoped in `.logo[data-astro-cid-xxxx]`, e quando la
+classe e' su un COMPONENTE invece che su un elemento, passa `data-astro-cid-xxxx`
+al componente **come prop**. Se il componente non rimette quell'attributo sul
+proprio elemento, il selettore non trova niente.
+
+⚠️ **Lo stile non sparisce con un errore: sparisce e basta.** `astro check` e'
+verde, la pagina si vede, ed e' solo guardandola che ci si accorge che una
+regola non c'e'. Gli attributi `width`/`height` continuavano a valere, quindi
+il risultato non era «nessuno stile»: era il logo deformato a 280x120.
+
+**La cura** sta in `src/components/Immagine.astro`: raccogliere gli attributi
+non dichiarati con `...resto` e rimetterli sull'`<img>`. Vale per qualunque
+componente nostro che avvolga un elemento e possa ricevere una classe.
+`tests/prestazioni.test.mjs` adesso lo verifica.
+
+**Secondo pezzo, sullo stesso schermo:** il logo di ripiego della home e'
+`/icon-192.png`, e l'icona di un cliente si fa di norma su fondo bianco — su
+una pagina a fondo scuro si vedeva un rettangolo bianco intorno al marchio.
+Per BROS `icon-192` e `icon-512` sono state rifatte **trasparenti**;
+`apple-touch-icon` resta opaca, perche' iOS non ha la trasparenza e al suo
+posto mette il nero.
+
+## Un colore solo per due sfondi (01/10/2026)
+
+Il tema ha nove colori, e fra questi `header` e `bg` sono **indipendenti**: la
+barra in alto puo' essere di un colore e la pagina di un altro. Il testo pero'
+era uno solo — `text` e `muted` — e valeva in tutti e due i posti.
+
+Finche' i temi sono stati tutti scuri l'assunzione ha retto, perche' nessuno
+l'aveva mai messa alla prova. BROS e' il primo marchio chiaro: header rosso,
+pagina bianca. Il testo giusto per la pagina — quasi nero — finiva dentro la
+barra rossa.
+
+⚠️ **Non era un colore sbagliato: era una domanda mai posta.** «Di che colore e'
+il testo» ha due risposte quando gli sfondi sono due, e il tema ne accettava
+una sola. Nessun controllo poteva accorgersene: i nove colori erano tutti
+validi, presi uno per uno.
+
+**La cura** sta in `src/lib/admin/temaColori.ts` — zero import, come
+`ordiniRegole.ts`, cosi' il test lo puo' caricare. Tre variabili in piu' che
+**nessuno sceglie**, perche' si calcolano dallo sfondo su cui finiscono:
+
+- `--c-htext` / `--c-hmuted` — il testo della barra. Barra scura, testo bianco;
+  barra chiara, il testo della pagina. Soglia 0.6 di luminanza percepita
+  (pesi BT.601: una media semplice darebbe il testo nero su un blu pieno).
+- `--c-hactive` — la pillola della voce attiva. Di norma e' l'accent, ma se
+  l'accent e' troppo vicino all'header la pillola sparisce dentro la barra, e
+  allora si ripiega sul testo dell'header. Caso reale: BROS header `#e30613` e
+  accent `#840008`, distanza 0.15 — due rossi diversi che insieme non si
+  leggono.
+
+⚠️ **La stessa funzione la usano il server e il browser.** `cssTema()` stampa le
+variabili nel `<head>` prima del primo paint, `AdminNav` le riscrive quando il
+tema arriva dall'API: se i due calcoli divergono, si vede un tema per un istante
+e un altro subito dopo. Per questo `variabiliTema()` sta in un posto solo, e
+`NOMI_VARIABILI` elenca tutto cio' che puo' scrivere — chi applica un tema nuovo
+prima azzera quella lista, altrimenti un colore del tema vecchio resta
+appiccicato al `<html>` fino al ricaricamento.
+
+**Per i clienti che ci sono gia' non cambia niente**, ed e' stato verificato
+eseguendolo sul tema RestoHub: stesse variabili di prima, `--c-hactive` resta
+corallo. Le regole CSS chiedono sempre `var(--c-htext, var(--c-text))`, quindi
+anche senza il calcolo il comportamento e' quello di sempre.
+
+⚠️ **Secondo giro, stesso schermo: il testo secondario della barra.** Era
+`rgba(255,255,255,0.72)` fisso. Su una barra quasi nera e' giusto — serve a dire
+"questa voce non e' quella attiva" — ma sul rosso pieno di BROS diventava un
+rosa slavato, e le voci del menu non si leggevano. **Non era il colore ad essere
+sbagliato, era il contrasto**, e il contrasto dipende da quanto e' scuro il
+fondo: sotto 0.2 di luminanza resta 0.72, sopra sale a 0.92. Lezione da
+ricordare: un valore di trasparenza non e' mai "il bianco smorzato", e' il
+bianco smorzato *su quello sfondo li'*.
+
+## La rete cieca sulla costante (01/10/2026)
+
+`tests/config.test.mjs` esiste per un guasto preciso: una chiave di
+`app_config` scritta per sede e riletta per marchio. Trovato tre volte a mano,
+mai nei log. Da allora la rete elenca le chiavi lette da ogni file e pretende
+che ognuna sia classificata in `CLASSIFICA_CONFIG`.
+
+Il 30/09 sono nate quattro chiavi nuove — `orders_pay_online`,
+`orders_pay_onsite`, `orders_coupons`, `orders_coupons_onsite` — e **nessuna e'
+finita in `CLASSIFICA_CONFIG`**. La rete non ha detto niente. Il conto e'
+arrivato il giorno dopo, su BROS: salvando una qualunque impostazione in
+Admin → Général il PUT manda tutto il modulo insieme, `scriviConfig` incontrava
+la prima chiave non classificata e si fermava. Schermata di errore al posto del
+salvataggio, su un campo che con i pagamenti non c'entrava niente.
+
+⚠️ **Perche' la rete non l'ha vista.** Leggeva solo la forma scritta sul posto:
+
+    leggiConfig(ambito, ["orders_pay_online", ...])   // vista
+    leggiConfig(ambito, CHIAVI_ORDINI)                // NON vista
+
+`ordiniOpzioni.ts` passa una costante, perche' lo stesso elenco serve anche
+alle regole pure. La cosa fatta meglio — un elenco in un posto solo — e' la
+cosa che ha reso la chiave invisibile al controllo.
+
+**La cura non e' allargare la regex**, che domani sarebbe cieca su un'altra
+forma: e' `ELENCHI_CHIAVI`, una mappa nel test con gli elenchi importati
+davvero. Un `leggiConfig(ambito, COSTANTE)` con una costante che la mappa non
+conosce **fa fallire la prova** col nome della costante, invece di essere
+saltato in silenzio. Una rete che non sa una cosa deve dirlo, non tacere.
+
+Le quattro chiavi sono di **sede**: due punti vendita della stessa societa'
+possono avere scelte diverse, uno incassa online e l'altro alla cassa, e il
+carrello le legge con l'ambito del punto scelto.
+
+## L'interruttore stirato, terza volta (01/10/2026)
+
+Un interruttore e' una `<label class="switch">`. Le pagine incolonnano i titoli
+dei campi con `.field label { flex: 0 0 220px }`, e quella regola non distingue:
+colpisce anche l'interruttore. In riga lo rende largo 220px; **dentro una
+colonna quel numero diventa l'ALTEZZA**, e si vede una barra colorata lunga
+mezza pagina.
+
+E' successo tre volte: nel tab Prenotazioni, poi in Ordini (29/09), poi di nuovo
+in Prenotazioni (01/10). Le prime due volte la cura e' stata una contro-regola —
+`.field label.switch { flex: 0 0 auto; … }` — e non ha retto:
+`.section[data-tab="reservations"] .field label` e' **piu' specifica** e la
+scavalca.
+
+⚠️ **Rincorrere con contro-regole non e' una cura.** Finche' la regola sbagliata
+puo' colpire, basta che qualcuno ne scriva una piu' specifica — per un tab, per
+una scheda, per un breakpoint — e il componente si rompe di nuovo, in un punto
+che nessuno stava guardando. Si vince solo togliendo il bersaglio.
+
+**La cura e' alla fonte:** ogni regola che da' una misura alle label porta
+`:not(.switch)`. L'interruttore smette di essere raggiungibile, e le sue misure
+restano quelle del componente (`styles/switch.css`, `--sw-*`), ovunque.
+`tests/impostazioni.test.mjs` lo verifica su tutte le pagine admin: un selettore
+che finisce con l'elemento `label`, senza `:not(.switch)`, e che imposta
+`flex`, `width`, `height` o `min-height`, fa fallire la prova.
+
+Preso lo stesso giro anche `.cf-col label`, che non ha interruttori oggi ma
+imponeva `min-height: 2.5em` a qualunque label ci finisse dentro domani.
+
+## Una chiave, piu' righe (02/10/2026)
+
+Un ristoratore scrive i suoi servizi cosi':
+
+    soir  18:00-22:30  giorni [0,1,3,4]     feriali
+    soir  18:00-23:00  giorni [5,6]         venerdi' e sabato
+
+Due righe, la stessa chiave. E' il modo normale di dire «il weekend si chiude
+piu' tardi», e **due clienti su cinque lo usano** — verificato leggendo il loro
+`/api/reservation?config=1`.
+
+`verificaCreneau` faceva `cfg.services.find((sv) => sv.key === p.service_key)`.
+`find` torna la PRIMA riga. Il venerdi' si finiva a controllare la riga dei
+feriali, che il venerdi' non e' attiva, e si rifiutava la prenotazione **a
+qualsiasi ora, con la sala vuota, proprio venerdi' e sabato**.
+
+⚠️ **Il widget non aveva il difetto**, perche' le righe le usa tutte: mostrava
+gli orari giusti fino alle 23:00. Il cliente sceglieva un orario libero e si
+sentiva rispondere «questo orario e' appena stato preso». Nessun errore nei
+log, niente in Stripe, niente da nessuna parte: due logiche che rispondono
+diverso alla stessa domanda.
+
+**La regola giusta:** il servizio e' quello che il cliente ha scelto, ma le sue
+righe sono tante, e **basta che UNA regga il giorno e l'ora**.
+
+La stessa trappola, due piani piu' sotto, in altri due punti dello stesso giro:
+
+- `new Map(services.map((s) => [s.key, s.hold]))` teneva l'ULTIMA riga, quindi
+  il lunedi' l'occupazione si calcolava con la durata del sabato (120 minuti
+  invece di 90) e si rifiutavano tavoli liberi.
+- `caricaResaGiorno` sceglieva la durata con un `find` secco, e il sabato
+  chiudeva i tavoli mezz'ora prima del dovuto.
+
+⚠️ **Come l'abbiamo trovato, dopo averlo cercato male.** Dal codice i candidati
+erano otto e tutti plausibili. La diagnosi e' arrivata leggendo `?config=1` dei
+due siti veri: li' si vedono le due righe `soir` in chiaro. **Il dato del
+cliente batte la lettura del codice**, e quell'endpoint e' il primo posto dove
+guardare quando una prenotazione viene rifiutata senza motivo apparente.
+
+Nello stesso giro i tredici rifiuti di `verificaCreneau` hanno smesso di
+chiamarsi tutti `creneauPris`: ognuno torna il suo motivo, l'API lo mette
+accanto all'errore e il widget lo scrive in console. Il cliente continua a
+leggere una frase sola.

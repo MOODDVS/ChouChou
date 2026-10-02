@@ -445,3 +445,37 @@ test("un tab spento si nasconde, non si smonta", () => {
   // tornerebbe visibile al primo cambio di tab.
   assert.match(src, /sec\.dataset\.spento === "1" \? "none"/);
 });
+
+test("nessuna regola di colonna tocca un interruttore", () => {
+  // ⚠️ Terza volta. Un interruttore e' una `<label class="switch">`, e ogni
+  // regola che incolonna i titoli dei campi — `.field label { flex: 0 0 220px }`
+  // — lo colpisce: in riga diventa largo 220px, dentro una colonna quel numero
+  // e' l'ALTEZZA e lo stira in verticale per mezza pagina.
+  //
+  // Le prime due volte la cura era una contro-regola (`.field label.switch`).
+  // Non ha retto: `.section[data-tab="reservations"] .field label` e' piu'
+  // specifica e la scavalca. Rincorrere non funziona, perche' basta che
+  // qualcuno aggiunga domani una regola piu' specifica di oggi.
+  //
+  // La cura e' alla fonte: chi incolonna le label scrive `label:not(.switch)`.
+  // Questa prova lo pretende, cosi' la domanda viene fatta mentre si scrive la
+  // regola e non tre settimane dopo, guardando uno schermo rotto.
+  const colpevoli = [];
+  for (const f of readdirSync("src/pages/admin").filter((x) => x.endsWith(".astro"))) {
+    // Via i commenti: dentro ce n'e' uno che PARLA della regola sbagliata, e
+    // una rete che accusa la propria spiegazione non la legge piu' nessuno.
+    const src = readFileSync(`src/pages/admin/${f}`, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    for (const m of src.matchAll(/([^\n{}]*)\{([^}]*)\}/g)) {
+      const sel = m[1].trim();
+      const corpo = m[2];
+      // Solo i selettori che finiscono con l'ELEMENTO label: `.band-label` e
+      // `.d-label` sono classi, e non c'entrano niente.
+      if (!/(^|[\s>+~,])label$/.test(sel)) continue;
+      if (sel.includes(".switch")) continue;
+      if (!/\b(flex|width|height|min-height)\b/.test(corpo)) continue;
+      colpevoli.push(`${f}: ${sel}`);
+    }
+  }
+  assert.deepEqual(colpevoli, [],
+    "queste regole danno una misura a OGNI label, interruttori compresi: aggiungi :not(.switch)");
+});

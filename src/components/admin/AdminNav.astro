@@ -293,7 +293,7 @@ const breve = (chiave: string): string => {
     font-size: 0.56rem;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: var(--c-muted, var(--c-muted));
+    color: var(--c-hmuted, var(--c-muted));
     text-decoration: none;
     padding: 0.42rem 0.85rem;
     border-radius: 999px;
@@ -309,11 +309,14 @@ const breve = (chiave: string): string => {
     stroke-linejoin: round;
   }
   .admin-nav a:hover {
-    color: var(--c-text, #fff);
+    color: var(--c-htext, var(--c-text, #fff));
   }
+  /* ⚠️ La pillola attiva vive DENTRO la barra, non sulla pagina: il suo
+     colore e quello del suo testo vengono da `--c-hactive`, che si scosta
+     dall'accent solo quando l'accent si confonderebbe con l'header. */
   .admin-nav a.active {
-    background: var(--c-accent, var(--c-accent));
-    color: var(--c-bg);
+    background: var(--c-hactive, var(--c-accent));
+    color: var(--c-hactive-text, var(--c-bg));
   }
 
   /* Pallino rosso "non visti" su Commandes / Réservations */
@@ -473,7 +476,8 @@ const breve = (chiave: string): string => {
 
 <script>
   import { supabaseBrowser } from "../../lib/supabaseBrowser";
-  import { isSuperUser, TEMA_CHIAVI } from "../../lib/admin/superAdmin";
+  import { isSuperUser } from "../../lib/admin/superAdmin";
+  import { variabiliTema, NOMI_VARIABILI } from "../../lib/admin/temaColori";
 
   // Visibilità delle pagine admin:
   // - super admin (MOODD): vede tutto + il bottone ingranaggio
@@ -515,11 +519,12 @@ const breve = (chiave: string): string => {
     const applicaTema = (t: Record<string, string> | undefined) => {
       const tema = t && typeof t === "object" ? t : {};
       const root = document.documentElement;
-      for (const k of TEMA_CHIAVI) {
-        const v = tema[k];
-        if (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v)) root.style.setProperty("--c-" + k, v);
-        else root.style.removeProperty("--c-" + k); // default della pagina
-      }
+      // Prima si azzera, poi si scrive: una variabile che il tema nuovo non
+      // dichiara deve tornare al default della pagina, non restare quella di
+      // prima. `variabiliTema` e' lo stesso codice che usa il server (cssTema),
+      // percio' il primo paint e l'aggiornamento dicono la stessa cosa.
+      for (const nome of NOMI_VARIABILI) root.style.removeProperty(nome);
+      for (const [nome, valore] of variabiliTema(tema)) root.style.setProperty(nome, valore);
       const bg = typeof tema.bg === "string" && /^#[0-9a-f]{6}$/i.test(tema.bg) ? tema.bg : "#ffffff";
       document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg);
       root.classList.toggle("glass", tema.glass === "on");

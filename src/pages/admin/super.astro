@@ -671,47 +671,6 @@ const prI18n = {
           <div class="itg-card">
             <div class="itg-head">
               <div>
-                <h3 class="itg-titre">{t("nav.reservations")}</h3>
-                <p class="note" style="margin:0.2rem 0 0">{t("itg.resa.who")}</p>
-              </div>
-              <span class="itg-state" id="itg-state">—</span>
-            </div>
-
-            <div class="us-roles" id="itg-modes" style="margin-top:1.2rem">
-              <button type="button" class="us-role is-on" data-mode="moodd">RestoHub</button>
-              <button type="button" class="us-role" data-mode="link">{t("itg.mode.link")}</button>
-              <button type="button" class="us-role" data-mode="embed">{t("itg.mode.embed")}</button>
-              <button type="button" class="us-role" data-mode="none">{t("itg.mode.none")}</button>
-            </div>
-            <p class="note" id="itg-hint" style="margin-top:0.5rem"></p>
-
-            <div id="itg-fields" style="display:none">
-              <label class="us-lab" for="itg-provider">{t("itg.provider")}</label>
-              <input type="text" id="itg-provider" placeholder="Zenchef, TheFork, Barestho…" autocomplete="off" />
-
-              <div id="itg-url-box" style="display:none">
-                <label class="us-lab" for="itg-url">{t("itg.resa.urlLabel")}</label>
-                <input type="url" id="itg-url" placeholder="https://…" autocomplete="off" />
-              </div>
-
-              <div id="itg-embed-box" style="display:none">
-                <label class="us-lab" for="itg-embed">{t("itg.embed.label")}</label>
-                <textarea id="itg-embed" rows="7" placeholder="&lt;script src=&quot;…&quot;&gt;&lt;/script&gt;"></textarea>
-                <p class="note" style="margin-top:0.4rem">{t("itg.embed.note")}</p>
-              </div>
-            </div>
-
-            <div class="us-foot">
-              <button type="button" id="itg-save" class="us-add">{t("common.save")}</button>
-              <span class="us-err" id="itg-err"></span>
-            </div>
-
-            <p class="note" style="margin-top:1.4rem">{t("itg.resa.warn")}</p>
-          </div>
-
-          <div class="itg-card" style="margin-top:1rem">
-            <div class="itg-head">
-              <div>
                 <h3 class="itg-titre">Google Business</h3>
                 <p class="note" style="margin:0.2rem 0 0">{t("itg.g.who")}</p>
               </div>
@@ -753,10 +712,10 @@ const prI18n = {
               <div id="g-unica-list"></div>
             </div>
 
-            <div class="us-foot">
-              <button type="button" id="g-save" class="us-add">{t("common.save")}</button>
-              <span class="us-err" id="g-err"></span>
-            </div>
+            {/* ⚠️ Niente «Salva» qui: il Place ID si imposta nella scheda della
+                sede e la scelta a sede unica si salva da sola. Il bottone che
+                c'era mandava solo i campi delle PRENOTAZIONI, cioe' una
+                configurazione che non leggeva nessuno (tolta il 01/10/2026). */}
           </div>
 
           <div class="itg-card" style="margin-top:1rem">
@@ -1446,51 +1405,8 @@ const prI18n = {
           salvaTema();
         });
 
-        // ---------- Integrations ----------
-        const itgModes = document.getElementById("itg-modes") as HTMLDivElement | null;
-        const itgHint = document.getElementById("itg-hint") as HTMLParagraphElement | null;
-        const itgFields = document.getElementById("itg-fields") as HTMLDivElement | null;
-        const itgUrlBox = document.getElementById("itg-url-box") as HTMLDivElement | null;
-        const itgEmbedBox = document.getElementById("itg-embed-box") as HTMLDivElement | null;
-        const itgProvider = document.getElementById("itg-provider") as HTMLInputElement | null;
-        const itgUrl = document.getElementById("itg-url") as HTMLInputElement | null;
-        const itgEmbed = document.getElementById("itg-embed") as HTMLTextAreaElement | null;
-        const itgSave = document.getElementById("itg-save") as HTMLButtonElement | null;
-        const itgErr = document.getElementById("itg-err") as HTMLSpanElement | null;
-        const itgState = document.getElementById("itg-state") as HTMLSpanElement | null;
-
-        const ITG_TESTO: Record<string, string> = {
-          moodd: tr("itg.mode.moodd.desc"),
-          link: tr("itg.mode.link.desc"),
-          embed: tr("itg.mode.embed.desc"),
-          none: tr("itg.mode.none.desc"),
-        };
-        function itgModo(): string {
-          return (itgModes?.querySelector(".us-role.is-on") as HTMLElement | null)?.dataset.mode ?? "moodd";
-        }
-        function itgSetModo(m: string) {
-          itgModes?.querySelectorAll<HTMLElement>(".us-role").forEach((b) =>
-            b.classList.toggle("is-on", b.dataset.mode === m)
-          );
-          if (itgHint) itgHint.textContent = ITG_TESTO[m] ?? "";
-          const esterno = m === "link" || m === "embed";
-          if (itgFields) itgFields.style.display = esterno ? "" : "none";
-          if (itgUrlBox) itgUrlBox.style.display = m === "link" ? "" : "none";
-          if (itgEmbedBox) itgEmbedBox.style.display = m === "embed" ? "" : "none";
-          if (itgState) {
-            itgState.textContent = m === "moodd" ? "RestoHub" : m === "none" ? tr("itg.state.off") : tr("itg.state.ext");
-            itgState.classList.toggle("ext", esterno);
-          }
-        }
-        itgModes?.addEventListener("click", (e) => {
-          const b = (e.target as HTMLElement).closest(".us-role") as HTMLElement | null;
-          if (b?.dataset.mode) itgSetModo(b.dataset.mode);
-        });
-
         // --- Google Business ---
         const gState = document.getElementById("g-state") as HTMLSpanElement | null;
-        const gSave = document.getElementById("g-save") as HTMLButtonElement | null;
-        const gErr = document.getElementById("g-err") as HTMLSpanElement | null;
         const gConnect = document.getElementById("g-connect") as HTMLButtonElement | null;
         const gOauthNote = document.getElementById("g-oauth-note") as HTMLSpanElement | null;
 
@@ -1606,48 +1522,16 @@ const prI18n = {
           window.history.replaceState({}, "", u.toString());
         })();
 
-        gSave?.addEventListener("click", async () => {
-          if (!gErr) return;
-          gErr.textContent = "";
-          gSave.disabled = true;
-          try {
-            const res = await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mode: itgModo(),
-                provider: itgProvider?.value.trim() ?? "",
-                url: itgUrl?.value.trim() ?? "",
-                embed: itgEmbed?.value ?? "",
-              }),
-            });
-            const j = await res.json();
-            if (!res.ok) { gErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            toast(tr("itg.g.saved"));
-          } catch {
-            gErr.textContent = tr("common.netErr");
-          } finally {
-            gSave.disabled = false;
-          }
-        });
 
         async function itgCarica() {
           try {
             const res = await fetch("/api/admin/integrations", { headers });
             if (!res.ok) return;
             const j = (await res.json()) as {
-              resa?: { mode: string; provider: string; url: string; embed: string };
               google?: { place_id: string; connected: boolean; oauth_ready: boolean };
               search_console?: { site: string; ready: boolean; robot: string };
               newsletter?: { monthly_quota: number };
             };
-            const r = j.resa;
-            if (r) {
-              if (itgProvider) itgProvider.value = r.provider ?? "";
-              if (itgUrl) itgUrl.value = r.url ?? "";
-              if (itgEmbed) itgEmbed.value = r.embed ?? "";
-              itgSetModo(r.mode ?? "moodd");
-            }
             const g = j.google;
             if (g) {
               if (gState) {
@@ -1779,30 +1663,6 @@ const prI18n = {
           }
         });
 
-        itgSave?.addEventListener("click", async () => {
-          if (!itgErr) return;
-          itgErr.textContent = "";
-          itgSave.disabled = true;
-          try {
-            const res = await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mode: itgModo(),
-                provider: itgProvider?.value.trim() ?? "",
-                url: itgUrl?.value.trim() ?? "",
-                embed: itgEmbed?.value ?? "",
-              }),
-            });
-            const j = await res.json();
-            if (!res.ok) { itgErr.textContent = j.error ?? tr("common.saveErr"); return; }
-            toast(tr("itg.saved"));
-          } catch {
-            itgErr.textContent = tr("common.netErr");
-          } finally {
-            itgSave.disabled = false;
-          }
-        });
 
         void itgCarica();
 

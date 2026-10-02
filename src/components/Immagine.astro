@@ -47,8 +47,17 @@ interface Props {
   loading?: "lazy" | "eager";
 }
 
-const { src, alt, width, height, rapporto, primaria = false, class: classe, sizes, loading } =
+const { src, alt, width, height, rapporto, primaria = false, class: classe, sizes, loading, ...resto } =
   Astro.props;
+
+// ⚠️ `...resto` NON e' una comodita': senza, gli stili scoped della pagina che
+// chiama questo componente NON arrivano all'immagine. Astro compila `.logo` in
+// `.logo[data-astro-cid-xxxx]` e passa quell'attributo al componente figlio
+// COME PROP: se il figlio non lo rimette sul suo elemento, il selettore non
+// trova niente. La pagina non da' errore, lo stile semplicemente non c'e': in
+// `pages/index.astro` l'`object-fit: contain` del logo spariva, e un logo
+// quadrato veniva schiacciato dentro i 280x120 degli attributi. Scoperto su
+// BROS il 01/10/2026, sulla home "coming soon".
 
 // ⚠️ Si ferma in BUILD, non a runtime. Un'immagine senza posto riservato e'
 // un difetto che nessuno segnala: la pagina funziona, semplicemente salta.
@@ -78,4 +87,5 @@ const stile = rapporto ? `aspect-ratio:${rapporto};width:100%;height:auto;` : un
   loading={caricamento}
   decoding={primaria ? "sync" : "async"}
   fetchpriority={primaria ? "high" : undefined}
+  {...resto}
 />
