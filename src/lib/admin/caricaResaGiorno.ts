@@ -120,9 +120,19 @@ export async function caricaResaGiorno(date: string, ambito: Ambito): Promise<Re
         const m = /^(\d{1,2}):(\d{2})/.exec(v);
         return m ? Number(m[1]) * 60 + Number(m[2]) : -1;
       };
+      // ⚠️ La stessa chiave puo' avere PIU' righe: «soir» feriale e «soir» del
+      // weekend, con durate diverse. Un `find` secco prende la prima, e il
+      // sabato si chiudevano i tavoli mezz'ora prima del dovuto. Si cerca la
+      // riga attiva in QUESTO giorno, e solo se non c'e' si ripiega sulla prima.
+      const dowGiorno = new Date(date + "T12:00:00").getDay();
       const holdDiKey = (key: string | null): number => {
-        const sv = (services as { key?: string; hold?: unknown }[]).find((x) => x.key === key);
-        const n = Math.floor(Number(sv?.hold));
+        const righe = (services as { key?: string; hold?: unknown; days?: unknown }[])
+          .filter((x) => x.key === key);
+        const attiva = righe.find((x) => {
+          const d = Array.isArray(x.days) ? (x.days as unknown[]).map((v) => Math.floor(Number(v))) : [];
+          return d.length === 0 || d.includes(dowGiorno);
+        });
+        const n = Math.floor(Number((attiva ?? righe[0])?.hold));
         return Number.isFinite(n) && n >= 15 && n <= 360 ? n : hold;
       };
       const daChiudere = (data ?? []).filter((r) => {

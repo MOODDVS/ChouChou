@@ -329,3 +329,63 @@ test("la capienza si calcola in UN posto solo", async () => {
     );
   }
 });
+
+test("il rifiuto di un creneau dice SEMPRE perche'", () => {
+  // ⚠️ Il 02/10/2026 un ristoratore non riusciva a prenotare a nessuna ora, con
+  // la sala vuota. Il server rispondeva `creneauPris` — la stessa parola per
+  // tredici controlli diversi — e dal codice i candidati erano otto: capienza,
+  // giorno chiuso, fuori servizio, sezione chiusa, preavviso, tavoli... Non era
+  // un bug difficile: era un bug MUTO.
+  //
+  // Da qui in avanti `verificaCreneau` torna il motivo e l'API lo mette accanto
+  // all'errore. Il cliente continua a leggere la frase gentile; chi apre la
+  // scheda Rete legge quale regola ha deciso.
+  const API = readFileSync("src/pages/api/reservation.ts", "utf8");
+
+  assert.doesNotMatch(API, /return "creneauPris"/,
+    "un controllo e' tornato alla risposta unica: cosi' il rifiuto non si sa piu' spiegare");
+
+  // Ogni `return` di verificaCreneau porta un nome, e i nomi sono tutti diversi:
+  // due controlli con la stessa etichetta sarebbero di nuovo indistinguibili.
+  const corpo = API.slice(API.indexOf("async function verificaCreneau"), API.indexOf("/** Cliente BLOCCATO"));
+  const motivi = [...corpo.matchAll(/return "([a-zA-Z]+)"/g)].map((m) => m[1]);
+  assert.ok(motivi.length >= 13, `verificaCreneau ha ${motivi.length} rifiuti nominati, erano 13`);
+  assert.equal(new Set(motivi).size, motivi.length, "due controlli diversi tornano lo stesso motivo");
+
+  // E il motivo deve davvero uscire dall'API, se no resta una variabile interna.
+  assert.match(API, /error: "creneauPris", motivo: errC/,
+    "il motivo non viene piu' messo nella risposta");
+});
+
+test("una chiave di servizio puo' avere piu' righe, e si guarda quella del giorno", () => {
+  // ⚠️ IL GUASTO PIU' CARO DI QUESTA SETTIMANA, e non dava nessun errore.
+  // I ristoranti scrivono due servizi con la STESSA chiave e giorni diversi:
+  //   soir 18:00-22:30  giorni [0,1,3,4]     (feriali)
+  //   soir 18:00-23:00  giorni [5,6]         (venerdi' e sabato)
+  // E' il modo normale di dire "il weekend si chiude piu' tardi", e due
+  // clienti su cinque lo usano — verificato leggendo il loro `?config=1`.
+  //
+  // `verificaCreneau` faceva `services.find(key)`, che prende la PRIMA riga.
+  // Il venerdi' si finiva a controllare la riga dei feriali, che il venerdi'
+  // non e' attiva: prenotazione rifiutata a QUALSIASI ora, con la sala vuota,
+  // nei due giorni che contano di piu'. Il cliente leggeva «questo orario e'
+  // appena stato preso», e nei log non c'era niente.
+  const API = readFileSync("src/pages/api/reservation.ts", "utf8");
+
+  assert.doesNotMatch(API, /cfg\.services\.find\(/,
+    "si e' tornati a `find` sui servizi: con due righe per la stessa chiave si guarda quella sbagliata");
+  assert.match(API, /cfg\.services\.filter\(\(sv\) => sv\.key === p\.service_key\)/,
+    "il controllo del creneau non raccoglie piu' TUTTE le righe del servizio scelto");
+  assert.match(API, /esiti\.some\(\(e\) => e === null\)/,
+    "basta che UNA riga regga il giorno e l'ora: la regola e' tornata a pretenderle tutte");
+
+  // La durata (hold) ha la stessa trappola: con due righe la mappa teneva
+  // l'ultima, e il lunedi' si calcolava l'occupazione con la durata del sabato.
+  assert.doesNotMatch(API, /new Map\(cfg\.services\.map\(\(s\) => \[s\.key, s\.hold\]\)\)/,
+    "la mappa delle durate e' tornata a tenere l'ultima riga invece di quella del giorno");
+
+  // E lo stesso vale per la chiusura automatica dei tavoli.
+  const CAR = readFileSync("src/lib/admin/caricaResaGiorno.ts", "utf8");
+  assert.match(CAR, /righe\.find\(\(x\) => \{/,
+    "la chiusura automatica e' tornata a prendere la prima riga: il sabato chiudeva i tavoli troppo presto");
+});

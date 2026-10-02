@@ -1543,3 +1543,47 @@ che finisce con l'elemento `label`, senza `:not(.switch)`, e che imposta
 
 Preso lo stesso giro anche `.cf-col label`, che non ha interruttori oggi ma
 imponeva `min-height: 2.5em` a qualunque label ci finisse dentro domani.
+
+## Una chiave, piu' righe (02/10/2026)
+
+Un ristoratore scrive i suoi servizi cosi':
+
+    soir  18:00-22:30  giorni [0,1,3,4]     feriali
+    soir  18:00-23:00  giorni [5,6]         venerdi' e sabato
+
+Due righe, la stessa chiave. E' il modo normale di dire «il weekend si chiude
+piu' tardi», e **due clienti su cinque lo usano** — verificato leggendo il loro
+`/api/reservation?config=1`.
+
+`verificaCreneau` faceva `cfg.services.find((sv) => sv.key === p.service_key)`.
+`find` torna la PRIMA riga. Il venerdi' si finiva a controllare la riga dei
+feriali, che il venerdi' non e' attiva, e si rifiutava la prenotazione **a
+qualsiasi ora, con la sala vuota, proprio venerdi' e sabato**.
+
+⚠️ **Il widget non aveva il difetto**, perche' le righe le usa tutte: mostrava
+gli orari giusti fino alle 23:00. Il cliente sceglieva un orario libero e si
+sentiva rispondere «questo orario e' appena stato preso». Nessun errore nei
+log, niente in Stripe, niente da nessuna parte: due logiche che rispondono
+diverso alla stessa domanda.
+
+**La regola giusta:** il servizio e' quello che il cliente ha scelto, ma le sue
+righe sono tante, e **basta che UNA regga il giorno e l'ora**.
+
+La stessa trappola, due piani piu' sotto, in altri due punti dello stesso giro:
+
+- `new Map(services.map((s) => [s.key, s.hold]))` teneva l'ULTIMA riga, quindi
+  il lunedi' l'occupazione si calcolava con la durata del sabato (120 minuti
+  invece di 90) e si rifiutavano tavoli liberi.
+- `caricaResaGiorno` sceglieva la durata con un `find` secco, e il sabato
+  chiudeva i tavoli mezz'ora prima del dovuto.
+
+⚠️ **Come l'abbiamo trovato, dopo averlo cercato male.** Dal codice i candidati
+erano otto e tutti plausibili. La diagnosi e' arrivata leggendo `?config=1` dei
+due siti veri: li' si vedono le due righe `soir` in chiaro. **Il dato del
+cliente batte la lettura del codice**, e quell'endpoint e' il primo posto dove
+guardare quando una prenotazione viene rifiutata senza motivo apparente.
+
+Nello stesso giro i tredici rifiuti di `verificaCreneau` hanno smesso di
+chiamarsi tutti `creneauPris`: ognuno torna il suo motivo, l'API lo mette
+accanto all'errore e il widget lo scrive in console. Il cliente continua a
+leggere una frase sola.

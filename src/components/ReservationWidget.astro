@@ -1007,7 +1007,14 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
             if (!j.ok) {
               const msg = j.error === "creneauPris" ? T().creneauPris : j.error === "champsInvalides" ? T().champsInvalides : T().erreurEnvoi;
               $("rw-err").textContent = msg;
-              if (j.error === "creneauPris") { dayCache.delete(isoSel); await caricaGiorno(isoSel); }
+              if (j.error === "creneauPris") {
+                // ⚠️ Il cliente legge una frase sola, ma i motivi del rifiuto sono
+                // tredici. Il server dice QUALE, e qui finisce nella console: senza,
+                // «non si riesce a prenotare» non e' diagnosticabile e si tira a
+                // indovinare. Non e' un dato sensibile, e' il nome di una regola.
+                if (j.motivo) console.warn("[prenotazioni] rifiutato dal server, motivo:", j.motivo);
+                dayCache.delete(isoSel); await caricaGiorno(isoSel);
+              }
               return;
             }
             $("rw-done-recap").textContent = `${fmtDate(isoSel)} · ${ora} · ${rwN} ${T().pers}`;

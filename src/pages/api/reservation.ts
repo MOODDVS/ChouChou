@@ -525,7 +525,14 @@ export const GET: APIRoute = async ({ url, request }) => {
 };
 
 // Ricontrolla la disponibilità LATO SERVER con la stessa logica del widget.
-// Ritorna null se OK, oppure la chiave d'errore ("creneauPris").
+// Ritorna null se OK, oppure il MOTIVO preciso del rifiuto.
+//
+// ⚠️ PRIMA TORNAVA SEMPRE "creneauPris", per tutti e tredici i rami. Al
+// cliente va bene — la frase gentile e' una sola — ma a NOI serviva sapere
+// quale: il 02/10/2026 un ristoratore non riusciva a prenotare a nessuna ora,
+// con la sala vuota, e dal codice i candidati erano otto. Il motivo esce nella
+// risposta accanto all'errore: il widget continua a mostrare la stessa frase,
+// e chi apre la scheda Rete legge «capienzaTotale» o «giornoChiusoOrari».
 // excludeToken: in modifica, ignora la prenotazione stessa nel calcolo.
 async function verificaCreneau(
   cfg: WidgetConfig,
@@ -537,7 +544,7 @@ async function verificaCreneau(
   if (cfg.planMode && cfg.autoAccept) {
     const perZona = (nome: string): number => cfg.zones.find((z) => z.name === nome)?.max_ins ?? 0;
     const consentiti = p.zone ? perZona(p.zone) : Math.max(0, ...cfg.zones.map((z) => z.max_ins ?? 0));
-    if (consentiti > 0 && p.people > consentiti) return "creneauPris";
+    if (consentiti > 0 && p.people > consentiti) return "tavoliTroppoPiccoli";
   }
   const slotMin = minutiDi(p.heure);
 
@@ -546,34 +553,60 @@ async function verificaCreneau(
   const oggiTz = new Intl.DateTimeFormat("en-CA", { timeZone: cfg.timezone }).format(new Date());
   const diff = Math.round((Date.parse(p.date) - Date.parse(oggiTz)) / 86400000);
   const sog = nowMin + cfg.minNoticeMinutes - diff * 1440;
-  if (diff < 0 || slotMin < sog) return "creneauPris";
+  if (diff < 0 || slotMin < sog) return "preavviso";
 
   // Giorno aperto? (special fermé > special ouvert > horaire hebdo)
   const speciale = await specialeDelGiorno(p.date, ambito);
-  if (speciale?.chiuso) return "creneauPris";
+  if (speciale?.chiuso) return "giornoChiusoSpeciale";
   const dow = new Date(p.date + "T12:00:00").getDay();
   if (!speciale?.aperto) {
     try {
       const giorni = await leggiOrari(ambito);
       const sett = giorni.find((g) => g.day_of_week === dow);
-      if (sett && !sett.lunch_active && !sett.dinner_active) return "creneauPris";
+      if (sett && !sett.lunch_active && !sett.dinner_active) return "giornoChiusoOrari";
     } catch { /* senza orari: nessun blocco */ }
   }
 
   // Slot dentro la finestra del service scelto; giorni del service rispettati
-  // (ma un jour spécial "ouvert" li scavalca); fasce speciali intersecate
-  const svScelto = p.service_key ? cfg.services.find((sv) => sv.key === p.service_key) : undefined;
-  if (svScelto) {
-    const da = minutiDi(svScelto.from);
-    const a = minutiDi(svScelto.to);
-    if (da >= 0 && a > da && !(slotMin >= da && slotMin <= a)) return "creneauPris";
-    if (!speciale?.aperto && svScelto.days.length > 0 && !svScelto.days.includes(dow)) return "creneauPris";
-    if (speciale?.aperto && !svAttivoSpeciale(svScelto.key, svScelto.from, svScelto.to, speciale.servizi)) {
-      return "creneauPris"; // service spento in quel giorno speciale
-    }
-    if (speciale?.aperto && speciale.ranges) {
-      const dentro = speciale.ranges.some(([r1, r2]) => slotMin >= Math.max(da, r1) && slotMin <= Math.min(a, r2));
-      if (!dentro) return "creneauPris";
+  // (ma un jour spécial "ouvert" li scavalca); fasce speciali intersecate.
+  //
+  // ⚠️ UNA CHIAVE, PIU' RIGHE. `soir` non e' una riga sola: i ristoranti
+  // scrivono due servizi con la STESSA chiave e giorni diversi — «soir
+  // 18:00-22:30 da domenica a giovedi'» e «soir 18:00-23:00 venerdi' e
+  // sabato». E' il modo normale di dire "il weekend si chiude piu' tardi",
+  // e il widget le mostra tutte e due.
+  //
+  // Qui pero' c'era `find`, che prende la PRIMA. Il venerdi' si finiva a
+  // controllare la riga dei feriali, che il venerdi' non e' attiva, e la
+  // prenotazione veniva rifiutata a QUALSIASI ora, con la sala vuota. Due
+  // ristoranti su cinque, i due giorni che contano di piu', e nessun errore
+  // da nessuna parte: il cliente leggeva «questo orario e' appena stato
+  // preso». Trovato il 02/10/2026 leggendo `?config=1` dei due siti.
+  //
+  // La regola giusta: il servizio e' quello che il cliente ha scelto, ma le
+  // sue righe sono tante, e basta che UNA regga il giorno e l'ora.
+  const righeServizio = p.service_key ? cfg.services.filter((sv) => sv.key === p.service_key) : [];
+  if (righeServizio.length > 0) {
+    const perche = (sv: WidgetConfig["services"][number]): string | null => {
+      const da = minutiDi(sv.from);
+      const a = minutiDi(sv.to);
+      if (da >= 0 && a > da && !(slotMin >= da && slotMin <= a)) return "fuoriFinestraServizio";
+      if (!speciale?.aperto && sv.days.length > 0 && !sv.days.includes(dow)) return "servizioNonInQuestoGiorno";
+      if (speciale?.aperto && !svAttivoSpeciale(sv.key, sv.from, sv.to, speciale.servizi)) {
+        return "servizioSpentoNelGiornoSpeciale";
+      }
+      if (speciale?.aperto && speciale.ranges) {
+        const dentro = speciale.ranges.some(([r1, r2]) => slotMin >= Math.max(da, r1) && slotMin <= Math.min(a, r2));
+        if (!dentro) return "fuoriFasceGiornoSpeciale";
+      }
+      return null;
+    };
+    const esiti = righeServizio.map(perche);
+    if (!esiti.some((e) => e === null)) {
+      // Nessuna riga regge: si risponde col motivo della riga che ci e' andata
+      // piu' vicino — quella attiva oggi, se c'e'.
+      const diOggi = righeServizio.findIndex((sv) => sv.days.length === 0 || sv.days.includes(dow));
+      return esiti[diOggi >= 0 ? diOggi : 0] ?? "servizioNonInQuestoGiorno";
     }
   }
 
@@ -590,8 +623,8 @@ async function verificaCreneau(
   const perm = await chiusurePermanenti(ambito);
   const svcClosed = [...new Set([...(chiusrv.data ?? []).map((r) => String(r.service_key)), ...perm.svc])];
   const zoneClosed = [...new Set([...(chzone.data ?? []).map((r) => String(r.zone)), ...perm.zone])];
-  if (p.service_key && svcClosed.includes(p.service_key)) return "creneauPris";
-  if (p.zone && zoneClosed.includes(p.zone)) return "creneauPris";
+  if (p.service_key && svcClosed.includes(p.service_key)) return "servizioChiuso";
+  if (p.zone && zoneClosed.includes(p.zone)) return "sezioneChiusa";
 
   // Auto-accept spento: orari e chiusure valgono (sopra), la CAPIENZA no —
   // si accetta tutto come demande PENDING e decide il ristoratore.
@@ -599,7 +632,17 @@ async function verificaCreneau(
 
   // Capienza (meno le sezioni chiuse) + occupazione sovrapposta
   const capienza = cfg.capacity - cfg.zones.filter((z) => zoneClosed.includes(z.name)).reduce((t, z) => t + z.seats, 0);
-  const holdByKey = new Map(cfg.services.map((s) => [s.key, s.hold]));
+  // ⚠️ Stessa trappola delle righe doppie, un piano piu' sotto: con due `soir`
+  // questa mappa teneva l'ULTIMA riga, quindi il lunedi' si calcolava
+  // l'occupazione con la durata del sabato (120 minuti invece di 90) e si
+  // rifiutavano tavoli che erano liberi. Le righe sono tutte dello stesso
+  // giorno — e' il giorno della prenotazione — percio' si sceglie quella
+  // attiva in QUEL giorno, e solo se non ce n'e' si ripiega sulla prima.
+  const holdByKey = new Map<string, number>();
+  for (const sv of cfg.services) {
+    const attivaOggi = sv.days.length === 0 || sv.days.includes(dow);
+    if (attivaOggi || !holdByKey.has(sv.key)) holdByKey.set(sv.key, sv.hold);
+  }
   const holdNuovo = (p.service_key ? holdByKey.get(p.service_key) : undefined) ?? cfg.services[0]?.hold ?? 90;
   const postiZona = p.zone ? cfg.zones.find((z) => z.name === p.zone)?.seats ?? 0 : 0;
 
@@ -618,8 +661,8 @@ async function verificaCreneau(
         if (p.zone && (rr.zone ?? "") === p.zone) occZona += rr.people ?? 0;
       }
     }
-    if (occTot + p.people > capienza) return "creneauPris";
-    if (postiZona > 0 && occZona + p.people > postiZona) return "creneauPris";
+    if (occTot + p.people > capienza) return "capienzaTotale";
+    if (postiZona > 0 && occZona + p.people > postiZona) return "capienzaSezione";
     // "Indifférent": ALMENO UNA section deve poter ospitare l'intera tavolata
     // (2 posti liberi qui e 3 là NON fanno un tavolo da 4).
     if (!p.zone && cfg.zones.length > 0) {
@@ -629,7 +672,7 @@ async function verificaCreneau(
           (!cfg.planMode || (z.max_ins ?? 0) >= p.people) &&
           (occPer.get(z.name) ?? 0) + p.people <= z.seats
       );
-      if (!ok) return "creneauPris";
+      if (!ok) return "nessunaSezioneCapiente";
     }
   }
   return null;
@@ -732,7 +775,7 @@ export const POST: APIRoute = async ({ request }) => {
     zone: riga.zone,
     people: riga.people,
   }, ambito);
-  if (errC) return json({ ok: false, error: errC }, 409);
+  if (errC) return json({ ok: false, error: "creneauPris", motivo: errC }, 409);
 
   // Auto-accept spento → la richiesta nasce PENDING (conferma il ristoratore)
   const base: Record<string, unknown> = { ...riga, status: cfg.autoAccept ? "confirmed" : "pending" };
@@ -837,7 +880,7 @@ export const PUT: APIRoute = async ({ request }) => {
     people: riga.people,
     excludeToken: token,
   }, ambito);
-  if (errC) return json({ ok: false, error: errC }, 409);
+  if (errC) return json({ ok: false, error: "creneauPris", motivo: errC }, 409);
 
   let upd = await aggiorna("reservations", ambito, { ...riga, client_action_at: new Date().toISOString(), reminder_sent_at: null })
     .eq("cancel_token", token)
