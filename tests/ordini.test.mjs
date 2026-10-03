@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs";
 // `db.ts`, che in vitest lancia all'import — e un file di prova che non parte
 // viene contato come «0 test», cioe' verde. Vedi ENGINE.md.
 import { acceso, RIPIEGO_ORDINI, CHIAVI_ORDINI } from "../src/lib/ordiniRegole.ts";
+import { SONO_IL_MOTORE } from "./ambiente.mjs";
 
 const leggi = (f) => readFileSync(f, "utf8");
 
@@ -241,9 +242,16 @@ test("il link di annullamento conosce la lingua in cui si e' ordinato", () => {
   assert.match(API, /PUBLIC_LANG_CODES/,
     "l'elenco delle lingue e' tornato scritto a mano: va letto da dove e' gia' dichiarato");
 
-  // La pagina del motore ha i testi in due lingue: deve RIPIEGARE, non rompersi.
-  // Un `T[lang]` con una lingua che non ha sarebbe `undefined`, cioe' pagina
-  // bianca — peggio della lingua sbagliata.
+});
+
+// ⚠️ SOLO SUL MOTORE. Qui si guarda `src/pages/order/cancel.astro`, e un
+// cliente ha il diritto di sostituirla con la propria (BROS la fa delegare a
+// un componente del suo sito, con le sue tre lingue): un test del motore non
+// puo' pretendere una riga di codice dentro una pagina che il cliente rifa'.
+// Cio' che vale per tutti — l'API che risponde la lingua vera — e' sopra.
+test.skipIf(!SONO_IL_MOTORE)("la pagina di annullo del motore ripiega, non si rompe", () => {
+  // I testi sono in due lingue sole: un `T[lang]` con `it` sarebbe `undefined`,
+  // cioe' pagina bianca — peggio della lingua sbagliata.
   const PAG = readFileSync(new URL("../src/pages/order/cancel.astro", import.meta.url), "utf8");
   assert.doesNotMatch(PAG, /lang\s*=\s*j\.lang\s*;/,
     "la pagina prende la lingua senza ripiego: con it/nl/es i testi diventano undefined");
