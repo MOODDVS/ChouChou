@@ -1670,3 +1670,70 @@ fogli di stile), oppure cercare dove la cosa fa danno — il tag `<meta>`, la
 regola CSS, l'istruzione `alter table` — e non nel testo del file.
 
 Un test che litiga con la propria spiegazione finisce disattivato, non letto.
+
+## Una MISURA, un posto solo (03/10/2026)
+
+La sezione «Una cosa sola, in un posto solo» parla di logica duplicata. Questa
+è la stessa malattia sulle **misure**, ed è costata cinque correzioni in una
+sola sessione — sempre lo stesso difetto, ogni volta con una faccia diversa:
+
+| Il numero | Dove viveva | Dove era ricopiato | Cosa si è visto |
+|---|---|---|---|
+| padding del `main` | `AdminHead` | `clients.astro` (`top: calc(2rem + …)`) | ricerca e selettore colonne scivolati sotto il titolo |
+| altezza dell'header | da nessuna parte | `google.astro` (`top: 96px`, `48px + 2rem`) | scheda incollata troppo in basso |
+| altezza della riga del titolo | da nessuna parte | `clients.astro` (`0.82rem`, metà del **testo**) | campo due pixel più su del titolo |
+| `bottom` della barra | `AdminNav` | `fab.css`, `reservations.astro` | «+ Ordine» disallineato dall'isola |
+| taglie dell'interruttore | `switch.css` | google 38, menu 44, impostazioni 44, super 34 | rimpicciolito il componente, non cambiava niente |
+
+**La regola.** Un numero che due regole devono conoscere non si scrive due
+volte: si **dichiara una volta** come variabile CSS e si **cita**. Oggi
+esistono `--pad-y`/`--pad-x` (padding del main), `--h-header`, `--riga-titolo`,
+`--h-campo`, e le taglie in `switch.css`.
+
+⚠️ **Il segnale è sempre lo stesso**: un `calc()` che *ricostruisce* una misura
+che vive altrove — `calc(2rem + 0.82rem)`, `calc(48px + 2rem + 1rem)` — oppure
+una pagina che ridichiara `--sw-w`. Non è «un piccolo ritocco locale»: è una
+copia che si scollerà alla prima modifica dell'originale, e si scollerà in
+silenzio, perché nessun test vede due pixel.
+
+**Quando la misura non è dichiarabile** (l'altezza reale di un elemento che
+dipende dal contenuto), non si stima: o si dichiara l'altezza (`min-height` su
+una variabile, come `--riga-titolo`), oppure la si **misura in JS** — è quello
+che fa già `AdminNav` per decidere se sollevare i FAB, ed è il motivo per cui
+una regola CSS fissa che sollevava il bottone era sbagliata: vinceva su una
+misura vera.
+
+**Un test può presidiarlo.** `tests/tablet.test.mjs` pretende che barra e
+bottoni flottanti abbiano lo stesso `bottom` (senza fissare quale);
+`tests/impostazioni.test.mjs` vieta di scrivere `--sw-*` a numero fuori da
+`switch.css`. Due righe di prova che chiudono una classe intera di difetti.
+
+## Tablet in orizzontale — la scala al dito (03/10/2026)
+
+Un iPad orizzontale è largo 1024–1366 CSS, cioè **quanto un laptop**, e per la
+scala del motore è un desktop (il confine è 1023/1024). Ma lo si guarda da più
+lontano e lo si tocca col dito: header, pillole e barra, pensati per un
+monitor, mangiavano mezzo schermo.
+
+`src/styles/tablet.css` (importato da `AdminHead`) abbassa il **piede di
+misura** a 13px in quella fascia. Le pagine admin sono per circa il 60% in
+`rem`, quindi testi, spazi, bottoni e pillole scendono **tutti insieme** senza
+toccare mille regole.
+
+⚠️ **`pointer: coarse` non è un dettaglio**: senza, la regola prenderebbe anche
+i portatili da 1280, che sono tanti. Si attiva solo su uno schermo che si tocca
+col dito — e per vederla sul Mac serve il DevTools in modalità dispositivo
+(iPad): è l'emulazione del **tocco** che l'accende, non la larghezza.
+
+⚠️ **Il `rem` non tocca i px.** Tutto ciò che è scritto in pixel — logo,
+bottoni quadrati, icone, altezze minime dei campi, `left` dei FAB — resta
+grande in mezzo a tutto il resto rimpicciolito, e va ritoccato **con la stessa
+media query**, dentro il componente che lo possiede. È anche il motivo per cui
+due bottoni tondi messi a `1.5rem` e `5.6rem` si sono avvicinati fino a
+toccarsi: `left` è sceso, la larghezza no. La distanza fra due elementi si
+calcola dal pezzo che li separa (`calc(primo + larghezza + spazio)`), non si
+indovina.
+
+⚠️ **Attenzione alle regole `@media (pointer: coarse)` senza larghezza**: ce
+n'erano di pensate per il telefono (campi ora a 42px, perché lì tutto il resto
+è grande) che su iPad orizzontale restavano alte il doppio delle righe intorno.

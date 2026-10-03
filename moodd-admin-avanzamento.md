@@ -66,6 +66,32 @@ Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro proge
 ### ⚠️ DA LANCIARE SU OGNI CLIENTE
 - `supabase/orders_onsite_payment.sql` (#75) — senza questa migrazione **gli ordini con pagamento al ritiro non nascono**. Idempotente, si può rilanciare.
 
+### 📱 L'admin su iPad orizzontale — riduzione generale (seconda parte della giornata)
+- Richiesta: *«per i tablet vorrei ridurre tutte le grandezze… per avere una visione migliore delle cose»*. Un iPad orizzontale è largo 1024-1366, cioè **quanto un laptop**, e per il motore **è un desktop** (il confine della scala è 1023/1024): nessuna regola «tablet» lo toccava.
+- **Una leva sola invece di cento ritocchi**: `src/styles/tablet.css` abbassa il piede di misura a 13px in quella fascia. Le pagine admin sono per il ~60% in `rem`, quindi testi, spazi, bottoni e pillole scendono tutti insieme mantenendo le proporzioni.
+- ⚠️ **`pointer: coarse`**: senza, la regola prenderebbe anche i portatili da 1280. Si accende solo su uno schermo che si tocca — e sul Mac si vede solo col DevTools in modalità iPad, perché è l'emulazione del *tocco* ad attivarla.
+- Le misure in px (logo, bottoni quadrati, icone, altezze dei campi) non seguono il `rem`: ritoccate con la stessa media query dentro i componenti che le possiedono.
+
+### 📏 «Una misura, un posto solo» — il difetto del giorno, cinque volte
+- Padding del `main` ricopiato in `clients.astro`; altezza dell'header stimata in `google.astro` (`96px`, `48px + 2rem`); altezza della riga del titolo indovinata a `0.82rem` (metà del **testo**, ma la riga è alta quanto la pastiglia «14 clienti»); `bottom` della barra ricopiato nei FAB; **taglie dell'interruttore riscritte da quattro pagine**.
+- Ogni volta lo stesso meccanismo: cambio il numero di qua, l'altro resta indietro, e **nessun test vede due pixel**.
+- Cura: `--pad-y`, `--pad-x`, `--h-header`, `--riga-titolo`, `--h-campo`, e due taglie dichiarate in `switch.css`. Due test di presidio: barra e FAB devono avere lo **stesso** `bottom` (senza fissare quale), e nessuna pagina può scrivere `--sw-*` a numero.
+- Scritto in `ENGINE.md` come regola, con la tabella dei cinque casi. Le toppe da sole non insegnano niente.
+
+### 🐛 Difetti veri trovati mentre si guardava
+- **I piatti del menu non si scorrevano su iPad** (segnalato da un cliente). La colonna sinistra del modale Nuovo ordine era `position: sticky`: un elemento inchiodato, se più alto del contenitore, **non si raggiunge mai** nella sua parte bassa. Su iPad orizzontale restavano ~400px utili: con venti piatti, gli ultimi erano irraggiungibili. Su un monitor alto il difetto non si vedeva. Ora le due colonne scorrono per conto loro.
+- **Data e orologio sovrapposti** nell'header con un nome di sede lungo: l'orologio è centrato in assoluto, non spinge via niente.
+- **Tre interruttori diversi** nel motore: il componente, quello del menu e uno disegnato a mano nelle notifiche (un `<button>` con una classe). Unificati; quello delle notifiche è diventato anche una casella vera, quindi raggiungibile da tastiera.
+
+### 🗓️ Agenda: prima quello che deve ancora succedere
+- Ordine nuovo: i prossimi dal più vicino, poi i passati dal più recente, col badge **PASSATO** sulla foto. Dopo un anno di eventi, in cima c'era la festa dell'anno scorso.
+- ⚠️ Un evento di più giorni è passato **quando finisce**, non quando comincia; e «oggi» è quello del **ristorante**, non del tablet.
+- Regola pura in `src/lib/admin/agendaRegole.ts` (zero import, come `ordiniRegole` e `temaColori`), con quattro test.
+
+### 🔎 Google: la pagina si usa tutta
+- Links e Attributi senza tetto di larghezza. ⚠️ Tentativo di mettere gli Attributi su due colonne **annullato**: `.fi-sec` contiene anche la nota introduttiva, che è finita in una colonna e tutte le card nell'altra.
+- Recensioni: scheda più stretta e lista in **una colonna** — il masonry riempiva lo schermo ma rompeva l'ordine di data, che è l'unico che conta per sapere a chi si deve ancora rispondere. «Sincronizza» ridotto a icona, che gira mentre lavora.
+
 ### ⏭️ Cosa resta
 - Merge del motore su La Molisana, Educazione Napoletana, 450 Gradi, ChouChou, L'Huile (BROS fatto).
 - `multi-sede` → `main` sul motore (fast-forward, ~75 commit avanti).

@@ -194,15 +194,37 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             mozziconi di linea sui denti;
           · l'ombra passa da `box-shadow` a `drop-shadow`, che segue la
             SAGOMA dentellata invece del rettangolo. */
+      /* ⚠️ IL MASK STA SULLO SFONDO, NON SULLA CARD (corretto il 03/10/2026).
+         Finche' `mask` e `filter` stavano sullo STESSO elemento, l'aura del
+         ritardo non si vedeva: il browser applica prima il filtro e POI
+         ritaglia col mask, quindi l'alone — che per definizione sta FUORI
+         dalla sagoma — veniva tagliato via insieme a tutto il resto. Il
+         difetto non era nel calcolo del ritardo, che funzionava: era che il
+         suo effetto veniva cancellato un passaggio dopo. Verificato a schermo
+         con tre varianti affiancate prima di toccare il codice.
+         Adesso: il mask e lo sfondo vivono su `::before`, la card tiene il
+         filtro. L'ombra nasce dalla sagoma del figlio mascherato, quindi
+         segue ancora i denti dello scontrino — ma non viene piu' ritagliata.
+         `filter` sulla card crea un contesto di impilamento, percio' lo
+         `z-index: -1` del ::before resta dentro la card e non scivola dietro
+         la pagina. */
       .card {
         --tk-r: 6px;    /* raggio delle tacche */
         --tk-s: 18px;   /* passo fra una tacca e l'altra */
         position: relative;
-        background: var(--c-card);
+        background: transparent;
         border: 0;
         border-radius: 3px;
         padding: 1.45rem 1.25rem;  /* sopra e sotto: spazio per i denti */
         filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--c-card);
+        border-radius: 3px;
         -webkit-mask:
           radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 51% repeat-x,
           radial-gradient(var(--tk-r) at 50% 100%, #0000 98%, #000) 50% 100% / var(--tk-s) 51% repeat-x;

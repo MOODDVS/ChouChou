@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `c791f59` (03/10/2026).
+**Motore — riferimento attuale:** `multi-sede` HEAD `9440083` (03/10/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
@@ -20,11 +20,13 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 | **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | merge 02/10/2026 | |
 | **L'huile sur le feu** | 🟡 Parziale | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | merge 02/10/2026 | |
 | **Educazione Napoletana** | 🟡 Parziale | Hostinger | educazionenapoletana.be | fr/en/it | merge 02/10/2026 | fix prenotazioni **deployato** (il venerdì funziona in produzione) |
-| **BROS** | 🟢 Allineato | Hostinger (da fare) | brospizza.be (da pubblicare) | fr/en/it | **merge `f3d6a7b` — 03/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **BROS** | 🟡 Parziale | Hostinger (da fare) | brospizza.be (da pubblicare) | fr/en/it | merge `0ff5089` — 03/10/2026 | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
-🟡 **Perché parziali**: i cinque sono fermi al merge del 02/10 (fix prenotazioni).
-Manca loro il blocco del 03/10 — vincolo `onsite`, lingua del link di annullo,
-avviso in cucina sull'annullo del cliente. Verificato file per file, non a memoria.
+🟡 **Perché parziali**: i cinque sono fermi al merge del 02/10 (fix
+prenotazioni) e manca loro il blocco del 03/10 — vincolo `onsite`, lingua del
+link di annullo, avviso in cucina sull'annullo del cliente. Verificato file per
+file, non a memoria. **BROS** quel blocco ce l'ha, ma è stato mergiato prima
+della sera: gli manca solo l'ultimo commit, la scala per iPad orizzontale.
 
 Tutti e sei sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
 su cinque e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.

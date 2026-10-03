@@ -296,3 +296,23 @@ test("l'annullo del cliente avvisa la cucina, non solo il database", () => {
   assert.ok(iIdem > 0 && iAvviso > iIdem,
     "gli avvisi partono prima del controllo di idempotenza: due clic, due email");
 });
+
+test("l'aura del ritardo non puo' essere ritagliata dalla sagoma della card", () => {
+  // ⚠️ IL GUASTO (03/10/2026, visto su 450 Gradi): l'alone che segnala un
+  // ordine in ritardo non compariva. Il calcolo dei minuti era giusto; a
+  // mancare era il DISEGNO. `mask` e `filter` stavano sullo stesso elemento,
+  // e il browser applica prima il filtro e poi ritaglia: l'alone, che per
+  // definizione sta fuori dalla sagoma, veniva cancellato un passaggio dopo.
+  // Nessuno se ne accorge finche' un ordine non e' davvero in ritardo, cioe'
+  // nel momento peggiore. Il mask deve stare su `::before`, la card tiene il
+  // filtro.
+  const pag = leggi("src/pages/admin/orders.astro").replace(/\/\*[\s\S]*?\*\//g, "");
+  const blocco = pag.match(/\n\s*\.card \{([\s\S]*?)\n\s*\}/);
+  assert.ok(blocco, ".card non e' piu' riconoscibile in orders.astro");
+  const dentro = blocco[1];
+  assert.match(dentro, /filter:\s*drop-shadow/, "la card ha perso l'ombra: senza `filter` non c'e' nemmeno l'aura del ritardo");
+  assert.doesNotMatch(dentro, /mask:/,
+    "mask e filter sono di nuovo sullo stesso elemento: il ritaglio cancella l'aura del ritardo, e il difetto si vede solo quando un ordine e' in ritardo",
+  );
+  assert.match(pag, /\.card::before \{[\s\S]*?mask:/, "lo sfondo dentellato non e' piu' su ::before: la sagoma dello scontrino sparisce");
+});
