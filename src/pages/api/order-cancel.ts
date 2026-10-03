@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
 import { leggi, aggiorna, tutteLeSedi, cercaAmbito } from "../../lib/admin/sede";
 import { stripeDi } from "../../lib/stripe";
+import { PUBLIC_LANG_CODES } from "../../lib/admin/superAdmin";
 
 // Annullamento PUBBLICO di un ordine manuale non ancora pagato.
 // Identificato dal cancel_token (email "Annuler ma commande").
@@ -36,7 +37,14 @@ export const GET: APIRoute = async ({ url }) => {
     pickup_time: data.pickup_time,
     total_cents: data.total_cents,
     customer_name: data.customer_name,
-    lang: data.lang === "en" ? "en" : "fr",
+    // ⚠️ LA LINGUA VERA DELL'ORDINE, non due su cinque. Dalla #49 `orders.lang`
+    // tiene fr/en/it/nl/es — il checkout salva la lingua della pagina in cui il
+    // cliente ha ordinato — e qui si schiacciava tutto su `fr` tranne `en`: chi
+    // aveva ordinato in italiano apriva «Annuler ma commande» in francese.
+    // Il link dell'email non porta la lingua, quindi questa risposta e' l'UNICO
+    // modo che il sito ha di saperla. Si ripiega su `fr` solo se manca o non e'
+    // una lingua che il motore conosce; l'elenco sta in un posto solo.
+    lang: PUBLIC_LANG_CODES.includes(String(data.lang)) ? String(data.lang) : "fr",
   });
 };
 

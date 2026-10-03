@@ -225,3 +225,28 @@ test("ogni payment_method scritto dal codice e' ammesso dal database", () => {
       `"${v}" non e' nell'ultimo check di TUTTO.sql: una migrazione piu' recente lo ha ristretto`);
   }
 });
+
+test("il link di annullamento conosce la lingua in cui si e' ordinato", () => {
+  // ⚠️ `orders.lang` tiene fr/en/it/nl/es dalla #49, e il checkout ci scrive la
+  // lingua della pagina in cui il cliente ha ordinato. La GET di order-cancel
+  // la schiacciava su due valori — `en` oppure `fr` — quindi chi ordinava in
+  // italiano apriva «Annuler ma commande» in francese.
+  //
+  // Il link nell'email non porta la lingua: questa risposta e' l'UNICO modo che
+  // il sito del cliente ha di saperla. Perderla qui vuol dire perderla e basta.
+  const API = readFileSync(new URL("../src/pages/api/order-cancel.ts", import.meta.url), "utf8");
+
+  assert.doesNotMatch(API, /lang:\s*data\.lang\s*===\s*"en"\s*\?\s*"en"\s*:\s*"fr"/,
+    "order-cancel e' tornato a rispondere solo fr/en: le altre lingue si perdono prima di arrivare alla pagina");
+  assert.match(API, /PUBLIC_LANG_CODES/,
+    "l'elenco delle lingue e' tornato scritto a mano: va letto da dove e' gia' dichiarato");
+
+  // La pagina del motore ha i testi in due lingue: deve RIPIEGARE, non rompersi.
+  // Un `T[lang]` con una lingua che non ha sarebbe `undefined`, cioe' pagina
+  // bianca — peggio della lingua sbagliata.
+  const PAG = readFileSync(new URL("../src/pages/order/cancel.astro", import.meta.url), "utf8");
+  assert.doesNotMatch(PAG, /lang\s*=\s*j\.lang\s*;/,
+    "la pagina prende la lingua senza ripiego: con it/nl/es i testi diventano undefined");
+  assert.match(PAG, /lang\s*=\s*j\.lang\s*===\s*"en"\s*\?\s*"en"\s*:\s*"fr"/,
+    "manca il ripiego su fr per le lingue che questa pagina non ha");
+});
