@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `3f5f8ce` (29/09/2026).
+**Motore — riferimento attuale:** `multi-sede` HEAD `c791f59` (03/10/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
@@ -15,14 +15,19 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `3f5f8ce` — 29/09/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua |
-| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `3f5f8ce` — 29/09/2026** | |
-| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `3f5f8ce` — 29/09/2026** | |
-| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `3f5f8ce` — 29/09/2026** | |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `3f5f8ce` — 29/09/2026** | ultimo passato al multi-sede |
+| **450 Gradi** | 🟡 Parziale | Hostinger | 450gradi.be | en | merge 02/10/2026 | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. ⚠️ i 5 cron `pg_cron` non sono mai stati creati |
+| **La Molisana** | 🟡 Parziale | Hostinger (EU) | lamolisana.be (live) | fr/en | merge 02/10/2026 | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
+| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | merge 02/10/2026 | |
+| **L'huile sur le feu** | 🟡 Parziale | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | merge 02/10/2026 | |
+| **Educazione Napoletana** | 🟡 Parziale | Hostinger | educazionenapoletana.be | fr/en/it | merge 02/10/2026 | fix prenotazioni **deployato** (il venerdì funziona in produzione) |
+| **BROS** | 🟢 Allineato | Hostinger (da fare) | brospizza.be (da pubblicare) | fr/en/it | **merge `f3d6a7b` — 03/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
-Tutti e cinque sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
-su quattro e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
+🟡 **Perché parziali**: i cinque sono fermi al merge del 02/10 (fix prenotazioni).
+Manca loro il blocco del 03/10 — vincolo `onsite`, lingua del link di annullo,
+avviso in cucina sull'annullo del cliente. Verificato file per file, non a memoria.
+
+Tutti e sei sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
+su cinque e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
 
 `PRESTAZIONI.md` §1 e §3 sono **chiusi su tutti e cinque** (29/09/2026): nessun
 cliente chiede piu' i font a Google, e nessuna `<img>` pubblica e' senza posto
@@ -136,6 +141,35 @@ Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
 
 ---
 
+## 🔄 Giro di merge del 03/10/2026 — motore `c791f59`
+
+Cosa porta: `payment_method = 'onsite'` ammesso dal database (**senza la
+migrazione gli ordini con pagamento al ritiro non nascono**), il link «Annuler
+ma commande» nella lingua in cui si è ordinato, e i tre avvisi quando è il
+CLIENTE ad annullare (email alla cucina, push al ristoratore, conferma al
+cliente) — prima l'annullo cambiava solo la riga e in cucina l'ordine restava.
+
+Porta anche il **link «lascia una recensione» di nuovo modificabile dal
+ristoratore**, in Réglages → Général: dal 17/09 era uscito dai Liens e non era
+mai arrivato in Général, quindi un cliente a sede unica non aveva più nessun
+posto dove metterlo.
+
+| Cliente | Stato | Conflitti |
+|---|---|---|
+| BROS | ✅ fatto | `src/pages/order/cancel.astro`: nel motore la pagina si annulla da sola, su BROS delega ad `AnnullaOrdine.astro`. Tenuta la versione BROS, e il componente ora segue `j.lang` per tutte le lingue del sito, non solo l'inglese. |
+| La Molisana | ⏳ da fare | atteso su `cancel.astro` se ha una pagina propria |
+| Educazione Napoletana | ⏳ da fare | — |
+| ChouChou | ⏳ da fare | — |
+| L'Huile | ⏳ da fare | — |
+| 450 Gradi | ⏳ da fare | — |
+
+⚠️ **Il test della pagina di annullo è passato a `skipIf(!SONO_IL_MOTORE)`**
+(commit `ac1762d`): pretendeva una riga dentro `order/cancel.astro`, che un
+cliente ha il diritto di rifare. Senza quel commit il merge diventa rosso su
+ogni cliente con una pagina propria — **va pushato prima del giro**.
+
+---
+
 ## 🔄 Giro di merge del 07/09/2026 — motore `7936e3b`
 
 Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ristoratore nella **lingua admin**, form Jours spéciaux condiviso (due tab nel modale della home), tempo di preparazione dal tile Cuisine, liaisons fino a 16 tavoli, `i18nMenu.ts`.
@@ -152,6 +186,16 @@ Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ri
 **Correzioni per-cliente fatte nello stesso giro** (non toccano il motore):
 - L'Huile: 20 errori `astro check` preesistenti — tipi mancanti in `src/pages/print/menu.astro` (frontmatter in JS puro) e `LinksBoard.astro`.
 - La Molisana: `Layout.astro` non aveva la prop `noindex`, che `feedback.astro` gli passava — **la pagina feedback era indicizzabile**. Aggiunta la prop e il `<meta name="robots">`. Inoltre `tsconfig.json` non escludeva `build/`, e `astro check` analizzava anche l'output compilato (446 file invece di ~220).
+
+---
+
+## ⚠️ Migrazioni — una pendente (03/10/2026)
+**#75 `orders_onsite_payment.sql` — da lanciare su tutti e sei.** Allarga il
+`check` di `orders.payment_method` a `'onsite'`. Finché non è lanciata, un
+ordine con pagamento al ritiro **non nasce**: il cliente riempie il carrello,
+preme «Ordina» e legge «Impossibile creare l'ordine». Nessuna riga, nessun
+avviso in cucina, nessun errore nei log. Idempotente, si può rilanciare.
+ℹ️ Urgente solo dove il pagamento al ritiro è accesso — oggi **BROS**.
 
 ---
 
