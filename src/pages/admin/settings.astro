@@ -1045,6 +1045,10 @@ const t = adminT(lang);
               <input type="text" id="g-fromname" class="g-name-inp" placeholder="Ristorante Bella Napoli" autocomplete="off" aria-label={t("set.gen.fromName")} />
               <input type="email" id="g-email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
             </div>
+            <div class="field">
+              <label for="g-greview">{t("loc.reviewUrl")}<span class="lab-hint">{t("set.gen.reviewHint")}</span></label>
+              <input type="url" id="g-greview" placeholder="https://g.page/r/…/review" autocomplete="off" />
+            </div>
 
             <h2 class="brand-title">{t("set.gen.brandTitle")}</h2>
             <div class="brand-grid">
@@ -1815,6 +1819,7 @@ const t = adminT(lang);
           ["newsletter_from_email", "g-nlfrom"],
           ["whatsapp_number", "g-wa"],
           ["timezone", "g-tz"],
+          ["link_google_review", "g-greview"],
         ];
         const gEls = new Map(G_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
         gEls.forEach((el) => el.addEventListener("input", dirty));

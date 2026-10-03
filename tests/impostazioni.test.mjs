@@ -393,6 +393,30 @@ test("il link recensioni Google sta in Général, non nei Liens", () => {
     "google_review e' tornato fra i link: quelli si leggono dal marchio, e il link della scheda Google e' di UNA sede",
   );
 
+  // ⚠️ IL GUASTO (03/10/2026): questo test si chiamava «sta in General» e
+  // controllava solo che NON fosse nei Liens. Il 17/09 il campo e' uscito dai
+  // link e in General non e' mai arrivato: per due settimane l'unico posto
+  // dove si poteva scrivere e' stato Super admin → Sedi, che il ristoratore
+  // non vede. Un cliente a sede unica non aveva nessun posto, e l'email che
+  // chiede la recensione partiva senza link.
+  const gen = API.match(/const CHIAVI_GENERAL = \[([\s\S]*?)\];/);
+  assert.ok(gen, "CHIAVI_GENERAL non e' piu' riconoscibile in settings.ts");
+  assert.ok(
+    gen[1].includes('"link_google_review"'),
+    "link_google_review non e' in CHIAVI_GENERAL: il salvataggio di General lo butta via senza dire niente",
+  );
+
+  assert.ok(
+    PAGINA.includes('id="g-greview"'),
+    "manca il campo nel tab General: il ristoratore non ha dove scrivere il link",
+  );
+  const campi = PAGINA.match(/const G_CAMPI: \[string, string\]\[\] = \[([\s\S]*?)\];/);
+  assert.ok(campi, "G_CAMPI non e' piu' riconoscibile in settings.astro");
+  assert.ok(
+    campi[1].includes('["link_google_review", "g-greview"]'),
+    "il campo esiste ma non e' in G_CAMPI: non si riempie al caricamento e non si salva",
+  );
+
   // Si scrive dalla scheda della sede in /admin/super, accanto al Place ID:
   // e' l'indirizzo pubblico della stessa scheda Google, ed e' configurazione
   // che si mette una volta, non un campo del ristoratore.
