@@ -1,0 +1,49 @@
+/* ------------------------------------------------------------
+   TABLET IN ORIZZONTALE — tutto un po' piu' piccolo (03/10/2026)
+   ------------------------------------------------------------
+
+   IL PROBLEMA. Un iPad orizzontale e' largo 1024-1366 CSS, cioe' quanto un
+   laptop, e per il motore E' un desktop (il confine della scala e' 1023/1024,
+   vedi ENGINE.md). Ma lo si guarda da piu' lontano e lo si tocca col dito:
+   header, pillole e barra in basso, pensati per un monitor, mangiano meta'
+   schermo e di una lista di ordini se ne vedono quattro.
+
+   LA LEVA. Le pagine admin sono per circa il 60% in `rem`, quindi basta
+   abbassare il piede di misura: 13px invece di 16px e' il -19% che il
+   ristoratore ha chiesto, su TUTTO insieme — testi, spazi, bottoni, pillole —
+   senza ritoccare mille regole una per una e senza sfasare le proporzioni.
+
+   ⚠️ `pointer: coarse` NON e' un dettaglio: senza, questa regola prenderebbe
+   anche i portatili da 1280, che sono tanti, e rimpicciolirebbe l'admin a chi
+   non l'ha chiesto. Si attiva solo su uno schermo che si tocca col dito.
+   Per vederla sul Mac serve il DevTools in modalita' dispositivo (iPad): e'
+   l'emulazione del tocco che accende la regola, non la larghezza.
+
+   ⚠️ Quello che il `rem` NON tocca resta scritto a mano dentro i componenti
+   (AdminHeader, AdminNav), con la stessa identica media query: sono le misure
+   in px — logo, bottoni quadrati, icone — che altrimenti resterebbero grandi
+   in mezzo a tutto il resto rimpicciolito.
+   ------------------------------------------------------------ */
+
+@media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+  :root {
+    font-size: 13px;
+  }
+
+  /* L'interruttore e' disegnato in px — il piede di misura non lo tocca — ma
+     le sue quattro misure sono gia' variabili, fatte apposta per questo:
+     niente regole nuove, solo numeri piu' piccoli. Le proporzioni restano
+     identiche (pallina e aria scendono insieme alla cornice). */
+  .switch {
+    --sw-w: 36px;
+    --sw-h: 20px;
+    --sw-k: 15px;
+    --sw-p: 2.5px;
+  }
+  /* La taglia piccola scende insieme all'altra: e' una variabile sola. */
+  :root {
+    --sw-sm-w: 29px;
+    --sw-sm-h: 16px;
+    --sw-sm-k: 11px;
+  }
+}

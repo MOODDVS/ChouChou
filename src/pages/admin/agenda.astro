@@ -148,7 +148,30 @@ const pubLangsJson = JSON.stringify({
         border-radius: 999px; color: var(--c-muted); font-size: 0.7rem;
         text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
       }
-      .m-tag.gold { border-color: color-mix(in srgb, var(--c-accent) 50%, transparent); color: var(--c-accent); }
+      /* RSVP non e' un'informazione in piu': dice che quell'evento RACCOGLIE
+         ISCRIZIONI, cioe' che da qualche parte c'e' gente che aspetta. Pieno,
+         non contornato: si deve vedere scorrendo la griglia. */
+      .m-tag.gold {
+        background: var(--c-accent); border-color: var(--c-accent);
+        color: var(--c-bg); font-weight: 700;
+      }
+      /* Le pastiglie con un NUMERO dentro (4 foto, 1 link) non sono etichette
+         di stato: sono un dato che si legge. In grigio smorzato il numero si
+         perdeva, percio' qui testo e segno vanno nel colore pieno del testo. */
+      .m-tag { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--c-text); }
+      .m-tag .t-ico { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+      /* «PASSATO» sta SULLA FOTO, in alto a destra: si legge mentre si scorre
+         la griglia, senza cercarlo in mezzo alle altre pastiglie. Fondo scuro
+         pieno perche' sotto puo' esserci qualsiasi immagine. */
+      .ev-photo { position: relative; }
+      .ev-past {
+        position: absolute; top: 0.5rem; right: 0.5rem; z-index: 2;
+        background: rgba(0, 0, 0, 0.72); color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 999px;
+        padding: 0.18rem 0.6rem; font-size: 0.66rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+      }
       .pop-actions { display: flex; align-items: center; gap: 0.6rem; border-top: 1px solid var(--c-line); padding-top: 0.9rem; margin-top: auto; }
 
       /* Interruttore: componente condiviso (src/styles/switch.css). */
@@ -163,6 +186,11 @@ const pubLangsJson = JSON.stringify({
       .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .i-edit { margin-left: auto; }
       .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      /* La matita aveva fondo trasparente mentre il cestino, suo vicino, ne
+         ha uno: due bottoni della stessa fila disegnati in due modi. Qui ha
+         il suo, scuro e neutro — l'azione e' normale, non pericolosa. */
+      .i-edit { background: rgba(0, 0, 0, 0.28); color: var(--c-text); }
+      .i-edit:hover { background: rgba(0, 0, 0, 0.42); border-color: var(--c-accent); color: var(--c-accent); }
       .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
       .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
       .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
@@ -498,6 +526,7 @@ const pubLangsJson = JSON.stringify({
       import { collegaLogout } from "../../lib/admin/logout";
       import { comprimiFoto } from "../../lib/admin/imageCompress";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
+      import { ordinaEventi, eventoPassato } from "../../lib/admin/agendaRegole";
 
       const LANG = (document.documentElement.lang || "fr") as AdminLang;
       const tr = adminT(LANG);
@@ -529,6 +558,15 @@ const pubLangsJson = JSON.stringify({
       const ICO_IMG =
         '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>';
 
+      // Le pastiglie della card parlavano in emoji (🖼 e 🔗): due disegni a
+      // colori, con un loro stile, in mezzo a icone a tratto. Qui sono gli
+      // stessi segni delle altre icone del pannello — tratto, currentColor,
+      // quindi prendono il colore della pastiglia che li contiene.
+      const ICO_FOTO =
+        '<svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9.5" r="1.4" /><path d="M21 16l-5-5L7 20" /></svg>';
+      const ICO_LINK =
+        '<svg class="t-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" /></svg>';
+
       function esc(s: string): string {
         return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
@@ -536,6 +574,11 @@ const pubLangsJson = JSON.stringify({
         const [y, m, d] = iso.split("-");
         return `${d}/${m}/${y}`;
       }
+      // Fuso del ristorante, esposto dall'header (data-tz): «passato» si
+      // decide sul calendario del locale, non su quello del tablet.
+      const TZ_LOCALE = (document.querySelector(".ah-header") as HTMLElement | null)?.dataset.tz || "Europe/Brussels";
+      const oggiISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: TZ_LOCALE }).format(new Date());
+
       function dateLabel(e: Evento): string {
         return e.date_end ? `${fmtDate(e.date_start)} → ${fmtDate(e.date_end)}` : fmtDate(e.date_start);
       }
@@ -597,13 +640,13 @@ const pubLangsJson = JSON.stringify({
                   ? `<img src="${esc(e.image_url)}" alt="" loading="lazy" />`
                   : ICO_IMG;
                 const tags: string[] = [];
-                if (e.gallery?.length) tags.push(`<span class="m-tag">${e.gallery.length} 🖼</span>`);
-                if (e.links?.length) tags.push(`<span class="m-tag">${e.links.length} 🔗</span>`);
+                if (e.gallery?.length) tags.push(`<span class="m-tag">${e.gallery.length}${ICO_FOTO}</span>`);
+                if (e.links?.length) tags.push(`<span class="m-tag">${e.links.length}${ICO_LINK}</span>`);
                 if (e.rsvp) tags.push(`<span class="m-tag gold">RSVP</span>`);
                 if (!e.active) tags.push(`<span class="m-tag">${esc(tr("mk.inactive"))}</span>`);
                 return `
                 <div class="ev${e.active ? "" : " is-off"}" data-id="${e.id}">
-                  <div class="ev-photo">${foto}</div>
+                  <div class="ev-photo">${foto}${eventoPassato(e, oggiISO()) ? `<span class="ev-past">${esc(tr("ag.past"))}</span>` : ""}</div>
                   <div class="ev-body">
                     <div class="ev-title">${esc(e.title)}</div>
                     <div class="ev-date">${esc(dateLabel(e))}</div>
@@ -628,7 +671,7 @@ const pubLangsJson = JSON.stringify({
             const res = await fetch("/api/admin/agenda", { headers: await authFresh() });
             if (!res.ok) throw new Error();
             const dati = (await res.json()) as { events: Evento[]; sede?: string | null };
-            eventi = dati.events;
+            eventi = ordinaEventi(dati.events, oggiISO());
             sedeAttiva = dati.sede ?? null;
             stateEl.style.display = "none";
             render();

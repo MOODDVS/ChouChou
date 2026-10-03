@@ -134,3 +134,48 @@ test("l'agenda NON e' piu' fra le tabelle che lo storico riattribuisce", () => {
   assert.equal(nelSql.includes("agenda_events"), false,
     "agenda_events e' tornata nell'elenco: riempire NULL cancella gli eventi di gruppo");
 });
+
+// ============================================================
+// ORDINE DELLA LISTA — prima cio' che deve ancora succedere.
+// ============================================================
+test("agendaRegole non importa NIENTE (se no questo test si svuota in silenzio)", () => {
+  const src = readFileSync("src/lib/admin/agendaRegole.ts", "utf8");
+  const righe = src.split("\n").filter((r) => /^\s*import\s/.test(r));
+  assert.deepEqual(righe, [], "agendaRegole.ts ha un import: il file non parte piu' e vitest direbbe «0 test»");
+});
+
+test("un evento di piu' giorni e' passato quando FINISCE, non quando comincia", async () => {
+  const { eventoPassato } = await import("../src/lib/admin/agendaRegole.ts");
+  const mostra = { date_start: "2026-10-01", date_end: "2026-10-20" };
+  assert.equal(eventoPassato(mostra, "2026-10-10"), false, "una mostra in corso risulterebbe gia' archiviata");
+  assert.equal(eventoPassato(mostra, "2026-10-21"), true);
+  // Il giorno stesso non e' passato: la cena di stasera e' ancora da fare.
+  assert.equal(eventoPassato({ date_start: "2026-10-03" }, "2026-10-03"), false);
+  assert.equal(eventoPassato({ date_start: "2026-10-02" }, "2026-10-03"), true);
+  assert.equal(eventoPassato({ date_start: "2026-10-05", date_end: "" }, "2026-10-06"), true, "una fine vuota vale come assente");
+});
+
+test("prima i prossimi dal piu' vicino, poi i passati dal piu' recente", async () => {
+  const { ordinaEventi } = await import("../src/lib/admin/agendaRegole.ts");
+  const lista = [
+    { id: "vecchio", date_start: "2026-01-10" },
+    { id: "lontano", date_start: "2026-12-24" },
+    { id: "ieri", date_start: "2026-10-02" },
+    { id: "domani", date_start: "2026-10-04" },
+  ];
+  assert.deepEqual(
+    ordinaEventi(lista, "2026-10-03").map((e) => e.id),
+    ["domani", "lontano", "ieri", "vecchio"],
+    "chi apre l'agenda deve trovare in cima quello che deve preparare, non la festa dell'anno scorso",
+  );
+  // La lista ricevuta non si tocca: altrove ci si fida dell'ordine di arrivo.
+  assert.equal(lista[0].id, "vecchio");
+  assert.deepEqual(ordinaEventi([], "2026-10-03"), []);
+});
+
+test("la pagina agenda usa la regola, e con la data del RISTORANTE", () => {
+  const pag = readFileSync("src/pages/admin/agenda.astro", "utf8");
+  assert.match(pag, /ordinaEventi\(dati\.events/, "la lista torna in ordine di salvataggio: i passati tornano in cima");
+  assert.match(pag, /timeZone:\s*TZ_LOCALE/, "«passato» si decide col calendario del tablet invece che con quello del locale");
+  assert.match(pag, /eventoPassato\(e,/, "il badge «passato» non viene piu' calcolato: lo storico si confonde con i prossimi");
+});

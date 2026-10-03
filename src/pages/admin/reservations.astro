@@ -464,6 +464,23 @@ const ssrResaJson = ssrResa ? JSON.stringify(ssrResa).replace(/</g, "\\u003c") :
       @media (max-width: 640px) {
         .fab-zone { left: 5.1rem; }
       }
+      /* iPad orizzontale al dito (stessa fascia di styles/tablet.css).
+         ⚠️ Qui si vedeva un effetto che col piede di misura piu' corto torna
+         ovunque: `left`/`bottom` sono in rem e si sono accorciati, le
+         larghezze dei bottoni sono in px e NO. I due tondi di sinistra, messi
+         a 1.5rem e 5.6rem, si sono cosi' avvicinati fino a toccarsi. La
+         distanza non si indovina: si calcola dal bottone che li separa. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        /* La data sta su UNA riga: 200px di larghezza minima col testo libero
+           di andare a capo bastavano per «sab 3 ottobre 2026» a 16px, non a
+           13px. Si toglie il minimo e si vieta il capoverso. */
+        .d-label { min-width: 0; white-space: nowrap; padding: 0 0.5rem; }
+        /* Tutti e tre i bottoni posano sulla stessa linea dell'isola dei
+           link: lo stesso `bottom` che AdminNav da' a `.admin-nav`. */
+        .fab { bottom: 0.9rem; }
+        .fab-serv { bottom: 0.9rem; left: 1rem; width: 46px; height: 46px; }
+        .fab-zone { left: calc(1rem + 46px + 0.75rem); }
+      }
       .d-closed {
         display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; pointer-events: auto;
       }

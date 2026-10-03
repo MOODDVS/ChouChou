@@ -503,3 +503,27 @@ test("nessuna regola di colonna tocca un interruttore", () => {
   assert.deepEqual(colpevoli, [],
     "queste regole danno una misura a OGNI label, interruttori compresi: aggiungi :not(.switch)");
 });
+
+test("l'interruttore ha DUE taglie, e nessuna pagina se ne inventa altre", () => {
+  // ⚠️ IL GUASTO (03/10/2026): rimpicciolito il componente, in tre pagine su
+  // quattro non cambiava niente — google, menu, impostazioni e super admin si
+  // riscrivevano le misure da sole (38, 44, 44, 34). Stesso componente,
+  // quattro misure diverse, e una modifica centrale che non arrivava.
+  const file = [
+    ...readdirSync("src/pages/admin").filter((f) => f.endsWith(".astro")).map((f) => `src/pages/admin/${f}`),
+    ...readdirSync("src/components/admin").filter((f) => f.endsWith(".astro")).map((f) => `src/components/admin/${f}`),
+  ];
+  const colpevoli = [];
+  for (const f of file) {
+    const senzaCommenti = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    // Va bene CITARE le variabili del componente (var(--sw-…)); non va bene
+    // scrivere un numero.
+    for (const m of senzaCommenti.matchAll(/--sw-(?:w|h|k|p)\s*:\s*([^;]+);/g)) {
+      if (!m[1].includes("var(")) colpevoli.push(`${f} → ${m[0].trim()}`);
+    }
+  }
+  assert.deepEqual(
+    colpevoli, [],
+    `misure dell'interruttore scritte a mano fuori da styles/switch.css: ${colpevoli.join(" · ")}. Chi ne vuole uno piu' piccolo usa la classe sw-sm.`,
+  );
+});

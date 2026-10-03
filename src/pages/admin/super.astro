@@ -295,7 +295,8 @@ const prI18n = {
       /* Taglia ridotta della riga annidata: si dice con le variabili del
          componente, non riscrivendo pallina e spostamento — erano tre numeri
          da tenere d'accordo a mano, e uno sbagliato faceva uscire la pallina. */
-      .subrow .switch { --sw-w: 34px; --sw-h: 19px; --sw-k: 13px; }
+      /* Taglia piccola del componente, non misure inventate qui. */
+      .subrow .switch { --sw-w: var(--sw-sm-w); --sw-h: var(--sw-sm-h); --sw-k: var(--sw-sm-k); }
 
       /* L'interruttore NON si ridefinisce qui: vale `styles/switch.css`,
          importato da AdminHead. La copia che stava qui dipingeva lo spento con

@@ -108,6 +108,15 @@
 
 /* Telefono: resta la foto, sparisce il nome — in alto non c'e' spazio e la
    foto basta a dire dove sei. Stessa misura che aveva il logo (40px). */
+/* iPad orizzontale al dito (stessa fascia di styles/tablet.css): e' il badge
+   della sede a dettare l'altezza dell'header — 48px di bottone con dentro un
+   avatar da 38 — quindi e' da qui che la fascia in alto si accorcia. */
+@media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+  .ah-sede-btn { height: 38px; gap: 0.4rem; padding: 0 0.6rem 0 0.25rem; }
+  .ah-sede-btn .sede-avatar { width: 30px; height: 30px; border-radius: 6px; font-size: 0.75rem; }
+  .ah-sede-chev { width: 14px; height: 14px; }
+}
+
 @media (max-width: 640px) {
   .ah-sede-nome { display: none; }
   .ah-sede-btn { height: 40px; gap: 0.35rem; padding: 0 0.4rem 0 0.25rem; }

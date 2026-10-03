@@ -172,6 +172,28 @@ const inizialiSede = (n: string) =>
     .ah-clock { font-size: 1.15rem; }
     .ah-clock-ico { width: 16px; height: 16px; }
   }
+  /* iPad orizzontale, al dito: le misure in PX non scendono col `rem`, quindi
+     logo e bottoni resterebbero grandi in mezzo a tutto il resto rimpicciolito
+     da `styles/tablet.css`. Qui scendono anche loro. */
+  @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+    .ah-header { padding: 0.5rem 1rem; }
+    .ah-left { gap: 0.6rem; }
+    .ah-user { gap: 0.6rem; }
+    .ah-brand img { width: 30px; height: 30px; border-radius: 6px; }
+    .ah-logout { width: 28px; height: 28px; }
+    .ah-logout svg { width: 14px; height: 14px; }
+    .ah-date-ico { width: 13px; height: 13px; }
+    .ah-clock-ico { width: 14px; height: 14px; }
+    /* ⚠️ L'orologio e' centrato in ASSOLUTO: non spinge via niente, ci passa
+       sotto. Con un nome di sede lungo («450 Gradi Schaerbeek») la data gli
+       finiva addosso e si leggevano due testi sovrapposti. Qui la parte
+       sinistra non puo' arrivare al centro: se non ci sta, la data si taglia
+       con i puntini invece di accavallarsi. */
+    .ah-left { max-width: calc(50% - 4.5rem); }
+    .ah-date { overflow: hidden; text-overflow: ellipsis; display: block; }
+    .ah-date-ico { display: none; }
+  }
+
   /* Tablet portrait: nasconde la data (come su mobile) per non sovrapporsi all'orologio. */
   @media (min-width: 641px) and (max-width: 1023px) {
     .ah-date { display: none; }

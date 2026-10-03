@@ -165,7 +165,12 @@ const prodotti = catalogo
     <AdminNav current="print" />
 
     <style>
-      .pr-intro { color: var(--c-muted); font-size: 0.92rem; line-height: 1.6; margin: 0.5rem 0 1.6rem; max-width: 60ch; }
+      /* ⚠️ Il tetto di 60 caratteri e' la misura giusta per un TESTO DA
+         LEGGERE, un paragrafo lungo. Questa e' una riga sola di spiegazione
+         sotto un titolo: col tetto andava a capo a meta' schermo e sembrava
+         un testo spezzato. Qui si lascia correre, e se un giorno la frase si
+         allungasse andra' a capo da sola. */
+      .pr-intro { color: var(--c-muted); font-size: 0.92rem; line-height: 1.6; margin: 0.5rem 0 1.6rem; }
 
       /* min(320px, 100%): sotto i 320px di contenitore un minmax fisso NON si
          stringe, la traccia resta 320 e la griglia esce dallo schermo. */

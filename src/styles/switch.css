@@ -27,12 +27,27 @@
    ============================================================ */
 
 .sw-wrap { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* La taglia piccola: righe fitte, sottorighe, elenchi lunghi. */
+.switch.sw-sm { --sw-w: var(--sw-sm-w); --sw-h: var(--sw-sm-h); --sw-k: var(--sw-sm-k); --sw-p: 2.5px; }
+
 .sw-lab { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
 
+/* ⚠️ LE TAGLIE DELL'INTERRUTTORE SONO DUE, E STANNO QUI.
+   Fino al 03/10/2026 quattro pagine se le riscrivevano da sole — google 38,
+   menu 44, impostazioni 44, super admin 34 — quindi lo stesso componente
+   aveva quattro misure diverse e, rimpicciolendolo da qui, tre pagine su
+   quattro non cambiavano di una virgola. Chi ha bisogno di quello piccolo
+   NON inventa numeri: usa la classe `sw-sm`, o ne cita le variabili. */
+:root {
+  --sw-sm-w: 34px;
+  --sw-sm-h: 19px;
+  --sw-sm-k: 13px;
+}
+
 .switch {
-  --sw-w: 46px;   /* larghezza */
-  --sw-h: 26px;   /* altezza */
-  --sw-k: 20px;   /* diametro della pallina */
+  --sw-w: 44px;   /* larghezza */
+  --sw-h: 24px;   /* altezza */
+  --sw-k: 18px;   /* diametro della pallina */
   --sw-p: 3px;    /* aria fra pallina e bordo */
   position: relative; display: inline-block; flex-shrink: 0;
   width: var(--sw-w); height: var(--sw-h);
