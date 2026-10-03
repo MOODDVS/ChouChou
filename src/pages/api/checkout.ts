@@ -372,6 +372,13 @@ export const POST: APIRoute = async ({ request }) => {
     | null;
 
   if (errInsert || !ordine) {
+    // ⚠️ IL GUASTO ERA MUTO. Il 02/10 su BROS nessun ordine veniva creato — il
+    // `check` del database non conosceva ancora `payment_method = 'onsite'` —
+    // e qui si rispondeva 500 senza scrivere da nessuna parte COSA avesse
+    // detto Postgres. Il messaggio al cliente resta generico, ma il motivo
+    // vero deve finire nei log del server: e' l'unico posto dove cercarlo
+    // quando un ordine non nasce e il carrello si svuota.
+    console.error("[checkout] insert ordine fallito:", errInsert);
     return err(500, "Impossibile creare l'ordine");
   }
 

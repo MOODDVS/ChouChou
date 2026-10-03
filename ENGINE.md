@@ -1611,3 +1611,62 @@ La cura e' non scendere sotto i 16px dove si tocca:
 ed e' la stessa condizione che il widget usa gia' per ingrandire le celle del
 calendario. `tests/pubblico.test.mjs` pretende i 16px e vieta le due
 scorciatoie sul viewport.
+
+## Il codice impara un valore, il database no (02/10/2026)
+
+Dal 29/09 un locale puo' spegnere il pagamento con carta e far pagare al
+ritiro. Il checkout salva allora `payment_method = 'onsite'`. La colonna pero'
+nasce dalla #49 con
+
+    check (payment_method in ('cash', 'card', 'link'))
+
+e PostgreSQL rifiuta la riga. Su BROS il cliente riempiva il carrello, premeva
+«Ordina» e leggeva «Impossibile creare l'ordine»: **nessuna riga nel database,
+niente in cucina, niente nei log**. Il codice era giusto, la migrazione non
+c'era.
+
+⚠️ **E' ESATTAMENTE la #74, due settimane dopo.** Li' era `reservations.source`
+allargato a `instagram` e `qr`, con gia' scritto a chiare lettere: «finche' non
+si lancia, l'insert fallisce — prenotazione persa, non statistica sbagliata».
+La lezione era in casa, e non e' bastata, perche' la rete che la difendeva
+(`tests/sorgente.test.mjs`) guardava **una colonna sola**.
+
+**Una nota in un file non protegge niente: protegge un test.** Da oggi
+`tests/ordini.test.mjs` fa per `payment_method` quello che `sorgente` fa per
+`source` — legge i valori che il codice scrive, li confronta con l'elenco del
+`check`, e diventa rosso prima del rilascio invece che in produzione. Controlla
+anche che il vincolo letto sia **l'ultimo** di `TUTTO.sql`: una migrazione piu'
+recente che restringa la colonna renderebbe la prova cieca.
+
+⚠️ **Il guasto era anche muto.** `checkout.ts` rispondeva 500 senza scrivere
+cosa avesse detto il database. Ora l'errore dell'insert finisce in
+`console.error`: il messaggio al cliente resta generico — non deve leggere i
+nomi delle colonne — ma il motivo vero deve esistere da qualche parte, o il
+prossimo guasto si cerca di nuovo a tentoni.
+
+**La domanda da farsi:** ogni volta che il codice impara a scrivere un valore
+nuovo in una colonna con un `check`, la migrazione va nello stesso commit.
+Sono due file che si guardano, e se ne rilascia uno solo il guasto non si vede
+in sviluppo — si vede al primo cliente che prova.
+
+### Un test cerca nel codice, non nei commenti (02–03/10/2026)
+
+Tre volte in due giorni, con tre reti diverse:
+
+- gli interruttori: la prova elencava i selettori `label` con una misura, e
+  trovava il commento che spiega quali non vanno bene;
+- il viewport: la prova vietava `maximum-scale=1`, e accusava la nota che
+  spiega perche' quella scorciatoia non si prende;
+- `payment_method`: la prova leggeva il `check` dalla migrazione, e prendeva
+  quello VECCHIO, citato nella nota in testa al file per raccontare il guasto.
+
+⚠️ **Non e' una svista, e' un meccanismo.** Un commento che spiega bene un
+difetto contiene, per forza, la cosa sbagliata scritta per esteso — ed e'
+esattamente la stringa che la rete sta cercando. Piu' la spiegazione e' utile,
+piu' e' probabile che faccia fallire la prova.
+
+La regola: **prima di cercare, togliere i commenti** (`--` in SQL, `/* */` nei
+fogli di stile), oppure cercare dove la cosa fa danno — il tag `<meta>`, la
+regola CSS, l'istruzione `alter table` — e non nel testo del file.
+
+Un test che litiga con la propria spiegazione finisce disattivato, non letto.

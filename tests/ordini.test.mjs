@@ -173,3 +173,55 @@ test("questa rete non dipende dal database (o non parte, e non lo dice nessuno)"
   );
   assert.match(regole, /export function acceso/);
 });
+
+test("ogni payment_method scritto dal codice e' ammesso dal database", () => {
+  // ⚠️ IL 02/10/2026 SU BROS NESSUN ORDINE VENIVA CREATO. Dal 29/09 un locale
+  // puo' spegnere la carta e far pagare al ritiro: il checkout salva allora
+  // `payment_method = 'onsite'`. Ma la colonna nasce dalla #49 con un `check`
+  // che conosce solo 'cash', 'card' e 'link', e PostgreSQL rifiutava l'insert.
+  // Il cliente riempiva il carrello, premeva «Ordina» e leggeva «Impossibile
+  // creare l'ordine»: niente nel database, niente in cucina, niente nei log.
+  //
+  // E' lo STESSO guasto della #74 sulle prenotazioni (`source` allargato a
+  // instagram e qr), dove la lezione era gia' stata scritta — e non e'
+  // bastata, perche' valeva solo per quella colonna. Questa prova la estende
+  // agli ordini: i valori che il codice scrive devono stare nel vincolo.
+  // ⚠️ Via i commenti PRIMA di leggere. La nota in testa alla migrazione cita
+  // il vincolo VECCHIO per spiegare il guasto, e una ricerca ingenua trova
+  // quello: il test accusava la propria spiegazione. E' la terza volta in due
+  // giorni — con gli switch e con il viewport — quindi vale come regola: un
+  // test che cerca una stringa deve guardare il codice, non i commenti.
+  const vincolo = readFileSync(
+    new URL("../supabase/orders_onsite_payment.sql", import.meta.url), "utf8")
+    .split("\n").filter((r) => !r.trim().startsWith("--")).join("\n");
+  const m = vincolo.match(/check\s*\(\s*payment_method\s+in\s*\(([^)]+)\)/i);
+  assert.ok(m, "il check su `payment_method` non e' piu' riconoscibile in orders_onsite_payment.sql");
+  const ammessi = new Set(m[1].split(",").map((x) => x.trim().replace(/^'|'$/g, "")));
+
+  // Quello che il codice scrive davvero: `payment_method: "..."` negli insert.
+  const scritti = new Set();
+  for (const f of ["src/pages/api/checkout.ts", "src/pages/api/admin/orders.ts"]) {
+    const src = readFileSync(new URL("../" + f, import.meta.url), "utf8");
+    for (const mm of src.matchAll(/payment_method:\s*"([a-z_]+)"/g)) scritti.add(mm[1]);
+    // e quello su cui filtra, che deve esistere o la lista resta vuota per sempre
+    for (const mm of src.matchAll(/"payment_method",\s*"([a-z_]+)"/g)) scritti.add(mm[1]);
+  }
+  assert.ok(scritti.size > 0, "nessun payment_method trovato nel codice: la prova si e' svuotata");
+
+  const fuori = [...scritti].filter((v) => !ammessi.has(v)).sort();
+  assert.deepEqual(fuori, [],
+    "questi valori il database non li accetta: l'insert fallisce e l'ordine non nasce. Serve una migrazione che allarghi il check");
+
+  // E il vincolo deve essere l'ULTIMO lanciato: se qualcuno aggiunge una
+  // migrazione piu' nuova su questa colonna, questa prova guarda il file
+  // sbagliato e torna cieca.
+  const tutto = readFileSync(new URL("../supabase/TUTTO.sql", import.meta.url), "utf8")
+    .split("\n").filter((r) => !r.trim().startsWith("--")).join("\n");
+  const ultimo = [...tutto.matchAll(/check\s*\(\s*payment_method\s+in\s*\(([^)]+)\)/gi)].pop();
+  assert.ok(ultimo, "in TUTTO.sql non c'e' nessun check su payment_method");
+  const ultimiAmmessi = new Set(ultimo[1].split(",").map((x) => x.trim().replace(/^'|'$/g, "")));
+  for (const v of scritti) {
+    assert.ok(ultimiAmmessi.has(v),
+      `"${v}" non e' nell'ultimo check di TUTTO.sql: una migrazione piu' recente lo ha ristretto`);
+  }
+});
