@@ -82,6 +82,7 @@ interface TradPush {
   resaModif: string;
   resaAnnul: string;
   ordre: string;
+  ordreAnnul: string;
   avisNew: string;
   avisMulti: string;
   avisMultiBody: (n: number) => string;
@@ -89,11 +90,11 @@ interface TradPush {
 }
 
 const TRAD_PUSH: Record<AdminLang, TradPush> = {
-  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message" },
-  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message" },
-  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio" },
-  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht" },
-  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje" },
+  fr: { client: "Client", pers: "pers.", resaNew: "Nouvelle réservation", resaDemande: "Nouvelle demande de réservation", resaModif: "Réservation modifiée", resaAnnul: "Réservation annulée", ordre: "Nouvelle commande", ordreAnnul: "Commande annulée", avisNew: "Nouvel avis Google", avisMulti: "Nouveaux avis Google", avisMultiBody: (n) => `${n} nouveaux avis à découvrir`, msg: "Nouveau message" },
+  en: { client: "Customer", pers: "guests", resaNew: "New reservation", resaDemande: "New reservation request", resaModif: "Reservation modified", resaAnnul: "Reservation cancelled", ordre: "New order", ordreAnnul: "Order cancelled", avisNew: "New Google review", avisMulti: "New Google reviews", avisMultiBody: (n) => `${n} new reviews to discover`, msg: "New message" },
+  it: { client: "Cliente", pers: "pers.", resaNew: "Nuova prenotazione", resaDemande: "Nuova richiesta di prenotazione", resaModif: "Prenotazione modificata", resaAnnul: "Prenotazione annullata", ordre: "Nuovo ordine", ordreAnnul: "Ordine annullato", avisNew: "Nuova recensione Google", avisMulti: "Nuove recensioni Google", avisMultiBody: (n) => `${n} nuove recensioni da scoprire`, msg: "Nuovo messaggio" },
+  nl: { client: "Klant", pers: "pers.", resaNew: "Nieuwe reservering", resaDemande: "Nieuwe reserveringsaanvraag", resaModif: "Reservering gewijzigd", resaAnnul: "Reservering geannuleerd", ordre: "Nieuwe bestelling", ordreAnnul: "Bestelling geannuleerd", avisNew: "Nieuwe Google-review", avisMulti: "Nieuwe Google-reviews", avisMultiBody: (n) => `${n} nieuwe reviews te ontdekken`, msg: "Nieuw bericht" },
+  es: { client: "Cliente", pers: "pers.", resaNew: "Nueva reserva", resaDemande: "Nueva solicitud de reserva", resaModif: "Reserva modificada", resaAnnul: "Reserva anulada", ordre: "Nuevo pedido", ordreAnnul: "Pedido anulado", avisNew: "Nueva reseña de Google", avisMulti: "Nuevas reseñas de Google", avisMultiBody: (n) => `${n} nuevas reseñas por descubrir`, msg: "Nuevo mensaje" },
 };
 
 /** Testi delle notifiche nella lingua admin (fallback FR, mai lancia). */
@@ -136,6 +137,22 @@ export async function inviaPushOrdine(o: OrdinePushInfo, ambito: Ambito): Promis
   const tot = (Number(o.total_cents ?? 0) / 100).toFixed(2).replace(".", ",");
   const body = `${nome} · ${tot} € · #${o.numero}`;
   return inviaPush({ title: L.ordre, body, url: "/admin/orders" }, ambito);
+}
+
+/** Il cliente ha annullato dal link della sua email.
+ *
+ * ⚠️ IL RISTORATORE NON LO SA DA NESSUN'ALTRA PARTE. L'ordine era gia' stato
+ * annunciato in cucina: senza questa notifica il piatto si prepara lo stesso,
+ * e il guasto si scopre quando nessuno viene a ritirarlo. Le prenotazioni
+ * avevano gia' il loro avviso di annullo (`inviaPushResa("annul")`) — gli
+ * ordini no, e nessuno se n'era accorto perche' l'annullo dal cliente e'
+ * raro proprio quanto basta. */
+export async function inviaPushAnnulloOrdine(o: OrdinePushInfo, ambito: Ambito): Promise<PushEsito> {
+  const L = await tradPush();
+  const nome = String(o.customer_name ?? "").trim() || L.client;
+  const tot = (Number(o.total_cents ?? 0) / 100).toFixed(2).replace(".", ",");
+  const body = `${nome} · ${tot} € · #${o.numero}`;
+  return inviaPush({ title: L.ordreAnnul, body, url: "/admin/orders" }, ambito);
 }
 
 

@@ -250,3 +250,41 @@ test("il link di annullamento conosce la lingua in cui si e' ordinato", () => {
   assert.match(PAG, /lang\s*=\s*j\.lang\s*===\s*"en"\s*\?\s*"en"\s*:\s*"fr"/,
     "manca il ripiego su fr per le lingue che questa pagina non ha");
 });
+
+test("l'annullo del cliente avvisa la cucina, non solo il database", () => {
+  // ⚠️ IL PIATTO ERA GIA' STATO ANNUNCIATO. Quando il cliente annulla dal link
+  // della sua email, l'email del nuovo ordine e' gia' partita e la comanda e'
+  // appesa in cucina. Fino al 03/10/2026 quell'annullo cambiava SOLO una riga
+  // nel database: nessuna email, nessuna push, nessuna conferma al cliente.
+  // Il guasto si scopriva quando nessuno veniva a ritirare — cibo buttato, e
+  // la colpa che sembra del cliente.
+  //
+  // L'annullo fatto dall'ADMIN avvisava gia'. Era quello fatto dal cliente a
+  // non avvisare nessuno, ed e' passato inosservato perche' capita di rado:
+  // i guasti rari non si vedono, si deducono.
+  const API = readFileSync(new URL("../src/pages/api/order-cancel.ts", import.meta.url), "utf8");
+
+  assert.match(API, /inviaAnnulloCucina\(/, "l'annullo del cliente non avvisa piu' la cucina");
+  assert.match(API, /inviaPushAnnulloOrdine\(/, "l'annullo del cliente non manda piu' la push al ristoratore");
+  assert.match(API, /inviaAnnullaOrdine\(/, "il cliente non riceve piu' la conferma dell'annullo");
+
+  // Non bloccanti: un server di posta lento non deve trasformare un annullo
+  // riuscito in un errore per chi ha cliccato.
+  for (const f of ["inviaAnnulloCucina", "inviaPushAnnulloOrdine", "inviaAnnullaOrdine"]) {
+    assert.match(API, new RegExp(`void ${f}\\(`),
+      `${f} non e' piu' chiamata con void: un errore della posta farebbe fallire l'annullo`);
+  }
+
+  // ⚠️ La cucina GIUSTA. L'ordine si cerca sull'aggregato (il token e'
+  // l'autorizzazione), ma l'avviso deve partire con l'ambito della RIGA: con
+  // tre societa', l'aggregato manderebbe l'annullo alla prima sede.
+  assert.match(API, /ambitoDiRiga\(/,
+    "l'avviso parte con l'ambito aggregato: su un cliente multi-sede arriva alla cucina sbagliata");
+
+  // E solo quando lo stato cambia davvero: la risposta idempotente esce prima,
+  // cosi' un doppio clic sul link non manda due email alla cucina.
+  const iIdem = API.indexOf('if (ordine.status === "cancelled") return json({ ok: true })');
+  const iAvviso = API.indexOf("void inviaAnnulloCucina(");
+  assert.ok(iIdem > 0 && iAvviso > iIdem,
+    "gli avvisi partono prima del controllo di idempotenza: due clic, due email");
+});

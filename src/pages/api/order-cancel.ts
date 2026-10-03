@@ -1,8 +1,10 @@
 import type { APIRoute } from "astro";
 // Multi-sede: qui l'AGGREGATO e' la risposta giusta (vedi sotto).
-import { leggi, aggiorna, tutteLeSedi, cercaAmbito } from "../../lib/admin/sede";
+import { leggi, aggiorna, tutteLeSedi, cercaAmbito, ambitoDiRiga } from "../../lib/admin/sede";
 import { stripeDi } from "../../lib/stripe";
 import { PUBLIC_LANG_CODES } from "../../lib/admin/superAdmin";
+import { inviaAnnulloCucina, inviaAnnullaOrdine, type OrdineNotifica } from "../../lib/notifications";
+import { inviaPushAnnulloOrdine } from "../../lib/push";
 
 // Annullamento PUBBLICO di un ordine manuale non ancora pagato.
 // Identificato dal cancel_token (email "Annuler ma commande").
@@ -65,7 +67,13 @@ export const POST: APIRoute = async ({ request }) => {
   const token = String(body.token ?? "");
   if (!RE_UUID.test(token)) return json({ error: "invalid" }, 404);
 
-  const { data: ordine } = await leggi("orders", ambito, "id, status, stripe_session_id")
+  // ⚠️ Si leggono anche i campi delle NOTIFICHE, non solo quelli tecnici: dopo
+  // l'annullo non si torna a interrogare il database, e un campo dimenticato
+  // qui diventa un'email alla cucina senza il numero dell'ordine.
+  const CAMPI_ANNULLO =
+    "id, status, stripe_session_id, location_id, numero, customer_name, customer_email, " +
+    "customer_phone, pickup_time, items, total_cents, lang, payment_method";
+  const { data: ordine } = await leggi("orders", ambito, CAMPI_ANNULLO)
     .eq("cancel_token", token)
     .maybeSingle();
   if (!ordine) return json({ error: "invalid" }, 404);
@@ -76,6 +84,44 @@ export const POST: APIRoute = async ({ request }) => {
     .eq("id", ordine.id)
     .eq("status", "pending");
   if (error) return json({ error: "server" }, 500);
+
+  // ⚠️ DA QUI IN POI IL RISTORATORE DEVE SAPERLO. L'ordine era gia' stato
+  // annunciato: email alla cucina, comanda appesa, magari l'impasto steso.
+  // Fino al 03/10/2026 l'annullo dal link cambiava SOLO la riga nel database,
+  // e il guasto si scopriva quando nessuno veniva a ritirare — cibo buttato,
+  // e la colpa che sembra del cliente. L'annullo fatto dall'admin avvisava
+  // gia'; quello fatto dal cliente no, e nessuno se n'era accorto perche'
+  // capita di rado.
+  //
+  // Si arriva qui SOLO se lo stato e' passato davvero da `pending` a
+  // `cancelled`: la risposta idempotente qui sopra («gia' annullato») esce
+  // prima, cosi' un doppio clic non manda due email.
+  //
+  // L'ambito e' quello della RIGA, non l'aggregato con cui l'abbiamo cercata:
+  // l'avviso deve arrivare alla cucina di quel punto, non alla prima sede.
+  const ambitoOrdine = ambitoDiRiga((ordine as { location_id?: string | null }).location_id ?? null);
+  const perNotifica = {
+    location_id: (ordine as { location_id?: string | null }).location_id ?? null,
+    numero: String((ordine as { numero?: unknown }).numero ?? ""),
+    customer_name: String((ordine as { customer_name?: unknown }).customer_name ?? ""),
+    customer_email: String((ordine as { customer_email?: unknown }).customer_email ?? ""),
+    customer_phone: (ordine as { customer_phone?: string | null }).customer_phone ?? null,
+    pickup_time: String((ordine as { pickup_time?: unknown }).pickup_time ?? ""),
+    items: ((ordine as { items?: unknown }).items ?? []) as OrdineNotifica["items"],
+    total_cents: Number((ordine as { total_cents?: unknown }).total_cents ?? 0),
+    lang: String((ordine as { lang?: unknown }).lang ?? "fr"),
+  } satisfies OrdineNotifica;
+
+  // Non bloccanti: il cliente ha gia' il suo annullo, e un server di posta
+  // lento non deve trasformarlo in un errore.
+  void inviaAnnulloCucina(perNotifica).catch(console.error);
+  void inviaPushAnnulloOrdine(
+    { numero: perNotifica.numero, customer_name: perNotifica.customer_name, total_cents: perNotifica.total_cents },
+    ambitoOrdine,
+  ).catch(console.error);
+  // Conferma al cliente. `unpaid`: questo ordine non era pagato — da qui si
+  // annullano solo i `pending` — quindi niente parte sul rimborso.
+  void inviaAnnullaOrdine(perNotifica, { refundMode: "unpaid" }).catch(console.error);
 
   // La sessione Stripe viene fatta scadere (l'id cs_… può essere nell'URL salvato)
   const m = /cs_(?:test|live)_[A-Za-z0-9]+/.exec(String(ordine.stripe_session_id ?? ""));
