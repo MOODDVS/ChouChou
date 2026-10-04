@@ -116,9 +116,13 @@ import Fonts from "../../components/Fonts.astro";
             return;
           }
           const j = (await r.json()) as {
-            status: string; pickup_time: string; total_cents: number; lang: "fr" | "en";
+            status: string; pickup_time: string; total_cents: number; lang: string;
           };
-          lang = j.lang;
+          // ⚠️ L'API ora dice la lingua VERA dell'ordine (fr/en/it/nl/es), ma
+          // questa pagina ha i testi in due. Senza il ripiego, un ordine in
+          // italiano farebbe `T["it"]` = undefined e la pagina morirebbe
+          // sulla riga dopo: peggio della lingua sbagliata.
+          lang = j.lang === "en" ? "en" : "fr";
           applica();
           if (j.status === "cancelled") {
             $("oc-done-msg").textContent = T[lang].done;

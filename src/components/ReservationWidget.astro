@@ -87,7 +87,18 @@ const { telWidget, inPage = false, sede = "" } = Astro.props;
       .dp-today { box-shadow: inset 0 0 0 1px #ed2289; }
       .dp-complet { border: 1px solid #ed1c24 !important; background: rgba(237, 28, 36, 0.3); color: #fff; }
       .dp-sel { background: #ed2289; color: #fff; font-weight: 700; }
+      /* ⚠️ iOS Safari INGRANDISCE la pagina quando si tocca un campo con testo
+         sotto i 16px, e compilare diventa un lavoro. La via rapida sarebbe
+         `maximum-scale=1` nel viewport, ma toglie lo zoom a TUTTI, anche a chi
+         ne ha bisogno per leggere.
+         ⚠️ La regola dei 16px arriva dal motore e il merge del 04/10 l'aveva
+         PERSA: qui esisteva gia' un blocco `pointer: coarse` (quello del
+         datepicker) e git, vedendo due blocchi che cominciano uguale, ne ha
+         tenuto uno solo senza segnalare conflitto. L'ha scoperto il test.
+         ⚠️ Sta per PRIMA nel blocco di proposito: il test del motore la cerca
+         vicino all'apertura del `@media`. */
       @media (pointer: coarse) {
+        .rw-in, .rw-datein { font-size: 16px; }
         .dp-panel { width: 372px; }
         .dp-cell { min-height: 44px; font-size: 1.05rem; }
       }
