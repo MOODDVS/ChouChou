@@ -1702,11 +1702,12 @@ Verde: 0 errori, **599 test**.
 3. Da costruire: la pagina pubblica del ticket (token usa-e-getta: la legge il servizio di stampa, che non sa fare login), l'invio a BizPrint, il webhook di esito (campo lasciato vuoto nell'applicazione, si riempie quando l'indirizzo esiste), l'interruttore per sede nelle impostazioni, e nella card «ticket uscito / in coda» piu' «la stampante non chiama da X minuti».
 4. **Development Mode** su BizPrint resta ACCESO finche' si prova: stampa marchiata, e quelle stampe non contano sul piano.
 5. Da chiedere a bizswoop: quante stampe sono incluse nel piano Plus, e se un'applicazione si puo' limitare alle sue station.
-6. In coda da prima: la migrazione **#75** sugli altri cinque clienti (mina a tempo se qualcuno accende «paga al ritiro»), `multi-sede` → `main`, foto BROS in webp.
+6. In coda da prima: la migrazione **#75** sugli altri cinque clienti (mina a tempo se qualcuno accende «paga al ritiro»), foto BROS in webp.
 7. Rifiniture segnalate e non decise: «Completato» e «Contanti» che si troncano nelle etichette (forse togliere l'icona), e **cosa fare se Stripe rifiuta il rimborso** durante l'annullo — oggi l'ordine resterebbe annullato con i soldi ancora dal cliente.
 
 ## 🔧 Metodo di lavoro (Cowork + Enzo)
 
+- **Si lavora su `main`** (dal 04/10/2026). Il ramo `multi-sede` e' stato fuso e chiuso: due rami vivi volevano dire allineare a mano ogni volta, e un giorno scordarsene. La versione pre multi-sede e' il **tag `single-location`**, non un ramo.
 - **MAI secret/chiavi in chat** (se succede → rotazione immediata). Git SOLO dal terminale di Enzo (Mac o Cursor, è lo stesso), comandi senza `cd`: generico `git -C <repo> add -A && git -C <repo> commit -m "..." && git -C <repo> push`. `npx astro check` SOLO dal Mac (VM = binari macOS → Exec format error).
 - Cowork: device_bash sul mount `/sessions/<id>/mnt/MOODD-Admin`; stage/commit files coi path REALI `/Users/moodd/Developer/...`; niente DELETE sul device (`mv` in `_to_delete/`, svuota Enzo). Bridge: 502 → aspettare; uno stage può perdere un file (ricontare, ristagliare); staged stantia → `rm` prima di ristagliare.
 - ⚠️ **esbuild NON vede le variabili non dichiarate**: sostituendo le due righe che definivano `const lb` e lasciando la terza che lo usava, il file compilava e la vista Settimana/Mese moriva a runtime (ReferenceError, lista vuota e filtri bloccati). Dopo ogni patch che TOGLIE una dichiarazione, controllare a mano che il nome non sia usato altrove (`grep "nome\."`). Solo `astro check` lo prende, e lo lancia Enzo.

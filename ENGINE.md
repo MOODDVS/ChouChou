@@ -118,11 +118,13 @@ nel bundle del browser.
 
 ## Checklist nuovo cliente
 
-0. **Da quale ramo.** Finché `multi-sede` non è dentro `main`, un cliente
-   nuovo si clona da **`multi-sede`**: è lì che vive il motore con le sedi, e
-   un cliente clonato da `main` non le avrebbe. Il tag `single-location`
-   segna l'ultimo motore a sede unica, prima di tutto questo: è un archivio,
-   non un punto di partenza — non ha le correzioni venute dopo.
+0. **Da quale ramo: `main`, e basta.** Il multi-sede è dentro `main` dal
+   03/10/2026, il ramo `multi-sede` ha finito il suo lavoro ed è stato
+   chiuso: tenerlo vivo accanto a `main` voleva dire due verità su quale sia
+   il motore buono, e un giorno dimenticare di allinearle. Il tag
+   `single-location` segna l'ultimo motore a sede unica, prima di tutto
+   questo: è un archivio, non un punto di partenza — non ha le correzioni
+   venute dopo.
 
 1. **Clona** il repo engine e crea il repo del cliente. Poi **cancella i
    demo**, che sono vetrine di MOODD e non vanno installate da un cliente:
