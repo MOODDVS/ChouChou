@@ -235,7 +235,17 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         border: 0;
         border-radius: 3px;
         padding: var(--card-py) var(--card-px);  /* sopra e sotto: spazio per i denti */
-        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+        /* ⚠️ L'OMBRA SEGUE IL TEMA, e la formula e' quella di tutte le altre
+           card dell'admin: `0.28 × --sh`. `--sh` e' la manopola «ombra» del
+           super admin; con il vecchio `0.4` scritto a mano, il ristoratore la
+           abbassava e ogni riquadro del pannello si alleggeriva TRANNE gli
+           scontrini degli ordini, che restavano pesanti. Resta `drop-shadow`
+           e non `box-shadow` perche' deve seguire i denti dello scontrino, non
+           il rettangolo.
+           Dichiarata qui una volta: le sei animazioni del ritardo la citano,
+           invece di ripetere lo stesso valore nove volte. */
+        --ombra: drop-shadow(0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15))));
+        filter: var(--ombra);
       }
       .card::before {
         content: "";
@@ -261,24 +271,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          stessa — e cosi' l'alone segue i denti dello scontrino invece di
          disegnare un rettangolo attorno a una forma che rettangolo non e'. */
       @keyframes ncAura1 {
-        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 3px rgba(255,255,255,.25)); }
-        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 9px rgba(255,255,255,.6)); }
+        0%, 100% { filter: var(--ombra) drop-shadow(0 0 3px rgba(255,255,255,.25)); }
+        50%      { filter: var(--ombra) drop-shadow(0 0 9px rgba(255,255,255,.6)); }
       }
       @keyframes ncAura2 {
-        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 4px rgba(255,146,38,.3)); }
-        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 12px rgba(255,146,38,.7)); }
+        0%, 100% { filter: var(--ombra) drop-shadow(0 0 4px rgba(255,146,38,.3)); }
+        50%      { filter: var(--ombra) drop-shadow(0 0 12px rgba(255,146,38,.7)); }
       }
       @keyframes ncAura3 {
-        0%, 100% { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 5px rgba(237,28,36,.35)); }
-        50%      { filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 14px rgba(237,28,36,.8)); }
+        0%, 100% { filter: var(--ombra) drop-shadow(0 0 5px rgba(237,28,36,.35)); }
+        50%      { filter: var(--ombra) drop-shadow(0 0 14px rgba(237,28,36,.8)); }
       }
       .card.nc-late-1 { animation: ncAura1 1.8s ease-in-out infinite; }
       .card.nc-late-2 { animation: ncAura2 1.5s ease-in-out infinite; }
       .card.nc-late-3 { animation: ncAura3 1.1s ease-in-out infinite; }
       @media (prefers-reduced-motion: reduce) {
-        .card.nc-late-1 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 8px rgba(255,255,255,.45)); }
-        .card.nc-late-2 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 9px rgba(255,146,38,.55)); }
-        .card.nc-late-3 { animation: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)) drop-shadow(0 0 11px rgba(237,28,36,.62)); }
+        .card.nc-late-1 { animation: none; filter: var(--ombra) drop-shadow(0 0 8px rgba(255,255,255,.45)); }
+        .card.nc-late-2 { animation: none; filter: var(--ombra) drop-shadow(0 0 9px rgba(255,146,38,.55)); }
+        .card.nc-late-3 { animation: none; filter: var(--ombra) drop-shadow(0 0 11px rgba(237,28,36,.62)); }
       }
       /* Card annulée/terminée : contenuto sbiadito, MA icone di stato e
          bottoni assoluti restano 100% opachi (dim per-elemento, mai sulla card). */
@@ -369,6 +379,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         letter-spacing: 0.05em;
         padding: 0.5rem 0.6rem;
         cursor: pointer;
+        /* ⚠️ IL RAGGIO STA QUI, non su ogni bottone. Era ripetuto su
+           «Completato», sulla matita e sul cestino, e mancava su «Rinvia»:
+           in una riga di quattro bottoni, uno squadrato in mezzo a tre
+           arrotondati. Un valore scritto quattro volte e' un valore che prima
+           o poi ne ha tre. */
+        border-radius: 8px;
         transition: background 0.2s, color 0.2s, border-color 0.2s;
       }
       .actions button:disabled { opacity: 0.5; cursor: wait; }
@@ -380,11 +396,18 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .actions button { min-width: 0; display: inline-flex; align-items: center; justify-content: center; }
       .actions .b-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       /* .actions .btn-done: specificita' > `.actions button` per non farsi azzerare il background */
-      .actions .btn-done { flex: 1; border: 1px solid var(--c-accent); background: var(--c-accent); color: var(--c-bg); font-weight: 700; border-radius: 8px; }
+      .actions .btn-done { flex: 1; gap: 0.4rem; border: 1px solid var(--c-accent); background: var(--c-accent); color: var(--c-bg); font-weight: 700; }
+      /* Quando le due scelte sostituiscono la barra «Incassare», non sono il
+         piede della card: niente linea sopra, e lo stesso stacco della barra. */
+      .actions.nc-scelte { border-top: 0; margin-top: 0.9rem; padding-top: 0; }
+      /* Le due scelte dell'incasso (contanti / carta) portano la stessa
+         icona che poi comparira' accanto al prezzo: si sceglie guardando
+         il simbolo che si rivedra' sulla card. */
+      .actions .btn-done svg { width: 15px; height: 15px; flex: none; }
       .btn-done:hover { filter: brightness(1.08); }
       .btn-done:active { transform: scale(0.98); }
       /* Annuler : cestino compatto; al primo tocco si allarga in "Annuler ?" rosso */
-      .btn-cancel { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; border-radius: 8px; }
+      .btn-cancel { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid rgba(237, 28, 36, 0.5); color: #ff6b6b; }
       .btn-cancel svg { width: 20px; height: 20px; }
       .btn-cancel:hover { border-color: var(--c-red); background: rgba(237, 28, 36, 0.12); }
       .btn-cancel.confirm { flex: 1; gap: 0.4rem; background: rgba(237, 28, 36, 0.25); border-color: var(--c-red); color: #fff; }
@@ -392,7 +415,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Matita BIANCA: in grigio spento sembrava disattivata, accanto a un
          «Completato» pieno e a un cestino rosso. Modificare un ordine e'
          un'azione normale e disponibile, e il bottone deve dirlo. */
-      .btn-edit { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid var(--c-line); color: var(--c-text); border-radius: 8px; }
+      .btn-edit { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 46px; padding: 0.5rem; border: 1px solid var(--c-line); color: var(--c-text); }
       .btn-edit svg { width: 19px; height: 19px; }
       .btn-edit:hover { border-color: var(--c-accent); color: var(--c-accent); }
       /* Card terminée : ✓ blanc rond sur fond vert, à côté du prix */
@@ -435,12 +458,13 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       /* Rimetti in corso: tondo PIENO color accento — l'azione principale. */
       .btn-rollback { background: var(--c-accent); color: var(--c-bg); }
       .btn-rollback svg { fill: currentColor; }
-      /* Rimborsa: stesso tondo ma VUOTO, bordo e icona color accento.
-         ⚠️ Due tondi pieni uguali uno accanto all'altro si premono a caso, e
-         qui uno dei due manda via dei soldi. Il contorno dice «guarda prima». */
-      .btn-refund-ico { background: transparent; color: var(--c-accent); box-shadow: none; border: 1px solid var(--c-accent); }
+      /* Rimborsa: stesso tondo PIENO del ripristino.
+         ⚠️ Sono due tondi identici affiancati e uno dei due manda via dei
+         soldi: a distinguerli resta solo il disegno dentro. Per questo
+         l'icona del rimborso e' una banconota con la freccia e non un'altra
+         freccia circolare, che sarebbe il ripristino con un verso diverso. */
+      .btn-refund-ico { background: var(--c-accent); color: var(--c-bg); }
       .btn-refund-ico svg { fill: none; stroke: currentColor; }
-      .btn-refund-ico:hover { background: color-mix(in srgb, var(--c-accent) 14%, transparent); filter: none; }
       /* Bottone stampante (ristampa ticket) — predisposto, mostrato solo quando attivo */
       .btn-print {
         display: inline-flex; align-items: center; justify-content: center;
@@ -450,24 +474,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .btn-print:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .btn-print svg { width: 17px; height: 17px; }
-      /* Remboursement : tag stato in alto + bottone doré absolu en bas à droite */
+      /* Stato rimborso: il tag in alto (il bottone e' diventato un tondo). */
       .tag-refund {
         border: 1px solid var(--c-accent); color: var(--c-accent);
         font-size: 0.6rem; padding: 0.08rem 0.45rem; border-radius: 999px;
       }
-      .btn-refund {
-        font-family: var(--font-title); font-size: 0.9rem; letter-spacing: 0.03em;
-        padding: 0.5rem 0.95rem; border-radius: 999px; border: none;
-        background: var(--c-accent); color: var(--c-bg); font-weight: 700;
-        cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, calc(0.35 * var(--sh, 0.15)));
-        transition: transform 0.1s, filter 0.15s;
-      }
-      .btn-refund:hover { filter: brightness(1.08); }
-      .btn-refund:active { transform: scale(0.96); }
-      .btn-refund:disabled { opacity: 0.6; cursor: wait; }
-      /* Bottone "rimborsa differenza" (modifica al ribasso su ordine pagato online) */
-      .btn-diffrefund { display: block; width: 100%; margin-top: 0.7rem; padding: 0.7rem 0.6rem; border: 1px solid #d98a2b; background: #f0a24b; color: #3a2708; font-family: var(--font-title); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.02em; border-radius: 8px; cursor: pointer; }
-      .btn-diffrefund:hover { filter: brightness(1.05); }
+      /* «Rimborsa» (modifica al ribasso su ordine pagato online): ha l'aspetto
+         della barra «Incassare», perche' sono la stessa cosa vista dai due lati
+         — una differenza in sospeso dopo una modifica. Prima era un rettangolo
+         ambra pieno: l'unico colore caldo della card, piu' acceso di
+         «Completato», che e' il gesto di ogni giorno. Un rimborso di sei euro
+         non ha fretta; completare un ordine si'.
+         Al tocco della conferma diventa pieno: li' sta per uscire del denaro. */
+      .btn-diffrefund { display: flex; align-items: center; justify-content: center; gap: 0.4rem; width: 100%; margin-top: 0.9rem; padding: 0.62rem 0.9rem; font-family: var(--font-title); font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 12px; cursor: pointer;
+        background: color-mix(in srgb, #f0a24b 14%, transparent); color: #f0b46b; border: 1px solid color-mix(in srgb, #f0a24b 40%, transparent); }
+      .btn-diffrefund:hover { background: color-mix(in srgb, #f0a24b 22%, transparent); }
       .btn-diffrefund:active { transform: scale(0.99); }
       .btn-diffrefund:disabled { opacity: 0.6; cursor: wait; }
       .btn-diffrefund.confirm { background: #ed6a1c; border-color: #ed6a1c; color: #ffffff; }
@@ -478,9 +499,22 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .pay-ico svg { width: 15px; height: 15px; display: block; }
       .pay-ico-cash { color: #e0b64a; }
       .pay-ico-card { color: #9fb0b2; }
+      /* Incassato al banco ma senza metodo: le righe di prima che il bottone
+         «Incassa» lo chiedesse. Spento, perche' dice meno delle altre due. */
+      .pay-ico-onsite { color: var(--c-muted); }
       .pay-ico-stripe { color: #ffffff; }
       .pay-ico-stripe svg { width: 28px; height: auto; }
-      .diff-bar { margin-top: 0.9rem; border-radius: 12px; padding: 0.62rem 0.9rem; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+      /* ⚠️ UNA RIGA SOLA, e a cedere e' l'ETICHETTA, mai l'importo — la
+         stessa regola delle righe del carrello. Prima era un testo unico:
+         su una card stretta «Differenza da pagare · 8,00 €» andava a capo e
+         la barra diventava alta il doppio, spingendo i bottoni. E se a
+         troncarsi fosse l'importo, la barra direbbe «differenza da pagare»
+         senza dire quanto, che e' l'unica cosa che serve sapere. */
+      .diff-bar { margin-top: 0.9rem; border-radius: 12px; padding: 0.62rem 0.9rem; font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 0.4rem; min-width: 0; }
+      /* Usate dalla barra E dal bottone «rimborsa differenza»: stessa regola,
+         una dichiarazione. Chi le ospita mette solo il contesto flex. */
+      .db-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .db-val { flex: 0 0 auto; white-space: nowrap; }
       .diff-bar-due { background: color-mix(in srgb, #f0a24b 14%, transparent); color: #f0b46b; border: 1px solid color-mix(in srgb, #f0a24b 40%, transparent); }
       .diff-bar-paid { background: color-mix(in srgb, #46a860 15%, transparent); color: #7fe0a6; border: 1px solid color-mix(in srgb, #46a860 42%, transparent); }
       .diff-bar-refunded { background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-accent); border: 1px solid color-mix(in srgb, var(--c-accent) 48%, transparent); }
@@ -944,6 +978,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       </Fragment>
     </Modal>
 
+    {/* Completare con un supplemento ancora in sospeso.
+        ⚠️ NON blocca: il supplemento lo paga il CLIENTE (link Stripe) o lo
+        consegna al banco, quindi non dipende dal ristoratore — bloccare
+        significherebbe lasciare un ordine consegnato per sempre fra gli
+        attivi. Avverte, offre di incassarlo subito, e lascia chiudere lo
+        stesso: in quel caso la somma resta scritta sulla card completata. */}
+    <Modal id="sup-overlay" titleId="sup-title" width="440px">
+      <p class="rf-sub" id="sup-body"></p>
+      <Fragment slot="foot">
+        <button class="md-btn" type="button" id="sup-anyway"></button>
+        <button class="md-btn md-btn-primary" type="button" id="sup-cash"></button>
+        <button class="md-btn md-btn-primary" type="button" id="sup-card"></button>
+      </Fragment>
+    </Modal>
+
     <!-- Nouvelle commande (manuale con link di pagamento) -->
     <button class="fab-add fab-pill" id="nc-add" type="button" style="display:none"><span class="fab-plus">+</span>{t("ord.order")}</button>
     <Modal id="nc-overlay" title={t("ord.newOrder")} titleId="nc-title" width="960px">
@@ -1176,6 +1225,27 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         if (diffMin >= 5) return 1;
         return 0;
       }
+      /* ⚠️ QUI, NON PIU' IN BASSO. `cardHTML` sta fuori dal blocco che tiene
+         lo stato della pagina, e leggeva questi tre nomi dall'interno: tre
+         errori a `astro check`, che e' il modo buono di scoprirlo.
+         Il modo cattivo sarebbe stato dichiararli in tutt'e due i posti: zero
+         errori, e `cardHTML` che legge sempre la copia esterna — vuota — con i
+         bottoni «Contanti/Carta» che non compaiono mai e nessuno che sappia
+         perche'. Esiste una dichiarazione sola, e sta prima di chi la usa.
+
+         Lo STATO guida il disegno: qui c'e' l'ordine che sta chiedendo
+         «incassato come?» (l'incasso, e il supplemento). Riscrivere i bottoni
+         direttamente nel DOM sarebbe andato in pezzi al primo aggiornamento
+         automatico della lista, che ridisegna tutto. */
+      let incassaId: string | null = null;
+      let incDiffId: string | null = null;
+      /* L'etichetta del bottone «Rimborsa» la scrivono in DUE: `cardHTML`
+         quando disegna la card, e `resetConfirm` quando scade la conferma.
+         Scritta a mano in tutt'e due, la seconda perderebbe la divisione fra
+         etichetta e importo, e dopo aver sfiorato il bottone e aspettato il
+         timeout la riga tornerebbe ad andare a capo. */
+      const labelDiffRefund = (d: number) =>
+        `<span class="db-lab">${tr("ord.refundDiff")}</span><span class="db-val">· ${euro(d)}</span>`;
       function cardHTML(o: Order): string {
         const note = o.items.find((i) => i.id === "note");
         const piatti = o.items.filter((i) => i.id !== "note");
@@ -1244,7 +1314,14 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               ? `<span class="pay-ico pay-ico-cash" title="${tr("ord.payCash")}">${ICON_COINS}</span>`
               : o.payment_method === "card"
                 ? `<span class="pay-ico pay-ico-card" title="${tr("ord.payCard")}">${ICON_CARD}</span>`
-                : `<span class="pay-ico pay-ico-stripe" title="Stripe">${ICON_STRIPE}</span>`;
+                /* ⚠️ `onsite` NON e' Stripe. Cadeva nel ramo finale, e un
+                   ordine incassato in contanti al banco mostrava il marchio
+                   Stripe accanto al prezzo: la card diceva che quei soldi
+                   erano arrivati online mentre stavano nel cassetto. Sono le
+                   righe incassate prima che il bottone chiedesse il metodo. */
+                : o.payment_method === "onsite"
+                  ? `<span class="pay-ico pay-ico-onsite" title="${tr("ord.collectedDesk")}">${ICON_COINS}</span>`
+                  : `<span class="pay-ico pay-ico-stripe" title="Stripe">${ICON_STRIPE}</span>`;
           tag = `<span class="tag tag-paid">${tr("ord.paid")}</span>`;
         }
         // Differenza dopo una modifica: mostrata come BARRA in fondo alla card
@@ -1264,7 +1341,22 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             : o.status === "pending" && o.payment_method === "onsite"
               ? // Da incassare: niente «rimanda il link di pagamento» — non ce
                 // n'e' nessuno. Il bottone che serve e' quello del cassiere.
-                `<div class="actions">
+                /* ⚠️ INCASSARE CHIEDE **COME**, in due tocchi.
+                   Prima bastava un tocco e scriveva solo lo stato: il metodo
+                   restava `onsite`, quindi la card mostrava il marchio Stripe
+                   su soldi finiti nel cassetto, e a fine serata non si poteva
+                   piu' distinguere contanti e carta. Quel tocco e' l'unico
+                   momento in cui qualcuno SA come ha pagato il cliente: dopo,
+                   nessuno se lo ricorda.
+                   Il secondo tocco fa anche da conferma, che non c'era: un
+                   tocco storto sull'iPad marcava pagato un ordine mai pagato,
+                   e per «incassato» non esiste il ripristino. */
+                incassaId === o.id
+                  ? `<div class="actions">
+                       <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-cash">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
+                       <button class="btn-done" type="button" data-id="${o.id}" data-act="inc-card">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
+                     </div>`
+                  : `<div class="actions">
                    <button class="btn-done" type="button" data-id="${o.id}" data-act="incassa" title="${tr("ord.collectHint")}"><span class="b-lab">${tr("ord.collect")}</span></button>
                    <button class="btn-edit" type="button" data-id="${o.id}" data-act="edit" title="${tr("ord.edit")}" aria-label="${tr("ord.edit")}">${ICON_PENCIL}</button>
                    <button class="btn-cancel" type="button" data-id="${o.id}" data-act="cancel" title="${tr("common.cancel")}" aria-label="${tr("common.cancel")}">${ICON_BIN}</button>
@@ -1288,6 +1380,15 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            rimborso del footer «completato» li leggeva prima che esistessero:
            non un valore sbagliato ma un ReferenceError dentro il disegno della
            card, che svuotava la lista e la faceva sembrare un problema di rete. */
+        /* Le barre a tutta larghezza (differenza, rimborso) si compongono
+           qui: l'etichetta in un pezzo che si tronca, l'importo in un pezzo
+           che non cede mai. Scritte a mano quattro volte, una avrebbe perso
+           la divisione e sarebbe tornata ad andare a capo. */
+        const barra = (cls: string, icona: string, testo: string, importo?: number, titolo?: string) =>
+          `<div class="diff-bar ${cls}"${titolo ? ` title="${titolo}"` : ""}>` +
+          `<span class="db-lab">${icona ? `${icona} ` : ""}${testo}</span>` +
+          (importo === undefined ? "" : `<span class="db-val">· ${euro(importo)}</span>`) +
+          `</div>`;
         const refunded = o.refunded_cents ?? 0;
         const residuo = o.total_cents - refunded;
         /* «C'e' un incasso Stripe da cui tirare fuori i soldi?» e' una domanda
@@ -1299,25 +1400,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
            Dopo il webhook `stripe_session_id` e' l'id `cs_...`; un pending
            annullato ha ancora l'URL del link, cioe' un incasso mai avvenuto. */
         const incassoStripe = /^cs_/.test(String(o.stripe_session_id ?? ""));
-        const isStripe = o.status === "cancelled" && incassoStripe;
         /* Ordine COMPLETATO e incassato online: si puo' ancora rimborsare.
            Stesso `data-act="refund"` del footer annullato, quindi stesso modale
            e stesso controllo d'importo: nessuna seconda strada per far uscire
            denaro. */
-        const refundIco =
-          o.status === "done" && incassoStripe && residuo > 0
-            ? `<button class="btn-tondo btn-refund-ico" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}" title="${tr("ord.refund")}" aria-label="${tr("ord.refund")}">${ICON_REFUND}</button>`
-            : "";
+        /* ⚠️ UN SOLO bottone di rimborso, per il completato e per l'annullato.
+           Sono lo stesso gesto e devono restare identici: scritti due volte,
+           prima o poi uno porta un `data-residuo` diverso dall'altro — cioe'
+           due tetti d'importo diversi per far uscire gli stessi soldi. */
+        const btnRimborso = (mostra: boolean) =>
+          mostra && residuo > 0 && incassoStripe ? `<button class="btn-tondo btn-refund-ico" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}" title="${tr("ord.refund")}" aria-label="${tr("ord.refund")}">${ICON_REFUND}</button>` : "";
+        const refundIco = btnRimborso(o.status === "done");
         const rollback =
           o.status === "done"
             ? `<div class="card-foot"><span class="tag tag-done">${tr("ord.terminee")}</span><span class="cf-acts">${refundIco}<button class="btn-tondo btn-rollback" type="button" data-id="${o.id}" data-act="rollback" title="${tr("ord.putBack")}" aria-label="${tr("ord.putBack")}">${ICON_ROLLBACK}</button></span></div>`
             : "";
         // Ordini ANNULÉS pagati con Stripe: rimborso (totale o parziale).
         // Stato rimborso: BARRA in fondo (refundBar), non piu' tag in alto.
-        const refundBtn =
-          isStripe && residuo > 0
-            ? `<button class="btn-refund" type="button" data-id="${o.id}" data-act="refund" data-residuo="${residuo}">${tr("ord.refund")}</button>`
-            : "";
+        const refundBtn = btnRimborso(o.status === "cancelled");
         // Rimettere in corso un ordine annullato: SOLO se non e' stato
         // rimborsato. Quel denaro e' uscito davvero, e riportare l'ordine a
         // «pagato» lo farebbe rientrare negli incassi del giorno e nelle
@@ -1339,23 +1439,38 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const refundBar =
           incassoStripe && (o.status === "cancelled" || o.status === "done") && refunded > 0
             ? residuo > 0
-              ? `<div class="diff-bar diff-bar-refunded">↩ ${tr("ord.refunded")} · ${euro(refunded)}</div>`
-              : `<div class="diff-bar diff-bar-refunded">✓ ${tr("ord.refunded")}</div>`
+              ? barra("diff-bar-refunded", "↩", tr("ord.refunded"), refunded)
+              : barra("diff-bar-refunded", "✓", tr("ord.refunded"))
             : "";
         // Modifica al ribasso su ordine pagato online: bottone "rimborsa differenza"
         // (1 clic + conferma). Importo esatto = refund_due_cents (tracciato lato server).
         const diffRefundBtn =
           o.status === "paid" && (o.refund_due_cents ?? 0) > 0
-            ? `<button class="btn-diffrefund" type="button" data-id="${o.id}" data-act="diffrefund" data-diff="${o.refund_due_cents ?? 0}">${tr("ord.refundDiff")} · ${euro(o.refund_due_cents ?? 0)}</button>`
+            ? `<button class="btn-diffrefund" type="button" data-id="${o.id}" data-act="diffrefund" data-diff="${o.refund_due_cents ?? 0}">${labelDiffRefund(o.refund_due_cents ?? 0)}</button>`
             : "";
 
         // Barra "differenza da pagare" (supplemento dopo una modifica): a tutta
         // larghezza sotto gli articoli. Ambra = in attesa; verde ✓ = pagata.
+        /* ⚠️ IL SUPPLEMENTO SI VEDE ANCHE SUGLI ORDINI COMPLETATI. Prima la
+           barra esisteva solo su `paid`: completando senza aver incassato, la
+           somma in sospeso spariva dalla card e nessuno l'avrebbe piu' vista.
+           Si puo' scegliere di chiudere lasciandola, ma non deve sparire.
+           Ed e' un BOTTONE, non solo un'etichetta: fino al 04/10 quel
+           supplemento si poteva saldare in un modo solo — il cliente paga il
+           link Stripe — mentre il caso piu' frequente e' che te li dia al
+           banco. Quel denaro entrava nel cassetto e il motore non lo sapeva. */
+        const suppDovuto = Math.max(0, Math.round(Number(o.supplement_due_cents ?? 0)));
+        const vivo = o.status === "paid" || o.status === "done";
         const diffBar =
-          o.status === "paid" && (o.supplement_due_cents ?? 0) > 0
-            ? `<div class="diff-bar diff-bar-due" title="${tr("ord.diffDueTitle")}">⏳ ${tr("ord.diffDue")} · ${euro(o.supplement_due_cents ?? 0)}</div>`
-            : o.status === "paid" && o.supplement_paid_at
-              ? `<div class="diff-bar diff-bar-paid" title="${tr("ord.diffPaidTitle")}">✓ ${tr("ord.diffPaid")}</div>`
+          vivo && suppDovuto > 0
+            ? incDiffId === o.id
+              ? `<div class="actions nc-scelte">
+                   <button class="btn-done" type="button" data-id="${o.id}" data-act="sup-cash">${ICON_COINS}<span class="b-lab">${tr("ord.payCash")}</span></button>
+                   <button class="btn-done" type="button" data-id="${o.id}" data-act="sup-card">${ICON_CARD}<span class="b-lab">${tr("ord.payCard")}</span></button>
+                 </div>`
+              : `<button class="btn-diffrefund btn-incassare" type="button" data-id="${o.id}" data-act="incassadiff" title="${tr("ord.diffDueTitle")}"><span class="db-lab">${tr("ord.diffDue")}</span><span class="db-val">· ${euro(suppDovuto)}</span></button>`
+            : vivo && o.supplement_paid_at
+              ? barra("diff-bar-paid", "✓", tr("ord.diffPaid"), undefined, tr("ord.diffPaidTitle"))
               : "";
         const lr = ncLivelloRitardo(o.pickup_time, o.status);
         const cardCls =
@@ -1379,8 +1494,8 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             ${noteHTML}
             ${diffBar}
             ${refundBar}
-            ${actions}
             ${diffRefundBtn}
+            ${actions}
             ${rollback}
             ${cancelFoot}
           </div>`;
@@ -1536,11 +1651,18 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           return new Date(y, m - 1, d).toLocaleDateString(LOC, { weekday: "short", day: "2-digit", month: "2-digit" });
         };
         // Conferma "Annuler" in 2 tocchi
+        /* ⚠️ Lo STATO guida il disegno, non il contrario: qui c'e' l'ordine
+           che sta chiedendo «incassato come?», e `cardHTML` ne tiene conto.
+           Riscrivere i bottoni direttamente nel DOM sarebbe andato in pezzi al
+           primo aggiornamento automatico della lista, che ridisegna tutto. */
         let confirmId: string | null = null;
         let diffConfirmId: string | null = null;
         let confirmTimer: number | undefined;
 
         function resetConfirm() {
+          const avevaIncasso = incassaId !== null || incDiffId !== null;
+          incassaId = null;
+          incDiffId = null;
           confirmId = null;
           diffConfirmId = null;
           if (confirmTimer) clearTimeout(confirmTimer);
@@ -1551,8 +1673,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
           document.querySelectorAll<HTMLButtonElement>(".btn-diffrefund.confirm").forEach((b) => {
             b.classList.remove("confirm");
             const d = Math.max(0, Math.round(Number(b.dataset.diff ?? "0")));
-            b.textContent = `${tr("ord.refundDiff")} · ${euro(d)}`;
+            b.innerHTML = labelDiffRefund(d);
           });
+          // La riga «incassato come?» e' disegnata da `cardHTML`, non appiccicata
+          // al DOM: per toglierla si ridisegna.
+          if (avevaIncasso) render();
         }
 
         function render() {
@@ -1780,14 +1905,82 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         document.addEventListener("keydown", (e) => { if (e.key === "Escape") dpvChiudi(); });
         aggiornaGiornoBtn();
 
-        async function cambiaStato(id: string, status: string, btn: HTMLButtonElement) {
+        /* Dichiara incassato al banco il supplemento di un ordine. ⚠️ Sta
+           dicendo che del denaro e' entrato, e il motore ci crede: non c'e'
+           nessun incasso Stripe a confermarlo. Per questo il metodo e'
+           obbligatorio, e il server rifiuta se non c'era niente da incassare
+           (due tocchi ravvicinati non incassano due volte). */
+        /* Il modale «il cliente deve ancora X». Tre vie: incassalo adesso in
+           contanti o con la carta, oppure chiudi lo stesso — e in quel caso la
+           somma resta sulla card completata, perche' sparire sarebbe il modo
+           piu' rapido di dimenticarsela. */
+        const supOverlay = document.getElementById("sup-overlay") as HTMLDivElement;
+        const supTitle = document.getElementById("sup-title") as HTMLElement;
+        const supBody = document.getElementById("sup-body") as HTMLElement;
+        const supCash = document.getElementById("sup-cash") as HTMLButtonElement;
+        const supCard = document.getElementById("sup-card") as HTMLButtonElement;
+        const supAnyway = document.getElementById("sup-anyway") as HTMLButtonElement;
+        let supId = "";
+        function apriSupplemento(id: string, importo: number) {
+          supId = id;
+          supTitle.textContent = tr("ord.supTitle").replace("{x}", euro(importo));
+          supBody.textContent = tr("ord.supBody");
+          supCash.textContent = tr("ord.payCash");
+          supCard.textContent = tr("ord.payCard");
+          supAnyway.textContent = tr("ord.supAnyway");
+          supCash.disabled = false;
+          supCard.disabled = false;
+          supOverlay.hidden = false;
+        }
+        supOverlay.querySelectorAll("[data-md-close]").forEach((el) =>
+          el.addEventListener("click", () => { supOverlay.hidden = true; }),
+        );
+        for (const [b2, metodo] of [[supCash, "cash"], [supCard, "card"]] as [HTMLButtonElement, string][]) {
+          b2.addEventListener("click", async () => {
+            await incassaSupplemento(supId, metodo, b2);
+            supOverlay.hidden = true;
+          });
+        }
+        // ⚠️ Chiudere lo stesso NON incassa niente: l'ordine diventa completato
+        // e il supplemento resta dovuto, scritto sulla card.
+        supAnyway.addEventListener("click", () => {
+          supOverlay.hidden = true;
+          const b3 = document.querySelector<HTMLButtonElement>(`.card[data-id="${supId}"] button[data-act="done"]`);
+          if (b3) cambiaStato(supId, "done", b3);
+        });
+        async function incassaSupplemento(id: string, metodo: string, btn: HTMLButtonElement) {
+          btn.disabled = true;
+          try {
+            const r = await fetch("/api/admin/orders", {
+              method: "PATCH",
+              headers: { ...headers, "Content-Type": "application/json" },
+              body: JSON.stringify({ id, supplement: metodo }),
+            });
+            const j = (await r.json()) as { error?: string };
+            if (!r.ok) throw new Error(j.error || tr("ord.errShort"));
+            for (const lista of [ordini, ordiniGiorno]) {
+              const ord = lista.find((o) => o.id === id);
+              if (!ord) continue;
+              ord.supplement_due_cents = 0;
+              ord.supplement_paid_at = new Date().toISOString();
+            }
+            ncToast(tr("ord.orderPaid"));
+            render();
+            firmaOrdini = "";
+            void carica(true);
+          } catch (e2) {
+            ncToast(e2 instanceof Error ? e2.message : tr("ord.errShort"), true);
+            btn.disabled = false;
+          }
+        }
+        async function cambiaStato(id: string, status: string, btn: HTMLButtonElement, payment?: string) {
           const card = btn.closest(".card");
           card?.querySelectorAll("button").forEach((b) => (b.disabled = true));
           try {
             const r = await fetch("/api/admin/orders", {
               method: "PATCH",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ id, status }),
+              body: JSON.stringify({ id, status, ...(payment ? { payment } : {}) }),
             });
             if (!r.ok) throw new Error();
             // Le liste sono DUE: `ordini` (oggi, live) e `ordiniGiorno` (il
@@ -1797,7 +1990,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             // ricaricando la pagina.
             for (const lista of [ordini, ordiniGiorno]) {
               const ord = lista.find((o) => o.id === id);
-              if (ord) ord.status = status;
+              if (!ord) continue;
+              ord.status = status;
+              // Anche il metodo, altrimenti la card ridisegnata subito mostra
+              // ancora l'icona di prima finche' non risponde il server.
+              if (payment) ord.payment_method = payment;
             }
             resetConfirm();
             render();
@@ -1864,14 +2061,61 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             return;
           }
           if (btn.dataset.act === "done") {
+            /* ⚠️ IL BUCO: il bottone «Rimborsa» compare solo sugli ordini
+               `paid`. Completando l'ordine prima di rendere i soldi, quel
+               bottone spariva e il debito verso il cliente non si vedeva piu'
+               da nessuna parte — restava nel database, invisibile, e nessuno
+               lo avrebbe mai saldato. Nessun errore, nessun avviso: solo un
+               cliente che aspetta sei euro che non arrivano.
+               Quindi completare chiede prima di chiudere il conto. */
+            const ord = ordini.find((o) => o.id === id);
+            const daRendere = Math.max(0, Math.round(Number(ord?.refund_due_cents ?? 0)));
+            if (daRendere > 0) {
+              apriRimborsoCon(id, daRendere, true);
+              return;
+            }
+            // E se c'e' ancora qualcosa da INCASSARE, si chiede. Qui pero' si
+            // puo' chiudere lo stesso: quei soldi non dipendono dal ristoratore.
+            const daIncassare = Math.max(0, Math.round(Number(ord?.supplement_due_cents ?? 0)));
+            if (daIncassare > 0) {
+              apriSupplemento(id, daIncassare);
+              return;
+            }
             cambiaStato(id, "done", btn);
             return;
           }
           // ⚠️ Incassare NON e' terminare: qui l'ordine diventa pagato per
           // davvero (ed entra nelle statistiche), e resta in lavorazione
           // finche' non viene consegnato. Sono due gesti e due bottoni.
+          // La barra «Incassare»: primo tocco apre contanti/carta.
+          if (btn.dataset.act === "incassadiff") {
+            resetConfirm();
+            incDiffId = id;
+            render();
+            confirmTimer = window.setTimeout(resetConfirm, 6000);
+            return;
+          }
+          if (btn.dataset.act === "sup-cash" || btn.dataset.act === "sup-card") {
+            incDiffId = null;
+            if (confirmTimer) clearTimeout(confirmTimer);
+            void incassaSupplemento(id, btn.dataset.act === "sup-cash" ? "cash" : "card", btn);
+            return;
+          }
+          // Primo tocco: si apre la domanda. Secondo tocco: si incassa col
+          // metodo scelto. Dopo sei secondi si richiude da sola — un bottone
+          // «Contanti» rimasto aperto sulla card sbagliata e' peggio di niente.
           if (btn.dataset.act === "incassa") {
-            cambiaStato(id, "paid", btn);
+            resetConfirm();
+            incassaId = id;
+            render();
+            confirmTimer = window.setTimeout(resetConfirm, 6000);
+            return;
+          }
+          if (btn.dataset.act === "inc-cash" || btn.dataset.act === "inc-card") {
+            const metodo = btn.dataset.act === "inc-cash" ? "cash" : "card";
+            incassaId = null;
+            if (confirmTimer) clearTimeout(confirmTimer);
+            cambiaStato(id, "paid", btn, metodo);
             return;
           }
           if (btn.dataset.act === "edit") {
@@ -1951,10 +2195,21 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         const rfAll = document.getElementById("rf-all") as HTMLButtonElement;
         let rfId = "";
         let rfResiduo = 0;
+        /* ⚠️ Due rimborsi diversi dallo stesso modale. Quello normale rende
+           quello che vuoi, fino al residuo. Quello di DIFFERENZA salda un
+           debito che il motore ha gia' calcolato (una modifica al ribasso su
+           un ordine pagato online) e deve partire con `difference: true`:
+           senza, il server non azzera `refund_due_cents` e il bottone
+           «Rimborsa» resta li' per sempre, su soldi gia' usciti. */
+        let rfDiff = false;
 
         function apriRimborso(btn: HTMLButtonElement) {
-          rfId = btn.dataset.id ?? "";
-          rfResiduo = Math.max(0, Math.round(Number(btn.dataset.residuo ?? "0")));
+          apriRimborsoCon(btn.dataset.id ?? "", Math.max(0, Math.round(Number(btn.dataset.residuo ?? "0"))), false);
+        }
+        function apriRimborsoCon(id: string, importo: number, differenza: boolean) {
+          rfId = id;
+          rfDiff = differenza;
+          rfResiduo = Math.max(0, Math.round(importo));
           rfMsg.textContent = "";
           rfMsg.classList.remove("ok");
           rfSub.textContent = `${tr("ord.refundable")} : ${euro(rfResiduo)}`;
@@ -1995,7 +2250,7 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             const r = await fetch("/api/admin/refund", {
               method: "POST",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ id: rfId, amount_cents: cents }),
+              body: JSON.stringify({ id: rfId, amount_cents: cents, ...(rfDiff ? { difference: true } : {}) }),
             });
             const j = await r.json().catch(() => ({}) as any);
             if (!r.ok) {
@@ -2005,7 +2260,12 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
               return;
             }
             const ord = ordini.find((o) => o.id === rfId);
-            if (ord) ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + cents);
+            if (ord) {
+              ord.refunded_cents = Number(j.refunded_cents ?? (ord.refunded_cents ?? 0) + cents);
+              // Debito saldato: il bottone «Rimborsa» deve sparire subito,
+              // senza aspettare il prossimo giro del server.
+              if (rfDiff) ord.refund_due_cents = Math.max(0, (ord.refund_due_cents ?? 0) - cents);
+            }
             rfMsg.classList.add("ok");
             rfMsg.textContent = `${tr("ord.refunded")} : ${euro(Number(j.amount ?? cents))} ✓`;
             render();

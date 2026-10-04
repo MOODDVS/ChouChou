@@ -1654,6 +1654,47 @@ Prima di buttare `salva()` l'ho confrontata riga per riga con il salvataggio viv
 - **Scritto oggi:** migrazione **#76** `print_tickets.sql` (coda, indice unico sui ticket automatici) · `src/lib/stampaRegole.ts` (regole pure, zero import: chiavi, `daStampare`, attese crescenti 10s→15min, ticket di cucina di ripiego) · `tests/stampaTicket.test.mjs` · `scripts/bizprint-lista.mjs` (elenca station e stampanti dal Mac di Enzo; **la rete del bridge Cowork non arriva a bizswoop, lo lancia lui dal Terminale**).
 - ⚠️ **Fuga di chiavi, chiusa.** Lo script mascherava solo le chiavi dell'applicazione e ha stampato in chiaro le `secretKey` delle due station. Enzo ha **cancellato e rifatto le station** (Schaerbeek rifatta, Stockel da rifare). Lezione in ENGINE.md: la maschera si scrive sul nome del campo, non sul valore atteso.
 
+**Annullo di un ordine — deciso il 04/10, da costruire**
+
+La regola e' una sola: **c'e' un incasso Stripe da rendere?** Se si', modale. Se no, doppio tap come oggi. E' lo stesso `incassoStripe` gia' scritto per il rimborso sui completati.
+
+| Com'e' arrivato | Stato | Il cestino fa | Email | Sul ticket annullato |
+|---|---|---|---|---|
+| Al banco, paga subito | pagato in cassa | doppio tap | parte se c'e' l'indirizzo (lasciato com'e') | icona ELIMINA |
+| Telefona, paga al ritiro *(nuovo)* | da incassare | doppio tap | si' se c'e' | icona ELIMINA |
+| Telefona, link non ancora pagato | in attesa | doppio tap | si' se c'e' | icona ELIMINA |
+| Telefona, link gia' pagato | pagato online | **modale annulla+rimborsa** | si', col rimborso | barra «rimborsato», niente elimina |
+| Dal sito, pagato con carta | pagato online | **modale annulla+rimborsa** | si', col rimborso | barra «rimborsato», niente elimina |
+| Dal sito, paga al ritiro | da incassare | doppio tap | si' se c'e' | icona ELIMINA |
+
+Il modale ha una voce sola, quindi **non e' un modale di scelta**: e' il modale di rimborso che esiste gia', aperto col totale precompilato. Un pezzo in meno.
+
+Tre pezzi da costruire:
+1. **Switch «si paga al ritiro» nel modale Nuovo ordine.** Scelto contanti o carta, uno switch dice se e' gia' incassato o no. Non incassato → si usa lo stato **`onsite`** che esiste gia' (deciso con Enzo: niente stato nuovo, niente migrazione). ⚠️ **Il POST oggi NON accetta `onsite`**: `["link","cash","card"].includes(...)` ripiega su `link`, quindi senza la modifica lato server lo switch creerebbe in silenzio un ordine col link di pagamento. Da cambiare insieme.
+2. **Annullo con rimborso**: il cestino apre il modale di rimborso quando c'e' un incasso Stripe col residuo > 0. Stessa API, stesso tetto d'importo — nessuna seconda strada per far uscire denaro.
+3. **Elimina dal database**: icona sul ticket ANNULLATO e solo senza incasso Stripe. Definitivo, con conferma a due tocchi come il cestino. Mai su un ordine con incasso online: quei soldi su Stripe esistono davvero e devono restare riconciliabili.
+
+**Fatto la sera del 04/10 — le card degli ordini**
+
+Giro di rifiniture guidato dagli screenshot di Enzo. Dietro quasi tutte c'e' la stessa regola: **una misura, un posto solo.**
+
+- **L'ombra non seguiva il tema.** `drop-shadow` era scritto a mano in sette posti (card, tre animazioni del ritardo, tre stati fermi) con un nero fisso. Ora e' `--ombra`, dichiarata sulla card e citata dagli altri sei: la manopola del super admin la muove tutta insieme.
+- **Raggio dei bottoni** condiviso (`--btn-r`): «Rinvia» non e' piu' l'unico spigoloso. **Tondi** (`.btn-tondo`): rimborso e ripristino non possono piu' diventare tondi in modo diverso — uno dei due manda via dei soldi.
+- **Barre a tutta larghezza** su UNA riga: cede l'etichetta (ellissi), mai l'importo. Un importo che va a capo e' un importo che si legge male.
+- **«Incassa» chiede COME** (Contanti / Carta) **e lo scrive davvero**: prima il metodo restava quello di partenza, e un pranzo pagato in contanti mostrava il marchio Stripe.
+- **`onsite` non e' piu' un incasso Stripe** (`inCassa()`): niente link di pagamento ne' email di rimborso online per soldi presi al banco.
+- **Non si completa lasciando dei soldi da rendere**: «Completato» su un ordine con rimborso dovuto apre prima il modale del rimborso. Con un **supplemento** in sospeso invece avverte e lascia passare — e la card completata mostra sempre quanto resta da incassare.
+- **Supplemento incassabile al banco** (non solo via Stripe) e **visibile anche sui completati**: prima chiudere l'ordine lo faceva sparire dallo schermo pur restando dovuto. Il doppione e' impedito **dal database** (indice unico parziale + `.gt("supplement_due_cents", 0)` dentro la scrittura), non da un controllo nel codice.
+- **Un solo bottone di rimborso**, usato dalle due card (completata e annullata): stesso `data-act`, stesso tetto d'importo. Scritto due volte, prima o poi i due tetti non sarebbero piu' stati uguali.
+
+⚠️ **Due lezioni, entrambe mie.**
+1. `cardHTML` sta FUORI dal blocco che tiene lo stato della pagina, e io ci avevo messo dentro tre nomi che legge (`incassaId`, `incDiffId`, `labelDiffRefund`): tre `ts(2304)`. La correzione «ovvia» — dichiararli anche fuori, lasciando quelli dentro — sarebbe stata **peggio dell'errore**: zero errori, e `cardHTML` che legge sempre la copia esterna vuota, coi bottoni «Contanti/Carta» che non compaiono mai. Il test nuovo non controlla che la dichiarazione esista: conta che ce ne sia **una sola**, e che preceda chi la usa.
+2. Un mio test pretendeva **3** occorrenze di `btnRimborso(` contando la dichiarazione insieme alle due chiamate — ma `const btnRimborso = (` non contiene `btnRimborso(`. Quel numero non poteva uscire mai: il codice era giusto, il test non poteva passare. Ora dichiarazione e chiamate si contano separate.
+
+**`TUTTO.sql` rigenerato** (76 migrazioni): la #76 c'era nella cartella ma non nel file cumulativo, cioe' un cliente nuovo sarebbe nato senza la coda di stampa. Nessun errore quel giorno — una pagina rotta mesi dopo. Dopo OGNI migrazione: `node scripts/genera-tutto.mjs`.
+
+Verde: 0 errori, **599 test**.
+
 **Da fare domani**
 
 1. Enzo prova **da casa** con un'altra stampante collegata al tablet; a Schaerbeek non c'e'.
@@ -1662,6 +1703,7 @@ Prima di buttare `salva()` l'ho confrontata riga per riga con il salvataggio viv
 4. **Development Mode** su BizPrint resta ACCESO finche' si prova: stampa marchiata, e quelle stampe non contano sul piano.
 5. Da chiedere a bizswoop: quante stampe sono incluse nel piano Plus, e se un'applicazione si puo' limitare alle sue station.
 6. In coda da prima: la migrazione **#75** sugli altri cinque clienti (mina a tempo se qualcuno accende «paga al ritiro»), `multi-sede` → `main`, foto BROS in webp.
+7. Rifiniture segnalate e non decise: «Completato» e «Contanti» che si troncano nelle etichette (forse togliere l'icona), e **cosa fare se Stripe rifiuta il rimborso** durante l'annullo — oggi l'ordine resterebbe annullato con i soldi ancora dal cliente.
 
 ## 🔧 Metodo di lavoro (Cowork + Enzo)
 
