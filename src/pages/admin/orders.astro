@@ -194,15 +194,37 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
             mozziconi di linea sui denti;
           · l'ombra passa da `box-shadow` a `drop-shadow`, che segue la
             SAGOMA dentellata invece del rettangolo. */
+      /* ⚠️ IL MASK STA SULLO SFONDO, NON SULLA CARD (corretto il 03/10/2026).
+         Finche' `mask` e `filter` stavano sullo STESSO elemento, l'aura del
+         ritardo non si vedeva: il browser applica prima il filtro e POI
+         ritaglia col mask, quindi l'alone — che per definizione sta FUORI
+         dalla sagoma — veniva tagliato via insieme a tutto il resto. Il
+         difetto non era nel calcolo del ritardo, che funzionava: era che il
+         suo effetto veniva cancellato un passaggio dopo. Verificato a schermo
+         con tre varianti affiancate prima di toccare il codice.
+         Adesso: il mask e lo sfondo vivono su `::before`, la card tiene il
+         filtro. L'ombra nasce dalla sagoma del figlio mascherato, quindi
+         segue ancora i denti dello scontrino — ma non viene piu' ritagliata.
+         `filter` sulla card crea un contesto di impilamento, percio' lo
+         `z-index: -1` del ::before resta dentro la card e non scivola dietro
+         la pagina. */
       .card {
         --tk-r: 6px;    /* raggio delle tacche */
         --tk-s: 18px;   /* passo fra una tacca e l'altra */
         position: relative;
-        background: var(--c-card);
+        background: transparent;
         border: 0;
         border-radius: 3px;
         padding: 1.45rem 1.25rem;  /* sopra e sotto: spazio per i denti */
         filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
+      }
+      .card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: var(--c-card);
+        border-radius: 3px;
         -webkit-mask:
           radial-gradient(var(--tk-r) at 50% 0, #0000 98%, #000) 50% 0 / var(--tk-s) 51% repeat-x,
           radial-gradient(var(--tk-r) at 50% 100%, #0000 98%, #000) 50% 100% / var(--tk-s) 51% repeat-x;
@@ -426,11 +448,36 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
          80x80 — altrimenti aggiungendo piatti la scatola cresce sotto le mani. */
       @media (min-width: 761px) {
         #nc-overlay .md-box { --md-w: 80vw; height: 80vh; max-height: 80vh; }
-        .nc-items { max-height: none; }
-        /* Colonna menu (sinistra) sticky: resta in vista mentre il carrello scorre. */
-        .nc-panel[data-panel="1"] .nc-grid > div:first-child {
-          position: sticky; top: 0; align-self: start;
+
+        /* ⚠️ IL GUASTO (03/10/2026, visto sull'iPad di un cliente): i piatti
+           del menu NON si riuscivano a scorrere. La colonna di sinistra era
+           `position: sticky; top: 0` per restare in vista mentre il carrello
+           scorreva — ma un elemento sticky e' INCHIODATO: se e' piu' alto del
+           suo contenitore, la sua parte bassa non si raggiunge scorrendo, mai.
+           Su un iPad orizzontale il modale e' alto ~614px e allo step 1 ne
+           restano ~400: con venti piatti, gli ultimi erano irraggiungibili.
+           Su un monitor alto il menu ci stava e il difetto non si vedeva.
+
+           Adesso le DUE COLONNE SCORRONO PER CONTO LORO: il pannello non
+           scorre piu' (e' lui a dare l'altezza), e dentro ogni colonna scorre
+           solo la parte lunga — la lista a sinistra, il carrello a destra —
+           mentre categorie, etichette e totale restano fermi al loro posto.
+           `overscroll-behavior: contain` ferma il gesto dentro la lista
+           invece di passarlo alla pagina sotto quando si arriva in fondo. */
+        .nc-panel[data-panel="1"] { overflow: hidden; }
+        .nc-panel[data-panel="1"] .nc-grid { height: 100%; align-items: stretch; }
+        .nc-panel[data-panel="1"] .nc-grid > div {
+          display: flex; flex-direction: column; min-height: 0;
         }
+        .nc-panel[data-panel="1"] .nc-items,
+        .nc-panel[data-panel="1"] .nc-cart {
+          flex: 1 1 auto; min-height: 0; max-height: none;
+          overflow-y: auto; overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+        /* Il totale non scorre col carrello: e' la riga che si guarda per
+           ultima, deve restare sotto gli occhi. */
+        .nc-panel[data-panel="1"] .nc-total { flex: 0 0 auto; }
       }
       /* Wizard multi-step del modale ordine */
       .nc-steps { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; }
@@ -697,6 +744,24 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
         .head-row { flex-wrap: nowrap; align-items: center; }
         .prep-btn .m { display: none; }
         .prep-btn[data-min]::after { content: attr(data-min); font-size: 0.95rem; font-weight: 700; }
+      }
+      /* ⚠️ iPad orizzontale AL DITO: la riga sopra tiene il titolo e i
+         controlli sulla stessa linea, ma `.prep` dentro ha `flex-wrap: wrap`,
+         e a 1024px i suoi sei elementi non ci stanno: andava a capo e i
+         filtri finivano in mezzo alla pagina, staccati dal titolo.
+         Si fa come i tab, la barra di navigazione e l'agenda: NON si va a
+         capo, si SCORRE. Il punto in cui non ci stanno dipende da quanti
+         bottoni ha quel cliente, non da una larghezza scelta a mano. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .head-row { margin-bottom: 1rem; gap: 0.8rem; }
+        .prep {
+          flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch; scrollbar-width: none;
+          gap: 0.5rem; min-width: 0;
+        }
+        .prep::-webkit-scrollbar { display: none; }
+        .prep > * { flex: 0 0 auto; }
+        .prep .o-search-wrap { flex: 0 1 170px; min-width: 90px; margin-right: 0.4rem; }
       }
     </style>
     <AdminHead />

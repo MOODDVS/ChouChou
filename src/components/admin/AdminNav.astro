@@ -311,6 +311,17 @@ const breve = (chiave: string): string => {
   .admin-nav a:hover {
     color: var(--c-htext, var(--c-text, #fff));
   }
+
+  /* iPad orizzontale, al dito: la barra scende con tutto il resto, ma le
+     etichette no. ⚠️ Erano gia' a 0.56rem (9px): col piede a 13px di
+     `styles/tablet.css` diventerebbero 7px, cioe' illeggibili. Qui restano in
+     px, e sono le icone a stringersi — e' l'icona che si riconosce da
+     lontano, non la parola. */
+  @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+    .admin-nav { bottom: 0.9rem; }
+    .admin-nav a { font-size: 8.5px; padding: 0.4rem 0.7rem; }
+    .admin-nav a svg { width: 16px; height: 16px; }
+  }
   /* ⚠️ La pillola attiva vive DENTRO la barra, non sulla pagina: il suo
      colore e quello del suo testo vengono da `--c-hactive`, che si scosta
      dall'accent solo quando l'accent si confonderebbe con l'header. */

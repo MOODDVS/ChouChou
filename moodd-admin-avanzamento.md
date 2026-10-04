@@ -2,6 +2,102 @@
 
 Diario del MOTORE (template `MOODDVS/MOODD-Admin`). I clienti hanno i loro progetti Claude (es. «La Molisana»). Aggiornato man mano.
 
+## 📌 03/10/2026 — sessione Cowork (BROS sesto cliente · prenotazioni rifiutate senza motivo · annullo ordine che non avvisava nessuno)
+
+### 🍕 BROS — nuovo cliente sul motore
+- Clone del template, identità in `src/config/client.ts` (BROS · Pizza & Bar · Av. de la Couronne 431, 1050 Ixelles), dominio in `astro.config.mjs`, icone PWA generate dal bollo vettoriale rosso **#ed1f25**.
+- Menu caricato dal sito del cliente: 34 piatti in 3 sezioni, in `supabase/seed/menu.sql`.
+- ⚠️ **Il seed di un cliente NON va in `supabase/`**: quella cartella è l'elenco delle migrazioni del motore e `tests/migrazioni.test.mjs` diventa rosso. I dati di un cliente stanno in `supabase/seed/`.
+- Pagina di annullo ordine rifatta in stile BROS (`components/bros/pagine/AnnullaOrdine.astro`), con `/order/cancel` del motore che delega al componente. Fatto anche il banner cookie e le tre lingue.
+
+### 🎨 Tema: i colori che nessuno sceglie (`src/lib/admin/temaColori.ts`)
+- BROS ha chiesto **header rosso e pagina bianca**. Il tema ha nove colori scelti a mano, ma `text` e `muted` sono **uno solo per tutti e due i posti**: il testo giusto per una pagina bianca (quasi nero) è finito dentro una barra rossa. Illeggibile, e senza un errore da nessuna parte.
+- La cura non è un decimo colore da scegliere: il testo dell'header si **calcola** dalla luminanza dello sfondo. Barra scura → bianco; barra chiara → il testo della pagina. Tre variabili nuove: `--c-htext`, `--c-hmuted`, `--c-hactive` (+ `--c-hactive-text`).
+- Stesso ragionamento sulla **voce attiva** della nav: si colora di `accent`, e se l'accent somiglia all'header la pillola sparisce. Sotto una distanza minima si ripiega sul testo dell'header, che per costruzione un contrasto ce l'ha. È il caso di BROS: rosso #e30613 e bordeaux #840008.
+- Il file ha **zero import, di proposito**: lo carica il server (`adminBoot`), il browser (`AdminNav`) e il test. Un solo import che arrivi a `db.ts` e il test non parte più — e vitest direbbe «0 test», cioè verde. Un test lo presidia, come per `ordiniRegole`.
+
+### 🎛️ Switch: lo stesso componente, non sei copie
+- Il design degli interruttori era rotto in mezzo pannello. Causa: le regole che stirano le `label` dei campi (`.field label`, i due breakpoint, `.cf-col label`) **colpivano anche la label dello switch**, che è una label come le altre ma non deve diventare larga quanto il campo.
+- Risolto alla fonte con `:not(.switch)` su sei regole di `settings.astro`, invece di scrivere contro-regole: una contro-regola perde contro un selettore più specifico, e si torna al punto di partenza.
+
+### 📅 Prenotazioni rifiutate «creneauPris» a qualsiasi ora — il difetto più costoso
+- Due clienti su cinque **non prendevano prenotazioni il venerdì e il sabato**, con un locale vuoto. Il messaggio diceva «orario occupato» e niente altro.
+- **Causa: `find` invece di `filter`.** Un servizio può essere dichiarato più volte con la stessa chiave (uno per gruppo di giorni). `cfg.services.find(sv => sv.key === k)` prendeva **la prima riga**, quella dei giorni infrasettimanali, e la giudicava chiusa nel weekend. Stessa cosa per la durata del fermo (`hold`), che ora si legge dalla riga **attiva quel giorno**.
+- Nell'API i 13 `return "creneauPris"` sono diventati motivi distinti (`capienzaTotale`, `giornoChiusoOrari`, `sezioneChiusa`, `tavoliTroppoPiccoli`, `preavviso`, …) e la risposta porta `motivo`, che il widget scrive in console. Non cambia niente per il cliente che prenota, cambia tutto per capire **perché** un rifiuto è arrivato.
+- 🔎 **Dove guardare la prossima volta**: `/api/reservation?config=1` sul sito vero. È pubblico e mostra la configurazione che il server sta usando davvero. Due diagnosi a vuoto sono partite dall'aver guardato il codice invece di quella risposta.
+
+### 💾 «Général» non salvava più
+- Il salvataggio della pagina Generale moriva su tutti i clienti: quattro chiavi degli ordini (`orders_pay_online`, `orders_pay_onsite`, `orders_coupons`, `orders_coupons_onsite`) erano arrivate senza essere classificate in `src/lib/admin/sedeRegole.ts`, quindi il salvataggio non sapeva se fossero per-sede o d'azienda.
+
+### 📱 La Molisana: nel modale si vede solo il widget
+- Via logo e cornice dal modale di prenotazione, fondo trasparente, la X sostituita da un bottone **Fermer** sotto al widget, con l'altezza calcolata dal contenuto reale (`getBoundingClientRect().bottom`) e non dall'altezza del documento.
+- 🐛 **Zoom su iPhone**: toccando un campo, iOS Safari ingrandiva la pagina e compilare diventava un lavoro. Causa: Safari zooma su ogni campo con testo **sotto i 16px**. Risolto portando i campi a 16px sui dispositivi a tocco (`@media (pointer: coarse)`). ⚠️ **Non** con `maximum-scale=1`: quello toglie lo zoom a chi ne ha bisogno per leggere.
+
+### 💳 `payment_method = 'onsite'` rifiutato dal database — migrazione #75
+- Su BROS **nessun ordine riusciva a nascere**: carrello pieno, «Ordina», e «Impossibile creare l'ordine». Nessuna riga, nessun avviso, nessun errore nei log.
+- Il pagamento al ritiro scrive `payment_method = 'onsite'`, ma la colonna nasce dalla #49 con `check (… in ('cash','card','link'))`. PostgreSQL rifiutava l'insert.
+- È **lo stesso guasto della #74** (`reservations.source` allargato a `instagram` e `qr`): il codice impara un valore nuovo e il `check` resta indietro. La lezione era già scritta e non è bastata, quindi ora `tests/ordini.test.mjs` confronta i valori scritti dal codice con l'elenco del vincolo: diventa rosso **prima** del rilascio.
+
+### 🈯 Il link «Annuler ma commande» parlava sempre francese
+- `orders.lang` tiene fr/en/it/nl/es, ma la GET di `order-cancel` schiacciava la risposta su due valori: chi ordinava in italiano apriva la pagina in francese. Il link nell'email non porta la lingua — **quella risposta è l'unico modo che il sito del cliente ha di saperla**.
+- Ora la GET risponde la lingua vera, letta da `PUBLIC_LANG_CODES` (un elenco, un posto solo). La pagina del motore ha i testi in due lingue e **ripiega** su fr; i siti dei clienti che hanno più lingue leggono `j.lang` e vanno sulla loro pagina.
+
+### 🔔 Annullo fatto dal cliente: il ristoratore non lo sapeva
+- Il link cambiava lo stato della riga e finiva lì. In cucina l'ordine restava in lista, e qualcuno lo preparava.
+- Tre avvisi dopo l'annullo riuscito: **email alla cucina** (`emailAnnulloCucina`, fascia rossa, ora di ritiro e totale **barrati** — serve a fermare una preparazione, non a presentarla), **push al ristoratore** (`inviaPushAnnulloOrdine`, 5 lingue) e la conferma al cliente.
+- ⚠️ Due dettagli che un test presidia: gli avvisi partono **dopo** il controllo di idempotenza (due clic sul link manderebbero due email in cucina) e con l'ambito della **riga** (`ambitoDiRiga`), non con l'aggregato — su un cliente a tre sedi l'annullo sarebbe arrivato alla cucina sbagliata.
+
+### ⭐ Il link «lascia una recensione» era diventato immodificabile
+- Segnalato dall'utente: un cliente **a sede unica** non aveva più nessun posto dove mettere il link della propria scheda Google.
+- **Storia del guasto**: il 17/09 il campo è uscito dai **Liens**, e per una ragione giusta — i link sono del marchio (un sito, un Instagram), ma «lascia una recensione» è di **una scheda Google**, e tre società hanno tre schede. La nota nel codice diceva «adesso è un campo di Général». **Non ci è mai stato messo.** Per due settimane l'unico posto dove si poteva scrivere è stato Super admin → Sedi, che il ristoratore non vede: l'email che chiede la recensione partiva senza link e nessuno poteva rimediare.
+- **Il test ha coperto il buco invece di scoprirlo**: si chiamava «il link recensioni Google sta in Général, non nei Liens» e controllava **solo** che non fosse nei Liens. Il titolo prometteva una cosa, l'asserzione ne verificava un'altra. Ora pretende la chiave in `CHIAVI_GENERAL`, il campo nella pagina e la riga in `G_CAMPI` — le tre cose che devono esserci tutte e tre perché il campo si riempia e si salvi.
+- ✅ Campo in **Général**, sotto l'email pubblica. Con una sede sola il salvataggio scrive al livello del marchio, che è dove `linkGoogleReview()` lo cerca; con più sedi va sulla sede scelta in alto, perché `sedeRegole` lo classifica `"sede"`. Nessuna migrazione: la chiave è sempre `link_google_review`.
+- ℹ️ Super admin → Sedi resta com'è: lì è la stessa chiave scritta sulla riga della sede, accanto al Place ID.
+- 💡 **Lezione da ricordare**: quando un campo **si sposta**, le due metà del lavoro (toglierlo da dove era, metterlo dove va) devono stare nello stesso commit, e il test deve guardare la **destinazione**, non la partenza. È lo stesso schema del `check` SQL rimasto indietro sul codice: una domanda con due risposte in due posti diversi.
+
+### 🧪 Lezioni sui test di questa sessione
+- 🐛 **Tre volte un test ha accusato il proprio commento**: il commento citava la cosa vecchia (`maximum-scale`, il check senza `onsite`, una `label`), e la ricerca lo trovava. Si cerca **dove fa danno** — il tag `<meta>`, la regola CSS, l'elenco del vincolo — oppure si toglie il commento prima di cercare.
+- Un controllo sulla pagina `order/cancel.astro` è passato a `skipIf(!SONO_IL_MOTORE)`: **un test del motore non può pretendere una riga dentro una pagina che il cliente ha il diritto di rifare**. Quello che vale per tutti (l'API) resta attivo su ogni cliente.
+- ⚠️ **`Auto-merging` non è una garanzia**: git fonde due versioni senza chiedere niente e senza conflitto. È così che su ChouChou e L'Huile si era perso il `console.warn` del motivo. Dopo ogni merge vale la pena guardare quali file git dice di aver fuso da solo.
+
+### 🗑️ `resa_mode` rimosso
+- L'opzione «prenotazioni su sito esterno» è uscita dal motore: non la usava nessuno e raddoppiava i rami da provare in ogni schermata delle prenotazioni.
+
+### ⚠️ DA LANCIARE SU OGNI CLIENTE
+- `supabase/orders_onsite_payment.sql` (#75) — senza questa migrazione **gli ordini con pagamento al ritiro non nascono**. Idempotente, si può rilanciare.
+
+### 📱 L'admin su iPad orizzontale — riduzione generale (seconda parte della giornata)
+- Richiesta: *«per i tablet vorrei ridurre tutte le grandezze… per avere una visione migliore delle cose»*. Un iPad orizzontale è largo 1024-1366, cioè **quanto un laptop**, e per il motore **è un desktop** (il confine della scala è 1023/1024): nessuna regola «tablet» lo toccava.
+- **Una leva sola invece di cento ritocchi**: `src/styles/tablet.css` abbassa il piede di misura a 13px in quella fascia. Le pagine admin sono per il ~60% in `rem`, quindi testi, spazi, bottoni e pillole scendono tutti insieme mantenendo le proporzioni.
+- ⚠️ **`pointer: coarse`**: senza, la regola prenderebbe anche i portatili da 1280. Si accende solo su uno schermo che si tocca — e sul Mac si vede solo col DevTools in modalità iPad, perché è l'emulazione del *tocco* ad attivarla.
+- Le misure in px (logo, bottoni quadrati, icone, altezze dei campi) non seguono il `rem`: ritoccate con la stessa media query dentro i componenti che le possiedono.
+
+### 📏 «Una misura, un posto solo» — il difetto del giorno, cinque volte
+- Padding del `main` ricopiato in `clients.astro`; altezza dell'header stimata in `google.astro` (`96px`, `48px + 2rem`); altezza della riga del titolo indovinata a `0.82rem` (metà del **testo**, ma la riga è alta quanto la pastiglia «14 clienti»); `bottom` della barra ricopiato nei FAB; **taglie dell'interruttore riscritte da quattro pagine**.
+- Ogni volta lo stesso meccanismo: cambio il numero di qua, l'altro resta indietro, e **nessun test vede due pixel**.
+- Cura: `--pad-y`, `--pad-x`, `--h-header`, `--riga-titolo`, `--h-campo`, e due taglie dichiarate in `switch.css`. Due test di presidio: barra e FAB devono avere lo **stesso** `bottom` (senza fissare quale), e nessuna pagina può scrivere `--sw-*` a numero.
+- Scritto in `ENGINE.md` come regola, con la tabella dei cinque casi. Le toppe da sole non insegnano niente.
+
+### 🐛 Difetti veri trovati mentre si guardava
+- **I piatti del menu non si scorrevano su iPad** (segnalato da un cliente). La colonna sinistra del modale Nuovo ordine era `position: sticky`: un elemento inchiodato, se più alto del contenitore, **non si raggiunge mai** nella sua parte bassa. Su iPad orizzontale restavano ~400px utili: con venti piatti, gli ultimi erano irraggiungibili. Su un monitor alto il difetto non si vedeva. Ora le due colonne scorrono per conto loro.
+- **Data e orologio sovrapposti** nell'header con un nome di sede lungo: l'orologio è centrato in assoluto, non spinge via niente.
+- **Tre interruttori diversi** nel motore: il componente, quello del menu e uno disegnato a mano nelle notifiche (un `<button>` con una classe). Unificati; quello delle notifiche è diventato anche una casella vera, quindi raggiungibile da tastiera.
+
+### 🗓️ Agenda: prima quello che deve ancora succedere
+- Ordine nuovo: i prossimi dal più vicino, poi i passati dal più recente, col badge **PASSATO** sulla foto. Dopo un anno di eventi, in cima c'era la festa dell'anno scorso.
+- ⚠️ Un evento di più giorni è passato **quando finisce**, non quando comincia; e «oggi» è quello del **ristorante**, non del tablet.
+- Regola pura in `src/lib/admin/agendaRegole.ts` (zero import, come `ordiniRegole` e `temaColori`), con quattro test.
+
+### 🔎 Google: la pagina si usa tutta
+- Links e Attributi senza tetto di larghezza. ⚠️ Tentativo di mettere gli Attributi su due colonne **annullato**: `.fi-sec` contiene anche la nota introduttiva, che è finita in una colonna e tutte le card nell'altra.
+- Recensioni: scheda più stretta e lista in **una colonna** — il masonry riempiva lo schermo ma rompeva l'ordine di data, che è l'unico che conta per sapere a chi si deve ancora rispondere. «Sincronizza» ridotto a icona, che gira mentre lavora.
+
+### ⏭️ Cosa resta
+- Merge del motore su La Molisana, Educazione Napoletana, 450 Gradi, ChouChou, L'Huile (BROS fatto).
+- `multi-sede` → `main` sul motore (fast-forward, ~75 commit avanti).
+- Cron di 450 Gradi (5 job `pg_cron`, mai creati).
+- Foto di BROS: rinominare senza spazi e generare le misure in webp.
+
 ## 📌 07/09/2026 — sessione Cowork (notifiche al ristoratore in lingua admin + tempo di preparazione dal tile + jours spéciaux condivisi)
 
 ### 🧩 Home: i layout dentro le tile misuravano la cosa sbagliata

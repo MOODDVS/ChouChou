@@ -23,6 +23,7 @@ import "../../styles/field.css";   // campi condivisi (.md-box input, .fld)
 import "../../styles/button.css";  // bottoni d'azione condivisi (.btn)
 import "../../styles/fab.css";     // pulsante fisso in basso a destra (.fab-add .fab-pill)
 import "../../styles/sede.css";    // multi-sede: pastiglia e selettore (.sede-avatar)
+import "../../styles/tablet.css";  // iPad orizzontale: scala ridotta (vedi il file)
 
 const boot = await caricaBootAdmin();
 // App installata col marchio del cliente: vale solo se l'icona c'e' davvero
@@ -39,8 +40,12 @@ const PLACEHOLDER_CSS =
 // pagina. Mobile: meno padding laterale (più spazio alle card); il padding in
 // basso resta per la bottom-nav.
 const LAYOUT_CSS =
-  "main{flex:1;width:100%;padding:2rem 1.5rem 8rem}" +
-  "@media(max-width:640px){main{padding:1.25rem 1rem 8rem}}";
+  ":root{--h-header:81px}" +
+  "main{--pad-y:2rem;--pad-x:1.5rem;flex:1;width:100%;padding:var(--pad-y) var(--pad-x) 8rem}" +
+  "@media(max-width:640px){main{--pad-y:1.25rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 8rem}}" +
+  // iPad orizzontale al dito: stessa fascia di styles/tablet.css. Il fondo
+  // scende da 8rem a 6rem perche' anche la barra in basso e' piu' bassa.
+  "@media(min-width:1024px) and (max-width:1366px) and (pointer:coarse){:root{--h-header:51px}main{--pad-y:1rem;--pad-x:1rem;padding:var(--pad-y) var(--pad-x) 6rem}}";
 const css = cssTema(boot.theme) + PLACEHOLDER_CSS + LAYOUT_CSS;
 
 const hex = (v: string | undefined): string =>

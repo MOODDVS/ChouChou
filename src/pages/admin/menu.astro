@@ -245,7 +245,7 @@ const varianti = boot.features.includes("variants");
       /* Nelle righe della lista l'etichetta sta SOTTO e minuscola: e' un'altra
          cosa dal `.sw-wrap` condiviso (in riga), percio' ha un nome suo. */
       .i-sw-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; }
-      .i-sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); }
+      .i-sw-lab { font-size: 0.55rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); white-space: nowrap; }
 
       .i-btn {
         width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
@@ -367,7 +367,6 @@ const varianti = boot.features.includes("variants");
       .m-toggle { display: flex; align-items: center; gap: 0.6rem; font-size: 0.9rem; }
       .tl-short { display: none; }
       /* Misura via le variabili del componente, non riscrivendo le regole. */
-      .m-toggle .switch { --sw-w: 44px; --sw-h: 24px; --sw-k: 18px; }
       .m-badges { flex-wrap: wrap; gap: 1.1rem 1.6rem; margin-top: 0.2rem; }
       .m-sublabel { display: block; margin-bottom: 0.4rem; }
       .mn-add-course { margin-top: 0.6rem; }
@@ -1025,7 +1024,7 @@ const varianti = boot.features.includes("variants");
             ${alg}
             ${prezzoHTML(it)}
             <span class="i-switches">
-              <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("nav.menu")}</span></span>
+              <span class="i-sw-wrap"><label class="switch"><input type="checkbox" class="t-av" ${it.available ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.visShort")}</span></span>
               <span class="i-sw-wrap sw-cmd"><label class="switch"><input type="checkbox" class="t-or" ${it.orderable ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.cmdShort")}</span></span>
               <span class="i-sw-wrap"><label class="switch sw-sold"><input type="checkbox" class="t-soldout" ${it.sold_out ? "checked" : ""} /><span class="track"></span></label><span class="i-sw-lab">${tr("menu.soldShort")}</span></span>
             </span>

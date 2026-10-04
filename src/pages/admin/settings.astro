@@ -256,29 +256,35 @@ const t = adminT(lang);
 
       /* --- Tab Notifications --- */
       .section[data-tab="notifications"] { padding: 0; overflow: hidden; }
-      .nf-row { display: flex; align-items: flex-end; gap: 1.4rem; padding: 1.3rem 1.5rem; flex-wrap: wrap; }
+      .nf-row { --h-campo: 2.7rem; display: flex; align-items: flex-end; gap: 1.4rem; padding: 1.3rem 1.5rem; flex-wrap: wrap; }
       .nf-row + .nf-row { border-top: 1px solid var(--c-line); }
       .nf-txt { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; flex: 1 1 260px; margin-bottom: 2px; }
       .nf-txt strong { font-size: 1rem; }
       .nf-txt strong .nf-badge { display: inline-block; background: #2e9e6b; color: #ffffff !important; font-size: 0.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 999px; vertical-align: 2px; margin-left: 0.3rem; }
       .nf-txt span { color: var(--c-muted); font-size: 0.84rem; line-height: 1.55; }
-      .nf-sw { width: 46px; height: 25px; border-radius: 999px; background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; margin-bottom: 8px; }
-      .nf-sw.is-on { border-color: var(--c-accent); }
-      .nf-sw .nf-knob { position: absolute; top: 50%; left: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transform: translateY(-50%); transition: left 0.2s; }
-      .nf-sw.is-on { background: var(--c-accent); }
-      .nf-sw.is-on .nf-knob { left: 22px; }
+      /* ⚠️ Qui c'era un TERZO interruttore disegnato a mano (46x25 con la sua
+         pallina), diverso dal componente e da quello della pagina menu: non
+         seguiva le taglie di `styles/switch.css`, quindi restava grande anche
+         dopo averle ridotte. Ora e' il componente, e qui resta solo DOVE sta
+         nella riga. */
+      .nf-sw { flex: 0 0 auto; margin-bottom: 2px; }
       /* Spento perche' non attivabile: si vede che e' inerte, e sotto c'e' il motivo scritto. */
-      .nf-sw:disabled { opacity: 0.45; cursor: not-allowed; }
+      .nf-sw:has(input:disabled) { opacity: 0.45; cursor: not-allowed; }
       .nf-msg { margin: 0; padding: 0 1.5rem 1.2rem; font-size: 0.85rem; color: var(--c-muted); }
       .nf-msg:empty { display: none; }
       .nf-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
       .nf-f-hour { flex: 0 0 140px; }
       .nf-f-email { flex: 0 0 300px; }
       .nf-field label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
-      .nf-field input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); padding: 0.6rem 0.85rem; font-family: var(--font-body); font-size: 0.95rem; width: 100%; box-sizing: border-box; color-scheme: dark; }
+      /* ⚠️ ALTEZZA UNICA. L'ora e l'email stanno sulla stessa riga, allineate
+         in basso: finche' il campo ora era piu' alto (l'input time si porta
+         dietro l'icona nativa) la sua etichetta finiva piu' in su dell'altra
+         e la riga sembrava sbilenca. Un'altezza dichiarata per tutti e due
+         risolve l'allineamento alla radice, invece di ritoccare margini. */
+      .nf-field input { background: var(--c-input); border: 1px solid var(--c-line); color: var(--c-text); height: var(--h-campo, 2.7rem); padding: 0 0.85rem; font-family: var(--font-body); font-size: 0.95rem; width: 100%; box-sizing: border-box; color-scheme: dark; }
       .nf-field input:focus { outline: none; border-color: var(--c-accent); }
       /* L'ora d'invio (input time) deve avere la stessa altezza degli altri campi notifiche: annulla il min-height 48px del touch (pointer: coarse) che la faceva sfasare */
-      .nf-field input[type="time"] { min-height: 0; padding: 0.6rem 0.85rem; font-size: 0.95rem; }
+      .nf-field input[type="time"] { min-height: 0; padding: 0 0.85rem; font-size: 0.95rem; }
       .nf-f-emails { flex: 0 0 300px; }
       .nf-f-form { flex: 0 0 600px; max-width: 100%; display: flex; flex-direction: column; gap: .8rem; }
       .cf-sender { display: flex; gap: .7rem; }
@@ -291,13 +297,21 @@ const t = adminT(lang);
       @media (max-width: 900px) { .nf-f-form { flex: 1 1 100%; } .cf-sender { flex-wrap: wrap; } .cf-col { flex: 1 1 100%; } }
       .nf-ref { opacity: .65; cursor: default; }
       .section[data-tab="notifications"] .nf-row.nff { align-items: flex-start; }
-      .section[data-tab="notifications"] .nf-row.nff .nf-field { margin-right: calc(46px + 1.4rem); }
-      @media (max-width: 900px) { .nf-f-emails { flex: 1 1 100%; } .section[data-tab="notifications"] .nf-row.nff .nf-field { margin-right: 0; } }
+      /* ⚠️ Qui c'era `margin-right: calc(46px + 1.4rem)` su OGNI riga: lo
+         spazio dell'interruttore, riservato anche dove l'interruttore non
+         c'e', per tenere incolonnati i campi delle due specie di riga. Il
+         prezzo era che NESSUN campo arrivava al bordo del blocco: a destra
+         restava un vuoto che a sinistra non c'era, e la scheda sembrava
+         storta. Adesso i campi finiscono alla stessa distanza dal bordo a
+         cui comincia il titolo — stesso respiro ai due lati — e le righe con
+         interruttore lo tengono
+         semplicemente in fondo alla propria riga. */
+      @media (max-width: 900px) { .nf-f-emails { flex: 1 1 100%; } }
       @media (max-width: 900px) { .nf-f-hour, .nf-f-email { flex: 1 1 100%; } }
       /* Riga "La tua giornata" (ora+email) su tablet/mobile: titolo e toggle in alto sulla stessa riga, ora ed email sotto */
       @media (max-width: 900px) {
         .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-txt { order: 1; }
-        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-sw { order: 2; align-self: flex-start; margin: 2px 0 0; }
+        .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-sw { order: 2; align-self: flex-end; margin: 0 0 calc((var(--h-campo, 2.7rem) - var(--sw-h)) / 2); }
         .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-f-hour { order: 3; max-width: 200px; }
         .section[data-tab="notifications"] .nf-row:has(.nf-f-hour) .nf-f-email { order: 4; }
       }
@@ -583,7 +597,6 @@ const t = adminT(lang);
          su certi temi spento e acceso si somigliavano troppo, e il bordo lo
          faceva sembrare un campo da compilare.
          Qui serve solo dire la misura, che e' piu' piccola del default. */
-      .switch { --sw-w: 44px; --sw-h: 24px; --sw-k: 18px; }
 
       input[type="time"], input[type="number"], input[type="email"], input[type="date"], input[type="text"], input[type="url"] {
         background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text);
@@ -597,6 +610,8 @@ const t = adminT(lang);
         cursor: pointer;
         -webkit-mask: var(--ico-clock) center / contain no-repeat;
         mask: var(--ico-clock) center / contain no-repeat;
+        width: 15px;
+        height: 15px;
         transition: opacity 0.15s;
       }
       input[type="time"]:hover::-webkit-calendar-picker-indicator,
@@ -885,7 +900,12 @@ const t = adminT(lang);
       .tm-group { margin-bottom: 1.6rem; }
       .tm-group:last-child { margin-bottom: 0; }
       .tm-group-title { font-family: var(--font-title); font-size: 1rem; letter-spacing: 0.06em; color: var(--c-accent); margin-bottom: 0.6rem; text-transform: uppercase; }
-      .tm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 0.9rem; }
+      /* ⚠️ Il minimo decide quante colonne entrano: con 340px, su un iPad
+         orizzontale (~1000px utili) ne entravano DUE e la rubrica diventava
+         una colonna di schede larghe mezzo schermo. A 280px ne entrano tre,
+         e resta `auto-fill`: su un monitor largo diventano quattro o cinque
+         da sole, senza una soglia scritta a mano. */
+      .tm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.9rem; }
       .tm-card { background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 12px; padding: 1.25rem 1.4rem; display: flex; flex-direction: column; }
       .tm-card.is-off { opacity: 0.5; }
       .tm-card-head { display: flex; align-items: flex-start; gap: 0.9rem; }
@@ -961,6 +981,16 @@ const t = adminT(lang);
       /* Touch (iPad mini/mobile): input ora dei giorni piu bassi, campi giorni speciali un po' piu alti */
       @media (pointer: coarse) {
         .band input[type="time"] { padding: 0.5rem 0.7rem; min-height: 42px; font-size: 1rem; }
+      }
+      /* ⚠️ iPad ORIZZONTALE: la regola qui sopra vale per OGNI schermo che si
+         tocca, e i suoi 42px erano pensati per un telefono dove tutto il resto
+         e' grande. Con la scala ridotta restavano campi alti il doppio delle
+         righe intorno. Qui tornano in proporzione — e l'icona dell'orologio,
+         che senza misura prende quella nativa, scende con loro. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        .band input[type="time"] { padding: 0.3rem 0.55rem; min-height: 32px; font-size: 0.95rem; }
+        input[type="time"]::-webkit-calendar-picker-indicator,
+        input[type="date"]::-webkit-calendar-picker-indicator { width: 13px; height: 13px; }
       }
 
       @media (max-width: 640px) {
@@ -1044,6 +1074,10 @@ const t = adminT(lang);
               <label for="g-email">{t("set.gen.publicEmail")}</label>
               <input type="text" id="g-fromname" class="g-name-inp" placeholder="Ristorante Bella Napoli" autocomplete="off" aria-label={t("set.gen.fromName")} />
               <input type="email" id="g-email" placeholder="info@restaurant.be" autocomplete="off" readonly data-noauto="1" />
+            </div>
+            <div class="field">
+              <label for="g-greview">{t("loc.reviewUrl")}<span class="lab-hint">{t("set.gen.reviewHint")}</span></label>
+              <input type="url" id="g-greview" placeholder="https://g.page/r/…/review" autocomplete="off" />
             </div>
 
             <h2 class="brand-title">{t("set.gen.brandTitle")}</h2>
@@ -1467,7 +1501,7 @@ const t = adminT(lang);
                 <label for="nf-email">{t("set.nf.receiveEmail")}</label>
                 <input type="email" id="nf-email" placeholder={t("set.nf.emailPh")} autocomplete="off" />
               </div>
-              <button type="button" class="nf-sw" id="nf-daily" aria-label={t("set.nf.dailyAria")}><span class="nf-knob"></span></button>
+              <label class="switch nf-sw"><input type="checkbox" id="nf-daily" aria-label={t("set.nf.dailyAria")} /><span class="track"></span></label>
             </div>
             <div class="nf-row">
               <div class="nf-txt">
@@ -1475,7 +1509,7 @@ const t = adminT(lang);
                 <span>{t("set.nf.pushDesc")}</span>
               </div>
               <button type="button" class="kemail-add" id="nf-push-test" style="display:none">{t("set.nf.test")}</button>
-              <button type="button" class="nf-sw" id="nf-push" aria-label={t("set.nf.pushAria")}><span class="nf-knob"></span></button>
+              <label class="switch nf-sw"><input type="checkbox" id="nf-push" aria-label={t("set.nf.pushAria")} /><span class="track"></span></label>
             </div>
             <p class="nf-msg" id="nf-msg"></p>
           </div>
@@ -1815,6 +1849,7 @@ const t = adminT(lang);
           ["newsletter_from_email", "g-nlfrom"],
           ["whatsapp_number", "g-wa"],
           ["timezone", "g-tz"],
+          ["link_google_review", "g-greview"],
         ];
         const gEls = new Map(G_CAMPI.map(([k, id]) => [k, document.getElementById(id) as HTMLInputElement]));
         gEls.forEach((el) => el.addEventListener("input", dirty));
@@ -3671,7 +3706,7 @@ const t = adminT(lang);
         }
 
         // --- Tab Notifications: toggle email quotidienne (salvataggio immediato) ---
-        const nfSw = document.getElementById("nf-daily") as HTMLButtonElement | null;
+        const nfSw = document.getElementById("nf-daily") as HTMLInputElement | null;
         const nfMsg = document.getElementById("nf-msg") as HTMLParagraphElement | null;
         const nfHour = document.getElementById("nf-hour") as HTMLInputElement | null;
         const nfEmail = document.getElementById("nf-email") as HTMLInputElement | null;
@@ -3681,12 +3716,12 @@ const t = adminT(lang);
         let nfOn = Boolean(nfDati.daily_brief_enabled);
         const nfBadge = document.getElementById("nf-badge") as HTMLSpanElement | null;
         const nfAggiorna = () => {
-          nfSw?.classList.toggle("is-on", nfOn);
+          if (nfSw) nfSw.checked = nfOn;
           if (nfBadge) nfBadge.style.display = nfOn ? "" : "none";
         };
         nfAggiorna();
-        nfSw?.addEventListener("click", async () => {
-          const nuovo = !nfOn;
+        nfSw?.addEventListener("change", async () => {
+          const nuovo = nfSw.checked;
           nfOn = nuovo;
           nfAggiorna();
           if (nfMsg) nfMsg.textContent = "";
@@ -3733,7 +3768,7 @@ const t = adminT(lang);
         });
 
         // --- Tab Notifications: notifiche push su questo dispositivo ---
-        const nfPush = document.getElementById("nf-push") as HTMLButtonElement | null;
+        const nfPush = document.getElementById("nf-push") as HTMLInputElement | null;
         const nfPushTest = document.getElementById("nf-push-test") as HTMLButtonElement | null;
         const VAPID_PUB = (import.meta.env as Record<string, string | undefined>).PUBLIC_VAPID_KEY;
         function b64ToU8(base64: string): Uint8Array {
@@ -3750,7 +3785,7 @@ const t = adminT(lang);
         }
         const nfPushBadge = document.getElementById("nf-push-badge") as HTMLSpanElement | null;
         function nfPushStato(on: boolean) {
-          nfPush?.classList.toggle("is-on", on);
+          if (nfPush) nfPush.checked = on;
           if (nfPushTest) nfPushTest.style.display = on ? "" : "none";
           if (nfPushBadge) nfPushBadge.style.display = on ? "" : "none";
         }
@@ -3776,7 +3811,7 @@ const t = adminT(lang);
             if (nfMsg) nfMsg.textContent = perche;
           } else {
             void nfPushCorrente().then((sub) => nfPushStato(!!sub));
-            nfPush.addEventListener("click", async () => {
+            nfPush.addEventListener("change", async () => {
               if (nfMsg) nfMsg.textContent = "";
               const attuale = await nfPushCorrente();
               if (attuale) {

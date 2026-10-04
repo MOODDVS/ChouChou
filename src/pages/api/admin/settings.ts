@@ -111,6 +111,12 @@ const CHIAVI_GENERAL = [
   "brand_logo_mono",
   "brand_favicon",
   "brand_app_icon",          // PNG 512 quadrato: icona dell'app installata (PWA)
+  // ⚠️ IL LINK «LASCIA UNA RECENSIONE» STA QUI, non in Liens (vedi la nota
+  // sopra). Il 17/09 e' uscito dai link e la nota diceva «adesso e' un campo
+  // di General» — ma non ci era mai stato messo: per un mese l'unico posto
+  // dove si poteva scrivere e' stato Super admin → Sedi, che il ristoratore
+  // non vede. Un cliente a sede unica non aveva piu' NESSUN posto.
+  "link_google_review",
 ];
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -374,6 +380,9 @@ export const PUT: APIRoute = async ({ request }) => {
       }
       if ((k === "newsletter_from_email" || k === "public_email" || k === "contact_from_email" || k === "order_from_email") && v && !RE_EMAIL.test(v)) {
         return json({ error: `Email invalide : ${v}` }, 400);
+      }
+      if (k === "link_google_review" && v && !/^https?:\/\/.+/i.test(v)) {
+        return json({ error: "Lien invalide : il doit commencer par https://" }, 400);
       }
       if (k === "timezone" && v) {
         try {

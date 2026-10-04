@@ -148,6 +148,15 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         padding-bottom: 1.1rem; border-bottom: 1px solid var(--c-line); margin-bottom: 1.3rem;
       }
       .titlebar h1 { margin-bottom: 0; }
+      /* ⚠️ L'ALTEZZA DELLA RIGA DEL TITOLO E' UN NUMERO SOLO, e sta qui.
+         Quando lo spazio si stringe, ricerca e selettore colonne escono dal
+         flusso e vanno messi in linea con questa riga: senza un valore
+         dichiarato si finisce a indovinare la sua meta' (c'era 0.82rem, ma il
+         titolo e' alto quanto la pastiglia «14 clienti», non quanto il testo,
+         e restavano due pixel piu' su). Chi si allinea legge questa variabile
+         e non puo' piu' sbagliare. */
+      .titlebar { --riga-titolo: 2.2rem; }
+      .titlebar h1, .titlebar .t-stats { min-height: var(--riga-titolo); align-items: center; }
       .t-stats { display: flex; gap: 0.45rem; flex-wrap: wrap; }
       .t-pill {
         display: inline-flex; align-items: center; gap: 0.4rem;
@@ -476,8 +485,8 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         main { position: relative; }
         .titlebar { padding-right: 330px; }
         /* Centrata sulla riga del titolo: main ha padding-top 2rem, h1 ~1.3rem */
-        .search { position: absolute; right: calc(1.5rem + 36px + 0.5rem); top: calc(2rem + 0.82rem); transform: translateY(-50%); margin: 0; flex: 0 0 auto; width: 260px; min-width: 0; z-index: 5; }
-        .colpick { position: absolute; right: 1.5rem; top: calc(2rem + 0.82rem); transform: translateY(-50%); z-index: 6; }
+        .search { position: absolute; right: calc(var(--pad-x, 1.5rem) + 36px + 0.5rem); top: calc(var(--pad-y, 2rem) + 1.1rem); transform: translateY(-50%); margin: 0; flex: 0 0 auto; width: 260px; min-width: 0; z-index: 5; }
+        .colpick { position: absolute; right: var(--pad-x, 1.5rem); top: calc(var(--pad-y, 2rem) + 1.1rem); transform: translateY(-50%); z-index: 6; }
         /* Email e DA le spegne colonneForzate() nel JS: la griglia si ricalcola
            da sola, qui restano solo le misure. */
         .thead, .row { gap: 0.55rem; }
@@ -485,6 +494,24 @@ const ssrClientsJson = ssrClients ? JSON.stringify(ssrClients).replace(/</g, "\\
         .c-total { font-size: 1rem; }
         .c-resa, .c-orders { font-size: 1rem; }
       }
+      /* iPad orizzontale al dito (stessa fascia di styles/tablet.css).
+         ⚠️ La regola qui sopra ancora ricerca e selettore colonne al `main`,
+         con `top: calc(2rem + 0.82rem)` — cioe' RIPETE il padding del main,
+         che pero' e' scritto in AdminHead. In questa fascia quel padding e'
+         1rem: i due elementi scivolavano sotto la riga del titolo, e il
+         bottone (36px) era anche piu' alto del campo (~26px).
+         Qui l'ancora diventa la riga del titolo stessa: niente piu' numeri da
+         tenere d'accordo con un altro file, e le due altezze sono una sola. */
+      @media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+        /* ⚠️ Niente `top` qui: ci pensa gia' la regola sopra, che ora legge
+           `--pad-y` dal main invece di ripeterne il numero. Un tentativo di
+           ancorarli alla titlebar e' finito a meta' pagina: `.search` e
+           `.colpick` stanno in `.actionsbar`, NON dentro la titlebar, quindi
+           la loro ancora resta il main. */
+        .search { right: calc(var(--pad-x, 1rem) + 34px + 0.5rem); width: 240px; height: 34px; padding-top: 0; padding-bottom: 0; }
+        .cp-btn { width: 34px; height: 34px; }
+      }
+
       /* Tablet in VERTICALE (es. iPad mini 768): nome e totale piu piccoli,
          cosi i bottoni edit/cancella rientrano meglio. */
       @media (min-width: 721px) and (max-width: 900px) {

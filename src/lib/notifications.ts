@@ -979,11 +979,11 @@ export async function emailLienPaiement(o: OrdineNotifica & { pay_url: string; c
 
 /** Etichette del ticket ordine (al ristoratore) nella lingua dell'admin. */
 const K_TXT = {
-  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", toCollect: "À encaisser", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}` },
-  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", toCollect: "To collect", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}` },
-  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", toCollect: "Da incassare", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}` },
-  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", toCollect: "Te innen", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}` },
-  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", toCollect: "Por cobrar", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}` },
+  fr: { newOrder: "Nouvelle commande", pickupAt: "Retrait à", paid: "Payé", toCollect: "À encaisser", callClient: "Appeler le client", note: "Note client", total: "TOTAL", client: "Client", phone: "Téléphone", email: "Email", order: "Commande", payment: "Paiement", subject: (num: string, ora: string) => `Nouvelle commande #${num} — retrait ${ora}`, cancelled: "Commande annulée", cancelledBy: "Annulée par le client", subjAnnul: (num: string, ora: string) => `❌ Commande #${num} ANNULÉE par le client — retrait ${ora}` },
+  en: { newOrder: "New order", pickupAt: "Pickup at", paid: "Paid", toCollect: "To collect", callClient: "Call the customer", note: "Customer note", total: "TOTAL", client: "Customer", phone: "Phone", email: "Email", order: "Order", payment: "Payment", subject: (num: string, ora: string) => `New order #${num} — pickup ${ora}`, cancelled: "Order cancelled", cancelledBy: "Cancelled by the customer", subjAnnul: (num: string, ora: string) => `❌ Order #${num} CANCELLED by the customer — pickup ${ora}` },
+  it: { newOrder: "Nuovo ordine", pickupAt: "Ritiro alle", paid: "Pagato", toCollect: "Da incassare", callClient: "Chiama il cliente", note: "Nota cliente", total: "TOTALE", client: "Cliente", phone: "Telefono", email: "Email", order: "Ordine", payment: "Pagamento", subject: (num: string, ora: string) => `Nuovo ordine #${num} — ritiro ${ora}`, cancelled: "Ordine annullato", cancelledBy: "Annullato dal cliente", subjAnnul: (num: string, ora: string) => `❌ Ordine #${num} ANNULLATO dal cliente — ritiro ${ora}` },
+  nl: { newOrder: "Nieuwe bestelling", pickupAt: "Afhalen om", paid: "Betaald", toCollect: "Te innen", callClient: "Bel de klant", note: "Opmerking klant", total: "TOTAAL", client: "Klant", phone: "Telefoon", email: "Email", order: "Bestelling", payment: "Betaling", subject: (num: string, ora: string) => `Nieuwe bestelling #${num} — afhalen ${ora}`, cancelled: "Bestelling geannuleerd", cancelledBy: "Geannuleerd door de klant", subjAnnul: (num: string, ora: string) => `❌ Bestelling #${num} GEANNULEERD door de klant — afhalen ${ora}` },
+  es: { newOrder: "Nuevo pedido", pickupAt: "Recogida a las", paid: "Pagado", toCollect: "Por cobrar", callClient: "Llamar al cliente", note: "Nota cliente", total: "TOTAL", client: "Cliente", phone: "Teléfono", email: "Email", order: "Pedido", payment: "Pago", subject: (num: string, ora: string) => `Nuevo pedido #${num} — recogida ${ora}`, cancelled: "Pedido anulado", cancelledBy: "Anulado por el cliente", subjAnnul: (num: string, ora: string) => `❌ Pedido #${num} ANULADO por el cliente — recogida ${ora}` },
 } as const;
 
 /** Email di notifica alla cucina / ordine (al ristoratore, lingua admin). */
@@ -1071,6 +1071,95 @@ async function emailCucina(o: OrdineNotifica): Promise<void> {
   } catch (e) {
     console.error("Errore email cucina:", e);
   }
+}
+
+/**
+ * IL CLIENTE HA ANNULLATO: avviso alla cucina.
+ *
+ * ⚠️ IL PIATTO ERA GIA' STATO ANNUNCIATO. L'email del nuovo ordine e' partita,
+ * la comanda e' appesa, e il cuoco non ha nessun altro modo di sapere che
+ * quell'ordine non esiste piu': l'annullo dal link del cliente cambiava solo
+ * una riga nel database. Il guasto si scopriva quando nessuno veniva a
+ * ritirare — cibo buttato, e la colpa che sembra del cliente.
+ *
+ * Volutamente SPOGLIA rispetto all'email del nuovo ordine: niente pastiglia
+ * del pagamento, niente bottone «chiama», niente totale in grande. Serve a
+ * fermare una preparazione, e deve dire in un colpo d'occhio quale numero e
+ * quale ora di ritiro cancellare dalla lista.
+ */
+async function emailAnnulloCucina(o: OrdineNotifica): Promise<void> {
+  // La sede viene DAL FATTO, come per l'email del nuovo ordine.
+  const ambito = ambitoDiRiga(o.location_id);
+  const fuso = await fusoDi(ambito);
+
+  const dest = await kitchenEmail(ambito);
+  const from = await ordineFromEmail(ambito);
+  if (!resend || !from || !dest) {
+    console.warn("Resend/email ordini non configurati: salto avviso annullo cucina");
+    return;
+  }
+  const { piatti } = separaItems(o);
+  const ora = oraRitiro(o.pickup_time, fuso);
+  const tema = await temaEmail();
+  const k = K_TXT[await adminLang()] ?? K_TXT.fr;
+  const righeHtml = righeOrdineHtml(piatti, tema, SKIN_CUCINA);
+
+  // Rosso, non il colore del marchio: questa e' l'unica email che chiede di
+  // FERMARE qualcosa, e deve distinguersi a colpo d'occhio nella casella.
+  const ROSSO = "#c0392b";
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="em-card" style="max-width:600px;margin:0 auto;background:${tema.card};border:1px solid ${tema.border};border-radius:14px;overflow:hidden;">
+      <tr><td style="height:4px;background:${ROSSO};font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="em-pad" style="padding:22px 32px 4px;">
+          <table role="presentation" width="100%"><tr>
+            <td style="vertical-align:middle;"><span style="color:${ROSSO};font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">${k.cancelled}</span> <span style="color:${tema.muted};font-size:13px;">#${esc(o.numero)}</span></td>
+            <td style="text-align:right;vertical-align:middle;"><span style="display:inline-block;background:${ROSSO};color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;padding:7px 16px;border-radius:999px;">${k.cancelledBy}</span></td>
+          </tr></table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:16px 32px 22px;text-align:center;border-bottom:1px solid ${tema.border};">
+          <p style="margin:0;color:${tema.muted};font-size:13px;letter-spacing:2px;text-transform:uppercase;">${k.pickupAt}</p>
+          <p class="em-big" style="margin:6px 0 0;color:${ROSSO};font-size:52px;font-weight:bold;line-height:1;text-decoration:line-through;">${ora}</p>
+          <p style="margin:18px 0 4px;color:${tema.title};font-size:20px;font-weight:bold;">${esc(o.customer_name)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:22px 32px 6px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${righeHtml}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td class="em-pad" style="padding:16px 32px 26px;">
+          <table role="presentation" width="100%"><tr>
+            <td style="color:${tema.title};font-size:22px;font-weight:bold;">${k.total}</td>
+            <td style="color:${tema.muted};font-size:22px;font-weight:bold;text-align:right;text-decoration:line-through;">${euro(o.total_cents)}</td>
+          </tr></table>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  try {
+    await resend.emails.send({
+      from,
+      to: dest.split(",").map((e) => e.trim()).filter(Boolean),
+      bcc: BCC,
+      subject: k.subjAnnul(o.numero, ora),
+      html: avvolgiTema(html, tema),
+    });
+  } catch (e) {
+    console.error("Errore email annullo cucina:", e);
+  }
+}
+
+/** Il cliente ha annullato dal suo link: avvisa la cucina. Non blocca mai. */
+export async function inviaAnnulloCucina(o: OrdineNotifica): Promise<void> {
+  await emailAnnulloCucina(o);
 }
 
 /** Notifica Slack alla cucina, messaggio strutturato con tutti i dettagli. */

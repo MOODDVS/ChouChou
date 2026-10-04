@@ -1587,3 +1587,153 @@ Nello stesso giro i tredici rifiuti di `verificaCreneau` hanno smesso di
 chiamarsi tutti `creneauPris`: ognuno torna il suo motivo, l'API lo mette
 accanto all'errore e il widget lo scrive in console. Il cliente continua a
 leggere una frase sola.
+
+## Sedici pixel, su un dito (02/10/2026)
+
+Safari su iPhone **ingrandisce la pagina da solo** quando si tocca un campo il
+cui testo e' piu' piccolo di 16px. I campi del widget prenotazioni erano a
+`0.88rem`, cioe' 14px: toccando «Nom» la pagina saltava avanti, il modulo
+diventava piu' largo dello schermo, e si finiva a compilare telefono ed email
+trascinando la pagina di lato. Sul modulo che porta le prenotazioni.
+
+Non e' un'impostazione che si puo' spegnere lato pagina. ⚠️ **La scorciatoia
+che si trova ovunque — `maximum-scale=1` o `user-scalable=no` nel viewport — e'
+peggio del difetto**: toglie l'ingrandimento a chiunque, compreso chi ne ha
+bisogno per leggere. Si baratta un'accessibilita' vera per un fastidio di
+stile, e nessuno se ne accorge finche' non e' un cliente con la vista stanca a
+provarci.
+
+La cura e' non scendere sotto i 16px dove si tocca:
+
+    @media (pointer: coarse) { .rw-in, .rw-datein { font-size: 16px; } }
+
+`pointer: coarse` prende i dispositivi a tocco e lascia il desktop com'era —
+ed e' la stessa condizione che il widget usa gia' per ingrandire le celle del
+calendario. `tests/pubblico.test.mjs` pretende i 16px e vieta le due
+scorciatoie sul viewport.
+
+## Il codice impara un valore, il database no (02/10/2026)
+
+Dal 29/09 un locale puo' spegnere il pagamento con carta e far pagare al
+ritiro. Il checkout salva allora `payment_method = 'onsite'`. La colonna pero'
+nasce dalla #49 con
+
+    check (payment_method in ('cash', 'card', 'link'))
+
+e PostgreSQL rifiuta la riga. Su BROS il cliente riempiva il carrello, premeva
+«Ordina» e leggeva «Impossibile creare l'ordine»: **nessuna riga nel database,
+niente in cucina, niente nei log**. Il codice era giusto, la migrazione non
+c'era.
+
+⚠️ **E' ESATTAMENTE la #74, due settimane dopo.** Li' era `reservations.source`
+allargato a `instagram` e `qr`, con gia' scritto a chiare lettere: «finche' non
+si lancia, l'insert fallisce — prenotazione persa, non statistica sbagliata».
+La lezione era in casa, e non e' bastata, perche' la rete che la difendeva
+(`tests/sorgente.test.mjs`) guardava **una colonna sola**.
+
+**Una nota in un file non protegge niente: protegge un test.** Da oggi
+`tests/ordini.test.mjs` fa per `payment_method` quello che `sorgente` fa per
+`source` — legge i valori che il codice scrive, li confronta con l'elenco del
+`check`, e diventa rosso prima del rilascio invece che in produzione. Controlla
+anche che il vincolo letto sia **l'ultimo** di `TUTTO.sql`: una migrazione piu'
+recente che restringa la colonna renderebbe la prova cieca.
+
+⚠️ **Il guasto era anche muto.** `checkout.ts` rispondeva 500 senza scrivere
+cosa avesse detto il database. Ora l'errore dell'insert finisce in
+`console.error`: il messaggio al cliente resta generico — non deve leggere i
+nomi delle colonne — ma il motivo vero deve esistere da qualche parte, o il
+prossimo guasto si cerca di nuovo a tentoni.
+
+**La domanda da farsi:** ogni volta che il codice impara a scrivere un valore
+nuovo in una colonna con un `check`, la migrazione va nello stesso commit.
+Sono due file che si guardano, e se ne rilascia uno solo il guasto non si vede
+in sviluppo — si vede al primo cliente che prova.
+
+### Un test cerca nel codice, non nei commenti (02–03/10/2026)
+
+Tre volte in due giorni, con tre reti diverse:
+
+- gli interruttori: la prova elencava i selettori `label` con una misura, e
+  trovava il commento che spiega quali non vanno bene;
+- il viewport: la prova vietava `maximum-scale=1`, e accusava la nota che
+  spiega perche' quella scorciatoia non si prende;
+- `payment_method`: la prova leggeva il `check` dalla migrazione, e prendeva
+  quello VECCHIO, citato nella nota in testa al file per raccontare il guasto.
+
+⚠️ **Non e' una svista, e' un meccanismo.** Un commento che spiega bene un
+difetto contiene, per forza, la cosa sbagliata scritta per esteso — ed e'
+esattamente la stringa che la rete sta cercando. Piu' la spiegazione e' utile,
+piu' e' probabile che faccia fallire la prova.
+
+La regola: **prima di cercare, togliere i commenti** (`--` in SQL, `/* */` nei
+fogli di stile), oppure cercare dove la cosa fa danno — il tag `<meta>`, la
+regola CSS, l'istruzione `alter table` — e non nel testo del file.
+
+Un test che litiga con la propria spiegazione finisce disattivato, non letto.
+
+## Una MISURA, un posto solo (03/10/2026)
+
+La sezione «Una cosa sola, in un posto solo» parla di logica duplicata. Questa
+è la stessa malattia sulle **misure**, ed è costata cinque correzioni in una
+sola sessione — sempre lo stesso difetto, ogni volta con una faccia diversa:
+
+| Il numero | Dove viveva | Dove era ricopiato | Cosa si è visto |
+|---|---|---|---|
+| padding del `main` | `AdminHead` | `clients.astro` (`top: calc(2rem + …)`) | ricerca e selettore colonne scivolati sotto il titolo |
+| altezza dell'header | da nessuna parte | `google.astro` (`top: 96px`, `48px + 2rem`) | scheda incollata troppo in basso |
+| altezza della riga del titolo | da nessuna parte | `clients.astro` (`0.82rem`, metà del **testo**) | campo due pixel più su del titolo |
+| `bottom` della barra | `AdminNav` | `fab.css`, `reservations.astro` | «+ Ordine» disallineato dall'isola |
+| taglie dell'interruttore | `switch.css` | google 38, menu 44, impostazioni 44, super 34 | rimpicciolito il componente, non cambiava niente |
+
+**La regola.** Un numero che due regole devono conoscere non si scrive due
+volte: si **dichiara una volta** come variabile CSS e si **cita**. Oggi
+esistono `--pad-y`/`--pad-x` (padding del main), `--h-header`, `--riga-titolo`,
+`--h-campo`, e le taglie in `switch.css`.
+
+⚠️ **Il segnale è sempre lo stesso**: un `calc()` che *ricostruisce* una misura
+che vive altrove — `calc(2rem + 0.82rem)`, `calc(48px + 2rem + 1rem)` — oppure
+una pagina che ridichiara `--sw-w`. Non è «un piccolo ritocco locale»: è una
+copia che si scollerà alla prima modifica dell'originale, e si scollerà in
+silenzio, perché nessun test vede due pixel.
+
+**Quando la misura non è dichiarabile** (l'altezza reale di un elemento che
+dipende dal contenuto), non si stima: o si dichiara l'altezza (`min-height` su
+una variabile, come `--riga-titolo`), oppure la si **misura in JS** — è quello
+che fa già `AdminNav` per decidere se sollevare i FAB, ed è il motivo per cui
+una regola CSS fissa che sollevava il bottone era sbagliata: vinceva su una
+misura vera.
+
+**Un test può presidiarlo.** `tests/tablet.test.mjs` pretende che barra e
+bottoni flottanti abbiano lo stesso `bottom` (senza fissare quale);
+`tests/impostazioni.test.mjs` vieta di scrivere `--sw-*` a numero fuori da
+`switch.css`. Due righe di prova che chiudono una classe intera di difetti.
+
+## Tablet in orizzontale — la scala al dito (03/10/2026)
+
+Un iPad orizzontale è largo 1024–1366 CSS, cioè **quanto un laptop**, e per la
+scala del motore è un desktop (il confine è 1023/1024). Ma lo si guarda da più
+lontano e lo si tocca col dito: header, pillole e barra, pensati per un
+monitor, mangiavano mezzo schermo.
+
+`src/styles/tablet.css` (importato da `AdminHead`) abbassa il **piede di
+misura** a 13px in quella fascia. Le pagine admin sono per circa il 60% in
+`rem`, quindi testi, spazi, bottoni e pillole scendono **tutti insieme** senza
+toccare mille regole.
+
+⚠️ **`pointer: coarse` non è un dettaglio**: senza, la regola prenderebbe anche
+i portatili da 1280, che sono tanti. Si attiva solo su uno schermo che si tocca
+col dito — e per vederla sul Mac serve il DevTools in modalità dispositivo
+(iPad): è l'emulazione del **tocco** che l'accende, non la larghezza.
+
+⚠️ **Il `rem` non tocca i px.** Tutto ciò che è scritto in pixel — logo,
+bottoni quadrati, icone, altezze minime dei campi, `left` dei FAB — resta
+grande in mezzo a tutto il resto rimpicciolito, e va ritoccato **con la stessa
+media query**, dentro il componente che lo possiede. È anche il motivo per cui
+due bottoni tondi messi a `1.5rem` e `5.6rem` si sono avvicinati fino a
+toccarsi: `left` è sceso, la larghezza no. La distanza fra due elementi si
+calcola dal pezzo che li separa (`calc(primo + larghezza + spazio)`), non si
+indovina.
+
+⚠️ **Attenzione alle regole `@media (pointer: coarse)` senza larghezza**: ce
+n'erano di pensate per il telefono (campi ora a 42px, perché lì tutto il resto
+è grande) che su iPad orizzontale restavano alte il doppio delle righe intorno.

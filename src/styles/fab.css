@@ -65,6 +65,24 @@
   .fab-pill .fab-plus { font-size: 1.05rem; }
 }
 /* Mobile: label e bottone ancora più piccoli. */
+/* iPad orizzontale al dito (stessa fascia di styles/tablet.css).
+   Il bottone sta ACCANTO all'isola dei link, quindi deve posarsi sulla stessa
+   linea e avere la stessa altezza: `bottom` e' lo stesso valore che AdminNav
+   da' a `.admin-nav` in questa fascia, e 46px e' l'altezza che l'isola
+   raggiunge li' (icona 16 + etichetta 8.5 + i suoi due padding). Se si tocca
+   uno dei due numeri nella nav, questo lo segue.
+   ⚠️ Questo e' il posto A RIPOSO, non un sollevamento: sopra i 1024px e' il
+   JS di AdminNav a decidere se alzare il bottone, misurando se si sovrappone
+   davvero all'isola, e quando lo spazio c'e' azzera il suo stile inline e
+   lascia parlare questo foglio. Un `bottom` di sollevamento scritto qui
+   vincerebbe su quella misura e lo terrebbe per aria anche quando non serve
+   — successo il 03/10, sembrava «rimasto in alto». */
+@media (min-width: 1024px) and (max-width: 1366px) and (pointer: coarse) {
+  .fab-add { bottom: 0.9rem; }
+  .fab-pill { font-size: 0.88rem; height: 46px; padding: 0 1rem; }
+  .fab-pill .fab-plus { font-size: 1rem; }
+}
+
 @media (max-width: 640px) {
   .fab-pill { font-size: 0.82rem; height: 38px; padding: 0 0.85rem; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
   .fab-pill .fab-plus { font-size: 0.95rem; margin-right: 0.3rem; }
