@@ -3,7 +3,17 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `bb0cef4` (03/10/2026).
+**Motore — riferimento attuale:** `main` (04/10/2026).
+
+> ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
+> ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
+> sopra — ed e' stato riportato su `main` il 04/10. Per un periodo la ricetta scritta
+> qui diceva `engine/main` mentre i merge veri si facevano da `multi-sede`: due verita'
+> diverse nello stesso documento, che e' il modo piu' rapido di aggiornare un cliente
+> dal ramo sbagliato senza accorgersene. Adesso ce n'e' una sola.
+
+> **La versione PRE multi-sede** resta raggiungibile per sempre dal tag
+> **`single-location`** (`cf58d40`, 13/09/2026): `git checkout single-location`.
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
