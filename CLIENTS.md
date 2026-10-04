@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `multi-sede` HEAD `9440083` (03/10/2026).
+**Motore — riferimento attuale:** `multi-sede` HEAD `bb0cef4` (03/10/2026).
 
 ## Legenda stato
 - 🟢 **Allineato** — a pari col motore (HEAD attuale), migrazioni applicate.
@@ -15,18 +15,31 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟡 Parziale | Hostinger | 450gradi.be | en | merge 02/10/2026 | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. ⚠️ i 5 cron `pg_cron` non sono mai stati creati |
-| **La Molisana** | 🟡 Parziale | Hostinger (EU) | lamolisana.be (live) | fr/en | merge 02/10/2026 | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
-| **Comptoir ChouChou** | 🟡 Parziale | Hostinger | comptoirchouchou.be (live) | fr/en | merge 02/10/2026 | |
-| **L'huile sur le feu** | 🟡 Parziale | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | merge 02/10/2026 | |
-| **Educazione Napoletana** | 🟡 Parziale | Hostinger | educazionenapoletana.be | fr/en/it | merge 02/10/2026 | fix prenotazioni **deployato** (il venerdì funziona in produzione) |
-| **BROS** | 🟡 Parziale | Hostinger (da fare) | brospizza.be (da pubblicare) | fr/en/it | merge `0ff5089` — 03/10/2026 | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `bb0cef4` — 03/10/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ deploy Hostinger da fare |
+| **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
+| **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
+| **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | pagina di annullo anche in italiano |
+| **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
-🟡 **Perché parziali**: i cinque sono fermi al merge del 02/10 (fix
-prenotazioni) e manca loro il blocco del 03/10 — vincolo `onsite`, lingua del
-link di annullo, avviso in cucina sull'annullo del cliente. Verificato file per
-file, non a memoria. **BROS** quel blocco ce l'ha, ma è stato mergiato prima
-della sera: gli manca solo l'ultimo commit, la scala per iPad orizzontale.
+✅ **Tutti e sei allineati e deployati** (04/10/2026).
+
+## ⚠️ Il giro del 04/10: 4 clienti su 6 rotti dall'AUTO-MERGE
+
+Nessun conflitto segnalato, in nessun caso. Git ha fuso due versioni entrambe
+valide e il difetto è nato dal loro incontro — che è precisamente ciò che un
+auto-merge non può vedere. **Uno l'ha preso un test, gli altri tre sono emersi
+guardando i file a mano.** I due punti da controllare a ogni merge:
+
+| File | Cosa succede | Visto su |
+|---|---|---|
+| `src/components/ReservationWidget.astro` | Il cliente ha già un blocco `@media (pointer: coarse)` (il suo datepicker). Il motore ne aggiunge un altro per i 16px dei campi. Git vede due blocchi che **cominciano uguale** e ne tiene uno solo: **i 16px spariscono** e su iPhone toccare un campo ingrandisce la pagina. | ChouChou, L'Huile |
+| `src/pages/order/cancel.astro` | La pagina del cliente ha i testi in 2 lingue e fa `lang = j.lang` secco. Dal 03/10 l'API risponde la lingua **vera** dell'ordine (fr/en/it/nl/es): `T["it"]` = `undefined` e **la pagina muore**. | 450 Gradi, Educazione Napoletana |
+
+**Come si risolve bene**: se la lingua è una di quelle del sito, si **aggiunge
+davvero** a `T` (fatto su EN e L'Huile); se no, si ripiega — e il ripiego si
+scrive `if (Object.hasOwn(T, j.lang))`, che non va aggiornato quando il sito
+aggiunge una lingua.
 
 Tutti e sei sono in **Fase A**: il motore multi-sede gira, `locations` è vuota
 su cinque e il comportamento è quello di sempre. Solo 450 Gradi è in Fase B.
@@ -191,13 +204,21 @@ Tutti e 4 i clienti allineati nella stessa sessione. Cosa porta: notifiche al ri
 
 ---
 
-## ⚠️ Migrazioni — una pendente (03/10/2026)
-**#75 `orders_onsite_payment.sql` — da lanciare su tutti e sei.** Allarga il
-`check` di `orders.payment_method` a `'onsite'`. Finché non è lanciata, un
-ordine con pagamento al ritiro **non nasce**: il cliente riempie il carrello,
-preme «Ordina» e legge «Impossibile creare l'ordine». Nessuna riga, nessun
-avviso in cucina, nessun errore nei log. Idempotente, si può rilanciare.
-ℹ️ Urgente solo dove il pagamento al ritiro è accesso — oggi **BROS**.
+## ⚠️ Migrazioni — #75 lanciata solo su BROS (04/10/2026)
+**#75 `orders_onsite_payment.sql`** allarga il `check` di
+`orders.payment_method` a `'onsite'`. Lanciata su **BROS**, l'unico che incassa
+al ritiro. Sugli altri cinque **non è stata lanciata**: accettano pagamenti
+online, quindi oggi non serve.
+
+⚠️ **È una mina a tempo, non una scelta chiusa.** «Paga al ritiro» si accende
+dall'admin (Impostazioni → Ordini): il giorno in cui uno dei cinque la attiva,
+senza questa migrazione i suoi ordini **smettono di nascere** — carrello pieno,
+«Impossibile creare l'ordine», nessuna riga, nessun avviso in cucina, nessun
+errore nei log. Nessuno collegherà il guasto a un interruttore acceso settimane
+prima.
+
+La migrazione **allarga** soltanto i valori ammessi: su chi non usa il ritiro
+non cambia nulla, ed è idempotente. Lanciarla ovunque toglie la mina.
 
 ---
 
