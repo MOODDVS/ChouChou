@@ -113,6 +113,9 @@ const DIZIONARIO: Dizionario = {
   "ord.changesTitle": { fr: "Modifications", en: "Changes", it: "Modifiche", nl: "Wijzigingen", es: "Cambios" },
   "ord.chTime":       { fr: "Retrait", en: "Pickup", it: "Ritiro", nl: "Afhalen", es: "Recogida" },
   "ord.chTotal":      { fr: "Total", en: "Total", it: "Totale", nl: "Totaal", es: "Total" },
+  "ord.chCustomer":   { fr: "Client", en: "Customer", it: "Cliente", nl: "Klant", es: "Cliente" },
+  "ord.renderErr":    { fr: "Affichage impossible — rechargez la page.", en: "Can’t display the orders — reload the page.", it: "Impossibile mostrare gli ordini — ricarica la pagina.", nl: "Kan de bestellingen niet tonen — herlaad de pagina.", es: "No se pueden mostrar los pedidos — recarga la página." },
+  "ord.chEdited":     { fr: "modifié", en: "edited", it: "modificato", nl: "gewijzigd", es: "modificado" },
   "ord.noChanges":    { fr: "Aucune modification", en: "No changes", it: "Nessuna modifica", nl: "Geen wijzigingen", es: "Sin cambios" },
 
   // ===== Cestino prenotazione: modale annulla/elimina =====
@@ -2358,6 +2361,8 @@ const DIZIONARIO: Dizionario = {
   "err.sortRequired":          { fr: "Ordre requis", en: "Sort order required", it: "Ordinamento obbligatorio", nl: "Volgorde verplicht", es: "Orden obligatorio" },
   "err.staffEmail":            { fr: "Email du compte staff introuvable", en: "Staff account email not found", it: "Email dell'account staff non trovata", nl: "E-mailadres van het staff-account niet gevonden", es: "No se ha encontrado el email de la cuenta de staff" },
   "err.status":                { fr: "Statut invalide", en: "Invalid status", it: "Stato non valido", nl: "Ongeldige status", es: "Estado no válido" },
+  "err.payMethod":             { fr: "Mode de paiement invalide", en: "Invalid payment method", it: "Metodo di pagamento non valido", nl: "Ongeldige betaalwijze", es: "Método de pago no válido" },
+  "err.payMethodLocked":       { fr: "Commande encaissée en ligne : le mode de paiement ne change plus.", en: "Order collected online: the payment method can no longer change.", it: "Ordine incassato online: il metodo di pagamento non cambia più.", nl: "Bestelling online geïnd: de betaalwijze kan niet meer wijzigen.", es: "Pedido cobrado en línea: el método de pago ya no cambia." },
   "err.stripe":                { fr: "Erreur Stripe", en: "Stripe error", it: "Errore Stripe", nl: "Stripe-fout", es: "Error de Stripe" },
   "err.stripeCreate":          { fr: "Erreur Stripe : paiement impossible à créer", en: "Stripe error: could not create the payment", it: "Errore Stripe: impossibile creare il pagamento", nl: "Stripe-fout: betaling kon niet worden aangemaakt", es: "Error de Stripe: no se ha podido crear el pago" },
   "err.stripeDown":            { fr: "Stripe indisponible", en: "Stripe unavailable", it: "Stripe non disponibile", nl: "Stripe niet beschikbaar", es: "Stripe no disponible" },

@@ -14,7 +14,7 @@ import { readFileSync } from "node:fs";
 // ⚠️ Si importa `ordiniRegole`, NON `ordiniOpzioni`: il secondo arriva a
 // `db.ts`, che in vitest lancia all'import — e un file di prova che non parte
 // viene contato come «0 test», cioe' verde. Vedi ENGINE.md.
-import { acceso, RIPIEGO_ORDINI, CHIAVI_ORDINI } from "../src/lib/ordiniRegole.ts";
+import { acceso, RIPIEGO_ORDINI, CHIAVI_ORDINI, inCassa, metodoCambiabile, METODI_CASSA_SCELTA } from "../src/lib/ordiniRegole.ts";
 import { SONO_IL_MOTORE } from "./ambiente.mjs";
 
 const leggi = (f) => readFileSync(f, "utf8");
@@ -315,4 +315,194 @@ test("l'aura del ritardo non puo' essere ritagliata dalla sagoma della card", ()
     "mask e filter sono di nuovo sullo stesso elemento: il ritaglio cancella l'aura del ritardo, e il difetto si vede solo quando un ordine e' in ritardo",
   );
   assert.match(pag, /\.card::before \{[\s\S]*?mask:/, "lo sfondo dentellato non e' piu' su ::before: la sagoma dello scontrino sparisce");
+});
+
+test("il recap delle modifiche confronta le stesse chiavi dei due lati", () => {
+  // ⚠️ IL GUASTO (04/10/2026): si apriva un ordine in modifica, non si toccava
+  // niente, e il riquadro MODIFICHE annunciava «− 1× Bruschette / + 1×
+  // Bruschette — test2». Il recap legge il carrello con `ncNome`, che scrive
+  // «piatto — formato»; la fotografia dell'ordine prendeva il solo nome del
+  // piatto. Su ogni ordine con una variante i due lati non si incontravano, e
+  // il ristoratore leggeva una modifica che non aveva mai fatto — cioe' la
+  // cosa peggiore che possa fare un riquadro di controllo.
+  // La fotografia si costruisce dal CARRELLO, con la stessa funzione.
+  const pag = leggi("src/pages/admin/orders.astro");
+  const blocco = pag.match(/const origItems = new Map<string, number>\(\);([\s\S]*?)\n\s*ncOrig = \{/);
+  assert.ok(blocco, "la fotografia dell'ordine (origItems) non e' piu' riconoscibile");
+  assert.match(blocco[1], /for \(const r of ncCart\.values\(\)\) origItems\.set\(ncNome\(r\)/,
+    "origItems non si costruisce piu' dal carrello con ncNome: il recap confrontera' chiavi diverse e annuncera' modifiche mai fatte");
+  assert.match(pag, /for \(const r of ncCart\.values\(\)\) cur\.set\(ncNome\(r\)/,
+    "il recap non legge piu' il carrello con ncNome: l'altro lato del confronto e' cambiato");
+});
+
+test("in modifica il bottone Salva si accende solo se qualcosa e' cambiato", () => {
+  // ⚠️ IL GUASTO (04/10/2026): aprendo un ordine in modifica, «Salva modifiche»
+  // era gia' li', acceso, su un ordine intatto. Premerlo riscriveva l'ordine e
+  // faceva ripartire l'email al cliente per niente. Un bottone acceso e' un
+  // invito: se non c'e' niente da salvare, non deve esserci.
+  // Chi decide e' uno solo — `aggiornaSalva` — e la domanda "e' cambiato?" ha
+  // una risposta sola — `ncCambiato` — altrimenti il riquadro MODIFICHE e il
+  // bottone finiscono per dire due cose diverse.
+  const pag = leggi("src/pages/admin/orders.astro");
+  assert.match(pag, /function aggiornaSalva\(\)/, "aggiornaSalva non c'e' piu': nessuno decide se il bottone va mostrato");
+  assert.match(pag, /function ncCambiato\(\)/, "ncCambiato non c'e' piu'");
+  assert.match(pag, /const mostra = ncEditId \? ncCambiato\(\)/,
+    "in modifica il bottone non dipende piu' da ncCambiato: torna acceso su un ordine intatto");
+  assert.match(pag, /if \(!ncCambiato\(\)\) \{/,
+    "il riquadro MODIFICHE non usa piu' ncCambiato: puo' dire «nessuna modifica» sotto un bottone acceso");
+  // Il cliente fa parte dell'ordine: cambiare solo l'email e' una modifica, e
+  // senza questa firma il bottone resterebbe spento e il dato non si salverebbe.
+  assert.match(pag, /ncOrig\.cliente !== ncFirmaCliente\(\)/,
+    "le modifiche ai dati del cliente non contano piu': si cambia l'email e non si puo' salvare");
+  // Nessuno accende il bottone alle spalle di aggiornaSalva.
+  const accensioni = pag.match(/nc-send[\s\S]{0,200}?style\.display\s*=\s*"(?:inline-)?block"/g) ?? [];
+  assert.equal(accensioni.length, 0,
+    "qualcuno accende di nuovo #nc-send a mano invece di passare da aggiornaSalva");
+});
+
+test("i soldi presi al banco non sono soldi di Stripe", () => {
+  // ⚠️ IL GUASTO (04/10/2026): «pagato» non dice dove sono i soldi. Un ordine
+  // preso dal sito e pagato al ritiro resta marcato `onsite` anche dopo
+  // l'incasso, e `onsite` non era nella lista dei pagamenti in cassa. Risultato:
+  // il motore lo trattava come incassato online. Chi modificava quell'ordine al
+  // rialzo mandava al cliente un link Stripe per pagare la differenza di una
+  // cena gia' saldata in contanti; e annullandolo, l'email prometteva un
+  // rimborso online di soldi che stanno nel cassetto.
+  assert.equal(inCassa("cash"), true);
+  assert.equal(inCassa("card"), true);
+  assert.equal(inCassa("onsite"), true, "onsite e' uscito dai pagamenti in cassa: torna il link Stripe su una cena gia' pagata al banco");
+  // Questi due sono passati da Stripe: `link` esplicito, e l'ordine del sito
+  // pagato con la carta, che non scrive nessun metodo.
+  assert.equal(inCassa("link"), false);
+  assert.equal(inCassa(null), false);
+  assert.equal(inCassa(""), false);
+  // Il metodo si cambia solo dove i soldi li ha presi una persona.
+  assert.equal(metodoCambiabile("onsite"), true);
+  assert.equal(metodoCambiabile("link"), false, "si potrebbe marcare «contanti» un ordine incassato da Stripe: il rimborso sparirebbe dal pannello");
+  assert.equal(metodoCambiabile(null), false);
+  // Le sole scelte offerte allo staff su un ordine che esiste gia'.
+  assert.deepEqual([...METODI_CASSA_SCELTA].sort(), ["card", "cash"]);
+});
+
+test("il metodo di pagamento si cambia solo dal server, e solo in cassa", () => {
+  // ⚠️ Il bottone nascosto nel modale e' un suggerimento: chi manda la
+  // richiesta e' il browser, e un vecchio schermo aperto da stamattina puo'
+  // mandare qualunque cosa. La regola deve stare nell'API.
+  const api = leggi("src/pages/api/admin/orders.ts");
+  assert.match(api, /METODI_CASSA_SCELTA\.includes\(metodoRich\)/,
+    "l'API accetta un metodo qualsiasi: si puo' scrivere 'link' su un ordine incassato in contanti");
+  assert.match(api, /metodoCambiabile\(ord\.payment_method\)/,
+    "l'API non controlla piu' se quell'ordine puo' cambiare metodo: un incasso Stripe diventerebbe «contanti»");
+  // Scegliere il metodo su un ordine «da incassare» E' l'incasso.
+  assert.match(api, /incassaOra = ord\.status === "pending"/,
+    "scegliere il metodo non incassa piu' l'ordine: resterebbe «da incassare» con un metodo di cassa addosso");
+  // E il modale deve mandarlo.
+  assert.match(leggi("src/pages/admin/orders.astro"), /\.\.\.\(ncPayment \? \{ payment: ncPayment \} : \{\}\)/,
+    "il modale non manda piu' il metodo: la scelta non arriva al server");
+});
+
+test("la firma degli ordini guarda tutto l'ordine, non cinque campi scelti a mano", () => {
+  // ⚠️ IL GUASTO (04/10/2026): si cambiava il metodo di pagamento da contanti
+  // a carta, il salvataggio andava a buon fine, e sulla card restava l'icona
+  // vecchia. L'aggiornamento silenzioso confronta una «firma» con quella di
+  // prima e, se e' uguale, butta i dati appena arrivati senza ridisegnare. La
+  // firma era un elenco di cinque campi (id, stato, ora, totale, nome): il
+  // metodo di pagamento non c'era, e nemmeno l'email, il telefono o i piatti —
+  // bastava sostituire un piatto con uno dello stesso prezzo per far mentire
+  // lo schermo. Un elenco scritto a mano va tenuto allineato a tutto quello che
+  // la card disegna, e prima o poi non lo e' piu'.
+  const pag = leggi("src/pages/admin/orders.astro");
+  const f = pag.match(/function firmaDa\(list: Order\[\]\): string \{([\s\S]*?)\n        \}/);
+  assert.ok(f, "firmaDa non e' piu' riconoscibile");
+  assert.match(f[1], /return JSON\.stringify\(list\);/,
+    "la firma e' tornata a un elenco di campi: una modifica fuori da quell'elenco non ridisegna piu' la card, e lo schermo mostra il vecchio");
+});
+
+test("un ordine completato e incassato online si rimborsa senza doverlo annullare", () => {
+  // ⚠️ IL BUCO (04/10/2026): il rimborso era legato allo stato «annullato». Un
+  // ordine consegnato e poi da rimborsare (piatto sbagliato, cliente che
+  // reclama) non aveva nessun bottone, e l'unica via era annullare un ordine
+  // che il cliente ha davvero ritirato — falsando gli incassi del giorno.
+  // «C'e' un incasso Stripe da cui tirare fuori i soldi» e' una domanda sui
+  // soldi, non sullo stato.
+  const pag = leggi("src/pages/admin/orders.astro");
+  assert.match(pag, /const incassoStripe = \/\^cs_\/\.test\(/,
+    "l'incasso Stripe e' tornato legato allo stato dell'ordine: i completati non si rimborsano piu'");
+  assert.match(pag, /o\.status === "done" && incassoStripe && residuo > 0/,
+    "il bottone di rimborso sui completati non c'e' piu', o non controlla piu' quanto resta da rendere");
+  // Stesso data-act del footer annullato: un solo modale, un solo controllo
+  // d'importo. Una seconda strada per far uscire denaro e' una strada che
+  // prima o poi non ha lo stesso tetto.
+  // ⚠️ Si contano i BOTTONI, non le volte che la parola compare: senza
+  // togliere i commenti, la spiegazione qui sopra nel sorgente verrebbe
+  // contata come un terzo bottone. (Stessa trappola gia' annotata in
+  // tests/tablet.test.mjs: un test che si accontenta della propria
+  // spiegazione.)
+  const nudo = pag.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const bottoni = nudo.match(/data-act="refund"/g) ?? [];
+  assert.equal(bottoni.length, 2, "i bottoni di rimborso non sono piu' due (annullato + completato)");
+  assert.doesNotMatch(pag, /data-act="refund-done"/, "e' nata una seconda azione di rimborso invece di riusare quella che c'e'");
+});
+
+test("i bottoni tondi della card hanno una forma sola", () => {
+  // ⚠️ «Rimetti in corso» e «Rimborsa» stanno fianco a fianco nel footer di un
+  // ordine completato. Se la forma la scrivessero da sole finirebbero per non
+  // essere piu' tonde uguali — e uno dei due manda via dei soldi.
+  const pag = leggi("src/pages/admin/orders.astro");
+  const forma = pag.match(/\n\s*\.btn-tondo \{([\s\S]*?)\n\s*\}/);
+  assert.ok(forma, ".btn-tondo non c'e' piu': la forma dei bottoni tondi e' tornata scritta in piu' posti");
+  assert.match(forma[1], /width: var\(--cf-h\); height: var\(--cf-h\)/,
+    "il bottone tondo non prende piu' la misura dalla riga del footer: i due possono diventare diversi");
+  // Chi usa la forma mette solo il colore.
+  const colore = pag.match(/\n\s*\.btn-rollback \{([^}]*)\}/);
+  assert.ok(colore, ".btn-rollback non e' piu' riconoscibile");
+  assert.doesNotMatch(colore[1], /width|height|border-radius/,
+    ".btn-rollback ridichiara la propria misura invece di prenderla da .btn-tondo");
+  // E in pagina i due bottoni la portano davvero.
+  assert.equal((pag.match(/class="btn-tondo btn-rollback"/g) ?? []).length, 2, "un rollback ha perso la forma condivisa");
+  assert.match(pag, /class="btn-tondo btn-refund-ico"/, "il rimborso sui completati non usa la forma condivisa");
+});
+
+test("un errore nel disegno non si fa passare per un errore di rete", () => {
+  // ⚠️ IL GUASTO (04/10/2026): la pagina Ordini diceva «Errore di connessione»
+  // e mostrava mezza lista. La connessione era viva: a rompersi era `render()`,
+  // ma stava nello stesso `try` della fetch, quindi finiva nel catch della
+  // rete. Si cerca il wifi, il server, Supabase — e il guasto e' in dieci
+  // righe di disegno. Un messaggio che punta nella direzione sbagliata costa
+  // piu' del guasto che annuncia.
+  const pag = leggi("src/pages/admin/orders.astro");
+  const fn = pag.match(/async function carica\(silenzioso = false\) \{([\s\S]*?)\n        \}/);
+  assert.ok(fn, "carica() non e' piu' riconoscibile");
+  const corpo = fn[1];
+  // La fetch e il disegno hanno due try distinti, e due messaggi distinti.
+  assert.match(corpo, /console\.error\("\[ordini\] render\(\)"/,
+    "render() e' tornato dentro il try della rete: un errore di disegno si annuncera' come problema di connessione");
+  assert.match(corpo, /mostraStato\(tr\("ord\.renderErr"\)\)/,
+    "l'errore di disegno non ha piu' un messaggio suo");
+  const iNet = corpo.indexOf('tr("common.netErr")');
+  const iRender = corpo.indexOf("render();");
+  assert.ok(iNet > 0 && iRender > iNet,
+    "render() e' di nuovo dentro il blocco che risponde degli errori di rete");
+});
+
+test("la riga che stacca i piatti dai bottoni e' dichiarata una volta sola", () => {
+  // ⚠️ IL GUASTO (04/10/2026): sulla card completata i bottoni erano appesi al
+  // vuoto, senza la riga di separazione che l'ordine in corso ha. Due footer
+  // (`.actions` in corso, `.card-foot` completato/annullato) facevano lo stesso
+  // gesto visivo scritto in due posti: uno dei due se l'e' persa.
+  // E lo spazio da lasciare in fondo alla card era un 3.6rem scritto a mano,
+  // che nessuno poteva ricollegare all'altezza del footer: cambiando quella,
+  // la riga finiva sopra l'ultimo piatto.
+  const pag = leggi("src/pages/admin/orders.astro");
+  assert.match(pag, /\.actions,\n\s*\.card-foot \{ border-top: 1px solid var\(--c-line\); padding-top: var\(--stacco\); \}/,
+    "i due footer non condividono piu' la riga di separazione: uno dei due la perdera'");
+  // Lo spazio in fondo si SOMMA dai pezzi del footer, non e' un numero a mano.
+  assert.match(pag, /padding-bottom: calc\(var\(--cf-bottom\) \+ var\(--cf-h\) \+ var\(--stacco\)/,
+    "lo spazio per il footer e' tornato un numero scritto a mano: cambiando l'altezza dei bottoni la riga finisce sopra l'ultimo piatto");
+  // Il footer assoluto si allinea al contenuto, non a un rientro suo.
+  assert.match(pag, /\.card-foot \{ position: absolute; left: var\(--card-px\); right: var\(--card-px\)/,
+    "il footer ha di nuovo un rientro proprio: la sua riga esce piu' larga di quella dei piatti");
+  // E i tondi sono alti quanto la riga che li contiene.
+  assert.match(pag, /width: var\(--cf-h\); height: var\(--cf-h\); border-radius: 50%/,
+    "la misura dei bottoni tondi non e' piu' quella della riga del footer");
 });

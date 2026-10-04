@@ -51,8 +51,20 @@ test("nel modale ordine le due colonne scorrono per conto loro", () => {
   // contenitore, la sua parte bassa non si raggiungeva. Un difetto di tutti
   // gli schermi larghi — su un monitor alto il menu ci stava e non si vedeva.
   const ord = nudo("src/pages/admin/orders.astro");
-  const blocco = ord.split("@media (min-width: 761px)")[1]?.split("@media")[0] ?? "";
-  assert.ok(blocco, "la fascia da 761px in su non c'e' piu': il modale ordine non ha piu' il suo layout a due colonne");
+  // ⚠️ Da 1024px in su: sotto, le colonne si impilano e scorre il pannello,
+  // come su telefono (il confine era 761 fino al 04/10, ma un iPad verticale
+  // e' 768-834 e restava a due colonne strette).
+  // ⚠️ I blocchi «da 1024 in su» sono PIU' DI UNO (lo step 3 a meta' e meta',
+  // il modale che scorre, la riga del titolo): prendendone uno solo, il test
+  // guardava la parte sbagliata e diventava rosso appena qualcuno ne
+  // aggiungeva un altro prima — rosso per una regola spostata, non per un
+  // difetto. Si guardano tutti insieme.
+  const blocco = ord
+    .split("@media (min-width: 1024px)")
+    .slice(1)
+    .map((p) => p.split("@media")[0])
+    .join("\n");
+  assert.ok(blocco, "la fascia da 1024px in su non c'e' piu': il modale ordine non ha piu' il suo layout a due colonne");
 
   assert.doesNotMatch(blocco, /position:\s*sticky/,
     "la colonna del menu e' tornata sticky: se e' piu' alta del modale, gli ultimi piatti non si raggiungono");

@@ -44,7 +44,15 @@
 .md-overlay .md-box textarea,
 .md-overlay .md-box select,
 .fld {
-  background-color: var(--c-card);
+  /* ⚠️ PIU' SCURI DEL MODALE, non piu' chiari. La scatola del modale ha gia'
+     il fondo piu' scuro del tema (`--c-bg` in modal.css): un campo in
+     `--c-card` ci si stacca ALL'INSU' e, in una finestra piena di scelte —
+     pillole, elenchi, bottoni — i campi diventano la cosa piu' luminosa a
+     schermo, cioe' quella che l'occhio guarda per prima. Un velo nero fa il
+     contrario: il campo e' un incavo. L'alpha serve perche' una variabile
+     «piu' scuro di --c-bg» non esiste, e cosi' la regola regge anche sui
+     clienti col tema chiaro. */
+  background-color: rgba(0, 0, 0, 0.25);
   border: 1px solid transparent;
   border-radius: 6px;
   color: var(--c-text);
