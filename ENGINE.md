@@ -1737,3 +1737,51 @@ indovina.
 ⚠️ **Attenzione alle regole `@media (pointer: coarse)` senza larghezza**: ce
 n'erano di pensate per il telefono (campi ora a 42px, perché lì tutto il resto
 è grande) che su iPad orizzontale restavano alte il doppio delle righe intorno.
+
+## La stampa dei ticket — chi chiama chi (04/10/2026)
+
+Il motore gira su un server, la stampante sta in una cucina a Bruxelles. Fra
+i due non c'e' nessuna strada diretta: l'indirizzo di quella stampante esiste
+solo dentro il Wi-Fi del locale, e nessun server al mondo lo raggiunge.
+
+**Quindi non siamo noi a parlare alla stampante. E' la stampante che chiama
+noi.** Ogni soluzione che funziona — BizPrint con l'app sul tablet, Star
+CloudPRNT, Epson Server Direct Print — fa questo e solo questo: qualcosa nel
+locale bussa ogni pochi secondi e chiede se c'e' qualcosa da stampare.
+
+Tre regole che ne discendono, e che non vanno riaperte a ogni cliente.
+
+**1. La destinazione e' UN pezzo solo.** «Dove mando il ticket» si decide in
+un posto: oggi BizPrint, domani una stampante autonoma, e per un cliente alla
+volta. Se la scelta si infilasse nel codice che compone il ticket, cambiare
+fornitore vorrebbe dire riaprire sei repository.
+
+**2. Il disegno del ticket vive nel CLIENTE, il meccanismo nel MOTORE.** Il
+motore sa quando stampare, tiene la coda, riprova e conferma; il cliente ha un
+file che, dato un ordine, restituisce le righe. Il cliente non vede mai un
+byte di stampante ne' il nome del fornitore. Vantaggio secondario non piccolo:
+un file che esiste solo nel cliente non va MAI in conflitto in un merge — ed
+e' esattamente da file presenti in tutti e due i posti che sono nati i quattro
+guasti da auto-merge del 03/10.
+
+**3. La station e' della SEDE, l'applicazione e' del CLIENTE.** Stessa forma
+dei conti Stripe. Il ticket parte verso la station scritta NELL'ORDINE, mai
+verso quella della sede selezionata nell'header: con tre punti, l'aggregato
+manderebbe la comanda alla cucina sbagliata. E' la stessa regola che
+`ambitoDiRiga()` gia' impone all'annullo.
+
+⚠️ **«Stampato» lo dice la stampante, non noi.** Lo stato passa per `sent`
+prima di `printed`, e diventa `printed` solo sulla conferma di ritorno. Senza
+quel passaggio non si distingue «uscito» da «la stampante era spenta»: o si
+perdono ticket segnati come fatti, o si ristampa e in cucina arrivano due
+comande, cioe' due pizze. La protezione dal doppione sta nell'INDICE UNICO del
+database (`print_tickets`, solo righe `auto`), non nel codice che inserisce:
+due richieste possono arrivare nello stesso istante.
+
+⚠️ **Uno script che stampa una risposta di un'API maschera TUTTO, non le
+chiavi che conosce.** Il 04/10 `scripts/bizprint-lista.mjs` mascherava le due
+chiavi dell'applicazione — le uniche a cui avevo pensato — e ha stampato in
+chiaro le chiavi segrete delle due station, che stavano nella risposta. Sono
+finite in chat, e le station sono state rifatte da zero. La maschera si scrive
+sul NOME del campo (`secretKey`, `publicKey`, `key`, `token`), non sul valore
+che ti aspetti.

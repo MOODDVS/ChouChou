@@ -1637,6 +1637,32 @@ Prima di buttare `salva()` l'ho confrontata riga per riga con il salvataggio viv
 - Datepicker: z-index 420 sopra gli overlay (300). Fix «fatti» verificati col grep nel repo. Fuso device ≠ ristorante.
 - `<style is:global>`; ES256 ieee-p1363; SSR cookie con `<` escapato; narrowing TS; live binding ESM.
 
+## 04/10/2026 — Ordini: modale, rimborsi, quattro difetti · e la stampa dei ticket (fondamenta)
+
+**Fatto e in `multi-sede` (commit `0e7ce89`)**
+
+- Modale «Modifica ordine»: il riquadro MODIFICHE confrontava il carrello (piatto + formato) con una fotografia che teneva il solo nome del piatto — ogni ordine con una variante annunciava una modifica mai fatta. «Salva modifiche» era acceso su un ordine intatto. Si puo' cambiare il metodo di pagamento fra contanti e carta (su un ordine da incassare la scelta VALE come l'incasso; bloccato sugli ordini Stripe).
+- Card: rimborso sugli ordini completati (prima bisognava annullare un ordine consegnato per arrivare al rimborso, falsando gli incassi), riga di separazione sul piede delle card completate, misure duplicate diventate variabili.
+- Tre difetti trovati per strada: `onsite` non era fra i pagamenti in cassa (link Stripe per una cena gia' pagata in contanti); la firma che decide se ridisegnare guardava cinque campi scelti a mano (salvataggio riuscito, schermo fermo sul vecchio); un errore di disegno si annunciava come «Errore di connessione».
+
+**Stampa dei ticket — deciso e iniziato**
+
+- **Strada scelta: BizPrint (bizswoop.app) adesso, stampante autonoma dopo.** Enzo ha gia' l'abbonamento, stampanti Bluetooth e tablet **Android** nei locali: zero hardware da comprare, si parte subito. Una stampante autonoma (Star TSP143IV-UE o Epson TM-m30III Ethernet, ~220-250 €) resta la strada pulita per i locali che la vorranno — ma la scelta si cambia in UN pezzo solo. **Scartate:** Bluetooth dal browser (non esiste su iPad) ed Epson TM-T20III (niente Server Direct Print: aspetta di essere chiamata, non chiama).
+- **Come si incastra:** il lavoro di stampa si manda con tre campi — `printerId`, **l'URL della pagina da stampare**, una descrizione. Quindi il ticket e' letteralmente una pagina del sito del cliente, come le pagine in `src/pages/print/`. Endpoint `POST https://print.bizswoop.app/api/connect-application/v1/jobs`, firma `sha256(json + ":" + secretKey)`, la chiave segreta non viene mai spedita.
+- **Struttura:** una **station per sede** (= un tablet con l'app), una **applicazione per cliente** (5 $/mese l'una; chiavi `BIZPRINT_PUBLIC_KEY` / `BIZPRINT_SECRET_KEY` nel `.env` del cliente e nell'ambiente **Hostinger**, non Vercel). `printerId` per sede, accanto alle chiavi Stripe.
+- **Scelte prese:** ticket **di cucina** (niente prezzi, niente email), stampa **automatica** appena l'ordine e' pagato — incluso l'ordine `pending` + `onsite`, che la cucina deve preparare lo stesso.
+- **Scritto oggi:** migrazione **#76** `print_tickets.sql` (coda, indice unico sui ticket automatici) · `src/lib/stampaRegole.ts` (regole pure, zero import: chiavi, `daStampare`, attese crescenti 10s→15min, ticket di cucina di ripiego) · `tests/stampaTicket.test.mjs` · `scripts/bizprint-lista.mjs` (elenca station e stampanti dal Mac di Enzo; **la rete del bridge Cowork non arriva a bizswoop, lo lancia lui dal Terminale**).
+- ⚠️ **Fuga di chiavi, chiusa.** Lo script mascherava solo le chiavi dell'applicazione e ha stampato in chiaro le `secretKey` delle due station. Enzo ha **cancellato e rifatto le station** (Schaerbeek rifatta, Stockel da rifare). Lezione in ENGINE.md: la maschera si scrive sul nome del campo, non sul valore atteso.
+
+**Da fare domani**
+
+1. Enzo prova **da casa** con un'altra stampante collegata al tablet; a Schaerbeek non c'e'.
+2. Serve il nuovo **`printerId`** (`node scripts/bizprint-lista.mjs` dal Terminale, l'output e' ora mascherato).
+3. Da costruire: la pagina pubblica del ticket (token usa-e-getta: la legge il servizio di stampa, che non sa fare login), l'invio a BizPrint, il webhook di esito (campo lasciato vuoto nell'applicazione, si riempie quando l'indirizzo esiste), l'interruttore per sede nelle impostazioni, e nella card «ticket uscito / in coda» piu' «la stampante non chiama da X minuti».
+4. **Development Mode** su BizPrint resta ACCESO finche' si prova: stampa marchiata, e quelle stampe non contano sul piano.
+5. Da chiedere a bizswoop: quante stampe sono incluse nel piano Plus, e se un'applicazione si puo' limitare alle sue station.
+6. In coda da prima: la migrazione **#75** sugli altri cinque clienti (mina a tempo se qualcuno accende «paga al ritiro»), `multi-sede` → `main`, foto BROS in webp.
+
 ## 🔧 Metodo di lavoro (Cowork + Enzo)
 
 - **MAI secret/chiavi in chat** (se succede → rotazione immediata). Git SOLO dal terminale di Enzo (Mac o Cursor, è lo stesso), comandi senza `cd`: generico `git -C <repo> add -A && git -C <repo> commit -m "..." && git -C <repo> push`. `npx astro check` SOLO dal Mac (VM = binari macOS → Exec format error).
