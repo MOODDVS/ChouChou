@@ -42,6 +42,7 @@
  * consegnato due volte — o al webhook e al recupero che arrivano insieme —
  * di mandare due email allo stesso cliente. Chi chiama non deve saperlo.
  */
+import { accodaTicket } from "./stampaCoda";
 import { aggiorna, ambitoDiRiga, type Ambito } from "./admin/sede";
 import type { OrdineNotifica } from "./notifications";
 import { supabaseAdmin } from "./db";
@@ -129,6 +130,18 @@ export async function annunciaOrdine(
   daIncassare = false,
 ): Promise<void> {
   const numero = String(ordine.id).slice(0, 8);
+
+  // ⚠️ IL TICKET PARTE DA QUI, accanto all'avviso alla cucina. Due punti
+  // diversi vorrebbero dire un ordine annunciato per email e non stampato, o
+  // il contrario, e nessuno dei due si vede finche' qualcuno non se ne
+  // lamenta. `accodaTicket` decide da sola se c'e' qualcosa da stampare e non
+  // fa mai fallire chi la chiama: la stampa e' un di piu', l'ordine no.
+  void accodaTicket({
+    id: String(ordine.id),
+    status: daIncassare ? "pending" : "paid",
+    payment_method: (ordine as { payment_method?: string | null }).payment_method ?? null,
+    location_id: ordine.location_id ?? null,
+  });
 
   // ⚠️ Il database e' piu' permissivo di chi manda le email: `customer_name`
   // puo' essere nullo su una riga vecchia, `items` e' JSON e non ha forma.

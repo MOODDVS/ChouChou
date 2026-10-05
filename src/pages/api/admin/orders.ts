@@ -1,3 +1,4 @@
+import { accodaTicket } from "../../../lib/stampaCoda";
 import type { APIRoute } from "astro";
 import { DateTime } from "luxon";
 import { supabaseAdmin, conRipiegoColonne, type RisultatoQuery } from "../../../lib/db";
@@ -506,6 +507,14 @@ export const POST: APIRoute = async ({ request }) => {
   // PAGATO DI PERSONA (contanti/carta): niente Stripe. Notifica cucina sempre;
   // conferma + recensione al cliente solo se ha lasciato l'email (guardie interne).
   if (paidSurPlace) {
+    // Il ticket segue l'avviso alla cucina, dallo stesso punto. Un ordine
+    // preso al banco e pagato subito e' `paid`: `daStampare` lo riconosce.
+    void accodaTicket({
+      id: orderId,
+      status: "paid",
+      payment_method: String(body.payment ?? "") || null,
+      location_id: ambito.modo === "sede" ? ambito.id : null,
+    });
     void inviaNotifiche({
       // L'ordine e' appena stato inserito con questo ambito.
       location_id: ambito.modo === "sede" ? ambito.id : null,

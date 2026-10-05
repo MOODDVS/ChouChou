@@ -1736,6 +1736,12 @@ Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona
 
 **Da qui la regola**: ogni passaggio deve lasciare qualcosa da guardare. La risposta della prova riporta **l'indirizzo spedito** e il pannello lo mostra: un «inviato» che non stampa adesso dice perche'.
 
+**L'aggancio automatico (05/10, fatto):** `src/lib/stampaCoda.ts` → `accodaTicket()`, chiamata **dove parte gia' l'avviso alla cucina** (`confermaOrdine.ts` dopo il pagamento, `api/admin/orders.ts` per l'ordine pagato al banco). Due punti diversi vorrebbero dire un ordine annunciato per email e non stampato, o il contrario, e nessuno dei due si vede finche' qualcuno non se ne lamenta. Si chiama con `void`: la stampa e' un di piu', l'ordine no. Il doppione lo rifiuta **l'indice unico** (23505 = la protezione che funziona, non un guasto).
+
+**`src/lib/indirizzoPubblico.ts`** — una domanda, una risposta: `PUBLIC_SITE_URL` (la stessa delle email), poi gli header del proxy, poi la richiesta. ⚠️ **Senza `PUBLIC_SITE_URL` la coda non accoda** e lo scrive nei log: meglio niente che cinque tentativi verso un indirizzo inesistente. **Da verificare su Hostinger per ogni cliente.**
+
+**Manca per chiudere il cerchio:** chi dice che la carta e' uscita davvero. Oggi lo stato arriva a `sent` (lo scrive la rotta quando il tablet apre l'indirizzo), ma `sent` non e' `printed`: carta finita, coperchio aperto. ⚠️ **Il webhook di BizPrint NON e' documentato** — l'applicazione ha il campo «Webhook URL» ma l'API non dice cosa ci manda ne' se firma la chiamata, e un indirizzo pubblico che accetta «stampato» lo puo' chiamare chiunque. Campo **lasciato vuoto**. La strada che abbiamo gia' e' il **polling**: `GET /jobs/{id}` rende `pending|processing|done|failed|connecting-to-printer`, ed e' per questo che la coda salva `job_id`. Un cron per sede, come il completamento automatico degli ordini.
+
 **Il modello per piu' stampanti** (deciso, da costruire): il **reparto** e' del MARCHIO come le categorie del menu, la **stampante** e' della SEDE. Chiavi `print_printer_id:<reparto>`, lettura a cascata — la piu' precisa che esiste. ⚠️ Costo vero: **$0,025 a stampa** sul piano Plus; tre reparti triplicano. Pareggio con Pro a 2.400 stampe/mese.
 
 **Da fare domani**

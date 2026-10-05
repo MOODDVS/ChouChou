@@ -269,11 +269,70 @@ test("l'indirizzo del ticket parte in https, o il tablet lo rifiuta", () => {
   // chiaro — «CLEARTEXT communication not permitted» — e il lavoro restava
   // «inviato» senza che uscisse mai carta: nessun errore da nessuna parte, e
   // l'unico posto dove si poteva leggere il motivo era lo schermo del tablet.
+  // ⚠️ La regola vive in `indirizzoPubblico.ts`, non piu' nella rotta: era la
+  // stessa domanda che si facevano le email e la coda, e ognuno se la
+  // rispondeva per conto suo. La prova se l'era risposta con `http`.
+  const ind = leggi("src/lib/indirizzoPubblico.ts");
+  assert.match(ind, /PUBLIC_SITE_URL/, "non parte piu' dalla verita' configurata, la stessa delle email");
+  assert.match(ind, /x-forwarded-proto/, "lo schema non arriva piu' dal proxy");
+  assert.match(ind, /\? "https"|\: "https"|"https"\)/, "sparito il ripiego su https: si tornerebbe a spedire http");
+  assert.match(ind, /localhost\|127/, "in sviluppo si spedirebbe https su localhost, che non risponde");
   const api = leggi("src/pages/api/admin/printers.ts");
-  assert.match(api, /x-forwarded-proto/, "lo schema non arriva piu' dal proxy");
-  assert.match(api, /\? "https"|\: "https"/, "sparito il ripiego su https: si tornerebbe a spedire http");
-  assert.match(api, /localhost\|127/, "in sviluppo si spedirebbe https su localhost, che non risponde");
   // E l'indirizzo torna indietro: un lavoro «inviato» che non stampa deve
   // lasciare qualcosa da guardare.
   assert.match(api, /json\(\{ ok: true, jobId: r\.jobId, url \}\)/, "l'indirizzo spedito non torna piu' al pannello");
+});
+
+test("il ticket parte dallo stesso punto dell'avviso alla cucina", () => {
+  // ⚠️ Due punti diversi vorrebbero dire un ordine annunciato per email e non
+  // stampato, o il contrario — e nessuno dei due si vede finche' qualcuno non
+  // se ne lamenta. Dove parte `inviaNotifiche` parte `accodaTicket`.
+  for (const f of ["src/lib/confermaOrdine.ts", "src/pages/api/admin/orders.ts"]) {
+    const src = leggi(f);
+    assert.match(src, /void accodaTicket\(/, `${f}: il ticket non parte piu' da qui`);
+    assert.match(src, /inviaNotifiche\(/, `${f}: e' sparito l'avviso alla cucina`);
+  }
+});
+
+test("la stampa non puo' far fallire un ordine", () => {
+  // ⚠️ Un ticket che non esce e' un fastidio; un ordine che non si registra
+  // perche' la stampante e' spenta e' una perdita. Si chiama con `void`, come
+  // le email, e ogni errore muore qui dentro.
+  const coda = leggi("src/lib/stampaCoda.ts");
+  assert.match(coda, /\} catch \(e\) \{/, "accodaTicket puo' propagare un errore a chi registra l'ordine");
+  assert.match(coda, /Promise<void>/, "accodaTicket rende qualcosa: qualcuno si mettera' ad aspettarla");
+});
+
+test("il doppio ticket lo impedisce il database, non un controllo", () => {
+  // ⚠️ Un ordine pagato puo' essere visto piu' volte (webhook ripetuto,
+  // ritorno dal pagamento, modifica). Un «esiste gia'?» fatto nel codice non
+  // basta: due richieste possono arrivare nello stesso istante e passarlo
+  // tutte e due. In cucina due comande uguali sono due pizze.
+  const coda = leggi("src/lib/stampaCoda.ts");
+  assert.match(coda, /23505/, "sparita la gestione dell'indice unico: il doppione tornerebbe un errore rosso");
+  assert.doesNotMatch(coda, /select\("id"\)[\s\S]{0,80}eq\("order_id"/, "e' tornato un controllo «esiste gia'?» al posto dell'indice");
+});
+
+test("la coda non dichiara stampato cio' che ha solo spedito", () => {
+  // `sent` vuol dire «il servizio ha chiesto il ticket», e lo scrive la rotta
+  // pubblica quando il tablet la apre davvero. Se lo scrivesse la coda, un
+  // lavoro partito e mai stampato sembrerebbe uscito.
+  const coda = leggi("src/lib/stampaCoda.ts");
+  assert.doesNotMatch(coda, /status: "(sent|printed)"/, "la coda si e' messa a decidere cosa e' uscito dalla stampante");
+  assert.match(coda, /status: "queued"/);
+});
+
+test("l'indirizzo del ticket ha una risposta sola", () => {
+  // ⚠️ Era la stessa domanda in tre posti: le email, la prova di stampa, la
+  // coda. La prova se la costruiva da sola e ci ha messo dentro `http`.
+  const coda = leggi("src/lib/stampaCoda.ts");
+  const api = leggi("src/pages/api/admin/printers.ts");
+  for (const [f, src] of [["stampaCoda", coda], ["printers", api]]) {
+    assert.match(src, /indirizzoPubblico\(/, `${f}: non usa piu' l'indirizzo dichiarato`);
+    assert.doesNotMatch(src, /new URL\(request\.url\)\.origin/, `${f}: se lo ricostruisce di nuovo da solo`);
+  }
+  // Un lavoro automatico non ha nessuna richiesta sottomano: deve poter
+  // rispondere lo stesso, o non accodare niente invece di accodare un
+  // indirizzo che non esiste.
+  assert.match(coda, /if \(!base\)/, "senza indirizzo la coda accoda lo stesso: cinque tentativi verso il nulla");
 });
