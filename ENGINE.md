@@ -1780,6 +1780,30 @@ comande, cioe' due pizze. La protezione dal doppione sta nell'INDICE UNICO del
 database (`print_tickets`, solo righe `auto`), non nel codice che inserisce:
 due richieste possono arrivare nello stesso istante.
 
+⚠️ **La stampante non riceve un DOCUMENTO, riceve dei COMANDI** (provato il
+05/10/2026, su carta). L'API di BizPrint vuole l'indirizzo di una pagina, e
+questo fa credere che basti scrivere il ticket in HTML. Non e' cosi': il
+servizio **passa il contenuto alla stampante senza toccarlo**, e una termica in
+**ESC/POS** stampa come testo tutto quello che le arriva. Mandato l'HTML, e'
+uscito il sorgente. Mandato un PDF, sono usciti i byte del PDF — un foglio
+intero. Il PNG sarebbe finito uguale.
+
+Quindi il ticket e' un **flusso ESC/POS**: `ESC @` per iniziare, `GS ! 0x11`
+per la doppia altezza e larghezza, `ESC E` per il grassetto, `GS B 1` per il
+bianco su nero (la fascia «DA INCASSARE» del disegno c'e' lo stesso), `GS V`
+per il taglio. Il disegno non si perde, cambia mezzo: non piu' CSS ma righe e
+comandi — ed e' la strada piu' leggera delle tre, perche' non serve nessun
+Chromium sul server per generare un'immagine o un PDF.
+
+Da qui due conseguenze pratiche:
+- **La misura e' la COLONNA, non il pixel.** Carta da 80 mm, font A: 48
+  colonne. Un nome di piatto piu' lungo va a capo, e dove va a capo si decide
+  contando caratteri. (Le misure in dot servono solo se un giorno si stampa un
+  logo, che e' un'immagine raster a parte.)
+- **Gli accenti passano da una tabella di caratteri**, non da UTF-8. Un
+  ticket in francese senza quella scelta stampa «PRPARER». Si decide una volta,
+  per cliente, insieme alla lingua.
+
 ⚠️ **Uno script che stampa una risposta di un'API maschera TUTTO, non le
 chiavi che conosce.** Il 04/10 `scripts/bizprint-lista.mjs` mascherava le due
 chiavi dell'applicazione — le uniche a cui avevo pensato — e ha stampato in

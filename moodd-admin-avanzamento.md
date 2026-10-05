@@ -1695,11 +1695,27 @@ Giro di rifiniture guidato dagli screenshot di Enzo. Dietro quasi tutte c'e' la 
 
 Verde: 0 errori, **599 test**.
 
+**05/10/2026 — la stampa provata davvero, e tre tentativi sbagliati**
+
+Catena montata: station **«casa»** (android, app 1.2.8) → stampante **«Ice», id 95656**, collegata in **TCP/IP** (il bluetooth lo gestiva il tablet, non l'app: la documentazione per Android parla solo di LAN/Wi-Fi, e aveva ragione lei). `scripts/bizprint-prova.mjs` manda il lavoro e poi **chiede lo stato tre volte**: «inviato» non vuol dire «stampato».
+
+⚠️ **I tre tentativi sbagliati, in ordine, perche' la sequenza e' la lezione.**
+1. **HTML** → e' uscito il **sorgente**. Il tablet non disegna la pagina.
+2. **PDF** → sono usciti **i byte del PDF**, un foglio intero. Peggio del primo.
+3. **PNG** → non l'abbiamo nemmeno mandato: la stampante e' in **ESC/POS**, e sarebbe finita uguale.
+4. **ESC/POS** → **stampato, formattato, e tagliato da solo.**
+
+La causa unica dei primi due: BizPrint **passa il contenuto senza toccarlo**, e una termica in ESC/POS stampa come testo tutto cio' che riceve. Avevo scritto nel diario «la pagina pubblica del ticket»: era falso, ed e' corretto in ENGINE.md.
+
+Lezione minore ma vera, presa facendo il PDF: **un px CSS non e' un dot.** Vale 1/96 di pollice, quindi 576 px sono 152 mm e il primo PDF usciva tagliato a meta'. Con la scala giusta 1 px = 1/8 mm = il dot di una termica a 203 dpi. Serve solo se un giorno si stampa un logo.
+
+Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona), `.html`, `.pdf`, `.png` — gli altri tre restano come promemoria di cosa NON funziona.
+
 **Da fare domani**
 
 1. Enzo prova **da casa** con un'altra stampante collegata al tablet; a Schaerbeek non c'e'.
 2. Serve il nuovo **`printerId`** (`node scripts/bizprint-lista.mjs` dal Terminale, l'output e' ora mascherato).
-3. Da costruire: la pagina pubblica del ticket (token usa-e-getta: la legge il servizio di stampa, che non sa fare login), l'invio a BizPrint, il webhook di esito (campo lasciato vuoto nell'applicazione, si riempie quando l'indirizzo esiste), l'interruttore per sede nelle impostazioni, e nella card «ticket uscito / in coda» piu' «la stampante non chiama da X minuti».
+3. Da costruire: la **risposta pubblica del ticket in ESC/POS** (token usa-e-getta: la legge il servizio di stampa, che non sa fare login; ⚠️ non una pagina HTML — vedi ENGINE.md, la stampante riceve comandi), l'invio a BizPrint, il webhook di esito (campo lasciato vuoto nell'applicazione, si riempie quando l'indirizzo esiste), l'interruttore per sede nelle impostazioni, e nella card «ticket uscito / in coda» piu' «la stampante non chiama da X minuti».
 4. **Development Mode** su BizPrint resta ACCESO finche' si prova: stampa marchiata, e quelle stampe non contano sul piano.
 5. Da chiedere a bizswoop: quante stampe sono incluse nel piano Plus, e se un'applicazione si puo' limitare alle sue station.
 6. In coda da prima: la migrazione **#75** sugli altri cinque clienti (mina a tempo se qualcuno accende «paga al ritiro»), foto BROS in webp.
