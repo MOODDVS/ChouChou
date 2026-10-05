@@ -220,6 +220,9 @@ const prI18n = {
          e va bene cosi' (eredita dal .env, oppure e' facoltativo). Corallo =
          non c'e' da nessuna parte, e qualcosa non funzionera'. Con due soli
          colori «eredita dal .env» e «pagamenti rotti» erano la stessa cosa. */
+      /* Il verde di «va bene»: pastiglie di stato, pallini delle schede.
+         Dichiarato qui e citato, non ribattuto a ogni uso. */
+      .pane { --c-ok: #2e9e6b; --c-ok-chiaro: #4fbe8c; }
       .loc-stato { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
       .loc-stato li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.74rem; line-height: 1.35; min-width: 0; }
       .loc-stato li::before {
@@ -228,8 +231,8 @@ const prI18n = {
       }
       .loc-st-k { flex: 0 0 auto; min-width: 6.4rem; color: var(--c-muted); letter-spacing: 0.03em; }
       .loc-st-v { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-muted); }
-      .loc-stato li.is-ok::before { background: #2e9e6b; opacity: 1; }
-      .loc-stato li.is-ok .loc-st-v { color: #4fbe8c; }
+      .loc-stato li.is-ok::before { background: var(--c-ok); opacity: 1; }
+      .loc-stato li.is-ok .loc-st-v { color: var(--c-ok-chiaro); }
       .loc-stato li.is-ko::before { background: var(--c-accent); opacity: 1; }
       .loc-stato li.is-ko .loc-st-v { color: var(--c-accent); }
 
@@ -252,47 +255,69 @@ const prI18n = {
       #loc-overlay .loc-f-nome { flex: 3 1 260px; }
       /* Campo + bottone sulla stessa riga (Place ID, scheda Google). */
       #loc-overlay .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
-      /* Una destinazione: nome, categorie, stampante, cestino. Si impila
-         sotto i 720px, dove le quattro colonne non ci stanno piu'. */
-      #loc-overlay .loc-dest-r { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.6rem; }
-      #loc-overlay .loc-dest-r .dd-nome { flex: 0 0 150px; }
+      /* Una destinazione: nome, categorie, stampante, cestino.
+         ⚠️ SENZA il prefisso `#loc-overlay`. Queste righe vivono in DUE
+         posti — la scheda della sede e Intégrations — e col prefisso la
+         seconda restava senza disegno: menu a tendina grezzo del browser in
+         mezzo a un pannello scuro. Uno stile legato al posto invece che
+         all'elemento si rompe appena l'elemento si trasferisce. */
+      .dd-r { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.6rem; }
+      .dd-r .dd-nome { flex: 0 0 150px; }
+      .dd-r .dd-cat { flex: 1 1 auto; min-width: 0; }
+      .dd-r .dd-pr { flex: 0 0 210px; }
+      @media (max-width: 720px) { .dd-r { flex-wrap: wrap; } .dd-r .dd-nome, .dd-r .dd-pr { flex: 1 1 100%; } }
       /* Le categorie: una lista di CASELLE, non una tendina multipla. Stesso
-         disegno degli allergeni in Menu (`.alg-item`) — una casella si vede
-         spuntata da lontano, e non si perde la selezione con un clic storto. */
-      #loc-overlay .loc-dest-r .dd-cat {
-        flex: 1 1 auto; min-width: 0; max-height: 132px; overflow-y: auto;
+         disegno degli allergeni in Menu — una casella si vede spuntata da
+         lontano, e non si perde la selezione con un clic storto. */
+      .dd-cat {
+        max-height: 132px; overflow-y: auto;
         background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
         padding: 0.3rem 0.5rem;
       }
-      #loc-overlay .dd-c { display: flex; align-items: center; gap: 0.6rem; font-size: 0.92rem; cursor: pointer; padding: 0.22rem 0; }
-      #loc-overlay .dd-c input {
+      .dd-c { display: flex; align-items: center; gap: 0.6rem; font-size: 0.92rem; cursor: pointer; padding: 0.22rem 0; }
+      .dd-c input {
         appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0;
         width: 20px; height: 20px; border-radius: 6px;
         border: 2px solid var(--c-line); background: var(--c-card);
         cursor: pointer; position: relative; transition: background 0.15s, border-color 0.15s;
       }
-      #loc-overlay .dd-c input:hover { border-color: var(--c-accent); }
-      #loc-overlay .dd-c input:checked { background: var(--c-accent); border-color: var(--c-accent); }
-      #loc-overlay .dd-c input:checked::after {
+      .dd-c input:hover { border-color: var(--c-accent); }
+      .dd-c input:checked { background: var(--c-accent); border-color: var(--c-accent); }
+      .dd-c input:checked::after {
         content: ""; position: absolute; left: 6px; top: 2px;
         width: 4px; height: 9px; border: solid var(--c-bg);
         border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
       }
-      #loc-overlay .dd-c input:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+      .dd-c input:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
       /* Presa da un'altra riga: si vede che esiste e che non e' disponibile.
          Nasconderla farebbe credere che la categoria non esista piu'. */
-      #loc-overlay .dd-c.is-presa { opacity: 0.45; cursor: not-allowed; }
-      #loc-overlay .dd-c.is-presa input { cursor: not-allowed; }
-      /* Il bottone «+» aveva il testo d'aiuto appiccicato sotto. */
-      #loc-overlay #loc-dest-add { margin: 0.2rem 0 0.9rem; }
-      #loc-overlay .loc-dest-r .dd-pr { flex: 0 0 200px; }
-      @media (max-width: 720px) { #loc-overlay .loc-dest-r { flex-wrap: wrap; } #loc-overlay .loc-dest-r .dd-nome, #loc-overlay .loc-dest-r .dd-pr { flex: 1 1 100%; } }
+      .dd-c.is-presa { opacity: 0.45; cursor: not-allowed; }
+      .dd-c.is-presa input { cursor: not-allowed; }
+      #loc-dest-add, #itg-dest-add { margin: 0.2rem 0 0.9rem; }
+
+      /* La scheda della stampa usa tutta la larghezza: due colonne — a
+         sinistra la stampante dell'installazione, a destra le destinazioni —
+         perche' sono due decisioni diverse e si leggono insieme. */
+      .itg-card.is-wide { max-width: none; }
+      .itg-print-grid { display: grid; grid-template-columns: minmax(260px, 360px) 1fr; gap: 1.6rem 2.2rem; align-items: start; }
+      @media (max-width: 1100px) { .itg-print-grid { grid-template-columns: 1fr; } }
+      .itg-print-grid .itg-niv:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+      /* Il piede di una scheda: separatore, poi il salva A DESTRA — dove si
+         finisce di leggere. ⚠️ `.us-foot` era usata da tre schede e non
+         aveva NESSUNA regola: i bottoni stavano a sinistra per difetto, non
+         per scelta. Adesso ce l'ha, e si spostano tutti insieme. */
+      .us-foot {
+        display: flex; align-items: center; justify-content: flex-end; gap: 0.8rem;
+        margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--c-line);
+      }
+      /* Il messaggio resta a sinistra: da vuoto non occupa niente. */
+      .us-foot > :not(button) { margin-right: auto; }
       #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
       #loc-overlay .loc-riga .btn { flex: 0 0 auto; }
       /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
          scheda Google in Intégrations: a sede unica non esiste nessun modale
          in cui metterlo. Stesso aspetto, non un secondo aspetto. */
-      #loc-overlay .loc-riga, #g-unica .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      #loc-overlay .loc-riga, #g-unica .loc-riga, #itg-print .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
       #loc-overlay .loc-g-cur, #g-unica .loc-g-cur { flex: 1; min-width: 0; color: var(--c-text); font-size: 0.88rem; }
       #loc-overlay .loc-g-cur:empty::before, #g-unica .loc-g-cur:empty::before { content: "—"; color: var(--c-muted); }
       #loc-overlay #loc-g-list:not(:empty), #g-unica #g-unica-list:not(:empty) { margin-top: 0.6rem; }
@@ -425,6 +450,11 @@ const prI18n = {
         background: var(--c-accent); color: var(--c-bg); border: 1px solid var(--c-accent);
         transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
+      /* ⚠️ `.us-ghost` NON e' piu' un bottone: i bottoni secondari di questa
+         pagina (Copier, Verifier, Reinitialiser, Deconnecter) usano `.btn`
+         di button.css, che ha il fondo `--c-card` — scuro, con un bordo
+         vero. Senza fondo si leggevano appena. Qui resta solo la RIGA
+         d'elenco delle schede Google, che bottone non e'. */
       .us-ghost { background: none; color: var(--c-muted); border-color: var(--c-line); }
       .us-ghost:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .us-list { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.4rem; }
@@ -497,7 +527,10 @@ const prI18n = {
 
       /* --- Integrations --- */
       .itg-card {
-        max-width: 720px; background: var(--c-card); border: 1px solid var(--c-line);
+        /* ⚠️ Niente `max-width` sulla SCHEDA: su uno schermo largo lasciava
+           due terzi di pagina vuoti. Il limite sta sui CAMPI qui sotto, dove
+           serve davvero — una riga di testo lunga due metri non si legge. */
+        background: var(--c-card); border: 1px solid var(--c-line);
         border-radius: 14px; padding: 1.5rem 1.6rem;
         box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
       }
@@ -505,12 +538,29 @@ const prI18n = {
       .itg-titre { font-family: var(--font-title); font-size: 1.2rem; letter-spacing: 0.04em; margin: 0; }
       .itg-state { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
         background: var(--c-input); color: var(--c-text); padding: 0.2rem 0.6rem; border-radius: 999px; white-space: nowrap; }
-      .itg-state.ext { background: var(--c-accent); color: var(--c-bg); }
-      .itg-card input, .itg-card textarea {
+      /* ⚠️ VERDE, non corallo. Il corallo e' il colore dell'ATTENZIONE in tutto
+         il pannello — e' lo stesso dei pallini «manca», dei bottoni di
+         pericolo, degli avvisi. Una pastiglia corallo su «CONNESSO» diceva
+         il contrario di quello che voleva dire. Il verde e' gia' quello degli
+         stati «configurato» nelle schede delle sedi: non un secondo verde,
+         lo stesso, dichiarato una volta sopra. */
+      .itg-state.ext { background: var(--c-ok); color: #fff; }
+      .itg-card select { max-width: 100%; }
+      /* ⚠️ I CAMPI, non ogni `input`. Un checkbox non e' una casella di testo:
+         con `width: 100%` le caselle delle categorie diventavano barre larghe
+         quanto la riga e il nome della categoria finiva fuori dal riquadro.
+         `field.css` esclude gli stessi tipi per la stessa ragione — li' c'e'
+         scritto, e io l'avevo riscritto senza l'esclusione. */
+      .itg-card input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+      .itg-card textarea {
         width: 100%; box-sizing: border-box; background: var(--c-bg); border: 1px solid var(--c-line);
         color: var(--c-text); font-family: var(--font-body); font-size: 0.92rem;
         padding: 0.5rem 0.7rem; border-radius: 8px;
+        /* Il campo si ferma dove si legge; la scheda no. */
+        max-width: 560px;
       }
+      /* Dentro una riga di destinazione comandano le colonne della riga. */
+      .itg-card .dd-r input, .itg-card .dd-r select { max-width: none; }
       .itg-card textarea { font-family: ui-monospace, monospace; font-size: 0.8rem; line-height: 1.5; resize: vertical; }
       .itg-niv { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
         color: var(--c-accent); margin: 1.6rem 0 0.2rem; padding-top: 1rem; border-top: 1px solid var(--c-line); }
@@ -724,7 +774,7 @@ const prI18n = {
             <div class="us-frow us-frow-pass">
               <span>
                 <button type="button" id="g-connect" class="us-add" disabled>{t("itg.g.connect")}</button>
-                <button type="button" id="g-disconnect" class="us-ghost" style="display:none;margin-left:0.5rem">{t("itg.g.disconnect")}</button>
+                <button type="button" id="g-disconnect" class="btn" style="display:none;margin-left:0.5rem">{t("itg.g.disconnect")}</button>
               </span>
               <span class="note" id="g-oauth-note">{t("itg.g.pending")}</span>
             </div>
@@ -763,7 +813,7 @@ const prI18n = {
                c'e' proprio, e senza questo non avrebbero dove configurarla. Con
                piu' sedi resta il livello di partenza, che ogni scheda
                sovrascrive — come Stripe e come gli orari. -->
-          <div class="itg-card" style="margin-top:1rem">
+          <div class="itg-card is-wide" id="itg-print" style="margin-top:1rem">
             <div class="itg-head">
               <div>
                 <h3 class="itg-titre">{t("loc.sezStampa")}</h3>
@@ -771,27 +821,30 @@ const prI18n = {
               </div>
             </div>
 
-            <div class="f-field">
-              <label class="f-label" for="itg-printer">{t("loc.printer")}</label>
-              <div class="loc-riga">
-                <select id="itg-printer"><option value="">{t("loc.printOff")}</option></select>
-                <button type="button" id="itg-print-test" class="btn">{t("loc.printTest")}</button>
+            <div class="itg-print-grid" style="margin-top:1.2rem">
+              <div>
+                <p class="itg-niv">{t("loc.printer")}</p>
+                <div class="loc-riga">
+                  <select id="itg-printer" class="fld"><option value="">{t("loc.printOff")}</option></select>
+                  <button type="button" id="itg-print-test" class="btn">{t("loc.printTest")}</button>
+                </div>
+                <p class="hint" id="itg-print-res" style="margin:0.5rem 0 0">{t("loc.printerHint")}</p>
+                <div class="f-field" style="margin-top:1rem">
+                  <span class="sw-wrap"><label class="switch"><input type="checkbox" id="itg-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
+                </div>
+              </div>
+
+              <div>
+                <p class="itg-niv">{t("loc.sezDest")}</p>
+                <div id="itg-dest"></div>
+                <button type="button" id="itg-dest-add" class="btn">+ {t("loc.destAdd")}</button>
+                <p class="hint">{t("loc.destHint")}</p>
               </div>
             </div>
-            <p class="f-note" id="itg-print-res">{t("loc.printerHint")}</p>
-            <div class="f-field">
-              <span class="sw-wrap"><label class="switch"><input type="checkbox" id="itg-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
-            </div>
 
-            <p class="itg-niv">{t("loc.sezDest")}</p>
-            <div id="itg-dest"></div>
-            <div class="loc-riga">
-              <button type="button" id="itg-dest-add" class="btn">+ {t("loc.destAdd")}</button>
-            </div>
-            <p class="f-note">{t("loc.destHint")}</p>
-            <div class="loc-riga" style="margin-top:0.8rem">
-              <button type="button" id="itg-print-save" class="us-add">{t("common.save")}</button>
+            <div class="us-foot">
               <span class="f-label" id="itg-print-msg"></span>
+              <button type="button" id="itg-print-save" class="us-add">{t("common.save")}</button>
             </div>
           </div>
 
@@ -807,19 +860,19 @@ const prI18n = {
             <p class="itg-niv" id="sc-robot-wrap" style="display:none">{t("itg.sc.step1")}</p>
             <div class="us-frow us-frow-pass" id="sc-robot-row" style="display:none">
               <input type="text" id="sc-robot" readonly autocomplete="off" />
-              <button type="button" id="sc-copy" class="us-ghost">{t("common.copy")}</button>
+              <button type="button" id="sc-copy" class="btn">{t("common.copy")}</button>
             </div>
 
             <label class="us-lab" for="sc-site" style="margin-top:1rem">{t("itg.sc.step2")}</label>
             <div class="us-frow us-frow-pass">
               <input type="text" id="sc-site" placeholder="sc-domain:exemple.be" autocomplete="off" />
-              <button type="button" id="sc-test" class="us-ghost">{t("common.verify")}</button>
+              <button type="button" id="sc-test" class="btn">{t("common.verify")}</button>
             </div>
             <p class="note" id="sc-res" style="margin-top:0.5rem">{t("itg.sc.note")}</p>
 
             <div class="us-foot">
-              <button type="button" id="sc-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="sc-err"></span>
+              <button type="button" id="sc-save" class="us-add">{t("common.save")}</button>
             </div>
           </div>
 
@@ -836,8 +889,8 @@ const prI18n = {
             <p class="note" style="margin-top:0.4rem">{t("itg.nl.note")}</p>
 
             <div class="us-foot">
-              <button type="button" id="nl-save" class="us-add">{t("common.save")}</button>
               <span class="us-err" id="nl-err"></span>
+              <button type="button" id="nl-save" class="us-add">{t("common.save")}</button>
             </div>
           </div>
         </section>
@@ -857,7 +910,7 @@ const prI18n = {
           </div>
           <div id="pr-list" class="pr-list"></div>
           <div class="pr-actions">
-            <button type="button" id="pr-reset" class="us-ghost">{t("print.reset")}</button>
+            <button type="button" id="pr-reset" class="btn">{t("print.reset")}</button>
             <button type="button" id="pr-save" class="us-add">{t("common.save")}</button>
             <span id="pr-state" class="pr-state-msg"></span>
           </div>
@@ -2421,7 +2474,7 @@ const prI18n = {
          *  fianco. Due copie della stessa cosa divergono, e qui divergerebbero
          *  proprio mentre qualcuno sta scrivendo. */
         function raccogliDest(box?: HTMLElement): { nome: string; cat: string[]; printer: string }[] {
-          return [...destBox(box).querySelectorAll(".loc-dest-r")].map((r) => ({
+          return [...destBox(box).querySelectorAll(".dd-r")].map((r) => ({
             nome: (r.querySelector(".dd-nome") as HTMLInputElement).value.trim(),
             cat: [...r.querySelectorAll<HTMLInputElement>(".dd-c input:checked")].map((i) => i.value),
             printer: (r.querySelector(".dd-pr") as HTMLSelectElement).value,
@@ -2459,10 +2512,10 @@ const prI18n = {
             // in silenzio, il salvataggio successivo la butterebbe via e quei
             // piatti cambierebbero stampante senza che nessuno l'abbia deciso.
             const orfane = d.cat.filter((c) => !categorieMenu.includes(c)).map((c) => casella(c, true)).join("");
-            return `<div class="loc-dest-r">
-              <input class="dd-nome" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
+            return `<div class="dd-r">
+              <input class="dd-nome fld" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
               <div class="dd-cat" role="group" aria-label="${escG(L.destCat ?? "")}">${opzCat}${orfane}</div>
-              <select class="dd-pr" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
+              <select class="dd-pr fld" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
               <button type="button" class="ibtn dd-del" title="${escG(L.destDel ?? "")}" aria-label="${escG(L.destDel ?? "")}">${LOC_CESTINO}</button>
             </div>`;
           }).join("");
@@ -2490,7 +2543,7 @@ const prI18n = {
             const b = (e.target as HTMLElement).closest(".dd-del");
             if (!b) return;
             const righe = raccogliDest(box);
-            const i = [...box.querySelectorAll(".loc-dest-r")].indexOf(b.closest(".loc-dest-r") as Element);
+            const i = [...box.querySelectorAll(".dd-r")].indexOf(b.closest(".dd-r") as Element);
             if (i >= 0) righe.splice(i, 1);
             disegnaDest(righe, box);
           });
