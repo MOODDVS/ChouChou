@@ -54,6 +54,7 @@ const supI18n = {
     stCount: t("loc.st.count"), stDone: t("loc.st.done"),
     sedeTutte: t("us.sedeTutte"),
     netErr: t("common.netErr"),
+    printShort: t("loc.printShort"), printPaused: t("loc.printPaused"),
     printerHint: t("loc.printerHint"), printNone: t("loc.printNone"),
     printOff: t("loc.printOff"), printSent: t("loc.printSent"), printKo: t("loc.printKo"),
   },
@@ -2046,6 +2047,13 @@ const prI18n = {
          *  browser non vede mai le chiavi del servizio di stampa. */
         let elencoStampanti: { id: number; nome: string; stato: string; station: string }[] = [];
         let stampantiChieste = false;
+        let erroreStampanti = "";
+        /** ⚠️ Separato da `stampantiChieste`, e non si azzera mai. Il
+         *  riepilogo ridisegna quando l'elenco arriva; se il tentativo
+         *  fallisse e questo tornasse falso, ogni ridisegno rifarebbe la
+         *  domanda e il ridisegno — una rotella infinita di chiamate di rete
+         *  su un pannello aperto tutto il giorno. */
+        let stampantiTentate = false;
         // Titolo della scheda Google collegata a ogni sede, e se il .env ha
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
@@ -2102,6 +2110,24 @@ const prI18n = {
           return ["ok", valore];
         }
 
+        /** La stampante di QUESTO punto, per il riepilogo.
+         *
+         *  ⚠️ TRE stati, non due. «Configurata» e «configurata ma spenta» sono
+         *  due situazioni diverse, e la seconda e' quella che inganna: il
+         *  numero c'e', la scheda sembra a posto, e in cucina non esce niente.
+         *  Verde solo quando la stampa parte davvero — e' la stessa coppia di
+         *  condizioni di `stampaAttiva` lato server, vista da qui. */
+        function statoStampante(idSede: string): [("ok" | "no" | "ko"), string] {
+          const st = stampanti[idSede];
+          const num = String(st?.printer_id ?? "").trim();
+          if (!num) return ["ko", String(L.stManca ?? "")];
+          // Il nome, se l'elenco e' arrivato; se no il numero, che e' sempre
+          // meglio di «configurata» — dice QUALE.
+          const nome = elencoStampanti.find((p) => String(p.id) === num)?.nome || `#${num}`;
+          if (!st?.auto) return ["no", `${nome} · ${String(L.printPaused ?? "")}`];
+          return ["ok", nome];
+        }
+
         function locRender() {
           if (sedi.length === 0) {
             locState.style.display = "";
@@ -2110,6 +2136,13 @@ const prI18n = {
             return;
           }
           locState.style.display = "none";
+          // I nomi delle stampanti arrivano dopo: si chiede una volta e si
+          // ridisegna. Fino ad allora il riepilogo mostra il numero, che e'
+          // comunque meglio di «configurata» — dice QUALE.
+          if (!stampantiTentate) {
+            stampantiTentate = true;
+            void chiediStampanti().then(() => locRender());
+          }
           locList.innerHTML = sedi.map((s) => `
             <div class="loc-card${s.active ? "" : " is-off"}" data-id="${esc(s.id)}">
               <div class="loc-head">
@@ -2125,6 +2158,7 @@ const prI18n = {
                 ${riga("Google Business", ...statoGoogle(s.id, "google_location_title", schedeGoogle[s.id] ?? "", String(L.stNonColl ?? "")))}
                 ${riga("Place ID", ...statoGoogle(s.id, "google_place_id", placeIds[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
                 ${riga(L.reviewShort ?? "", ...statoGoogle(s.id, "link_google_review", reviewUrls[s.id] ? String(L.stConf ?? "") : "", String(L.stManca ?? "")))}
+                ${riga(L.printShort ?? "", ...statoStampante(s.id))}
               </ul>
               <div class="loc-actions">
                 <span class="sw-wrap">
@@ -2242,24 +2276,31 @@ const prI18n = {
         // ⚠️ L'elenco lo chiede il SERVER al servizio di stampa: le chiavi
         // stanno nell'ambiente del cliente e non devono MAI arrivare qui. Si
         // chiede una volta sola, alla prima scheda aperta.
+        /** Chiede l'elenco al server UNA volta sola. Separata da chi riempie
+         *  la tendina perche' serve anche al RIEPILOGO, che deve poter
+         *  scrivere il nome della stampante invece del suo numero. */
+        async function chiediStampanti(): Promise<void> {
+          if (stampantiChieste) return;
+          stampantiChieste = true;
+          try {
+            const r = await fetch("/api/admin/printers", { headers });
+            const j = await r.json();
+            elencoStampanti = Array.isArray(j?.stampanti) ? j.stampanti : [];
+            // ⚠️ Un elenco vuoto perche' il servizio non risponde e uno vuoto
+            // perche' non c'e' nessuna stampante NON sono la stessa cosa: si
+            // cercherebbe il guasto dalla parte sbagliata.
+            erroreStampanti = String(j?.errore ?? "");
+          } catch {
+            stampantiChieste = false;
+            erroreStampanti = String(L.netErr ?? "");
+          }
+        }
+
         async function riempiStampanti(scelta: string): Promise<void> {
           const sel = document.getElementById("loc-printer") as HTMLSelectElement;
           const res = document.getElementById("loc-print-res") as HTMLElement;
-          if (!stampantiChieste) {
-            stampantiChieste = true;
-            try {
-              const r = await fetch("/api/admin/printers", { headers });
-              const j = await r.json();
-              elencoStampanti = Array.isArray(j?.stampanti) ? j.stampanti : [];
-              // ⚠️ Un elenco vuoto perche' il servizio non risponde e uno vuoto
-              // perche' non c'e' nessuna stampante NON sono la stessa cosa: si
-              // cercherebbe il guasto dalla parte sbagliata.
-              if (j?.errore) res.textContent = String(j.errore);
-            } catch {
-              stampantiChieste = false;
-              res.textContent = String(L.netErr ?? "");
-            }
-          }
+          await chiediStampanti();
+          if (erroreStampanti) res.textContent = erroreStampanti;
           sel.innerHTML =
             `<option value="">${escG(L.printOff ?? "")}</option>` +
             elencoStampanti.map((p) => {

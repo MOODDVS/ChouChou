@@ -1727,6 +1727,15 @@ Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona
 - Le chiavi stanno in `location_config` (per sede) e `app_config` (sede unica): **nessuna migrazione**.
 - ⚠️ **Quattro registri del multi-sede si sono fatti sentire**, ed e' il motivo per cui esistono: `print_tickets` da classificare, l'uso dell'aggregato da dichiarare, l'esenzione dal SQL dello storico (nata DOPO il multi-sede), e `printers` da mappare nei permessi.
 
+**La catena e' chiusa (05/10, provata a casa): pannello → motore → BizPrint → tablet → carta.** Il bottone «Test d'impression» nella scheda della sede fa uscire il foglio.
+
+⚠️ **I tre difetti dell'ultimo miglio, tutti silenziosi.**
+1. **Chiave non classificata.** `scriviConfig` LANCIA su una chiave non dichiarata in `CLASSIFICA_CONFIG` — ed e' giusto. `print_printer_id`/`print_auto` non c'erano. Ma **la scheda non leggeva l'esito** di quella PATCH e diceva «salvato» lo stesso: si riapriva e la stampante era sparita. Due difetti sovrapposti, e il secondo nascondeva il primo. Ora la risposta si guarda.
+2. **`http` invece di `https`.** Dietro Hostinger il TLS finisce sul proxy e Node vede una richiesta `http`: si spediva `http://restohub.moodd.online/...`, Android rifiutava («CLEARTEXT communication not permitted») e il lavoro restava «inviato» senza carta. Lo schema ora viene da `x-forwarded-proto`, `https` di ripiego, `http` solo su host locale. **Il motivo era scritto in un posto solo al mondo: lo schermo del tablet.**
+3. **I punti nel token.** `/api/print/p.XXX.YYY` sembra un file con un'estensione. Separatore ora `~`.
+
+**Da qui la regola**: ogni passaggio deve lasciare qualcosa da guardare. La risposta della prova riporta **l'indirizzo spedito** e il pannello lo mostra: un «inviato» che non stampa adesso dice perche'.
+
 **Il modello per piu' stampanti** (deciso, da costruire): il **reparto** e' del MARCHIO come le categorie del menu, la **stampante** e' della SEDE. Chiavi `print_printer_id:<reparto>`, lettura a cascata — la piu' precisa che esiste. ⚠️ Costo vero: **$0,025 a stampa** sul piano Plus; tre reparti triplicano. Pareggio con Pro a 2.400 stampe/mese.
 
 **Da fare domani**
