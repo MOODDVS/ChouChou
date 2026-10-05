@@ -1715,6 +1715,8 @@ Lezione minore ma vera, presa facendo il PDF: **un px CSS non e' un dot.** Vale 
 
 Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona), `.html`, `.pdf`, `.png` — gli altri tre restano come promemoria di cosa NON funziona.
 
+**Deciso il 05/10 — piu' stampanti per reparto** (dettaglio in ENGINE.md): il taglio si fa **per categoria** del menu; ogni ticket porta la testa intera, i suoi piatti e in fondo **`1/3 — altre 2 righe al bar`**; il ticket **«pass»** con l'ordine intero e' un **interruttore per sede**. ⚠️ L'indice unico della **#76** va rifatto da `(order_id, kind)` a `(order_id, reparto)`, altrimenti il database rifiuta il secondo e il terzo ticket dello stesso ordine.
+
 **Da fare domani**
 
 1. Enzo prova **da casa** con un'altra stampante collegata al tablet; a Schaerbeek non c'e'.

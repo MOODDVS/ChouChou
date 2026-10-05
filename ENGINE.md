@@ -1810,6 +1810,45 @@ Da qui due conseguenze pratiche:
   ragionando su come funziona una termica collegata a un cavo: ma qui in mezzo
   c'e' un'app, e il ragionamento valeva per una catena diversa da questa.
 
+### Piu' stampanti: il REPARTO (deciso il 05/10/2026, da costruire)
+
+Un cliente vuole le pizze dal forno, le bibite dal bar, i freddi dai freddi.
+Il pezzo da introdurre **non e' «la stampante», e' il reparto**: ha un nome e
+una stampante, e le categorie del menu puntano al reparto, mai al numero della
+stampante. Il giorno che la stampante del bar si rompe si cambia **un numero
+in un posto solo**; se le categorie puntassero alla stampante si
+riassegnerebbero quaranta categorie, dimenticandone una — e per settimane le
+bibite uscirebbero in pizzeria.
+
+**La scelta vive sulla CATEGORIA**, cioe' dove il ristoratore mette gia' i
+piatti, non in una seconda tabella di regole da tenere allineata. Aggiungi
+«Dolci» e scegli li' dove esce. Un piatto nuovo eredita dalla sua categoria e
+non puo' restare orfano. (`kind` food/drink esiste gia' e non basta: antipasti
+e pizze sono tutti e due cibo.)
+
+⚠️ **L'indice unico della #76 va rifatto.** Oggi e' `(order_id, kind) where
+origin = 'auto'`: con una stampante sola e' giusto, con tre reparti **vieta
+esattamente quello che serve** — il secondo e il terzo ticket dello stesso
+ordine li rifiuta il database. Diventa `(order_id, reparto)`. Se lo si scopre
+in cucina invece che qui, lo si scopre perche' le bibite non escono mai.
+
+**Ogni ticket porta la testa intera e solo i suoi piatti**: ora di ritiro,
+numero e «DA INCASSARE» uguali su tutti, poi le sue righe. In fondo
+**`1/3 — altre 2 righe al bar`**: senza quel conteggio chi prepara non sa se
+l'ordine e' completo, e un ticket che sembra tutto l'ordine quando e' un terzo
+e' peggio di nessun ticket.
+
+**Il ticket «pass» con l'ordine intero** — per chi compone il sacchetto e
+incassa — e' un interruttore per sede: lo vuole chi ha un banco, non chi
+lavora in due.
+
+**Chi ha una stampante sola non configura niente.** Nessun reparto definito =
+un reparto solo, tutto li'. La configurazione si presenta a chi la cerca.
+
+**La stampante si sceglie da un elenco, non si copia a mano**: il pannello
+tira le stampanti dall'API, come `scripts/bizprint-lista.mjs`. Un numero
+copiato male e' un ticket che non esce, e nessuno che sappia perche'.
+
 ⚠️ **Uno script che stampa una risposta di un'API maschera TUTTO, non le
 chiavi che conosce.** Il 04/10 `scripts/bizprint-lista.mjs` mascherava le due
 chiavi dell'applicazione — le uniche a cui avevo pensato — e ha stampato in
