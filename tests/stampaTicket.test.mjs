@@ -336,3 +336,100 @@ test("l'indirizzo del ticket ha una risposta sola", () => {
   // indirizzo che non esiste.
   assert.match(coda, /if \(!base\)/, "senza indirizzo la coda accoda lo stesso: cinque tentativi verso il nulla");
 });
+
+// ============================================================
+// PIU' STAMPANTI: CHI STAMPA COSA
+// ============================================================
+import { dividiTicket, leggiDestinazioni, categorieDoppie, CHIAVE_DESTINAZIONI } from "../src/lib/stampaRegole.ts";
+
+const PIATTI = [
+  { qty: 2, nome: "Pizza Margherita", categoria: "Pizze" },
+  { qty: 3, nome: "Eau p", categoria: "Bibite" },
+  { qty: 1, nome: "Tiramisu", categoria: "Dolci" },
+  { qty: 1, nome: "Piatto sparito", categoria: null },
+];
+const DEST = [
+  { nome: "Bar", cat: ["Bibite"], printer: "222" },
+  { nome: "Forno", cat: ["Pizze"], printer: "333" },
+];
+
+test("quello che nessuno ha chiesto esce dalla principale", () => {
+  // ⚠️ E' la regola che impedisce a un piatto di finire NEL NULLA: una
+  // categoria nuova, una rinominata, un piatto cancellato dal menu. Un ticket
+  // sulla stampante sbagliata si vede; uno che non esce no.
+  const g = dividiTicket(PIATTI, DEST, "111");
+  assert.equal(g[0].chiave, "", "la principale non e' piu' la prima: il numero di parte cambierebbe a ogni ordine");
+  assert.deepEqual(g[0].piatti.map((p) => p.nome), ["Tiramisu", "Piatto sparito"]);
+  assert.deepEqual(g.map((x) => x.chiave), ["", "Bar", "Forno"], "l'ordine dei gruppi non segue piu' la configurazione");
+  assert.equal(g.find((x) => x.chiave === "Forno").printer, "333");
+});
+
+test("nessun ticket vuoto, nessuna stampa pagata per un'intestazione", () => {
+  const soloPizze = dividiTicket([{ qty: 1, nome: "Margherita", categoria: "Pizze" }], DEST, "111");
+  assert.equal(soloPizze.length, 1, "e' nato un gruppo senza piatti");
+  assert.equal(soloPizze[0].chiave, "Forno");
+});
+
+test("una destinazione senza stampante non fa sparire i suoi piatti", () => {
+  // Una riga a meta' (nome e categorie, ma nessuna stampante) non e' una
+  // destinazione: i suoi piatti devono tornare sulla principale, non
+  // svanire.
+  const g = dividiTicket(PIATTI, [{ nome: "Bar", cat: ["Bibite"], printer: "" }], "111");
+  assert.equal(g.length, 1);
+  assert.ok(g[0].piatti.some((p) => p.nome === "Eau p"), "le bibite sono sparite");
+});
+
+test("una categoria su due stampanti sono due comande, cioe' due pizze", () => {
+  assert.deepEqual(categorieDoppie([{ cat: ["Pizze", "Bibite"] }, { cat: ["Bibite"] }]), ["Bibite"]);
+  assert.deepEqual(categorieDoppie([{ cat: ["Pizze"] }, { cat: ["Bibite"] }]), []);
+  // E se ci finisse lo stesso, la prima riga vince: un piatto, un ticket.
+  const g = dividiTicket(PIATTI, [
+    { nome: "A", cat: ["Pizze"], printer: "1" },
+    { nome: "B", cat: ["Pizze"], printer: "2" },
+  ], "111");
+  assert.equal(g.filter((x) => x.piatti.some((p) => p.nome === "Pizza Margherita")).length, 1);
+});
+
+test("una configurazione storta non impedisce all'ordine di stamparsi", () => {
+  // ⚠️ `leggiDestinazioni` non lancia mai: una riga rotta nel database non
+  // deve bloccare la stampa, deve solo far cadere tutto sulla principale.
+  assert.deepEqual(leggiDestinazioni("{non json"), []);
+  assert.deepEqual(leggiDestinazioni(null), []);
+  assert.deepEqual(leggiDestinazioni('[{"nome":"Bar","cat":[],"printer":"9"}]'), [], "una riga senza categorie non e' una destinazione");
+  assert.deepEqual(leggiDestinazioni('[{"nome":"Bar","cat":["Bibite"],"printer":""}]'), [], "una riga senza stampante non e' una destinazione");
+  assert.equal(leggiDestinazioni('[{"nome":"Bar","cat":["Bibite"],"printer":"9"}]').length, 1);
+});
+
+test("un ticket parziale lo dice, e dice cosa manca", () => {
+  // ⚠️ Chi prepara legge un foglio che SEMBRA tutto l'ordine ed e' un terzo.
+  // Senza il conteggio nessuno si accorge che una delle altre stampanti non
+  // ha stampato.
+  const base = { numero: "4F2A", ora: "19:45", cliente: "Marco Rossi", piatti: [{ qty: 1, nome: "Margherita" }] };
+  const righe = ticketCucina({
+    ...base,
+    parte: { n: 1, su: 3, altri: [{ nome: "Bar", righe: 3 }, { nome: "Forno", righe: 2 }] },
+  });
+  const testo = righe.map((r) => r.testo).join("\n");
+  assert.match(testo, /1\/3/, "il ticket non dice piu' che e' una parte");
+  assert.match(testo, /3x Bar/, "non dice cosa esce dalle altre stampanti");
+  // Con una stampante sola quella riga non deve comparire: sarebbe rumore.
+  const sola = ticketCucina({ ...base, parte: { n: 1, su: 1, altri: [] } });
+  assert.doesNotMatch(sola.map((r) => r.testo).join("\n"), /1\/1/);
+});
+
+test("l'indice unico della coda conta anche la stampante", () => {
+  // ⚠️ IL GUASTO EVITATO: l'indice della #76, su (order_id, kind), vietava il
+  // secondo e il terzo ticket dello stesso ordine — cioe' proprio le bibite
+  // al bar. Si scopre qui, o in servizio quando il bar non riceve niente.
+  const sql = leggi("supabase/print_tickets_dest.sql");
+  assert.match(sql, /add column if not exists dest/i);
+  assert.match(sql, /\(order_id, kind, dest\) where origin = 'auto'/);
+  assert.match(sql, /drop index if exists print_tickets_auto_unico/i, "il vecchio indice resta accanto al nuovo: due regole sullo stesso fatto");
+  // ⚠️ Si controlla che la coda usi la COSTANTE, non la stringa scritta a
+  // mano: il nome della chiave e' dichiarato in `stampaRegole` e basta. Il
+  // primo test che ho scritto pretendeva il contrario — cioe' puniva proprio
+  // la regola che chiedo dappertutto.
+  const coda = leggi("src/lib/stampaCoda.ts");
+  assert.match(coda, /CHIAVE_DESTINAZIONI/, "la coda non legge piu' le destinazioni");
+  assert.doesNotMatch(coda, /"print_destinazioni"/, "il nome della chiave e' scritto a mano: due posti, e un giorno uno dei due cambia");
+});

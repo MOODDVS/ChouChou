@@ -55,6 +55,7 @@ const supI18n = {
     sedeTutte: t("us.sedeTutte"),
     netErr: t("common.netErr"),
     printShort: t("loc.printShort"), printPaused: t("loc.printPaused"),
+    destNome: t("loc.destNome"), destCat: t("loc.destCat"), destDel: t("common.delete"),
     printerHint: t("loc.printerHint"), printNone: t("loc.printNone"),
     printOff: t("loc.printOff"), printSent: t("loc.printSent"), printKo: t("loc.printKo"),
   },
@@ -251,6 +252,13 @@ const prI18n = {
       #loc-overlay .loc-f-nome { flex: 3 1 260px; }
       /* Campo + bottone sulla stessa riga (Place ID, scheda Google). */
       #loc-overlay .loc-riga { display: flex; gap: 0.5rem; align-items: center; }
+      /* Una destinazione: nome, categorie, stampante, cestino. Si impila
+         sotto i 720px, dove le quattro colonne non ci stanno piu'. */
+      #loc-overlay .loc-dest-r { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.6rem; }
+      #loc-overlay .loc-dest-r .dd-nome { flex: 0 0 150px; }
+      #loc-overlay .loc-dest-r .dd-cat { flex: 1 1 auto; min-width: 0; }
+      #loc-overlay .loc-dest-r .dd-pr { flex: 0 0 200px; }
+      @media (max-width: 720px) { #loc-overlay .loc-dest-r { flex-wrap: wrap; } #loc-overlay .loc-dest-r .dd-nome, #loc-overlay .loc-dest-r .dd-pr { flex: 1 1 100%; } }
       #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
       #loc-overlay .loc-riga .btn { flex: 0 0 auto; }
       /* ⚠️ Le stesse regole servono anche a `#g-unica`, il selettore della
@@ -977,6 +985,16 @@ const prI18n = {
       <div class="f-field">
         <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
       </div>
+
+      <!-- PIU' STAMPANTI — una riga per destinazione. ⚠️ La principale qui
+           sopra non ha categorie e prende tutto il resto: e' lei che
+           impedisce a un piatto nuovo di finire da nessuna parte. -->
+      <p class="itg-niv">{t("loc.sezDest")}</p>
+      <div id="loc-dest"></div>
+      <div class="loc-riga">
+        <button type="button" id="loc-dest-add" class="btn">+ {t("loc.destAdd")}</button>
+      </div>
+      <p class="f-note">{t("loc.destHint")}</p>
 
       <Fragment slot="foot">
         <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-active" checked /><span class="track"></span></label><span class="sw-lab">{t("loc.active")}</span></span>
@@ -2042,7 +2060,7 @@ const prI18n = {
         // Place ID per sede: non e' un segreto, si rilegge e si mostra.
         let placeIds: Record<string, string> = {};
         let reviewUrls: Record<string, string> = {};
-        let stampanti: Record<string, { printer_id: string; auto: boolean }> = {};
+        let stampanti: Record<string, { printer_id: string; auto: boolean; dest?: { nome: string; cat: string[]; printer: string }[] }> = {};
         /** L'elenco vero delle stampanti, chiesto UNA volta al server. Il
          *  browser non vede mai le chiavi del servizio di stampa. */
         let elencoStampanti: { id: number; nome: string; stato: string; station: string }[] = [];
@@ -2054,6 +2072,10 @@ const prI18n = {
          *  domanda e il ridisegno — una rotella infinita di chiamate di rete
          *  su un pannello aperto tutto il giorno. */
         let stampantiTentate = false;
+        /** Le categorie del menu, per le tendine delle destinazioni. Chieste
+         *  una volta sola, alla prima scheda aperta. */
+        let categorieMenu: string[] = [];
+        let categorieChieste = false;
         // Titolo della scheda Google collegata a ogni sede, e se il .env ha
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
@@ -2265,7 +2287,10 @@ const prI18n = {
           campo("loc-place").value = s ? (placeIds[s.id] ?? "") : "";
           campo("loc-greview").value = s ? (reviewUrls[s.id] ?? "") : "";
           (document.getElementById("loc-place-res") as HTMLElement).textContent = L.placeHint ?? "";
-          void riempiStampanti(s ? (stampanti[s.id]?.printer_id ?? "") : "");
+          void riempiStampanti(s ? (stampanti[s.id]?.printer_id ?? "") : "").then(async () => {
+            await chiediCategorie();
+            disegnaDest(s ? (stampanti[s.id]?.dest ?? []) : []);
+          });
           (document.getElementById("loc-print-auto") as HTMLInputElement).checked = s ? Boolean(stampanti[s.id]?.auto) : false;
           (document.getElementById("loc-print-res") as HTMLElement).textContent = String(L.printerHint ?? "");
           void gSedeStato();
@@ -2317,6 +2342,87 @@ const prI18n = {
           sel.value = scelta;
           if (!elencoStampanti.length && !res.textContent) res.textContent = String(L.printNone ?? "");
         }
+
+        // ---- LE DESTINAZIONI (piu' stampanti) -------------------------------
+        const destBox = () => document.getElementById("loc-dest") as HTMLElement;
+
+        /** Lo stato sta nel DOM: si rilegge invece di tenerne una copia a
+         *  fianco. Due copie della stessa cosa divergono, e qui divergerebbero
+         *  proprio mentre qualcuno sta scrivendo. */
+        function raccogliDest(): { nome: string; cat: string[]; printer: string }[] {
+          return [...destBox().querySelectorAll(".loc-dest-r")].map((r) => ({
+            nome: (r.querySelector(".dd-nome") as HTMLInputElement).value.trim(),
+            cat: [...(r.querySelector(".dd-cat") as HTMLSelectElement).selectedOptions].map((o) => o.value),
+            printer: (r.querySelector(".dd-pr") as HTMLSelectElement).value,
+          }));
+        }
+
+        function opzioniStampante(scelta: string): string {
+          const vuoto = `<option value="">${escG(L.printOff ?? "")}</option>`;
+          const righe = elencoStampanti.map((p) => {
+            const dove = p.station ? ` · ${escG(p.station)}` : "";
+            return `<option value="${p.id}"${String(p.id) === scelta ? " selected" : ""}>${escG(p.nome)}${dove}</option>`;
+          }).join("");
+          const sconosciuta = scelta && !elencoStampanti.some((p) => String(p.id) === scelta)
+            ? `<option value="${escG(scelta)}" selected>#${escG(scelta)} — ?</option>` : "";
+          return vuoto + righe + sconosciuta;
+        }
+
+        function disegnaDest(righe: { nome: string; cat: string[]; printer: string }[]): void {
+          destBox().innerHTML = righe.map((d) => {
+            // ⚠️ Una categoria presa da un'altra riga non si puo' scegliere
+            // qui: due righe sulla stessa categoria vogliono dire due comande,
+            // cioe' due pizze. Si impedisce prima di salvare, non dopo.
+            const altrove = new Set(righe.filter((x) => x !== d).flatMap((x) => x.cat));
+            const opzCat = categorieMenu.map((c) => {
+              const scelta = d.cat.includes(c);
+              return `<option value="${escG(c)}"${scelta ? " selected" : ""}${!scelta && altrove.has(c) ? " disabled" : ""}>${escG(c)}</option>`;
+            }).join("");
+            // ⚠️ Una categoria configurata che nel menu non esiste piu'
+            // (rinominata, cancellata) resta visibile e marcata: se sparisse
+            // in silenzio, il salvataggio successivo la butterebbe via e quei
+            // piatti cambierebbero stampante senza che nessuno l'abbia deciso.
+            const orfane = d.cat.filter((c) => !categorieMenu.includes(c))
+              .map((c) => `<option value="${escG(c)}" selected>${escG(c)} — ?</option>`).join("");
+            return `<div class="loc-dest-r">
+              <input class="dd-nome" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
+              <select class="dd-cat" multiple size="4" aria-label="${escG(L.destCat ?? "")}">${opzCat}${orfane}</select>
+              <select class="dd-pr" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
+              <button type="button" class="ibtn dd-del" title="${escG(L.destDel ?? "")}" aria-label="${escG(L.destDel ?? "")}">${LOC_CESTINO}</button>
+            </div>`;
+          }).join("");
+        }
+
+        /** Le categorie del menu. Senza, le tendine sarebbero vuote e si
+         *  salverebbero destinazioni senza categorie — cioe' righe che non
+         *  stampano niente. */
+        async function chiediCategorie(): Promise<void> {
+          if (categorieChieste) return;
+          categorieChieste = true;
+          try {
+            const r = await fetch("/api/admin/categories", { headers });
+            const j = await r.json();
+            categorieMenu = (Array.isArray(j?.categories) ? j.categories : [])
+              .map((c: { name?: unknown }) => String(c?.name ?? "").trim())
+              .filter(Boolean);
+          } catch { categorieChieste = false; }
+        }
+
+        destBox()?.addEventListener("click", (e) => {
+          const b = (e.target as HTMLElement).closest(".dd-del");
+          if (!b) return;
+          const righe = raccogliDest();
+          const i = [...destBox().querySelectorAll(".loc-dest-r")].indexOf(b.closest(".loc-dest-r") as Element);
+          if (i >= 0) righe.splice(i, 1);
+          disegnaDest(righe);
+        });
+        // Scegliere una categoria la toglie alle altre righe: si ridisegna.
+        destBox()?.addEventListener("change", (e) => {
+          if ((e.target as HTMLElement).classList.contains("dd-cat")) disegnaDest(raccogliDest());
+        });
+        document.getElementById("loc-dest-add")?.addEventListener("click", () => {
+          disegnaDest([...raccogliDest(), { nome: "", cat: [], printer: "" }]);
+        });
 
         document.getElementById("loc-print-test")?.addEventListener("click", async () => {
           const sel = document.getElementById("loc-printer") as HTMLSelectElement;
@@ -2576,6 +2682,7 @@ const prI18n = {
                 id,
                 printer_id: (document.getElementById("loc-printer") as HTMLSelectElement).value,
                 print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
+                destinazioni: raccogliDest(),
               }),
             });
             if (!rp.ok) {

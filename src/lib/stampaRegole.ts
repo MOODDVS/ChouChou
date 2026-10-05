@@ -60,6 +60,132 @@ export function daStampare(stato: unknown, metodo: unknown): boolean {
   return s === "pending" && String(metodo ?? "") === "onsite";
 }
 
+/* ==========================================================================
+   PIU' STAMPANTI: CHI STAMPA COSA
+   ==========================================================================
+   Un cliente puo' volere le pizze dal forno, le bibite dal bar, i freddi dai
+   freddi. La configurazione e' una riga per destinazione — nome, categorie,
+   stampante — e vive in `print_destinazioni`, una chiave per SEDE con il
+   ripiego sul marchio: nessuna tabella nuova, nessuna migrazione dello
+   schema del menu.
+
+   ⚠️ LA PRINCIPALE NON HA CATEGORIE, e prende tutto quello che nessuna riga
+   ha chiesto. E' lei che impedisce a un piatto nuovo — o a una categoria
+   rinominata, o a un piatto cancellato dal menu — di finire nel nulla: un
+   ticket sulla stampante sbagliata si vede, uno che non esce no.
+
+   ⚠️ UNA CATEGORIA IN DUE RIGHE VUOL DIRE DUE COMANDE, cioe' due pizze. Qui
+   si fa rispettare: la PRIMA riga che la nomina se la prende, e
+   `categorieDoppie` dice al pannello quali impedire prima di salvare.
+   ========================================================================== */
+
+export interface Destinazione {
+  /** Nome corto: finisce sul ticket, nella riga «1/3 — altre 2 al Bar». */
+  nome: string;
+  /** Nomi delle categorie del menu. Vuoto = e' la principale. */
+  cat: string[];
+  /** Il numero della stampante, come stringa: viene da una tendina. */
+  printer: string;
+}
+
+export const CHIAVE_DESTINAZIONI = "print_destinazioni";
+
+/** Legge la configurazione senza mai lanciare: una riga storta nel database
+ *  non deve impedire a un ordine di stamparsi dalla principale. */
+export function leggiDestinazioni(grezzo: unknown): Destinazione[] {
+  let righe: unknown;
+  try {
+    righe = typeof grezzo === "string" ? JSON.parse(grezzo || "[]") : grezzo;
+  } catch { return []; }
+  if (!Array.isArray(righe)) return [];
+  return righe
+    .map((r) => {
+      const o = (r ?? {}) as { nome?: unknown; cat?: unknown; printer?: unknown };
+      return {
+        nome: String(o.nome ?? "").trim().slice(0, 24),
+        cat: Array.isArray(o.cat) ? o.cat.map((c) => String(c ?? "").trim()).filter(Boolean) : [],
+        printer: String(o.printer ?? "").trim(),
+      };
+    })
+    // Una riga senza stampante non e' una destinazione: e' una buona
+    // intenzione, e manderebbe i suoi piatti da nessuna parte.
+    .filter((d) => d.printer !== "" && d.cat.length > 0);
+}
+
+/** Le categorie nominate da piu' di una riga. Il pannello le impedisce PRIMA
+ *  di salvare: scoprirlo in cucina vuol dire due comande uguali. */
+export function categorieDoppie(righe: { cat?: string[] }[]): string[] {
+  const viste = new Set<string>();
+  const doppie = new Set<string>();
+  for (const r of righe ?? []) {
+    for (const c of r?.cat ?? []) {
+      if (viste.has(c)) doppie.add(c); else viste.add(c);
+    }
+  }
+  return [...doppie];
+}
+
+export interface PiattoDaDividere {
+  qty: number;
+  nome: string;
+  variante?: string | null;
+  nota?: string | null;
+  /** La categoria del menu, se la si conosce. */
+  categoria?: string | null;
+}
+
+export interface GruppoStampa {
+  /** `""` per la principale, altrimenti il nome della destinazione. Finisce
+   *  nella colonna `dest` della coda, ed e' cio' che rende il ticket UNICO
+   *  per ordine e stampante: l'indice del database ci si appoggia. */
+  chiave: string;
+  nome: string;
+  printer: string;
+  piatti: PiattoDaDividere[];
+}
+
+/**
+ * Divide i piatti di un ordine fra le stampanti.
+ *
+ * ⚠️ L'ordine dei gruppi e' quello della configurazione, con la principale
+ * sempre PRIMA: cosi' il numero di parte (`1/3`) non cambia da un ordine
+ * all'altro, e chi in cucina vede «2/3» sa sempre quale manca.
+ *
+ * Un gruppo senza piatti non esiste: niente ticket vuoto, e niente stampa
+ * pagata per un foglio con solo l'intestazione.
+ */
+export function dividiTicket(
+  piatti: PiattoDaDividere[],
+  destinazioni: Destinazione[],
+  stampantePrincipale: string,
+  nomePrincipale = "",
+): GruppoStampa[] {
+  const dove = new Map<string, Destinazione>();
+  for (const d of destinazioni) {
+    for (const c of d.cat) if (!dove.has(c)) dove.set(c, d); // la prima vince
+  }
+  const gruppi = new Map<string, GruppoStampa>();
+  const chiaveDi = (d: Destinazione | undefined) => (d ? d.nome : "");
+  for (const p of piatti) {
+    const d = p.categoria ? dove.get(p.categoria) : undefined;
+    // ⚠️ Una destinazione senza stampante configurata ricade sulla
+    // principale invece di perdere il piatto.
+    const printer = d?.printer || stampantePrincipale;
+    if (!printer) continue;
+    const k = d?.printer ? chiaveDi(d) : "";
+    const g = gruppi.get(k) ?? { chiave: k, nome: k || nomePrincipale, printer, piatti: [] };
+    g.piatti.push(p);
+    gruppi.set(k, g);
+  }
+  const ordinati: GruppoStampa[] = [];
+  if (gruppi.has("")) ordinati.push(gruppi.get("")!);
+  for (const d of destinazioni) {
+    const g = gruppi.get(d.nome);
+    if (g && !ordinati.includes(g)) ordinati.push(g);
+  }
+  return ordinati;
+}
+
 /** Quanti tentativi prima di arrendersi. Oltre, la riga diventa `failed` e
  *  nel pannello compare l'avviso: meglio dirlo che riprovare per ore. */
 export const MAX_TENTATIVI = 5;
@@ -110,6 +236,10 @@ export interface OrdineDaStampare {
   note?: string | null;
   piatti: { qty: number; nome: string; variante?: string | null; nota?: string | null }[];
   daIncassare?: boolean;
+  /** Quando l'ordine esce da piu' stampanti. ⚠️ Senza questo, chi prepara
+   *  legge un ticket che SEMBRA tutto l'ordine ed e' un terzo: peggio di
+   *  nessun ticket, perche' non sa che manca qualcosa. */
+  parte?: { n: number; su: number; altri: { nome: string; righe: number }[] } | null;
 }
 
 /** Una riga di `orders` per quel poco che serve a stampare. Scritta qui e non
@@ -185,6 +315,17 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
     if (p.nota) righe.push({ testo: `   ${p.nota}`, taglia: "normale", grassetto: true });
   }
   righe.push({ testo: "", linea: true });
+  // ⚠️ Prima del cliente, perche' riguarda la PREPARAZIONE: «questo non e'
+  // tutto l'ordine». In fondo al foglio nessuno la leggerebbe.
+  if (o.parte && o.parte.su > 1) {
+    const altri = o.parte.altri.map((a) => `${a.righe}x ${a.nome}`).join(", ");
+    righe.push({
+      testo: altri ? `${o.parte.n}/${o.parte.su} — anche: ${altri}` : `${o.parte.n}/${o.parte.su}`,
+      taglia: "normale",
+      grassetto: true,
+      linea: true,
+    });
+  }
   righe.push({ testo: o.cliente, taglia: "normale", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "normale" });
   if (o.note) righe.push({ testo: o.note, taglia: "normale", grassetto: true });

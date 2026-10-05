@@ -1742,7 +1742,14 @@ Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona
 
 **Manca per chiudere il cerchio:** chi dice che la carta e' uscita davvero. Oggi lo stato arriva a `sent` (lo scrive la rotta quando il tablet apre l'indirizzo), ma `sent` non e' `printed`: carta finita, coperchio aperto. ⚠️ **Il webhook di BizPrint NON e' documentato** — l'applicazione ha il campo «Webhook URL» ma l'API non dice cosa ci manda ne' se firma la chiamata, e un indirizzo pubblico che accetta «stampato» lo puo' chiamare chiunque. Campo **lasciato vuoto**. La strada che abbiamo gia' e' il **polling**: `GET /jobs/{id}` rende `pending|processing|done|failed|connecting-to-printer`, ed e' per questo che la coda salva `job_id`. Un cron per sede, come il completamento automatico degli ordini.
 
-**Il modello per piu' stampanti** (deciso, da costruire): il **reparto** e' del MARCHIO come le categorie del menu, la **stampante** e' della SEDE. Chiavi `print_printer_id:<reparto>`, lettura a cascata — la piu' precisa che esiste. ⚠️ Costo vero: **$0,025 a stampa** sul piano Plus; tre reparti triplicano. Pareggio con Pro a 2.400 stampe/mese.
+**PIU' STAMPANTI — fatto il 05/10, come l'ha disegnato Enzo.** Una riga per destinazione nella scheda della sede: **nome libero + categorie + stampante + «+»**. La mia proposta (reparti del marchio, categorie assegnate una volta) e' stata scartata, e aveva ragione lui: la sua non richiede **nessuna migrazione del menu**, ogni punto resta indipendente, e il danno della ripetizione e' piccolo — una categoria dimenticata esce dalla **principale**, non sparisce.
+
+- Configurazione in **`print_destinazioni`** (`location_config`, ripiego sul marchio). `leggiDestinazioni` non lancia mai: una riga storta fa cadere tutto sulla principale invece di bloccare la stampa.
+- ⚠️ **La principale non ha categorie e prende tutto il resto**: e' lei che impedisce a un piatto nuovo, a una categoria rinominata o a un piatto cancellato di finire nel nulla.
+- ⚠️ **Una categoria su due stampanti sono due comande, cioe' due pizze.** Il pannello disabilita quelle gia' prese, il server rifiuta lo stesso (una scheda aperta da ieri non conosce la regola nuova) e `dividiTicket` fa vincere la prima riga.
+- ⚠️ **Migrazione #77 obbligatoria**: l'indice della #76 su `(order_id, kind)` **vietava** il secondo e il terzo ticket dello stesso ordine. Ora `(order_id, kind, dest)`.
+- ⚠️ **La categoria non viaggia dentro l'ordine**: `orders.items` non la porta, si legge da `menu_items` con gli id. La stessa divisione la rifa' la rotta del ticket — due calcoli diversi darebbero un ticket che annuncia «1/3» e ne contiene un quarto.
+- Il ticket parziale lo dice: **`1/3 — anche: 3x Bar`**, sopra il cliente.
 
 **Da fare domani**
 

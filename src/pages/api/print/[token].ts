@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, leggiConfig } from "../../../lib/admin/sede";
-import { ordineDaRiga, ticketCucina, type RigaOrdine } from "../../../lib/stampaRegole";
+import { ordineDaRiga, ticketCucina, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
+import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
 import { leggiProva, sembraProva } from "../../../lib/printToken";
 
@@ -82,7 +83,7 @@ export const GET: APIRoute = async ({ params }) => {
   // ⚠️ AGGREGATO, come l'annullo pubblico: il token e' gia' l'autorizzazione,
   // e filtrare per sede romperebbe la stampa di ogni punto che non sia il
   // primo — il ticket semplicemente non uscirebbe, senza dirlo a nessuno.
-  const { data: riga } = await leggi("print_tickets", tutteLeSedi(), "id, order_id, location_id, status, created_at")
+  const { data: riga } = await leggi("print_tickets", tutteLeSedi(), "id, order_id, location_id, status, created_at, dest")
     .eq("token", token)
     .maybeSingle();
   if (!riga) return vuoto();
@@ -103,9 +104,36 @@ export const GET: APIRoute = async ({ params }) => {
     .maybeSingle();
   if (!ordine) return vuoto();
 
-  const cfg = await leggiConfig(ambito, ["timezone"]);
+  const cfg = await leggiConfig(ambito, ["timezone", "print_printer_id", CHIAVE_DESTINAZIONI]);
   const ora = oraDi((ordine as { pickup_time?: string }).pickup_time, String(cfg.valori.get("timezone") || "Europe/Brussels"));
-  const testo = componiTesto(ticketCucina(ordineDaRiga(ordine as unknown as RigaOrdine, ora)));
+  const dati = ordineDaRiga(ordine as unknown as RigaOrdine, ora);
+
+  // ⚠️ I PIATTI DI QUESTA STAMPANTE, non tutti. La divisione la rifa' la
+  // stessa funzione che l'ha fatta in coda: due calcoli diversi vorrebbero
+  // dire un ticket che annuncia «1/3» e contiene un quarto dei piatti.
+  const gruppi = await dividiPerStampante(
+    ordine as unknown as RigaOrdine,
+    ambito,
+    cfg.valori.get(CHIAVE_DESTINAZIONI),
+    String(cfg.valori.get("print_printer_id") ?? "").trim(),
+  );
+  const dest = String((riga as { dest?: string }).dest ?? "");
+  const i = gruppi.findIndex((g) => g.chiave === dest);
+  if (i >= 0) {
+    dati.piatti = gruppi[i].piatti;
+    // ⚠️ «anche: 2x Bar» serve a chi prepara: senza, legge un foglio che
+    // SEMBRA tutto l'ordine ed e' un terzo, e nessuno si accorge se una delle
+    // altre stampanti non ha stampato.
+    dati.parte = {
+      n: i + 1,
+      su: gruppi.length,
+      altri: gruppi.filter((_, k) => k !== i).map((g) => ({
+        nome: g.nome || "?",
+        righe: g.piatti.reduce((n, p) => n + p.qty, 0),
+      })),
+    };
+  }
+  const testo = componiTesto(ticketCucina(dati));
 
   // ⚠️ `sent`, non `printed`. Qui sappiamo solo che il ticket e' stato
   // CONSEGNATO a chi stampa: se la carta e' finita, non esce niente e noi

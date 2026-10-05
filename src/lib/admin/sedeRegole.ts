@@ -445,6 +445,10 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // `location_config` non esiste proprio.
   print_printer_id: "sede",
   print_auto: "sede",
+  // Le destinazioni (nome + categorie + stampante). DELLA SEDE: due punti
+  // possono essere organizzati in modo diverso, e uno con una stampante sola
+  // non deve ereditare i reparti dell'altro.
+  print_destinazioni: "sede",
   company_name: "sede",
   company_street: "sede",
   company_zip: "sede",

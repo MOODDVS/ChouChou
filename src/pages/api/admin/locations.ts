@@ -3,7 +3,7 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
-import { CHIAVI_STAMPA, accesoStampa } from "../../../lib/stampaRegole";
+import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, categorieDoppie, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
 import { cifra, cifraturaPronta } from "../../../lib/segreti";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -247,11 +247,11 @@ export const GET: APIRoute = async ({ request }) => {
   const placeIds: Record<string, string> = {};
   const google: Record<string, string> = {};
   const reviewUrls: Record<string, string> = {};
-  const stampanti: Record<string, { printer_id: string; auto: boolean }> = {};
+  const stampanti: Record<string, { printer_id: string; auto: boolean; dest: Destinazione[] }> = {};
   const propri: Record<string, string[]> = {};
   try {
     for (const r of (data ?? []) as { id: string }[]) {
-      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title", "link_google_review", ...CHIAVI_STAMPA]);
+      const c = await leggiConfig(ambitoDiRiga(r.id), ["google_place_id", "google_location_title", "link_google_review", ...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
       const v = (c.valori.get("google_place_id") ?? "").trim();
       if (v) placeIds[r.id] = v;
       // Il link «lascia una recensione» e' di una SCHEDA, e le schede sono
@@ -266,6 +266,7 @@ export const GET: APIRoute = async ({ request }) => {
       stampanti[r.id] = {
         printer_id: (c.valori.get("print_printer_id") ?? "").trim(),
         auto: accesoStampa(c.valori.get("print_auto")),
+        dest: leggiDestinazioni(c.valori.get(CHIAVE_DESTINAZIONI)),
       };
       propri[r.id] = [...c.sovrascritte];
     }
@@ -419,7 +420,7 @@ export const PATCH: APIRoute = async ({ request }) => {
   // vuole, il numero dice che esiste. Acceso senza numero vuol dire una coda
   // che si riempie di ticket che nessuno stampera' mai — e' la stessa regola
   // di `stampaAttiva`, qui dal lato di chi scrive.
-  if (body.printer_id !== undefined || body.print_auto !== undefined) {
+  if (body.printer_id !== undefined || body.print_auto !== undefined || body.destinazioni !== undefined) {
     const campi: Record<string, string> = {};
     if (body.printer_id !== undefined) {
       const n = String(body.printer_id).trim();
@@ -429,6 +430,19 @@ export const PATCH: APIRoute = async ({ request }) => {
       campi.print_printer_id = n;
     }
     if (body.print_auto !== undefined) campi.print_auto = body.print_auto ? "1" : "0";
+    if (body.destinazioni !== undefined) {
+      // ⚠️ Si rilegge con le regole pure prima di salvare: quello che arriva
+      // dal browser e' una proposta, non un dato. `leggiDestinazioni` butta
+      // via le righe senza stampante o senza categorie, che non sono
+      // destinazioni ma buone intenzioni.
+      const righe = leggiDestinazioni(body.destinazioni);
+      // ⚠️ Una categoria in due righe vuol dire DUE comande, cioe' due pizze.
+      // Il pannello lo impedisce, ma la regola vive anche qui: un pannello
+      // vecchio in una scheda aperta da ieri non la conoscerebbe.
+      const doppie = categorieDoppie(righe);
+      if (doppie.length) return json({ error: `${await msg("loc.err.destDoppia")} ${doppie.join(", ")}` }, 400);
+      campi[CHIAVE_DESTINAZIONI] = JSON.stringify(righe);
+    }
     const err = await scriviConfig(ambitoDiRiga(id), campi);
     if (err) return json({ error: await msg(erroreDb("print", { message: err })) }, 500);
     return json({ ok: true });
