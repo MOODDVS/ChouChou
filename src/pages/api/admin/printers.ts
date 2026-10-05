@@ -27,6 +27,36 @@ const json = (b: unknown, status = 200) =>
 
 const RE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * L'indirizzo PUBBLICO di questo server.
+ *
+ * ⚠️ `new URL(request.url).origin` NON basta dietro un proxy: il server Node
+ * dietro Hostinger vede arrivare la richiesta da `127.0.0.1`, e manderebbe al
+ * servizio di stampa un indirizzo che il tablet non potra' mai aprire — il
+ * lavoro risulterebbe «inviato» e non uscirebbe mai carta, che e' il modo
+ * peggiore di rompersi. Gli header del proxy dicono il nome vero.
+ *
+ * Fidarsi di `x-forwarded-host` sarebbe pericoloso su una rotta pubblica (chi
+ * chiama puo' scriverci quello che vuole); qui chiama il SUPER ADMIN appena
+ * autenticato, e il valore serve solo a costruire l'indirizzo che gli
+ * rimandiamo sotto gli occhi.
+ */
+function originePubblica(request: Request): string {
+  const h = request.headers;
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").split(",")[0].trim();
+  if (!host) return new URL(request.url).origin;
+  // ⚠️ `https` di ripiego, non `http`. IL GUASTO (05/10/2026): dietro
+  // Hostinger il TLS finisce sul proxy e il server Node vede arrivare una
+  // richiesta `http`, quindi spediva `http://restohub.moodd.online/...`.
+  // Android lo rifiuta — «CLEARTEXT communication not permitted» — e il
+  // lavoro restava «inviato» senza che uscisse mai carta. In sviluppo invece
+  // `http` e' la verita', e dire `https` su localhost sarebbe un indirizzo
+  // che non risponde.
+  const locale = /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host);
+  const proto = (h.get("x-forwarded-proto") ?? (locale ? "http" : "https")).split(",")[0].trim();
+  return `${proto}://${host}`;
+}
+
 function segretoProva(): string {
   return String(import.meta.env.CRON_SECRET || import.meta.env.SUPABASE_SERVICE_KEY || "");
 }
@@ -54,17 +84,16 @@ export const POST: APIRoute = async ({ request }) => {
   const segreto = segretoProva();
   if (!segreto) return json({ error: "segreto mancante" }, 500);
 
-  // ⚠️ L'indirizzo deve essere quello PUBBLICO: la pagina non la legge il
-  // browser che ha premuto il bottone, la legge un tablet dall'altra parte di
-  // internet. Si prende dall'indirizzo di questa richiesta, che e' lo stesso
-  // server; se un giorno il proxy lo mascherasse, il lavoro fallirebbe subito
-  // e in modo visibile, invece di stampare a meta'.
-  const origine = new URL(request.url).origin;
+  const origine = originePubblica(request);
   const url = `${origine}/api/print/${firmaProva(sede, segreto)}`;
 
   const r = await mandaStampa(printerId, url, "RestoHub — test");
-  if (!r.ok) return json({ ok: false, errore: r.errore }, 502);
-  // ⚠️ `ok` vuol dire SPEDITO. La carta esce qualche secondo dopo, o non esce
-  // affatto: il pannello deve dire «inviato», non «stampato».
-  return json({ ok: true, jobId: r.jobId });
+  // ⚠️ L'INDIRIZZO TORNA INDIETRO, e il pannello lo mostra. Il 05/10 il
+  // lavoro risultava «inviato» e non usciva niente: senza vedere cosa era
+  // stato spedito si poteva solo tirare a indovinare. Un indirizzo che
+  // comincia per 127.0.0.1 o localhost dice in un colpo d'occhio che il
+  // tablet non potra' mai leggerlo. Non e' un segreto: il token che contiene
+  // vive dieci minuti e lo sta guardando chi l'ha appena creato.
+  if (!r.ok) return json({ ok: false, errore: r.errore, url }, 502);
+  return json({ ok: true, jobId: r.jobId, url });
 };

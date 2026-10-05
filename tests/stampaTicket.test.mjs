@@ -261,3 +261,19 @@ test("il biglietto di prova non sembra un file", () => {
   assert.ok(tok.startsWith("~"), "il biglietto non si distingue piu' dal token di una riga della coda");
   assert.match(leggi("src/pages/api/print/[token].ts"), /\^\[A-Za-z0-9~/, "la rotta non accetta piu' il separatore del biglietto");
 });
+
+test("l'indirizzo del ticket parte in https, o il tablet lo rifiuta", () => {
+  // ⚠️ IL GUASTO (05/10/2026, visto sul tablet): dietro Hostinger il TLS
+  // finisce sul proxy e il server Node vede una richiesta `http`, quindi
+  // spediva `http://restohub.moodd.online/...`. Android rifiuta il traffico in
+  // chiaro — «CLEARTEXT communication not permitted» — e il lavoro restava
+  // «inviato» senza che uscisse mai carta: nessun errore da nessuna parte, e
+  // l'unico posto dove si poteva leggere il motivo era lo schermo del tablet.
+  const api = leggi("src/pages/api/admin/printers.ts");
+  assert.match(api, /x-forwarded-proto/, "lo schema non arriva piu' dal proxy");
+  assert.match(api, /\? "https"|\: "https"/, "sparito il ripiego su https: si tornerebbe a spedire http");
+  assert.match(api, /localhost\|127/, "in sviluppo si spedirebbe https su localhost, che non risponde");
+  // E l'indirizzo torna indietro: un lavoro «inviato» che non stampa deve
+  // lasciare qualcosa da guardare.
+  assert.match(api, /json\(\{ ok: true, jobId: r\.jobId, url \}\)/, "l'indirizzo spedito non torna piu' al pannello");
+});

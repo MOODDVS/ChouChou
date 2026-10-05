@@ -2294,9 +2294,14 @@ const prI18n = {
             // ⚠️ «Inviato», non «stampato»: la carta esce qualche secondo dopo,
             // o non esce affatto. Promettere la stampa qui vorrebbe dire far
             // credere che una stampante spenta abbia funzionato.
-            res.textContent = r.ok && j?.ok
+            // ⚠️ Si mostra anche l'INDIRIZZO spedito. Un lavoro «inviato» che
+            // non stampa non lascia nessuna traccia da guardare: con
+            // l'indirizzo sotto gli occhi si vede in un colpo se il tablet
+            // puo' davvero aprirlo, o se e' un 127.0.0.1 che non uscira' mai.
+            const dove = j?.url ? ` — ${String(j.url)}` : "";
+            res.textContent = (r.ok && j?.ok
               ? String(L.printSent ?? "")
-              : `${String(L.printKo ?? "")} ${String(j?.errore ?? "")}`.trim();
+              : `${String(L.printKo ?? "")} ${String(j?.errore ?? "")}`.trim()) + dove;
           } catch {
             res.textContent = String(L.netErr ?? "");
           }
