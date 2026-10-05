@@ -1800,9 +1800,15 @@ Da qui due conseguenze pratiche:
   colonne. Un nome di piatto piu' lungo va a capo, e dove va a capo si decide
   contando caratteri. (Le misure in dot servono solo se un giorno si stampa un
   logo, che e' un'immagine raster a parte.)
-- **Gli accenti passano da una tabella di caratteri**, non da UTF-8. Un
-  ticket in francese senza quella scelta stampa «PRPARER». Si decide una volta,
-  per cliente, insieme alla lingua.
+- **Gli accenti si scrivono in UTF-8, e basta** — e ⚠️ **`ESC t` non va
+  mandato.** Provato su carta il 05/10: la riga in UTF-8 senza nessun `ESC t`
+  esce perfetta, accenti ed euro compresi. Quelle scritte a mano nelle tabelle
+  della stampante (cp437, cp850, cp858, cp1252) escono TUTTE sbagliate, perche'
+  quei byte non sono UTF-8 valido e vengono rovinati PRIMA della stampante:
+  l'app legge il file come testo, lo decodifica e converte lei verso la
+  testina. Avevo scritto il contrario in questa stessa pagina un'ora prima,
+  ragionando su come funziona una termica collegata a un cavo: ma qui in mezzo
+  c'e' un'app, e il ragionamento valeva per una catena diversa da questa.
 
 ⚠️ **Uno script che stampa una risposta di un'API maschera TUTTO, non le
 chiavi che conosce.** Il 04/10 `scripts/bizprint-lista.mjs` mascherava le due

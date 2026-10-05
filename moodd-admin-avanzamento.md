@@ -1709,6 +1709,10 @@ La causa unica dei primi due: BizPrint **passa il contenuto senza toccarlo**, e 
 
 Lezione minore ma vera, presa facendo il PDF: **un px CSS non e' un dot.** Vale 1/96 di pollice, quindi 576 px sono 152 mm e il primo PDF usciva tagliato a meta'. Con la scala giusta 1 px = 1/8 mm = il dot di una termica a 203 dpi. Serve solo se un giorno si stampa un logo.
 
+**Gli accenti: UTF-8 nudo.** Le quattro tabelle della stampante (`ESC t` con cp437/850/858/1252) sono uscite tutte sbagliate; la riga in **UTF-8 senza nessun `ESC t`** e' perfetta, euro compreso. L'app legge il file come testo e converte lei. Fine delle code page: il ticket si scrive in UTF-8.
+
+**Misurato sul foglio: 48 colonne.** La riga di prova di 48 caratteri esce intera e non va a capo.
+
 Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona), `.html`, `.pdf`, `.png` — gli altri tre restano come promemoria di cosa NON funziona.
 
 **Da fare domani**
