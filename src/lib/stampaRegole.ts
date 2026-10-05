@@ -15,6 +15,8 @@
  * copre quelle tre.
  */
 
+import { inCassa } from "./ordiniRegole";
+
 /** Chiavi di STAMPA, per sede. Un gruppo puo' avere la stampante in un punto
  *  e non nell'altro, e il punto senza stampante non deve vedere errori. */
 export const RIPIEGO_STAMPA: Record<string, string> = {
@@ -108,6 +110,56 @@ export interface OrdineDaStampare {
   note?: string | null;
   piatti: { qty: number; nome: string; variante?: string | null; nota?: string | null }[];
   daIncassare?: boolean;
+}
+
+/** Una riga di `orders` per quel poco che serve a stampare. Scritta qui e non
+ *  presa dalla pagina Ordini: quel tipo vive dentro uno `<script>` e non si
+ *  puo' importare, e copiarlo tutto vorrebbe dire tenerne allineati due. */
+export interface RigaOrdine {
+  id: string;
+  status?: string | null;
+  payment_method?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  items?: { id?: string; name?: string; base_name?: string; variant_label?: string; qty?: number; notes?: string }[];
+}
+
+/**
+ * Dalla riga del database all'ordine da stampare. Pura: l'ora arriva gia'
+ * formattata nel fuso del ristorante, perche' il fuso e' una domanda al
+ * database e qui dentro non si fanno domande.
+ *
+ * ⚠️ IL NUMERO non esiste nel database: `orders` ha solo un id lungo. Si
+ * prendono le ultime quattro cifre, che e' quello che la gente riesce a
+ * leggersi a voce al banco. Il giorno che si vorra' «ordine 7» servira' una
+ * colonna vera, e andra' scritta anche nel pannello: due numeri diversi per lo
+ * stesso ordine sono peggio di nessun numero.
+ */
+export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
+  const items = Array.isArray(o.items) ? o.items : [];
+  const nota = items.find((i) => String(i?.id ?? "") === "note");
+  return {
+    numero: String(o.id ?? "").replace(/-/g, "").slice(-4).toUpperCase(),
+    ora,
+    cliente: String(o.customer_name ?? "").trim(),
+    telefono: String(o.customer_phone ?? "").trim() || null,
+    note: String(nota?.notes ?? "").trim() || null,
+    piatti: items
+      .filter((i) => String(i?.id ?? "") !== "note" && Number(i?.qty ?? 0) > 0)
+      .map((i) => ({
+        qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
+        // `base_name` c'e' solo sugli ordini dal 10/09/2026; `name` c'e'
+        // sempre, ma porta dentro anche il formato. Il piu' preciso vince.
+        nome: String(i.base_name ?? i.name ?? "").trim(),
+        variante: String(i.variant_label ?? "").trim() || null,
+        nota: String(i.notes ?? "").trim() || null,
+      })),
+    // ⚠️ «Da incassare» e' una domanda sui SOLDI, non sullo stato: un ordine
+    // preso al telefono e pagato al ritiro resta `pending` fino al banco, e
+    // quella fascia nera e' l'unica cosa che impedisce di consegnare senza
+    // farsi pagare.
+    daIncassare: String(o.status ?? "") === "pending" && inCassa(o.payment_method),
+  };
 }
 
 /**

@@ -438,9 +438,12 @@ test("le tabelle riattribuite dal SQL sono esattamente quelle «sede»", () => {
   const senzaCommenti = m[1].replace(/--[^\n]*/g, "");
   const nelSql = [...senzaCommenti.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
 
-  // Nate DOPO il multi-sede: `location_id` e' NOT NULL, non possono
-  // avere righe storiche orfane e non vanno nell'elenco.
-  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out"];
+  // Nate DOPO il multi-sede: non hanno righe storiche orfane da riattribuire,
+  // e nell'elenco del SQL non ci vanno. Per le prime quattro `location_id` e'
+  // NOT NULL; `print_tickets` ce l'ha nullable come gli ordini (un cliente a
+  // sede unica scrive NULL), ma e' nata il 04/10/2026, a multi-sede gia'
+  // fatto: quando quel SQL ha girato, la tabella non esisteva.
+  const SENZA_STORICO = ["location_config", "location_settings", "location_secrets", "menu_sold_out", "print_tickets"];
   const attese = di("sede").filter((t) => !SENZA_STORICO.includes(t)).sort();
 
   assert.deepEqual(nelSql, attese,
@@ -993,6 +996,13 @@ const AMMESSI_AGGREGATO = {
       "Stripe chiama con l'id della sessione e non sa niente di sedi: la firma e' l'autorizzazione",
     "src/pages/api/order-cancel.ts":
       "l'ordine si trova con il suo cancel_token, che e' un segreto: il token E' l'autorizzazione",
+    // ⚠️ Stessa forma dell'annullo: il servizio di stampa non sa fare login e
+    // non sa niente di sedi — ha solo l'indirizzo del ticket. Filtrando per
+    // sede, la stampa funzionerebbe per il primo punto e per gli altri non
+    // uscirebbe niente, senza nessun errore da nessuna parte. L'ORDINE pero'
+    // si rilegge nell'ambito della sua riga, non nell'aggregato.
+    "src/pages/api/print/[token].ts":
+      "il ticket si trova con il suo token, che e' un segreto: il token E' l'autorizzazione",
     // ⚠️ Le versioni radice e /en erano uscite dal motore il 16/09/2026 con le
     // altre pagine vetrina. Rinascono NEI CLIENTI (25/09/2026): il ritorno da
     // Stripe e' una pagina del sito pubblico, e ogni cliente ha la sua. Qui nel

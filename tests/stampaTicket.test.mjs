@@ -126,3 +126,81 @@ test("lo stato «stampato» lo decide la stampante, non noi", () => {
     "gli stati della coda sono cambiati: servono tutti e quattro per sapere se un ticket e' davvero uscito");
   assert.match(sql, /printed_at/, "sparita l'ora di stampa: non si puo' piu' dire quando il ticket e' uscito");
 });
+
+// ============================================================
+// DALL'ORDINE AL TICKET, E LA SERRATURA DELLA PAGINA PUBBLICA
+// ============================================================
+import { ordineDaRiga } from "../src/lib/stampaRegole.ts";
+import { firmaProva, leggiProva, sembraProva, VALIDITA_PROVA_S } from "../src/lib/printToken.ts";
+
+const RIGA = {
+  id: "9a1b2c3d-0000-4000-8000-00000000"+"4f2a",
+  status: "pending",
+  payment_method: "onsite",
+  customer_name: "Marco Rossi",
+  customer_phone: "0472 11 22 33",
+  items: [
+    { id: "p1", name: "Pizza Margherita — 33 cm", base_name: "Pizza Margherita", variant_label: "33 cm", qty: 2 },
+    { id: "p2", name: "Bruschette", qty: 1, notes: "sans ail" },
+    { id: "note", name: "NOTE CLIENT", qty: 0, notes: "Je passe avec 10 min de retard" },
+  ],
+};
+
+test("la nota dell'ordine si legge dove e' scritta davvero", () => {
+  // ⚠️ La riga della nota ha `name` = «NOTE CLIENT» e il testo vero in
+  // `notes`. Prendere `name` stamperebbe NOTE CLIENT su ogni ticket e
+  // butterebbe via la nota — che spesso e' un'allergia.
+  const o = ordineDaRiga(RIGA, "19:45");
+  assert.equal(o.note, "Je passe avec 10 min de retard");
+  assert.equal(o.piatti.length, 2, "la riga della nota e' finita tra i piatti");
+  assert.equal(o.piatti[0].nome, "Pizza Margherita", "il nome porta dentro il formato: finirebbe due volte sul ticket");
+  assert.equal(o.piatti[0].variante, "33 cm");
+  assert.equal(o.piatti[1].nota, "sans ail");
+});
+
+test("il numero del ticket si legge a voce al banco", () => {
+  // Il database non ha un numero d'ordine: solo un id lungo. Quattro cifre
+  // sono quello che una persona riesce a dire e un'altra a ritrovare.
+  assert.equal(ordineDaRiga(RIGA, "19:45").numero, "4F2A");
+});
+
+test("«da incassare» e' una domanda sui soldi, non sullo stato", () => {
+  // ⚠️ Un ordine telefonico pagato al ritiro resta `pending` fino al banco:
+  // quella fascia nera e' l'unica cosa che impedisce di consegnarlo senza
+  // farsi pagare. Un ordine gia' pagato non deve mostrarla, se no si incassa
+  // due volte.
+  assert.equal(ordineDaRiga(RIGA, "19:45").daIncassare, true);
+  assert.equal(ordineDaRiga({ ...RIGA, status: "paid" }, "19:45").daIncassare, false);
+  assert.equal(ordineDaRiga({ ...RIGA, payment_method: "link" }, "19:45").daIncassare, false);
+});
+
+test("il biglietto della stampa di prova scade da solo", () => {
+  // ⚠️ Un token che non scade e' un indirizzo pubblico che fa uscire carta da
+  // una stampante vera, per sempre: basta ritrovarlo in una cronologia.
+  const t0 = Date.now();
+  const tok = firmaProva("", "segreto-di-prova", t0);
+  assert.ok(sembraProva(tok));
+  assert.deepEqual(leggiProva(tok, "segreto-di-prova", t0 + 1000), { sede: "" });
+  assert.equal(leggiProva(tok, "segreto-di-prova", t0 + (VALIDITA_PROVA_S + 2) * 1000), null, "il biglietto non scade");
+});
+
+test("un biglietto ritoccato o firmato da altri non apre niente", () => {
+  const t0 = Date.now();
+  const tok = firmaProva("abc", "segreto-di-prova", t0);
+  assert.equal(leggiProva(tok, "un-altro-segreto", t0), null, "un segreto diverso apre lo stesso");
+  assert.equal(leggiProva(tok.slice(0, -2) + "xy", "segreto-di-prova", t0), null, "la firma non e' verificata");
+  assert.equal(leggiProva(tok, "", t0), null, "senza segreto il biglietto vale: la serratura non c'e'");
+  assert.deepEqual(leggiProva(tok, "segreto-di-prova", t0), { sede: "abc" });
+});
+
+test("la pagina del ticket non filtra per sede quando cerca il token", () => {
+  // ⚠️ Stessa trappola dell'annullo pubblico: il token E' l'autorizzazione.
+  // Filtrando per sede, la stampa funzionerebbe solo per il primo punto e per
+  // gli altri non uscirebbe niente — senza nessun errore da nessuna parte.
+  const rotta = leggi("src/pages/api/print/[token].ts");
+  assert.match(rotta, /leggi\("print_tickets", tutteLeSedi\(\)/, "il token si cerca su tutte le sedi, non su quella selezionata");
+  assert.match(rotta, /ambitoDiRiga\(riga\.location_id/, "l'ordine si legge nell'ambito della SUA riga");
+  assert.match(rotta, /text\/plain/, "il ticket deve uscire come testo: un tipo binario lo fa scaricare invece di stamparlo");
+  assert.match(rotta, /status: "sent"/, "la riga non passa piu' per `sent`: si perderebbe la differenza tra consegnato e stampato");
+  assert.doesNotMatch(rotta, /status: "printed"/, "«stampato» lo dice la stampante, non noi");
+});

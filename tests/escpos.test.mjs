@@ -8,7 +8,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { componi, anteprima, impagina, aCapo, due, linea, COLONNE } from "../src/lib/escpos.ts";
+import { componi, componiTesto, anteprima, impagina, aCapo, due, linea, COLONNE } from "../src/lib/escpos.ts";
 import { ticketCucina } from "../src/lib/stampaRegole.ts";
 
 const ORDINE = {
@@ -108,4 +108,16 @@ test("nelle righe a due colonne cede l'etichetta, mai l'importo", () => {
   assert.equal(r.length, COLONNE);
   assert.ok(r.endsWith("24,50 €"), "l'importo e' stato troncato");
   assert.equal(linea("-").length, COLONNE);
+});
+
+test("il ticket come testo e' identico al ticket come byte", () => {
+  // ⚠️ Sul filo viaggia TESTO: il servizio di stampa legge il corpo della
+  // risposta come tale, ed e' per questo che l'UTF-8 passa e le tabelle di
+  // caratteri no. Funziona perche' ogni comando ESC/POS sta sotto 128. Il
+  // giorno che se ne aggiungesse uno fuori da UTF-8, i byte e il testo
+  // smetterebbero di coincidere: si scopre qui, non su un ticket illeggibile.
+  const righe = ticketCucina(ORDINE);
+  const byte = componi(righe);
+  const testo = componiTesto(righe);
+  assert.deepEqual([...new TextEncoder().encode(testo)], [...byte], "testo e byte non coincidono piu'");
 });

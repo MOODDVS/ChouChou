@@ -177,6 +177,21 @@ export function anteprima(righe: RigaTicket[]): string {
  * intorno alle lettere, e «DA INCASSARE» smette di essere una fascia che si
  * vede attraversando la cucina.
  */
+/**
+ * Lo stesso ticket come TESTO.
+ *
+ * ⚠️ Non e' una scorciatoia: e' quello che viaggia davvero. Il servizio di
+ * stampa legge il corpo della risposta COME TESTO — e' per questo che l'UTF-8
+ * passa e le tabelle di caratteri no. Tutti i comandi ESC/POS stanno sotto
+ * 128, quindi i byte e il testo sono la stessa cosa, e `componi` resta la
+ * sola che li costruisce. Un test prova l'andata e ritorno: il giorno che un
+ * comando nuovo portasse un byte fuori da UTF-8, si scoprirebbe li' e non
+ * su un ticket illeggibile.
+ */
+export function componiTesto(righe: RigaTicket[]): string {
+  return new TextDecoder().decode(componi(righe));
+}
+
 export function componi(righe: RigaTicket[]): Uint8Array {
   const enc = new TextEncoder();
   const parti: Uint8Array[] = [C.init];

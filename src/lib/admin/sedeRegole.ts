@@ -73,6 +73,10 @@ export const CLASSIFICA: Record<string, Appartenenza> = {
   admin_docs_meta: "sede",      // tre societa', tre set di contratti
   gift_card_redemptions: "sede", // la carta e' del marchio, l'uso registra DOVE
   print_orders: "sede",         // ha un indirizzo di consegna e una fattura
+  // La coda dei ticket di cucina. ⚠️ Della SEDE, come gli ordini che la
+  // riempiono: la comanda esce dalla stampante del punto che prepara, e
+  // un ticket che si vede da un altro punto e' una pizza fatta due volte.
+  print_tickets: "sede",
   menu_sold_out: "sede",       // stato, non definizione: l'esaurito e' del punto
   location_config: "sede",
   location_settings: "sede",
