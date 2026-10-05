@@ -758,6 +758,43 @@ const prI18n = {
                 configurazione che non leggeva nessuno (tolta il 01/10/2026). */}
           </div>
 
+          <!-- IMPRESSION — la stampa dell'INSTALLAZIONE. ⚠️ Esiste per i cinque
+               clienti su sei che hanno un locale solo: la scheda della sede non
+               c'e' proprio, e senza questo non avrebbero dove configurarla. Con
+               piu' sedi resta il livello di partenza, che ogni scheda
+               sovrascrive — come Stripe e come gli orari. -->
+          <div class="itg-card" style="margin-top:1rem">
+            <div class="itg-head">
+              <div>
+                <h3 class="itg-titre">{t("loc.sezStampa")}</h3>
+                <p class="note" style="margin:0.2rem 0 0">{t("itg.print.who")}</p>
+              </div>
+            </div>
+
+            <div class="f-field">
+              <label class="f-label" for="itg-printer">{t("loc.printer")}</label>
+              <div class="loc-riga">
+                <select id="itg-printer"><option value="">{t("loc.printOff")}</option></select>
+                <button type="button" id="itg-print-test" class="btn">{t("loc.printTest")}</button>
+              </div>
+            </div>
+            <p class="f-note" id="itg-print-res">{t("loc.printerHint")}</p>
+            <div class="f-field">
+              <span class="sw-wrap"><label class="switch"><input type="checkbox" id="itg-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
+            </div>
+
+            <p class="itg-niv">{t("loc.sezDest")}</p>
+            <div id="itg-dest"></div>
+            <div class="loc-riga">
+              <button type="button" id="itg-dest-add" class="btn">+ {t("loc.destAdd")}</button>
+            </div>
+            <p class="f-note">{t("loc.destHint")}</p>
+            <div class="loc-riga" style="margin-top:0.8rem">
+              <button type="button" id="itg-print-save" class="us-add">{t("common.save")}</button>
+              <span class="f-label" id="itg-print-msg"></span>
+            </div>
+          </div>
+
           <div class="itg-card" style="margin-top:1rem">
             <div class="itg-head">
               <div>
@@ -2349,9 +2386,10 @@ const prI18n = {
           }
         }
 
-        async function riempiStampanti(scelta: string): Promise<void> {
-          const sel = document.getElementById("loc-printer") as HTMLSelectElement;
-          const res = document.getElementById("loc-print-res") as HTMLElement;
+        async function riempiStampanti(scelta: string, idSel = "loc-printer", idRes = "loc-print-res"): Promise<void> {
+          const sel = document.getElementById(idSel) as HTMLSelectElement | null;
+          const res = document.getElementById(idRes) as HTMLElement | null;
+          if (!sel || !res) return;
           await chiediStampanti();
           if (erroreStampanti) res.textContent = erroreStampanti;
           sel.innerHTML =
@@ -2372,13 +2410,18 @@ const prI18n = {
         }
 
         // ---- LE DESTINAZIONI (piu' stampanti) -------------------------------
-        const destBox = () => document.getElementById("loc-dest") as HTMLElement;
+        /** ⚠️ Le stesse funzioni servono DUE pannelli: la scheda della sede e
+         *  Intégrations (l'installazione, dove i clienti a sede unica
+         *  configurano la stampa). Per questo prendono il contenitore invece
+         *  di cercarlo per id: due copie del disegno divergerebbero, e si
+         *  scoprirebbe sul cliente che ne usa una sola. */
+        const destBox = (box?: HTMLElement) => box ?? (document.getElementById("loc-dest") as HTMLElement);
 
         /** Lo stato sta nel DOM: si rilegge invece di tenerne una copia a
          *  fianco. Due copie della stessa cosa divergono, e qui divergerebbero
          *  proprio mentre qualcuno sta scrivendo. */
-        function raccogliDest(): { nome: string; cat: string[]; printer: string }[] {
-          return [...destBox().querySelectorAll(".loc-dest-r")].map((r) => ({
+        function raccogliDest(box?: HTMLElement): { nome: string; cat: string[]; printer: string }[] {
+          return [...destBox(box).querySelectorAll(".loc-dest-r")].map((r) => ({
             nome: (r.querySelector(".dd-nome") as HTMLInputElement).value.trim(),
             cat: [...r.querySelectorAll<HTMLInputElement>(".dd-c input:checked")].map((i) => i.value),
             printer: (r.querySelector(".dd-pr") as HTMLSelectElement).value,
@@ -2396,8 +2439,8 @@ const prI18n = {
           return vuoto + righe + sconosciuta;
         }
 
-        function disegnaDest(righe: { nome: string; cat: string[]; printer: string }[]): void {
-          destBox().innerHTML = righe.map((d) => {
+        function disegnaDest(righe: { nome: string; cat: string[]; printer: string }[], box?: HTMLElement): void {
+          destBox(box).innerHTML = righe.map((d) => {
             // ⚠️ Una categoria presa da un'altra riga non si puo' scegliere
             // qui: due righe sulla stessa categoria vogliono dire due comande,
             // cioe' due pizze. Si impedisce prima di salvare, non dopo.
@@ -2440,26 +2483,32 @@ const prI18n = {
           } catch { categorieChieste = false; }
         }
 
-        destBox()?.addEventListener("click", (e) => {
-          const b = (e.target as HTMLElement).closest(".dd-del");
-          if (!b) return;
-          const righe = raccogliDest();
-          const i = [...destBox().querySelectorAll(".loc-dest-r")].indexOf(b.closest(".loc-dest-r") as Element);
-          if (i >= 0) righe.splice(i, 1);
-          disegnaDest(righe);
-        });
-        // Scegliere una categoria la toglie alle altre righe: si ridisegna.
-        // Spuntare una categoria la toglie alle altre righe: si ridisegna.
-        destBox()?.addEventListener("change", (e) => {
-          if ((e.target as HTMLElement).closest(".dd-cat")) disegnaDest(raccogliDest());
-        });
-        document.getElementById("loc-dest-add")?.addEventListener("click", () => {
-          disegnaDest([...raccogliDest(), { nome: "", cat: [], printer: "" }]);
-        });
+        function legaDest(idBox: string, idAdd: string): void {
+          const box = document.getElementById(idBox) as HTMLElement | null;
+          if (!box) return;
+          box.addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest(".dd-del");
+            if (!b) return;
+            const righe = raccogliDest(box);
+            const i = [...box.querySelectorAll(".loc-dest-r")].indexOf(b.closest(".loc-dest-r") as Element);
+            if (i >= 0) righe.splice(i, 1);
+            disegnaDest(righe, box);
+          });
+          // Spuntare una categoria la toglie alle altre righe: si ridisegna.
+          box.addEventListener("change", (e) => {
+            if ((e.target as HTMLElement).closest(".dd-cat")) disegnaDest(raccogliDest(box), box);
+          });
+          document.getElementById(idAdd)?.addEventListener("click", () => {
+            disegnaDest([...raccogliDest(box), { nome: "", cat: [], printer: "" }], box);
+          });
+        }
+        legaDest("loc-dest", "loc-dest-add");
+        legaDest("itg-dest", "itg-dest-add");
 
-        document.getElementById("loc-print-test")?.addEventListener("click", async () => {
-          const sel = document.getElementById("loc-printer") as HTMLSelectElement;
-          const res = document.getElementById("loc-print-res") as HTMLElement;
+        function legaProva(idBtn: string, idSel: string, idRes: string, sedeDi: () => string): void {
+          document.getElementById(idBtn)?.addEventListener("click", async () => {
+          const sel = document.getElementById(idSel) as HTMLSelectElement;
+          const res = document.getElementById(idRes) as HTMLElement;
           const printerId = Number(sel.value);
           if (!printerId) { res.textContent = String(L.printNone ?? ""); return; }
           res.textContent = "…";
@@ -2468,7 +2517,7 @@ const prI18n = {
               method: "POST", headers,
               // ⚠️ La sede e' quella APERTA nel modale, non quella scelta
               // nell'header: si sta provando la stampante di QUESTO punto.
-              body: JSON.stringify({ printerId, location_id: sedeAperta?.id ?? "" }),
+              body: JSON.stringify({ printerId, location_id: sedeDi() }),
             });
             const j = await r.json().catch(() => ({}));
             // ⚠️ «Inviato», non «stampato»: la carta esce qualche secondo dopo,
@@ -2484,6 +2533,50 @@ const prI18n = {
               : `${String(L.printKo ?? "")} ${String(j?.errore ?? "")}`.trim()) + dove;
           } catch {
             res.textContent = String(L.netErr ?? "");
+          }
+          });
+        }
+        legaProva("loc-print-test", "loc-printer", "loc-print-res", () => sedeAperta?.id ?? "");
+        legaProva("itg-print-test", "itg-printer", "itg-print-res", () => "");
+
+        // ---- LA STAMPA DELL'INSTALLAZIONE (Intégrations) --------------------
+        // ⚠️ Esiste per i cinque clienti su sei che hanno un locale solo: la
+        // scheda della sede non c'e' proprio, e senza questo non avrebbero
+        // nessun posto dove configurare la stampante. Con piu' sedi resta il
+        // livello di partenza, che ogni scheda sovrascrive.
+        async function caricaStampaInstallazione(): Promise<void> {
+          if (!document.getElementById("itg-printer")) return;
+          await chiediCategorie();
+          try {
+            const r = await fetch("/api/admin/printers", { headers });
+            const j = await r.json();
+            const c = (j?.config ?? {}) as { printer_id?: string; auto?: boolean; dest?: { nome: string; cat: string[]; printer: string }[] };
+            await riempiStampanti(String(c.printer_id ?? ""), "itg-printer", "itg-print-res");
+            (document.getElementById("itg-print-auto") as HTMLInputElement).checked = Boolean(c.auto);
+            disegnaDest(Array.isArray(c.dest) ? c.dest : [], document.getElementById("itg-dest") as HTMLElement);
+          } catch { /* il messaggio sotto la tendina lo dice gia' */ }
+        }
+        void caricaStampaInstallazione();
+
+        document.getElementById("itg-print-save")?.addEventListener("click", async () => {
+          const msg = document.getElementById("itg-print-msg") as HTMLElement;
+          msg.textContent = "…";
+          try {
+            const r = await fetch("/api/admin/printers", {
+              method: "PUT", headers,
+              body: JSON.stringify({
+                printer_id: (document.getElementById("itg-printer") as HTMLSelectElement).value,
+                print_auto: (document.getElementById("itg-print-auto") as HTMLInputElement).checked,
+                destinazioni: raccogliDest(document.getElementById("itg-dest") as HTMLElement),
+              }),
+            });
+            const j = await r.json().catch(() => ({}));
+            // ⚠️ L'esito si GUARDA. Il 05/10 una scrittura rifiutata passava
+            // per salvata e la stampante spariva al riapri, senza un errore da
+            // nessuna parte.
+            msg.textContent = r.ok ? String(L.saved ?? "") : String(j?.error ?? L.netErr ?? "");
+          } catch {
+            msg.textContent = String(L.netErr ?? "");
           }
         });
 

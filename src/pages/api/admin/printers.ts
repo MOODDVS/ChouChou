@@ -4,6 +4,11 @@ import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { elencoStampanti, mandaStampa, stampaConfigurata } from "../../../lib/bizprint";
 import { firmaProva } from "../../../lib/printToken";
 import { indirizzoPubblico } from "../../../lib/indirizzoPubblico";
+import { leggiConfig, ambitoDiRiga } from "../../../lib/admin/sede";
+import { CHIAVI_STAMPA, CHIAVE_DESTINAZIONI, accesoStampa, leggiDestinazioni } from "../../../lib/stampaRegole";
+import { salvaConfigStampa } from "../../../lib/stampaConfig";
+import { adminLang } from "../../../lib/admin/adminLang";
+import { adminT } from "../../../i18n/admin";
 
 /**
  * LE STAMPANTI — riservato al SUPER ADMIN MOODD.
@@ -32,15 +37,42 @@ function segretoProva(): string {
   return String(import.meta.env.CRON_SECRET || import.meta.env.SUPABASE_SERVICE_KEY || "");
 }
 
+/** La configurazione dell'INSTALLAZIONE (nessuna sede). ⚠️ Serve ai cinque
+ *  clienti su sei che hanno un locale solo: la scheda della sede non esiste
+ *  proprio, e senza questo non avrebbero nessun posto dove configurare la
+ *  stampante. */
+async function configInstallazione() {
+  const cfg = await leggiConfig(ambitoDiRiga(null), [...CHIAVI_STAMPA, CHIAVE_DESTINAZIONI]);
+  return {
+    printer_id: String(cfg.valori.get("print_printer_id") ?? "").trim(),
+    auto: accesoStampa(cfg.valori.get("print_auto")),
+    dest: leggiDestinazioni(cfg.valori.get(CHIAVE_DESTINAZIONI)),
+  };
+}
+
 export const GET: APIRoute = async ({ request }) => {
   const staff = await verificaStaff(request);
   if (!staff || !isSuperUser(staff)) return nonAutorizzato();
-  if (!stampaConfigurata()) return json({ configurata: false, stampanti: [] });
+  if (!stampaConfigurata()) return json({ configurata: false, stampanti: [], config: await configInstallazione() });
   const r = await elencoStampanti();
   // ⚠️ L'errore si dice. Un elenco vuoto perche' il servizio non risponde e un
   // elenco vuoto perche' non ci sono stampanti sono due cose diverse, e dal
   // pannello sembrerebbero la stessa.
-  return json({ configurata: true, stampanti: r.stampanti, errore: r.ok ? undefined : r.errore });
+  return json({ configurata: true, stampanti: r.stampanti, errore: r.ok ? undefined : r.errore, config: await configInstallazione() });
+};
+
+/** Salva la stampa dell'INSTALLAZIONE (sede unica). La stessa validazione
+ *  della scheda sede: `salvaConfigStampa` e' il posto solo dove vive. */
+export const PUT: APIRoute = async ({ request }) => {
+  const staff = await verificaStaff(request);
+  if (!staff || !isSuperUser(staff)) return nonAutorizzato();
+  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const r = await salvaConfigStampa(ambitoDiRiga(null), body);
+  if (r.errore) {
+    const t = adminT(await adminLang());
+    return json({ error: `${t(r.errore)} ${r.doppie.join(", ")}`.trim() }, r.errore === "common.saveErr" ? 500 : 400);
+  }
+  return json({ ok: true });
 };
 
 export const POST: APIRoute = async ({ request }) => {

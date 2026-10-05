@@ -295,6 +295,7 @@ const DIZIONARIO: Dizionario = {
   "loc.printOff":     { fr: "\u2014 aucune", en: "\u2014 none", it: "\u2014 nessuna", nl: "\u2014 geen", es: "\u2014 ninguna" },
   "loc.printShort":   { fr: "Imprimante", en: "Printer", it: "Stampante", nl: "Printer", es: "Impresora" },
   "loc.printPaused":  { fr: "automatique d\u00e9sactiv\u00e9e", en: "automatic off", it: "automatica spenta", nl: "automatisch uit", es: "autom\u00e1tica apagada" },
+  "itg.print.who":    { fr: "Vaut pour toute l\u2019installation. Avec plusieurs points de vente, chaque fiche peut avoir la sienne et remplace celle-ci.", en: "Applies to the whole installation. With several locations, each one can have its own and overrides this.", it: "Vale per tutta l\u2019installazione. Con piu' punti vendita, ogni scheda puo' avere la sua e sostituisce questa.", nl: "Geldt voor de hele installatie. Met meerdere vestigingen kan elke vestiging een eigen printer hebben die deze vervangt.", es: "Vale para toda la instalaci\u00f3n. Con varios puntos de venta, cada ficha puede tener la suya y sustituye a esta." },
   "loc.sezDest":      { fr: "Plusieurs imprimantes", en: "Several printers", it: "Piu' stampanti", nl: "Meerdere printers", es: "Varias impresoras" },
   "loc.destAdd":      { fr: "Ajouter une destination", en: "Add a destination", it: "Aggiungi una destinazione", nl: "Bestemming toevoegen", es: "A\u00f1adir un destino" },
   "loc.destNome":     { fr: "Nom court", en: "Short name", it: "Nome corto", nl: "Korte naam", es: "Nombre corto" },

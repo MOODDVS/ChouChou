@@ -223,8 +223,15 @@ test("le chiavi del servizio di stampa non escono dal server", () => {
 test("solo il super admin tocca le stampanti", () => {
   // La stampante la collega MOODD quando installa: un numero scelto a caso dal
   // ristoratore e' un ticket che non esce, e nessuno che sappia perche'.
+  // ⚠️ Si contano i VERBI, non un numero scritto a mano. Il primo test diceva
+  // «devono essere due»: col PUT dell'installazione sono diventati tre, e un
+  // numero fisso avrebbe chiesto solo di essere aggiornato. Legato ai verbi,
+  // una rotta nuova senza controllo lo fa fallire — che e' il suo mestiere.
   const api = leggi("src/pages/api/admin/printers.ts");
-  assert.equal((api.match(/isSuperUser\(staff\)/g) ?? []).length, 2, "GET e POST devono controllare tutti e due");
+  const verbi = api.match(/export const (GET|POST|PUT|PATCH|DELETE):\s*APIRoute/g) ?? [];
+  assert.ok(verbi.length >= 2, "la rotta delle stampanti non esporta piu' niente?");
+  assert.equal((api.match(/isSuperUser\(staff\)/g) ?? []).length, verbi.length,
+    `${verbi.length} verbi esportati ma non altrettanti controlli: uno di loro e' aperto a chiunque`);
   assert.match(api, /nonAutorizzato\(\)/);
 });
 

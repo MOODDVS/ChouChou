@@ -3,7 +3,8 @@ import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
 import { scordaSedi, scordaSegreti, scriviConfig, leggiConfig, ambitoDiRiga, CHIAVI_SEGRETE, segretoDAmbiente } from "../../../lib/admin/sede";
-import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, categorieDoppie, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
+import { CHIAVI_STAMPA, accesoStampa, leggiDestinazioni, CHIAVE_DESTINAZIONI, type Destinazione } from "../../../lib/stampaRegole";
+import { salvaConfigStampa } from "../../../lib/stampaConfig";
 import { cifra, cifraturaPronta } from "../../../lib/segreti";
 import { adminLang } from "../../../lib/admin/adminLang";
 import { adminT } from "../../../i18n/admin";
@@ -420,31 +421,14 @@ export const PATCH: APIRoute = async ({ request }) => {
   // vuole, il numero dice che esiste. Acceso senza numero vuol dire una coda
   // che si riempie di ticket che nessuno stampera' mai — e' la stessa regola
   // di `stampaAttiva`, qui dal lato di chi scrive.
+  // ---- La stampante di QUESTO punto ----
+  // ⚠️ La validazione e la scrittura stanno in `salvaConfigStampa`, perche' le
+  // stesse chiavi si salvano anche da Intégrations per i clienti a sede unica.
+  // Due copie della regola vorrebbero dire che un giorno una delle due accetta
+  // una categoria doppia — e il guasto uscirebbe da una porta sola.
   if (body.printer_id !== undefined || body.print_auto !== undefined || body.destinazioni !== undefined) {
-    const campi: Record<string, string> = {};
-    if (body.printer_id !== undefined) {
-      const n = String(body.printer_id).trim();
-      // Solo cifre: il numero arriva da una tendina, e qualunque altra cosa
-      // vuol dire che qualcuno ha incollato a mano quello che non doveva.
-      if (n && !/^[0-9]{1,12}$/.test(n)) return json({ error: await msg("loc.err.printer") }, 400);
-      campi.print_printer_id = n;
-    }
-    if (body.print_auto !== undefined) campi.print_auto = body.print_auto ? "1" : "0";
-    if (body.destinazioni !== undefined) {
-      // ⚠️ Si rilegge con le regole pure prima di salvare: quello che arriva
-      // dal browser e' una proposta, non un dato. `leggiDestinazioni` butta
-      // via le righe senza stampante o senza categorie, che non sono
-      // destinazioni ma buone intenzioni.
-      const righe = leggiDestinazioni(body.destinazioni);
-      // ⚠️ Una categoria in due righe vuol dire DUE comande, cioe' due pizze.
-      // Il pannello lo impedisce, ma la regola vive anche qui: un pannello
-      // vecchio in una scheda aperta da ieri non la conoscerebbe.
-      const doppie = categorieDoppie(righe);
-      if (doppie.length) return json({ error: `${await msg("loc.err.destDoppia")} ${doppie.join(", ")}` }, 400);
-      campi[CHIAVE_DESTINAZIONI] = JSON.stringify(righe);
-    }
-    const err = await scriviConfig(ambitoDiRiga(id), campi);
-    if (err) return json({ error: await msg(erroreDb("print", { message: err })) }, 500);
+    const r = await salvaConfigStampa(ambitoDiRiga(id), body);
+    if (r.errore) return json({ error: `${await msg(r.errore)} ${r.doppie.join(", ")}`.trim() }, r.errore === "common.saveErr" ? 500 : 400);
     return json({ ok: true });
   }
 
