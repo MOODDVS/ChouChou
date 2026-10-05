@@ -176,6 +176,11 @@ export const API_PAGINA: Record<string, string> = {
   // --- Solo MOODD -------------------------------------------------------
   "users": "super",
   "locations": "super",
+  // ⚠️ `printers` (le stampanti dei ticket), non `print`: `print` e' gia' il
+  // catalogo degli stampati ordinabili a MOODD, ed e' un'altra cosa. Due
+  // nomi uguali in due posti diversi si pagano la prima volta che qualcuno
+  // cerca il file sbagliato con una stampante ferma in cucina.
+  "printers": "super",
   "integrations": "super",
   "google-place": "super",
   // --- Scheda Google ----------------------------------------------------

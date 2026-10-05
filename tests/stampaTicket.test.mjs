@@ -204,3 +204,35 @@ test("la pagina del ticket non filtra per sede quando cerca il token", () => {
   assert.match(rotta, /status: "sent"/, "la riga non passa piu' per `sent`: si perderebbe la differenza tra consegnato e stampato");
   assert.doesNotMatch(rotta, /status: "printed"/, "«stampato» lo dice la stampante, non noi");
 });
+
+test("le chiavi del servizio di stampa non escono dal server", () => {
+  // ⚠️ IL PRECEDENTE (04/10/2026): uno script mascherava solo le chiavi che
+  // conosceva e ha stampato in chiaro quelle delle station, che stavano nella
+  // risposta. Le station sono state rifatte da zero. Qui l'elenco lo chiede
+  // il SERVER e di ritorno escono nomi e numeri: una chiave nel pannello
+  // sarebbe una chiave nel browser, cioe' dappertutto.
+  const lib = leggi("src/lib/bizprint.ts");
+  const api = leggi("src/pages/api/admin/printers.ts");
+  assert.doesNotMatch(api, /BIZPRINT_(PUBLIC|SECRET)_KEY/, "la rotta tocca le chiavi: devono restare in bizprint.ts");
+  assert.match(lib, /secretKey\|publicKey\|key\|token\|apiKey/, "la maschera non copre piu' tutti i nomi di campo");
+  for (const f of [lib, api]) {
+    assert.doesNotMatch(f, /console\.(log|error|warn)\([^)]*\bsec\b/, "una chiave finisce nei log del server");
+  }
+});
+
+test("solo il super admin tocca le stampanti", () => {
+  // La stampante la collega MOODD quando installa: un numero scelto a caso dal
+  // ristoratore e' un ticket che non esce, e nessuno che sappia perche'.
+  const api = leggi("src/pages/api/admin/printers.ts");
+  assert.equal((api.match(/isSuperUser\(staff\)/g) ?? []).length, 2, "GET e POST devono controllare tutti e due");
+  assert.match(api, /nonAutorizzato\(\)/);
+});
+
+test("«inviato» non e' «stampato», nemmeno nella prova", () => {
+  // ⚠️ Il lavoro passa per il cloud, per il tablet e per la stampante: puo'
+  // morire in ognuno dei tre. Dire «stampato» quando sappiamo solo di aver
+  // spedito e' il modo di perdere ticket credendoli fatti.
+  const lib = leggi("src/lib/bizprint.ts");
+  assert.match(lib, /ok` vuol dire SPEDITO/, "e' sparito l'avvertimento: qualcuno leggera' ok come «stampato»");
+  assert.doesNotMatch(lib, /printed/, "bizprint.ts non deve decidere cosa e' stampato");
+});
