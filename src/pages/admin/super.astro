@@ -54,6 +54,8 @@ const supI18n = {
     stCount: t("loc.st.count"), stDone: t("loc.st.done"),
     sedeTutte: t("us.sedeTutte"),
     netErr: t("common.netErr"),
+    printerHint: t("loc.printerHint"), printNone: t("loc.printNone"),
+    printOff: t("loc.printOff"), printSent: t("loc.printSent"), printKo: t("loc.printKo"),
   },
   pageLabels: Object.fromEntries(PAGINE_ADMIN.map((p) => [p.key, t("nav." + p.key)])) as Record<string, string>,
   tabLabels: Object.fromEntries(
@@ -956,6 +958,23 @@ const prI18n = {
           <button type="button" id="loc-g-pick" class="btn">{t("gg.change")}</button>
         </div>
         <div id="loc-g-list"></div>
+      </div>
+
+      <!-- IMPRESSION — la stampante di QUESTO punto. ⚠️ Il numero NON e' un
+           segreto come le chiavi Stripe qui sopra: si vede, e si SCEGLIE da
+           una tendina. Un numero battuto a mano e' un ticket che non esce, e
+           nessuno che sappia perche'. -->
+      <p class="itg-niv">{t("loc.sezStampa")}</p>
+      <div class="f-field">
+        <label class="f-label" for="loc-printer">{t("loc.printer")}</label>
+        <div class="loc-riga">
+          <select id="loc-printer"><option value="">{t("loc.printOff")}</option></select>
+          <button type="button" id="loc-print-test" class="btn">{t("loc.printTest")}</button>
+        </div>
+      </div>
+      <p class="f-note" id="loc-print-res">{t("loc.printerHint")}</p>
+      <div class="f-field">
+        <span class="sw-wrap"><label class="switch"><input type="checkbox" id="loc-print-auto" /><span class="track"></span></label><span class="sw-lab">{t("loc.printAuto")}</span></span>
       </div>
 
       <Fragment slot="foot">
@@ -2022,6 +2041,11 @@ const prI18n = {
         // Place ID per sede: non e' un segreto, si rilegge e si mostra.
         let placeIds: Record<string, string> = {};
         let reviewUrls: Record<string, string> = {};
+        let stampanti: Record<string, { printer_id: string; auto: boolean }> = {};
+        /** L'elenco vero delle stampanti, chiesto UNA volta al server. Il
+         *  browser non vede mai le chiavi del servizio di stampa. */
+        let elencoStampanti: { id: number; nome: string; stato: string; station: string }[] = [];
+        let stampantiChieste = false;
         // Titolo della scheda Google collegata a ogni sede, e se il .env ha
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
@@ -2149,6 +2173,7 @@ const prI18n = {
             if (av) av.hidden = j.cifratura !== false;
             placeIds = j.placeIds ?? {};
             reviewUrls = j.reviewUrls ?? {};
+            stampanti = j.stampanti ?? {};
             schedeGoogle = j.google ?? {};
             ripiego = j.ambiente ?? {};
             propri = j.propri ?? {};
@@ -2206,9 +2231,76 @@ const prI18n = {
           campo("loc-place").value = s ? (placeIds[s.id] ?? "") : "";
           campo("loc-greview").value = s ? (reviewUrls[s.id] ?? "") : "";
           (document.getElementById("loc-place-res") as HTMLElement).textContent = L.placeHint ?? "";
+          void riempiStampanti(s ? (stampanti[s.id]?.printer_id ?? "") : "");
+          (document.getElementById("loc-print-auto") as HTMLInputElement).checked = s ? Boolean(stampanti[s.id]?.auto) : false;
+          (document.getElementById("loc-print-res") as HTMLElement).textContent = String(L.printerHint ?? "");
           void gSedeStato();
           locOverlay.hidden = false;
         }
+
+        // ---- LE STAMPANTI ---------------------------------------------------
+        // ⚠️ L'elenco lo chiede il SERVER al servizio di stampa: le chiavi
+        // stanno nell'ambiente del cliente e non devono MAI arrivare qui. Si
+        // chiede una volta sola, alla prima scheda aperta.
+        async function riempiStampanti(scelta: string): Promise<void> {
+          const sel = document.getElementById("loc-printer") as HTMLSelectElement;
+          const res = document.getElementById("loc-print-res") as HTMLElement;
+          if (!stampantiChieste) {
+            stampantiChieste = true;
+            try {
+              const r = await fetch("/api/admin/printers", { headers });
+              const j = await r.json();
+              elencoStampanti = Array.isArray(j?.stampanti) ? j.stampanti : [];
+              // ⚠️ Un elenco vuoto perche' il servizio non risponde e uno vuoto
+              // perche' non c'e' nessuna stampante NON sono la stessa cosa: si
+              // cercherebbe il guasto dalla parte sbagliata.
+              if (j?.errore) res.textContent = String(j.errore);
+            } catch {
+              stampantiChieste = false;
+              res.textContent = String(L.netErr ?? "");
+            }
+          }
+          sel.innerHTML =
+            `<option value="">${escG(L.printOff ?? "")}</option>` +
+            elencoStampanti.map((p) => {
+              const dove = p.station ? ` · ${escG(p.station)}` : "";
+              const stato = p.stato && p.stato !== "online" ? ` (${escG(p.stato)})` : "";
+              return `<option value="${p.id}">${escG(p.nome)}${dove}${stato}</option>`;
+            }).join("");
+          // ⚠️ Una stampante salvata che non compare piu' nell'elenco NON deve
+          // sparire in silenzio: resterebbe scritta nel database mentre la
+          // scheda mostra «nessuna», e si salverebbe il vuoto senza accorgersene.
+          if (scelta && !elencoStampanti.some((p) => String(p.id) === scelta)) {
+            sel.insertAdjacentHTML("beforeend", `<option value="${escG(scelta)}">#${escG(scelta)} — ?</option>`);
+          }
+          sel.value = scelta;
+          if (!elencoStampanti.length && !res.textContent) res.textContent = String(L.printNone ?? "");
+        }
+
+        document.getElementById("loc-print-test")?.addEventListener("click", async () => {
+          const sel = document.getElementById("loc-printer") as HTMLSelectElement;
+          const res = document.getElementById("loc-print-res") as HTMLElement;
+          const printerId = Number(sel.value);
+          if (!printerId) { res.textContent = String(L.printNone ?? ""); return; }
+          res.textContent = "…";
+          try {
+            const r = await fetch("/api/admin/printers", {
+              method: "POST", headers,
+              // ⚠️ La sede e' quella APERTA nel modale, non quella scelta
+              // nell'header: si sta provando la stampante di QUESTO punto.
+              body: JSON.stringify({ printerId, location_id: sedeAperta?.id ?? "" }),
+            });
+            const j = await r.json().catch(() => ({}));
+            // ⚠️ «Inviato», non «stampato»: la carta esce qualche secondo dopo,
+            // o non esce affatto. Promettere la stampa qui vorrebbe dire far
+            // credere che una stampante spenta abbia funzionato.
+            res.textContent = r.ok && j?.ok
+              ? String(L.printSent ?? "")
+              : `${String(L.printKo ?? "")} ${String(j?.errore ?? "")}`.trim();
+          } catch {
+            res.textContent = String(L.netErr ?? "");
+          }
+        });
 
         // ---- SCHEDA GOOGLE DI QUESTA SEDE -----------------------------------
         // ⚠️ La sede viaggia ESPLICITA (`?sede=`), non nel cookie dell'header:
@@ -2422,6 +2514,18 @@ const prI18n = {
             await fetch("/api/admin/locations", {
               method: "PATCH", headers,
               body: JSON.stringify({ id, review_url: campo("loc-greview").value.trim() }),
+            });
+            // La stampante e il suo interruttore viaggiano INSIEME: scritti in
+            // due chiamate, un salvataggio a meta' lascerebbe la stampa accesa
+            // su una stampante che non c'e' piu', cioe' una coda che si riempie
+            // di ticket che nessuno stampera' mai.
+            await fetch("/api/admin/locations", {
+              method: "PATCH", headers,
+              body: JSON.stringify({
+                id,
+                printer_id: (document.getElementById("loc-printer") as HTMLSelectElement).value,
+                print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
+              }),
             });
             for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
               const v = campo(idCampo).value.trim();

@@ -1717,6 +1717,18 @@ Nel repo, come pagine di prova: `public/ticket-prova.txt` (ESC/POS, quella buona
 
 **Deciso il 05/10 — piu' stampanti per reparto** (dettaglio in ENGINE.md): il taglio si fa **per categoria** del menu; ogni ticket porta la testa intera, i suoi piatti e in fondo **`1/3 — altre 2 righe al bar`**; il ticket **«pass»** con l'ordine intero e' un **interruttore per sede**. ⚠️ L'indice unico della **#76** va rifatto da `(order_id, kind)` a `(order_id, reparto)`, altrimenti il database rifiuta il secondo e il terzo ticket dello stesso ordine.
 
+**Costruito il 05/10 — il ticket, dalla riga ai comandi**
+
+- **`src/lib/escpos.ts`** — da `RigaTicket[]` ai comandi. 48 colonne e UTF-8 dichiarati li', una volta. ⚠️ **La doppia larghezza dimezza le colonne**: `gigante` ne ha 24. I piatti sono in doppia ALTEZZA, che resta a 48, se no i nomi lunghi non andrebbero a capo — li taglierebbe la stampante, in silenzio. `impagina()` e' l'unica che decide dove si va a capo: stampa e anteprima la chiamano tutte e due.
+- **`src/pages/api/print/[token].ts`** — la risposta pubblica. Il token **E' l'autorizzazione** (come il `cancel_token`): cercato sull'aggregato, l'ordine riletto nell'ambito della sua riga. Segna `sent`, mai `printed`. Niente ticket piu' vecchi di 24 ore.
+- **`src/lib/printToken.ts`** — il biglietto della stampa di prova: firmato, **scade in 10 minuti**. Una prova non ha un ordine e `print_tickets.order_id` non puo' essere vuoto; un token eterno sarebbe un indirizzo pubblico che fa uscire carta in cucina per sempre.
+- **`src/lib/bizprint.ts` + `/api/admin/printers`** — l'unico posto che conosce le chiavi. Il browser riceve nomi e numeri. Solo super. ⚠️ Chiamata `printers`, non `print`: `print` e' gia' il catalogo degli stampati MOODD.
+- **Super → Sedi → matita → Impression**: tendina delle stampanti (mai un numero a mano), interruttore, **stampa di prova**. Una stampante salvata ma sparita dall'elenco resta marcata `#id — ?`: se no la scheda direbbe «nessuna» e il primo salvataggio la cancellerebbe.
+- Le chiavi stanno in `location_config` (per sede) e `app_config` (sede unica): **nessuna migrazione**.
+- ⚠️ **Quattro registri del multi-sede si sono fatti sentire**, ed e' il motivo per cui esistono: `print_tickets` da classificare, l'uso dell'aggregato da dichiarare, l'esenzione dal SQL dello storico (nata DOPO il multi-sede), e `printers` da mappare nei permessi.
+
+**Il modello per piu' stampanti** (deciso, da costruire): il **reparto** e' del MARCHIO come le categorie del menu, la **stampante** e' della SEDE. Chiavi `print_printer_id:<reparto>`, lettura a cascata — la piu' precisa che esiste. ⚠️ Costo vero: **$0,025 a stampa** sul piano Plus; tre reparti triplicano. Pareggio con Pro a 2.400 stampe/mese.
+
 **Da fare domani**
 
 1. Enzo prova **da casa** con un'altra stampante collegata al tablet; a Schaerbeek non c'e'.
