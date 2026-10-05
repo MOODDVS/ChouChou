@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=576">
+<title>Ticket — prova di stampa</title>
+<style>
+  /* PAGINA DI PROVA DELLA STAMPA — non e' il ticket vero.
+     Larghezza 576 dot = 72 mm stampabili su carta da 80 mm.
+     Niente grigi: su carta termica escono sporchi. Solo nero e bianco. */
+  @page { margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { width: 576px; color: #000; font-family: Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .insegna { font-size: 20px; font-weight: 700; letter-spacing: .18em; text-align: center; padding: 6px 0 14px; }
+  .hr  { border-top: 3px solid #000; }
+  .hr2 { border-top: 1px solid #000; }
+  .fascia { background: #000; color: #fff; text-align: center; padding: 10px 0 12px; }
+  .fascia .k { font-size: 21px; letter-spacing: .22em; font-weight: 700; }
+  .fascia .v { font-size: 38px; font-weight: 700; line-height: 1.05; }
+  .ora-box { text-align: center; padding: 14px 0 10px; }
+  .ora-lab { font-size: 21px; letter-spacing: .26em; font-weight: 700; }
+  .ora { font-size: 108px; font-weight: 700; line-height: .92; letter-spacing: -.02em; }
+  .cod { font-size: 22px; letter-spacing: .14em; }
+  .piatti { padding: 14px 0 4px; }
+  .p { display: flex; gap: 14px; padding: 7px 0; }
+  .q { flex: 0 0 62px; font-size: 42px; font-weight: 700; line-height: 1; text-align: right; }
+  .n { flex: 1 1 auto; min-width: 0; }
+  .nome { font-size: 36px; font-weight: 700; line-height: 1.06; text-transform: uppercase; }
+  .var { font-size: 25px; line-height: 1.2; padding-top: 3px; }
+  .notaP { font-size: 26px; font-weight: 700; line-height: 1.2; padding-top: 4px; }
+  .notaP::before { content: "\25B8  "; }
+  .nota { border: 3px solid #000; padding: 10px 12px; margin-top: 12px; }
+  .nota .k { font-size: 19px; letter-spacing: .2em; font-weight: 700; padding-bottom: 3px; }
+  .nota .v { font-size: 28px; font-weight: 700; line-height: 1.22; }
+  .cli { padding-top: 14px; }
+  .nomeC { font-size: 30px; font-weight: 700; text-transform: uppercase; }
+  .tel { font-size: 30px; font-weight: 700; }
+  .via { font-size: 22px; padding-top: 4px; }
+  .piede { font-size: 19px; padding-top: 12px; display: flex; justify-content: space-between; }
+  .vuoto { height: 60px; }
+  .righello { display: flex; font-size: 16px; padding-top: 10px; }
+  .righello span { flex: 1 1 0; border-top: 3px solid #000; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="insegna">450 GRADI &middot; SCHAERBEEK</div>
+
+  <div class="fascia">
+    <div class="k">PROVA DI STAMPA</div>
+    <div class="v">NE PAS PR&Eacute;PARER</div>
+  </div>
+
+  <div class="ora-box">
+    <div class="ora-lab">RETRAIT</div>
+    <div class="ora">19:45</div>
+    <div class="cod">#4F2A</div>
+  </div>
+  <div class="hr"></div>
+
+  <div class="piatti">
+    <div class="p"><div class="q">2</div><div class="n">
+      <div class="nome">Pizza Margherita</div>
+      <div class="var">33 cm &middot; sans gluten</div></div></div>
+    <div class="p"><div class="q">1</div><div class="n">
+      <div class="nome">Bruschette</div>
+      <div class="notaP">sans ail</div></div></div>
+    <div class="p"><div class="q">3</div><div class="n">
+      <div class="nome">Eau p&eacute;tillante 50 cl</div></div></div>
+  </div>
+  <div class="hr2"></div>
+
+  <div class="nota">
+    <div class="k">NOTE</div>
+    <div class="v">Je passe avec 10 min de retard</div>
+  </div>
+
+  <div class="cli">
+    <div class="nomeC">Marco Rossi</div>
+    <div class="tel">0472 11 22 33</div>
+    <div class="via">Site &middot; pay&eacute; par carte</div>
+  </div>
+
+  <div class="hr2" style="margin-top:12px"></div>
+  <div class="piede"><span>page de test</span><span>restohub</span></div>
+
+  <!-- Il righello dice se la pagina e' uscita alla larghezza giusta: le tre
+       tacche devono toccare i due bordi della carta e dividerla in tre. -->
+  <div class="righello"><span>0</span><span>36 mm</span><span>72 mm</span></div>
+
+  <div class="vuoto"></div>
+</body>
+</html>
