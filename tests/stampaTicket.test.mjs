@@ -340,7 +340,7 @@ test("l'indirizzo del ticket ha una risposta sola", () => {
 // ============================================================
 // PIU' STAMPANTI: CHI STAMPA COSA
 // ============================================================
-import { dividiTicket, leggiDestinazioni, categorieDoppie, CHIAVE_DESTINAZIONI } from "../src/lib/stampaRegole.ts";
+import { dividiTicket, leggiDestinazioni, categorieDoppie } from "../src/lib/stampaRegole.ts";
 
 const PIATTI = [
   { qty: 2, nome: "Pizza Margherita", categoria: "Pizze" },
