@@ -18,7 +18,7 @@ import { leggiProva, sembraProva } from "../../../lib/printToken";
  */
 export const prerender = false;
 
-const RE_TOKEN = /^[A-Za-z0-9._-]{16,200}$/;
+const RE_TOKEN = /^[A-Za-z0-9~._-]{16,200}$/;
 
 /** Il segreto che firma i biglietti di prova. `CRON_SECRET` c'e' gia' su ogni
  *  cliente; la chiave di servizio e' la rete di sicurezza per chi non l'ha

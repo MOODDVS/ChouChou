@@ -2519,7 +2519,12 @@ const prI18n = {
             // due chiamate, un salvataggio a meta' lascerebbe la stampa accesa
             // su una stampante che non c'e' piu', cioe' una coda che si riempie
             // di ticket che nessuno stampera' mai.
-            await fetch("/api/admin/locations", {
+            // ⚠️ E QUESTA RISPOSTA SI GUARDA. Il 05/10 il server rifiutava la
+            // scrittura (chiave non classificata) e la scheda diceva
+            // «salvato» lo stesso: si riapriva e la stampante era sparita,
+            // senza un errore da nessuna parte. Una PATCH di cui non si legge
+            // l'esito e' un salvataggio che si crede riuscito.
+            const rp = await fetch("/api/admin/locations", {
               method: "PATCH", headers,
               body: JSON.stringify({
                 id,
@@ -2527,6 +2532,11 @@ const prI18n = {
                 print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
               }),
             });
+            if (!rp.ok) {
+              const jp = await rp.json().catch(() => ({}));
+              locErr.textContent = String(jp?.error ?? L.netErr ?? "");
+              return;
+            }
             for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
               const v = campo(idCampo).value.trim();
               if (!v) continue;

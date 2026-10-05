@@ -21,9 +21,15 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** Quanto vive un biglietto di prova. */
 export const VALIDITA_PROVA_S = 600;
 
-/** Il prefisso dice subito che non e' il token di una riga della coda: chi
- *  legge la rotta non deve indovinare di che tipo e' il biglietto. */
-const PREFISSO = "p.";
+/** ⚠️ Il separatore e' `~`, NON un punto. Un indirizzo come
+ *  `/api/print/p.XXX.YYY` sembra un file con un'estensione, e fra un proxy,
+ *  un server statico e una regola di cache c'e' sempre qualcuno disposto a
+ *  trattarlo come tale invece di passarlo alla rotta. `~` e' valido in un URL
+ *  e non compare in base64url, quindi puo' fare da separatore senza ambiguita'
+ *  — ed e' anche il segno che distingue questo biglietto dal token di una
+ *  riga della coda, che non ne contiene mai. */
+const PREFISSO = "~";
+const SEP = "~";
 
 const b64 = (s: string) => Buffer.from(s, "utf8").toString("base64url");
 const deB64 = (s: string) => Buffer.from(s, "base64url").toString("utf8");
@@ -37,7 +43,7 @@ function firma(dati: string, segreto: string): string {
 export function firmaProva(sede: string, segreto: string, adessoMs = Date.now()): string {
   const scadenza = Math.floor(adessoMs / 1000) + VALIDITA_PROVA_S;
   const dati = b64(`${String(sede ?? "")}|${scadenza}`);
-  return `${PREFISSO}${dati}.${firma(dati, segreto)}`;
+  return `${PREFISSO}${dati}${SEP}${firma(dati, segreto)}`;
 }
 
 /** La sede del biglietto, o `null` se non e' nostro, e' stato ritoccato o e'
@@ -46,7 +52,7 @@ export function firmaProva(sede: string, segreto: string, adessoMs = Date.now())
 export function leggiProva(token: string, segreto: string, adessoMs = Date.now()): { sede: string } | null {
   const t = String(token ?? "");
   if (!t.startsWith(PREFISSO) || !segreto) return null;
-  const [dati, dato] = t.slice(PREFISSO.length).split(".");
+  const [dati, dato] = t.slice(PREFISSO.length).split(SEP);
   if (!dati || !dato) return null;
   const attesa = Buffer.from(firma(dati, segreto), "utf8");
   const avuta = Buffer.from(dato, "utf8");

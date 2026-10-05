@@ -439,6 +439,12 @@ export const CLASSIFICA_CONFIG: Record<string, ApparCfg> = {
   // --- DELLA SEDE ---------------------------------------------------
   // Scheda «Général»: tre societa' vuol dire tre ragioni sociali, tre IVA,
   // tre indirizzi, tre insegne. La scelta sta nella SCHEDA, non nel campo.
+  // La stampante dei ticket e il suo interruttore. DELLA SEDE: la comanda
+  // esce dalla stampante del punto che prepara. ⚠️ `app_config` resta il
+  // ripiego, ed e' quello che usano i clienti a sede unica — dove
+  // `location_config` non esiste proprio.
+  print_printer_id: "sede",
+  print_auto: "sede",
   company_name: "sede",
   company_street: "sede",
   company_zip: "sede",

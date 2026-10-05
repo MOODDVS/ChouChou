@@ -236,3 +236,28 @@ test("«inviato» non e' «stampato», nemmeno nella prova", () => {
   assert.match(lib, /ok` vuol dire SPEDITO/, "e' sparito l'avvertimento: qualcuno leggera' ok come «stampato»");
   assert.doesNotMatch(lib, /printed/, "bizprint.ts non deve decidere cosa e' stampato");
 });
+
+test("le chiavi della stampa sono classificate: se no la scrittura esplode", () => {
+  // ⚠️ IL GUASTO (05/10/2026, in produzione): si sceglieva la stampante, si
+  // salvava, e riaprendo la scheda era «aucune». `scriviConfig` LANCIA su una
+  // chiave non dichiarata in CLASSIFICA_CONFIG — ed e' giusto che lo faccia,
+  // e' il solo momento in cui qualcuno sta guardando. Ma nessuno guardava: la
+  // scheda non leggeva l'esito di quella PATCH e diceva «salvato» lo stesso.
+  // Due difetti sovrapposti, e il secondo nascondeva il primo.
+  const reg = leggi("src/lib/admin/sedeRegole.ts");
+  for (const k of CHIAVI_STAMPA) {
+    assert.match(reg, new RegExp(`\\n\\s*${k}:\\s*"(sede|marchio)"`), `${k} non e' in CLASSIFICA_CONFIG: scriverla lancia`);
+  }
+  const sup = leggi("src/pages/admin/super.astro");
+  assert.match(sup, /if \(!rp\.ok\)/, "la scheda e' tornata a non guardare l'esito del salvataggio della stampante");
+});
+
+test("il biglietto di prova non sembra un file", () => {
+  // ⚠️ `/api/print/p.XXX.YYY` sembra un nome di file con un'estensione, e fra
+  // un proxy, un server statico e una regola di cache c'e' sempre qualcuno
+  // disposto a trattarlo come tale invece di passarlo alla rotta.
+  const tok = firmaProva("", "segreto-di-prova");
+  assert.doesNotMatch(tok, /\./, "il token contiene un punto: prima o poi qualcuno lo servira' come file");
+  assert.ok(tok.startsWith("~"), "il biglietto non si distingue piu' dal token di una riga della coda");
+  assert.match(leggi("src/pages/api/print/[token].ts"), /\^\[A-Za-z0-9~/, "la rotta non accetta piu' il separatore del biglietto");
+});
