@@ -136,3 +136,31 @@ test("i seed di settings e app_config non sono UPSERT", () => {
     }
   }
 });
+
+test("nessuna migrazione riscrive dati che qualcuno potrebbe aver cambiato", () => {
+  // ⚠️ IL PUNTO (05/10/2026). `TUTTO.sql` serve a installare un cliente nuovo,
+  // ma viene anche rilanciato su un database VIVO per rimettersi in pari
+  // quando non si ricorda piu' quali migrazioni sono state fatte — ed e' il
+  // caso normale con sei clienti. Le CREATE sono idempotenti per abitudine;
+  // gli UPDATE no, e un UPDATE che rigira riscrive scelte fatte dal
+  // ristoratore mesi dopo. Nessuno va a ricontrollare le sezioni del menu o i
+  // testi dei popup dopo aver lanciato uno script.
+  //
+  // La regola: ogni UPDATE di un seed dice da solo come si accorge di essere
+  // il secondo giro — `where <colonna> is null` (migra solo cio' che non lo
+  // e' ancora) oppure `not exists (...)` (qui non ha ancora deciso nessuno).
+  const files = sqlNellaCartella().filter((f) => f !== USCITA);
+  const colpevoli = [];
+  for (const f of files) {
+    const sql = readFileSync(join(CARTELLA, f), "utf8")
+      .replace(/--[^\n]*/g, "")                       // via i commenti: un esempio non e' un comando
+      .replace(/\$\$[\s\S]*?\$\$/g, "");              // via i corpi delle funzioni: girano quando li chiama qualcuno
+    for (const m of sql.matchAll(/\bupdate\s+(?:public\.)?(\w+)\s+set\b([\s\S]*?);/gi)) {
+      const corpo = m[2];
+      const protetto = /\bis null\b/i.test(corpo) || /\bnot exists\b/i.test(corpo) || /\bis distinct from\b/i.test(corpo);
+      if (!protetto) colpevoli.push(`${f} → update ${m[1]}`);
+    }
+  }
+  assert.deepEqual(colpevoli, [],
+    "un UPDATE di migrazione non dice come si accorge di essere il secondo giro: rilanciare il file riscriverebbe scelte del ristoratore");
+});

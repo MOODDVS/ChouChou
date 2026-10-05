@@ -3,6 +3,15 @@
 Tutte idempotenti (`create table if not exists`, `add column if not exists`,
 `on conflict do nothing`): rilanciarle non fa danni. SQL Editor di Supabase.
 
+⚠️ **«Idempotente» deve valere anche per i dati, non solo per lo schema.** Una
+CREATE che non fa niente la seconda volta e' facile; un UPDATE di seed che
+rigira riscrive scelte che il ristoratore ha fatto mesi dopo, e nessuno va a
+ricontrollare le sezioni del menu dopo aver lanciato uno script. Il 05/10/2026
+`menu_categories_kind.sql` rimetteva «bevanda» a una sezione spostata a
+«cibo». Da allora **ogni UPDATE di una migrazione dice come si accorge di
+essere il secondo giro** — `where <colonna> is null`, `not exists (...)` o
+`is distinct from` — e `tests/migrazioni.test.mjs` lo pretende.
+
 ## Cliente nuovo, o dubbio su cosa è stato lanciato → `TUTTO.sql`
 
 `supabase/TUTTO.sql` è **tutte le migrazioni in un file solo**, nell'ordine di
