@@ -85,7 +85,7 @@ test("il ticket di cucina non e' uno scontrino", () => {
   // ⚠️ Chi legge ha trenta secondi e le mani sporche: l'ora deve essere la
   // riga piu' grande, e la prima.
   assert.equal(righe[0].testo, "19:30");
-  assert.equal(righe[0].taglia, "grande");
+  assert.equal(righe[0].taglia, "gigante");
   // Niente prezzi, niente email: sono righe che coprono quelle che contano.
   assert.doesNotMatch(testo, /€|EUR|\d+,\d{2}/, "sul ticket di cucina sono comparsi dei prezzi");
   assert.doesNotMatch(testo, /@/, "sul ticket di cucina e' comparsa un'email");

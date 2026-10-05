@@ -84,10 +84,18 @@ export function attesaTentativo(n: number): number {
  *  motore le trasforma nella pagina che il servizio di stampa legge. */
 export interface RigaTicket {
   testo: string;
-  /** `grande` per l'ora e i piatti, `piccolo` per le note di servizio. */
-  taglia?: "grande" | "normale" | "piccolo";
+  /** ⚠️ `gigante` NON e' «grande di piu'»: e' doppia larghezza, cioe' **24
+   *  colonne invece di 48**. Va bene per l'ora, che e' corta; su un nome di
+   *  piatto manderebbe a capo mezzo menu. I piatti sono `grande` (doppia
+   *  altezza sola), che resta a 48. Le colonne di ogni taglia sono dichiarate
+   *  in `escpos.ts`, una volta. */
+  taglia?: "gigante" | "grande" | "normale" | "piccolo";
   grassetto?: boolean;
   centrato?: boolean;
+  /** Bianco su nero, a tutta larghezza. Per le DUE righe che, se non si
+   *  vedono, fanno sbagliare l'ordine: il giorno quando non e' oggi, e i soldi
+   *  da incassare. Alla terza non e' piu' un allarme, e' decorazione. */
+  inverso?: boolean;
   /** Una linea di separazione sotto questa riga. */
   linea?: boolean;
 }
@@ -109,14 +117,14 @@ export interface OrdineDaStampare {
  */
 export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
   const righe: RigaTicket[] = [
-    { testo: o.ora, taglia: "grande", grassetto: true, centrato: true },
+    { testo: o.ora, taglia: "gigante", grassetto: true, centrato: true },
     { testo: `#${o.numero}`, taglia: "piccolo", centrato: true, linea: true },
   ];
   // ⚠️ «DA INCASSARE» sta in ALTO, non in fondo. Chi prepara passa il
   // sacchetto a chi sta in cassa, e deve sapere prima di consegnarlo che quei
   // soldi non sono ancora entrati.
   if (o.daIncassare) {
-    righe.push({ testo: "DA INCASSARE", taglia: "normale", grassetto: true, centrato: true, linea: true });
+    righe.push({ testo: "DA INCASSARE", taglia: "grande", grassetto: true, centrato: true, inverso: true });
   }
   for (const p of o.piatti) {
     righe.push({ testo: `${p.qty}x ${p.nome}`, taglia: "grande", grassetto: true });
