@@ -256,7 +256,35 @@ const prI18n = {
          sotto i 720px, dove le quattro colonne non ci stanno piu'. */
       #loc-overlay .loc-dest-r { display: flex; gap: 0.5rem; align-items: flex-start; margin-bottom: 0.6rem; }
       #loc-overlay .loc-dest-r .dd-nome { flex: 0 0 150px; }
-      #loc-overlay .loc-dest-r .dd-cat { flex: 1 1 auto; min-width: 0; }
+      /* Le categorie: una lista di CASELLE, non una tendina multipla. Stesso
+         disegno degli allergeni in Menu (`.alg-item`) — una casella si vede
+         spuntata da lontano, e non si perde la selezione con un clic storto. */
+      #loc-overlay .loc-dest-r .dd-cat {
+        flex: 1 1 auto; min-width: 0; max-height: 132px; overflow-y: auto;
+        background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
+        padding: 0.3rem 0.5rem;
+      }
+      #loc-overlay .dd-c { display: flex; align-items: center; gap: 0.6rem; font-size: 0.92rem; cursor: pointer; padding: 0.22rem 0; }
+      #loc-overlay .dd-c input {
+        appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0;
+        width: 20px; height: 20px; border-radius: 6px;
+        border: 2px solid var(--c-line); background: var(--c-card);
+        cursor: pointer; position: relative; transition: background 0.15s, border-color 0.15s;
+      }
+      #loc-overlay .dd-c input:hover { border-color: var(--c-accent); }
+      #loc-overlay .dd-c input:checked { background: var(--c-accent); border-color: var(--c-accent); }
+      #loc-overlay .dd-c input:checked::after {
+        content: ""; position: absolute; left: 6px; top: 2px;
+        width: 4px; height: 9px; border: solid var(--c-bg);
+        border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+      }
+      #loc-overlay .dd-c input:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+      /* Presa da un'altra riga: si vede che esiste e che non e' disponibile.
+         Nasconderla farebbe credere che la categoria non esista piu'. */
+      #loc-overlay .dd-c.is-presa { opacity: 0.45; cursor: not-allowed; }
+      #loc-overlay .dd-c.is-presa input { cursor: not-allowed; }
+      /* Il bottone «+» aveva il testo d'aiuto appiccicato sotto. */
+      #loc-overlay #loc-dest-add { margin: 0.2rem 0 0.9rem; }
       #loc-overlay .loc-dest-r .dd-pr { flex: 0 0 200px; }
       @media (max-width: 720px) { #loc-overlay .loc-dest-r { flex-wrap: wrap; } #loc-overlay .loc-dest-r .dd-nome, #loc-overlay .loc-dest-r .dd-pr { flex: 1 1 100%; } }
       #loc-overlay .loc-riga input { flex: 1; min-width: 0; }
@@ -2352,7 +2380,7 @@ const prI18n = {
         function raccogliDest(): { nome: string; cat: string[]; printer: string }[] {
           return [...destBox().querySelectorAll(".loc-dest-r")].map((r) => ({
             nome: (r.querySelector(".dd-nome") as HTMLInputElement).value.trim(),
-            cat: [...(r.querySelector(".dd-cat") as HTMLSelectElement).selectedOptions].map((o) => o.value),
+            cat: [...r.querySelectorAll<HTMLInputElement>(".dd-c input:checked")].map((i) => i.value),
             printer: (r.querySelector(".dd-pr") as HTMLSelectElement).value,
           }));
         }
@@ -2374,19 +2402,23 @@ const prI18n = {
             // qui: due righe sulla stessa categoria vogliono dire due comande,
             // cioe' due pizze. Si impedisce prima di salvare, non dopo.
             const altrove = new Set(righe.filter((x) => x !== d).flatMap((x) => x.cat));
-            const opzCat = categorieMenu.map((c) => {
+            const casella = (c: string, orfana = false) => {
               const scelta = d.cat.includes(c);
-              return `<option value="${escG(c)}"${scelta ? " selected" : ""}${!scelta && altrove.has(c) ? " disabled" : ""}>${escG(c)}</option>`;
-            }).join("");
+              const presa = !scelta && altrove.has(c);
+              return `<label class="dd-c${presa ? " is-presa" : ""}">
+                <input type="checkbox" value="${escG(c)}"${scelta ? " checked" : ""}${presa ? " disabled" : ""} />
+                <span>${escG(c)}${orfana ? " — ?" : ""}</span>
+              </label>`;
+            };
+            const opzCat = categorieMenu.map((c) => casella(c)).join("");
             // ⚠️ Una categoria configurata che nel menu non esiste piu'
             // (rinominata, cancellata) resta visibile e marcata: se sparisse
             // in silenzio, il salvataggio successivo la butterebbe via e quei
             // piatti cambierebbero stampante senza che nessuno l'abbia deciso.
-            const orfane = d.cat.filter((c) => !categorieMenu.includes(c))
-              .map((c) => `<option value="${escG(c)}" selected>${escG(c)} — ?</option>`).join("");
+            const orfane = d.cat.filter((c) => !categorieMenu.includes(c)).map((c) => casella(c, true)).join("");
             return `<div class="loc-dest-r">
               <input class="dd-nome" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
-              <select class="dd-cat" multiple size="4" aria-label="${escG(L.destCat ?? "")}">${opzCat}${orfane}</select>
+              <div class="dd-cat" role="group" aria-label="${escG(L.destCat ?? "")}">${opzCat}${orfane}</div>
               <select class="dd-pr" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
               <button type="button" class="ibtn dd-del" title="${escG(L.destDel ?? "")}" aria-label="${escG(L.destDel ?? "")}">${LOC_CESTINO}</button>
             </div>`;
@@ -2417,8 +2449,9 @@ const prI18n = {
           disegnaDest(righe);
         });
         // Scegliere una categoria la toglie alle altre righe: si ridisegna.
+        // Spuntare una categoria la toglie alle altre righe: si ridisegna.
         destBox()?.addEventListener("change", (e) => {
-          if ((e.target as HTMLElement).classList.contains("dd-cat")) disegnaDest(raccogliDest());
+          if ((e.target as HTMLElement).closest(".dd-cat")) disegnaDest(raccogliDest());
         });
         document.getElementById("loc-dest-add")?.addEventListener("click", () => {
           disegnaDest([...raccogliDest(), { nome: "", cat: [], printer: "" }]);
