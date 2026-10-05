@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `main` (04/10/2026).
+**Motore — riferimento attuale:** `main` (05/10/2026, `e3e863a` — la stampa dei ticket).
 
 > ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
 > ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
@@ -25,14 +25,19 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `bb0cef4` — 03/10/2026** | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ deploy Hostinger da fare |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `e3e863a` — 05/10/2026** (stampa ticket; 0 conflitti) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ deploy Hostinger da fare |
 | **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
 | **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
 | **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
-| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | pagina di annullo anche in italiano |
+| **Educazione Napoletana** | 🟢 Allineato | Hostinger | educazionenapoletana.be | fr/en/it | **merge `e3e863a` — 05/10/2026** (stampa ticket; 0 conflitti) | pagina di annullo anche in italiano |
 | **BROS** | 🟢 Allineato | Hostinger | brospizza.be | fr/en/it | **merge `bb0cef4` — 04/10/2026** | sesto cliente. Pagamento **al ritiro** (nessuna chiave Stripe); pagina di annullo propria (`AnnullaOrdine.astro`). ⚠️ migrazione #75 da lanciare su Supabase |
 
-✅ **Tutti e sei allineati e deployati** (04/10/2026).
+✅ **Tutti e sei allineati e deployati** (04/10/2026). **450 Gradi e Educazione Napoletana** sono anche sulla **stampa dei ticket** (05/10, `e3e863a`, zero conflitti in tutti e due).
+
+⚠️ **Per chi prende la stampa servono tre cose, e due stanno fuori dal codice:**
+1. **`TUTTO.sql`** nel suo Supabase — porta la coda (#76) e il ticket per stampante (#77). Da oggi si puo' rilanciare su un database vivo senza riscrivere niente.
+2. **`PUBLIC_SITE_URL`** fra le variabili su Hostinger (`https://www.450gradi.be`, `https://educazionenapoletana.be`…): e' l'indirizzo che il tablet va ad aprire. Senza, la coda non accoda e lo scrive solo nei log.
+3. La stampante si sceglie nel **super**: **Sedi → matita → Impression** se il cliente ha piu' punti, **Intégrations → Impression** se ne ha uno solo.
 
 ## ⚠️ Il giro del 04/10: 4 clienti su 6 rotti dall'AUTO-MERGE
 
