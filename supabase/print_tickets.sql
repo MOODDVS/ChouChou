@@ -55,3 +55,13 @@ create index if not exists print_tickets_da_fare
   on public.print_tickets (status, created_at) where status in ('queued', 'sent');
 
 create index if not exists print_tickets_order on public.print_tickets (order_id);
+
+-- ⚠️ IL GRANT, che qui mancava (06/10/2026). In questi progetti Supabase
+-- «Automatically expose new tables» e' SPENTO: una tabella nuova nasce senza
+-- privilegi per i ruoli dell'API, e il service_role — la chiave del server —
+-- non ci puo' nemmeno scrivere. L'insert torna `42501 permission denied for
+-- table print_tickets`, e `accodaTicket` lo inghiotte come inghiotte tutto
+-- (la stampa non deve far fallire un ordine): la tabella c'e', la stampante
+-- funziona, la prova di stampa esce, e dell'ordine vero non arriva niente.
+-- Visto su 450 Gradi, in sala, con un ordine pagato davanti.
+grant select, insert, update, delete on public.print_tickets to service_role;

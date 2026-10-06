@@ -1,6 +1,11 @@
 import type { APIRoute } from "astro";
+import { CLIENT } from "../../../config/client";
 import { leggi, aggiorna, tutteLeSedi, ambitoDiRiga, leggiConfig } from "../../../lib/admin/sede";
-import { ordineDaRiga, ticketCucina, idStampante, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
+import { ordineDaRiga, idStampante, CHIAVE_DESTINAZIONI, type RigaOrdine } from "../../../lib/stampaRegole";
+// ⚠️ Il DISEGNO del ticket si prende da `config/`, che e' del cliente: ogni
+// ristorante lo vuole a modo suo, e un disegno dentro `lib/` vorrebbe dire
+// modificare il motore per cambiarlo — cioe' un conflitto a ogni merge.
+import { disegnaTicket } from "../../../config/ticket";
 import { dividiPerStampante } from "../../../lib/stampaCoda";
 import { componiTesto } from "../../../lib/escpos";
 import { leggiProva, sembraProva } from "../../../lib/printToken";
@@ -107,6 +112,13 @@ export const GET: APIRoute = async ({ params }) => {
   const cfg = await leggiConfig(ambito, ["timezone", "print_printer_id", CHIAVE_DESTINAZIONI]);
   const ora = oraDi((ordine as { pickup_time?: string }).pickup_time, String(cfg.valori.get("timezone") || "Europe/Brussels"));
   const dati = ordineDaRiga(ordine as unknown as RigaOrdine, ora);
+  // L'insegna in testa al ticket: il nome del locale, non un titolo scritto a
+  // mano. ⚠️ Il LOGO vero non puo' passare di qui: un'immagine ESC/POS porta
+  // byte oltre il 128 e il servizio di stampa legge il corpo COME TESTO —
+  // sarebbe rovinata prima della testina, come le tabelle di caratteri.
+  // L'unico logo possibile e' quello caricato dentro la stampante (`FS p`),
+  // ed e' un passo a parte: finche' non c'e', comanda il nome.
+  dati.insegna = CLIENT.nome;
 
   // ⚠️ I PIATTI DI QUESTA STAMPANTE, non tutti. La divisione la rifa' la
   // stessa funzione che l'ha fatta in coda: due calcoli diversi vorrebbero
@@ -136,7 +148,7 @@ export const GET: APIRoute = async ({ params }) => {
       })),
     };
   }
-  const testo = componiTesto(ticketCucina(dati));
+  const testo = componiTesto(disegnaTicket(dati));
 
   // ⚠️ `sent`, non `printed`. Qui sappiamo solo che il ticket e' stato
   // CONSEGNATO a chi stampa: se la carta e' finita, non esce niente e noi

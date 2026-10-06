@@ -28,6 +28,13 @@ create index if not exists page_views_source_idx  on public.page_views (source);
 -- RLS activé sans policy : seul le rôle service (clé serveur) peut lire/écrire.
 alter table public.page_views enable row level security;
 
+-- ⚠️ IL GRANT, che qui mancava (06/10/2026). In questi progetti Supabase
+-- «Automatically expose new tables» e' SPENTO: senza questa riga `POST
+-- /api/track` scrive nel vuoto con un 42501 e la pagina Trafic resta vuota
+-- per sempre, senza un errore da nessuna parte. Stessa mancanza trovata su
+-- `print_tickets`, in sala, con un ordine pagato davanti.
+grant select, insert, update, delete on public.page_views to service_role;
+
 -- Agrégation des sources sur une période (évite le plafond de 1000 lignes
 -- d'un select côté client). Retourne source + nombre de visites.
 create or replace function public.traffic_sources(since timestamptz)

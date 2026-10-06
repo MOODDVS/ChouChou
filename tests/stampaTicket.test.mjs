@@ -70,6 +70,7 @@ test("i tentativi si allargano invece di martellare", () => {
 
 test("il ticket di cucina non e' uno scontrino", () => {
   const righe = ticketCucina({
+    insegna: "450 Gradi",
     numero: "4f21a8c3",
     ora: "19:30",
     cliente: "Vincenzo Santamaria",
@@ -82,26 +83,88 @@ test("il ticket di cucina non e' uno scontrino", () => {
     ],
   });
   const testo = righe.map((r) => r.testo).join("\n");
-  // ⚠️ Chi legge ha trenta secondi e le mani sporche: l'ora deve essere la
-  // riga piu' grande, e la prima.
-  assert.equal(righe[0].testo, "19:30");
+
+  // ⚠️ In testa DI CHI e' l'ordine. In una cucina che prepara per due marchi
+  // (o per due punti) e' la prima domanda, prima di «che cosa contiene».
+  assert.equal(righe[0].testo, "450 GRADI");
   assert.equal(righe[0].taglia, "gigante");
+
+  // ⚠️ L'ora due volte, e non e' una svista: sul ferma-comande si vede solo
+  // la prima riga di ogni ticket, il resto lo copre quello davanti. Piccola
+  // in alto per sapere quale va in forno adesso, grossa sotto per chi ce
+  // l'ha in mano.
+  assert.match(righe[1].testo, /RITIRO 19:30/);
+  assert.equal(righe[1].taglia, "piccolo");
+  const grossa = righe.filter((r) => r.testo === "19:30" && r.taglia === "gigante");
+  assert.equal(grossa.length, 1, "l'ora grossa non c'e' piu', o ce n'e' piu' d'una");
+
   // Niente prezzi, niente email: sono righe che coprono quelle che contano.
   assert.doesNotMatch(testo, /€|EUR|\d+,\d{2}/, "sul ticket di cucina sono comparsi dei prezzi");
   assert.doesNotMatch(testo, /@/, "sul ticket di cucina e' comparsa un'email");
+
   // I piatti ci sono tutti, con quantita', formato e nota.
   assert.match(testo, /2x Pizza Margherita/);
   assert.match(testo, /33 cm/);
   assert.match(testo, /senza basilico/, "la nota del piatto non c'e' piu': e' il punto in cui si sbaglia un ordine");
   assert.match(testo, /1x Calzone farcito/);
+
   // ⚠️ «Da incassare» PRIMA dei piatti: chi prepara passa il sacchetto a chi
   // sta in cassa, e deve saperlo prima di consegnarlo.
   const iIncasso = testo.indexOf("DA INCASSARE");
   const iPiatti = testo.indexOf("2x Pizza Margherita");
   assert.ok(iIncasso > 0 && iIncasso < iPiatti, "«da incassare» e' finito dopo i piatti: si consegna un sacchetto non pagato");
+
+  // L'ora grossa e il cliente stanno DOPO i piatti: il ticket si legge
+  // dall'alto, e in cima c'e' il lavoro.
+  assert.ok(testo.lastIndexOf("19:30") > iPiatti, "l'ora grossa e' tornata sopra i piatti");
+  assert.ok(testo.indexOf("Vincenzo Santamaria") > iPiatti);
+
   // La nota del piatto non e' mai piccola.
   const nota = righe.find((r) => r.testo.includes("senza basilico"));
   assert.notEqual(nota.taglia, "piccolo", "la nota del piatto e' diventata piccola: e' la riga che fa sbagliare l'ordine");
+});
+
+test("fra un piatto e l'altro c'e' aria, in fondo all'elenco no", () => {
+  // ⚠️ Una riga vuota dopo OGNI piatto allarga il ticket senza separare
+  // niente: l'ultima non ha un piatto sotto da cui staccarsi. A fine serata
+  // sono centimetri di carta, e un ticket piu' lungo si legge peggio.
+  const righe = ticketCucina({
+    insegna: "450 Gradi", numero: "4F2A", ora: "19:45", cliente: "Marco Rossi",
+    piatti: [{ qty: 1, nome: "Margherita" }, { qty: 2, nome: "Diavola" }, { qty: 3, nome: "Acqua" }],
+  });
+  const i = righe.findIndex((r) => r.testo === "1x Margherita");
+  assert.equal(righe[i + 1].testo, "", "manca l'aria fra il primo piatto e il secondo");
+  assert.equal(righe[i + 2].testo, "2x Diavola");
+  assert.equal(righe[i + 3].testo, "");
+  assert.equal(righe[i + 4].testo, "3x Acqua");
+  // Dopo l'ultimo piatto c'e' la riga di chiusura, non un'altra riga vuota.
+  assert.equal(righe[i + 5].linea, true, "dopo l'ultimo piatto e' rimasta una riga vuota che non separa niente");
+});
+
+test("il disegno del ticket vive nel cliente, non nel motore", () => {
+  // ⚠️ Ogni ristorante vuole il suo ticket: chi il logo, chi il telefono
+  // grande perche' richiama sempre, chi l'ora in cima. Finche' il disegno
+  // stava in `lib/stampaRegole.ts`, cambiarlo voleva dire modificare il
+  // MOTORE dentro il cliente: funziona una volta, poi litiga a ogni merge
+  // finche' qualcuno risolve il conflitto nel verso sbagliato e il
+  // ristorante si ritrova il ticket di qualcun altro.
+  //
+  // La cucitura e' `config/ticket.ts`, come `config/client.ts`: cio' che e'
+  // del cliente vive in `config/`, e il motore non lo tocca piu'.
+  const rotta = leggi("src/pages/api/print/[token].ts");
+  assert.match(rotta, /from "\.\.\/\.\.\/\.\.\/config\/ticket"/, "la rotta non prende piu' il disegno dal cliente");
+  assert.doesNotMatch(rotta, /componiTesto\(ticketCucina\(/, "la rotta e' tornata a stampare il disegno del motore, saltando quello del cliente");
+
+  const mio = leggi("src/config/ticket.ts");
+  assert.match(mio, /export function disegnaTicket/, "il file del cliente non esporta piu' il disegno");
+});
+
+test("senza insegna il ticket comincia dalla riga di servizio", () => {
+  // Un cliente che non vuole il nome in testa non deve ritrovarsi una riga
+  // vuota grande come un titolo.
+  const righe = ticketCucina({ numero: "4F2A", ora: "19:45", cliente: "Marco Rossi", piatti: [{ qty: 1, nome: "Margherita" }] });
+  assert.match(righe[0].testo, /^#4F2A/);
+  assert.equal(righe[0].taglia, "piccolo");
 });
 
 test("un ordine pagato non puo' avere due ticket automatici", () => {

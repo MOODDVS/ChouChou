@@ -307,6 +307,7 @@ non cambia nulla, ed è idempotente. Lanciarla ovunque toglie la mina.
 - **Migrazioni recuperate (01/09)**: il merge portava `db.ts` che seleziona `is_seasonal` → menu/order davano 500 finché la colonna mancava. Applicato lo script `MIGRAZIONI_DA_APPLICARE.sql` (**19 migrazioni**, tutte `if not exists`): menu (seasonal, sold_out, i18n, sotto-categorie, categorie i18n), lunch/formule (hide_items, hide_by_course, i18n, set_menus + draft/grant), ordini (manual_payment, modifica_diff), popup (i18n, position), agenda (events + i18n), google_reviews, clients_lang.
   - ⚠️ Attenzione: alcune migrazioni con `create policy` NON sono idempotenti e possono fermare lo script → applicare `google_reviews` da sola se la tabella manca ("Could not find table public.google_reviews in schema cache").
 - ⚠️ **Merge futuri**: NON sovrascrivere lo strato vetrina — tenere sempre `src/pages/index.astro`, `src/layouts/Layout.astro`, `src/config/client.ts`, `public/manifest.json`, `package.json` (nome/colori) lato La Molisana.
+- ⚠️ **`src/config/ticket.ts` e' del cliente, per tutti**: e' il disegno del ticket di cucina. Dal 06/10/2026 la rotta di stampa lo prende da li' e non da `lib/stampaRegole.ts`, cosi' un ristorante puo' avere il suo senza modificare il motore dentro il suo repo — che voleva dire un conflitto a ogni giro. Chi non lo tocca riceve il ripiego del motore, miglioramenti compresi.
 
 ## Comptoir ChouChou — 🟢 Allineato (01/09/2026)
 - **LIVE** su `comptoirchouchou.be`. Widget prenotazioni coi colori ChouChou (rosa #ed2289).

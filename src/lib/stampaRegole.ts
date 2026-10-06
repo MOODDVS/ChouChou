@@ -265,6 +265,11 @@ export interface RigaTicket {
 export interface OrdineDaStampare {
   numero: string;
   ora: string;
+  /** L'insegna, scritta grossa in testa. ⚠️ Non e' decorazione: in una cucina
+   *  che prepara per due marchi (o per due punti) il primo sguardo deve dire
+   *  DI CHI e' questo ordine, prima di dire che cosa contiene. Vuota = nessuna
+   *  testa, e il ticket comincia dalla riga di servizio. */
+  insegna?: string | null;
   cliente: string;
   telefono?: string | null;
   note?: string | null;
@@ -332,23 +337,39 @@ export function ordineDaRiga(o: RigaOrdine, ora: string): OrdineDaStampare {
  * restare leggibile da solo, perche' e' quello che vedranno i primi giorni.
  */
 export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
-  const righe: RigaTicket[] = [
-    { testo: o.ora, taglia: "gigante", grassetto: true, centrato: true },
-    { testo: `#${o.numero}`, taglia: "piccolo", centrato: true, linea: true },
-  ];
+  const righe: RigaTicket[] = [];
+
+  // ---- La testa: di chi e' questo ordine ----
+  if (o.insegna) {
+    righe.push({ testo: o.insegna.toUpperCase(), taglia: "gigante", grassetto: true, centrato: true });
+  }
+  // ⚠️ L'ora e' scritta DUE volte, e non e' una svista. Sul ferma-comande i
+  // ticket si vedono solo dalla prima riga: il resto lo copre quello davanti,
+  // e per sapere quale va in forno adesso bisognerebbe sollevarli uno a uno.
+  // Due caratteri qui costano niente; quella grossa, sotto, resta per chi il
+  // ticket ce l'ha in mano.
+  righe.push({ testo: `#${o.numero} · RITIRO ${o.ora}`, taglia: "piccolo", centrato: true, linea: true });
+
   // ⚠️ «DA INCASSARE» sta in ALTO, non in fondo. Chi prepara passa il
   // sacchetto a chi sta in cassa, e deve sapere prima di consegnarlo che quei
   // soldi non sono ancora entrati.
   if (o.daIncassare) {
     righe.push({ testo: "DA INCASSARE", taglia: "grande", grassetto: true, centrato: true, inverso: true });
   }
-  for (const p of o.piatti) {
+
+  // ---- I piatti ----
+  // ⚠️ Una riga vuota FRA un piatto e l'altro, non dopo ognuno: l'aria serve
+  // a separare due piatti, e in fondo all'elenco non separa niente — allarga
+  // il ticket e basta. A fine serata sono centimetri di carta.
+  o.piatti.forEach((p, i) => {
+    if (i) righe.push({ testo: "" });
     righe.push({ testo: `${p.qty}x ${p.nome}`, taglia: "grande", grassetto: true });
     if (p.variante) righe.push({ testo: `   ${p.variante}`, taglia: "normale" });
     // La nota del piatto e' il punto in cui si sbaglia un ordine: mai piccola.
     if (p.nota) righe.push({ testo: `   ${p.nota}`, taglia: "normale", grassetto: true });
-  }
+  });
   righe.push({ testo: "", linea: true });
+
   // ⚠️ Prima del cliente, perche' riguarda la PREPARAZIONE: «questo non e'
   // tutto l'ordine». In fondo al foglio nessuno la leggerebbe.
   if (o.parte && o.parte.su > 1) {
@@ -360,6 +381,9 @@ export function ticketCucina(o: OrdineDaStampare): RigaTicket[] {
       linea: true,
     });
   }
+
+  // ---- L'ora, e chi viene a ritirare ----
+  righe.push({ testo: o.ora, taglia: "gigante", grassetto: true, centrato: true, linea: true });
   righe.push({ testo: o.cliente, taglia: "normale", grassetto: true });
   if (o.telefono) righe.push({ testo: o.telefono, taglia: "normale" });
   if (o.note) righe.push({ testo: o.note, taglia: "normale", grassetto: true });

@@ -164,3 +164,27 @@ test("nessuna migrazione riscrive dati che qualcuno potrebbe aver cambiato", () 
   assert.deepEqual(colpevoli, [],
     "un UPDATE di migrazione non dice come si accorge di essere il secondo giro: rilanciare il file riscriverebbe scelte del ristoratore");
 });
+
+test("ogni tabella nuova porta il suo GRANT al service_role", () => {
+  // ⚠️ IL GUASTO DEL 06/10/2026, trovato in sala da 450 Gradi con un ordine
+  // pagato davanti. In questi progetti Supabase «Automatically expose new
+  // tables» e' SPENTO: una tabella nasce senza privilegi per i ruoli
+  // dell'API, e il service_role — la chiave con cui scrive il server — non
+  // ci puo' nemmeno fare un insert.
+  //
+  // Il guasto non si vede da nessuna parte. `accodaTicket` inghiotte i suoi
+  // errori di proposito (un ticket mancato e' un fastidio, un ordine non
+  // registrato e' una perdita), quindi: la tabella c'e', la stampante
+  // risponde, la prova di stampa esce — e dell'ordine vero non arriva
+  // niente. L'unica riga che lo diceva stava nei log di Hostinger.
+  //
+  // `print_tickets` e `page_views` erano nate cosi'. Questa prova e' l'unico
+  // posto in cui una terza se ne accorge prima di un cliente.
+  const sql = readFileSync("supabase/TUTTO.sql", "utf8");
+  const tabelle = [...new Set([...sql.matchAll(/create table if not exists public\.([a-z_]+)/g)].map((m) => m[1]))];
+  assert.ok(tabelle.length > 20, "l'elenco delle tabelle non si legge piu': regex da rivedere");
+  const senza = tabelle.filter(
+    (t) => !new RegExp(`grant[^;]*on public\\.${t}\\b[^;]*to[^;]*service_role`, "is").test(sql),
+  );
+  assert.deepEqual(senza, [], `queste tabelle non danno i privilegi al service_role: il server non ci potra' scrivere, e non lo dira'\n  ${senza.join("\n  ")}`);
+});
