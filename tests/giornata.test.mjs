@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const HOME = readFileSync("src/pages/admin/index.astro", "utf8");
 const FASCIA = readFileSync("src/components/admin/home/Giornata.astro", "utf8");
@@ -41,4 +41,17 @@ test("una fascia senza colonne non lascia mezzo schermo vuoto", () => {
   const layout = HOME.indexOf("applicaLayout(DEFAULT_LAYOUT);");
   assert.ok(layout > 0 && dopoLayout > layout, "promuovi() non aspetta il layout salvato");
   assert.ok(/mdd:giornata/.test(HOME), "la fascia non avvisa chi gestisce le tile");
+});
+
+test("nella cartella della Accueil non restano componenti che nessuno mette in pagina", () => {
+  // ⚠️ Un componente che nessuno importa non da' nessun segnale: non si
+  // rompe, non compare nei test, non rallenta niente. Semplicemente, un
+  // giorno qualcuno lo apre per capire come funziona la home e legge il
+  // codice di una tile che non esiste piu' da mesi — e lo modifica.
+  // Qui ne sono rimasti sei tutti insieme (Commandes, Reservations, Google,
+  // Horaires, Cuisine, Statistiques) mentre la fascia della giornata si
+  // prendeva il loro contenuto.
+  const vivi = readdirSync("src/components/admin/home").filter((f) => f.endsWith(".astro"));
+  const dimenticati = vivi.filter((f) => !HOME.includes(f.replace(".astro", "")));
+  assert.deepEqual(dimenticati, [], "questi componenti non sono importati da nessuna parte: o si usano o si cancellano");
 });

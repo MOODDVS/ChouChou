@@ -322,12 +322,17 @@ test("il contesto dei permessi si costruisce in UN posto solo", () => {
   assert.match(PERMESSI, /export async function contestoDaToken\(/);
 });
 
-test("le statistiche non si chiedono a chi riceverebbe un 403", () => {
-  // Tre 403 in console a ogni caricamento fanno sembrare rotto quello che
-  // funziona. `pagine` nell'SSR non e' un segreto: sono i permessi di chi
-  // sta leggendo quella stessa pagina.
-  assert.match(HOME_DATA, /pagine: pagineConsentite\(ctx\)/);
-  assert.match(HOME_PAGINA, /ssrHome\.pagine\.includes\("stats"\)/);
+test("le statistiche non si chiedono affatto", () => {
+  // Prima la home le chiedeva tre volte a ogni caricamento, anche a chi non
+  // ha la pagina: tre 403 in console, e l'aria di qualcosa di rotto. Si era
+  // risolto mandando al client l'elenco delle sue pagine per non chiedere.
+  // Poi la tile del fatturato e' sparita dalla Accueil, e la domanda giusta
+  // e' diventata un'altra: il modo piu' sicuro di non chiedere male e' non
+  // chiedere. Il fatturato si guarda in /admin/stats.
+  assert.ok(!/api\/admin\/stats/.test(HOME_PAGINA), "la Accueil e' tornata a chiedere le statistiche");
+  // E l'SSR non manda piu' l'elenco delle pagine: non lo legge piu' nessuno,
+  // e un dato che nessuno legge e' un dato che nessuno aggiorna.
+  assert.ok(!/pagine:/.test(HOME_DATA), "l'SSR manda ancora `pagine`, che ormai non serve a nessuno");
 });
 
 test("cio' che si NASCONDE e' cio' che non si puo' vedere, non solo cio' che il super ha spento", () => {
@@ -418,7 +423,6 @@ test("la Accueil chiede «lo mostriamo?», non «puo' aprirlo?»", () => {
     assert.ok(home.includes(`mostra(ctx, "${k}")`), `l'isola ${k} non passa da mostra()`);
   }
   assert.ok(!/\bpuo\(ctx/.test(home), "caricaHomeData decide ancora con puo(ctx, ...)");
-  assert.ok(/funzioneAccesa\(k, ctx\)/.test(home), "le pagine mandate al client non sono filtrate");
 });
 
 test("cio' che e' spento sparisce prima del primo paint", () => {

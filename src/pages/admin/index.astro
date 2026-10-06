@@ -12,7 +12,6 @@ import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.ast
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import Modal from "../../components/admin/Modal.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
-import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
 import TileSearchConsole from "../../components/admin/home/TileSearchConsole.astro";
 import { CLIENT } from "../../config/client";
@@ -217,7 +216,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         padding: 0.15rem 0.45rem; border-radius: 999px; white-space: nowrap; flex: none; }
       .j-rep.si { color: var(--c-ok); border: 1px solid color-mix(in srgb, var(--c-ok) 55%, transparent); }
       .j-rep.no { color: var(--c-hover); border: 1px solid color-mix(in srgb, var(--c-accent) 55%, transparent); }
-      .j-quote .q-h .sr { color: #f5b544; letter-spacing: 1px; font-size: 0.72rem; }
       .j-qf { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
       /* «Répondre» a destra della barra: e' un'azione, e le azioni stanno
          dove finisce la riga, non in mezzo ai comandi del carosello. */
@@ -481,35 +479,18 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .tile-title { font-family: var(--font-title); font-size: 1.35rem; letter-spacing: 0.04em; line-height: 1; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
       .tile-title .tt-ico { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: var(--c-accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
       .tile-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; margin-bottom: 0.25rem; color: var(--c-accent); }
-      .ord-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; }
-      .ord-two > div { flex: 1 1 110px; min-width: 0; }
-      .ord-nexts { display: flex; flex-direction: column; gap: 0.35rem; }
-      .ord-nx { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.95rem; min-width: 0; }
-      .ord-nx .nx-h { font-weight: 800; color: var(--c-accent); flex: 0 0 auto; }
-      .ord-nx .nx-n { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .resa-two { display: flex; gap: 1rem; align-items: flex-end; justify-content: space-between; margin-bottom: 1.25rem; }
-      .resa-two .tile-sub { margin-bottom: 0; }
-      .resa-perm { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 1rem; }
-      .resa-perm .rp-pill {
-        border: 1px solid #d24d55; color: #ffffff; background: #d24d55;
-        border-radius: 999px; padding: 0.24rem 0.65rem; font-size: 0.68rem;
-        font-weight: 700; letter-spacing: 0.03em; white-space: nowrap;
-      }
-      .resa-mini { display: flex; align-items: flex-end; gap: 0.45rem; padding-top: 0.2rem; }
-      .resa-mini .rmc { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-      .resa-mini .rmc b { font-size: 0.74rem; color: var(--c-text); font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
-      .resa-mini .rmc i { width: 18px; border-radius: 2px 2px 0 0; display: block; }
-      .tile-sub { color: var(--c-muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
       .tile-next { border-top: 1px solid var(--c-line); padding-top: 1rem; font-size: 0.95rem; }
       .tile-next .lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
-      .tile-next .val { font-weight: 700; }
-      .tile-next .none { color: var(--c-muted); font-weight: 400; }
       .state { color: var(--c-muted); padding: 1rem 0; }
 
-      /* --- Tile Statistiques (2 colonne) --- */
-      /* A una colonna ci pensa gia' `.cards .tile { grid-column: 1/-1 !important }`
-         del blocco stretto: nessuna eccezione da ripetere qui. */
-      .tile-stats { grid-column: span 2; }
+      /* Testata di una tile con il link a destra (Photos). ⚠️ Il prefisso
+         `st-` viene dalla tile Statistiques, che non c'e' piu': i nomi sono
+         rimasti perche' rinominarli e' un'altra modifica, e una modifica per
+         volta e' il motivo per cui si capisce che cosa ha rotto che cosa. */
+      .st-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+      .st-head .tile-title { margin-bottom: 0; }
+      .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
+      .st-link:hover { color: var(--c-accent); }
 
       /* --- Card Photos récentes (2 colonne, griglia 4x2) --- */
       .tile-photos { grid-column: span 2; }
@@ -521,40 +502,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .ph-cell:hover { border-color: var(--c-accent); transform: scale(0.97); }
       .ph-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
       .ph-empty { grid-column: 1 / -1; color: var(--c-muted); font-size: 0.85rem; }
-      .st-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-      .st-head .tile-title { margin-bottom: 0; }
-      .st-link { color: var(--c-muted); font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
-      .st-link:hover { color: var(--c-accent); }
-      /* Le due metà si affiancano finche' c'e' spazio DENTRO LA TILE, poi
-         vanno a capo da sole. Prima c'era @media (max-width: 700px), che pero'
-         misura la FINESTRA: a tre colonne la tile e' larga ~380px anche su uno
-         schermo da 1200, e le due metà si schiacciavano. */
-      .st-grid { display: flex; gap: 1.75rem; flex-wrap: wrap; }
-      .st-left { flex: 1 1 240px; min-width: 0; }
-      .st-chart { flex: 1.2 1 260px; min-width: 0; display: flex; flex-direction: column; }
-      .st-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); display: block; margin-bottom: 0.3rem; }
-      .st-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; margin-bottom: 1.1rem; }
-      .st-two > div { flex: 1 1 110px; min-width: 0; }
-      .st-big { font-family: var(--font-title); font-size: 2.3rem; line-height: 1; color: var(--c-accent); }
-      .st-facts { border-top: 1px solid var(--c-line); padding-top: 1rem; display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.8rem; }
-      .st-facts > div { flex: 1; min-width: 0; }
-      .st-facts .val { font-weight: 700; font-size: 0.95rem; }
-      /* ⚠️ `align-items: stretch` (il default) NON e' un dettaglio: con
-         `flex-end` ogni colonna si restringeva sul proprio contenuto, e
-         allora l'`height: N%` della barra dentro non aveva piu' un'altezza
-         di riferimento — le percentuali contro un genitore alto «auto»
-         valgono `auto`. Restava il `min-height: 2px`, cioe' il trattino
-         che si vedeva al posto dell'istogramma. La barra si appoggia in
-         basso col `justify-content: flex-end` di .st-bar, non con questo. */
-      .st-bars { display: flex; align-items: stretch; gap: 2px; height: 110px; border-bottom: 1px solid var(--c-line); margin-top: 0.4rem; flex: 1; }
-      .st-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
-      .st-bar .cval { font-family: var(--font-title); font-size: 0.8rem; color: var(--c-text); text-align: center; margin-bottom: 2px; }
-      .st-bar .fill { background: var(--c-accent); border-radius: 3px 3px 0 0; min-height: 2px; }
-      .st-bar.zero .fill { background: var(--c-line); }
-      .st-labs { display: flex; gap: 2px; margin-top: 0.35rem; }
-      .st-labs span { flex: 1; text-align: center; font-size: 0.62rem; color: var(--c-muted); }
-
-      /* --- Tile Horaires --- */
 
       /* --- Tile Jours spéciaux --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -675,7 +622,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .menu-counts { display: flex; gap: 1.5rem; margin-bottom: 1.25rem; }
       .mc-num { font-family: var(--font-title); font-size: 2.8rem; line-height: 1; color: var(--c-accent); display: block; }
       .mc-lab { color: var(--c-muted); font-size: 0.85rem; }
-      .val.warn { color: var(--c-accent); }
 
       /* --- Tile Notes (colori invertiti: fondo oro, testo marrone) --- */
       .tile-notes { background: var(--c-accent); color: var(--c-brown); border-color: var(--c-accent); min-height: 180px; }
@@ -829,7 +775,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           <TileJoursSpeciaux />
           <TileMenu />
           <TileSearchConsole />
-          <TileStats />
           <TilePhotos />
         </div>
       </main>
@@ -947,12 +892,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       type MenuRow = { category: string; available: boolean; name: string; sold_out?: boolean | null };
       type Cat = { name: string; kind: "food" | "drink" };
       type Note = { id: string; content: string; author: string | null; done: boolean; created_at: string; tags?: string[] | null };
-      type StatsResp = {
-        revenue_cents: number;
-        peak_hour: number | null;
-        top: { name: string; qty: number }[];
-        series: { label: string; count: number }[];
-      };
 
       const CLOCK =
         '<svg class="clock" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>';
@@ -1990,8 +1929,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             ssrHome = null;
           }
 
+          // ⚠️ Niente statistiche. La tile che le mostrava non c'e' piu', e
+          // con lei sono spariti tre `fetch` a ogni caricamento della Accueil
+          // — fatti anche a chi non aveva la pagina, che si prendeva tre 403
+          // in console e credeva rotto quello che funzionava. Il fatturato si
+          // guarda in /admin/stats, che e' la pagina che sa raccontarlo.
           let resOrd: any, resResa: any, resToday: any, resMenu: any, resCats: any;
-          let resSD: any, resSM: any, resSW: any;
 
           if (ssrHome) {
             resOrd = fakeRes(ssrHome.orders);
@@ -1999,35 +1942,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             resToday = fakeRes(ssrHome.today);
             resMenu = fakeRes(ssrHome.menu);
             resCats = fakeRes(ssrHome.categories);
-            // Le statistiche restano lato client. Se chi guarda non ha la
-            // pagina, l'API risponde 403: chiederle tre volte per poi buttare
-            // via la risposta fa sembrare rotto quello che funziona.
-            const vedeStats = !Array.isArray(ssrHome.pagine) || ssrHome.pagine.includes("stats");
-            const negato = () => Promise.resolve(new Response("{}", { status: 403 }));
-            const pSD = vedeStats ? fetch("/api/admin/stats?period=day", { headers }) : negato();
-            const pSM = vedeStats ? fetch("/api/admin/stats?period=month", { headers }) : negato();
-            const pSW = vedeStats ? fetch("/api/admin/stats?period=week", { headers }) : negato();
-            const lazy = (p: Promise<Response>) => ({
-              ok: true,
-              json: async () => {
-                const r = await p;
-                if (!r.ok) throw new Error();
-                return r.json();
-              },
-            });
-            resSD = lazy(pSD);
-            resSM = lazy(pSM);
-            resSW = lazy(pSW);
           } else {
-            [resOrd, resResa, resToday, resMenu, resCats, resSD, resSM, resSW] = await Promise.all([
+            [resOrd, resResa, resToday, resMenu, resCats] = await Promise.all([
               fetch("/api/admin/orders", { headers }),
               fetch("/api/admin/reservations?date=" + oggiKey, { headers }),
               fetch("/api/admin/today", { headers }),
               fetch("/api/admin/menu", { headers }),
               fetch("/api/admin/categories", { headers }),
-              fetch("/api/admin/stats?period=day", { headers }),
-              fetch("/api/admin/stats?period=month", { headers }),
-              fetch("/api/admin/stats?period=week", { headers }),
             ]);
           }
 
@@ -2455,41 +2376,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
                 }).join("") +
                 (fuori.length > MAXI ? `<div class="spx-more">+ ${fuori.length - MAXI} ${tr("home.more")}…</div>` : "");
           }
-
-          // ---------- Statistiques ----------
-          if (resSD.ok) {
-            const sd = (await resSD.json()) as StatsResp;
-            (document.getElementById("st-ca-day") as HTMLElement).textContent = euro(sd.revenue_cents);
-          }
-          if (resSM.ok) {
-            const sm = (await resSM.json()) as StatsResp;
-            (document.getElementById("st-ca-month") as HTMLElement).textContent = euro(sm.revenue_cents);
-            (document.getElementById("st-top") as HTMLElement).textContent =
-              sm.top.length ? `${sm.top[0].name} (${sm.top[0].qty}×)` : "—";
-            const peakEl = document.getElementById("st-peak") as HTMLElement;
-            if (sm.peak_hour === null) {
-              peakEl.textContent = "—";
-            } else {
-              const h = String(sm.peak_hour).padStart(2, "0");
-              const h2 = String((sm.peak_hour + 1) % 24).padStart(2, "0");
-              peakEl.textContent = `${h}:00–${h2}:00`;
-            }
-          }
-          if (resSW.ok) {
-            const sw = (await resSW.json()) as StatsResp;
-            const barsEl = document.getElementById("st-bars") as HTMLElement;
-            const labsEl = document.getElementById("st-labs") as HTMLElement;
-            const max = Math.max(...sw.series.map((b) => b.count), 1);
-            const peakIdx = sw.series.findIndex((b) => b.count === max);
-            barsEl.innerHTML = sw.series
-              .map((b, i) => {
-                const hPct = Math.round((b.count / max) * 100);
-                const val = i === peakIdx && b.count > 0 ? `<span class="cval">${b.count}</span>` : "";
-                return `<div class="st-bar${b.count === 0 ? " zero" : ""}" role="img" aria-label="${b.label} : ${b.count} ${tr("home.ordersWord")}">${val}<span class="fill" style="height:${hPct}%"></span></div>`;
-              })
-              .join("");
-            labsEl.innerHTML = sw.series.map((b) => `<span>${b.label}</span>`).join("");
-          }
         } catch {
           /* i tile degradano in silenzio; la pagina resta usabile */
         }
@@ -2513,7 +2399,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnTuiles = document.getElementById("organiser-tuiles") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
-        const KEYS = ["notes", "special", "menu", "visibilite", "stats", "assets"];
+        const KEYS = ["notes", "special", "menu", "visibilite", "assets"];
         // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari) e
         // `cuisine` (préparation e chiusura online) non sono piu' qui: il
         // loro contenuto e' salito nella fascia della giornata, che e' FISSA. Una gerarchia che si puo' trascinare torna
@@ -2523,7 +2409,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           { key: "notes", w: 1 },
           { key: "special", w: 1 }, { key: "menu", w: 1 },
           { key: "visibilite", w: 1 },
-          { key: "stats", w: 2 }, { key: "assets", w: 2 },
+          { key: "assets", w: 2 },
         ];
 
         let editing = false;
@@ -3213,7 +3099,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         // interruttori che non accendono niente.
         const NOMI: Record<string, string> = {
           notes: tr("home.notes"), special: tr("home.specialDays"), menu: tr("nav.menu"),
-          visibilite: tr("home.visibility"), stats: tr("nav.stats"), assets: tr("home.photos"),
+          visibilite: tr("home.visibility"), assets: tr("home.photos"),
         };
         const ovTuiles = document.getElementById("tuiles-overlay") as HTMLElement | null;
         const listaTuiles = document.getElementById("tuiles-list") as HTMLElement | null;

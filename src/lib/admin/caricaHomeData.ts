@@ -2,7 +2,6 @@ import { DateTime } from "luxon";
 import { caricaResaGiorno } from "./caricaResaGiorno";
 import { caricaToday } from "./caricaToday";
 import { leggi, type Ambito } from "./sede";
-import { pagineConsentite, funzioneAccesa } from "./permessiRegole";
 import { mostra, type ContestoPermessi } from "./permessi";
 import { fusoDi } from "../fuso";
 
@@ -151,10 +150,5 @@ export async function caricaHomeData(ambito: Ambito, ctx: ContestoPermessi) {
     ...(mostraResa ? { resa } : {}),
     today: todayCfg,
     ...(mostraMenu ? { menu: { items: menuRes?.data ?? [] }, categories: { categories } } : {}),
-    // Le pagine che la Accueil MOSTRA: i permessi di chi guarda meno le
-    // funzioni spente dal super. Servono al client per non chiedere le
-    // statistiche quando non andrebbero mostrate comunque. Non e' un
-    // segreto — sono i permessi di chi sta leggendo la pagina.
-    pagine: pagineConsentite(ctx).filter((k) => funzioneAccesa(k, ctx)),
   };
 }
