@@ -201,13 +201,21 @@
   color: #ffffff;
 }
 
-/* Secondo tempo: la pillola si allarga per contenere la parola. */
-.ibtn-danger.confirm {
-  background: #a3320f;
-  border-color: #a3320f;
-  color: #fff;
+/* Secondo tempo: la pillola si allarga per contenere la parola.
+   ⚠️ La FORMA vale per ogni `.ibtn`, non solo per il cestino: la stessa
+   guardia protegge anche cose che non si cancellano (cambiare la password
+   di qualcuno), e li' il rosso direbbe la cosa sbagliata. Il colore
+   dell'allarme resta al cestino, sotto. */
+.ibtn.confirm {
   width: auto;
   padding: 0 0.7rem;
   border-radius: 999px;
   font-size: 0.75rem;
+  font-family: var(--font-body);
+  white-space: nowrap;
+}
+.ibtn-danger.confirm {
+  background: #a3320f;
+  border-color: #a3320f;
+  color: #fff;
 }

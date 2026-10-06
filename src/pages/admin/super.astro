@@ -491,17 +491,10 @@ const prI18n = {
       }
       .us-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
       .us-btn.danger:hover { border-color: #e2483d; color: #e2483d; }
-      .i-btn {
-        width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
-        background: transparent; border: 1px solid var(--c-line); border-radius: 50%;
-        color: var(--c-muted); cursor: pointer; font-size: 0.95rem;
-        transition: border-color 0.2s, color 0.2s, background 0.2s;
-      }
-      .i-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .k-ico { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-      .i-del { background: rgba(237, 28, 36, 0.25); border-color: rgba(237, 28, 36, 0.35); color: #fff; }
-      .i-del:hover { background: rgba(237, 28, 36, 0.55); border-color: #ed1c24; color: #fff; }
-      .i-del.confirm { width: auto; padding: 0 0.75rem; border-radius: 999px; font-size: 0.75rem; font-family: var(--font-body); background: #a3320f; border-color: #a3320f; color: #fff; white-space: nowrap; }
+      /* ⚠️ `.i-btn` e `.i-del` non esistono piu' qui: erano la copia locale
+         del bottone-icona, mentre le schede delle sedi in questa stessa
+         pagina usavano gia' `.ibtn` di button.css. Due bottoni tondi
+         diversi a due centimetri l'uno dall'altro. */
       /* Il guscio e i campi sono condivisi (modal.css, field.css): qui resta
          solo quello che e' davvero di questo modulo. */
       .us-hint { margin: 0 0 1.2rem; }
@@ -1909,8 +1902,43 @@ const prI18n = {
         const ICO_PEN = "\u270E";
         const ICO_KEY =
           '<svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5" /><line x1="10.7" y1="12.3" x2="21" y2="2" /><line x1="18" y1="5" x2="20.5" y2="7.5" /><line x1="15" y1="8" x2="17.5" y2="10.5" /></svg>';
-        let usDelPending: string | null = null;
-        let usDelTimer: number | undefined;
+        /**
+         * GUARDIA A DUE TOCCHI — il primo tocco chiede, il secondo fa.
+         *
+         * Il cestino degli utenti e quello delle sedi ce l'avevano gia',
+         * ognuno con le sue variabili e il suo timer. Il tasto della
+         * PASSWORD no: un dito di troppo sulla riga sbagliata cambiava la
+         * chiave d'accesso di qualcuno all'istante e senza domande, cioe' lo
+         * buttava fuori dall'admin — e il cestino accanto, che fa una cosa
+         * altrettanto grave, chiedeva conferma.
+         *
+         * Le tre guardie ora sono UNA: armarne una disarma l'altra, e la
+         * domanda sparisce da sola dopo tre secondi. Torna `true` quando e'
+         * arrivato il secondo tocco: chi chiama agisce.
+         */
+        let confChiave: string | null = null;
+        let confBtn: HTMLElement | null = null;
+        let confIcona = "";
+        let confTimer: number | undefined;
+        function disarmaConferma(): void {
+          window.clearTimeout(confTimer);
+          if (!confBtn) return;
+          confBtn.classList.remove("confirm");
+          confBtn.innerHTML = confIcona;
+          confBtn = null;
+          confChiave = null;
+        }
+        function confermato(btn: HTMLElement, chiave: string, icona: string): boolean {
+          if (confChiave === chiave) { disarmaConferma(); return true; }
+          disarmaConferma();
+          confChiave = chiave;
+          confBtn = btn;
+          confIcona = icona;
+          btn.classList.add("confirm");
+          btn.textContent = tr("common.confirm");
+          confTimer = window.setTimeout(disarmaConferma, 3000);
+          return false;
+        }
         let usEditId: string | null = null;
         let usCache: { id: string; first_name?: string; last_name?: string; email: string; role?: string; is_moodd?: boolean; location_id?: string | null }[] = [];
 
@@ -1939,6 +1967,20 @@ const prI18n = {
           const d = new Date(iso);
           return d.toLocaleDateString("fr-BE", { day: "2-digit", month: "2-digit", year: "2-digit" });
         }
+        /**
+         * ⚠️ Una password in chiaro sullo schermo del pannello e' una
+         * password che resta li' per tutto il servizio: il tab non si chiude,
+         * e chi passa dietro al bancone legge. Si mostra il tempo di
+         * copiarla, poi sparisce. Negli appunti c'e' gia'.
+         */
+        let usMsgTimer: number | undefined;
+        function mostraPassword(testo: string): void {
+          if (!usMsg) return;
+          usMsg.textContent = testo;
+          window.clearTimeout(usMsgTimer);
+          usMsgTimer = window.setTimeout(() => { if (usMsg) usMsg.textContent = ""; }, 60000);
+        }
+
         function usPwd(): string {
           const alf = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
           const a = new Uint32Array(14);
@@ -1964,9 +2006,9 @@ const prI18n = {
                   <span class="us-cell dim">${usData(u.created_at)}</span>
                   <span class="us-cell dim">${usData(u.last_sign_in_at)}</span>
                   <span class="us-acts">
-                    <button type="button" class="i-btn" data-pass="${u.id}" title="${tr("us.newPassTitle")}">${ICO_KEY}</button>
-                    <button type="button" class="i-btn i-edit" data-edit="${u.id}" title="${tr("common.edit")}">${ICO_PEN}</button>
-                    ${u.is_moodd ? '<span class="i-slot"></span>' : `<button type="button" class="i-btn i-del" data-del="${u.id}" title="${tr("common.delete")}">${ICO_TRASH}</button>`}
+                    <button type="button" class="ibtn" data-pass="${u.id}" title="${tr("us.newPassTitle")}">${ICO_KEY}</button>
+                    <button type="button" class="ibtn" data-edit="${u.id}" title="${tr("common.edit")}">${ICO_PEN}</button>
+                    ${u.is_moodd ? '<span class="i-slot"></span>' : `<button type="button" class="ibtn ibtn-danger" data-del="${u.id}" title="${tr("common.delete")}">${ICO_TRASH}</button>`}
                   </span>
                 </div>`)
               .join("");
@@ -2065,23 +2107,26 @@ const prI18n = {
           const pass = t.closest("[data-pass]") as HTMLElement | null;
           if (pass) {
             const id = pass.dataset.pass as string;
-            const nuova = usPwd();
-            try {
-              const res = await fetch("/api/admin/users", {
-                method: "PUT",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ id, password: nuova }),
-              });
-              const j = await res.json();
-              if (!res.ok) { toast(j.error ?? tr("us.editErr"), true); return; }
+            if (!confermato(pass, "pass:" + id, ICO_KEY)) return;
+            await conAttesa(pass, async () => {
+              const nuova = usPwd();
               try {
-                await navigator.clipboard.writeText(nuova);
-                toast(tr("us.newPassCopied"));
-              } catch {
-                toast(tr("us.passChanged"));
-              }
-              if (usMsg) usMsg.textContent = `${tr("us.newPassLabel")} : ${nuova}`;
-            } catch { toast(tr("common.netErr"), true); }
+                const res = await fetch("/api/admin/users", {
+                  method: "PUT",
+                  headers: { ...headers, "Content-Type": "application/json" },
+                  body: JSON.stringify({ id, password: nuova }),
+                });
+                const j = await res.json();
+                if (!res.ok) { toast(j.error ?? tr("us.editErr"), true); return; }
+                try {
+                  await navigator.clipboard.writeText(nuova);
+                  toast(tr("us.newPassCopied"));
+                } catch {
+                  toast(tr("us.passChanged"));
+                }
+                mostraPassword(`${tr("us.newPassLabel")} : ${nuova}`);
+              } catch { toast(tr("common.netErr"), true); }
+            });
             return;
           }
 
@@ -2095,32 +2140,19 @@ const prI18n = {
           const del = t.closest("[data-del]") as HTMLElement | null;
           if (del) {
             const id = del.dataset.del as string;
-            if (usDelPending === id) {
-              window.clearTimeout(usDelTimer);
-              usDelPending = null;
-              await conAttesa(del, async () => {
-                try {
-                  const res = await fetch(`/api/admin/users?id=${id}`, {
-                    method: "POST",
-                    headers: { ...headers, "X-Method-Override": "DELETE" },
-                  });
-                  const j = await res.json();
-                  if (!res.ok) { toast(j.error ?? tr("us.delErr"), true); return; }
-                  toast(tr("us.deleted"));
-                  await usCarica();
-                } catch { toast(tr("common.netErr"), true); }
-              });
-              return;
-            }
-            usDelPending = id;
-            del.classList.add("confirm");
-            del.textContent = tr("common.confirm");
-            window.clearTimeout(usDelTimer);
-            usDelTimer = window.setTimeout(() => {
-              usDelPending = null;
-              del.classList.remove("confirm");
-              del.innerHTML = ICO_TRASH;
-            }, 3000);
+            if (!confermato(del, "del:" + id, ICO_TRASH)) return;
+            await conAttesa(del, async () => {
+              try {
+                const res = await fetch(`/api/admin/users?id=${id}`, {
+                  method: "POST",
+                  headers: { ...headers, "X-Method-Override": "DELETE" },
+                });
+                const j = await res.json();
+                if (!res.ok) { toast(j.error ?? tr("us.delErr"), true); return; }
+                toast(tr("us.deleted"));
+                await usCarica();
+              } catch { toast(tr("common.netErr"), true); }
+            });
           }
         });
 
@@ -3022,17 +3054,6 @@ const prI18n = {
           }
         }));
 
-        // Cestino a due tempi, UNO SOLO armato alla volta: stessa guardia
-        // di Documenti e Ordini.
-        let locCestino: HTMLButtonElement | null = null;
-        let locCestinoTimer = 0;
-        function locDisarma() {
-          window.clearTimeout(locCestinoTimer);
-          if (!locCestino) return;
-          locCestino.classList.remove("confirm");
-          locCestino.innerHTML = LOC_CESTINO;
-          locCestino = null;
-        }
         // L'interruttore salva da solo: e' uno stato, non una modifica da
         // confermare. Se il server rifiuta, torna com'era.
         locList.addEventListener("change", async (e) => {
@@ -3063,22 +3084,14 @@ const prI18n = {
           const id = card.dataset.id ?? "";
 
           if (bersaglio.closest(".loc-edit")) {
-            locDisarma();
+            disarmaConferma();
             const s = sedi.find((x) => x.id === id);
             if (s) locApri(s);
             return;
           }
           const del = bersaglio.closest(".loc-del") as HTMLButtonElement | null;
           if (!del) return;
-          if (del !== locCestino) {
-            locDisarma();
-            locCestino = del;
-            del.classList.add("confirm");
-            del.textContent = L.confirm ?? "?";
-            locCestinoTimer = window.setTimeout(locDisarma, 3000);
-            return;
-          }
-          locDisarma();
+          if (!confermato(del, "sede:" + id, LOC_CESTINO)) return;
           await conAttesa(del, async () => {
             try {
               const res = await fetch("/api/admin/locations?id=" + encodeURIComponent(id), {

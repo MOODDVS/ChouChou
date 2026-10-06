@@ -215,3 +215,39 @@ test("tutto il super admin e' riservato al super admin", () => {
       `${f}: non controlla piu' che sia il super admin`);
   }
 });
+
+test("cio' che non si disfa chiede conferma, e lo chiede in un modo solo", () => {
+  // ⚠️ Il tasto della password cambiava la chiave d'accesso di un utente al
+  // PRIMO tocco: un dito sulla riga sbagliata e qualcuno resta fuori
+  // dall'admin, senza nemmeno sapere perche'. Il cestino accanto — che fa
+  // una cosa altrettanto grave — chiedeva conferma da sempre.
+  //
+  // Le guardie erano due, scritte due volte con due timer: quella degli
+  // utenti e quella delle sedi. Adesso e' una, e la usano in tre.
+  const sup = PAGINA;
+
+  assert.match(sup, /function confermato\(/, "la guardia comune non c'e' piu'");
+  for (const vecchia of ["usDelPending", "locCestino", "locDisarma"]) {
+    assert.doesNotMatch(sup, new RegExp(vecchia), `${vecchia}: e' tornata una guardia scritta a parte`);
+  }
+
+  // I tre bersagli: cancellare un utente, cancellare una sede, rifare una
+  // password. Le chiavi sono diverse, se no armare l'uno armerebbe l'altro.
+  for (const chiave of ["del:", "pass:", "sede:"]) {
+    assert.match(
+      sup,
+      new RegExp(`confermato\\([^)]*"${chiave}"`),
+      `manca la guardia per «${chiave}»`,
+    );
+  }
+
+  // E il secondo tocco passa dall'attesa: due click rapidi non devono
+  // diventare due reset di password.
+  const i = sup.indexOf('if (!confermato(pass,');
+  assert.ok(i > 0, "il tasto della password non passa dalla guardia");
+  assert.match(sup.slice(i, i + 200), /conAttesa\(pass/, "il reset della password non e' protetto dal doppio click");
+
+  // La password in chiaro non resta sullo schermo per tutto il servizio.
+  assert.match(sup, /function mostraPassword\(/, "la password mostrata non ha piu' chi la cancella");
+  assert.match(sup, /usMsgTimer = window\.setTimeout/, "la password mostrata non sparisce piu' da sola");
+});
