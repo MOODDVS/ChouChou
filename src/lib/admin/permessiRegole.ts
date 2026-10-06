@@ -228,6 +228,11 @@ export const API_PAGINA: Record<string, string> = {
   "pages": PAGINA_APERTA,          // e' AdminNav a chiederla, per sapere cosa mostrare
   "search-console": PAGINA_APERTA, // tile Visibilite': nessun data-admin-page
   "events": PAGINA_APERTA,         // eventi del locale, tile «Prossimi eventi»
+  // L'abitudine oraria della Accueil: la fascia della giornata la chiede
+  // sempre, e dentro conta solo cio' che chi guarda ha il diritto di vedere
+  // (vedi caricaAffluenza). Chiuderla qui spegnerebbe il grafico a chi ha la
+  // home ma non le prenotazioni — e la home ce l'hanno tutti.
+  "affluence": PAGINA_APERTA,
   "special-days": PAGINA_APERTA,   // orari: li legge anche la home
   "special-days-impact": PAGINA_APERTA,
   "slots": PAGINA_APERTA,

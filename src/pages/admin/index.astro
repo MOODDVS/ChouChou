@@ -8,11 +8,9 @@ import AdminHeader from "../../components/admin/AdminHeader.astro";
 import AdminFooter from "../../components/admin/AdminFooter.astro";
 import Giornata from "../../components/admin/home/Giornata.astro";
 import TileNotes from "../../components/admin/home/TileNotes.astro";
-import TileHoraires from "../../components/admin/home/TileHoraires.astro";
 import TileJoursSpeciaux from "../../components/admin/home/TileJoursSpeciaux.astro";
 import SpecialDaysForm from "../../components/admin/SpecialDaysForm.astro";
 import Modal from "../../components/admin/Modal.astro";
-import TileCuisine from "../../components/admin/home/TileCuisine.astro";
 import TileMenu from "../../components/admin/home/TileMenu.astro";
 import TileStats from "../../components/admin/home/TileStats.astro";
 import TilePhotos from "../../components/admin/home/TilePhotos.astro";
@@ -149,8 +147,9 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-t { font-family: var(--font-title); font-size: 0.78rem; letter-spacing: .14em; text-transform: uppercase;
         color: var(--c-text); display: flex; align-items: center; gap: 0.5rem; }
       .j-hd { display: flex; align-items: flex-start; gap: 0.6rem; margin-bottom: 1.1rem; }
-      /* L'icona ha la misura e il colore del logo Google accanto: le tre
-         colonne cominciano tutte con un segno della stessa taglia. */
+      /* ⚠️ La STESSA misura del logo Google: le tre colonne cominciano con un
+         segno della stessa taglia, sulla stessa riga. Due pixel di differenza
+         fra i tre segni bastano a far sembrare storti tre titoli allineati. */
       .j-ico { width: 18px; height: 18px; flex: none; fill: none; stroke: var(--c-accent);
         stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
       .j-hd .j-cnt { font-size: 0.75rem; color: var(--c-muted); text-decoration: none; }
@@ -172,7 +171,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
          un quadratino bianco era un segnaposto, e un logo ridisegnato non e'
          quel logo. Niente fondo: il file ha gia' il suo, e i colori reggono
          sul tema scuro. */
-      .j-glogo { width: 22px; height: 22px; display: block; flex: none; }
+      .j-glogo { width: 18px; height: 18px; display: block; flex: none; }
 
       /* --- Google --- */
       .j-note { display: flex; align-items: baseline; gap: 0.6rem; }
@@ -280,26 +279,91 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-nums .d.giu { color: var(--c-hover); font-weight: 700; }
 
       /* --- orari + affluenza --- */
-      .j-ore-h { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.9rem; }
+      /* Il voto a sinistra, gli orari a destra: la stessa riga, due estremi.
+         `align-items: flex-start` e non `center` — il voto e' alto tre volte
+         gli orari, e centrarli manderebbe «AUJOURD'HUI» a mezz'aria. */
+      .j-top { display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 1.2rem; flex-wrap: wrap; }
+      .j-locale { padding-bottom: 1.3rem; margin-bottom: 1.3rem; border-bottom: 1px solid var(--c-line); }
+      /* `margin-left: auto` oltre allo `space-between`: senza scheda Google il
+         voto non c'e', e gli orari rimasti soli tornerebbero a sinistra con
+         il testo allineato a destra — una riga storta per un caso raro. */
+      .j-ore { text-align: right; margin-left: auto; }
+      .j-ore-h { display: flex; align-items: center; justify-content: flex-end; gap: 0.7rem; }
       .j-pil { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em;
         padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--c-ok); color: #fff; white-space: nowrap; }
       .j-pil.off { background: var(--c-accent); }
-      .j-orari { margin-left: auto; font-size: 0.85rem; font-weight: 700; }
-      .j-hm-plot { display: flex; align-items: flex-end; gap: 3px; height: 62px; margin-top: 1.4rem; }
-      .j-hb { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
-      .j-hb i { display: block; background: var(--c-barra, #4e8f9c); border-radius: 4px 4px 0 0; }
-      .j-hb.chiuso { background: repeating-linear-gradient(135deg, rgba(134, 160, 164, .12) 0 4px, transparent 4px 8px); border-radius: 4px; }
-      .j-hb.ora i { background: var(--c-accent); }
-      .j-hb .lab { position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
-        font-size: 0.62rem; font-weight: 800; color: var(--c-accent); white-space: nowrap; }
-      .j-hm-x { display: flex; gap: 3px; margin-top: 0.85rem; }
+      /* Riga sua, sotto il titolo: in una colonna non c'e' spazio accanto. */
+      .j-orari { margin-top: 0.5rem; font-size: 0.82rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap; }
+      .j-orari .f { white-space: nowrap; }
+      /* Un orologio solo per tutti i servizi: due disegni uguali in fila su
+         una riga di sette parole sono un disegno di troppo. */
+      .j-orari .clock { width: 14px; height: 14px; stroke: var(--c-accent); fill: none; stroke-width: 1.8;
+        flex: none; }
+      /* ⚠️ Lo stesso `gap` del grafico e dell'asse delle ore: sono due righe
+         separate che devono restare incolonnate, e due numeri diversi si
+         notano solo all'ultima ora della giornata. */
+      .j-hm-plot { display: flex; align-items: flex-end; gap: 4px; height: 74px; margin-top: 0.9rem; }
+      /* QUATTRO BARRE PER ORA: coperti e ordini, ognuno col suo «di solito».
+         Il COLORE dice che cosa si conta (coperti o ordini), la TINTA dice
+         quando (piena = oggi, chiara = di solito). Due variabili, due segni:
+         chi guarda impara una cosa sola e la applica a tutte e quattro.
+         ⚠️ Una barra resta al suo posto anche a zero: se sparisse, le altre
+         scivolerebbero e le ore non sarebbero piu' incolonnate — un grafico
+         che si muove da solo mentre i numeri cambiano. */
+      .j-hb { flex: 1 1 0; height: 100%; position: relative;
+        display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+      .j-hb span { min-width: 3px; border-radius: 2px 2px 0 0; }
+      /* ⚠️ Un colore PIENO, non lo stesso reso trasparente: `color-mix` col
+         FONDO e non con `transparent`, cosi' resta opaco e segue comunque il
+         tema del cliente invece di essere un esadecimale scritto a mano. */
+      .j-hb .cov { background: color-mix(in srgb, var(--c-barra, #4e8f9c) 40%, var(--c-bg)); }
+      .j-hb .cov.oggi { background: var(--c-barra, #4e8f9c); }
+      /* Gli ordini nel CORALLO del cliente (`--c-accent`): una tinta sola per
+         tutte e due le serie non si distingue, e il corallo e' l'unico altro
+         colore che il pannello ha gia' — un terzo colore inventato qui
+         sarebbe un colore in piu' da spiegare, e cambierebbe da cliente a
+         cliente senza che nessuno l'abbia scelto. */
+      .j-hb .ord { background: color-mix(in srgb, var(--c-accent) 40%, var(--c-bg)); }
+      .j-hb .ord.oggi { background: var(--c-accent); }
+      /* La larghezza dipende da quante serie sono accese: con i soli coperti
+         restano due barre, e devono riempire la colonna come le quattro. */
+      .j-hm.serie2 .j-hb span { width: 46%; max-width: 20px; }
+      .j-hm.serie4 .j-hb span { width: 23%; max-width: 11px; }
+      /* ⚠️ DUE COLORI E BASTA. Qui c'erano anche il tratteggio delle ore di
+         chiusura e il riquadro dell'ora in corso: quattro linguaggi in una
+         striscia alta settanta pixel, e per leggerla bisognava prima
+         imparare tre segni. Gli orari sono scritti in lettere due righe
+         sopra — il grafico non deve ripeterli, deve dire quanta gente c'e'.
+         Un'ora senza barre e' un'ora senza nessuno, e si capisce da sola. */
+      .j-hm-x { display: flex; gap: 4px; margin-top: 0.7rem; }
       .j-hm-x span { flex: 1 1 0; text-align: center; font-size: 0.66rem; color: var(--c-muted); }
-      .j-hm-f { display: flex; align-items: center; gap: 1.1rem; margin-top: 0.9rem; font-size: 0.72rem; color: var(--c-muted); flex-wrap: wrap; }
+      .j-hm-f { display: flex; align-items: center; gap: 0.85rem; margin-top: 0.8rem; font-size: 0.7rem; color: var(--c-muted); flex-wrap: wrap; }
       .j-key { display: inline-flex; align-items: center; gap: 0.35rem; }
       .j-key b { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-      .j-key b.now { background: var(--c-accent); }
-      .j-key b.cl { background: repeating-linear-gradient(135deg, rgba(134, 160, 164, .5) 0 3px, transparent 3px 6px); }
+      /* Ogni segno della legenda ha la FORMA di cio' che spiega: il quadrato
+         e' la barra, il trattino e' il trattino, il contorno e' il cerchio
+         dell'ora in corso. Un pallino uguale per tutti non spiega niente. */
+      .j-key b.cov { background: var(--c-barra, #4e8f9c); }
+      .j-key b.ord { background: var(--c-accent); }
+      .j-pale { font-style: italic; }
       .j-hm-f .src { margin-left: auto; }
+
+      /* I servizi di oggi e i bottoni della préparation: due righe di comando
+         sotto il titolo della loro colonna, prima dell'elenco. ⚠️ Lo stesso
+         spazio sotto tutte e due, altrimenti i due elenchi partono a due
+         altezze diverse e le colonne sembrano disallineate. */
+      .j-serv, .j-cmd { margin-bottom: 1.05rem; }
+      .j-serv { display: flex; flex-direction: column; gap: 0.3rem; }
+      .j-serv:empty, .j-cmd:empty { display: none; margin: 0; }
+      .j-sv { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+      .j-sv .n { font-weight: 700; }
+      .j-sv .h { color: var(--c-muted); }
+      .j-sv .switch { margin-left: auto; }
+      /* Chiuso fino a riapertura: l'interruttore del giorno non lo riaprirebbe,
+         quindi e' spento e disattivato — e la riga lo dice sbiadendo. */
+      .j-sv.is-perm { opacity: 0.6; }
 
       /* --- le due colonne del giorno --- */
       /* `flex: 1` : le due colonne prendono tutto lo spazio che resta sotto la
@@ -324,11 +388,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .j-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; flex: 1; }
       .j-tiles .tile { margin-bottom: 0; }
       @media (max-width: 759px) { .j-tiles { grid-template-columns: 1fr; } }
-      /* ⚠️ La riga di separazione sta SOTTO la fascia degli orari, non sopra
-         le colonne: `display:none` nasconde l'elemento ma lo lascia nel DOM,
-         quindi un `.j-ore + .j-due` avrebbe disegnato il filo anche con la
-         fascia spenta — un bordo appeso a niente. */
-      .j-ore { padding-bottom: 1.9rem; margin-bottom: 2.2rem; border-bottom: 1px solid var(--c-line); }
+      /* ⚠️ La riga di separazione sta sotto il BLOCCO (voto, orari, grafico),
+         non sopra la recensione: `display:none` nasconde l'elemento ma lo
+         lascia nel DOM, quindi un `.j-hm + .j-aut` avrebbe disegnato il filo
+         anche a grafico spento — un bordo appeso a niente. */
       /* ⚠️ Le due file di numeri stanno sulla STESSA LINEA: ancorate in fondo
          alla colonna, non appese all'elenco sopra. Una colonna con una riga in
          piu' spingeva giu' i suoi numeri, e le due file finivano sfalsate di
@@ -492,25 +555,6 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       .st-labs span { flex: 1; text-align: center; font-size: 0.62rem; color: var(--c-muted); }
 
       /* --- Tile Horaires --- */
-      .sched-status { font-family: var(--font-title); font-size: 1.8rem; letter-spacing: 0.03em; line-height: 1; margin-bottom: 0.9rem; }
-      .sched-status.open { color: var(--c-accent); }
-      .sched-status.closed { color: #d24d55; }
-      .sched-bands { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 1.25rem; }
-      .sched-band { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; }
-      .sched-band .clock { width: 15px; height: 15px; stroke: var(--c-accent); fill: none; stroke-width: 1.8; flex-shrink: 0; }
-      .sched-two { display: flex; gap: 1.5rem; flex-wrap: wrap; row-gap: 0.9rem; }
-      /* Le due metà agli estremi finche' stanno in riga; a capo, a sinistra. */
-      .cui-two { justify-content: space-between; }
-      .sched-two > div { flex: 1 1 auto; min-width: 0; }
-
-      /* --- Tile Cuisine --- */
-      .cui-row { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--c-line); margin-top: 1.1rem; padding-top: 1rem; }
-      .cui-lab { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--c-muted); }
-      .cui-sw { width: 44px; height: 24px; border-radius: 999px; background: var(--c-input); border: 1px solid var(--c-line); box-sizing: border-box; cursor: pointer; position: relative; transition: background 0.2s, border-color 0.2s; padding: 0; flex: 0 0 auto; }
-      .cui-sw.is-on { border-color: var(--c-accent); }
-      .cui-sw .cui-knob { position: absolute; top: 50%; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transform: translateY(-50%); transition: transform 0.2s; }
-      .cui-sw.is-on { background: var(--c-accent); }
-      .cui-sw.is-on .cui-knob { transform: translate(18px, -50%); }
 
       /* --- Tile Jours spéciaux --- */
       .spx-list { display: flex; flex-direction: column; gap: 0.55rem; }
@@ -782,9 +826,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         <Giornata />
         <div class="cards" id="cards" style="display:none">
           <TileNotes />
-          <TileHoraires />
           <TileJoursSpeciaux />
-          <TileCuisine />
           <TileMenu />
           <TileSearchConsole />
           <TileStats />
@@ -866,6 +908,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { authFresh } from "../../lib/admin/auth";
       import { collegaLogout } from "../../lib/admin/logout";
+      import { nomeServizio } from "../../lib/reservationI18n";
       import { adminT, ADMIN_LOCALE, type AdminLang } from "../../i18n/admin";
       import { festivita, ricorrenze } from "../../lib/festivitaRegole";
 
@@ -1053,6 +1096,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
       let reseOggi: ResaRow[] = [];
       let resaCouv = 0;
       let resaCapienza = 0;
+      // Gli ordini di oggi, gia' filtrati: li disegna la colonna di destra e
+      // li riconta l'affluenza. Richiederli una seconda volta vorrebbe dire
+      // due elenchi dello stesso giorno, e un giorno direbbero due cose.
+      let ordiniOggi: Order[] = [];
 
       // ⚠️ L'ascolto sta sulla LISTA e non sulle pastiglie: le righe si
       // ridisegnano a ogni cambio di stato, e un ascoltatore attaccato a un
@@ -1086,6 +1133,79 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         numero("j-resa-rempl", resaCapienza ? Math.round((resaCouv / resaCapienza) * 100) + " %" : "—", "");
         numero("j-resa-conf", String(daConf), "");
       }
+
+
+      // ============================================================
+      // I SERVIZI DI OGGI, E L'INTERRUTTORE PER CHIUDERLI
+      // ------------------------------------------------------------
+      // ⚠️ La chiamata e' QUELLA della pagina Réservations
+      // (`/api/admin/service-closures`), e l'interruttore e' il componente
+      // condiviso `.switch`. Un secondo modo di chiudere un servizio sarebbe
+      // un secondo posto in cui ricordarsi le regole — e la prima a cadere
+      // sarebbe quella che nessuno ricorda di avere scritto.
+      //
+      // ⚠️ `checked` = APERTO. Lo stesso verso della pagina Réservations: due
+      // interruttori uguali che vogliono dire il contrario sono il modo piu'
+      // veloce per chiudere un servizio credendo di aprirlo.
+      // ============================================================
+      type SvOggi = { key: string; label: string; da: string; a: string };
+      let servOggi: SvOggi[] = [];
+      let servData = "";
+      const servChiusi = new Map<string, string>();
+
+      function disegnaServizi(): void {
+        const box = document.getElementById("j-serv");
+        if (!box) return;
+        box.innerHTML = servOggi
+          .map((sv) => {
+            const motivo = servChiusi.get(sv.key) ?? "";
+            const perm = motivo === "permanent";
+            return (
+              `<div class="j-sv${perm ? " is-perm" : ""}">` +
+                `<span class="n">${escHtml(sv.label)}</span>` +
+                `<span class="h">${escHtml(sv.da)} – ${escHtml(sv.a)}</span>` +
+                `<label class="switch sw-sm"${perm ? ` title="${escHtml(tr("res.closedUntilReopenM"))}"` : ""}>` +
+                  `<input type="checkbox" data-sv="${escHtml(sv.key)}"${motivo ? "" : " checked"}${perm ? " disabled" : ""} />` +
+                  `<span class="track"></span>` +
+                `</label>` +
+              `</div>`
+            );
+          })
+          .join("");
+      }
+
+      document.getElementById("j-serv")?.addEventListener("change", async (e) => {
+        const el = (e.target as HTMLElement).closest<HTMLInputElement>("input[data-sv]");
+        if (!el || !servData) return;
+        const chiave = el.dataset.sv ?? "";
+        const chiudere = !el.checked;
+        el.disabled = true;
+        try {
+          // ⚠️ Per cancellare NON si usa `method: "DELETE"`: il resto del
+          // pannello passa da POST + `X-Method-Override`, e il middleware
+          // conosce solo quella strada.
+          const res = chiudere
+            ? await fetch("/api/admin/service-closures", {
+                method: "POST",
+                headers: await authFresh(),
+                body: JSON.stringify({ date: servData, service_key: chiave, reason: "full" }),
+              })
+            : await fetch(
+                `/api/admin/service-closures?date=${encodeURIComponent(servData)}&service_key=${encodeURIComponent(chiave)}`,
+                { method: "POST", headers: await authFresh({ "X-Method-Override": "DELETE" }) },
+              );
+          if (!res.ok) throw new Error();
+          if (chiudere) servChiusi.set(chiave, "full");
+          else servChiusi.delete(chiave);
+        } catch {
+          // ⚠️ L'interruttore torna com'era: lasciarlo girato direbbe che il
+          // servizio e' chiuso mentre il sito continua a prendere tavoli.
+          el.checked = !el.checked;
+          toast(tr("us.editErr"), true);
+        } finally {
+          el.disabled = false;
+        }
+      });
 
       /**
        * CAMBIARE LO STATO DALLA ACCUEIL.
@@ -1921,6 +2041,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             const ordOggi = orders
               .filter((o) => dayKeyBrussels(o.pickup_time) === oggiKey && o.status !== "cancelled")
               .sort((a, b) => (a.pickup_time < b.pickup_time ? -1 : 1));
+            ordiniOggi = ordOggi;
 
             const box = document.getElementById("j-ord");
             if (box) box.style.display = "";
@@ -1973,6 +2094,27 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             resaCouv = couv;
             resaCapienza = capienza;
             disegnaResa();
+
+            // ---- I servizi di oggi ----
+            // ⚠️ `days` vuoto = tutti i giorni, come nella pagina
+            // Réservations. Un servizio del sabato elencato di martedi' con
+            // un interruttore che non chiude niente e' peggio di non averlo.
+            const dow = new Date(oggiKey + "T12:00:00").getDay();
+            servData = oggiKey;
+            servOggi = ((jr.config?.services ?? []) as { key: string; from?: string; to?: string; days?: number[] }[])
+              .filter((sv) => sv && sv.key && sv.from && sv.to)
+              .filter((sv) => !Array.isArray(sv.days) || sv.days.length === 0 || sv.days.includes(dow))
+              .map((sv) => ({
+                key: String(sv.key),
+                label: nomeServizio(String(sv.key), LANG),
+                da: String(sv.from).slice(0, 5),
+                a: String(sv.to).slice(0, 5),
+              }));
+            servChiusi.clear();
+            for (const c of (jr.closures ?? []) as { service_key: string; reason: string }[]) {
+              servChiusi.set(String(c.service_key), String(c.reason || "full"));
+            }
+            disegnaServizi();
           }
 
           // ---- Quante colonne restano accese ----
@@ -2004,152 +2146,280 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             document.dispatchEvent(new Event("mdd:giornata"));
           }
 
-          // ---------- Horaires (aujourd'hui) ----------
-          const statusEl = document.getElementById("sched-status") as HTMLElement;
-          const bandsWrap = document.getElementById("sched-bands-wrap") as HTMLElement;
+          // ---------- La giornata: orari, riapertura, affluenza ----------
+          // ⚠️ Gli orari stavano in una tile, che adesso non c'e' piu'. Non e'
+          // una tile spostata: e' la stessa cosa detta in UN posto solo. Due
+          // punti che dicono l'orario di oggi sono due punti che un giorno
+          // diranno orari diversi, e chi legge non sapra' quale credere.
           type Today = { config: Config; orders_closed?: boolean; closes_at?: string | null; reopen?: { in_days: number; heure: string } | null };
           const jt: Today | null = resToday.ok ? ((await resToday.json()) as Today) : null;
           const cfg = jt?.config ?? null;
-          if (!cfg) {
-            statusEl.textContent = tr("home.unavail");
-            statusEl.classList.add("closed");
-          } else {
-            const b = fasce(cfg);
-            if (b.length === 0) {
-              statusEl.textContent = tr("home.closedToday");
-              statusEl.classList.add("closed");
-              bandsWrap.innerHTML = "";
-            } else {
-              statusEl.textContent = tr("home.openToday");
-              statusEl.classList.add("open");
-              bandsWrap.innerHTML =
-                `<div class="sched-bands">` +
-                b.map((f) => `<span class="sched-band">${CLOCK}${f}</span>`).join("") +
-                `</div>`;
+          const bande = cfg ? fasce(cfg) : [];
+          {
+            const pil = document.getElementById("j-stato");
+            const righeOre = document.getElementById("j-orari");
+            const aperto = bande.length > 0;
+            if (pil) {
+              // ⚠️ «Non disponibile» non e' «chiuso»: la prima dice che la
+              // configurazione non si e' letta, la seconda che oggi non si
+              // apre. Confonderle manda a cercare un guasto dove non c'e', o
+              // fa credere chiuso un giorno di servizio.
+              pil.textContent = !cfg ? tr("home.unavail") : aperto ? tr("home.tagOpen") : tr("home.tagClosed");
+              pil.classList.toggle("off", !aperto);
             }
+            if (righeOre) {
+              // ⚠️ Niente «Réouverture aujourd'hui à 17:00» accanto a
+              // «17:00 – 22:30»: era la stessa ora detta due volte, e la
+              // seconda in grigio e piu' lunga della prima.
+              //
+              // I servizi sono UNO ACCANTO ALL'ALTRO, ognuno in un pezzo suo
+              // che non va a capo: «12:00 – 14:30» spezzato dopo il trattino
+              // diventa due orari che non esistono.
+              righeOre.innerHTML = CLOCK + (
+                !cfg ? escHtml("—")
+                : aperto ? bande.map((f) => `<span class="f">${escHtml(f)}</span>`).join("")
+                : escHtml(tr("home.closedToday"))
+              );
+            }
+            const fascia = document.getElementById("j-ore");
+            if (fascia) fascia.style.display = "";
+            // ⚠️ Gli orari ABITANO la colonna di Google, non sono di Google:
+            // un locale senza Place ID lascerebbe quella colonna spenta e
+            // perderebbe gli orari, che non c'entrano niente con la scheda.
+            // Chi ha qualcosa da dire accende la colonna; il blocco di Google
+            // fa lo stesso dal suo script, e accenderla due volte non costa.
+            const colonna = document.getElementById("j-google");
+            if (colonna) colonna.style.display = "";
           }
 
-          // Réouverture / fermeture del giorno (tile Horaires)
-          const reLab = document.getElementById("sched-reopen-lab") as HTMLElement | null;
-          const reVal = document.getElementById("sched-reopen") as HTMLElement | null;
-          if (reLab && reVal) {
-            if (jt?.closes_at) {
-              reLab.textContent = tr("home.closing");
-              reVal.textContent = `${tr("home.at")} ${jt.closes_at}`;
-            } else if (jt?.reopen) {
-              const g = jt.reopen.in_days;
-              let quando: string;
-              if (g === 0) quando = tr("home.today");
-              else if (g === 1) quando = tr("home.tomorrow");
-              else {
-                const dt = new Date(Date.now() + g * 86400000);
-                quando = dt.toLocaleDateString(LOC, { weekday: "long", timeZone: TZ_LOCALE });
-                if (g > 6) quando += " " + dt.toLocaleDateString(LOC, { day: "2-digit", month: "2-digit", timeZone: TZ_LOCALE });
+          // ---------- L'affluenza: l'abitudine, e oggi sopra ----------
+          // ⚠️ L'abitudine arriva dal server (media dello stesso giorno della
+          // settimana). OGGI invece si conta QUI, dalle righe che la fascia ha
+          // gia' in mano: chiederlo al server sarebbe un secondo conteggio
+          // dello stesso giorno, e il giorno che i due numeri non combaciano
+          // tutti e due hanno l'aria giusta. Le due serie contano le STESSE
+          // cose — `fonti` lo dice — altrimenti il confronto non vuol dire
+          // niente.
+          try {
+            const rAff = await fetch("/api/admin/affluence", { headers });
+            if (rAff.ok) {
+              const aff = (await rAff.json()) as {
+                covers: Record<string, number>; orders: Record<string, number>;
+                settimane: number; fonti: string[];
+              };
+              // ⚠️ Chi comanda e' `fonti`, che arriva dal server: e' la stessa
+              // decisione che ha deciso se LEGGERE quei dati. Spenti gli
+              // ordini, la loro serie non esiste — non e' nascosta, non c'e' —
+              // e con tutte e due spente il grafico non si disegna affatto.
+              const conta = new Set(aff.fonti ?? []);
+              const vedeCov = conta.has("covers");
+              const vedeOrd = conta.has("orders");
+
+              const oggiCov: Record<number, number> = {};
+              const oggiOrd: Record<number, number> = {};
+              const metti = (dove: Record<number, number>, h: number, q: number) => {
+                if (!Number.isFinite(h) || h < 0 || h > 23 || !q) return;
+                dove[h] = (dove[h] ?? 0) + q;
+              };
+              if (vedeCov) {
+                for (const r of reseOggi) {
+                  // ⚠️ Non `slice(0, 2)`: su "9:30" darebbe "9:" e quindi NaN,
+                  // e quella prenotazione sparirebbe dal grafico senza che
+                  // niente lo dica. Le ore di una cifra esistono (il pranzo).
+                  metti(oggiCov, Number(String(r.heure ?? "").match(/^(\d{1,2})/)?.[1] ?? NaN), Number(r.people) || 0);
+                }
               }
-              reLab.textContent = tr("home.reopen");
-              reVal.textContent = `${quando} ${tr("home.at")} ${jt.reopen.heure}`;
-            } else {
-              reVal.textContent = "—";
-              reVal.classList.add("none");
-            }
-          }
-
-          // ---------- Cuisine ----------
-          const cuiStatus = document.getElementById("cui-status") as HTMLElement | null;
-          const cuiSw = document.getElementById("cui-sw") as HTMLButtonElement | null;
-          // La cucina è chiusa se il manager l'ha chiusa (switch) O se il
-          // ristorante è chiuso oggi (nessuna fascia). Lo switch riflette solo
-          // la chiusura manuale.
-          const giornoSenzaServizio = !cfg || fasce(cfg).length === 0;
-          let cucinaChiusaManuale = Boolean(jt?.orders_closed);
-          const aggiornaCucina = () => {
-            const chiusa = cucinaChiusaManuale || giornoSenzaServizio;
-            if (cuiStatus) {
-              cuiStatus.textContent = chiusa ? tr("home.closed") : tr("home.open");
-              cuiStatus.classList.toggle("closed", chiusa);
-              cuiStatus.classList.toggle("open", !chiusa);
-            }
-            cuiSw?.classList.toggle("is-on", !cucinaChiusaManuale);
-          };
-          aggiornaCucina();
-          if (cfg) {
-            const cs = document.getElementById("cui-slot") as HTMLElement | null;
-            if (cs) cs.textContent = `${cfg.slot_duration_minutes} min`;
-          }
-
-          // ---- Tempo di preparazione, modificabile dal tile ----
-          // Stessa PATCH dei bottoni della pagina Commandes: scrive su TUTTI
-          // i giorni, ed è quella che valida 0–240.
-          const prepBox = document.getElementById("cui-prep") as HTMLElement | null;
-          if (prepBox && cfg) {
-            let prepMin = Number(cfg.prep_time_minutes);
-
-            const segnaPrep = () => {
-              // Un valore fuori dai tre preset (impostato dai Réglages) non
-              // deve sparire: diventa un chip in più, così il tile dice sempre
-              // il tempo vero invece di non accendere niente.
-              if (!prepBox.querySelector(`.cui-p[data-min="${prepMin}"]`) && Number.isFinite(prepMin)) {
-                const extra = document.createElement("button");
-                extra.type = "button";
-                extra.className = "cui-p";
-                extra.dataset.min = String(prepMin);
-                extra.textContent = String(prepMin);
-                prepBox.appendChild(extra);
+              if (vedeOrd) {
+                for (const o of ordiniOggi) {
+                  const q = new Intl.DateTimeFormat("en-GB", { timeZone: TZ_LOCALE, hour: "2-digit", hourCycle: "h23" });
+                  metti(oggiOrd, Number(q.format(new Date(o.pickup_time))), 1);
+                }
               }
-              prepBox.querySelectorAll<HTMLButtonElement>(".cui-p").forEach((b) => {
-                b.classList.toggle("is-on", Number(b.dataset.min) === prepMin);
-              });
+
+              // Le quattro serie, nell'ordine in cui si disegnano: ogni «oggi»
+              // accanto al SUO «di solito», perche' il confronto che conta e'
+              // quello — non coperti contro ordini, che non si confrontano.
+              const serie: { ore: Record<string, number> | Record<number, number>; classe: string }[] = [];
+              if (vedeCov) serie.push({ ore: oggiCov, classe: "cov oggi" }, { ore: aff.covers ?? {}, classe: "cov" });
+              if (vedeOrd) serie.push({ ore: oggiOrd, classe: "ord oggi" }, { ore: aff.orders ?? {}, classe: "ord" });
+              const quanto = (s: { ore: Record<string, number> | Record<number, number> }, h: number) =>
+                Number((s.ore as Record<string, number>)[String(h)] ?? 0);
+
+              // La finestra: le ore in cui si apre oggi, piu' quelle che hanno
+              // un numero. ⚠️ Le seconde servono: una prenotazione fuori
+              // orario esiste, e un grafico che la taglia via fa sparire
+              // proprio il caso che varrebbe la pena di guardare.
+              const aperte = new Set<number>();
+              const apri = (on: boolean | undefined, da: string | null | undefined, a: string | null | undefined) => {
+                if (!on || !da || !a) return;
+                const h0 = Number(da.slice(0, 2));
+                const h1 = Number(a.slice(0, 2));
+                const m1 = Number(a.slice(3, 5));
+                for (let h = h0; h <= (m1 > 0 ? h1 : h1 - 1); h++) if (h >= 0 && h <= 23) aperte.add(h);
+              };
+              apri(cfg?.lunch_active, cfg?.lunch_open, cfg?.lunch_close);
+              apri(cfg?.dinner_active, cfg?.dinner_open, cfg?.dinner_close);
+              const conNumeri: number[] = [];
+              for (const s2 of serie) for (const k of Object.keys(s2.ore)) if (Number.isFinite(Number(k))) conNumeri.push(Number(k));
+              const tutte = [...aperte, ...conNumeri];
+              const max = Math.max(0, ...tutte.map((h) => Math.max(...serie.map((s2) => quanto(s2, h)), 0)));
+
+              const hm = document.getElementById("j-hm");
+              const plot = document.getElementById("j-hm-plot");
+              const assi = document.getElementById("j-hm-x");
+              if (hm && plot && assi && serie.length && tutte.length && max > 0) {
+                const da = Math.min(...tutte);
+                const a = Math.max(...tutte);
+                // 96 e non 100: la barra piu' alta non deve toccare il
+                // soffitto del grafico.
+                const alt = (v: number) => Math.round((v / max) * 96);
+                const barre: string[] = [];
+                const etichette: string[] = [];
+                for (let h = da; h <= a; h++) {
+                  barre.push(
+                    `<div class="j-hb">` +
+                      serie.map((s2) => `<span class="${s2.classe}" style="height:${alt(quanto(s2, h))}%"></span>`).join("") +
+                    `</div>`
+                  );
+                  // Un'etichetta ogni due ore: dodici numeri in fila sotto una
+                  // striscia alta settanta pixel si leggono come un rumore,
+                  // non come un asse.
+                  etichette.push(`<span>${(h - da) % 2 === 0 ? h + "h" : ""}</span>`);
+                }
+                plot.innerHTML = barre.join("");
+                assi.innerHTML = etichette.join("");
+                // Due serie o quattro: la larghezza delle barre sta nel CSS,
+                // qui si dice solo quante ce ne sono.
+                hm.classList.toggle("serie4", serie.length === 4);
+                hm.classList.toggle("serie2", serie.length === 2);
+
+                // La legenda nomina i COLORI, e solo quelli che esistono: una
+                // voce «commandes» senza barre e' una domanda in piu'.
+                const kCov = document.getElementById("j-k-cov");
+                if (kCov) kCov.style.display = vedeCov ? "" : "none";
+                const kOrd = document.getElementById("j-k-ord");
+                if (kOrd) kOrd.style.display = vedeOrd ? "" : "none";
+
+                // Il picco: l'ora piu' piena di OGGI. Sui COPERTI quando ci
+                // sono, perche' l'affluenza sono le persone; gli ordini da
+                // portare via sono un'altra cosa e hanno la loro barra.
+                const pic = document.getElementById("j-hm-pic");
+                if (pic) {
+                  const base = vedeCov ? oggiCov : oggiOrd;
+                  let migliore = -1;
+                  let piu = 0;
+                  for (const [h, v] of Object.entries(base)) {
+                    if (Number(v) > piu) { piu = Number(v); migliore = Number(h); }
+                  }
+                  pic.textContent = migliore >= 0 ? tr("home.peakAt").replace("{h}", migliore + "h") : "";
+                }
+
+                // Su quante settimane e' fatta la media. Una media su tre
+                // settimane e una su otto non si guardano allo stesso modo, e
+                // chi legge deve saperlo senza doverlo chiedere.
+                const src = document.getElementById("j-hm-src");
+                if (src) {
+                  src.textContent = aff.settimane > 0
+                    ? tr("home.affWeeks").replace("{n}", String(aff.settimane))
+                    : tr("home.affNone");
+                }
+                hm.style.display = "";
+              }
+            }
+          } catch { /* rete assente: la fascia resta senza grafico */ }
+
+
+          // ---------- Commandes: préparation e chiusura online ----------
+          // ⚠️ STESSI bottoni di /admin/orders (styles/prep.css) e STESSA
+          // chiamata: `PATCH /api/admin/settings` scrive il tempo su tutti i
+          // giorni ed e' l'unica che valida 0–240. Erano anche nella tile
+          // Cuisine, sulla stessa pagina: due comandi per lo stesso valore, e
+          // il giorno che uno dei due smette di aggiornarsi nessuno se ne
+          // accorge — si vede solo quando la cucina lavora su un tempo che
+          // nessuno ha scelto.
+          {
+            const cmd = document.getElementById("j-ord-cmd");
+            const btnChiudi = document.getElementById("j-ord-close") as HTMLButtonElement | null;
+            let prepMin = Number(cfg?.prep_time_minutes);
+            let ordiniChiusi = Boolean(jt?.orders_closed);
+
+            const chips = () => Array.from(cmd?.querySelectorAll<HTMLButtonElement>(".prep-btn[data-min]") ?? []);
+            const segna = () => {
+              // ⚠️ A ordini chiusi NESSUN tempo resta acceso: un «30 min»
+              // illuminato accanto a un «Fermer» rosso direbbe due cose
+              // opposte sullo stesso momento.
+              for (const b of chips()) b.classList.toggle("active", !ordiniChiusi && Number(b.dataset.min) === prepMin);
+              btnChiudi?.classList.toggle("closed", ordiniChiusi);
+              const lab = btnChiudi?.querySelector(".m");
+              if (lab) lab.textContent = ordiniChiusi ? tr("ord.closed") : tr("common.close");
+              if (btnChiudi) btnChiudi.title = ordiniChiusi ? tr("ord.reopenOnline") : tr("ord.closeOnline");
             };
-            segnaPrep();
+            segna();
 
-            prepBox.addEventListener("click", async (e) => {
-              const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".cui-p");
-              if (!b) return;
-              // Il tile è un link verso i Réglages: senza questo, il click
-              // cambierebbe pagina invece di salvare.
-              e.preventDefault();
-              e.stopPropagation();
-              const min = Number(b.dataset.min);
-              if (!Number.isFinite(min) || min === prepMin) return;
-              const prima = prepMin;
-              const chips = prepBox.querySelectorAll<HTMLButtonElement>(".cui-p");
-              chips.forEach((x) => (x.disabled = true));
-              prepMin = min;
-              segnaPrep();
+            // Un valore fuori dai tre preset (scelto nei Réglages) non deve
+            // sparire: diventa un bottone in piu', cosi' la colonna dice
+            // sempre il tempo vero invece di non accendere niente.
+            if (Number.isFinite(prepMin) && !chips().some((b) => Number(b.dataset.min) === prepMin) && btnChiudi) {
+              const extra = document.createElement("button");
+              extra.type = "button";
+              extra.className = "prep-btn";
+              extra.dataset.min = String(prepMin);
+              extra.innerHTML = `<span class="m">${prepMin} min</span>`;
+              btnChiudi.parentElement?.insertBefore(extra, btnChiudi);
+              segna();
+            }
+
+            // Si scrive PRIMA sullo schermo e poi sul server, e si torna
+            // indietro se il server rifiuta: il contrario (aspettare) rende
+            // il bottone lento al tocco, e qui si tocca mentre si cucina.
+            const salva = async (corpo: Record<string, unknown>, indietro: () => void) => {
+              const tutti = [...chips(), ...(btnChiudi ? [btnChiudi] : [])];
+              for (const b of tutti) b.disabled = true;
               try {
                 const r = await fetch("/api/admin/settings", {
                   method: "PATCH",
-                  headers: { ...headers, "Content-Type": "application/json" },
-                  body: JSON.stringify({ prep_time_minutes: min }),
+                  headers: await authFresh(),
+                  body: JSON.stringify(corpo),
                 });
                 if (!r.ok) throw new Error();
               } catch {
-                prepMin = prima; // salvataggio fallito: il tile non deve mentire
-                segnaPrep();
+                indietro();
+                segna();
+                toast(tr("us.editErr"), true);
               } finally {
-                chips.forEach((x) => (x.disabled = false));
-                b.blur();
+                for (const b of tutti) b.disabled = false;
               }
+            };
+
+            cmd?.addEventListener("click", async (e) => {
+              const b = (e.target as HTMLElement).closest<HTMLButtonElement>(".prep-btn[data-min]");
+              if (!b) return;
+              const min = Number(b.dataset.min);
+              if (!Number.isFinite(min) || (min === prepMin && !ordiniChiusi)) return;
+              const prima = prepMin;
+              const eraChiuso = ordiniChiusi;
+              prepMin = min;
+              // Scegliere un tempo RIAPRE: e' la regola della pagina
+              // Commandes, e due pannelli non possono rispondere diverso alla
+              // stessa azione.
+              ordiniChiusi = false;
+              segna();
+              await salva({ prep_time_minutes: min, orders_closed: false }, () => {
+                prepMin = prima;
+                ordiniChiusi = eraChiuso;
+              });
+              b.blur();
+            });
+
+            btnChiudi?.addEventListener("click", async () => {
+              const nuovo = !ordiniChiusi;
+              ordiniChiusi = nuovo;
+              segna();
+              await salva({ orders_closed: nuovo }, () => { ordiniChiusi = !nuovo; });
+              btnChiudi.blur();
             });
           }
-          cuiSw?.addEventListener("click", async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const nuovo = !cucinaChiusaManuale;
-            cucinaChiusaManuale = nuovo;
-            aggiornaCucina();
-            try {
-              const res = await fetch("/api/admin/settings", {
-                method: "PATCH",
-                headers: { ...headers, "Content-Type": "application/json" },
-                body: JSON.stringify({ orders_closed: nuovo }),
-              });
-              if (!res.ok) { cucinaChiusaManuale = !nuovo; aggiornaCucina(); }
-            } catch {
-              cucinaChiusaManuale = !nuovo;
-              aggiornaCucina();
-            }
-          });
+
 
           // ---------- Menu ----------
           if (resMenu.ok && resCats.ok) {
@@ -2243,14 +2513,15 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         const btnTuiles = document.getElementById("organiser-tuiles") as HTMLButtonElement | null;
 
         type Item = { key: string; w?: number; minH?: number; hidden?: boolean };
-        const KEYS = ["notes", "orders", "reservations", "settings", "special", "cuisine", "menu", "google", "visibilite", "stats", "assets"];
-        // ⚠️ `orders`, `reservations` e `google` non sono piu' qui: il loro
-        // contenuto e' salito nella fascia della giornata, che e' FISSA. Una
-        // gerarchia che si puo' trascinare torna a essere una griglia di
-        // riquadri uguali, cioe' il difetto da cui siamo partiti.
+        const KEYS = ["notes", "special", "menu", "visibilite", "stats", "assets"];
+        // ⚠️ `orders`, `reservations`, `google`, `settings` (gli orari) e
+        // `cuisine` (préparation e chiusura online) non sono piu' qui: il
+        // loro contenuto e' salito nella fascia della giornata, che e' FISSA. Una gerarchia che si puo' trascinare torna
+        // a essere una griglia di riquadri uguali, cioe' il difetto da cui
+        // siamo partiti.
         const DEFAULT_LAYOUT: Item[] = [
-          { key: "notes", w: 1 }, { key: "settings", w: 1 },
-          { key: "special", w: 1 }, { key: "cuisine", w: 1 }, { key: "menu", w: 1 },
+          { key: "notes", w: 1 },
+          { key: "special", w: 1 }, { key: "menu", w: 1 },
           { key: "visibilite", w: 1 },
           { key: "stats", w: 2 }, { key: "assets", w: 2 },
         ];
@@ -2417,17 +2688,27 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         (async () => {
           const box = document.getElementById("j-google") as HTMLElement | null;
           if (!box) return;
+          // Tutto cio' che parla di Google, e che se ne va insieme alla scheda.
+          const soloOrari = () => {
+            for (const id of ["j-g-hd", "j-g-nb", "j-g-per"]) {
+              const el = document.getElementById(id);
+              if (el) el.style.display = "none";
+            }
+          };
           try {
             const res = await fetch("/api/admin/google-info", { headers });
-            if (!res.ok) return;
+            if (!res.ok) { soloOrari(); return; }
             const g = (await res.json()) as {
               configured: boolean; rating?: number | null; reviews?: number; maps_url?: string;
               // `id` = review_id: arriva solo con il Business Profile collegato,
               // ed e' quello che permette di rispondere. Senza, il bottone non esce.
               avis?: { auteur: string; note: number; texte: string; quand: string; quand_iso?: string; foto?: string; reply?: boolean; id?: string }[];
             };
-            // Senza Place ID non c'e' niente da dire, e la colonna non esiste.
-            if (!g.configured || g.rating == null) return;
+            // Senza Place ID non c'e' niente da dire DI GOOGLE: spariscono
+            // l'intestazione, la nota e il conteggio — ma la colonna puo'
+            // restare, perche' ci stanno anche gli orari del locale. Prima
+            // qui si usciva e basta, e con la scheda sparivano pure quelli.
+            if (!g.configured || g.rating == null) { soloOrari(); return; }
             box.style.display = "";
 
             const stelle = (n: number) => "★".repeat(Math.round(n)) + "☆".repeat(Math.max(0, 5 - Math.round(n)));
@@ -2602,7 +2883,11 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
               riparti();
             }
 
-          } catch { /* rete assente: la colonna resta nascosta */ }
+          } catch {
+            // Rete assente: di Google non si dice niente. La colonna pero'
+            // resta accesa se ci sono gli orari — quelli non sono suoi.
+            soloOrari();
+          }
         })();
 
         // --- I tre numeri della scheda Google (Business Profile Performance) ---
@@ -2922,9 +3207,12 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
         btnReset?.addEventListener("click", () => { applicaLayout(DEFAULT_LAYOUT); salva(); });
 
         // ---- Modale « Tuiles » : ogni isola ha un interruttore ----
+        // ⚠️ Solo le tile che ESISTONO. Commandes, Réservations, Google e
+        // Horaires sono salite nella fascia della giornata, che e' fissa:
+        // lasciarle in elenco voleva dire proporre nel modale «Tuiles»
+        // interruttori che non accendono niente.
         const NOMI: Record<string, string> = {
-          notes: tr("home.notes"), orders: tr("nav.orders"), reservations: tr("nav.reservations"), settings: tr("home.horaires"),
-          special: tr("home.specialDays"), cuisine: tr("tab.settings.cuisine"), menu: tr("nav.menu"), google: "Google",
+          notes: tr("home.notes"), special: tr("home.specialDays"), menu: tr("nav.menu"),
           visibilite: tr("home.visibility"), stats: tr("nav.stats"), assets: tr("home.photos"),
         };
         const ovTuiles = document.getElementById("tuiles-overlay") as HTMLElement | null;

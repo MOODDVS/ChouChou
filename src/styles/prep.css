@@ -1,0 +1,60 @@
+/* ============================================================
+   PRÉPARATION — i bottoni 15 / 30 / 45 e il «Fermer».
+   ------------------------------------------------------------
+   Importato una volta da AdminHead → vale su ogni pagina admin.
+
+     <div class="prep-btns" role="group">
+       <button class="prep-btn" data-min="15"><span class="m">15 min</span></button>
+       …
+       <button class="prep-btn prep-close"><span class="m">Fermer</span></button>
+     </div>
+
+   STATI: `.active` = questo e' il tempo in vigore; `.closed` sul «Fermer» =
+   gli ordini online sono chiusi; `:disabled` = salvataggio in corso.
+   ⚠️ A servizio chiuso NESSUN tempo resta acceso: un chip verde accanto a un
+   «Fermer» rosso direbbe due cose opposte sullo stesso momento.
+
+   ⚠️ IL COMANDO E' LO STESSO DOVUNQUE, quindi anche il bottone deve esserlo.
+   Ne esistevano due disegni — i chip grandi di /admin/orders e i quadratini
+   `.cui-p` della tile Cuisine — per la stessa azione: chi imparava l'uno non
+   riconosceva l'altro, e il giorno che si cambia il colore dell'«acceso» si
+   cambia in un posto e si dimentica l'altro. La taglia piccola e' una
+   VARIANTE (`.prep-btns.sm`), non un secondo bottone.
+   ============================================================ */
+
+.prep-btns { display: flex; gap: 0.6rem; }
+
+.prep-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  color: var(--c-muted);
+  font-family: var(--font-body);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
+  transition: border-color 0.2s, background 0.2s;
+}
+.prep-btn svg { width: 24px; height: 24px; display: block; }
+.prep-close svg { width: 26px; height: 21px; } /* icône X : garde son ratio */
+.prep-btn .m { font-size: 0.8rem; color: var(--c-muted); }
+.prep-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
+.prep-btn.active { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-accent); }
+.prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
+.prep-btn:disabled { opacity: 0.5; cursor: wait; }
+
+/* Bottone «Fermer»: chiude/riapre le commandes online. Rosso, e non il
+   corallo del marchio: e' l'unico bottone della pagina che spegne qualcosa. */
+.prep-close .m { color: var(--c-muted); }
+.prep-close:hover { border-color: #ed1c24; }
+.prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
+.prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
+
+/* Taglia piccola: la stessa cosa dentro una colonna. Cambiano le misure,
+   non i colori ne' gli stati — altrimenti sarebbe un altro bottone. */
+.prep-btns.sm { gap: 0.35rem; flex-wrap: wrap; }
+.prep-btns.sm .prep-btn { padding: 0.22rem 0.6rem; box-shadow: none; }
+.prep-btns.sm .prep-btn .m { font-size: 0.72rem; }

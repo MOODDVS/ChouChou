@@ -122,28 +122,11 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       .prep-lab { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--c-muted); }
       .prep-note { text-transform: none; letter-spacing: 0; color: #2e9e6b; font-weight: 700; margin-left: 0.4rem; }
       .prep-note.err { color: #ff6b6b; }
-      .prep-btns { display: flex; gap: 0.6rem; }
-      .prep-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.4rem 0.95rem;
-        border-radius: 999px;
-        background: var(--c-card);
-        border: 1px solid var(--c-line);
-        color: var(--c-muted);
-        font-family: var(--font-body);
-        cursor: pointer;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, calc(0.28 * var(--sh, 0.15)));
-        transition: border-color 0.2s, background 0.2s;
-      }
-      .prep-btn svg { width: 24px; height: 24px; display: block; }
-      .prep-close svg { width: 26px; height: 21px; } /* icône X : garde son ratio */
-      .prep-btn .m { font-size: 0.8rem; color: var(--c-muted); }
-      .prep-btn:hover { border-color: var(--c-accent); color: var(--c-accent); }
-      .prep-btn.active { border-color: var(--c-accent); background: color-mix(in srgb, var(--c-accent) 14%, transparent); color: var(--c-accent); }
-      .prep-btn.active .m { color: var(--c-accent); font-weight: 700; }
-      .prep-btn:disabled { opacity: 0.5; cursor: wait; }
+      /* ⚠️ Il disegno dei bottoni 15/30/45 e del «Fermer» sta in
+         styles/prep.css, importato da AdminHead: lo stesso comando compare
+         anche nella colonna Commandes della Accueil, e due copie dello stesso
+         bottone divergono alla prima modifica. Qui restano solo le misure di
+         QUESTA pagina (le media query piu' sotto). */
       /* Ricerca ordini (convenzione campo compatto con lente) */
       .o-search {
         height: 38px; width: 250px; max-width: 100%; box-sizing: border-box;
@@ -176,11 +159,6 @@ const ssrOrdersJson = ssrOrders ? JSON.stringify(ssrOrders).replace(/</g, "\\u00
       }
       .o-search-x:hover { background: var(--c-accent); color: var(--c-bg); }
       .card .time .o-date { color: var(--c-text); font-size: 0.72rem; font-weight: 400; }
-      /* Bottone "Fermer": chiude/riapre le commandes online */
-      .prep-close .m { color: var(--c-muted); }
-      .prep-close:hover { border-color: #ed1c24; }
-      .prep-close.closed { border-color: #ed1c24; background: rgba(237, 28, 36, 0.18); color: #ff6b6b; }
-      .prep-close.closed .m { color: #ff6b6b; font-weight: 700; }
 
       /* --- Card ordine --- */
       /* ⚠️ `align-items: start`: ogni card e' alta quanto il suo contenuto.

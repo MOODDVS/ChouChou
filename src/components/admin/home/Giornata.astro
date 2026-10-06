@@ -39,13 +39,21 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
 
   {/* ---------- GOOGLE: la nota, l'ultimo avis, i numeri di 28 giorni ---------- */}
   <div class="j-col j-google" id="j-google" style="display:none">
-    <div class="j-hd">
-      <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="" width="22" height="22" loading="lazy" />
-      <span class="j-t">Google</span>
+    {/* ⚠️ Stessa ossatura delle altre due colonne — `.j-hd-x`, il segno DENTRO
+        `.j-t`, il link in fondo riga — e non una variante che le somiglia. Il
+        logo era fratello del titolo e piu' grande dell'icona accanto: la riga
+        di Google partiva quattro pixel piu' in alto delle altre due, e nessuno
+        avrebbe mai saputo dire perche'. */}
+    <div class="j-hd" id="j-g-hd">
+      <span class="j-hd-x">
+        <span class="j-t">
+          <img class="j-glogo" src="/restohub/Google_Favicon.webp" alt="" width="18" height="18" loading="lazy" />Google
+        </span>
+      </span>
       {/* ⚠️ La freccia e' un ELEMENTO, non un carattere dentro la frase:
           dentro il testo non si puo' far reagire al passaggio del dito, e in
           una lingua che scrive al contrario finirebbe dalla parte sbagliata. */}
-      <a class="j-cnt j-link" id="j-g-maps" href="#" target="_blank" rel="noopener">
+      <a class="j-link j-vedi" id="j-g-maps" href="#" target="_blank" rel="noopener">
         <span>{t("home.listing")}</span>
         <span class="j-arr" aria-hidden="true">
           <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg>
@@ -53,11 +61,65 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
       </a>
     </div>
 
-    <div class="j-note">
-      <span class="v" id="j-g-rating">—</span>
-      <span class="st" id="j-g-stars" aria-hidden="true"></span>
+    {/* ---------- IL LOCALE: come va, e quando e' aperto ----------
+        Il voto e gli orari sono due risposte alla stessa domanda — «com'e'
+        questo posto, adesso» — e stanno sulla STESSA riga, agli estremi: a
+        sinistra il giudizio di chi c'e' stato, a destra quando si entra.
+        Incolonnati, gli orari spingevano il grafico in fondo alla colonna e
+        sembravano un capitolo a parte. */}
+    <div class="j-locale">
+      <div class="j-top">
+        <div class="j-nota-blocco" id="j-g-nb">
+          <div class="j-note" id="j-g-note">
+            <span class="v" id="j-g-rating">—</span>
+            <span class="st" id="j-g-stars" aria-hidden="true"></span>
+          </div>
+          <div class="j-note-sub" id="j-g-count">—</div>
+        </div>
+
+        {/* Resta spento finche' la configurazione non e' arrivata:
+            «AUJOURD'HUI —» con una pastiglia vuota sembra un guasto, non
+            un'attesa. */}
+        <div class="j-ore" id="j-ore" style="display:none">
+          <div class="j-ore-h">
+            <span class="j-t">{t("home.todayTitle")}</span>
+            <span class="j-pil" id="j-stato">—</span>
+          </div>
+          {/* ⚠️ Gli orari su una riga LORO: «17:00 – 22:30 · Réouverture
+              aujourd'hui a 17:00» accanto al titolo andava a capo in mezzo a
+              una parola. */}
+          <div class="j-orari" id="j-orari"></div>
+        </div>
+      </div>
+
+      {/* L'affluenza, ora per ora. QUATTRO barre per ora: i coperti e gli
+          ordini, ognuno col suo «di solito» (lo stesso giorno della settimana,
+          le settimane prima). Coperti e ordini non si sommano — quattro
+          persone a tavola e quattro ordini da portare via non sono la stessa
+          cosa — e il «di solito» accanto e' l'unica cosa che rende leggibile
+          una serata: sopra o sotto il solito.
+          ⚠️ Ogni serie sparisce con la sua funzione: spenti gli ordini
+          restano due barre, spente tutte e due il grafico non c'e'. */}
+      <div class="j-hm" id="j-hm" style="display:none">
+        <div class="j-hm-plot" id="j-hm-plot"></div>
+        <div class="j-hm-x" id="j-hm-x"></div>
+        {/* ⚠️ Si nominano i COLORI (coperti, ordini), non le quattro barre.
+            «Coperti oggi / coperti di solito / ordini oggi / ordini di solito»
+            sono quattro voci in una colonna stretta: piu' alte del grafico che
+            dovrebbero spiegare. Una riga dice che la tinta chiara e' il
+            solito, e vale per tutte e due le serie.
+            Le voci si spengono con la loro funzione: senza «Commandes» non
+            resta una legenda che nomina una barra che non c'e'. */}
+        <div class="j-hm-f">
+          <span class="j-key" id="j-k-cov"><b class="cov"></b> {t("home.affCovers")}</span>
+          <span class="j-key" id="j-k-ord"><b class="ord"></b> {t("home.affOrders")}</span>
+          <span class="j-pale">{t("home.affPale")}</span>
+          <span id="j-hm-pic"></span>
+          <span class="src" id="j-hm-src"></span>
+        </div>
+      </div>
     </div>
-    <div class="j-note-sub" id="j-g-count">—</div>
+
 
     {/* La recensione: una citazione, non una scatola.
         ⚠️ Chi ha scritto viene PRIMA di cosa ha scritto: si decide se
@@ -106,34 +168,8 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
     <div class="j-per" id="j-g-per" style="display:none">{t("home.last30")}</div>
   </div>
 
-  {/* ---------- LA GIORNATA: orari, affluenza, e le due colonne ---------- */}
+  {/* ---------- LA GIORNATA: le due colonne ---------- */}
   <div class="j-dx" id="j-dx">
-
-    {/* Ancora spento: gli orari e l'affluenza arrivano col passo successivo.
-        Una fascia che dice «AUJOURD'HUI —» con una pastiglia vuota sembra un
-        guasto, non un lavoro in corso. */}
-    <div class="j-ore" id="j-ore" style="display:none">
-      <div class="j-ore-h">
-        <span class="j-t">{t("home.todayTitle")}</span>
-        <span class="j-pil" id="j-stato">—</span>
-        <span class="j-orari" id="j-orari"></span>
-      </div>
-
-      {/* L'affluenza, ora per ora. Una serie sola: nessuna legenda da leggere,
-          l'altezza porta tutto. Le ore di chiusura sono tratteggiate e non
-          barre a zero — «chiuso» e «non e' venuto nessuno» non sono la stessa
-          cosa, e si riparano in due posti diversi. */}
-      <div class="j-hm" id="j-hm" style="display:none">
-        <div class="j-hm-plot" id="j-hm-plot"></div>
-        <div class="j-hm-x" id="j-hm-x"></div>
-        <div class="j-hm-f">
-          <span class="j-key"><b class="now"></b> {t("home.hourNow")}</span>
-          <span class="j-key"><b class="cl"></b> {t("home.hourClosed")}</span>
-          <span id="j-hm-pic"></span>
-          <span class="src" id="j-hm-src"></span>
-        </div>
-      </div>
-    </div>
 
     <div class="j-due" id="j-due">
 
@@ -152,6 +188,15 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
             <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
           </a>
         </div>
+        {/* I SERVIZI DI OGGI, con l'interruttore per chiuderli. ⚠️ E' il
+            comando, non un riassunto: chiude la stessa riga che chiude la
+            pagina Réservations, con la stessa chiamata e lo stesso
+            interruttore condiviso. Un secondo modo di chiudere un servizio e'
+            un modo che un giorno dimentica una regola.
+            Qui solo i servizi: le sezioni di sala si chiudono dalla loro
+            pagina, dove si vede il piano e quali tavoli restano. */}
+        <div class="j-serv" id="j-serv"></div>
+
         <div class="j-lista" id="j-resa-lista"></div>
         <div class="j-nums">
           <div><span class="k">{t("home.covers")}</span><span class="v" id="j-resa-couv">—</span><span class="d" id="j-resa-couv-d"></span></div>
@@ -175,6 +220,18 @@ const ICO_ORD = `<svg class="j-ico" viewBox="0 0 24 24" aria-hidden="true"><path
             <span class="j-arr" aria-hidden="true"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="13 6 19 12 13 18" /></svg></span>
           </a>
         </div>
+        {/* Il tempo di preparazione e la chiusura degli ordini online: gli
+            STESSI bottoni di /admin/orders (styles/prep.css), nella taglia
+            piccola. Stavano anche nella tile Cuisine, sulla stessa pagina. */}
+        <div class="j-cmd" id="j-ord-cmd">
+          <div class="prep-btns sm" role="group" aria-label={t("ord.prepTime")}>
+            <button class="prep-btn" type="button" data-min="15" title={t("ord.prepFast")}><span class="m">15 min</span></button>
+            <button class="prep-btn" type="button" data-min="30" title={t("ord.prepNormal")}><span class="m">30 min</span></button>
+            <button class="prep-btn" type="button" data-min="45" title={t("ord.prepBusy")}><span class="m">45 min</span></button>
+            <button class="prep-btn prep-close" type="button" id="j-ord-close" title={t("ord.closeOnline")}><span class="m">{t("common.close")}</span></button>
+          </div>
+        </div>
+
         <div class="j-lista" id="j-ord-lista"></div>
         <div class="j-nums">
           <div><span class="k">{t("home.cashed")}</span><span class="v" id="j-ord-enc">—</span><span class="d" id="j-ord-enc-d"></span></div>
