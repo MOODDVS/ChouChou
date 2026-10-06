@@ -56,6 +56,7 @@ const supI18n = {
     netErr: t("common.netErr"),
     printShort: t("loc.printShort"), printPaused: t("loc.printPaused"),
     destNome: t("loc.destNome"), destCat: t("loc.destCat"), destDel: t("common.delete"),
+    catVuote: t("loc.catVuote"),
     printerHint: t("loc.printerHint"), printNone: t("loc.printNone"),
     printOff: t("loc.printOff"), printSent: t("loc.printSent"), printKo: t("loc.printKo"),
   },
@@ -274,6 +275,9 @@ const prI18n = {
         background: var(--c-bg); border: 1px solid var(--c-line); border-radius: 10px;
         padding: 0.3rem 0.5rem;
       }
+      /* L'avviso «niente categorie» occupa la riga: inline si incollerebbe
+         al bordo del riquadro e sembrerebbe un pezzo di casella. */
+      .dd-cat .hint { display: block; padding: 0.25rem 0.1rem; }
       .dd-c { display: flex; align-items: center; gap: 0.6rem; font-size: 0.92rem; cursor: pointer; padding: 0.22rem 0; }
       .dd-c input {
         appearance: none; -webkit-appearance: none; margin: 0; flex-shrink: 0;
@@ -1212,10 +1216,20 @@ const prI18n = {
           if (error || !data.user) window.location.replace("/admin/login");
         });
 
-        const headers = {
+        let headers = {
           Authorization: `Bearer ${session.access_token ?? ""}`,
           "Content-Type": "application/json",
         };
+
+        // Il token Supabase SCADE (di norma dopo un'ora). Con l'header fissato
+        // una volta sola al caricamento, un tab lasciato aperto continuava a
+        // mandare il token vecchio: ogni salvataggio tornava «Non autorisé»,
+        // e in certi punti il campo spariva senza spiegazione. supabase-js
+        // rinnova il token da solo in background: qui ci limitiamo ad
+        // ASCOLTARLO e a riscrivere l'header. Nessuna chiamata da cambiare.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}`, "Content-Type": "application/json" };
+        });
 
         let toastTimer: number | undefined;
         function toast(msg: string, isErr = false) {
@@ -1801,18 +1815,21 @@ const prI18n = {
           scTest.disabled = true;
           if (scRes) scRes.textContent = tr("common.verifying");
           try {
-            // salva prima, poi interroga (l'API legge il sito da app_config)
-            await fetch("/api/admin/integrations", {
-              method: "PUT",
-              headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ gsc_site: site }),
-            });
-            const res = await fetch("/api/admin/search-console", { headers });
+            // ⚠️ PROVA e basta. Prima questo bottone SALVAVA `gsc_site` di
+            // nascosto — era l'unico modo di far leggere il sito all'API — e
+            // poi interrogava: una prova andata male lasciava registrata la
+            // proprieta' sbagliata, senza che nessuno l'avesse chiesto.
+            // Adesso la proprieta' viaggia nell'indirizzo e non si scrive
+            // niente; a salvare ci pensa «Enregistrer», che e' li' accanto.
+            const res = await fetch(`/api/admin/search-console?site=${encodeURIComponent(site)}`, { headers });
             const j = await res.json();
+            if (!res.ok) { if (scRes) scRes.textContent = j.error ?? tr("common.netErr"); return; }
             if (j.error) { if (scRes) scRes.textContent = j.error; return; }
             if (!j.configured) { if (scRes) scRes.textContent = tr("itg.sc.notFound"); return; }
-            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))}`;
-            void itgCarica();
+            // ⚠️ Qui NON si ricarica la scheda: rileggerebbe il valore
+            // SALVATO e riscriverebbe il campo, cancellando la proprieta'
+            // appena provata.
+            if (scRes) scRes.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))} ${tr("itg.sc.okNotSaved")}`;
           } catch {
             if (scRes) scRes.textContent = tr("common.netErr");
           } finally {
@@ -2194,6 +2211,10 @@ const prI18n = {
          *  una volta sola, alla prima scheda aperta. */
         let categorieMenu: string[] = [];
         let categorieChieste = false;
+        /** ⚠️ Separato dall'elenco vuoto, come per le stampanti: «il menu non
+         *  ha categorie» e «la lista non e' arrivata» portano a cercare il
+         *  guasto in due posti diversi, e le caselle mancano uguale. */
+        let erroreCategorie = "";
         // Titolo della scheda Google collegata a ogni sede, e se il .env ha
         // un ripiego per ciascun segreto (solo se c'e', mai il valore).
         let schedeGoogle: Record<string, string> = {};
@@ -2512,9 +2533,16 @@ const prI18n = {
             // in silenzio, il salvataggio successivo la butterebbe via e quei
             // piatti cambierebbero stampante senza che nessuno l'abbia deciso.
             const orfane = d.cat.filter((c) => !categorieMenu.includes(c)).map((c) => casella(c, true)).join("");
+            // ⚠️ Una riga di destinazione senza caselle sembra un guasto del
+            // pannello. Si dice se il menu non ha categorie o se l'elenco non
+            // e' arrivato: sono due cose diverse e si riparano in due posti
+            // diversi.
+            const avviso = categorieMenu.length
+              ? ""
+              : `<span class="hint">${escG(erroreCategorie || L.catVuote || "")}</span>`;
             return `<div class="dd-r">
               <input class="dd-nome fld" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
-              <div class="dd-cat" role="group" aria-label="${escG(L.destCat ?? "")}">${opzCat}${orfane}</div>
+              <div class="dd-cat" role="group" aria-label="${escG(L.destCat ?? "")}">${avviso}${opzCat}${orfane}</div>
               <select class="dd-pr fld" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
               <button type="button" class="ibtn dd-del" title="${escG(L.destDel ?? "")}" aria-label="${escG(L.destDel ?? "")}">${LOC_CESTINO}</button>
             </div>`;
@@ -2529,11 +2557,26 @@ const prI18n = {
           categorieChieste = true;
           try {
             const r = await fetch("/api/admin/categories", { headers });
-            const j = await r.json();
+            const j = await r.json().catch(() => ({}));
+            // ⚠️ L'ESITO SI GUARDA. Un 403 o un 500 lasciavano l'elenco vuoto
+            // con il flag «gia' chieste» acceso: le caselle non comparivano
+            // MAI PIU' fino al ricarico della pagina, e niente diceva perche'.
+            // Il flag torna indietro apposta — qui non c'e' nessun ridisegno
+            // automatico che possa farne una rotella di chiamate: si riprova
+            // alla prossima scheda aperta.
+            if (!r.ok) {
+              categorieChieste = false;
+              erroreCategorie = String(j?.error ?? L.netErr ?? "");
+              return;
+            }
+            erroreCategorie = "";
             categorieMenu = (Array.isArray(j?.categories) ? j.categories : [])
               .map((c: { name?: unknown }) => String(c?.name ?? "").trim())
               .filter(Boolean);
-          } catch { categorieChieste = false; }
+          } catch {
+            categorieChieste = false;
+            erroreCategorie = String(L.netErr ?? "");
+          }
         }
 
         function legaDest(idBox: string, idAdd: string): void {
@@ -2597,23 +2640,35 @@ const prI18n = {
         // scheda della sede non c'e' proprio, e senza questo non avrebbero
         // nessun posto dove configurare la stampante. Con piu' sedi resta il
         // livello di partenza, che ogni scheda sovrascrive.
+        /** Il messaggio della scheda Impression di Intégrations: uno solo,
+         *  quello accanto al bottone, cosi' non si cerca l'esito in due
+         *  posti a seconda di cosa e' andato storto. */
+        function itgMsgStampa(testo: string): void {
+          const m = document.getElementById("itg-print-msg");
+          if (m) m.textContent = testo;
+        }
+
         async function caricaStampaInstallazione(): Promise<void> {
           if (!document.getElementById("itg-printer")) return;
           await chiediCategorie();
           try {
             const r = await fetch("/api/admin/printers", { headers });
-            const j = await r.json();
+            const j = await r.json().catch(() => ({}));
+            // ⚠️ Senza questo controllo un errore si leggeva come «niente di
+            // configurato»: tendina su «aucune», nessuna destinazione, come
+            // se nessuno avesse mai salvato. E' lo stesso inganno del
+            // salvataggio che si crede riuscito, dal lato della lettura.
+            if (!r.ok) { itgMsgStampa(String(j?.error ?? L.netErr ?? "")); return; }
             const c = (j?.config ?? {}) as { printer_id?: string; auto?: boolean; dest?: { nome: string; cat: string[]; printer: string }[] };
             await riempiStampanti(String(c.printer_id ?? ""), "itg-printer", "itg-print-res");
             (document.getElementById("itg-print-auto") as HTMLInputElement).checked = Boolean(c.auto);
             disegnaDest(Array.isArray(c.dest) ? c.dest : [], document.getElementById("itg-dest") as HTMLElement);
-          } catch { /* il messaggio sotto la tendina lo dice gia' */ }
+          } catch { itgMsgStampa(String(L.netErr ?? "")); }
         }
         void caricaStampaInstallazione();
 
         document.getElementById("itg-print-save")?.addEventListener("click", async () => {
-          const msg = document.getElementById("itg-print-msg") as HTMLElement;
-          msg.textContent = "…";
+          itgMsgStampa("…");
           try {
             const r = await fetch("/api/admin/printers", {
               method: "PUT", headers,
@@ -2627,9 +2682,9 @@ const prI18n = {
             // ⚠️ L'esito si GUARDA. Il 05/10 una scrittura rifiutata passava
             // per salvata e la stampante spariva al riapri, senza un errore da
             // nessuna parte.
-            msg.textContent = r.ok ? String(L.saved ?? "") : String(j?.error ?? L.netErr ?? "");
+            itgMsgStampa(r.ok ? String(L.saved ?? "") : String(j?.error ?? L.netErr ?? ""));
           } catch {
-            msg.textContent = String(L.netErr ?? "");
+            itgMsgStampa(String(L.netErr ?? ""));
           }
         });
 
@@ -2812,6 +2867,35 @@ const prI18n = {
           if (e.key === "Escape" && !locOverlay.hidden) locOverlay.hidden = true;
         });
 
+        /**
+         * UNA PATCH, UN ESITO — e l'esito si GUARDA, sempre.
+         *
+         * ⚠️ L'API delle sedi fa una cosa per chiamata: salvare una scheda
+         * vuol dire mandarne cinque (campi, Place ID, link recensioni,
+         * stampante, segreti). Tre partivano «a perdere»: nessuno leggeva la
+         * risposta. Se una falliva, il modale si chiudeva dicendo «salvato» e
+         * il dato non c'era. Con la chiave Stripe vuol dire pagamenti che non
+         * funzionano e nessun segno da nessuna parte.
+         *
+         * Qui la risposta si legge e un errore LANCIA: chi chiama si ferma
+         * alla prima che non passa, mostra il messaggio del server e non
+         * chiude niente. Il corpo torna indietro perche' a qualcuno serve
+         * (quante righe di storico ha preso la sede).
+         *
+         * ⚠️ E' l'UNICO posto da cui parte una PATCH sulle sedi. Un test lo
+         * pretende: una seconda, scritta a mano, sarebbe di nuovo una
+         * scrittura di cui nessuno controlla l'esito.
+         */
+        async function patchSede(corpo: Record<string, unknown>): Promise<Record<string, unknown>> {
+          const r = await fetch("/api/admin/locations", {
+            method: "PATCH", headers,
+            body: JSON.stringify(corpo),
+          });
+          const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+          if (!r.ok) throw new Error(String(j?.error ?? L.netErr ?? ""));
+          return j;
+        }
+
         locSave.addEventListener("click", () => conAttesa(locSave, async () => {
           locErr.textContent = "";
           const corpo: Record<string, unknown> = {
@@ -2831,58 +2915,40 @@ const prI18n = {
             if (!res.ok) { locErr.textContent = j.error ?? ""; return; }
             const id = String(j.location?.id ?? sedeAperta?.id ?? "");
 
-            // I segreti viaggiano a parte, uno per chiamata, e solo se
-            // qualcuno ha scritto qualcosa: un campo lasciato vuoto NON
-            // cancella la chiave gia' registrata.
-            // Place ID: si manda SEMPRE, anche vuoto — svuotare il campo deve
-            // poterlo togliere. I segreti no: la' vuoto vuol dire «non cambiare».
-            await fetch("/api/admin/locations", {
-              method: "PATCH", headers,
-              body: JSON.stringify({ id, place_id: campo("loc-place").value.trim() }),
-            });
-            // Il link recensioni si manda SEMPRE, anche vuoto: vuoto vuol dire
-            // «toglilo». I segreti no — la' vuoto vuol dire «non cambiare».
-            await fetch("/api/admin/locations", {
-              method: "PATCH", headers,
-              body: JSON.stringify({ id, review_url: campo("loc-greview").value.trim() }),
-            });
+            // Place ID e link recensioni si mandano SEMPRE, anche vuoti:
+            // svuotare il campo deve poterli togliere. I segreti no — la'
+            // vuoto vuol dire «non cambiare», e un campo lasciato in bianco
+            // non cancella la chiave gia' registrata.
+            //
             // La stampante e il suo interruttore viaggiano INSIEME: scritti in
             // due chiamate, un salvataggio a meta' lascerebbe la stampa accesa
             // su una stampante che non c'e' piu', cioe' una coda che si riempie
             // di ticket che nessuno stampera' mai.
-            // ⚠️ E QUESTA RISPOSTA SI GUARDA. Il 05/10 il server rifiutava la
-            // scrittura (chiave non classificata) e la scheda diceva
-            // «salvato» lo stesso: si riapriva e la stampante era sparita,
-            // senza un errore da nessuna parte. Una PATCH di cui non si legge
-            // l'esito e' un salvataggio che si crede riuscito.
-            const rp = await fetch("/api/admin/locations", {
-              method: "PATCH", headers,
-              body: JSON.stringify({
-                id,
-                printer_id: (document.getElementById("loc-printer") as HTMLSelectElement).value,
-                print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
-                destinazioni: raccogliDest(),
-              }),
+            await patchSede({ id, place_id: campo("loc-place").value.trim() });
+            await patchSede({ id, review_url: campo("loc-greview").value.trim() });
+            await patchSede({
+              id,
+              printer_id: (document.getElementById("loc-printer") as HTMLSelectElement).value,
+              print_auto: (document.getElementById("loc-print-auto") as HTMLInputElement).checked,
+              destinazioni: raccogliDest(),
             });
-            if (!rp.ok) {
-              const jp = await rp.json().catch(() => ({}));
-              locErr.textContent = String(jp?.error ?? L.netErr ?? "");
-              return;
-            }
             for (const [idCampo, chiave] of [["loc-stripe", "stripe_secret_key"], ["loc-hook", "stripe_webhook_secret"]]) {
               const v = campo(idCampo).value.trim();
               if (!v) continue;
-              await fetch("/api/admin/locations", {
-                method: "PATCH", headers,
-                body: JSON.stringify({ id, secret_key: chiave, secret_value: v }),
-              });
+              await patchSede({ id, secret_key: chiave, secret_value: v });
             }
             locOverlay.hidden = true;
             const n = Number(j.assegnate ?? 0);
             toast(n > 0 ? (L.stDone ?? "").replace("{n}", String(n)) : (L.saved ?? ""));
             ricaricaPagina();
-          } catch {
-            locErr.textContent = L.netErr ?? "";
+          } catch (err) {
+            // ⚠️ Il messaggio del SERVER, quando c'e'. Prima qui finiva
+            // «errore di rete» qualunque cosa fosse successa, e un rifiuto
+            // motivato («manca la chiave di cifratura») arrivava come un
+            // guasto di linea. Il modale resta aperto e non dice «salvato»:
+            // si corregge e si ripreme, le scritture riscrivono gli stessi
+            // valori.
+            locErr.textContent = (err instanceof Error && err.message) || L.netErr || "";
           }
         }));
 
@@ -2944,18 +3010,15 @@ const prI18n = {
         stGo?.addEventListener("click", () => conAttesa(stGo, async () => {
           stErr.textContent = "";
           try {
-            const res = await fetch("/api/admin/locations", {
-              method: "PATCH", headers,
-              body: JSON.stringify({ storico_sede: stSede.value }),
-            });
-            const j = await res.json();
-            if (!res.ok) { toast(j.error ?? "", true); return; }
+            const j = await patchSede({ storico_sede: stSede.value });
             const n = Number(j.assegnate ?? 0);
             toast((L.stDone ?? "").replace("{n}", String(n)));
             stOverlay.hidden = true;
             ricaricaPagina();
-          } catch {
-            stErr.textContent = L.netErr ?? "";
+          } catch (err) {
+            // Nel campo errore del modale, non in un toast che passa: il
+            // modale e' ancora li' davanti, ed e' li' che si guarda.
+            stErr.textContent = (err instanceof Error && err.message) || L.netErr || "";
           }
         }));
 
@@ -2979,20 +3042,17 @@ const prI18n = {
           if (!card) return;
           const attiva = sw.checked;
           try {
-            const res = await fetch("/api/admin/locations", {
-              method: "PATCH", headers,
-              body: JSON.stringify({ id: card.dataset.id ?? "", active: attiva }),
-            });
-            const j = await res.json();
-            if (!res.ok) { sw.checked = !attiva; toast(j.error ?? "", true); return; }
+            await patchSede({ id: card.dataset.id ?? "", active: attiva });
             card.classList.toggle("is-off", !attiva);
             toast(L.saved ?? "");
             // Una sede disattivata esce da `elencoSedi()`: il selettore in alto
             // cambia, e con una sede sola sparisce del tutto.
             ricaricaPagina();
-          } catch {
+          } catch (err) {
+            // L'interruttore torna com'era: mostrare acceso cio' che il
+            // server non ha acceso e' una bugia che dura fino al ricarico.
             sw.checked = !attiva;
-            toast(L.netErr ?? "", true);
+            toast((err instanceof Error && err.message) || L.netErr || "", true);
           }
         });
 
@@ -3100,6 +3160,12 @@ const prI18n = {
         let catalogo: any[] = [];
         let defaults: any[] = [];
         let token = "";
+        // Stesso motivo dell'altro script: il token scade, e qui il salvataggio
+        // riusa quello letto al caricamento del catalogo. Se ne arriva uno
+        // nuovo si prende quello.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) token = sessione.access_token;
+        });
         // Le pagine `/print/` che il sito di questo cliente ha davvero, lette
         // dal filesystem in build e portate qui dal GET.
         let pagine: { slug: string; route: string }[] = [];

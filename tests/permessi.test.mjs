@@ -349,3 +349,29 @@ test("nascosto e vietato dicono la stessa cosa, per ogni pagina", () => {
     assert.equal(puoVederePagina(k, ctx), true, `${k}: visibile ma vietata`);
   }
 });
+
+test("un pannello aperto da un'ora salva ancora: il token si rinnova", () => {
+  // Il token Supabase scade dopo un'ora. Un header costruito una volta sola
+  // al caricamento continua a mandare quello vecchio: ogni salvataggio torna
+  // «Non autorisé» e in certi punti il campo sparisce senza spiegazione. Il
+  // guasto non e' teorico: e' stato corretto in otto pagine una alla volta,
+  // e restava in super, marketing, print e nel SECONDO script della home.
+  //
+  // ⚠️ Si guarda BLOCCO per BLOCCO, non file per file: una pagina con due
+  // <script> ha due scope, e il primo che ascolta non salva il secondo —
+  // e' esattamente cosi' che il difetto era sopravvissuto nella home.
+  const dir = "src/pages/admin";
+  const sordi = [];
+  for (const nome of readdirSync(dir).filter((n) => n.endsWith(".astro"))) {
+    const testo = readFileSync(`${dir}/${nome}`, "utf8");
+    // Si divide sui tag VERI (a inizio riga), non sulla parola: in questo
+    // repo i commenti la nominano, e dividere anche li' spezzerebbe un
+    // blocco in due meta' di cui una senza il suo ascolto.
+    testo.split(/^[ \t]*<script/m).slice(1).forEach((blocco, i) => {
+      if (!/Bearer \$\{/.test(blocco)) return;
+      if (/onAuthStateChange|authFresh\(\)/.test(blocco)) return;
+      sordi.push(`${nome} (script ${i + 1})`);
+    });
+  }
+  assert.deepEqual(sordi, [], `header dell'autorizzazione costruito e mai piu' aggiornato:\n  ${sordi.join("\n  ")}`);
+});

@@ -1517,3 +1517,27 @@ test("chi decide se la cucina e' chiusa sa di quale sede parla", () => {
     "in checkout.ts l'ambito si calcola dopo il controllo di chiusura: il controllo leggerebbe il marchio",
   );
 });
+
+test("salvare una sede non puo' riuscire a meta' in silenzio", () => {
+  // Salvare una scheda manda CINQUE chiamate: campi, Place ID, link
+  // recensioni, stampante, segreti. Tre partivano senza che nessuno leggesse
+  // la risposta: se una falliva, il modale si chiudeva dicendo «salvato» e il
+  // dato non c'era. Con la chiave Stripe vuol dire pagamenti che non
+  // funzionano e nessun segno da nessuna parte.
+  //
+  // La regola: una sola porta, `patchSede`, e quella guarda sempre l'esito.
+  const src = readFileSync("src/pages/admin/super.astro", "utf8");
+
+  const fn = src.match(/async function patchSede[\s\S]*?\n        \}/);
+  assert.ok(fn, "patchSede non c'e' piu': le PATCH delle sedi tornerebbero sparse");
+  assert.ok(
+    /if \(!r\.ok\) throw new Error/.test(fn[0]),
+    "patchSede non lancia piu' su errore: chi la chiama andrebbe avanti come se fosse andata bene",
+  );
+
+  const aMano = (src.match(/method: "PATCH"/g) ?? []).length;
+  assert.equal(
+    aMano, 1,
+    "c'e' una PATCH sulle sedi scritta a mano fuori da patchSede: e' di nuovo una scrittura di cui nessuno controlla l'esito",
+  );
+});

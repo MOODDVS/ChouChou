@@ -255,8 +255,19 @@ test("le chiavi della stampa sono classificate: se no la scrittura esplode", () 
   for (const k of CHIAVI_STAMPA) {
     assert.match(reg, new RegExp(`\\n\\s*${k}:\\s*"(sede|marchio)"`), `${k} non e' in CLASSIFICA_CONFIG: scriverla lancia`);
   }
+  // ⚠️ Si chiede che la stampante passi dalla porta che GUARDA l'esito, non
+  // che esista una certa variabile: la prima stesura pretendeva `if (!rp.ok)`
+  // ed e' diventata rossa il giorno in cui quelle righe sono state raccolte
+  // in `patchSede` — cioe' il giorno in cui il controllo e' stato esteso a
+  // tutte le altre scritture. Un test sulla FORMA si rompe quando il codice
+  // migliora.
   const sup = leggi("src/pages/admin/super.astro");
-  assert.match(sup, /if \(!rp\.ok\)/, "la scheda e' tornata a non guardare l'esito del salvataggio della stampante");
+  assert.match(
+    sup,
+    /await patchSede\(\{\s*\n?\s*id,\s*\n?\s*printer_id:/,
+    "il salvataggio della stampante non passa piu' da patchSede: tornerebbe una scrittura di cui nessuno legge l'esito",
+  );
+  assert.match(sup, /if \(!r\.ok\) throw new Error/, "patchSede non lancia piu' su errore");
 });
 
 test("il biglietto di prova non sembra un file", () => {
@@ -439,4 +450,37 @@ test("l'indice unico della coda conta anche la stampante", () => {
   const coda = leggi("src/lib/stampaCoda.ts");
   assert.match(coda, /CHIAVE_DESTINAZIONI/, "la coda non legge piu' le destinazioni");
   assert.doesNotMatch(coda, /"print_destinazioni"/, "il nome della chiave e' scritto a mano: due posti, e un giorno uno dei due cambia");
+});
+
+test("una lettura che non riesce lo dice, invece di far sparire le cose", () => {
+  // ⚠️ IL DIFETTO: `chiediCategorie` accendeva il flag «gia' chieste» PRIMA
+  // della risposta e non ne guardava l'esito. Un 403 o un 500 lasciavano
+  // l'elenco vuoto e il flag acceso: le caselle delle categorie non
+  // comparivano MAI PIU' fino al ricarico, e niente diceva perche'. Stessa
+  // cosa per la configurazione della stampa in Intégrations, dove un errore
+  // si leggeva come «niente di configurato» — cioe' come se nessuno avesse
+  // mai salvato.
+  const sup = leggi("src/pages/admin/super.astro");
+
+  const cat = sup.slice(sup.indexOf("async function chiediCategorie"));
+  const corpoCat = cat.slice(0, cat.indexOf("\n        }"));
+  assert.match(corpoCat, /if \(!r\.ok\)/, "chiediCategorie non guarda piu' l'esito");
+  assert.match(corpoCat, /categorieChieste = false/, "senza rimettere il flag, non si riprova piu' fino al ricarico");
+  assert.match(corpoCat, /erroreCategorie = /, "l'errore non viene piu' conservato: non resterebbe niente da mostrare");
+
+  // E l'errore si VEDE: un elenco vuoto senza spiegazione sembra un guasto
+  // del pannello, e «il menu non ha categorie» non e' «la lista non e'
+  // arrivata» — si riparano in due posti diversi.
+  assert.match(
+    sup,
+    /erroreCategorie \|\| L\.catVuote/,
+    "la riga di destinazione non distingue piu' «nessuna categoria» da «non sono arrivate»",
+  );
+
+  const inst = sup.slice(sup.indexOf("async function caricaStampaInstallazione"));
+  assert.match(
+    inst.slice(0, inst.indexOf("\n        }")),
+    /if \(!r\.ok\)/,
+    "la configurazione della stampa di Intégrations torna a leggere un errore come «non configurato»",
+  );
 });

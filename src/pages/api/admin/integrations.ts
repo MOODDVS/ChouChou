@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { supabaseAdmin } from "../../../lib/db";
 import { verificaStaff, nonAutorizzato } from "../../../lib/admin/adminAuth";
 import { isSuperUser } from "../../../lib/admin/superAdmin";
-import { serviceAccountEmail, searchConsolePronto } from "../../../lib/searchConsole";
+import { serviceAccountEmail, searchConsolePronto, sitoValido } from "../../../lib/searchConsole";
 import { statoGoogle } from "../../../lib/googleBusiness";
 
 import { adminLang } from "../../../lib/admin/adminLang";
@@ -127,7 +127,9 @@ export const PUT: APIRoute = async ({ request }) => {
   // --- Search Console : "sc-domain:exemple.be" ou une URL https ---
   if (body.gsc_site !== undefined) {
     const gscSite = String(body.gsc_site).trim().slice(0, 300);
-    if (gscSite && !/^sc-domain:[a-z0-9.-]+$/i.test(gscSite) && !/^https:\/\//i.test(gscSite)) {
+    // Vuoto vuol dire «togli»; per tutto il resto decide `sitoValido`, la
+    // stessa regola con cui il bottone «Vérifier» accetta una proprietà.
+    if (gscSite && !sitoValido(gscSite)) {
       return json({ error: await msg("err.scSite") }, 400);
     }
     upserts.push({ key: K_GSC_SITE, value: gscSite });

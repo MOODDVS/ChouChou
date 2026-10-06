@@ -1050,7 +1050,10 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
           const evtYear = document.getElementById("evt-yearly") as HTMLInputElement;
           const evtAdd = document.getElementById("evt-add") as HTMLButtonElement;
           const evtList = document.getElementById("evt-list") as HTMLDivElement;
-          const headersJson = { ...headers, "Content-Type": "application/json" };
+          // ⚠️ Una FUNZIONE, non una copia: `headers` viene riscritto a ogni
+          //    rinnovo del token, e una copia presa all'avvio resterebbe
+          //    quella vecchia per sempre.
+          const headersJson = () => ({ ...headers, "Content-Type": "application/json" });
 
           const fdFr = (iso: string) => { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
           const escE = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -1068,7 +1071,7 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
             try {
               const res = await fetch("/api/admin/events", {
                 method: "PUT",
-                headers: headersJson,
+                headers: headersJson(),
                 body: JSON.stringify({ events: eventiLocali }),
               });
               return res.ok;
@@ -1684,7 +1687,13 @@ const ssrHomeJson = ssrHome ? JSON.stringify(ssrHome).replace(/</g, "\\u003c") :
 
         const { data: sd } = await supabaseBrowser.auth.getSession();
         const token = sd.session?.access_token ?? "";
-        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        let headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+        // Secondo blocco di codice, suo scope, stesso difetto: il token scade e
+        // il salvataggio del layout tornava «Non autorisé» su un tab aperto da
+        // ore. supabase-js lo rinnova da solo: qui si ascolta e si riscrive.
+        supabaseBrowser.auth.onAuthStateChange((_evento, sessione) => {
+          if (sessione?.access_token) headers = { Authorization: `Bearer ${sessione.access_token}`, "Content-Type": "application/json" };
+        });
 
         const mappa = () => {
           const m = new Map<string, HTMLElement>();
