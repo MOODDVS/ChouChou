@@ -251,3 +251,44 @@ test("cio' che non si disfa chiede conferma, e lo chiede in un modo solo", () =>
   assert.match(sup, /function mostraPassword\(/, "la password mostrata non ha piu' chi la cancella");
   assert.match(sup, /usMsgTimer = window\.setTimeout/, "la password mostrata non sparisce piu' da sola");
 });
+
+test("ogni bottone che fa rete mostra l'attesa, e la mostra allo stesso modo", () => {
+  // C'erano TRE modi di impedire il doppio click: `conAttesa` con la rotella,
+  // un `disabled` scritto a mano, e niente. Il salva di Impression era del
+  // terzo tipo: due click mandavano due PUT. E un bottone soltanto spento non
+  // dice che sta lavorando — su rete lenta sembra che il click non sia
+  // passato, e si riclicca.
+  const bottoni = [
+    "gConnect", "gDisconnect", "gUnicaPick", "gPick",
+    "nlSave", "scSave", "scTest", "usAdd", "itgPrintSave",
+    "placeTest", "locSave", "saveBtn",
+  ];
+  for (const b of bottoni) {
+    assert.match(
+      PAGINA,
+      new RegExp(`conAttesa\\(${b}[,)]`),
+      `${b}: non passa da conAttesa — o due click fanno due chiamate, o l'attesa non si vede`,
+    );
+  }
+  // L'unico `disabled` rimasto per un'attesa e' quello del select della
+  // lingua, che bottone non e'.
+  const aMano = [...PAGINA.matchAll(/(\w+)\.disabled = true/g)].map((m) => m[1]);
+  assert.deepEqual(aMano, ["langSel"], `attesa gestita a mano fuori da conAttesa: ${aMano.join(", ")}`);
+});
+
+test("il testo dentro l'HTML si protegge in un posto solo", () => {
+  // Erano QUATTRO funzioni nella stessa pagina (escG, escP, esc, esc) con TRE
+  // implementazioni, e una dimenticava l'apostrofo. Nel resto del progetto le
+  // copie sono una quarantina: le pagine si convertono quando le si tocca.
+  assert.doesNotMatch(
+    PAGINA,
+    /(function|const)\s+esc\w*\s*[=(]/,
+    "una funzione di escape e' tornata dentro la pagina: il posto e' src/lib/esc.ts",
+  );
+  assert.match(PAGINA, /import \{ esc \} from "\.\.\/\.\.\/lib\/esc"/);
+
+  const lib = readFileSync("src/lib/esc.ts", "utf8");
+  for (const c of ["&", "<", ">", '"', "'"]) {
+    assert.ok(lib.includes(`"${c}":`) || lib.includes(`'${c}':`), `${c} non viene piu' protetto`);
+  }
+});

@@ -45,7 +45,13 @@ test("provare non scrive niente", () => {
   const sup = leggi("src/pages/admin/super.astro");
   const i = sup.indexOf('scTest?.addEventListener');
   assert.ok(i > 0, "l'handler del bottone «Vérifier» non si trova piu'");
-  const handler = sup.slice(i, sup.indexOf("\n        });", i));
+  // ⚠️ La fine del blocco si trova dall'INDENTAZIONE, non da una chiusura
+  // scritta a mano: `});` e' diventato `}));` il giorno in cui il bottone e'
+  // passato da `conAttesa`, e questo ritaglio ha continuato a leggere per
+  // altre trecento righe, trovandoci dentro roba di altri. Il corpo sta a
+  // dieci spazi o piu'; la prima riga che torna a otto e' la sua chiusura.
+  const fine = sup.slice(i).search(/\n {8}\}/);
+  const handler = sup.slice(i, i + fine);
   assert.doesNotMatch(
     handler,
     /method: "(PUT|POST|PATCH|DELETE)"/,

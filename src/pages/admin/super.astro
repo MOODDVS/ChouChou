@@ -1149,6 +1149,7 @@ const prI18n = {
     <script>
       import { supabaseBrowser } from "../../lib/supabaseBrowser";
       import { conAttesa } from "../../lib/admin/attesa";
+      import { esc } from "../../lib/esc";
       import { collegaLogout } from "../../lib/admin/logout";
       import { isSuperUser, PAGINE_ADMIN, TABS_ADMIN, FUNZIONI_OPZIONALI, TEMA_DEFAULT, TEMA_CHIAVI, LINGUE_PUBBLICHE } from "../../lib/admin/superAdmin";
       import { PAGINE_SOLO_ADMIN as SOLO_ADMIN } from "../../lib/admin/permessiRegole";
@@ -1379,6 +1380,10 @@ const prI18n = {
         const langSel = document.getElementById("admin-lang-sel") as HTMLSelectElement | null;
         if (langSel) {
           langSel.addEventListener("change", async () => {
+            // ⚠️ L'unico `disabled` scritto a mano che resta per un'attesa:
+            // questo e' un `<select>`, e `conAttesa` ci metterebbe sopra la
+            // rotella di un bottone. Ogni BOTTONE che fa rete, in questa
+            // pagina, passa da `conAttesa`.
             langSel.disabled = true;
             try {
               const res = await fetch("/api/admin/pages", {
@@ -1577,8 +1582,7 @@ const prI18n = {
 
         // Collegamento OAuth (livello 2)
         const gDisconnect = document.getElementById("g-disconnect") as HTMLButtonElement | null;
-        gConnect?.addEventListener("click", async () => {
-          gConnect.disabled = true;
+        gConnect?.addEventListener("click", () => conAttesa(gConnect, async () => {
           try {
             const res = await fetch("/api/google/connect", { method: "POST", headers });
             const j = await res.json();
@@ -1586,10 +1590,8 @@ const prI18n = {
             window.location.href = j.url; // schermata di consenso Google
           } catch {
             toast(tr("common.netErr"), true);
-          } finally {
-            gConnect.disabled = false;
           }
-        });
+        }));
 
         // --- Scheda Google: il RINVIO al modale della sede -------------------
         // La scelta della scheda e' passata nel modale del punto (deciso
@@ -1597,9 +1599,6 @@ const prI18n = {
         // nella sua scheda, non in una pagina che parla dell'installazione.
         // Qui resta solo il collegamento, che e' uno per tutte le sedi.
         const gRinvio = document.getElementById("g-sedi-rinvio") as HTMLElement | null;
-        function escG(x: unknown): string {
-          return String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-        }
         const gUnicaBox = document.getElementById("g-unica") as HTMLElement | null;
         const gUnicaCur = document.getElementById("g-unica-cur") as HTMLElement | null;
         const gUnicaPick = document.getElementById("g-unica-pick") as HTMLButtonElement | null;
@@ -1619,7 +1618,7 @@ const prI18n = {
           } catch { /* best-effort */ }
         }
 
-        gUnicaPick?.addEventListener("click", async () => {
+        gUnicaPick?.addEventListener("click", () => conAttesa(gUnicaPick, async () => {
           if (!gUnicaList) return;
           gUnicaList.textContent = SUP.loading ?? "";
           try {
@@ -1630,34 +1629,36 @@ const prI18n = {
             const cur = j.current?.path ?? "";
             if (!schede.length) { gUnicaList.textContent = SUP.loc?.gVuoto ?? ""; return; }
             gUnicaList.innerHTML = schede
-              .map((sd) => `<button type="button" class="us-ghost gscheda-unica" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`)
+              .map((sd) => `<button type="button" class="us-ghost gscheda-unica" data-path="${esc(sd.path)}" data-title="${esc(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${esc(sd.title || sd.path)}${sd.address ? ` — <span class="note">${esc(sd.address)}</span>` : ""}</button>`)
               .join("");
           } catch {
             gUnicaList.textContent = SUP.loc?.netErr ?? "";
           }
-        });
+        }));
 
-        gUnicaList?.addEventListener("click", async (ev) => {
+        gUnicaList?.addEventListener("click", (ev) => {
           const b = (ev.target as HTMLElement).closest(".gscheda-unica") as HTMLElement | null;
           if (!b) return;
-          try {
-            // ⚠️ Nessun `sede` nel corpo: e' proprio quello che manda l'API
-            // sul livello marchio. Metterci un id sarebbe inventare una sede.
-            const res = await fetch("/api/admin/google/locations", {
-              method: "POST", headers,
-              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "" }),
-            });
-            const j = await res.json();
-            if (!res.ok) { toast(j.error ?? SUP.loc?.netErr ?? "", true); return; }
-            if (j.reviewError) toast(String(j.reviewError), true);
-            else toast(SUP.loc?.gSalvata ?? "");
-            if (gUnicaList) gUnicaList.innerHTML = "";
-            await gCaricaSedeStato();
-          } catch {
-            toast(SUP.loc?.netErr ?? "", true);
-          }
+          void conAttesa(b, async () => {
+            try {
+              // ⚠️ Nessun `sede` nel corpo: e' proprio quello che manda l'API
+              // sul livello marchio. Metterci un id sarebbe inventare una sede.
+              const res = await fetch("/api/admin/google/locations", {
+                method: "POST", headers,
+                body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "" }),
+              });
+              const j = await res.json();
+              if (!res.ok) { toast(j.error ?? SUP.loc?.netErr ?? "", true); return; }
+              if (j.reviewError) toast(String(j.reviewError), true);
+              else toast(SUP.loc?.gSalvata ?? "");
+              if (gUnicaList) gUnicaList.innerHTML = "";
+              await gCaricaSedeStato();
+            } catch {
+              toast(SUP.loc?.netErr ?? "", true);
+            }
+          });
         });
-        gDisconnect?.addEventListener("click", async () => {
+        gDisconnect?.addEventListener("click", () => conAttesa(gDisconnect, async () => {
           try {
             const res = await fetch("/api/google/connect", {
               method: "POST",
@@ -1667,7 +1668,7 @@ const prI18n = {
             toast(tr("itg.g.disconnected"));
             void itgCarica();
           } catch { toast(tr("common.netErr"), true); }
-        });
+        }));
 
         // Esito del ritorno da Google (?google=ok|refus|etat|echec|erreur)
         (() => {
@@ -1754,12 +1755,11 @@ const prI18n = {
         const nlSave = document.getElementById("nl-save") as HTMLButtonElement | null;
         const nlErr = document.getElementById("nl-err") as HTMLSpanElement | null;
 
-        nlSave?.addEventListener("click", async () => {
+        nlSave?.addEventListener("click", () => conAttesa(nlSave, async () => {
           if (!nlErr) return;
           nlErr.textContent = "";
           const n = Math.floor(Number(nlQuota?.value));
           if (!Number.isFinite(n) || n < 0) { nlErr.textContent = tr("itg.nl.invalid"); return; }
-          nlSave.disabled = true;
           try {
             const res = await fetch("/api/admin/integrations", {
               method: "PUT",
@@ -1771,10 +1771,8 @@ const prI18n = {
             toast(tr("itg.nl.saved"));
           } catch {
             nlErr.textContent = tr("common.netErr");
-          } finally {
-            nlSave.disabled = false;
           }
-        });
+        }));
 
         scCopy?.addEventListener("click", async () => {
           if (!scRobot?.value) return;
@@ -1782,10 +1780,9 @@ const prI18n = {
           catch { scRobot.select(); }
         });
 
-        scSave?.addEventListener("click", async () => {
+        scSave?.addEventListener("click", () => conAttesa(scSave, async () => {
           if (!scErr) return;
           scErr.textContent = "";
-          scSave.disabled = true;
           try {
             const res = await fetch("/api/admin/integrations", {
               method: "PUT",
@@ -1797,15 +1794,12 @@ const prI18n = {
             toast(tr("itg.sc.saved"));
           } catch {
             scErr.textContent = tr("common.netErr");
-          } finally {
-            scSave.disabled = false;
           }
-        });
+        }));
 
-        scTest?.addEventListener("click", async () => {
+        scTest?.addEventListener("click", () => conAttesa(scTest, async () => {
           const site = scSite?.value.trim() ?? "";
           if (!site) { if (scRes) scRes.textContent = tr("itg.sc.needSite"); return; }
-          scTest.disabled = true;
           if (scRes) scRes.textContent = tr("common.verifying");
           try {
             // ⚠️ PROVA e basta. Prima questo bottone SALVAVA `gsc_site` di
@@ -1825,10 +1819,8 @@ const prI18n = {
             if (scRes) scRes.textContent = `OK ✓ ${j.clicks} ${tr("itg.sc.okStats").replace("{imp}", String(j.impressions ?? 0))} ${tr("itg.sc.okNotSaved")}`;
           } catch {
             if (scRes) scRes.textContent = tr("common.netErr");
-          } finally {
-            scTest.disabled = false;
           }
-        });
+        }));
 
 
         void itgCarica();
@@ -1863,15 +1855,15 @@ const prI18n = {
           // `null` = mai deciso → si mostra spuntato il default storico, cosi'
           // chi apre il modale vede quello che quell'utente vede DAVVERO.
           const attive = new Set(scelte ?? PAGINE_ADMIN.filter((pg) => !SOLO_ADMIN.includes(pg.key)).map((pg) => pg.key));
-          // ⚠️ `SUP` e non `L`, e un escape locale: `L` ed `esc` sono
-          // dichiarati PIU' SOTTO in questo stesso script, e una `const` non
-          // esiste prima della sua riga. Usarli qui non darebbe un errore di
-          // compilazione: darebbe un ReferenceError all'apertura del modale,
-          // cioe' un modale che non si apre piu' e nessuno sa perche'.
-          const escP = (v: unknown) =>
-            String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
+          // ⚠️ `SUP` e non `L`: `L` e' una `const` dichiarata PIU' SOTTO in
+          // questo stesso script, e una `const` non esiste prima della sua
+          // riga. Usarla qui non darebbe un errore di compilazione: darebbe
+          // un ReferenceError all'apertura del modale, cioe' un modale che
+          // non si apre piu' e nessuno sa perche'.
+          // (`esc` invece arriva da un `import`, che vale per tutto il
+          // modulo: e' per questo che non serve piu' una copia locale.)
           usPagine.innerHTML = PAGINE_ADMIN.map((pg) =>
-            `<button type="button" class="us-role${attive.has(pg.key) ? " is-on" : ""}" data-pagina="${pg.key}">${escP(SUP.pageLabels?.[pg.key] ?? pg.label)}</button>`
+            `<button type="button" class="us-role${attive.has(pg.key) ? " is-on" : ""}" data-pagina="${pg.key}">${esc(SUP.pageLabels?.[pg.key] ?? pg.label)}</button>`
           ).join("");
         }
         usPagine?.addEventListener("click", (e) => {
@@ -2055,7 +2047,7 @@ const prI18n = {
           if (e.key === "Escape") if (usOverlay) usOverlay.hidden = true;
         });
 
-        usAdd?.addEventListener("click", async () => {
+        usAdd?.addEventListener("click", () => conAttesa(usAdd, async () => {
           if (!usEmail || !usPass || !usMsg || !usErr) return;
           usErr.textContent = "";
           const email = usEmail.value.trim();
@@ -2065,7 +2057,6 @@ const prI18n = {
             usErr.textContent = tr(usEditId ? "us.pass8opt" : "us.pass8");
             return;
           }
-          usAdd.disabled = true;
           try {
             const corpo: Record<string, unknown> = {
               email,
@@ -2089,17 +2080,17 @@ const prI18n = {
             const j = await res.json();
             if (!res.ok) { usErr.textContent = j.error ?? tr("common.saveErr"); return; }
             if (usOverlay) usOverlay.hidden = true;
-            usMsg.textContent = password
+            // ⚠️ Anche qui la password passa da `mostraPassword`: e' la stessa
+            // riga in chiaro sotto l'elenco, e scadeva solo spegnendo il tab.
+            mostraPassword(password
               ? `${usEditId ? tr("us.modified") : tr("us.created")} — ${tr("us.passLabel")} : ${password}`
-              : (usEditId ? tr("us.userModifiedDot") : tr("us.invited"));
+              : (usEditId ? tr("us.userModifiedDot") : tr("us.invited")));
             await usCarica();
             toast(usEditId ? tr("us.userModified") : tr("us.created"));
           } catch {
             usErr.textContent = tr("common.netErr");
-          } finally {
-            usAdd.disabled = false;
           }
-        });
+        }));
 
         usList?.addEventListener("click", async (e) => {
           const t = e.target as HTMLElement;
@@ -2272,8 +2263,6 @@ const prI18n = {
             : `<span class="sede-avatar">${esc(iniziali(s.name))}</span>`;
         }
 
-        const esc = (s: unknown) =>
-          String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
         /** Una riga di stato: pallino, etichetta corta, valore.
          *  `liv` e' il colore del pallino, e dice quanto conta. */
@@ -2499,17 +2488,17 @@ const prI18n = {
           await chiediStampanti();
           if (erroreStampanti) res.textContent = erroreStampanti;
           sel.innerHTML =
-            `<option value="">${escG(L.printOff ?? "")}</option>` +
+            `<option value="">${esc(L.printOff ?? "")}</option>` +
             elencoStampanti.map((p) => {
-              const dove = p.station ? ` · ${escG(p.station)}` : "";
-              const stato = p.stato && p.stato !== "online" ? ` (${escG(p.stato)})` : "";
-              return `<option value="${p.id}">${escG(p.nome)}${dove}${stato}</option>`;
+              const dove = p.station ? ` · ${esc(p.station)}` : "";
+              const stato = p.stato && p.stato !== "online" ? ` (${esc(p.stato)})` : "";
+              return `<option value="${p.id}">${esc(p.nome)}${dove}${stato}</option>`;
             }).join("");
           // ⚠️ Una stampante salvata che non compare piu' nell'elenco NON deve
           // sparire in silenzio: resterebbe scritta nel database mentre la
           // scheda mostra «nessuna», e si salverebbe il vuoto senza accorgersene.
           if (scelta && !elencoStampanti.some((p) => String(p.id) === scelta)) {
-            sel.insertAdjacentHTML("beforeend", `<option value="${escG(scelta)}">#${escG(scelta)} — ?</option>`);
+            sel.insertAdjacentHTML("beforeend", `<option value="${esc(scelta)}">#${esc(scelta)} — ?</option>`);
           }
           sel.value = scelta;
           if (!elencoStampanti.length && !res.textContent) res.textContent = String(L.printNone ?? "");
@@ -2535,13 +2524,13 @@ const prI18n = {
         }
 
         function opzioniStampante(scelta: string): string {
-          const vuoto = `<option value="">${escG(L.printOff ?? "")}</option>`;
+          const vuoto = `<option value="">${esc(L.printOff ?? "")}</option>`;
           const righe = elencoStampanti.map((p) => {
-            const dove = p.station ? ` · ${escG(p.station)}` : "";
-            return `<option value="${p.id}"${String(p.id) === scelta ? " selected" : ""}>${escG(p.nome)}${dove}</option>`;
+            const dove = p.station ? ` · ${esc(p.station)}` : "";
+            return `<option value="${p.id}"${String(p.id) === scelta ? " selected" : ""}>${esc(p.nome)}${dove}</option>`;
           }).join("");
           const sconosciuta = scelta && !elencoStampanti.some((p) => String(p.id) === scelta)
-            ? `<option value="${escG(scelta)}" selected>#${escG(scelta)} — ?</option>` : "";
+            ? `<option value="${esc(scelta)}" selected>#${esc(scelta)} — ?</option>` : "";
           return vuoto + righe + sconosciuta;
         }
 
@@ -2555,8 +2544,8 @@ const prI18n = {
               const scelta = d.cat.includes(c);
               const presa = !scelta && altrove.has(c);
               return `<label class="dd-c${presa ? " is-presa" : ""}">
-                <input type="checkbox" value="${escG(c)}"${scelta ? " checked" : ""}${presa ? " disabled" : ""} />
-                <span>${escG(c)}${orfana ? " — ?" : ""}</span>
+                <input type="checkbox" value="${esc(c)}"${scelta ? " checked" : ""}${presa ? " disabled" : ""} />
+                <span>${esc(c)}${orfana ? " — ?" : ""}</span>
               </label>`;
             };
             const opzCat = categorieMenu.map((c) => casella(c)).join("");
@@ -2571,12 +2560,12 @@ const prI18n = {
             // diversi.
             const avviso = categorieMenu.length
               ? ""
-              : `<span class="hint">${escG(erroreCategorie || L.catVuote || "")}</span>`;
+              : `<span class="hint">${esc(erroreCategorie || L.catVuote || "")}</span>`;
             return `<div class="dd-r">
-              <input class="dd-nome fld" type="text" maxlength="24" placeholder="${escG(L.destNome ?? "")}" value="${escG(d.nome)}" />
-              <div class="dd-cat" role="group" aria-label="${escG(L.destCat ?? "")}">${avviso}${opzCat}${orfane}</div>
-              <select class="dd-pr fld" aria-label="${escG(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
-              <button type="button" class="ibtn dd-del" title="${escG(L.destDel ?? "")}" aria-label="${escG(L.destDel ?? "")}">${LOC_CESTINO}</button>
+              <input class="dd-nome fld" type="text" maxlength="24" placeholder="${esc(L.destNome ?? "")}" value="${esc(d.nome)}" />
+              <div class="dd-cat" role="group" aria-label="${esc(L.destCat ?? "")}">${avviso}${opzCat}${orfane}</div>
+              <select class="dd-pr fld" aria-label="${esc(L.printer ?? "")}">${opzioniStampante(d.printer)}</select>
+              <button type="button" class="ibtn dd-del" title="${esc(L.destDel ?? "")}" aria-label="${esc(L.destDel ?? "")}">${LOC_CESTINO}</button>
             </div>`;
           }).join("");
         }
@@ -2699,7 +2688,8 @@ const prI18n = {
         }
         void caricaStampaInstallazione();
 
-        document.getElementById("itg-print-save")?.addEventListener("click", async () => {
+        const itgPrintSave = document.getElementById("itg-print-save") as HTMLButtonElement | null;
+        itgPrintSave?.addEventListener("click", () => conAttesa(itgPrintSave, async () => {
           itgMsgStampa("…");
           try {
             const r = await fetch("/api/admin/printers", {
@@ -2718,7 +2708,7 @@ const prI18n = {
           } catch {
             itgMsgStampa(String(L.netErr ?? ""));
           }
-        });
+        }));
 
         // ---- SCHEDA GOOGLE DI QUESTA SEDE -----------------------------------
         // ⚠️ La sede viaggia ESPLICITA (`?sede=`), non nel cookie dell'header:
@@ -2751,12 +2741,11 @@ const prI18n = {
 
         const placeTest = document.getElementById("loc-place-test") as HTMLButtonElement;
         const placeRes = document.getElementById("loc-place-res") as HTMLElement;
-        placeTest.addEventListener("click", async () => {
+        placeTest.addEventListener("click", () => conAttesa(placeTest, async () => {
           const id = campo("loc-place").value.trim();
           if (!id) { placeRes.textContent = L.placeVuoto ?? ""; return; }
           // Errore tipico: incollare la CHIAVE API invece del Place ID.
           if (/^AIza/.test(id)) { placeRes.textContent = L.placeChiave ?? ""; return; }
-          placeTest.disabled = true;
           placeRes.textContent = SUP.loading ?? "";
           try {
             const res = await fetch(`/api/admin/google-place?place_id=${encodeURIComponent(id)}`, { headers });
@@ -2766,12 +2755,10 @@ const prI18n = {
               : (j.error ?? L.netErr ?? "");
           } catch {
             placeRes.textContent = L.netErr ?? "";
-          } finally {
-            placeTest.disabled = false;
           }
-        });
+        }));
 
-        gPick.addEventListener("click", async () => {
+        gPick.addEventListener("click", () => conAttesa(gPick, async () => {
           if (!sedeAperta) return;
           gList.textContent = SUP.loading ?? "";
           try {
@@ -2782,29 +2769,36 @@ const prI18n = {
             const cur = j.current?.path ?? "";
             if (!schede.length) { gList.textContent = L.gVuoto ?? ""; return; }
             gList.innerHTML = schede
-              .map((sd) => `<button type="button" class="us-ghost gscheda" data-path="${escG(sd.path)}" data-title="${escG(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${escG(sd.title || sd.path)}${sd.address ? ` — <span class="note">${escG(sd.address)}</span>` : ""}</button>`)
+              .map((sd) => `<button type="button" class="us-ghost gscheda" data-path="${esc(sd.path)}" data-title="${esc(sd.title)}" style="display:block;width:100%;text-align:left;margin-bottom:0.4rem${sd.path === cur ? ";border-color:var(--c-accent)" : ""}">${esc(sd.title || sd.path)}${sd.address ? ` — <span class="note">${esc(sd.address)}</span>` : ""}</button>`)
               .join("");
           } catch {
             gList.textContent = L.netErr ?? "";
           }
-        });
+        }));
 
-        gList.addEventListener("click", async (ev) => {
+        gList.addEventListener("click", (ev) => {
           const b = (ev.target as HTMLElement).closest(".gscheda") as HTMLElement | null;
           if (!b || !sedeAperta) return;
-          try {
-            const res = await fetch("/api/admin/google/locations", {
-              method: "POST", headers,
-              body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "", sede: sedeAperta.id }),
-            });
-            const j = await res.json();
-            if (!res.ok) { toast(j.error ?? L.netErr ?? "", true); return; }
-            if (j.reviewError) toast(String(j.reviewError), true);
-            else toast(L.gSalvata ?? "");
-            await gSedeStato();
-          } catch {
-            toast(L.netErr ?? "", true);
-          }
+          // ⚠️ L'id si prende ADESSO. Dentro la funzione asincrona il
+          // controllo di sopra non vale piu': il modale puo' essersi chiuso
+          // nel frattempo, e `sedeAperta` tornare null mentre la chiamata e'
+          // ancora in volo.
+          const idSede = sedeAperta.id;
+          void conAttesa(b, async () => {
+            try {
+              const res = await fetch("/api/admin/google/locations", {
+                method: "POST", headers,
+                body: JSON.stringify({ path: b.dataset.path ?? "", title: b.dataset.title ?? "", sede: idSede }),
+              });
+              const j = await res.json();
+              if (!res.ok) { toast(j.error ?? L.netErr ?? "", true); return; }
+              if (j.reviewError) toast(String(j.reviewError), true);
+              else toast(L.gSalvata ?? "");
+              await gSedeStato();
+            } catch {
+              toast(L.netErr ?? "", true);
+            }
+          });
         });
 
         // Lo slug segue il nome mentre si scrive, e SOLO su una sede nuova:
@@ -3161,6 +3155,8 @@ const prI18n = {
       // `import.meta.glob`, e importarlo qui trascinerebbe le pagine del sito
       // dentro il pacchetto del browser.
       import { confrontaCatalogo } from "../../lib/admin/printRegole";
+      import { conAttesa } from "../../lib/admin/attesa";
+      import { esc } from "../../lib/esc";
 
       const paneEl = document.querySelector('.pane[data-pane="print"]');
       if (paneEl) {
@@ -3185,7 +3181,6 @@ const prI18n = {
         let nuove: { slug: string; route: string }[] = [];
         let senzaPagina = new Set<string>();
 
-        const esc = (v: unknown) => String(v).replace(/[&<>"']/g, (c) => (({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }) as Record<string, string>)[c]);
         const eur = (cents: number) => (Math.max(0, Math.round(cents)) / 100).toFixed(2);
         const toCents = (v: unknown) => { const n = Math.round(parseFloat(String(v).replace(",", ".")) * 100); return Number.isFinite(n) && n >= 0 ? n : 0; };
         const toQty = (v: unknown) => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n > 0 ? n : 0; };
@@ -3368,7 +3363,6 @@ const prI18n = {
           sync();
           catalogo = pulisci(catalogo);
           render();
-          saveBtn.disabled = true;
           try {
             const res = await fetch("/api/admin/print-catalog", {
               method: "PUT",
@@ -3381,12 +3375,15 @@ const prI18n = {
             msg(PR.saved);
           } catch {
             msg(PR.saveError, true);
-          } finally {
-            saveBtn.disabled = false;
           }
         }
 
-        saveBtn?.addEventListener("click", salva);
+        // ⚠️ `conAttesa` come ogni altro salvataggio del pannello: la rotella
+        // nel bottone e il secondo click ignorato. Qui c'era un `disabled`
+        // scritto a mano, che spegne il bottone ma non dice che sta
+        // lavorando — su rete lenta sembra che il click non sia passato, e si
+        // riclicca.
+        saveBtn?.addEventListener("click", () => conAttesa(saveBtn, salva));
         resetBtn?.addEventListener("click", () => {
           catalogo = JSON.parse(JSON.stringify(defaults));
           ricalcola();
