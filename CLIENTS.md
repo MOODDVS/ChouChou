@@ -3,7 +3,7 @@
 Registro di quali installazioni girano sul motore (`MOODDVS/MOODD-Admin`) e quanto sono allineate.
 Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PROGETTO.md` (checklist nuovo cliente), `supabase/` (migrazioni).
 
-**Motore — riferimento attuale:** `main` (05/10/2026, `e3e863a` — la stampa dei ticket).
+**Motore — riferimento attuale:** `main` (06/10/2026, `c878877` — la giornata nella Accueil).
 
 > ⚠️ **Da dove si aggiornano i clienti: `engine/main`, e basta.** Il ramo `multi-sede`
 > ha fatto il suo lavoro — il multi-sede e' nel motore e tutti e sei i clienti ci sono
@@ -25,7 +25,7 @@ Aggiornare a ogni merge/deploy di un cliente. Vedi `SETUP.md` (setup), `NUOVO_PR
 
 | Cliente | Stato | Hosting | Dominio | Lingue | Ultimo allineamento | Note |
 |---|---|---|---|---|---|---|
-| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `e3e863a` — 05/10/2026** (stampa ticket; 0 conflitti) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ deploy Hostinger da fare |
+| **450 Gradi** | 🟢 Allineato | Hostinger | 450gradi.be | en | **merge `c878877` — 06/10/2026** (la giornata; 0 conflitti, build verde) | **il solo multi-sede vero** (Schaerbeek, Stockel, Jourdan); dizionario fr presente ma non esposto: nessun selettore lingua. Cron `pg_cron` creati il 03/10. ⚠️ fino al 06/10 questa riga diceva `e3e863a`: non c'era mai arrivato (vedi il giro del 06/10) |
 | **La Molisana** | 🟢 Allineato | Hostinger (EU) | lamolisana.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | modale di prenotazione senza involucro (solo widget + bottone Fermer), suo |
 | **Comptoir ChouChou** | 🟢 Allineato | Hostinger | comptoirchouchou.be (live) | fr/en | **merge `bb0cef4` — 04/10/2026** | ⚠️ widget molto personalizzato: due auto-merge gli hanno gia' mangiato dei pezzi |
 | **L'huile sur le feu** | 🟢 Allineato | Hostinger | lhuilesurlefeu.be | fr/en/it/nl | **merge `bb0cef4` — 04/10/2026** | pagina di annullo nelle sue 4 lingue |
@@ -168,6 +168,44 @@ Difetti trovati strada facendo, **nessuno dei quali dava un errore**:
 **Tutti e 4 puliti, zero conflitti.** Porta: ordini (date future nel datepicker, nome+telefono obbligatori), checkout e coupon nelle 5 lingue, prefisso Stripe che legge `defaultLang` dal cliente, modale prenotazioni scrollabile con tavoli nella finestra persone−1/+2, colonne della home 4/3/2/1, switch push che dice perché è spento.
 
 ⚠️ **Trappola vista su La Molisana**: `git merge` è morto con `fatal: stash failed`. Causa: un `.git/index.lock` rimasto da un `git status` lanciato dalla VM Cowork (che nelle cartelle senza permesso di cancellazione crea il lock ma non riesce a toglierlo). Il merge non era nemmeno partito. Si risolve con `rm -f .git/index.lock`. **Da qui in avanti: niente comandi git nei repo dal lato Cowork** — si leggono i file, non l'indice.
+
+---
+
+## 🔄 Giro di merge del 06/10/2026 — motore `c878877`
+
+Cosa porta: la **fascia della giornata** nella Accueil (Google, prenotazioni,
+ordini in tre colonne), l'**affluenza oraria** su dati nostri, i **servizi di
+oggi con l'interruttore** e i bottoni 15/30/45 dentro le colonne, e
+l'interruttore «Pages visibles» del super che adesso comanda davvero cio' che
+si vede. Spariscono sei tile — Commandes, Réservations, Google, Horaires,
+Cuisine, Statistiques — il cui contenuto e' salito nella fascia.
+
+**Nessuna migrazione**: `supabase/` non e' stato toccato. L'API nuova
+(`/api/admin/affluence`) legge tabelle che esistono gia'.
+
+La home vecchia resta raggiungibile dal tag **`home-tiles`**.
+
+| Cliente | Stato | Conflitti |
+|---|---|---|
+| 450 Gradi | ✅ fatto | nessuno. Le sei tile cancellate erano identiche a quelle del motore, e `admin/index.astro` non era mai stato personalizzato: il file che cambia di piu' e' anche quello che nel cliente non esisteva in versione propria |
+| Educazione Napoletana | ⏳ da fare | — |
+| La Molisana | ⏳ da fare | — |
+| ChouChou | ⏳ da fare | ⚠️ widget molto personalizzato |
+| L'Huile | ⏳ da fare | — |
+| BROS | ⏳ da fare | — |
+
+⚠️ **450 Gradi NON era a `e3e863a`, come diceva questo file: era a `0850b01`.**
+Il suo merge del 05/10 e' delle 17:57, `e3e863a` e' stato committato alle
+18:36 — trentanove minuti dopo. Educazione Napoletana, mergiato alle 18:37,
+ce l'aveva davvero. Quindi per un giorno il registro ha dato per allineato un
+cliente a cui mancava l'ultimo pezzo della stampa (`src/lib/stampaConfig.ts`,
+la stampa per chi ha un locale solo).
+
+**Come non ripeterlo**: il commit si annota DOPO il push, non mentre si
+decide di fare il giro. E la riga che lo dice senza doverci credere e' quella
+che stampa `git fetch engine`:
+`0850b01..c878877  main -> engine/main` — a sinistra c'e' la base VERA del
+cliente. Se non e' il commit che il registro dichiara, il registro ha torto.
 
 ---
 
